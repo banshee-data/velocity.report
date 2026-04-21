@@ -6,16 +6,16 @@
   color-scheme: light dark;
   /* Gradient border stops — light mode: emerald-400 → emerald-600 (visible on white) */
   --gb-from: #34d399;
-  --gb-to:   #059669;
+  --gb-to: #059669;
   --gb-border: linear-gradient(to top left, var(--gb-to), var(--gb-from));
-  --gb-hr:     linear-gradient(to right, var(--gb-from), var(--gb-to));
+  --gb-hr: linear-gradient(to right, var(--gb-from), var(--gb-to));
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     /* Dark mode: emerald-700 → emerald-950 (visible on dark fills) */
     --gb-from: #047857;
-    --gb-to:   #064e3b;
+    --gb-to: #064e3b;
   }
 }
 
@@ -117,7 +117,8 @@ html {
     @apply rounded-lg shadow-lg p-8;
     border: 1px solid transparent;
     background:
-      linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff)) padding-box,
+      linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff))
+        padding-box,
       var(--gb-border) border-box;
   }
 
@@ -175,13 +176,14 @@ html {
     @apply rounded-2xl;
     border: 1px solid transparent;
     background:
-      linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+      linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb))
+        padding-box,
       var(--gb-border) border-box;
   }
 
   /* Subcard column — constrains width and centres within section */
   .dl-card-group {
-    @apply flex flex-col gap-4 max-w-[21rem] mx-auto;
+    @apply flex flex-col gap-4 max-w-84 mx-auto;
   }
 
   /* Inner download subcard */
@@ -211,7 +213,7 @@ html {
 
   /* Copyable hash/URL text — pr leaves gap before the inset button */
   .dl-hash-text {
-    @apply block w-full pl-2 pr-[4rem] py-1.5 select-all cursor-text;
+    @apply block w-full pl-2 pr-16 py-1.5 select-all cursor-text;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -345,7 +347,9 @@ html {
   padding: 2px 3px;
   margin: -2px -3px;
   border-radius: 2px;
-  transition: background-color 150ms, color 150ms;
+  transition:
+    background-color 150ms,
+    color 150ms;
 }
 
 .prose a:hover {
@@ -396,7 +400,9 @@ html {
   padding: 2px 5px;
   margin: -2px -5px;
   border-radius: 4px;
-  transition: background-color 150ms, color 150ms;
+  transition:
+    background-color 150ms,
+    color 150ms;
 }
 
 .link:hover {
@@ -459,7 +465,8 @@ html {
 .gradient-border {
   border: 1px solid transparent;
   background:
-    linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+    linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb))
+      padding-box,
     var(--gb-border) border-box;
 }
 
@@ -575,7 +582,7 @@ details.toc[open] > summary::after {
 
 .prose thead tr,
 .prose tfoot tr {
-  background-color: rgba(4, 120, 87, 0.10);
+  background-color: rgba(4, 120, 87, 0.1);
 }
 
 .prose tbody tr:nth-child(even) {
@@ -586,4 +593,316 @@ details.toc[open] > summary::after {
 .prose th,
 .prose td {
   padding: 0.5rem 1rem;
+}
+
+/* =========================================================================
+ * Protractor tool
+ * ========================================================================= */
+
+.angle-tool {
+  --angle-tool-surface: rgba(249, 250, 251, 0.95);
+  --angle-tool-border: rgba(209, 213, 219, 0.9);
+  --angle-tool-muted: #4b5563;
+  --angle-tool-canvas: #020617;
+  --angle-tool-halo: rgba(2, 6, 23, 0.72);
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(32rem, 72vh, 54rem);
+  padding: 0;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  .angle-tool {
+    --angle-tool-surface: rgba(17, 24, 39, 0.94);
+    --angle-tool-border: rgba(75, 85, 99, 0.9);
+    --angle-tool-muted: #cbd5e1;
+    --angle-tool-canvas: #020617;
+  }
+}
+
+.angle-tool__empty-state {
+  display: grid;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .angle-tool__empty-state {
+    grid-template-columns: minmax(0, 1.08fr) minmax(23rem, 35rem);
+    align-items: start;
+  }
+}
+
+.angle-tool__title {
+  margin: 0;
+  color: #111827;
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+  line-height: 1.05;
+}
+
+@media (prefers-color-scheme: dark) {
+  .angle-tool__title {
+    color: #f9fafb;
+  }
+}
+
+.angle-tool__lead {
+  margin: 1rem 0 0;
+  max-width: 42rem;
+  color: var(--angle-tool-muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.angle-tool__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+.angle-tool__sidecar {
+  border: 1px solid var(--angle-tool-border);
+  border-radius: 1rem;
+  background: var(--angle-tool-surface);
+  padding: 1.4rem 1.5rem;
+}
+
+.angle-tool__sidecar-title {
+  margin: 0;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .angle-tool__sidecar-title {
+    color: #f9fafb;
+  }
+}
+
+.angle-tool__howto {
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--angle-tool-muted);
+  line-height: 1.5;
+}
+
+.angle-tool__howto li + li {
+  margin-top: 0.55rem;
+}
+
+.angle-tool__howto--bullets {
+  list-style: disc;
+}
+
+.angle-tool__file-button,
+.angle-tool__button {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--angle-tool-border);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: #111827;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    color 150ms,
+    transform 150ms;
+}
+
+.angle-tool__file-button:hover,
+.angle-tool__button:hover {
+  background: #f3f4f6;
+  border-color: rgba(5, 150, 105, 0.28);
+}
+
+.angle-tool__file-button:active,
+.angle-tool__button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .angle-tool__file-button,
+  .angle-tool__button {
+    background: rgba(31, 41, 55, 0.94);
+    color: #f9fafb;
+  }
+
+  .angle-tool__file-button:hover,
+  .angle-tool__button:hover {
+    background: rgba(55, 65, 81, 0.98);
+  }
+}
+
+.angle-tool__file-button {
+  background: #059669;
+  border-color: #059669;
+  color: white;
+}
+
+.angle-tool__file-button:hover {
+  background: #047857;
+  border-color: #047857;
+}
+
+.angle-tool__button--accent {
+  background: #ecfdf5;
+  border-color: rgba(5, 150, 105, 0.22);
+  color: #065f46;
+}
+
+.angle-tool__button--accent:hover {
+  background: #d1fae5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .angle-tool__button--accent {
+    background: rgba(6, 95, 70, 0.45);
+    border-color: rgba(52, 211, 153, 0.24);
+    color: #d1fae5;
+  }
+
+  .angle-tool__button--accent:hover {
+    background: rgba(6, 95, 70, 0.7);
+  }
+}
+
+.angle-tool__editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.angle-tool__canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: clamp(22rem, 58vh, 42rem);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(30, 41, 59, 0.35), transparent 50%),
+    var(--angle-tool-canvas);
+}
+
+#angle-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.angle-tool__hint {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2rem);
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--angle-tool-halo);
+  color: #f8fafc;
+  padding: 0.45rem 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.angle-tool__readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-top: 1px solid var(--angle-tool-border);
+  background: var(--angle-tool-surface);
+  padding: 1rem 1.25rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  backdrop-filter: blur(12px);
+}
+
+.angle-tool__readout-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1.5rem;
+}
+
+.angle-tool__readout-primary {
+  flex: 1 1 auto;
+}
+
+.angle-tool__readout-secondary {
+  flex: 0 0 auto;
+}
+
+.angle-tool__readout-label {
+  color: var(--angle-tool-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.angle-tool__readout-value {
+  font-size: clamp(2.25rem, 6vw, 3.15rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.angle-tool__readout-value-small {
+  color: var(--angle-tool-muted);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.angle-tool__readout-value.good {
+  color: #059669;
+}
+
+.angle-tool__readout-value.warn {
+  color: #d97706;
+}
+
+.angle-tool__readout-value.bad {
+  color: #dc2626;
+}
+
+.angle-tool__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.angle-tool__controls .angle-tool__button {
+  flex: 1 1 12rem;
+}
+
+.angle-tool__controls label.angle-tool__button {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .angle-tool__empty-state {
+    padding: 1.25rem;
+  }
+
+  .angle-tool__readout {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .angle-tool__controls .angle-tool__button {
+    flex-basis: 100%;
+  }
 }

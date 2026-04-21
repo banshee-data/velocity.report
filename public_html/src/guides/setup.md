@@ -294,19 +294,19 @@ Once the sensor is mounted, aim it before collecting data. These guidelines appl
 
 ![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aiming.jpg) <!-- link-ignore -->
 
-- **Angle**: as close to 0° (parallel with traffic flow) as practical, typically 15–25°. Lower angles need less cosine correction, so the speed readings are more accurate.
-- **Road coverage**: the beam must encompass the full lane of traffic you are measuring. Angling the sensor 15–25° widens the field-of-view triangle enough to capture vehicles across the lane while keeping cosine error small. Choose the smallest angle whose beam triangle fully covers the lane.
+- **Angle**: as close to 0° (parallel with traffic flow) as practical. Aim for less than 30° when the street allows. Lower angles need less cosine correction, so the speed readings are more accurate.
+- **Road coverage**: the beam must encompass the full lane of traffic you are measuring. In many streets, keeping the sensor under 30° still widens the field-of-view triangle enough to capture vehicles across the lane while keeping cosine error modest. Choose the smallest angle whose beam triangle fully covers the lane.
 - **Orientation**: face approaching or receding traffic (not perpendicular)
 
 ![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-cosign-angle.jpg) <!-- link-ignore -->
 
 <div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed w-full md:max-w-[60%] mx-auto">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
-<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5).</p>
+<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5). Use the <a href="/tool/protractor/" class="link">protractor</a> to measure it from a photo.</p>
 <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-300">
 <li>Take a photo looking straight down at the road surface, perpendicular to the kerb. Include the sensor and the road in the frame.</li>
 <li>Draw one line along the kerb and a second line from the sensor along its beam direction.</li>
-<li>Measure the angle between the two lines and subtract from 90°. A phone protractor app works.</li>
+<li>Measure the angle from the kerb's 90° upright to the sensor beam. The <a href="/tool/protractor/" class="link">protractor</a> derives this cosine error angle directly.</li>
 </ol>
 </div>
 

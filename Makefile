@@ -1079,6 +1079,21 @@ format-web:
 			2>/dev/null \
 			|| echo "monitor assets prettier skipped"; \
 	fi
+	@if [ -d "$(WEB_DIR)" ] && [ -d "public_html/src" ]; then \
+		if command -v pnpm >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && pnpm exec prettier --write \
+				../public_html/src/js \
+				../public_html/src/css \
+				2>/dev/null || echo "public_html src prettier skipped"; \
+		elif command -v npx >/dev/null 2>&1; then \
+			cd $(WEB_DIR) && npx prettier --write \
+				../public_html/src/js \
+				../public_html/src/css \
+				2>/dev/null || echo "public_html src prettier skipped"; \
+		else \
+			echo "pnpm/npx not found; skipping public_html src formatting"; \
+		fi; \
+	fi
 
 format-mac:
 	@echo "Formatting macOS Swift code (swift-format)..."
