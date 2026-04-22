@@ -33,6 +33,7 @@ export interface TimeSeriesChartRequest {
 	source?: string;
 	minSpeed?: number;
 	boundaryThreshold?: number;
+	p98Ref?: number;
 }
 
 export interface HistogramChartRequest {
@@ -197,7 +198,8 @@ export function buildTimeSeriesChartPath(request: TimeSeriesChartRequest): strin
 		tz: request.timezone,
 		source: request.source,
 		min_speed: request.minSpeed,
-		boundary_threshold: request.boundaryThreshold
+		boundary_threshold: request.boundaryThreshold,
+		p98_ref: request.p98Ref
 	});
 }
 

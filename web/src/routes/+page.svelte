@@ -147,17 +147,26 @@
 			group,
 			units: $displayUnits,
 			timezone: $displayTimezone,
-			source: selectedSource
+			source: selectedSource,
+			p98Ref: p98Speed > 0 ? p98Speed : undefined
 		});
 		chartLoadError = '';
+		void loadTimeSeriesSvg(timeSeriesChartUrl);
 	}
 
-	function handleTimeSeriesChartLoad() {
-		chartLoadError = '';
-	}
-
-	function handleTimeSeriesChartError() {
-		chartLoadError = 'Could not load the dashboard chart preview.';
+	let timeSeriesSvg = '';
+	async function loadTimeSeriesSvg(url: string) {
+		timeSeriesSvg = '';
+		try {
+			const res = await fetch(url);
+			if (!res.ok) {
+				chartLoadError = 'Could not load the dashboard chart preview.';
+				return;
+			}
+			timeSeriesSvg = await res.text();
+		} catch {
+			chartLoadError = 'Could not load the dashboard chart preview.';
+		}
 	}
 
 	async function loadConfig() {
@@ -539,16 +548,14 @@
 		{/if}
 
 		{#if timeSeriesChartUrl}
-			<div class="rounded border p-4">
-				<img
-					src={timeSeriesChartUrl}
-					alt="Vehicle count bars and percentile speed lines"
-					class="block w-full rounded"
-					loading="eager"
-					decoding="async"
-					on:load={handleTimeSeriesChartLoad}
-					on:error={handleTimeSeriesChartError}
-				/>
+			<div
+				class="chart-inline block w-full rounded border p-4"
+				role="img"
+				aria-label="Vehicle count bars and percentile speed lines"
+			>
+				{#if timeSeriesSvg}
+					{@html timeSeriesSvg}
+				{/if}
 			</div>
 
 			{#if chartLoadError}
