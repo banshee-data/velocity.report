@@ -22,6 +22,9 @@ type TimeSeriesData struct {
 	Points []TimeSeriesPoint
 	Units  string
 	Title  string
+	// P98Reference is the aggregate p98 value for the full range, drawn as a
+	// horizontal dashed red reference line across the plot. NaN = not drawn.
+	P98Reference float64
 }
 
 // XTick represents a labelled tick on the X axis.
@@ -270,28 +273,40 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	c.EndGroup()
 
+	// P98 aggregate reference line (horizontal dashed red across the plot).
+	// Drawn before the series so the time-varying p98 line renders on top.
+	drawRefLine := !math.IsNaN(data.P98Reference) && data.P98Reference > 0
+	refY := 0.0
+	if drawRefLine {
+		refY = speedYOf(data.P98Reference)
+		c.BeginGroup(`class="p98-reference"`)
+		c.Line(leftPx, refY, rightPx, refY,
+			fmt.Sprintf(`stroke="%s" stroke-dasharray="6 3" stroke-width="1.2" opacity="0.75"`, style.ColourP98))
+		c.EndGroup()
+	}
+
 	// Percentile lines — one continuous polyline per series. NaN values
 	// (missing data) break the line; day boundaries do not.
 	type seriesDef struct {
 		colour string
-		marker string
+		marker string // "triangle" "square" "circle" "x" or "" for no marker
 		field  func(TimeSeriesPoint) float64
 		label  string
-		dashed bool
+		dash   string // SVG stroke-dasharray, empty = solid
 	}
 	series := []seriesDef{
-		{style.ColourP50, "triangle", func(p TimeSeriesPoint) float64 { return p.P50Speed }, "p50", false},
-		{style.ColourP85, "square", func(p TimeSeriesPoint) float64 { return p.P85Speed }, "p85", false},
-		{style.ColourP98, "circle", func(p TimeSeriesPoint) float64 { return p.P98Speed }, "p98", true},
-		{style.ColourMax, "x", func(p TimeSeriesPoint) float64 { return p.MaxSpeed }, "max", true},
+		{style.ColourP50, "triangle", func(p TimeSeriesPoint) float64 { return p.P50Speed }, "p50", ""},
+		{style.ColourP85, "square", func(p TimeSeriesPoint) float64 { return p.P85Speed }, "p85", ""},
+		{style.ColourP98, "circle", func(p TimeSeriesPoint) float64 { return p.P98Speed }, "p98", ""},
+		{style.ColourMax, "", func(p TimeSeriesPoint) float64 { return p.MaxSpeed }, "max", "1 3"},
 	}
 
 	for _, s := range series {
 		lineAttrs := fmt.Sprintf(
 			`fill="none" stroke="%s" stroke-width="%.1f"`,
 			s.colour, style.LineWidthPx)
-		if s.dashed {
-			lineAttrs += ` stroke-dasharray="6 3"`
+		if s.dash != "" {
+			lineAttrs += fmt.Sprintf(` stroke-dasharray="%s"`, s.dash)
 		}
 
 		c.BeginGroup(fmt.Sprintf(`class="series-%s"`, s.label))
@@ -374,6 +389,16 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 			fmt.Sprintf("%.0f", val),
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end"`, style.AxisTickFontPx))
 	}
+	// Extra axis label for the aggregate P98 reference line.
+	if drawRefLine {
+		c.Line(leftPx-4, refY, leftPx, refY,
+			fmt.Sprintf(`stroke="%s" stroke-width="1"`, style.ColourP98))
+		c.Text(leftPx-6, refY+style.AxisTickFontPx/3,
+			fmt.Sprintf("p98=%.0f", data.P98Reference),
+			fmt.Sprintf(
+				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" fill="%s" font-weight="bold"`,
+				style.AxisTickFontPx, style.ColourP98))
+	}
 	// Rotated "Speed (units)" label along the left edge.
 	labelX := leftPx - style.AxisTickFontPx*3.2
 	labelY := (topPx + bottomPx) / 2
@@ -408,6 +433,23 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	c.Line(rightPx, topPx, rightPx, bottomPx, `stroke="black" stroke-width="0.5"`)
 	c.Line(leftPx, topPx, rightPx, topPx, `stroke="black" stroke-width="0.5"`)
 
+	// Invisible hover targets: one full-height rect per time slot, each
+	// carrying an SVG <title> so hovering shows count and percentile
+	// metrics for that period. Must be drawn after the plot content so
+	// they capture pointer events on top.
+	c.BeginGroup(`class="hover-zones"`)
+	for i, pt := range data.Points {
+		x := leftPx + float64(i)/float64(n)*plotW
+		w := plotW / float64(n)
+		fmt.Fprintf(&c.buf,
+			`<rect x="%.4f" y="%.4f" width="%.4f" height="%.4f" fill="transparent" pointer-events="all">`+"\n",
+			x, topPx, w, plotH)
+		c.buf.WriteString("<title>")
+		xmlEscape(&c.buf, formatTooltip(pt, data.Units))
+		c.buf.WriteString("</title>\n</rect>\n")
+	}
+	c.EndGroup()
+
 	// Legend along the bottom. Evenly spaced across the plot width.
 	legY := hPx - style.LegendFontPx/2 - 2
 	legItems := len(series) + 1 // + low-sample swatch
@@ -415,8 +457,8 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	for i, s := range series {
 		x := leftPx + legStep*(float64(i)+0.5) - legStep/2
 		lineA := fmt.Sprintf(`stroke="%s" stroke-width="%.1f"`, s.colour, style.LineWidthPx)
-		if s.dashed {
-			lineA += ` stroke-dasharray="6 3"`
+		if s.dash != "" {
+			lineA += fmt.Sprintf(` stroke-dasharray="%s"`, s.dash)
 		}
 		c.Line(x, legY, x+16, legY, lineA)
 		c.Text(x+20, legY+style.LegendFontPx/3, s.label,
@@ -438,6 +480,22 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 
 	return c.Bytes(), nil
+}
+
+// formatTooltip returns the hover text for one time slot.
+func formatTooltip(pt TimeSeriesPoint, units string) string {
+	when := pt.StartTime.Format("Jan 02 15:04")
+	if pt.Count == 0 || math.IsNaN(pt.P50Speed) {
+		return fmt.Sprintf("%s\ncount: 0\n(no samples)", when)
+	}
+	return fmt.Sprintf(
+		"%s\ncount: %d\np50: %.1f %s\np85: %.1f %s\np98: %.1f %s\nmax: %.1f %s",
+		when, pt.Count,
+		pt.P50Speed, units,
+		pt.P85Speed, units,
+		pt.P98Speed, units,
+		pt.MaxSpeed, units,
+	)
 }
 
 func renderTimeSeriesNoData(style ChartStyle) []byte {
