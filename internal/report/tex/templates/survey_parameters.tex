@@ -5,16 +5,21 @@
 \hline
 \textbf{Parameter} & \textbf{Value} \\
 \hline
-Start date & <<.StartDate>> \\
-End date & <<.EndDate>> \\
-Timezone & <<.Timezone>> \\
-Grouping & <<.Group>> \\
-Units & <<.Units>> \\
-Min speed & <<printf "%.1f" .MinSpeed>> <<.Units>> \\
-Source & <<.Source>> \\
+\textbf{Start time:} & \texttt{<<.StartDate>>} \\
+\textbf{End time:} & \texttt{<<.EndDate>>} \\
+\textbf{Timezone:} & \texttt{<<.Timezone>>} \\
+\textbf{Roll-up Period:} & \texttt{<<.Group>>} \\
+\textbf{Units:} & \texttt{<<.Units>>} \\
+\textbf{Minimum speed (cutoff):} & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
+\textbf{Data Source:} & \texttt{<<.Source>>} \\
+\textbf{Radar Sensor:} & \texttt{OmniPreSense OPS243-A} \\
+\textbf{Radar Transmit Frequency:} & \texttt{24.125 GHz} \\
+\textbf{Radar Sample Rate:} & \texttt{20 kSPS} \\
+\textbf{Azimuth Field of View:} & \texttt{20°} \\
+\textbf{Elevation Field of View:} & \texttt{24°} \\
 <<if gt .CosineAngle 0.0>>
-Cosine angle & <<printf "%.1f" .CosineAngle>>° \\
-Cosine factor & <<printf "%.4f" .CosineFactor>>\\
+\textbf{Cosine Error Angle:} & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
+\textbf{Cosine Error Factor:} & \texttt{<<printf "%.4f" .CosineFactor>>} \\
 <<end>>
 \hline
 \end{tabular}
