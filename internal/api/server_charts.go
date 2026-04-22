@@ -41,6 +41,7 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	minSpeedMPS := parseMinSpeed(q, displayUnits)
+	paper := parsePaperSize(q)
 
 	result, err := s.db.RadarObjectRollupRange(
 		startUnix, endUnix, groupSeconds, minSpeedMPS,
@@ -55,11 +56,11 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pts := convertToTimeSeriesPoints(result.Metrics, displayUnits, loc)
-	p98Ref := math.NaN()
-	if v := q.Get("p98_ref"); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-			p98Ref = f
-		}
+	p98Ref, err := s.resolveTimeSeriesP98Reference(q, siteID, startUnix, endUnix, minSpeedMPS, displayUnits)
+	if err != nil {
+		log.Printf("Chart timeseries summary DB error: %v", err)
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to query summary data")
+		return
 	}
 	data := chart.TimeSeriesData{
 		Points:       pts,
@@ -67,7 +68,7 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 		P98Reference: p98Ref,
 	}
 
-	svg, err := chart.RenderTimeSeries(data, chart.DefaultWebTimeSeriesStyle())
+	svg, err := chart.RenderTimeSeries(data, chart.DefaultTimeSeriesStyle(paper))
 	if err != nil {
 		log.Printf("Chart timeseries render error: %v", err)
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to render chart")
@@ -94,6 +95,7 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bucketSize, histMax := parseHistogramParams(q, displayUnits)
+	paper := parsePaperSize(q)
 
 	bucketSizeMPS := units.ConvertToMPS(bucketSize, displayUnits)
 	histMaxMPS := units.ConvertToMPS(histMax, displayUnits)
@@ -119,7 +121,7 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 		MaxBucket: histMax,
 	}
 
-	svg, err := chart.RenderHistogram(data, chart.DefaultWebHistogramStyle())
+	svg, err := chart.RenderHistogram(data, chart.DefaultHistogramStyle(paper))
 	if err != nil {
 		log.Printf("Chart histogram render error: %v", err)
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to render chart")
@@ -144,6 +146,7 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	paper := parsePaperSize(q)
 
 	// Parse comparison dates.
 	compareStart := q.Get("compare_start")
@@ -211,7 +214,7 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 		chart.HistogramData{Buckets: compareHist, Units: displayUnits, BucketSz: bucketSize, MaxBucket: histMax},
 		fmt.Sprintf("%s–%s", q.Get("start"), q.Get("end")),
 		fmt.Sprintf("%s–%s", compareStart, compareEnd),
-		chart.DefaultWebHistogramStyle(),
+		chart.DefaultHistogramStyle(paper),
 	)
 	if err != nil {
 		log.Printf("Chart comparison render error: %v", err)
@@ -225,10 +228,39 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 // writeSVG writes SVG bytes to the response with appropriate headers.
 func writeSVG(w http.ResponseWriter, svg []byte) {
 	w.Header().Set("Content-Type", "image/svg+xml")
-	w.Header().Set("Cache-Control", "max-age=300")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	if _, err := w.Write(svg); err != nil {
 		log.Printf("Failed to write SVG response: %v", err)
 	}
+}
+
+func parsePaperSize(q url.Values) chart.PaperSize {
+	return chart.NormalisePaperSize(q.Get("paper_size"))
+}
+
+func (s *Server) resolveTimeSeriesP98Reference(q url.Values, siteID int, startUnix, endUnix int64, minSpeedMPS float64, displayUnits string) (float64, error) {
+	if v := q.Get("p98_ref"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			return f, nil
+		}
+	}
+
+	summaryResult, err := s.db.RadarObjectRollupRange(
+		startUnix, endUnix, 0, minSpeedMPS,
+		parseSource(q), parseModelVersion(q),
+		0, 0,
+		siteID, parseBoundaryThreshold(q),
+	)
+	if err != nil {
+		return math.NaN(), err
+	}
+	if len(summaryResult.Metrics) == 0 {
+		return math.NaN(), nil
+	}
+
+	return units.ConvertSpeed(summaryResult.Metrics[0].P98Speed, displayUnits), nil
 }
 
 // parseChartParams extracts and validates common chart query parameters.

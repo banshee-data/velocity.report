@@ -134,12 +134,28 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	// Resolve paper size for chart sizing + LaTeX paper geometry.
 	paper := chart.NormalisePaperSize(cfg.PaperSize)
 
+	// Build summary statistics from the aggregate row before rendering charts so
+	// the time-series can draw the overall p98 reference line from the same query.
+	var summaryP50, summaryP85, summaryP98, summaryMax float64
+	var summaryP98Reference = math.NaN()
+	var totalCount int
+	if len(summaryResult.Metrics) > 0 {
+		row := summaryResult.Metrics[0]
+		summaryP50 = units.ConvertSpeed(row.P50Speed, cfg.Units)
+		summaryP85 = units.ConvertSpeed(row.P85Speed, cfg.Units)
+		summaryP98 = units.ConvertSpeed(row.P98Speed, cfg.Units)
+		summaryMax = units.ConvertSpeed(row.MaxSpeed, cfg.Units)
+		summaryP98Reference = summaryP98
+		totalCount = int(row.Count)
+	}
+
 	// Convert DB rows to chart data.
 	tsPoints := convertToTimeSeriesPoints(tsResult.Metrics, cfg.Units, loc)
 	tsData := chart.TimeSeriesData{
-		Points: tsPoints,
-		Units:  cfg.Units,
-		Title:  "",
+		Points:       tsPoints,
+		Units:        cfg.Units,
+		Title:        "",
+		P98Reference: summaryP98Reference,
 	}
 
 	// Render time-series SVG.
@@ -235,18 +251,6 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 			return Result{}, fmt.Errorf("convert comparison SVG: %w", err)
 		}
 		zipFiles["comparison.svg"] = compSVG
-	}
-
-	// Build summary statistics from the aggregate row.
-	var summaryP50, summaryP85, summaryP98, summaryMax float64
-	var totalCount int
-	if len(summaryResult.Metrics) > 0 {
-		row := summaryResult.Metrics[0]
-		summaryP50 = units.ConvertSpeed(row.P50Speed, cfg.Units)
-		summaryP85 = units.ConvertSpeed(row.P85Speed, cfg.Units)
-		summaryP98 = units.ConvertSpeed(row.P98Speed, cfg.Units)
-		summaryMax = units.ConvertSpeed(row.MaxSpeed, cfg.Units)
-		totalCount = int(row.Count)
 	}
 
 	// Cosine correction factor.

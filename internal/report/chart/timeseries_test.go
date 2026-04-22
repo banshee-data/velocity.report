@@ -151,3 +151,30 @@ func TestRenderTimeSeries_Empty(t *testing.T) {
 		t.Error("empty time series should contain 'No data'")
 	}
 }
+
+func TestRenderTimeSeries_ReferenceLineAndHoverTooltips(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	data := TimeSeriesData{
+		Points:       makeTestPoints(4, start, time.Hour),
+		Units:        "mph",
+		P98Reference: 32,
+	}
+	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle(PaperA4))
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+
+	svgStr := string(svg)
+	if !strings.Contains(svgStr, `class="p98-reference"`) {
+		t.Fatal("expected aggregate p98 reference line in SVG")
+	}
+	if !strings.Contains(svgStr, "p98 overall") {
+		t.Fatal("expected p98 overall legend label in SVG")
+	}
+	if !strings.Contains(svgStr, `<title>`) {
+		t.Fatal("expected hover tooltip titles in SVG")
+	}
+	if !strings.Contains(svgStr, "count: 100") {
+		t.Fatal("expected hover tooltip metrics in SVG")
+	}
+}

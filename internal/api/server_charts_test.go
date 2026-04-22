@@ -39,8 +39,8 @@ func seedChartTestData(t *testing.T, dbInst *db.DB) *db.Site {
 		t.Fatalf("failed to create site config period: %v", err)
 	}
 
-	// Insert 20 radar_objects events across 2025-12-03 (UTC).
-	baseTimestamp := int64(1733184000) // 2025-12-03 00:00:00 UTC
+	// Insert 20 radar_objects events across 2024-12-03 (UTC).
+	baseTimestamp := int64(1733184000) // 2024-12-03 00:00:00 UTC
 	speeds := []float64{8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 25.0, 28.0}
 
 	for i := 0; i < 20; i++ {
@@ -82,7 +82,7 @@ func TestChartEndpoints_TimeSeries(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2025-12-03&end=2025-12-03&tz=UTC&units=mph&group=1h", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph&group=1h", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -94,15 +94,47 @@ func TestChartEndpoints_TimeSeries(t *testing.T) {
 	if ct := w.Header().Get("Content-Type"); ct != "image/svg+xml" {
 		t.Errorf("expected Content-Type image/svg+xml, got %s", ct)
 	}
-	if cc := w.Header().Get("Cache-Control"); cc != "max-age=300" {
-		t.Errorf("expected Cache-Control max-age=300, got %s", cc)
+	if cc := w.Header().Get("Cache-Control"); cc != "no-store, no-cache, must-revalidate, max-age=0" {
+		t.Errorf("expected no-store Cache-Control, got %s", cc)
+	}
+	if pragma := w.Header().Get("Pragma"); pragma != "no-cache" {
+		t.Errorf("expected Pragma no-cache, got %s", pragma)
+	}
+	if expires := w.Header().Get("Expires"); expires != "0" {
+		t.Errorf("expected Expires 0, got %s", expires)
 	}
 	body := w.Body.String()
 	if !strings.Contains(body, "<svg") {
 		t.Errorf("response body does not contain <svg root element")
 	}
-	if !strings.Contains(body, `viewBox="0 0 816.0000 302.3622"`) {
-		t.Errorf("expected web-sized time-series viewBox, got %s", body)
+	if !strings.Contains(body, `width="190.000mm"`) {
+		t.Errorf("expected A4 time-series width, got %s", body)
+	}
+	if !strings.Contains(body, `class="p98-reference"`) {
+		t.Errorf("expected aggregate p98 reference line, got %s", body)
+	}
+	if !strings.Contains(body, `<title>`) {
+		t.Errorf("expected hover tooltip titles in SVG, got %s", body)
+	}
+}
+
+func TestChartEndpoints_TimeSeries_LetterPaperSize(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph&group=1h&paper_size=letter", site.ID)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+
+	server.ServeMux().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `width="195.900mm"`) {
+		t.Fatalf("expected letter-sized time-series width, got %s", w.Body.String())
 	}
 }
 
@@ -128,9 +160,9 @@ func TestChartEndpoints_TimeSeries_MissingParams(t *testing.T) {
 		name string
 		url  string
 	}{
-		{"missing site_id", "/api/charts/timeseries?start=2025-12-03&end=2025-12-03"},
-		{"missing start", "/api/charts/timeseries?site_id=1&end=2025-12-03"},
-		{"missing end", "/api/charts/timeseries?site_id=1&start=2025-12-03"},
+		{"missing site_id", "/api/charts/timeseries?start=2024-12-03&end=2024-12-03"},
+		{"missing start", "/api/charts/timeseries?site_id=1&end=2024-12-03"},
+		{"missing end", "/api/charts/timeseries?site_id=1&start=2024-12-03"},
 	}
 
 	for _, tt := range tests {
@@ -152,7 +184,7 @@ func TestChartEndpoints_Histogram(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2025-12-03&end=2025-12-03&tz=UTC&units=mph&bucket_size=5&max=70", site.ID)
+	url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph&bucket_size=5&max=70", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -177,7 +209,7 @@ func TestChartEndpoints_Comparison(t *testing.T) {
 	site := seedChartTestData(t, dbInst)
 
 	url := fmt.Sprintf(
-		"/api/charts/comparison?site_id=%d&start=2025-12-03&end=2025-12-03&compare_start=2025-12-03&compare_end=2025-12-03&tz=UTC&units=mph&bucket_size=5&max=70",
+		"/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&compare_start=2024-12-03&compare_end=2024-12-03&tz=UTC&units=mph&bucket_size=5&max=70",
 		site.ID,
 	)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -203,7 +235,7 @@ func TestChartEndpoints_Comparison_MissingCompareParams(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2025-12-03&end=2025-12-03&tz=UTC&units=mph", site.ID)
+	url := fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -220,7 +252,7 @@ func TestChartEndpoints_InvalidGroup(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2025-12-03&end=2025-12-03&group=invalid", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&group=invalid", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -237,7 +269,7 @@ func TestChartEndpoints_InvalidUnits(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2025-12-03&end=2025-12-03&units=furlongs", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&units=furlongs", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 

@@ -453,6 +453,9 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// Legend along the bottom. Evenly spaced across the plot width.
 	legY := hPx - style.LegendFontPx/2 - 2
 	legItems := len(series) + 1 // + low-sample swatch
+	if drawRefLine {
+		legItems++
+	}
 	legStep := plotW / float64(legItems)
 	for i, s := range series {
 		x := leftPx + legStep*(float64(i)+0.5) - legStep/2
@@ -464,8 +467,17 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.Text(x+20, legY+style.LegendFontPx/3, s.label,
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
 	}
+	legendIndex := len(series)
+	if drawRefLine {
+		x := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
+		c.Line(x, legY, x+16, legY,
+			fmt.Sprintf(`stroke="%s" stroke-width="%.1f" stroke-dasharray="6 3" opacity="0.75"`, style.ColourP98, style.LineWidthPx))
+		c.Text(x+20, legY+style.LegendFontPx/3, "p98 overall",
+			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
+		legendIndex++
+	}
 	// Low-sample swatch.
-	swX := leftPx + legStep*(float64(len(series))+0.5) - legStep/2
+	swX := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
 	c.Rect(swX, legY-style.LegendFontPx/2, 14, style.LegendFontPx,
 		fmt.Sprintf(`fill="%s" fill-opacity="0.25"`, style.ColourLowSample))
 	c.Text(swX+18, legY+style.LegendFontPx/3,

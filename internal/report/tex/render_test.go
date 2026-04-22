@@ -146,6 +146,53 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	}
 }
 
+func TestRenderTeX_MapSectionAppearsAfterCharts(t *testing.T) {
+	data := minimalTemplateData()
+	data.TimeSeriesChart = "timeseries.pdf"
+	data.MapChart = "map.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
+	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
+	if chartPos == -1 || mapPos == -1 {
+		t.Fatalf("expected both chart and map sections in rendered output")
+	}
+	if mapPos <= chartPos {
+		t.Fatalf("expected map section after chart section")
+	}
+	if !strings.Contains(s, `\clearpage`) {
+		t.Fatal("expected map section to force a final page break")
+	}
+}
+
+func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
+	data := minimalTemplateData()
+	data.HistogramTableTeX = `\begin{tabular}{lrr}\end{tabular}`
+	data.StatRows = []StatRow{{StartTime: "1/1 00:00", Count: 12, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"}}
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	for _, want := range []string{
+		`\renewcommand{\arraystretch}{1.18}`,
+		`\renewcommand{\arraystretch}{1.14}`,
+		`\renewcommand{\arraystretch}{1.12}`,
+		`\vspace{10pt}`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("expected spacing directive %q in rendered output", want)
+		}
+	}
+}
+
 func TestBuildStatRows(t *testing.T) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {

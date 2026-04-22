@@ -89,22 +89,6 @@ func DefaultTimeSeriesStyle(paper PaperSize) ChartStyle {
 	return s
 }
 
-// DefaultWebTimeSeriesStyle returns a browser-sized time-series style.
-// The physical size here is not meaningful for the browser (the viewBox is
-// what matters), but dimensions are kept similar to the PDF so the same
-// tick/font code produces visually comparable output.
-func DefaultWebTimeSeriesStyle() ChartStyle {
-	s := baseStyle()
-	s.WidthMM = 215.9 // 8.5 in
-	s.HeightMM = 80.0
-	s.AxisLabelFontPx = 13.0
-	s.AxisTickFontPx = 11.0
-	s.LegendFontPx = 12.0
-	s.LineWidthPx = 1.6
-	s.MarkerRadiusPx = 4.0
-	return s
-}
-
 // DefaultHistogramStyle returns histogram parameters sized for the given paper.
 // Two histograms (primary + optional comparison) fit side-by-side in a
 // two-column layout, so we size each to roughly half the column width.
@@ -116,18 +100,6 @@ func DefaultHistogramStyle(paper PaperSize) ChartStyle {
 	s.AxisLabelFontPx = 10.0
 	s.AxisTickFontPx = 8.5
 	s.LegendFontPx = 9.0
-	s.LineWidthPx = 0.5
-	return s
-}
-
-// DefaultWebHistogramStyle returns a browser-sized histogram style.
-func DefaultWebHistogramStyle() ChartStyle {
-	s := baseStyle()
-	s.WidthMM = 127.0
-	s.HeightMM = 76.2
-	s.AxisLabelFontPx = 13.0
-	s.AxisTickFontPx = 11.0
-	s.LegendFontPx = 12.0
 	s.LineWidthPx = 0.5
 	return s
 }

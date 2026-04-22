@@ -33,17 +33,11 @@ func TestDefaultTimeSeriesStyle(t *testing.T) {
 	}
 }
 
-func TestDefaultWebTimeSeriesStyle(t *testing.T) {
-	pdf := DefaultTimeSeriesStyle(PaperA4)
-	web := DefaultWebTimeSeriesStyle()
-	if web.WidthMM == 0 || web.HeightMM == 0 {
-		t.Fatal("web time-series dimensions are zero")
-	}
-	if web.AxisTickFontPx <= pdf.AxisTickFontPx {
-		t.Fatalf("web AxisTickFontPx = %v, want greater than pdf AxisTickFontPx = %v", web.AxisTickFontPx, pdf.AxisTickFontPx)
-	}
-	if web.LineWidthPx <= pdf.LineWidthPx {
-		t.Fatalf("web LineWidthPx = %v, want greater than pdf LineWidthPx = %v", web.LineWidthPx, pdf.LineWidthPx)
+func TestDefaultTimeSeriesStyle_LetterUsesLetterTextWidth(t *testing.T) {
+	a4 := DefaultTimeSeriesStyle(PaperA4)
+	letter := DefaultTimeSeriesStyle(PaperLetter)
+	if letter.WidthMM <= a4.WidthMM {
+		t.Fatalf("letter WidthMM = %v, want greater than a4 WidthMM = %v", letter.WidthMM, a4.WidthMM)
 	}
 }
 
@@ -63,16 +57,10 @@ func TestDefaultHistogramStyle(t *testing.T) {
 	}
 }
 
-func TestDefaultWebHistogramStyle(t *testing.T) {
-	pdf := DefaultHistogramStyle(PaperA4)
-	web := DefaultWebHistogramStyle()
-	if web.WidthMM == 0 || web.HeightMM == 0 {
-		t.Fatal("web histogram dimensions are zero")
-	}
-	if web.WidthMM <= pdf.WidthMM {
-		t.Fatalf("web WidthMM = %v, want greater than pdf WidthMM = %v", web.WidthMM, pdf.WidthMM)
-	}
-	if web.AxisTickFontPx <= pdf.AxisTickFontPx {
-		t.Fatalf("web AxisTickFontPx = %v, want greater than pdf AxisTickFontPx = %v", web.AxisTickFontPx, pdf.AxisTickFontPx)
+func TestDefaultHistogramStyle_LetterUsesLetterColumnWidth(t *testing.T) {
+	a4 := DefaultHistogramStyle(PaperA4)
+	letter := DefaultHistogramStyle(PaperLetter)
+	if letter.WidthMM <= a4.WidthMM {
+		t.Fatalf("letter WidthMM = %v, want greater than a4 WidthMM = %v", letter.WidthMM, a4.WidthMM)
 	}
 }

@@ -341,6 +341,42 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	}
 }
 
+func TestGenerate_TimeSeriesSVGIncludesAggregateP98Reference(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	outDir := t.TempDir()
+	m := &mockDB{}
+
+	cfg := Config{
+		SiteID:    1,
+		Location:  "Test Street",
+		Surveyor:  "J. Engineer",
+		Contact:   "test@example.com",
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+		Timezone:  "UTC",
+		Units:     "mph",
+		Group:     "1h",
+		Source:    "radar_objects",
+		Histogram: true,
+		OutputDir: outDir,
+	}
+
+	result, err := Generate(context.Background(), m, cfg)
+	if err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+
+	timeseriesSVG := readZipEntry(t, result.ZIPPath, "timeseries.svg")
+	if !strings.Contains(timeseriesSVG, `class="p98-reference"`) {
+		t.Fatalf("expected aggregate p98 reference line in timeseries.svg, got:\n%s", timeseriesSVG)
+	}
+	if !strings.Contains(timeseriesSVG, "p98 overall") {
+		t.Fatalf("expected p98 overall legend label in timeseries.svg, got:\n%s", timeseriesSVG)
+	}
+}
+
 func TestGenerate_InvalidGroup(t *testing.T) {
 	m := &mockDB{}
 	cfg := Config{
@@ -625,4 +661,34 @@ func containsArg(args []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func readZipEntry(t *testing.T, zipPath, entryName string) string {
+	t.Helper()
+
+	zipData, err := os.ReadFile(zipPath)
+	if err != nil {
+		t.Fatalf("read ZIP: %v", err)
+	}
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("open ZIP: %v", err)
+	}
+	for _, f := range r.File {
+		if f.Name != entryName {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", entryName, err)
+		}
+		defer rc.Close()
+		data, err := io.ReadAll(rc)
+		if err != nil {
+			t.Fatalf("read %s: %v", entryName, err)
+		}
+		return string(data)
+	}
+	t.Fatalf("%s not found in ZIP", entryName)
+	return ""
 }
