@@ -100,7 +100,7 @@ The single source of truth for each renderer:
   - dense labels should be thinned, not overlapped;
   - X-tick cadence must adapt to the visible time span (hourly, daily, weekly, or monthly) so web and PDF land on the same granularity for the same query.
 - Time formatting must respect selected timezone.
-- Series segmentation: polylines break only where data is genuinely missing (NaN or below the missing-count threshold). Visible markers such as day boundaries must not force line breaks.
+- Series segmentation: polylines remain continuous across gaps. NaN points (genuinely missing data) are skipped without interrupting the line; the low-sample background swatch and day-boundary markers already communicate data quality. Day boundaries must never force line breaks.
 - Missing/low-sample periods must be visibly distinguishable.
 - Empty/loading/error chart states must render explicit user-facing text.
 
@@ -228,20 +228,20 @@ Both the web frontend and the future Go PDF pipeline render charts as SVG. This 
 
 To keep charts visually consistent across web and PDF, the following properties must be governed by shared constants or equivalent configuration — not left to renderer defaults.
 
-| Property                   | What it controls                                                           | Web source                                 | Go PDF source (planned)                     |
-| -------------------------- | -------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
-| **Palette**                | Metric-to-colour mapping                                                   | [palette.ts](../../web/src/lib/palette.ts) | `chart/palette.go`                          |
-| **Legend order**           | Series stacking and legend sequence                                        | `palette.ts` (`LEGEND_ORDER`)              | `chart/palette.go`                          |
-| **Tick density**           | Target number of X and Y axis labels                                       | `RadarOverviewChart` constants             | `chart/timeseries.go` style struct          |
-| **Tick cadence**           | Span-aware choice of hourly/daily/weekly/monthly X ticks                   | LayerChart scale + cadence helper          | `chart/timeseries.go` `pickTickCadence`     |
-| **Series segmentation**    | When a polyline breaks (NaN only, never on day boundary)                   | LayerChart null handling                   | `chart/timeseries.go` NaN break logic       |
-| **Physical dimensions**    | SVG `width`/`height` in mm so the PDF renders at true size without scaling | Responsive (not fixed)                     | `ChartStyle.WidthMM` / `HeightMM` per paper |
-| **Font sizes**             | Axis labels, tick labels, legend text                                      | LayerChart props + CSS                     | SVG `font-size` attributes in style struct  |
-| **Density/DPI**            | Element sizing relative to output dimensions                               | Responsive container width                 | Fixed SVG viewBox (matches PDF page width)  |
-| **Low-sample threshold**   | Count below which data is flagged                                          | `LOW_SAMPLE_THRESHOLD = 50`                | `ChartStyle.LowSampleThreshold`             |
-| **Missing-data threshold** | Count below which percentiles are suppressed                               | `MISSING_COUNT_THRESHOLD = 5`              | `ChartStyle.MissingCountThreshold`          |
-| **Marker styles**          | Point shapes per series                                                    | LayerChart `Points` props                  | SVG marker elements in style struct         |
-| **Line styles**            | Solid vs dashed per series                                                 | LayerChart `Spline` props                  | SVG `stroke-dasharray` in style struct      |
+| Property                   | What it controls                                                            | Web source                                 | Go PDF source (planned)                     |
+| -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
+| **Palette**                | Metric-to-colour mapping                                                    | [palette.ts](../../web/src/lib/palette.ts) | `chart/palette.go`                          |
+| **Legend order**           | Series stacking and legend sequence                                         | `palette.ts` (`LEGEND_ORDER`)              | `chart/palette.go`                          |
+| **Tick density**           | Target number of X and Y axis labels                                        | `RadarOverviewChart` constants             | `chart/timeseries.go` style struct          |
+| **Tick cadence**           | Span-aware choice of hourly/daily/weekly/monthly X ticks                    | LayerChart scale + cadence helper          | `chart/timeseries.go` `pickTickCadence`     |
+| **Series segmentation**    | Polylines stay continuous; NaN points are skipped without breaking the line | LayerChart null handling (skip, not break) | `chart/timeseries.go` continuous-line logic |
+| **Physical dimensions**    | SVG `width`/`height` in mm so the PDF renders at true size without scaling  | Responsive (not fixed)                     | `ChartStyle.WidthMM` / `HeightMM` per paper |
+| **Font sizes**             | Axis labels, tick labels, legend text                                       | LayerChart props + CSS                     | SVG `font-size` attributes in style struct  |
+| **Density/DPI**            | Element sizing relative to output dimensions                                | Responsive container width                 | Fixed SVG viewBox (matches PDF page width)  |
+| **Low-sample threshold**   | Count below which data is flagged                                           | `LOW_SAMPLE_THRESHOLD = 50`                | `ChartStyle.LowSampleThreshold`             |
+| **Missing-data threshold** | Count below which percentiles are suppressed                                | `MISSING_COUNT_THRESHOLD = 5`              | `ChartStyle.MissingCountThreshold`          |
+| **Marker styles**          | Point shapes per series                                                     | LayerChart `Points` props                  | SVG marker elements in style struct         |
+| **Line styles**            | Solid vs dashed per series                                                  | LayerChart `Spline` props                  | SVG `stroke-dasharray` in style struct      |
 
 When a value changes in one renderer, update or verify the equivalent in the other. If the property cannot yet be shared as importable code, document the pairing in this table and keep them in sync manually.
 
