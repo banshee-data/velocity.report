@@ -9,17 +9,23 @@
 \end{itemize}
 
 \subsection*{Key Metrics}
-\begin{tabular}{ll}
+\vspace{4pt}
+{\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{@{}ll@{}}
 \textbf{Maximum Velocity:} & \texttt{<<.MaxSpeed>> <<.Units>>} \\
 \textbf{98th Percentile (p98):} & \texttt{<<.P98>> <<.Units>>} \\
 \textbf{85th Percentile (p85):} & \texttt{<<.P85>> <<.Units>>} \\
 \textbf{Median (p50):} & \texttt{<<.P50>> <<.Units>>} \\
 \end{tabular}
+\par}
+\vspace{8pt}
 
 <<if .CompareStartDate>>
 \subsection*{Comparison Summary}
+\vspace{4pt}
 {\ttfamily
-\begin{tabular}{lrrr}
+\renewcommand{\arraystretch}{1.16}
+\begin{tabular}{@{}lrrr@{}}
 \hline
 \textbf{Metric} & \textbf{Primary} & \textbf{Comparison} & \textbf{$\Delta$} \\
 \hline
@@ -31,6 +37,7 @@ Count & <<.TotalCount>> & <<.CompareCount>> & \\
 \hline
 \end{tabular}
 }
+\vspace{8pt}
 
 <<if .CompareChart>>
 \begin{figure}[H]

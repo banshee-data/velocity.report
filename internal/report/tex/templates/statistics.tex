@@ -8,16 +8,23 @@
 <<end>>
 
 <<if .HistogramTableTeX>>
+\vspace{8pt}
 \subsection*{Speed Distribution}
+\vspace{4pt}
 {\ttfamily\small
+\renewcommand{\arraystretch}{1.14}
 <<.HistogramTableTeX>>
+\par
 }
+\vspace{10pt}
 <<end>>
 
 <<if .StatRows>>
 \subsection*{Detailed Data}
+\vspace{4pt}
 {\ttfamily\footnotesize
-\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{3pt}
 \tablehead{%
   \hline
   \textbf{Time} & \textbf{Count} & \textbf{P50} & \textbf{P85} & \textbf{P98} & \textbf{Max} \\
@@ -29,6 +36,7 @@
 <<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>> \\
 <<end>>
 \end{supertabular}
+\par
 }
 <<end>>
 <<end>>
