@@ -33,7 +33,7 @@ export interface TimeSeriesChartRequest {
 	source?: string;
 	minSpeed?: number;
 	boundaryThreshold?: number;
-	p98Ref?: number;
+	paperSize?: 'a4' | 'letter';
 }
 
 export interface HistogramChartRequest {
@@ -47,6 +47,7 @@ export interface HistogramChartRequest {
 	max?: number;
 	minSpeed?: number;
 	boundaryThreshold?: number;
+	paperSize?: 'a4' | 'letter';
 }
 
 export interface ComparisonChartRequest {
@@ -63,6 +64,7 @@ export interface ComparisonChartRequest {
 	max?: number;
 	minSpeed?: number;
 	boundaryThreshold?: number;
+	paperSize?: 'a4' | 'letter';
 }
 
 // Raw shape returned from the server for a single metric row
@@ -199,7 +201,7 @@ export function buildTimeSeriesChartPath(request: TimeSeriesChartRequest): strin
 		source: request.source,
 		min_speed: request.minSpeed,
 		boundary_threshold: request.boundaryThreshold,
-		p98_ref: request.p98Ref
+		paper_size: request.paperSize
 	});
 }
 
@@ -214,7 +216,8 @@ export function buildHistogramChartPath(request: HistogramChartRequest): string 
 		bucket_size: request.bucketSize,
 		max: request.max,
 		min_speed: request.minSpeed,
-		boundary_threshold: request.boundaryThreshold
+		boundary_threshold: request.boundaryThreshold,
+		paper_size: request.paperSize
 	});
 }
 
@@ -232,7 +235,8 @@ export function buildComparisonChartPath(request: ComparisonChartRequest): strin
 		bucket_size: request.bucketSize,
 		max: request.max,
 		min_speed: request.minSpeed,
-		boundary_threshold: request.boundaryThreshold
+		boundary_threshold: request.boundaryThreshold,
+		paper_size: request.paperSize
 	});
 }
 

@@ -23,9 +23,11 @@
 		type SiteReport
 	} from '../lib/api';
 	import DataSourceSelector from '../lib/components/DataSourceSelector.svelte';
-	import { paperSize, initializePaperSize } from '../lib/stores/paper';
+	import { initializePaperSize, paperSize } from '../lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
+	import { getUnitLabel, type Unit } from '../lib/units';
+./lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
 
 	let stats: RadarStats[] = [];
@@ -34,6 +36,7 @@
 	let p98Speed = 0;
 	let loading = true;
 	let error = '';
+	let refreshError = '';
 	// Site management
 	let sites: Site[] = [];
 	let selectedSiteId: number | null = null;
@@ -46,8 +49,7 @@
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let selectedSource: string = 'radar_objects';
-	let timeSeriesChartUrl = '';
-	let chartLoadError = '';
+	let statsRequestSerial = 0;
 
 	const groupOptions = [
 		'1h',
@@ -76,6 +78,20 @@
 	let initialized = false;
 	let cosineCorrectionAngles: number[] = [];
 	let cosineCorrectionLabel = '';
+
+	$: timeSeriesChartUrl =
+		selectedSiteId != null && dateRange.from && dateRange.to
+			? buildTimeSeriesChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					group,
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					paperSize: $paperSize
+				})
+			: '';
 
 	function weightedMedian(values: Array<{ value: number; weight: number }>): number {
 		const filtered = values
@@ -121,89 +137,34 @@
 				saveReportDateRangeSettings();
 			}
 
-			loading = true;
-			loadStats($displayUnits) // eslint-disable-line svelte/infinite-reactive-loop
-				.then(() => refreshTimeSeriesChartUrl())
-				.catch((e) => {
-					error = e instanceof Error && e.message ? e.message : String(e); // eslint-disable-line svelte/infinite-reactive-loop
-				})
-				.finally(() => {
-					loading = false;
-				});
-		}
-	}
-
-	function refreshTimeSeriesChartUrl() {
-		if (!dateRange.from || !dateRange.to || selectedSiteId == null) {
-			timeSeriesChartUrl = '';
-			chartLoadError = '';
-			return;
-		}
-
-		timeSeriesChartUrl = buildTimeSeriesChartPath({
-			siteId: selectedSiteId,
-			startDate: isoDate(dateRange.from),
-			endDate: isoDate(dateRange.to),
-			group,
-			units: $displayUnits,
-			timezone: $displayTimezone,
-			source: selectedSource,
-			p98Ref: p98Speed > 0 ? p98Speed : undefined
-		});
-		chartLoadError = '';
-		void loadTimeSeriesSvg(timeSeriesChartUrl);
-	}
-
-	let timeSeriesSvg = '';
-	async function loadTimeSeriesSvg(url: string) {
-		timeSeriesSvg = '';
-		try {
-			const res = await fetch(url);
-			if (!res.ok) {
-				chartLoadError = 'Could not load the dashboard chart preview.';
-				return;
-			}
-			timeSeriesSvg = await res.text();
-		} catch {
-			chartLoadError = 'Could not load the dashboard chart preview.';
+			const includeAggregate = dateChanged || unitsChanged || sourceChanged || siteChanged;
+			void refreshStats($displayUnits, includeAggregate);
 		}
 	}
 
 	async function loadConfig() {
-		try {
-			config = await getConfig();
-			initializeUnits(config.units);
-			// initialize the timezone store as well so the dashboard uses stored timezone
-			initializeTimezone(config.timezone);
-			initializePaperSize();
-			if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
-		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
-		}
+		config = await getConfig();
+		initializeUnits(config.units);
+		initializeTimezone(config.timezone);
+		initializePaperSize();
+		if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
 	}
 
 	async function loadSites() {
-		try {
-			sites = await getSites();
-			siteOptions = sites.map((site) => ({ value: site.id, label: site.name }));
+		sites = await getSites();
+		siteOptions = sites.map((site) => ({ value: site.id, label: site.name }));
 
-			// Load selected site from localStorage or default to first site
-			if (browser) {
-				const savedSiteId = localStorage.getItem('selectedSiteId');
-				if (savedSiteId) {
-					const siteId = parseInt(savedSiteId, 10);
-					if (sites.some((s) => s.id === siteId)) {
-						selectedSiteId = siteId;
-					}
-				}
-				// If no saved site or invalid, default to first site
-				if (selectedSiteId === null && sites.length > 0) {
-					selectedSiteId = sites[0].id;
+		if (browser) {
+			const savedSiteId = localStorage.getItem('selectedSiteId');
+			if (savedSiteId) {
+				const siteId = parseInt(savedSiteId, 10);
+				if (sites.some((s) => s.id === siteId)) {
+					selectedSiteId = siteId;
 				}
 			}
-		} catch (e) {
-			console.error('Could not load sites:', e);
-			// Don't set error here, sites are optional for viewing stats
+			if (selectedSiteId === null && sites.length > 0) {
+				selectedSiteId = sites[0].id;
+			}
 		}
 	}
 
@@ -260,33 +221,37 @@
 		}
 	}
 
-	async function loadStats(units: Unit) {
-		try {
-			if (!dateRange.from || !dateRange.to) {
-				stats = [];
-				totalCount = 0;
-				p98Speed = 0;
-				cosineCorrectionAngles = [];
-				return;
-			}
-			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
-			const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-			const statsResp = await getRadarStats(
-				startUnix,
-				endUnix,
-				group,
-				units,
-				$displayTimezone,
-				selectedSource,
-				selectedSiteId
-			);
-			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
-			stats = statsResp.metrics;
-			cosineCorrectionAngles = statsResp.cosineCorrection?.angles ?? [];
-			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+	async function loadStats(units: Unit, includeAggregate = true) {
+		const requestSerial = ++statsRequestSerial;
 
-			// Use a dedicated aggregate query (group=all) for the headline P98 so the
-			// summary card and dashed reference line represent the true period aggregate.
+		if (!dateRange.from || !dateRange.to) {
+			if (requestSerial !== statsRequestSerial) return;
+			stats = [];
+			totalCount = 0;
+			p98Speed = 0;
+			cosineCorrectionAngles = [];
+			return;
+		}
+
+		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
+		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
+		const statsResp = await getRadarStats(
+			startUnix,
+			endUnix,
+			group,
+			units,
+			$displayTimezone,
+			selectedSource,
+			selectedSiteId
+		);
+		if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
+
+		const nextStats = statsResp.metrics;
+		const nextAngles = statsResp.cosineCorrection?.angles ?? [];
+		const nextTotalCount = nextStats.reduce((sum, s) => sum + (s.count || 0), 0);
+		let nextP98 = p98Speed;
+
+		if (includeAggregate) {
 			const aggregateResp = await getRadarStats(
 				startUnix,
 				endUnix,
@@ -298,18 +263,33 @@
 			);
 			const aggregateBucket = aggregateResp.metrics[0];
 			if (aggregateBucket && Number.isFinite(Number(aggregateBucket.p98))) {
-				p98Speed = Number(aggregateBucket.p98);
+				nextP98 = Number(aggregateBucket.p98);
 			} else {
-				// Fallback for unexpected empty aggregate response.
-				p98Speed = weightedMedian(
-					stats.map((s) => ({
+				nextP98 = weightedMedian(
+					nextStats.map((s) => ({
 						value: Number(s.p98 || 0),
 						weight: Math.max(0, Number(s.count || 0))
 					}))
 				);
 			}
+		}
+
+		if (requestSerial !== statsRequestSerial) return;
+
+		stats = nextStats;
+		cosineCorrectionAngles = nextAngles;
+		totalCount = nextTotalCount;
+		if (includeAggregate) {
+			p98Speed = nextP98;
+		}
+	}
+
+	async function refreshStats(units: Unit, includeAggregate = true) {
+		try {
+			await loadStats(units, includeAggregate);
+			refreshError = '';
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Could not load stats.'; // eslint-disable-line svelte/infinite-reactive-loop
+			refreshError = e instanceof Error && e.message ? e.message : 'Could not refresh stats.';
 		}
 	}
 
@@ -327,8 +307,10 @@
 			lastGroup = group;
 			lastSource = selectedSource;
 			lastSiteId = selectedSiteId;
-			await loadStats($displayUnits);
-			refreshTimeSeriesChartUrl();
+			await loadStats($displayUnits, true);
+			refreshError = '';
+		} catch (e) {
+			error = e instanceof Error && e.message ? e.message : 'Could not load dashboard data.';
 		} finally {
 			loading = false;
 			// mark initialization complete so the reactive watcher can start firing
@@ -472,6 +454,16 @@
 			</div>
 		</div>
 
+		{#if refreshError}
+			<div
+				role="alert"
+				aria-live="polite"
+				class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+			>
+				{refreshError}
+			</div>
+		{/if}
+
 		{#if reportMessage}
 			<div
 				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
@@ -548,25 +540,14 @@
 		{/if}
 
 		{#if timeSeriesChartUrl}
-			<div
-				class="chart-inline block w-full rounded border p-4"
-				role="img"
-				aria-label="Vehicle count bars and percentile speed lines"
-			>
-				{#if timeSeriesSvg}
-					{@html timeSeriesSvg}
-				{/if}
+			<div class="block w-full rounded border p-4">
+				<InlineSvgChart
+					url={timeSeriesChartUrl}
+					label="Vehicle count bars and percentile speed lines"
+					loadingLabel="Refreshing chart…"
+					minHeight={340}
+				/>
 			</div>
-
-			{#if chartLoadError}
-				<div
-					role="alert"
-					aria-live="assertive"
-					class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
-				>
-					{chartLoadError}
-				</div>
-			{/if}
 
 			<!-- Accessible data table fallback -->
 			<details class="rounded border p-4">

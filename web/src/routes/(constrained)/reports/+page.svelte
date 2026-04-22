@@ -12,6 +12,7 @@
 		type Site,
 		type SiteReport
 	} from '$lib/api';
+	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
 	import { isDateRangeStale, REPORT_SETTINGS_KEY } from '$lib/reportSettings';
@@ -88,7 +89,8 @@
 					timezone: $displayTimezone,
 					source: selectedSource,
 					minSpeed,
-					boundaryThreshold
+					boundaryThreshold,
+					paperSize: $paperSize
 				})
 			: '';
 
@@ -104,7 +106,8 @@
 					bucketSize: histogramBucketSize,
 					max: maxSpeedCutoff ?? undefined,
 					minSpeed,
-					boundaryThreshold
+					boundaryThreshold,
+					paperSize: $paperSize
 				})
 			: '';
 
@@ -128,7 +131,8 @@
 					bucketSize: histogramBucketSize,
 					max: maxSpeedCutoff ?? undefined,
 					minSpeed,
-					boundaryThreshold
+					boundaryThreshold,
+					paperSize: $paperSize
 				})
 			: '';
 
@@ -490,12 +494,11 @@
 						{#if reportTimeSeriesChartUrl}
 							<div class="space-y-2 rounded border p-3 lg:col-span-2">
 								<h4 class="text-sm font-semibold">Time-series overview</h4>
-								<img
-									src={reportTimeSeriesChartUrl}
-									alt="Preview of the report time-series chart"
-									class="block w-full rounded bg-white"
-									loading="lazy"
-									decoding="async"
+								<InlineSvgChart
+									url={reportTimeSeriesChartUrl}
+									label="Preview of the report time-series chart"
+									loadingLabel="Loading time-series preview…"
+									minHeight={340}
 								/>
 							</div>
 						{/if}
@@ -503,12 +506,11 @@
 						{#if reportHistogramChartUrl}
 							<div class="space-y-2 rounded border p-3">
 								<h4 class="text-sm font-semibold">Velocity distribution</h4>
-								<img
-									src={reportHistogramChartUrl}
-									alt="Preview of the report histogram chart"
-									class="block w-full rounded bg-white"
-									loading="lazy"
-									decoding="async"
+								<InlineSvgChart
+									url={reportHistogramChartUrl}
+									label="Preview of the report histogram chart"
+									loadingLabel="Loading histogram preview…"
+									minHeight={250}
 								/>
 							</div>
 						{/if}
@@ -516,12 +518,11 @@
 						{#if compareEnabled && reportComparisonChartUrl}
 							<div class="space-y-2 rounded border p-3">
 								<h4 class="text-sm font-semibold">Comparison distribution</h4>
-								<img
-									src={reportComparisonChartUrl}
-									alt="Preview of the report comparison histogram chart"
-									class="block w-full rounded bg-white"
-									loading="lazy"
-									decoding="async"
+								<InlineSvgChart
+									url={reportComparisonChartUrl}
+									label="Preview of the report comparison histogram chart"
+									loadingLabel="Loading comparison preview…"
+									minHeight={250}
 								/>
 							</div>
 						{:else if compareEnabled}

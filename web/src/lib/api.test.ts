@@ -266,7 +266,8 @@ describe('api', () => {
 				timezone: 'America/Los_Angeles',
 				source: 'radar_objects',
 				minSpeed: 12,
-				boundaryThreshold: 5
+				boundaryThreshold: 5,
+				paperSize: 'letter'
 			});
 
 			expect(path).toContain('/api/charts/timeseries?');
@@ -279,6 +280,7 @@ describe('api', () => {
 			expect(path).toContain('source=radar_objects');
 			expect(path).toContain('min_speed=12');
 			expect(path).toContain('boundary_threshold=5');
+			expect(path).toContain('paper_size=letter');
 		});
 
 		it('should omit undefined optional parameters', () => {
@@ -304,7 +306,8 @@ describe('api', () => {
 				bucketSize: 5,
 				max: 70,
 				minSpeed: 10,
-				boundaryThreshold: 3
+				boundaryThreshold: 3,
+				paperSize: 'a4'
 			});
 
 			expect(path).toContain('/api/charts/histogram?');
@@ -313,6 +316,7 @@ describe('api', () => {
 			expect(path).toContain('max=70');
 			expect(path).toContain('min_speed=10');
 			expect(path).toContain('boundary_threshold=3');
+			expect(path).toContain('paper_size=a4');
 		});
 	});
 
@@ -329,7 +333,8 @@ describe('api', () => {
 				source: 'radar_objects',
 				compareSource: 'radar_data_transits',
 				bucketSize: 5,
-				max: 70
+				max: 70,
+				paperSize: 'letter'
 			});
 
 			expect(path).toContain('/api/charts/comparison?');
@@ -339,6 +344,7 @@ describe('api', () => {
 			expect(path).toContain('compare_end=2025-04-30');
 			expect(path).toContain('compare_source=radar_data_transits');
 			expect(path).toContain('tz=America%2FLos_Angeles');
+			expect(path).toContain('paper_size=letter');
 		});
 	});
 
