@@ -110,19 +110,22 @@ type tickCadence struct {
 func pickTickCadence(span time.Duration) tickCadence {
 	switch {
 	case span <= 12*time.Hour:
+		// 2h cadence → ≤6 ticks over 12h.
 		return tickCadence{
-			bucket: func(t time.Time) int64 { return t.Unix() / (60 * 60) },
+			bucket: func(t time.Time) int64 { return t.Unix() / (2 * 60 * 60) },
 			format: func(t time.Time) string { return t.Format("15:04") },
 		}
-	case span <= 36*time.Hour:
-		return tickCadence{
-			bucket: func(t time.Time) int64 { return t.Unix() / (3 * 60 * 60) },
-			format: func(t time.Time) string { return t.Format("Jan 02\n15:04") },
-		}
-	case span <= 4*24*time.Hour:
+	case span <= 48*time.Hour:
+		// 6h cadence → ≤8 ticks over 48h. Single-line labels avoid overlap.
 		return tickCadence{
 			bucket: func(t time.Time) int64 { return t.Unix() / (6 * 60 * 60) },
-			format: func(t time.Time) string { return t.Format("Jan 02\n15:04") },
+			format: func(t time.Time) string { return t.Format("Jan 02 15:04") },
+		}
+	case span <= 7*24*time.Hour:
+		// 12h cadence for 2-7 day ranges → ≤14 ticks at weekly max.
+		return tickCadence{
+			bucket: func(t time.Time) int64 { return t.Unix() / (12 * 60 * 60) },
+			format: func(t time.Time) string { return t.Format("Jan 02 15:04") },
 		}
 	case span <= 14*24*time.Hour:
 		// Daily.
@@ -293,14 +296,13 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 
 		c.BeginGroup(fmt.Sprintf(`class="series-%s"`, s.label))
 
+		// Build a single continuous polyline that skips NaN points without
+		// breaking. Gaps in data do not interrupt the line; day boundaries
+		// and low-sample indicators already communicate missing ranges.
 		var pts [][2]float64
 		for i := 0; i < n; i++ {
 			val := s.field(data.Points[i])
 			if math.IsNaN(val) {
-				if len(pts) > 1 {
-					c.Polyline(pts, lineAttrs)
-				}
-				pts = pts[:0]
 				continue
 			}
 			pts = append(pts, [2]float64{xOf(i), speedYOf(val)})

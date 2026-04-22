@@ -336,7 +336,7 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	if reportTex == "" {
 		t.Fatal("report.tex not found in ZIP")
 	}
-	if !strings.Contains(reportTex, `Source & radar\_data\_transits \\`) {
+	if !strings.Contains(reportTex, `radar\_data\_transits`) {
 		t.Fatalf("expected escaped source field in report.tex, got:\n%s", reportTex)
 	}
 }

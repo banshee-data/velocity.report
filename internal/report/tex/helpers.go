@@ -95,7 +95,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	var b strings.Builder
 	b.WriteString(`\begin{tabular}{lrr}` + "\n")
 	b.WriteString(`\hline` + "\n")
-	b.WriteString(`\textbf{` + EscapeTeX(units) + `} & \textbf{Count} & \textbf{\%} \\` + "\n")
+	b.WriteString(`\textbf{Bucket (` + EscapeTeX(units) + `)} & \textbf{Count} & \textbf{Percent} \\` + "\n")
 	b.WriteString(`\hline` + "\n")
 
 	// Pre-aggregate below-cutoff and above-max buckets.

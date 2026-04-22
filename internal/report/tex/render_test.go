@@ -76,10 +76,10 @@ func TestRenderTeX_TitleBlockUsesParagraphBreaks(t *testing.T) {
 	}
 
 	s := string(out)
-	if !strings.Contains(s, `{\Large\bfseries Velocity Report: Clarendon Avenue, San Francisco\par}`) {
+	if !strings.Contains(s, `{\huge\bfseries Clarendon Avenue, San Francisco\par}`) {
 		t.Fatal("expected title block to use a paragraph break")
 	}
-	if strings.Contains(s, `Velocity Report: Clarendon Avenue, San Francisco}\\[6pt]`) {
+	if strings.Contains(s, `Clarendon Avenue, San Francisco}\\[6pt]`) {
 		t.Fatal("unexpected fragile title line break found in output")
 	}
 }

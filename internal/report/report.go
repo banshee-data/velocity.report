@@ -442,14 +442,22 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time.Location) []chart.TimeSeriesPoint {
 	pts := make([]chart.TimeSeriesPoint, len(rows))
 	for i, r := range rows {
-		pts[i] = chart.TimeSeriesPoint{
+		pt := chart.TimeSeriesPoint{
 			StartTime: r.StartTime.In(loc),
-			P50Speed:  units.ConvertSpeed(r.P50Speed, displayUnits),
-			P85Speed:  units.ConvertSpeed(r.P85Speed, displayUnits),
-			P98Speed:  units.ConvertSpeed(r.P98Speed, displayUnits),
-			MaxSpeed:  units.ConvertSpeed(r.MaxSpeed, displayUnits),
 			Count:     int(r.Count),
 		}
+		if r.Count == 0 {
+			pt.P50Speed = math.NaN()
+			pt.P85Speed = math.NaN()
+			pt.P98Speed = math.NaN()
+			pt.MaxSpeed = math.NaN()
+		} else {
+			pt.P50Speed = units.ConvertSpeed(r.P50Speed, displayUnits)
+			pt.P85Speed = units.ConvertSpeed(r.P85Speed, displayUnits)
+			pt.P98Speed = units.ConvertSpeed(r.P98Speed, displayUnits)
+			pt.MaxSpeed = units.ConvertSpeed(r.MaxSpeed, displayUnits)
+		}
+		pts[i] = pt
 	}
 	return pts
 }
