@@ -1,13 +1,17 @@
 package api
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/report"
 )
 
 // TestGenerateReport_GoBackend_RequiresTools tests the Go PDF backend path.
@@ -203,6 +207,125 @@ func TestGenerateReport_GoBackend_ConfigMapping(t *testing.T) {
 	}
 }
 
+func TestGenerateReport_BothBackend_IncludesComparisonTeX(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+	pdfDir := t.TempDir()
+	t.Setenv("PDF_GENERATOR_DIR", pdfDir)
+	t.Setenv("VELOCITY_PDF_BACKEND", "both")
+	t.Setenv("PATH", createMockReportTools(t)+":"+os.Getenv("PATH"))
+
+	originalRunner := runPythonPDFGenerator
+	runPythonPDFGenerator = func(pythonBin, pdfDir, configFile string) ([]byte, error) {
+		var config struct {
+			Query struct {
+				EndDate string `json:"end_date"`
+			} `json:"query"`
+			Site struct {
+				Location string `json:"location"`
+			} `json:"site"`
+			Output struct {
+				OutputDir string `json:"output_dir"`
+			} `json:"output"`
+		}
+
+		configData, err := os.ReadFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(configData, &config); err != nil {
+			return nil, err
+		}
+
+		artifacts := buildPythonReportArtifacts(pdfDir, config.Output.OutputDir, config.Query.EndDate, config.Site.Location)
+		zipData, err := report.BuildZip(map[string][]byte{
+			"stub_report.tex": []byte("python comparison tex"),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := os.MkdirAll(filepath.Dir(artifacts.FullZIPPath), 0755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(artifacts.FullZIPPath, zipData, 0644); err != nil {
+			return nil, err
+		}
+
+		return []byte("python comparison ok"), nil
+	}
+	defer func() {
+		runPythonPDFGenerator = originalRunner
+	}()
+
+	reqBody := ReportRequest{
+		SiteID:         &site.ID,
+		StartDate:      "2025-12-03",
+		EndDate:        "2025-12-03",
+		Timezone:       "UTC",
+		Units:          "mph",
+		Group:          "1h",
+		Source:         "radar_objects",
+		Histogram:      true,
+		HistBucketSize: 5,
+		HistMax:        70,
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.ServeMux().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+
+	zipPath := filepath.Join(pdfDir, response["zip_path"].(string))
+	zipData, err := os.ReadFile(zipPath)
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+
+	entries := make(map[string]string)
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", f.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("read %s: %v", f.Name, err)
+		}
+		entries[f.Name] = string(data)
+	}
+
+	if entries["comparison/go/report.tex"] == "" {
+		t.Fatal("comparison/go/report.tex not found in ZIP")
+	}
+	if entries["comparison/python/report.tex"] != "python comparison tex" {
+		t.Fatalf("comparison/python/report.tex = %q, want %q", entries["comparison/python/report.tex"], "python comparison tex")
+	}
+	if entries["comparison/go/report.tex"] != entries["report.tex"] {
+		t.Fatal("comparison/go/report.tex did not match root report.tex")
+	}
+	if _, err := os.Stat(filepath.Join(pdfDir, "output", filepath.Base(filepath.Dir(zipPath)), "python-compare")); !os.IsNotExist(err) {
+		t.Fatal("expected python-compare temp directory to be removed")
+	}
+}
+
 func TestRelativeReportPaths_Valid(t *testing.T) {
 	root := filepath.Join(string(os.PathSeparator), "tmp", "pdf-generator")
 	pdfPath := filepath.Join(root, "output", "run-1", "report.pdf")
@@ -229,6 +352,49 @@ func TestRelativeReportPaths_RejectEscape(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for escaping pdf path")
 	}
+}
+
+func createMockReportTools(t *testing.T) string {
+	t.Helper()
+
+	binDir := t.TempDir()
+	rsvg := filepath.Join(binDir, "rsvg-convert")
+	rsvgScript := `#!/bin/sh
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -o) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [ -n "$output" ]; then
+    echo "%PDF-1.4 mock" > "$output"
+fi
+`
+	if err := os.WriteFile(rsvg, []byte(rsvgScript), 0755); err != nil {
+		t.Fatalf("write mock rsvg-convert: %v", err)
+	}
+
+	xelatex := filepath.Join(binDir, "xelatex")
+	xelatexScript := `#!/bin/sh
+texfile=""
+for arg in "$@"; do
+    case "$arg" in
+        *.tex) texfile="$arg" ;;
+    esac
+done
+if [ -n "$texfile" ]; then
+    base=$(echo "$texfile" | sed 's/\.tex$//')
+    echo "%PDF-1.4 mock xelatex output" > "${base}.pdf"
+    echo "mock log" > "${base}.log"
+    echo "mock aux" > "${base}.aux"
+fi
+`
+	if err := os.WriteFile(xelatex, []byte(xelatexScript), 0755); err != nil {
+		t.Fatalf("write mock xelatex: %v", err)
+	}
+
+	return binDir
 }
 
 // seedChartTestData is defined in server_charts_test.go and shared here.

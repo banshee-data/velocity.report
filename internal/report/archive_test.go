@@ -3,6 +3,8 @@ package report
 import (
 	"archive/zip"
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -58,5 +60,62 @@ func TestBuildZip_Empty(t *testing.T) {
 	}
 	if len(r.File) != 0 {
 		t.Errorf("expected empty zip, got %d files", len(r.File))
+	}
+}
+
+func TestAppendFilesToZip(t *testing.T) {
+	original, err := BuildZip(map[string][]byte{
+		"report.tex": []byte("go tex"),
+		"chart.svg":  []byte("<svg />"),
+	})
+	if err != nil {
+		t.Fatalf("BuildZip error: %v", err)
+	}
+
+	zipPath := filepath.Join(t.TempDir(), "report_sources.zip")
+	if err := os.WriteFile(zipPath, original, 0644); err != nil {
+		t.Fatalf("write zip: %v", err)
+	}
+
+	if err := AppendFilesToZip(zipPath, map[string][]byte{
+		"report.tex":                   []byte("updated go tex"),
+		"comparison/python/report.tex": []byte("python tex"),
+	}); err != nil {
+		t.Fatalf("AppendFilesToZip error: %v", err)
+	}
+
+	merged, err := os.ReadFile(zipPath)
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(merged), int64(len(merged)))
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+
+	got := make(map[string]string)
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", f.Name, err)
+		}
+		var buf bytes.Buffer
+		if _, err := buf.ReadFrom(rc); err != nil {
+			rc.Close()
+			t.Fatalf("read %s: %v", f.Name, err)
+		}
+		rc.Close()
+		got[f.Name] = buf.String()
+	}
+
+	if got["report.tex"] != "updated go tex" {
+		t.Fatalf("report.tex = %q, want %q", got["report.tex"], "updated go tex")
+	}
+	if got["chart.svg"] != "<svg />" {
+		t.Fatalf("chart.svg = %q, want %q", got["chart.svg"], "<svg />")
+	}
+	if got["comparison/python/report.tex"] != "python tex" {
+		t.Fatalf("comparison/python/report.tex = %q, want %q", got["comparison/python/report.tex"], "python tex")
 	}
 }

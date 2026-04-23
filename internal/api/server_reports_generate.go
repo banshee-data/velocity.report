@@ -1,8 +1,10 @@
 package api
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +17,16 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report"
 	"github.com/banshee-data/velocity.report/internal/security"
 )
+
+var runPythonPDFGenerator = func(pythonBin, pdfDir, configFile string) ([]byte, error) {
+	cmd := exec.Command(
+		pythonBin,
+		"-m", "pdf_generator.cli.main",
+		configFile,
+	)
+	cmd.Dir = pdfDir
+	return cmd.CombinedOutput()
+}
 
 // ReportRequest represents the JSON payload for report generation
 type ReportRequest struct {
@@ -150,10 +162,21 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		speedLimit = 25
 	}
 
-	// Go backend path: when VELOCITY_PDF_BACKEND=go, use the pure-Go report
-	// pipeline instead of shelling out to the Python PDF generator.
-	if os.Getenv("VELOCITY_PDF_BACKEND") == "go" {
-		s.generateReportGo(w, r, req, site, cosineErrorAngle, location, surveyor, contact, speedLimit, siteDescription, speedLimitNote)
+	cfg := buildReportConfig(
+		req,
+		site,
+		cosineErrorAngle,
+		location,
+		surveyor,
+		contact,
+		speedLimit,
+		siteDescription,
+		speedLimitNote,
+	)
+
+	backend := strings.ToLower(strings.TrimSpace(os.Getenv("VELOCITY_PDF_BACKEND")))
+	if backend == "go" || backend == "both" {
+		s.generateReportGo(w, r, req, site, cfg, backend == "both")
 		return
 	}
 
@@ -175,113 +198,14 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create a config JSON for the PDF generator
-	// Note: Not setting file_prefix - let Python auto-generate from source + date range
-	queryConfig := map[string]interface{}{
-		"start_date":         req.StartDate,
-		"end_date":           req.EndDate,
-		"timezone":           req.Timezone,
-		"group":              req.Group,
-		"units":              req.Units,
-		"source":             req.Source,
-		"min_speed":          req.MinSpeed,
-		"boundary_threshold": req.BoundaryThreshold,
-		"histogram":          req.Histogram,
-		"hist_bucket_size":   req.HistBucketSize,
-		"hist_max":           req.HistMax,
-	}
-	if req.SiteID != nil {
-		queryConfig["site_id"] = *req.SiteID
-	}
-	if req.CompareStart != "" && req.CompareEnd != "" {
-		queryConfig["compare_start_date"] = req.CompareStart
-		queryConfig["compare_end_date"] = req.CompareEnd
-		// Use compare_source if specified, otherwise default to the primary source
-		compareSource := req.CompareSource
-		if compareSource == "" {
-			compareSource = req.Source
-		}
-		queryConfig["compare_source"] = compareSource
-	}
-
-	// Build site config with map positioning data if available
-	siteConfig := map[string]interface{}{
-		"location":         location,
-		"surveyor":         surveyor,
-		"contact":          contact,
-		"speed_limit":      speedLimit,
-		"site_description": siteDescription,
-		"speed_limit_note": speedLimitNote,
-	}
-	// Add map positioning fields if site has them
-	if site != nil {
-		if site.Latitude != nil {
-			siteConfig["latitude"] = *site.Latitude
-		}
-		if site.Longitude != nil {
-			siteConfig["longitude"] = *site.Longitude
-		}
-		if site.MapAngle != nil {
-			siteConfig["map_angle"] = *site.MapAngle
-		}
-		if site.BBoxNELat != nil {
-			siteConfig["bbox_ne_lat"] = *site.BBoxNELat
-		}
-		if site.BBoxNELng != nil {
-			siteConfig["bbox_ne_lng"] = *site.BBoxNELng
-		}
-		if site.BBoxSWLat != nil {
-			siteConfig["bbox_sw_lat"] = *site.BBoxSWLat
-		}
-		if site.BBoxSWLng != nil {
-			siteConfig["bbox_sw_lng"] = *site.BBoxSWLng
-		}
-	}
-
-	config := map[string]interface{}{
-		"query": queryConfig,
-		"site":  siteConfig,
-		"radar": map[string]interface{}{
-			"cosine_error_angle": cosineErrorAngle,
-		},
-		"output": map[string]interface{}{
-			"output_dir": outputDir,
-			"debug":      s.debugMode,
-			"map":        site != nil && site.IncludeMap,
-		},
-	}
-
-	// Write config to a temporary file
-	// Use nanoseconds to ensure unique filename under concurrent requests
-	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", now.UnixNano()))
-	configData, err := json.MarshalIndent(config, "", "  ")
+	config := buildPythonReportConfig(cfg, site, outputDir, s.debugMode)
+	configFile, cleanupConfigFile, err := writePythonConfigFile(config, cfg.SpeedLimitNote)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	// Validate temp file path (should always pass since we control the temp dir)
-	if err := security.ValidateExportPath(configFile); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Invalid config file path: %v", err))
-		return
-	}
-
-	if err := os.WriteFile(configFile, configData, 0644); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
-		return
-	}
-	// Log the config file and speed_limit_note so we can inspect what is passed to the
-	// Python generator in production/debug runs. For tests we preserve the file when
-	// PDF_GENERATOR_PYTHON is set so the test can inspect the JSON the server wrote.
-	log.Printf("Report config written: %s (site.speed_limit_note=%q)", configFile, speedLimitNote)
-	if os.Getenv("PDF_GENERATOR_PYTHON") == "" {
-		defer os.Remove(configFile) // Clean up after execution in normal runs
-	} else {
-		log.Printf("Preserving config file for test inspection: %s", configFile)
-	}
+	defer cleanupConfigFile()
 
 	// Get the PDF generator directory
 	pdfDir, err := getPDFGeneratorDir()
@@ -291,41 +215,8 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Path to Python binary - allow overriding via PDF_GENERATOR_PYTHON
-	// Check locations in priority order:
-	// 1. Deployed venv: /opt/velocity-report/.venv/bin/python
-	// 2. Development venv: ./.venv/bin/python
-	// 3. System python3
-	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
-	if pythonBin == "" {
-		deployedPython := "/opt/velocity-report/.venv/bin/python"
-		if _, err := os.Stat(deployedPython); err == nil {
-			pythonBin = deployedPython
-			log.Printf("Using deployed PDF generator python: %s", pythonBin)
-		} else {
-			repoRoot, _ := os.Getwd()
-			defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
-			if _, err := os.Stat(defaultPythonBin); err == nil {
-				pythonBin = defaultPythonBin
-				log.Printf("Using development PDF generator python: %s", pythonBin)
-			} else {
-				pythonBin = "python3"
-				log.Printf("PDF generator venv not found, using system python3")
-			}
-		}
-	} else {
-		log.Printf("Using overridden PDF generator python: %s", pythonBin)
-	}
-
-	// Execute the PDF generator
-	cmd := exec.Command(
-		pythonBin,
-		"-m", "pdf_generator.cli.main",
-		configFile,
-	)
-	cmd.Dir = pdfDir
-
-	output, err := cmd.CombinedOutput()
+	artifacts := buildPythonReportArtifacts(pdfDir, outputDir, cfg.EndDate, cfg.Location)
+	output, err := runPythonPDFGenerator(resolvePythonBinary(), pdfDir, configFile)
 	if err != nil {
 		log.Printf("PDF generation failed: %v\nOutput: %s", err, string(output))
 		w.Header().Set("Content-Type", "application/json")
@@ -345,35 +236,17 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize user-provided values to prevent path traversal attacks
-	safeEndDate := security.SanitizeFilename(req.EndDate)
-	safeLocation := security.SanitizeFilename(location)
-
-	// Generate filename as: {endDate}_velocity.report_{location}.pdf
-	// Python PDF generator adds _report suffix, so final name is:
-	// {endDate}_velocity.report_{location}_report.pdf
-	pdfFilename := fmt.Sprintf("%s_velocity.report_%s_report.pdf", safeEndDate, safeLocation)
-
-	// Generate ZIP filename with same format (no _report suffix for ZIP)
-	zipFilename := fmt.Sprintf("%s_velocity.report_%s_sources.zip", safeEndDate, safeLocation)
-
-	// Store relative paths from pdf-generator directory
-	relativePdfPath := filepath.Join(outputDir, pdfFilename)
-	relativeZipPath := filepath.Join(outputDir, zipFilename)
-
 	// Verify PDF was actually created
-	fullPdfPath := filepath.Join(pdfDir, relativePdfPath)
-
 	// Security: Validate path is within pdf-generator directory to prevent path traversal
-	if err := security.ValidatePathWithinDirectory(fullPdfPath, pdfDir); err != nil {
-		log.Printf("Security: rejected PDF path %s: %v", fullPdfPath, err)
+	if err := security.ValidatePathWithinDirectory(artifacts.FullPDFPath, pdfDir); err != nil {
+		log.Printf("Security: rejected PDF path %s: %v", artifacts.FullPDFPath, err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
 
-	if _, err := os.Stat(fullPdfPath); os.IsNotExist(err) {
-		log.Printf("PDF generation completed but file not found at: %s", fullPdfPath)
+	if _, err := os.Stat(artifacts.FullPDFPath); os.IsNotExist(err) {
+		log.Printf("PDF generation completed but file not found at: %s", artifacts.FullPDFPath)
 		log.Printf("This usually means no data was available for the specified date range.")
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "PDF generation failed: No data available for the specified date range. Please check your dates and ensure data exists.")
@@ -390,10 +263,10 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		SiteID:      siteID,
 		StartDate:   req.StartDate,
 		EndDate:     req.EndDate,
-		Filepath:    relativePdfPath,
-		Filename:    pdfFilename,
-		ZipFilepath: &relativeZipPath,
-		ZipFilename: &zipFilename,
+		Filepath:    artifacts.RelativePDFPath,
+		Filename:    artifacts.PDFFilename,
+		ZipFilepath: &artifacts.RelativeZIPPath,
+		ZipFilename: &artifacts.ZIPFilename,
 		RunID:       runID,
 		Timezone:    req.Timezone,
 		Units:       req.Units,
@@ -413,8 +286,8 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		"success":   true,
 		"report_id": report.ID,
 		"message":   "Report generated successfully",
-		"pdf_path":  relativePdfPath,
-		"zip_path":  relativeZipPath,
+		"pdf_path":  artifacts.RelativePDFPath,
+		"zip_path":  artifacts.RelativeZIPPath,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -422,53 +295,18 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Successfully generated PDF report (ID: %d): %s", report.ID, pdfFilename)
+	log.Printf("Successfully generated PDF report (ID: %d): %s", report.ID, artifacts.PDFFilename)
 }
 
 // generateReportGo handles report generation using the pure-Go report pipeline.
-// Called when VELOCITY_PDF_BACKEND=go is set.
+// When includePythonComparisonTeX is true, it also captures Python TeX and
+// appends both TeX variants into the final sources ZIP for comparison.
 func (s *Server) generateReportGo(
 	w http.ResponseWriter, r *http.Request,
 	req ReportRequest, site *db.Site,
-	cosineErrorAngle float64,
-	location, surveyor, contact string,
-	speedLimit int,
-	siteDescription, speedLimitNote string,
+	cfg report.Config,
+	includePythonComparisonTeX bool,
 ) {
-	// Build report.Config from resolved request + site fields.
-	cfg := report.Config{
-		SiteID:            *req.SiteID,
-		Location:          location,
-		Surveyor:          surveyor,
-		Contact:           contact,
-		SpeedLimit:        speedLimit,
-		SiteDescription:   siteDescription,
-		SpeedLimitNote:    speedLimitNote,
-		StartDate:         req.StartDate,
-		EndDate:           req.EndDate,
-		Timezone:          req.Timezone,
-		Units:             req.Units,
-		Group:             req.Group,
-		Source:            req.Source,
-		MinSpeed:          req.MinSpeed,
-		BoundaryThreshold: req.BoundaryThreshold,
-		Histogram:         req.Histogram,
-		HistBucketSize:    req.HistBucketSize,
-		HistMax:           req.HistMax,
-		CompareStart:      req.CompareStart,
-		CompareEnd:        req.CompareEnd,
-		CompareSource:     req.CompareSource,
-		CosineAngle:       cosineErrorAngle,
-		PaperSize:         req.PaperSize,
-	}
-
-	if site != nil {
-		cfg.IncludeMap = site.IncludeMap
-		if site.MapSVGData != nil {
-			cfg.MapSVG = *site.MapSVGData
-		}
-	}
-
 	// Determine output directory.
 	pdfDir, err := getPDFGeneratorDir()
 	if err != nil {
@@ -501,6 +339,15 @@ func (s *Server) generateReportGo(
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
+	}
+
+	if includePythonComparisonTeX {
+		if err := s.appendPythonComparisonTeX(cfg, site, pdfDir, runID, result.ZIPPath); err != nil {
+			log.Printf("Failed to add Python comparison TeX to ZIP: %v", err)
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+			return
+		}
 	}
 
 	// Build relative paths matching the Python path convention.
@@ -552,6 +399,294 @@ func (s *Server) generateReportGo(
 	}
 
 	log.Printf("Successfully generated Go PDF report (ID: %d): %s", siteReport.ID, pdfFilename)
+}
+
+func buildReportConfig(
+	req ReportRequest,
+	site *db.Site,
+	cosineErrorAngle float64,
+	location, surveyor, contact string,
+	speedLimit int,
+	siteDescription, speedLimitNote string,
+) report.Config {
+	cfg := report.Config{
+		SiteID:            *req.SiteID,
+		Location:          location,
+		Surveyor:          surveyor,
+		Contact:           contact,
+		SpeedLimit:        speedLimit,
+		SiteDescription:   siteDescription,
+		SpeedLimitNote:    speedLimitNote,
+		StartDate:         req.StartDate,
+		EndDate:           req.EndDate,
+		Timezone:          req.Timezone,
+		Units:             req.Units,
+		Group:             req.Group,
+		Source:            req.Source,
+		MinSpeed:          req.MinSpeed,
+		BoundaryThreshold: req.BoundaryThreshold,
+		Histogram:         req.Histogram,
+		HistBucketSize:    req.HistBucketSize,
+		HistMax:           req.HistMax,
+		CompareStart:      req.CompareStart,
+		CompareEnd:        req.CompareEnd,
+		CompareSource:     req.CompareSource,
+		CosineAngle:       cosineErrorAngle,
+		PaperSize:         req.PaperSize,
+	}
+
+	if site != nil {
+		cfg.IncludeMap = site.IncludeMap
+		if site.MapSVGData != nil {
+			cfg.MapSVG = *site.MapSVGData
+		}
+	}
+
+	return cfg
+}
+
+func buildPythonReportConfig(cfg report.Config, site *db.Site, outputDir string, debugMode bool) map[string]interface{} {
+	queryConfig := map[string]interface{}{
+		"start_date":         cfg.StartDate,
+		"end_date":           cfg.EndDate,
+		"timezone":           cfg.Timezone,
+		"group":              cfg.Group,
+		"units":              cfg.Units,
+		"source":             cfg.Source,
+		"min_speed":          cfg.MinSpeed,
+		"boundary_threshold": cfg.BoundaryThreshold,
+		"histogram":          cfg.Histogram,
+		"hist_bucket_size":   cfg.HistBucketSize,
+		"hist_max":           cfg.HistMax,
+		"site_id":            cfg.SiteID,
+	}
+	if cfg.CompareStart != "" && cfg.CompareEnd != "" {
+		queryConfig["compare_start_date"] = cfg.CompareStart
+		queryConfig["compare_end_date"] = cfg.CompareEnd
+		compareSource := cfg.CompareSource
+		if compareSource == "" {
+			compareSource = cfg.Source
+		}
+		queryConfig["compare_source"] = compareSource
+	}
+
+	siteConfig := map[string]interface{}{
+		"location":         cfg.Location,
+		"surveyor":         cfg.Surveyor,
+		"contact":          cfg.Contact,
+		"speed_limit":      cfg.SpeedLimit,
+		"site_description": cfg.SiteDescription,
+		"speed_limit_note": cfg.SpeedLimitNote,
+	}
+	if site != nil {
+		if site.Latitude != nil {
+			siteConfig["latitude"] = *site.Latitude
+		}
+		if site.Longitude != nil {
+			siteConfig["longitude"] = *site.Longitude
+		}
+		if site.MapAngle != nil {
+			siteConfig["map_angle"] = *site.MapAngle
+		}
+		if site.BBoxNELat != nil {
+			siteConfig["bbox_ne_lat"] = *site.BBoxNELat
+		}
+		if site.BBoxNELng != nil {
+			siteConfig["bbox_ne_lng"] = *site.BBoxNELng
+		}
+		if site.BBoxSWLat != nil {
+			siteConfig["bbox_sw_lat"] = *site.BBoxSWLat
+		}
+		if site.BBoxSWLng != nil {
+			siteConfig["bbox_sw_lng"] = *site.BBoxSWLng
+		}
+	}
+
+	return map[string]interface{}{
+		"query": queryConfig,
+		"site":  siteConfig,
+		"radar": map[string]interface{}{
+			"cosine_error_angle": cfg.CosineAngle,
+		},
+		"output": map[string]interface{}{
+			"output_dir": outputDir,
+			"debug":      debugMode,
+			"map":        cfg.IncludeMap,
+		},
+	}
+}
+
+func writePythonConfigFile(config map[string]interface{}, speedLimitNote string) (string, func(), error) {
+	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", time.Now().UnixNano()))
+	configData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to marshal config: %v", err)
+	}
+
+	if err := security.ValidateExportPath(configFile); err != nil {
+		return "", nil, fmt.Errorf("invalid config file path: %v", err)
+	}
+
+	if err := os.WriteFile(configFile, configData, 0644); err != nil {
+		return "", nil, fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	log.Printf("Report config written: %s (site.speed_limit_note=%q)", configFile, speedLimitNote)
+	cleanup := func() {
+		if os.Getenv("PDF_GENERATOR_PYTHON") == "" {
+			os.Remove(configFile)
+			return
+		}
+		log.Printf("Preserving config file for test inspection: %s", configFile)
+	}
+
+	return configFile, cleanup, nil
+}
+
+func resolvePythonBinary() string {
+	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
+	if pythonBin != "" {
+		log.Printf("Using overridden PDF generator python: %s", pythonBin)
+		return pythonBin
+	}
+
+	deployedPython := "/opt/velocity-report/.venv/bin/python"
+	if _, err := os.Stat(deployedPython); err == nil {
+		log.Printf("Using deployed PDF generator python: %s", deployedPython)
+		return deployedPython
+	}
+
+	repoRoot, _ := os.Getwd()
+	defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
+	if _, err := os.Stat(defaultPythonBin); err == nil {
+		log.Printf("Using development PDF generator python: %s", defaultPythonBin)
+		return defaultPythonBin
+	}
+
+	log.Printf("PDF generator venv not found, using system python3")
+	return "python3"
+}
+
+type pythonReportArtifacts struct {
+	PDFFilename     string
+	ZIPFilename     string
+	RelativePDFPath string
+	RelativeZIPPath string
+	FullPDFPath     string
+	FullZIPPath     string
+}
+
+func buildPythonReportArtifacts(pdfDir, outputDir, endDate, location string) pythonReportArtifacts {
+	safeEndDate := security.SanitizeFilename(endDate)
+	safeLocation := security.SanitizeFilename(location)
+	pdfFilename := fmt.Sprintf("%s_velocity.report_%s_report.pdf", safeEndDate, safeLocation)
+	zipFilename := fmt.Sprintf("%s_velocity.report_%s_sources.zip", safeEndDate, safeLocation)
+	relativePDFPath := filepath.Join(outputDir, pdfFilename)
+	relativeZIPPath := filepath.Join(outputDir, zipFilename)
+
+	return pythonReportArtifacts{
+		PDFFilename:     pdfFilename,
+		ZIPFilename:     zipFilename,
+		RelativePDFPath: relativePDFPath,
+		RelativeZIPPath: relativeZIPPath,
+		FullPDFPath:     filepath.Join(pdfDir, relativePDFPath),
+		FullZIPPath:     filepath.Join(pdfDir, relativeZIPPath),
+	}
+}
+
+func (s *Server) appendPythonComparisonTeX(cfg report.Config, site *db.Site, pdfDir, runID, goZipPath string) error {
+	comparisonRelativeOutputDir := filepath.Join("output", runID, "python-compare")
+	comparisonAbsOutputDir := filepath.Join(pdfDir, comparisonRelativeOutputDir)
+	if err := os.MkdirAll(comparisonAbsOutputDir, 0755); err != nil {
+		return fmt.Errorf("create Python comparison output dir: %w", err)
+	}
+	defer os.RemoveAll(comparisonAbsOutputDir)
+
+	config := buildPythonReportConfig(cfg, site, comparisonRelativeOutputDir, s.debugMode)
+	configFile, cleanupConfigFile, err := writePythonConfigFile(config, cfg.SpeedLimitNote)
+	if err != nil {
+		return err
+	}
+	defer cleanupConfigFile()
+
+	output, err := runPythonPDFGenerator(resolvePythonBinary(), pdfDir, configFile)
+	if len(output) > 0 {
+		log.Printf("PDF generator comparison output:\n%s", string(output))
+	}
+	if err != nil {
+		return fmt.Errorf("python comparison generation failed: %w", err)
+	}
+	if outputIndicatesReportFailure(string(output)) {
+		return fmt.Errorf("python comparison generation failed: report compiler indicated failure")
+	}
+
+	goTex, err := readZipEntry(goZipPath, "report.tex")
+	if err != nil {
+		return fmt.Errorf("read Go report.tex from ZIP: %w", err)
+	}
+
+	artifacts := buildPythonReportArtifacts(pdfDir, comparisonRelativeOutputDir, cfg.EndDate, cfg.Location)
+	pythonTex, err := readPythonPortableReportTeX(artifacts.FullZIPPath)
+	if err != nil {
+		return err
+	}
+
+	if err := report.AppendFilesToZip(goZipPath, map[string][]byte{
+		"comparison/go/report.tex":     goTex,
+		"comparison/python/report.tex": pythonTex,
+	}); err != nil {
+		return fmt.Errorf("append comparison TeX to ZIP: %w", err)
+	}
+
+	return nil
+}
+
+func readZipEntry(zipPath, entryName string) ([]byte, error) {
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	for _, entry := range reader.File {
+		if entry.Name != entryName {
+			continue
+		}
+		rc, err := entry.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		return io.ReadAll(rc)
+	}
+
+	return nil, fmt.Errorf("zip entry %q not found", entryName)
+}
+
+func readPythonPortableReportTeX(zipPath string) ([]byte, error) {
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, fmt.Errorf("open Python sources ZIP: %w", err)
+	}
+	defer reader.Close()
+
+	for _, entry := range reader.File {
+		if !strings.HasSuffix(entry.Name, "_report.tex") || strings.HasSuffix(entry.Name, "_report_fonts.tex") {
+			continue
+		}
+		rc, err := entry.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		data, err := io.ReadAll(rc)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+
+	return nil, fmt.Errorf("python sources ZIP does not contain portable report.tex")
 }
 
 // getPDFGeneratorDir determines the PDF generator directory.
