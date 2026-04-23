@@ -1,7 +1,7 @@
 ---
 layout: doc.njk
 title: Setup your Radar
-description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, just local speed data PDFs
+description: Build a privacy-first traffic radar; 1x Pi, plus a computer to flash the SD card, no cameras, no cloud, just local speed data PDFs
 section: guides
 difficulty: intermediate
 time: 2-4 hours
@@ -24,6 +24,10 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 
 ## Before you begin
 
+You need two devices for setup: a computer to flash the SD card, and a Raspberry Pi to run the radar service. The Pi is the sensor host. The computer is only for setup.
+
+You also need a legal place to deploy the sensor: your own property, permission from a property owner, or a portable roof-rack mount.
+
 **Tools needed**:
 
 - Computer with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) installed
@@ -34,6 +38,7 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 - Pencil and tape measure
 - Optional: mitre box for 45° cuts
 - Optional: multimeter
+- Smartphone or tablet camera (for the protractor step)
 
 **No soldering required** · **No coding required** · **No prior radar experience needed**
 
@@ -45,13 +50,13 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 
 |                        |                                                          |
 | ---------------------- | -------------------------------------------------------- |
-| ✅ **Collected**       | Vehicle speed, direction, timestamp                      |
-| ❌ **Not collected**   | No licence plates, no vehicle photos, no driver identity |
+| ✅ **Collected**       | Vehicle speed, direction, timestamp (traffic volume is derived from detections) |
+| ❌ **Not collected**   | No licence plates, no vehicle photos, no driver identity, no user identity |
 | ❌ **Not transmitted** | All data stays on your device                            |
 
 ### Compliance
 
-Measuring vehicle speeds on public streets from your own property is generally legal. Mounting on public utility poles requires explicit permission. Always check your local regulations.
+Measuring vehicle speeds on public streets is generally legal when the sensor is on property where you have permission to install equipment. Mounting on public utility poles requires explicit permission. Always check your local regulations.
 
 ---
 
@@ -117,6 +122,8 @@ Power is delivered over Ethernet via the PoE HAT. You will need a PoE-capable sw
 _Estimated time: 15–30 minutes_
 
 The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
+
+If hardware setup is new to you, go slowly: this step is connector assembly only. No soldering is required.
 
 ![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.jpg) <!-- link-ignore -->
 
@@ -351,11 +358,13 @@ The dashboard also supports **comparison reports** for measuring the effect of t
 
 ---
 
-## Take your data to city hall
+## Take your data to City Hall
 
 Print the report. Bring it to the meeting. The data does the persuading.
 
-Whether you are at a city council session, a town board hearing, or submitting written comments to a transport committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
+Whether you are at a city council session, a town board hearing, or submitting written comments to a transport committee, the approach is the same: state the measured speed, and explain what it means.
+
+Measure before. Measure after. The numbers tell you whether the changes worked.
 
 ### What to bring
 
@@ -396,6 +405,8 @@ Then adapt to the situation:
 </div>
 
 In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue (a 25 mph school zone on San Francisco's high-injury network) to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
+
+That is the standard to keep in view: fewer crashes, fewer injuries, and zero fatalities. If the speeds do not drop, the work does not stop.
 
 ### What to suggest
 
