@@ -1,4 +1,4 @@
-<<define "statistics">>
+<<define "statistics_body">>
 <<if .HistogramChart>>
 \begin{figure}[H]
 \centering
@@ -39,4 +39,12 @@
 \par
 }
 <<end>>
+<<end>>
+
+<<define "statistics_single">>
+<<template "statistics_body" .>>
+<<end>>
+
+<<define "statistics_comparison">>
+<<template "statistics_body" .>>
 <<end>>

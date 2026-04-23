@@ -1,4 +1,4 @@
-<<define "chart_section">>
+<<define "chart_section_body">>
 <<if .TimeSeriesChart>>
 \onecolumn
 \begin{figure}[H]
@@ -7,4 +7,12 @@
 \caption{Speed percentiles and observation counts over time}
 \end{figure}
 <<end>>
+<<end>>
+
+<<define "chart_section_single">>
+<<template "chart_section_body" .>>
+<<end>>
+
+<<define "chart_section_comparison">>
+<<template "chart_section_body" .>>
 <<end>>

@@ -15,18 +15,15 @@
   <<if .Contact>>Contact: \href{mailto:<<.Contact>>}{<<.Contact>>}<<end>>
   \par}
   <<end>>
-  {\normalsize <<.StartDate>> -- <<.EndDate>>\par}
+  {\normalsize <<template "display_period_range" .>>\par}
   \end{center}
   \vspace{6pt}
   \end{@twocolumnfalse}
 ]
 
-<<template "overview" .>>
+<<template "period_report" .>>
 <<template "site_info" .>>
 <<template "science" .>>
-<<template "survey_parameters" .>>
-<<template "statistics" .>>
-<<template "chart_section" .>>
 <<template "map_section" .>>
 
 \end{document}

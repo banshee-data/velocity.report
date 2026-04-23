@@ -1,4 +1,4 @@
-<<define "survey_parameters">>
+<<define "survey_parameters_single">>
 \subsection*{Survey Parameters}
 
 \begin{tabular}{p{0.44\linewidth}p{0.52\linewidth}}
@@ -7,6 +7,35 @@
 \hline
 \textbf{Start time:} & \texttt{<<.StartDate>>} \\
 \textbf{End time:} & \texttt{<<.EndDate>>} \\
+\textbf{Timezone:} & \texttt{<<.Timezone>>} \\
+\textbf{Roll-up Period:} & \texttt{<<.Group>>} \\
+\textbf{Units:} & \texttt{<<.Units>>} \\
+\textbf{Minimum speed (cutoff):} & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
+\textbf{Data Source:} & \texttt{<<.Source>>} \\
+\textbf{Radar Sensor:} & \texttt{OmniPreSense OPS243-A} \\
+\textbf{Radar Transmit Frequency:} & \texttt{24.125 GHz} \\
+\textbf{Radar Sample Rate:} & \texttt{20 kSPS} \\
+\textbf{Azimuth Field of View:} & \texttt{20°} \\
+\textbf{Elevation Field of View:} & \texttt{24°} \\
+<<if gt .CosineAngle 0.0>>
+\textbf{Cosine Error Angle:} & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
+\textbf{Cosine Error Factor:} & \texttt{<<printf "%.4f" .CosineFactor>>} \\
+<<end>>
+\hline
+\end{tabular}
+<<end>>
+
+<<define "survey_parameters_comparison">>
+\subsection*{Survey Parameters}
+
+\begin{tabular}{p{0.44\linewidth}p{0.52\linewidth}}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+\textbf{Primary start time (t1):} & \texttt{<<.StartDate>>} \\
+\textbf{Primary end time (t1):} & \texttt{<<.EndDate>>} \\
+\textbf{Comparison start time (t2):} & \texttt{<<.CompareStartDate>>} \\
+\textbf{Comparison end time (t2):} & \texttt{<<.CompareEndDate>>} \\
 \textbf{Timezone:} & \texttt{<<.Timezone>>} \\
 \textbf{Roll-up Period:} & \texttt{<<.Group>>} \\
 \textbf{Units:} & \texttt{<<.Units>>} \\

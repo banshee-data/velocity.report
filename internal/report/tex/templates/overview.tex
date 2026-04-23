@@ -1,13 +1,4 @@
-<<define "overview">>
-\section*{Velocity Overview}
-
-\begin{itemize}
-  \item \textbf{Location:} <<.Location>>
-  \item \textbf{Period:} <<.StartDate>> -- <<.EndDate>>
-  \item \textbf{Total observations:} <<.TotalCount>>
-  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
-\end{itemize}
-
+<<define "overview_key_metrics">>
 \subsection*{Key Metrics}
 \vspace{4pt}
 {\renewcommand{\arraystretch}{1.18}
@@ -19,8 +10,34 @@
 \end{tabular}
 \par}
 \vspace{8pt}
+<<end>>
 
-<<if .CompareStartDate>>
+<<define "overview_single">>
+\section*{Velocity Overview}
+
+\begin{itemize}
+  \item \textbf{Location:} <<.Location>>
+  \item \textbf{Period:} <<.StartDate>> -- <<.EndDate>>
+  \item \textbf{Total observations:} <<.TotalCount>>
+  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
+\end{itemize}
+
+<<template "overview_key_metrics" .>>
+<<end>>
+
+<<define "overview_comparison">>
+\section*{Velocity Overview}
+
+\begin{itemize}
+  \item \textbf{Location:} <<.Location>>
+  \item \textbf{Primary period (t1):} <<.StartDate>> -- <<.EndDate>>
+  \item \textbf{Comparison period (t2):} <<.CompareStartDate>> -- <<.CompareEndDate>>
+  \item \textbf{Total observations (t1):} <<.TotalCount>>
+  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
+\end{itemize}
+
+<<template "overview_key_metrics" .>>
+
 \subsection*{Comparison Summary}
 \vspace{4pt}
 {\ttfamily
@@ -45,6 +62,5 @@ Count & <<.TotalCount>> & <<.CompareCount>> & \\
 \includegraphics[width=\columnwidth]{<<.CompareChart>>}
 \caption{Speed distribution: primary vs comparison}
 \end{figure}
-<<end>>
 <<end>>
 <<end>>
