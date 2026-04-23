@@ -27,8 +27,6 @@
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
-./lib/stores/units';
-	import { getUnitLabel, type Unit } from '../lib/units';
 
 	let stats: RadarStats[] = [];
 	let config: Config = { units: 'mph', timezone: 'UTC' }; // default

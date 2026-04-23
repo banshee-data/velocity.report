@@ -1,4 +1,10 @@
-import { isDateRangeStale, STALENESS_THRESHOLD_MS, REPORT_SETTINGS_KEY } from './reportSettings';
+import {
+	DAY_PERIOD_TYPE,
+	isDateRangeStale,
+	normaliseStoredPeriodType,
+	REPORT_SETTINGS_KEY,
+	STALENESS_THRESHOLD_MS
+} from './reportSettings';
 
 describe('isDateRangeStale', () => {
 	afterEach(() => {
@@ -65,5 +71,24 @@ describe('constants', () => {
 
 	it('REPORT_SETTINGS_KEY is reportSettings', () => {
 		expect(REPORT_SETTINGS_KEY).toBe('reportSettings');
+	});
+});
+
+describe('normalizeStoredPeriodType', () => {
+	it('accepts a numeric PeriodType value', () => {
+		expect(normaliseStoredPeriodType(DAY_PERIOD_TYPE)).toBe(DAY_PERIOD_TYPE);
+	});
+
+	it('accepts a stringified enum value', () => {
+		expect(normaliseStoredPeriodType('10')).toBe(DAY_PERIOD_TYPE);
+	});
+
+	it('accepts the symbolic day code', () => {
+		expect(normaliseStoredPeriodType('day')).toBe(DAY_PERIOD_TYPE);
+	});
+
+	it('falls back to day for unsupported values', () => {
+		expect(normaliseStoredPeriodType('quarter')).toBe(DAY_PERIOD_TYPE);
+		expect(normaliseStoredPeriodType(999)).toBe(DAY_PERIOD_TYPE);
 	});
 });

@@ -15,8 +15,13 @@
 	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
-	import { isDateRangeStale, REPORT_SETTINGS_KEY } from '$lib/reportSettings';
-	import { paperSize, initializePaperSize } from '$lib/stores/paper';
+	import {
+		isDateRangeStale,
+		normaliseStoredPeriodType,
+		REPORT_SETTINGS_KEY,
+		type StoredReportSettings
+	} from '$lib/reportSettings';
+	import { initializePaperSize, paperSize } from '$lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
@@ -181,13 +186,21 @@
 				dateRange: {
 					from: dateRange.from?.toISOString(),
 					to: dateRange.to?.toISOString(),
-					periodType: dateRange.periodType,
+					periodType: normaliseStoredPeriodType(
+						dateRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					),
 					savedAt: now
 				},
 				compareRange: {
 					from: compareRange.from?.toISOString(),
 					to: compareRange.to?.toISOString(),
-					periodType: compareRange.periodType,
+					periodType: normaliseStoredPeriodType(
+						compareRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					),
 					savedAt: now
 				},
 				compareEnabled,
@@ -210,7 +223,7 @@
 			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
 			if (!saved) return;
 
-			const settings = JSON.parse(saved);
+			const settings = JSON.parse(saved) as StoredReportSettings;
 			const stale = isDateRangeStale(settings.dateRange?.savedAt);
 
 			// Restore date ranges only when fresh
@@ -218,7 +231,11 @@
 				dateRange = {
 					from: new Date(settings.dateRange.from),
 					to: new Date(settings.dateRange.to),
-					periodType: settings.dateRange.periodType ?? PeriodType.Day
+					periodType: normaliseStoredPeriodType(
+						settings.dateRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					)
 				};
 			}
 
@@ -226,18 +243,26 @@
 				compareRange = {
 					from: new Date(settings.compareRange.from),
 					to: new Date(settings.compareRange.to),
-					periodType: settings.compareRange.periodType ?? PeriodType.Day
+					periodType: normaliseStoredPeriodType(
+						settings.compareRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					)
 				};
 			}
 
 			// Restore other settings regardless of date staleness
-			if (settings.compareEnabled !== undefined) compareEnabled = settings.compareEnabled;
-			if (settings.compareSource) compareSource = settings.compareSource;
-			if (settings.group) group = settings.group;
-			if (settings.selectedSource) selectedSource = settings.selectedSource;
-			if (settings.minSpeed !== undefined) minSpeed = settings.minSpeed;
-			if (settings.maxSpeedCutoff !== undefined) maxSpeedCutoff = settings.maxSpeedCutoff;
-			if (settings.boundaryThreshold !== undefined) boundaryThreshold = settings.boundaryThreshold;
+			if (typeof settings.compareEnabled === 'boolean') compareEnabled = settings.compareEnabled;
+			if (typeof settings.compareSource === 'string') compareSource = settings.compareSource;
+			if (typeof settings.group === 'string') group = settings.group;
+			if (typeof settings.selectedSource === 'string') selectedSource = settings.selectedSource;
+			if (typeof settings.minSpeed === 'number') minSpeed = settings.minSpeed;
+			if (typeof settings.maxSpeedCutoff === 'number' || settings.maxSpeedCutoff === null) {
+				maxSpeedCutoff = settings.maxSpeedCutoff;
+			}
+			if (typeof settings.boundaryThreshold === 'number') {
+				boundaryThreshold = settings.boundaryThreshold;
+			}
 		} catch (e) {
 			console.warn('Could not load report settings:', e);
 		}
