@@ -151,6 +151,8 @@ help:
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
 	@echo "  log-go-tail-all      Tail most recent Go server log plus debug log"
+	@echo "  log-go-tail-all-color Tail Go server logs with age-based colouring"
+	@echo "  copilot-api-start    Start copilot-api proxy with age-based colouring"
 	@echo "  git-fs               Show the git files that differ from main"
 	@echo ""
 	@echo "DATA VISUALIZATION:"
@@ -1491,7 +1493,7 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: version-exact version-bump log-go-tail log-go-cat log-go-tail-all git-fs git-files
+.PHONY: version-exact version-bump log-go-tail log-go-cat log-go-tail-all log-go-tail-all-color copilot-api-start git-fs git-files
 
 version-exact:
 	@if [ -z "$(VER)" ]; then \
@@ -1568,6 +1570,37 @@ log-go-tail-all:
 		fi; \
 		sleep 2; \
 	done
+
+log-go-tail-all-color:
+	@# Age-coloured variant of log-go-tail-all — lines shift colour as they age
+	@if ! ls logs/velocity-[0-9]*.log >/dev/null 2>&1; then \
+		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
+	fi; \
+	prev_main=""; prev_debug=""; mainpid=""; debugpid=""; \
+	{ \
+		trap 'kill $$mainpid $$debugpid 2>/dev/null' INT TERM EXIT; \
+		while true; do \
+			main=$$(ls -1t logs/velocity-[0-9]*.log 2>/dev/null | head -n1); \
+			debug=$$(ls -1t logs/velocity-debug-*.log 2>/dev/null | head -n1); \
+			if [ "$$main" != "$$prev_main" ] && [ -n "$$main" ]; then \
+				[ -n "$$mainpid" ] && { kill $$mainpid 2>/dev/null; wait $$mainpid 2>/dev/null; echo "--- New main log detected ---"; }; \
+				echo "==> $$main"; \
+				tail -n 50 -f "$$main" & mainpid=$$!; \
+				prev_main="$$main"; \
+			fi; \
+			if [ "$$debug" != "$$prev_debug" ] && [ -n "$$debug" ]; then \
+				[ -n "$$debugpid" ] && { kill $$debugpid 2>/dev/null; wait $$debugpid 2>/dev/null; echo "--- New debug log detected ---"; }; \
+				echo "==> $$debug"; \
+				tail -n 50 -f "$$debug" & debugpid=$$!; \
+				prev_debug="$$debug"; \
+			fi; \
+			sleep 2; \
+		done; \
+	} | python3 scripts/age-color.py
+
+copilot-api-start:
+	@# Start copilot-api proxy server with age-based line colouring
+	copilot-api start | python3 scripts/age-color.py
 
 git-fs:
 	@git fetch origin main >/dev/null 2>&1 || true; \
