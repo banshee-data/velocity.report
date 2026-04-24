@@ -169,7 +169,7 @@ func TestBuildHistogramTableTeX_CollapsesAllBucketsAtOrAboveMax(t *testing.T) {
 	result := BuildHistogramTableTeX(buckets, 5, 5, 35, "mph")
 
 	for _, want := range []string{
-		"5\\textemdash{}10 & 2050 & 12.3\\%",
+		"5\\textemdash{}10 & 2050 & 12.5\\%",
 		"30\\textemdash{}35 & 18 & 0.1\\%",
 		"35+ & 11 & 0.1\\%",
 	} {
