@@ -175,9 +175,37 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// Embed font.
 	c.EmbedFont("Atkinson Hyperlegible", AtkinsonRegularBase64())
 
+	// Pre-compute day boundaries and decide whether x-axis labels need rotation.
+	// This must happen before layout so tickLabelBlock can be sized correctly.
+	boundaries := DayBoundaries(data.Points)
+	rotateXLabels := false
+	if len(data.Points) >= 2 {
+		span := data.Points[len(data.Points)-1].StartTime.Sub(data.Points[0].StartTime)
+		// Estimate label width based on the cadence format for this span.
+		var labelChars float64
+		switch {
+		case span <= 12*time.Hour:
+			labelChars = 5 // "15:04"
+		case span <= 7*24*time.Hour:
+			labelChars = 12 // "Jan 02 15:04"
+		default:
+			labelChars = 6 // "Jan 02"
+		}
+		estLabelWidthPx := labelChars * 0.7 * style.AxisTickFontPx
+		tentativePlotW := (0.93 - 0.07) * wPx
+		previewTicks := XTicks(data.Points, boundaries)
+		if len(previewTicks) > 1 {
+			tickSpacing := tentativePlotW / float64(len(previewTicks))
+			rotateXLabels = tickSpacing < estLabelWidthPx
+		}
+	}
+
 	// Layout. Leave ~7% on each side for y-axis tick labels and a tall
-	// enough bottom strip for two-line date/time tick labels plus the legend.
+	// enough bottom strip for date/time tick labels plus the legend.
 	tickLabelBlock := 2.6 * style.AxisTickFontPx // two-line labels
+	if rotateXLabels {
+		tickLabelBlock = 6.3 * style.AxisTickFontPx // rotated label vertical extent
+	}
 	legendBlock := style.LegendFontPx + 6
 	bottomMargin := tickLabelBlock + legendBlock + 4
 
@@ -192,8 +220,6 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	plotW := rightPx - leftPx
 	plotH := bottomPx - topPx
 	n := len(data.Points)
-
-	boundaries := DayBoundaries(data.Points)
 
 	// Compute speed and count ranges.
 	var maxSpeed float64
@@ -365,16 +391,23 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	c.BeginGroup(`class="x-axis"`)
 	for _, t := range ticks {
 		x := xOf(t.Index)
-		parts := strings.Split(t.Label, "\n")
-		for j, part := range parts {
-			y := bottomPx + style.AxisTickFontPx*(float64(j)+1) + 3
-			c.Text(x, y, part,
-				fmt.Sprintf(
-					`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="middle"`,
-					style.AxisTickFontPx))
-		}
-		// Small tick mark on the plot border.
 		c.Line(x, bottomPx, x, bottomPx+3, `stroke="black" stroke-width="0.5"`)
+		if rotateXLabels {
+			y := bottomPx + 6
+			c.Text(x, y, t.Label,
+				fmt.Sprintf(
+					`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`,
+					style.AxisTickFontPx, x, y))
+		} else {
+			parts := strings.Split(t.Label, "\n")
+			for j, part := range parts {
+				y := bottomPx + style.AxisTickFontPx*(float64(j)+1) + 3
+				c.Text(x, y, part,
+					fmt.Sprintf(
+						`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="middle"`,
+						style.AxisTickFontPx))
+			}
+		}
 	}
 	c.EndGroup()
 

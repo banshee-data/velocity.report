@@ -863,6 +863,9 @@ export function generateMapSvg(params: SvgParams): string {
 	<polygon points="${radarX.toFixed(1)},${radarY.toFixed(1)} ${leftX.toFixed(1)},${leftY.toFixed(1)} ${rightX.toFixed(1)},${rightY.toFixed(1)}" fill="#ef4444" fill-opacity="0.4" stroke="#ef4444" stroke-width="1"/>
 	<!-- Radar position marker -->
 	<circle cx="${radarX.toFixed(1)}" cy="${radarY.toFixed(1)}" r="${markerRadius.toFixed(1)}" fill="#3b82f6" stroke="white" stroke-width="2"/>
+	<!-- OSM attribution -->
+	<rect x="${svgWidth - 270}" y="${svgHeight - 22}" width="264" height="16" fill="white" fill-opacity="0.75" rx="2"/>
+	<text x="${svgWidth - 8}" y="${svgHeight - 8}" font-family="Arial, sans-serif" font-size="11" fill="#333333" text-anchor="end">© OpenStreetMap contributors</text>
 </svg>`;
 }
 
