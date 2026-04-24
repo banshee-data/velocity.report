@@ -71,7 +71,7 @@ func ApplyCountMask(pts []TimeSeriesPoint, threshold int) []TimeSeriesPoint {
 // XTicks generates duration-aware tick labels for the time-series X axis.
 // Tick cadence is chosen from the total span so the chart shows 6-10 labels
 // regardless of range length (per DESIGN.md §4.1).
-func XTicks(pts []TimeSeriesPoint, boundaries []int) []XTick {
+func XTicks(pts []TimeSeriesPoint) []XTick {
 	if len(pts) < 2 {
 		if len(pts) == 1 {
 			return []XTick{{Index: 0, Label: pts[0].StartTime.Format("Jan 02\n15:04")}}
@@ -175,6 +175,12 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// Embed font.
 	c.EmbedFont("Atkinson Hyperlegible", AtkinsonRegularBase64())
 
+	// Mask speed values for buckets below the missing-count threshold so
+	// low-sample periods render as gaps in the percentile lines. Count and
+	// StartTime are preserved; count bars, low-sample highlights, and hover
+	// tooltips continue to reflect the original (unmasked) data.
+	maskedPts := ApplyCountMask(data.Points, style.CountMissingThreshold)
+
 	// Pre-compute day boundaries and decide whether x-axis labels need rotation.
 	// This must happen before layout so tickLabelBlock can be sized correctly.
 	boundaries := DayBoundaries(data.Points)
@@ -193,7 +199,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		}
 		estLabelWidthPx := labelChars * 0.7 * style.AxisTickFontPx
 		tentativePlotW := (0.93 - 0.07) * wPx
-		previewTicks := XTicks(data.Points, boundaries)
+		previewTicks := XTicks(data.Points)
 		if len(previewTicks) > 1 {
 			tickSpacing := tentativePlotW / float64(len(previewTicks))
 			rotateXLabels = tickSpacing < estLabelWidthPx
@@ -311,8 +317,10 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.EndGroup()
 	}
 
-	// Percentile lines — one continuous polyline per series. NaN values
-	// (missing data) break the line; day boundaries do not.
+	// Percentile lines — one polyline per contiguous run of non-NaN samples.
+	// NaN values (missing data or low-sample buckets masked below
+	// CountMissingThreshold) break the line into separate segments. Day
+	// boundaries do not interrupt the line.
 	type seriesDef struct {
 		colour string
 		marker string // "triangle" "square" "circle" "x" or "" for no marker
@@ -337,23 +345,27 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 
 		c.BeginGroup(fmt.Sprintf(`class="series-%s"`, s.label))
 
-		// Build a single continuous polyline that skips NaN points without
-		// breaking. Gaps in data do not interrupt the line; day boundaries
-		// and low-sample indicators already communicate missing ranges.
-		var pts [][2]float64
-		for i := 0; i < n; i++ {
-			val := s.field(data.Points[i])
+		// Emit one polyline per contiguous run of non-NaN samples so missing
+		// or masked buckets produce visible gaps in the series.
+		var segment [][2]float64
+		flushSegment := func() {
+			if len(segment) > 1 {
+				c.Polyline(segment, lineAttrs)
+			}
+			segment = segment[:0]
+		}
+		for i := range n {
+			val := s.field(maskedPts[i])
 			if math.IsNaN(val) {
+				flushSegment()
 				continue
 			}
-			pts = append(pts, [2]float64{xOf(i), speedYOf(val)})
+			segment = append(segment, [2]float64{xOf(i), speedYOf(val)})
 		}
-		if len(pts) > 1 {
-			c.Polyline(pts, lineAttrs)
-		}
+		flushSegment()
 
-		// Markers.
-		for i, pt := range data.Points {
+		// Markers — skip masked/NaN positions so they match the line gaps.
+		for i, pt := range maskedPts {
 			val := s.field(pt)
 			if math.IsNaN(val) {
 				continue
@@ -387,7 +399,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 
 	// X-axis ticks.
-	ticks := XTicks(data.Points, boundaries)
+	ticks := XTicks(data.Points)
 	c.BeginGroup(`class="x-axis"`)
 	for _, t := range ticks {
 		x := xOf(t.Index)

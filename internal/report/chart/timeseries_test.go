@@ -138,6 +138,35 @@ func TestRenderTimeSeries_DayLines(t *testing.T) {
 	}
 }
 
+func TestRenderTimeSeries_LowSampleBreaksLine(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := makeTestPoints(8, start, time.Hour)
+	// Drop two interior buckets below CountMissingThreshold (default 5).
+	pts[3].Count = 2
+	pts[4].Count = 1
+
+	style := DefaultTimeSeriesStyle(PaperA4)
+	svg, err := RenderTimeSeries(TimeSeriesData{Points: pts, Units: "mph"}, style)
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+
+	// Four series × two segments (before/after the masked gap) = 8 polylines.
+	// Masking preserves Count, so count bars and hover tooltips remain honest.
+	got := strings.Count(string(svg), "<polyline")
+	if got < 8 {
+		t.Errorf("expected polyline segments split by masked gap, got %d polylines", got)
+	}
+}
+
+func TestXTicks_SignatureTakesOnlyPoints(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	ticks := XTicks(makeTestPoints(6, start, time.Hour))
+	if len(ticks) == 0 {
+		t.Error("XTicks returned no ticks for 6-point series")
+	}
+}
+
 func TestRenderTimeSeries_Empty(t *testing.T) {
 	data := TimeSeriesData{
 		Points: nil,
