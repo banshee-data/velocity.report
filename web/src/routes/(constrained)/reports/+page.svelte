@@ -15,6 +15,7 @@
 	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
+	import { buildReportRequest, DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE } from '$lib/reportRequests';
 	import {
 		areStoredReportSettingsFresh,
 		isDateRangeStale,
@@ -57,7 +58,6 @@
 	let minSpeed: number = 5;
 	let maxSpeedCutoff: number | null = null;
 	let boundaryThreshold: number = 5;
-	const histogramBucketSize = 5;
 
 	let generatingReport = false;
 	let reportMessage = '';
@@ -115,7 +115,7 @@
 					units: $displayUnits,
 					timezone: $displayTimezone,
 					source: selectedSource,
-					bucketSize: histogramBucketSize,
+					bucketSize: DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE,
 					max: maxSpeedCutoff ?? undefined,
 					minSpeed,
 					boundaryThreshold,
@@ -140,7 +140,7 @@
 					timezone: $displayTimezone,
 					source: selectedSource,
 					compareSource,
-					bucketSize: histogramBucketSize,
+					bucketSize: DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE,
 					max: maxSpeedCutoff ?? undefined,
 					minSpeed,
 					boundaryThreshold,
@@ -314,29 +314,30 @@
 		reportMetadata = null;
 
 		try {
-			const request = {
-				start_date: isoDate(dateRange.from),
-				end_date: isoDate(dateRange.to),
-				timezone: $displayTimezone,
-				units: $displayUnits,
-				group: group,
-				source: selectedSource,
-				min_speed: minSpeed,
-				hist_max: maxSpeedCutoff ?? undefined,
-				boundary_threshold: boundaryThreshold,
-				histogram: true,
-				hist_bucket_size: 5.0,
-				site_id: selectedSiteId,
-				paper_size: $paperSize
-			};
-
-			if (compareEnabled) {
-				Object.assign(request, {
-					compare_start_date: isoDate(compareRange.from),
-					compare_end_date: isoDate(compareRange.to),
-					compare_source: compareSource
-				});
-			}
+			const request = buildReportRequest(
+				{
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					timezone: $displayTimezone,
+					units: $displayUnits,
+					group,
+					source: selectedSource,
+					siteId: selectedSiteId,
+					paperSize: $paperSize
+				},
+				{
+					minSpeed,
+					maxSpeedCutoff,
+					boundaryThreshold
+				},
+				compareEnabled
+					? {
+							compareStartDate: isoDate(compareRange.from),
+							compareEndDate: isoDate(compareRange.to),
+							compareSource
+						}
+					: undefined
+			);
 
 			const response = await generateReport(request);
 			lastGeneratedReportId = response.report_id;

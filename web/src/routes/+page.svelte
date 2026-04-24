@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { isoDate } from '$lib/dateUtils';
+	import { buildReportRequest, resolveDashboardReportFilters } from '$lib/reportRequests';
 	import {
-		areStoredReportSettingsFresh,
 		isDateRangeStale,
 		parseStoredReportSettings,
 		REPORT_SETTINGS_KEY,
@@ -351,31 +351,24 @@
 			const savedSettings = parseStoredReportSettings(
 				browser ? localStorage.getItem(REPORT_SETTINGS_KEY) : null
 			);
-			const freshSettings = areStoredReportSettingsFresh(savedSettings) ? savedSettings : null;
-			const minSpeed = typeof freshSettings?.minSpeed === 'number' ? freshSettings.minSpeed : 5;
-			const maxSpeedCutoff =
-				typeof freshSettings?.maxSpeedCutoff === 'number' || freshSettings?.maxSpeedCutoff === null
-					? freshSettings.maxSpeedCutoff
-					: null;
-			const boundaryThreshold =
-				typeof freshSettings?.boundaryThreshold === 'number' ? freshSettings.boundaryThreshold : 5;
+			const filters = resolveDashboardReportFilters(savedSettings);
 
 			// Generate report and get report ID
-			const response = await generateReport({
-				start_date: isoDate(dateRange.from),
-				end_date: isoDate(dateRange.to),
-				timezone: $displayTimezone,
-				units: $displayUnits,
-				group: group,
-				source: selectedSource,
-				min_speed: minSpeed,
-				hist_max: maxSpeedCutoff ?? undefined,
-				boundary_threshold: boundaryThreshold,
-				histogram: true,
-				hist_bucket_size: 5.0,
-				site_id: selectedSiteId,
-				paper_size: $paperSize
-			});
+			const response = await generateReport(
+				buildReportRequest(
+					{
+						startDate: isoDate(dateRange.from),
+						endDate: isoDate(dateRange.to),
+						timezone: $displayTimezone,
+						units: $displayUnits,
+						group,
+						source: selectedSource,
+						siteId: selectedSiteId,
+						paperSize: $paperSize
+					},
+					filters
+				)
+			);
 
 			lastGeneratedReportId = response.report_id;
 
