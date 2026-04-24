@@ -266,8 +266,8 @@ func TestBuildStatRows(t *testing.T) {
 	}
 
 	// First row: normal values.
-	if rows[0].StartTime != "3/15 13:00" {
-		t.Errorf("row 0 StartTime = %q, want %q", rows[0].StartTime, "3/15 13:00")
+	if rows[0].StartTime != "2024-03-15 13:00" {
+		t.Errorf("row 0 StartTime = %q, want %q", rows[0].StartTime, "2024-03-15 13:00")
 	}
 	if rows[0].Count != 150 {
 		t.Errorf("row 0 Count = %d, want 150", rows[0].Count)

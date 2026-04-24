@@ -54,6 +54,8 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 	hPx := style.HeightMM * pxPerMM
 
 	c := NewCanvas(style.WidthMM, style.HeightMM)
+	c.EmbedFont("Atkinson Hyperlegible", AtkinsonRegularBase64())
+	c.BeginGroup(`font-family="Atkinson Hyperlegible"`)
 
 	// Layout margins (fraction of total).
 	leftM := 0.15 * wPx
@@ -129,6 +131,7 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 		fmt.Sprintf("Speed (%s)", data.Units),
 		fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisLabelFontPx))
 
+	c.EndGroup()
 	return c.Bytes(), nil
 }
 
@@ -172,6 +175,8 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	wPx := style.WidthMM * pxPerMM
 	hPx := style.HeightMM * pxPerMM
 	c := NewCanvas(style.WidthMM, style.HeightMM)
+	c.EmbedFont("Atkinson Hyperlegible", AtkinsonRegularBase64())
+	c.BeginGroup(`font-family="Atkinson Hyperlegible"`)
 
 	leftM := 0.15 * wPx
 	rightM := 0.95 * wPx
@@ -260,14 +265,16 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	c.Rect(legX+80, legY, 10, 10, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP98))
 	c.Text(legX+94, legY+9, compareLabel, fmt.Sprintf(`font-size="%.1f"`, style.LegendFontPx))
 
+	c.EndGroup()
 	return c.Bytes(), nil
 }
 
 func renderNoData(style ChartStyle) []byte {
 	c := NewCanvas(style.WidthMM, style.HeightMM)
+	c.EmbedFont("Atkinson Hyperlegible", AtkinsonRegularBase64())
 	wPx := style.WidthMM * pxPerMM
 	hPx := style.HeightMM * pxPerMM
 	c.Text(wPx/2, hPx/2, "No data",
-		fmt.Sprintf(`font-size="%.1f" text-anchor="middle" fill="gray"`, style.AxisLabelFontPx))
+		fmt.Sprintf(`font-size="%.1f" text-anchor="middle" fill="gray" font-family="Atkinson Hyperlegible"`, style.AxisLabelFontPx))
 	return c.Bytes()
 }

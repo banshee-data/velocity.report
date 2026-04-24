@@ -90,7 +90,7 @@ func TestFormatTime(t *testing.T) {
 	// 2024-03-15 20:30 UTC = 2024-03-15 13:30 PDT
 	ts := time.Date(2024, 3, 15, 20, 30, 0, 0, time.UTC)
 	got := FormatTime(ts, loc)
-	want := "3/15 13:30"
+	want := "2024-03-15 13:30"
 	if got != want {
 		t.Errorf("FormatTime() = %q, want %q", got, want)
 	}
@@ -99,7 +99,7 @@ func TestFormatTime(t *testing.T) {
 func TestFormatTime_NilLocation(t *testing.T) {
 	ts := time.Date(2024, 6, 1, 8, 5, 0, 0, time.UTC)
 	got := FormatTime(ts, nil)
-	want := "6/1 08:05"
+	want := "2024-06-01 08:05"
 	if got != want {
 		t.Errorf("FormatTime(nil loc) = %q, want %q", got, want)
 	}

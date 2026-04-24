@@ -60,12 +60,12 @@ func FormatPercent(v float64) string {
 }
 
 // FormatTime formats a time for the stats table.
-// Uses "1/2 15:04" format (no zero-padding on month/day).
+// Uses "2006-01-02 15:04" ISO format for consistency.
 func FormatTime(t time.Time, loc *time.Location) string {
 	if loc != nil {
 		t = t.In(loc)
 	}
-	return fmt.Sprintf("%d/%d %s", t.Month(), t.Day(), t.Format("15:04"))
+	return t.Format("2006-01-02 15:04")
 }
 
 // FormatDeltaPercent formats the percentage change from primary to compare.
@@ -245,7 +245,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	}
 
 	var b strings.Builder
-	b.WriteString(`\begin{tabular}{lrr}` + "\n")
+	b.WriteString(`\begin{tabular}{rrr}` + "\n")
 	b.WriteString(`\hline` + "\n")
 	b.WriteString(`\textbf{Bucket (` + EscapeTeX(units) + `)} & \textbf{Count} & \textbf{Percent} \\` + "\n")
 	b.WriteString(`\hline` + "\n")
@@ -268,7 +268,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 			aboveCount += count
 		default:
 			rows = append(rows, displayRow{
-				label: fmt.Sprintf("%.0f--%.0f", k, k+bucketSz),
+				label: fmt.Sprintf(`%.0f\textemdash{}%.0f`, k, k+bucketSz),
 				count: count,
 			})
 		}

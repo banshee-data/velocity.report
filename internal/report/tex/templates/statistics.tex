@@ -14,20 +14,22 @@
 <<if .StatRows>>
 \subsection*{Detailed Data}
 \vspace{4pt}
-{\ttfamily\footnotesize
+{\ttfamily\scriptsize
 \renewcommand{\arraystretch}{1.12}
 \setlength{\tabcolsep}{3pt}
+\rowcolors{2}{black!5}{white}
 \tablehead{%
   \hline
-  \textbf{Time} & \textbf{Count} & \textbf{P50} & \textbf{P85} & \textbf{P98} & \textbf{Max} \\
+  {\sffamily\bfseries\footnotesize Time} & {\sffamily\bfseries\footnotesize Count} & {\sffamily\bfseries\footnotesize P50} & {\sffamily\bfseries\footnotesize P85} & {\sffamily\bfseries\footnotesize P98} & {\sffamily\bfseries\footnotesize Max} \\
   \hline
 }
 \tabletail{\hline}
-\begin{supertabular}{lrrrrr}
+\begin{supertabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}
 <<range .StatRows>>
 <<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>> \\
 <<end>>
 \end{supertabular}
+\rowcolors{0}{}{}
 \par
 }
 <<end>>
