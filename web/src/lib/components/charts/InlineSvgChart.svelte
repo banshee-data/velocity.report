@@ -70,6 +70,13 @@
 	>
 		{#if svg}
 			<div class:chart-faded={loading}>
+				<!--
+					Deferred to v0.5.2 (BACKLOG.md, PR #455 comment 3139975818):
+					replace {@html} with <img src> / <object data> or sanitise on
+					injection. Safe today: same-origin only, server-rendered chart
+					SVGs with no user-controlled script/handler attributes.
+				-->
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html svg}
 			</div>
 		{/if}

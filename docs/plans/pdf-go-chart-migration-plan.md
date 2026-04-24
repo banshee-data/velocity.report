@@ -700,13 +700,38 @@ Current code status: implemented as `cmd/radar/pdf.go`; this plan's original tar
 
 The following items emerged during Phase 5 implementation. They are scoped for future branches.
 
-| Item                                     | Notes                                                                                                                                                                              |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Output directory path**                | `getPDFGeneratorDir()` still defaults to `/opt/velocity-report/tools/pdf-generator/`. Rename to `/opt/velocity-report/reports/` and update stage 02 to match.                      |
-| **`python3-serial` removal**             | The RS-232 HAT driver (`python3-serial`) is the last Python package in the image. Evaluate a Go serial library (e.g. `go.bug.st/serial`) to remove Python entirely from the image. |
-| **8.11 single-survey drift**             | No Python single-survey `.tex` file captured for comparison. Run a single-survey Python build against the Clarendon fixture, save output, then diff against Go golden.             |
-| **v0.6 — delete `tools/pdf-generator/`** | Remove the deprecated Python generator directory from the repo. Update all remaining references in docs.                                                                           |
-| **Startup `rsvg-convert` check**         | Q4 resolution called for a startup check + mini-PDF test when `rsvg-convert` is missing. Not yet implemented.                                                                      |
+| Item                                                  | Notes                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Output directory path**                             | `getPDFGeneratorDir()` still defaults to `/opt/velocity-report/tools/pdf-generator/`. Rename to `/opt/velocity-report/reports/` and update stage 02 to match.                                                                                                                                                                                              |
+| **`python3-serial` removal**                          | The RS-232 HAT driver (`python3-serial`) is the last Python package in the image. Evaluate a Go serial library (e.g. `go.bug.st/serial`) to remove Python entirely from the image.                                                                                                                                                                         |
+| **8.11 single-survey drift**                          | No Python single-survey `.tex` file captured for comparison. Run a single-survey Python build against the Clarendon fixture, save output, then diff against Go golden.                                                                                                                                                                                     |
+| **v0.6 — delete `tools/pdf-generator/`**              | Remove the deprecated Python generator directory from the repo. Update all remaining references in docs.                                                                                                                                                                                                                                                   |
+| **Startup `rsvg-convert` check**                      | Q4 resolution called for a startup check + mini-PDF test when `rsvg-convert` is missing. Not yet implemented.                                                                                                                                                                                                                                              |
+| **v0.5.2 — `InlineSvgChart` SVG injection hardening** | `InlineSvgChart.svelte` currently injects fetched SVGs via `{@html svg}`. Same-origin today and the server renders deterministic SVGs with no user-controlled scripts or event handlers, but the sink is flagged by `svelte/no-at-html-tags` and would become an XSS vector the moment any rendered SVG text derived from user input. See checklist below. |
+
+### v0.5.2 — `InlineSvgChart` SVG injection hardening
+
+Follow-up for PR #455 review comment 3139975818.
+
+- [ ] Audit every caller of `/api/charts/*` and confirm no user-supplied string
+      ever flows into chart SVG text (labels, annotations, tooltips). Document
+      the audit trail alongside the refactor decision.
+- [ ] Decide between two options:
+  - **Option A — `<img src={url}>` / `<object data={url}>`:** browser treats
+    the response as an opaque SVG document, blocks same-origin script
+    execution inside the image context, and removes the `{@html}` sink
+    entirely. Costs: loses inline CSS scaling behaviour and the current
+    fetch/cache strategy; blob URL plumbing needed for the preview
+    freshness timestamp (`_ts=`).
+  - **Option B — sanitise on injection:** keep `{@html}` but strip
+    `<script>` elements and `on*` event handler attributes (e.g. DOMPurify
+    with an SVG profile) before assigning to `svg`. Costs: new runtime
+    dependency; ongoing maintenance when sanitiser defaults shift.
+- [ ] Land the refactor under a single PR that removes the
+      `eslint-disable-next-line svelte/no-at-html-tags` marker added alongside
+      this deferral.
+- [ ] Regression test: a fetched SVG containing `<script>alert(1)</script>`
+      must not execute in either branch after the refactor.
 
 ---
 
