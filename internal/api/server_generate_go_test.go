@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/banshee-data/velocity.report/internal/report"
 )
 
 // TestGenerateReport_RequiresTools tests the Go PDF report pipeline.
@@ -316,6 +314,3 @@ fi
 }
 
 // seedChartTestData is defined in server_charts_test.go and shared here.
-
-// Ensure report package import is used (Config type referenced in TestBuildReportConfig_FieldMapping).
-var _ report.Config

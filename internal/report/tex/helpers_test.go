@@ -153,6 +153,38 @@ func TestBuildHistogramTableTeX_Empty(t *testing.T) {
 	}
 }
 
+func TestBuildHistogramTableTeX_CollapsesAllBucketsAtOrAboveMax(t *testing.T) {
+	buckets := map[float64]int64{
+		5:  2050,
+		10: 3387,
+		15: 7143,
+		20: 3432,
+		25: 390,
+		30: 18,
+		35: 5,
+		40: 5,
+		45: 1,
+	}
+
+	result := BuildHistogramTableTeX(buckets, 5, 5, 35, "mph")
+
+	for _, want := range []string{
+		"5\\textemdash{}10 & 2050 & 12.3\\%",
+		"30\\textemdash{}35 & 18 & 0.1\\%",
+		"35+ & 11 & 0.1\\%",
+	} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("expected collapsed histogram row %q in %q", want, result)
+		}
+	}
+
+	for _, unwanted := range []string{"35\\textemdash{}40", "40\\textemdash{}45", "45\\textemdash{}50"} {
+		if strings.Contains(result, unwanted) {
+			t.Fatalf("did not expect uncapped bucket row %q in %q", unwanted, result)
+		}
+	}
+}
+
 func TestFormatDeltaPercent(t *testing.T) {
 	tests := []struct {
 		primary, compare float64
