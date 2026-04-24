@@ -7,7 +7,7 @@
   \setlength{\leftmargini}{10pt}
   \item \textbf{Site:} <<.Location>>
   \item \textbf{Period:} <<.StartDate>> \textemdash{} <<.EndDate>>
-  \item \textbf{Total vehicle count:} <<.TotalCountFormatted>>
+  \item \textbf{Total vehicle count:}<<if .TotalCountFormatted>> <<.TotalCountFormatted>><<end>>
   \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
 \end{itemize}
 
@@ -45,7 +45,7 @@
   \item \textbf{Site:} <<.Location>>
   \item \textbf{Primary period (t1):} <<.StartDate>> \textemdash{} <<.EndDate>>
   \item \textbf{Comparison period (t2):} <<.CompareStartDate>> \textemdash{} <<.CompareEndDate>>
-  \item \textbf{Total vehicle count:} <<.CombinedCountFormatted>>
+  \item \textbf{Total vehicle count:}<<if .CombinedCountFormatted>> <<.CombinedCountFormatted>><<end>>
 \end{itemize}
 
 \subsection*{Key Traffic Speed Metrics}

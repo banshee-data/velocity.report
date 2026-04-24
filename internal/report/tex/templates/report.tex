@@ -8,13 +8,13 @@
   \begin{center}
   {\huge\bfseries <<.Location>>\par}
   \vspace{0.1cm}
-  <<if or .Surveyor .Contact>>
+<<- if or .Surveyor .Contact>>
   {\large
   <<if .Surveyor>>Surveyor: \textit{<<.Surveyor>>}<<end>>
   <<if and .Surveyor .Contact>>\ \textbullet\ <<end>>
   <<if .Contact>>Contact: \href{mailto:<<.Contact>>}{<<.Contact>>}<<end>>
   \par}
-  <<end>>
+<<- end>>
   {\normalsize <<template "display_period_range" .>>\par}
   \end{center}
   \vspace{6pt}
