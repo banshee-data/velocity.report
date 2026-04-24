@@ -51,12 +51,12 @@ The two sensors are complementary. Radar provides Doppler-accurate speed.
 LiDAR provides geometry, object identity, and track continuity.
 Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 
-| Component            | Language            | Purpose                                                                         |
-| -------------------- | ------------------- | ------------------------------------------------------------------------------- |
-| **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API                         |
-| **PDF generator**    | Python + LaTeX      | Professional speed reports with charts, statistics, and formatting (deprecated) |
-| **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards                         |
-| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay                     |
+| Component            | Language            | Purpose                                                            |
+| -------------------- | ------------------- | ------------------------------------------------------------------ |
+| **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
+| **PDF generator**    | Go + XeLaTeX        | Professional speed reports with charts, statistics, and formatting |
+| **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
+| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
 
 ### Design principles
 
@@ -313,44 +313,38 @@ see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
   - HTTP API (JSON over port 8080, HTTPS via nginx on port 443)
   - SQLite database writes
 
-### Python PDF generator (deprecated)
+### Go PDF report pipeline
 
-**Location**: `/tools/pdf-generator/`
+**Location**: `internal/report/`
 
-**Purpose**: Generate professional PDF reports from sensor data.
-Deprecated: PDF generation is moving into the Go server.
+**Purpose**: Generate professional PDF reports from sensor data directly in Go.
+Invoked via `POST /api/generate_report` or `velocity-report pdf --config cfg.json`.
 
-**Key Modules**:
+**Key Packages**:
 
-- **`pdf_generator/cli/`** - Command-line tools
-  - `create_config.py` - Interactive config generator
-  - `demo.py` - Interactive demo/test tool
+- **`internal/report/`** — `Generate()` orchestrator: DB queries, chart rendering, TeX assembly, xelatex compilation
+- **`internal/report/chart/`** — Direct SVG generation for time-series, histogram, and comparison charts
+- **`internal/report/tex/`** — `text/template`-based LaTeX assembly with embedded `.tex` templates
 
-- **`pdf_generator/core/`** - Core functionality
-  - `api_client.py` - HTTP API client
-  - `chart_builder.py` - Matplotlib chart generation
-  - `table_builders.py` - LaTeX table generation
-  - `document_builder.py` - LaTeX document assembly
-  - `date_parser.py` - Date/timezone parsing
-  - `dependency_checker.py` - System requirements validation
-  - `map_utils.py` - Map integration utilities
-
-- **`pdf_generator/tests/`** - Test suite
-  - Comprehensive test coverage
-  - pytest + pytest-cov framework
-
-**Runtime**: Command-line tool, invoked on-demand
+**Runtime**: In-process within the Go server; no subprocess or Python interpreter
 
 **Communication**:
 
-- **Input**: JSON config file, Go Server HTTP API
-- **Output**: PDF files (via LaTeX → XeLaTeX → PDF)
+- **Input**: `report.Config` struct (populated by API handler from HTTP request)
+- **Output**: PDF + ZIP sources archive via `report.Result{PDFPath, ZIPPath}`
 
-**Dependencies**:
+**Dependencies** (external binaries):
 
-- Python 3.9+
-- LaTeX distribution (XeLaTeX)
-- matplotlib, PyLaTeX, requests
+- `xelatex` — TeX compilation (vendored minimal TeX Live tree in `/opt/velocity-report/texlive`)
+- `rsvg-convert` — SVG → PDF conversion for chart figures (`librsvg2-bin`)
+
+### Python PDF generator (deprecated — retained for reference)
+
+**Location**: `tools/pdf-generator/` **Status**: Deprecated; removed from deployed images in v0.5.
+
+The Python pipeline (matplotlib charts, PyLaTeX document assembly) is superseded by the Go
+report pipeline above. The directory is retained in the repository until v0.6.
+See `tools/pdf-generator/README.md` for the deprecation notice.
 
 ### Web frontend
 
@@ -785,7 +779,7 @@ Synthetic Mode (Testing):
 - WAL mode for concurrent reads during writes
 - Subsecond timestamp precision (DOUBLE type)
 
-### Go server ↔ Python PDF generator (deprecated)
+### Go server ↔ Go PDF report pipeline
 
 **Interface**: HTTP REST API (JSON)
 
@@ -1105,8 +1099,8 @@ Web Development:
 | --------------------------------- | ------------ | ------------ |
 | Radar vehicle detection (OPS243A) | Production   | Go server    |
 | Real-time speed dashboard         | Production   | Svelte web   |
-| Professional PDF reports          | Deprecated   | Python/LaTeX |
-| Comparison reports (before/after) | Deprecated   | Go + Python  |
+| Professional PDF reports          | Production   | Go + XeLaTeX |
+| Comparison reports (before/after) | Production   | Go + XeLaTeX |
 | Site configuration (SCD Type 6)   | Production   | Go + SQLite  |
 | LiDAR background subtraction      | Experimental | Go server    |
 | LiDAR foreground tracking         | Experimental | Go server    |
@@ -1135,7 +1129,7 @@ and rule-based classification, all tuneable and inspectable end to end.
 | L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0) |
 | L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented |
 | L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented |
-| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF (deprecated)              | ✅ Implemented |
+| L10   | Clients         | macOS visualiser (Metal), Svelte frontend                                       | ✅ Implemented |
 
 Canonical layer reference:
 [LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md)
@@ -1161,13 +1155,13 @@ Canonical layer reference:
 - **CPU**: <5% on Raspberry Pi 4 (idle), <20% during aggregation
 - **Storage**: ~1MB per 10,000 readings (compressed)
 
-### Python PDF generator (deprecated)
+### Go PDF report pipeline
 
 - **Execution Time**:
-  - Config generation: <1 second
-  - PDF generation: 10-30 seconds (depends on data volume)
-  - LaTeX compilation: 3-5 seconds
-- **Memory**: ~200MB peak (matplotlib rendering)
+  - DB queries + SVG chart rendering: <2 seconds
+  - XeLaTeX compilation (two passes): 3-8 seconds (depends on table size)
+  - Total end-to-end: 5-10 seconds
+- **Memory**: ~30MB peak (no Python interpreter or matplotlib overhead)
 - **Disk**: ~1MB per PDF, ~5MB temp files during generation
 
 ### Web frontend

@@ -43,7 +43,7 @@ help:
 	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
-	@echo "  install-python       Set up Python PDF generator (venv + deps)"
+	@echo "  install-python       Set up Python PDF generator venv (deprecated — local dev only)"
 	@echo "  build-texlive-minimal Build local minimal TeX tree for production mode"
 	@echo "  build-tex-fmt        Rebuild velocity-report.fmt in local minimal TeX tree"
 	@echo "  install-texlive-minimal Install local minimal TeX tree to /opt/velocity-report"
@@ -1286,7 +1286,8 @@ lint-web:
 	fi
 
 # =============================================================================
-# PDF GENERATOR
+# PDF GENERATOR (deprecated — retained for local dev; production uses Go pipeline)
+# Report generation: POST /api/generate_report or `velocity-report pdf --config cfg.json`
 # =============================================================================
 
 .PHONY: pdf-check-latex-parity pdf-test validate-tex-minimal pdf-report pdf-config pdf-demo pdf clean-python
