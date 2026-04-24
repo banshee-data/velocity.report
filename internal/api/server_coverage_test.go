@@ -1451,14 +1451,14 @@ func TestHandleTimeline_ValidRequest(t *testing.T) {
 	}
 }
 
-// TestGenerateReport_FullFlowCommandFails exercises the generateReport code path
-// from site creation through config building and python command execution failure.
-// This covers defaults, map fields, compare dates, and command execution error.
-func TestGenerateReport_FullFlowCommandFails(t *testing.T) {
+// TestGenerateReport_FullFlowGoPath exercises the generateReport code path
+// from site creation through config building with map fields and compare dates.
+// Verifies the Go pipeline is invoked and no Python exec occurs.
+func TestGenerateReport_FullFlowGoPath(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Create a site with map fields populated to exercise lines 1006-1027
+	// Create a site with map fields populated
 	lat := 51.5
 	lng := -0.1
 	angle := 45.0
@@ -1494,17 +1494,6 @@ func TestGenerateReport_FullFlowCommandFails(t *testing.T) {
 		t.Fatalf("create config period: %v", err)
 	}
 
-	// Set PDF_GENERATOR_PYTHON to a failing command
-	oldPy := os.Getenv("PDF_GENERATOR_PYTHON")
-	os.Setenv("PDF_GENERATOR_PYTHON", "/usr/bin/false")
-	defer func() {
-		if oldPy == "" {
-			os.Unsetenv("PDF_GENERATOR_PYTHON")
-		} else {
-			os.Setenv("PDF_GENERATOR_PYTHON", oldPy)
-		}
-	}()
-
 	body, _ := json.Marshal(map[string]interface{}{
 		"start_date":         "2025-01-01",
 		"end_date":           "2025-01-31",
@@ -1516,14 +1505,24 @@ func TestGenerateReport_FullFlowCommandFails(t *testing.T) {
 	w := httptest.NewRecorder()
 	server.generateReport(w, req)
 
-	// Should fail at command execution
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 from failed command, got %d: %s", w.Code, w.Body.String())
+	// Must not contain Python exec markers.
+	respBody := w.Body.String()
+	pythonMarkers := []string{"pdf_generator", "python3", "No module named"}
+	for _, m := range pythonMarkers {
+		if bytes.Contains([]byte(respBody), []byte(m)) {
+			t.Errorf("response contains Python marker %q: %s", m, respBody)
+		}
+	}
+	// Accept 200 (tools installed) or 500 (Go pipeline tool missing).
+	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
+		t.Errorf("unexpected status %d: %s", w.Code, respBody)
 	}
 }
 
 // TestGenerateReport_DefaultSiteFields exercises the generateReport code path
 // where site has empty location/surveyor/contact to trigger the default values.
+// With Python removed, the Go pipeline is always invoked; we verify no Python
+// markers appear and the handler reaches the Go pipeline.
 func TestGenerateReport_DefaultSiteFields(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
@@ -1548,16 +1547,6 @@ func TestGenerateReport_DefaultSiteFields(t *testing.T) {
 		t.Fatalf("create config period: %v", err)
 	}
 
-	oldPy := os.Getenv("PDF_GENERATOR_PYTHON")
-	os.Setenv("PDF_GENERATOR_PYTHON", "/usr/bin/false")
-	defer func() {
-		if oldPy == "" {
-			os.Unsetenv("PDF_GENERATOR_PYTHON")
-		} else {
-			os.Setenv("PDF_GENERATOR_PYTHON", oldPy)
-		}
-	}()
-
 	body, _ := json.Marshal(map[string]interface{}{
 		"start_date": "2025-01-01",
 		"end_date":   "2025-01-31",
@@ -1567,8 +1556,17 @@ func TestGenerateReport_DefaultSiteFields(t *testing.T) {
 	w := httptest.NewRecorder()
 	server.generateReport(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500, got %d: %s", w.Code, w.Body.String())
+	respBody := w.Body.String()
+	// Must not contain Python exec markers.
+	pythonMarkers := []string{"pdf_generator", "python3", "No module named"}
+	for _, m := range pythonMarkers {
+		if bytes.Contains([]byte(respBody), []byte(m)) {
+			t.Errorf("response contains Python marker %q: %s", m, respBody)
+		}
+	}
+	// Accept 200 (tools installed) or 500 (Go pipeline tool missing).
+	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
+		t.Errorf("unexpected status %d: %s", w.Code, respBody)
 	}
 }
 
@@ -1791,55 +1789,6 @@ func TestHandleSiteConfigPeriods_DeleteNotAllowed(t *testing.T) {
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Expected 405, got %d", w.Code)
-	}
-}
-
-// TestGenerateReport_PythonDiscovery exercises the python binary discovery path
-// in generateReport when PDF_GENERATOR_PYTHON is not set.
-func TestGenerateReport_PythonDiscovery(t *testing.T) {
-	server, dbInst := setupTestServer(t)
-	defer cleanupTestServer(t, dbInst)
-
-	site := &db.Site{
-		Name:     "Discovery Site",
-		Location: "Loc",
-		Surveyor: "S",
-		Contact:  "C",
-	}
-	if err := dbInst.CreateSite(context.Background(), site); err != nil {
-		t.Fatalf("create site: %v", err)
-	}
-	notes := "test"
-	if err := dbInst.CreateSiteConfigPeriod(&db.SiteConfigPeriod{
-		SiteID:             site.ID,
-		EffectiveStartUnix: 0,
-		IsActive:           true,
-		Notes:              &notes,
-	}); err != nil {
-		t.Fatalf("create config period: %v", err)
-	}
-
-	// Clear PDF_GENERATOR_PYTHON to exercise the discovery code path
-	oldPy := os.Getenv("PDF_GENERATOR_PYTHON")
-	os.Unsetenv("PDF_GENERATOR_PYTHON")
-	defer func() {
-		if oldPy != "" {
-			os.Setenv("PDF_GENERATOR_PYTHON", oldPy)
-		}
-	}()
-
-	body, _ := json.Marshal(map[string]interface{}{
-		"start_date": "2025-01-01",
-		"end_date":   "2025-01-31",
-		"site_id":    site.ID,
-	})
-	req := httptest.NewRequest(http.MethodPost, "/api/generate-report", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	server.generateReport(w, req)
-
-	// Will fail at PDF generation (no data) but exercises the path discovery code
-	if w.Code == http.StatusOK {
-		t.Error("Expected non-200 status from report generation without data")
 	}
 }
 
