@@ -314,8 +314,8 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		SpeedLimit:  cfg.SpeedLimit,
 		Description: tex.EscapeTeX(cfg.SiteDescription),
 
-		StartDate: startTime.Format("2 January 2006"),
-		EndDate:   endTime.Format("2 January 2006"),
+		StartDate: startTime.Format("2006-01-02"),
+		EndDate:   endTime.Format("2006-01-02"),
 		Timezone:  tex.EscapeTeX(cfg.Timezone),
 		Units:     tex.EscapeTeX(cfg.Units),
 
@@ -541,8 +541,8 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 	}
 
 	cd := &comparisonData{
-		startDate: cs.Format("2 January 2006"),
-		endDate:   ce.Format("2 January 2006"),
+		startDate: cs.Format("2006-01-02"),
+		endDate:   ce.Format("2006-01-02"),
 		startTime: cs,
 		endTime:   ce,
 		histogram: summaryResult.Histogram,

@@ -12,8 +12,8 @@ import (
 func minimalTemplateData() TemplateData {
 	return TemplateData{
 		Location:   "Test Location",
-		StartDate:  "1 Jan 2024",
-		EndDate:    "31 Jan 2024",
+		StartDate:  "2024-01-01",
+		EndDate:    "2024-01-31",
 		Timezone:   "UTC",
 		Units:      "mph",
 		P50:        "25.00",
@@ -132,8 +132,8 @@ func TestRenderTeX_ConditionalComparison(t *testing.T) {
 
 func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	data := minimalTemplateData()
-	data.CompareStartDate = "1 Feb 2024"
-	data.CompareEndDate = "28 Feb 2024"
+	data.CompareStartDate = "2024-02-01"
+	data.CompareEndDate = "2024-02-28"
 	data.CompareP50 = "26.00"
 	data.CompareP85 = "31.00"
 	data.CompareP98 = "36.00"
@@ -150,14 +150,14 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	if !strings.Contains(s, `Period t1`) {
 		t.Error("comparison section should be present when CompareStartDate is set")
 	}
-	if !strings.Contains(s, `\item \textbf{Primary period (t1):} 1 Jan 2024 -- 31 Jan 2024`) {
+	if !strings.Contains(s, `\item \textbf{Primary period (t1):} 2024-01-01 \textemdash{} 2024-01-31`) {
 		t.Error("comparison report should render the comparison period overview module")
 	}
 	// Comparison survey parameters: Start time (t2) row (bfseries applied via column spec).
-	if !strings.Contains(s, `Start time (t2): & \texttt{1 Feb 2024}`) {
+	if !strings.Contains(s, `Start time (t2): & \texttt{2024-02-01}`) {
 		t.Error("comparison report should render the comparison survey-parameters module")
 	}
-	if !strings.Contains(s, `\fancyfoot[L]{\small 1 Jan 2024 -- 31 Jan 2024 vs 1 Feb 2024 -- 28 Feb 2024}`) {
+	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 \textemdash{} 2024-01-31 vs 2024-02-01 \textemdash{} 2024-02-28}`) {
 		t.Error("comparison report should use the combined footer period range")
 	}
 }
@@ -171,19 +171,19 @@ func TestRenderTeX_SingleReportUsesSinglePeriodModule(t *testing.T) {
 	}
 
 	s := string(out)
-	if !strings.Contains(s, `\item \textbf{Period:} 1 Jan 2024 -- 31 Jan 2024`) {
+	if !strings.Contains(s, `\item \textbf{Period:} 2024-01-01 \textemdash{} 2024-01-31`) {
 		t.Error("single report should render the single-period overview module")
 	}
 	if strings.Contains(s, `\item \textbf{Primary period (t1):}`) {
 		t.Error("single report unexpectedly rendered the comparison overview module")
 	}
-	if !strings.Contains(s, `Start time: & \texttt{1 Jan 2024}`) {
+	if !strings.Contains(s, `Start time: & \texttt{2024-01-01}`) {
 		t.Error("single report should render the single survey-parameters module")
 	}
 	if strings.Contains(s, `Start time (t2):`) {
 		t.Error("single report unexpectedly rendered the comparison survey-parameters module")
 	}
-	if !strings.Contains(s, `\fancyfoot[L]{\small 1 Jan 2024 -- 31 Jan 2024}`) {
+	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 \textemdash{} 2024-01-31}`) {
 		t.Error("single report should keep the primary-period footer range")
 	}
 }
