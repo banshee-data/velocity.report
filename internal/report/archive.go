@@ -4,20 +4,35 @@ import (
 	"archive/zip"
 	"bytes"
 	"io"
+	"maps"
 	"os"
+	"sort"
 )
 
+// sortedKeys returns the keys of a string-keyed map in lexicographic
+// order. Used to make ZIP entry order deterministic across runs.
+func sortedKeys(m map[string][]byte) []string {
+	names := make([]string, 0, len(m))
+	for name := range m {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // BuildZip creates a ZIP archive from the provided file map.
-// Keys are zip-internal paths, values are file contents.
+// Keys are zip-internal paths, values are file contents. Entries are
+// written in lexicographic key order so the output is byte-identical
+// between runs for the same input.
 func BuildZip(files map[string][]byte) ([]byte, error) {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
-	for name, data := range files {
+	for _, name := range sortedKeys(files) {
 		f, err := w.Create(name)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := f.Write(data); err != nil {
+		if _, err := f.Write(files[name]); err != nil {
 			return nil, err
 		}
 	}
@@ -50,9 +65,7 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 	}
 
 	remaining := make(map[string][]byte, len(files))
-	for name, data := range files {
-		remaining[name] = data
-	}
+	maps.Copy(remaining, files)
 
 	var buf bytes.Buffer
 	writer := zip.NewWriter(&buf)
@@ -86,13 +99,13 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 		}
 	}
 
-	for name, data := range remaining {
+	for _, name := range sortedKeys(remaining) {
 		w, err := writer.Create(name)
 		if err != nil {
 			writer.Close()
 			return nil, err
 		}
-		if _, err := w.Write(data); err != nil {
+		if _, err := w.Write(remaining[name]); err != nil {
 			writer.Close()
 			return nil, err
 		}

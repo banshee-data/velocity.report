@@ -48,6 +48,44 @@ func TestBuildZip(t *testing.T) {
 	}
 }
 
+func TestBuildZip_Deterministic(t *testing.T) {
+	files := map[string][]byte{
+		"z-last.txt":   []byte("z"),
+		"a-first.txt":  []byte("a"),
+		"m-middle.txt": []byte("m"),
+		"sub/a.csv":    []byte("sub-a"),
+		"sub/z.csv":    []byte("sub-z"),
+	}
+
+	first, err := BuildZip(files)
+	if err != nil {
+		t.Fatalf("BuildZip error: %v", err)
+	}
+	for i := range 10 {
+		next, err := BuildZip(files)
+		if err != nil {
+			t.Fatalf("BuildZip error: %v", err)
+		}
+		if !bytes.Equal(first, next) {
+			t.Fatalf("BuildZip output differs between runs (iteration %d)", i)
+		}
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(first), int64(len(first)))
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+	want := []string{"a-first.txt", "m-middle.txt", "sub/a.csv", "sub/z.csv", "z-last.txt"}
+	if len(r.File) != len(want) {
+		t.Fatalf("got %d entries, want %d", len(r.File), len(want))
+	}
+	for i, f := range r.File {
+		if f.Name != want[i] {
+			t.Errorf("entry[%d] = %q, want %q", i, f.Name, want[i])
+		}
+	}
+}
+
 func TestBuildZip_Empty(t *testing.T) {
 	data, err := BuildZip(map[string][]byte{})
 	if err != nil {
