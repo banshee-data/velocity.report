@@ -63,7 +63,16 @@ Vehicle Count&<<.TotalCountFormatted>>&<<.CompareTotalCountFormatted>>&\\
 \noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
 \par
 
-<<if .HistogramChart>>
+<<if .CompareChart>>
+\begin{center}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{<<.CompareChart>>}
+\caption{Speed Distribution: t1 vs t2}
+\end{figure}
+\end{center}
+\vspace{-28pt}
+<<else if .HistogramChart>>
 \begin{center}
 \begin{figure}[H]
 \centering
