@@ -933,3 +933,375 @@ decisions:
    to consume `ChartStyle` control knobs consistently (e.g. theme tokens
    served via API, or a shared JSON config). Ensures palette, font size, and
    layout constants stay in sync across both rendering surfaces.
+
+---
+
+## Phase 8 — Tex Output Consistency `L`
+
+**Goal:** 100% structural and content parity between the Go-generated and
+Python-generated `.tex` output files. The baseline for this comparison is the
+real build captured in `comparison/go/report.tex` and `comparison/python/report.tex`
+from 2025-06-07 (the Clarendon Avenue San Francisco report).
+
+**Status:** In progress. Build SHA metadata implemented (8.0, 8.1). Remaining items tracked below.
+
+---
+
+### 8.0 — Build SHA metadata ✅
+
+Both `.tex` files must be traceable to the pipeline version that generated them.
+
+- [x] `RenderTeX()` in `internal/report/tex/render.go` prepends a metadata comment block:
+  ```latex
+  % velocity.report tex output
+  % Pipeline: go | Version: dev | SHA: unknown
+  % Generated: 2026-04-21T12:00:00Z
+  %
+  ```
+  Uses `internal/version.Version`, `internal/version.GitSHA`, and `time.Now().UTC()`.
+- [ ] Python: add equivalent comment block to `pdf_generator.py` (or `document_builder.py`).
+
+---
+
+### 8.1 — Measurement methodology
+
+To measure and track drift, we use structural diff rather than byte-level diff,
+because Python's PyLaTeX emits `%` terminators on every line whereas Go's
+templates do not, making a raw `diff` output noisy.
+
+**Recommended approach:**
+
+```bash
+# Strip trailing % and normalise whitespace, then diff
+sed 's/%$//' comparison/python/report.tex | sed 's/[[:space:]]*$//' > /tmp/py.tex
+sed 's/[[:space:]]*$//' comparison/go/report.tex > /tmp/go.tex
+diff -u /tmp/py.tex /tmp/go.tex
+```
+
+**Automated test target:** add a `make tex-compare` target that:
+
+1. Generates a Go `.tex` from a known fixture config.
+2. Compares against the Python golden file at `tools/pdf-generator/tests/fixtures/golden_comparison.tex`.
+3. Runs `diff --unified` and fails if output differs beyond a known-acceptable set of lines
+   (preamble font paths, generated timestamps, font block).
+
+**Golden-file tests:** `internal/report/tex/render_test.go` should add `TestRenderTeX_GoldenComparison`
+and `TestRenderTeX_GoldenSingle` that compare full `.tex` output against committed golden files
+in `internal/report/tex/testdata/`. Use a `-update` flag to regenerate.
+
+- [ ] `make tex-compare` target in Makefile.
+- [ ] Golden files in `internal/report/tex/testdata/golden_{single,comparison}.tex`.
+- [ ] `TestRenderTeX_GoldenSingle` and `TestRenderTeX_GoldenComparison` in `render_test.go`.
+
+---
+
+### 8.2 — Comparison mode: Key Metrics table `M`
+
+**Current (Go):** Two separate blocks:
+
+1. `Key Metrics` subsection with a 2-column `{@{}ll@{}}` table (Max/p98/p85/p50 bullet style)
+2. `Comparison Summary` subsection with a 4-column `{@{}lrrr@{}}` table (Metric/Primary/Comparison/Δ)
+
+**Target (Python):** A single 4-column comparison table immediately after the itemize list,
+captioned "Table 1: Key Metrics":
+
+```latex
+\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r}
+\multicolumn{1}{l}{\sffamily\bfseries Metric}
+  &\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t1}}
+  &\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t2}}
+  &\multicolumn{1}{r}{\sffamily\bfseries Change}\\
+\hline
+p50 Velocity & 30.54 mph & 33.02 mph & +8.1\% \\
+p85 Velocity & 36.94 mph & 38.70 mph & +4.8\% \\
+p98 Velocity & 43.05 mph & 44.21 mph & +2.7\% \\
+Max Velocity & 53.52 mph & 53.82 mph & +0.6\% \\
+Vehicle Count & 3,460 & 2,455 & \\
+\end{tabular}
+\par\vspace{2pt}
+\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
+```
+
+**Changes required:**
+
+- `overview.tex`: replace `overview_comparison` block — remove the `overview_key_metrics`
+  call and replace with the single unified table. Remove `Comparison Summary` subsection.
+- `tex/helpers.go`: add `FormatDeltaPercent(primary, compare float64) string` →
+  `+8.1%` / `-3.2%` style. (Current `FormatDelta` returns absolute value.)
+- `TemplateData`: no new fields needed (P50/P85/P98/MaxSpeed + Compare\* already present).
+- `overview.tex`: use comma-formatted counts (`{{printf "%d" .TotalCount}}` is not
+  comma-aware — add `FormatCount(n int) string` helper → `"3,460"`).
+
+- [ ] `FormatDeltaPercent(primary, compare float64) string` in `helpers.go`.
+- [ ] `FormatCount(n int) string` in `helpers.go`.
+- [ ] Register both as template `FuncMap` in `render.go`.
+- [ ] Update `overview_comparison` in `overview.tex` to the single unified table.
+- [ ] Update overview itemize to use `\textbf{Site:}` label (was `Location:`).
+- [ ] Update overview itemize to emit combined total count with `FormatCount`.
+
+---
+
+### 8.3 — Comparison mode: Speed Distribution table `M`
+
+**Current (Go):** 3-column single-period table (Bucket / Count / Percent) from `HistogramTableTeX`.
+
+**Target (Python):** 6-column dual-period table (Bucket / t1 Count / t1 % / t2 Count / t2 % / Delta %),
+captioned "Table 2: Velocity Distribution (mph)".
+
+**Changes required:**
+
+- `TemplateData`: add `CompareHistogramTableTeX string` and a new field
+  `DualHistogramTableTeX string` (pre-rendered 6-column comparison tabular, or render inline).
+- `tex/helpers.go`: add `BuildDualHistogramTableTeX(primary, compare map[float64]int64, ...)  string`.
+- `report.go`: when comparison mode, call `tex.BuildDualHistogramTableTeX` with both histograms.
+- `statistics.tex`: in `statistics_comparison`, render `DualHistogramTableTeX` instead of
+  `HistogramTableTeX`.
+
+- [ ] `BuildDualHistogramTableTeX(...)` in `helpers.go`.
+- [ ] `DualHistogramTableTeX string` in `TemplateData`.
+- [ ] `statistics_comparison` template renders dual table.
+- [ ] `report.go` builds `DualHistogramTableTeX` when comparison mode.
+
+---
+
+### 8.4 — Comparison mode: Compare timeseries chart `M`
+
+**Current (Go):** Only one timeseries chart (primary period) in `chart_section_comparison`.
+
+**Target (Python):** Two timeseries charts: t1 chart then t2 chart in the `\onecolumn` section.
+
+**Changes required:**
+
+- `TemplateData`: add `CompareTimeSeriesChart string` — path to comparison-period SVG→PDF.
+- `report.go`: render and convert a second timeseries SVG for the comparison period.
+  Requires a second `RadarObjectRollupRange` call with compare timestamps and the `1h` group.
+  The `convertToTimeSeriesPoints` result feeds a second `chart.RenderTimeSeries` call.
+- `chart_section.tex`: update `chart_section_comparison` to include both charts:
+
+  ```latex
+  <<define "chart_section_comparison">>
+  \onecolumn
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
+  \caption{Velocity over time (t1: <<.StartDate>> to <<.EndDate>>)}
+  \end{figure}
+  <<if .CompareTimeSeriesChart>>
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{<<.CompareTimeSeriesChart>>}
+  \caption{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
+  \end{figure}
+  <<end>>
+  <<end>>
+  ```
+
+- [ ] `CompareTimeSeriesChart string` in `TemplateData`.
+- [ ] Second timeseries query + render + rsvg-convert in `report.go`.
+- [ ] `chart_section_comparison` template updated.
+
+---
+
+### 8.5 — Comparison mode: Daily + Granular data tables `L`
+
+**Current (Go):** Single `supertabular` of primary-period hourly rows. Missing t2 rows entirely.
+
+**Target (Python):** Three tables:
+
+- **Table 3: Daily Percentile Summary (Comparison)** — daily-granularity rows for BOTH periods combined, ordered chronologically.
+- **Table 4: Granular Percentile Breakdown (Comparison)** — hourly rows for BOTH periods combined, ordered chronologically.
+
+The Python pipeline queries with `group=1d` for the daily table and `group=1h` for the granular table.
+
+**Changes required:**
+
+- `TemplateData`: add `CompareStatRows []StatRow` and `DailyStatRows []StatRow`.
+- `report.go`: in comparison mode:
+  - Query t1 + t2 at daily group → combine into `DailyStatRows`.
+  - Query t1 + t2 at hourly group → combine into `StatRows` (primary) + `CompareStatRows`.
+  - Merge and sort both slices chronologically before assignment.
+- `statistics.tex`: update `statistics_comparison` to render three tables:
+  1. Dual histogram table (8.3).
+  2. Daily summary `supertabular` with caption "Table 3: Daily Percentile Summary (Comparison)".
+  3. Granular breakdown `supertabular` with caption "Table 4: Granular Percentile Breakdown (Comparison)".
+- The `supertabular` column formatting must match Python's `>{\AtkinsonMono\raggedright...}p{...}` style.
+  Use `>{\ttfamily\raggedright\arraybackslash}p{...}` as the Go equivalent (no `\AtkinsonMono` macro needed).
+
+- [ ] `CompareStatRows []StatRow` and `DailyStatRows []StatRow` in `TemplateData`.
+- [ ] Daily-group query + merge in `report.go`.
+- [ ] Combined chronological sort of StatRows (t1 + t2 merged).
+- [ ] `statistics_comparison` template updated to three-table layout.
+- [ ] Column format updated to `>{\ttfamily\raggedright...}p{...}` to match Python column style.
+
+---
+
+### 8.6 — Comparison mode: Cosine angle/factor per period `S`
+
+**Current (Go):** Single `CosineAngle` / `CosineFactor` — only t1 values used.
+
+**Target (Python):** Shows both t1 and t2 cosine values when they differ:
+
+```
+Cosine Error Angle (t1): 0.5°
+Cosine Error Factor (t1): 1.000038
+Cosine Error Angle (t2): 21.0°
+Cosine Error Factor (t2): 1.071145
+```
+
+**Changes required:**
+
+- `TemplateData`: add `CompareCosineAngle float64` and `CompareCosineFactor float64`.
+- `report.go`: populate from comparison period's config.
+- `survey_parameters.tex`: update `survey_parameters_comparison` to show both sets when nonzero.
+
+- [ ] `CompareCosineAngle float64`, `CompareCosineFactor float64` in `TemplateData`.
+- [ ] Populate in `report.go`.
+- [ ] `survey_parameters_comparison` template updated.
+
+---
+
+### 8.7 — Section ordering and two-column structure `M`
+
+**Current (Go):** `period_report_comparison` order:
+
+1. `overview_comparison` (two-column)
+2. `survey_parameters_comparison` (two-column)
+3. `statistics_comparison` (two-column): histogram, speed dist, detailed data
+4. `chart_section_comparison` (one-column): t1 timeseries
+5. `site_info` (one-column, comes after `chart_section` — in `report.tex`)
+6. `science` (one-column)
+7. `map_section` (one-column)
+
+**Target (Python):** Section order:
+
+1. Velocity Overview + Key Metrics table (two-column)
+2. Histogram figure (two-column, inside Overview)
+3. Site Information (two-column)
+4. Citizen Radar subsection (two-column)
+5. Aggregation and Percentiles subsection (two-column)
+6. Hardware Configuration table (two-column)
+7. Survey Parameters table (two-column)
+8. Detailed Data Tables (two-column): distribution table + daily + granular
+9. Charts (one-column): t1 timeseries, t2 timeseries, map
+
+The key structural change: **Site Info, Science, and Hardware stay in two-column**; the
+`\onecolumn` switch happens only at the chart section.
+
+**Changes required:**
+
+- `period_report.tex`: reorder `period_report_comparison` sequence.
+- `report.tex`: move `site_info` and `science` calls to before `chart_section` so they
+  render in two-column context.
+- `overview.tex`: move histogram figure render into overview body (after Key Metrics table).
+- `survey_parameters.tex`: split into "Hardware Configuration" + "Survey Parameters" subsections.
+- `statistics.tex`: remove histogram figure from `statistics_comparison` (moved to overview).
+
+- [ ] `period_report.tex` reordered.
+- [ ] `overview_comparison` includes histogram figure after Key Metrics.
+- [ ] `survey_parameters.tex` splits hardware + survey subsections.
+- [ ] `statistics_comparison` drops histogram figure.
+- [ ] `report.tex` restructured so site_info and science appear before chart_section.
+
+---
+
+### 8.8 — Velocity Overview list: labels, dates, counts `S`
+
+**Alignment items:**
+
+| Item              | Python                             | Go (current)                  |
+| ----------------- | ---------------------------------- | ----------------------------- |
+| Site label        | `\textbf{Site:}`                   | `\textbf{Location:}`          |
+| Period dates      | ISO format `2025-06-01`            | Long format `1 June 2025`     |
+| Total count label | `Total vehicle count:`             | `Total observations (t1):`    |
+| Total count value | Combined t1+t2 with commas `5,915` | t1 only, no commas `3460`     |
+| Speed limit       | Not shown                          | `\item \textbf{Speed limit:}` |
+| List spacing      | `\setlength{\itemsep}{-1pt}` etc.  | None                          |
+
+Note: The Go date format (`1 June 2025`) is arguably more readable than ISO dates.
+Adopt Go's format for single mode. For comparison mode, adopt Python's ISO format (`2025-06-01`)
+since ISO is more compact in the footer/overview where both date ranges appear.
+
+- [ ] Change `Site:` → `Location:` in both modes (or vice versa — pick one standard).
+- [ ] Add combined count (t1+t2) for comparison mode using `FormatCount`.
+- [ ] Add inline `\setlength{\itemsep}{-1pt}` etc. to itemize.
+
+---
+
+### 8.9 — Hardware Configuration: split from Survey Parameters `S`
+
+**Target (Python):** Two subsections:
+
+1. `Hardware Configuration` — sensor model, firmware version, transmit frequency, sample rate, velocity resolution, azimuth/elevation FoV.
+2. `Survey Parameters` — start/end times, timezone, roll-up, units, min speed, cosine error.
+
+**Current (Go):** One unified `Survey Parameters` table with hardware rows merged in.
+
+**Changes required:**
+
+- `survey_parameters.tex`: split into two tabular blocks with `\subsection*{Hardware Configuration}`
+  and `\subsection*{Survey Parameters}` headings.
+- `TemplateData`: add `FirmwareVersion string` and `VelocityResolution string` (these come from
+  site config; currently omitted because the DB doesn't expose them — emit empty string / omit row
+  if not available).
+
+- [ ] Split survey_parameters templates into Hardware + Survey subsections.
+- [ ] `FirmwareVersion string` in `TemplateData` (optional, omit row if empty).
+
+---
+
+### 8.10 — Science section: two subsections `S`
+
+**Current (Go):** Single `Citizen Radar Science` subsection combining Doppler explanation,
+aggregation method, and kinetic energy.
+
+**Target (Python):** Two subsections:
+
+- `Citizen Radar` — narrative prose about velocity.report as a citizen radar tool + KE formula block.
+- `Aggregation and Percentiles` — Doppler effect explanation, TCSC clustering algorithm description,
+  undercounting note, percentile interpretation, low-sample caveat.
+
+**Changes required:**
+
+- `science.tex`: restructure into two `\subsection*` blocks matching Python's prose.
+- The Python prose is richer (includes the clustering algorithm description, undercounting note).
+  Copy the Python text verbatim.
+
+- [ ] `science.tex` split into two subsections with Python's prose.
+
+---
+
+### 8.11 — Single-survey mode: Overview prose (lower priority) `S`
+
+**Current:** itemize list only.
+
+**Target (Python):** Not yet captured — single-survey Python output not in the comparison folder.
+Defer until a single-survey Python build is available for comparison.
+
+- [ ] Capture single-survey Python tex output.
+- [ ] Identify and list drift items.
+- [ ] Align Go `overview_single` and `statistics_single` templates.
+
+---
+
+### Phase 8 implementation order
+
+Implement items in this sequence to avoid regressions:
+
+```
+8.0 ✅  Build SHA metadata (done)
+8.1     Measurement tooling (make tex-compare, golden files)
+8.6     Cosine per period (TemplateData + template — data only)
+8.2     Key Metrics table (overview_comparison rewrite)
+8.8     Overview list alignment (labels, dates, counts)
+8.9     Hardware Config split
+8.3     Dual histogram table (helpers.go + statistics_comparison)
+8.4     Compare timeseries chart (report.go + chart_section_comparison)
+8.5     Daily + Granular tables (report.go + statistics_comparison)
+8.7     Section ordering (structural reorder — highest risk)
+8.10    Science section expansion
+8.11    Single-survey drift (deferred)
+```
+
+**Phase 8 acceptance:** `make tex-compare` exits 0; golden-file tests green;
+a PDF compiled from Go tex is visually indistinguishable from a PDF compiled from Python tex
+for the same data, in both comparison and single-survey modes.
