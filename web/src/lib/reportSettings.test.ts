@@ -1,7 +1,9 @@
 import {
+	areStoredReportSettingsFresh,
 	DAY_PERIOD_TYPE,
 	isDateRangeStale,
 	normaliseStoredPeriodType,
+	parseStoredReportSettings,
 	REPORT_SETTINGS_KEY,
 	STALENESS_THRESHOLD_MS
 } from './reportSettings';
@@ -71,6 +73,50 @@ describe('constants', () => {
 
 	it('REPORT_SETTINGS_KEY is reportSettings', () => {
 		expect(REPORT_SETTINGS_KEY).toBe('reportSettings');
+	});
+});
+
+describe('parseStoredReportSettings', () => {
+	it('returns null for missing localStorage data', () => {
+		expect(parseStoredReportSettings(null)).toBeNull();
+	});
+
+	it('returns null for invalid JSON', () => {
+		expect(parseStoredReportSettings('{nope')).toBeNull();
+	});
+
+	it('returns the parsed object for valid JSON', () => {
+		const settings = parseStoredReportSettings(
+			JSON.stringify({ selectedSource: 'radar_data_transits', minSpeed: 5 })
+		);
+
+		expect(settings).toEqual({ selectedSource: 'radar_data_transits', minSpeed: 5 });
+	});
+});
+
+describe('areStoredReportSettingsFresh', () => {
+	it('returns false when settings are missing', () => {
+		expect(areStoredReportSettingsFresh(null)).toBe(false);
+	});
+
+	it('returns false when the saved date-range timestamp is stale', () => {
+		const staleSavedAt = new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString();
+		expect(
+			areStoredReportSettingsFresh({
+				dateRange: { savedAt: staleSavedAt },
+				selectedSource: 'radar_objects'
+			})
+		).toBe(false);
+	});
+
+	it('returns true when the saved date-range timestamp is fresh', () => {
+		const freshSavedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+		expect(
+			areStoredReportSettingsFresh({
+				dateRange: { savedAt: freshSavedAt },
+				selectedSource: 'radar_data_transits'
+			})
+		).toBe(true);
 	});
 });
 

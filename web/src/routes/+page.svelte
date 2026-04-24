@@ -2,7 +2,9 @@
 	import { browser } from '$app/environment';
 	import { isoDate } from '$lib/dateUtils';
 	import {
+		areStoredReportSettingsFresh,
 		isDateRangeStale,
+		parseStoredReportSettings,
 		REPORT_SETTINGS_KEY,
 		type StoredReportSettings
 	} from '$lib/reportSettings';
@@ -132,7 +134,7 @@
 			lastGroup = group;
 			lastSource = selectedSource;
 			lastSiteId = selectedSiteId;
-			if (dateChanged) {
+			if (dateChanged || groupChanged || sourceChanged) {
 				saveReportDateRangeSettings();
 			}
 
@@ -175,11 +177,8 @@
 	function loadReportDateRangeSettings() {
 		if (!browser) return;
 		try {
-			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
-			if (!saved) return;
-
-			const settings = JSON.parse(saved) as StoredReportSettings;
-			if (isDateRangeStale(settings?.dateRange?.savedAt)) return;
+			const settings = parseStoredReportSettings(localStorage.getItem(REPORT_SETTINGS_KEY));
+			if (!settings || isDateRangeStale(settings?.dateRange?.savedAt)) return;
 
 			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
 			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
@@ -190,6 +189,9 @@
 				to,
 				periodType: PeriodType.Day
 			};
+
+			if (typeof settings.group === 'string') group = settings.group;
+			if (typeof settings.selectedSource === 'string') selectedSource = settings.selectedSource;
 		} catch (e) {
 			console.warn('Could not load saved report settings:', e);
 		}
@@ -213,6 +215,8 @@
 				periodType: String(dateRange.periodType),
 				savedAt: new Date().toISOString()
 			};
+			settings.group = group;
+			settings.selectedSource = selectedSource;
 
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
 		} catch (e) {
@@ -344,6 +348,18 @@
 		reportMetadata = null;
 
 		try {
+			const savedSettings = parseStoredReportSettings(
+				browser ? localStorage.getItem(REPORT_SETTINGS_KEY) : null
+			);
+			const freshSettings = areStoredReportSettingsFresh(savedSettings) ? savedSettings : null;
+			const minSpeed = typeof freshSettings?.minSpeed === 'number' ? freshSettings.minSpeed : 5;
+			const maxSpeedCutoff =
+				typeof freshSettings?.maxSpeedCutoff === 'number' || freshSettings?.maxSpeedCutoff === null
+					? freshSettings.maxSpeedCutoff
+					: null;
+			const boundaryThreshold =
+				typeof freshSettings?.boundaryThreshold === 'number' ? freshSettings.boundaryThreshold : 5;
+
 			// Generate report and get report ID
 			const response = await generateReport({
 				start_date: isoDate(dateRange.from),
@@ -352,6 +368,9 @@
 				units: $displayUnits,
 				group: group,
 				source: selectedSource,
+				min_speed: minSpeed,
+				hist_max: maxSpeedCutoff ?? undefined,
+				boundary_threshold: boundaryThreshold,
 				histogram: true,
 				hist_bucket_size: 5.0,
 				site_id: selectedSiteId,

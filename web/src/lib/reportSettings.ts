@@ -43,6 +43,30 @@ export type StoredReportSettings = {
 	boundaryThreshold?: number;
 };
 
+/** Parse the shared localStorage payload safely. */
+export function parseStoredReportSettings(saved: string | null): StoredReportSettings | null {
+	if (!saved) return null;
+
+	try {
+		const parsed = JSON.parse(saved) as StoredReportSettings;
+		if (!parsed || typeof parsed !== 'object') return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Returns true when the saved report settings are still fresh enough to reuse.
+ * The date-range timestamp is the canonical freshness marker for the full
+ * report-settings bundle.
+ */
+export function areStoredReportSettingsFresh(
+	settings: StoredReportSettings | null | undefined
+): boolean {
+	return !isDateRangeStale(settings?.dateRange?.savedAt);
+}
+
 /**
  * Returns true when the stored date range should be discarded in favour
  * of the computed default (last 14 days).

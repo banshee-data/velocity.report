@@ -16,10 +16,11 @@
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
 	import {
+		areStoredReportSettingsFresh,
 		isDateRangeStale,
 		normaliseStoredPeriodType,
-		REPORT_SETTINGS_KEY,
-		type StoredReportSettings
+		parseStoredReportSettings,
+		REPORT_SETTINGS_KEY
 	} from '$lib/reportSettings';
 	import { initializePaperSize, paperSize } from '$lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
@@ -226,11 +227,10 @@
 	function loadReportSettings() {
 		if (!browser) return;
 		try {
-			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
-			if (!saved) return;
-
-			const settings = JSON.parse(saved) as StoredReportSettings;
+			const settings = parseStoredReportSettings(localStorage.getItem(REPORT_SETTINGS_KEY));
+			if (!settings) return;
 			const stale = isDateRangeStale(settings.dateRange?.savedAt);
+			const fresh = areStoredReportSettingsFresh(settings);
 
 			// Restore date ranges only when fresh
 			if (!stale && settings.dateRange?.from && settings.dateRange?.to) {
@@ -257,17 +257,18 @@
 				};
 			}
 
-			// Restore other settings regardless of date staleness
-			if (typeof settings.compareEnabled === 'boolean') compareEnabled = settings.compareEnabled;
-			if (typeof settings.compareSource === 'string') compareSource = settings.compareSource;
-			if (typeof settings.group === 'string') group = settings.group;
-			if (typeof settings.selectedSource === 'string') selectedSource = settings.selectedSource;
-			if (typeof settings.minSpeed === 'number') minSpeed = settings.minSpeed;
-			if (typeof settings.maxSpeedCutoff === 'number' || settings.maxSpeedCutoff === null) {
-				maxSpeedCutoff = settings.maxSpeedCutoff;
-			}
-			if (typeof settings.boundaryThreshold === 'number') {
-				boundaryThreshold = settings.boundaryThreshold;
+			if (fresh) {
+				if (typeof settings.compareEnabled === 'boolean') compareEnabled = settings.compareEnabled;
+				if (typeof settings.compareSource === 'string') compareSource = settings.compareSource;
+				if (typeof settings.group === 'string') group = settings.group;
+				if (typeof settings.selectedSource === 'string') selectedSource = settings.selectedSource;
+				if (typeof settings.minSpeed === 'number') minSpeed = settings.minSpeed;
+				if (typeof settings.maxSpeedCutoff === 'number' || settings.maxSpeedCutoff === null) {
+					maxSpeedCutoff = settings.maxSpeedCutoff;
+				}
+				if (typeof settings.boundaryThreshold === 'number') {
+					boundaryThreshold = settings.boundaryThreshold;
+				}
 			}
 		} catch (e) {
 			console.warn('Could not load report settings:', e);
