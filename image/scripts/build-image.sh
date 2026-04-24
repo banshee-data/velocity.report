@@ -325,17 +325,13 @@ fi
 # config. Fix: copy the container's resolv.conf before entering the chroot.
 COMMON_FILE="$PIGEN_DIR/scripts/common"
 if ! grep -q "resolv.conf" "$COMMON_FILE" 2>/dev/null; then
-    python3 - "$COMMON_FILE" << 'PYEOF'
-import sys
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-target = '\tcapsh $CAPSH_ARG "--chroot=${ROOTFS_DIR}/" -- -e "$@"'
-fix = '\tcp /etc/resolv.conf "${ROOTFS_DIR}/etc/resolv.conf" 2>/dev/null || true\n'
-content = content.replace(target, fix + target, 1)
-with open(path, 'w') as f:
-    f.write(content)
-PYEOF
+    awk '
+        /\tcapsh \$CAPSH_ARG "--chroot=\$\{ROOTFS_DIR\}\/" -- -e "\$@"/ && !patched {
+            print "\tcp /etc/resolv.conf \"${ROOTFS_DIR}/etc/resolv.conf\" 2>/dev/null || true"
+            patched=1
+        }
+        { print }
+    ' "$COMMON_FILE" > "$COMMON_FILE.tmp" && mv "$COMMON_FILE.tmp" "$COMMON_FILE"
     log_info "Patched on_chroot for Docker Desktop DNS compatibility"
 fi
 

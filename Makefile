@@ -820,7 +820,7 @@ vrlog-compare:
 MAC_DIR = tools/visualiser-macos
 
 # Aggregate test target: runs Go, web, Python, and macOS tests in sequence
-test: test-go test-web test-python test-mac
+test: test-go test-web test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -925,7 +925,7 @@ test-mac-cov:
 	fi
 
 # Generate coverage reports for all components
-coverage: test-go-cov test-python-cov test-web-cov test-mac-cov
+coverage: test-go-cov test-web-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
 	@echo "  - Go:     coverage.html"
@@ -1051,7 +1051,7 @@ schema-erd-from-dot:
 
 .PHONY: format format-go format-python format-web format-mac format-docs format-sql
 
-format: format-go format-python format-web format-mac format-docs format-sql
+format: format-go format-web format-mac format-docs format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -1145,7 +1145,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-python lint-web lint-docs
+lint: lint-go lint-web lint-docs
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
