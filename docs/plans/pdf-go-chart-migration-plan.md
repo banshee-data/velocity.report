@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Phases 1–4b implemented in code; Phase 4a and Phase 4b verified against the dev API on 2026-04-21. Phase 4c is partially implemented as a `pdf` subcommand and still needs plan/code reconciliation.
+- **Status:** Phases 1–4c are implemented in code. Phase 4a and Phase 4b were verified against the dev API on 2026-04-21; Phase 4c now has unit coverage in `cmd/radar/pdf_test.go` but still needs plan/code reconciliation because the shipped CLI entrypoint lives in `cmd/radar/pdf.go`, not the file layout described below. Phase 8 has also moved well past metadata work: comparison-mode parity items 8.2–8.7 and 8.10 are substantially landed, while 8.1, firmware/version parity in 8.9, and 8.11 remain open.
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -32,7 +32,8 @@ the unified `velocity-report` binary.
 - **Phase 4a:** Implemented in `internal/api/server_reports_generate.go`. The handler now branches on `VELOCITY_PDF_BACKEND=go`, builds `report.Config`, calls `report.Generate`, validates both PDF and ZIP paths, preserves `db.SiteReport` creation, and returns the same JSON response shape as the Python path. Current tests cover Go-path selection, Python fallback, config mapping, and relative-path hardening.
 - **Phase 4b:** Implemented in `internal/api/server_charts.go` and registered in `internal/api/server.go`. Time-series, histogram, and comparison SVG handlers are present and have request/response tests.
 - **Live verification on 2026-04-21:** Against the running dev server on `http://127.0.0.1:8080`, `GET /api/charts/timeseries`, `GET /api/charts/histogram`, and `GET /api/charts/comparison` each returned `200` with `Content-Type: image/svg+xml` and an `<svg` root for site `1` over `2025-05-02` to `2025-05-30`. `POST /api/generate_report` for the same site/range returned `200` with the expected `report_id`, `pdf_path`, and `zip_path` response fields.
-- **Phase 4c:** A `velocity-report pdf` subcommand already exists in `cmd/radar/pdf.go`, but this plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target. The implementation exists; the plan and packaging details have drifted.
+- **Phase 4c:** A `velocity-report pdf` subcommand already exists in `cmd/radar/pdf.go`, and `cmd/radar/pdf_test.go` now covers flag validation, version output, config parsing, and output-dir override behaviour. This plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target, so the implementation exists but the plan and packaging details have drifted.
+- **Frontend/report parity:** The dashboard and report generator now both render preview charts through `InlineSvgChart` backed by `/api/charts/*`, and `web/src/lib/reportRequests.ts` centralises report payload construction for both surfaces. `web/src/lib/reportRequests.test.ts` covers fresh-settings parity, stale-settings fallback, and comparison payload fields.
 
 ## Current architecture
 
@@ -126,6 +127,8 @@ This round-trip is eliminated in the new design.
 ```
 
 ### Package layout
+
+Current code note: the shipped CLI entrypoint lives in `cmd/radar/pdf.go` and the SVG HTTP handlers live in `internal/api/server_charts.go`. The tree below remains the intended D-09 end-state, not the exact current file layout.
 
 ```
 internal/report/
@@ -873,12 +876,12 @@ one layout engine (direct SVG, same `ChartStyle` struct), one colour palette,
 used by both the PDF pipeline and the web frontend.
 
 `ChartStyle` control knobs (dimensions, colours, font size, opacity) are
-designed to be consumed coherently by both surfaces. A future PR will ship
-the frontend SVG consumption and retire ECharts for these report views;
-that work is tracked as a new backlog item under v0.7 (see Backlog item added
-below). This plan does not block on the frontend change — the HTTP SVG
-endpoint ships as part of Phase 4 and the frontend continues to use ECharts
-until the v0.7 work lands.
+designed to be consumed coherently by both surfaces. That frontend SVG
+consumption has since landed for the dashboard and report-generator preview
+surfaces via `InlineSvgChart` on both routes, backed by `/api/charts/*`.
+Broader chart-library consolidation outside those report surfaces remains
+separate work, but this plan no longer depends on a future PR for report-view
+SVG reuse.
 
 ### Q6 — Comparison chart normalisation: Go API vs report package
 
@@ -923,10 +926,10 @@ Phase 7 below.
 The following items are added to BACKLOG.md as a result of this plan's
 decisions:
 
-1. **v0.7 — Frontend SVG chart consumption:** Wire Svelte frontend to consume
-   Go-generated SVG charts from `internal/api` for report views; retire
-   ECharts for those views. `ChartStyle` control knobs already designed for
-   dual-surface use. New `M` item under v0.7 (frontend consolidation theme).
+1. **v0.7 — Frontend SVG chart consumption:** Implemented for the dashboard
+   and report-generator preview surfaces, which now consume Go-generated SVG
+   charts from `internal/api` via `InlineSvgChart`. Remaining follow-up, if
+   any, is broader chart-library consolidation outside these report views.
 
 2. **v0.7 — `ChartStyle` frontend/backend coherence:**
    Design and ship a mechanism for the Svelte frontend and Go report package
@@ -943,7 +946,7 @@ Python-generated `.tex` output files. The baseline for this comparison is the
 real build captured in `comparison/go/report.tex` and `comparison/python/report.tex`
 from 2025-06-07 (the Clarendon Avenue San Francisco report).
 
-**Status:** In progress. Build SHA metadata implemented (8.0, 8.1). Remaining items tracked below.
+**Status:** In progress. Build SHA metadata is implemented (8.0). Comparison-mode parity items 8.2–8.7 and 8.10 are substantially landed in code. Measurement tooling (8.1), firmware/version parity in 8.9, and single-survey drift work (8.11) remain open.
 
 ---
 
@@ -995,278 +998,98 @@ in `internal/report/tex/testdata/`. Use a `-update` flag to regenerate.
 
 ---
 
-### 8.2 — Comparison mode: Key Metrics table `M`
+### 8.2 — Comparison mode: Key Metrics table `M` ✅
 
-**Current (Go):** Two separate blocks:
+**Current code status:** Implemented in `internal/report/tex/templates/overview.tex` and `internal/report/tex/helpers.go`. `overview_comparison` now renders a single 4-column comparison table captioned "Table 1: Key Metrics", uses `Site:` in the overview list, and emits comma-formatted per-period and combined counts.
 
-1. `Key Metrics` subsection with a 2-column `{@{}ll@{}}` table (Max/p98/p85/p50 bullet style)
-2. `Comparison Summary` subsection with a 4-column `{@{}lrrr@{}}` table (Metric/Primary/Comparison/Δ)
-
-**Target (Python):** A single 4-column comparison table immediately after the itemize list,
-captioned "Table 1: Key Metrics":
-
-```latex
-\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r}
-\multicolumn{1}{l}{\sffamily\bfseries Metric}
-  &\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t1}}
-  &\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t2}}
-  &\multicolumn{1}{r}{\sffamily\bfseries Change}\\
-\hline
-p50 Velocity & 30.54 mph & 33.02 mph & +8.1\% \\
-p85 Velocity & 36.94 mph & 38.70 mph & +4.8\% \\
-p98 Velocity & 43.05 mph & 44.21 mph & +2.7\% \\
-Max Velocity & 53.52 mph & 53.82 mph & +0.6\% \\
-Vehicle Count & 3,460 & 2,455 & \\
-\end{tabular}
-\par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
-```
-
-**Changes required:**
-
-- `overview.tex`: replace `overview_comparison` block — remove the `overview_key_metrics`
-  call and replace with the single unified table. Remove `Comparison Summary` subsection.
-- `tex/helpers.go`: add `FormatDeltaPercent(primary, compare float64) string` →
-  `+8.1%` / `-3.2%` style. (Current `FormatDelta` returns absolute value.)
-- `TemplateData`: no new fields needed (P50/P85/P98/MaxSpeed + Compare\* already present).
-- `overview.tex`: use comma-formatted counts (`{{printf "%d" .TotalCount}}` is not
-  comma-aware — add `FormatCount(n int) string` helper → `"3,460"`).
-
-- [ ] `FormatDeltaPercent(primary, compare float64) string` in `helpers.go`.
-- [ ] `FormatCount(n int) string` in `helpers.go`.
-- [ ] Register both as template `FuncMap` in `render.go`.
-- [ ] Update `overview_comparison` in `overview.tex` to the single unified table.
-- [ ] Update overview itemize to use `\textbf{Site:}` label (was `Location:`).
-- [ ] Update overview itemize to emit combined total count with `FormatCount`.
+- [x] `FormatDeltaPercent(primary, compare float64) string` in `helpers.go`.
+- [x] `FormatCount(n int) string` in `helpers.go`.
+- [x] Comparison deltas and counts are precomputed in Go before template render; no template `FuncMap` wiring is needed in the current implementation.
+- [x] Update `overview_comparison` in `overview.tex` to the single unified table.
+- [x] Update overview itemize to use `\textbf{Site:}` label.
+- [x] Update overview itemize to emit combined total count with `FormatCount`.
 
 ---
 
-### 8.3 — Comparison mode: Speed Distribution table `M`
+### 8.3 — Comparison mode: Speed Distribution table `M` ✅
 
-**Current (Go):** 3-column single-period table (Bucket / Count / Percent) from `HistogramTableTeX`.
+**Current code status:** Implemented. Comparison reports now render a 6-column dual-period table via `DualHistogramTableTeX`, produced by `BuildDualHistogramTableTeX(...)` and inserted by `statistics_comparison`.
 
-**Target (Python):** 6-column dual-period table (Bucket / t1 Count / t1 % / t2 Count / t2 % / Delta %),
-captioned "Table 2: Velocity Distribution (mph)".
-
-**Changes required:**
-
-- `TemplateData`: add `CompareHistogramTableTeX string` and a new field
-  `DualHistogramTableTeX string` (pre-rendered 6-column comparison tabular, or render inline).
-- `tex/helpers.go`: add `BuildDualHistogramTableTeX(primary, compare map[float64]int64, ...)  string`.
-- `report.go`: when comparison mode, call `tex.BuildDualHistogramTableTeX` with both histograms.
-- `statistics.tex`: in `statistics_comparison`, render `DualHistogramTableTeX` instead of
-  `HistogramTableTeX`.
-
-- [ ] `BuildDualHistogramTableTeX(...)` in `helpers.go`.
-- [ ] `DualHistogramTableTeX string` in `TemplateData`.
-- [ ] `statistics_comparison` template renders dual table.
-- [ ] `report.go` builds `DualHistogramTableTeX` when comparison mode.
+- [x] `BuildDualHistogramTableTeX(...)` in `helpers.go`.
+- [x] `DualHistogramTableTeX string` in `TemplateData`.
+- [x] `statistics_comparison` template renders dual table.
+- [x] `report.go` builds `DualHistogramTableTeX` when comparison mode.
 
 ---
 
-### 8.4 — Comparison mode: Compare timeseries chart `M`
+### 8.4 — Comparison mode: Compare timeseries chart `M` ✅
 
-**Current (Go):** Only one timeseries chart (primary period) in `chart_section_comparison`.
+**Current code status:** Implemented. Comparison reports render both t1 and t2 timeseries charts in the one-column chart section.
 
-**Target (Python):** Two timeseries charts: t1 chart then t2 chart in the `\onecolumn` section.
-
-**Changes required:**
-
-- `TemplateData`: add `CompareTimeSeriesChart string` — path to comparison-period SVG→PDF.
-- `report.go`: render and convert a second timeseries SVG for the comparison period.
-  Requires a second `RadarObjectRollupRange` call with compare timestamps and the `1h` group.
-  The `convertToTimeSeriesPoints` result feeds a second `chart.RenderTimeSeries` call.
-- `chart_section.tex`: update `chart_section_comparison` to include both charts:
-
-  ```latex
-  <<define "chart_section_comparison">>
-  \onecolumn
-  \begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
-  \caption{Velocity over time (t1: <<.StartDate>> to <<.EndDate>>)}
-  \end{figure}
-  <<if .CompareTimeSeriesChart>>
-  \begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{<<.CompareTimeSeriesChart>>}
-  \caption{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
-  \end{figure}
-  <<end>>
-  <<end>>
-  ```
-
-- [ ] `CompareTimeSeriesChart string` in `TemplateData`.
-- [ ] Second timeseries query + render + rsvg-convert in `report.go`.
-- [ ] `chart_section_comparison` template updated.
+- [x] `CompareTimeSeriesChart string` in `TemplateData`.
+- [x] Second timeseries query + render + rsvg-convert in `report.go`.
+- [x] `chart_section_comparison` template updated.
 
 ---
 
 ### 8.5 — Comparison mode: Daily + Granular data tables `L`
 
-**Current (Go):** Single `supertabular` of primary-period hourly rows. Missing t2 rows entirely.
+**Current code status:** Structurally implemented. Comparison reports now render three tables: the dual histogram table, a merged daily summary, and a merged granular breakdown. `report.go` queries daily and hourly comparison data, merges both periods, and sorts the merged rows chronologically before building the tables. Exact Python column-width parity was later superseded by the shared centred `BuildStatTableTeX(...)` style now used for both single and comparison reports.
 
-**Target (Python):** Three tables:
-
-- **Table 3: Daily Percentile Summary (Comparison)** — daily-granularity rows for BOTH periods combined, ordered chronologically.
-- **Table 4: Granular Percentile Breakdown (Comparison)** — hourly rows for BOTH periods combined, ordered chronologically.
-
-The Python pipeline queries with `group=1d` for the daily table and `group=1h` for the granular table.
-
-**Changes required:**
-
-- `TemplateData`: add `CompareStatRows []StatRow` and `DailyStatRows []StatRow`.
-- `report.go`: in comparison mode:
-  - Query t1 + t2 at daily group → combine into `DailyStatRows`.
-  - Query t1 + t2 at hourly group → combine into `StatRows` (primary) + `CompareStatRows`.
-  - Merge and sort both slices chronologically before assignment.
-- `statistics.tex`: update `statistics_comparison` to render three tables:
-  1. Dual histogram table (8.3).
-  2. Daily summary `supertabular` with caption "Table 3: Daily Percentile Summary (Comparison)".
-  3. Granular breakdown `supertabular` with caption "Table 4: Granular Percentile Breakdown (Comparison)".
-- The `supertabular` column formatting must match Python's `>{\AtkinsonMono\raggedright...}p{...}` style.
-  Use `>{\ttfamily\raggedright\arraybackslash}p{...}` as the Go equivalent (no `\AtkinsonMono` macro needed).
-
-- [ ] `CompareStatRows []StatRow` and `DailyStatRows []StatRow` in `TemplateData`.
-- [ ] Daily-group query + merge in `report.go`.
-- [ ] Combined chronological sort of StatRows (t1 + t2 merged).
-- [ ] `statistics_comparison` template updated to three-table layout.
-- [ ] Column format updated to `>{\ttfamily\raggedright...}p{...}` to match Python column style.
+- [x] `DailyStatRows []StatRow` in `TemplateData`; comparison hourly rows are merged into `StatRows` rather than kept in a separate `CompareStatRows` slice.
+- [x] Daily-group query + merge in `report.go`.
+- [x] Combined chronological sort of `StatRows` (t1 + t2 merged).
+- [x] `statistics_comparison` template updated to three-table layout.
+- [ ] Exact Python `>{\ttfamily\raggedright...}p{...}` column format remains unmatched; current code uses the shared centred `BuildStatTableTeX(...)` style instead.
 
 ---
 
-### 8.6 — Comparison mode: Cosine angle/factor per period `S`
+### 8.6 — Comparison mode: Cosine angle/factor per period `S` ✅
 
-**Current (Go):** Single `CosineAngle` / `CosineFactor` — only t1 values used.
+**Current code status:** Implemented. Comparison reports now carry and render per-period cosine angle and factor fields when present.
 
-**Target (Python):** Shows both t1 and t2 cosine values when they differ:
-
-```
-Cosine Error Angle (t1): 0.5°
-Cosine Error Factor (t1): 1.000038
-Cosine Error Angle (t2): 21.0°
-Cosine Error Factor (t2): 1.071145
-```
-
-**Changes required:**
-
-- `TemplateData`: add `CompareCosineAngle float64` and `CompareCosineFactor float64`.
-- `report.go`: populate from comparison period's config.
-- `survey_parameters.tex`: update `survey_parameters_comparison` to show both sets when nonzero.
-
-- [ ] `CompareCosineAngle float64`, `CompareCosineFactor float64` in `TemplateData`.
-- [ ] Populate in `report.go`.
-- [ ] `survey_parameters_comparison` template updated.
+- [x] `CompareCosineAngle float64`, `CompareCosineFactor float64` in `TemplateData`.
+- [x] Populate in `report.go`.
+- [x] `survey_parameters_comparison` template updated.
 
 ---
 
-### 8.7 — Section ordering and two-column structure `M`
+### 8.7 — Section ordering and two-column structure `M` ✅
 
-**Current (Go):** `period_report_comparison` order:
+**Current code status:** Implemented. Comparison reports now keep overview, site information, science, survey parameters, and statistics in the two-column flow; the switch to one-column happens at the chart section. The comparison histogram lives in `overview_comparison`, while `statistics_comparison` now focuses on tables.
 
-1. `overview_comparison` (two-column)
-2. `survey_parameters_comparison` (two-column)
-3. `statistics_comparison` (two-column): histogram, speed dist, detailed data
-4. `chart_section_comparison` (one-column): t1 timeseries
-5. `site_info` (one-column, comes after `chart_section` — in `report.tex`)
-6. `science` (one-column)
-7. `map_section` (one-column)
-
-**Target (Python):** Section order:
-
-1. Velocity Overview + Key Metrics table (two-column)
-2. Histogram figure (two-column, inside Overview)
-3. Site Information (two-column)
-4. Citizen Radar subsection (two-column)
-5. Aggregation and Percentiles subsection (two-column)
-6. Hardware Configuration table (two-column)
-7. Survey Parameters table (two-column)
-8. Detailed Data Tables (two-column): distribution table + daily + granular
-9. Charts (one-column): t1 timeseries, t2 timeseries, map
-
-The key structural change: **Site Info, Science, and Hardware stay in two-column**; the
-`\onecolumn` switch happens only at the chart section.
-
-**Changes required:**
-
-- `period_report.tex`: reorder `period_report_comparison` sequence.
-- `report.tex`: move `site_info` and `science` calls to before `chart_section` so they
-  render in two-column context.
-- `overview.tex`: move histogram figure render into overview body (after Key Metrics table).
-- `survey_parameters.tex`: split into "Hardware Configuration" + "Survey Parameters" subsections.
-- `statistics.tex`: remove histogram figure from `statistics_comparison` (moved to overview).
-
-- [ ] `period_report.tex` reordered.
-- [ ] `overview_comparison` includes histogram figure after Key Metrics.
-- [ ] `survey_parameters.tex` splits hardware + survey subsections.
-- [ ] `statistics_comparison` drops histogram figure.
-- [ ] `report.tex` restructured so site_info and science appear before chart_section.
+- [x] `period_report.tex` reordered.
+- [x] `overview_comparison` includes histogram figure after Key Metrics.
+- [x] `survey_parameters.tex` splits hardware + survey subsections.
+- [x] `statistics_comparison` drops histogram figure.
+- [x] `report.tex` restructured so site_info and science appear before chart_section.
 
 ---
 
 ### 8.8 — Velocity Overview list: labels, dates, counts `S`
 
-**Alignment items:**
+**Current code status:** Mostly implemented. The overview list now uses `Site:` in both modes, ISO-format dates, combined comma-formatted comparison counts, and explicit compact itemize spacing. The one notable remaining difference is that single-survey mode still shows speed limit in the overview list; that is folded into the broader single-survey parity pass in 8.11.
 
-| Item              | Python                             | Go (current)                  |
-| ----------------- | ---------------------------------- | ----------------------------- |
-| Site label        | `\textbf{Site:}`                   | `\textbf{Location:}`          |
-| Period dates      | ISO format `2025-06-01`            | Long format `1 June 2025`     |
-| Total count label | `Total vehicle count:`             | `Total observations (t1):`    |
-| Total count value | Combined t1+t2 with commas `5,915` | t1 only, no commas `3460`     |
-| Speed limit       | Not shown                          | `\item \textbf{Speed limit:}` |
-| List spacing      | `\setlength{\itemsep}{-1pt}` etc.  | None                          |
-
-Note: The Go date format (`1 June 2025`) is arguably more readable than ISO dates.
-Adopt Go's format for single mode. For comparison mode, adopt Python's ISO format (`2025-06-01`)
-since ISO is more compact in the footer/overview where both date ranges appear.
-
-- [ ] Change `Site:` → `Location:` in both modes (or vice versa — pick one standard).
-- [ ] Add combined count (t1+t2) for comparison mode using `FormatCount`.
-- [ ] Add inline `\setlength{\itemsep}{-1pt}` etc. to itemize.
+- [x] Standardise on `Site:` in both modes.
+- [x] Add combined count (t1+t2) for comparison mode using `FormatCount`.
+- [x] Add inline `\setlength{\itemsep}{-1pt}` etc. to itemize.
 
 ---
 
 ### 8.9 — Hardware Configuration: split from Survey Parameters `S`
 
-**Target (Python):** Two subsections:
+**Current code status:** Partially implemented. `survey_parameters_single` and `survey_parameters_comparison` are now split into `Hardware Configuration` and `Survey Parameters` subsections, but firmware/version fields are still omitted because `TemplateData` does not expose them.
 
-1. `Hardware Configuration` — sensor model, firmware version, transmit frequency, sample rate, velocity resolution, azimuth/elevation FoV.
-2. `Survey Parameters` — start/end times, timezone, roll-up, units, min speed, cosine error.
-
-**Current (Go):** One unified `Survey Parameters` table with hardware rows merged in.
-
-**Changes required:**
-
-- `survey_parameters.tex`: split into two tabular blocks with `\subsection*{Hardware Configuration}`
-  and `\subsection*{Survey Parameters}` headings.
-- `TemplateData`: add `FirmwareVersion string` and `VelocityResolution string` (these come from
-  site config; currently omitted because the DB doesn't expose them — emit empty string / omit row
-  if not available).
-
-- [ ] Split survey_parameters templates into Hardware + Survey subsections.
+- [x] Split survey_parameters templates into Hardware + Survey subsections.
 - [ ] `FirmwareVersion string` in `TemplateData` (optional, omit row if empty).
 
 ---
 
-### 8.10 — Science section: two subsections `S`
+### 8.10 — Science section: two subsections `S` ✅
 
-**Current (Go):** Single `Citizen Radar Science` subsection combining Doppler explanation,
-aggregation method, and kinetic energy.
+**Current code status:** Implemented. `science.tex` now has separate `Citizen Radar` and `Aggregation and Percentiles` subsections and includes the expanded explanatory prose.
 
-**Target (Python):** Two subsections:
-
-- `Citizen Radar` — narrative prose about velocity.report as a citizen radar tool + KE formula block.
-- `Aggregation and Percentiles` — Doppler effect explanation, TCSC clustering algorithm description,
-  undercounting note, percentile interpretation, low-sample caveat.
-
-**Changes required:**
-
-- `science.tex`: restructure into two `\subsection*` blocks matching Python's prose.
-- The Python prose is richer (includes the clustering algorithm description, undercounting note).
-  Copy the Python text verbatim.
-
-- [ ] `science.tex` split into two subsections with Python's prose.
+- [x] `science.tex` split into two subsections with Python's prose.
 
 ---
 
@@ -1289,16 +1112,16 @@ Implement items in this sequence to avoid regressions:
 
 ```
 8.0 ✅  Build SHA metadata (done)
-8.1     Measurement tooling (make tex-compare, golden files)
-8.6     Cosine per period (TemplateData + template — data only)
-8.2     Key Metrics table (overview_comparison rewrite)
-8.8     Overview list alignment (labels, dates, counts)
-8.9     Hardware Config split
-8.3     Dual histogram table (helpers.go + statistics_comparison)
-8.4     Compare timeseries chart (report.go + chart_section_comparison)
-8.5     Daily + Granular tables (report.go + statistics_comparison)
-8.7     Section ordering (structural reorder — highest risk)
-8.10    Science section expansion
+8.1     Measurement tooling (make tex-compare, golden files) — still open
+8.6 ✅  Cosine per period (done)
+8.2 ✅  Key Metrics table (done)
+8.8 ✅  Overview list alignment (done; single-survey speed-limit review deferred to 8.11)
+8.9     Hardware Config split (section split done; firmware/version parity still open)
+8.3 ✅  Dual histogram table (done)
+8.4 ✅  Compare timeseries chart (done)
+8.5     Daily + Granular tables (structural parity done; exact column-format parity still open)
+8.7 ✅  Section ordering (done)
+8.10 ✅ Science section expansion (done)
 8.11    Single-survey drift (deferred)
 ```
 

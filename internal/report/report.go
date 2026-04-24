@@ -342,6 +342,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		CompareCosineAngle:  compareCosineAngle,
 		CompareCosineFactor: compareCosineFactor,
 		ModelVersion:        tex.EscapeTeX(cfg.ModelVersion),
+		FirmwareVersion:     tex.EscapeTeX(cfg.FirmwareVersion),
 
 		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
 		PaperOption:    paperTexOption(paper),

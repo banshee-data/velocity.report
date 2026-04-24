@@ -24,6 +24,7 @@ type Config struct {
 	Group             string  // e.g. "1h", "4h"
 	Source            string  // "radar_objects" or "radar_data_transits"
 	ModelVersion      string  // e.g. "hourly-cron"
+	FirmwareVersion   string  // optional; displayed in hardware table when non-empty
 	MinSpeed          float64 // display units
 	BoundaryThreshold int
 

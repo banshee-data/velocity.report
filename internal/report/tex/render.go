@@ -98,12 +98,13 @@ type TemplateData struct {
 	CombinedCountFormatted     string
 
 	// Radar/survey parameters
-	Source       string
-	Group        string
-	MinSpeed     float64
-	CosineAngle  float64
-	CosineFactor float64
-	ModelVersion string
+	Source          string
+	Group           string
+	MinSpeed        float64
+	CosineAngle     float64
+	CosineFactor    float64
+	ModelVersion    string
+	FirmwareVersion string // optional; omitted from hardware table when empty
 
 	// Speed limit note (e.g. "Posted speed limit: 25 mph")
 	SpeedLimitNote string

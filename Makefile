@@ -815,7 +815,7 @@ vrlog-compare:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary tex-compare test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
 
 MAC_DIR = tools/visualiser-macos
 
@@ -826,6 +826,12 @@ test: test-go test-web test-mac
 test-go:
 	@echo "Running Go unit tests..."
 	@go test ./...
+
+# Compare Go tex output against golden files; re-run with -update flag to regenerate.
+tex-compare:
+	@echo "Checking tex golden files..."
+	@go test ./internal/report/tex/... -run 'TestRenderTeX_Golden'
+	@echo "tex golden files OK"
 
 # Run Go unit tests with coverage
 test-go-cov:

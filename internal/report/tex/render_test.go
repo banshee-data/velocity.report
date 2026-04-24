@@ -1,13 +1,27 @@
 package tex
 
 import (
+	"bytes"
+	"flag"
 	"math"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/report/chart"
 )
+
+var update = flag.Bool("update", false, "update golden files")
+
+// reTimestamp strips the volatile % Generated: line from tex output before
+// golden comparison, so the test does not fail on timestamp differences.
+var reTimestamp = regexp.MustCompile(`(?m)^% Generated: .*\n`)
+
+func normalizeForGolden(b []byte) []byte {
+	return reTimestamp.ReplaceAll(b, []byte("% Generated: <stripped>\n"))
+}
 
 func minimalTemplateData() TemplateData {
 	return TemplateData{
@@ -283,5 +297,93 @@ func TestBuildStatRows(t *testing.T) {
 	}
 	if rows[1].MaxSpeed != "--" {
 		t.Errorf("row 1 MaxSpeed = %q, want %q", rows[1].MaxSpeed, "--")
+	}
+}
+
+func TestRenderTeX_GoldenSingle(t *testing.T) {
+	data := minimalTemplateData()
+	data.StatRows = []StatRow{
+		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
+	}
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.HistogramTableTeX = `\begin{tabular}{lrr}` + "\n" +
+		`20--25 & 120 & 12.0\% \\` + "\n" +
+		`25--30 & 880 & 88.0\% \\` + "\n" +
+		`\end{tabular}`
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+	got := normalizeForGolden(out)
+
+	const golden = "testdata/golden_single.tex"
+	if *update {
+		if err := os.MkdirAll("testdata", 0o755); err != nil {
+			t.Fatalf("mkdir testdata: %v", err)
+		}
+		if err := os.WriteFile(golden, got, 0o644); err != nil {
+			t.Fatalf("writing golden: %v", err)
+		}
+		return
+	}
+
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("reading golden %s (run with -update to create): %v", golden, err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("golden mismatch for %s; re-run with -update to regenerate\ngot:\n%s\nwant:\n%s", golden, got, want)
+	}
+}
+
+func TestRenderTeX_GoldenComparison(t *testing.T) {
+	data := minimalTemplateData()
+	data.CompareStartDate = "2024-02-01"
+	data.CompareEndDate = "2024-02-28"
+	data.CompareP50 = "26.00"
+	data.CompareP85 = "31.00"
+	data.CompareP98 = "36.00"
+	data.CompareMax = "45.00"
+	data.CompareCount = 900
+	data.DeltaP50 = "+1.50"
+	data.DeltaP85 = "+1.20"
+	data.DeltaP98 = "+0.80"
+	data.DeltaMax = "+2.90"
+	data.DeltaP50Pct = "+6.1%"
+	data.DeltaP85Pct = "+4.0%"
+	data.DeltaP98Pct = "+2.3%"
+	data.DeltaMaxPct = "+6.9%"
+	data.TotalCountFormatted = "1,000"
+	data.CompareTotalCountFormatted = "900"
+	data.CombinedCountFormatted = "1,900"
+	data.StatRows = []StatRow{
+		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
+	}
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+	got := normalizeForGolden(out)
+
+	const golden = "testdata/golden_comparison.tex"
+	if *update {
+		if err := os.MkdirAll("testdata", 0o755); err != nil {
+			t.Fatalf("mkdir testdata: %v", err)
+		}
+		if err := os.WriteFile(golden, got, 0o644); err != nil {
+			t.Fatalf("writing golden: %v", err)
+		}
+		return
+	}
+
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("reading golden %s (run with -update to create): %v", golden, err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("golden mismatch for %s; re-run with -update to regenerate\ngot:\n%s\nwant:\n%s", golden, got, want)
 	}
 }
