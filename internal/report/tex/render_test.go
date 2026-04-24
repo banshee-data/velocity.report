@@ -25,21 +25,22 @@ func normalizeForGolden(b []byte) []byte {
 
 func minimalTemplateData() TemplateData {
 	return TemplateData{
-		Location:   "Test Location",
-		StartDate:  "2024-01-01",
-		EndDate:    "2024-01-31",
-		Timezone:   "UTC",
-		Units:      "mph",
-		P50:        "25.00",
-		P85:        "30.00",
-		P98:        "35.00",
-		MaxSpeed:   "42.00",
-		TotalCount: 1000,
-		HoursCount: 720,
-		SpeedLimit: 25,
-		FontDir:    "/fonts",
-		Group:      "hourly",
-		Source:     "radar",
+		Location:    "Test Location",
+		StartDate:   "2024-01-01",
+		EndDate:     "2024-01-31",
+		Timezone:    "UTC",
+		Units:       "mph",
+		P50:         "25.00",
+		P85:         "30.00",
+		P98:         "35.00",
+		MaxSpeed:    "42.00",
+		TotalCount:  1000,
+		HoursCount:  720,
+		SpeedLimit:  25,
+		FontDir:     "/fonts",
+		Group:       "hourly",
+		Source:      "radar",
+		PaperOption: "a4paper",
 	}
 }
 
