@@ -1,10 +1,8 @@
 package api
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,20 +12,15 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report"
 )
 
-// TestGenerateReport_GoBackend_RequiresTools tests the Go PDF backend path.
-// It verifies the handler enters the Go branch when VELOCITY_PDF_BACKEND=go
-// and exercises the config mapping logic. If rsvg-convert or xelatex are not
-// installed the test still validates the error comes from the Go pipeline
-// (not the Python exec path).
-func TestGenerateReport_GoBackend_RequiresTools(t *testing.T) {
+// TestGenerateReport_RequiresTools tests the Go PDF report pipeline.
+// It verifies the handler invokes the Go pipeline directly (no Python fallback).
+// If rsvg-convert or xelatex are not installed the test still validates the
+// error originates from the Go pipeline, not a Python exec path.
+func TestGenerateReport_RequiresTools(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
 	site := seedChartTestData(t, dbInst)
-
-	// Set the feature flag.
-	os.Setenv("VELOCITY_PDF_BACKEND", "go")
-	defer os.Unsetenv("VELOCITY_PDF_BACKEND")
 
 	reqBody := ReportRequest{
 		SiteID:            &site.ID,
@@ -50,9 +43,6 @@ func TestGenerateReport_GoBackend_RequiresTools(t *testing.T) {
 
 	server.ServeMux().ServeHTTP(w, req)
 
-	// The handler should NOT invoke the Python path. If rsvg-convert/xelatex
-	// are missing the error message will mention those tools — not "python"
-	// or "PDF generation failed" from the Python subprocess exec.
 	respBody := w.Body.String()
 
 	if w.Code == http.StatusOK {
@@ -76,101 +66,22 @@ func TestGenerateReport_GoBackend_RequiresTools(t *testing.T) {
 		t.Log("Go backend produced full PDF successfully")
 	} else {
 		// Expected when rsvg-convert or xelatex are not installed.
-		// Verify the error originates from the Go pipeline, not the Python path.
-		if isPythonError(respBody) {
-			t.Errorf("expected Go pipeline error, but got Python-path error: %s", respBody)
+		// Verify the error originates from the Go pipeline.
+		if containsPythonMarker(respBody) {
+			t.Errorf("expected Go pipeline error, but got Python-path marker: %s", respBody)
 		}
 		t.Logf("Go backend returned expected tool-missing error (status %d): %s", w.Code, respBody)
 	}
 }
 
-// TestGenerateReport_PythonPath_WhenFlagUnset verifies the Python path is used
-// when the VELOCITY_PDF_BACKEND env var is absent. The test expects a Python
-// error (no python env in CI) — the important thing is the error is from the
-// Python exec path, not the Go pipeline.
-func TestGenerateReport_PythonPath_WhenFlagUnset(t *testing.T) {
+// TestGenerateReport_ConfigMapping verifies that the handler correctly maps
+// ReportRequest fields through to the Go pipeline by confirming a request with
+// comparison params and non-default units reaches the Go pipeline without panic.
+func TestGenerateReport_ConfigMapping(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
 	site := seedChartTestData(t, dbInst)
-
-	// Ensure feature flag is NOT set.
-	os.Unsetenv("VELOCITY_PDF_BACKEND")
-
-	reqBody := ReportRequest{
-		SiteID:    &site.ID,
-		StartDate: "2025-12-03",
-		EndDate:   "2025-12-03",
-		Timezone:  "UTC",
-		Units:     "mph",
-		Group:     "1h",
-		Source:    "radar_objects",
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	server.ServeMux().ServeHTTP(w, req)
-
-	// Without a Python env the handler should fail. The error should NOT
-	// mention rsvg-convert or xelatex (those are Go-pipeline errors).
-	if w.Code == http.StatusOK {
-		t.Log("Python PDF generation succeeded (full environment available)")
-		return
-	}
-
-	respBody := w.Body.String()
-	if isGoPipelineError(respBody) {
-		t.Errorf("expected Python-path error, but got Go-pipeline error: %s", respBody)
-	}
-}
-
-// isPythonError checks if the error message looks like it came from the
-// Python exec path.
-func isPythonError(body string) bool {
-	pythonMarkers := []string{
-		"pdf_generator",
-		"python3",
-		"python",
-		"No module named",
-	}
-	for _, m := range pythonMarkers {
-		if bytes.Contains([]byte(body), []byte(m)) {
-			return true
-		}
-	}
-	return false
-}
-
-// isGoPipelineError checks if the error message looks like it came from the
-// Go report pipeline.
-func isGoPipelineError(body string) bool {
-	goMarkers := []string{
-		"rsvg-convert",
-		"xelatex",
-		"unsupported group",
-	}
-	for _, m := range goMarkers {
-		if bytes.Contains([]byte(body), []byte(m)) {
-			return true
-		}
-	}
-	return false
-}
-
-// TestGenerateReport_GoBackend_ConfigMapping verifies that the Go backend
-// correctly maps ReportRequest fields to report.Config fields by checking
-// the handler function can be invoked without panic.
-func TestGenerateReport_GoBackend_ConfigMapping(t *testing.T) {
-	server, dbInst := setupTestServer(t)
-	defer cleanupTestServer(t, dbInst)
-
-	site := seedChartTestData(t, dbInst)
-
-	os.Setenv("VELOCITY_PDF_BACKEND", "go")
-	defer os.Unsetenv("VELOCITY_PDF_BACKEND")
 
 	// Test with comparison params to exercise the full config mapping.
 	reqBody := ReportRequest{
@@ -195,69 +106,78 @@ func TestGenerateReport_GoBackend_ConfigMapping(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	// This exercises config construction. We don't need full success —
-	// just no panic and evidence the Go path was taken.
 	server.ServeMux().ServeHTTP(w, req)
 
 	respBody := w.Body.String()
 
-	// Verify it hit the Go path (not Python).
-	if isPythonError(respBody) {
-		t.Errorf("expected Go pipeline path but got Python error: %s", respBody)
+	// Verify the Go path was taken (no Python markers).
+	if containsPythonMarker(respBody) {
+		t.Errorf("expected Go pipeline path but response contains Python marker: %s", respBody)
 	}
 }
 
-func TestGenerateReport_BothBackend_IncludesComparisonTeX(t *testing.T) {
+// TestBuildReportConfig_FieldMapping is a pure unit test confirming that
+// buildReportConfig maps ReportRequest fields to report.Config correctly.
+func TestBuildReportConfig_FieldMapping(t *testing.T) {
+	siteID := 42
+	req := ReportRequest{
+		SiteID:             &siteID,
+		StartDate:          "2025-01-01",
+		EndDate:            "2025-01-31",
+		CompareStart:       "2024-01-01",
+		CompareEnd:         "2024-01-31",
+		Timezone:           "US/Pacific",
+		Units:              "kph",
+		Group:              "4h",
+		Source:             "radar_data_transits",
+		MinSpeed:           5.0,
+		BoundaryThreshold:  3,
+		Histogram:          true,
+		HistBucketSize:     10.0,
+		HistMax:            120.0,
+		PaperSize:          "letter",
+		CompareCosineAngle: 7.5,
+	}
+
+	cfg := buildReportConfig(req, nil, 3.5, "Test Location", "Test Surveyor", "test@example.com", 30, "Test description", "")
+
+	if cfg.CompareCosineAngle != 7.5 {
+		t.Errorf("CompareCosineAngle: got %v, want 7.5", cfg.CompareCosineAngle)
+	}
+	if cfg.CosineAngle != 3.5 {
+		t.Errorf("CosineAngle: got %v, want 3.5", cfg.CosineAngle)
+	}
+	if cfg.CompareStart != "2024-01-01" {
+		t.Errorf("CompareStart: got %q, want %q", cfg.CompareStart, "2024-01-01")
+	}
+	if cfg.CompareEnd != "2024-01-31" {
+		t.Errorf("CompareEnd: got %q, want %q", cfg.CompareEnd, "2024-01-31")
+	}
+	if cfg.PaperSize != "letter" {
+		t.Errorf("PaperSize: got %q, want %q", cfg.PaperSize, "letter")
+	}
+	if cfg.Units != "kph" {
+		t.Errorf("Units: got %q, want %q", cfg.Units, "kph")
+	}
+	if cfg.SiteID != 42 {
+		t.Errorf("SiteID: got %d, want 42", cfg.SiteID)
+	}
+	if cfg.Location != "Test Location" {
+		t.Errorf("Location: got %q, want %q", cfg.Location, "Test Location")
+	}
+}
+
+// TestGenerateReport_NoPythonEnvNeeded confirms that a report request proceeds
+// via the Go pipeline regardless of whether VELOCITY_PDF_BACKEND is set.
+// The response must not contain Python error markers.
+func TestGenerateReport_NoPythonEnvNeeded(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
 	site := seedChartTestData(t, dbInst)
-	pdfDir := t.TempDir()
-	t.Setenv("PDF_GENERATOR_DIR", pdfDir)
-	t.Setenv("VELOCITY_PDF_BACKEND", "both")
-	t.Setenv("PATH", createMockReportTools(t)+":"+os.Getenv("PATH"))
 
-	originalRunner := runPythonPDFGenerator
-	runPythonPDFGenerator = func(pythonBin, pdfDir, configFile string) ([]byte, error) {
-		var config struct {
-			Query struct {
-				EndDate string `json:"end_date"`
-			} `json:"query"`
-			Site struct {
-				Location string `json:"location"`
-			} `json:"site"`
-			Output struct {
-				OutputDir string `json:"output_dir"`
-			} `json:"output"`
-		}
-
-		configData, err := os.ReadFile(configFile)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(configData, &config); err != nil {
-			return nil, err
-		}
-
-		artifacts := buildPythonReportArtifacts(pdfDir, config.Output.OutputDir, config.Query.EndDate, config.Site.Location)
-		zipData, err := report.BuildZip(map[string][]byte{
-			"stub_report.tex": []byte("python comparison tex"),
-		})
-		if err != nil {
-			return nil, err
-		}
-		if err := os.MkdirAll(filepath.Dir(artifacts.FullZIPPath), 0755); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(artifacts.FullZIPPath, zipData, 0644); err != nil {
-			return nil, err
-		}
-
-		return []byte("python comparison ok"), nil
-	}
-	defer func() {
-		runPythonPDFGenerator = originalRunner
-	}()
+	// Explicitly clear any env var that might have leaked from another test.
+	os.Unsetenv("VELOCITY_PDF_BACKEND")
 
 	reqBody := ReportRequest{
 		SiteID:         &site.ID,
@@ -278,52 +198,50 @@ func TestGenerateReport_BothBackend_IncludesComparisonTeX(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	server.ServeMux().ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+
+	respBody := w.Body.String()
+
+	// Whether success or tool-missing failure, no Python markers should appear.
+	if containsPythonMarker(respBody) {
+		t.Errorf("response contains Python marker without VELOCITY_PDF_BACKEND set: %s", respBody)
 	}
 
-	var response map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("unmarshal response: %v", err)
+	// The result must be either HTTP 200 or a Go-pipeline error.
+	if w.Code != http.StatusOK && !isGoPipelineError(respBody) {
+		t.Errorf("unexpected non-200 response without a recognised Go-pipeline error: status=%d body=%s", w.Code, respBody)
 	}
+}
 
-	zipPath := filepath.Join(pdfDir, response["zip_path"].(string))
-	zipData, err := os.ReadFile(zipPath)
-	if err != nil {
-		t.Fatalf("read zip: %v", err)
+// containsPythonMarker checks if the response body contains markers that
+// indicate the Python exec path was taken.
+func containsPythonMarker(body string) bool {
+	pythonMarkers := []string{
+		"pdf_generator",
+		"python3",
+		"No module named",
 	}
-
-	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
-	if err != nil {
-		t.Fatalf("open zip: %v", err)
-	}
-
-	entries := make(map[string]string)
-	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			t.Fatalf("open %s: %v", f.Name, err)
+	for _, m := range pythonMarkers {
+		if bytes.Contains([]byte(body), []byte(m)) {
+			return true
 		}
-		data, err := io.ReadAll(rc)
-		rc.Close()
-		if err != nil {
-			t.Fatalf("read %s: %v", f.Name, err)
-		}
-		entries[f.Name] = string(data)
 	}
+	return false
+}
 
-	if entries["comparison/go/report.tex"] == "" {
-		t.Fatal("comparison/go/report.tex not found in ZIP")
+// isGoPipelineError checks if the error message looks like it came from the
+// Go report pipeline.
+func isGoPipelineError(body string) bool {
+	goMarkers := []string{
+		"rsvg-convert",
+		"xelatex",
+		"unsupported group",
 	}
-	if entries["comparison/python/report.tex"] != "python comparison tex" {
-		t.Fatalf("comparison/python/report.tex = %q, want %q", entries["comparison/python/report.tex"], "python comparison tex")
+	for _, m := range goMarkers {
+		if bytes.Contains([]byte(body), []byte(m)) {
+			return true
+		}
 	}
-	if entries["comparison/go/report.tex"] != entries["report.tex"] {
-		t.Fatal("comparison/go/report.tex did not match root report.tex")
-	}
-	if _, err := os.Stat(filepath.Join(pdfDir, "output", filepath.Base(filepath.Dir(zipPath)), "python-compare")); !os.IsNotExist(err) {
-		t.Fatal("expected python-compare temp directory to be removed")
-	}
+	return false
 }
 
 func TestRelativeReportPaths_Valid(t *testing.T) {
@@ -398,3 +316,6 @@ fi
 }
 
 // seedChartTestData is defined in server_charts_test.go and shared here.
+
+// Ensure report package import is used (Config type referenced in TestBuildReportConfig_FieldMapping).
+var _ report.Config
