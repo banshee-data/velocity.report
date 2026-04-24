@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -190,7 +191,11 @@ func (s *Server) generateReportGo(
 	if err != nil {
 		log.Printf("Go PDF generation failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		if errors.Is(err, report.ErrInvalidConfig) {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid report request: %v", err))
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		}
 		return
 	}
 

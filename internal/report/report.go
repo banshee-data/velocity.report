@@ -3,6 +3,7 @@ package report
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -17,6 +18,12 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report/tex"
 	"github.com/banshee-data/velocity.report/internal/units"
 )
+
+// ErrInvalidConfig wraps all Generate errors caused by bad caller input
+// (unknown group, unparseable timezone or date). Handlers can use
+// errors.Is(err, report.ErrInvalidConfig) to map these to HTTP 4xx
+// responses; every other Generate error is a server-side failure.
+var ErrInvalidConfig = errors.New("invalid report config")
 
 //go:embed chart/assets/AtkinsonHyperlegible-Regular.ttf
 var fontRegular []byte
@@ -35,7 +42,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	// Validate group.
 	groupSeconds, ok := supportedGroups[cfg.Group]
 	if !ok {
-		return Result{}, fmt.Errorf("unsupported group %q", cfg.Group)
+		return Result{}, fmt.Errorf("%w: unsupported group %q", ErrInvalidConfig, cfg.Group)
 	}
 
 	// Check external tool availability.
@@ -49,16 +56,16 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	// Parse dates.
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
-		return Result{}, fmt.Errorf("invalid timezone %q: %w", cfg.Timezone, err)
+		return Result{}, fmt.Errorf("%w: invalid timezone %q: %v", ErrInvalidConfig, cfg.Timezone, err)
 	}
 
 	startTime, err := time.ParseInLocation("2006-01-02", cfg.StartDate, loc)
 	if err != nil {
-		return Result{}, fmt.Errorf("invalid start date %q: %w", cfg.StartDate, err)
+		return Result{}, fmt.Errorf("%w: invalid start date %q: %v", ErrInvalidConfig, cfg.StartDate, err)
 	}
 	endTime, err := time.ParseInLocation("2006-01-02", cfg.EndDate, loc)
 	if err != nil {
-		return Result{}, fmt.Errorf("invalid end date %q: %w", cfg.EndDate, err)
+		return Result{}, fmt.Errorf("%w: invalid end date %q: %v", ErrInvalidConfig, cfg.EndDate, err)
 	}
 	// End date is inclusive: advance to end-of-day.
 	endTime = endTime.Add(24*time.Hour - time.Second)
@@ -495,11 +502,11 @@ type comparisonData struct {
 func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Location, minSpeedMPS, histBucketMPS, histMaxMPS float64, groupSeconds int64) (*comparisonData, error) {
 	cs, err := time.ParseInLocation("2006-01-02", cfg.CompareStart, loc)
 	if err != nil {
-		return nil, fmt.Errorf("invalid compare start %q: %w", cfg.CompareStart, err)
+		return nil, fmt.Errorf("%w: invalid compare start %q: %v", ErrInvalidConfig, cfg.CompareStart, err)
 	}
 	ce, err := time.ParseInLocation("2006-01-02", cfg.CompareEnd, loc)
 	if err != nil {
-		return nil, fmt.Errorf("invalid compare end %q: %w", cfg.CompareEnd, err)
+		return nil, fmt.Errorf("%w: invalid compare end %q: %v", ErrInvalidConfig, cfg.CompareEnd, err)
 	}
 	ce = ce.Add(24*time.Hour - time.Second)
 

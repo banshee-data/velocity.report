@@ -72,6 +72,37 @@ func TestGenerateReport_RequiresTools(t *testing.T) {
 	}
 }
 
+// TestGenerateReport_InvalidTimezoneReturns400 verifies that validation
+// failures from report.Generate (ErrInvalidConfig) are mapped to HTTP 400,
+// not the 500 used for internal/tooling failures.
+func TestGenerateReport_InvalidTimezoneReturns400(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	reqBody := ReportRequest{
+		SiteID:    &site.ID,
+		StartDate: "2025-12-03",
+		EndDate:   "2025-12-03",
+		Timezone:  "Not/A/Zone",
+		Units:     "mph",
+		Group:     "1h",
+		Source:    "radar_objects",
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.ServeMux().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid timezone, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 // TestGenerateReport_ConfigMapping verifies that the handler correctly maps
 // ReportRequest fields through to the Go pipeline by confirming a request with
 // comparison params and non-default units reaches the Go pipeline without panic.

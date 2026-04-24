@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -387,6 +388,9 @@ func TestGenerate_InvalidGroup(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "unsupported group") {
 		t.Errorf("expected unsupported group error, got: %v", err)
 	}
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Errorf("expected err to wrap ErrInvalidConfig, got: %v", err)
+	}
 }
 
 func TestGenerate_InvalidTimezone(t *testing.T) {
@@ -400,6 +404,25 @@ func TestGenerate_InvalidTimezone(t *testing.T) {
 	_, err := Generate(context.Background(), m, cfg)
 	if err == nil || !strings.Contains(err.Error(), "invalid timezone") {
 		t.Errorf("expected invalid timezone error, got: %v", err)
+	}
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Errorf("expected err to wrap ErrInvalidConfig, got: %v", err)
+	}
+}
+
+func TestGenerate_InvalidStartDate(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	m := &mockDB{}
+	cfg := Config{
+		Group:     "1h",
+		Timezone:  "UTC",
+		StartDate: "not-a-date",
+		EndDate:   "2025-01-31",
+	}
+	_, err := Generate(context.Background(), m, cfg)
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Errorf("expected err to wrap ErrInvalidConfig, got: %v", err)
 	}
 }
 
