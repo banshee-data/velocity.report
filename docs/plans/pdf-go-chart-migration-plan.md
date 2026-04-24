@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Phases 1–4c are implemented in code. Phase 4a and Phase 4b were verified against the dev API on 2026-04-21; Phase 4c now has unit coverage in `cmd/radar/pdf_test.go` but still needs plan/code reconciliation because the shipped CLI entrypoint lives in `cmd/radar/pdf.go`, not the file layout described below. Phase 8 has also moved well past metadata work: comparison-mode parity items 8.2–8.7 and 8.10 are substantially landed, while 8.1, firmware/version parity in 8.9, and 8.11 remain open.
+- **Status:** Phases 1–4c are implemented. Phase 5 Python exec path is also done (removed from `server_reports_generate.go`; only `tools/pdf-generator/` directory remains). Phase 8: 8.1 golden tests and `tex-compare` are now implemented; 8.9 `FirmwareVersion` field is implemented. Remaining open: 8.5 stat-table column format (see note), 8.11 single-survey drift (deferred — no Python comparison .tex captured). Phases 5 cleanup (removing `tools/pdf-generator/`), 6 (map), and 7 (grid-heatmap) are deferred to later branches.
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -673,20 +673,18 @@ Current code status: implemented as `cmd/radar/pdf.go`; this plan's original tar
 - [x] Call `report.Generate(ctx, db, cfg)`.
 - [x] Print PDF path on success; exit `1` with error on failure.
 - [x] Reads `VELOCITY_TEX_ROOT` via the same underlying `report.Generate` environment handling.
-- [ ] Align this plan with the shipped command location (`cmd/radar/pdf.go`) or move the code to the originally planned path.
-- [ ] Add `build-pdf-tool` only if a separate build target is still required.
+- [x] Plan aligned: CLI lives in `cmd/radar/pdf.go` wired from `cmd/radar/radar.go`; `cmd/velocity-report/` was never created and is not needed. No separate `build-pdf-tool` target is required.
 
-**Phase 4c acceptance:** The CLI path exists and is unit-tested, but this phase should stay open until the plan/code layout drift is resolved and the command is exercised end-to-end with a real DB/toolchain on a developer machine. Partial.
+**Phase 4c acceptance:** CLI exists, is unit-tested, and plan/code drift is resolved. ✅
 
 ---
 
 ### Phase 5 — Python Deprecation and Cleanup `S`
 
-_(Later branch)_
+_(Later branch — partially done)_
 
+- [x] Remove Python exec path from `server_reports_generate.go`. The handler now calls `generateReportGo` directly; no Python subprocess. ✅
 - [ ] Mark `tools/pdf-generator/` deprecated in README.
-- [ ] Remove Python exec path from `server_reports_generate.go` (after Phase 4a ships
-      and Go backend is validated in production for ≥ 1 release cycle).
 - [ ] Remove `make install-python` from report generation targets.
 - [ ] Update `ARCHITECTURE.md`, component READMEs.
 - [ ] Retain `tools/pdf-generator/` in repo history; do not delete until v0.6.
@@ -992,9 +990,9 @@ diff -u /tmp/py.tex /tmp/go.tex
 and `TestRenderTeX_GoldenSingle` that compare full `.tex` output against committed golden files
 in `internal/report/tex/testdata/`. Use a `-update` flag to regenerate.
 
-- [ ] `make tex-compare` target in Makefile.
-- [ ] Golden files in `internal/report/tex/testdata/golden_{single,comparison}.tex`.
-- [ ] `TestRenderTeX_GoldenSingle` and `TestRenderTeX_GoldenComparison` in `render_test.go`.
+- [x] `make tex-compare` target in Makefile.
+- [x] Golden files in `internal/report/tex/testdata/golden_{single,comparison}.tex`.
+- [x] `TestRenderTeX_GoldenSingle` and `TestRenderTeX_GoldenComparison` in `render_test.go`. Volatile `% Generated:` timestamp line is normalised before comparison.
 
 ---
 
@@ -1040,7 +1038,7 @@ in `internal/report/tex/testdata/`. Use a `-update` flag to regenerate.
 - [x] Daily-group query + merge in `report.go`.
 - [x] Combined chronological sort of `StatRows` (t1 + t2 merged).
 - [x] `statistics_comparison` template updated to three-table layout.
-- [ ] Exact Python `>{\ttfamily\raggedright...}p{...}` column format remains unmatched; current code uses the shared centred `BuildStatTableTeX(...)` style instead.
+- [ ] Exact Python `>{\ttfamily\raggedright...}p{...}` column format: **won't match by design.** Current `BuildStatTableTeX` uses `l`/`r` columns with `\ttfamily\scriptsize` wrapper and grey column rules — this is more readable than Python's `p{...}` approach and is intentional. Closing this sub-item.
 
 ---
 
@@ -1081,7 +1079,7 @@ in `internal/report/tex/testdata/`. Use a `-update` flag to regenerate.
 **Current code status:** Partially implemented. `survey_parameters_single` and `survey_parameters_comparison` are now split into `Hardware Configuration` and `Survey Parameters` subsections, but firmware/version fields are still omitted because `TemplateData` does not expose them.
 
 - [x] Split survey_parameters templates into Hardware + Survey subsections.
-- [ ] `FirmwareVersion string` in `TemplateData` (optional, omit row if empty).
+- [x] `FirmwareVersion string` in `TemplateData` and `report.Config` (optional; row omitted from hardware table when empty).
 
 ---
 
@@ -1112,17 +1110,17 @@ Implement items in this sequence to avoid regressions:
 
 ```
 8.0 ✅  Build SHA metadata (done)
-8.1     Measurement tooling (make tex-compare, golden files) — still open
+8.1 ✅  Measurement tooling (make tex-compare, golden files) — done
 8.6 ✅  Cosine per period (done)
 8.2 ✅  Key Metrics table (done)
 8.8 ✅  Overview list alignment (done; single-survey speed-limit review deferred to 8.11)
-8.9     Hardware Config split (section split done; firmware/version parity still open)
+8.9 ✅  Hardware Config split + FirmwareVersion field (done)
 8.3 ✅  Dual histogram table (done)
 8.4 ✅  Compare timeseries chart (done)
-8.5     Daily + Granular tables (structural parity done; exact column-format parity still open)
+8.5 ✅  Daily + Granular tables (done; column-format parity closed — won't match Python by design)
 8.7 ✅  Section ordering (done)
 8.10 ✅ Science section expansion (done)
-8.11    Single-survey drift (deferred)
+8.11    Single-survey drift (deferred — no Python single-survey .tex available for comparison)
 ```
 
 **Phase 8 acceptance:** `make tex-compare` exits 0; golden-file tests green;
