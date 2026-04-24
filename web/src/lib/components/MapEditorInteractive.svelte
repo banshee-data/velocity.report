@@ -898,7 +898,7 @@
 						class="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-white bg-blue-500 shadow-md"
 						style="left: {radarSvgX}%; top: {radarSvgY}%;"
 						on:mousedown={startSvgDotDrag}
-					/>
+					></div>
 				{/if}
 			</div>
 			<p class="text-surface-600-300-token text-xs">

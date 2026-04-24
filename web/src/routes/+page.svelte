@@ -22,6 +22,7 @@
 		type Site,
 		type SiteReport
 	} from '../lib/api';
+	import InlineSvgChart from '../lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '../lib/components/DataSourceSelector.svelte';
 	import { initializePaperSize, paperSize } from '../lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
