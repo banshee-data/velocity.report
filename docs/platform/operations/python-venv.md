@@ -1,8 +1,10 @@
 # Python virtual environment: single shared `.venv`
 
-- **Status:** Complete
+- **Status:** DEPRECATED (v0.5) — Retained for local development of the reference Python PDF generator only. Production deployments do not use Python.
 
-All Python tools share a single virtual environment at `.venv/` in the project root.
+- **Note:** PDF generation migrated to the Go pipeline (`internal/report/`) in v0.5. The Python venv is no longer required for building or running the server. The `.venv/` is retained locally for anyone developing against the deprecated `tools/pdf-generator/` reference copy.
+
+The deprecated Python tools share a single virtual environment at `.venv/` in the project root.
 
 ## Architecture
 
@@ -38,8 +40,7 @@ Root `requirements.in` includes all packages for all Python tools:
 
 ## Go server integration
 
-The Go server finds the Python binary at the path composed from
-`filepath.Join(repoRoot, ".venv", "bin", "python")`.
+The Go server no longer invokes Python. The PDF pipeline runs entirely within the Go process (`internal/report/`). The `.venv/` path reference in the Go server was removed in v0.5.
 
 ## Makefile variables
 

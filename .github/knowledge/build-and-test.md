@@ -11,12 +11,12 @@ cd velocity.report
 
 ## Initial Setup
 
-| Subsystem     | Command                  | Purpose                                  |
-| ------------- | ------------------------ | ---------------------------------------- |
-| Go server     | `make build-radar-local` | Build with pcap support (local dev)      |
-| Python tools  | `make install-python`    | Create `.venv/` and install dependencies |
-| Web frontend  | `make install-web`       | Install pnpm/npm dependencies            |
-| Documentation | `make install-docs`      | Install Eleventy dependencies            |
+| Subsystem                 | Command                  | Purpose                                                          |
+| ------------------------- | ------------------------ | ---------------------------------------------------------------- |
+| Go server                 | `make build-radar-local` | Build with pcap support (local dev)                              |
+| Web frontend              | `make install-web`       | Install pnpm/npm dependencies                                    |
+| Documentation             | `make install-docs`      | Install Eleventy dependencies                                    |
+| Python tools (DEPRECATED) | `make install-python`    | Create `.venv/` for deprecated pdf-generator reference copy only |
 
 ### pcap Build Notes
 
@@ -31,19 +31,19 @@ If the Go build fails due to missing pcap dependencies:
 Every commit must pass all three:
 
 ```bash
-make lint      # Check all code formatting (Go, Python, Web)
+make lint      # Check all code formatting (Go, Web)
 make format    # Auto-format all code
 make test      # Run all test suites
 ```
 
 ## Testing
 
-| Command            | Scope         |
-| ------------------ | ------------- |
-| `make test`        | All tests     |
-| `make test-go`     | Go unit tests |
-| `make test-python` | Python tests  |
-| `make test-web`    | Web tests     |
+| Command                         | Scope                                       |
+| ------------------------------- | ------------------------------------------- |
+| `make test`                     | All tests (Go + Web)                        |
+| `make test-go`                  | Go unit tests                               |
+| `make test-web`                 | Web tests                                   |
+| `make test-python` (DEPRECATED) | Python PDF generator tests — local dev only |
 
 ### Per-Language Validation
 
@@ -52,12 +52,6 @@ make test      # Run all test suites
 ```bash
 make format-go && make lint-go && make test-go
 make build-radar-local   # Verify build
-```
-
-**Python:**
-
-```bash
-make format-python && make lint-python && make test-python
 ```
 
 **Web:**
@@ -83,9 +77,9 @@ Target naming: `<action>-<subsystem>[-<variant>]`
 - Cross-compilation for ARM64 (Raspberry Pi 4)
 - Run `make help` for the full list
 
-## Python Virtual Environment
+## Python Virtual Environment (DEPRECATED)
 
-All Python tools share a **single virtual environment** at the repository root (`.venv/`). Run `make install-python` to create it. There is no per-tool venv.
+The Python venv at `.venv/` is retained for local development against the deprecated `tools/pdf-generator/` reference copy only. PDF generation in production uses the Go pipeline (`internal/report/`). Run `make install-python` to create the venv if you need it for reference work.
 
 ## SQLite
 

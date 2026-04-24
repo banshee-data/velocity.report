@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Phases 1–4c are implemented. Phase 5 Python exec path is also done (removed from `server_reports_generate.go`; only `tools/pdf-generator/` directory remains). Phase 8: 8.1 golden tests and `tex-compare` are now implemented; 8.9 `FirmwareVersion` field is implemented. Remaining open: 8.5 stat-table column format (see note), 8.11 single-survey drift (deferred — no Python comparison .tex captured). Phases 5 cleanup (removing `tools/pdf-generator/`), 6 (map), and 7 (grid-heatmap) are deferred to later branches.
+- **Status:** Phases 1–5 are complete. The Python exec path is fully removed; `tools/pdf-generator/` is retained for reference and marked deprecated (removal in v0.6). Phase 8: 8.1 golden tests and `tex-compare` implemented; 8.9 `FirmwareVersion` implemented. Remaining open: 8.11 single-survey drift (deferred — no Python single-survey .tex available). Phases 6 (map overlay) and 7 (grid-heatmap) are deferred to later branches.
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -679,17 +679,34 @@ Current code status: implemented as `cmd/radar/pdf.go`; this plan's original tar
 
 ---
 
-### Phase 5 — Python Deprecation and Cleanup `S`
+### Phase 5 — Python Deprecation and Cleanup `S` ✅
 
-_(Later branch — partially done)_
+- [x] Remove Python exec path from `server_reports_generate.go`. The handler calls `generateReportGo` directly; all Python subprocess code deleted (756 → 348 lines; functions `runPythonPDFGenerator`, `buildPythonReportConfig`, `writePythonConfigFile`, `resolvePythonBinary`, `outputIndicatesReportFailure`, `appendPythonComparisonTeX`, and zip helpers removed).
+- [x] Mark `tools/pdf-generator/` deprecated in README (deprecation banner + title change).
+- [x] Remove `python3`, `python3-pip`, `python3-venv` from `image/stage-velocity/00-install-packages/00-packages`. Retain `python3-serial` (RS-232 HAT, unrelated to PDF).
+- [x] Gut `image/stage-velocity/02-velocity-python/00-run.sh` to only create the report output directory.
+- [x] Remove PDF generator copy block from `image/scripts/build-image.sh`.
+- [x] Remove `PDF_GENERATOR_DIR` / `PDF_GENERATOR_PYTHON` env vars from systemd service; add `VELOCITY_PDF_BACKEND=go`.
+- [x] Delete `.github/workflows/python-ci.yml`.
+- [x] Remove `test-python`, `format-python`, `lint-python` from Makefile aggregate targets; mark `install-python` deprecated.
+- [x] Update `ARCHITECTURE.md`: component table, performance section, L10 layer, and inter-service diagram updated to reflect Go pipeline.
+- [x] Retain `tools/pdf-generator/` in repo history; removal scheduled for v0.6.
 
-- [x] Remove Python exec path from `server_reports_generate.go`. The handler now calls `generateReportGo` directly; no Python subprocess. ✅
-- [ ] Mark `tools/pdf-generator/` deprecated in README.
-- [ ] Remove `make install-python` from report generation targets.
-- [ ] Update `ARCHITECTURE.md`, component READMEs.
-- [ ] Retain `tools/pdf-generator/` in repo history; do not delete until v0.6.
+**Acceptance:** `make test` passes with no Python deps for reports. ✅
 
-**Acceptance:** `make test` passes with no Python deps for reports.
+---
+
+### Future Opportunities (post-Phase 5)
+
+The following items emerged during Phase 5 implementation. They are scoped for future branches.
+
+| Item                                     | Notes                                                                                                                                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Output directory path**                | `getPDFGeneratorDir()` still defaults to `/opt/velocity-report/tools/pdf-generator/`. Rename to `/opt/velocity-report/reports/` and update stage 02 to match.                      |
+| **`python3-serial` removal**             | The RS-232 HAT driver (`python3-serial`) is the last Python package in the image. Evaluate a Go serial library (e.g. `go.bug.st/serial`) to remove Python entirely from the image. |
+| **8.11 single-survey drift**             | No Python single-survey `.tex` file captured for comparison. Run a single-survey Python build against the Clarendon fixture, save output, then diff against Go golden.             |
+| **v0.6 — delete `tools/pdf-generator/`** | Remove the deprecated Python generator directory from the repo. Update all remaining references in docs.                                                                           |
+| **Startup `rsvg-convert` check**         | Q4 resolution called for a startup check + mini-PDF test when `rsvg-convert` is missing. Not yet implemented.                                                                      |
 
 ---
 

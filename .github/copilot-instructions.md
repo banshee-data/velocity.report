@@ -17,14 +17,15 @@ See [TENETS.md](../TENETS.md) for the full project constitution. The short versi
 
 **velocity.report** is a privacy-focused traffic monitoring system for neighbourhood change-makers.
 
-| Component        | Language          | Location                  |
-| ---------------- | ----------------- | ------------------------- |
-| Server           | Go                | `cmd/`, `internal/`       |
-| PDF reports      | Python + LaTeX    | `tools/pdf-generator/`    |
-| Web frontend     | Svelte/TypeScript | `web/`                    |
-| macOS visualiser | Swift/Metal       | `tools/visualiser-macos/` |
-| Database         | SQLite            | local file                |
-| Docs site        | Eleventy          | `public_html/`            |
+| Component                  | Language          | Location                  |
+| -------------------------- | ----------------- | ------------------------- |
+| Server                     | Go                | `cmd/`, `internal/`       |
+| PDF reports                | Go + XeLaTeX      | `internal/report/`        |
+| Web frontend               | Svelte/TypeScript | `web/`                    |
+| macOS visualiser           | Swift/Metal       | `tools/visualiser-macos/` |
+| Database                   | SQLite            | local file                |
+| Docs site                  | Eleventy          | `public_html/`            |
+| PDF generator (DEPRECATED) | Python + LaTeX    | `tools/pdf-generator/`    |
 
 **Deployment:** Raspberry Pi 4 (ARM64 Linux), systemd service, local-only.
 
@@ -42,11 +43,11 @@ make test      # Run all test suites
 
 ## Validation Protocol
 
-| Language | Commands                                                                   |
-| -------- | -------------------------------------------------------------------------- |
-| Go       | `make format-go && make lint-go && make test-go && make build-radar-local` |
-| Python   | `make format-python && make lint-python && make test-python`               |
-| Web      | `make format-web && make lint-web && make test-web && make build-web`      |
+| Language            | Commands                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| Go                  | `make format-go && make lint-go && make test-go && make build-radar-local`                                |
+| Web                 | `make format-web && make lint-web && make test-web && make build-web`                                     |
+| Python (DEPRECATED) | `make format-python && make lint-python && make test-python` — local dev of deprecated pdf-generator only |
 
 If the Go build fails due to missing pcap on the cross-compile host: install `libpcap-dev` (Linux) or `brew install libpcap` (macOS), then use `make build-radar-linux`.
 
@@ -65,7 +66,7 @@ For full build setup, dev servers, and testing: see [knowledge/build-and-test.md
 
 **Commit format:** `[prefix] description` — see [knowledge/coding-standards.md](knowledge/coding-standards.md) for prefix table and rules. AI edits always include `[ai]` tag plus language tag.
 
-**Python venv:** Single shared venv at `.venv/`. Run `make install-python` to create.
+**Python venv (DEPRECATED):** `.venv/` retained for local dev against `tools/pdf-generator/` reference copy only. Not required for building or running the server.
 
 **SQLite:** `modernc.org/sqlite v1.44.3` (SQLite 3.51.2). Use `DROP COLUMN` directly in new migrations.
 

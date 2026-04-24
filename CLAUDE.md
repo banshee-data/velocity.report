@@ -15,7 +15,7 @@ The Makefile is the canonical entry point. Run `make help` for all 100+ targets.
 ### Quality gate (every commit must pass)
 
 ```bash
-make lint      # Check all code formatting (Go, Python, Web)
+make lint      # Check all code formatting (Go, Web)
 make format    # Auto-format all code
 make test      # Run all test suites
 ```
@@ -25,9 +25,6 @@ make test      # Run all test suites
 ```bash
 # Go
 make format-go && make lint-go && make test-go && make build-radar-local
-
-# Python
-make format-python && make lint-python && make test-python
 
 # Web
 make format-web && make lint-web && make test-web && make build-web
@@ -59,12 +56,6 @@ make dev-web   # Vite dev server (localhost:5173)
 go test ./internal/lidar/l4perception/... -v
 go test ./internal/lidar/l5tracks -run '^TestKalmanPredict$' -v
 
-# Python — single file or test
-source .venv/bin/activate
-cd tools/pdf-generator
-pytest pdf_generator/tests/test_config_manager.py -v
-pytest pdf_generator/tests/ -k "test_name_substring" -v
-
 # Web (Jest) — single file or test name
 cd web
 pnpm run test -- path/to/file.test.ts
@@ -74,17 +65,16 @@ pnpm run test -- -t "test name regex"
 ### Setup (first time)
 
 ```bash
-make install-python   # Creates .venv/ at repo root and installs Python deps
 make install-web      # Installs web deps via pnpm
 make install-docs     # Installs Eleventy deps for docs site
+make install-python   # DEPRECATED: local dev only (Python pdf-generator reference copy)
 ```
 
 ### Other useful targets
 
 ```bash
 make proto-gen        # Regenerate Go + Swift protobuf stubs
-make pdf-report CONFIG=config.json   # Generate a PDF report
-make pdf-test         # Run PDF generator tests
+make pdf-report CONFIG=config.json   # Generate a PDF report (Go pipeline)
 make test-go-cov      # Go tests with coverage (→ coverage.html)
 ```
 
@@ -95,7 +85,7 @@ The system has four independent components communicating over HTTP and gRPC:
 ```
 Radar (USB-serial) ──┐
                      ├──► Go server (SQLite) ──► HTTP API (:8080) ──► Web frontend (Svelte)
-LiDAR (UDP/Ethernet)─┘         │                               └──► Python PDF generator
+LiDAR (UDP/Ethernet)─┘         │                               └──► Go PDF pipeline (internal/report)
                                 └──► gRPC (:50051) ──────────────────► macOS visualiser (Swift/Metal)
 ```
 
@@ -134,9 +124,13 @@ SQLite via `modernc.org/sqlite` (pure-Go, bundles SQLite 3.51.2). JSON-first sch
 
 Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit_links`, `lidar_bg_snapshot`, `site`, `site_config_periods`. Migrations: `internal/db/migrations/`. Use `DROP COLUMN` directly in new migrations (SQLite 3.35+).
 
-### Python PDF generator (`tools/pdf-generator/`)
+### Go PDF report pipeline (`internal/report/`)
 
-CLI tool: fetches data from the Go HTTP API, builds matplotlib charts and PyLaTeX tables, compiles with XeLaTeX to produce professional PDF reports. Shared venv at `.venv/` (repo root). Requires XeLaTeX installed separately.
+Produces PDF reports: direct DB queries → SVG charts (`internal/report/chart`) → Go `text/template` LaTeX assembly (`internal/report/tex`) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity-report pdf` (CLI subcommand in `cmd/radar/pdf.go`).
+
+### Python PDF generator (`tools/pdf-generator/`) — DEPRECATED
+
+Retained for reference only. Not used in deployed systems since v0.5. Will be removed in v0.6. Do not add new features or fix bugs here.
 
 ### Web frontend (`web/`)
 

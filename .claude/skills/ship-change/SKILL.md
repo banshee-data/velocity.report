@@ -35,9 +35,6 @@ Run the formatter(s) matching the changed subsystem(s):
 # Go changes
 make format-go
 
-# Python changes
-make format-python
-
 # Web changes
 make format-web
 
@@ -61,9 +58,6 @@ Run the tests for the affected subsystem(s):
 # Go
 make test-go
 
-# Python
-make test-python
-
 # Web
 make test-web
 
@@ -77,14 +71,6 @@ For a single Go package under test:
 
 ```bash
 go test ./internal/path/to/package/... -v
-```
-
-For a single Python test file:
-
-```bash
-source .venv/bin/activate
-cd tools/pdf-generator
-pytest pdf_generator/tests/test_file.py -v
 ```
 
 ### 5. Build verification
