@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# 02-velocity-report-dirs/00-run.sh — Create report output directory
+# 02-velocity-python/00-run.sh — Create report output directory
 #
 # The Go PDF pipeline writes generated reports to this directory.
 # Owned by the velocity service user so the Go server can write here.
