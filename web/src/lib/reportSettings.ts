@@ -49,7 +49,7 @@ export function parseStoredReportSettings(saved: string | null): StoredReportSet
 
 	try {
 		const parsed = JSON.parse(saved) as StoredReportSettings;
-		if (!parsed || typeof parsed !== 'object') return null;
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
 		return parsed;
 	} catch {
 		return null;

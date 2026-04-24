@@ -92,6 +92,11 @@ describe('parseStoredReportSettings', () => {
 
 		expect(settings).toEqual({ selectedSource: 'radar_data_transits', minSpeed: 5 });
 	});
+
+	it('returns null for arrays (typeof [] === "object")', () => {
+		expect(parseStoredReportSettings('[]')).toBeNull();
+		expect(parseStoredReportSettings('[{"selectedSource":"radar_objects"}]')).toBeNull();
+	});
 });
 
 describe('areStoredReportSettingsFresh', () => {
@@ -120,7 +125,7 @@ describe('areStoredReportSettingsFresh', () => {
 	});
 });
 
-describe('normalizeStoredPeriodType', () => {
+describe('normaliseStoredPeriodType', () => {
 	it('accepts a numeric PeriodType value', () => {
 		expect(normaliseStoredPeriodType(DAY_PERIOD_TYPE)).toBe(DAY_PERIOD_TYPE);
 	});
