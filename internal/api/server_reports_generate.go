@@ -49,6 +49,10 @@ type ReportRequest struct {
 	// Paper size for PDF output: "a4" (default) or "letter"
 	PaperSize string `json:"paper_size"`
 
+	// CompareCosineAngle overrides the cosine error angle for the comparison
+	// period. Zero means use the same angle as the primary period.
+	CompareCosineAngle float64 `json:"compare_cosine_angle"`
+
 	// These can be overridden if site_id is not provided
 	Location        string `json:"location"`         // site location
 	Surveyor        string `json:"surveyor"`         // surveyor name
@@ -410,29 +414,30 @@ func buildReportConfig(
 	siteDescription, speedLimitNote string,
 ) report.Config {
 	cfg := report.Config{
-		SiteID:            *req.SiteID,
-		Location:          location,
-		Surveyor:          surveyor,
-		Contact:           contact,
-		SpeedLimit:        speedLimit,
-		SiteDescription:   siteDescription,
-		SpeedLimitNote:    speedLimitNote,
-		StartDate:         req.StartDate,
-		EndDate:           req.EndDate,
-		Timezone:          req.Timezone,
-		Units:             req.Units,
-		Group:             req.Group,
-		Source:            req.Source,
-		MinSpeed:          req.MinSpeed,
-		BoundaryThreshold: req.BoundaryThreshold,
-		Histogram:         req.Histogram,
-		HistBucketSize:    req.HistBucketSize,
-		HistMax:           req.HistMax,
-		CompareStart:      req.CompareStart,
-		CompareEnd:        req.CompareEnd,
-		CompareSource:     req.CompareSource,
-		CosineAngle:       cosineErrorAngle,
-		PaperSize:         req.PaperSize,
+		SiteID:             *req.SiteID,
+		Location:           location,
+		Surveyor:           surveyor,
+		Contact:            contact,
+		SpeedLimit:         speedLimit,
+		SiteDescription:    siteDescription,
+		SpeedLimitNote:     speedLimitNote,
+		StartDate:          req.StartDate,
+		EndDate:            req.EndDate,
+		Timezone:           req.Timezone,
+		Units:              req.Units,
+		Group:              req.Group,
+		Source:             req.Source,
+		MinSpeed:           req.MinSpeed,
+		BoundaryThreshold:  req.BoundaryThreshold,
+		Histogram:          req.Histogram,
+		HistBucketSize:     req.HistBucketSize,
+		HistMax:            req.HistMax,
+		CompareStart:       req.CompareStart,
+		CompareEnd:         req.CompareEnd,
+		CompareSource:      req.CompareSource,
+		CosineAngle:        cosineErrorAngle,
+		CompareCosineAngle: req.CompareCosineAngle,
+		PaperSize:          req.PaperSize,
 	}
 
 	if site != nil {
