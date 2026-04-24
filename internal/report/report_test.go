@@ -268,9 +268,9 @@ func TestGenerate_WithComparison(t *testing.T) {
 		t.Errorf("ZIP missing comparison.svg; has: %v", zipNames)
 	}
 
-	// Should have 3 DB calls: summary, time-series, comparison.
-	if m.callCount != 3 {
-		t.Errorf("expected 3 DB calls, got %d", m.callCount)
+	// Should have 6 DB calls: primary (summary, time-series, daily) + comparison (summary, time-series, daily).
+	if m.callCount != 6 {
+		t.Errorf("expected 6 DB calls, got %d", m.callCount)
 	}
 }
 

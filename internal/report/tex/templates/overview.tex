@@ -1,4 +1,16 @@
-<<define "overview_key_metrics">>
+<<define "overview_single">>
+\section*{Velocity Overview}
+
+\begin{itemize}
+  \setlength{\itemsep}{-1pt}
+  \setlength{\parsep}{0pt}
+  \setlength{\leftmargini}{10pt}
+  \item \textbf{Site:} <<.Location>>
+  \item \textbf{Period:} <<.StartDate>> -- <<.EndDate>>
+  \item \textbf{Total vehicle count:} <<.TotalCountFormatted>>
+  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
+\end{itemize}
+
 \subsection*{Key Metrics}
 \vspace{4pt}
 {\renewcommand{\arraystretch}{1.18}
@@ -10,57 +22,55 @@
 \end{tabular}
 \par}
 \vspace{8pt}
+
+<<if .HistogramChart>>
+\begin{center}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{<<.HistogramChart>>}
+\caption{Velocity Distribution Histogram}
+\end{figure}
+\end{center}
+\vspace{-28pt}
 <<end>>
-
-<<define "overview_single">>
-\section*{Velocity Overview}
-
-\begin{itemize}
-  \item \textbf{Location:} <<.Location>>
-  \item \textbf{Period:} <<.StartDate>> -- <<.EndDate>>
-  \item \textbf{Total observations:} <<.TotalCount>>
-  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
-\end{itemize}
-
-<<template "overview_key_metrics" .>>
 <<end>>
 
 <<define "overview_comparison">>
 \section*{Velocity Overview}
 
 \begin{itemize}
-  \item \textbf{Location:} <<.Location>>
+  \setlength{\itemsep}{-1pt}
+  \setlength{\parsep}{0pt}
+  \setlength{\leftmargini}{10pt}
+  \item \textbf{Site:} <<.Location>>
   \item \textbf{Primary period (t1):} <<.StartDate>> -- <<.EndDate>>
   \item \textbf{Comparison period (t2):} <<.CompareStartDate>> -- <<.CompareEndDate>>
-  \item \textbf{Total observations (t1):} <<.TotalCount>>
-  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
+  \item \textbf{Total vehicle count:} <<.CombinedCountFormatted>>
 \end{itemize}
 
-<<template "overview_key_metrics" .>>
-
-\subsection*{Comparison Summary}
-\vspace{4pt}
-{\ttfamily
-\renewcommand{\arraystretch}{1.16}
-\begin{tabular}{@{}lrrr@{}}
+\subsection*{Key Metrics}
+\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r}
+\multicolumn{1}{l}{\sffamily\bfseries Metric}&\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t1}}&\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t2}}&\multicolumn{1}{r}{\sffamily\bfseries Change}\\
 \hline
-\textbf{Metric} & \textbf{Primary} & \textbf{Comparison} & \textbf{$\Delta$} \\
-\hline
-P50 & <<.P50>> & <<.CompareP50>> & <<.DeltaP50>> \\
-P85 & <<.P85>> & <<.CompareP85>> & <<.DeltaP85>> \\
-P98 & <<.P98>> & <<.CompareP98>> & <<.DeltaP98>> \\
-Max & <<.MaxSpeed>> & <<.CompareMax>> & <<.DeltaMax>> \\
-Count & <<.TotalCount>> & <<.CompareCount>> & \\
+p50 Velocity&<<.P50>> <<.Units>>&<<.CompareP50>> <<.Units>>&<<.DeltaP50Pct>>\\
+p85 Velocity&<<.P85>> <<.Units>>&<<.CompareP85>> <<.Units>>&<<.DeltaP85Pct>>\\
+p98 Velocity&<<.P98>> <<.Units>>&<<.CompareP98>> <<.Units>>&<<.DeltaP98Pct>>\\
+Max Velocity&<<.MaxSpeed>> <<.Units>>&<<.CompareMax>> <<.Units>>&<<.DeltaMaxPct>>\\
+Vehicle Count&<<.TotalCountFormatted>>&<<.CompareTotalCountFormatted>>&\\
 \hline
 \end{tabular}
-}
-\vspace{8pt}
+\par\vspace{2pt}
+\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
+\par
 
-<<if .CompareChart>>
+<<if .HistogramChart>>
+\begin{center}
 \begin{figure}[H]
 \centering
-\includegraphics[width=\columnwidth]{<<.CompareChart>>}
-\caption{Speed distribution: primary vs comparison}
+\includegraphics[width=\linewidth]{<<.HistogramChart>>}
+\caption{Velocity Distribution Histogram}
 \end{figure}
+\end{center}
+\vspace{-28pt}
 <<end>>
 <<end>>

@@ -3,10 +3,12 @@ package tex
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"text/template"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/report/chart"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 //go:embed templates/*.tex
@@ -61,11 +63,35 @@ type TemplateData struct {
 	CompareMax       string
 	CompareCount     int
 
-	// Comparison deltas (primary - comparison), formatted with a sign.
+	// Comparison deltas: absolute (primary - compare) with sign.
 	DeltaP50 string
 	DeltaP85 string
 	DeltaP98 string
 	DeltaMax string
+
+	// Comparison deltas: percentage change from t1 to t2 ((compare-primary)/primary*100).
+	DeltaP50Pct string
+	DeltaP85Pct string
+	DeltaP98Pct string
+	DeltaMaxPct string
+
+	// Comparison per-period cosine correction.
+	CompareCosineAngle  float64
+	CompareCosineFactor float64
+
+	// Compare timeseries chart path (comparison mode, "" if absent).
+	CompareTimeSeriesChart string
+
+	// Daily summary rows (comparison mode: both periods merged, sorted by time).
+	DailyStatRows []StatRow
+
+	// Dual-period histogram table (pre-rendered LaTeX; comparison mode only).
+	DualHistogramTableTeX string
+
+	// Formatted count strings (with comma separators).
+	TotalCountFormatted        string
+	CompareTotalCountFormatted string
+	CombinedCountFormatted     string
 
 	// Radar/survey parameters
 	Source       string
@@ -110,6 +136,8 @@ func BuildStatRows(pts []chart.TimeSeriesPoint, loc *time.Location) []StatRow {
 
 // RenderTeX renders the complete .tex file from the template data.
 // Uses <<>> delimiters to avoid clashing with LaTeX braces.
+// The output is prefixed with a metadata comment block identifying the
+// pipeline version, git SHA, and generation timestamp.
 func RenderTeX(data TemplateData) ([]byte, error) {
 	tmpl, err := template.New("report.tex").
 		Delims("<<", ">>").
@@ -122,5 +150,10 @@ func RenderTeX(data TemplateData) ([]byte, error) {
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+
+	header := fmt.Sprintf(
+		"%% velocity.report tex output\n%% Pipeline: go | Version: %s | SHA: %s\n%% Generated: %s\n%%\n",
+		version.Version, version.GitSHA, time.Now().UTC().Format(time.RFC3339),
+	)
+	return append([]byte(header), buf.Bytes()...), nil
 }

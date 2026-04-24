@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -96,10 +97,25 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		return Result{}, fmt.Errorf("time-series query: %w", err)
 	}
 
+	// Primary period daily roll-up (used when comparison mode is active).
+	var primaryDailyRows []db.RadarObjectsRollupRow
+	if cfg.CompareStart != "" {
+		dailyResult, err := database.RadarObjectRollupRange(
+			startUnix, endUnix, 86400, minSpeedMPS,
+			cfg.Source, cfg.ModelVersion,
+			0, 0,
+			cfg.SiteID, cfg.BoundaryThreshold,
+		)
+		if err != nil {
+			return Result{}, fmt.Errorf("primary daily query: %w", err)
+		}
+		primaryDailyRows = dailyResult.Metrics
+	}
+
 	// Comparison data (if requested).
 	var compareResult *comparisonData
 	if cfg.CompareStart != "" {
-		cd, err := fetchComparison(ctx, database, cfg, loc, minSpeedMPS, histBucketMPS, histMaxMPS)
+		cd, err := fetchComparison(ctx, database, cfg, loc, minSpeedMPS, histBucketMPS, histMaxMPS, groupSeconds)
 		if err != nil {
 			return Result{}, fmt.Errorf("comparison query: %w", err)
 		}
@@ -172,6 +188,30 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	tsPDFPath := filepath.Join(workDir, "timeseries.pdf")
 	if err = convertSVGToPDF(ctx, tsSVGPath, tsPDFPath); err != nil {
 		return Result{}, fmt.Errorf("convert timeseries SVG: %w", err)
+	}
+
+	// Compare timeseries chart (rendered here so the compare P98 reference line is available).
+	var compareTimeSeriesPDFName string
+	if compareResult != nil {
+		ctsPoints := convertToTimeSeriesPoints(compareResult.tsRows, cfg.Units, loc)
+		ctsData := chart.TimeSeriesData{
+			Points:       ctsPoints,
+			Units:        cfg.Units,
+			P98Reference: compareResult.p98,
+		}
+		ctsSVG, cerr := chart.RenderTimeSeries(ctsData, chart.DefaultTimeSeriesStyle(paper))
+		if cerr != nil {
+			return Result{}, fmt.Errorf("render compare timeseries: %w", cerr)
+		}
+		ctsSVGPath := filepath.Join(workDir, "timeseries_compare.svg")
+		if err = os.WriteFile(ctsSVGPath, ctsSVG, 0644); err != nil {
+			return Result{}, fmt.Errorf("write timeseries_compare.svg: %w", err)
+		}
+		ctsPDFPath := filepath.Join(workDir, "timeseries_compare.pdf")
+		if err = convertSVGToPDF(ctx, ctsSVGPath, ctsPDFPath); err != nil {
+			return Result{}, fmt.Errorf("convert compare timeseries SVG: %w", err)
+		}
+		compareTimeSeriesPDFName = "timeseries_compare.pdf"
 	}
 
 	// Collect source files for the ZIP.
@@ -253,10 +293,17 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		zipFiles["comparison.svg"] = compSVG
 	}
 
-	// Cosine correction factor.
+	// Cosine correction factor (primary period).
 	cosineFactor := 1.0
 	if cfg.CosineAngle != 0 {
 		cosineFactor = 1.0 / math.Cos(cfg.CosineAngle*math.Pi/180.0)
+	}
+
+	// Cosine correction factor (comparison period).
+	compareCosineAngle := cfg.CompareCosineAngle
+	compareCosineFactor := 1.0
+	if compareCosineAngle != 0 {
+		compareCosineFactor = 1.0 / math.Cos(compareCosineAngle*math.Pi/180.0)
 	}
 
 	// Build TemplateData.
@@ -279,18 +326,22 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		TotalCount: totalCount,
 		HoursCount: int(math.Ceil(float64(endUnix-startUnix) / 3600.0)),
 
+		TotalCountFormatted: tex.FormatCount(totalCount),
+
 		TimeSeriesChart: "timeseries.pdf",
 		FontDir:         fontDir,
 		StatRows:        tex.BuildStatRows(tsPoints, loc),
 
 		HistogramTableTeX: histogramTableTeX,
 
-		Source:       tex.EscapeTeX(cfg.Source),
-		Group:        tex.EscapeTeX(cfg.Group),
-		MinSpeed:     cfg.MinSpeed,
-		CosineAngle:  cfg.CosineAngle,
-		CosineFactor: cosineFactor,
-		ModelVersion: tex.EscapeTeX(cfg.ModelVersion),
+		Source:              tex.EscapeTeX(cfg.Source),
+		Group:               tex.EscapeTeX(cfg.Group),
+		MinSpeed:            cfg.MinSpeed,
+		CosineAngle:         cfg.CosineAngle,
+		CosineFactor:        cosineFactor,
+		CompareCosineAngle:  compareCosineAngle,
+		CompareCosineFactor: compareCosineFactor,
+		ModelVersion:        tex.EscapeTeX(cfg.ModelVersion),
 
 		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
 		PaperOption:    paperTexOption(paper),
@@ -317,6 +368,35 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		td.DeltaP85 = tex.FormatDelta(summaryP85, compareResult.p85)
 		td.DeltaP98 = tex.FormatDelta(summaryP98, compareResult.p98)
 		td.DeltaMax = tex.FormatDelta(summaryMax, compareResult.maxSpeed)
+		td.DeltaP50Pct = tex.FormatDeltaPercent(summaryP50, compareResult.p50)
+		td.DeltaP85Pct = tex.FormatDeltaPercent(summaryP85, compareResult.p85)
+		td.DeltaP98Pct = tex.FormatDeltaPercent(summaryP98, compareResult.p98)
+		td.DeltaMaxPct = tex.FormatDeltaPercent(summaryMax, compareResult.maxSpeed)
+		td.CompareTotalCountFormatted = tex.FormatCount(compareResult.count)
+		td.CombinedCountFormatted = tex.FormatCount(totalCount + compareResult.count)
+
+		// Compare timeseries chart.
+		if compareTimeSeriesPDFName != "" {
+			td.CompareTimeSeriesChart = compareTimeSeriesPDFName
+		}
+
+		// Merge primary + compare hourly rows, sorted by time.
+		mergedTS := mergeRollupRows(tsResult.Metrics, compareResult.tsRows)
+		td.StatRows = tex.BuildStatRows(convertToTimeSeriesPoints(mergedTS, cfg.Units, loc), loc)
+
+		// Merge primary + compare daily rows, sorted by time.
+		mergedDaily := mergeRollupRows(primaryDailyRows, compareResult.dailyRows)
+		td.DailyStatRows = tex.BuildStatRows(convertToTimeSeriesPoints(mergedDaily, cfg.Units, loc), loc)
+
+		// Dual histogram table (6-column comparison table).
+		if cfg.Histogram {
+			primaryHist := convertHistogramKeys(summaryResult.Histogram, cfg.Units)
+			compareHist := convertHistogramKeys(compareResult.histogram, cfg.Units)
+			td.DualHistogramTableTeX = tex.BuildDualHistogramTableTeX(
+				primaryHist, compareHist,
+				cfg.HistBucketSize, cfg.MinSpeed, cfg.HistMax, cfg.Units,
+			)
+		}
 	}
 
 	// Render .tex.
@@ -391,15 +471,19 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 type comparisonData struct {
 	startDate string
 	endDate   string
+	startTime time.Time
+	endTime   time.Time
 	p50       float64
 	p85       float64
 	p98       float64
 	maxSpeed  float64
 	count     int
 	histogram map[float64]int64
+	tsRows    []db.RadarObjectsRollupRow // hourly time-series rows
+	dailyRows []db.RadarObjectsRollupRow // daily roll-up rows
 }
 
-func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Location, minSpeedMPS, histBucketMPS, histMaxMPS float64) (*comparisonData, error) {
+func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Location, minSpeedMPS, histBucketMPS, histMaxMPS float64, groupSeconds int64) (*comparisonData, error) {
 	cs, err := time.ParseInLocation("2006-01-02", cfg.CompareStart, loc)
 	if err != nil {
 		return nil, fmt.Errorf("invalid compare start %q: %w", cfg.CompareStart, err)
@@ -415,23 +499,50 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 		source = cfg.Source
 	}
 
-	result, err := database.RadarObjectRollupRange(
+	// Summary query (aggregate + histogram).
+	summaryResult, err := database.RadarObjectRollupRange(
 		cs.Unix(), ce.Unix(), 0, minSpeedMPS,
 		source, cfg.ModelVersion,
 		histBucketMPS, histMaxMPS,
 		cfg.SiteID, cfg.BoundaryThreshold,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("compare summary: %w", err)
+	}
+
+	// Hourly time-series query.
+	tsResult, err := database.RadarObjectRollupRange(
+		cs.Unix(), ce.Unix(), groupSeconds, minSpeedMPS,
+		source, cfg.ModelVersion,
+		0, 0,
+		cfg.SiteID, cfg.BoundaryThreshold,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("compare timeseries: %w", err)
+	}
+
+	// Daily roll-up query.
+	dailyResult, err := database.RadarObjectRollupRange(
+		cs.Unix(), ce.Unix(), 86400, minSpeedMPS,
+		source, cfg.ModelVersion,
+		0, 0,
+		cfg.SiteID, cfg.BoundaryThreshold,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("compare daily: %w", err)
 	}
 
 	cd := &comparisonData{
 		startDate: cs.Format("2 January 2006"),
 		endDate:   ce.Format("2 January 2006"),
-		histogram: result.Histogram,
+		startTime: cs,
+		endTime:   ce,
+		histogram: summaryResult.Histogram,
+		tsRows:    tsResult.Metrics,
+		dailyRows: dailyResult.Metrics,
 	}
-	if len(result.Metrics) > 0 {
-		row := result.Metrics[0]
+	if len(summaryResult.Metrics) > 0 {
+		row := summaryResult.Metrics[0]
 		cd.p50 = units.ConvertSpeed(row.P50Speed, cfg.Units)
 		cd.p85 = units.ConvertSpeed(row.P85Speed, cfg.Units)
 		cd.p98 = units.ConvertSpeed(row.P98Speed, cfg.Units)
@@ -464,6 +575,17 @@ func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits str
 		pts[i] = pt
 	}
 	return pts
+}
+
+// mergeRollupRows merges two slices of rollup rows and sorts them by StartTime.
+func mergeRollupRows(a, b []db.RadarObjectsRollupRow) []db.RadarObjectsRollupRow {
+	merged := make([]db.RadarObjectsRollupRow, 0, len(a)+len(b))
+	merged = append(merged, a...)
+	merged = append(merged, b...)
+	sort.Slice(merged, func(i, j int) bool {
+		return merged[i].StartTime.Before(merged[j].StartTime)
+	})
+	return merged
 }
 
 // convertHistogramKeys returns a new histogram map with keys converted

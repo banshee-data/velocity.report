@@ -1,11 +1,12 @@
 <<define "site_info">>
-<<if .Description>>
+<<if or .Description .SpeedLimitNote>>
 \subsection*{Site Information}
+<<if .Description>>
 <<.Description>>
 <<end>>
-
 <<if .SpeedLimitNote>>
-\vspace{4pt}
-\noindent\textit{<<.SpeedLimitNote>>}
+<<.SpeedLimitNote>>
+<<end>>
+\par
 <<end>>
 <<end>>

@@ -68,6 +68,158 @@ func FormatTime(t time.Time, loc *time.Location) string {
 	return fmt.Sprintf("%d/%d %s", t.Month(), t.Day(), t.Format("15:04"))
 }
 
+// FormatDeltaPercent formats the percentage change from primary to compare.
+// Positive when compare > primary. Returns "--" for invalid inputs.
+// Result includes the "%" sign and leading sign: "+8.1\%" or "-3.2\%".
+func FormatDeltaPercent(primary, compare float64) string {
+	if math.IsNaN(primary) || math.IsNaN(compare) || math.IsInf(primary, 0) || math.IsInf(compare, 0) || primary == 0 {
+		return "--"
+	}
+	d := (compare - primary) / primary * 100.0
+	if d >= 0 {
+		return fmt.Sprintf("+%.1f\\%%", d)
+	}
+	return fmt.Sprintf("%.1f\\%%", d)
+}
+
+// FormatCount formats an integer with thousands separators: 3460 → "3,460".
+func FormatCount(n int) string {
+	s := fmt.Sprintf("%d", n)
+	if n < 0 {
+		s = s[1:]
+	}
+	// Insert commas every three digits from the right.
+	var b strings.Builder
+	start := len(s) % 3
+	if start > 0 {
+		b.WriteString(s[:start])
+	}
+	for i := start; i < len(s); i += 3 {
+		if b.Len() > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(s[i : i+3])
+	}
+	if n < 0 {
+		return "-" + b.String()
+	}
+	return b.String()
+}
+
+// BuildDualHistogramTableTeX generates a 6-column LaTeX tabular comparing two
+// histogram periods (t1 and t2). Bucket | t1 Count | t1 % | t2 Count | t2 % | Delta %
+// Includes Table 2 caption. Returns empty string if both histograms are nil/empty.
+func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cutoff, maxBucket float64, units string) string {
+	if len(primary) == 0 && len(compare) == 0 {
+		return ""
+	}
+
+	// Collect all bucket keys from both histograms.
+	keySet := make(map[float64]struct{})
+	for k := range primary {
+		keySet[k] = struct{}{}
+	}
+	for k := range compare {
+		keySet[k] = struct{}{}
+	}
+	allKeys := make([]float64, 0, len(keySet))
+	for k := range keySet {
+		allKeys = append(allKeys, k)
+	}
+	sort.Float64s(allKeys)
+
+	// Totals for percentage calculation.
+	var totalP, totalC int64
+	for _, v := range primary {
+		totalP += v
+	}
+	for _, v := range compare {
+		totalC += v
+	}
+
+	type dualRow struct {
+		label string
+		p, c  int64
+	}
+	var belowP, belowC int64
+	var aboveP, aboveC int64
+	var rows []dualRow
+
+	hasUpperCap := maxBucket > 0
+	for _, k := range allKeys {
+		switch {
+		case k < cutoff:
+			belowP += primary[k]
+			belowC += compare[k]
+		case hasUpperCap && k >= maxBucket:
+			aboveP += primary[k]
+			aboveC += compare[k]
+		default:
+			rows = append(rows, dualRow{
+				label: fmt.Sprintf("%.0f{-}%.0f", k, k+bucketSz),
+				p:     primary[k],
+				c:     compare[k],
+			})
+		}
+	}
+
+	pctP := func(n int64) string {
+		if totalP == 0 {
+			return "--"
+		}
+		return fmt.Sprintf("%.1f\\%%", float64(n)/float64(totalP)*100)
+	}
+	pctC := func(n int64) string {
+		if totalC == 0 {
+			return "--"
+		}
+		return fmt.Sprintf("%.1f\\%%", float64(n)/float64(totalC)*100)
+	}
+	delta := func(pp, cc int64) string {
+		if totalP == 0 || totalC == 0 {
+			return "--"
+		}
+		d := float64(cc)/float64(totalC)*100 - float64(pp)/float64(totalP)*100
+		if d >= 0 {
+			return fmt.Sprintf("+%.1f\\%%", d)
+		}
+		return fmt.Sprintf("%.1f\\%%", d)
+	}
+
+	escapedUnits := EscapeTeX(units)
+
+	var b strings.Builder
+	b.WriteString(`\begin{center}` + "\n")
+	b.WriteString(`\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r}` + "\n")
+	b.WriteString(`\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
+	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t1 \\ Count}}`)
+	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t1 \\ Percent}}`)
+	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t2 \\ Count}}`)
+	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t2 \\ Percent}}`)
+	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries Delta}\\` + "\n")
+	b.WriteString(`\hline` + "\n")
+
+	if belowP > 0 || belowC > 0 {
+		b.WriteString(fmt.Sprintf("$<$%.0f&%d&%s&%d&%s&%s\\\\\n",
+			cutoff, belowP, pctP(belowP), belowC, pctC(belowC), delta(belowP, belowC)))
+	}
+	for _, row := range rows {
+		b.WriteString(fmt.Sprintf("%s&%d&%s&%d&%s&%s\\\\\n",
+			row.label, row.p, pctP(row.p), row.c, pctC(row.c), delta(row.p, row.c)))
+	}
+	if aboveP > 0 || aboveC > 0 {
+		b.WriteString(fmt.Sprintf("%.0f+&%d&%s&%d&%s&%s\\\\\n",
+			maxBucket, aboveP, pctP(aboveP), aboveC, pctC(aboveC), delta(aboveP, aboveC)))
+	}
+
+	b.WriteString(`\hline` + "\n")
+	b.WriteString(`\end{tabular}` + "\n")
+	b.WriteString(`\par\vspace{2pt}` + "\n")
+	b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
+	b.WriteString(`\end{center}` + "\n")
+	return b.String()
+}
+
 // BuildHistogramTableTeX generates LaTeX tabular content for histogram data.
 // Produces a table with Bucket | Count | Percent columns.
 // Includes <N row for below-cutoff data and N+ row for above-max data.

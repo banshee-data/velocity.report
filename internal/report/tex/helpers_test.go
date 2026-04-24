@@ -151,3 +151,74 @@ func TestBuildHistogramTableTeX_Empty(t *testing.T) {
 		t.Errorf("expected empty string for nil buckets, got %q", result)
 	}
 }
+
+func TestFormatDeltaPercent(t *testing.T) {
+	tests := []struct {
+		primary, compare float64
+		want             string
+	}{
+		{30.54, 33.02, "+8.1\\%"}, // (33.02-30.54)/30.54*100 ≈ 8.1%
+		{33.02, 30.54, "-7.5\\%"}, // (30.54-33.02)/33.02*100 ≈ -7.5%
+		{0, 33.02, "--"},          // primary==0
+		{math.NaN(), 33.02, "--"}, // NaN primary
+		{30.54, math.NaN(), "--"}, // NaN compare
+		{30.54, 30.54, "+0.0\\%"}, // no change
+	}
+	for _, tt := range tests {
+		got := FormatDeltaPercent(tt.primary, tt.compare)
+		if got != tt.want {
+			t.Errorf("FormatDeltaPercent(%.2f, %.2f) = %q, want %q", tt.primary, tt.compare, got, tt.want)
+		}
+	}
+}
+
+func TestFormatCount(t *testing.T) {
+	tests := []struct {
+		n    int
+		want string
+	}{
+		{0, "0"},
+		{999, "999"},
+		{1000, "1,000"},
+		{3460, "3,460"},
+		{5915, "5,915"},
+		{1000000, "1,000,000"},
+		{-3460, "-3,460"},
+	}
+	for _, tt := range tests {
+		got := FormatCount(tt.n)
+		if got != tt.want {
+			t.Errorf("FormatCount(%d) = %q, want %q", tt.n, tt.want, tt.want)
+		}
+	}
+}
+
+func TestBuildDualHistogramTableTeX(t *testing.T) {
+	primary := map[float64]int64{5: 66, 10: 238, 15: 294, 20: 337}
+	compare := map[float64]int64{5: 60, 10: 58, 15: 70, 20: 169}
+
+	result := BuildDualHistogramTableTeX(primary, compare, 5, 5, 70, "mph")
+	if result == "" {
+		t.Fatal("expected non-empty output")
+	}
+	if !strings.Contains(result, "t1") || !strings.Contains(result, "t2") {
+		t.Error("expected t1 and t2 column headers")
+	}
+	if !strings.Contains(result, "Table 2") {
+		t.Error("expected Table 2 caption")
+	}
+	if !strings.Contains(result, "Delta") {
+		t.Error("expected Delta column header")
+	}
+	// Bucket 5{-}10 row should be present.
+	if !strings.Contains(result, "5{-}10") {
+		t.Error("expected bucket range 5{-}10 in output")
+	}
+}
+
+func TestBuildDualHistogramTableTeX_Empty(t *testing.T) {
+	result := BuildDualHistogramTableTeX(nil, nil, 5, 5, 70, "mph")
+	if result != "" {
+		t.Errorf("expected empty string for nil histograms, got %q", result)
+	}
+}

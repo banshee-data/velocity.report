@@ -1,4 +1,4 @@
-<<define "chart_section_body">>
+<<define "chart_section_single">>
 <<if .TimeSeriesChart>>
 \onecolumn
 \begin{figure}[H]
@@ -9,10 +9,24 @@
 <<end>>
 <<end>>
 
-<<define "chart_section_single">>
-<<template "chart_section_body" .>>
-<<end>>
-
 <<define "chart_section_comparison">>
-<<template "chart_section_body" .>>
+<<if .TimeSeriesChart>>
+\onecolumn
+\begin{center}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{<<.TimeSeriesChart>>}
+\caption{Velocity over time (t1: <<.StartDate>> -- <<.EndDate>>)}
+\end{figure}
+\end{center}
+<<end>>
+<<if .CompareTimeSeriesChart>>
+\begin{center}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{<<.CompareTimeSeriesChart>>}
+\caption{Velocity over time (t2: <<.CompareStartDate>> -- <<.CompareEndDate>>)}
+\end{figure}
+\end{center}
+<<end>>
 <<end>>

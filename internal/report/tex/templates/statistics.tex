@@ -1,12 +1,4 @@
-<<define "statistics_body">>
-<<if .HistogramChart>>
-\begin{figure}[H]
-\centering
-\includegraphics[width=\columnwidth]{<<.HistogramChart>>}
-\caption{Speed distribution}
-\end{figure}
-<<end>>
-
+<<define "statistics_single">>
 <<if .HistogramTableTeX>>
 \vspace{8pt}
 \subsection*{Speed Distribution}
@@ -41,10 +33,45 @@
 <<end>>
 <<end>>
 
-<<define "statistics_single">>
-<<template "statistics_body" .>>
+<<define "statistics_comparison">>
+<<if .DualHistogramTableTeX>>
+\subsection*{Detailed Data Tables}
+<<.DualHistogramTableTeX>>
 <<end>>
 
-<<define "statistics_comparison">>
-<<template "statistics_body" .>>
+<<if .DailyStatRows>>
+\begingroup
+\setlength{\tabcolsep}{2pt}
+\footnotesize
+\begin{supertabular}{>{\ttfamily\raggedright\arraybackslash}p{0.32\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}}
+\multicolumn{1}{l}{\sffamily\bfseries Start Time} & \multicolumn{1}{r}{\sffamily\bfseries Count} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (<<.Units>>)}}\\
+\hline
+<<range .DailyStatRows>>
+<<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>>\\
+<<end>>
+\hline
+\end{supertabular}
+\endgroup
+\par\vspace{2pt}
+\noindent\makebox[\linewidth]{\textbf{\small Table 3: Daily Percentile Summary (Comparison)}}
+\par\vspace{8pt}
+<<end>>
+
+<<if .StatRows>>
+\begingroup
+\setlength{\tabcolsep}{2pt}
+\footnotesize
+\begin{supertabular}{>{\ttfamily\raggedright\arraybackslash}p{0.32\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}}
+\multicolumn{1}{l}{\sffamily\bfseries Start Time} & \multicolumn{1}{r}{\sffamily\bfseries Count} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (<<.Units>>)}}\\
+\hline
+<<range .StatRows>>
+<<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>>\\
+<<end>>
+\hline
+\end{supertabular}
+\endgroup
+\par\vspace{2pt}
+\noindent\makebox[\linewidth]{\textbf{\small Table 4: Granular Percentile Breakdown (Comparison)}}
+\par\vspace{8pt}
+<<end>>
 <<end>>

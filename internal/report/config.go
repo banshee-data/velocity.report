@@ -38,7 +38,8 @@ type Config struct {
 	CompareSource string
 
 	// Radar calibration
-	CosineAngle float64 // degrees
+	CosineAngle        float64 // degrees; for primary period
+	CompareCosineAngle float64 // degrees; for comparison period (0 = same as primary)
 
 	// Site map (embedded SVG bytes, rendered as figure if IncludeMap is true)
 	IncludeMap bool
