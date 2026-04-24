@@ -399,6 +399,14 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		}
 	}
 
+	// Build pre-rendered stat tables (single canonical style from BuildStatTableTeX).
+	if compareResult != nil {
+		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 4: Granular Percentile Breakdown")
+		td.DailyStatTableTeX = tex.BuildStatTableTeX(td.DailyStatRows, "Table 3: Daily Percentile Summary")
+	} else {
+		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Detailed Data")
+	}
+
 	// Render .tex.
 	texBytes, err := tex.RenderTeX(td)
 	if err != nil {

@@ -106,6 +106,42 @@ func FormatCount(n int) string {
 	return b.String()
 }
 
+// BuildStatTableTeX generates a styled, page-spanning LaTeX supertabular for
+// stat row data (Time | Count | P50 | P85 | P98 | Max). The table uses
+// alternating row colours and grey column rules, matching the single-report
+// style. caption is rendered as the table label below the table. Returns empty
+// string if rows is nil or empty.
+func BuildStatTableTeX(rows []StatRow, caption string) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("{\n")
+	b.WriteString(`\ttfamily\scriptsize` + "\n")
+	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
+	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
+	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
+	b.WriteString(`\tablehead{%` + "\n")
+	b.WriteString("  \\hline\n")
+	b.WriteString("  {\\sffamily\\bfseries\\footnotesize Time} & {\\sffamily\\bfseries\\footnotesize Count} & {\\sffamily\\bfseries\\footnotesize P50} & {\\sffamily\\bfseries\\footnotesize P85} & {\\sffamily\\bfseries\\footnotesize P98} & {\\sffamily\\bfseries\\footnotesize Max} \\\\\n")
+	b.WriteString("  \\hline\n")
+	b.WriteString("}\n")
+	b.WriteString(`\tabletail{\hline}` + "\n")
+	b.WriteString(`\begin{center}` + "\n")
+	b.WriteString(`\begin{supertabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+	for _, row := range rows {
+		b.WriteString(fmt.Sprintf("%s & %d & %s & %s & %s & %s \\\\\n",
+			EscapeTeX(row.StartTime), row.Count, row.P50, row.P85, row.P98, row.MaxSpeed))
+	}
+	b.WriteString(`\end{supertabular}` + "\n")
+	b.WriteString(`\end{center}` + "\n")
+	b.WriteString(`\rowcolors{0}{}{}` + "\n")
+	b.WriteString(`\par\vspace{2pt}` + "\n")
+	b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small ` + EscapeTeX(caption) + `}}` + "\n")
+	b.WriteString("}\n")
+	return b.String()
+}
+
 // BuildDualHistogramTableTeX generates a 6-column LaTeX tabular comparing two
 // histogram periods (t1 and t2). Bucket | t1 Count | t1 % | t2 Count | t2 % | Delta %
 // Includes Table 2 caption. Returns empty string if both histograms are nil/empty.
@@ -245,9 +281,9 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	}
 
 	var b strings.Builder
-	b.WriteString(`\begin{tabular}{rrr}` + "\n")
+	b.WriteString(`\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r}` + "\n")
 	b.WriteString(`\hline` + "\n")
-	b.WriteString(`\textbf{Bucket (` + EscapeTeX(units) + `)} & \textbf{Count} & \textbf{Percent} \\` + "\n")
+	b.WriteString(`\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & \multicolumn{1}{r}{\sffamily\bfseries Count} & \multicolumn{1}{r}{\sffamily\bfseries Percent} \\` + "\n")
 	b.WriteString(`\hline` + "\n")
 
 	// Pre-aggregate below-cutoff and above-max buckets.

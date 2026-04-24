@@ -135,7 +135,8 @@ func TestBuildHistogramTableTeX(t *testing.T) {
 			continue
 		}
 		if strings.Contains(l, `\textbf{`) || strings.Contains(l, `\hline`) ||
-			strings.Contains(l, `\begin{`) || strings.Contains(l, `\end{`) {
+			strings.Contains(l, `\begin{`) || strings.Contains(l, `\end{`) ||
+			strings.Contains(l, `\multicolumn`) || strings.Contains(l, `\sffamily`) {
 			continue
 		}
 		dataRows++

@@ -216,6 +216,7 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	data := minimalTemplateData()
 	data.HistogramTableTeX = `\begin{tabular}{lrr}\end{tabular}`
 	data.StatRows = []StatRow{{StartTime: "1/1 00:00", Count: 12, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"}}
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
 
 	out, err := RenderTeX(data)
 	if err != nil {

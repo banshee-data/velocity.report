@@ -5,75 +5,36 @@
 \vspace{4pt}
 {\ttfamily\small
 \renewcommand{\arraystretch}{1.14}
+\begin{center}
 <<.HistogramTableTeX>>
+\end{center}
 \par
 }
 \vspace{10pt}
 <<end>>
 
-<<if .StatRows>>
+<<if .StatTableTeX>>
 \subsection*{Detailed Data}
 \vspace{4pt}
-{\ttfamily\scriptsize
-\renewcommand{\arraystretch}{1.12}
-\setlength{\tabcolsep}{3pt}
-\rowcolors{2}{black!5}{white}
-\tablehead{%
-  \hline
-  {\sffamily\bfseries\footnotesize Time} & {\sffamily\bfseries\footnotesize Count} & {\sffamily\bfseries\footnotesize P50} & {\sffamily\bfseries\footnotesize P85} & {\sffamily\bfseries\footnotesize P98} & {\sffamily\bfseries\footnotesize Max} \\
-  \hline
-}
-\tabletail{\hline}
-\begin{supertabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}
-<<range .StatRows>>
-<<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>> \\
-<<end>>
-\end{supertabular}
-\rowcolors{0}{}{}
-\par
-}
+<<.StatTableTeX>>
 <<end>>
 <<end>>
 
 <<define "statistics_comparison">>
 <<if .DualHistogramTableTeX>>
-\subsection*{Detailed Data Tables}
+\subsection*{Speed Distribution}
 <<.DualHistogramTableTeX>>
 <<end>>
 
-<<if .DailyStatRows>>
-\begingroup
-\setlength{\tabcolsep}{2pt}
-\footnotesize
-\begin{supertabular}{>{\ttfamily\raggedright\arraybackslash}p{0.32\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}}
-\multicolumn{1}{l}{\sffamily\bfseries Start Time} & \multicolumn{1}{r}{\sffamily\bfseries Count} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (<<.Units>>)}}\\
-\hline
-<<range .DailyStatRows>>
-<<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>>\\
-<<end>>
-\hline
-\end{supertabular}
-\endgroup
-\par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Table 3: Daily Percentile Summary (Comparison)}}
-\par\vspace{8pt}
+<<if .DailyStatTableTeX>>
+\subsection*{Daily Summary}
+\vspace{4pt}
+<<.DailyStatTableTeX>>
 <<end>>
 
-<<if .StatRows>>
-\begingroup
-\setlength{\tabcolsep}{2pt}
-\footnotesize
-\begin{supertabular}{>{\ttfamily\raggedright\arraybackslash}p{0.32\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}>{\ttfamily\raggedleft\arraybackslash}p{0.10\linewidth}}
-\multicolumn{1}{l}{\sffamily\bfseries Start Time} & \multicolumn{1}{r}{\sffamily\bfseries Count} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p50 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p85 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{p98 \\ (<<.Units>>)}} & \multicolumn{1}{r}{\sffamily\bfseries \shortstack{Max \\ (<<.Units>>)}}\\
-\hline
-<<range .StatRows>>
-<<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>>\\
-<<end>>
-\hline
-\end{supertabular}
-\endgroup
-\par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Table 4: Granular Percentile Breakdown (Comparison)}}
-\par\vspace{8pt}
+<<if .StatTableTeX>>
+\subsection*{Detailed Data}
+\vspace{4pt}
+<<.StatTableTeX>>
 <<end>>
 <<end>>
