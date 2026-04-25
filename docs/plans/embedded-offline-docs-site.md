@@ -109,7 +109,7 @@ A single `make build-docs-offline` target runs `pnpm --dir docs_html build`. The
 
 ## 4. Link resolution by symlink (no rewriter, almost)
 
-The four content roots all use relative markdown links written for GitHub: `[arch](../ARCHITECTURE.md)`, `[L4 maths](../../data/maths/l4-perception.md#dbscan)`, `[tenets](TENETS.md)`. The cheap trick: if Eleventy's input layout under `docs_html/src/` mirrors the repo's filesystem layout exactly, **most relative links resolve themselves** and no rewriting is needed.
+The four content roots all use relative markdown links written for GitHub: `[arch](../ARCHITECTURE.md)`, `[L4 maths](../../data/maths/l4-perception.md#dbscan)`, `[tenets](TENETS.md)`. The cheap trick: if Eleventy's input layout under `docs_html/src/` mirrors the repo's filesystem layout exactly, **most relative links resolve themselves** and no rewriting is needed. <!-- link-ignore -->
 
 ### 4.1 Symlink layout
 
@@ -133,7 +133,7 @@ The key property: a source file's path under `docs_html/src/` matches its path u
 
 ### 4.2 Eleventy's URL convention and how it lines up
 
-Eleventy's default permalink for `src/docs/foo/bar.md` is `/docs/foo/bar/index.html`, served at URL `/docs/foo/bar/`. Crucially, this is the same depth as the source path: a sibling source file `src/docs/foo/baz.md` sits at URL `/docs/foo/baz/`, so a relative link `[baz](baz.md)` written for GitHub keeps working at runtime _if_ we strip the trailing `.md`. That `.md` strip is the one residual transform we cannot avoid; see §4.4.
+Eleventy's default permalink for `src/docs/foo/bar.md` is `/docs/foo/bar/index.html`, served at URL `/docs/foo/bar/`. Crucially, this is the same depth as the source path: a sibling source file `src/docs/foo/baz.md` sits at URL `/docs/foo/baz/`, so a relative link `[baz](baz.md)` written for GitHub keeps working at runtime _if_ we strip the trailing `.md`. That `.md` strip is the one residual transform we cannot avoid; see §4.4. <!-- link-ignore -->
 
 For a cross-tree link like `[arch](../../ARCHITECTURE.md)` from `docs/platform/lidar-pipeline.md`:
 
@@ -147,14 +147,14 @@ So even with perfectly mirrored symlinks, the browser-side path arithmetic is co
 
 | Case                                                                                                        | Symlinks fix it?          | Notes                                                                                                                                                                                                                                            |
 | ----------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `[x](sibling.md)` inside the same directory                                                                 | Path: yes. Extension: no. | Browser resolves the relative path correctly; the `.md` suffix needs stripping to match Eleventy's `/sibling/` URL.                                                                                                                              |
+| `[x](sibling.md)` inside the same directory                                                                 | Path: yes. Extension: no. | Browser resolves the relative path correctly; the `.md` suffix needs stripping to match Eleventy's `/sibling/` URL. <!-- link-ignore -->                                                                                                         |
 | `[x](../../ARCHITECTURE.md)` cross-tree                                                                     | Path: yes. Extension: no. | Same story: symlink mirroring makes the path math right; only the `.md` -> `/` swap remains.                                                                                                                                                     |
 | `[x](#section-only)`                                                                                        | Yes                       | Anchors are within-page; `markdown-it-anchor` already produces stable slug ids matching GitHub's.                                                                                                                                                |
-| `[x](file.md#section)`                                                                                      | Path: yes. Extension: no. | The rewriter must strip `.md` while preserving `#section`.                                                                                                                                                                                       |
+| `[x](file.md#section)`                                                                                      | Path: yes. Extension: no. | The rewriter must strip `.md` while preserving `#section`. <!-- link-ignore -->                                                                                                                                                                  |
 | `[x](https://github.com/.../blob/main/ARCHITECTURE.md)` (GitHub blob URL form)                              | No                        | Absolute URL pointing at github.com. Will work online, will silently fail offline. Two options: (a) leave alone (fail open, reach internet if available), or (b) detect and rewrite to local URL. Recommend (a) + lint warning, defer (b) to v2. |
-| Links that traverse "up and across roots", e.g. `[x](../../../some-other-tree/file.md)` from inside `data/` | Sometimes                 | If "some-other-tree" is one of the four content roots and is symlinked at the same depth, this works. If it points outside the four roots, it's an unresolved external repo path; fail loudly in the link checker.                               |
+| Links that traverse "up and across roots", e.g. `[x](../../../some-other-tree/file.md)` from inside `data/` | Sometimes                 | If "some-other-tree" is one of the four content roots and is symlinked at the same depth, this works. If it points outside the four roots, it's an unresolved external repo path; fail loudly in the link checker. <!-- link-ignore -->          |
 | Anchored links inside files Eleventy renames via permalink rules                                            | N/A                       | We do **not** override permalinks for content files. The default `name.md → /name/` mapping is universal. The only files with custom permalinks are `index.njk` (root) and any future search/sitemap pages. So this case does not arise.         |
-| Image / asset references (`./images/foo.png`, `../diagrams/foo.svg`)                                        | Yes                       | Eleventy's `addPassthroughCopy` over the symlinked roots copies binary assets along the same relative path. The browser's relative-path math then resolves correctly without any rewrite.                                                        |
+| Image / asset references (`./images/foo.png`, `../diagrams/foo.svg`)                                        | Yes                       | Eleventy's `addPassthroughCopy` over the symlinked roots copies binary assets along the same relative path. The browser's relative-path math then resolves correctly without any rewrite. <!-- link-ignore -->                                   |
 
 ### 4.4 Residual rewriter: `.md` extension stripping only
 
@@ -200,7 +200,7 @@ Inside lidar-pipeline.md:
     rewriter: only strips .md → href="../../ARCHITECTURE/"
     browser at /docs/platform/lidar-pipeline/ resolves to /ARCHITECTURE/   ✓
 
-  [L4 maths](../../data/maths/l4-perception.md#dbscan)
+  [L4 maths](../../data/maths/l4-perception.md#dbscan) <!-- link-ignore -->
     rewriter: strips .md, preserves #dbscan → href="../../data/maths/l4-perception/#dbscan"
     browser resolves to /data/maths/l4-perception/#dbscan                 ✓
 
@@ -209,7 +209,7 @@ Inside lidar-pipeline.md:
     browser resolves to /TENETS/                                           ✓
 ```
 
-No path normalisation, no repository-root rewriting, no `[FOO](../FOO.md)` → `/FOO/` URL synthesis. Just `.md → /` at the end of the path component.
+No path normalisation, no repository-root rewriting, no `[FOO](../FOO.md)` → `/FOO/` URL synthesis. Just `.md → /` at the end of the path component. <!-- link-ignore -->
 
 ---
 
@@ -303,7 +303,7 @@ The two checks are complementary: `check-md-links` validates the markdown source
 3. **`devlog/` and `plans/` exposure.** Even on the operator-only site, do we want plans visible? My recommendation: yes — operators benefit from "why was this designed this way" context, and the site never reaches the public internet by deployment posture. But this is Florence's call.
 4. **Discoverability.** Should the Svelte frontend on `:8080` link to `:8083`? A small "docs" link in the footer ("Docs (offline)") would be useful and is a one-line change.
 5. **Versioning.** The offline site shows the docs as of the binary's git SHA. Add a footer with `version.Version` / `version.GitSHA` so operators know whether they need to upgrade. Trivial; do it in Phase 1.
-6. **Image asset paths.** Some `docs/` images are referenced as `./images/foo.png`. Need to confirm Eleventy passthrough copies binary assets alongside the markdown when sources arrive via symlink; spike this in Phase 1.
+6. **Image asset paths.** Some `docs/` images are referenced as `./images/foo.png`. Need to confirm Eleventy passthrough copies binary assets alongside the markdown when sources arrive via symlink; spike this in Phase 1. <!-- link-ignore -->
 7. **Auth posture.** `:8083` is unauthenticated. Malory should sign off that this is acceptable given that `:8080` (and the API behind it) is also unauthenticated and the deployment is LAN-only. If the answer is "auth required", we have a separate, larger discussion.
 8. **GitHub blob URLs in source.** Some authored markdown links to `https://github.com/.../blob/...`. Phase 2 emits a build warning per occurrence; whether to rewrite them to local URLs in v2 is a separate decision.
 
