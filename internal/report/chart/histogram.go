@@ -90,9 +90,10 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 	if maxPct == 0 {
 		maxPct = 100
 	}
-	pctNiceMax := math.Ceil(maxPct/5) * 5
-	if pctNiceMax < 5 {
-		pctNiceMax = 5
+	pctStep := pctNiceStep(maxPct)
+	pctNiceMax := math.Ceil(maxPct/pctStep) * pctStep
+	if pctNiceMax < pctStep {
+		pctNiceMax = pctStep
 	}
 	yScale := plotH / pctNiceMax
 
@@ -116,8 +117,8 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 				style.AxisTickFontPx, x, y))
 	}
 
-	// Y-axis: ticks at multiples of 5 with "%" labels.
-	for v := 0.0; v <= pctNiceMax+0.01; v += 5 {
+	// Y-axis: ticks at pctStep intervals with "%" labels.
+	for v := 0.0; v <= pctNiceMax+0.01; v += pctStep {
 		y := bottomM - v*yScale
 		c.Line(leftM-3, y, leftM, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftM-5, y+style.AxisTickFontPx/3,
@@ -213,9 +214,10 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	if maxPct == 0 {
 		maxPct = 5
 	}
-	pctNiceMax := math.Ceil(maxPct/5) * 5
-	if pctNiceMax < 5 {
-		pctNiceMax = 5
+	pctStep := pctNiceStep(maxPct)
+	pctNiceMax := math.Ceil(maxPct/pctStep) * pctStep
+	if pctNiceMax < pctStep {
+		pctNiceMax = pctStep
 	}
 	yScale := plotH / pctNiceMax
 
@@ -262,8 +264,8 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	c.Line(leftM, topM, leftM, bottomM, `stroke="black" stroke-width="1"`)
 	c.Line(leftM, bottomM, rightM, bottomM, `stroke="black" stroke-width="1"`)
 
-	// Y-axis ticks at multiples of 5.
-	for v := 0.0; v <= pctNiceMax+0.01; v += 5 {
+	// Y-axis ticks at pctStep intervals.
+	for v := 0.0; v <= pctNiceMax+0.01; v += pctStep {
 		y := bottomM - v*yScale
 		c.Line(leftM-3, y, leftM, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftM-5, y+style.AxisTickFontPx/3,
@@ -283,6 +285,16 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 
 	c.EndGroup()
 	return c.Bytes(), nil
+}
+
+// pctNiceStep returns a tick step for a percentage axis targeting ~5 ticks,
+// with a minimum of 5 (sub-5 steps look cluttered for % values).
+func pctNiceStep(maxPct float64) float64 {
+	step := niceStep(maxPct, 5)
+	if step < 5 {
+		step = 5
+	}
+	return step
 }
 
 func renderNoData(style ChartStyle) []byte {

@@ -248,11 +248,17 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		maxCount = 1
 	}
 
-	// Y-scale functions. Speed axis rounds to the next multiple-of-5 ceiling so
-	// all tick labels are clean round numbers (no "19" or "37").
-	speedNiceMax := math.Ceil(maxSpeed*1.1/5) * 5
-	if speedNiceMax < 5 {
-		speedNiceMax = 5
+	// Y-scale: speed axis rounds to the next nice-step ceiling so tick labels
+	// are always clean round numbers. Step is 5 for low ranges, 10 for higher
+	// ones (e.g. 60 mph), targeting ~6 ticks.
+	rawSpeedMax := maxSpeed * 1.1
+	speedStep := niceStep(rawSpeedMax, 6)
+	if speedStep < 5 {
+		speedStep = 5
+	}
+	speedNiceMax := math.Ceil(rawSpeedMax/speedStep) * speedStep
+	if speedNiceMax < speedStep {
+		speedNiceMax = speedStep
 	}
 	speedScale := plotH / speedNiceMax
 
@@ -454,34 +460,40 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	c.EndGroup()
 
-	// Speed Y-axis label + ticks at multiples of 5.
+	// Speed Y-axis label + ticks at computed speedStep.
 	c.BeginGroup(`class="y-axis"`)
-	for v := 0.0; v <= speedNiceMax+0.01; v += 5 {
+	for v := 0.0; v <= speedNiceMax+0.01; v += speedStep {
 		y := speedYOf(v)
 		c.Line(leftPx-4, y, leftPx, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftPx-6, y+style.AxisTickFontPx/3,
 			fmt.Sprintf("%.0f", v),
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end"`, style.AxisTickFontPx))
 	}
+	// labelWithBg draws a white filled rect (no stroke) behind a right-aligned
+	// axis label to prevent overlap with the regular tick numbers underneath.
+	labelWithBg := func(x, y float64, label, colour string) {
+		fs := style.AxisTickFontPx
+		estW := float64(len(label)) * 0.62 * fs
+		pad := 2.0
+		c.Rect(x-estW-pad, y-fs*0.8-pad, estW+2*pad, fs+2*pad, `fill="white"`)
+		c.Text(x, y, label, fmt.Sprintf(
+			`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" fill="%s" font-weight="bold"`,
+			fs, colour))
+	}
+
 	// Extra axis label for the aggregate P98 reference line.
 	if drawRefLine {
 		c.Line(leftPx-4, refY, leftPx, refY,
 			fmt.Sprintf(`stroke="%s" stroke-width="1"`, style.ColourP98))
-		c.Text(leftPx-6, refY+style.AxisTickFontPx/3,
-			fmt.Sprintf("p98=%.0f", data.P98Reference),
-			fmt.Sprintf(
-				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" fill="%s" font-weight="bold"`,
-				style.AxisTickFontPx, style.ColourP98))
+		labelWithBg(leftPx-6, refY+style.AxisTickFontPx/3,
+			fmt.Sprintf("p98=%.0f", data.P98Reference), style.ColourP98)
 	}
 	// Extra axis label for the aggregate max reference line.
 	if drawMaxRefLine {
 		c.Line(leftPx-4, maxRefY, leftPx, maxRefY,
 			fmt.Sprintf(`stroke="%s" stroke-width="0.8"`, ColourMax))
-		c.Text(leftPx-6, maxRefY+style.AxisTickFontPx/3,
-			fmt.Sprintf("max=%.0f", data.MaxReference),
-			fmt.Sprintf(
-				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" fill="%s" font-weight="bold"`,
-				style.AxisTickFontPx, ColourMax))
+		labelWithBg(leftPx-6, maxRefY+style.AxisTickFontPx/3,
+			fmt.Sprintf("max=%.0f", data.MaxReference), ColourMax)
 	}
 	// Rotated "Speed (units)" label. Anchored at 5% of chart width so it sits
 	// clear of the tick/reference labels that right-align at leftPx-6.
