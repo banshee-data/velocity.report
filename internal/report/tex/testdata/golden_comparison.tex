@@ -95,13 +95,14 @@
 \end{itemize}
 
 \subsection*{Key Traffic Speed Metrics}
-{\ttfamily\scriptsize
+{\ttfamily\footnotesize
 \renewcommand{\arraystretch}{1.12}
 \setlength{\tabcolsep}{3pt}
 \rowcolors{2}{black!5}{white}
-\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}
+\begin{center}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}
 \hline
-{\sffamily\bfseries\footnotesize Metric} & {\sffamily\bfseries\footnotesize Period t1} & {\sffamily\bfseries\footnotesize Period t2} & {\sffamily\bfseries\footnotesize Change} \\
+{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\
 \hline
 p50 & 25.00 mph & 26.00 mph & +6.1% \\
 p85 & 30.00 mph & 31.00 mph & +4.0% \\
@@ -109,7 +110,8 @@ p98 & 35.00 mph & 36.00 mph & +2.3% \\
 Max & 42.00 mph & 45.00 mph & +6.9% \\
 Count & 1,000 & 900 & \\
 \hline
-\end{tabular}
+\end{tabular*}
+\end{center}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
 \noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}

@@ -165,7 +165,7 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	if !strings.Contains(s, `Period t1`) {
 		t.Error("comparison section should be present when CompareStartDate is set")
 	}
-	if !strings.Contains(s, `\item \textbf{Primary period (t1):} 2024-01-01 \textemdash{} 2024-01-31`) {
+	if !strings.Contains(s, `\item \textbf{Period (t1):} 2024-01-01 \textemdash{} 2024-01-31`) {
 		t.Error("comparison report should render the comparison period overview module")
 	}
 	// Comparison survey parameters: Start time (t2) row (bfseries applied via column spec).
