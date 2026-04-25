@@ -1180,8 +1180,7 @@ lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Merm
 	@python3 scripts/check-british-spelling.py
 
 check-md-links: ## Check dead relative links and stale backtick paths in Markdown (no other lint)
-
-	@printf '%s\n' '<!-- link-ignore -->'
+	@printf '%s\n' 'to ignore a line add: <!-- link-ignore -->'
 	@python3 scripts/check-relative-links.py
 	@python3 scripts/check-backtick-paths.py
 

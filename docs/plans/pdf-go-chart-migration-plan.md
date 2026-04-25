@@ -687,7 +687,7 @@ Current code status: implemented as `cmd/radar/pdf.go`; this plan's original tar
 - [x] Gut `image/stage-velocity/02-velocity-python/00-run.sh` to only create the report output directory.
 - [x] Remove PDF generator copy block from `image/scripts/build-image.sh`.
 - [x] Remove `PDF_GENERATOR_DIR` / `PDF_GENERATOR_PYTHON` env vars from systemd service; add `VELOCITY_PDF_BACKEND=go`.
-- [x] Delete `.github/workflows/python-ci.yml`. <!-- link-ignore  -->
+- [x] Delete `.github/workflows/python-ci.yml`. <!-- link-ignore -->
 - [x] Remove `test-python`, `format-python`, `lint-python` from Makefile aggregate targets; mark `install-python` deprecated.
 - [x] Update `ARCHITECTURE.md`: component table, performance section, L10 layer, and inter-service diagram updated to reflect Go pipeline.
 - [x] Retain `tools/pdf-generator/` in repo history; removal scheduled for v0.6.
