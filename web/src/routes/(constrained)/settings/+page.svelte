@@ -1,12 +1,17 @@
 <script lang="ts">
 	import {
+		disableTailscale,
+		enableTailscale,
 		getConfig,
+		getTailscaleStatus,
 		getTransitWorkerState,
 		updateTransitWorker,
 		type Config,
+		type TailscaleStatus,
 		type TransitRunInfo,
 		type TransitWorkerState
 	} from '$lib/api';
+	import QRCode from 'qrcode';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits, updateUnits } from '$lib/stores/units';
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
@@ -26,6 +31,25 @@
 	let resolvedLastRun: TransitRunInfo | null = null;
 	let transitWorkerRefreshTimer: ReturnType<typeof setInterval> | null = null;
 	let transitWorkerRefreshTimeouts: Array<ReturnType<typeof setTimeout>> = [];
+
+	// Tailscale state.  We poll fast (2s) while a login is in progress so
+	// the UI surfaces the auth URL promptly, and slow (30s) once the node
+	// is connected — no need to hammer the local API in steady state.
+	let tailscaleStatus: TailscaleStatus | null = null;
+	// Switch needs a plain (non-derived) `checked` binding — when this
+	// is a `$:` reactive expression, svelte-ux's Switch can suppress
+	// the `on:change` dispatch because the prop snaps back before the
+	// click event finishes propagating, leaving the toggle inert.  We
+	// sync it from tailscaleStatus.daemon_running in syncTailscaleState
+	// instead.
+	let tailscaleEnabled = false;
+	let tailscaleConnected = false;
+	let tailscaleLoading = false;
+	let tailscaleError = '';
+	let tailscaleQrDataUrl = '';
+	let lastQrUrl = '';
+	let tailscalePollTimer: ReturnType<typeof setInterval> | null = null;
+	let tailscalePollFastInterval = false;
 
 	function formatTimestamp(value?: string) {
 		if (!value || value.startsWith('0001-01-01')) {
@@ -153,6 +177,93 @@
 		}
 	}
 
+	async function loadTailscaleStatus() {
+		// Skip background polls while the user is toggling Tailscale on or
+		// off — disable in particular takes several seconds (tailscale
+		// logout + systemctl stop + mask) and a poll mid-flight can roll
+		// the Switch's `checked` state back to true before the action
+		// completes, which the user sees as the toggle "snapping back".
+		if (tailscaleLoading) return;
+		try {
+			const next = await getTailscaleStatus();
+			tailscaleStatus = next;
+			syncTailscaleState(next);
+			tuneTailscalePolling(next);
+			updateTailscaleQr(next.login_url);
+		} catch (e) {
+			console.error('Could not load Tailscale status:', e);
+		}
+	}
+
+	function tuneTailscalePolling(status: TailscaleStatus | null) {
+		// Fast cadence while we're waiting for the user to complete login
+		// (the login URL only appears once tailscaled emits BrowseToURL on
+		// the IPN bus, and we want it on screen quickly).  Otherwise back
+		// off to a slow poll that just refreshes peer count etc.
+		const wantsFast =
+			!!status &&
+			(status.login_in_progress ||
+				!!status.login_url ||
+				status.backend_state === 'NeedsLogin' ||
+				status.backend_state === 'Starting');
+		if (wantsFast === tailscalePollFastInterval && tailscalePollTimer) return;
+		tailscalePollFastInterval = wantsFast;
+		if (tailscalePollTimer) clearInterval(tailscalePollTimer);
+		tailscalePollTimer = setInterval(loadTailscaleStatus, wantsFast ? 2000 : 30000);
+	}
+
+	async function handleTailscaleToggle(enabled: boolean) {
+		tailscaleLoading = true;
+		tailscaleError = '';
+		try {
+			tailscaleStatus = enabled ? await enableTailscale() : await disableTailscale();
+			syncTailscaleState(tailscaleStatus);
+			tuneTailscalePolling(tailscaleStatus);
+			updateTailscaleQr(tailscaleStatus.login_url);
+		} catch (e) {
+			console.error('Could not update Tailscale:', e);
+			tailscaleError = (e as Error).message || 'Could not update Tailscale.';
+		} finally {
+			tailscaleLoading = false;
+		}
+	}
+
+	async function copyLoginUrl() {
+		if (!tailscaleStatus?.login_url) return;
+		try {
+			await navigator.clipboard.writeText(tailscaleStatus.login_url);
+			message = 'Login URL copied to clipboard.';
+			setTimeout(() => (message = ''), 3000);
+		} catch (e) {
+			console.error('clipboard write failed:', e);
+		}
+	}
+
+	// Render the QR code only when the login URL actually changes — done
+	// imperatively from updateTailscaleQr() rather than a reactive block
+	// because writing tailscaleQrDataUrl would otherwise re-fire the
+	// statement and trip the infinite-reactive-loop lint.
+	async function updateTailscaleQr(url: string | undefined) {
+		if (!url) {
+			tailscaleQrDataUrl = '';
+			lastQrUrl = '';
+			return;
+		}
+		if (url === lastQrUrl) return;
+		lastQrUrl = url;
+		try {
+			tailscaleQrDataUrl = await QRCode.toDataURL(url, { width: 220, margin: 1 });
+		} catch (e) {
+			console.error('QR encode failed:', e);
+			tailscaleQrDataUrl = '';
+		}
+	}
+
+	function syncTailscaleState(status: TailscaleStatus | null) {
+		tailscaleEnabled = !!status?.daemon_running;
+		tailscaleConnected = status?.backend_state === 'Running';
+	}
+
 	async function handleTransitWorkerToggle(enabled: boolean) {
 		transitWorkerLoading = true;
 		try {
@@ -254,9 +365,14 @@
 	onMount(() => {
 		loadConfig();
 		loadTransitWorkerState();
+		loadTailscaleStatus();
 		transitWorkerRefreshTimer = setInterval(loadTransitWorkerState, 30000);
 		return () => {
 			stopTransitWorkerRefresh();
+			if (tailscalePollTimer) {
+				clearInterval(tailscalePollTimer);
+				tailscalePollTimer = null;
+			}
 		};
 	});
 </script>
@@ -445,6 +561,114 @@
 						{/if}
 					</div>
 				</div>
+			</div>
+		</Card>
+
+		<Card title="Tailscale">
+			<div class="space-y-4 p-4">
+				<p class="text-surface-content/70 text-sm">
+					Tailscale puts this device on your private tailnet so you can reach the web UI from
+					anywhere and SSH in without opening any ports on your LAN. When enabled, the device phones
+					home to Tailscale's coordination server; when disabled, it does not. Tailscale SSH and
+					publishing the web UI on <code>https://&lt;hostname&gt;.&lt;tailnet&gt;.ts.net</code> are turned
+					on automatically.
+				</p>
+
+				<div class="flex flex-wrap items-center gap-3">
+					<Switch
+						checked={tailscaleEnabled}
+						disabled={tailscaleLoading}
+						on:change={(e) => {
+							const target = e.target as HTMLInputElement | null;
+							if (!target) return;
+							handleTailscaleToggle(target.checked);
+						}}
+					/>
+					<span class="text-sm">
+						{#if !tailscaleStatus}
+							Loading...
+						{:else if tailscaleConnected}
+							Connected
+						{:else if tailscaleEnabled}
+							{tailscaleStatus.backend_state || 'Starting'}
+						{:else}
+							Disabled
+						{/if}
+					</span>
+					{#if tailscaleLoading}
+						<span class="text-surface-content/70 text-xs italic">Updating...</span>
+					{/if}
+				</div>
+
+				{#if tailscaleError}
+					<p class="text-xs text-red-600" role="alert">{tailscaleError}</p>
+				{/if}
+
+				{#if tailscaleEnabled && !tailscaleConnected && tailscaleStatus?.login_url}
+					<div
+						class="border-surface-content/20 bg-surface-100 grid gap-4 rounded border p-4 md:grid-cols-[auto_1fr]"
+					>
+						{#if tailscaleQrDataUrl}
+							<img
+								src={tailscaleQrDataUrl}
+								alt="Tailscale login QR code"
+								class="bg-white p-2"
+								width="220"
+								height="220"
+							/>
+						{/if}
+						<div class="space-y-2">
+							<p class="text-sm font-medium">Finish enrolment</p>
+							<p class="text-surface-content/70 text-xs">
+								Open the link below or scan the QR code on your phone. After signing in, this device
+								joins your tailnet and the page will update on its own.
+							</p>
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
+							<a
+								href={tailscaleStatus.login_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="block text-sm break-all text-blue-600 underline"
+							>
+								{tailscaleStatus.login_url}
+							</a>
+							<Button variant="outline" on:click={copyLoginUrl}>Copy login URL</Button>
+						</div>
+					</div>
+				{:else if tailscaleEnabled && !tailscaleConnected}
+					<p class="text-surface-content/70 text-xs italic">
+						Waiting for Tailscale to issue a login URL...
+					</p>
+				{/if}
+
+				{#if tailscaleConnected}
+					<div class="grid gap-4 text-sm md:grid-cols-2">
+						<div class="border-surface-content/20 bg-surface-100 rounded border p-3">
+							<p class="text-surface-content/60 text-xs uppercase">MagicDNS</p>
+							<p class="mt-1 font-medium break-all">
+								{tailscaleStatus?.magic_dns || tailscaleStatus?.hostname || 'unknown'}
+							</p>
+							{#if tailscaleStatus?.magic_dns}
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									href={`https://${tailscaleStatus.magic_dns}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-xs text-blue-600 underline"
+								>
+									Open web UI on tailnet
+								</a>
+							{/if}
+						</div>
+						<div class="border-surface-content/20 bg-surface-100 rounded border p-3">
+							<p class="text-surface-content/60 text-xs uppercase">Tailnet</p>
+							<p class="mt-1 font-medium">{tailscaleStatus?.tailnet_name || 'unknown'}</p>
+							<p class="text-surface-content/70 text-xs">
+								{tailscaleStatus?.peer_count ?? 0} peer(s) visible
+							</p>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</Card>
 	{/if}

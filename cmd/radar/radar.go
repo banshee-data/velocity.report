@@ -23,6 +23,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
+	"github.com/banshee-data/velocity.report/internal/tailscale"
 	"github.com/banshee-data/velocity.report/internal/units"
 
 	// optional lidar integration
@@ -876,6 +877,15 @@ func main() {
 		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
+
+		// Tailscale lifecycle manager: drives tailscaled on opt-in,
+		// caches the IPN bus login URL, and applies the device policy
+		// (Tailscale SSH on, tailscale serve publishing the local Go
+		// server on :443 of the tailnet) once the node is up.
+		tsManager := tailscale.New()
+		tsManager.Start(ctx)
+		defer tsManager.Stop()
+		apiServer.SetTailscaleController(tsManager)
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// When LiDAR is enabled we report "starting" here; the subsystem should
