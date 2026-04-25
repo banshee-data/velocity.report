@@ -1,6 +1,6 @@
 # Pure-Go LaTeX backend for PDF reports
 
-- **Status:** Draft (architectural feasibility study; **NO-GO** verdict for the proposed package)
+- **Status:** Accepted (NO-GO)
 - **Layers:** Cross-cutting (reporting infrastructure, deployment image)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -10,9 +10,10 @@
 - [Distribution packaging plan](deploy-distribution-packaging-plan.md) (D-09)
 
 **Goal:** Evaluate whether `star-tex.org/x/tex` (a pure-Go TeX engine) can replace the
-external `xelatex` binary in the `internal/report/` pipeline, eliminating the
-~800 MB vendored TeX Live tree shipped on the Raspberry Pi image and producing
-a single self-contained Go binary that compiles `.tex` to `.pdf` in-process.
+external `xelatex` binary in the proposed Go report pipeline (as outlined in
+`../platform/operations/pdf-reporting.md`), eliminating the ~800 MB vendored
+TeX Live tree shipped on the Raspberry Pi image and producing a single
+self-contained Go binary that compiles `.tex` to `.pdf` in-process.
 
 ## TL;DR — Verdict
 
@@ -67,8 +68,10 @@ actually call.
 
 ## Gap analysis: what the templates need vs what `star-tex` provides
 
-Templates live in `internal/report/tex/templates/`. The packages currently
-loaded in the preamble are listed below. "Class" indicates whether the
+In the proposed Go migration, templates would live in
+`internal/report/tex/templates/`; today, the active templates are under
+`tools/pdf-generator/pdf_generator/templates/`. The packages currently loaded
+in the preamble are listed below. "Class" indicates whether the
 feature is a LaTeX2e macro package (potentially loadable on top of a plain-TeX
 engine) or an engine-level extension (requires e-TeX, pdfTeX, or XeTeX
 primitives).
@@ -260,10 +263,13 @@ TeX size and deployment complexity) are:
      known.
 - **Consequences:**
   - The Pi image continues to vendor a TeX tree (size addressed by D-08).
-  - The `runXeLatex` shell-out remains in `internal/report/report.go`.
+  - The current PDF flow continues to shell out via
+    `internal/api/server_reports_generate.go` into the Python generator, which
+    then invokes `xelatex`.
   - The `VELOCITY_TEX_ROOT` env contract continues to be the integration
     point for vendored TeX.
-  - No code in `internal/report/` changes as a result of this study.
+  - No Go report-pipeline migration code is introduced as a result of this
+    study.
 
 ---
 
@@ -273,20 +279,18 @@ Current pipeline (unchanged by this verdict):
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  velocity-report pdf  (Go binary, cmd/radar/pdf.go)             │
-│                                                                 │
-│   internal/report/                                              │
-│     ├── DB query → stats                                        │
-│     ├── Go SVG charts → rsvg-convert → chart.pdf                │
-│     │                       (external)                          │
-│     ├── text/template render → report.tex                       │
-│     └── runXeLatex(report.tex)                                  │
-│            │                                                    │
-│            └── exec.Command("xelatex", ...)                     │
-│                  ↓ via VELOCITY_TEX_ROOT                        │
-│                  /opt/velocity-report/texlive/  (vendored)      │
-│                          ↓                                      │
-│                       report.pdf                                │
+│  Go HTTP API (cmd/radar/radar.go)                              │
+│    POST /api/generate_report                                    │
+│       │                                                         │
+│       └── internal/api/server_reports_generate.go              │
+│             └── exec Python PDF generator                      │
+│                   tools/pdf-generator/pdf_generator/           │
+│                     ├── build charts + render .tex             │
+│                     └── exec xelatex                           │
+│                           ↓ via VELOCITY_TEX_ROOT              │
+│                           vendored TeX tree                    │
+│                           ↓                                    │
+│                        report.pdf                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -326,11 +330,11 @@ For the rejected migration (documented so the failure modes are visible):
 
 For the accepted plan (continue with xelatex, lean on D-08):
 
-| Component                                     | How it fails                                   | Recovery                                                                     |
-| --------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `xelatex` missing on host                     | Build/runtime error; pipeline aborts           | `VELOCITY_TEX_ROOT` points at vendored tree; image install pre-flight check. |
-| Font missing under vendored tree              | XeTeX falls back to default; visual regression | CI golden-PDF check catches drift.                                           |
-| Vendored tree size regresses past D-08 budget | Image bloat                                    | D-08 acceptance test enforces upper bound.                                   |
+| Component                                     | How it fails                                   | Recovery                                                                                          |
+| --------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `xelatex` missing on host                     | Build/runtime error; pipeline aborts           | `VELOCITY_TEX_ROOT` points at vendored tree; image install pre-flight check.                      |
+| Font missing under vendored tree              | XeTeX falls back to default; visual regression | Detect via current PDF generator/package-parity checks; add a golden-PDF CI check as future work. |
+| Vendored tree size regresses past D-08 budget | Image bloat                                    | D-08 acceptance test enforces upper bound.                                                        |
 
 ---
 
