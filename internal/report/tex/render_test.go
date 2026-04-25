@@ -161,8 +161,8 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	}
 
 	s := string(out)
-	// Comparison overview: unified Key Metrics table with period columns.
-	if !strings.Contains(s, `Period t1`) {
+	// Comparison overview: period (t2) itemize entry only present in overview_comparison.
+	if !strings.Contains(s, `\item \textbf{Period (t2):} 2024-02-01 \textemdash{} 2024-02-28`) {
 		t.Error("comparison section should be present when CompareStartDate is set")
 	}
 	if !strings.Contains(s, `\item \textbf{Period (t1):} 2024-01-01 \textemdash{} 2024-01-31`) {
@@ -306,6 +306,7 @@ func TestRenderTeX_GoldenSingle(t *testing.T) {
 		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
 	}
 	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.KeyMetricsTableTeX = BuildSingleKeyMetricsTableTeX("25.00", "30.00", "35.00", "42.00", "mph")
 	data.HistogramTableTeX = `\begin{tabular}{lrr}` + "\n" +
 		`20--25 & 120 & 12.0\% \\` + "\n" +
 		`25--30 & 880 & 88.0\% \\` + "\n" +
@@ -358,6 +359,13 @@ func TestRenderTeX_GoldenComparison(t *testing.T) {
 	data.TotalCountFormatted = "1,000"
 	data.CompareTotalCountFormatted = "900"
 	data.CombinedCountFormatted = "1,900"
+	data.KeyMetricsTableTeX = BuildComparisonKeyMetricsTableTeX(
+		"25.00", "30.00", "35.00", "42.00",
+		"26.00", "31.00", "36.00", "45.00",
+		"+6.1%", "+4.0%", "+2.3%", "+6.9%",
+		"1,000", "900",
+		"mph",
+	)
 	data.StatRows = []StatRow{
 		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
 	}

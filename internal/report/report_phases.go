@@ -377,6 +377,20 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 	}
 
 	if data.compareResult != nil {
+		td.KeyMetricsTableTeX = tex.BuildComparisonKeyMetricsTableTeX(
+			td.P50, td.P85, td.P98, td.MaxSpeed,
+			td.CompareP50, td.CompareP85, td.CompareP98, td.CompareMax,
+			td.DeltaP50Pct, td.DeltaP85Pct, td.DeltaP98Pct, td.DeltaMaxPct,
+			td.TotalCountFormatted, td.CompareTotalCountFormatted,
+			td.Units,
+		)
+	} else {
+		td.KeyMetricsTableTeX = tex.BuildSingleKeyMetricsTableTeX(
+			td.P50, td.P85, td.P98, td.MaxSpeed, td.Units,
+		)
+	}
+
+	if data.compareResult != nil {
 		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 4: Granular Percentile Breakdown")
 		td.DailyStatTableTeX = tex.BuildStatTableTeX(td.DailyStatRows, "Table 3: Daily Percentile Summary")
 	} else {

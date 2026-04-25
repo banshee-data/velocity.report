@@ -92,6 +92,9 @@ type TemplateData struct {
 	// Dual-period histogram table (pre-rendered LaTeX; comparison mode only).
 	DualHistogramTableTeX string
 
+	// Key metrics table (pre-rendered LaTeX; always set; content differs by mode).
+	KeyMetricsTableTeX string
+
 	// Formatted count strings (with comma separators).
 	TotalCountFormatted        string
 	CompareTotalCountFormatted string

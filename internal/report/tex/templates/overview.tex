@@ -13,24 +13,7 @@
 
 \subsection*{Key Traffic Speed Metrics}
 \vspace{4pt}
-{\ttfamily\small
-\renewcommand{\arraystretch}{1.12}
-\setlength{\tabcolsep}{3pt}
-\rowcolors{2}{black!5}{white}
-\begin{center}
-\begin{tabular}{l!{\color{black!20}\vrule}r}
-\hline
-{\sffamily\bfseries Metric} & {\sffamily\bfseries Value} \\
-\hline
-p50 (median) & <<.P50>> <<.Units>> \\
-p85 & <<.P85>> <<.Units>> \\
-p98 & <<.P98>> <<.Units>> \\
-Maximum & <<.MaxSpeed>> <<.Units>> \\
-\hline
-\end{tabular}
-\end{center}
-\rowcolors{0}{}{}
-\par}
+<<.KeyMetricsTableTeX>>
 \vspace{8pt}
 
 <<if .HistogramChart>>
@@ -59,28 +42,7 @@ Maximum & <<.MaxSpeed>> <<.Units>> \\
 \end{itemize}
 
 \subsection*{Key Traffic Speed Metrics}
-{\ttfamily\small
-\renewcommand{\arraystretch}{1.12}
-\setlength{\tabcolsep}{3pt}
-\rowcolors{2}{black!5}{white}
-\begin{center}
-\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}
-\hline
-{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\
-\hline
-p50 & <<.P50>> <<.Units>> & <<.CompareP50>> <<.Units>> & <<.DeltaP50Pct>> \\
-p85 & <<.P85>> <<.Units>> & <<.CompareP85>> <<.Units>> & <<.DeltaP85Pct>> \\
-p98 & <<.P98>> <<.Units>> & <<.CompareP98>> <<.Units>> & <<.DeltaP98Pct>> \\
-Max & <<.MaxSpeed>> <<.Units>> & <<.CompareMax>> <<.Units>> & <<.DeltaMaxPct>> \\
-Count & <<.TotalCountFormatted>> & <<.CompareTotalCountFormatted>> & \\
-\hline
-\end{tabular}
-\end{center}
-\rowcolors{0}{}{}
-\par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
-}
-\par
+<<.KeyMetricsTableTeX>>
 
 <<if .CompareChart>>
 \begin{center}

@@ -1219,7 +1219,7 @@ follow-up rather than introducing a macro layer.
       to call it. Golden files unchanged.
 - [x] Replace `WriteString(fmt.Sprintf(...))` with `fmt.Fprintf(&b, ...)` in
       the same edit (clears `QF1012` lint notes for these files).
-- [ ] Optional follow-up: lift overview key-metrics tables into Go helpers so
+- [x] Optional follow-up: lift overview key-metrics tables into Go helpers so
       `overview.tex` shrinks to layout only.
 
 ### 9.2 — Chart artifact pipeline helper `S`

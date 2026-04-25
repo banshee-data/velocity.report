@@ -120,6 +120,64 @@ func withStyledTable(b *strings.Builder, fontSize string, body func(), afterRese
 	b.WriteString("}\n")
 }
 
+// BuildSingleKeyMetricsTableTeX generates the styled 2-column key metrics
+// tabular (Metric | Value) for single-survey mode. Inputs are pre-formatted
+// display strings (e.g. "25.00") and must already be TeX-escaped where needed.
+func BuildSingleKeyMetricsTableTeX(p50, p85, p98, maxSpeed, units string) string {
+	var b strings.Builder
+	withStyledTable(&b, "small", func() {
+		b.WriteString(`\begin{center}` + "\n")
+		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Value} \\` + "\n")
+		b.WriteString(`\hline` + "\n")
+		fmt.Fprintf(&b, "p50 (median) & %s %s \\\\\n", p50, units)
+		fmt.Fprintf(&b, "p85 & %s %s \\\\\n", p85, units)
+		fmt.Fprintf(&b, "p98 & %s %s \\\\\n", p98, units)
+		fmt.Fprintf(&b, "Maximum & %s %s \\\\\n", maxSpeed, units)
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`\end{tabular}` + "\n")
+		b.WriteString(`\end{center}` + "\n")
+	}, func() {
+		b.WriteString(`\par` + "\n")
+	})
+	return b.String()
+}
+
+// BuildComparisonKeyMetricsTableTeX generates the 4-column key metrics tabular
+// (Metric | Period t1 | Period t2 | Change) for comparison mode, with Table 1
+// caption. All inputs are pre-formatted display strings and must already be
+// TeX-escaped where needed.
+func BuildComparisonKeyMetricsTableTeX(
+	p50, p85, p98, maxSpeed string,
+	compareP50, compareP85, compareP98, compareMax string,
+	deltaP50Pct, deltaP85Pct, deltaP98Pct, deltaMaxPct string,
+	totalCountFmt, compareTotalCountFmt string,
+	units string,
+) string {
+	var b strings.Builder
+	withStyledTable(&b, "small", func() {
+		b.WriteString(`\begin{center}` + "\n")
+		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\` + "\n")
+		b.WriteString(`\hline` + "\n")
+		fmt.Fprintf(&b, "p50 & %s %s & %s %s & %s \\\\\n", p50, units, compareP50, units, deltaP50Pct)
+		fmt.Fprintf(&b, "p85 & %s %s & %s %s & %s \\\\\n", p85, units, compareP85, units, deltaP85Pct)
+		fmt.Fprintf(&b, "p98 & %s %s & %s %s & %s \\\\\n", p98, units, compareP98, units, deltaP98Pct)
+		fmt.Fprintf(&b, "Max & %s %s & %s %s & %s \\\\\n", maxSpeed, units, compareMax, units, deltaMaxPct)
+		fmt.Fprintf(&b, "Count & %s & %s & \\\\\n", totalCountFmt, compareTotalCountFmt)
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`\end{tabular}` + "\n")
+		b.WriteString(`\end{center}` + "\n")
+	}, func() {
+		b.WriteString(`\par\vspace{2pt}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}` + "\n")
+	})
+	b.WriteString(`\par` + "\n")
+	return b.String()
+}
+
 // BuildStatTableTeX generates a styled, page-spanning LaTeX supertabular for
 // stat row data (Time | Count | P50 | P85 | P98 | Max). The table uses
 // alternating row colours and grey column rules, matching the single-report
