@@ -94,13 +94,13 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 			fmt.Sprintf(`fill="%s" fill-opacity="0.7" stroke="black" stroke-width="0.5"`, ColourSteelBlue))
 	}
 
-	// X-axis labels.
-	rotateLabels := n > 20
+	// X-axis labels: rotate bucket labels for readability at report column width.
+	rotateLabels := true
 	for i, k := range keys {
 		hi := k + data.BucketSz
 		label := BucketLabel(k, hi, data.MaxBucket)
 		x := leftM + float64(i)*barSlot + barSlot/2
-		y := bottomM + style.AxisTickFontPx + 4
+		y := bottomM + style.AxisTickFontPx + 6
 
 		attrs := fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisTickFontPx)
 		if rotateLabels {
@@ -188,7 +188,12 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 
 	n := len(allKeys)
 	slotW := plotW / float64(n)
-	barW := slotW * 0.4
+	groupW := slotW * 0.9
+	groupGap := slotW * 0.02
+	barW := (groupW - groupGap) / 2
+	if barW < 1 {
+		barW = 1
+	}
 
 	// Find max percentage for Y-scale.
 	var maxPct float64
@@ -218,11 +223,13 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 
 	for i, k := range allKeys {
 		slotX := leftM + float64(i)*slotW
+		groupX := slotX + (slotW-groupW)/2
+		bar2X := groupX + barW + groupGap
 
 		// Primary bar (left).
 		pVal := pPct[k]
 		pH := pVal * yScale
-		px := slotX + (slotW/2-barW)/2
+		px := groupX
 		py := bottomM - pH
 		c.Rect(px, py, barW, pH,
 			fmt.Sprintf(`fill="%s" fill-opacity="0.75" stroke="black" stroke-width="0.5"`, ColourP50))
@@ -230,7 +237,7 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		// Compare bar (right).
 		cVal := cPct[k]
 		cH := cVal * yScale
-		cx := slotX + slotW/2 + (slotW/2-barW)/2
+		cx := bar2X
 		cy := bottomM - cH
 		c.Rect(cx, cy, barW, cH,
 			fmt.Sprintf(`fill="%s" fill-opacity="0.75" stroke="black" stroke-width="0.5"`, ColourP98))
@@ -238,8 +245,10 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		// X label.
 		hi := k + bucketSz
 		label := BucketLabel(k, hi, maxBucket)
-		c.Text(slotX+slotW/2, bottomM+style.AxisTickFontPx+4, label,
-			fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisTickFontPx))
+		labelX := slotX + slotW/2
+		labelY := bottomM + style.AxisTickFontPx + 6
+		c.Text(labelX, labelY, label,
+			fmt.Sprintf(`font-size="%.1f" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`, style.AxisTickFontPx, labelX, labelY))
 	}
 
 	// Axes.

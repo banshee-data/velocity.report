@@ -106,9 +106,9 @@ func FormatCount(n int) string {
 	return b.String()
 }
 
-func withStyledTable(b *strings.Builder, body func(), afterReset func()) {
+func withStyledTable(b *strings.Builder, fontSize string, body func(), afterReset func()) {
 	b.WriteString("{\n")
-	b.WriteString(`\ttfamily\scriptsize` + "\n")
+	b.WriteString(`\ttfamily\` + fontSize + "\n")
 	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
 	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
 	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
@@ -130,7 +130,7 @@ func BuildStatTableTeX(rows []StatRow, caption string) string {
 		return ""
 	}
 	var b strings.Builder
-	withStyledTable(&b, func() {
+	withStyledTable(&b, "scriptsize", func() {
 		b.WriteString(`\tablehead{%` + "\n")
 		b.WriteString("  \\hline\n")
 		b.WriteString("  {\\sffamily\\bfseries\\footnotesize Time} & {\\sffamily\\bfseries\\footnotesize Count} & {\\sffamily\\bfseries\\footnotesize P50} & {\\sffamily\\bfseries\\footnotesize P85} & {\\sffamily\\bfseries\\footnotesize P98} & {\\sffamily\\bfseries\\footnotesize Max} \\\\\n")
@@ -235,7 +235,7 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 	escapedUnits := EscapeTeX(units)
 
 	var b strings.Builder
-	withStyledTable(&b, func() {
+	withStyledTable(&b, "small", func() {
 		b.WriteString(`\begin{center}` + "\n")
 		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
 		b.WriteString(`\hline` + "\n")
@@ -297,7 +297,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	var b strings.Builder
 	// Opening group: same visual style as BuildStatTableTeX (alternating row
 	// colours, grey column rules, monospace scriptsize with sans-serif headers).
-	withStyledTable(&b, func() {
+	withStyledTable(&b, "small", func() {
 		b.WriteString(`\begin{center}` + "\n")
 		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
 		b.WriteString(`\hline` + "\n")
