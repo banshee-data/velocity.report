@@ -2,6 +2,7 @@ package chart
 
 import (
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -44,8 +45,10 @@ func BucketLabel(lo, hi, maxBucket float64) string {
 }
 
 // RenderHistogram produces an SVG bar chart from histogram data.
+// Bars show percentage of total (matching the comparison chart), with the
+// Y-axis in multiples of 5.
 func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
-	keys, counts, _ := NormaliseHistogram(data.Buckets)
+	keys, counts, total := NormaliseHistogram(data.Buckets)
 	if len(keys) == 0 {
 		return renderNoData(style), nil
 	}
@@ -73,21 +76,29 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 		barW = 1
 	}
 
-	var maxCount int64
-	for _, cnt := range counts {
-		if cnt > maxCount {
-			maxCount = cnt
+	// Convert counts to percentages and compute a nice Y-axis ceiling.
+	pcts := make([]float64, len(counts))
+	var maxPct float64
+	for i, cnt := range counts {
+		if total > 0 {
+			pcts[i] = float64(cnt) / float64(total) * 100
+		}
+		if pcts[i] > maxPct {
+			maxPct = pcts[i]
 		}
 	}
-	if maxCount == 0 {
-		maxCount = 1
+	if maxPct == 0 {
+		maxPct = 100
 	}
-
-	yScale := plotH / float64(maxCount)
+	pctNiceMax := math.Ceil(maxPct/5) * 5
+	if pctNiceMax < 5 {
+		pctNiceMax = 5
+	}
+	yScale := plotH / pctNiceMax
 
 	// Draw bars.
-	for i, cnt := range counts {
-		barH := float64(cnt) * yScale
+	for i, pct := range pcts {
+		barH := pct * yScale
 		x := leftM + float64(i)*barSlot + (barSlot-barW)/2
 		y := bottomM - barH
 		c.Rect(x, y, barW, barH,
@@ -95,30 +106,22 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 	}
 
 	// X-axis labels: rotate bucket labels for readability at report column width.
-	rotateLabels := true
 	for i, k := range keys {
 		hi := k + data.BucketSz
 		label := BucketLabel(k, hi, data.MaxBucket)
 		x := leftM + float64(i)*barSlot + barSlot/2
 		y := bottomM + style.AxisTickFontPx + 6
-
-		attrs := fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisTickFontPx)
-		if rotateLabels {
-			attrs = fmt.Sprintf(
-				`font-size="%.1f" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`,
-				style.AxisTickFontPx, x, y)
-		}
-		c.Text(x, y, label, attrs)
+		c.Text(x, y, label,
+			fmt.Sprintf(`font-size="%.1f" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`,
+				style.AxisTickFontPx, x, y))
 	}
 
-	// Y-axis: a few tick marks.
-	nTicks := 5
-	for i := range nTicks + 1 {
-		val := float64(maxCount) * float64(i) / float64(nTicks)
-		y := bottomM - val*yScale
+	// Y-axis: ticks at multiples of 5 with "%" labels.
+	for v := 0.0; v <= pctNiceMax+0.01; v += 5 {
+		y := bottomM - v*yScale
 		c.Line(leftM-3, y, leftM, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftM-5, y+style.AxisTickFontPx/3,
-			fmt.Sprintf("%.0f", val),
+			fmt.Sprintf("%.0f%%", v),
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end"`, style.AxisTickFontPx))
 	}
 
@@ -208,9 +211,13 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		}
 	}
 	if maxPct == 0 {
-		maxPct = 1
+		maxPct = 5
 	}
-	yScale := plotH / maxPct
+	pctNiceMax := math.Ceil(maxPct/5) * 5
+	if pctNiceMax < 5 {
+		pctNiceMax = 5
+	}
+	yScale := plotH / pctNiceMax
 
 	bucketSz := primary.BucketSz
 	if bucketSz == 0 {
@@ -255,14 +262,12 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	c.Line(leftM, topM, leftM, bottomM, `stroke="black" stroke-width="1"`)
 	c.Line(leftM, bottomM, rightM, bottomM, `stroke="black" stroke-width="1"`)
 
-	// Y-axis ticks.
-	nTicks := 5
-	for i := range nTicks + 1 {
-		val := maxPct * float64(i) / float64(nTicks)
-		y := bottomM - val*yScale
+	// Y-axis ticks at multiples of 5.
+	for v := 0.0; v <= pctNiceMax+0.01; v += 5 {
+		y := bottomM - v*yScale
 		c.Line(leftM-3, y, leftM, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftM-5, y+style.AxisTickFontPx/3,
-			fmt.Sprintf("%.0f%%", val),
+			fmt.Sprintf("%.0f%%", v),
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end"`, style.AxisTickFontPx))
 	}
 

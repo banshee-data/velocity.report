@@ -120,7 +120,31 @@ func TestRenderTimeSeries_Structure(t *testing.T) {
 	}
 }
 
-func TestRenderTimeSeries_DayLines(t *testing.T) {
+func TestRenderTimeSeries_GapDividers(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := makeTestPoints(8, start, time.Hour)
+	// Create a gap: points 3-4 have zero count (below threshold → NaN).
+	pts[3].Count = 0
+	pts[4].Count = 0
+
+	svg, err := RenderTimeSeries(TimeSeriesData{Points: pts, Units: "mph"}, DefaultTimeSeriesStyle(PaperA4))
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+
+	svgStr := string(svg)
+	// Gap divider should appear with dashed stroke.
+	if !strings.Contains(svgStr, `stroke-dasharray="3 3"`) {
+		t.Error("missing gap divider with stroke-dasharray")
+	}
+	// No day-boundary gray lines should appear.
+	if strings.Contains(svgStr, `stroke="gray"`) {
+		t.Error("unexpected day boundary gray line found")
+	}
+}
+
+func TestRenderTimeSeries_NoDividerWithoutGap(t *testing.T) {
+	// Crossing a day boundary without a data gap should produce no divider.
 	start := time.Date(2025, 6, 15, 22, 0, 0, 0, time.UTC)
 	data := TimeSeriesData{
 		Points: makeTestPoints(8, start, time.Hour),
@@ -132,9 +156,8 @@ func TestRenderTimeSeries_DayLines(t *testing.T) {
 	}
 
 	svgStr := string(svg)
-	// Day boundary line should have gray stroke.
-	if !strings.Contains(svgStr, `stroke="gray"`) {
-		t.Error("missing day boundary line with gray stroke")
+	if strings.Contains(svgStr, `stroke-dasharray="3 3"`) {
+		t.Error("unexpected gap divider for continuous data spanning midnight")
 	}
 }
 

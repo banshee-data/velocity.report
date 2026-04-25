@@ -184,9 +184,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// tooltips continue to reflect the original (unmasked) data.
 	maskedPts := ApplyCountMask(data.Points, style.CountMissingThreshold)
 
-	// Pre-compute day boundaries and decide whether x-axis labels need rotation.
-	// This must happen before layout so tickLabelBlock can be sized correctly.
-	boundaries := DayBoundaries(data.Points)
+	// Decide whether x-axis labels need rotation based on time span.
 	rotateXLabels := false
 	if len(data.Points) >= 2 {
 		span := data.Points[len(data.Points)-1].StartTime.Sub(data.Points[0].StartTime)
@@ -250,9 +248,22 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		maxCount = 1
 	}
 
-	// Y-scale functions.
-	speedScale := plotH / (maxSpeed * 1.1)
-	countScale := plotH / (float64(maxCount) * style.CountAxisScale)
+	// Y-scale functions. Speed axis rounds to the next multiple-of-5 ceiling so
+	// all tick labels are clean round numbers (no "19" or "37").
+	speedNiceMax := math.Ceil(maxSpeed*1.1/5) * 5
+	if speedNiceMax < 5 {
+		speedNiceMax = 5
+	}
+	speedScale := plotH / speedNiceMax
+
+	// Count axis uses a magnitude-appropriate step giving ~4 clean labels.
+	countAxisMax := float64(maxCount) * style.CountAxisScale
+	countStep := niceStep(countAxisMax, 4)
+	countNiceMax := math.Ceil(countAxisMax/countStep) * countStep
+	if countNiceMax <= 0 {
+		countNiceMax = countStep
+	}
+	countScale := plotH / countNiceMax
 
 	xOf := func(i int) float64 {
 		if n == 1 {
@@ -296,15 +307,21 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	c.EndGroup()
 
-	// Day boundary vertical markers (visual guide only, never break lines).
-	c.BeginGroup(`class="day-boundaries"`)
-	for _, b := range boundaries {
-		if b == 0 {
-			continue
+	// Gap dividers: a single dashed vertical line at the start of each
+	// contiguous run of missing data. These are the only vertical dividers on
+	// the chart — day-boundary markers have been removed. The polylines already
+	// stop at the last valid point before a gap; the divider makes each break
+	// visually explicit.
+	c.BeginGroup(`class="gap-dividers"`)
+	inGap := false
+	for i := range n {
+		isNaN := math.IsNaN(maskedPts[i].P50Speed)
+		if !inGap && isNaN && i > 0 {
+			x := leftPx + float64(i)/float64(n)*plotW
+			c.Line(x, topPx, x, bottomPx,
+				`stroke="#999" stroke-dasharray="3 3" stroke-width="0.8" opacity="0.6"`)
 		}
-		x := leftPx + float64(b)/float64(n)*plotW
-		c.Line(x, topPx, x, bottomPx,
-			`stroke="gray" stroke-dasharray="4 2" stroke-width="0.5" opacity="0.3"`)
+		inGap = isNaN
 	}
 	c.EndGroup()
 
@@ -437,15 +454,13 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	c.EndGroup()
 
-	// Speed Y-axis label + ticks.
+	// Speed Y-axis label + ticks at multiples of 5.
 	c.BeginGroup(`class="y-axis"`)
-	nSpeedTicks := 5
-	for i := 0; i <= nSpeedTicks; i++ {
-		val := maxSpeed * 1.1 * float64(i) / float64(nSpeedTicks)
-		y := speedYOf(val)
+	for v := 0.0; v <= speedNiceMax+0.01; v += 5 {
+		y := speedYOf(v)
 		c.Line(leftPx-4, y, leftPx, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftPx-6, y+style.AxisTickFontPx/3,
-			fmt.Sprintf("%.0f", val),
+			fmt.Sprintf("%.0f", v),
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end"`, style.AxisTickFontPx))
 	}
 	// Extra axis label for the aggregate P98 reference line.
@@ -479,15 +494,13 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 			style.AxisLabelFontPx, labelX, labelY))
 	c.EndGroup()
 
-	// Count Y-axis ticks (right side).
+	// Count Y-axis ticks (right side) — clean labels at every countStep.
 	c.BeginGroup(`class="count-axis"`)
-	nCountTicks := 4
-	for i := 0; i <= nCountTicks; i++ {
-		val := float64(maxCount) * style.CountAxisScale * float64(i) / float64(nCountTicks)
-		y := bottomPx - val*countScale
+	for v := 0.0; v <= countNiceMax+0.01; v += countStep {
+		y := bottomPx - v*countScale
 		c.Line(rightPx, y, rightPx+4, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(rightPx+6, y+style.AxisTickFontPx/3,
-			fmt.Sprintf("%.0f", val),
+			fmt.Sprintf("%.0f", v),
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="start"`, style.AxisTickFontPx))
 	}
 	countLabelX := rightPx + style.AxisTickFontPx*3.2
@@ -589,6 +602,28 @@ func formatTooltip(pt TimeSeriesPoint, units string) string {
 		pt.P98Speed, units,
 		pt.MaxSpeed, units,
 	)
+}
+
+// niceStep returns a round step size for an axis with the given max value,
+// targeting approximately targetTicks divisions. The result is always a
+// "nice" number of the form 1, 2, 5 × 10^n.
+func niceStep(maxVal, targetTicks float64) float64 {
+	if maxVal <= 0 || targetTicks <= 0 {
+		return 1
+	}
+	raw := maxVal / targetTicks
+	mag := math.Pow(10, math.Floor(math.Log10(raw)))
+	norm := raw / mag
+	switch {
+	case norm < 1.5:
+		return mag
+	case norm < 3.5:
+		return 2 * mag
+	case norm < 7.5:
+		return 5 * mag
+	default:
+		return 10 * mag
+	}
 }
 
 func renderTimeSeriesNoData(style ChartStyle) []byte {
