@@ -45,15 +45,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		return Result{}, fmt.Errorf("%w: unsupported group %q", ErrInvalidConfig, cfg.Group)
 	}
 
-	// Check external tool availability.
-	if err := checkRsvgConvert(); err != nil {
-		return Result{}, err
-	}
-	if err := checkXeLatex(); err != nil {
-		return Result{}, err
-	}
-
-	// Parse dates.
+	// Parse and validate all caller-supplied fields before touching external tools.
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: invalid timezone %q: %v", ErrInvalidConfig, cfg.Timezone, err)
@@ -66,6 +58,14 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	endTime, err := time.ParseInLocation("2006-01-02", cfg.EndDate, loc)
 	if err != nil {
 		return Result{}, fmt.Errorf("%w: invalid end date %q: %v", ErrInvalidConfig, cfg.EndDate, err)
+	}
+
+	// Check external tool availability.
+	if err := checkRsvgConvert(); err != nil {
+		return Result{}, err
+	}
+	if err := checkXeLatex(); err != nil {
+		return Result{}, err
 	}
 	// End date is inclusive: advance to end-of-day.
 	endTime = endTime.Add(24*time.Hour - time.Second)
