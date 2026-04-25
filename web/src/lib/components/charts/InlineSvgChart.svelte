@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import {
+		buildInlineSvgChartRequestUrl,
+		isInlineSvgContentType
+	} from '$lib/components/charts/inlineSvgChart';
 
 	export let url = '';
 	export let label = 'Chart preview';
@@ -31,8 +35,7 @@
 		error = '';
 
 		try {
-			const requestUrl = new URL(nextUrl, window.location.origin);
-			requestUrl.searchParams.set('_ts', String(Date.now()));
+			const requestUrl = buildInlineSvgChartRequestUrl(nextUrl, window.location.origin, Date.now());
 			const response = await fetch(requestUrl, {
 				cache: 'no-store',
 				headers: {
@@ -40,6 +43,9 @@
 				}
 			});
 			if (!response.ok) {
+				throw new Error('Could not load chart preview.');
+			}
+			if (!isInlineSvgContentType(response.headers.get('content-type'))) {
 				throw new Error('Could not load chart preview.');
 			}
 			const text = await response.text();
