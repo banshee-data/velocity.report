@@ -257,13 +257,15 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end"`, style.AxisTickFontPx))
 	}
 
-	// Legend.
+	// Legend — T1 in the left quarter, T2 in the right quarter so date-range
+	// labels (which can be 20+ characters) do not overlap.
 	legY := bottomM + 30
 	legX := leftM
+	leg2X := leftM + plotW/2 + 10
 	c.Rect(legX, legY, 10, 10, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP50))
 	c.Text(legX+14, legY+9, primaryLabel, fmt.Sprintf(`font-size="%.1f"`, style.LegendFontPx))
-	c.Rect(legX+80, legY, 10, 10, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP98))
-	c.Text(legX+94, legY+9, compareLabel, fmt.Sprintf(`font-size="%.1f"`, style.LegendFontPx))
+	c.Rect(leg2X, legY, 10, 10, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP98))
+	c.Text(leg2X+14, legY+9, compareLabel, fmt.Sprintf(`font-size="%.1f"`, style.LegendFontPx))
 
 	c.EndGroup()
 	return c.Bytes(), nil
