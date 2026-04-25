@@ -25,6 +25,9 @@ type TimeSeriesData struct {
 	// P98Reference is the aggregate p98 value for the full range, drawn as a
 	// horizontal dashed red reference line across the plot. NaN = not drawn.
 	P98Reference float64
+	// MaxReference is the aggregate max speed for the full range, drawn as a
+	// horizontal dashed black reference line across the plot. NaN = not drawn.
+	MaxReference float64
 }
 
 // XTick represents a labelled tick on the X axis.
@@ -317,6 +320,17 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.EndGroup()
 	}
 
+	// Max aggregate reference line (horizontal dashed black across the plot).
+	drawMaxRefLine := !math.IsNaN(data.MaxReference) && data.MaxReference > 0
+	maxRefY := 0.0
+	if drawMaxRefLine {
+		maxRefY = speedYOf(data.MaxReference)
+		c.BeginGroup(`class="max-reference"`)
+		c.Line(leftPx, maxRefY, rightPx, maxRefY,
+			`stroke="black" stroke-dasharray="6 3" stroke-width="1.2" opacity="0.6"`)
+		c.EndGroup()
+	}
+
 	// Percentile lines — one polyline per contiguous run of non-NaN samples.
 	// NaN values (missing data or low-sample buckets masked below
 	// CountMissingThreshold) break the line into separate segments. Day
@@ -444,6 +458,15 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" fill="%s" font-weight="bold"`,
 				style.AxisTickFontPx, style.ColourP98))
 	}
+	// Extra axis label for the aggregate max reference line.
+	if drawMaxRefLine {
+		c.Line(leftPx-4, maxRefY, leftPx, maxRefY, `stroke="black" stroke-width="1"`)
+		c.Text(leftPx-6, maxRefY+style.AxisTickFontPx/3,
+			fmt.Sprintf("max=%.0f", data.MaxReference),
+			fmt.Sprintf(
+				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" font-weight="bold"`,
+				style.AxisTickFontPx))
+	}
 	// Rotated "Speed (units)" label along the left edge.
 	labelX := leftPx - style.AxisTickFontPx*3.2
 	labelY := (topPx + bottomPx) / 2
@@ -501,6 +524,9 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	if drawRefLine {
 		legItems++
 	}
+	if drawMaxRefLine {
+		legItems++
+	}
 	legStep := plotW / float64(legItems)
 	for i, s := range series {
 		x := leftPx + legStep*(float64(i)+0.5) - legStep/2
@@ -518,6 +544,14 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.Line(x, legY, x+16, legY,
 			fmt.Sprintf(`stroke="%s" stroke-width="%.1f" stroke-dasharray="6 3" opacity="0.75"`, style.ColourP98, style.LineWidthPx))
 		c.Text(x+20, legY+style.LegendFontPx/3, "p98 overall",
+			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
+		legendIndex++
+	}
+	if drawMaxRefLine {
+		x := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
+		c.Line(x, legY, x+16, legY,
+			fmt.Sprintf(`stroke="black" stroke-width="%.1f" stroke-dasharray="6 3" opacity="0.6"`, style.LineWidthPx))
+		c.Text(x+20, legY+style.LegendFontPx/3, "max overall",
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
 		legendIndex++
 	}

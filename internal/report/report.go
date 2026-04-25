@@ -37,6 +37,38 @@ var fontItalic []byte
 //go:embed chart/assets/AtkinsonHyperlegible-BoldItalic.ttf
 var fontBoldItalic []byte
 
+const zipReadme = `# Velocity report source files
+
+This ZIP contains the LaTeX source, chart SVGs, and fonts for your velocity
+report. Everything needed to recompile the PDF is included.
+
+## Contents
+
+- ` + "`report.tex`" + ` — LaTeX source; compile with XeLaTeX (uses Atkinson Hyperlegible)
+- ` + "`*.svg`" + ` — Chart source files (timeseries, histogram, comparison, map)
+- ` + "`fonts/`" + ` — Atkinson Hyperlegible font files required by report.tex
+
+## Recompiling
+
+` + "```" + `bash
+xelatex report.tex
+` + "```" + `
+
+XeLaTeX reads the fonts from the ` + "`fonts/`" + ` subdirectory relative to the .tex
+file. Run from the directory containing report.tex and fonts/.
+
+## Editing
+
+1. Edit report.tex to adjust layout, text, or tables.
+2. Replace any *.svg with a revised version (then rerun rsvg-convert if you
+   need the PDF form: ` + "`rsvg-convert -f pdf -o chart.pdf chart.svg`" + `).
+3. Recompile with xelatex.
+
+## Support
+
+https://github.com/banshee-data/velocity.report
+`
+
 // Generate produces a PDF report and source ZIP for the given configuration.
 func Generate(ctx context.Context, database DB, cfg Config) (result Result, err error) {
 	// Validate group.
@@ -179,6 +211,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		Units:        cfg.Units,
 		Title:        "",
 		P98Reference: summaryP98Reference,
+		MaxReference: summaryMax,
 	}
 
 	// Render time-series SVG.
@@ -205,6 +238,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 			Points:       ctsPoints,
 			Units:        cfg.Units,
 			P98Reference: compareResult.p98,
+			MaxReference: compareResult.maxSpeed,
 		}
 		ctsSVG, cerr := chart.RenderTimeSeries(ctsData, chart.DefaultTimeSeriesStyle(paper))
 		if cerr != nil {
@@ -425,6 +459,14 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		return Result{}, fmt.Errorf("write report.tex: %w", err)
 	}
 	zipFiles["report.tex"] = texBytes
+
+	// Embed font files under fonts/ so the .tex can be recompiled standalone.
+	zipFiles["fonts/AtkinsonHyperlegible-Regular.ttf"] = fontRegular
+	zipFiles["fonts/AtkinsonHyperlegible-Bold.ttf"] = fontBold
+	zipFiles["fonts/AtkinsonHyperlegible-Italic.ttf"] = fontItalic
+	zipFiles["fonts/AtkinsonHyperlegible-BoldItalic.ttf"] = fontBoldItalic
+
+	zipFiles["README.md"] = []byte(zipReadme)
 
 	// Compile PDF.
 	if err = runXeLatex(ctx, workDir, "report.tex"); err != nil {
