@@ -13,13 +13,21 @@
 
 \subsection*{Key Traffic Speed Metrics}
 \vspace{4pt}
-{\renewcommand{\arraystretch}{1.18}
-\begin{tabular}{@{}ll@{}}
-\textbf{Median (p50) Velocity:} & \texttt{<<.P50>> <<.Units>>} \\
-\textbf{85th Percentile (p85):} & \texttt{<<.P85>> <<.Units>>} \\
-\textbf{98th Percentile (p98):} & \texttt{<<.P98>> <<.Units>>} \\
-\textbf{Maximum Velocity:} & \texttt{<<.MaxSpeed>> <<.Units>>} \\
+{\ttfamily\scriptsize
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{3pt}
+\rowcolors{2}{black!5}{white}
+\begin{tabular}{l!{\color{black!20}\vrule}r}
+\hline
+{\sffamily\bfseries\footnotesize Metric} & {\sffamily\bfseries\footnotesize Value} \\
+\hline
+p50 (median) & <<.P50>> <<.Units>> \\
+p85 & <<.P85>> <<.Units>> \\
+p98 & <<.P98>> <<.Units>> \\
+Maximum & <<.MaxSpeed>> <<.Units>> \\
+\hline
 \end{tabular}
+\rowcolors{0}{}{}
 \par}
 \vspace{8pt}
 
@@ -49,18 +57,25 @@
 \end{itemize}
 
 \subsection*{Key Traffic Speed Metrics}
-\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r}
-\multicolumn{1}{l}{\sffamily\bfseries Metric}&\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t1}}&\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Period t2}}&\multicolumn{1}{r}{\sffamily\bfseries Change}\\
+{\ttfamily\scriptsize
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{3pt}
+\rowcolors{2}{black!5}{white}
+\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}
 \hline
-p50 Velocity&<<.P50>> <<.Units>>&<<.CompareP50>> <<.Units>>&<<.DeltaP50Pct>>\\
-p85 Velocity&<<.P85>> <<.Units>>&<<.CompareP85>> <<.Units>>&<<.DeltaP85Pct>>\\
-p98 Velocity&<<.P98>> <<.Units>>&<<.CompareP98>> <<.Units>>&<<.DeltaP98Pct>>\\
-Max Velocity&<<.MaxSpeed>> <<.Units>>&<<.CompareMax>> <<.Units>>&<<.DeltaMaxPct>>\\
-Vehicle Count&<<.TotalCountFormatted>>&<<.CompareTotalCountFormatted>>&\\
+{\sffamily\bfseries\footnotesize Metric} & {\sffamily\bfseries\footnotesize Period t1} & {\sffamily\bfseries\footnotesize Period t2} & {\sffamily\bfseries\footnotesize Change} \\
+\hline
+p50 & <<.P50>> <<.Units>> & <<.CompareP50>> <<.Units>> & <<.DeltaP50Pct>> \\
+p85 & <<.P85>> <<.Units>> & <<.CompareP85>> <<.Units>> & <<.DeltaP85Pct>> \\
+p98 & <<.P98>> <<.Units>> & <<.CompareP98>> <<.Units>> & <<.DeltaP98Pct>> \\
+Max & <<.MaxSpeed>> <<.Units>> & <<.CompareMax>> <<.Units>> & <<.DeltaMaxPct>> \\
+Count & <<.TotalCountFormatted>> & <<.CompareTotalCountFormatted>> & \\
 \hline
 \end{tabular}
+\rowcolors{0}{}{}
 \par\vspace{2pt}
 \noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
+}
 \par
 
 <<if .CompareChart>>

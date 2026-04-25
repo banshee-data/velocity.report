@@ -225,34 +225,42 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 	escapedUnits := EscapeTeX(units)
 
 	var b strings.Builder
+	b.WriteString("{\n")
+	b.WriteString(`\ttfamily\scriptsize` + "\n")
+	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
+	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
+	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
 	b.WriteString(`\begin{center}` + "\n")
-	b.WriteString(`\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r>{\ttfamily}r}` + "\n")
-	b.WriteString(`\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
-	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t1 \\ Count}}`)
-	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t1 \\ Percent}}`)
-	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t2 \\ Count}}`)
-	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries \shortstack[r]{t2 \\ Percent}}`)
-	b.WriteString(`&\multicolumn{1}{r}{\sffamily\bfseries Delta}\\` + "\n")
+	b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+	b.WriteString(`\hline` + "\n")
+	b.WriteString(`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
+	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ Count}}`)
+	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ \%}}`)
+	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ Count}}`)
+	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ \%}}`)
+	b.WriteString(` & {\sffamily\bfseries\footnotesize Delta} \\` + "\n")
 	b.WriteString(`\hline` + "\n")
 
 	if belowP > 0 || belowC > 0 {
-		b.WriteString(fmt.Sprintf("$<$%.0f&%d&%s&%d&%s&%s\\\\\n",
+		b.WriteString(fmt.Sprintf("$<$%.0f & %d & %s & %d & %s & %s \\\\\n",
 			cutoff, belowP, pctP(belowP), belowC, pctC(belowC), delta(belowP, belowC)))
 	}
 	for _, row := range rows {
-		b.WriteString(fmt.Sprintf("%s&%d&%s&%d&%s&%s\\\\\n",
+		b.WriteString(fmt.Sprintf("%s & %d & %s & %d & %s & %s \\\\\n",
 			row.label, row.p, pctP(row.p), row.c, pctC(row.c), delta(row.p, row.c)))
 	}
 	if aboveP > 0 || aboveC > 0 {
-		b.WriteString(fmt.Sprintf("%.0f+&%d&%s&%d&%s&%s\\\\\n",
+		b.WriteString(fmt.Sprintf("%.0f+ & %d & %s & %d & %s & %s \\\\\n",
 			maxBucket, aboveP, pctP(aboveP), aboveC, pctC(aboveC), delta(aboveP, aboveC)))
 	}
 
 	b.WriteString(`\hline` + "\n")
 	b.WriteString(`\end{tabular}` + "\n")
+	b.WriteString(`\end{center}` + "\n")
+	b.WriteString(`\rowcolors{0}{}{}` + "\n")
 	b.WriteString(`\par\vspace{2pt}` + "\n")
 	b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
-	b.WriteString(`\end{center}` + "\n")
+	b.WriteString("}\n")
 	return b.String()
 }
 
@@ -292,7 +300,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
 	b.WriteString(`\hline` + "\n")
 	b.WriteString(
-		`{\sffamily\bfseries\footnotesize Bucket (` + EscapeTeX(units) + `)} & ` +
+		`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & ` +
 			`{\sffamily\bfseries\footnotesize Count} & ` +
 			`{\sffamily\bfseries\footnotesize Percent} \\` + "\n")
 	b.WriteString(`\hline` + "\n")

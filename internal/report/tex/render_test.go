@@ -240,7 +240,6 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 
 	s := string(out)
 	for _, want := range []string{
-		`\renewcommand{\arraystretch}{1.18}`,
 		`\renewcommand{\arraystretch}{1.14}`,
 		`\renewcommand{\arraystretch}{1.12}`,
 		`\vspace{10pt}`,
