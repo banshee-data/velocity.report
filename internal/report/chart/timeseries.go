@@ -201,7 +201,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 			labelChars = 6 // "Jan 02"
 		}
 		estLabelWidthPx := labelChars * 0.7 * style.AxisTickFontPx
-		tentativePlotW := (0.93 - 0.16) * wPx
+		tentativePlotW := (0.93 - 0.11) * wPx
 		previewTicks := XTicks(data.Points)
 		if len(previewTicks) > 1 {
 			tickSpacing := tentativePlotW / float64(len(previewTicks))
@@ -218,7 +218,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	legendBlock := style.LegendFontPx + 6
 	bottomMargin := tickLabelBlock + legendBlock + 4
 
-	leftPx := 0.16 * wPx
+	leftPx := 0.11 * wPx
 	rightPx := 0.93 * wPx
 	topPx := 0.04 * hPx
 	if data.Title != "" {
