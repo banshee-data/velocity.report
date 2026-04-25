@@ -7,7 +7,10 @@ import (
 	"maps"
 	"os"
 	"sort"
+	"time"
 )
+
+var deterministicZipModified = time.Unix(0, 0).UTC()
 
 // sortedKeys returns the keys of a string-keyed map in lexicographic
 // order. Used to make ZIP entry order deterministic across runs.
@@ -28,7 +31,7 @@ func BuildZip(files map[string][]byte) ([]byte, error) {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 	for _, name := range sortedKeys(files) {
-		f, err := w.Create(name)
+		f, err := createDeterministicZipEntry(w, name)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +91,7 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 			}
 		}
 
-		w, err := writer.Create(entry.Name)
+		w, err := createDeterministicZipEntry(writer, entry.Name)
 		if err != nil {
 			writer.Close()
 			return nil, err
@@ -100,7 +103,7 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 	}
 
 	for _, name := range sortedKeys(remaining) {
-		w, err := writer.Create(name)
+		w, err := createDeterministicZipEntry(writer, name)
 		if err != nil {
 			writer.Close()
 			return nil, err
@@ -116,4 +119,13 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func createDeterministicZipEntry(writer *zip.Writer, name string) (io.Writer, error) {
+	header := &zip.FileHeader{
+		Name:     name,
+		Method:   zip.Deflate,
+		Modified: deterministicZipModified,
+	}
+	return writer.CreateHeader(header)
 }

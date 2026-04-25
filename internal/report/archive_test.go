@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestBuildZip(t *testing.T) {
@@ -83,6 +84,9 @@ func TestBuildZip_Deterministic(t *testing.T) {
 		if f.Name != want[i] {
 			t.Errorf("entry[%d] = %q, want %q", i, f.Name, want[i])
 		}
+		if !f.Modified.Equal(deterministicZipModified) {
+			t.Errorf("entry[%d] modified = %v, want %v", i, f.Modified, deterministicZipModified)
+		}
 	}
 }
 
@@ -155,5 +159,58 @@ func TestAppendFilesToZip(t *testing.T) {
 	}
 	if got["comparison/python/report.tex"] != "python tex" {
 		t.Fatalf("comparison/python/report.tex = %q, want %q", got["comparison/python/report.tex"], "python tex")
+	}
+}
+
+func TestAppendFilesToZip_Deterministic(t *testing.T) {
+	original, err := BuildZip(map[string][]byte{
+		"report.tex": []byte("go tex"),
+		"chart.svg":  []byte("<svg />"),
+	})
+	if err != nil {
+		t.Fatalf("BuildZip error: %v", err)
+	}
+
+	firstPath := filepath.Join(t.TempDir(), "first.zip")
+	secondPath := filepath.Join(t.TempDir(), "second.zip")
+	for _, path := range []string{firstPath, secondPath} {
+		if err := os.WriteFile(path, original, 0644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		if err := AppendFilesToZip(path, map[string][]byte{
+			"report.tex":                   []byte("updated go tex"),
+			"comparison/python/report.tex": []byte("python tex"),
+		}); err != nil {
+			t.Fatalf("AppendFilesToZip(%s) error: %v", path, err)
+		}
+	}
+
+	first, err := os.ReadFile(firstPath)
+	if err != nil {
+		t.Fatalf("read first zip: %v", err)
+	}
+	second, err := os.ReadFile(secondPath)
+	if err != nil {
+		t.Fatalf("read second zip: %v", err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Fatal("AppendFilesToZip output differs between runs")
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(first), int64(len(first)))
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+	for _, f := range r.File {
+		if !f.Modified.Equal(deterministicZipModified) {
+			t.Fatalf("entry %q modified = %v, want %v", f.Name, f.Modified, deterministicZipModified)
+		}
+	}
+}
+
+func TestDeterministicZipModifiedIsUTCUnixEpoch(t *testing.T) {
+	want := time.Unix(0, 0).UTC()
+	if !deterministicZipModified.Equal(want) {
+		t.Fatalf("deterministicZipModified = %v, want %v", deterministicZipModified, want)
 	}
 }
