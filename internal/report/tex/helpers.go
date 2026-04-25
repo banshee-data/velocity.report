@@ -106,6 +106,20 @@ func FormatCount(n int) string {
 	return b.String()
 }
 
+func withStyledTable(b *strings.Builder, body func(), afterReset func()) {
+	b.WriteString("{\n")
+	b.WriteString(`\ttfamily\scriptsize` + "\n")
+	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
+	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
+	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
+	body()
+	b.WriteString(`\rowcolors{0}{}{}` + "\n")
+	if afterReset != nil {
+		afterReset()
+	}
+	b.WriteString("}\n")
+}
+
 // BuildStatTableTeX generates a styled, page-spanning LaTeX supertabular for
 // stat row data (Time | Count | P50 | P85 | P98 | Max). The table uses
 // alternating row colours and grey column rules, matching the single-report
@@ -116,29 +130,25 @@ func BuildStatTableTeX(rows []StatRow, caption string) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("{\n")
-	b.WriteString(`\ttfamily\scriptsize` + "\n")
-	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
-	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
-	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
-	b.WriteString(`\tablehead{%` + "\n")
-	b.WriteString("  \\hline\n")
-	b.WriteString("  {\\sffamily\\bfseries\\footnotesize Time} & {\\sffamily\\bfseries\\footnotesize Count} & {\\sffamily\\bfseries\\footnotesize P50} & {\\sffamily\\bfseries\\footnotesize P85} & {\\sffamily\\bfseries\\footnotesize P98} & {\\sffamily\\bfseries\\footnotesize Max} \\\\\n")
-	b.WriteString("  \\hline\n")
-	b.WriteString("}\n")
-	b.WriteString(`\tabletail{\hline}` + "\n")
-	b.WriteString(`\begin{center}` + "\n")
-	b.WriteString(`\begin{supertabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
-	for _, row := range rows {
-		b.WriteString(fmt.Sprintf("%s & %d & %s & %s & %s & %s \\\\\n",
-			EscapeTeX(row.StartTime), row.Count, row.P50, row.P85, row.P98, row.MaxSpeed))
-	}
-	b.WriteString(`\end{supertabular}` + "\n")
-	b.WriteString(`\end{center}` + "\n")
-	b.WriteString(`\rowcolors{0}{}{}` + "\n")
-	b.WriteString(`\par\vspace{2pt}` + "\n")
-	b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small ` + EscapeTeX(caption) + `}}` + "\n")
-	b.WriteString("}\n")
+	withStyledTable(&b, func() {
+		b.WriteString(`\tablehead{%` + "\n")
+		b.WriteString("  \\hline\n")
+		b.WriteString("  {\\sffamily\\bfseries\\footnotesize Time} & {\\sffamily\\bfseries\\footnotesize Count} & {\\sffamily\\bfseries\\footnotesize P50} & {\\sffamily\\bfseries\\footnotesize P85} & {\\sffamily\\bfseries\\footnotesize P98} & {\\sffamily\\bfseries\\footnotesize Max} \\\\\n")
+		b.WriteString("  \\hline\n")
+		b.WriteString("}\n")
+		b.WriteString(`\tabletail{\hline}` + "\n")
+		b.WriteString(`\begin{center}` + "\n")
+		b.WriteString(`\begin{supertabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		for _, row := range rows {
+			fmt.Fprintf(&b, "%s & %d & %s & %s & %s & %s \\\\\n",
+				EscapeTeX(row.StartTime), row.Count, row.P50, row.P85, row.P98, row.MaxSpeed)
+		}
+		b.WriteString(`\end{supertabular}` + "\n")
+		b.WriteString(`\end{center}` + "\n")
+	}, func() {
+		b.WriteString(`\par\vspace{2pt}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small ` + EscapeTeX(caption) + `}}` + "\n")
+	})
 	return b.String()
 }
 
@@ -225,42 +235,38 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 	escapedUnits := EscapeTeX(units)
 
 	var b strings.Builder
-	b.WriteString("{\n")
-	b.WriteString(`\ttfamily\scriptsize` + "\n")
-	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
-	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
-	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
-	b.WriteString(`\begin{center}` + "\n")
-	b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
-	b.WriteString(`\hline` + "\n")
-	b.WriteString(`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
-	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ Count}}`)
-	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ \%}}`)
-	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ Count}}`)
-	b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ \%}}`)
-	b.WriteString(` & {\sffamily\bfseries\footnotesize Delta} \\` + "\n")
-	b.WriteString(`\hline` + "\n")
+	withStyledTable(&b, func() {
+		b.WriteString(`\begin{center}` + "\n")
+		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
+		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ Count}}`)
+		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ \%}}`)
+		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ Count}}`)
+		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ \%}}`)
+		b.WriteString(` & {\sffamily\bfseries\footnotesize Delta} \\` + "\n")
+		b.WriteString(`\hline` + "\n")
 
-	if belowP > 0 || belowC > 0 {
-		b.WriteString(fmt.Sprintf("$<$%.0f & %d & %s & %d & %s & %s \\\\\n",
-			cutoff, belowP, pctP(belowP), belowC, pctC(belowC), delta(belowP, belowC)))
-	}
-	for _, row := range rows {
-		b.WriteString(fmt.Sprintf("%s & %d & %s & %d & %s & %s \\\\\n",
-			row.label, row.p, pctP(row.p), row.c, pctC(row.c), delta(row.p, row.c)))
-	}
-	if aboveP > 0 || aboveC > 0 {
-		b.WriteString(fmt.Sprintf("%.0f+ & %d & %s & %d & %s & %s \\\\\n",
-			maxBucket, aboveP, pctP(aboveP), aboveC, pctC(aboveC), delta(aboveP, aboveC)))
-	}
+		if belowP > 0 || belowC > 0 {
+			fmt.Fprintf(&b, "$<$%.0f & %d & %s & %d & %s & %s \\\\\n",
+				cutoff, belowP, pctP(belowP), belowC, pctC(belowC), delta(belowP, belowC))
+		}
+		for _, row := range rows {
+			fmt.Fprintf(&b, "%s & %d & %s & %d & %s & %s \\\\\n",
+				row.label, row.p, pctP(row.p), row.c, pctC(row.c), delta(row.p, row.c))
+		}
+		if aboveP > 0 || aboveC > 0 {
+			fmt.Fprintf(&b, "%.0f+ & %d & %s & %d & %s & %s \\\\\n",
+				maxBucket, aboveP, pctP(aboveP), aboveC, pctC(aboveC), delta(aboveP, aboveC))
+		}
 
-	b.WriteString(`\hline` + "\n")
-	b.WriteString(`\end{tabular}` + "\n")
-	b.WriteString(`\end{center}` + "\n")
-	b.WriteString(`\rowcolors{0}{}{}` + "\n")
-	b.WriteString(`\par\vspace{2pt}` + "\n")
-	b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
-	b.WriteString("}\n")
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`\end{tabular}` + "\n")
+		b.WriteString(`\end{center}` + "\n")
+	}, func() {
+		b.WriteString(`\par\vspace{2pt}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
+	})
 	return b.String()
 }
 
@@ -291,66 +297,61 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	var b strings.Builder
 	// Opening group: same visual style as BuildStatTableTeX (alternating row
 	// colours, grey column rules, monospace scriptsize with sans-serif headers).
-	b.WriteString("{\n")
-	b.WriteString(`\ttfamily\scriptsize` + "\n")
-	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
-	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
-	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
-	b.WriteString(`\begin{center}` + "\n")
-	b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
-	b.WriteString(`\hline` + "\n")
-	b.WriteString(
-		`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & ` +
-			`{\sffamily\bfseries\footnotesize Count} & ` +
-			`{\sffamily\bfseries\footnotesize Percent} \\` + "\n")
-	b.WriteString(`\hline` + "\n")
+	withStyledTable(&b, func() {
+		b.WriteString(`\begin{center}` + "\n")
+		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(
+			`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & ` +
+				`{\sffamily\bfseries\footnotesize Count} & ` +
+				`{\sffamily\bfseries\footnotesize Percent} \\` + "\n")
+		b.WriteString(`\hline` + "\n")
 
-	// Pre-aggregate below-cutoff and above-max buckets.
-	var belowCount, aboveCount int64
-	type displayRow struct {
-		label string
-		count int64
-	}
-	var rows []displayRow
-
-	hasUpperCap := maxBucket > 0
-	for _, k := range keys {
-		count := buckets[k]
-		switch {
-		case k < cutoff:
-			belowCount += count
-		case hasUpperCap && k >= maxBucket:
-			aboveCount += count
-		default:
-			rows = append(rows, displayRow{
-				label: fmt.Sprintf(`%.0f\textemdash{}%.0f`, k, k+bucketSz),
-				count: count,
-			})
+		// Pre-aggregate below-cutoff and above-max buckets.
+		var belowCount, aboveCount int64
+		type displayRow struct {
+			label string
+			count int64
 		}
-	}
+		var rows []displayRow
 
-	// Emit aggregated below-cutoff row first.
-	if belowCount > 0 {
-		pct := float64(belowCount) / float64(total) * 100.0
-		b.WriteString(fmt.Sprintf("$<$%.0f & %d & %.1f\\%% \\\\\n", cutoff, belowCount, pct))
-	}
+		hasUpperCap := maxBucket > 0
+		for _, k := range keys {
+			count := buckets[k]
+			switch {
+			case k < cutoff:
+				belowCount += count
+			case hasUpperCap && k >= maxBucket:
+				aboveCount += count
+			default:
+				rows = append(rows, displayRow{
+					label: fmt.Sprintf(`%.0f\textemdash{}%.0f`, k, k+bucketSz),
+					count: count,
+				})
+			}
+		}
 
-	// Emit normal range rows.
-	for _, row := range rows {
-		pct := float64(row.count) / float64(total) * 100.0
-		b.WriteString(fmt.Sprintf("%s & %d & %.1f\\%% \\\\\n", row.label, row.count, pct))
-	}
+		// Emit aggregated below-cutoff row first.
+		if belowCount > 0 {
+			pct := float64(belowCount) / float64(total) * 100.0
+			fmt.Fprintf(&b, "$<$%.0f & %d & %.1f\\%% \\\\\n", cutoff, belowCount, pct)
+		}
 
-	// Emit aggregated above-max row last.
-	if aboveCount > 0 {
-		pct := float64(aboveCount) / float64(total) * 100.0
-		b.WriteString(fmt.Sprintf("%.0f+ & %d & %.1f\\%% \\\\\n", maxBucket, aboveCount, pct))
-	}
+		// Emit normal range rows.
+		for _, row := range rows {
+			pct := float64(row.count) / float64(total) * 100.0
+			fmt.Fprintf(&b, "%s & %d & %.1f\\%% \\\\\n", row.label, row.count, pct)
+		}
 
-	b.WriteString(`\hline` + "\n")
-	b.WriteString(`\end{tabular}` + "\n")
-	b.WriteString(`\end{center}` + "\n")
-	b.WriteString(`\rowcolors{0}{}{}` + "\n")
-	b.WriteString("}\n")
+		// Emit aggregated above-max row last.
+		if aboveCount > 0 {
+			pct := float64(aboveCount) / float64(total) * 100.0
+			fmt.Fprintf(&b, "%.0f+ & %d & %.1f\\%% \\\\\n", maxBucket, aboveCount, pct)
+		}
+
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`\end{tabular}` + "\n")
+		b.WriteString(`\end{center}` + "\n")
+	}, nil)
 	return b.String()
 }

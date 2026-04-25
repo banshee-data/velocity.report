@@ -33,6 +33,7 @@ the unified `velocity-report` binary.
 - **Phase 4b:** Implemented in `internal/api/server_charts.go` and registered in `internal/api/server.go`. Time-series, histogram, and comparison SVG handlers are present and have request/response tests.
 - **Live verification on 2026-04-21:** Against the running dev server on `http://127.0.0.1:8080`, `GET /api/charts/timeseries`, `GET /api/charts/histogram`, and `GET /api/charts/comparison` each returned `200` with `Content-Type: image/svg+xml` and an `<svg` root for site `1` over `2025-05-02` to `2025-05-30`. `POST /api/generate_report` for the same site/range returned `200` with the expected `report_id`, `pdf_path`, and `zip_path` response fields.
 - **Phase 4c:** A `velocity-report pdf` subcommand already exists in `cmd/radar/pdf.go`, and `cmd/radar/pdf_test.go` now covers flag validation, version output, config parsing, and output-dir override behaviour. This plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target, so the implementation exists but the plan and packaging details have drifted.
+- **Phase 9:** Completed on this branch. `Generate()` is now split into pipeline phases (`planRun`, `loadData`, `renderCharts`, `buildTemplateData`, `writeTex`, `compilePDF`, `packageOutput`), chart materialisation is centralised in `chartArtifact`, table styling is centralised in `withStyledTable`, archive writers share `writeEntries`, and font embedding now has a single canonical source (`internal/report/chart/assets/fonts.go`).
 - **Frontend/report parity:** The dashboard and report generator now both render preview charts through `InlineSvgChart` backed by `/api/charts/*`, and `web/src/lib/reportRequests.ts` centralises report payload construction for both surfaces. `web/src/lib/reportRequests.test.ts` covers fresh-settings parity, stale-settings fallback, and comparison payload fields.
 
 ## Current architecture
@@ -1171,7 +1172,7 @@ for the same data, in both comparison and single-survey modes.
 
 ---
 
-## Phase 9 — Architecture consolidation and DRY `M`
+## Phase 9 — Architecture consolidation and DRY `M` ✅
 
 The Phase 1–8 work landed the migration but accumulated duplication along the way:
 3 near-identical table-styling blocks, 4 copies of the SVG → PDF → ZIP pipeline,
@@ -1213,10 +1214,10 @@ Recommend the Go-side wrapper for now — `overview.tex`'s two key-metrics
 tables can be migrated to call `BuildStatTableTeX`-style helpers in a
 follow-up rather than introducing a macro layer.
 
-- [ ] `withStyledTable(b *strings.Builder, body func())` in `tex/helpers.go`.
-- [ ] Migrate `BuildStatTableTeX`, `BuildHistogramTableTeX`, `BuildDualHistogramTableTeX`
+- [x] `withStyledTable(b *strings.Builder, body func(), afterReset func())` in `tex/helpers.go`.
+- [x] Migrate `BuildStatTableTeX`, `BuildHistogramTableTeX`, `BuildDualHistogramTableTeX`
       to call it. Golden files unchanged.
-- [ ] Replace `WriteString(fmt.Sprintf(...))` with `fmt.Fprintf(&b, ...)` in
+- [x] Replace `WriteString(fmt.Sprintf(...))` with `fmt.Fprintf(&b, ...)` in
       the same edit (clears `QF1012` lint notes for these files).
 - [ ] Optional follow-up: lift overview key-metrics tables into Go helpers so
       `overview.tex` shrinks to layout only.
@@ -1250,11 +1251,11 @@ func (a chartArtifact) materialise(ctx context.Context) error {
 
 Callsites collapse from ~12 lines each to a `chartArtifact{...}.materialise(ctx)` call.
 
-- [ ] `chartArtifact` (or equivalent) in a new `report/chart_pipeline.go`.
-- [ ] Replace 4 callsites in `report.go` (timeseries, compare timeseries,
+- [x] `chartArtifact` in new `internal/report/chart_pipeline.go`.
+- [x] Replace callsites in `report.go` (timeseries, compare timeseries,
       histogram, map, comparison) — golden bytes unchanged because filenames
       are identical.
-- [ ] Map overlay path (`cfg.MapSVG` is supplied, not rendered) takes the
+- [x] Map overlay path (`cfg.MapSVG` is supplied, not rendered) now uses the
       same helper with `svg: cfg.MapSVG`.
 
 ### 9.3 — Font asset consolidation `XS`
@@ -1268,9 +1269,9 @@ Bonus: the ZIP-population block at `report.go` L464–467 becomes a one-liner
 that ranges over a single `assets.AllFonts()` slice keyed by filename,
 eliminating one more form of "list of four" duplication.
 
-- [ ] New file with the four `//go:embed` declarations.
-- [ ] Remove from `report.go` and `chart/svg.go`.
-- [ ] `assets.AllFonts() map[string][]byte` returning the canonical fonts/
+- [x] New file with the four `//go:embed` declarations: `internal/report/chart/assets/fonts.go`.
+- [x] Remove duplicated declarations from `report.go` and `chart/svg.go`.
+- [x] `assets.AllFonts() map[string][]byte` returns the canonical fonts/
       → bytes mapping; used by ZIP packaging and by chart SVG embedding.
 
 ### 9.4 — Split `Generate()` into pipeline phases `M`
@@ -1301,13 +1302,13 @@ Each phase becomes independently testable. `planRun` is pure — invalid
 timezone / date / group cases get unit-test coverage without a fake DB.
 `renderCharts` slots cleanly on top of 9.2's `chartArtifact`.
 
-- [ ] Extract `planRun(cfg) (runPlan, error)` (config validation + parsing).
-- [ ] Extract `loadData(ctx, db, plan) (loadedData, error)` (all DB queries + comparison fetch).
-- [ ] Extract `renderCharts(ctx, plan, data, work) (chartSet, error)`.
-- [ ] Extract `buildTemplateData(plan, data, charts) tex.TemplateData`.
-- [ ] Extract `packageOutput(cfg, work, zipFiles) (Result, error)`.
-- [ ] Add unit tests for `planRun` covering timezone, date, group, paper-size cases.
-- [ ] Golden tests still green; integration test `report_test.go` still green.
+- [x] Extract `planRun(cfg) (runPlan, error)` (config validation + parsing).
+- [x] Extract `loadData(ctx, db, plan) (loadedData, error)` (all DB queries + comparison fetch).
+- [x] Extract `renderCharts(ctx, plan, data, work) (chartSet, error)`.
+- [x] Extract `buildTemplateData(plan, data, charts, work) tex.TemplateData`.
+- [x] Extract `packageOutput(cfg, work, zipFiles) (Result, error)`.
+- [x] Add unit tests for `planRun` covering timezone, date, group, paper-size cases.
+- [x] Golden tests still green; integration test `report_test.go` still green.
 
 ### 9.5 — `archive.go` writer consolidation `XS`
 
@@ -1318,9 +1319,9 @@ both call. Net result: `BuildZip` shrinks to ~6 lines, `appendZipBytes` keeps
 its read-existing loop and finishes by delegating to `writeEntries` for the
 remaining map.
 
-- [ ] `writeEntries` private helper in `archive.go`.
-- [ ] `BuildZip` and `appendZipBytes` both call it.
-- [ ] `archive_test.go` still green (no behavioural change).
+- [x] `writeEntries` private helper in `archive.go`.
+- [x] `BuildZip` and `appendZipBytes` both call it.
+- [x] `archive_test.go` still green (no behavioural change).
 
 ### 9.6 — Phase ordering and acceptance
 

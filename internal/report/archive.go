@@ -30,14 +30,9 @@ func sortedKeys(m map[string][]byte) []string {
 func BuildZip(files map[string][]byte) ([]byte, error) {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
-	for _, name := range sortedKeys(files) {
-		f, err := createDeterministicZipEntry(w, name)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := f.Write(files[name]); err != nil {
-			return nil, err
-		}
+	if err := writeEntries(w, files); err != nil {
+		w.Close()
+		return nil, err
 	}
 	if err := w.Close(); err != nil {
 		return nil, err
@@ -102,16 +97,9 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 		}
 	}
 
-	for _, name := range sortedKeys(remaining) {
-		w, err := createDeterministicZipEntry(writer, name)
-		if err != nil {
-			writer.Close()
-			return nil, err
-		}
-		if _, err := w.Write(remaining[name]); err != nil {
-			writer.Close()
-			return nil, err
-		}
+	if err := writeEntries(writer, remaining); err != nil {
+		writer.Close()
+		return nil, err
 	}
 
 	if err := writer.Close(); err != nil {
@@ -119,6 +107,19 @@ func appendZipBytes(original []byte, files map[string][]byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func writeEntries(writer *zip.Writer, files map[string][]byte) error {
+	for _, name := range sortedKeys(files) {
+		w, err := createDeterministicZipEntry(writer, name)
+		if err != nil {
+			return err
+		}
+		if _, err := w.Write(files[name]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func createDeterministicZipEntry(writer *zip.Writer, name string) (io.Writer, error) {

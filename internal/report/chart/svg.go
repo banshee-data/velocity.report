@@ -1,38 +1,17 @@
 package chart
 
 import (
-	_ "embed"
-	"encoding/base64"
 	"fmt"
 	"strings"
-	"sync"
+
+	"github.com/banshee-data/velocity.report/internal/report/chart/assets"
 )
 
 const pxPerMM = 96.0 / 25.4
 
-//go:embed assets/AtkinsonHyperlegible-Regular.ttf
-var atkinsonRegularTTF []byte
-
-//go:embed assets/AtkinsonHyperlegible-Bold.ttf
-var atkinsonBoldTTF []byte
-
-//go:embed assets/AtkinsonHyperlegible-Italic.ttf
-var atkinsonItalicTTF []byte
-
-//go:embed assets/AtkinsonHyperlegible-BoldItalic.ttf
-var atkinsonBoldItalicTTF []byte
-
-var (
-	atkinsonRegularB64  string
-	atkinsonRegularOnce sync.Once
-)
-
 // AtkinsonRegularBase64 returns the base64-encoded Atkinson Hyperlegible Regular font.
 func AtkinsonRegularBase64() string {
-	atkinsonRegularOnce.Do(func() {
-		atkinsonRegularB64 = base64.StdEncoding.EncodeToString(atkinsonRegularTTF)
-	})
-	return atkinsonRegularB64
+	return assets.AtkinsonRegularBase64()
 }
 
 // SVGCanvas is a low-level builder for SVG documents.

@@ -2,7 +2,6 @@ package report
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"math"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/report/chart"
-	"github.com/banshee-data/velocity.report/internal/report/tex"
 	"github.com/banshee-data/velocity.report/internal/units"
 )
 
@@ -24,18 +22,6 @@ import (
 // errors.Is(err, report.ErrInvalidConfig) to map these to HTTP 4xx
 // responses; every other Generate error is a server-side failure.
 var ErrInvalidConfig = errors.New("invalid report config")
-
-//go:embed chart/assets/AtkinsonHyperlegible-Regular.ttf
-var fontRegular []byte
-
-//go:embed chart/assets/AtkinsonHyperlegible-Bold.ttf
-var fontBold []byte
-
-//go:embed chart/assets/AtkinsonHyperlegible-Italic.ttf
-var fontItalic []byte
-
-//go:embed chart/assets/AtkinsonHyperlegible-BoldItalic.ttf
-var fontBoldItalic []byte
 
 const zipReadme = `# Velocity report source files
 
@@ -71,458 +57,44 @@ https://github.com/banshee-data/velocity.report
 
 // Generate produces a PDF report and source ZIP for the given configuration.
 func Generate(ctx context.Context, database DB, cfg Config) (result Result, err error) {
-	// Validate group.
-	groupSeconds, ok := supportedGroups[cfg.Group]
-	if !ok {
-		return Result{}, fmt.Errorf("%w: unsupported group %q", ErrInvalidConfig, cfg.Group)
+	plan, err := planRun(cfg)
+	if err != nil {
+		return Result{}, err
 	}
 
-	// Parse and validate all caller-supplied fields before touching external tools.
-	loc, err := time.LoadLocation(cfg.Timezone)
-	if err != nil {
-		return Result{}, fmt.Errorf("%w: invalid timezone %q: %v", ErrInvalidConfig, cfg.Timezone, err)
-	}
-
-	startTime, err := time.ParseInLocation("2006-01-02", cfg.StartDate, loc)
-	if err != nil {
-		return Result{}, fmt.Errorf("%w: invalid start date %q: %v", ErrInvalidConfig, cfg.StartDate, err)
-	}
-	endTime, err := time.ParseInLocation("2006-01-02", cfg.EndDate, loc)
-	if err != nil {
-		return Result{}, fmt.Errorf("%w: invalid end date %q: %v", ErrInvalidConfig, cfg.EndDate, err)
-	}
-
-	// Check external tool availability.
 	if err := checkRsvgConvert(); err != nil {
 		return Result{}, err
 	}
 	if err := checkXeLatex(); err != nil {
 		return Result{}, err
 	}
-	// End date is inclusive: advance to end-of-day.
-	endTime = endTime.Add(24*time.Hour - time.Second)
 
-	startUnix := startTime.Unix()
-	endUnix := endTime.Unix()
-
-	// Convert thresholds to mps.
-	minSpeedMPS := units.ConvertToMPS(cfg.MinSpeed, cfg.Units)
-
-	var histBucketMPS, histMaxMPS float64
-	if cfg.Histogram {
-		histBucketMPS = units.ConvertToMPS(cfg.HistBucketSize, cfg.Units)
-		histMaxMPS = units.ConvertToMPS(cfg.HistMax, cfg.Units)
-	}
-
-	// Summary query (groupSeconds=0 → single aggregate row + histogram).
-	summaryResult, err := database.RadarObjectRollupRange(
-		startUnix, endUnix, 0, minSpeedMPS,
-		cfg.Source, cfg.ModelVersion,
-		histBucketMPS, histMaxMPS,
-		cfg.SiteID, cfg.BoundaryThreshold,
-	)
-	if err != nil {
-		return Result{}, fmt.Errorf("summary query: %w", err)
-	}
-
-	// Time-series query (user's group interval, no histogram).
-	tsResult, err := database.RadarObjectRollupRange(
-		startUnix, endUnix, groupSeconds, minSpeedMPS,
-		cfg.Source, cfg.ModelVersion,
-		0, 0,
-		cfg.SiteID, cfg.BoundaryThreshold,
-	)
-	if err != nil {
-		return Result{}, fmt.Errorf("time-series query: %w", err)
-	}
-
-	// Primary period daily roll-up (used when comparison mode is active).
-	var primaryDailyRows []db.RadarObjectsRollupRow
-	if cfg.CompareStart != "" {
-		dailyResult, err := database.RadarObjectRollupRange(
-			startUnix, endUnix, 86400, minSpeedMPS,
-			cfg.Source, cfg.ModelVersion,
-			0, 0,
-			cfg.SiteID, cfg.BoundaryThreshold,
-		)
-		if err != nil {
-			return Result{}, fmt.Errorf("primary daily query: %w", err)
-		}
-		primaryDailyRows = dailyResult.Metrics
-	}
-
-	// Comparison data (if requested).
-	var compareResult *comparisonData
-	if cfg.CompareStart != "" {
-		cd, err := fetchComparison(ctx, database, cfg, loc, minSpeedMPS, histBucketMPS, histMaxMPS, groupSeconds)
-		if err != nil {
-			return Result{}, fmt.Errorf("comparison query: %w", err)
-		}
-		compareResult = cd
-	}
-
-	// Create temp working directory.
-	workDir, err := os.MkdirTemp("", "velocity-report-*")
-	if err != nil {
-		return Result{}, fmt.Errorf("create temp dir: %w", err)
-	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(workDir)
-		}
-	}()
-
-	// Write font files.
-	fontDir := workDir
-	fonts := map[string][]byte{
-		"AtkinsonHyperlegible-Regular.ttf":    fontRegular,
-		"AtkinsonHyperlegible-Bold.ttf":       fontBold,
-		"AtkinsonHyperlegible-Italic.ttf":     fontItalic,
-		"AtkinsonHyperlegible-BoldItalic.ttf": fontBoldItalic,
-	}
-	for name, data := range fonts {
-		if err = os.WriteFile(filepath.Join(fontDir, name), data, 0644); err != nil {
-			return Result{}, fmt.Errorf("write font %s: %w", name, err)
-		}
-	}
-
-	// Resolve paper size for chart sizing + LaTeX paper geometry.
-	paper := chart.NormalisePaperSize(cfg.PaperSize)
-
-	// Build summary statistics from the aggregate row before rendering charts so
-	// the time-series can draw the overall p98 reference line from the same query.
-	var summaryP50, summaryP85, summaryP98, summaryMax float64
-	var summaryP98Reference = math.NaN()
-	var totalCount int
-	if len(summaryResult.Metrics) > 0 {
-		row := summaryResult.Metrics[0]
-		summaryP50 = units.ConvertSpeed(row.P50Speed, cfg.Units)
-		summaryP85 = units.ConvertSpeed(row.P85Speed, cfg.Units)
-		summaryP98 = units.ConvertSpeed(row.P98Speed, cfg.Units)
-		summaryMax = units.ConvertSpeed(row.MaxSpeed, cfg.Units)
-		summaryP98Reference = summaryP98
-		totalCount = int(row.Count)
-	}
-
-	// Convert DB rows to chart data.
-	tsPoints := convertToTimeSeriesPoints(tsResult.Metrics, cfg.Units, loc)
-	tsData := chart.TimeSeriesData{
-		Points:       tsPoints,
-		Units:        cfg.Units,
-		Title:        "",
-		P98Reference: summaryP98Reference,
-		MaxReference: summaryMax,
-	}
-
-	// Render time-series SVG.
-	tsSVG, err := chart.RenderTimeSeries(tsData, chart.DefaultTimeSeriesStyle(paper))
-	if err != nil {
-		return Result{}, fmt.Errorf("render time-series: %w", err)
-	}
-	tsSVGPath := filepath.Join(workDir, "timeseries.svg")
-	if err = os.WriteFile(tsSVGPath, tsSVG, 0644); err != nil {
-		return Result{}, fmt.Errorf("write timeseries.svg: %w", err)
-	}
-
-	// Convert SVG → PDF.
-	tsPDFPath := filepath.Join(workDir, "timeseries.pdf")
-	if err = convertSVGToPDF(ctx, tsSVGPath, tsPDFPath); err != nil {
-		return Result{}, fmt.Errorf("convert timeseries SVG: %w", err)
-	}
-
-	// Compare timeseries chart (rendered here so the compare P98 reference line is available).
-	var compareTimeSeriesPDFName string
-	if compareResult != nil {
-		ctsPoints := convertToTimeSeriesPoints(compareResult.tsRows, cfg.Units, loc)
-		ctsData := chart.TimeSeriesData{
-			Points:       ctsPoints,
-			Units:        cfg.Units,
-			P98Reference: compareResult.p98,
-			MaxReference: compareResult.maxSpeed,
-		}
-		ctsSVG, cerr := chart.RenderTimeSeries(ctsData, chart.DefaultTimeSeriesStyle(paper))
-		if cerr != nil {
-			return Result{}, fmt.Errorf("render compare timeseries: %w", cerr)
-		}
-		ctsSVGPath := filepath.Join(workDir, "timeseries_compare.svg")
-		if err = os.WriteFile(ctsSVGPath, ctsSVG, 0644); err != nil {
-			return Result{}, fmt.Errorf("write timeseries_compare.svg: %w", err)
-		}
-		ctsPDFPath := filepath.Join(workDir, "timeseries_compare.pdf")
-		if err = convertSVGToPDF(ctx, ctsSVGPath, ctsPDFPath); err != nil {
-			return Result{}, fmt.Errorf("convert compare timeseries SVG: %w", err)
-		}
-		compareTimeSeriesPDFName = "timeseries_compare.pdf"
-	}
-
-	// Collect source files for the ZIP.
-	zipFiles := map[string][]byte{
-		"timeseries.svg": tsSVG,
-	}
-
-	// Histogram (if requested).
-	var histSVG []byte
-	var histogramTableTeX string
-	if cfg.Histogram && summaryResult.Histogram != nil {
-		displayHist := convertHistogramKeys(summaryResult.Histogram, cfg.Units)
-
-		histData := chart.HistogramData{
-			Buckets:   displayHist,
-			Units:     cfg.Units,
-			BucketSz:  cfg.HistBucketSize,
-			MaxBucket: cfg.HistMax,
-			Cutoff:    cfg.MinSpeed,
-		}
-
-		histSVG, err = chart.RenderHistogram(histData, chart.DefaultHistogramStyle(paper))
-		if err != nil {
-			return Result{}, fmt.Errorf("render histogram: %w", err)
-		}
-		histSVGPath := filepath.Join(workDir, "histogram.svg")
-		if err = os.WriteFile(histSVGPath, histSVG, 0644); err != nil {
-			return Result{}, fmt.Errorf("write histogram.svg: %w", err)
-		}
-		histPDFPath := filepath.Join(workDir, "histogram.pdf")
-		if err = convertSVGToPDF(ctx, histSVGPath, histPDFPath); err != nil {
-			return Result{}, fmt.Errorf("convert histogram SVG: %w", err)
-		}
-		zipFiles["histogram.svg"] = histSVG
-
-		histogramTableTeX = tex.BuildHistogramTableTeX(
-			displayHist, cfg.HistBucketSize, cfg.MinSpeed, cfg.HistMax, cfg.Units,
-		)
-	}
-
-	// Site map (if configured on the site).
-	var mapPDFName string
-	if cfg.IncludeMap && len(cfg.MapSVG) > 0 {
-		mapSVGPath := filepath.Join(workDir, "map.svg")
-		if err = os.WriteFile(mapSVGPath, cfg.MapSVG, 0644); err != nil {
-			return Result{}, fmt.Errorf("write map.svg: %w", err)
-		}
-		mapPDFPath := filepath.Join(workDir, "map.pdf")
-		if err = convertSVGToPDF(ctx, mapSVGPath, mapPDFPath); err != nil {
-			return Result{}, fmt.Errorf("convert map SVG: %w", err)
-		}
-		zipFiles["map.svg"] = cfg.MapSVG
-		mapPDFName = "map.pdf"
-	}
-
-	// Comparison chart (if requested).
-	if compareResult != nil && cfg.Histogram {
-		primaryHist := convertHistogramKeys(summaryResult.Histogram, cfg.Units)
-		compareHist := convertHistogramKeys(compareResult.histogram, cfg.Units)
-
-		compSVG, cerr := chart.RenderComparison(
-			chart.HistogramData{Buckets: primaryHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
-			chart.HistogramData{Buckets: compareHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
-			fmt.Sprintf("%s–%s", cfg.StartDate, cfg.EndDate),
-			fmt.Sprintf("%s–%s", cfg.CompareStart, cfg.CompareEnd),
-			chart.DefaultHistogramStyle(paper),
-		)
-		if cerr != nil {
-			return Result{}, fmt.Errorf("render comparison: %w", cerr)
-		}
-		compSVGPath := filepath.Join(workDir, "comparison.svg")
-		if err = os.WriteFile(compSVGPath, compSVG, 0644); err != nil {
-			return Result{}, fmt.Errorf("write comparison.svg: %w", err)
-		}
-		compPDFPath := filepath.Join(workDir, "comparison.pdf")
-		if err = convertSVGToPDF(ctx, compSVGPath, compPDFPath); err != nil {
-			return Result{}, fmt.Errorf("convert comparison SVG: %w", err)
-		}
-		zipFiles["comparison.svg"] = compSVG
-	}
-
-	// Cosine correction factor (primary period).
-	cosineFactor := 1.0
-	if cfg.CosineAngle != 0 {
-		cosineFactor = 1.0 / math.Cos(cfg.CosineAngle*math.Pi/180.0)
-	}
-
-	// Cosine correction factor (comparison period).
-	compareCosineAngle := cfg.CompareCosineAngle
-	compareCosineFactor := 1.0
-	if compareCosineAngle != 0 {
-		compareCosineFactor = 1.0 / math.Cos(compareCosineAngle*math.Pi/180.0)
-	}
-
-	// Build TemplateData.
-	td := tex.TemplateData{
-		Location:    tex.EscapeTeX(cfg.Location),
-		Surveyor:    tex.EscapeTeX(cfg.Surveyor),
-		Contact:     tex.EscapeTeX(cfg.Contact),
-		SpeedLimit:  cfg.SpeedLimit,
-		Description: tex.EscapeTeX(cfg.SiteDescription),
-
-		StartDate: startTime.Format("2006-01-02"),
-		EndDate:   endTime.Format("2006-01-02"),
-		Timezone:  tex.EscapeTeX(cfg.Timezone),
-		Units:     tex.EscapeTeX(cfg.Units),
-
-		P50:        tex.FormatNumber(summaryP50),
-		P85:        tex.FormatNumber(summaryP85),
-		P98:        tex.FormatNumber(summaryP98),
-		MaxSpeed:   tex.FormatNumber(summaryMax),
-		TotalCount: totalCount,
-		HoursCount: int(math.Ceil(float64(endUnix-startUnix) / 3600.0)),
-
-		TotalCountFormatted: tex.FormatCount(totalCount),
-
-		TimeSeriesChart: "timeseries.pdf",
-		FontDir:         fontDir,
-		StatRows:        tex.BuildStatRows(tsPoints, loc),
-
-		HistogramTableTeX: histogramTableTeX,
-
-		Source:              tex.EscapeTeX(cfg.Source),
-		Group:               tex.EscapeTeX(cfg.Group),
-		MinSpeed:            cfg.MinSpeed,
-		CosineAngle:         cfg.CosineAngle,
-		CosineFactor:        cosineFactor,
-		CompareCosineAngle:  compareCosineAngle,
-		CompareCosineFactor: compareCosineFactor,
-		ModelVersion:        tex.EscapeTeX(cfg.ModelVersion),
-		FirmwareVersion:     tex.EscapeTeX(cfg.FirmwareVersion),
-
-		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
-		PaperOption:    paperTexOption(paper),
-	}
-
-	if cfg.Histogram && histSVG != nil {
-		td.HistogramChart = "histogram.pdf"
-	}
-
-	if mapPDFName != "" {
-		td.MapChart = mapPDFName
-	}
-
-	if compareResult != nil {
-		td.CompareChart = "comparison.pdf"
-		td.CompareStartDate = compareResult.startDate
-		td.CompareEndDate = compareResult.endDate
-		td.CompareP50 = tex.FormatNumber(compareResult.p50)
-		td.CompareP85 = tex.FormatNumber(compareResult.p85)
-		td.CompareP98 = tex.FormatNumber(compareResult.p98)
-		td.CompareMax = tex.FormatNumber(compareResult.maxSpeed)
-		td.CompareCount = compareResult.count
-		td.DeltaP50 = tex.FormatDelta(summaryP50, compareResult.p50)
-		td.DeltaP85 = tex.FormatDelta(summaryP85, compareResult.p85)
-		td.DeltaP98 = tex.FormatDelta(summaryP98, compareResult.p98)
-		td.DeltaMax = tex.FormatDelta(summaryMax, compareResult.maxSpeed)
-		td.DeltaP50Pct = tex.FormatDeltaPercent(summaryP50, compareResult.p50)
-		td.DeltaP85Pct = tex.FormatDeltaPercent(summaryP85, compareResult.p85)
-		td.DeltaP98Pct = tex.FormatDeltaPercent(summaryP98, compareResult.p98)
-		td.DeltaMaxPct = tex.FormatDeltaPercent(summaryMax, compareResult.maxSpeed)
-		td.CompareTotalCountFormatted = tex.FormatCount(compareResult.count)
-		td.CombinedCountFormatted = tex.FormatCount(totalCount + compareResult.count)
-
-		// Compare timeseries chart.
-		if compareTimeSeriesPDFName != "" {
-			td.CompareTimeSeriesChart = compareTimeSeriesPDFName
-		}
-
-		// Merge primary + compare hourly rows, sorted by time.
-		mergedTS := mergeRollupRows(tsResult.Metrics, compareResult.tsRows)
-		td.StatRows = tex.BuildStatRows(convertToTimeSeriesPoints(mergedTS, cfg.Units, loc), loc)
-
-		// Merge primary + compare daily rows, sorted by time.
-		mergedDaily := mergeRollupRows(primaryDailyRows, compareResult.dailyRows)
-		td.DailyStatRows = tex.BuildStatRows(convertToTimeSeriesPoints(mergedDaily, cfg.Units, loc), loc)
-
-		// Dual histogram table (6-column comparison table).
-		if cfg.Histogram {
-			primaryHist := convertHistogramKeys(summaryResult.Histogram, cfg.Units)
-			compareHist := convertHistogramKeys(compareResult.histogram, cfg.Units)
-			td.DualHistogramTableTeX = tex.BuildDualHistogramTableTeX(
-				primaryHist, compareHist,
-				cfg.HistBucketSize, cfg.MinSpeed, cfg.HistMax, cfg.Units,
-			)
-		}
-	}
-
-	// Build pre-rendered stat tables (single canonical style from BuildStatTableTeX).
-	if compareResult != nil {
-		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 4: Granular Percentile Breakdown")
-		td.DailyStatTableTeX = tex.BuildStatTableTeX(td.DailyStatRows, "Table 3: Daily Percentile Summary")
-	} else {
-		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Detailed Data")
-	}
-
-	// Render .tex.
-	texBytes, err := tex.RenderTeX(td)
-	if err != nil {
-		return Result{}, fmt.Errorf("render tex: %w", err)
-	}
-	texPath := filepath.Join(workDir, "report.tex")
-	if err = os.WriteFile(texPath, texBytes, 0644); err != nil {
-		return Result{}, fmt.Errorf("write report.tex: %w", err)
-	}
-	zipFiles["report.tex"] = texBytes
-
-	// Embed font files under fonts/ so the .tex can be recompiled standalone.
-	zipFiles["fonts/AtkinsonHyperlegible-Regular.ttf"] = fontRegular
-	zipFiles["fonts/AtkinsonHyperlegible-Bold.ttf"] = fontBold
-	zipFiles["fonts/AtkinsonHyperlegible-Italic.ttf"] = fontItalic
-	zipFiles["fonts/AtkinsonHyperlegible-BoldItalic.ttf"] = fontBoldItalic
-
-	zipFiles["README.md"] = []byte(zipReadme)
-
-	// Compile PDF.
-	if err = runXeLatex(ctx, workDir, "report.tex"); err != nil {
-		return Result{}, fmt.Errorf("xelatex: %w", err)
-	}
-
-	// Build file names.
-	safeLocation := sanitiseFilename(cfg.Location)
-	baseName := fmt.Sprintf("%s_velocity.report_%s_report", cfg.EndDate, safeLocation)
-	pdfName := baseName + ".pdf"
-	zipName := baseName + "_sources.zip"
-
-	// Build ZIP.
-	zipBytes, err := BuildZip(zipFiles)
-	if err != nil {
-		return Result{}, fmt.Errorf("build zip: %w", err)
-	}
-
-	// Determine output directory.
-	outDir, err := normaliseOutputDir(cfg.OutputDir, workDir)
+	data, err := loadData(ctx, database, plan)
 	if err != nil {
 		return Result{}, err
 	}
 
-	// Copy PDF to output.
-	compiledPDF := filepath.Join(workDir, "report.pdf")
-	pdfData, err := os.ReadFile(compiledPDF)
-	if err != nil {
-		return Result{}, fmt.Errorf("read compiled PDF: %w", err)
-	}
-	outPDF, err := safeOutputPath(outDir, pdfName)
+	work, err := newWorkdir()
 	if err != nil {
 		return Result{}, err
 	}
-	if err = os.WriteFile(outPDF, pdfData, 0644); err != nil {
-		return Result{}, fmt.Errorf("write output PDF: %w", err)
-	}
+	defer work.cleanupOnError(&err)
 
-	outZIP, err := safeOutputPath(outDir, zipName)
+	charts, err := renderCharts(ctx, plan, data, work)
 	if err != nil {
 		return Result{}, err
 	}
-	if err = os.WriteFile(outZIP, zipBytes, 0644); err != nil {
-		return Result{}, fmt.Errorf("write output ZIP: %w", err)
+
+	td := buildTemplateData(plan, data, charts, work)
+	if err = writeTex(work, td, charts.zipFiles); err != nil {
+		return Result{}, err
 	}
 
-	// Clean up work dir if output is elsewhere.
-	if cfg.OutputDir != "" {
-		os.RemoveAll(workDir)
+	if err = compilePDF(ctx, work); err != nil {
+		return Result{}, err
 	}
 
-	return Result{
-		PDFPath: outPDF,
-		ZIPPath: outZIP,
-		RunID:   baseName,
-	}, nil
+	return packageOutput(cfg, work, charts.zipFiles)
 }
 
 // comparisonData holds converted comparison period results.

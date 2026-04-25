@@ -393,6 +393,81 @@ func TestGenerate_InvalidGroup(t *testing.T) {
 	}
 }
 
+func TestPlanRun_InvalidGroup(t *testing.T) {
+	_, err := planRun(Config{
+		Group:     "invalid",
+		Timezone:  "UTC",
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+	})
+	if err == nil || !strings.Contains(err.Error(), "unsupported group") {
+		t.Fatalf("expected unsupported group error, got: %v", err)
+	}
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig, got: %v", err)
+	}
+}
+
+func TestPlanRun_InvalidTimezone(t *testing.T) {
+	_, err := planRun(Config{
+		Group:     "1h",
+		Timezone:  "Not/A/Zone",
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid timezone") {
+		t.Fatalf("expected invalid timezone error, got: %v", err)
+	}
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig, got: %v", err)
+	}
+}
+
+func TestPlanRun_InvalidDate(t *testing.T) {
+	_, err := planRun(Config{
+		Group:     "1h",
+		Timezone:  "UTC",
+		StartDate: "not-a-date",
+		EndDate:   "2025-06-02",
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid start date") {
+		t.Fatalf("expected invalid start date error, got: %v", err)
+	}
+	if !errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("expected ErrInvalidConfig, got: %v", err)
+	}
+}
+
+func TestPlanRun_PaperSizeNormalisation(t *testing.T) {
+	plan, err := planRun(Config{
+		Group:     "1h",
+		Timezone:  "UTC",
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+		PaperSize: "LETTER",
+	})
+	if err != nil {
+		t.Fatalf("planRun error: %v", err)
+	}
+	if plan.paper != "letter" {
+		t.Fatalf("expected letter paper, got %q", plan.paper)
+	}
+
+	planDefault, err := planRun(Config{
+		Group:     "1h",
+		Timezone:  "UTC",
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+		PaperSize: "unsupported-size",
+	})
+	if err != nil {
+		t.Fatalf("planRun default paper error: %v", err)
+	}
+	if planDefault.paper != "a4" {
+		t.Fatalf("expected default a4 paper, got %q", planDefault.paper)
+	}
+}
+
 func TestGenerate_InvalidTimezone(t *testing.T) {
 	binDir := createMockBinaries(t)
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
