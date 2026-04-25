@@ -60,7 +60,7 @@ REPORTS = [
         "label": "r2_single_2025-07-01",
         "record_id": 2,
         "group": "24h",
-        "hist_max": 30.0,
+        "hist_max": 35.0,
         "start_date": "2025-07-01",
         "end_date": "2026-08-31",
         "source": "radar_objects",
