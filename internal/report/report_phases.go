@@ -337,6 +337,7 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 
 	if data.compareResult != nil {
 		td.CompareChart = "comparison.pdf"
+		td.CompareSource = tex.EscapeTeX(cfg.CompareSource)
 		td.CompareStartDate = data.compareResult.startDate
 		td.CompareEndDate = data.compareResult.endDate
 		td.CompareP50 = tex.FormatNumber(data.compareResult.p50)

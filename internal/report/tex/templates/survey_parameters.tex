@@ -1,6 +1,7 @@
 <<define "survey_parameters_single">>
 \subsection*{Hardware Configuration}
 
+\rowcolors{2}{green!10}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Radar Sensor: & \texttt{OmniPreSense OPS243-A} \\
 Transmit Frequency: & \texttt{24.125 GHz} \\
@@ -9,22 +10,25 @@ Azimuth Field of View: & \texttt{20°} \\
 Elevation Field of View: & \texttt{24°} \\
 <<if .FirmwareVersion>>Firmware Version: & \texttt{<<.FirmwareVersion>>} \\
 <<end>>\end{tabular}
+\rowcolors{0}{}{}
 
 \subsection*{Survey Parameters}
 
+\rowcolors{2}{green!10}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Start time: & \texttt{<<.StartDate>>} \\
 End time: & \texttt{<<.EndDate>>} \\
 Timezone: & \texttt{<<.Timezone>>} \\
 Roll-up Period: & \texttt{<<.Group>>} \\
 Units: & \texttt{<<.Units>>} \\
-Minimum speed (cutoff): & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
-Data Source: & \texttt{<<.Source>>} \\
+Min speed: & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
+Data source: & \texttt{<<.Source>>} \\
 <<if gt .CosineAngle 0.0>>
-Cosine Error Angle: & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
-Cosine Error Factor: & \texttt{<<printf "%.6f" .CosineFactor>>} \\
+Cosine angle: & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
+Cosine factor: & \texttt{<<printf "%.6f" .CosineFactor>>} \\
 <<end>>
 \end{tabular}
+\rowcolors{0}{}{}
 <<if gt .CosineAngle 0.0>>
 \par
 \vspace{4pt}
@@ -37,6 +41,7 @@ Speeds have been corrected for sensor angle changes.
 <<define "survey_parameters_comparison">>
 \subsection*{Hardware Configuration}
 
+\rowcolors{2}{green!10}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Radar Sensor: & \texttt{OmniPreSense OPS243-A} \\
 Transmit Frequency: & \texttt{24.125 GHz} \\
@@ -45,9 +50,11 @@ Azimuth Field of View: & \texttt{20°} \\
 Elevation Field of View: & \texttt{24°} \\
 <<if .FirmwareVersion>>Firmware Version: & \texttt{<<.FirmwareVersion>>} \\
 <<end>>\end{tabular}
+\rowcolors{0}{}{}
 
 \subsection*{Survey Parameters}
 
+\rowcolors{2}{green!10}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Start time (t1): & \texttt{<<.StartDate>>} \\
 End time (t1): & \texttt{<<.EndDate>>} \\
@@ -56,17 +63,19 @@ End time (t2): & \texttt{<<.CompareEndDate>>} \\
 Timezone: & \texttt{<<.Timezone>>} \\
 Roll-up Period: & \texttt{<<.Group>>} \\
 Units: & \texttt{<<.Units>>} \\
-Minimum speed (cutoff): & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
-Data Source: & \texttt{<<.Source>>} \\
+Min speed: & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
+Source (t1): & \texttt{<<.Source>>} \\
+Source (t2): & \texttt{<<.CompareSource>>} \\
 <<if gt .CosineAngle 0.0>>
-Cosine Error Angle (t1): & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
-Cosine Error Factor (t1): & \texttt{<<printf "%.6f" .CosineFactor>>} \\
+Cosine angle (t1): & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
+Cosine factor (t1): & \texttt{<<printf "%.6f" .CosineFactor>>} \\
 <<end>>
 <<if gt .CompareCosineAngle 0.0>>
-Cosine Error Angle (t2): & \texttt{<<printf "%.1f" .CompareCosineAngle>>°} \\
-Cosine Error Factor (t2): & \texttt{<<printf "%.6f" .CompareCosineFactor>>} \\
+Cosine angle (t2): & \texttt{<<printf "%.1f" .CompareCosineAngle>>°} \\
+Cosine factor (t2): & \texttt{<<printf "%.6f" .CompareCosineFactor>>} \\
 <<end>>
 \end{tabular}
+\rowcolors{0}{}{}
 <<if or (gt .CosineAngle 0.0) (gt .CompareCosineAngle 0.0)>>
 \par
 \vspace{4pt}

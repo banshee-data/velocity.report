@@ -99,6 +99,7 @@ type TemplateData struct {
 
 	// Radar/survey parameters
 	Source          string
+	CompareSource   string // t2 data source (comparison mode only)
 	Group           string
 	MinSpeed        float64
 	CosineAngle     float64

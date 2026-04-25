@@ -354,6 +354,7 @@ func TestRenderTeX_GoldenComparison(t *testing.T) {
 	data.DeltaP85Pct = "+4.0%"
 	data.DeltaP98Pct = "+2.3%"
 	data.DeltaMaxPct = "+6.9%"
+	data.CompareSource = "radar_objects"
 	data.TotalCountFormatted = "1,000"
 	data.CompareTotalCountFormatted = "900"
 	data.CombinedCountFormatted = "1,900"
