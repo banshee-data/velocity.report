@@ -281,9 +281,20 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	}
 
 	var b strings.Builder
-	b.WriteString(`\begin{tabular}{>{\ttfamily}l>{\ttfamily}r>{\ttfamily}r}` + "\n")
+	// Opening group: same visual style as BuildStatTableTeX (alternating row
+	// colours, grey column rules, monospace scriptsize with sans-serif headers).
+	b.WriteString("{\n")
+	b.WriteString(`\ttfamily\scriptsize` + "\n")
+	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
+	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
+	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
+	b.WriteString(`\begin{center}` + "\n")
+	b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
 	b.WriteString(`\hline` + "\n")
-	b.WriteString(`\multicolumn{1}{l}{\sffamily\bfseries \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & \multicolumn{1}{r}{\sffamily\bfseries Count} & \multicolumn{1}{r}{\sffamily\bfseries Percent} \\` + "\n")
+	b.WriteString(
+		`{\sffamily\bfseries\footnotesize Bucket (` + EscapeTeX(units) + `)} & ` +
+			`{\sffamily\bfseries\footnotesize Count} & ` +
+			`{\sffamily\bfseries\footnotesize Percent} \\` + "\n")
 	b.WriteString(`\hline` + "\n")
 
 	// Pre-aggregate below-cutoff and above-max buckets.
@@ -330,5 +341,8 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 
 	b.WriteString(`\hline` + "\n")
 	b.WriteString(`\end{tabular}` + "\n")
+	b.WriteString(`\end{center}` + "\n")
+	b.WriteString(`\rowcolors{0}{}{}` + "\n")
+	b.WriteString("}\n")
 	return b.String()
 }

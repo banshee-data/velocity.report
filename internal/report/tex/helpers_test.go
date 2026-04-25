@@ -121,25 +121,19 @@ func TestBuildHistogramTableTeX(t *testing.T) {
 	}
 
 	// Check structural markers.
-	for _, want := range []string{`\hline`, `\begin{tabular}`, `\end{tabular}`, "50+"} {
+	for _, want := range []string{`\hline`, `\begin{tabular}`, `\end{tabular}`, `\rowcolors`, `\sffamily`, "50+"} {
 		if !strings.Contains(result, want) {
 			t.Errorf("result missing %q", want)
 		}
 	}
 
-	// Count data rows (lines ending with \\).
+	// Count data rows: tabular data rows all contain " & " cell separators.
+	// Header rows are filtered by \sffamily; this counts only content rows.
 	dataRows := 0
 	for _, l := range strings.Split(result, "\n") {
-		trimmed := strings.TrimSpace(l)
-		if trimmed == "" {
-			continue
+		if strings.Contains(l, ` & `) && !strings.Contains(l, `\sffamily`) {
+			dataRows++
 		}
-		if strings.Contains(l, `\textbf{`) || strings.Contains(l, `\hline`) ||
-			strings.Contains(l, `\begin{`) || strings.Contains(l, `\end{`) ||
-			strings.Contains(l, `\multicolumn`) || strings.Contains(l, `\sffamily`) {
-			continue
-		}
-		dataRows++
 	}
 	if dataRows != 5 {
 		t.Errorf("expected 5 data rows, got %d", dataRows)
