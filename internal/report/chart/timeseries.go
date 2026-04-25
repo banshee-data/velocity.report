@@ -201,7 +201,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 			labelChars = 6 // "Jan 02"
 		}
 		estLabelWidthPx := labelChars * 0.7 * style.AxisTickFontPx
-		tentativePlotW := (0.93 - 0.07) * wPx
+		tentativePlotW := (0.93 - 0.16) * wPx
 		previewTicks := XTicks(data.Points)
 		if len(previewTicks) > 1 {
 			tickSpacing := tentativePlotW / float64(len(previewTicks))
@@ -218,7 +218,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	legendBlock := style.LegendFontPx + 6
 	bottomMargin := tickLabelBlock + legendBlock + 4
 
-	leftPx := 0.07 * wPx
+	leftPx := 0.16 * wPx
 	rightPx := 0.93 * wPx
 	topPx := 0.04 * hPx
 	if data.Title != "" {
@@ -327,7 +327,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		maxRefY = speedYOf(data.MaxReference)
 		c.BeginGroup(`class="max-reference"`)
 		c.Line(leftPx, maxRefY, rightPx, maxRefY,
-			`stroke="black" stroke-dasharray="6 3" stroke-width="1.2" opacity="0.6"`)
+			fmt.Sprintf(`stroke="%s" stroke-dasharray="1 3" stroke-width="0.8" opacity="0.55"`, ColourMax))
 		c.EndGroup()
 	}
 
@@ -460,15 +460,17 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	// Extra axis label for the aggregate max reference line.
 	if drawMaxRefLine {
-		c.Line(leftPx-4, maxRefY, leftPx, maxRefY, `stroke="black" stroke-width="1"`)
+		c.Line(leftPx-4, maxRefY, leftPx, maxRefY,
+			fmt.Sprintf(`stroke="%s" stroke-width="0.8"`, ColourMax))
 		c.Text(leftPx-6, maxRefY+style.AxisTickFontPx/3,
 			fmt.Sprintf("max=%.0f", data.MaxReference),
 			fmt.Sprintf(
-				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" font-weight="bold"`,
-				style.AxisTickFontPx))
+				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" fill="%s" font-weight="bold"`,
+				style.AxisTickFontPx, ColourMax))
 	}
-	// Rotated "Speed (units)" label along the left edge.
-	labelX := leftPx - style.AxisTickFontPx*3.2
+	// Rotated "Speed (units)" label. Anchored at 5% of chart width so it sits
+	// clear of the tick/reference labels that right-align at leftPx-6.
+	labelX := 0.05 * wPx
 	labelY := (topPx + bottomPx) / 2
 	c.Text(labelX, labelY,
 		fmt.Sprintf("Speed (%s)", data.Units),
@@ -550,7 +552,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	if drawMaxRefLine {
 		x := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
 		c.Line(x, legY, x+16, legY,
-			fmt.Sprintf(`stroke="black" stroke-width="%.1f" stroke-dasharray="6 3" opacity="0.6"`, style.LineWidthPx))
+			fmt.Sprintf(`stroke="%s" stroke-width="0.8" stroke-dasharray="1 3" opacity="0.55"`, ColourMax))
 		c.Text(x+20, legY+style.LegendFontPx/3, "max overall",
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
 		legendIndex++
