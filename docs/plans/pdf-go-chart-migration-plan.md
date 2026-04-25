@@ -1168,3 +1168,178 @@ Implement items in this sequence to avoid regressions:
 **Phase 8 acceptance:** `make tex-compare` exits 0; golden-file tests green;
 a PDF compiled from Go tex is visually indistinguishable from a PDF compiled from Python tex
 for the same data, in both comparison and single-survey modes.
+
+---
+
+## Phase 9 — Architecture consolidation and DRY `M`
+
+The Phase 1–8 work landed the migration but accumulated duplication along the way:
+3 near-identical table-styling blocks, 4 copies of the SVG → PDF → ZIP pipeline,
+font byte slices declared in two packages, and an 894-line `report.go` that
+mixes config validation, DB I/O, chart rendering, asset packaging and PDF
+compilation in one linear function.
+
+This phase factors those out without changing observable behaviour. Golden
+files (`testdata/golden_{single,comparison}.tex`) and `make tex-compare` are
+the regression net — they should stay green throughout, and the golden bytes
+must not change.
+
+### Pain points (concrete references)
+
+| Problem                          | Where                                                                                                                                                                                                                           | Symptom                                                                                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Table-style preamble duplicated  | `tex/helpers.go` `BuildStatTableTeX` (L114–143), `BuildDualHistogramTableTeX` (L227–264), `BuildHistogramTableTeX` (L291–355); also inline in `tex/templates/overview.tex` (overview_single L16–31, overview_comparison L60–78) | Five copies of the same `\ttfamily\scriptsize` + `\renewcommand{\arraystretch}{1.12}` + `\setlength{\tabcolsep}{3pt}` + `\rowcolors{2}{black!5}{white}` + grey `\vrule` block |
+| Chart artifact pipeline repeated | `report.go` L217–256 (timeseries + compare timeseries), L264–294 (histogram), L296–309 (map), L311–335 (comparison)                                                                                                             | Each block does: render SVG → write SVG → `convertSVGToPDF` → add to `zipFiles`. Four copies, four error-wrap variants                                                        |
+| Font asset declarations split    | `report.go` L28–38 (4 `//go:embed` declarations), parallel set in `chart/svg.go`                                                                                                                                                | Two packages embed the same four TTF files independently; renaming a font requires two edits                                                                                  |
+| Monolithic `Generate()`          | `report.go` L73–526 (453 lines, single function)                                                                                                                                                                                | Hard to test in isolation, hard to read, defers a `workDir` cleanup that's only safe because of a named return — every new branch risks a leak                                |
+| ZIP writer logic duplicated      | `archive.go` `BuildZip` L30–46 vs `appendZipBytes` L64–122                                                                                                                                                                      | Both walk a sorted `map[string][]byte` and call `createDeterministicZipEntry` with identical error handling                                                                   |
+| `fmt.Sprintf` to `WriteString`   | `tex/helpers.go` (~10 sites)                                                                                                                                                                                                    | `staticcheck QF1012` notes; reads as noise around the actual table content                                                                                                    |
+
+### 9.1 — Shared styled-table wrapper `S`
+
+Extract the duplicated styling block from the three `tex/helpers.go` builders
+into one helper. Two viable shapes:
+
+- **Go-side wrapper:** `withStyledTable(b *strings.Builder, body func())`
+  emits the `{\ttfamily\scriptsize\renewcommand{\arraystretch}{1.12}…}` open,
+  invokes `body`, then closes with the matching `\rowcolors{0}{}{}` reset.
+  Keeps everything in one language; minimal template churn.
+- **LaTeX-side macro:** add `\newcommand{\velReportTable}[1]{...}` to
+  `templates/preamble.tex` and have both Go helpers and `overview.tex` write
+  `\velReportTable{...}`. Smaller `.tex` output, but adds a custom macro
+  layer reviewers must learn.
+
+Recommend the Go-side wrapper for now — `overview.tex`'s two key-metrics
+tables can be migrated to call `BuildStatTableTeX`-style helpers in a
+follow-up rather than introducing a macro layer.
+
+- [ ] `withStyledTable(b *strings.Builder, body func())` in `tex/helpers.go`.
+- [ ] Migrate `BuildStatTableTeX`, `BuildHistogramTableTeX`, `BuildDualHistogramTableTeX`
+      to call it. Golden files unchanged.
+- [ ] Replace `WriteString(fmt.Sprintf(...))` with `fmt.Fprintf(&b, ...)` in
+      the same edit (clears `QF1012` lint notes for these files).
+- [ ] Optional follow-up: lift overview key-metrics tables into Go helpers so
+      `overview.tex` shrinks to layout only.
+
+### 9.2 — Chart artifact pipeline helper `S`
+
+Extract the four-step "render SVG → write to disk → `rsvg-convert` → add to
+ZIP" pattern in `report.go` (L217–335) into one helper:
+
+```go
+type chartArtifact struct {
+    name     string  // "timeseries" → produces timeseries.svg + timeseries.pdf
+    svg      []byte
+    workDir  string
+    zipFiles map[string][]byte
+}
+
+func (a chartArtifact) materialise(ctx context.Context) error {
+    svgPath := filepath.Join(a.workDir, a.name+".svg")
+    if err := os.WriteFile(svgPath, a.svg, 0644); err != nil {
+        return fmt.Errorf("write %s.svg: %w", a.name, err)
+    }
+    pdfPath := filepath.Join(a.workDir, a.name+".pdf")
+    if err := convertSVGToPDF(ctx, svgPath, pdfPath); err != nil {
+        return fmt.Errorf("convert %s.svg: %w", a.name, err)
+    }
+    a.zipFiles[a.name+".svg"] = a.svg
+    return nil
+}
+```
+
+Callsites collapse from ~12 lines each to a `chartArtifact{...}.materialise(ctx)` call.
+
+- [ ] `chartArtifact` (or equivalent) in a new `report/chart_pipeline.go`.
+- [ ] Replace 4 callsites in `report.go` (timeseries, compare timeseries,
+      histogram, map, comparison) — golden bytes unchanged because filenames
+      are identical.
+- [ ] Map overlay path (`cfg.MapSVG` is supplied, not rendered) takes the
+      same helper with `svg: cfg.MapSVG`.
+
+### 9.3 — Font asset consolidation `XS`
+
+Move the four `//go:embed` font declarations out of both `report.go` and
+`chart/svg.go` into a new `internal/report/assets/fonts.go` (or
+`internal/report/chart/fonts.go`) with exported `[]byte` variables. Both
+packages import the single source.
+
+Bonus: the ZIP-population block at `report.go` L464–467 becomes a one-liner
+that ranges over a single `assets.AllFonts()` slice keyed by filename,
+eliminating one more form of "list of four" duplication.
+
+- [ ] New file with the four `//go:embed` declarations.
+- [ ] Remove from `report.go` and `chart/svg.go`.
+- [ ] `assets.AllFonts() map[string][]byte` returning the canonical fonts/
+      → bytes mapping; used by ZIP packaging and by chart SVG embedding.
+
+### 9.4 — Split `Generate()` into pipeline phases `M`
+
+The current `Generate()` runs ~453 lines linearly. Split into named phases
+that each take a small struct in and a small struct out. No new abstractions —
+just function boundaries that cluster cleanly:
+
+```go
+func Generate(ctx, db, cfg) (Result, error) {
+    p, err := planRun(cfg)                        // validate + parse, no I/O
+    if err != nil { return Result{}, err }
+    data, err := loadData(ctx, db, p)              // all DB queries
+    if err != nil { return Result{}, err }
+    work, err := newWorkdir()                      // temp dir + font files; defers cleanup
+    if err != nil { return Result{}, err }
+    defer work.cleanupOnError(&err)
+    charts, err := renderCharts(ctx, p, data, work) // SVGs + PDFs; populates zipFiles
+    if err != nil { return Result{}, err }
+    td := buildTemplateData(p, data, charts)
+    if err := writeTex(work, td); err != nil { return Result{}, err }
+    if err := compilePDF(ctx, work); err != nil { return Result{}, err }
+    return packageOutput(cfg, work, charts.zipFiles)
+}
+```
+
+Each phase becomes independently testable. `planRun` is pure — invalid
+timezone / date / group cases get unit-test coverage without a fake DB.
+`renderCharts` slots cleanly on top of 9.2's `chartArtifact`.
+
+- [ ] Extract `planRun(cfg) (runPlan, error)` (config validation + parsing).
+- [ ] Extract `loadData(ctx, db, plan) (loadedData, error)` (all DB queries + comparison fetch).
+- [ ] Extract `renderCharts(ctx, plan, data, work) (chartSet, error)`.
+- [ ] Extract `buildTemplateData(plan, data, charts) tex.TemplateData`.
+- [ ] Extract `packageOutput(cfg, work, zipFiles) (Result, error)`.
+- [ ] Add unit tests for `planRun` covering timezone, date, group, paper-size cases.
+- [ ] Golden tests still green; integration test `report_test.go` still green.
+
+### 9.5 — `archive.go` writer consolidation `XS`
+
+`BuildZip` and `appendZipBytes` share the "walk sorted keys, create
+deterministic entry, write bytes, propagate errors" loop. Extract a single
+`writeEntries(w *zip.Writer, files map[string][]byte) error` helper that
+both call. Net result: `BuildZip` shrinks to ~6 lines, `appendZipBytes` keeps
+its read-existing loop and finishes by delegating to `writeEntries` for the
+remaining map.
+
+- [ ] `writeEntries` private helper in `archive.go`.
+- [ ] `BuildZip` and `appendZipBytes` both call it.
+- [ ] `archive_test.go` still green (no behavioural change).
+
+### 9.6 — Phase ordering and acceptance
+
+Run order — each step is independently shippable:
+
+```
+9.3 (font assets)         — smallest, no behavioural risk
+9.5 (archive helper)      — local to archive.go
+9.1 (table wrapper)       — golden files lock the byte output
+9.2 (chartArtifact)       — depends on nothing; reduces report.go ~50 lines
+9.4 (Generate split)      — depends on 9.2 to keep the renderCharts phase tidy
+```
+
+**Phase 9 acceptance:**
+
+- `make tex-compare` exits 0 (no `.tex` byte change).
+- Golden files `testdata/golden_{single,comparison}.tex` unchanged.
+- `report.go` under 600 lines.
+- `tex/helpers.go` table builders share one styling helper; no duplicated
+  `\rowcolors{2}{black!5}{white}` lines across the package.
+- Single source of truth for embedded font bytes (`grep -c "go:embed.*Atkinson" $(git ls-files internal/report)` returns 1 file).
+- `staticcheck` reports no `QF1012` notes in `internal/report/...`.
