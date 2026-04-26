@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 
@@ -65,8 +66,10 @@ func runPDF(args []string, stdout, stderr io.Writer) int {
 	if *outputDir != "" {
 		cfg.OutputDir = *outputDir
 	}
-	if cfg.OutputDir == "" {
-		cfg.OutputDir = "."
+	cfg.OutputDir, err = normalizePDFOutputDir(cfg.OutputDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: failed to resolve output directory: %v\n", err)
+		return 1
 	}
 
 	// Open database.
@@ -88,4 +91,11 @@ func runPDF(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "PDF: %s\n", result.PDFPath)
 	fmt.Fprintf(stdout, "ZIP: %s\n", result.ZIPPath)
 	return 0
+}
+
+func normalizePDFOutputDir(outputDir string) (string, error) {
+	if outputDir == "" {
+		outputDir = "."
+	}
+	return filepath.Abs(outputDir)
 }

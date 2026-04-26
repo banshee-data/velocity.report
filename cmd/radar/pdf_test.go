@@ -78,6 +78,37 @@ func TestRunPDF_MissingConfigFile(t *testing.T) {
 	}
 }
 
+func TestNormalizePDFOutputDir(t *testing.T) {
+	gotDefault, err := normalizePDFOutputDir("")
+	if err != nil {
+		t.Fatalf("normalize default: %v", err)
+	}
+	if !filepath.IsAbs(gotDefault) {
+		t.Fatalf("expected default output dir to be absolute, got %q", gotDefault)
+	}
+
+	gotRelative, err := normalizePDFOutputDir(filepath.Join("relative", "out"))
+	if err != nil {
+		t.Fatalf("normalize relative: %v", err)
+	}
+	wantRelative, err := filepath.Abs(filepath.Join("relative", "out"))
+	if err != nil {
+		t.Fatalf("abs relative: %v", err)
+	}
+	if gotRelative != wantRelative {
+		t.Fatalf("expected relative output %q, got %q", wantRelative, gotRelative)
+	}
+
+	absolute := t.TempDir()
+	gotAbsolute, err := normalizePDFOutputDir(absolute)
+	if err != nil {
+		t.Fatalf("normalize absolute: %v", err)
+	}
+	if gotAbsolute != absolute {
+		t.Fatalf("expected absolute output %q, got %q", absolute, gotAbsolute)
+	}
+}
+
 func TestRunPDF_OutputDirOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 
