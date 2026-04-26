@@ -48,7 +48,7 @@ func planRun(cfg Config) (runPlan, error) {
 	if err != nil {
 		return runPlan{}, fmt.Errorf("%w: invalid end date %q: %v", ErrInvalidConfig, cfg.EndDate, err)
 	}
-	endTime = endTime.Add(24*time.Hour - time.Second)
+	endTime = inclusiveLocalDateEnd(endTime)
 
 	plan := runPlan{
 		cfg:          cfg,
@@ -67,6 +67,10 @@ func planRun(cfg Config) (runPlan, error) {
 	}
 
 	return plan, nil
+}
+
+func inclusiveLocalDateEnd(day time.Time) time.Time {
+	return day.AddDate(0, 0, 1).Add(-time.Second)
 }
 
 type loadedData struct {

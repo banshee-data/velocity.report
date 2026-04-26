@@ -565,6 +565,42 @@ func TestPlanRun_InvalidDate(t *testing.T) {
 	}
 }
 
+func TestPlanRun_EndDateUsesLocalCalendarDay(t *testing.T) {
+	tests := []struct {
+		name    string
+		endDate string
+		want    string
+	}{
+		{
+			name:    "spring forward",
+			endDate: "2025-03-09",
+			want:    "2025-03-09 23:59:59 PDT",
+		},
+		{
+			name:    "fall back",
+			endDate: "2025-11-02",
+			want:    "2025-11-02 23:59:59 PST",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan, err := planRun(Config{
+				Group:     "1h",
+				Timezone:  "America/Los_Angeles",
+				StartDate: tt.endDate,
+				EndDate:   tt.endDate,
+			})
+			if err != nil {
+				t.Fatalf("planRun error: %v", err)
+			}
+			if got := plan.endTime.Format("2006-01-02 15:04:05 MST"); got != tt.want {
+				t.Fatalf("expected local end %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestPlanRun_PaperSizeNormalisation(t *testing.T) {
 	plan, err := planRun(Config{
 		Group:     "1h",

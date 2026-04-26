@@ -173,7 +173,7 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'compare_end': %v", err))
 		return
 	}
-	cEndTime = cEndTime.Add(24*time.Hour - time.Second)
+	cEndTime = inclusiveLocalDateEnd(cEndTime)
 
 	bucketSize, histMax := parseHistogramParams(q, displayUnits)
 	bucketSizeMPS := units.ConvertToMPS(bucketSize, displayUnits)
@@ -326,7 +326,7 @@ func (s *Server) parseChartParams(w http.ResponseWriter, q url.Values) (siteID i
 		return
 	}
 	// End date is inclusive: advance to end-of-day.
-	endTime = endTime.Add(24*time.Hour - time.Second)
+	endTime = inclusiveLocalDateEnd(endTime)
 
 	startUnix = startTime.Unix()
 	endUnix = endTime.Unix()
@@ -343,6 +343,10 @@ func (s *Server) parseChartParams(w http.ResponseWriter, q url.Values) (siteID i
 
 	ok = true
 	return
+}
+
+func inclusiveLocalDateEnd(day time.Time) time.Time {
+	return day.AddDate(0, 0, 1).Add(-time.Second)
 }
 
 // parseMinSpeed parses the optional min_speed query param (in display units)

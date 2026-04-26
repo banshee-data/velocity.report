@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 )
@@ -72,6 +73,38 @@ func seedChartTestData(t *testing.T, dbInst *db.DB) *db.Site {
 	}
 
 	return site
+}
+
+func TestInclusiveLocalDateEnd_HandlesDSTTransitions(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatalf("load location: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		day  time.Time
+		want string
+	}{
+		{
+			name: "spring forward",
+			day:  time.Date(2025, 3, 9, 0, 0, 0, 0, loc),
+			want: "2025-03-09 23:59:59 PDT",
+		},
+		{
+			name: "fall back",
+			day:  time.Date(2025, 11, 2, 0, 0, 0, 0, loc),
+			want: "2025-11-02 23:59:59 PST",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := inclusiveLocalDateEnd(tt.day).Format("2006-01-02 15:04:05 MST"); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
 }
 
 // --- Phase 4b tests ---

@@ -122,7 +122,7 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid compare end %q: %v", ErrInvalidConfig, cfg.CompareEnd, err)
 	}
-	ce = ce.Add(24*time.Hour - time.Second)
+	ce = inclusiveLocalDateEnd(ce)
 
 	source := cfg.CompareSource
 	if source == "" {
