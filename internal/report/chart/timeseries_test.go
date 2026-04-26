@@ -182,6 +182,102 @@ func TestRenderTimeSeries_LowSampleBreaksLine(t *testing.T) {
 	}
 }
 
+func TestDetectTimeGaps_NoneForUniform(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := makeTestPoints(6, start, time.Hour)
+	gaps := detectTimeGaps(pts)
+	for i, g := range gaps {
+		if g {
+			t.Errorf("unexpected gap at index %d for uniform hourly data", i)
+		}
+	}
+}
+
+func TestDetectTimeGaps_MidnightContinuous(t *testing.T) {
+	// Continuous hourly data spanning midnight should produce no gaps.
+	start := time.Date(2025, 6, 15, 22, 0, 0, 0, time.UTC)
+	pts := makeTestPoints(6, start, time.Hour)
+	gaps := detectTimeGaps(pts)
+	for i, g := range gaps {
+		if g {
+			t.Errorf("unexpected gap at index %d for continuous midnight-spanning data", i)
+		}
+	}
+}
+
+func TestDetectTimeGaps_OvernightBreak(t *testing.T) {
+	// Simulate 8am–4pm data on two consecutive days; the overnight jump
+	// (16 hours) should be flagged as a gap.
+	day1 := makeTestPoints(8, time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC), time.Hour)
+	day2 := makeTestPoints(8, time.Date(2025, 6, 16, 8, 0, 0, 0, time.UTC), time.Hour)
+	pts := append(day1, day2...)
+
+	gaps := detectTimeGaps(pts)
+	// No gap within day1.
+	for i := 1; i < 8; i++ {
+		if gaps[i] {
+			t.Errorf("unexpected gap at day1 index %d", i)
+		}
+	}
+	// Gap at the start of day2.
+	if !gaps[8] {
+		t.Error("expected gap at start of day2 (index 8)")
+	}
+	// No gap within day2.
+	for i := 9; i < len(pts); i++ {
+		if gaps[i] {
+			t.Errorf("unexpected gap at day2 index %d", i)
+		}
+	}
+}
+
+func TestDetectTimeGaps_ThreeDays(t *testing.T) {
+	// Three-day scenario: gaps at the start of day2 and day3.
+	base := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	var pts []TimeSeriesPoint
+	for d := 0; d < 3; d++ {
+		pts = append(pts, makeTestPoints(8, base.Add(time.Duration(d)*24*time.Hour), time.Hour)...)
+	}
+
+	gaps := detectTimeGaps(pts)
+	for i, g := range gaps {
+		wantGap := (i == 8 || i == 16) // start of day2 and day3
+		if g != wantGap {
+			t.Errorf("gap[%d] = %v, want %v", i, g, wantGap)
+		}
+	}
+}
+
+func TestDetectTimeGaps_Empty(t *testing.T) {
+	gaps := detectTimeGaps(nil)
+	if len(gaps) != 0 {
+		t.Errorf("expected empty slice for nil input, got len %d", len(gaps))
+	}
+}
+
+func TestRenderTimeSeries_TimeGapBreaksLine(t *testing.T) {
+	// Two blocks of 8 hourly points separated by a 16-hour overnight gap.
+	day1 := makeTestPoints(8, time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC), time.Hour)
+	day2 := makeTestPoints(8, time.Date(2025, 6, 16, 8, 0, 0, 0, time.UTC), time.Hour)
+	pts := append(day1, day2...)
+
+	svg, err := RenderTimeSeries(TimeSeriesData{Points: pts, Units: "mph"}, DefaultTimeSeriesStyle(PaperA4))
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+
+	svgStr := string(svg)
+	// Dashed divider must appear for the time gap.
+	if !strings.Contains(svgStr, `stroke-dasharray="3 3"`) {
+		t.Error("expected dashed gap divider for overnight break")
+	}
+	// Four series × two segments = ≥8 polylines.
+	got := strings.Count(svgStr, "<polyline")
+	if got < 8 {
+		t.Errorf("expected ≥8 polylines (two segments per series), got %d", got)
+	}
+}
+
 func TestXTicks_SignatureTakesOnlyPoints(t *testing.T) {
 	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
 	ticks := XTicks(makeTestPoints(6, start, time.Hour))

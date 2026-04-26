@@ -183,6 +183,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// StartTime are preserved; count bars, low-sample highlights, and hover
 	// tooltips continue to reflect the original (unmasked) data.
 	maskedPts := ApplyCountMask(data.Points, style.CountMissingThreshold)
+	timeGaps := detectTimeGaps(data.Points)
 
 	// Decide whether x-axis labels need rotation based on time span.
 	rotateXLabels := false
@@ -313,21 +314,26 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	c.EndGroup()
 
-	// Gap dividers: a single dashed vertical line at the start of each
-	// contiguous run of missing data. These are the only vertical dividers on
-	// the chart — day-boundary markers have been removed. The polylines already
-	// stop at the last valid point before a gap; the divider makes each break
-	// visually explicit.
+	// Gap dividers: a dashed vertical line where a significant gap begins —
+	// either the start of a low-sample/missing NaN run, or a significant time
+	// jump between consecutive data points (e.g. overnight hours with no data).
+	// These are the only vertical dividers on the chart.
 	c.BeginGroup(`class="gap-dividers"`)
-	inGap := false
+	inNaNGap := false
 	for i := range n {
 		isNaN := math.IsNaN(maskedPts[i].P50Speed)
-		if !inGap && isNaN && i > 0 {
+		if timeGaps[i] {
+			// Time gap: place divider midway between the surrounding points.
+			x := (xOf(i-1) + xOf(i)) / 2
+			c.Line(x, topPx, x, bottomPx,
+				`stroke="#999" stroke-dasharray="3 3" stroke-width="0.8" opacity="0.6"`)
+			inNaNGap = false
+		} else if !inNaNGap && isNaN && i > 0 {
 			x := leftPx + float64(i)/float64(n)*plotW
 			c.Line(x, topPx, x, bottomPx,
 				`stroke="#999" stroke-dasharray="3 3" stroke-width="0.8" opacity="0.6"`)
 		}
-		inGap = isNaN
+		inNaNGap = isNaN
 	}
 	c.EndGroup()
 
@@ -382,8 +388,8 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 
 		c.BeginGroup(fmt.Sprintf(`class="series-%s"`, s.label))
 
-		// Emit one polyline per contiguous run of non-NaN samples so missing
-		// or masked buckets produce visible gaps in the series.
+		// Emit one polyline per contiguous run of non-NaN samples. NaN-masked
+		// buckets and time gaps (detected missing periods) both break the line.
 		var segment [][2]float64
 		flushSegment := func() {
 			if len(segment) > 1 {
@@ -392,6 +398,9 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 			segment = segment[:0]
 		}
 		for i := range n {
+			if timeGaps[i] {
+				flushSegment()
+			}
 			val := s.field(maskedPts[i])
 			if math.IsNaN(val) {
 				flushSegment()
@@ -636,6 +645,35 @@ func niceStep(maxVal, targetTicks float64) float64 {
 	default:
 		return 10 * mag
 	}
+}
+
+// detectTimeGaps returns a boolean slice where isGapBefore[i] is true when
+// the time step from pts[i-1] to pts[i] is more than 1.5× the minimum step
+// seen across all consecutive pairs. This identifies real coverage gaps
+// (e.g. overnight periods with no data) vs. normal consecutive samples.
+// isGapBefore[0] is always false.
+func detectTimeGaps(pts []TimeSeriesPoint) []bool {
+	isGapBefore := make([]bool, len(pts))
+	if len(pts) < 2 {
+		return isGapBefore
+	}
+	// Find the minimum positive step between consecutive points.
+	minGap := pts[1].StartTime.Sub(pts[0].StartTime)
+	for i := 2; i < len(pts); i++ {
+		if d := pts[i].StartTime.Sub(pts[i-1].StartTime); d > 0 && d < minGap {
+			minGap = d
+		}
+	}
+	if minGap <= 0 {
+		return isGapBefore
+	}
+	threshold := time.Duration(float64(minGap) * 1.5)
+	for i := 1; i < len(pts); i++ {
+		if pts[i].StartTime.Sub(pts[i-1].StartTime) > threshold {
+			isGapBefore[i] = true
+		}
+	}
+	return isGapBefore
 }
 
 func renderTimeSeriesNoData(style ChartStyle) []byte {
