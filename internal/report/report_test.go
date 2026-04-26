@@ -19,10 +19,14 @@ import (
 // mockDB implements the DB interface with fixture data.
 type mockDB struct {
 	callCount int
+	rollupFn  func(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error)
 }
 
 func (m *mockDB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error) {
 	m.callCount++
+	if m.rollupFn != nil {
+		return m.rollupFn(startUnix, endUnix, groupSeconds, minSpeed, dataSource, modelVersion, histBucketSize, histMax, siteID, boundaryThreshold)
+	}
 	base := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 
 	if groupSeconds == 0 {
@@ -375,6 +379,88 @@ func TestGenerate_TimeSeriesSVGIncludesAggregateP98Reference(t *testing.T) {
 	}
 	if !strings.Contains(timeseriesSVG, "p98 overall") {
 		t.Fatalf("expected p98 overall legend label in timeseries.svg, got:\n%s", timeseriesSVG)
+	}
+}
+
+func TestGenerate_TimeSeriesSVGBreaksAtSparseHourlyGaps(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	outDir := t.TempDir()
+	m := &mockDB{}
+
+	// Return sparse hourly rows with a 16-hour overnight gap.
+	m.rollupFn = func(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error) {
+		if groupSeconds == 0 {
+			base := time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC)
+			return &db.RadarStatsResult{Metrics: []db.RadarObjectsRollupRow{{
+				Classifier: "all",
+				StartTime:  base,
+				Count:      100,
+				P50Speed:   10,
+				P85Speed:   14,
+				P98Speed:   18,
+				MaxSpeed:   22,
+			}}}, nil
+		}
+
+		day1 := make([]db.RadarObjectsRollupRow, 8)
+		base1 := time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC)
+		for i := range day1 {
+			day1[i] = db.RadarObjectsRollupRow{
+				Classifier: "vehicle",
+				StartTime:  base1.Add(time.Duration(i) * time.Hour),
+				Count:      int64(120 + i*10),
+				P50Speed:   10 + float64(i)*0.2,
+				P85Speed:   14 + float64(i)*0.2,
+				P98Speed:   18 + float64(i)*0.2,
+				MaxSpeed:   22 + float64(i)*0.2,
+			}
+		}
+		day2 := make([]db.RadarObjectsRollupRow, 8)
+		base2 := time.Date(2025, 6, 2, 8, 0, 0, 0, time.UTC)
+		for i := range day2 {
+			day2[i] = db.RadarObjectsRollupRow{
+				Classifier: "vehicle",
+				StartTime:  base2.Add(time.Duration(i) * time.Hour),
+				Count:      int64(130 + i*10),
+				P50Speed:   10 + float64(i)*0.2,
+				P85Speed:   14 + float64(i)*0.2,
+				P98Speed:   18 + float64(i)*0.2,
+				MaxSpeed:   22 + float64(i)*0.2,
+			}
+		}
+
+		rows := append(day1, day2...)
+		return &db.RadarStatsResult{Metrics: rows, MinSpeedUsed: minSpeed}, nil
+	}
+
+	cfg := Config{
+		SiteID:    1,
+		Location:  "Sparse Gap Street",
+		Surveyor:  "J. Engineer",
+		Contact:   "test@example.com",
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+		Timezone:  "UTC",
+		Units:     "mph",
+		Group:     "1h",
+		Source:    "radar_objects",
+		Histogram: false,
+		OutputDir: outDir,
+	}
+
+	result, err := Generate(context.Background(), m, cfg)
+	if err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+
+	timeseriesSVG := readZipEntry(t, result.ZIPPath, "timeseries.svg")
+	if !strings.Contains(timeseriesSVG, `class="gap-dividers"`) || !strings.Contains(timeseriesSVG, `stroke-dasharray="3 3"`) {
+		t.Fatalf("expected dashed vertical divider for sparse hourly gap, got:\n%s", timeseriesSVG)
+	}
+	if strings.Count(timeseriesSVG, "<polyline") < 8 {
+		t.Fatalf("expected split polylines across gap (>=8 total for 4 series), got %d", strings.Count(timeseriesSVG, "<polyline"))
 	}
 }
 
