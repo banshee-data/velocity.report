@@ -57,6 +57,7 @@
 			if (serial !== requestSerial) {
 				return;
 			}
+			svg = '';
 			error = 'Could not load chart preview.';
 		} finally {
 			if (serial === requestSerial) {
