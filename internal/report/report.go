@@ -182,9 +182,9 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 	return cd, nil
 }
 
-// convertToTimeSeriesPoints converts DB rollup rows to chart points,
+// ConvertToTimeSeriesPoints converts DB rollup rows to chart points,
 // converting speeds from mps to display units and times to loc.
-func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time.Location) []chart.TimeSeriesPoint {
+func ConvertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time.Location) []chart.TimeSeriesPoint {
 	pts := make([]chart.TimeSeriesPoint, len(rows))
 	for i, r := range rows {
 		pt := chart.TimeSeriesPoint{
@@ -218,9 +218,9 @@ func mergeRollupRows(a, b []db.RadarObjectsRollupRow) []db.RadarObjectsRollupRow
 	return merged
 }
 
-// convertHistogramKeys returns a new histogram map with keys converted
+// ConvertHistogramKeys returns a new histogram map with keys converted
 // from mps to display units.
-func convertHistogramKeys(hist map[float64]int64, displayUnits string) map[float64]int64 {
+func ConvertHistogramKeys(hist map[float64]int64, displayUnits string) map[float64]int64 {
 	if hist == nil {
 		return nil
 	}

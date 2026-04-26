@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/report"
 	"github.com/banshee-data/velocity.report/internal/report/chart"
 	"github.com/banshee-data/velocity.report/internal/units"
 )
@@ -43,9 +43,15 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 	minSpeedMPS := parseMinSpeed(q, displayUnits)
 	paper := parsePaperSize(q)
 
+	source := parseSource(q)
+	if !isValidReportSource(source) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
+	}
+
 	result, err := s.db.RadarObjectRollupRange(
 		startUnix, endUnix, groupSeconds, minSpeedMPS,
-		parseSource(q), parseModelVersion(q),
+		source, parseModelVersion(q),
 		0, 0, // no histogram
 		siteID, parseBoundaryThreshold(q),
 	)
@@ -55,7 +61,7 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pts := convertToTimeSeriesPoints(result.Metrics, displayUnits, loc)
+	pts := report.ConvertToTimeSeriesPoints(result.Metrics, displayUnits, loc)
 	if parseExpandedChart(q) {
 		pts = chart.ExpandTimeSeriesGapsInRange(
 			pts,
@@ -109,9 +115,15 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 	histMaxMPS := units.ConvertToMPS(histMax, displayUnits)
 	minSpeedMPS := parseMinSpeed(q, displayUnits)
 
+	source := parseSource(q)
+	if !isValidReportSource(source) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
+	}
+
 	result, err := s.db.RadarObjectRollupRange(
 		startUnix, endUnix, 0, minSpeedMPS,
-		parseSource(q), parseModelVersion(q),
+		source, parseModelVersion(q),
 		bucketSizeMPS, histMaxMPS,
 		siteID, parseBoundaryThreshold(q),
 	)
@@ -121,7 +133,7 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	displayHist := convertHistogramKeys(result.Histogram, displayUnits)
+	displayHist := report.ConvertHistogramKeys(result.Histogram, displayUnits)
 	data := chart.HistogramData{
 		Buckets:   displayHist,
 		Units:     displayUnits,
@@ -181,6 +193,10 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 	minSpeedMPS := parseMinSpeed(q, displayUnits)
 
 	source := parseSource(q)
+	if !isValidReportSource(source) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
+	}
 	modelVersion := parseModelVersion(q)
 	boundaryThreshold := parseBoundaryThreshold(q)
 
@@ -201,6 +217,9 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 	compareSource := q.Get("compare_source")
 	if compareSource == "" {
 		compareSource = source
+	} else if !isValidReportSource(compareSource) {
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'compare_source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
 	}
 	compareResult, err := s.db.RadarObjectRollupRange(
 		cStartTime.Unix(), cEndTime.Unix(), 0, minSpeedMPS,
@@ -214,8 +233,8 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	primaryHist := convertHistogramKeys(primaryResult.Histogram, displayUnits)
-	compareHist := convertHistogramKeys(compareResult.Histogram, displayUnits)
+	primaryHist := report.ConvertHistogramKeys(primaryResult.Histogram, displayUnits)
+	compareHist := report.ConvertHistogramKeys(compareResult.Histogram, displayUnits)
 
 	svg, err := chart.RenderComparison(
 		chart.HistogramData{Buckets: primaryHist, Units: displayUnits, BucketSz: bucketSize, MaxBucket: histMax},
@@ -407,41 +426,4 @@ func parseHistogramParams(q url.Values, displayUnits string) (bucketSize, histMa
 		}
 	}
 	return
-}
-
-// convertToTimeSeriesPoints converts DB rows to chart data points.
-func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time.Location) []chart.TimeSeriesPoint {
-	pts := make([]chart.TimeSeriesPoint, len(rows))
-	for i, r := range rows {
-		pt := chart.TimeSeriesPoint{
-			StartTime: r.StartTime.In(loc),
-			Count:     int(r.Count),
-		}
-		if r.Count == 0 {
-			pt.P50Speed = math.NaN()
-			pt.P85Speed = math.NaN()
-			pt.P98Speed = math.NaN()
-			pt.MaxSpeed = math.NaN()
-		} else {
-			pt.P50Speed = units.ConvertSpeed(r.P50Speed, displayUnits)
-			pt.P85Speed = units.ConvertSpeed(r.P85Speed, displayUnits)
-			pt.P98Speed = units.ConvertSpeed(r.P98Speed, displayUnits)
-			pt.MaxSpeed = units.ConvertSpeed(r.MaxSpeed, displayUnits)
-		}
-		pts[i] = pt
-	}
-	return pts
-}
-
-// convertHistogramKeys returns a new histogram map with keys converted
-// from mps to display units.
-func convertHistogramKeys(hist map[float64]int64, displayUnits string) map[float64]int64 {
-	if hist == nil {
-		return nil
-	}
-	out := make(map[float64]int64, len(hist))
-	for k, v := range hist {
-		out[units.ConvertSpeed(k, displayUnits)] = v
-	}
-	return out
 }

@@ -192,7 +192,7 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 
 	charts := chartSet{zipFiles: map[string][]byte{}}
 
-	tsPoints := convertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc)
+	tsPoints := ConvertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc)
 	if cfg.ExpandedChart {
 		tsPoints = chart.ExpandTimeSeriesGapsInRange(tsPoints, plan.groupSeconds, plan.startTime, plan.endTime)
 	}
@@ -212,7 +212,7 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 	}
 
 	if data.compareResult != nil {
-		ctsPoints := convertToTimeSeriesPoints(data.compareResult.tsRows, cfg.Units, plan.loc)
+		ctsPoints := ConvertToTimeSeriesPoints(data.compareResult.tsRows, cfg.Units, plan.loc)
 		if cfg.ExpandedChart {
 			ctsPoints = chart.ExpandTimeSeriesGapsInRange(ctsPoints, plan.groupSeconds, data.compareResult.startTime, data.compareResult.endTime)
 		}
@@ -233,7 +233,7 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 	}
 
 	if cfg.Histogram && data.summaryResult.Histogram != nil {
-		displayHist := convertHistogramKeys(data.summaryResult.Histogram, cfg.Units)
+		displayHist := ConvertHistogramKeys(data.summaryResult.Histogram, cfg.Units)
 		histData := chart.HistogramData{
 			Buckets:   displayHist,
 			Units:     cfg.Units,
@@ -263,8 +263,8 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 	}
 
 	if data.compareResult != nil && cfg.Histogram {
-		primaryHist := convertHistogramKeys(data.summaryResult.Histogram, cfg.Units)
-		compareHist := convertHistogramKeys(data.compareResult.histogram, cfg.Units)
+		primaryHist := ConvertHistogramKeys(data.summaryResult.Histogram, cfg.Units)
+		compareHist := ConvertHistogramKeys(data.compareResult.histogram, cfg.Units)
 
 		compSVG, err := chart.RenderComparison(
 			chart.HistogramData{Buckets: primaryHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
@@ -301,7 +301,7 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 	cosineCorrectionLabel := tex.EscapeTeX(cfg.CosineCorrectionLabel)
 	compareCosineCorrectionLabel := tex.EscapeTeX(cfg.CompareCosineCorrectionLabel)
 
-	tsPoints := convertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc)
+	tsPoints := ConvertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc)
 	td := tex.TemplateData{
 		Location:    tex.EscapeTeX(cfg.Location),
 		Surveyor:    tex.EscapeTeX(cfg.Surveyor),
@@ -377,14 +377,14 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 		}
 
 		mergedTS := mergeRollupRows(data.tsResult.Metrics, data.compareResult.tsRows)
-		td.StatRows = tex.BuildStatRows(convertToTimeSeriesPoints(mergedTS, cfg.Units, plan.loc), plan.loc)
+		td.StatRows = tex.BuildStatRows(ConvertToTimeSeriesPoints(mergedTS, cfg.Units, plan.loc), plan.loc)
 
 		mergedDaily := mergeRollupRows(data.primaryDaily, data.compareResult.dailyRows)
-		td.DailyStatRows = tex.BuildStatRows(convertToTimeSeriesPoints(mergedDaily, cfg.Units, plan.loc), plan.loc)
+		td.DailyStatRows = tex.BuildStatRows(ConvertToTimeSeriesPoints(mergedDaily, cfg.Units, plan.loc), plan.loc)
 
 		if cfg.Histogram {
-			primaryHist := convertHistogramKeys(data.summaryResult.Histogram, cfg.Units)
-			compareHist := convertHistogramKeys(data.compareResult.histogram, cfg.Units)
+			primaryHist := ConvertHistogramKeys(data.summaryResult.Histogram, cfg.Units)
+			compareHist := ConvertHistogramKeys(data.compareResult.histogram, cfg.Units)
 			td.DualHistogramTableTeX = tex.BuildDualHistogramTableTeX(
 				primaryHist, compareHist,
 				cfg.HistBucketSize, cfg.MinSpeed, cfg.HistMax, cfg.Units,

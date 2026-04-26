@@ -312,3 +312,25 @@ func TestChartEndpoints_InvalidUnits(t *testing.T) {
 		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestChartEndpoints_InvalidSource(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	endpoints := []string{
+		fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03&end=2024-12-03&source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&compare_start=2024-11-01&compare_end=2024-11-30&source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&compare_start=2024-11-01&compare_end=2024-11-30&compare_source=bad_source", site.ID),
+	}
+	for _, u := range endpoints {
+		req := httptest.NewRequest(http.MethodGet, u, nil)
+		w := httptest.NewRecorder()
+		server.ServeMux().ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400 for %s, got %d: %s", u, w.Code, w.Body.String())
+		}
+	}
+}
