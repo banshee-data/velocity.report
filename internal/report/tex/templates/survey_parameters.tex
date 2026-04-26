@@ -23,13 +23,15 @@ Roll-up Period: & \texttt{<<.Group>>} \\
 Units: & \texttt{<<.Units>>} \\
 Min speed: & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
 Data source: & \texttt{<<.Source>>} \\
-<<if gt .CosineAngle 0.0>>
+<<if .CosineCorrectionLabel>>
+Cosine correction: & \texttt{<<.CosineCorrectionLabel>>} \\
+<<else if gt .CosineAngle 0.0>>
 Cosine angle: & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
 Cosine factor: & \texttt{<<printf "%.6f" .CosineFactor>>} \\
 <<end>>
 \end{tabular}
 \rowcolors{0}{}{}
-<<if gt .CosineAngle 0.0>>
+<<if or .CosineCorrectionLabel (gt .CosineAngle 0.0)>>
 \par
 \vspace{4pt}
 \par
@@ -66,17 +68,21 @@ Units: & \texttt{<<.Units>>} \\
 Min speed: & \texttt{<<printf "%.1f" .MinSpeed>> <<.Units>>} \\
 Source (t1): & \texttt{<<.Source>>} \\
 Source (t2): & \texttt{<<.CompareSource>>} \\
-<<if gt .CosineAngle 0.0>>
+<<if .CosineCorrectionLabel>>
+Cosine correction (t1): & \texttt{<<.CosineCorrectionLabel>>} \\
+<<else if gt .CosineAngle 0.0>>
 Cosine angle (t1): & \texttt{<<printf "%.1f" .CosineAngle>>°} \\
 Cosine factor (t1): & \texttt{<<printf "%.6f" .CosineFactor>>} \\
 <<end>>
-<<if gt .CompareCosineAngle 0.0>>
+<<if .CompareCosineCorrectionLabel>>
+Cosine correction (t2): & \texttt{<<.CompareCosineCorrectionLabel>>} \\
+<<else if gt .CompareCosineAngle 0.0>>
 Cosine angle (t2): & \texttt{<<printf "%.1f" .CompareCosineAngle>>°} \\
 Cosine factor (t2): & \texttt{<<printf "%.6f" .CompareCosineFactor>>} \\
 <<end>>
 \end{tabular}
 \rowcolors{0}{}{}
-<<if or (gt .CosineAngle 0.0) (gt .CompareCosineAngle 0.0)>>
+<<if or .CosineCorrectionLabel .CompareCosineCorrectionLabel (gt .CosineAngle 0.0) (gt .CompareCosineAngle 0.0)>>
 \par
 \vspace{4pt}
 \par

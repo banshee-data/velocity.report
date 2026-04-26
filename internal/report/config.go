@@ -22,7 +22,7 @@ type Config struct {
 	// Query parameters
 	Units             string  // "mph" or "kph"
 	Group             string  // e.g. "1h", "4h"
-	Source            string  // "radar_objects" or "radar_data_transits"
+	Source            string  // "radar_objects", "radar_data", or "radar_data_transits"
 	ModelVersion      string  // e.g. "hourly-cron"
 	FirmwareVersion   string  // optional; displayed in hardware table when non-empty
 	MinSpeed          float64 // display units
@@ -39,8 +39,10 @@ type Config struct {
 	CompareSource string
 
 	// Radar calibration
-	CosineAngle        float64 // degrees; for primary period
-	CompareCosineAngle float64 // degrees; for comparison period (0 = same as primary)
+	CosineAngle                  float64 // degrees; for primary period
+	CompareCosineAngle           float64 // degrees; for comparison period
+	CosineCorrectionLabel        string  // display text when multiple primary-period angles apply
+	CompareCosineCorrectionLabel string  // display text when multiple comparison-period angles apply
 
 	// Site map (embedded SVG bytes, rendered as figure if IncludeMap is true)
 	IncludeMap bool

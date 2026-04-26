@@ -127,6 +127,27 @@ func TestRenderTeX_ConditionalHistogram_Present(t *testing.T) {
 	}
 }
 
+func TestRenderTeX_MultipleCosineCorrectionLabel(t *testing.T) {
+	data := minimalTemplateData()
+	data.CosineCorrectionLabel = "multiple periods: 0.0°, 15.0°"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	if !strings.Contains(s, "Cosine correction") {
+		t.Fatal("expected cosine correction label row")
+	}
+	if !strings.Contains(s, "multiple periods: 0.0°, 15.0°") {
+		t.Fatalf("expected multiple-period cosine label, got:\n%s", s)
+	}
+	if strings.Contains(s, "Cosine angle:") {
+		t.Fatal("single-angle cosine row should be absent when label is set")
+	}
+}
+
 func TestRenderTeX_ConditionalComparison(t *testing.T) {
 	data := minimalTemplateData()
 	data.CompareStartDate = ""

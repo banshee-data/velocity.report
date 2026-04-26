@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/db"
 )
 
 // TestGenerateReport_RequiresTools tests the Go PDF report pipeline.
@@ -179,6 +181,39 @@ func TestGenerateReport_InvalidCompareSourceReturns400(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "Invalid 'compare_source'") {
 		t.Fatalf("expected invalid compare source message, got: %s", w.Body.String())
+	}
+}
+
+func TestReportCosineMetadataForRange(t *testing.T) {
+	firstEnd := 100.0
+	periods := []db.SiteConfigPeriod{
+		{
+			EffectiveStartUnix: 0,
+			EffectiveEndUnix:   &firstEnd,
+			CosineErrorAngle:   5,
+		},
+		{
+			EffectiveStartUnix: 100,
+			CosineErrorAngle:   15,
+		},
+	}
+
+	single := reportCosineMetadataForRange(periods, 10, 90)
+	if single.angle != 5 || single.label != "" {
+		t.Fatalf("single-period metadata = %+v, want angle 5 and empty label", single)
+	}
+
+	multiple := reportCosineMetadataForRange(periods, 10, 110)
+	if multiple.angle != 0 {
+		t.Fatalf("multiple-period angle = %v, want 0", multiple.angle)
+	}
+	if multiple.label != "multiple periods: 5.0°, 15.0°" {
+		t.Fatalf("multiple-period label = %q", multiple.label)
+	}
+
+	none := reportCosineMetadataForRange(periods, -100, -10)
+	if none.angle != 0 || none.label != "" {
+		t.Fatalf("non-overlapping metadata = %+v, want zero value", none)
 	}
 }
 

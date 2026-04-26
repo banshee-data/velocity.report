@@ -63,6 +63,46 @@ func isValidReportSource(source string) bool {
 	}
 }
 
+type reportCosineMetadata struct {
+	angle float64
+	label string
+}
+
+func reportDateUnixRange(startDate, endDate, timezone string) (int64, int64, error) {
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid timezone %q: %w", timezone, err)
+	}
+	startTime, err := time.ParseInLocation("2006-01-02", startDate, loc)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid start date %q: %w", startDate, err)
+	}
+	endTime, err := time.ParseInLocation("2006-01-02", endDate, loc)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid end date %q: %w", endDate, err)
+	}
+	return startTime.Unix(), inclusiveLocalDateEnd(endTime).Unix(), nil
+}
+
+func reportCosineMetadataForRange(periods []db.SiteConfigPeriod, startUnix, endUnix int64) reportCosineMetadata {
+	angles := uniqueAnglesForRange(periods, float64(startUnix), float64(endUnix))
+	if len(angles) == 0 {
+		return reportCosineMetadata{}
+	}
+	if len(angles) == 1 {
+		return reportCosineMetadata{angle: angles[0]}
+	}
+	return reportCosineMetadata{label: fmt.Sprintf("multiple periods: %s", formatReportCosineAngles(angles))}
+}
+
+func formatReportCosineAngles(angles []float64) string {
+	parts := make([]string, 0, len(angles))
+	for _, angle := range angles {
+		parts = append(parts, fmt.Sprintf("%.1f°", angle))
+	}
+	return strings.Join(parts, ", ")
+}
+
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Content-Type", "application/json")
@@ -96,7 +136,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Load site data if site_id is provided
 	var site *db.Site
-	var cosineErrorAngle float64
+	var configPeriods []db.SiteConfigPeriod
 	if req.SiteID != nil {
 		var err error
 		site, err = s.db.GetSite(r.Context(), *req.SiteID)
@@ -106,14 +146,17 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Get the active SCD period to retrieve cosine_error_angle
-		activePeriod, err := s.db.GetActiveSiteConfigPeriod(*req.SiteID)
+		configPeriods, err = s.db.ListSiteConfigPeriods(req.SiteID)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site config period: %v. Please ensure site has an active configuration period.", err))
 			return
 		}
-		cosineErrorAngle = activePeriod.CosineErrorAngle
+		if len(configPeriods) == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, "Failed to load site config period: no configuration periods found. Please ensure site has a configuration period.")
+			return
+		}
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "site_id is required for report generation")
@@ -150,6 +193,31 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.HistBucketSize == 0 {
 		req.HistBucketSize = 5.0
+	}
+
+	startUnix, endUnix, err := reportDateUnixRange(req.StartDate, req.EndDate, req.Timezone)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid report date range: %v", err))
+		return
+	}
+	primaryCosine := reportCosineMetadataForRange(configPeriods, startUnix, endUnix)
+	cosineErrorAngle := primaryCosine.angle
+	cosineCorrectionLabel := primaryCosine.label
+
+	compareCosineCorrectionLabel := ""
+	if req.CompareStart != "" {
+		compareStartUnix, compareEndUnix, err := reportDateUnixRange(req.CompareStart, req.CompareEnd, req.Timezone)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid comparison date range: %v", err))
+			return
+		}
+		compareCosine := reportCosineMetadataForRange(configPeriods, compareStartUnix, compareEndUnix)
+		if req.CompareCosineAngle == 0 {
+			req.CompareCosineAngle = compareCosine.angle
+			compareCosineCorrectionLabel = compareCosine.label
+		}
 	}
 
 	// Use site data if available, otherwise use request data or defaults
@@ -194,6 +262,8 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		siteDescription,
 		speedLimitNote,
 	)
+	cfg.CosineCorrectionLabel = cosineCorrectionLabel
+	cfg.CompareCosineCorrectionLabel = compareCosineCorrectionLabel
 
 	s.generateReportGo(w, r, req, cfg)
 }

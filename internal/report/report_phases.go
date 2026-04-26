@@ -298,6 +298,8 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 	if compareCosineAngle != 0 {
 		compareCosineFactor = 1.0 / math.Cos(compareCosineAngle*math.Pi/180.0)
 	}
+	cosineCorrectionLabel := tex.EscapeTeX(cfg.CosineCorrectionLabel)
+	compareCosineCorrectionLabel := tex.EscapeTeX(cfg.CompareCosineCorrectionLabel)
 
 	tsPoints := convertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc)
 	td := tex.TemplateData{
@@ -327,15 +329,17 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 
 		HistogramTableTeX: charts.histogramTableTeX,
 
-		Source:              tex.EscapeTeX(cfg.Source),
-		Group:               tex.EscapeTeX(cfg.Group),
-		MinSpeed:            cfg.MinSpeed,
-		CosineAngle:         cfg.CosineAngle,
-		CosineFactor:        cosineFactor,
-		CompareCosineAngle:  compareCosineAngle,
-		CompareCosineFactor: compareCosineFactor,
-		ModelVersion:        tex.EscapeTeX(cfg.ModelVersion),
-		FirmwareVersion:     tex.EscapeTeX(cfg.FirmwareVersion),
+		Source:                       tex.EscapeTeX(cfg.Source),
+		Group:                        tex.EscapeTeX(cfg.Group),
+		MinSpeed:                     cfg.MinSpeed,
+		CosineAngle:                  cfg.CosineAngle,
+		CosineFactor:                 cosineFactor,
+		CompareCosineAngle:           compareCosineAngle,
+		CompareCosineFactor:          compareCosineFactor,
+		CosineCorrectionLabel:        cosineCorrectionLabel,
+		CompareCosineCorrectionLabel: compareCosineCorrectionLabel,
+		ModelVersion:                 tex.EscapeTeX(cfg.ModelVersion),
+		FirmwareVersion:              tex.EscapeTeX(cfg.FirmwareVersion),
 
 		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
 		PaperOption:    paperTexOption(plan.paper),

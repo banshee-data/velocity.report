@@ -76,8 +76,9 @@ type TemplateData struct {
 	DeltaMaxPct string
 
 	// Comparison per-period cosine correction.
-	CompareCosineAngle  float64
-	CompareCosineFactor float64
+	CompareCosineAngle           float64
+	CompareCosineFactor          float64
+	CompareCosineCorrectionLabel string
 
 	// Compare timeseries chart path (comparison mode, "" if absent).
 	CompareTimeSeriesChart string
@@ -101,14 +102,15 @@ type TemplateData struct {
 	CombinedCountFormatted     string
 
 	// Radar/survey parameters
-	Source          string
-	CompareSource   string // t2 data source (comparison mode only)
-	Group           string
-	MinSpeed        float64
-	CosineAngle     float64
-	CosineFactor    float64
-	ModelVersion    string
-	FirmwareVersion string // optional; omitted from hardware table when empty
+	Source                string
+	CompareSource         string // t2 data source (comparison mode only)
+	Group                 string
+	MinSpeed              float64
+	CosineAngle           float64
+	CosineFactor          float64
+	CosineCorrectionLabel string
+	ModelVersion          string
+	FirmwareVersion       string // optional; omitted from hardware table when empty
 
 	// Speed limit note (e.g. "Posted speed limit: 25 mph")
 	SpeedLimitNote string
