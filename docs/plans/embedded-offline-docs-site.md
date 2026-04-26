@@ -57,18 +57,18 @@ The legitimate concern with two Eleventy projects is config and theme drift. We 
    ┌──────────────────────────────────────────────────────────────┐
    │  velocity-report (single Go binary, systemd service)         │
    │                                                              │
-   │   ┌────────────────────┐  ┌─────────────────────────────┐   │
-   │   │ HTTP :8080         │  │ gRPC :50051                 │   │
-   │   │ /api/* + Svelte    │  │ FrameBundle stream          │   │
-   │   │ (existing)         │  │ (existing)                  │   │
-   │   └────────────────────┘  └─────────────────────────────┘   │
+   │   ┌────────────────────┐  ┌─────────────────────────────┐    │
+   │   │ HTTP :8080         │  │ gRPC :50051                 │    │
+   │   │ /api/* + Svelte    │  │ FrameBundle stream          │    │
+   │   │ (existing)         │  │ (existing)                  │    │
+   │   └────────────────────┘  └─────────────────────────────┘    │
    │                                                              │
-   │   ┌──────────────────────────────────────────────────────┐  │
-   │   │ HTTP :8083  (NEW)                                    │  │
-   │   │ Static file server over embed.FS                     │  │
-   │   │ Root = docs_html/_site/  (built by Eleventy)         │  │
-   │   │ Read-only; no auth (LAN-only by deployment posture)  │  │
-   │   └──────────────────────────────────────────────────────┘  │
+   │   ┌──────────────────────────────────────────────────────┐   │
+   │   │ HTTP :8083  (NEW)                                    │   │
+   │   │ Static file server over embed.FS                     │   │
+   │   │ Root = docs_html/_site/  (built by Eleventy)         │   │
+   │   │ Read-only; no auth (LAN-only by deployment posture)  │   │
+   │   └──────────────────────────────────────────────────────┘   │
    │             ▲                                                │
    │             │ go:embed all:docs_html/_site                   │
    │             │                                                │
