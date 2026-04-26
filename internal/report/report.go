@@ -207,6 +207,45 @@ func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits str
 	return pts
 }
 
+// padTimeSeriesGaps fills NaN placeholder points for every missing bucket
+// between the first and last observed data point. This ensures that visual
+// gaps on the chart are proportional to the actual missing time rather than
+// all data points being evenly spaced.
+// groupSeconds must be > 0; if pts is empty or has only one point it is
+// returned unchanged.
+func padTimeSeriesGaps(pts []chart.TimeSeriesPoint, groupSeconds int64) []chart.TimeSeriesPoint {
+	if len(pts) < 2 || groupSeconds <= 0 {
+		return pts
+	}
+	loc := pts[0].StartTime.Location()
+
+	// Index existing points by Unix timestamp.
+	existing := make(map[int64]chart.TimeSeriesPoint, len(pts))
+	for _, p := range pts {
+		existing[p.StartTime.Unix()] = p
+	}
+
+	first := pts[0].StartTime.Unix()
+	last := pts[len(pts)-1].StartTime.Unix()
+
+	var out []chart.TimeSeriesPoint
+	for ts := first; ts <= last; ts += groupSeconds {
+		if p, ok := existing[ts]; ok {
+			out = append(out, p)
+		} else {
+			out = append(out, chart.TimeSeriesPoint{
+				StartTime: time.Unix(ts, 0).In(loc),
+				P50Speed:  math.NaN(),
+				P85Speed:  math.NaN(),
+				P98Speed:  math.NaN(),
+				MaxSpeed:  math.NaN(),
+				Count:     0,
+			})
+		}
+	}
+	return out
+}
+
 // mergeRollupRows merges two slices of rollup rows and sorts them by StartTime.
 func mergeRollupRows(a, b []db.RadarObjectsRollupRow) []db.RadarObjectsRollupRow {
 	merged := make([]db.RadarObjectsRollupRow, 0, len(a)+len(b))
