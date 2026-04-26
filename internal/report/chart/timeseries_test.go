@@ -91,6 +91,47 @@ func TestApplyCountMask(t *testing.T) {
 	}
 }
 
+func TestExpandTimeSeriesGaps(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := []TimeSeriesPoint{
+		{StartTime: start, Count: 10, P50Speed: 20, P85Speed: 25, P98Speed: 30, MaxSpeed: 35},
+		{StartTime: start.Add(3 * time.Hour), Count: 12, P50Speed: 21, P85Speed: 26, P98Speed: 31, MaxSpeed: 36},
+	}
+
+	got := ExpandTimeSeriesGaps(pts, int64(time.Hour/time.Second))
+	if len(got) != 4 {
+		t.Fatalf("expanded len = %d, want 4", len(got))
+	}
+	if got[0].Count != 10 || got[3].Count != 12 {
+		t.Fatalf("existing points not preserved: %+v", got)
+	}
+	for i := 1; i <= 2; i++ {
+		if got[i].Count != 0 || !math.IsNaN(got[i].P50Speed) {
+			t.Fatalf("expanded gap point %d = %+v, want zero-count NaN placeholder", i, got[i])
+		}
+	}
+}
+
+func TestExpandTimeSeriesGapsInRange(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := []TimeSeriesPoint{
+		{StartTime: start.Add(2 * time.Hour), Count: 10, P50Speed: 20, P85Speed: 25, P98Speed: 30, MaxSpeed: 35},
+	}
+
+	got := ExpandTimeSeriesGapsInRange(pts, int64(time.Hour/time.Second), start, start.Add(4*time.Hour))
+	if len(got) != 5 {
+		t.Fatalf("expanded len = %d, want 5", len(got))
+	}
+	if got[2].Count != 10 {
+		t.Fatalf("observed point not preserved at range-aligned index 2: %+v", got)
+	}
+	for _, i := range []int{0, 1, 3, 4} {
+		if got[i].Count != 0 || !math.IsNaN(got[i].P50Speed) {
+			t.Fatalf("expanded range point %d = %+v, want zero-count NaN placeholder", i, got[i])
+		}
+	}
+}
+
 func TestRenderTimeSeries_Structure(t *testing.T) {
 	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
 	data := TimeSeriesData{

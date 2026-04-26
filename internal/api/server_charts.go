@@ -56,6 +56,14 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pts := convertToTimeSeriesPoints(result.Metrics, displayUnits, loc)
+	if parseExpandedChart(q) {
+		pts = chart.ExpandTimeSeriesGapsInRange(
+			pts,
+			groupSeconds,
+			time.Unix(startUnix, 0).In(loc),
+			time.Unix(endUnix, 0).In(loc),
+		)
+	}
 	p98Ref, err := s.resolveTimeSeriesP98Reference(q, siteID, startUnix, endUnix, minSpeedMPS, displayUnits)
 	if err != nil {
 		log.Printf("Chart timeseries summary DB error: %v", err)
@@ -238,6 +246,15 @@ func writeSVG(w http.ResponseWriter, svg []byte) {
 
 func parsePaperSize(q url.Values) chart.PaperSize {
 	return chart.NormalisePaperSize(q.Get("paper_size"))
+}
+
+func parseExpandedChart(q url.Values) bool {
+	raw := q.Get("expanded_chart")
+	if raw == "" {
+		raw = q.Get("expanded")
+	}
+	expanded, err := strconv.ParseBool(raw)
+	return err == nil && expanded
 }
 
 func (s *Server) resolveTimeSeriesP98Reference(q url.Values, siteID int, startUnix, endUnix int64, minSpeedMPS float64, displayUnits string) (float64, error) {

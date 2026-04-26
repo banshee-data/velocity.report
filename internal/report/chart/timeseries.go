@@ -71,6 +71,50 @@ func ApplyCountMask(pts []TimeSeriesPoint, threshold int) []TimeSeriesPoint {
 	return out
 }
 
+// ExpandTimeSeriesGaps fills NaN placeholder points for every missing bucket
+// between the first and last observed data point. This is useful when the
+// chart should preserve linear timestamp spacing instead of visually
+// compressing coverage gaps.
+// groupSeconds must be > 0; if pts is empty or has only one point it is
+// returned unchanged.
+func ExpandTimeSeriesGaps(pts []TimeSeriesPoint, groupSeconds int64) []TimeSeriesPoint {
+	if len(pts) < 2 || groupSeconds <= 0 {
+		return pts
+	}
+	return ExpandTimeSeriesGapsInRange(pts, groupSeconds, pts[0].StartTime, pts[len(pts)-1].StartTime)
+}
+
+// ExpandTimeSeriesGapsInRange fills NaN placeholder points for every missing
+// bucket across an explicit time range. This preserves the caller's full
+// requested range even when observations start later or end earlier.
+func ExpandTimeSeriesGapsInRange(pts []TimeSeriesPoint, groupSeconds int64, startTime, endTime time.Time) []TimeSeriesPoint {
+	if len(pts) == 0 || groupSeconds <= 0 || !endTime.After(startTime) {
+		return pts
+	}
+	loc := startTime.Location()
+	existing := make(map[int64]TimeSeriesPoint, len(pts))
+	for _, p := range pts {
+		existing[p.StartTime.Unix()] = p
+	}
+
+	var out []TimeSeriesPoint
+	for ts := startTime.Unix(); ts <= endTime.Unix(); ts += groupSeconds {
+		if p, ok := existing[ts]; ok {
+			out = append(out, p)
+			continue
+		}
+		out = append(out, TimeSeriesPoint{
+			StartTime: time.Unix(ts, 0).In(loc),
+			P50Speed:  math.NaN(),
+			P85Speed:  math.NaN(),
+			P98Speed:  math.NaN(),
+			MaxSpeed:  math.NaN(),
+			Count:     0,
+		})
+	}
+	return out
+}
+
 // XTicks generates duration-aware tick labels for the time-series X axis.
 // Tick cadence is chosen from the total span so the chart shows 6-10 labels
 // regardless of range length (per DESIGN.md §4.1).

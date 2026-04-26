@@ -187,7 +187,10 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 
 	charts := chartSet{zipFiles: map[string][]byte{}}
 
-	tsPoints := padTimeSeriesGaps(convertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc), plan.groupSeconds)
+	tsPoints := convertToTimeSeriesPoints(data.tsResult.Metrics, cfg.Units, plan.loc)
+	if cfg.ExpandedChart {
+		tsPoints = chart.ExpandTimeSeriesGapsInRange(tsPoints, plan.groupSeconds, plan.startTime, plan.endTime)
+	}
 	tsData := chart.TimeSeriesData{
 		Points:       tsPoints,
 		Units:        cfg.Units,
@@ -204,7 +207,10 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 	}
 
 	if data.compareResult != nil {
-		ctsPoints := padTimeSeriesGaps(convertToTimeSeriesPoints(data.compareResult.tsRows, cfg.Units, plan.loc), plan.groupSeconds)
+		ctsPoints := convertToTimeSeriesPoints(data.compareResult.tsRows, cfg.Units, plan.loc)
+		if cfg.ExpandedChart {
+			ctsPoints = chart.ExpandTimeSeriesGapsInRange(ctsPoints, plan.groupSeconds, data.compareResult.startTime, data.compareResult.endTime)
+		}
 		ctsData := chart.TimeSeriesData{
 			Points:       ctsPoints,
 			Units:        cfg.Units,

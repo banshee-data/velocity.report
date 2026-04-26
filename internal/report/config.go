@@ -50,6 +50,11 @@ type Config struct {
 	// ("a4" or "letter"). Empty defaults to "a4".
 	PaperSize string
 
+	// ExpandedChart preserves linear timestamp spacing in time-series charts by
+	// inserting placeholders for every missing time bucket. Empty/default false
+	// keeps sparse gaps collapsed for consolidated charts.
+	ExpandedChart bool
+
 	// Output directory (absolute path)
 	OutputDir string
 }

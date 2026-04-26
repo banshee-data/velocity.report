@@ -37,6 +37,10 @@ type ReportRequest struct {
 	// Paper size for PDF output: "a4" (default) or "letter"
 	PaperSize string `json:"paper_size"`
 
+	// ExpandedChart preserves linear timestamp spacing in time-series charts.
+	// Default false collapses sparse coverage gaps for consolidated charts.
+	ExpandedChart bool `json:"expanded_chart"`
+
 	// CompareCosineAngle overrides the cosine error angle for the comparison
 	// period. Zero means use the same angle as the primary period.
 	CompareCosineAngle float64 `json:"compare_cosine_angle"`
@@ -296,6 +300,7 @@ func buildReportConfig(
 		CosineAngle:        cosineErrorAngle,
 		CompareCosineAngle: req.CompareCosineAngle,
 		PaperSize:          req.PaperSize,
+		ExpandedChart:      req.ExpandedChart,
 	}
 
 	if site != nil {

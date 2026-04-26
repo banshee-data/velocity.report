@@ -165,6 +165,7 @@ func TestBuildReportConfig_FieldMapping(t *testing.T) {
 		HistBucketSize:     10.0,
 		HistMax:            120.0,
 		PaperSize:          "letter",
+		ExpandedChart:      true,
 		CompareCosineAngle: 7.5,
 	}
 
@@ -184,6 +185,9 @@ func TestBuildReportConfig_FieldMapping(t *testing.T) {
 	}
 	if cfg.PaperSize != "letter" {
 		t.Errorf("PaperSize: got %q, want %q", cfg.PaperSize, "letter")
+	}
+	if !cfg.ExpandedChart {
+		t.Errorf("ExpandedChart: got false, want true")
 	}
 	if cfg.Units != "kph" {
 		t.Errorf("Units: got %q, want %q", cfg.Units, "kph")
