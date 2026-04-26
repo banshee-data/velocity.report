@@ -279,6 +279,68 @@ func TestGenerate_WithComparison(t *testing.T) {
 	}
 }
 
+func TestGenerate_WithComparisonWithoutHistogramDoesNotReferenceComparisonPDF(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	outDir := t.TempDir()
+	m := &mockDB{}
+
+	cfg := Config{
+		SiteID:   1,
+		Location: "Compare Street",
+		Surveyor: "J. Engineer",
+		Contact:  "test@example.com",
+
+		StartDate: "2025-06-01",
+		EndDate:   "2025-06-02",
+		Timezone:  "UTC",
+
+		Units:     "mph",
+		Group:     "1h",
+		Source:    "radar_objects",
+		MinSpeed:  5.0,
+		Histogram: false,
+
+		CompareStart: "2025-05-01",
+		CompareEnd:   "2025-05-02",
+
+		OutputDir: outDir,
+	}
+
+	result, err := Generate(context.Background(), m, cfg)
+	if err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+
+	zipData, err := os.ReadFile(result.ZIPPath)
+	if err != nil {
+		t.Fatalf("read ZIP: %v", err)
+	}
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("open ZIP: %v", err)
+	}
+	zipNames := make(map[string]bool)
+	for _, f := range r.File {
+		zipNames[f.Name] = true
+	}
+	if zipNames["comparison.svg"] {
+		t.Fatalf("comparison.svg should not be rendered when histograms are disabled; has: %v", zipNames)
+	}
+	if !zipNames["timeseries_compare.svg"] {
+		t.Fatalf("ZIP missing timeseries_compare.svg; has: %v", zipNames)
+	}
+
+	reportTeX := readZipEntry(t, result.ZIPPath, "report.tex")
+	if strings.Contains(reportTeX, "comparison.pdf") {
+		t.Fatalf("report.tex should not reference comparison.pdf when it was not rendered:\n%s", reportTeX)
+	}
+	if strings.Contains(reportTeX, "Speed Distribution: t1 vs t2") {
+		t.Fatalf("report.tex should not include the comparison histogram caption when histograms are disabled:\n%s", reportTeX)
+	}
+}
+
 func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	binDir := createMockBinaries(t)
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))

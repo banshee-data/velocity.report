@@ -183,6 +183,7 @@ type chartSet struct {
 	zipFiles                 map[string][]byte
 	histogramTableTeX        string
 	mapPDFName               string
+	comparisonPDFName        string
 	compareTimeSeriesPDFName string
 }
 
@@ -278,6 +279,7 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 		if err := (chartArtifact{name: "comparison", svg: compSVG, workDir: work.dir, zipFiles: charts.zipFiles}).materialise(ctx); err != nil {
 			return chartSet{}, err
 		}
+		charts.comparisonPDFName = "comparison.pdf"
 	}
 
 	return charts, nil
@@ -346,7 +348,7 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 	}
 
 	if data.compareResult != nil {
-		td.CompareChart = "comparison.pdf"
+		td.CompareChart = charts.comparisonPDFName
 		td.CompareSource = tex.EscapeTeX(cfg.CompareSource)
 		td.CompareStartDate = data.compareResult.startDate
 		td.CompareEndDate = data.compareResult.endDate
