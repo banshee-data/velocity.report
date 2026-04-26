@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -100,6 +101,84 @@ func TestGenerateReport_InvalidTimezoneReturns400(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for invalid timezone, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGenerateReport_InvalidUnitsReturns400(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	reqBody := ReportRequest{
+		SiteID:    &site.ID,
+		StartDate: "2025-12-03",
+		EndDate:   "2025-12-03",
+		Timezone:  "UTC",
+		Units:     "knots",
+		Group:     "1h",
+		Source:    "radar_objects",
+	}
+
+	w := postGenerateReportRequest(t, server, reqBody)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid units, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Invalid 'units'") {
+		t.Fatalf("expected invalid units message, got: %s", w.Body.String())
+	}
+}
+
+func TestGenerateReport_InvalidSourceReturns400(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	reqBody := ReportRequest{
+		SiteID:    &site.ID,
+		StartDate: "2025-12-03",
+		EndDate:   "2025-12-03",
+		Timezone:  "UTC",
+		Units:     "mph",
+		Group:     "1h",
+		Source:    "bad_source",
+	}
+
+	w := postGenerateReportRequest(t, server, reqBody)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid source, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Invalid 'source'") {
+		t.Fatalf("expected invalid source message, got: %s", w.Body.String())
+	}
+}
+
+func TestGenerateReport_InvalidCompareSourceReturns400(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	reqBody := ReportRequest{
+		SiteID:        &site.ID,
+		StartDate:     "2025-12-03",
+		EndDate:       "2025-12-03",
+		CompareStart:  "2025-12-02",
+		CompareEnd:    "2025-12-02",
+		Timezone:      "UTC",
+		Units:         "mph",
+		Group:         "1h",
+		Source:        "radar_objects",
+		CompareSource: "bad_compare_source",
+	}
+
+	w := postGenerateReportRequest(t, server, reqBody)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid compare source, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Invalid 'compare_source'") {
+		t.Fatalf("expected invalid compare source message, got: %s", w.Body.String())
 	}
 }
 
@@ -275,6 +354,21 @@ func isGoPipelineError(body string) bool {
 		}
 	}
 	return false
+}
+
+func postGenerateReportRequest(t *testing.T, server *Server, reqBody ReportRequest) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/generate_report", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.generateReport(w, req)
+	return w
 }
 
 func TestRelativeReportPaths_Valid(t *testing.T) {

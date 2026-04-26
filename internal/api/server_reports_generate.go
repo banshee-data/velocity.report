@@ -14,6 +14,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/report"
 	"github.com/banshee-data/velocity.report/internal/security"
+	"github.com/banshee-data/velocity.report/internal/units"
 )
 
 // ReportRequest represents the JSON payload for report generation
@@ -26,7 +27,7 @@ type ReportRequest struct {
 	Timezone          string  `json:"timezone"`           // e.g., "US/Pacific"
 	Units             string  `json:"units"`              // "mph" or "kph"
 	Group             string  `json:"group"`              // e.g., "1h", "4h"
-	Source            string  `json:"source"`             // "radar_objects" or "radar_data_transits"
+	Source            string  `json:"source"`             // "radar_objects", "radar_data", or "radar_data_transits"
 	CompareSource     string  `json:"compare_source"`     // Optional: source for comparison period (defaults to Source)
 	MinSpeed          float64 `json:"min_speed"`          // minimum speed filter
 	BoundaryThreshold int     `json:"boundary_threshold"` // filter boundary hours with < N samples (default: 5)
@@ -51,6 +52,15 @@ type ReportRequest struct {
 	Contact         string `json:"contact"`          // contact info
 	SpeedLimit      int    `json:"speed_limit"`      // posted speed limit
 	SiteDescription string `json:"site_description"` // site description
+}
+
+func isValidReportSource(source string) bool {
+	switch source {
+	case "radar_objects", "radar_data", "radar_data_transits":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +132,21 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Source == "" {
 		req.Source = "radar_data_transits"
+	}
+	if !units.IsValid(req.Units) {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'units'. Must be one of: %s", units.GetValidUnitsString()))
+		return
+	}
+	if !isValidReportSource(req.Source) {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
+	}
+	if req.CompareSource != "" && !isValidReportSource(req.CompareSource) {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'compare_source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
 	}
 	if req.HistBucketSize == 0 {
 		req.HistBucketSize = 5.0
