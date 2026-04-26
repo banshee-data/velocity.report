@@ -44,8 +44,8 @@
 \definecolor{vrP98}{HTML}{f25f5c}
 \definecolor{vrMax}{HTML}{2d1e2f}
 
-% Caption styling
-\captionsetup{labelfont=bf,textfont=bf}
+% Caption styling — monospace, small, no bold (matches hand-built table captions)
+\captionsetup{font=small,labelfont=tt,textfont=tt}
 
 % Section title styling
 \titleformat{\section}{\bfseries\Large}{}{0em}{}
@@ -56,7 +56,6 @@
 \fancyhf{}
 \fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}
 \fancyhead[R]{\textit{Test Location}}
-\fancyfoot[L]{\small 2024-01-01 \textemdash{} 2024-01-31 vs 2024-02-01 \textemdash{} 2024-02-28}
 \fancyfoot[R]{\small Page \thepage}
 \renewcommand{\headrulewidth}{0.8pt}
 \renewcommand{\footrulewidth}{0.8pt}
@@ -72,7 +71,6 @@
   \begin{center}
   {\huge\bfseries Test Location\par}
   \vspace{0.1cm}
-  {\normalsize 2024-01-01 \textemdash{} 2024-01-31 vs 2024-02-01 \textemdash{} 2024-02-28\par}
   \end{center}
   \vspace{6pt}
   \end{@twocolumnfalse}
@@ -115,7 +113,7 @@ Count & 1,000 & 900 & \\
 \end{center}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
+\noindent\makebox[\linewidth]{{\ttfamily\small Table 1: Key Metrics}}
 }
 \par
 
@@ -209,7 +207,7 @@ Source (t2): & \texttt{radar_objects} \\
 \end{center}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Detailed Data}}
+\noindent\makebox[\linewidth]{{\ttfamily\small Detailed Data}}
 }
 
 

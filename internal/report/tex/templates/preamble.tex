@@ -40,8 +40,8 @@
 \definecolor{vrP98}{HTML}{f25f5c}
 \definecolor{vrMax}{HTML}{2d1e2f}
 
-% Caption styling
-\captionsetup{labelfont=bf,textfont=bf}
+% Caption styling — monospace, small, no bold (matches hand-built table captions)
+\captionsetup{font=small,labelfont=tt,textfont=tt}
 
 % Section title styling
 \titleformat{\section}{\bfseries\Large}{}{0em}{}
@@ -52,7 +52,6 @@
 \fancyhf{}
 \fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}
 \fancyhead[R]{\textit{<<.Location>>}}
-\fancyfoot[L]{\small <<template "display_period_range" .>>}
 \fancyfoot[R]{\small Page \thepage}
 \renewcommand{\headrulewidth}{0.8pt}
 \renewcommand{\footrulewidth}{0.8pt}

@@ -193,8 +193,9 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	if !strings.Contains(s, `Start time (t2): & \texttt{2024-02-01}`) {
 		t.Error("comparison report should render the comparison survey-parameters module")
 	}
-	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 \textemdash{} 2024-01-31 vs 2024-02-01 \textemdash{} 2024-02-28}`) {
-		t.Error("comparison report should use the combined footer period range")
+	// Footer no longer shows dates; verify the date range is not in the footer.
+	if strings.Contains(s, `\fancyfoot[L]`) {
+		t.Error("comparison report footer should not contain a left-side element after date removal")
 	}
 }
 
@@ -219,8 +220,9 @@ func TestRenderTeX_SingleReportUsesSinglePeriodModule(t *testing.T) {
 	if strings.Contains(s, `Start time (t2):`) {
 		t.Error("single report unexpectedly rendered the comparison survey-parameters module")
 	}
-	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 \textemdash{} 2024-01-31}`) {
-		t.Error("single report should keep the primary-period footer range")
+	// Footer no longer shows dates; verify the date range is not in the footer.
+	if strings.Contains(s, `\fancyfoot[L]`) {
+		t.Error("single report footer should not contain a left-side element after date removal")
 	}
 }
 

@@ -237,9 +237,9 @@ func TestBuildDualHistogramTableTeX(t *testing.T) {
 	if !strings.Contains(result, "Delta") {
 		t.Error("expected Delta column header")
 	}
-	// Bucket 5{-}10 row should be present.
-	if !strings.Contains(result, "5{-}10") {
-		t.Error("expected bucket range 5{-}10 in output")
+	// Bucket 5{-}10 row should be present with phantom padding for dash alignment.
+	if !strings.Contains(result, `\phantom{0}5{-}10`) {
+		t.Error("expected phantom-padded bucket range \\phantom{0}5{-}10 in output")
 	}
 }
 

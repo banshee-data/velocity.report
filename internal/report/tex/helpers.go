@@ -139,7 +139,8 @@ func BuildSingleKeyMetricsTableTeX(p50, p85, p98, maxSpeed, units string) string
 		b.WriteString(`\end{tabular}` + "\n")
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
-		b.WriteString(`\par` + "\n")
+		b.WriteString(`\par\vspace{2pt}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 1: Key Metrics}}` + "\n")
 	})
 	return b.String()
 }
@@ -172,7 +173,7 @@ func BuildComparisonKeyMetricsTableTeX(
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 1: Key Metrics}}` + "\n")
 	})
 	b.WriteString(`\par` + "\n")
 	return b.String()
@@ -205,7 +206,7 @@ func BuildStatTableTeX(rows []StatRow, caption string) string {
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small ` + EscapeTeX(caption) + `}}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small ` + EscapeTeX(caption) + `}}` + "\n")
 	})
 	return b.String()
 }
@@ -259,8 +260,13 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 			aboveP += primary[k]
 			aboveC += compare[k]
 		default:
+			loStr := fmt.Sprintf("%.0f", k)
+			if len(loStr) < 2 {
+				// Pad single-digit bucket starts so dashes align with two-digit rows.
+				loStr = `\phantom{0}` + loStr
+			}
 			rows = append(rows, dualRow{
-				label: fmt.Sprintf("%.0f{-}%.0f", k, k+bucketSz),
+				label: loStr + `{-}` + fmt.Sprintf("%.0f", k+bucketSz),
 				p:     primary[k],
 				c:     compare[k],
 			})
@@ -323,7 +329,7 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{\textbf{\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
 	})
 	return b.String()
 }
@@ -382,8 +388,13 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 			case hasUpperCap && k >= maxBucket:
 				aboveCount += count
 			default:
+				loStr := fmt.Sprintf("%.0f", k)
+				if len(loStr) < 2 {
+					// Pad single-digit bucket starts so dashes align with two-digit rows.
+					loStr = `\phantom{0}` + loStr
+				}
 				rows = append(rows, displayRow{
-					label: fmt.Sprintf(`%.0f\textemdash{}%.0f`, k, k+bucketSz),
+					label: loStr + `\textemdash{}` + fmt.Sprintf("%.0f", k+bucketSz),
 					count: count,
 				})
 			}
@@ -410,6 +421,9 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`\end{tabular}` + "\n")
 		b.WriteString(`\end{center}` + "\n")
-	}, nil)
+	}, func() {
+		b.WriteString(`\par\vspace{2pt}` + "\n")
+		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 2: Speed Distribution (` + EscapeTeX(units) + `)}}` + "\n")
+	})
 	return b.String()
 }
