@@ -341,6 +341,48 @@ func TestRenderTimeSeries_Empty(t *testing.T) {
 	}
 }
 
+// TestXTicks_NoOverlapCrossUTCMidnight verifies that two points in the same
+// local calendar half-day but in different UTC 12h buckets (which happens in
+// non-UTC timezones) are not emitted as separate ticks at the 12h cadence.
+func TestXTicks_NoOverlapCrossUTCMidnight(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Jan 16 12:00 PST = Jan 16 20:00 UTC → UTC-bucket N
+	// Jan 16 16:00 PST = Jan 17 00:00 UTC → UTC-bucket N+1 (different bucket, same local half-day)
+	// The local-time bucketing fix must emit only ONE tick for Jan 16 (the noon half).
+	pts := []TimeSeriesPoint{
+		{StartTime: time.Date(2026, 1, 16, 12, 0, 0, 0, loc), P50Speed: 30, P85Speed: 38, P98Speed: 44, MaxSpeed: 54, Count: 158},
+		{StartTime: time.Date(2026, 1, 16, 13, 0, 0, 0, loc), P50Speed: 32, P85Speed: 39, P98Speed: 44, MaxSpeed: 46, Count: 180},
+		{StartTime: time.Date(2026, 1, 16, 14, 0, 0, 0, loc), P50Speed: 30, P85Speed: 38, P98Speed: 44, MaxSpeed: 50, Count: 206},
+		{StartTime: time.Date(2026, 1, 16, 15, 0, 0, 0, loc), P50Speed: 31, P85Speed: 39, P98Speed: 45, MaxSpeed: 53, Count: 187},
+		{StartTime: time.Date(2026, 1, 16, 16, 0, 0, 0, loc), P50Speed: 32, P85Speed: 38, P98Speed: 44, MaxSpeed: 44, Count: 121},
+		{StartTime: time.Date(2026, 1, 19, 11, 0, 0, 0, loc), P50Speed: 35, P85Speed: 40, P98Speed: 44, MaxSpeed: 44, Count: 113},
+	}
+
+	ticks := XTicks(pts)
+	// Verify no two consecutive ticks share the same "Jan 16" label.
+	var prev string
+	for _, tick := range ticks {
+		if tick.Label == prev {
+			t.Errorf("duplicate consecutive tick label %q — overlapping labels not fixed", tick.Label)
+		}
+		prev = tick.Label
+	}
+	// There should be at most 2 Jan 16 ticks (morning and afternoon half-days),
+	// but 12:00 and 16:00 both fall in the afternoon half so only one is emitted.
+	jan16Count := 0
+	for _, tick := range ticks {
+		if strings.Contains(tick.Label, "Jan 16") {
+			jan16Count++
+		}
+	}
+	if jan16Count > 1 {
+		t.Errorf("expected at most 1 Jan 16 tick (12:00 and 16:00 are same local half-day), got %d: %v", jan16Count, ticks)
+	}
+}
+
 func TestRenderTimeSeries_ReferenceLineAndHoverTooltips(t *testing.T) {
 	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
 	data := TimeSeriesData{

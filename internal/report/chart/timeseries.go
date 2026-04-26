@@ -160,21 +160,33 @@ type tickCadence struct {
 func pickTickCadence(span time.Duration) tickCadence {
 	switch {
 	case span <= 12*time.Hour:
-		// 2h cadence → ≤6 ticks over 12h.
+		// 2h cadence → ≤6 ticks over 12h. Bucket by local calendar hour so UTC
+		// midnight crossings don't create spurious extra ticks in non-UTC zones.
 		return tickCadence{
-			bucket: func(t time.Time) int64 { return t.Unix() / (2 * 60 * 60) },
+			bucket: func(t time.Time) int64 {
+				y, m, d := t.Date()
+				return int64(y)*100000 + int64(m)*10000 + int64(d)*100 + int64(t.Hour()/2)
+			},
 			format: func(t time.Time) string { return t.Format("15:04") },
 		}
 	case span <= 48*time.Hour:
-		// 6h cadence → ≤8 ticks over 48h. Single-line labels avoid overlap.
+		// 6h cadence → ≤8 ticks over 48h. Local-time buckets avoid UTC-day splits.
 		return tickCadence{
-			bucket: func(t time.Time) int64 { return t.Unix() / (6 * 60 * 60) },
+			bucket: func(t time.Time) int64 {
+				y, m, d := t.Date()
+				return int64(y)*100000 + int64(m)*10000 + int64(d)*100 + int64(t.Hour()/6)
+			},
 			format: func(t time.Time) string { return t.Format("Jan 02 15:04") },
 		}
 	case span <= 7*24*time.Hour:
-		// 12h cadence for 2-7 day ranges → ≤14 ticks at weekly max.
+		// 12h cadence for 2-7 day ranges → ≤14 ticks at weekly max. Local-time
+		// buckets prevent two ticks on the same calendar half-day (e.g. 12:00 and
+		// 16:00 in a non-UTC timezone crossing a UTC midnight boundary).
 		return tickCadence{
-			bucket: func(t time.Time) int64 { return t.Unix() / (12 * 60 * 60) },
+			bucket: func(t time.Time) int64 {
+				y, m, d := t.Date()
+				return int64(y)*100000 + int64(m)*10000 + int64(d)*100 + int64(t.Hour()/12)
+			},
 			format: func(t time.Time) string { return t.Format("Jan 02 15:04") },
 		}
 	case span <= 14*24*time.Hour:
@@ -230,10 +242,12 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	timeGaps := detectTimeGaps(data.Points)
 
 	// Decide whether x-axis labels need rotation based on time span.
+	// Also compute estLabelWidthPx for tick-density culling below.
 	rotateXLabels := false
+	var estLabelWidthPx float64
+	var span time.Duration
 	if len(data.Points) >= 2 {
-		span := data.Points[len(data.Points)-1].StartTime.Sub(data.Points[0].StartTime)
-		// Estimate label width based on the cadence format for this span.
+		span = data.Points[len(data.Points)-1].StartTime.Sub(data.Points[0].StartTime)
 		var labelChars float64
 		switch {
 		case span <= 12*time.Hour:
@@ -243,7 +257,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		default:
 			labelChars = 6 // "Jan 02"
 		}
-		estLabelWidthPx := labelChars * 0.7 * style.AxisTickFontPx
+		estLabelWidthPx = labelChars * 0.7 * style.AxisTickFontPx
 		tentativePlotW := (0.93 - 0.12) * wPx
 		previewTicks := XTicks(data.Points)
 		if len(previewTicks) > 1 {
@@ -488,8 +502,27 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.EndGroup()
 	}
 
-	// X-axis ticks.
+	// X-axis ticks — then cull any that would produce overlapping labels.
+	// XTicks emits one tick per cadence bucket, but sparse or non-UTC datasets
+	// can produce consecutive ticks only a few pixels apart (e.g. Jan 15 10:00
+	// and Jan 15 12:00 land in different 12h buckets when data starts mid-morning).
 	ticks := XTicks(data.Points)
+	if len(ticks) > 1 && estLabelWidthPx > 0 {
+		// For rotated labels (diagonal text going up-left), two adjacent labels
+		// at x1 and x2 overlap when (x2-x1) < label_len/√2. Use 0.8 as the
+		// √2 reciprocal with a small tolerance margin.
+		minGapPx := estLabelWidthPx
+		if rotateXLabels {
+			minGapPx = estLabelWidthPx * 0.8
+		}
+		kept := ticks[:1]
+		for i := 1; i < len(ticks); i++ {
+			if xOf(ticks[i].Index)-xOf(kept[len(kept)-1].Index) >= minGapPx {
+				kept = append(kept, ticks[i])
+			}
+		}
+		ticks = kept
+	}
 	c.BeginGroup(`class="x-axis"`)
 	for _, t := range ticks {
 		x := xOf(t.Index)

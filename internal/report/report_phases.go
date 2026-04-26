@@ -271,7 +271,7 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 			chart.HistogramData{Buckets: compareHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
 			fmt.Sprintf("%s–%s", cfg.StartDate, cfg.EndDate),
 			fmt.Sprintf("%s–%s", cfg.CompareStart, cfg.CompareEnd),
-			chart.DefaultHistogramStyle(plan.paper),
+			chart.DefaultComparisonHistogramStyle(plan.paper),
 		)
 		if err != nil {
 			return chartSet{}, fmt.Errorf("render comparison: %w", err)
@@ -410,7 +410,7 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 4: Granular Percentile Breakdown")
 		td.DailyStatTableTeX = tex.BuildStatTableTeX(td.DailyStatRows, "Table 3: Daily Percentile Summary")
 	} else {
-		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Detailed Data")
+		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 3: Granular Percentile Breakdown")
 	}
 
 	return td
