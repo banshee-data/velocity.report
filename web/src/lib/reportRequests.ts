@@ -20,6 +20,7 @@ export type ReportRequestBase = {
 	group: string;
 	source: string;
 	paperSize?: ReportRequest['paper_size'];
+	expandedChart?: boolean;
 };
 
 export type ReportComparison = {
@@ -69,6 +70,9 @@ export function buildReportRequest(
 		site_id: base.siteId,
 		paper_size: base.paperSize
 	};
+	if (base.expandedChart) {
+		request.expanded_chart = true;
+	}
 
 	if (comparison) {
 		request.compare_start_date = comparison.compareStartDate;

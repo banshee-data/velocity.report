@@ -267,7 +267,8 @@ describe('api', () => {
 				source: 'radar_objects',
 				minSpeed: 12,
 				boundaryThreshold: 5,
-				paperSize: 'letter'
+				paperSize: 'letter',
+				expandedChart: true
 			});
 
 			expect(path).toContain('/api/charts/timeseries?');
@@ -281,6 +282,7 @@ describe('api', () => {
 			expect(path).toContain('min_speed=12');
 			expect(path).toContain('boundary_threshold=5');
 			expect(path).toContain('paper_size=letter');
+			expect(path).toContain('expanded_chart=true');
 		});
 
 		it('should omit undefined optional parameters', () => {

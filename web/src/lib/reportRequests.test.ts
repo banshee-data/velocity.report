@@ -102,4 +102,27 @@ describe('report request parity', () => {
 			compare_source: 'radar_data_transits'
 		});
 	});
+
+	it('adds expanded_chart only when requested', () => {
+		const base = {
+			startDate: '2025-07-01',
+			endDate: '2025-08-31',
+			timezone: 'America/Los_Angeles',
+			units: 'mph',
+			group: '24h',
+			source: 'radar_data_transits',
+			siteId: 1
+		};
+		const filters = {
+			minSpeed: 5,
+			maxSpeedCutoff: null,
+			boundaryThreshold: 5
+		};
+
+		expect(buildReportRequest(base, filters)).not.toHaveProperty('expanded_chart');
+		expect(buildReportRequest({ ...base, expandedChart: true }, filters)).toHaveProperty(
+			'expanded_chart',
+			true
+		);
+	});
 });

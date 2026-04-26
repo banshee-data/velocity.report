@@ -58,6 +58,7 @@
 	let minSpeed: number = 5;
 	let maxSpeedCutoff: number | null = null;
 	let boundaryThreshold: number = 5;
+	let expandedChart = false;
 
 	let generatingReport = false;
 	let reportMessage = '';
@@ -102,7 +103,8 @@
 					source: selectedSource,
 					minSpeed,
 					boundaryThreshold,
-					paperSize: $paperSize
+					paperSize: $paperSize,
+					expandedChart
 				})
 			: '';
 
@@ -216,7 +218,8 @@
 				selectedSource,
 				minSpeed,
 				maxSpeedCutoff,
-				boundaryThreshold
+				boundaryThreshold,
+				expandedChart
 			};
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
 		} catch (e) {
@@ -269,6 +272,7 @@
 				if (typeof settings.boundaryThreshold === 'number') {
 					boundaryThreshold = settings.boundaryThreshold;
 				}
+				if (typeof settings.expandedChart === 'boolean') expandedChart = settings.expandedChart;
 			}
 		} catch (e) {
 			console.warn('Could not load report settings:', e);
@@ -323,7 +327,8 @@
 					group,
 					source: selectedSource,
 					siteId: selectedSiteId,
-					paperSize: $paperSize
+					paperSize: $paperSize,
+					expandedChart
 				},
 				{
 					minSpeed,
@@ -491,6 +496,17 @@
 						</label>
 					</div>
 				</div>
+
+				<label class="text-surface-content/80 flex items-start gap-2 text-sm font-medium">
+					<input type="checkbox" bind:checked={expandedChart} class="mt-0.5 h-4 w-4" />
+					<span>
+						Expanded chart
+						<span class="text-surface-content/60 block text-xs font-normal">
+							Show all time periods with linear timestamps. Leave off to collapse sparse gaps for a
+							consolidated chart.
+						</span>
+					</span>
+				</label>
 
 				<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
 					<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />

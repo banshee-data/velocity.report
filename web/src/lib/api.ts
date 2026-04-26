@@ -34,6 +34,7 @@ export interface TimeSeriesChartRequest {
 	minSpeed?: number;
 	boundaryThreshold?: number;
 	paperSize?: 'a4' | 'letter';
+	expandedChart?: boolean;
 }
 
 export interface HistogramChartRequest {
@@ -201,7 +202,8 @@ export function buildTimeSeriesChartPath(request: TimeSeriesChartRequest): strin
 		source: request.source,
 		min_speed: request.minSpeed,
 		boundary_threshold: request.boundaryThreshold,
-		paper_size: request.paperSize
+		paper_size: request.paperSize,
+		expanded_chart: request.expandedChart ? 'true' : undefined
 	});
 }
 
@@ -280,6 +282,7 @@ export interface ReportRequest {
 	site_description?: string; // site description
 	cosine_error_angle?: number; // radar mounting angle
 	paper_size?: 'a4' | 'letter'; // PDF paper size
+	expanded_chart?: boolean; // preserve linear timestamp spacing in time-series charts
 }
 
 export interface ReportResponse {

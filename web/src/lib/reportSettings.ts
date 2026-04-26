@@ -41,6 +41,7 @@ export type StoredReportSettings = {
 	minSpeed?: number;
 	maxSpeedCutoff?: number | null;
 	boundaryThreshold?: number;
+	expandedChart?: boolean;
 };
 
 /** Parse the shared localStorage payload safely. */
