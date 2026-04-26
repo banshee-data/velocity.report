@@ -1,7 +1,7 @@
 {
 	"name": "velocity.report-web",
 	"private": true,
-	"version": "0.5.1-pre7",
+	"version": "0.5.1-pre8",
 	"type": "module",
 	"license": "Apache-2.0",
 	"scripts": {
@@ -44,7 +44,6 @@
 		"globals": "^17.4.0",
 		"jest": "^30.2.0",
 		"jest-environment-jsdom": "^30.2.0",
-		"layerchart": "2.0.0-next.46",
 		"prettier": "3.8.1",
 		"prettier-plugin-svelte": "^3.5.0",
 		"prettier-plugin-tailwindcss": "^0.7.2",

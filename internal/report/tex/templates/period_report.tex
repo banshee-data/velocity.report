@@ -1,0 +1,27 @@
+<<define "display_period_range">><<.StartDate>> \textemdash{} <<.EndDate>><<if .CompareStartDate>> vs <<.CompareStartDate>> \textemdash{} <<.CompareEndDate>><<end>><<end>>
+
+<<define "period_report">>
+<<if .CompareStartDate>>
+<<template "period_report_comparison" .>>
+<<else>>
+<<template "period_report_single" .>>
+<<end>>
+<<end>>
+
+<<define "period_report_single">>
+<<template "overview_single" .>>
+<<template "site_info" .>>
+<<template "science" .>>
+<<template "survey_parameters_single" .>>
+<<template "statistics_single" .>>
+<<template "chart_section_single" .>>
+<<end>>
+
+<<define "period_report_comparison">>
+<<template "overview_comparison" .>>
+<<template "site_info" .>>
+<<template "science" .>>
+<<template "survey_parameters_comparison" .>>
+<<template "statistics_comparison" .>>
+<<template "chart_section_comparison" .>>
+<<end>>

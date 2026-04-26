@@ -23,6 +23,51 @@ export interface Config {
 	timezone: string;
 }
 
+export interface TimeSeriesChartRequest {
+	siteId: number;
+	startDate: string;
+	endDate: string;
+	group?: string;
+	units?: string;
+	timezone?: string;
+	source?: string;
+	minSpeed?: number;
+	boundaryThreshold?: number;
+	paperSize?: 'a4' | 'letter';
+	expandedChart?: boolean;
+}
+
+export interface HistogramChartRequest {
+	siteId: number;
+	startDate: string;
+	endDate: string;
+	units?: string;
+	timezone?: string;
+	source?: string;
+	bucketSize?: number;
+	max?: number;
+	minSpeed?: number;
+	boundaryThreshold?: number;
+	paperSize?: 'a4' | 'letter';
+}
+
+export interface ComparisonChartRequest {
+	siteId: number;
+	startDate: string;
+	endDate: string;
+	compareStartDate: string;
+	compareEndDate: string;
+	units?: string;
+	timezone?: string;
+	source?: string;
+	compareSource?: string;
+	bucketSize?: number;
+	max?: number;
+	minSpeed?: number;
+	boundaryThreshold?: number;
+	paperSize?: 'a4' | 'letter';
+}
+
 // Raw shape returned from the server for a single metric row
 type RawRadarStats = {
 	classifier: string;
@@ -62,6 +107,19 @@ export interface Capabilities {
 }
 
 const API_BASE = '/api';
+
+function buildRelativeApiPath(
+	path: string,
+	params: Record<string, string | number | null | undefined>
+): string {
+	const searchParams = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (value === undefined || value === null || value === '') continue;
+		searchParams.set(key, String(value));
+	}
+	const query = searchParams.toString();
+	return query ? `${API_BASE}${path}?${query}` : `${API_BASE}${path}`;
+}
 
 /**
  * Build a human-readable API error with status-code context.
@@ -133,6 +191,57 @@ export async function getRadarStats(
 	return { metrics, histogram, cosineCorrection };
 }
 
+export function buildTimeSeriesChartPath(request: TimeSeriesChartRequest): string {
+	return buildRelativeApiPath('/charts/timeseries', {
+		site_id: request.siteId,
+		start: request.startDate,
+		end: request.endDate,
+		group: request.group,
+		units: request.units,
+		tz: request.timezone,
+		source: request.source,
+		min_speed: request.minSpeed,
+		boundary_threshold: request.boundaryThreshold,
+		paper_size: request.paperSize,
+		expanded_chart: request.expandedChart ? 'true' : undefined
+	});
+}
+
+export function buildHistogramChartPath(request: HistogramChartRequest): string {
+	return buildRelativeApiPath('/charts/histogram', {
+		site_id: request.siteId,
+		start: request.startDate,
+		end: request.endDate,
+		units: request.units,
+		tz: request.timezone,
+		source: request.source,
+		bucket_size: request.bucketSize,
+		max: request.max,
+		min_speed: request.minSpeed,
+		boundary_threshold: request.boundaryThreshold,
+		paper_size: request.paperSize
+	});
+}
+
+export function buildComparisonChartPath(request: ComparisonChartRequest): string {
+	return buildRelativeApiPath('/charts/comparison', {
+		site_id: request.siteId,
+		start: request.startDate,
+		end: request.endDate,
+		compare_start: request.compareStartDate,
+		compare_end: request.compareEndDate,
+		units: request.units,
+		tz: request.timezone,
+		source: request.source,
+		compare_source: request.compareSource,
+		bucket_size: request.bucketSize,
+		max: request.max,
+		min_speed: request.minSpeed,
+		boundary_threshold: request.boundaryThreshold,
+		paper_size: request.paperSize
+	});
+}
+
 export async function getConfig(): Promise<Config> {
 	const res = await fetch(`${API_BASE}/config`);
 	if (!res.ok) throw apiError('Could not load configuration', res.status);
@@ -172,6 +281,8 @@ export interface ReportRequest {
 	speed_limit?: number; // posted speed limit
 	site_description?: string; // site description
 	cosine_error_angle?: number; // radar mounting angle
+	paper_size?: 'a4' | 'letter'; // PDF paper size
+	expanded_chart?: boolean; // preserve linear timestamp spacing in time-series charts
 }
 
 export interface ReportResponse {

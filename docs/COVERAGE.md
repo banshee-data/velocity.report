@@ -62,7 +62,6 @@ xdg-open web/coverage/lcov-report/index.html  # Linux
 Coverage is automatically generated and uploaded to Codecov on every pull request:
 
 - **Go CI** ([.github/workflows/go-ci.yml](../.github/workflows/go-ci.yml)): Runs tests with `-coverprofile=coverage.out`
-- **Python CI** ([.github/workflows/python-ci.yml](../.github/workflows/python-ci.yml)): Uses `pytest-cov` to generate XML reports
 - **Web CI** ([.github/workflows/web-ci.yml](../.github/workflows/web-ci.yml)): Uses Jest's built-in coverage to generate lcov reports
 
 ### Codecov configuration

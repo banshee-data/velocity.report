@@ -104,9 +104,12 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/sites/", s.handleSites) // Note trailing slash to match /api/sites and /api/sites/*
 	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
 	s.mux.HandleFunc("/api/timeline", s.handleTimeline)
-	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints
-	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
-	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)       // Database table sizes and disk usage
+	s.mux.HandleFunc("/api/reports/", s.handleReports)                  // Report management endpoints
+	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker)      // Transit worker control
+	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)            // Database table sizes and disk usage
+	s.mux.HandleFunc("/api/charts/timeseries", s.handleChartTimeSeries) // SVG time-series chart
+	s.mux.HandleFunc("/api/charts/histogram", s.handleChartHistogram)   // SVG histogram chart
+	s.mux.HandleFunc("/api/charts/comparison", s.handleChartComparison) // SVG comparison chart
 	return s.mux
 }
 

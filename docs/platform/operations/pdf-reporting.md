@@ -1,8 +1,8 @@
-# PDF reporting: Go migration
+# PDF reporting: Go pipeline (complete)
 
-Active plan: [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
+Completed plan: [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
 
-Migrating PDF report generation from the Python stack to native Go, eliminating the Python runtime dependency and enabling the single-binary deployment goal.
+PDF report generation migrated from the Python stack to native Go in v0.5, eliminating the Python runtime dependency and enabling the single-binary deployment goal.
 
 ## Problem
 
@@ -17,19 +17,19 @@ invoke `xelatex` to produce the final PDF. No Python required.
 
 ### Key changes
 
-| Component           | Before (Python)                         | After (Go)                                       |
-| ------------------- | --------------------------------------- | ------------------------------------------------ |
-| **Charts**          | matplotlib + seaborn → PDF figures      | `gonum/plot` (vgsvg) → SVG → PDF via `rsvg`      |
-| **Doc assembly**    | PyLaTeX `Document` builder              | Go `text/template` → `.tex` file                 |
-| **PDF compilation** | PyLaTeX shells out to `xelatex`         | Go `os/exec` shells out to `xelatex` (unchanged) |
-| **Config**          | JSON → Python dataclasses               | JSON → Go structs (ReportRequest already exists) |
-| **Data source**     | HTTP GET `/api/radar_stats` from Python | Direct DB query from same Go process             |
-| **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)            |
-| **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                  |
+| Component           | Before (Python)                         | After (Go)                                                               |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
+| **Charts**          | matplotlib + seaborn → PDF figures      | Direct SVG generation (`internal/report/chart`) → PDF via `rsvg-convert` |
+| **Doc assembly**    | PyLaTeX `Document` builder              | Go `text/template` → `.tex` file                                         |
+| **PDF compilation** | PyLaTeX shells out to `xelatex`         | Go `os/exec` shells out to `xelatex` (unchanged)                         |
+| **Config**          | JSON → Python dataclasses               | JSON → Go structs (ReportRequest already exists)                         |
+| **Data source**     | HTTP GET `/api/radar_stats` from Python | Direct DB query from same Go process                                     |
+| **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)                                    |
+| **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                                          |
 
-## Current vs proposed architecture
+## Architecture
 
-### Current data path
+### Before (Python — removed in v0.5)
 
 ```
 Web UI → POST /api/generate_report → Go writes config.json
@@ -40,10 +40,9 @@ Web UI → POST /api/generate_report → Go writes config.json
   → PyLaTeX writes .tex, shells out to xelatex → .pdf
 ```
 
-The Python process makes an HTTP request back to the Go server that spawned
-it. This round-trip is eliminated in the new design.
+The Python process made an HTTP request back to the Go server that spawned it.
 
-### Proposed data path
+### Current data path (Go pipeline)
 
 ```
 Web UI → POST /api/generate_report (or CLI: velocity-report pdf)
@@ -76,35 +75,23 @@ internal/report/
 └── archive.go          # .zip packaging
 ```
 
-## Chart-by-Chart migration
+## Charts (implemented)
 
-### 1. Time-Series chart (dual-axis percentile + count)
+### 1. Time-Series chart (dual-axis percentile + count) ✅
 
-Current: 24.0 × 8.0 inch matplotlib figure with left Y-axis (P50/P85/P98/Max
-speed lines with markers), right Y-axis (count bars, translucent), orange
-background for low-sample periods (< 50 count), broken lines at day
-boundaries, custom X-axis (`HH:MM` with `Mon DD` at day starts).
+Direct SVG generation via `internal/report/chart/timeseries.go`. Dual Y-axes (speed left, count right), day-boundary line breaks, low-sample shading, polyline per-day segments. No gonum dependency.
 
-Go approach: `gonum/plot` with `vgsvg` backend, or direct SVG via
-`encoding/xml` / `ajstarks/svgo` for full control over dual-axis layout.
-gonum/plot does not have built-in dual-axis support; render two plots to
-the same SVG canvas sharing the X dimension.
+### 2. Histogram (single period) ✅
 
-### 2. Histogram (single period)
+Direct SVG bar chart via `internal/report/chart/histogram.go`. Steelblue bars (α=0.7), speed bucket labels ("20–25", "70+").
 
-Straightforward bar chart: steelblue bars (α=0.7, black edge), speed bucket
-labels ("20–25", "70+"). `gonum/plot` with `plotter.BarChart` handles
-directly.
+### 3. Comparison histogram ✅
 
-### 3. Comparison histogram
+Grouped bars (primary vs comparison, normalised to percentage) via `internal/report/chart/histogram.go` (`RenderComparison`).
 
-Side-by-side grouped bars (primary vs comparison, normalised to percentage).
-`gonum/plot` supports grouped bar charts with offset positioning.
+### 4. Map overlay (deferred — Phase 6)
 
-### 4. Map overlay
-
-SVG marker injection (radar-coverage triangles into site map SVGs) via Go
-`encoding/xml`. Same `rsvg-convert` pipeline for SVG→PDF.
+SVG marker injection (radar-coverage triangles into site map SVGs) planned via Go `encoding/xml`. Same `rsvg-convert` pipeline for SVG→PDF.
 
 ## SVG-to-PDF strategy (chosen: rsvg-convert)
 

@@ -40,10 +40,10 @@ PDF is a surface, not a rendering engine. The mechanism that produces the charts
 Chart rendering is converging on a single SVG-first pipeline:
 
 - **Web:** LayerChart/d3-scale components producing inline SVG in Svelte
-- **PDF (current):** Python matplotlib → PDF figures embedded via PyLaTeX — **deprecated**
-- **PDF (target):** Go native SVG generation (`internal/report/chart/`) → `rsvg-convert` → PDF figures embedded via `text/template` LaTeX — [migration plan](../plans/pdf-go-chart-migration-plan.md) (D-17)
+- **PDF (current):** Go native SVG generation (`internal/report/chart/`) → `rsvg-convert` → PDF figures via `text/template` LaTeX — shipped v0.5
+- **PDF (deprecated):** Python matplotlib → PDF figures embedded via PyLaTeX — superseded by Go pipeline, retained in `tools/pdf-generator/` for reference only
 
-The Python matplotlib stack is being replaced. New chart work should not add matplotlib dependencies. The PDF surface remains; only its chart generation backend changes.
+The Python matplotlib stack has been replaced by the Go pipeline (v0.5). New chart work should not add matplotlib dependencies.
 
 Out of scope for new design work:
 
@@ -85,8 +85,8 @@ These hex values are the **canonical percentile palette** for all chart renderer
 The single source of truth for each renderer:
 
 - **Web:** [web/src/lib/palette.ts](../../web/src/lib/palette.ts) (`PERCENTILE_COLOURS`)
-- **Python PDF (deprecated):** [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) (`ColorConfig`)
-- **Go PDF (target):** `internal/report/chart/palette.go` (planned; will import the same hex values)
+- **Go PDF:** [internal/report/chart/palette.go](../../internal/report/chart/palette.go) (`ColourP50`, `ColourP85`, …)
+- **Python PDF (deprecated):** [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) (`ColorConfig`) — retained for reference
 
 ## 4. Chart alignment rules (required vs allowed)
 
@@ -97,8 +97,10 @@ The single source of truth for each renderer:
 - Tick behaviour must be comparable across all three platforms:
   - time-series X ticks: target 6-10 visible labels;
   - Y ticks: target 4-6 visible labels;
-  - dense labels should be thinned, not overlapped.
+  - dense labels should be thinned, not overlapped;
+  - X-tick cadence must adapt to the visible time span (hourly, daily, weekly, or monthly) so web and PDF land on the same granularity for the same query.
 - Time formatting must respect selected timezone.
+- Series segmentation: polylines remain continuous across gaps. NaN points (genuinely missing data) are skipped without interrupting the line; the low-sample background swatch and day-boundary markers already communicate data quality. Day boundaries must never force line breaks.
 - Missing/low-sample periods must be visibly distinguishable.
 - Empty/loading/error chart states must render explicit user-facing text.
 
@@ -205,13 +207,13 @@ The macOS visualiser follows native platform conventions:
 
 ### 7.1 Rendering engines (current → target)
 
-| Surface | Current renderer                          | Target renderer                              | Status           |
-| ------- | ----------------------------------------- | -------------------------------------------- | ---------------- |
-| Web     | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)             | Stable           |
-| PDF     | Python matplotlib → PDF figures           | Go native SVG → `rsvg-convert` → PDF figures | Migration (D-17) |
-| macOS   | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D  | Stable           |
+| Surface | Current renderer                             | Target renderer                              | Status          |
+| ------- | -------------------------------------------- | -------------------------------------------- | --------------- |
+| Web     | LayerChart/d3-scale (inline SVG)             | LayerChart/d3-scale (inline SVG)             | Stable          |
+| PDF     | Python matplotlib → PDF figures (deprecated) | Go native SVG → `rsvg-convert` → PDF figures | Complete (v0.5) |
+| macOS   | Swift/Metal (3D), ECharts (2D sparklines)    | Swift/Metal (3D), percentile palette for 2D  | Stable          |
 
-The Python matplotlib stack ([tools/pdf-generator/](../../tools/pdf-generator)) is **deprecated**. It will be retained for reference during transition but receives no new chart features. The migration plan is at [pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md).
+The Python matplotlib stack ([tools/pdf-generator/](../../tools/pdf-generator)) is **deprecated** and was fully replaced in v0.5. It is retained for reference only and receives no new features. The completed migration plan: [pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md).
 
 ### 7.2 SVG as the shared intermediate format
 
@@ -226,17 +228,20 @@ Both the web frontend and the future Go PDF pipeline render charts as SVG. This 
 
 To keep charts visually consistent across web and PDF, the following properties must be governed by shared constants or equivalent configuration — not left to renderer defaults.
 
-| Property                   | What it controls                             | Web source                                 | Go PDF source (planned)                    |
-| -------------------------- | -------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
-| **Palette**                | Metric-to-colour mapping                     | [palette.ts](../../web/src/lib/palette.ts) | `chart/palette.go`                         |
-| **Legend order**           | Series stacking and legend sequence          | `palette.ts` (`LEGEND_ORDER`)              | `chart/palette.go`                         |
-| **Tick density**           | Target number of X and Y axis labels         | `RadarOverviewChart` constants             | `chart/timeseries.go` style struct         |
-| **Font sizes**             | Axis labels, tick labels, legend text        | LayerChart props + CSS                     | SVG `font-size` attributes in style struct |
-| **Density/DPI**            | Element sizing relative to output dimensions | Responsive container width                 | Fixed SVG viewBox (matches PDF page width) |
-| **Low-sample threshold**   | Count below which data is flagged            | `LOW_SAMPLE_THRESHOLD = 50`                | `ChartStyle.LowSampleThreshold`            |
-| **Missing-data threshold** | Count below which percentiles are suppressed | `MISSING_COUNT_THRESHOLD = 5`              | `ChartStyle.MissingCountThreshold`         |
-| **Marker styles**          | Point shapes per series                      | LayerChart `Points` props                  | SVG marker elements in style struct        |
-| **Line styles**            | Solid vs dashed per series                   | LayerChart `Spline` props                  | SVG `stroke-dasharray` in style struct     |
+| Property                   | What it controls                                                            | Web source                                 | Go PDF source (planned)                     |
+| -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
+| **Palette**                | Metric-to-colour mapping                                                    | [palette.ts](../../web/src/lib/palette.ts) | `chart/palette.go`                          |
+| **Legend order**           | Series stacking and legend sequence                                         | `palette.ts` (`LEGEND_ORDER`)              | `chart/palette.go`                          |
+| **Tick density**           | Target number of X and Y axis labels                                        | `RadarOverviewChart` constants             | `chart/timeseries.go` style struct          |
+| **Tick cadence**           | Span-aware choice of hourly/daily/weekly/monthly X ticks                    | LayerChart scale + cadence helper          | `chart/timeseries.go` `pickTickCadence`     |
+| **Series segmentation**    | Polylines stay continuous; NaN points are skipped without breaking the line | LayerChart null handling (skip, not break) | `chart/timeseries.go` continuous-line logic |
+| **Physical dimensions**    | SVG `width`/`height` in mm so the PDF renders at true size without scaling  | Responsive (not fixed)                     | `ChartStyle.WidthMM` / `HeightMM` per paper |
+| **Font sizes**             | Axis labels, tick labels, legend text                                       | LayerChart props + CSS                     | SVG `font-size` attributes in style struct  |
+| **Density/DPI**            | Element sizing relative to output dimensions                                | Responsive container width                 | Fixed SVG viewBox (matches PDF page width)  |
+| **Low-sample threshold**   | Count below which data is flagged                                           | `LOW_SAMPLE_THRESHOLD = 50`                | `ChartStyle.LowSampleThreshold`             |
+| **Missing-data threshold** | Count below which percentiles are suppressed                                | `MISSING_COUNT_THRESHOLD = 5`              | `ChartStyle.MissingCountThreshold`          |
+| **Marker styles**          | Point shapes per series                                                     | LayerChart `Points` props                  | SVG marker elements in style struct         |
+| **Line styles**            | Solid vs dashed per series                                                  | LayerChart `Spline` props                  | SVG `stroke-dasharray` in style struct      |
 
 When a value changes in one renderer, update or verify the equivalent in the other. If the property cannot yet be shared as importable code, document the pairing in this table and keep them in sync manually.
 

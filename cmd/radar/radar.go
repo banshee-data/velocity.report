@@ -196,6 +196,15 @@ func visitedFlags() map[string]bool {
 
 // Main
 func main() {
+	// Subcommand dispatch — check before flag.Parse() so subcommand flags
+	// don't collide with the server's global flags.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "pdf":
+			os.Exit(runPDF(os.Args[2:], os.Stdout, os.Stderr))
+		}
+	}
+
 	flag.Parse()
 
 	// Configure logging: default to stdout; optionally tee to a log file via env.

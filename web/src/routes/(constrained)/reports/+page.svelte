@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import {
+		buildComparisonChartPath,
+		buildHistogramChartPath,
+		buildTimeSeriesChartPath,
 		generateReport,
 		getConfig,
 		getReport,
@@ -9,9 +12,18 @@
 		type Site,
 		type SiteReport
 	} from '$lib/api';
+	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
-	import { isDateRangeStale, REPORT_SETTINGS_KEY } from '$lib/reportSettings';
+	import { buildReportRequest, DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE } from '$lib/reportRequests';
+	import {
+		areStoredReportSettingsFresh,
+		isDateRangeStale,
+		normaliseStoredPeriodType,
+		parseStoredReportSettings,
+		REPORT_SETTINGS_KEY
+	} from '$lib/reportSettings';
+	import { initializePaperSize, paperSize } from '$lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
@@ -46,11 +58,18 @@
 	let minSpeed: number = 5;
 	let maxSpeedCutoff: number | null = null;
 	let boundaryThreshold: number = 5;
+	let expandedChart = false;
 
 	let generatingReport = false;
 	let reportMessage = '';
 	let lastGeneratedReportId: number | null = null;
 	let reportMetadata: SiteReport | null = null;
+
+	$: hasReportFeedback = Boolean(reportMessage) || lastGeneratedReportId !== null;
+	$: reportMessageTone =
+		lastGeneratedReportId !== null
+			? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
+			: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200';
 
 	const groupOptions = [
 		'1h',
@@ -72,11 +91,71 @@
 	$: selectedSite =
 		selectedSiteId != null ? (sites.find((site) => site.id === selectedSiteId) ?? null) : null;
 
+	$: reportTimeSeriesChartUrl =
+		selectedSiteId != null && dateRange.from && dateRange.to
+			? buildTimeSeriesChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					group,
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					minSpeed,
+					boundaryThreshold,
+					paperSize: $paperSize,
+					expandedChart
+				})
+			: '';
+
+	$: reportHistogramChartUrl =
+		selectedSiteId != null && dateRange.from && dateRange.to
+			? buildHistogramChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					bucketSize: DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE,
+					max: maxSpeedCutoff ?? undefined,
+					minSpeed,
+					boundaryThreshold,
+					paperSize: $paperSize
+				})
+			: '';
+
+	$: reportComparisonChartUrl =
+		selectedSiteId != null &&
+		compareEnabled &&
+		dateRange.from &&
+		dateRange.to &&
+		compareRange.from &&
+		compareRange.to
+			? buildComparisonChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					compareStartDate: isoDate(compareRange.from),
+					compareEndDate: isoDate(compareRange.to),
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					compareSource,
+					bucketSize: DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE,
+					max: maxSpeedCutoff ?? undefined,
+					minSpeed,
+					boundaryThreshold,
+					paperSize: $paperSize
+				})
+			: '';
+
 	async function loadConfig() {
 		try {
 			config = await getConfig();
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
+			initializePaperSize();
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
 		}
@@ -116,13 +195,21 @@
 				dateRange: {
 					from: dateRange.from?.toISOString(),
 					to: dateRange.to?.toISOString(),
-					periodType: dateRange.periodType,
+					periodType: normaliseStoredPeriodType(
+						dateRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					),
 					savedAt: now
 				},
 				compareRange: {
 					from: compareRange.from?.toISOString(),
 					to: compareRange.to?.toISOString(),
-					periodType: compareRange.periodType,
+					periodType: normaliseStoredPeriodType(
+						compareRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					),
 					savedAt: now
 				},
 				compareEnabled,
@@ -131,7 +218,8 @@
 				selectedSource,
 				minSpeed,
 				maxSpeedCutoff,
-				boundaryThreshold
+				boundaryThreshold,
+				expandedChart
 			};
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
 		} catch (e) {
@@ -142,18 +230,21 @@
 	function loadReportSettings() {
 		if (!browser) return;
 		try {
-			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
-			if (!saved) return;
-
-			const settings = JSON.parse(saved);
+			const settings = parseStoredReportSettings(localStorage.getItem(REPORT_SETTINGS_KEY));
+			if (!settings) return;
 			const stale = isDateRangeStale(settings.dateRange?.savedAt);
+			const fresh = areStoredReportSettingsFresh(settings);
 
 			// Restore date ranges only when fresh
 			if (!stale && settings.dateRange?.from && settings.dateRange?.to) {
 				dateRange = {
 					from: new Date(settings.dateRange.from),
 					to: new Date(settings.dateRange.to),
-					periodType: settings.dateRange.periodType ?? PeriodType.Day
+					periodType: normaliseStoredPeriodType(
+						settings.dateRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					)
 				};
 			}
 
@@ -161,18 +252,28 @@
 				compareRange = {
 					from: new Date(settings.compareRange.from),
 					to: new Date(settings.compareRange.to),
-					periodType: settings.compareRange.periodType ?? PeriodType.Day
+					periodType: normaliseStoredPeriodType(
+						settings.compareRange.periodType,
+						[PeriodType.Day],
+						PeriodType.Day
+					)
 				};
 			}
 
-			// Restore other settings regardless of date staleness
-			if (settings.compareEnabled !== undefined) compareEnabled = settings.compareEnabled;
-			if (settings.compareSource) compareSource = settings.compareSource;
-			if (settings.group) group = settings.group;
-			if (settings.selectedSource) selectedSource = settings.selectedSource;
-			if (settings.minSpeed !== undefined) minSpeed = settings.minSpeed;
-			if (settings.maxSpeedCutoff !== undefined) maxSpeedCutoff = settings.maxSpeedCutoff;
-			if (settings.boundaryThreshold !== undefined) boundaryThreshold = settings.boundaryThreshold;
+			if (fresh) {
+				if (typeof settings.compareEnabled === 'boolean') compareEnabled = settings.compareEnabled;
+				if (typeof settings.compareSource === 'string') compareSource = settings.compareSource;
+				if (typeof settings.group === 'string') group = settings.group;
+				if (typeof settings.selectedSource === 'string') selectedSource = settings.selectedSource;
+				if (typeof settings.minSpeed === 'number') minSpeed = settings.minSpeed;
+				if (typeof settings.maxSpeedCutoff === 'number' || settings.maxSpeedCutoff === null) {
+					maxSpeedCutoff = settings.maxSpeedCutoff;
+				}
+				if (typeof settings.boundaryThreshold === 'number') {
+					boundaryThreshold = settings.boundaryThreshold;
+				}
+				if (typeof settings.expandedChart === 'boolean') expandedChart = settings.expandedChart;
+			}
 		} catch (e) {
 			console.warn('Could not load report settings:', e);
 		}
@@ -217,28 +318,31 @@
 		reportMetadata = null;
 
 		try {
-			const request = {
-				start_date: isoDate(dateRange.from),
-				end_date: isoDate(dateRange.to),
-				timezone: $displayTimezone,
-				units: $displayUnits,
-				group: group,
-				source: selectedSource,
-				min_speed: minSpeed,
-				hist_max: maxSpeedCutoff ?? undefined,
-				boundary_threshold: boundaryThreshold,
-				histogram: true,
-				hist_bucket_size: 5.0,
-				site_id: selectedSiteId
-			};
-
-			if (compareEnabled) {
-				Object.assign(request, {
-					compare_start_date: isoDate(compareRange.from),
-					compare_end_date: isoDate(compareRange.to),
-					compare_source: compareSource
-				});
-			}
+			const request = buildReportRequest(
+				{
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					timezone: $displayTimezone,
+					units: $displayUnits,
+					group,
+					source: selectedSource,
+					siteId: selectedSiteId,
+					paperSize: $paperSize,
+					expandedChart
+				},
+				{
+					minSpeed,
+					maxSpeedCutoff,
+					boundaryThreshold
+				},
+				compareEnabled
+					? {
+							compareStartDate: isoDate(compareRange.from),
+							compareEndDate: isoDate(compareRange.to),
+							compareSource
+						}
+					: undefined
+			);
 
 			const response = await generateReport(request);
 			lastGeneratedReportId = response.report_id;
@@ -277,6 +381,59 @@
 			{error}
 		</div>
 	{:else}
+		{#if hasReportFeedback}
+			<Card>
+				<div class="space-y-3 p-4">
+					{#if reportMessage}
+						<div
+							role={lastGeneratedReportId !== null ? 'status' : 'alert'}
+							aria-live="polite"
+							class={`rounded border p-3 ${reportMessageTone}`}
+						>
+							{reportMessage}
+						</div>
+					{/if}
+
+					{#if lastGeneratedReportId !== null}
+						<div class="space-y-3" role="region" aria-label="Report download options">
+							<h3 class="text-base font-semibold">Report Ready</h3>
+							{#if reportMetadata}
+								<div class="flex gap-2">
+									<!-- eslint-disable svelte/no-navigation-without-resolve -->
+									<a
+										href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
+										class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+										download
+										aria-label="Download PDF report"
+									>
+										📄 Download PDF
+									</a>
+									{#if reportMetadata.zip_filename}
+										<!-- eslint-disable svelte/no-navigation-without-resolve -->
+										<a
+											href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
+											class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+											download
+											aria-label="Download source files as ZIP archive"
+										>
+											📦 Download Sources (ZIP)
+										</a>
+									{/if}
+								</div>
+							{:else}
+								<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
+									Loading download links...
+								</p>
+							{/if}
+							<p class="text-surface-600-300-token text-xs">
+								The ZIP file contains LaTeX source files and chart SVG assets for custom editing.
+							</p>
+						</div>
+					{/if}
+				</div>
+			</Card>
+		{/if}
+
 		<Card>
 			<div class="space-y-4 p-6">
 				<div class="flex flex-wrap items-end gap-4">
@@ -339,6 +496,17 @@
 						</label>
 					</div>
 				</div>
+
+				<label class="text-surface-content/80 flex items-start gap-2 text-sm font-medium">
+					<input type="checkbox" bind:checked={expandedChart} class="mt-0.5 h-4 w-4" />
+					<span>
+						Expanded chart
+						<span class="text-surface-content/60 block text-xs font-normal">
+							Show all time periods with linear timestamps. Leave off to collapse sparse gaps for a
+							consolidated chart.
+						</span>
+					</span>
+				</label>
 
 				<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
 					<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />
@@ -414,53 +582,62 @@
 			</div>
 		</Card>
 
-		{#if reportMessage}
-			<div
-				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
-				aria-live="polite"
-				class="rounded border p-3 {lastGeneratedReportId !== null
-					? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
-					: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'}"
-			>
-				{reportMessage}
-			</div>
-		{/if}
+		{#if reportTimeSeriesChartUrl || reportHistogramChartUrl || reportComparisonChartUrl}
+			<Card>
+				<div class="space-y-4 p-6">
+					<div class="space-y-1">
+						<h3 class="text-base font-semibold">Chart Previews</h3>
+						<p class="text-surface-content/70 text-sm">
+							These previews come from the Go SVG chart endpoints used by the report pipeline.
+						</p>
+					</div>
 
-		{#if lastGeneratedReportId !== null}
-			<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
-				<h3 class="text-base font-semibold">Report Ready</h3>
-				{#if reportMetadata}
-					<div class="flex gap-2">
-						<!-- eslint-disable svelte/no-navigation-without-resolve -->
-						<a
-							href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
-							class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
-							download
-							aria-label="Download PDF report"
-						>
-							📄 Download PDF
-						</a>
-						{#if reportMetadata.zip_filename}
-							<!-- eslint-disable svelte/no-navigation-without-resolve -->
-							<a
-								href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
-								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
-								download
-								aria-label="Download source files as ZIP archive"
-							>
-								📦 Download Sources (ZIP)
-							</a>
+					<div class="grid gap-4 lg:grid-cols-2">
+						{#if reportTimeSeriesChartUrl}
+							<div class="space-y-2 rounded border p-3 lg:col-span-2">
+								<h4 class="text-sm font-semibold">Time-series overview</h4>
+								<InlineSvgChart
+									url={reportTimeSeriesChartUrl}
+									label="Preview of the report time-series chart"
+									loadingLabel="Loading time-series preview…"
+									minHeight={340}
+								/>
+							</div>
+						{/if}
+
+						{#if reportHistogramChartUrl}
+							<div class="space-y-2 rounded border p-3">
+								<h4 class="text-sm font-semibold">Velocity distribution</h4>
+								<InlineSvgChart
+									url={reportHistogramChartUrl}
+									label="Preview of the report histogram chart"
+									loadingLabel="Loading histogram preview…"
+									minHeight={250}
+								/>
+							</div>
+						{/if}
+
+						{#if compareEnabled && reportComparisonChartUrl}
+							<div class="space-y-2 rounded border p-3">
+								<h4 class="text-sm font-semibold">Comparison distribution</h4>
+								<InlineSvgChart
+									url={reportComparisonChartUrl}
+									label="Preview of the report comparison histogram chart"
+									loadingLabel="Loading comparison preview…"
+									minHeight={250}
+								/>
+							</div>
+						{:else if compareEnabled}
+							<div class="space-y-2 rounded border p-3">
+								<h4 class="text-sm font-semibold">Comparison distribution</h4>
+								<p class="text-surface-content/70 text-sm">
+									Select a complete comparison range to preview the comparison chart.
+								</p>
+							</div>
 						{/if}
 					</div>
-				{:else}
-					<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
-						Loading download links...
-					</p>
-				{/if}
-				<p class="text-surface-600-300-token text-xs">
-					The ZIP file contains LaTeX source files and chart PDFs for custom editing.
-				</p>
-			</div>
+				</div>
+			</Card>
 		{/if}
 	{/if}
 </div>

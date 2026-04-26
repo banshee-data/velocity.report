@@ -2,17 +2,19 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/report"
 	"github.com/banshee-data/velocity.report/internal/security"
+	"github.com/banshee-data/velocity.report/internal/units"
 )
 
 // ReportRequest represents the JSON payload for report generation
@@ -25,7 +27,7 @@ type ReportRequest struct {
 	Timezone          string  `json:"timezone"`           // e.g., "US/Pacific"
 	Units             string  `json:"units"`              // "mph" or "kph"
 	Group             string  `json:"group"`              // e.g., "1h", "4h"
-	Source            string  `json:"source"`             // "radar_objects" or "radar_data_transits"
+	Source            string  `json:"source"`             // "radar_objects", "radar_data", or "radar_data_transits"
 	CompareSource     string  `json:"compare_source"`     // Optional: source for comparison period (defaults to Source)
 	MinSpeed          float64 `json:"min_speed"`          // minimum speed filter
 	BoundaryThreshold int     `json:"boundary_threshold"` // filter boundary hours with < N samples (default: 5)
@@ -33,12 +35,72 @@ type ReportRequest struct {
 	HistBucketSize    float64 `json:"hist_bucket_size"`   // histogram bucket size
 	HistMax           float64 `json:"hist_max"`           // histogram max value
 
+	// Paper size for PDF output: "a4" (default) or "letter"
+	PaperSize string `json:"paper_size"`
+
+	// ExpandedChart preserves linear timestamp spacing in time-series charts.
+	// Default false collapses sparse coverage gaps for consolidated charts.
+	ExpandedChart bool `json:"expanded_chart"`
+
+	// CompareCosineAngle overrides the cosine error angle for the comparison
+	// period. Zero means use the same angle as the primary period.
+	CompareCosineAngle float64 `json:"compare_cosine_angle"`
+
 	// These can be overridden if site_id is not provided
 	Location        string `json:"location"`         // site location
 	Surveyor        string `json:"surveyor"`         // surveyor name
 	Contact         string `json:"contact"`          // contact info
 	SpeedLimit      int    `json:"speed_limit"`      // posted speed limit
 	SiteDescription string `json:"site_description"` // site description
+}
+
+func isValidReportSource(source string) bool {
+	switch source {
+	case "radar_objects", "radar_data", "radar_data_transits":
+		return true
+	default:
+		return false
+	}
+}
+
+type reportCosineMetadata struct {
+	angle float64
+	label string
+}
+
+func reportDateUnixRange(startDate, endDate, timezone string) (int64, int64, error) {
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid timezone %q: %w", timezone, err)
+	}
+	startTime, err := time.ParseInLocation("2006-01-02", startDate, loc)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid start date %q: %w", startDate, err)
+	}
+	endTime, err := time.ParseInLocation("2006-01-02", endDate, loc)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid end date %q: %w", endDate, err)
+	}
+	return startTime.Unix(), inclusiveLocalDateEnd(endTime).Unix(), nil
+}
+
+func reportCosineMetadataForRange(periods []db.SiteConfigPeriod, startUnix, endUnix int64) reportCosineMetadata {
+	angles := uniqueAnglesForRange(periods, float64(startUnix), float64(endUnix))
+	if len(angles) == 0 {
+		return reportCosineMetadata{}
+	}
+	if len(angles) == 1 {
+		return reportCosineMetadata{angle: angles[0]}
+	}
+	return reportCosineMetadata{label: fmt.Sprintf("multiple periods: %s", formatReportCosineAngles(angles))}
+}
+
+func formatReportCosineAngles(angles []float64) string {
+	parts := make([]string, 0, len(angles))
+	for _, angle := range angles {
+		parts = append(parts, fmt.Sprintf("%.1f°", angle))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +136,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 
 	// Load site data if site_id is provided
 	var site *db.Site
-	var cosineErrorAngle float64
+	var configPeriods []db.SiteConfigPeriod
 	if req.SiteID != nil {
 		var err error
 		site, err = s.db.GetSite(r.Context(), *req.SiteID)
@@ -84,14 +146,17 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Get the active SCD period to retrieve cosine_error_angle
-		activePeriod, err := s.db.GetActiveSiteConfigPeriod(*req.SiteID)
+		configPeriods, err = s.db.ListSiteConfigPeriods(req.SiteID)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site config period: %v. Please ensure site has an active configuration period.", err))
 			return
 		}
-		cosineErrorAngle = activePeriod.CosineErrorAngle
+		if len(configPeriods) == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, "Failed to load site config period: no configuration periods found. Please ensure site has a configuration period.")
+			return
+		}
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusBadRequest, "site_id is required for report generation")
@@ -111,8 +176,48 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	if req.Source == "" {
 		req.Source = "radar_data_transits"
 	}
+	if !units.IsValid(req.Units) {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'units'. Must be one of: %s", units.GetValidUnitsString()))
+		return
+	}
+	if !isValidReportSource(req.Source) {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
+	}
+	if req.CompareSource != "" && !isValidReportSource(req.CompareSource) {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'compare_source'. Must be one of: radar_objects, radar_data, radar_data_transits")
+		return
+	}
 	if req.HistBucketSize == 0 {
 		req.HistBucketSize = 5.0
+	}
+
+	startUnix, endUnix, err := reportDateUnixRange(req.StartDate, req.EndDate, req.Timezone)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid report date range: %v", err))
+		return
+	}
+	primaryCosine := reportCosineMetadataForRange(configPeriods, startUnix, endUnix)
+	cosineErrorAngle := primaryCosine.angle
+	cosineCorrectionLabel := primaryCosine.label
+
+	compareCosineCorrectionLabel := ""
+	if req.CompareStart != "" {
+		compareStartUnix, compareEndUnix, err := reportDateUnixRange(req.CompareStart, req.CompareEnd, req.Timezone)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid comparison date range: %v", err))
+			return
+		}
+		compareCosine := reportCosineMetadataForRange(configPeriods, compareStartUnix, compareEndUnix)
+		if req.CompareCosineAngle == 0 {
+			req.CompareCosineAngle = compareCosine.angle
+			compareCosineCorrectionLabel = compareCosine.label
+		}
 	}
 
 	// Use site data if available, otherwise use request data or defaults
@@ -146,237 +251,81 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		speedLimit = 25
 	}
 
-	// Create unique run ID for organized output folders
-	// Include nanoseconds to ensure uniqueness under concurrent load
-	now := time.Now()
-	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
-	outputDir := fmt.Sprintf("output/%s", runID)
+	cfg := buildReportConfig(
+		req,
+		site,
+		cosineErrorAngle,
+		location,
+		surveyor,
+		contact,
+		speedLimit,
+		siteDescription,
+		speedLimitNote,
+	)
+	cfg.CosineCorrectionLabel = cosineCorrectionLabel
+	cfg.CompareCosineCorrectionLabel = compareCosineCorrectionLabel
 
-	// Pre-create the output directory relative to the PDF generator dir.
-	// The Python subprocess also calls os.makedirs, but creating it here
-	// with the Go process's permissions avoids PermissionError when the
-	// pdf-generator tree is owned by root on deployed systems.
-	pdfDirEarly, err := getPDFGeneratorDir()
-	if err == nil {
-		absOutputDir := filepath.Join(pdfDirEarly, outputDir)
-		if mkErr := os.MkdirAll(absOutputDir, 0755); mkErr != nil {
-			log.Printf("Warning: could not pre-create output directory %s: %v", absOutputDir, mkErr)
-		}
-	}
+	s.generateReportGo(w, r, req, cfg)
+}
 
-	// Create a config JSON for the PDF generator
-	// Note: Not setting file_prefix - let Python auto-generate from source + date range
-	queryConfig := map[string]interface{}{
-		"start_date":         req.StartDate,
-		"end_date":           req.EndDate,
-		"timezone":           req.Timezone,
-		"group":              req.Group,
-		"units":              req.Units,
-		"source":             req.Source,
-		"min_speed":          req.MinSpeed,
-		"boundary_threshold": req.BoundaryThreshold,
-		"histogram":          req.Histogram,
-		"hist_bucket_size":   req.HistBucketSize,
-		"hist_max":           req.HistMax,
-	}
-	if req.SiteID != nil {
-		queryConfig["site_id"] = *req.SiteID
-	}
-	if req.CompareStart != "" && req.CompareEnd != "" {
-		queryConfig["compare_start_date"] = req.CompareStart
-		queryConfig["compare_end_date"] = req.CompareEnd
-		// Use compare_source if specified, otherwise default to the primary source
-		compareSource := req.CompareSource
-		if compareSource == "" {
-			compareSource = req.Source
-		}
-		queryConfig["compare_source"] = compareSource
-	}
-
-	// Build site config with map positioning data if available
-	siteConfig := map[string]interface{}{
-		"location":         location,
-		"surveyor":         surveyor,
-		"contact":          contact,
-		"speed_limit":      speedLimit,
-		"site_description": siteDescription,
-		"speed_limit_note": speedLimitNote,
-	}
-	// Add map positioning fields if site has them
-	if site != nil {
-		if site.Latitude != nil {
-			siteConfig["latitude"] = *site.Latitude
-		}
-		if site.Longitude != nil {
-			siteConfig["longitude"] = *site.Longitude
-		}
-		if site.MapAngle != nil {
-			siteConfig["map_angle"] = *site.MapAngle
-		}
-		if site.BBoxNELat != nil {
-			siteConfig["bbox_ne_lat"] = *site.BBoxNELat
-		}
-		if site.BBoxNELng != nil {
-			siteConfig["bbox_ne_lng"] = *site.BBoxNELng
-		}
-		if site.BBoxSWLat != nil {
-			siteConfig["bbox_sw_lat"] = *site.BBoxSWLat
-		}
-		if site.BBoxSWLng != nil {
-			siteConfig["bbox_sw_lng"] = *site.BBoxSWLng
-		}
-	}
-
-	config := map[string]interface{}{
-		"query": queryConfig,
-		"site":  siteConfig,
-		"radar": map[string]interface{}{
-			"cosine_error_angle": cosineErrorAngle,
-		},
-		"output": map[string]interface{}{
-			"output_dir": outputDir,
-			"debug":      s.debugMode,
-			"map":        site != nil && site.IncludeMap,
-		},
-	}
-
-	// Write config to a temporary file
-	// Use nanoseconds to ensure unique filename under concurrent requests
-	configFile := filepath.Join(os.TempDir(), fmt.Sprintf("report_config_%d.json", now.UnixNano()))
-	configData, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to marshal config: %v", err))
-		return
-	}
-
-	// Validate temp file path (should always pass since we control the temp dir)
-	if err := security.ValidateExportPath(configFile); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Invalid config file path: %v", err))
-		return
-	}
-
-	if err := os.WriteFile(configFile, configData, 0644); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to write config file: %v", err))
-		return
-	}
-	// Log the config file and speed_limit_note so we can inspect what is passed to the
-	// Python generator in production/debug runs. For tests we preserve the file when
-	// PDF_GENERATOR_PYTHON is set so the test can inspect the JSON the server wrote.
-	log.Printf("Report config written: %s (site.speed_limit_note=%q)", configFile, speedLimitNote)
-	if os.Getenv("PDF_GENERATOR_PYTHON") == "" {
-		defer os.Remove(configFile) // Clean up after execution in normal runs
-	} else {
-		log.Printf("Preserving config file for test inspection: %s", configFile)
-	}
-
-	// Get the PDF generator directory
+// generateReportGo handles report generation using the pure-Go report pipeline.
+func (s *Server) generateReportGo(
+	w http.ResponseWriter, r *http.Request,
+	req ReportRequest,
+	cfg report.Config,
+) {
+	// Determine output directory.
 	pdfDir, err := getPDFGeneratorDir()
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine PDF generator directory: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine output directory: %v", err))
 		return
 	}
 
-	// Path to Python binary - allow overriding via PDF_GENERATOR_PYTHON
-	// Check locations in priority order:
-	// 1. Deployed venv: /opt/velocity-report/.venv/bin/python
-	// 2. Development venv: ./.venv/bin/python
-	// 3. System python3
-	pythonBin := os.Getenv("PDF_GENERATOR_PYTHON")
-	if pythonBin == "" {
-		deployedPython := "/opt/velocity-report/.venv/bin/python"
-		if _, err := os.Stat(deployedPython); err == nil {
-			pythonBin = deployedPython
-			log.Printf("Using deployed PDF generator python: %s", pythonBin)
-		} else {
-			repoRoot, _ := os.Getwd()
-			defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
-			if _, err := os.Stat(defaultPythonBin); err == nil {
-				pythonBin = defaultPythonBin
-				log.Printf("Using development PDF generator python: %s", pythonBin)
-			} else {
-				pythonBin = "python3"
-				log.Printf("PDF generator venv not found, using system python3")
-			}
-		}
-	} else {
-		log.Printf("Using overridden PDF generator python: %s", pythonBin)
-	}
+	now := time.Now()
+	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
+	cfg.OutputDir = filepath.Join(pdfDir, "output", runID)
 
-	// Execute the PDF generator
-	cmd := exec.Command(
-		pythonBin,
-		"-m", "pdf_generator.cli.main",
-		configFile,
-	)
-	cmd.Dir = pdfDir
-
-	output, err := cmd.CombinedOutput()
+	result, err := report.Generate(r.Context(), s.db, cfg)
 	if err != nil {
-		log.Printf("PDF generation failed: %v\nOutput: %s", err, string(output))
+		log.Printf("Go PDF generation failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		if errors.Is(err, report.ErrInvalidConfig) {
+			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid report request: %v", err))
+		} else {
+			s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		}
 		return
 	}
 
-	// Log Python output for debugging
-	if len(output) > 0 {
-		log.Printf("PDF generator output:\n%s", string(output))
-	}
-
-	if outputIndicatesReportFailure(string(output)) {
-		log.Printf("PDF generation output contained failure markers despite zero exit status")
+	// Security: validate output paths are within the expected directory.
+	if err := security.ValidatePathWithinDirectory(result.PDFPath, pdfDir); err != nil {
+		log.Printf("Security: rejected Go PDF path %s: %v", result.PDFPath, err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, "PDF generation failed: report compiler indicated failure")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
-
-	// Sanitize user-provided values to prevent path traversal attacks
-	safeEndDate := security.SanitizeFilename(req.EndDate)
-	safeLocation := security.SanitizeFilename(location)
-
-	// Generate filename as: {endDate}_velocity.report_{location}.pdf
-	// Python PDF generator adds _report suffix, so final name is:
-	// {endDate}_velocity.report_{location}_report.pdf
-	pdfFilename := fmt.Sprintf("%s_velocity.report_%s_report.pdf", safeEndDate, safeLocation)
-
-	// Generate ZIP filename with same format (no _report suffix for ZIP)
-	zipFilename := fmt.Sprintf("%s_velocity.report_%s_sources.zip", safeEndDate, safeLocation)
-
-	// Store relative paths from pdf-generator directory
-	relativePdfPath := filepath.Join(outputDir, pdfFilename)
-	relativeZipPath := filepath.Join(outputDir, zipFilename)
-
-	// Verify PDF was actually created
-	fullPdfPath := filepath.Join(pdfDir, relativePdfPath)
-
-	// Security: Validate path is within pdf-generator directory to prevent path traversal
-	if err := security.ValidatePathWithinDirectory(fullPdfPath, pdfDir); err != nil {
-		log.Printf("Security: rejected PDF path %s: %v", fullPdfPath, err)
+	if err := security.ValidatePathWithinDirectory(result.ZIPPath, pdfDir); err != nil {
+		log.Printf("Security: rejected Go ZIP path %s: %v", result.ZIPPath, err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
 
-	if _, err := os.Stat(fullPdfPath); os.IsNotExist(err) {
-		log.Printf("PDF generation completed but file not found at: %s", fullPdfPath)
-		log.Printf("This usually means no data was available for the specified date range.")
+	// Build relative paths matching the Python path convention.
+	relativePdfPath, relativeZipPath, err := relativeReportPaths(pdfDir, result.PDFPath, result.ZIPPath)
+	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusBadRequest, "PDF generation failed: No data available for the specified date range. Please check your dates and ensure data exists.")
+		s.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Create report record in database
-	siteID := 0
-	if req.SiteID != nil {
-		siteID = *req.SiteID
-	}
+	pdfFilename := filepath.Base(result.PDFPath)
+	zipFilename := filepath.Base(result.ZIPPath)
 
-	report := &db.SiteReport{
-		SiteID:      siteID,
+	// Create report record in database.
+	siteReport := &db.SiteReport{
+		SiteID:      *req.SiteID,
 		StartDate:   req.StartDate,
 		EndDate:     req.EndDate,
 		Filepath:    relativePdfPath,
@@ -389,18 +338,17 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		Source:      req.Source,
 	}
 
-	if err := s.db.CreateSiteReport(r.Context(), report); err != nil {
+	if err := s.db.CreateSiteReport(r.Context(), siteReport); err != nil {
 		log.Printf("Failed to create report record: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to create report record")
 		return
 	}
 
-	// Return report ID and file paths
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]interface{}{
 		"success":   true,
-		"report_id": report.ID,
+		"report_id": siteReport.ID,
 		"message":   "Report generated successfully",
 		"pdf_path":  relativePdfPath,
 		"zip_path":  relativeZipPath,
@@ -411,7 +359,53 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Successfully generated PDF report (ID: %d): %s", report.ID, pdfFilename)
+	log.Printf("Successfully generated Go PDF report (ID: %d): %s", siteReport.ID, pdfFilename)
+}
+
+func buildReportConfig(
+	req ReportRequest,
+	site *db.Site,
+	cosineErrorAngle float64,
+	location, surveyor, contact string,
+	speedLimit int,
+	siteDescription, speedLimitNote string,
+) report.Config {
+	cfg := report.Config{
+		SiteID:             *req.SiteID,
+		Location:           location,
+		Surveyor:           surveyor,
+		Contact:            contact,
+		SpeedLimit:         speedLimit,
+		SiteDescription:    siteDescription,
+		SpeedLimitNote:     speedLimitNote,
+		StartDate:          req.StartDate,
+		EndDate:            req.EndDate,
+		Timezone:           req.Timezone,
+		Units:              req.Units,
+		Group:              req.Group,
+		Source:             req.Source,
+		MinSpeed:           req.MinSpeed,
+		BoundaryThreshold:  req.BoundaryThreshold,
+		Histogram:          req.Histogram,
+		HistBucketSize:     req.HistBucketSize,
+		HistMax:            req.HistMax,
+		CompareStart:       req.CompareStart,
+		CompareEnd:         req.CompareEnd,
+		CompareSource:      req.CompareSource,
+		CosineAngle:        cosineErrorAngle,
+		CompareCosineAngle: req.CompareCosineAngle,
+		PaperSize:          req.PaperSize,
+		ExpandedChart:      req.ExpandedChart,
+	}
+
+	if site != nil {
+		cfg.IncludeMap = site.IncludeMap
+		if site.MapSVGData != nil {
+			cfg.MapSVG = *site.MapSVGData
+		}
+	}
+
+	return cfg
 }
 
 // getPDFGeneratorDir determines the PDF generator directory.
@@ -438,23 +432,22 @@ func getPDFGeneratorDir() (string, error) {
 	return filepath.Join(repoRoot, "tools", "pdf-generator"), nil
 }
 
-func outputIndicatesReportFailure(output string) bool {
-	if output == "" {
-		return false
+func relativeReportPaths(pdfDir, pdfPath, zipPath string) (string, string, error) {
+	relativePDFPath, err := filepath.Rel(pdfDir, pdfPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to compute relative PDF path")
+	}
+	if strings.HasPrefix(relativePDFPath, "..") {
+		return "", "", fmt.Errorf("failed to compute relative PDF path")
 	}
 
-	lowerOutput := strings.ToLower(output)
-	failureMarkers := []string{
-		"failed to complete report for",
-		"error: failed to generate pdf report",
-		"one or more date ranges failed to generate a complete pdf report",
+	relativeZIPPath, err := filepath.Rel(pdfDir, zipPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to compute relative ZIP path")
+	}
+	if strings.HasPrefix(relativeZIPPath, "..") {
+		return "", "", fmt.Errorf("failed to compute relative ZIP path")
 	}
 
-	for _, marker := range failureMarkers {
-		if strings.Contains(lowerOutput, marker) {
-			return true
-		}
-	}
-
-	return false
+	return relativePDFPath, relativeZIPPath, nil
 }

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import RadarOverviewChart from '$lib/components/charts/RadarOverviewChart.svelte';
 	import { isoDate } from '$lib/dateUtils';
+	import { buildReportRequest, resolveDashboardReportFilters } from '$lib/reportRequests';
 	import {
 		isDateRangeStale,
+		parseStoredReportSettings,
 		REPORT_SETTINGS_KEY,
 		type StoredReportSettings
 	} from '$lib/reportSettings';
@@ -12,6 +13,7 @@
 	import { onMount } from 'svelte';
 	import { Button, Card, DateRangeField, Header } from 'svelte-ux';
 	import {
+		buildTimeSeriesChartPath,
 		generateReport,
 		getConfig,
 		getRadarStats,
@@ -19,11 +21,12 @@
 		getSites,
 		type Config,
 		type RadarStats,
-		type RadarStatsResponse,
 		type Site,
 		type SiteReport
 	} from '../lib/api';
+	import InlineSvgChart from '../lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '../lib/components/DataSourceSelector.svelte';
+	import { initializePaperSize, paperSize } from '../lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
@@ -34,7 +37,7 @@
 	let p98Speed = 0;
 	let loading = true;
 	let error = '';
-
+	let refreshError = '';
 	// Site management
 	let sites: Site[] = [];
 	let selectedSiteId: number | null = null;
@@ -46,8 +49,8 @@
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
-	let graphData: RadarStats[] = [];
 	let selectedSource: string = 'radar_objects';
+	let statsRequestSerial = 0;
 
 	const groupOptions = [
 		'1h',
@@ -65,9 +68,8 @@
 		'28d'
 	];
 
-	// Reload behavior: react to dateRange, units, group, or source changes.
-	// - If dateRange, units, or source changed -> reload both stats and chart.
-	// - If only group changed -> reload only the chart for faster response.
+	// Reload behavior: when the dashboard filters change, refresh the summary
+	// stats and point the chart image at the matching SVG endpoint.
 	let lastFrom: number = 0;
 	let lastTo: number = 0;
 	let lastUnits: Unit | undefined = undefined;
@@ -75,11 +77,22 @@
 	let lastSource = '';
 	let lastSiteId: number | null = null;
 	let initialized = false;
-	// Cache the last raw stats response
-	let lastStatsRaw: RadarStatsResponse | null = null;
 	let cosineCorrectionAngles: number[] = [];
 	let cosineCorrectionLabel = '';
-	let lastStatsRequestKey = '';
+
+	$: timeSeriesChartUrl =
+		selectedSiteId != null && dateRange.from && dateRange.to
+			? buildTimeSeriesChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					group,
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					paperSize: $paperSize
+				})
+			: '';
 
 	function weightedMedian(values: Array<{ value: number; weight: number }>): number {
 		const filtered = values
@@ -114,70 +127,45 @@
 		const sourceChanged = selectedSource !== lastSource;
 		const siteChanged = selectedSiteId !== lastSiteId;
 
-		// Full reload when date range, display units, or source changes
-		if (dateChanged || unitsChanged || sourceChanged || siteChanged) {
+		if (dateChanged || unitsChanged || groupChanged || sourceChanged || siteChanged) {
 			lastFrom = from;
 			lastTo = to;
 			lastUnits = $displayUnits;
 			lastGroup = group;
 			lastSource = selectedSource;
 			lastSiteId = selectedSiteId;
-			if (dateChanged) {
+			if (dateChanged || groupChanged || sourceChanged) {
 				saveReportDateRangeSettings();
 			}
 
-			loading = true;
-			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
-			loadStats($displayUnits) // eslint-disable-line svelte/infinite-reactive-loop
-				.then(() => loadChart())
-				.catch((e) => {
-					error = e instanceof Error && e.message ? e.message : String(e); // eslint-disable-line svelte/infinite-reactive-loop
-				})
-				.finally(() => {
-					loading = false;
-				});
-			// done
-		} else if (groupChanged) {
-			// Only grouping changed -> refresh chart only
-			lastGroup = group;
-			loadChart();
+			const includeAggregate = dateChanged || unitsChanged || sourceChanged || siteChanged;
+			void refreshStats($displayUnits, includeAggregate);
 		}
 	}
 
 	async function loadConfig() {
-		try {
-			config = await getConfig();
-			initializeUnits(config.units);
-			// initialize the timezone store as well so the dashboard uses stored timezone
-			initializeTimezone(config.timezone);
-			if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
-		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
-		}
+		config = await getConfig();
+		initializeUnits(config.units);
+		initializeTimezone(config.timezone);
+		initializePaperSize();
+		if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
 	}
 
 	async function loadSites() {
-		try {
-			sites = await getSites();
-			siteOptions = sites.map((site) => ({ value: site.id, label: site.name }));
+		sites = await getSites();
+		siteOptions = sites.map((site) => ({ value: site.id, label: site.name }));
 
-			// Load selected site from localStorage or default to first site
-			if (browser) {
-				const savedSiteId = localStorage.getItem('selectedSiteId');
-				if (savedSiteId) {
-					const siteId = parseInt(savedSiteId, 10);
-					if (sites.some((s) => s.id === siteId)) {
-						selectedSiteId = siteId;
-					}
-				}
-				// If no saved site or invalid, default to first site
-				if (selectedSiteId === null && sites.length > 0) {
-					selectedSiteId = sites[0].id;
+		if (browser) {
+			const savedSiteId = localStorage.getItem('selectedSiteId');
+			if (savedSiteId) {
+				const siteId = parseInt(savedSiteId, 10);
+				if (sites.some((s) => s.id === siteId)) {
+					selectedSiteId = siteId;
 				}
 			}
-		} catch (e) {
-			console.error('Could not load sites:', e);
-			// Don't set error here, sites are optional for viewing stats
+			if (selectedSiteId === null && sites.length > 0) {
+				selectedSiteId = sites[0].id;
+			}
 		}
 	}
 
@@ -189,11 +177,8 @@
 	function loadReportDateRangeSettings() {
 		if (!browser) return;
 		try {
-			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
-			if (!saved) return;
-
-			const settings = JSON.parse(saved) as StoredReportSettings;
-			if (isDateRangeStale(settings?.dateRange?.savedAt)) return;
+			const settings = parseStoredReportSettings(localStorage.getItem(REPORT_SETTINGS_KEY));
+			if (!settings || isDateRangeStale(settings?.dateRange?.savedAt)) return;
 
 			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
 			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
@@ -202,8 +187,11 @@
 			dateRange = {
 				from,
 				to,
-				periodType: settings?.dateRange?.periodType ?? PeriodType.Day
+				periodType: PeriodType.Day
 			};
+
+			if (typeof settings.group === 'string') group = settings.group;
+			if (typeof settings.selectedSource === 'string') selectedSource = settings.selectedSource;
 		} catch (e) {
 			console.warn('Could not load saved report settings:', e);
 		}
@@ -224,9 +212,11 @@
 			settings.dateRange = {
 				from: dateRange.from.toISOString(),
 				to: dateRange.to.toISOString(),
-				periodType: dateRange.periodType,
+				periodType: String(dateRange.periodType),
 				savedAt: new Date().toISOString()
 			};
+			settings.group = group;
+			settings.selectedSource = selectedSource;
 
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
 		} catch (e) {
@@ -234,36 +224,37 @@
 		}
 	}
 
-	async function loadStats(units: Unit) {
-		try {
-			if (!dateRange.from || !dateRange.to) {
-				stats = [];
-				totalCount = 0;
-				p98Speed = 0;
-				cosineCorrectionAngles = [];
-				return;
-			}
-			const startUnix = Math.floor(dateRange.from.getTime() / 1000);
-			const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-			const statsResp = await getRadarStats(
-				startUnix,
-				endUnix,
-				group,
-				units,
-				$displayTimezone,
-				selectedSource,
-				selectedSiteId
-			);
-			// cache raw response so loadChart can reuse it instead of making a second request
-			lastStatsRaw = statsResp;
-			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}|${selectedSiteId ?? 'all'}`;
-			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
-			stats = statsResp.metrics;
-			cosineCorrectionAngles = statsResp.cosineCorrection?.angles ?? [];
-			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+	async function loadStats(units: Unit, includeAggregate = true) {
+		const requestSerial = ++statsRequestSerial;
 
-			// Use a dedicated aggregate query (group=all) for the headline P98 so the
-			// summary card and dashed reference line represent the true period aggregate.
+		if (!dateRange.from || !dateRange.to) {
+			if (requestSerial !== statsRequestSerial) return;
+			stats = [];
+			totalCount = 0;
+			p98Speed = 0;
+			cosineCorrectionAngles = [];
+			return;
+		}
+
+		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
+		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
+		const statsResp = await getRadarStats(
+			startUnix,
+			endUnix,
+			group,
+			units,
+			$displayTimezone,
+			selectedSource,
+			selectedSiteId
+		);
+		if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
+
+		const nextStats = statsResp.metrics;
+		const nextAngles = statsResp.cosineCorrection?.angles ?? [];
+		const nextTotalCount = nextStats.reduce((sum, s) => sum + (s.count || 0), 0);
+		let nextP98 = p98Speed;
+
+		if (includeAggregate) {
 			const aggregateResp = await getRadarStats(
 				startUnix,
 				endUnix,
@@ -275,81 +266,34 @@
 			);
 			const aggregateBucket = aggregateResp.metrics[0];
 			if (aggregateBucket && Number.isFinite(Number(aggregateBucket.p98))) {
-				p98Speed = Number(aggregateBucket.p98);
+				nextP98 = Number(aggregateBucket.p98);
 			} else {
-				// Fallback for unexpected empty aggregate response.
-				p98Speed = weightedMedian(
-					stats.map((s) => ({
+				nextP98 = weightedMedian(
+					nextStats.map((s) => ({
 						value: Number(s.p98 || 0),
 						weight: Math.max(0, Number(s.count || 0))
 					}))
 				);
 			}
-		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Could not load stats.'; // eslint-disable-line svelte/infinite-reactive-loop
+		}
+
+		if (requestSerial !== statsRequestSerial) return;
+
+		stats = nextStats;
+		cosineCorrectionAngles = nextAngles;
+		totalCount = nextTotalCount;
+		if (includeAggregate) {
+			p98Speed = nextP98;
 		}
 	}
 
-	// load chart data for the selected date range and group
-	async function loadChart() {
-		if (!dateRange.from || !dateRange.to) {
-			graphData = [];
-			return;
+	async function refreshStats(units: Unit, includeAggregate = true) {
+		try {
+			await loadStats(units, includeAggregate);
+			refreshError = '';
+		} catch (e) {
+			refreshError = e instanceof Error && e.message ? e.message : 'Could not refresh stats.';
 		}
-		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
-		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-		const units = $displayUnits;
-		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}|${selectedSiteId ?? 'all'}`;
-
-		let arr: RadarStats[];
-		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
-			// reuse cached stats response
-			arr = lastStatsRaw.metrics || [];
-			if (browser) console.debug('[dashboard] reusing cached stats for chart');
-		} else {
-			// fetch via the shared API helper so we use the same code path as loadStats
-			if (browser)
-				console.debug('[dashboard] chart fetching via getRadarStats ->', $displayTimezone);
-			const resp = await getRadarStats(
-				startUnix,
-				endUnix,
-				group,
-				units,
-				$displayTimezone,
-				selectedSource,
-				selectedSiteId
-			);
-			arr = resp.metrics;
-			// cache the response for potential reuse
-			lastStatsRaw = resp;
-			lastStatsRequestKey = requestKey;
-		}
-
-		// filter out rows with missing/invalid date to avoid scale errors
-		const validRows = arr.filter((r) => {
-			const dt = r.date instanceof Date ? r.date : new Date(r.date);
-			return dt && !isNaN(dt.getTime());
-		});
-		if (validRows.length !== arr.length && browser) {
-			console.debug('[dashboard] dropped rows with invalid date', arr.length - validRows.length);
-		}
-
-		// normalize data types so chart math never receives strings/invalid values
-		graphData = validRows
-			.map((row) => {
-				const dt = row.date instanceof Date ? row.date : new Date(row.date);
-				return {
-					...row,
-					date: dt,
-					count: Number(row.count || 0),
-					p50: Number(row.p50 || 0),
-					p85: Number(row.p85 || 0),
-					p98: Number(row.p98 || 0),
-					max: Number(row.max || 0)
-				} as RadarStats;
-			})
-			.filter((row) => row.date instanceof Date && !Number.isNaN(row.date.getTime()))
-			.sort((a, b) => a.date.getTime() - b.date.getTime());
 	}
 
 	async function loadData() {
@@ -365,9 +309,11 @@
 			lastUnits = $displayUnits;
 			lastGroup = group;
 			lastSource = selectedSource;
-			await loadStats($displayUnits);
-			// populate the chart for the default date range
-			await loadChart();
+			lastSiteId = selectedSiteId;
+			await loadStats($displayUnits, true);
+			refreshError = '';
+		} catch (e) {
+			error = e instanceof Error && e.message ? e.message : 'Could not load dashboard data.';
 		} finally {
 			loading = false;
 			// mark initialization complete so the reactive watcher can start firing
@@ -402,18 +348,27 @@
 		reportMetadata = null;
 
 		try {
+			const savedSettings = parseStoredReportSettings(
+				browser ? localStorage.getItem(REPORT_SETTINGS_KEY) : null
+			);
+			const filters = resolveDashboardReportFilters(savedSettings);
+
 			// Generate report and get report ID
-			const response = await generateReport({
-				start_date: isoDate(dateRange.from),
-				end_date: isoDate(dateRange.to),
-				timezone: $displayTimezone,
-				units: $displayUnits,
-				group: group,
-				source: selectedSource,
-				histogram: true,
-				hist_bucket_size: 5.0,
-				site_id: selectedSiteId
-			});
+			const response = await generateReport(
+				buildReportRequest(
+					{
+						startDate: isoDate(dateRange.from),
+						endDate: isoDate(dateRange.to),
+						timezone: $displayTimezone,
+						units: $displayUnits,
+						group,
+						source: selectedSource,
+						siteId: selectedSiteId,
+						paperSize: $paperSize
+					},
+					filters
+				)
+			);
 
 			lastGeneratedReportId = response.report_id;
 
@@ -510,6 +465,16 @@
 			</div>
 		</div>
 
+		{#if refreshError}
+			<div
+				role="alert"
+				aria-live="polite"
+				class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+			>
+				{refreshError}
+			</div>
+		{/if}
+
 		{#if reportMessage}
 			<div
 				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
@@ -585,13 +550,15 @@
 			</p>
 		{/if}
 
-		{#if graphData.length > 0}
-			<RadarOverviewChart
-				data={graphData}
-				{group}
-				speedUnits={getUnitLabel($displayUnits)}
-				p98Reference={p98Speed}
-			/>
+		{#if timeSeriesChartUrl}
+			<div class="block w-full rounded border p-4">
+				<InlineSvgChart
+					url={timeSeriesChartUrl}
+					label="Vehicle count bars and percentile speed lines"
+					loadingLabel="Refreshing chart…"
+					minHeight={340}
+				/>
+			</div>
 
 			<!-- Accessible data table fallback -->
 			<details class="rounded border p-4">
@@ -612,7 +579,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each graphData as row (row.date.getTime())}
+							{#each stats as row (row.date.getTime())}
 								<tr class="border-b">
 									<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
 									<td class="px-2 py-2 text-right">{row.count}</td>

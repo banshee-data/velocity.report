@@ -1148,10 +1148,10 @@ func TestGenerateReport_WithValidSiteAndConfigPeriod(t *testing.T) {
 
 	server.generateReport(w, req)
 
-	// Should fail on PDF execution, but pass all validation
-	// Expected: 500 (execution fails) or 400 (no data/file)
-	if w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 500 or 400, got %d", w.Code)
+	// The request should pass validation. Depending on local tool availability,
+	// the Go report pipeline may either complete or fail during rendering.
+	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 200, 500, or 400, got %d", w.Code)
 	}
 }
 

@@ -1,8 +1,16 @@
-# PDF report generator
+> **Deprecated.** The Python PDF generator is superseded by the native Go report pipeline built into
+> `velocity-report`. Report generation now uses `POST /api/generate_report` (HTTP) or
+> `velocity-report pdf --config report.json` (CLI). Python is no longer installed on deployed
+> images. This directory is retained for reference and will be removed in v0.6.
+> See [pdf-go-chart-migration-plan.md](../../docs/plans/pdf-go-chart-migration-plan.md) and
+> [pdf-reporting.md](../../docs/platform/operations/pdf-reporting.md).
+
+# PDF report generator (deprecated)
 
 A Python tool for generating professional PDF reports from radar statistics with charts, tables, and optional maps.
 
 **Location**: `tools/pdf-generator/`
+**Status**: Deprecated — superseded by the Go report pipeline in `internal/report/`.
 **Installation**: PYTHONPATH-based (no package installation needed)
 
 ## Quick start

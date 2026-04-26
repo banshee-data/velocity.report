@@ -1,4 +1,12 @@
-import { isDateRangeStale, STALENESS_THRESHOLD_MS, REPORT_SETTINGS_KEY } from './reportSettings';
+import {
+	areStoredReportSettingsFresh,
+	DAY_PERIOD_TYPE,
+	isDateRangeStale,
+	normaliseStoredPeriodType,
+	parseStoredReportSettings,
+	REPORT_SETTINGS_KEY,
+	STALENESS_THRESHOLD_MS
+} from './reportSettings';
 
 describe('isDateRangeStale', () => {
 	afterEach(() => {
@@ -65,5 +73,73 @@ describe('constants', () => {
 
 	it('REPORT_SETTINGS_KEY is reportSettings', () => {
 		expect(REPORT_SETTINGS_KEY).toBe('reportSettings');
+	});
+});
+
+describe('parseStoredReportSettings', () => {
+	it('returns null for missing localStorage data', () => {
+		expect(parseStoredReportSettings(null)).toBeNull();
+	});
+
+	it('returns null for invalid JSON', () => {
+		expect(parseStoredReportSettings('{nope')).toBeNull();
+	});
+
+	it('returns the parsed object for valid JSON', () => {
+		const settings = parseStoredReportSettings(
+			JSON.stringify({ selectedSource: 'radar_data_transits', minSpeed: 5 })
+		);
+
+		expect(settings).toEqual({ selectedSource: 'radar_data_transits', minSpeed: 5 });
+	});
+
+	it('returns null for arrays (typeof [] === "object")', () => {
+		expect(parseStoredReportSettings('[]')).toBeNull();
+		expect(parseStoredReportSettings('[{"selectedSource":"radar_objects"}]')).toBeNull();
+	});
+});
+
+describe('areStoredReportSettingsFresh', () => {
+	it('returns false when settings are missing', () => {
+		expect(areStoredReportSettingsFresh(null)).toBe(false);
+	});
+
+	it('returns false when the saved date-range timestamp is stale', () => {
+		const staleSavedAt = new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString();
+		expect(
+			areStoredReportSettingsFresh({
+				dateRange: { savedAt: staleSavedAt },
+				selectedSource: 'radar_objects'
+			})
+		).toBe(false);
+	});
+
+	it('returns true when the saved date-range timestamp is fresh', () => {
+		const freshSavedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+		expect(
+			areStoredReportSettingsFresh({
+				dateRange: { savedAt: freshSavedAt },
+				selectedSource: 'radar_data_transits'
+			})
+		).toBe(true);
+	});
+});
+
+describe('normaliseStoredPeriodType', () => {
+	it('accepts a numeric PeriodType value', () => {
+		expect(normaliseStoredPeriodType(DAY_PERIOD_TYPE)).toBe(DAY_PERIOD_TYPE);
+	});
+
+	it('accepts a stringified enum value', () => {
+		expect(normaliseStoredPeriodType('10')).toBe(DAY_PERIOD_TYPE);
+	});
+
+	it('accepts the symbolic day code', () => {
+		expect(normaliseStoredPeriodType('day')).toBe(DAY_PERIOD_TYPE);
+	});
+
+	it('falls back to day for unsupported values', () => {
+		expect(normaliseStoredPeriodType('quarter')).toBe(DAY_PERIOD_TYPE);
+		expect(normaliseStoredPeriodType(999)).toBe(DAY_PERIOD_TYPE);
 	});
 });

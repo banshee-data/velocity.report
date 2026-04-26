@@ -47,7 +47,6 @@ cleanup() {
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
-    rm -rf "$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     # Remove staged root documents
     local stage_files="$IMAGE_DIR/stage-velocity/03-velocity-config/files"
@@ -203,31 +202,8 @@ fi
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
-# 6. Copy PDF generator and config into stage directory
+# 6. Copy TeX Live build config into stage directory
 # ---------------------------------------------------------------------------
-# These must be populated BEFORE we copy stage-velocity into pi-gen (step 6)
-# so the copies include the PDF generator and config files.
-PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
-mkdir -p "$PDF_DEST"
-cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
-# Remove build artefacts that must not bloat the Docker build context or
-# the installed image.  These accumulate during local development:
-#   output/      — generated PDFs from test/dev runs   (~150 MB)
-#   htmlcov/     — pytest-cov HTML reports             (  ~3 MB)
-#   __pycache__/ — Python bytecode                     (  ~1 MB)
-#   *.egg-info/  — editable-install metadata           (  <1 MB)
-# .venv/ and .pytest_cache/ are hidden and excluded by the shell glob.
-rm -rf \
-    "$PDF_DEST/output" \
-    "$PDF_DEST/htmlcov" \
-    "$PDF_DEST/__pycache__" \
-    "$PDF_DEST/scripts"
-find "$PDF_DEST" -name '*.egg-info' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$PDF_DEST" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$PDF_DEST" -name 'tests' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$PDF_DEST" -name '*.pyc' -delete 2>/dev/null || true
-log_info "Copied PDF generator source"
-
 # Copy minimal TeX Live build script and dependencies into the packages
 # stage so 01-run.sh can build the vendored tree inside the chroot.
 TEXLIVE_DEST="$IMAGE_DIR/stage-velocity/00-install-packages/files"
@@ -349,17 +325,13 @@ fi
 # config. Fix: copy the container's resolv.conf before entering the chroot.
 COMMON_FILE="$PIGEN_DIR/scripts/common"
 if ! grep -q "resolv.conf" "$COMMON_FILE" 2>/dev/null; then
-    python3 - "$COMMON_FILE" << 'PYEOF'
-import sys
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-target = '\tcapsh $CAPSH_ARG "--chroot=${ROOTFS_DIR}/" -- -e "$@"'
-fix = '\tcp /etc/resolv.conf "${ROOTFS_DIR}/etc/resolv.conf" 2>/dev/null || true\n'
-content = content.replace(target, fix + target, 1)
-with open(path, 'w') as f:
-    f.write(content)
-PYEOF
+    awk '
+        /\tcapsh \$CAPSH_ARG "--chroot=\$\{ROOTFS_DIR\}\/" -- -e "\$@"/ && !patched {
+            print "\tcp /etc/resolv.conf \"${ROOTFS_DIR}/etc/resolv.conf\" 2>/dev/null || true"
+            patched=1
+        }
+        { print }
+    ' "$COMMON_FILE" > "$COMMON_FILE.tmp" && mv "$COMMON_FILE.tmp" "$COMMON_FILE"
     log_info "Patched on_chroot for Docker Desktop DNS compatibility"
 fi
 

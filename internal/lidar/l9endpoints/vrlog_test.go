@@ -581,7 +581,7 @@ func TestServer_Play_VRLogMode(t *testing.T) {
 		}
 	}
 	reader := newMockFrameReader(frames)
-	reader.paused = true // Start paused
+	reader.SetPaused(true) // Start paused
 
 	if err := pub.StartVRLogReplay(reader); err != nil {
 		t.Fatalf("StartVRLogReplay failed: %v", err)

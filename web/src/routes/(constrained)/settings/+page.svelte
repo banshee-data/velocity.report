@@ -7,8 +7,10 @@
 		type TransitRunInfo,
 		type TransitWorkerState
 	} from '$lib/api';
+	import { paperSize, initializePaperSize, updatePaperSize } from '$lib/stores/paper';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits, updateUnits } from '$lib/stores/units';
+	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '$lib/paper';
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
 	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
 	import { onMount } from 'svelte';
@@ -17,6 +19,7 @@
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let selectedUnits: Unit = 'mph';
 	let selectedTimezone: Timezone = 'UTC';
+	let selectedPaperSize: PaperSize = 'a4';
 	let loading = true;
 	let message = '';
 	let transitWorkerEnabled = true;
@@ -117,6 +120,7 @@
 	// Initialize from stores - these will update when the stores change
 	$: selectedUnits = $displayUnits;
 	$: selectedTimezone = $displayTimezone;
+	$: selectedPaperSize = $paperSize;
 	$: currentRun = transitWorkerStatus?.current_run ?? null;
 	$: resolvedLastRun = resolveLastRun(transitWorkerStatus);
 
@@ -127,6 +131,9 @@
 	$: if (selectedTimezone && selectedTimezone !== $displayTimezone && !loading) {
 		handleTimezoneChange(selectedTimezone);
 	}
+	$: if (selectedPaperSize && selectedPaperSize !== $paperSize && !loading) {
+		handlePaperSizeChange(selectedPaperSize);
+	}
 
 	async function loadConfig() {
 		try {
@@ -134,6 +141,7 @@
 			// Initialize both stores with localStorage data and server defaults
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
+			initializePaperSize();
 		} catch (e) {
 			console.error('Could not load configuration:', e);
 			message = 'Could not load the configuration. Check the server is running.';
@@ -236,6 +244,19 @@
 		}
 	}
 
+	function handlePaperSizeChange(newSize: PaperSize) {
+		try {
+			updatePaperSize(newSize);
+			message = 'Paper size updated.';
+			setTimeout(() => {
+				message = '';
+			}, 3000);
+		} catch (e) {
+			console.error('Could not update paper size:', e);
+			message = 'Could not save the paper size change.';
+		}
+	}
+
 	function handleTimezoneChange(newTimezone: Timezone) {
 		try {
 			updateTimezone(newTimezone);
@@ -306,6 +327,22 @@
 						label="Timezone"
 						bind:value={selectedTimezone}
 						options={AVAILABLE_TIMEZONES}
+						clearable={false}
+					/>
+				</div>
+			</Card>
+
+			<Card title="PDF Paper Size" class="h-full">
+				<div class="space-y-4 p-4">
+					<p class="text-surface-content/70 text-sm">
+						Choose the paper size used when generating PDF reports. Charts are sized to fit the
+						selected paper. Current selection: {getPaperLabel($paperSize)}.
+					</p>
+
+					<SelectField
+						label="Paper Size"
+						bind:value={selectedPaperSize}
+						options={AVAILABLE_PAPER_SIZES}
 						clearable={false}
 					/>
 				</div>

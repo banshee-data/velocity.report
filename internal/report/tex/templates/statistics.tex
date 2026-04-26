@@ -1,0 +1,36 @@
+<<define "statistics_single">>
+<<if .HistogramTableTeX>>
+\vspace{8pt}
+\subsection*{Speed Distribution}
+\vspace{4pt}
+{\ttfamily\small
+\renewcommand{\arraystretch}{1.14}
+\begin{center}
+<<.HistogramTableTeX>>
+\end{center}
+\par
+}
+\vspace{10pt}
+<<end>>
+
+<<if .StatTableTeX>>
+\subsection*{Detailed Data}
+\vspace{4pt}
+<<.StatTableTeX>>
+<<end>>
+<<end>>
+
+<<define "statistics_comparison">>
+<<if .DualHistogramTableTeX>>
+\subsection*{Speed Distribution}
+<<.DualHistogramTableTeX>>
+<<end>>
+
+<<if .DailyStatTableTeX>>
+<<.DailyStatTableTeX>>
+<<end>>
+
+<<if .StatTableTeX>>
+<<.StatTableTeX>>
+<<end>>
+<<end>>

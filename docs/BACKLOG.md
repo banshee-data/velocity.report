@@ -23,6 +23,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - Version-bump consolidation: pin 3 dead-metadata package versions to `"0.0.0"`, strip `--web`/`--docs`/`--pdf` targets from `set-version.sh`, simplify CI version-check workflow: [design doc](plans/version-bump-consolidation-plan.md) `S`
+- [#455] `InlineSvgChart` SVG injection hardening: replace `{@html svg}` injection with `<img src>` / `<object data>` or an SVG sanitiser; audit `/api/charts/*` callers to confirm no user-supplied strings flow into chart SVG text; remove the `svelte/no-at-html-tags` lint disable on `web/src/lib/components/charts/InlineSvgChart.svelte`: [design doc](plans/pdf-go-chart-migration-plan.md#v052--inlinesvgchart-svg-injection-hardening) `S`
 
 ### v0.5.3 - Data contracts + metrics (053)
 
@@ -111,7 +112,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.7.0 - United frontend (070)
 
 - (#252) Frontend unification (Phases 0–5): migrate status/regions/sweep to Svelte, retire port 8081: [design doc](plans/web-frontend-consolidation-plan.md) `L`
-- ECharts → LayerChart rewrite (8 charts, D-11): migrate all radar/lidar charts to Svelte LayerChart: [design doc](ui/DESIGN.md) `L`
+- ECharts → LayerChart rewrite (non-report charts, D-11): migrate live dashboard and real-time stats charts to Svelte LayerChart; report-view charts (time-series, histogram, comparison) are served as SVG by Go and consumed directly: [design doc](ui/DESIGN.md) `L`
+- Frontend SVG chart consumption (D-11, D-17): wire Svelte frontend to consume Go-generated SVG charts from `/api/charts/*` for report views; retire ECharts for those views; `ChartStyle` control knobs already designed for dual-surface use: [design doc](plans/pdf-go-chart-migration-plan.md) `M`
 - Retire Go-embedded dashboards: ~2,000 lines removed from monitor once Svelte dashboards replace ECharts: [review doc §7](lidar/architecture/lidar-layer-alignment-refactor-review.md) `L`
 - VelocityVisualiser light mode (3D scene): follow system dark/light mode with tuned point cloud, trails, and box colours: [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 - Track labelling Phase 9 UI (Swift, D-07): seekable replay, Swift-native labelling: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
@@ -122,6 +124,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Widescreen content containment (D-13): add vr-page max-width centring at ≥3000px: [design doc §2.2](ui/design-review-and-improvement.md) `S`
 - macOS palette constants: prepare shared palette definition when metric charts added to visualiser: [design doc §1.2](ui/design-review-and-improvement.md) `S`
 - LayerChart policy in LiDAR routes: enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps: [design doc §4.2](ui/design-review-and-improvement.md) `S`
+- ChartStyle frontend/backend coherence: design mechanism for Svelte frontend and Go report package to consume `ChartStyle` control knobs consistently (palette tokens, font size, layout constants) across both rendering surfaces; ensures PDF and web charts stay visually aligned: [design doc](plans/pdf-go-chart-migration-plan.md) `S`
 
 ## 08x Mobile mesh 📶
 

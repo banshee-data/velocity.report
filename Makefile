@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre7
+VERSION := 0.5.1-pre8
 
 # =============================================================================
 # HELP TARGET (default)
@@ -43,7 +43,7 @@ help:
 	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
-	@echo "  install-python       Set up Python PDF generator (venv + deps)"
+	@echo "  install-python       Set up Python PDF generator venv (deprecated — local dev only)"
 	@echo "  build-texlive-minimal Build local minimal TeX tree for production mode"
 	@echo "  build-tex-fmt        Rebuild velocity-report.fmt in local minimal TeX tree"
 	@echo "  install-texlive-minimal Install local minimal TeX tree to /opt/velocity-report"
@@ -656,8 +656,9 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
-	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
-	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	pdf_backend=$${VELOCITY_PDF_BACKEND:-both}; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH, PDF backend=$$pdf_backend -> $$logfile (debug -> $$debuglog)"; \
+	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_PDF_BACKEND="$$pdf_backend" VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
 endef
 
@@ -672,7 +673,16 @@ define run_dev_go_require_precompiled_root
 		echo "Error: precompiled TeX flow requested but $$tex_root/texmf-dist/web2c/xelatex/xelatex.fmt not found."; \
 		echo "Run 'make build-tex-fmt' (or rebuild via 'make build-texlive-minimal'), or use 'make dev-go-latex-full'."; \
 		exit 1; \
-	fi
+	fi; \
+	for required in \
+		"$$tex_root/texmf-dist/tex/latex/xcolor/xcolor.sty" \
+		"$$tex_root/texmf-dist/tex/latex/colortbl/colortbl.sty"; do \
+		if [ ! -f "$$required" ]; then \
+			echo "Error: precompiled TeX tree is stale; missing $$required."; \
+			echo "Run 'make build-texlive-minimal' to refresh the minimal TeX packages, or use 'make dev-go-latex-full'."; \
+			exit 1; \
+		fi; \
+	done
 endef
 
 define run_dev_go_kill_server
@@ -805,17 +815,23 @@ vrlog-compare:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary tex-compare test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
 
 MAC_DIR = tools/visualiser-macos
 
 # Aggregate test target: runs Go, web, Python, and macOS tests in sequence
-test: test-go test-web test-python test-mac
+test: test-go test-web test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
 	@echo "Running Go unit tests..."
 	@go test ./...
+
+# Compare Go tex output against golden files; re-run with -update flag to regenerate.
+tex-compare:
+	@echo "Checking tex golden files..."
+	@go test ./internal/report/tex/... -run 'TestRenderTeX_Golden'
+	@echo "tex golden files OK"
 
 # Run Go unit tests with coverage
 test-go-cov:
@@ -915,7 +931,7 @@ test-mac-cov:
 	fi
 
 # Generate coverage reports for all components
-coverage: test-go-cov test-python-cov test-web-cov test-mac-cov
+coverage: test-go-cov test-web-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
 	@echo "  - Go:     coverage.html"
@@ -1041,7 +1057,7 @@ schema-erd-from-dot:
 
 .PHONY: format format-go format-python format-web format-mac format-docs format-sql
 
-format: format-go format-python format-web format-mac format-docs format-sql
+format: format-go format-web format-mac format-docs format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -1135,7 +1151,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-python lint-web lint-docs
+lint: lint-go lint-web lint-docs
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -1164,6 +1180,7 @@ lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Merm
 	@python3 scripts/check-british-spelling.py
 
 check-md-links: ## Check dead relative links and stale backtick paths in Markdown (no other lint)
+	@printf '%s\n' 'to ignore a line add: <!-- link-ignore -->'
 	@python3 scripts/check-relative-links.py
 	@python3 scripts/check-backtick-paths.py
 
@@ -1270,7 +1287,8 @@ lint-web:
 	fi
 
 # =============================================================================
-# PDF GENERATOR
+# PDF GENERATOR (deprecated — retained for local dev; production uses Go pipeline)
+# Report generation: POST /api/generate_report or `velocity-report pdf --config cfg.json`
 # =============================================================================
 
 .PHONY: pdf-check-latex-parity pdf-test validate-tex-minimal pdf-report pdf-config pdf-demo pdf clean-python

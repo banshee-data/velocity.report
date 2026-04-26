@@ -50,7 +50,7 @@ pi-gen + precompiled `.fmt`, single tier; `.tex` source in `.zip` — [RPi image
 
 ### D-11 — ECharts → LayerChart migration
 
-Rewrite all 8 charts in v0.7 — [DESIGN §4](ui/DESIGN.md), [frontend consolidation](plans/web-frontend-consolidation-plan.md)
+Report-view charts (time-series, histogram, comparison) are served as SVG by the Go chart package (`internal/report/chart`) and consumed directly by the Svelte frontend — not rewritten in LayerChart. Non-report charts (live dashboard, real-time stats) remain in scope for LayerChart migration in v0.7 — [DESIGN §4](ui/DESIGN.md), [frontend consolidation](plans/web-frontend-consolidation-plan.md), [PDF migration plan](plans/pdf-go-chart-migration-plan.md)
 
 ### D-12 — Web palette (percentile colours)
 
@@ -74,7 +74,7 @@ v0.8 placement (radar theme) — [speed-limit-schedules.md](radar/architecture/s
 
 ### D-17 — PDF generation migration to Go
 
-Go SVG charts + `text/template` LaTeX; eliminate Python stack — [PDF Go chart migration plan](plans/pdf-go-chart-migration-plan.md)
+Go direct SVG charts (encoding/xml, no gonum) + `text/template` LaTeX; embed Atkinson Hyperlegible font in SVGs; dimensions in mm; `rsvg-convert` for SVG→PDF; Go chart package also serves SVG to web frontend; `grid-heatmap` migrated to Go subcommand; Python stack eliminated — [PDF Go chart migration plan](plans/pdf-go-chart-migration-plan.md)
 
 ### D-18 — Speed percentile aggregation semantics
 

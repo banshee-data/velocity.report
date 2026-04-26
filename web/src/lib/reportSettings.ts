@@ -10,6 +10,9 @@
 /** Canonical localStorage key used by both dashboard and reports pages. */
 export const REPORT_SETTINGS_KEY = 'reportSettings';
 
+/** Numeric enum value used by DateRangeField for day ranges. */
+export const DAY_PERIOD_TYPE = 10;
+
 /**
  * Maximum age of a stored date range before it is considered stale.
  *
@@ -23,7 +26,7 @@ export const STALENESS_THRESHOLD_MS = 18 * 60 * 60 * 1000;
 export type StoredDateRange = {
 	from?: string;
 	to?: string;
-	periodType?: string;
+	periodType?: number | string;
 	savedAt?: string;
 };
 
@@ -31,8 +34,39 @@ export type StoredDateRange = {
 export type StoredReportSettings = {
 	dateRange?: StoredDateRange;
 	compareRange?: StoredDateRange;
-	[key: string]: unknown;
+	compareEnabled?: boolean;
+	compareSource?: string;
+	group?: string;
+	selectedSource?: string;
+	minSpeed?: number;
+	maxSpeedCutoff?: number | null;
+	boundaryThreshold?: number;
+	expandedChart?: boolean;
 };
+
+/** Parse the shared localStorage payload safely. */
+export function parseStoredReportSettings(saved: string | null): StoredReportSettings | null {
+	if (!saved) return null;
+
+	try {
+		const parsed = JSON.parse(saved) as StoredReportSettings;
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Returns true when the saved report settings are still fresh enough to reuse.
+ * The date-range timestamp is the canonical freshness marker for the full
+ * report-settings bundle.
+ */
+export function areStoredReportSettingsFresh(
+	settings: StoredReportSettings | null | undefined
+): boolean {
+	return !isDateRangeStale(settings?.dateRange?.savedAt);
+}
 
 /**
  * Returns true when the stored date range should be discarded in favour
@@ -48,4 +82,37 @@ export function isDateRangeStale(savedAt: string | undefined): boolean {
 	const savedTime = new Date(savedAt).getTime();
 	if (Number.isNaN(savedTime)) return true;
 	return Date.now() - savedTime > STALENESS_THRESHOLD_MS;
+}
+
+/**
+ * Normalise persisted period-type values before handing them back to the
+ * date picker. Older localStorage entries may contain stringified enum values
+ * like "10" or symbolic codes like "day".
+ */
+export function normaliseStoredPeriodType(
+	periodType: unknown,
+	allowed: readonly number[] = [DAY_PERIOD_TYPE],
+	fallback = DAY_PERIOD_TYPE
+): number {
+	if (
+		typeof periodType === 'number' &&
+		Number.isInteger(periodType) &&
+		allowed.includes(periodType)
+	) {
+		return periodType;
+	}
+
+	if (typeof periodType === 'string') {
+		const trimmed = periodType.trim();
+		const numericValue = Number(trimmed);
+		if (Number.isInteger(numericValue) && allowed.includes(numericValue)) {
+			return numericValue;
+		}
+
+		if (trimmed.toLowerCase() === 'day' && allowed.includes(DAY_PERIOD_TYPE)) {
+			return DAY_PERIOD_TYPE;
+		}
+	}
+
+	return fallback;
 }
