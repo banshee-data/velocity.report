@@ -348,13 +348,15 @@
 
 ---
 
-### Phase 4: installation script & documentation (3-5 days)
+### Phase 4: ~~installation script & documentation~~ (largely superseded)
 
 > **Updated direction:** the install script no longer drops a binary at `/usr/local/bin/velocity-report`. It downloads the single artifact, places it at `/opt/velocity-report/versions/<v>/velocity`, sets the `current` symlink, and creates `/usr/local/bin/velocity` plus `/usr/local/bin/velocity-report` into the chain. If a `velocity-ctl` bridge is needed during migration, it is temporary and not part of the promoted surface. The systemd unit it writes uses port `:80` and `AmbientCapabilities=CAP_NET_BIND_SERVICE`. The Python venv prompt and download are removed (Python pipeline deprecated). See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#image-and-install-script-impact) and [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md).
 
-**Goal:** Create one-command installation for end users.
+> **Historical context only.** The script and task list below describe the earlier flat-install design (binary directly under `/usr/local/bin/`, optional Python venv, ExecStart with `serve` keyword). They are preserved to explain what was previously contemplated. They are **not** current implementation guidance; the canonical install path is the one in [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md).
 
-**Tasks:**
+~~**Goal:** Create one-command installation for end users.~~
+
+**Historical tasks from the superseded design:**
 
 1. **Create unified installation script**
 
