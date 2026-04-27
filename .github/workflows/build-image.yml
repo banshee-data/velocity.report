@@ -38,7 +38,7 @@ jobs:
             exit 0
           fi
 
-          if ! git rev-parse -q --verify "refs/tags/$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          if ! gh api "repos/$GH_REPO/git/refs/tags/$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "::error::Expected pushed tag $GITHUB_REF_NAME to exist before publishing the release."
             exit 1
           fi
