@@ -51,8 +51,8 @@ You also need a legal place to deploy the sensor: your own property, permission 
 |                        |                                                          |
 | ---------------------- | -------------------------------------------------------- |
 | ✅ **Collected**       | Vehicle speed, direction, timestamp (traffic volume is derived from detections) |
-| ❌ **Not collectable** | By design: no camera, no licence-plate reader, no GPS. The system cannot collect vehicle identity, driver identity, or information about residents or passers-by. |
-| ❌ **Not transmitted** | The software does not upload sensor data to velocity.report or any other central service. If you configure remote access, you control who can reach the device. |
+| ❌ **Not collectable** | By design: no camera, no licence-plate reader, no GPS. The system cannot collect vehicle identity, driver identity, or information about residents or passers-by. velocity.report itself does not collect operator identity. |
+| ❌ **Not transmitted** | The software does not upload sensor data to velocity.report or any other central service. Optional remote-access services may have their own account or identity requirements. |
 | ❌ **No telemetry**    | No analytics, no tracking pixels, no telemetry. The software does not phone home with your measurements. |
 
 These are not policy choices that could change in a future version. The radar hardware has no camera input, and the software has no built-in path that uploads your measurements to a central service. The velocity.report project has no analytics pipeline and no mechanism to receive data from deployed devices. Your data is yours.
