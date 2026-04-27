@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or page.inputPath | titleFromPath }} | velocity.report offline docs</title>
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Documentation navigation">
+        <a class="brand" href="/">
+          <span class="brand-name">velocity.report</span>
+          <span class="brand-subtitle">Offline docs</span>
+        </a>
+        {% include "sidebar.njk" %}
+      </aside>
+      <div class="page">
+        <header class="topbar">
+          <span>Offline documentation</span>
+          <a href="/README/">README</a>
+        </header>
+        <main id="content" class="content">
+          {{ content | safe }}
+        </main>
+        <footer class="footer">
+          <span>velocity.report v{{ build.version }}</span>
+          <span>git {{ build.gitShort }}</span>
+          <span>built {{ build.buildTime }}</span>
+        </footer>
+      </div>
+    </div>
+    <script type="module">
+      import mermaid from "/assets/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: true,
+        securityLevel: "strict",
+        theme: "neutral"
+      });
+    </script>
+  </body>
+</html>

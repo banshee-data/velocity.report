@@ -1,0 +1,14 @@
+<nav class="nav">
+  {% for group in collections.docsPages | docsNavGroups %}
+    <h2>{{ group.name }}</h2>
+    <ol>
+      {% for item in group.items %}
+      <li>
+        <a href="{{ item.url }}" {% if item.url == page.url %}aria-current="page"{% endif %}>
+          {{ item | docsTitle }}
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+  {% endfor %}
+</nav>
