@@ -48,12 +48,12 @@ You also need a legal place to deploy the sensor: your own property, permission 
 
 ### What this system collects
 
-|                        |                                                          |
-| ---------------------- | -------------------------------------------------------- |
-| ✅ **Collected**       | Vehicle speed, direction, timestamp (traffic volume is derived from detections) |
+|                        |                                                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ **Collected**       | Vehicle speed, direction, timestamp (traffic volume is derived from detections)                                                                                                                                              |
 | ❌ **Not collectable** | By design: no camera, no licence-plate reader, no GPS. The system cannot collect vehicle identity, driver identity, or information about residents or passers-by. velocity.report itself does not collect operator identity. |
-| ❌ **Not transmitted** | The software does not upload sensor data to velocity.report or any other central service. Optional remote-access services may have their own account or identity requirements. |
-| ❌ **No telemetry**    | No analytics, no tracking pixels, no telemetry. The software does not phone home with your measurements. |
+| ❌ **Not transmitted** | The software does not upload sensor data to velocity.report or any other central service. Optional remote-access services may have their own account or identity requirements.                                               |
+| ❌ **No telemetry**    | No analytics, no tracking pixels, no telemetry. The software does not phone home with your measurements.                                                                                                                     |
 
 These are not policy choices that could change in a future version. The radar hardware has no camera input, and the software has no built-in path that uploads your measurements to a central service. The velocity.report project has no analytics pipeline and no mechanism to receive data from deployed devices. Your data is yours.
 
@@ -180,12 +180,8 @@ rpi-imager --repo https://velocity.report/rpi.json
 1. **Select your Pi model**
 2. **Select velocity.report** from the OS list
 3. **Choose your SD card** (32 GB high-endurance recommended)
-4. **Configure settings** before writing:
-  - Click the **gear icon** (⚙) or **Edit Settings**
-  - **Set hostname**: `velocity` (or your preference)
-  - **Enable SSH**: select **Allow public-key authentication only** and paste your public key (recommended). If you do not have an SSH key, select password authentication and choose a strong password.
-  - **Set username and password**: keep the username as `pi` for now and set a strong password. The current image wires the built-in management shortcuts and passwordless service commands to that account.
-  - **Configure Wi-Fi** (optional): the Pi connects via Ethernet by default through the PoE HAT. Add Wi-Fi credentials only if you need wireless access as a fallback or for initial setup without Ethernet.
+4. **Configure settings** before writing: click the **gear icon** (⚙) or **Edit Settings**; set the hostname to `velocity` (or your preference); enable SSH with **Allow public-key authentication only** if possible, or use password authentication with a strong password if you do not yet have a key; keep the username as `pi` for now and set a strong password; and configure Wi-Fi only if you need wireless access as a fallback or for initial setup without Ethernet.
+
 5. **Write** the image
 
 #### Option B: manual download
@@ -365,13 +361,13 @@ The **site name is a free-text field** and the **map is entirely optional**. The
 
 Reports are often entered into the public record, published on council websites, and shared in community groups. Think about how much location detail you are comfortable with before including a map.
 
-| Detail level | Example | Who can be identified |
-| ------------ | ------- | --------------------- |
-| Neighbourhood | "Capitol Hill" | Nobody |
-| ZIP / postcode | "98102" | Nobody |
-| Span of blocks | "200–400 block of Elm St" | Nobody easily |
-| Nearest cross-street | "Elm St at Oak Ave" | Narrows to one intersection |
-| Street name only | "Elm Street" | Caution: on a short residential street, this can narrow down the source to a handful of households |
+| Detail level         | Example                   | Who can be identified                                                                              |
+| -------------------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
+| Neighbourhood        | "Capitol Hill"            | Nobody                                                                                             |
+| ZIP / postcode       | "98102"                   | Nobody                                                                                             |
+| Span of blocks       | "200–400 block of Elm St" | Nobody easily                                                                                      |
+| Nearest cross-street | "Elm St at Oak Ave"       | Narrows to one intersection                                                                        |
+| Street name only     | "Elm Street"              | Caution: on a short residential street, this can narrow down the source to a handful of households |
 
 For most presentations to council, a neighbourhood name or ZIP code is sufficient context. The traffic data is what carries the argument, not the pin on the map.
 
@@ -604,14 +600,14 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 ### What the image includes
 
-| Component              | Location                                      | Purpose                                 |
-| ---------------------- | --------------------------------------------- | --------------------------------------- |
-| velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard |
-| velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
-| Generated reports      | `/opt/velocity-report/tools/pdf-generator/output/` | PDF output directory               |
-| Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
-| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`           | TLS termination, HTTPS on port 443      |
-| TLS certificates       | `/var/lib/velocity-report/tls/`               | Local CA and server certificate         |
+| Component              | Location                                           | Purpose                                 |
+| ---------------------- | -------------------------------------------------- | --------------------------------------- |
+| velocity-report server | `/usr/local/bin/velocity-report`                   | Radar data collection and web dashboard |
+| velocity-ctl           | `/usr/local/bin/velocity-ctl`                      | Device management and updates           |
+| Generated reports      | `/opt/velocity-report/tools/pdf-generator/output/` | PDF output directory                    |
+| Systemd service        | `/etc/systemd/system/velocity-report.service`      | Starts automatically on boot            |
+| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`                | TLS termination, HTTPS on port 443      |
+| TLS certificates       | `/var/lib/velocity-report/tls/`                    | Local CA and server certificate         |
 
 The image also pre-configures serial port settings, UART overlays, sensor initialisation (JSON mode, units, magnitude reporting), and the service user.
 

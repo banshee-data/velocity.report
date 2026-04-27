@@ -34,8 +34,8 @@ package-lock.json
 pnpm-lock.yaml
 yarn.lock
 
-# Nunjucks/Eleventy templates (not standard Markdown)
-public_html/
+# Eleventy templates live under public_html/, but format-docs only targets
+# Markdown. Keep the Markdown guides included in repo-wide docs formatting.
 
 # Web tree (owned by web/.prettierrc — run format-web separately)
 web/
