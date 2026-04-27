@@ -51,15 +51,21 @@
 
    > **Updated direction:** one target, one artifact. `build-radar-local`, `build-radar-linux`, `build-ctl`, the sweep target, and the backfill-rings target collapse into `make build-velocity` (linux-arm64 + local variants). Sweep and backfill-rings become applets of the single binary, not standalone Go programs. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#files-to-change).
 
-   | ~~                     | Target/Variable                                                                                                | Description |
-   | ---------------------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
-   | `build-radar-linux`    |                                                                                                                |
-   | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report                    |
-   | `build-sweep`          |                                                                                                                |
-   | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep                   |
-   | `build-backfill-rings` |                                                                                                                |
-   | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-backfill-rings-linux-arm64 ./cmd/velocity-report-backfill-rings |
-   | `build-all`            |                                                                                                                | ~~          |
+   Historical targets in the earlier plan:
+
+   ```text
+   build-radar-linux
+      GOOS=linux GOARCH=arm64 go build -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report
+
+   build-sweep
+      GOOS=linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep
+
+   build-backfill-rings
+      GOOS=linux GOARCH=arm64 go build -o velocity-report-backfill-rings-linux-arm64 ./cmd/velocity-report-backfill-rings
+
+   build-all
+      umbrella target in the earlier multi-binary plan
+   ```
 
    New shape:
 
