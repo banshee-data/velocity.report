@@ -55,6 +55,18 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Setup Node.js with pnpm (web)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: web
+
+      - name: Build web frontend
+        # The Go binary embeds web/build/ via //go:embed (see assets.go).
+        # If we skip this step, ensure-web-stub.sh inside the Dockerfile
+        # plants a "Frontend Not Built" placeholder that gets baked into
+        # the released binary.
+        run: pnpm --dir web run build
+
       - name: Build ARM64 binaries via Docker
         # Uses image/Dockerfile.build (Debian bookworm + multiarch) to avoid
         # the Ubuntu 24.04 apt-sources gap where libpcap-dev:arm64 is not
@@ -126,6 +138,14 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Setup Node.js with pnpm (web)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: web
+
+      - name: Build web frontend
+        run: pnpm --dir web run build
 
       - name: Build Darwin ARM64 radar binary
         run: |
