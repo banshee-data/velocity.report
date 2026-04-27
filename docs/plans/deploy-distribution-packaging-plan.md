@@ -107,15 +107,15 @@
    - Fix import paths in server code
 
 7. **Testing**
-   - Verify `velocity-report serve` behaves exactly like old binary
-   - Verify `velocity-report migrate up` works (existing tests pass)
+   - Verify `velocity serve` starts the server, and `velocity-report` with no args remains the compatibility form
+   - Verify `velocity data migrate up` works, and `velocity-report migrate up` remains a temporary compatibility form while old scripts are still supported
    - Add integration tests for new subcommands
 
 **Migration for existing deployments:**
 
 - Old binary still works (starts server by default)
 - New binary backward compatible (no args = serve)
-- Document migration: `velocity-report` → `velocity-report serve`
+- Document migration: keep `velocity-report` as the no-arg compatibility form, but promote `velocity serve` as the canonical explicit command
 
 ---
 
@@ -123,9 +123,11 @@
 
 > **Superseded.** The Python PDF generator under `tools/pdf-generator/` is **deprecated** (per [CLAUDE.md](../../CLAUDE.md): "Retained for reference only. Not used in deployed systems since v0.5. Will be removed in v0.6."). The shipping pipeline is the native Go pipeline at [internal/report/](../../internal/report). There is no Python venv in the deployed image, no `pip install`, no `velocity-report pdf` Python wrapper. The `pdf` applet calls the Go pipeline directly.
 
+> **Historical context only.** The numbered list below is preserved to explain what the earlier Python-packaging design contained. It is not current implementation guidance.
+
 ~~**Goal:** Make Python tools installable and callable from Go binary.~~
 
-**Tasks:**
+**Historical tasks from the superseded design:**
 
 1. **Create Python wrapper in Go**
    - Implement `cmd/velocity-report/pdf.go`

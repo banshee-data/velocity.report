@@ -3,6 +3,7 @@
 - **Document Version:** 1.0
 - **Status:** Proposed
 - **Layers:** Image build, systemd, Go server, docs
+- **Canonical:** [tls-local-certificates.md](../platform/operations/tls-local-certificates.md)
 - **Related:** [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md), [tls-local-certificates.md](../platform/operations/tls-local-certificates.md), [tailscale-remote-access-guide.md](./tailscale-remote-access-guide.md)
 - **Supersedes:** the local-CA + nginx + self-signed TLS approach in [tls-local-certificates.md](../platform/operations/tls-local-certificates.md)
 
