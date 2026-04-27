@@ -119,7 +119,7 @@ The existing `/etc/sudoers.d/020_velocity-nopasswd` already grants the `pi` user
 - **Delete** `image/stage-velocity/01-velocity-binaries/files/velocity-update`
 - **Edit** [image/stage-velocity/03-velocity-config/00-run.sh](../../image/stage-velocity/03-velocity-config/00-run.sh) — sudoers entries listed above
 - **Edit** [public_html/src/\_data/release.json](../../public_html/src/_data/release.json) and [scripts/update-release-json.py](../../scripts/update-release-json.py) — single `velocity-linux-arm64` artifact per channel; drop the per-binary URL list
-- **Edit** `.github/workflows/release.yml` (or equivalent) — single artifact + SHA256
+- **Edit** `.github/workflows/release.yml` (or equivalent) — single artifact + SHA256 <!-- link-ignore -->
 
 ## Verification
 
