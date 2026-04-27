@@ -1,7 +1,7 @@
 ---
 layout: doc.njk
 title: Setup your Radar
-description: Build a privacy-first traffic radar; 1x Pi, plus a computer to flash the SD card, no cameras, no cloud, just local speed data PDFs
+description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, just local speed data and PDF reports
 section: guides
 difficulty: intermediate
 time: 2-4 hours
