@@ -174,21 +174,37 @@ These wrappers stay outside the binary because they are host-admin affordances. 
 
 ### Upgrade
 
-1. Download `velocity` for the new version → `versions/<v>/velocity.partial`.
-2. Verify SHA256 (already done in [internal/ctl/manager.go](../../internal/ctl/manager.go)).
-3. `chmod 0755`, rename to `versions/<v>/velocity`.
-4. Run `versions/<v>/velocity migrate up` (the new binary owns its migrations).
-5. Atomically swap `current`: `ln -s versions/<v> current.new && renameat2(AT_FDCWD, "current.new", AT_FDCWD, "current", RENAME_EXCHANGE)` (Linux 3.15+, present on all supported Pi kernels). Go: `golang.org/x/sys/unix.Renameat2`.
-6. Update `previous` to point at the prior version.
-7. `systemctl restart velocity-report`.
-8. After 60 s of healthy `/api/radar_stats`, prune all versions older than `previous`, keeping the last 3.
+| #   | Step                                                                                                                                                                                                                | Actor                             | Failure semantics                                                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
+| 1   | `GET /api/version` against the running server; record current build identity                                                                                                                                        | `pi` (no privilege)               | abort if unreachable; the operator should investigate, not upgrade blind              |
+| 2   | Fetch `release.json`, pick target version, download `velocity` to `versions/<v>/velocity.partial`                                                                                                                   | `root` (writes under `/opt/...`)  | abort, leave `current` unchanged                                                      |
+| 3   | Verify SHA256 from `release.json` (already done in [internal/ctl/manager.go](../../internal/ctl/manager.go))                                                                                                        | `root`                            | abort, delete partial                                                                 |
+| 4   | `chmod 0755`, rename `versions/<v>/velocity.partial` → `versions/<v>/velocity`                                                                                                                                      | `root`                            | abort, delete partial                                                                 |
+| 5   | Backup DB to `/var/lib/velocity-report/backups/<ts>.db`                                                                                                                                                             | `velocity` (DB owner) or `root`   | abort, leave previous state                                                           |
+| 6   | Run `versions/<v>/velocity data migrate up --db-path …` against the live DB                                                                                                                                         | `root` (drop privs to `velocity`) | abort; restore from step-5 backup if migration partially applied; `current` unchanged |
+| 7   | **Point of no return.** Atomic swap of `current`: write `current.new` symlink, then `renameat2(AT_FDCWD, "current.new", AT_FDCWD, "current", RENAME_EXCHANGE)` (Linux 3.15+; Go: `golang.org/x/sys/unix.Renameat2`) | `root`                            | if this fails, retry once; otherwise leave the partial state for operator inspection  |
+| 8   | Update `previous` symlink to point at the prior version                                                                                                                                                             | `root`                            | non-fatal; log and continue                                                           |
+| 9   | `systemctl restart velocity-report.service`                                                                                                                                                                         | `root` (via sudoers)              | service stays on new binary regardless; restart loop is systemd's problem from here   |
+| 10  | Poll `GET /api/version` for 60 s; confirm new build identity is reported                                                                                                                                            | `pi`                              | log a warning if unreachable; do not auto-rollback (operator decides)                 |
+| 11  | Prune versions older than `previous`, keep the last 3                                                                                                                                                               | `root`                            | non-fatal                                                                             |
+
+**Why migrate before swap (step 6 before step 7).** The running old server holds an mmap of the old binary's text segment via the kernel — replacing the file on disk does not affect it. SQLite WAL allows a writer (the migration) to run while readers (the old server) are attached; the migration takes a brief `BEGIN EXCLUSIVE` that blocks queries for the duration of the schema change. For forward-only additive migrations (the project rule), the old binary tolerates the new schema unchanged until step 9 restarts it onto the new binary.
+
+**Conservative alternative.** Stop the service before step 6, start after step 9. This trades a longer downtime window (the entire migration plus restart, vs. just the restart) for the elimination of any "old binary sees new schema" risk. Adopt the conservative ordering if a future migration set ever needs destructive changes.
+
+**Sudo invocation pattern.** The `pi` user invokes `sudo /usr/local/bin/velocity device upgrade`. Sudo on Debian-based RPi OS matches the literal path the user supplied against the sudoers `Cmnd_Spec` — it does not canonicalize the symlink chain to `/opt/velocity-report/current/velocity` before matching. So the sudoers rules below remain stable across upgrades; the rule is bound to the symlink path, which never moves. (`man sudoers`, `Cmnd_Spec_List` semantics.) Step 6's privilege drop is performed inside the upgrader process via `setuid(velocity)` after opening privileged files; this is the standard pattern used by package managers for the same reason.
 
 ### Rollback
 
-1. Read `previous`.
-2. `renameat2` swap `current` → previous version.
-3. `systemctl restart velocity-report`.
-4. **Do not** auto-down-migrate the DB (see "Limitations").
+| #   | Step                                                                                                            | Actor                |
+| --- | --------------------------------------------------------------------------------------------------------------- | -------------------- |
+| 1   | Read `previous` symlink                                                                                         | `pi`                 |
+| 2   | Refuse if previous version's migration set is a strict subset of currently-applied migrations, unless `--force` | `root`               |
+| 3   | `renameat2(RENAME_EXCHANGE)` swap `current` → previous version                                                  | `root`               |
+| 4   | `systemctl restart velocity-report.service`                                                                     | `root` (via sudoers) |
+| 5   | Poll `GET /api/version` to confirm                                                                              | `pi`                 |
+
+**Do not** auto-down-migrate the DB (see "Limitations"). The DB backup in `/var/lib/velocity-report/backups/<ts>.db` is the rescue path if rollback is unsafe.
 
 ## Image and install-script impact
 
@@ -198,16 +214,80 @@ These wrappers stay outside the binary because they are host-admin affordances. 
 - **Avoid** shipping `velocity-ctl` as a permanent symlink. If a migration bridge is required, make it a short-lived redirect wrapper to `velocity device ...`, not a third first-class entry point.
 - [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) — `ExecStart=/usr/local/bin/velocity-report …` continues to work (resolves through the symlink chain). No service-file change required for upgrades to take effect on next restart.
 
-## Sudo and privileges
+## Privilege model
 
-The existing `/etc/sudoers.d/020_velocity-nopasswd` already grants the `pi` user `systemctl` actions for `velocity-report`, plus `velocity-ctl *` and `velocity-report migrate *`. In the new shape:
+With the local CA gone, the nginx process gone, and the cert-renewal oneshot gone, the root surface is dramatically smaller than the previous image. The table below maps every operation the binary or its lifecycle performs to the minimum-privilege actor.
 
-- Keep: the existing `systemctl` rules that power `velocity-status`, `velocity-start`, `velocity-stop`, and `velocity-bounce`.
-- Add: `pi ALL=(root) NOPASSWD: /usr/local/bin/velocity device *`
-- Add: `pi ALL=(root) NOPASSWD: /usr/local/bin/velocity data migrate *`
-- Keep `velocity-report migrate *` only as a migration bridge while old docs and scripts still rely on it.
-- Keep `velocity-ctl *` only if a temporary redirect wrapper is shipped. Remove it once the migration bridge goes away.
-- **Do not** grant write access to `/opt/velocity-report/versions/` to anyone other than root. The `device` lifecycle path still runs under sudo and writes there as root.
+| Operation                                           | Actor                          | Notes                                                                                             |
+| --------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Bind `:80` for HTTP                                 | `velocity`                     | `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit; no setcap on the binary, no root  |
+| Read `/dev/ttySC1` (radar serial)                   | `velocity`                     | requires `dialout` (or equivalent) group membership or a udev rule; image stage installs the rule |
+| Listen UDP `:2369` (LiDAR ingest)                   | `velocity`                     | unprivileged port                                                                                 |
+| gRPC server `:50051` (visualiser)                   | `velocity`                     | loopback only                                                                                     |
+| HTTP listen for LiDAR monitor `:8081`               | `velocity`                     | unprivileged port                                                                                 |
+| SQLite at `/var/lib/velocity-report/sensor_data.db` | `velocity`                     | data directory owned by `velocity`                                                                |
+| Read `/opt/velocity-report/current/velocity`        | any user                       | binary is world-readable, mode 0755                                                               |
+| Write `/opt/velocity-report/versions/<v>/`          | **root** (via sudoers)         | upgrade only                                                                                      |
+| `renameat2` swap of `/opt/velocity-report/current`  | **root** (via sudoers)         | upgrade and rollback only                                                                         |
+| Update `/opt/velocity-report/previous`              | **root** (via sudoers)         | upgrade and rollback only                                                                         |
+| Prune old `versions/` entries                       | **root** (via sudoers)         | upgrade only                                                                                      |
+| `systemctl restart velocity-report.service`         | **root** (via sudoers)         | service lifecycle for `velocity-bounce`, upgrade, rollback                                        |
+| `velocity data migrate up`                          | `root` then drop to `velocity` | runs against `velocity`-owned DB; binary opens under sudo, then `setuid(velocity)`                |
+| `velocity device backup`                            | `velocity`                     | DB read + write to `/var/lib/velocity-report/backups/`                                            |
+| VRLOG / PCAP file writes                            | `velocity`                     | under data dir                                                                                    |
+| `/api/capabilities` health surface                  | `velocity`                     | served by the running server process                                                              |
+| TLS cert generation, CA management                  | **(removed)**                  | nginx + local CA gone                                                                             |
+| nginx config or process management                  | **(removed)**                  | service no longer installed                                                                       |
+
+**Net root surface: two operations.** Writing to `/opt/velocity-report/versions/` (and the surrounding symlink swaps) and `systemctl restart`. Everything else runs as the `velocity` system user. This is a meaningful tightening over the previous image, which also needed root for cert generation and nginx process management.
+
+## Sudo
+
+The existing `/etc/sudoers.d/020_velocity-nopasswd` rules for cert generation and nginx are removed alongside those services. The new file is enumerated by verb, with no command wildcards beyond what the verb itself requires:
+
+```
+# Service lifecycle (powers velocity-status, velocity-start, velocity-stop, velocity-bounce)
+pi ALL=(root) NOPASSWD: /bin/systemctl status velocity-report.service
+pi ALL=(root) NOPASSWD: /bin/systemctl is-active velocity-report.service
+pi ALL=(root) NOPASSWD: /bin/systemctl start velocity-report.service
+pi ALL=(root) NOPASSWD: /bin/systemctl stop velocity-report.service
+pi ALL=(root) NOPASSWD: /bin/systemctl restart velocity-report.service
+
+# Installed-version lifecycle
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity device check
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity device upgrade
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity device upgrade --check
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity device rollback
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity device backup
+
+# Schema migrations (operator-facing verbs only)
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity data migrate up
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity data migrate status
+pi ALL=(root) NOPASSWD: /usr/local/bin/velocity data migrate version
+```
+
+Notes:
+
+- **Greenfield removes the compatibility wildcards.** No `velocity-report migrate *` or `velocity-ctl *` rule is needed: the first mass-release image ships the new shape, with no legacy scripts to support.
+- **`device upgrade --check` is enumerated separately** because sudoers requires every distinct argument tail to match a rule literally. If `--check` becomes the dedicated `device check` verb, the `--check` line drops out.
+- **Destructive migration verbs are deliberately not in NOPASSWD.** `data migrate down`, `force`, `baseline`, and `detect` require an interactive password — they are dev/operator-rare actions, not anything `velocity-bounce`-style automation should run.
+- **Sudo does not canonicalize the symlink chain.** A rule for `/usr/local/bin/velocity device upgrade` matches `sudo /usr/local/bin/velocity device upgrade` as the user typed it, regardless of where the symlink resolves on disk. The rule path is therefore stable across upgrades; the resolved target may change between releases without touching sudoers.
+- **No write access to `/opt/velocity-report/versions/` is granted to `pi` or `velocity`.** The `device` lifecycle path is the only writer, runs as root via the sudoers above, and never delegates write authority to a less-privileged actor.
+
+## Flag-set scoping (precondition)
+
+`cmd/radar/radar.go` currently declares dozens of package-scope flags via `flag.String/Bool/Int/Duration`, and those registrations bind to the global `flag.CommandLine`. Once `radar.Main(args []string)` is one applet of many under a single binary, the global parser can no longer be shared safely: a second applet that registers `--config` or `--db-path` collides at process startup.
+
+**Precondition for the source move.** Before `cmd/radar/*.go` relocates to `internal/cmd/radar/`, every flag in those files must be re-bound to a per-applet `*flag.FlagSet` constructed in the entry function. The mechanical rewrites:
+
+- `flag.String/Bool/Int/Duration` → method calls on a local `fs := flag.NewFlagSet("radar", flag.ExitOnError)`.
+- `flag.Visit`, `flag.NArg`, `flag.Args`, `flag.Arg(i)` → `fs.Visit`, `fs.NArg`, `fs.Args`, `fs.Arg(i)`.
+- `flag.Parse()` → `fs.Parse(args)`, where `args` is the slice the dispatcher passes to `Main`.
+- Flag names and defaults are observable contract — preserve them exactly so existing scripts and the systemd unit keep working.
+
+This change is invisible from the outside: the same `--listen :80` and `--db-path /var/lib/velocity-report/sensor_data.db` keep working. The only behavioural shift is that the binary no longer accepts flags ahead of the applet name; `velocity --listen :80 serve` is rejected, `velocity serve --listen :80` is accepted. The `velocity-report` compatibility alias (no applet name, server is the default) continues to take the same flags it does today because the dispatcher routes `argv[0]=velocity-report` directly into the radar applet.
+
+**Sequencing.** Land this as the first commit of the source-move PR (or as a standalone prep PR). It is a mechanical refactor with full coverage already in `cmd/radar/flags_test.go` after a parallel rename of those four `flag.*` references.
 
 ## Migrations
 

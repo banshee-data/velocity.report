@@ -75,10 +75,9 @@ Don't bundle. Tailscale Serve requires the user to log into their tailnet, which
 5. SSE smoke test: open `/events` in a browser, leave it for 90 seconds, confirm the stream stays open. (Go has no nginx-style buffering middleware in the path, but verify.)
 6. Image-size diff: `du -sh` before/after on the image stage; expect ~30 MB drop from removing nginx + the openssl cert flow.
 
-## Open questions
+## Greenfield assumption
 
-1. **Pre-existing self-signed CAs in the field.** Devices already deployed will have user-installed CAs in their browsers' trust stores. Removing nginx leaves those CAs unused; they cause no harm but users may want a "remove velocity CA" pointer in `setup.md`.
-2. **Upgrades from a pre-removal device.** A device on the old image needs nginx removed during its first post-upgrade boot. Decide whether `velocity-ctl upgrade` should detect and disable nginx, or whether the changelog simply tells the user to run `sudo systemctl disable --now nginx` once.
+This change ships in the first mass-release image. There are no in-field installs to migrate. No pre-existing user-installed CAs to clean up. No "old image still running nginx" upgrade path to detect. The image bake produces the new shape directly.
 
 ## Sequencing
 
