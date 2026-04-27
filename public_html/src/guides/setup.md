@@ -1,7 +1,7 @@
 ---
 layout: doc.njk
 title: Setup your Radar
-description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, just local speed data PDFs
+description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, just local speed data and PDF reports
 section: guides
 difficulty: intermediate
 time: 2-4 hours
@@ -20,9 +20,13 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 Safer streets start with measured traffic speeds.
 
-One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have a speed monitor logging every vehicle that passes, a live dashboard, and the beginnings of the dataset that goes to your next council meeting. No cameras, no licence plates, no cloud accounts: just local speed data on hardware you own.
+One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have a speed monitor logging every vehicle that passes, a live dashboard, and the beginnings of the local dataset you will carry to your next council meeting. No cameras, no licence plates, no cloud accounts: just local speed data on hardware you own.
 
 ## Before you begin
+
+You need two devices for setup: a computer to flash the SD card, and a Raspberry Pi to run the radar service. The Pi is the sensor host. The computer is only for setup.
+
+You also need a legal place to deploy the sensor: your own property, permission from a property owner, or a portable roof-rack mount.
 
 **Tools needed**:
 
@@ -34,6 +38,7 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 - Pencil and tape measure
 - Optional: mitre box for 45° cuts
 - Optional: multimeter
+- Smartphone or tablet camera (for the protractor step)
 
 **No soldering required** · **No coding required** · **No prior radar experience needed**
 
@@ -43,15 +48,18 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 
 ### What this system collects
 
-|                        |                                                          |
-| ---------------------- | -------------------------------------------------------- |
-| ✅ **Collected**       | Vehicle speed, direction, timestamp                      |
-| ❌ **Not collected**   | No licence plates, no vehicle photos, no driver identity |
-| ❌ **Not transmitted** | All data stays on your device                            |
+|                        |                                                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ **Collected**       | Vehicle speed, direction, timestamp (traffic volume is derived from detections)                                                                                                                                              |
+| ❌ **Not collectable** | By design: no camera, no licence-plate reader, no GPS. The system cannot collect vehicle identity, driver identity, or information about residents or passers-by. velocity.report itself does not collect operator identity. |
+| ❌ **Not transmitted** | The software does not upload sensor data to velocity.report or any other central service. Optional remote-access services may have their own account or identity requirements.                                               |
+| ❌ **No telemetry**    | No analytics, no tracking pixels, no telemetry. The software does not phone home with your measurements.                                                                                                                     |
+
+These are not policy choices that could change in a future version. The radar hardware has no camera input, and the software has no built-in path that uploads your measurements to a central service. The velocity.report project has no analytics pipeline and no mechanism to receive data from deployed devices. Your data is yours.
 
 ### Compliance
 
-Measuring vehicle speeds on public streets from your own property is generally legal. Mounting on public utility poles requires explicit permission. Always check your local regulations.
+Measuring vehicle speeds on public streets is generally legal when the sensor is on property where you have permission to install equipment. Mounting on public utility poles requires explicit permission. Always check your local regulations.
 
 ---
 
@@ -118,6 +126,8 @@ _Estimated time: 15–30 minutes_
 
 The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
 
+If hardware setup is new to you, go slowly: this step is connector assembly only. No soldering is required.
+
 ![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.jpg) <!-- link-ignore -->
 
 1. **Attach the PoE HAT** to the Raspberry Pi's 40-pin GPIO header
@@ -170,12 +180,8 @@ rpi-imager --repo https://velocity.report/rpi.json
 1. **Select your Pi model**
 2. **Select velocity.report** from the OS list
 3. **Choose your SD card** (32 GB high-endurance recommended)
-4. **Configure settings** before writing:
-   - Click the **gear icon** (⚙) or **Edit Settings**
-   - **Set hostname**: `velocity` (or your preference)
-   - **Enable SSH**: select **Allow public-key authentication only** and paste your public key (recommended). If you do not have an SSH key, select password authentication and choose a strong password.
-   - **Set username and password**: choose a username and password (required even with key authentication, for `sudo`)
-   - **Configure Wi-Fi** (optional): the Pi connects via Ethernet by default through the PoE HAT. Add Wi-Fi credentials only if you need wireless access as a fallback or for initial setup without Ethernet.
+4. **Configure settings** before writing: click the **gear icon** (⚙) or **Edit Settings**; set the hostname to `velocity` (or your preference); enable SSH with **Allow public-key authentication only** if possible, or use password authentication with a strong password if you do not yet have a key; keep the username as `pi` for now and set a strong password; and configure Wi-Fi only if you need wireless access as a fallback or for initial setup without Ethernet.
+
 5. **Write** the image
 
 #### Option B: manual download
@@ -190,7 +196,7 @@ rpi-imager --repo https://velocity.report/rpi.json
 2. **Wait 1–2 minutes** for first boot, then connect:
 
 ```bash
-ssh velocity@velocity.local
+ssh pi@velocity.local
 ```
 
 The service starts automatically on boot and configures the sensor (JSON mode, units, magnitude). Verify it is running:
@@ -215,7 +221,7 @@ _Estimated time: 5 minutes_
 
 Open a browser on any device on the same network: [https://velocity.local](https://velocity.local)
 
-The Pi generates a self-signed TLS certificate on first boot. Your browser will show a certificate warning: this is expected for a self-signed certificate. Click **Advanced → Proceed to velocity.local** (Chrome/Edge) or **Accept the Risk and Continue** (Firefox/Safari). No certificate installation is needed.
+The Pi generates a local TLS certificate on first boot. HTTPS protects your dashboard session from being read by other devices on the same local network. Your browser will show a certificate warning because that certificate chain is not trusted by default outside the device. This is expected, and safe to accept. Click **Advanced → Proceed to velocity.local** (Chrome/Edge) or **Accept the Risk and Continue** (Firefox/Safari). No certificate installation is needed.
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
@@ -320,7 +326,7 @@ Before generating reports, configure your site in the dashboard so speed measure
 
 1. Open the dashboard at [https://velocity.local](https://velocity.local)
 2. Navigate to **Site Settings**
-3. Set the **site location** on the interactive map
+3. Set the **site location** on the interactive map. The map is optional; see [Your address in reports](#your-address-in-reports) in Step 6 before deciding how much location detail to include.
 4. Set the **cosine error angle** to match your radar mounting angle from Step 4. Drag the red dot on the radar field-of-view triangle to adjust the angle visually, or type the value directly. The triangle should encompass the road lanes you want to measure.
 5. Add any **notes** about the installation (useful for later reference)
 6. **Save** the configuration
@@ -349,13 +355,35 @@ The report uses the cosine error angle from your site configuration (Step 5) to 
 
 The dashboard also supports **comparison reports** for measuring the effect of traffic calming interventions: select two date ranges and the report shows side-by-side metrics with percentage changes.
 
+#### Your address in reports
+
+The **site name is a free-text field** and the **map is entirely optional**. The report does not require a precise location to be useful; a council officer reading a p85 speed figure does not need to know which house it came from.
+
+Reports are often entered into the public record, published on council websites, and shared in community groups. Think about how much location detail you are comfortable with before including a map.
+
+| Detail level         | Example                   | Who can be identified                                                                              |
+| -------------------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
+| Neighbourhood        | "Capitol Hill"            | Nobody                                                                                             |
+| ZIP / postcode       | "98102"                   | Nobody                                                                                             |
+| Span of blocks       | "200–400 block of Elm St" | Nobody easily                                                                                      |
+| Nearest cross-street | "Elm St at Oak Ave"       | Narrows to one intersection                                                                        |
+| Street name only     | "Elm Street"              | Caution: on a short residential street, this can narrow down the source to a handful of households |
+
+For most presentations to council, a neighbourhood name or ZIP code is sufficient context. The traffic data is what carries the argument, not the pin on the map.
+
+**If you are not comfortable sharing your location, leave the map out entirely.** A report without a map is better than a report with a misleading or deliberately wrong location. Do not include false data: it undermines your credibility and the integrity of the record.
+
 ---
 
-## Take your data to city hall
+## Take your data to City Hall
 
 Print the report. Bring it to the meeting. The data does the persuading.
 
-Whether you are at a city council session, a town board hearing, or submitting written comments to a transport committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
+The report contains speed measurements only: no vehicle identities, no personal information about residents or passers-by. You are presenting measured traffic patterns, not surveillance data. The PDF is generated locally on your Pi and goes nowhere until you decide to share it: there is no upload, no submission, no copy sent to velocity.report.
+
+Whether you are at a city council session, a town board hearing, or submitting written comments to a transport committee, the approach is the same: state the measured speed, and explain what it means.
+
+Measure before. Measure after. The numbers tell you whether the changes worked.
 
 ### What to bring
 
@@ -397,6 +425,8 @@ Then adapt to the situation:
 
 In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue (a 25 mph school zone on San Francisco's high-injury network) to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
 
+That is the standard to keep in view: fewer crashes, fewer injuries, and zero fatalities. If the speeds do not drop, the work does not stop.
+
 ### What to suggest
 
 Present the problem first, then name what might help:
@@ -427,17 +457,18 @@ A week of data shows patterns. A month is compelling. Three months across season
 
 ### Local network (recommended)
 
-The dashboard runs on HTTPS (port 443) and is accessible to any device on your local network. The Pi generates a self-signed TLS certificate on first boot; HTTP requests on port 80 redirect to HTTPS automatically. Your router firewall blocks external access by default, and no data leaves the network.
+The dashboard runs on HTTPS (port 443) and is reachable from devices on the same network. The Pi generates a local TLS certificate on first boot, and HTTP requests on port 80 redirect to HTTPS automatically. Unless you configure port forwarding or another remote-access path, the dashboard stays on your local network.
 
 **Best practices**:
 
 - Use SSH key authentication (configured during flashing)
 - Use a strong Wi-Fi password (WPA3 if supported) if Wi-Fi is enabled
 - Keep the OS updated: `sudo apt update && sudo apt upgrade`
+- velocity.report does not upload telemetry or sensor data. Optional tools such as updates and Tailscale use the network only when you choose to use them.
 
-### Remote access with Tailscale (recommended for clean HTTPS)
+### Remote access with Tailscale (optional)
 
-[Tailscale](https://tailscale.com) provides secure remote access without exposing your Pi to the public internet. Free for personal use. It is also the cleanest way to access the dashboard: Tailscale assigns your device a `*.ts.net` hostname with a valid Let's Encrypt certificate, which means no browser warnings and no certificate exceptions required.
+[Tailscale](https://tailscale.com) is an optional tool for operators who need private reachability from outside their home network without opening a port on the router. It is useful for SSH, administration, and putting the Pi on a private mesh network. The primary browser path documented in this guide is still the local dashboard at [https://velocity.local](https://velocity.local).
 
 ```bash
 # Install Tailscale on your Pi
@@ -447,13 +478,15 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-Follow the authentication URL, install Tailscale on your phone or laptop, then access the dashboard at `https://<hostname>.<tailnet>.ts.net` — this URL has a valid certificate and works without any exception.
+Follow the authentication URL, install Tailscale on your phone or laptop, then use the Tailscale network for SSH and private device access.
 
 See the [Tailscale documentation](https://tailscale.com/kb/start) for details.
 
 ### Shared and untrusted networks
 
-If the Pi is connected to a shared network (school, workplace, library, or multi-tenant building), other devices on that network can reach the dashboard. The dashboard has no user authentication: anyone who can reach port 443 can view your data.
+If the Pi is connected to a shared network (school, workplace, library, or multi-tenant building), other devices on that network can reach the dashboard. The dashboard has no user authentication: anyone who can reach port 443 can view the speed and traffic volume data.
+
+This is not a privacy risk to vehicles or residents: the dashboard shows only aggregate speed metrics, not identities or personal information. If you do not want other network users viewing your traffic measurements, isolate the device using one of the options below.
 
 **Recommended isolation**:
 
@@ -461,17 +494,17 @@ If the Pi is connected to a shared network (school, workplace, library, or multi
 - **Firewall rules**: if VLAN isolation is not available, configure the router or switch to restrict access to the Pi's IP address to specific client devices.
 - **Dedicated network**: for permanent installations, a small dedicated switch or router (connected to the PoE injector) keeps the Pi off the shared network entirely.
 
-If you cannot isolate the device, use Tailscale (above) and disable the Pi's local network listener.
+If isolation is not possible, do not assume Tailscale or a dashboard setting will hide the web UI from the local network. In the current build, the reliable controls are network-level ones: VLANs, firewall rules, or a dedicated network.
 
 ### Public internet
 
-Do not expose this service to the public internet. The TLS certificate is self-signed and the dashboard has no user authentication. Use Tailscale for remote access.
+Do not expose this service to the public internet. The dashboard has no user authentication, and the local TLS certificate is intended for the Pi's local hostname rather than a public-facing deployment. Use a private access path such as Tailscale if you need remote administration.
 
 ---
 
 ## Updating the software
 
-The image makes zero unsolicited network requests. Updates happen when you decide.
+velocity.report does not auto-update itself. Updates happen when you decide. When you run `velocity-ctl upgrade --check` or `velocity-ctl upgrade`, the device contacts the release feed and downloads the selected release.
 
 ```bash
 # Check whether a newer version is available
@@ -508,7 +541,7 @@ This creates a timestamped copy in `/var/lib/velocity-report/backups/`. If you a
 
 ```bash
 # From your laptop
-scp velocity@velocity.local:/var/lib/velocity-report/sensor_data.db \
+scp pi@velocity.local:/var/lib/velocity-report/sensor_data.db \
   ~/sensor_data_backup_$(date +%Y%m%d).db
 ```
 
@@ -522,7 +555,7 @@ scp velocity@velocity.local:/var/lib/velocity-report/sensor_data.db \
 ```bash
 # From your laptop
 scp ~/sensor_data_backup_20260326.db \
-  velocity@velocity.local:/tmp/sensor_data.db
+  pi@velocity.local:/tmp/sensor_data.db
 
 # On the Pi
 sudo cp /tmp/sensor_data.db /var/lib/velocity-report/sensor_data.db
@@ -567,14 +600,14 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 ### What the image includes
 
-| Component              | Location                                      | Purpose                                 |
-| ---------------------- | --------------------------------------------- | --------------------------------------- |
-| velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard |
-| velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
-| PDF generator          | `/opt/velocity-report/tools/pdf-generator/`   | Professional traffic reports            |
-| Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
-| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`           | TLS termination, HTTPS on port 443      |
-| TLS certificates       | `/var/lib/velocity-report/tls/`               | Self-signed CA and server certificate   |
+| Component              | Location                                           | Purpose                                 |
+| ---------------------- | -------------------------------------------------- | --------------------------------------- |
+| velocity-report server | `/usr/local/bin/velocity-report`                   | Radar data collection and web dashboard |
+| velocity-ctl           | `/usr/local/bin/velocity-ctl`                      | Device management and updates           |
+| Generated reports      | `/opt/velocity-report/tools/pdf-generator/output/` | PDF output directory                    |
+| Systemd service        | `/etc/systemd/system/velocity-report.service`      | Starts automatically on boot            |
+| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`                | TLS termination, HTTPS on port 443      |
+| TLS certificates       | `/var/lib/velocity-report/tls/`                    | Local CA and server certificate         |
 
 The image also pre-configures serial port settings, UART overlays, sensor initialisation (JSON mode, units, magnitude reporting), and the service user.
 

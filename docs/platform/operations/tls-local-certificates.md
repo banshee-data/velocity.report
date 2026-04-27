@@ -4,6 +4,10 @@
 - **Branch:** `copilot/complete-phase-1-image`
 - **Components:** Go server, systemd service, image build
 
+This page documents the TLS path that ships today: a first-boot local CA, a server certificate for `velocity.local`, and nginx terminating HTTPS on port 443.
+
+Future simplification work is tracked in [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). That plan is proposed, not current runtime behaviour.
+
 Local TLS certificate setup for velocity.report devices, using a first-boot local CA to provide HTTPS on `.local` domains without requiring internet access or a public certificate authority.
 
 ## Problem
@@ -32,7 +36,9 @@ Web PKI trust model (CA/Browser Forum Baseline Requirements § 7.1.4.2).
 ## Chosen approach: first-boot local CA
 
 Each device generates its own CA and server certificate on first boot.
-The user trusts the CA once and receives no further browser warnings.
+The user may trust the CA once and receive no further browser warnings,
+or use the browser's one-off certificate exception flow described in the
+setup guide.
 
 ### Certificate chain
 
@@ -102,6 +108,8 @@ awareness: all HTTPS is handled by nginx.
 When running in development (no nginx), the server is accessed
 directly at `http://localhost:8080`.
 
+The proposed direct-bind `:80` model lives in [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). It has not landed in the shipped image or the default server runtime.
+
 ### Renewal
 
 The 825-day server certificate will eventually expire. The generation
@@ -115,31 +123,39 @@ than the expected field life of a Raspberry Pi 4.
 
 ## Alternatives considered
 
-| Option                                 | Decision                                                                        |
-| -------------------------------------- | ------------------------------------------------------------------------------- |
-| Let's Encrypt / ACME                   | Rejected: requires a public domain and internet access. Violates local-first.   |
-| Tailscale HTTPS                        | Rejected: adds a dependency and requires Tailscale account. Not for all users.  |
-| mkcert at build time                   | Rejected: bakes a shared CA into every image. One leak compromises all devices. |
-| Reverse proxy (nginx, chosen approach) | Tradeoff: extra binary, extra config, extra failure mode.                       |
-| Stay on plain HTTP                     | Rejected: browser warnings erode trust and block modern web APIs.               |
-| Bare self-signed cert                  | Rejected: renewal forces user to re-accept. CA approach is strictly better.     |
+This table records the alternatives considered when the local-CA approach
+was implemented. Later plans revisit some of these tradeoffs, but the
+runtime described on this page is still the shipped system.
+
+| Option                                 | Decision                                                                                                                                                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Let's Encrypt / ACME (direct)          | Rejected: requires a public domain and internet access. Violates local-first.                                                                                                       |
+| Tailscale HTTPS / Tailscale Serve      | Rejected for the shipped local-TLS path: adds a dependency and requires a Tailscale account. Revisited in [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). |
+| mkcert at build time                   | Rejected: bakes a shared CA into every image. One leak compromises all devices.                                                                                                     |
+| Reverse proxy (nginx, chosen approach) | Tradeoff: extra binary, extra config, extra failure mode. Chosen for the shipped runtime because it keeps TLS out of the Go server and supports `https://velocity.local`.           |
+| HTTP on LAN, HTTPS via Tailscale       | Rejected for the shipped runtime: browser warnings erode trust and block modern web APIs. Revisited in [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md).    |
+| Bare self-signed cert                  | Rejected: renewal forces user to re-accept. CA approach was strictly better at the time, but both are now moot.                                                                     |
 
 ## User trust setup
 
-After first boot, the user:
+After first boot, the user can either use the browser's certificate
+exception flow for `https://velocity.local/`, or install the local CA to
+remove future warnings.
 
-1. Navigates to `https://velocity.local/` and accepts the initial
-   browser warning (one time only if they skip CA installation).
-2. Downloads the CA certificate at `https://velocity.local/ca.crt`.
-3. Installs it in their OS/browser trust store:
-   - **macOS:** Double-click `velocity-ca.crt` → Keychain Access →
-     set "Always Trust" for SSL.
-   - **Windows:** Double-click → Install Certificate → Local Machine →
-     Trusted Root Certification Authorities.
-   - **Linux/Firefox:** Settings → Certificates → Import →
-     select `velocity-ca.crt`.
-4. Subsequent visits show a green padlock. No further action needed
-   until the CA expires (10 years).
+Optional CA-install flow:
+
+1. Navigate to `https://velocity.local/` and accept the initial browser warning.
+2. Download the CA certificate at `https://velocity.local/ca.crt`.
+3. Install it in the OS or browser trust store:
+
+- **macOS:** Double-click `velocity-ca.crt` → Keychain Access →
+  set "Always Trust" for SSL.
+- **Windows:** Double-click → Install Certificate → Local Machine →
+  Trusted Root Certification Authorities.
+- **Linux/Firefox:** Settings → Certificates → Import →
+  select `velocity-ca.crt`.
+
+4. Subsequent visits show a trusted HTTPS connection until the CA expires (10 years).
 
 ## Security considerations
 
@@ -155,3 +171,4 @@ After first boot, the user:
 - **TLS 1.2 minimum.** TLS 1.0 and 1.1 are not accepted.
 - **No client certificates.** The device is on a local network behind
   the user's own router. Network-level access control is sufficient.
+- **Remote access is optional and separate.** Tools such as Tailscale may add their own identity and network controls, but they are not part of the local-TLS mechanism described here.
