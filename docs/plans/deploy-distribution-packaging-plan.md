@@ -8,7 +8,7 @@
 
 ---
 
-> **Drift summary (2026-04):** this plan was written assuming (a) a `cmd/velocity-report/` Cobra-style binary with subcommands, (b) `velocity-ctl` as a separate artifact, (c) sibling utility binaries (`velocity-report-sweep`, `velocity-report-backfill-rings`), and (d) a flat install at `/usr/local/bin/`. The current direction is a single busybox-style `velocity` binary living at `/opt/velocity-report/versions/<v>/velocity`, with `/usr/local/bin/velocity{,-report,-ctl}` symlinks pointing through a `current` indirection for atomic rollback. Read [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) first; the strikethroughs below mark what changed.
+> **Drift summary (2026-04):** this plan was written assuming (a) a `cmd/velocity-report/` Cobra-style binary with subcommands, (b) `velocity-ctl` as a separate artifact, (c) sibling utility binaries (`velocity-report-sweep`, `velocity-report-backfill-rings`), and (d) a flat install at `/usr/local/bin/`. The current direction is a single busybox-style `velocity` binary living at `/opt/velocity-report/versions/<v>/velocity`, with `/usr/local/bin/velocity` as the canonical entry point, `/usr/local/bin/velocity-report` as the server-compatibility alias, and shell lifecycle aliases in `/etc/profile.d/velocity-aliases.sh`. Treat [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) as canonical for the promoted public command surface; the strikethroughs below preserve older packaging intent for context.
 
 > **Architecture, design rationale, and current-state analysis:** see [distribution-packaging.md](../platform/operations/distribution-packaging.md) for the chosen subcommand model, component inventory, user personas, tradeoff analysis, and system layout.
 
@@ -18,9 +18,9 @@
 
 ### Phase 1: ~~restructure Go binaries~~ build the busybox-style `velocity` binary (1-2 weeks)
 
-> **Updated direction:** instead of `cmd/velocity-report/` with Cobra-style subcommands, the canonical entry point is `cmd/velocity/main.go` with `os.Args[0]` dispatch. `velocity-report` and `velocity-ctl` survive as **symlinks** into the same binary; the dispatcher routes by argv[0]. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) for the dispatch table and on-disk layout.
+> **Updated direction:** instead of `cmd/velocity-report/` with Cobra-style subcommands, the canonical entry point is `cmd/velocity/main.go` with `os.Args[0]` dispatch. `velocity-report` survives as the server-compatibility alias. `velocity-ctl` should not remain a first-class public alias; if it is needed during migration, it is only a redirect bridge into the `device` namespace. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) for the command strategy and on-disk layout.
 
-**Goal:** ~~Create unified `velocity-report` binary with subcommands.~~ Create a single `velocity` multi-call binary; preserve `velocity-report` and `velocity-ctl` names as symlinks.
+**Goal:** ~~Create unified `velocity-report` binary with subcommands.~~ Create a single `velocity` multi-call binary, preserve `velocity-report` as the compatibility alias, and keep host lifecycle outside the binary via shell wrappers.
 
 **Tasks:**
 
@@ -35,17 +35,18 @@
    - Keep current integration pattern; expose as the `migrate` applet under both `velocity migrate …` and `velocity-report migrate …` (sudoers compatibility).
 
 3. **Add new subcommands**
-   - `velocity-report pdf` - ~~Wrapper for Python PDF generator~~ → **Native Go PDF pipeline** (the Python pipeline is deprecated; see [internal/report/](../../internal/report)). The applet shells into the in-process pipeline rather than `exec`-ing Python.
-   - `velocity-report backfill` - Move from `cmd/transit-backfill/` (becomes the `backfill` applet)
-   - `velocity-report version` - Show version/build info
-   - `velocity-report help` - Unified help system
+   - `velocity report pdf` - ~~Wrapper for Python PDF generator~~ → **Native Go PDF pipeline** (the Python pipeline is deprecated; see [internal/report/](../../internal/report)). The applet shells into the in-process pipeline rather than `exec`-ing Python.
+   - `velocity data backfill` - Move operator-facing backfills into the `data` namespace rather than creating more top-level verbs
+   - `velocity version` - Show version and build info
+   - `velocity help` - Unified help system
+   - `velocity tune sweep` - Fold sweep into a tuning namespace instead of shipping a sibling binary
 
    ~~Note: upgrade/rollback/backup are handled by `velocity-ctl`
    ([cmd/velocity-ctl/](../../cmd/velocity-ctl)) which ships as a separate binary. These may be
    absorbed into `velocity-report` in a future release if eliminating one
    binary is worth the mixed privilege model.~~
 
-   **Decision (2026-04):** absorb. `ctl` is now an applet of the single `velocity` binary; the `velocity-ctl` symlink dispatches into the same code via argv[0]. The "mixed privilege model" concern is mitigated by sudoers wildcard rules that already exist for `velocity-ctl *`, plus new rules for `/usr/local/bin/velocity ctl *` and `/usr/local/bin/velocity migrate *`. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#sudo-and-privileges).
+   **Decision (2026-04):** absorb, but do not expose `ctl` as the public noun. Installed-version lifecycle moves under `velocity device ...`; service lifecycle stays outside the binary as `velocity-status`, `velocity-start`, `velocity-stop`, `velocity-bounce`, and `velocity-log`. If `velocity-ctl` is shipped during migration, it is only a redirect bridge to `velocity device ...`, not part of the promoted surface. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#overall-cli-strategy).
 
 4. **Update build targets in Makefile**
 
@@ -347,7 +348,7 @@
 
 ### Phase 4: installation script & documentation (3-5 days)
 
-> **Updated direction:** the install script no longer drops a binary at `/usr/local/bin/velocity-report`. It downloads the single artifact, places it at `/opt/velocity-report/versions/<v>/velocity`, sets the `current` symlink, and creates `/usr/local/bin/velocity{,-report,-ctl}` symlinks into the chain. The systemd unit it writes uses port `:80` and `AmbientCapabilities=CAP_NET_BIND_SERVICE`. The Python venv prompt and download are removed (Python pipeline deprecated). See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#image-and-install-script-impact) and [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md).
+> **Updated direction:** the install script no longer drops a binary at `/usr/local/bin/velocity-report`. It downloads the single artifact, places it at `/opt/velocity-report/versions/<v>/velocity`, sets the `current` symlink, and creates `/usr/local/bin/velocity` plus `/usr/local/bin/velocity-report` into the chain. If a `velocity-ctl` bridge is needed during migration, it is temporary and not part of the promoted surface. The systemd unit it writes uses port `:80` and `AmbientCapabilities=CAP_NET_BIND_SERVICE`. The Python venv prompt and download are removed (Python pipeline deprecated). See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#image-and-install-script-impact) and [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md).
 
 **Goal:** Create one-command installation for end users.
 
@@ -420,7 +421,7 @@
    - `echo "Systemd service installed. Start with: sudo systemctl start velocity-report"`
    - `fi`
    - `echo "Installation complete!"`
-   - `echo "Run 'velocity-report --help' to get started."`
+   - `echo "Run 'velocity help' to get started."`
 
 2. **Update setup-radar-host.sh**
    - Simplify to download from GitHub releases
@@ -820,12 +821,14 @@ Binary outputs (after build):
 velocity.report/
 ├── cmd/
 │ └── velocity/                           # Single busybox-style entry point
-│   └── main.go                           # argv[0] dispatcher → ctl | migrate | pdf | sweep | backfill | radar
+│   └── main.go                           # argv[0] dispatcher → serve | device | data | report | tune | version
 ├── internal/
 │ ├── cmd/
 │ │ ├── radar/   (was cmd/radar)
-│ │ ├── ctl/     (was cmd/velocity-ctl)
-│ │ ├── sweep/   (was cmd/sweep)
+│ │ ├── device/  (public namespace; may reuse cmd/velocity-ctl internals initially)
+│ │ ├── data/    (migrate + backfill)
+│ │ ├── report/  (pdf)
+│ │ ├── tune/    (sweep)
 │ │ └── ...
 │ ├── api/
 │ ├── db/
@@ -864,8 +867,10 @@ Single binary output: `velocity-{version}-linux-arm64`. No sibling Go artifacts.
 
 /usr/local/bin/
 ├── velocity         -> /opt/velocity-report/current/velocity
-├── velocity-report  -> /opt/velocity-report/current/velocity
-└── velocity-ctl     -> /opt/velocity-report/current/velocity
+└── velocity-report  -> /opt/velocity-report/current/velocity
+
+/etc/profile.d/
+└── velocity-aliases.sh   # velocity-status, velocity-log, velocity-start, velocity-stop, velocity-bounce
 ```
 
 /var/lib/velocity-report/
@@ -897,25 +902,56 @@ Run `./app-sweep --mode multi --iterations 30`
 - `go run cmd/transit-backfill/main.go --db sensor_data.db --start 2024-01-01 --end 2024-12-31`
 - `go run cmd/tools/backfill_ring_elevations/main.go --db sensor_data.db`
 
-### Proposed commands (after migration)
+### Promoted command surface (after migration)
 
-**Main binary** (single artifact; `velocity-report` and `velocity-ctl` are symlinks):
+#### 1. Binary CLI: promote this in the user guide
 
-- `velocity-report                                 # Start server (default)`
-- `velocity-report serve                           # Start server (explicit)`
-- `velocity-report migrate up                      # Database migration`
-- `velocity-report pdf config.json                 # Generate PDF report (native Go pipeline)`
-- `velocity-report backfill --start 2024-01-01 --end 2024-12-31  # Backfill transits`
-- `velocity-report version                         # Show version`
-- `velocity-report help                            # Show help`
-- `velocity-ctl upgrade                            # Update to latest (symlink-swap)`
-- `velocity-ctl rollback                           # Roll back one version`
-- `velocity ctl status                             # Equivalent — argv[0]=velocity, applet=ctl`
+| Area             | Canonical commands                                                                                                                                      | Notes                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Runtime          | `velocity serve`, `velocity serve --db-path ...`, `velocity version`, `velocity help`                                                                   | `velocity-report` remains as the server-compatibility alias: `velocity-report` with no args still starts the server. |
+| Device lifecycle | `velocity device check`, `velocity device upgrade`, `velocity device rollback`, `velocity device backup`                                                | Owns installed-version lifecycle only. Do not use this namespace for `systemctl` or log-following.                   |
+| Data maintenance | `velocity data migrate up`, `velocity data migrate status`, `velocity data backfill ring-elevations ...`, `velocity data backfill lidar-run-config ...` | Groups schema and repair tasks under one noun instead of spreading them across top-level verbs.                      |
+| Reports          | `velocity report pdf --config report.json --db sensor_data.db`                                                                                          | Native Go pipeline, no Python wrapper in the deployed image.                                                         |
+| Tuning           | `velocity tune sweep --mode multi --iterations 30`                                                                                                      | Replaces a sibling sweep binary with a namespaced tuning command.                                                    |
 
-~~**Additional binaries:**~~ — removed; sweep and backfill-rings are now applets:
+#### 2. Compatibility forms: keep during migration, do not promote
 
-- `velocity sweep --mode multi --iterations 30                  # Parameter sweep applet`
-- `velocity backfill-rings --db sensor_data.db                  # Ring elevations applet`
+| Compatibility form            | Canonical target                                                     |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `velocity-report`             | `velocity serve`                                                     |
+| `velocity-report migrate ...` | `velocity data migrate ...`                                          |
+| `velocity-report pdf ...`     | `velocity report pdf ...`                                            |
+| `velocity-report sweep ...`   | `velocity tune sweep ...`                                            |
+| `velocity-ctl ...`            | `velocity device ...` only if a temporary redirect bridge is shipped |
+
+#### 3. Outside the binary: host lifecycle wrappers shipped in the image
+
+| Wrapper           | Meaning                                          |
+| ----------------- | ------------------------------------------------ |
+| `velocity-status` | `systemctl status velocity-report.service`       |
+| `velocity-start`  | `sudo systemctl start velocity-report.service`   |
+| `velocity-stop`   | `sudo systemctl stop velocity-report.service`    |
+| `velocity-bounce` | `sudo systemctl restart velocity-report.service` |
+| `velocity-log`    | follow the live service log                      |
+
+These are the right place for service status, service start and stop, restart, and logs. They align with the image as shipped today, and they keep host lifecycle distinct from the application CLI.
+
+#### 4. Outside the binary: HTTP API families
+
+| Family                     | Endpoints                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| Identity and capability    | `GET /api/version`, `GET /api/config`, `GET /api/capabilities`                               |
+| Traffic and database state | `GET /api/radar_stats`, `GET /api/timeline`, `GET /api/db_stats`                             |
+| Site configuration         | `GET/POST /api/sites`, `GET/POST /api/site_config_periods`                                   |
+| Reports                    | `POST /api/generate_report`, `GET/DELETE /api/reports/*`                                     |
+| Charts                     | `GET/POST /api/charts/timeseries`, `GET /api/charts/histogram`, `GET /api/charts/comparison` |
+| Control                    | `POST /command`, `GET/POST /api/transit_worker`                                              |
+
+#### 5. What we should not promote
+
+- Do not teach `ctl` as the public grouping.
+- Do not teach service lifecycle under the binary when the image already ships clearer shell wrappers.
+- Do not ship more top-level aliases than `velocity` and `velocity-report` unless a short migration bridge makes removal unsafe.
 
 ~~**Python tools (if installed separately):**~~
 
