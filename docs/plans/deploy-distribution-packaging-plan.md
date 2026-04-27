@@ -1,11 +1,14 @@
 # velocity.report distribution and packaging plan
 
-- **Document Version:** 1.0
-- **Status:** Proposed Architecture
+- **Document Version:** 1.1
+- **Status:** Proposed Architecture (partially superseded — see banner)
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
+- **Drift:** several Phase-1/3/4 decisions are superseded by [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) and [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md). Strikethrough sections below preserve the earlier intent for context.
 
 ---
+
+> **Drift summary (2026-04):** this plan was written assuming (a) a `cmd/velocity-report/` Cobra-style binary with subcommands, (b) `velocity-ctl` as a separate artifact, (c) sibling utility binaries (`velocity-report-sweep`, `velocity-report-backfill-rings`), and (d) a flat install at `/usr/local/bin/`. The current direction is a single busybox-style `velocity` binary living at `/opt/velocity-report/versions/<v>/velocity`, with `/usr/local/bin/velocity{,-report,-ctl}` symlinks pointing through a `current` indirection for atomic rollback. Read [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) first; the strikethroughs below mark what changed.
 
 > **Architecture, design rationale, and current-state analysis:** see [distribution-packaging.md](../platform/operations/distribution-packaging.md) for the chosen subcommand model, component inventory, user personas, tradeoff analysis, and system layout.
 
@@ -13,59 +16,86 @@
 
 ## 5. Implementation plan
 
-### Phase 1: restructure Go binaries (1-2 weeks)
+### Phase 1: ~~restructure Go binaries~~ build the busybox-style `velocity` binary (1-2 weeks)
 
-**Goal:** Create unified `velocity-report` binary with subcommands.
+> **Updated direction:** instead of `cmd/velocity-report/` with Cobra-style subcommands, the canonical entry point is `cmd/velocity/main.go` with `os.Args[0]` dispatch. `velocity-report` and `velocity-ctl` survive as **symlinks** into the same binary; the dispatcher routes by argv[0]. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) for the dispatch table and on-disk layout.
+
+**Goal:** ~~Create unified `velocity-report` binary with subcommands.~~ Create a single `velocity` multi-call binary; preserve `velocity-report` and `velocity-ctl` names as symlinks.
 
 **Tasks:**
 
 1. **Rename and restructure main entry point**
-   - Move [cmd/radar/](../../cmd/radar) → `cmd/velocity-report/`
-   - Rename `radar.go` → `main.go` with subcommand dispatcher
-   - Extract server logic to `serve.go`
-   - Keep existing flags for `serve` subcommand
+   - ~~Move [cmd/radar/](../../cmd/radar) → `cmd/velocity-report/`~~ → **Move to `cmd/velocity/` (busybox shape)**; relocate the existing `cmd/radar/*.go` files under `internal/cmd/radar/` and export `Main(args []string)` so the dispatcher can call them.
+   - ~~Rename `radar.go` → `main.go` with subcommand dispatcher~~ → New `cmd/velocity/main.go` switches on `filepath.Base(os.Args[0])` first, then on `os.Args[1]`.
+   - Extract server logic to ~~`serve.go`~~ `internal/cmd/radar/`
+   - Keep existing flags; the no-arg invocation still starts the server.
 
 2. **Integrate existing subcommands**
    - `migrate` - Already exists in [internal/db/migrate_cli.go](../../internal/db/migrate_cli.go) ✅
-   - Keep current integration pattern
+   - Keep current integration pattern; expose as the `migrate` applet under both `velocity migrate …` and `velocity-report migrate …` (sudoers compatibility).
 
 3. **Add new subcommands**
-   - `velocity-report pdf` - Wrapper for Python PDF generator
-   - `velocity-report backfill` - Move from `cmd/transit-backfill/`
+   - `velocity-report pdf` - ~~Wrapper for Python PDF generator~~ → **Native Go PDF pipeline** (the Python pipeline is deprecated; see [internal/report/](../../internal/report)). The applet shells into the in-process pipeline rather than `exec`-ing Python.
+   - `velocity-report backfill` - Move from `cmd/transit-backfill/` (becomes the `backfill` applet)
    - `velocity-report version` - Show version/build info
    - `velocity-report help` - Unified help system
 
-   Note: upgrade/rollback/backup are handled by `velocity-ctl`
+   ~~Note: upgrade/rollback/backup are handled by `velocity-ctl`
    ([cmd/velocity-ctl/](../../cmd/velocity-ctl)) which ships as a separate binary. These may be
    absorbed into `velocity-report` in a future release if eliminating one
-   binary is worth the mixed privilege model.
+   binary is worth the mixed privilege model.~~
+
+   **Decision (2026-04):** absorb. `ctl` is now an applet of the single `velocity` binary; the `velocity-ctl` symlink dispatches into the same code via argv[0]. The "mixed privilege model" concern is mitigated by sudoers wildcard rules that already exist for `velocity-ctl *`, plus new rules for `/usr/local/bin/velocity ctl *` and `/usr/local/bin/velocity migrate *`. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#sudo-and-privileges).
 
 4. **Update build targets in Makefile**
 
-   | Target/Variable        | Description                                                                                                    |
-   | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+   > **Updated direction:** one target, one artifact. `build-radar-local`, `build-radar-linux`, `build-ctl`, the sweep target, and the backfill-rings target collapse into `make build-velocity` (linux-arm64 + local variants). Sweep and backfill-rings become applets of the single binary, not standalone Go programs. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#files-to-change).
+
+   | ~~                     | Target/Variable                                                                                                | Description |
+   | ---------------------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
    | `build-radar-linux`    |                                                                                                                |
    | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report                    |
    | `build-sweep`          |                                                                                                                |
    | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep                   |
    | `build-backfill-rings` |                                                                                                                |
    | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-backfill-rings-linux-arm64 ./cmd/velocity-report-backfill-rings |
-   | `build-all`            |                                                                                                                |
+   | `build-all`            |                                                                                                                | ~~          |
+
+   New shape:
+
+   | Target                 | Output                                                                                                                     |
+   | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+   | `build-velocity`       | `GOOS=linux GOARCH=arm64 go build -ldflags "-X main.Version=$(VERSION)" -o velocity-$(VERSION)-linux-arm64 ./cmd/velocity` |
+   | `build-velocity-local` | local-arch debug build for `make dev-go`                                                                                   |
 
 5. **Update systemd service file**
 
+   > **Updated direction:** the no-arg invocation continues to start the server (the busybox dispatcher routes argv[0]=velocity-report and no further args to the radar applet). Two real changes vs. the old plan: (a) the binary at `/usr/local/bin/velocity-report` is a symlink chain into `/opt/velocity-report/current/velocity`; (b) the bind port is `:80` per [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md) — `AmbientCapabilities=CAP_NET_BIND_SERVICE` is added.
+
+   ~~[Service]~~
+
+   ~~# Change from:~~
+
+   ~~# ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db~~
+
+   ~~# To:~~
+
+   ~~ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db~~
+
+   New shape:
+
+   ```
    [Service]
+   User=velocity
+   AmbientCapabilities=CAP_NET_BIND_SERVICE
+   CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+   ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
+   ```
 
-   # Change from:
-
-   # ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
-
-   # To:
-
-   ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db
+   No `serve` keyword needed; the symlink dispatches the no-arg form to the server applet.
 
 6. **Update assets.go**
-   - Move [assets.go](../../assets.go) from root to `cmd/velocity-report/`
+   - ~~Move [assets.go](../../assets.go) from root to `cmd/velocity-report/`~~ → Move to `internal/cmd/radar/` (or wherever the radar applet's `Main` lives). The `embed.FS` directives are unchanged; only the package and import paths shift.
    - Update package declaration
    - Fix import paths in server code
 
@@ -82,9 +112,11 @@
 
 ---
 
-### Phase 2: Python tool integration (1 week)
+### Phase 2: ~~Python tool integration~~ (no longer applies)
 
-**Goal:** Make Python tools installable and callable from Go binary.
+> **Superseded.** The Python PDF generator under `tools/pdf-generator/` is **deprecated** (per [CLAUDE.md](../../CLAUDE.md): "Retained for reference only. Not used in deployed systems since v0.5. Will be removed in v0.6."). The shipping pipeline is the native Go pipeline at [internal/report/](../../internal/report). There is no Python venv in the deployed image, no `pip install`, no `velocity-report pdf` Python wrapper. The `pdf` applet calls the Go pipeline directly.
+
+~~**Goal:** Make Python tools installable and callable from Go binary.~~
 
 **Tasks:**
 
@@ -129,6 +161,8 @@
 ---
 
 ### Phase 3: GitHub releases automation (3-5 days)
+
+> **Updated direction:** one Go artifact per platform per channel, not three. The `build-sweep` and `package-python` jobs go away. `release.json` lists a single `velocity-linux-arm64` URL + SHA256 per channel. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md).
 
 **Goal:** Automate building and releasing versioned binaries.
 
@@ -306,6 +340,8 @@
 ---
 
 ### Phase 4: installation script & documentation (3-5 days)
+
+> **Updated direction:** the install script no longer drops a binary at `/usr/local/bin/velocity-report`. It downloads the single artifact, places it at `/opt/velocity-report/versions/<v>/velocity`, sets the `current` symlink, and creates `/usr/local/bin/velocity{,-report,-ctl}` symlinks into the chain. The systemd unit it writes uses port `:80` and `AmbientCapabilities=CAP_NET_BIND_SERVICE`. The Python venv prompt and download are removed (Python pipeline deprecated). See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#image-and-install-script-impact) and [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md).
 
 **Goal:** Create one-command installation for end users.
 
@@ -744,9 +780,11 @@ Binary outputs (after build):
 ├── velocity-report-{version}-linux-arm64 # Main server
 └── app-sweep # Sweep tool
 
-### Proposed structure
+### ~~Proposed structure~~ (superseded — see below)
 
-velocity.report/
+> The shape below assumed three Go cmd/ directories and a Python venv on disk. Both assumptions changed. Strikethrough preserved for context.
+
+~~velocity.report/
 ├── cmd/
 │ ├── velocity-report/ # Main binary (was cmd/radar)
 │ │ ├── main.go # Subcommand dispatcher
@@ -763,27 +801,66 @@ velocity.report/
 ├── api/
 ├── db/
 ├── radar/
-└── version/ # New: version management
+└── version/ # New: version management~~
 
-Binary outputs (after build):
+~~Binary outputs (after build):
 ├── velocity-report-{version}-linux-arm64 # Main binary
 ├── velocity-report-sweep-linux-arm64 # Sweep binary
-└── velocity-report-backfill-rings-linux-arm64 # Utility binary
+└── velocity-report-backfill-rings-linux-arm64 # Utility binary~~
 
-### Installed system layout
+**Current direction (2026-04):**
 
-/usr/local/bin/
+```
+velocity.report/
+├── cmd/
+│ └── velocity/                           # Single busybox-style entry point
+│   └── main.go                           # argv[0] dispatcher → ctl | migrate | pdf | sweep | backfill | radar
+├── internal/
+│ ├── cmd/
+│ │ ├── radar/   (was cmd/radar)
+│ │ ├── ctl/     (was cmd/velocity-ctl)
+│ │ ├── sweep/   (was cmd/sweep)
+│ │ └── ...
+│ ├── api/
+│ ├── db/
+│ ├── radar/
+│ └── version/
+└── tools/
+  └── visualiser-macos/                   # macOS Swift tool — outside the Go binary
+```
+
+Single binary output: `velocity-{version}-linux-arm64`. No sibling Go artifacts. (Python tools deprecated.)
+
+### ~~Installed system layout~~ Updated installed system layout
+
+> Strikethrough preserves the flat-install design; the new layout uses a versioned directory under `/opt/velocity-report/` with symlinks for atomic upgrade and rollback. See [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md#on-disk-layout).
+
+~~/usr/local/bin/
 ├── velocity-report # Main binary
 ├── velocity-report-sweep # Sweep binary (optional)
-└── velocity-report-backfill-rings # Utility binary (optional)
+└── velocity-report-backfill-rings # Utility binary (optional)~~
 
-/usr/local/share/velocity-report/
+~~/usr/local/share/velocity-report/
 ├── python/
 │ ├── .venv/ # Python virtual environment
 │ ├── pdf_generator/ # Python package
 │ ├── grid_heatmap/ # Python scripts
 │ └── requirements.txt # Python dependencies
-└── docs/ # Documentation
+└── docs/ # Documentation~~
+
+```
+/opt/velocity-report/
+├── versions/
+│ ├── 0.5.0/velocity
+│ └── 0.5.1/velocity
+├── current  -> versions/0.5.1
+└── previous -> versions/0.5.0
+
+/usr/local/bin/
+├── velocity         -> /opt/velocity-report/current/velocity
+├── velocity-report  -> /opt/velocity-report/current/velocity
+└── velocity-ctl     -> /opt/velocity-report/current/velocity
+```
 
 /var/lib/velocity-report/
 └── sensor_data.db # SQLite database
@@ -816,23 +893,30 @@ Run `./app-sweep --mode multi --iterations 30`
 
 ### Proposed commands (after migration)
 
-**Main binary:**
+**Main binary** (single artifact; `velocity-report` and `velocity-ctl` are symlinks):
 
 - `velocity-report                                 # Start server (default)`
 - `velocity-report serve                           # Start server (explicit)`
 - `velocity-report migrate up                      # Database migration`
-- `velocity-report pdf config.json                 # Generate PDF report`
+- `velocity-report pdf config.json                 # Generate PDF report (native Go pipeline)`
 - `velocity-report backfill --start 2024-01-01 --end 2024-12-31  # Backfill transits`
 - `velocity-report version                         # Show version`
 - `velocity-report help                            # Show help`
-  **Additional binaries:**
+- `velocity-ctl upgrade                            # Update to latest (symlink-swap)`
+- `velocity-ctl rollback                           # Roll back one version`
+- `velocity ctl status                             # Equivalent — argv[0]=velocity, applet=ctl`
 
-- `velocity-report-sweep --mode multi --iterations 30           # Parameter sweep`
-- `velocity-report-backfill-rings --db sensor_data.db          # Ring elevations`
-  **Python tools (if installed separately):**
+~~**Additional binaries:**~~ — removed; sweep and backfill-rings are now applets:
 
-- `pdf-generator config.json                       # Direct Python command`
-- `grid-heatmap --input data.csv --output plot.png # Heatmap visualization`
+- `velocity sweep --mode multi --iterations 30                  # Parameter sweep applet`
+- `velocity backfill-rings --db sensor_data.db                  # Ring elevations applet`
+
+~~**Python tools (if installed separately):**~~
+
+- ~~`pdf-generator config.json                       # Direct Python command`~~
+- ~~`grid-heatmap --input data.csv --output plot.png # Heatmap visualization`~~
+
+> Python tools are deprecated and not installed on deployed devices. See [CLAUDE.md](../../CLAUDE.md).
 
 ---
 
