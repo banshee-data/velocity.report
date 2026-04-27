@@ -276,7 +276,7 @@ Notes:
 
 ## Flag-set scoping (precondition)
 
-`cmd/radar/radar.go` declares 43 package-scope flags via `flag.String/Bool/Int/Duration` (plus 1 in `pdf.go` and 4 in `flags_test.go`). All of them register against the global `flag.CommandLine`. Once `radar.Main(args []string)` is one applet of many under a single binary, the global parser can no longer be shared safely: a second applet that registers `--config` or `--db-path` collides at process startup.
+`cmd/radar/radar.go` currently declares dozens of package-scope flags via `flag.String/Bool/Int/Duration`, and those registrations bind to the global `flag.CommandLine`. Once `radar.Main(args []string)` is one applet of many under a single binary, the global parser can no longer be shared safely: a second applet that registers `--config` or `--db-path` collides at process startup.
 
 **Precondition for the source move.** Before `cmd/radar/*.go` relocates to `internal/cmd/radar/`, every flag in those files must be re-bound to a per-applet `*flag.FlagSet` constructed in the entry function. The mechanical rewrites:
 
