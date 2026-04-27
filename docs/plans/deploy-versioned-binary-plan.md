@@ -3,6 +3,7 @@
 - **Document Version:** 1.1
 - **Status:** Proposed
 - **Layers:** Go binaries, image build, install scripts, release pipeline, sudoers
+- **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 - **Related:** [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md), [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md), [cli-restructuring-plan.md](./cli-restructuring-plan.md)
 - **Supersedes:** the multi-binary recommendation in §5 of [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) and the relevant sections of [cli-restructuring-plan.md](./cli-restructuring-plan.md)
 
