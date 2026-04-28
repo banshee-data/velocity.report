@@ -114,7 +114,7 @@ function githubSlugify(value) {
   return String(value)
     .trim()
     .toLowerCase()
-    .replace(/<[^>]+>/g, "")
+    .replace(/[<>]/g, "")
     .replace(/[^\p{Letter}\p{Number}_\- ]/gu, "")
     .replace(/ /g, "-");
 }
