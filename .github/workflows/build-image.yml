@@ -38,16 +38,33 @@ jobs:
             exit 0
           fi
 
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
-            gh release create "$GITHUB_REF_NAME" \
-              --title "$GITHUB_REF_NAME" \
-              --prerelease \
-              --notes ""
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --title "$GITHUB_REF_NAME" \
-              --notes ""
+          if ! gh api "repos/$GH_REPO/git/refs/tags/$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::error::Expected pushed tag $GITHUB_REF_NAME to exist before publishing the release."
+            exit 1
           fi
+
+          CREATE_ARGS=(
+            "$GITHUB_REF_NAME"
+            --verify-tag
+            --title "$GITHUB_REF_NAME"
+            --notes ""
+          )
+
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            CREATE_ARGS+=(--prerelease)
+          fi
+
+          if gh release create "${CREATE_ARGS[@]}"; then
+            exit 0
+          fi
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME appeared during create; continuing."
+            exit 0
+          fi
+
+          echo "::error::Failed to create or reuse release $GITHUB_REF_NAME."
+          exit 1
 
   build-binaries:
     name: Cross-compile Go binaries (Linux ARM64)

@@ -70,10 +70,10 @@
 
    New shape:
 
-   | Target                 | Output                                                                                                                     |
-   | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-   | `build-velocity`       | `GOOS=linux GOARCH=arm64 go build -ldflags "-X main.Version=$(VERSION)" -o velocity-$(VERSION)-linux-arm64 ./cmd/velocity` |
-   | `build-velocity-local` | local-arch debug build for `make dev-go`                                                                                   |
+   | Target                 | Output                                                                                                     |
+   | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+   | `build-velocity`       | `GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-$(VERSION)-linux-arm64 ./cmd/velocity` |
+   | `build-velocity-local` | local-arch debug build for `make dev-go`                                                                   |
 
 5. **Update systemd service file**
 
@@ -328,9 +328,9 @@
 
 2.  **Create version management**
 
-    File: [internal/version/version.go](../../internal/version/version.go) — defines `Version`, `GitCommit`, and `BuildTime` variables (defaulting to "dev"/"unknown"). An `init()` function populates `GitCommit` and `BuildTime` from `debug.ReadBuildInfo()` VCS settings. Exports `Full()` returning a string like `"v0.2.0 (abc12345, 2025-01-15T10:00:00Z)"`.
+    File: [internal/version/version.go](../../internal/version/version.go) — defines `Version`, `GitSHA`, and `BuildTime` variables (defaulting to "dev"/"unknown"). The Makefile injects them with `-X github.com/banshee-data/velocity.report/internal/version.<Name>=...`. Exports `Print(binary)` for the CLI version output.
 
-    Use in `velocity-report version`: call `version.Full()` and print.
+    Use in `velocity version`: call `version.Print("velocity")`; compatibility forms pass their displayed binary name.
 
 3.  **Update Makefile for release builds**
 

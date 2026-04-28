@@ -2,7 +2,7 @@
 
 - **Status banner (2026-04):** the model described on this page — separate `velocity-ctl`, `velocity-report-sweep`, and `velocity-report-backfill-rings` artifacts plus a `velocity-report` Cobra-style subcommand binary — is being replaced. The new direction is a single busybox-style `velocity` binary with a `velocity <namespace> ...` canonical CLI (`serve`, `device`, `data`, `report`, `tune`), `velocity-report` retained as a compatibility alias for systemd, host service lifecycle handled outside the binary by shell wrappers, and an on-disk versioned layout under `/opt/velocity-report/versions/<v>/` with a `current` symlink for atomic upgrade and rollback. Authoritative reading: [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md) and [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). This page is **not** rewritten in place; it will be replaced wholesale in the same release that ships the refactor (trigger: `cmd/velocity/main.go` lands and `make build-velocity` produces the artifact). The text below is preserved unedited so the older proposal can be read against the new one.
 
-Active plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md) (annotated with strikethroughs to mark drift).
+Legacy plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md) (annotated with strikethroughs to mark drift). Current canonical direction lives in [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md).
 
 Distribution and packaging strategy for velocity.report: consolidate scattered tools into a single-binary subcommand model with a consistent release process.
 
@@ -142,7 +142,7 @@ velocity-report-backfill-rings --db sensor_data.db
 
 ## Version management
 
-The `version` package (`internal/version/`) exports three variables: `Version` (default `"dev"`), `GitCommit` (default `"unknown"`), and `BuildTime` (default `"unknown"`). `Version` is set via linker flag `-X .../version.Version=$(VERSION)`. `GitCommit` and `BuildTime` are populated from `debug.ReadBuildInfo()` VCS settings at runtime.
+The `version` package (`internal/version/`) exports three variables: `Version` (default `"dev"`), `GitSHA` (default `"unknown"`), and `BuildTime` (default `"unknown"`). These are set via Makefile linker flags under `github.com/banshee-data/velocity.report/internal/version`.
 
 ## Source layout (proposed)
 

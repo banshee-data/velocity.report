@@ -116,13 +116,13 @@ The project exposes one canonical binary surface after this lands: `velocity <na
 
 #### Outside the binary: host lifecycle wrappers
 
-| Wrapper           | Backing command                                                 | Purpose                  |
-| ----------------- | --------------------------------------------------------------- | ------------------------ |
-| `velocity-status` | `systemctl status velocity-report.service`                      | service status           |
-| `velocity-start`  | `sudo systemctl start velocity-report.service`                  | start the service        |
-| `velocity-stop`   | `sudo systemctl stop velocity-report.service`                   | stop the service         |
-| `velocity-bounce` | `sudo systemctl restart velocity-report.service`                | restart the service      |
-| `velocity-log`    | `journalctl -u velocity-report.service -u nginx.service -f ...` | follow live service logs |
+| Wrapper           | Backing command                                  | Purpose                  |
+| ----------------- | ------------------------------------------------ | ------------------------ |
+| `velocity-status` | `systemctl status velocity-report.service`       | service status           |
+| `velocity-start`  | `sudo systemctl start velocity-report.service`   | start the service        |
+| `velocity-stop`   | `sudo systemctl stop velocity-report.service`    | stop the service         |
+| `velocity-bounce` | `sudo systemctl restart velocity-report.service` | restart the service      |
+| `velocity-log`    | `journalctl -u velocity-report.service -f ...`   | follow live service logs |
 
 These wrappers stay outside the binary because they are host-admin affordances. The binary should not grow `status`, `start`, `stop`, `restart`, or `logs` namespaces that merely duplicate `systemctl` and `journalctl`.
 
@@ -208,7 +208,7 @@ These wrappers stay outside the binary because they are host-admin affordances. 
 
 ## Image and install-script impact
 
-- [image/stage-velocity/01-velocity-binaries/00-run.sh](../../image/stage-velocity/01-velocity-binaries/00-run.sh) — install the single `velocity` binary into `/opt/velocity-report/versions/<bake-version>/velocity`, create the `current` symlink, and create `/usr/local/bin/velocity` plus `/usr/local/bin/velocity-report`. Version comes from a build-time `-ldflags "-X main.Version=..."` baked at image time.
+- [image/stage-velocity/01-velocity-binaries/00-run.sh](../../image/stage-velocity/01-velocity-binaries/00-run.sh) — install the single `velocity` binary into `/opt/velocity-report/versions/<bake-version>/velocity`, create the `current` symlink, and create `/usr/local/bin/velocity` plus `/usr/local/bin/velocity-report`. Version identity comes from the shared Makefile `LDFLAGS`, which inject `internal/version.Version`, `internal/version.GitSHA`, and `internal/version.BuildTime`.
 - [image/stage-velocity/03-velocity-config/files/velocity-aliases.sh](../../image/stage-velocity/03-velocity-config/files/velocity-aliases.sh) — keep the service lifecycle wrappers as the outside-the-binary admin surface.
 - **Delete** the legacy stub `image/stage-velocity/01-velocity-binaries/files/velocity-update`.
 - **Avoid** shipping `velocity-ctl` as a permanent symlink. If a migration bridge is required, make it a short-lived redirect wrapper to `velocity device ...`, not a third first-class entry point.
@@ -243,7 +243,7 @@ With the local CA gone, the nginx process gone, and the cert-renewal oneshot gon
 
 ## Sudo
 
-The existing `/etc/sudoers.d/020_velocity-nopasswd` rules for cert generation and nginx are removed alongside those services. The new file is enumerated by verb, with no command wildcards beyond what the verb itself requires:
+The existing `/etc/sudoers.d/020_velocity-nopasswd` rules for cert generation and nginx are removed alongside those services. The new file is enumerated by verb, with no command wildcards beyond what the verb itself requires. NOPASSWD covers only the default operator forms below; argument-bearing variants require an interactive sudo password unless they are later routed through a root-owned validator wrapper.
 
 ```
 # Service lifecycle (powers velocity-status, velocity-start, velocity-stop, velocity-bounce)
@@ -270,7 +270,8 @@ Notes:
 
 - **Greenfield removes the compatibility wildcards.** No `velocity-report migrate *` or `velocity-ctl *` rule is needed: the first mass-release image ships the new shape, with no legacy scripts to support.
 - **`device upgrade --check` is enumerated separately** because sudoers requires every distinct argument tail to match a rule literally. If `--check` becomes the dedicated `device check` verb, the `--check` line drops out.
-- **Destructive migration verbs are deliberately not in NOPASSWD.** `data migrate down`, `force`, `baseline`, and `detect` require an interactive password — they are dev/operator-rare actions, not anything `velocity-bounce`-style automation should run.
+- **Flagged upgrade variants are deliberately not in NOPASSWD.** `device upgrade --binary ...`, `--prerelease`, `--include-prereleases`, and `--config ...` are valid command forms, but they require an interactive password unless a future root-owned wrapper validates the argument set before execing `/usr/local/bin/velocity`.
+- **Argument-bearing migration and destructive migration verbs are deliberately not in NOPASSWD.** `data migrate up --db-path ...`, `down`, `force`, `baseline`, and `detect` require an interactive password — they are dev/operator-rare actions, not anything `velocity-bounce`-style automation should run.
 - **Sudo does not canonicalize the symlink chain.** A rule for `/usr/local/bin/velocity device upgrade` matches `sudo /usr/local/bin/velocity device upgrade` as the user typed it, regardless of where the symlink resolves on disk. The rule path is therefore stable across upgrades; the resolved target may change between releases without touching sudoers.
 - **No write access to `/opt/velocity-report/versions/` is granted to `pi` or `velocity`.** The `device` lifecycle path is the only writer, runs as root via the sudoers above, and never delegates write authority to a less-privileged actor.
 
@@ -322,7 +323,7 @@ This change is invisible from the outside: the same `--listen :80` and `--db-pat
 ## Verification
 
 1. **Build**: `make build-velocity` produces one binary; `./velocity --help` lists `serve|device|data|report|tune|version|help`.
-2. **Compatibility**: `./velocity-report --db-path test.db` still enters the server path; `./velocity-report report pdf --help` and `./velocity report pdf --help` describe the same operation.
+2. **Compatibility**: `./velocity-report --db-path test.db` still enters the server path; `./velocity-report pdf --help` and `./velocity report pdf --help` describe the same operation.
 3. **First install (image)**: burn image; verify `/opt/velocity-report/versions/<v>/velocity` exists, `current` symlink resolves, `/usr/local/bin/velocity` and `/usr/local/bin/velocity-report` work, the shell aliases are installed, the service starts, and `curl http://localhost/api/version` returns the baked build identity.
 4. **Host lifecycle wrappers**: in an interactive shell, verify `velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, and `velocity-bounce` resolve to the expected `systemctl` and `journalctl` actions.
 5. **Upgrade**: stage a fake `release.json` pointing at a `0.5.1` artifact; run `sudo velocity device upgrade`; verify (a) `versions/0.5.1/` appears, (b) `current` flips, (c) service restarts cleanly, (d) `/api/version` reports `0.5.1`, and (e) `previous` points to `0.5.0`.
