@@ -170,6 +170,9 @@ func TestStyledTablesDoNotDrawTopRuleAboveHeader(t *testing.T) {
 		}
 		headerPos := strings.Index(table, header)
 		rulePos := strings.Index(table, `\hline`)
+		if rulePos == -1 {
+			rulePos = strings.Index(table, `\rule{\linewidth}{0.4pt}`)
+		}
 		if headerPos == -1 || rulePos == -1 {
 			t.Fatalf("%s table missing header or rule:\n%s", name, table)
 		}
@@ -191,20 +194,22 @@ func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
 
 	for _, want := range []string{
 		`\AtkinsonMono\small`,
-		`@{}>{\raggedright\arraybackslash}p{0.24\linewidth}`,
-		`>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}`,
-		`\begin{supertabular}`,
+		`\makebox[0.24\linewidth][l]{\strut \sffamily\bfseries Start Time}`,
+		`\makebox[0.14\linewidth][r]{\strut \sffamily\bfseries \shortstack[r]{p50 \\ (mph)}}`,
+		`\colorbox{black!2}`,
 	} {
 		if !strings.Contains(result, want) {
 			t.Fatalf("stat table missing %q:\n%s", want, result)
 		}
 	}
-	if strings.Contains(result, `\AtkinsonMono\scriptsize`) || strings.Contains(result, `\footnotesize`) {
-		t.Fatalf("stat table should use the shared table font size, got:\n%s", result)
+	for _, unwanted := range []string{`\AtkinsonMono\scriptsize`, `\footnotesize`, `\begin{supertabular}`} {
+		if strings.Contains(result, unwanted) {
+			t.Fatalf("stat table should not use %q, got:\n%s", unwanted, result)
+		}
 	}
 }
 
-func TestBuildStatTableTeX_LongTableUsesBalancedPages(t *testing.T) {
+func TestBuildStatTableTeX_LongTableUsesFlowRows(t *testing.T) {
 	rows := make([]StatRow, 0, 120)
 	for index := 0; index < 120; index++ {
 		rows = append(rows, StatRow{
@@ -220,17 +225,20 @@ func TestBuildStatTableTeX_LongTableUsesBalancedPages(t *testing.T) {
 	result := BuildStatTableTeX(rows, "Detailed Data", "mph")
 
 	for _, want := range []string{
-		`\clearpage`,
-		`\onecolumn`,
-		`\begin{minipage}[t]{0.485\textwidth}`,
-		`\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}`,
+		`\makebox[\linewidth][l]`,
+		`\makebox[0.24\linewidth][l]`,
+		`\makebox[0.14\linewidth][r]`,
+		`\colorbox{black!2}`,
+		`\noindent\rule{\linewidth}{0.4pt}\par`,
 	} {
 		if !strings.Contains(result, want) {
-			t.Fatalf("balanced stat table missing %q:\n%s", want, result)
+			t.Fatalf("flow stat table missing %q:\n%s", want, result)
 		}
 	}
-	if strings.Contains(result, `\begin{supertabular}`) {
-		t.Fatalf("balanced stat table should not use supertabular:\n%s", result)
+	for _, unwanted := range []string{`\clearpage`, `\onecolumn`, `\begin{minipage}`, `\begin{supertabular}`} {
+		if strings.Contains(result, unwanted) {
+			t.Fatalf("flow stat table should not force layout with %q:\n%s", unwanted, result)
+		}
 	}
 }
 
@@ -265,19 +273,19 @@ func TestReportTablesUseSharedFullWidthFormatting(t *testing.T) {
 			`\AtkinsonMono\small`,
 			`\renewcommand{\arraystretch}{1.00}`,
 			`\setlength{\tabcolsep}{2pt}`,
+			`\setlength{\fboxsep}{0pt}`,
 			`\rowcolors{2}{black!2}{white}`,
 			`\noindent`,
-			`@{}>{\raggedright\arraybackslash}p{`,
-			`{\sffamily\bfseries `,
 		} {
 			if !strings.Contains(table, want) {
 				t.Fatalf("%s table missing shared format %q:\n%s", name, want, table)
 			}
 		}
-		if name == "comparison velocity distribution" || name == "stat" {
-			if strings.Contains(table, `\enlargethispage{`) {
-				t.Fatalf("%s table should no longer emit dead enlargethispage directives:\n%s", name, table)
-			}
+		if !strings.Contains(table, `{\sffamily\bfseries `) && !strings.Contains(table, `\sffamily\bfseries `) {
+			t.Fatalf("%s table missing shared header style:\n%s", name, table)
+		}
+		if !strings.Contains(table, `@{}>{\raggedright\arraybackslash}p{`) && !strings.Contains(table, `\makebox[\linewidth][l]`) {
+			t.Fatalf("%s table should use either tabular p-columns or flow-table boxes:\n%s", name, table)
 		}
 		for _, unwanted := range []string{
 			`\begin{center}`,

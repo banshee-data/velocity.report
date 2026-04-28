@@ -1,49 +1,32 @@
 <<define "chart_section_single">>
 <<if .TimeSeriesChart>>
-<<if .StatsTablesOneColumn>>
-\clearpage
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
 \centering
 \includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
-\caption{Speed percentiles and observation counts over time}
-\end{figure}
-<<else if .MapChart>>
-\clearpage
-\onecolumn
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
-\caption{Speed percentiles and observation counts over time}
-\end{figure}
-<<else>>
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
-\caption{Speed percentiles and observation counts over time}
-\end{figure*}
-\afterpage{\clearpage}
-<<end>>
+\captionof{figure}{Speed percentiles and observation counts over time}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<end>>
 
 <<define "chart_section_comparison">>
 <<if .TimeSeriesChart>>
-<<if .StatsTablesOneColumn>>
-\clearpage
-<<else>>
-\onecolumn
-<<end>>
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
 \centering
 \includegraphics[width=\linewidth]{<<.TimeSeriesChart>>}
-\caption{Velocity over time (t1: <<.StartDate>> to <<.EndDate>>)}
-\end{figure}
+\captionof{figure}{Velocity over time (t1: <<.StartDate>> to <<.EndDate>>)}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<if .CompareTimeSeriesChart>>
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
 \centering
 \includegraphics[width=\linewidth]{<<.CompareTimeSeriesChart>>}
-\caption{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
-\end{figure}
+\captionof{figure}{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<end>>

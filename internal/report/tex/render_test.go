@@ -250,12 +250,12 @@ func TestRenderTeX_MapSectionAppearsAfterCharts(t *testing.T) {
 	if mapPos <= chartPos {
 		t.Fatalf("expected map section after chart section")
 	}
-	if !strings.Contains(s, `\clearpage`) {
-		t.Fatal("expected map section to force a final page break")
+	if strings.Contains(s, `\clearpage`) || strings.Contains(s, `\onecolumn`) {
+		t.Fatal("chart/map section should not force a page break or one-column mode")
 	}
 }
 
-func TestRenderTeX_SingleChartSectionUsesFullWidthFloatWithoutOneColumnMode(t *testing.T) {
+func TestRenderTeX_SingleChartSectionUsesNaturalFullWidthBlock(t *testing.T) {
 	data := minimalTemplateData()
 	data.TimeSeriesChart = "timeseries.pdf"
 
@@ -265,17 +265,21 @@ func TestRenderTeX_SingleChartSectionUsesFullWidthFloatWithoutOneColumnMode(t *t
 	}
 
 	s := string(out)
-	if !strings.Contains(s, `\begin{figure*}[t]`) {
-		t.Fatal("expected single report chart section to use a full-width figure* float")
+	if strings.Contains(s, `\begin{figure*}`) || strings.Contains(s, `\begin{figure}[H]`) {
+		t.Fatal("single report chart section should not use floats")
 	}
-	if strings.Contains(s, `\onecolumn`) {
-		t.Fatal("single report chart section should not switch the whole document to one-column mode")
+	for _, unwanted := range []string{`\onecolumn`, `\clearpage`, `\afterpage{\clearpage}`} {
+		if strings.Contains(s, unwanted) {
+			t.Fatalf("single report chart section should not force layout with %q", unwanted)
+		}
 	}
-	if !strings.Contains(s, `\afterpage{\clearpage}`) {
-		t.Fatal("single report chart section should defer the page flush until the current two-column page finishes")
+	bodyEnd := strings.Index(s, `\end{multicols}`)
+	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
+	if bodyEnd == -1 || chartPos == -1 || chartPos <= bodyEnd {
+		t.Fatal("expected full-width single chart after the balanced multicols body")
 	}
-	if !strings.Contains(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`) {
-		t.Fatal("expected full-width single chart include")
+	if !strings.Contains(s, `\captionof{figure}{Speed percentiles and observation counts over time}`) {
+		t.Fatal("expected inline full-width single chart caption")
 	}
 }
 
@@ -290,11 +294,10 @@ func TestRenderTeX_SingleChartSectionCollapsesWithMapWhenPresent(t *testing.T) {
 	}
 
 	s := string(out)
-	if strings.Contains(s, `\begin{figure*}[t]`) {
-		t.Fatal("single report chart should not use figure* when a map is present")
-	}
-	if strings.Contains(s, `\afterpage{\clearpage}`) {
-		t.Fatal("single report chart should not defer the page flush when a map is present")
+	for _, unwanted := range []string{`\begin{figure*}`, `\begin{figure}[H]`, `\afterpage{\clearpage}`, `\clearpage`, `\onecolumn`} {
+		if strings.Contains(s, unwanted) {
+			t.Fatalf("single report chart/map section should not force layout with %q", unwanted)
+		}
 	}
 	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
 	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
@@ -302,16 +305,10 @@ func TestRenderTeX_SingleChartSectionCollapsesWithMapWhenPresent(t *testing.T) {
 		t.Fatal("expected both single chart and map graphics in rendered output")
 	}
 	if mapPos <= chartPos {
-		t.Fatal("expected map to follow the single chart in one-column flow")
+		t.Fatal("expected map to follow the single chart in natural full-width flow")
 	}
-	if strings.Count(s, `\clearpage`) != 1 {
-		t.Fatalf("expected a single clearpage for the combined chart/map section, got %d", strings.Count(s, `\clearpage`))
-	}
-	if strings.Count(s, `\onecolumn`) != 1 {
-		t.Fatalf("expected a single onecolumn switch for the combined chart/map section, got %d", strings.Count(s, `\onecolumn`))
-	}
-	if !strings.Contains(s, `\begin{figure}[H]`) {
-		t.Fatal("expected combined single chart/map section to use anchored one-column figures")
+	if strings.Count(s, `\captionof{figure}`) < 2 {
+		t.Fatal("expected chart and map to use inline figure captions")
 	}
 }
 
@@ -362,14 +359,14 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 		`\renewcommand{\arraystretch}{1.00}`,
 		`\par\vspace{2pt}`,
 		`\noindent{\large\bfseries Speed Distribution}\par\vspace{2pt}`,
-		`\vrSuperTabularFirstPageAdjustment=20\baselineskip`,
-		`\vrSuperTabularNextPageAdjustment=8\baselineskip`,
-		`\global\advance\ST@pageleft by \vrSuperTabularFirstPageAdjustment`,
-		`\global\advance\ST@pageleft by \vrSuperTabularNextPageAdjustment`,
+		`\setlength{\fboxsep}{0pt}`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("expected spacing directive %q in rendered output", want)
 		}
+	}
+	if strings.Contains(s, `\vrSuperTabular`) || strings.Contains(s, `\ST@pageleft`) {
+		t.Fatalf("report should not include obsolete supertabular page-height patches:\n%s", s)
 	}
 }
 

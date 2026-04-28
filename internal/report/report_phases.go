@@ -422,7 +422,6 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 	} else {
 		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 3: Granular Percentile Breakdown", td.Units)
 	}
-	td.StatsTablesOneColumn = tex.UseBalancedStatTableLayout(len(td.StatRows)) || tex.UseBalancedStatTableLayout(len(td.DailyStatRows))
 
 	return td
 }

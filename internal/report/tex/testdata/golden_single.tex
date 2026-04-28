@@ -11,7 +11,6 @@
 % Packages
 \usepackage{graphicx}
 \usepackage{tabularx}
-\usepackage{supertabular}
 \usepackage{xcolor}
 \usepackage{colortbl}
 \usepackage{fancyhdr}
@@ -21,32 +20,11 @@
 \usepackage{titlesec}
 \usepackage{caption}
 \usepackage{multicol}
-\usepackage{float}
-\usepackage{afterpage}
 \usepackage{array}
-
-% Give the first page of page-breaking supertabular tables a little extra
-% vertical room in two-column mode. Later pages still need room for the
-% trailing caption that follows the environment.
-\makeatletter
-\newdimen\vrSuperTabularFirstPageAdjustment
-\newdimen\vrSuperTabularNextPageAdjustment
-\vrSuperTabularFirstPageAdjustment=20\baselineskip
-\vrSuperTabularNextPageAdjustment=8\baselineskip
-\let\vr@orig@calfirstpageht\@calfirstpageht
-\def\@calfirstpageht{%
-  \vr@orig@calfirstpageht
-  \global\advance\ST@pageleft by \vrSuperTabularFirstPageAdjustment
-}
-\let\vr@orig@calnextpageht\@calnextpageht
-\def\@calnextpageht{%
-  \vr@orig@calnextpageht
-  \global\advance\ST@pageleft by \vrSuperTabularNextPageAdjustment
-}
-\makeatother
 
 % Column separator
 \setlength{\columnsep}{14pt}
+\setlength{\multicolsep}{0pt}
 \setlength{\emergencystretch}{2em}
 
 % Fonts
@@ -95,16 +73,13 @@
 
 \begin{document}
 
-\twocolumn[
-  \begin{@twocolumnfalse}
-  \vspace{-8pt}
-  \begin{center}
-  {\huge\bfseries Test Location\par}
-  \vspace{0.1cm}
-  \end{center}
-  \end{@twocolumnfalse}
-]
+\vspace{-8pt}
+\begin{center}
+{\huge\bfseries Test Location\par}
+\vspace{0.1cm}
+\end{center}
 
+\begin{multicols}{2}
 
 
 
@@ -126,6 +101,7 @@
 \AtkinsonMono\small
 \renewcommand{\arraystretch}{1.00}
 \setlength{\tabcolsep}{2pt}
+\setlength{\fboxsep}{0pt}
 \rowcolors{2}{black!2}{white}
 \noindent
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.55\linewidth}>{\raggedleft\arraybackslash}p{0.42\linewidth}@{}}
@@ -231,17 +207,12 @@ End time: & \texttt{2024-01-31T23:59:59Z} \\
 \AtkinsonMono\small
 \renewcommand{\arraystretch}{1.00}
 \setlength{\tabcolsep}{2pt}
+\setlength{\fboxsep}{0pt}
 \rowcolors{2}{black!2}{white}
-\tablefirsthead{%
-{\sffamily\bfseries Start Time} & {\sffamily\bfseries Count} & {\sffamily\bfseries \shortstack[r]{p50 \\ (mph)}} & {\sffamily\bfseries \shortstack[r]{p85 \\ (mph)}} & {\sffamily\bfseries \shortstack[r]{p98 \\ (mph)}} & {\sffamily\bfseries \shortstack[r]{Max \\ (mph)}} \\
-  \hline
-}
-\tablehead{}
-\tabletail{\hline}
-\noindent
-\begin{supertabular}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}}
-\phantom{0}1/15 09:00 & 42 & 24.50 & 29.80 & 34.20 & 40.10 \\
-\end{supertabular}
+\noindent\makebox[\linewidth][l]{\makebox[0.24\linewidth][l]{\strut \sffamily\bfseries Start Time}\hspace{2\tabcolsep}\makebox[0.12\linewidth][r]{\strut \sffamily\bfseries Count}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut \sffamily\bfseries \shortstack[r]{p50 \\ (mph)}}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut \sffamily\bfseries \shortstack[r]{p85 \\ (mph)}}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut \sffamily\bfseries \shortstack[r]{p98 \\ (mph)}}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut \sffamily\bfseries \shortstack[r]{Max \\ (mph)}}}\par
+\noindent\rule{\linewidth}{0.4pt}\par
+\noindent\colorbox{black!2}{\makebox[\linewidth][l]{\makebox[0.24\linewidth][l]{\strut \phantom{0}1/15 09:00}\hspace{2\tabcolsep}\makebox[0.12\linewidth][r]{\strut 42}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut 24.50}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut 29.80}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut 34.20}\hspace{2\tabcolsep}\makebox[0.14\linewidth][r]{\strut 40.10}}}\par
+\noindent\rule{\linewidth}{0.4pt}\par
 \rowcolors{0}{}{}
 \par\vspace{2pt}
 \noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}
@@ -249,6 +220,10 @@ End time: & \texttt{2024-01-31T23:59:59Z} \\
 
 
 
+
+
+
+\end{multicols}
 
 
 

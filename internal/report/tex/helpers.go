@@ -117,6 +117,7 @@ func withStyledTable(b *strings.Builder, fontSize string, body func(), afterRese
 	b.WriteString(`\AtkinsonMono\` + fontSize + "\n")
 	b.WriteString(`\renewcommand{\arraystretch}{1.00}` + "\n")
 	b.WriteString(`\setlength{\tabcolsep}{2pt}` + "\n")
+	b.WriteString(`\setlength{\fboxsep}{0pt}` + "\n")
 	b.WriteString(`\rowcolors{2}{` + tableStripeColour + `}{white}` + "\n")
 	body()
 	b.WriteString(`\rowcolors{0}{}{}` + "\n")
@@ -148,25 +149,12 @@ type reportTable struct {
 	pageBreak bool
 }
 
-const balancedStatTableMaxRowsPerColumn = 52
-
 func renderReportTable(t reportTable) string {
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
 		spec := tableColumnSpec(t.columns)
 		if t.pageBreak {
-			b.WriteString(`\tablefirsthead{%` + "\n")
-			writeTableHeader(&b, t.columns)
-			b.WriteString(`  \hline` + "\n")
-			b.WriteString("}\n")
-			b.WriteString(`\tablehead{}` + "\n")
-			b.WriteString(`\tabletail{\hline}` + "\n")
-			b.WriteString(`\noindent` + "\n")
-			b.WriteString(`\begin{supertabular}{` + spec + `}` + "\n")
-			for _, row := range t.rows {
-				writeTableRow(&b, row)
-			}
-			b.WriteString(`\end{supertabular}` + "\n")
+			writeFlowTable(&b, t.columns, t.rows)
 			return
 		}
 
@@ -188,86 +176,6 @@ func renderReportTable(t reportTable) string {
 	return b.String()
 }
 
-func renderSideBySideBalancedReportTable(t reportTable) string {
-	pageCount := (len(t.rows) + (2 * balancedStatTableMaxRowsPerColumn) - 1) / (2 * balancedStatTableMaxRowsPerColumn)
-	if pageCount < 1 {
-		pageCount = 1
-	}
-	columnCount := pageCount * 2
-	rowsPerColumn := distributeRowsEvenly(len(t.rows), columnCount)
-
-	var b strings.Builder
-	b.WriteString(`\clearpage` + "\n")
-	b.WriteString(`\onecolumn` + "\n")
-
-	rowOffset := 0
-	for page := 0; page < pageCount; page++ {
-		if page > 0 {
-			b.WriteString(`\clearpage` + "\n")
-		}
-
-		leftCount := rowsPerColumn[page*2]
-		rightCount := rowsPerColumn[page*2+1]
-		leftRows := t.rows[rowOffset : rowOffset+leftCount]
-		rowOffset += leftCount
-		rightRows := t.rows[rowOffset : rowOffset+rightCount]
-		rowOffset += rightCount
-
-		withStyledTable(&b, "small", func() {
-			b.WriteString(`\noindent` + "\n")
-			b.WriteString(`\begin{minipage}[t]{0.485\textwidth}` + "\n")
-			writeTabularBlock(&b, t.columns, leftRows)
-			b.WriteString(`\end{minipage}\hfill` + "\n")
-			b.WriteString(`\begin{minipage}[t]{0.485\textwidth}` + "\n")
-			if len(rightRows) > 0 {
-				writeTabularBlock(&b, t.columns, rightRows)
-			}
-			b.WriteString(`\end{minipage}` + "\n")
-		}, func() {
-			if page == pageCount-1 && t.caption != "" {
-				b.WriteString(`\par\vspace{2pt}` + "\n")
-				b.WriteString(tableCaptionTeX(t.caption) + "\n")
-			}
-		})
-	}
-
-	return b.String()
-}
-
-func writeTabularBlock(b *strings.Builder, columns []tableColumn, rows [][]string) {
-	spec := tableColumnSpec(columns)
-	b.WriteString(`\noindent` + "\n")
-	b.WriteString(`\begin{tabular}{` + spec + `}` + "\n")
-	writeTableHeader(b, columns)
-	b.WriteString(`\hline` + "\n")
-	for _, row := range rows {
-		writeTableRow(b, row)
-	}
-	b.WriteString(`\hline` + "\n")
-	b.WriteString(`\end{tabular}` + "\n")
-}
-
-func distributeRowsEvenly(totalRows, buckets int) []int {
-	distribution := make([]int, buckets)
-	if buckets <= 0 || totalRows <= 0 {
-		return distribution
-	}
-
-	base := totalRows / buckets
-	remainder := totalRows % buckets
-	for index := range distribution {
-		distribution[index] = base
-		if index < remainder {
-			distribution[index]++
-		}
-	}
-	return distribution
-}
-
-func UseBalancedStatTableLayout(rowCount int) bool {
-	return rowCount > 2*balancedStatTableMaxRowsPerColumn
-}
-
 func tableColumnSpec(columns []tableColumn) string {
 	var b strings.Builder
 	b.WriteString("@{}")
@@ -281,6 +189,55 @@ func tableColumnSpec(columns []tableColumn) string {
 	}
 	b.WriteString("@{}")
 	return b.String()
+}
+
+func writeFlowTable(b *strings.Builder, columns []tableColumn, rows [][]string) {
+	b.WriteString(`\noindent`)
+	writeFlowCells(b, columns, headerCells(columns), true)
+	b.WriteString(`\par` + "\n")
+	b.WriteString(`\noindent\rule{\linewidth}{0.4pt}\par` + "\n")
+	for i, row := range rows {
+		b.WriteString(`\noindent`)
+		if i%2 == 0 {
+			b.WriteString(`\colorbox{` + tableStripeColour + `}{`)
+			writeFlowCells(b, columns, row, false)
+			b.WriteString(`}`)
+		} else {
+			writeFlowCells(b, columns, row, false)
+		}
+		b.WriteString(`\par` + "\n")
+	}
+	b.WriteString(`\noindent\rule{\linewidth}{0.4pt}\par` + "\n")
+}
+
+func headerCells(columns []tableColumn) []string {
+	cells := make([]string, len(columns))
+	for i, col := range columns {
+		cells[i] = col.header
+	}
+	return cells
+}
+
+func writeFlowCells(b *strings.Builder, columns []tableColumn, cells []string, header bool) {
+	b.WriteString(`\makebox[\linewidth][l]{`)
+	for i, col := range columns {
+		if i > 0 {
+			b.WriteString(`\hspace{2\tabcolsep}`)
+		}
+		align := "l"
+		if col.align == tableAlignRight {
+			align = "r"
+		}
+		b.WriteString(`\makebox[` + col.width + `][` + align + `]{\strut `)
+		if header {
+			b.WriteString(`\sffamily\bfseries `)
+		}
+		if i < len(cells) {
+			b.WriteString(cells[i])
+		}
+		b.WriteString(`}`)
+	}
+	b.WriteString(`}`)
 }
 
 func writeTableHeader(b *strings.Builder, columns []tableColumn) {
@@ -381,7 +338,7 @@ func countWithUnitPhantom(count, escapedUnits string) string {
 	return count + `\phantom{ ` + escapedUnits + `}`
 }
 
-// BuildStatTableTeX generates a styled, page-spanning LaTeX supertabular for
+// BuildStatTableTeX generates a styled, page-spanning LaTeX flow table for
 // stat row data (Time | Count | p50 | p85 | p98 | Max). caption is rendered as
 // the table label below the table. Returns empty string if rows is nil or empty.
 func BuildStatTableTeX(rows []StatRow, caption, units string) string {
@@ -412,9 +369,6 @@ func BuildStatTableTeX(rows []StatRow, caption, units string) string {
 		rows:      tableRows,
 		caption:   caption,
 		pageBreak: true,
-	}
-	if UseBalancedStatTableLayout(len(tableRows)) {
-		return renderSideBySideBalancedReportTable(table)
 	}
 	return renderReportTable(table)
 }

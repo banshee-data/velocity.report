@@ -54,33 +54,37 @@ The source ZIP is part of the product surface. It currently contains:
 The PDF layout is driven by a small set of runtime knobs in
 `internal/api/server_reports_generate.go` and `internal/report/config.go`:
 
-| Input             | Current behaviour                                                                                                                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `paper_size`      | Defaults to US Letter. `a4` remains an explicit option. This controls both LaTeX paper geometry and chart physical dimensions.                                                                                                        |
-| `expanded_chart`  | Default `false` keeps sparse time-series charts consolidated. `true` inserts explicit missing buckets across the full requested range, which changes spacing, gap rendering, and SVG tooltip text.                                    |
-| `histogram`       | Enables the overview histogram and the histogram table(s).                                                                                                                                                                            |
-| `include_map`     | Enables the final map figure when map SVG bytes are present. In single-report mode with a time-series chart, the chart and map share the same final one-column section; otherwise the map still forces its own final one-column page. |
-| comparison period | Adds the grouped comparison histogram, comparison time-series figure, and comparison tables.                                                                                                                                          |
-| `compare_source`  | Changes which dataset is queried for t2. If omitted, t2 falls back to the primary `source`. This affects the plotted and tabulated data but is not currently printed in the PDF text.                                                 |
+| Input             | Current behaviour                                                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paper_size`      | Defaults to US Letter. `a4` remains an explicit option. This controls both LaTeX paper geometry and chart physical dimensions.                                                                     |
+| `expanded_chart`  | Default `false` keeps sparse time-series charts consolidated. `true` inserts explicit missing buckets across the full requested range, which changes spacing, gap rendering, and SVG tooltip text. |
+| `histogram`       | Enables the overview histogram and the histogram table(s).                                                                                                                                         |
+| `include_map`     | Enables the final map figure when map SVG bytes are present. The map is rendered as a natural full-width block after the chart block; it no longer forces a dedicated final page.                  |
+| comparison period | Adds the grouped comparison histogram, comparison time-series figure, and comparison tables.                                                                                                       |
+| `compare_source`  | Changes which dataset is queried for t2. If omitted, t2 falls back to the primary `source`. This affects the plotted and tabulated data but is not currently printed in the PDF text.              |
 
 ## 2. Document structure
 
 ### 2.1 Layout and section order
 
-The report uses a centred title block above a two-column body:
+The report uses a centred title block, a balanced two-column report body, and
+natural full-width media blocks:
 
-- `report.tex` opens with `\twocolumn[...]` and a `@twocolumnfalse` title block.
-- The single-report full-width time-series chart is emitted as a `figure*`
-  float and then flushed with `\afterpage{\clearpage}` when there is no map,
-  so the preceding report pages stay in two-column flow and the current data
-  page can extend to the bottom margin before the chart page begins.
-- When a single report includes both the time-series chart and the map, the
-  template instead switches once to `\onecolumn` and renders both figures as
-  sequential anchored `[H]` figures in one final section.
-- The comparison chart section switches to `\onecolumn` for its sequential
-  full-width time-series figures.
-- The optional map page forces `\clearpage` and then `\onecolumn` only when
-  it is not already sharing the single-report final chart section.
+- `report.tex` renders the title in normal one-column flow, then wraps the
+  narrative sections, survey tables, histogram table, and stat tables in
+  `\begin{multicols}{2}...\end{multicols}`.
+- `multicols` balances the two body columns at the end of the table section so
+  the left and right columns terminate at the same vertical position before
+  charts begin.
+- Overview histograms inside the body are inline `minipage` blocks with
+  `\captionof{figure}` rather than floats, which keeps them compatible with
+  `multicols`.
+- Time-series charts and the optional map are full-width inline `minipage`
+  blocks after `\end{multicols}`. They do not use `figure*`, `\afterpage`,
+  `\clearpage`, or `\onecolumn`.
+- Because the chart/map blocks are ordinary full-width content, they can start
+  on the same page as the balanced table section when enough vertical room
+  remains; otherwise LaTeX moves them naturally to the next page.
 
 Section order is invariant:
 
@@ -88,8 +92,9 @@ Section order is invariant:
    rendered as a `mailto:` hyperlink when present. The date range is **not** in
    the title block; it lives in the footer.
 2. **Velocity Overview**:
-   Single mode shows site, period, total count, speed limit, key metrics, and
-   the optional single histogram.
+   Single mode shows site, period, total count, key metrics, and the optional
+   single histogram. Speed limit is intentionally not rendered until
+   multi-speed-limit reporting exists.
    Comparison mode shows site, primary period (t1), comparison period (t2),
    combined count, key metrics, and the optional grouped comparison histogram.
    When the overview histogram is present, Figure 1 sits immediately below
@@ -108,9 +113,9 @@ Section order is invariant:
    Single mode renders one full-width time-series chart.
    Comparison mode renders up to two full-width time-series charts, first t1
    and then t2.
-8. **Map Section**: optional final-page site map.
+8. **Map Section**: optional full-width site map after the chart block.
 
-Single vs comparison dispatch is controlled by `period_report.tex`:
+Single vs comparison body dispatch is controlled by `period_report.tex`:
 
 ```text
 <<if .CompareStartDate>>
@@ -119,6 +124,10 @@ Single vs comparison dispatch is controlled by `period_report.tex`:
 <<template "period_report_single" .>>
 <<end>>
 ```
+
+`report.tex` calls the corresponding chart-section template after the balanced
+body and then calls `map_section`, so charts and map remain outside the
+two-column `multicols` environment.
 
 ### 2.2 Page geometry and paper
 
@@ -134,6 +143,7 @@ The preamble uses `\documentclass[10pt,<paper option>]{article}`.
 Other fixed layout values:
 
 - `\columnsep = 14pt`
+- `\multicolsep = 0pt`
 - `\headrulewidth = 0.8pt`
 - `\footrulewidth = 0.8pt`
 - `\headheight = 12pt`
@@ -384,13 +394,23 @@ fall back to a centred grey `No data` label when there is nothing to plot.
 The current table system is two-layered:
 
 1. `withStyledTable()` applies the shared visual treatment.
-2. `renderReportTable()` chooses either `tabular` or `supertabular` from a
-   small `reportTable` descriptor (`columns`, `rows`, `caption`, `pageBreak`).
+2. `renderReportTable()` chooses either a regular fixed-width `tabular` or a
+   page-flowing fixed-width row renderer from a small `reportTable` descriptor
+   (`columns`, `rows`, `caption`, `pageBreak`).
 
-For long detailed-data tables, `BuildStatTableTeX()` now bypasses the raw
-`supertabular` flow and emits explicit balanced page chunks: each chunk starts
-with `\clearpage\onecolumn` and renders two side-by-side `tabular` blocks so
-the rows are distributed evenly across the two visual columns on each page.
+The ordinary path is used for short tables that must stay together: key metrics
+and velocity-distribution histograms. The page-flowing path is used for
+granular and daily percentile tables (`BuildStatTableTeX`, Tables 3 and 4).
+Those rows are emitted as normal TeX paragraphs, one row per paragraph, with
+fixed-width `\makebox` cells inside a full-line `\makebox[\linewidth][l]{...}`.
+This lets LaTeX break the table naturally in the current two-column flow, so a
+stat table can start in the remaining space below Table 2 instead of being
+forced to the next column or page.
+
+Do not reintroduce forced `\clearpage`, `\onecolumn`, side-by-side minipages,
+or `supertabular` for stats-table reflow. Those approaches created large blank
+areas in the left column of page 2 for reports whose Tables 2, 3, and 4 are
+only moderately long.
 
 The shared table-style wrapper is:
 
@@ -399,6 +419,7 @@ The shared table-style wrapper is:
   \AtkinsonMono\<fontSize>
   \renewcommand{\arraystretch}{1.00}
   \setlength{\tabcolsep}{2pt}
+  \setlength{\fboxsep}{0pt}
   \rowcolors{2}{black!2}{white}
   <body>
   \rowcolors{0}{}{}
@@ -415,18 +436,17 @@ within a single column.
 Current shared rules:
 
 - alternating tint: `black!2`
-- short page-spanning tables still use `supertabular`
-- long detailed-data tables use explicit balanced two-column page chunks in
-  one-column mode rather than relying on `supertabular` to rebalance rows
-- the preamble still patches `supertabular`'s internal page-height accounting
-  for any remaining continuation tables, adding `20\baselineskip` to
-  `\ST@pageleft` on the opening table column and `8\baselineskip` on later
-  continuation columns
+- regular short tables use `tabular` and `colortbl` row striping
+- granular and daily percentile tables use the page-flowing row renderer, not
+  `supertabular`
+- page-flowing stat tables render the header once, then a `\rule{\linewidth}{0.4pt}`
+  below the header, one paragraph per data row, and a closing rule after the
+  final row
+- page-flowing stat-table stripes are manual `\colorbox{black!2}{...}` wrappers
+  around every other row; `\fboxsep` must remain `0pt` so the striping reaches
+  the same visual width as the fixed columns
 - short single-column tables such as `BuildHistogramTableTeX()` stay on regular
-  `tabular` flow so they do not force awkward two-column breaks
-- first-page header only: `renderReportTable()` currently uses
-  `\tablefirsthead{...}` with an empty `\tablehead{}`; later pages do **not**
-  repeat the header row
+  `tabular` flow so they remain compact and do not participate in page reflow
 - caption helper: `tableCaptionTeX()` renders `\normalfont\bfseries\small`
 - statistics sections use tight inline bold headings instead of `\subsection*`
   before the long tables so Table 3 can start in the remaining column below
@@ -441,8 +461,10 @@ the checked-in TeX golden files.
 ### 5.3 Column layout
 
 The branch-tip table system no longer uses vertical rules between columns.
-Instead it uses fixed-width `p{...}` columns with explicit left/right ragging.
-All reusable data tables trim outer padding with `@{}` at both edges.
+Instead it uses one shared `tableColumn` descriptor with fixed widths and
+explicit left/right alignment. Regular tables translate that descriptor into
+`p{...}` columns with `@{}` outer padding removed. Page-flowing stat tables
+reuse the same widths and alignment through fixed-width `\makebox` cells.
 
 Current width allocations:
 
@@ -607,18 +629,18 @@ chart constants.
 
 If XeLaTeX is replaced, the following responsibilities must move with it.
 
-| Responsibility                         | Current xelatex implementation                                                                                                                                                                                                  | What an alternative needs                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                               | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                   |
-| Two-column flow + full-width breakouts | `\twocolumn[...]`, then either `figure*` + `\afterpage{\clearpage}` for a single time-series chart with no map or one shared `\onecolumn` section for the single chart plus map; comparison charts still switch to `\onecolumn` | Equivalent multi-column layout with break-out figures                                           |
-| Optional map final page                | `\clearpage` plus `\onecolumn`, except when the single-report chart path has already opened the shared final one-column section                                                                                                 | Equivalent page break and full-width final figure                                               |
-| Page-spanning tables                   | Short tables use `supertabular`; long detailed-data tables switch to `\clearpage\onecolumn` and explicit paired `tabular` blocks sized to balance rows across each page's two visual columns                                    | Equivalent multi-page table support, including balanced two-column paging for long stats tables |
-| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                       | Per-column width control and ragged alignment                                                   |
-| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                | Same row-striping semantics                                                                     |
-| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                             | Native SVG support or the same SVG-to-image bridge                                              |
-| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                                      | Equivalent template-driven running heads and feet                                               |
-| Escaping                               | `EscapeTeX()`                                                                                                                                                                                                                   | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                            |
-| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                                     | Native link support for site URL, contact email, and science links                              |
+| Responsibility                         | Current xelatex implementation                                                                                                                                                                                                                     | What an alternative needs                                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                                                  | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                   |
+| Two-column flow + full-width breakouts | Title in normal flow; report body in balanced `multicols`; overview charts are inline column-width `minipage` blocks; time-series charts are inline full-width `minipage` blocks after `\end{multicols}`                                           | Equivalent balanced two-column body plus natural full-width blocks that can share the ending table page         |
+| Optional map final block               | Inline full-width `minipage` after the time-series chart block, with no forced `\clearpage` or `\onecolumn`                                                                                                                                        | Equivalent natural full-width map block after charts                                                            |
+| Page-spanning tables                   | Granular and daily percentile tables are emitted as paragraph-level flow rows: a one-time header, full-width `\makebox` cells per row, manual `\colorbox` striping, and `\rule` separators, so rows break naturally in the current two-column flow | Equivalent multi-page row flow with fixed cell widths, striping, captions, and no forced one-column page breaks |
+| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                                          | Per-column width control and ragged alignment                                                                   |
+| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                                   | Same row-striping semantics                                                                                     |
+| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                                                | Native SVG support or the same SVG-to-image bridge                                                              |
+| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                                                         | Equivalent template-driven running heads and feet                                                               |
+| Escaping                               | `EscapeTeX()`                                                                                                                                                                                                                                      | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                            |
+| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                                                        | Native link support for site URL, contact email, and science links                                              |
 
 The chart stage remains the easiest part to port because the SVG is already the
 final chart specification.

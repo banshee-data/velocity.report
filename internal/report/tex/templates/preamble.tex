@@ -7,7 +7,6 @@
 % Packages
 \usepackage{graphicx}
 \usepackage{tabularx}
-\usepackage{supertabular}
 \usepackage{xcolor}
 \usepackage{colortbl}
 \usepackage{fancyhdr}
@@ -17,32 +16,11 @@
 \usepackage{titlesec}
 \usepackage{caption}
 \usepackage{multicol}
-\usepackage{float}
-\usepackage{afterpage}
 \usepackage{array}
-
-% Give the first page of page-breaking supertabular tables a little extra
-% vertical room in two-column mode. Later pages still need room for the
-% trailing caption that follows the environment.
-\makeatletter
-\newdimen\vrSuperTabularFirstPageAdjustment
-\newdimen\vrSuperTabularNextPageAdjustment
-\vrSuperTabularFirstPageAdjustment=20\baselineskip
-\vrSuperTabularNextPageAdjustment=8\baselineskip
-\let\vr@orig@calfirstpageht\@calfirstpageht
-\def\@calfirstpageht{%
-  \vr@orig@calfirstpageht
-  \global\advance\ST@pageleft by \vrSuperTabularFirstPageAdjustment
-}
-\let\vr@orig@calnextpageht\@calnextpageht
-\def\@calnextpageht{%
-  \vr@orig@calnextpageht
-  \global\advance\ST@pageleft by \vrSuperTabularNextPageAdjustment
-}
-\makeatother
 
 % Column separator
 \setlength{\columnsep}{14pt}
+\setlength{\multicolsep}{0pt}
 \setlength{\emergencystretch}{2em}
 
 % Fonts

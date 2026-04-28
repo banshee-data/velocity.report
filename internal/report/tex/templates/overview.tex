@@ -15,11 +15,12 @@
 <<.KeyMetricsTableTeX>>
 
 <<if .HistogramChart>>
-\begin{figure}[H]
+\par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=\linewidth]{<<.HistogramChart>>}
-\caption{Velocity Distribution Histogram}
-\end{figure}
+\captionof{figure}{Velocity Distribution Histogram}
+\end{minipage}
 \vspace{-28pt}
 <<end>>
 <<end>>
@@ -41,18 +42,20 @@
 <<.KeyMetricsTableTeX>>
 
 <<if .CompareChart>>
-\begin{figure}[H]
+\par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=\linewidth]{<<.CompareChart>>}
-\caption{Velocity Distribution Histogram}
-\end{figure}
+\captionof{figure}{Velocity Distribution Histogram}
+\end{minipage}
 \vspace{-28pt}
 <<else if .HistogramChart>>
-\begin{figure}[H]
+\par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=\linewidth]{<<.HistogramChart>>}
-\caption{Velocity Distribution Histogram}
-\end{figure}
+\captionof{figure}{Velocity Distribution Histogram}
+\end{minipage}
 \vspace{-28pt}
 <<end>>
 <<end>>

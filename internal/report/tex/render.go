@@ -90,10 +90,9 @@ type TemplateData struct {
 	// Daily summary rows (comparison mode: both periods merged, sorted by time).
 	DailyStatRows []StatRow
 
-	// Pre-rendered LaTeX stat tables (styled supertabular with caption).
-	StatTableTeX         string
-	DailyStatTableTeX    string
-	StatsTablesOneColumn bool
+	// Pre-rendered LaTeX stat tables (styled flow tables with captions).
+	StatTableTeX      string
+	DailyStatTableTeX string
 
 	// Dual-period histogram table (pre-rendered LaTeX; comparison mode only).
 	DualHistogramTableTeX string

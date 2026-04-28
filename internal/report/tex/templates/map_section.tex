@@ -1,20 +1,11 @@
 <<define "map_section">>
 <<if .MapChart>>
-<<if .StatsTablesOneColumn>>
-\clearpage
-<<else if .CompareStartDate>>
-\clearpage
-\onecolumn
-<<else>>
-<<if not .TimeSeriesChart>>
-\clearpage
-\onecolumn
-<<end>>
-<<end>>
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
 \centering
 \includegraphics[width=\textwidth]{<<.MapChart>>}
-\caption{Site Location Map with radar location (circle) and coverage area (red triangle)}
-\end{figure}
+\captionof{figure}{Site Location Map with radar location (circle) and coverage area (red triangle)}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<end>>
