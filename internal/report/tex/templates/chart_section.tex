@@ -1,11 +1,11 @@
 <<define "chart_section_single">>
 <<if .TimeSeriesChart>>
-\onecolumn
-\begin{figure}[H]
+\begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
 \caption{Speed percentiles and observation counts over time}
-\end{figure}
+\end{figure*}
+\afterpage{\clearpage}
 <<end>>
 <<end>>
 

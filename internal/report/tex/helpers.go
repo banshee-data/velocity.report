@@ -259,11 +259,11 @@ func BuildComparisonKeyMetricsTableTeX(
 			{header: "Change", width: `0.19\linewidth`, align: tableAlignRight},
 		},
 		rows: [][]string{
+			{"Vehicle Count", countWithUnitPhantom(totalCountFmt, escapedUnits), countWithUnitPhantom(compareTotalCountFmt, escapedUnits), ""},
 			{"p50 Velocity", fmt.Sprintf("%s %s", p50, escapedUnits), fmt.Sprintf("%s %s", compareP50, escapedUnits), deltaP50Pct},
 			{"p85 Velocity", fmt.Sprintf("%s %s", p85, escapedUnits), fmt.Sprintf("%s %s", compareP85, escapedUnits), deltaP85Pct},
 			{"p98 Velocity", fmt.Sprintf("%s %s", p98, escapedUnits), fmt.Sprintf("%s %s", compareP98, escapedUnits), deltaP98Pct},
 			{"Max Velocity", fmt.Sprintf("%s %s", maxSpeed, escapedUnits), fmt.Sprintf("%s %s", compareMax, escapedUnits), deltaMaxPct},
-			{"Vehicle Count", countWithUnitPhantom(totalCountFmt, escapedUnits), countWithUnitPhantom(compareTotalCountFmt, escapedUnits), ""},
 		},
 		caption: "Table 1: Key Metrics",
 	})
@@ -550,8 +550,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 			{header: `Count`, width: `0.29\linewidth`, align: tableAlignRight},
 			{header: `Percent`, width: `0.32\linewidth`, align: tableAlignRight},
 		},
-		rows:      tableRows,
-		caption:   "Table 2: Velocity Distribution (" + units + ")",
-		pageBreak: true,
+		rows:    tableRows,
+		caption: "Table 2: Velocity Distribution (" + units + ")",
 	})
 }

@@ -121,10 +121,13 @@ func TestBuildHistogramTableTeX(t *testing.T) {
 	}
 
 	// Check structural markers.
-	for _, want := range []string{`\hline`, `tabular`, `\rowcolors`, `\sffamily`, "50+"} {
+	for _, want := range []string{`\hline`, `\begin{tabular}`, `\rowcolors`, `\sffamily`, "50+"} {
 		if !strings.Contains(result, want) {
 			t.Errorf("result missing %q", want)
 		}
+	}
+	if strings.Contains(result, `\begin{supertabular}`) {
+		t.Fatalf("histogram table should use a regular tabular in two-column flow, got:\n%s", result)
 	}
 
 	// Count data rows: tabular data rows all contain " & " cell separators.

@@ -255,6 +255,30 @@ func TestRenderTeX_MapSectionAppearsAfterCharts(t *testing.T) {
 	}
 }
 
+func TestRenderTeX_SingleChartSectionUsesFullWidthFloatWithoutOneColumnMode(t *testing.T) {
+	data := minimalTemplateData()
+	data.TimeSeriesChart = "timeseries.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	if !strings.Contains(s, `\begin{figure*}[t]`) {
+		t.Fatal("expected single report chart section to use a full-width figure* float")
+	}
+	if strings.Contains(s, `\onecolumn`) {
+		t.Fatal("single report chart section should not switch the whole document to one-column mode")
+	}
+	if !strings.Contains(s, `\afterpage{\clearpage}`) {
+		t.Fatal("single report chart section should defer the page flush until the current two-column page finishes")
+	}
+	if !strings.Contains(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`) {
+		t.Fatal("expected full-width single chart include")
+	}
+}
+
 func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	data := minimalTemplateData()
 	data.HistogramTableTeX = `\begin{tabular}{lrr}\end{tabular}`
