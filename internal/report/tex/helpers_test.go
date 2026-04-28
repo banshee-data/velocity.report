@@ -121,7 +121,7 @@ func TestBuildHistogramTableTeX(t *testing.T) {
 	}
 
 	// Check structural markers.
-	for _, want := range []string{`\hline`, `\begin{tabular}`, `\end{tabular}`, `\rowcolors`, `\sffamily`, "50+"} {
+	for _, want := range []string{`\hline`, `\begin{tabular`, `\end{tabular`, `\rowcolors`, `\sffamily`, "50+"} {
 		if !strings.Contains(result, want) {
 			t.Errorf("result missing %q", want)
 		}

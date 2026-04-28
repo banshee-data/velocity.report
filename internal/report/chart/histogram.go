@@ -182,11 +182,11 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	c.EmbedFont("Atkinson Hyperlegible", AtkinsonRegularBase64())
 	c.BeginGroup(`font-family="Atkinson Hyperlegible"`)
 
-	leftM := 0.15 * wPx
-	rightM := 0.95 * wPx
-	topM := 0.12 * hPx
+	leftM := 0.10 * wPx
+	rightM := 0.98 * wPx
+	topM := 0.09 * hPx
 	// Reserve space below plot for rotated tick labels and x-axis label.
-	bottomM := 0.72 * hPx
+	bottomM := 0.78 * hPx
 
 	plotW := rightM - leftM
 	plotH := bottomM - topM
@@ -274,10 +274,10 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		y := bottomM - v*yScale
 		c.Line(leftM-3, y, leftM, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftM-5, y+style.AxisTickFontPx/3,
-			fmt.Sprintf("%.0f%%", v),
+			fmt.Sprintf("%.0f", v),
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end"`, style.AxisTickFontPx))
 	}
-	labelX := 0.055 * wPx
+	labelX := 0.040 * wPx
 	labelY := (topM + bottomM) / 2
 	c.Text(labelX, labelY, "Percentage (%)",
 		fmt.Sprintf(`font-size="%.1f" text-anchor="middle" transform="rotate(-90 %.2f %.2f)"`,
@@ -293,7 +293,7 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	rotatedLabelExtentY := tickLabelBaseY + 5*0.6*style.AxisTickFontPx*0.707
 	axisLabelY := rotatedLabelExtentY + 6
 	c.Text((leftM+rightM)/2, axisLabelY,
-		fmt.Sprintf("Speed (%s)", primary.Units),
+		fmt.Sprintf("Velocity (%s)", primary.Units),
 		fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisLabelFontPx))
 
 	// Legend — bordered box inside the plot near the top-left.

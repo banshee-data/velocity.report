@@ -83,7 +83,6 @@ type loadedData struct {
 	summaryP98    float64
 	summaryMax    float64
 	totalCount    int
-	summaryP98Ref float64
 }
 
 func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error) {
@@ -137,7 +136,6 @@ func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error
 		tsResult:      tsResult,
 		primaryDaily:  primaryDaily,
 		compareResult: compareResult,
-		summaryP98Ref: math.NaN(),
 	}
 	if len(summaryResult.Metrics) > 0 {
 		row := summaryResult.Metrics[0]
@@ -145,7 +143,6 @@ func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error
 		data.summaryP85 = units.ConvertSpeed(row.P85Speed, cfg.Units)
 		data.summaryP98 = units.ConvertSpeed(row.P98Speed, cfg.Units)
 		data.summaryMax = units.ConvertSpeed(row.MaxSpeed, cfg.Units)
-		data.summaryP98Ref = data.summaryP98
 		data.totalCount = int(row.Count)
 	}
 
@@ -197,11 +194,9 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 		tsPoints = chart.ExpandTimeSeriesGapsInRange(tsPoints, plan.groupSeconds, plan.startTime, plan.endTime)
 	}
 	tsData := chart.TimeSeriesData{
-		Points:       tsPoints,
-		Units:        cfg.Units,
-		Title:        "",
-		P98Reference: data.summaryP98Ref,
-		MaxReference: data.summaryMax,
+		Points: tsPoints,
+		Units:  cfg.Units,
+		Title:  "",
 	}
 	tsSVG, err := chart.RenderTimeSeries(tsData, chart.DefaultTimeSeriesStyle(plan.paper))
 	if err != nil {
@@ -217,10 +212,8 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 			ctsPoints = chart.ExpandTimeSeriesGapsInRange(ctsPoints, plan.groupSeconds, data.compareResult.startTime, data.compareResult.endTime)
 		}
 		ctsData := chart.TimeSeriesData{
-			Points:       ctsPoints,
-			Units:        cfg.Units,
-			P98Reference: data.compareResult.p98,
-			MaxReference: data.compareResult.maxSpeed,
+			Points: ctsPoints,
+			Units:  cfg.Units,
 		}
 		ctsSVG, err := chart.RenderTimeSeries(ctsData, chart.DefaultTimeSeriesStyle(plan.paper))
 		if err != nil {

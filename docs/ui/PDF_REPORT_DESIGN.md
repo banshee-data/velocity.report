@@ -288,8 +288,8 @@ resets — the helper is the only place those styling decisions live:
 ```
 {
   \AtkinsonMono\<fontSize>
-  \renewcommand{\arraystretch}{1.12}
-  \setlength{\tabcolsep}{3pt}
+  \renewcommand{\arraystretch}{1.04}
+  \setlength{\tabcolsep}{2pt}
   \rowcolors{2}{black!2}{white}
   <body>
   \rowcolors{0}{}{}

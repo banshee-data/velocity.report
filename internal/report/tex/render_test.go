@@ -265,7 +265,7 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 
 	s := string(out)
 	for _, want := range []string{
-		`\renewcommand{\arraystretch}{1.12}`,
+		`\renewcommand{\arraystretch}{1.04}`,
 		`\vspace{10pt}`,
 	} {
 		if !strings.Contains(s, want) {

@@ -1,5 +1,5 @@
 <<define "preamble">>
-\documentclass[11pt,<<.PaperOption>>]{article}
+\documentclass[10pt,<<.PaperOption>>]{article}
 
 % Geometry
 \usepackage[top=1.8cm, bottom=1.0cm, left=1.0cm, right=1.0cm]{geometry}
@@ -25,14 +25,16 @@
 \setlength{\emergencystretch}{2em}
 
 % Fonts
-\setmainfont{AtkinsonHyperlegible}[
+\setsansfont[
   Path = <<.FontDir>>/,
   Extension = .ttf,
-  UprightFont = *-Regular,
-  BoldFont = *-Bold,
-  ItalicFont = *-Italic,
-  BoldItalicFont = *-BoldItalic
-]
+  Scale = MatchLowercase,
+  UprightFont = AtkinsonHyperlegible-Regular,
+  BoldFont = AtkinsonHyperlegible-Bold,
+  ItalicFont = AtkinsonHyperlegible-Italic,
+  BoldItalicFont = AtkinsonHyperlegible-BoldItalic
+]{AtkinsonHyperlegible-Regular}
+\renewcommand{\familydefault}{\sfdefault}
 \newfontfamily\AtkinsonMono[
   Path = <<.FontDir>>/,
   Extension = .ttf,

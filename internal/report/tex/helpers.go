@@ -59,8 +59,7 @@ func FormatPercent(v float64) string {
 	return fmt.Sprintf("%.1f%%", v)
 }
 
-// FormatTime formats a time for the stats table.
-// Uses "2006-01-02 15:04" ISO format for consistency.
+// FormatTime formats a compact local timestamp for the stats table.
 func FormatTime(t time.Time, loc *time.Location) string {
 	if loc != nil {
 		t = t.In(loc)
@@ -109,13 +108,13 @@ func FormatCount(n int) string {
 const tableStripeColour = "black!2"
 
 func tableCaptionTeX(caption string) string {
-	return `\noindent\makebox[\linewidth]{\textbf{\small ` + EscapeTeX(caption) + `}}`
+	return `\noindent\makebox[\linewidth]{{\normalfont\bfseries\small ` + EscapeTeX(caption) + `}}`
 }
 
 func withStyledTable(b *strings.Builder, fontSize string, body func(), afterReset func()) {
 	b.WriteString("{\n")
 	b.WriteString(`\AtkinsonMono\` + fontSize + "\n")
-	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
+	b.WriteString(`\renewcommand{\arraystretch}{1.04}` + "\n")
 	b.WriteString(`\setlength{\tabcolsep}{2pt}` + "\n")
 	b.WriteString(`\rowcolors{2}{` + tableStripeColour + `}{white}` + "\n")
 	body()
@@ -132,18 +131,14 @@ func withStyledTable(b *strings.Builder, fontSize string, body func(), afterRese
 func BuildSingleKeyMetricsTableTeX(p50, p85, p98, maxSpeed, units string) string {
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
-		b.WriteString(`\begin{center}` + "\n")
 		b.WriteString(`\begin{tabular}{lr}` + "\n")
-		b.WriteString(`\hline` + "\n")
 		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Value} \\` + "\n")
 		b.WriteString(`\hline` + "\n")
 		fmt.Fprintf(&b, "p50 Velocity & %s %s \\\\\n", p50, units)
 		fmt.Fprintf(&b, "p85 Velocity & %s %s \\\\\n", p85, units)
 		fmt.Fprintf(&b, "p98 Velocity & %s %s \\\\\n", p98, units)
 		fmt.Fprintf(&b, "Max Velocity & %s %s \\\\\n", maxSpeed, units)
-		b.WriteString(`\hline` + "\n")
 		b.WriteString(`\end{tabular}` + "\n")
-		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
 		b.WriteString(tableCaptionTeX("Table 1: Key Metrics") + "\n")
@@ -164,9 +159,7 @@ func BuildComparisonKeyMetricsTableTeX(
 ) string {
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
-		b.WriteString(`\begin{center}` + "\n")
 		b.WriteString(`\begin{tabular}{lrrr}` + "\n")
-		b.WriteString(`\hline` + "\n")
 		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\` + "\n")
 		b.WriteString(`\hline` + "\n")
 		fmt.Fprintf(&b, "p50 Velocity & %s %s & %s %s & %s \\\\\n", p50, units, compareP50, units, deltaP50Pct)
@@ -174,9 +167,7 @@ func BuildComparisonKeyMetricsTableTeX(
 		fmt.Fprintf(&b, "p98 Velocity & %s %s & %s %s & %s \\\\\n", p98, units, compareP98, units, deltaP98Pct)
 		fmt.Fprintf(&b, "Max Velocity & %s %s & %s %s & %s \\\\\n", maxSpeed, units, compareMax, units, deltaMaxPct)
 		fmt.Fprintf(&b, "Vehicle Count & %s & %s & \\\\\n", totalCountFmt, compareTotalCountFmt)
-		b.WriteString(`\hline` + "\n")
 		b.WriteString(`\end{tabular}` + "\n")
-		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
 		b.WriteString(tableCaptionTeX("Table 1: Key Metrics") + "\n")

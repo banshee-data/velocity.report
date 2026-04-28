@@ -408,7 +408,7 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	}
 }
 
-func TestGenerate_TimeSeriesSVGIncludesAggregateP98Reference(t *testing.T) {
+func TestGenerate_TimeSeriesSVGOmitsAggregateReferenceLines(t *testing.T) {
 	binDir := createMockBinaries(t)
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
 
@@ -436,11 +436,11 @@ func TestGenerate_TimeSeriesSVGIncludesAggregateP98Reference(t *testing.T) {
 	}
 
 	timeseriesSVG := readZipEntry(t, result.ZIPPath, "timeseries.svg")
-	if !strings.Contains(timeseriesSVG, `class="p98-reference"`) {
-		t.Fatalf("expected aggregate p98 reference line in timeseries.svg, got:\n%s", timeseriesSVG)
+	if strings.Contains(timeseriesSVG, `class="p98-reference"`) {
+		t.Fatalf("report time-series should match Python layout without aggregate p98 reference line, got:\n%s", timeseriesSVG)
 	}
-	if !strings.Contains(timeseriesSVG, "p98 overall") {
-		t.Fatalf("expected p98 overall legend label in timeseries.svg, got:\n%s", timeseriesSVG)
+	if strings.Contains(timeseriesSVG, "p98 overall") || strings.Contains(timeseriesSVG, "max overall") {
+		t.Fatalf("report time-series should not include aggregate reference legend labels, got:\n%s", timeseriesSVG)
 	}
 }
 

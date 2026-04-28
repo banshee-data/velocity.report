@@ -120,7 +120,7 @@ type TemplateData struct {
 	SpeedLimitNote string
 
 	// LaTeX paper option (e.g. "a4paper" or "letterpaper"). Required: the
-	// preamble template renders `\documentclass[11pt,<PaperOption>]{article}`
+	// preamble template renders `\documentclass[10pt,<PaperOption>]{article}`
 	// with no fallback, so an empty value produces an invalid documentclass
 	// line. Production callers set this via report.paperTexOption().
 	PaperOption string

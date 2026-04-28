@@ -3,7 +3,7 @@
 % Generated: <stripped>
 %
 
-\documentclass[11pt,letterpaper]{article}
+\documentclass[10pt,letterpaper]{article}
 
 % Geometry
 \usepackage[top=1.8cm, bottom=1.0cm, left=1.0cm, right=1.0cm]{geometry}
@@ -29,14 +29,16 @@
 \setlength{\emergencystretch}{2em}
 
 % Fonts
-\setmainfont{AtkinsonHyperlegible}[
+\setsansfont[
   Path = /fonts/,
   Extension = .ttf,
-  UprightFont = *-Regular,
-  BoldFont = *-Bold,
-  ItalicFont = *-Italic,
-  BoldItalicFont = *-BoldItalic
-]
+  Scale = MatchLowercase,
+  UprightFont = AtkinsonHyperlegible-Regular,
+  BoldFont = AtkinsonHyperlegible-Bold,
+  ItalicFont = AtkinsonHyperlegible-Italic,
+  BoldItalicFont = AtkinsonHyperlegible-BoldItalic
+]{AtkinsonHyperlegible-Regular}
+\renewcommand{\familydefault}{\sfdefault}
 \newfontfamily\AtkinsonMono[
   Path = /fonts/,
   Extension = .ttf,
@@ -79,7 +81,6 @@
   {\huge\bfseries Test Location\par}
   \vspace{0.1cm}
   \end{center}
-  \vspace{6pt}
   \end{@twocolumnfalse}
 ]
 
@@ -103,24 +104,20 @@
 \vspace{4pt}
 {
 \AtkinsonMono\small
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \setlength{\tabcolsep}{2pt}
 \rowcolors{2}{black!2}{white}
-\begin{center}
 \begin{tabular}{lr}
-\hline
 {\sffamily\bfseries Metric} & {\sffamily\bfseries Value} \\
 \hline
 p50 Velocity & 25.00 mph \\
 p85 Velocity & 30.00 mph \\
 p98 Velocity & 35.00 mph \\
 Max Velocity & 42.00 mph \\
-\hline
 \end{tabular}
-\end{center}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Table 1: Key Metrics}}
+\noindent\makebox[\linewidth]{{\normalfont\bfseries\small Table 1: Key Metrics}}
 }
 
 \vspace{8pt}
@@ -162,10 +159,11 @@ However, percentile metrics can be unstable in periods with low sample counts. T
 
 {
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Radar Sensor: & \texttt{OmniPreSense OPS243-A} \\
+
 Transmit Frequency: & \texttt{24.125 GHz} \\
 Sample Rate: & \texttt{20 kSPS} \\
 Velocity Resolution: & \texttt{0.272 mph} \\
@@ -179,7 +177,7 @@ Elevation Field of View: & \texttt{24°} \\
 
 {
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Units: & \texttt{mph} \\
@@ -211,7 +209,7 @@ End time: & \texttt{2024-01-31T23:59:59Z} \\
 \vspace{4pt}
 {
 \AtkinsonMono\scriptsize
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \setlength{\tabcolsep}{2pt}
 \rowcolors{2}{black!2}{white}
 \tablehead{%
@@ -227,7 +225,7 @@ End time: & \texttt{2024-01-31T23:59:59Z} \\
 \end{center}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
-\noindent\makebox[\linewidth]{\textbf{\small Detailed Data}}
+\noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}
 }
 
 

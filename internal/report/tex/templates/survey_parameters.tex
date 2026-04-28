@@ -3,17 +3,18 @@
 
 {
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Radar Sensor: & \texttt{OmniPreSense OPS243-A} \\
+<<if .FirmwareVersion>>Firmware version: & \texttt{<<.FirmwareVersion>>} \\
+<<end>>
 Transmit Frequency: & \texttt{24.125 GHz} \\
 Sample Rate: & \texttt{20 kSPS} \\
 Velocity Resolution: & \texttt{0.272 mph} \\
 Azimuth Field of View: & \texttt{20°} \\
 Elevation Field of View: & \texttt{24°} \\
-<<if .FirmwareVersion>>Firmware version: & \texttt{<<.FirmwareVersion>>} \\
-<<end>>\end{tabular}
+\end{tabular}
 \rowcolors{0}{}{}
 }
 
@@ -21,7 +22,7 @@ Elevation Field of View: & \texttt{24°} \\
 
 {
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Units: & \texttt{<<.Units>>} \\
@@ -53,17 +54,18 @@ Cosine Error Factor: & \texttt{<<printf "%.6f" .CosineFactor>>} \\
 
 {
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Radar Sensor: & \texttt{OmniPreSense OPS243-A} \\
+<<if .FirmwareVersion>>Firmware version: & \texttt{<<.FirmwareVersion>>} \\
+<<end>>
 Transmit Frequency: & \texttt{24.125 GHz} \\
 Sample Rate: & \texttt{20 kSPS} \\
 Velocity Resolution: & \texttt{0.272 mph} \\
 Azimuth Field of View: & \texttt{20°} \\
 Elevation Field of View: & \texttt{24°} \\
-<<if .FirmwareVersion>>Firmware version: & \texttt{<<.FirmwareVersion>>} \\
-<<end>>\end{tabular}
+\end{tabular}
 \rowcolors{0}{}{}
 }
 
@@ -71,7 +73,7 @@ Elevation Field of View: & \texttt{24°} \\
 
 {
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.12}
+\renewcommand{\arraystretch}{1.04}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Units: & \texttt{<<.Units>>} \\
