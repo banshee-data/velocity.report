@@ -82,7 +82,8 @@ with paired `_single` / `_comparison` definitions for every section.
 | Left   | 1.0cm | Tight side margin — column gutter (`\columnsep=14pt`) does the visual work between the two body columns |
 | Right  | 1.0cm | "                                                                                                       |
 
-Both A4 and US Letter are first-class. `paperTextWidthMM` (`chart/config.go`)
+US Letter is the default Python-standard report size; A4 remains an explicit
+option. `paperTextWidthMM` (`chart/config.go`)
 returns the matching textwidth so chart SVGs are emitted at the _exact_
 physical dimensions the LaTeX `\includegraphics[width=\textwidth]` will
 honour. Charts must never be re-scaled by the compositor — that is what
@@ -286,10 +287,10 @@ resets — the helper is the only place those styling decisions live:
 
 ```
 {
-  \ttfamily\<fontSize>
+  \AtkinsonMono\<fontSize>
   \renewcommand{\arraystretch}{1.12}
   \setlength{\tabcolsep}{3pt}
-  \rowcolors{2}{black!5}{white}
+  \rowcolors{2}{black!2}{white}
   <body>
   \rowcolors{0}{}{}
   <afterReset>
@@ -304,11 +305,11 @@ not reach for `\rowcolors` directly.
 
 | Table                              | Row 1              | Body alternation             | Why `\rowcolors` start row                   |
 | ---------------------------------- | ------------------ | ---------------------------- | -------------------------------------------- |
-| Stat table, histogram tables       | header (no colour) | `black!5` / white from row 2 | `\rowcolors{2}` skips the styled header      |
-| Hardware Config, Survey Parameters | data row 1         | `black!5` / white from row 1 | `\rowcolors{1}` — there is no header to skip |
-| Key Metrics                        | header             | `black!5` / white from row 2 | Header present                               |
+| Stat table, histogram tables       | header (no colour) | `black!2` / white from row 2 | `\rowcolors{2}` skips the styled header      |
+| Hardware Config, Survey Parameters | data row 1         | `black!2` / white from row 1 | `\rowcolors{1}` — there is no header to skip |
+| Key Metrics                        | header             | `black!2` / white from row 2 | Header present                               |
 
-**`black!5` is the canonical alternating tint** across all tables — match
+**`black!2` is the canonical alternating tint** across all tables — match
 it whenever a new table is added. The colour is deliberately light
 (printer-safe, gray-only) and works on every output medium.
 
@@ -450,7 +451,7 @@ change.
 Before merging a PR that touches the PDF report:
 
 - [ ] Palette changes propagated to web and macOS (DESIGN.md §3.3).
-- [ ] New table uses `withStyledTable`; alternating tint is `black!5`.
+- [ ] New table uses `withStyledTable`; alternating tint is `black!2`.
 - [ ] New survey-parameter rows fit the 0.44-linewidth left column.
 - [ ] Comparison sections render _both_ t1 and t2 of every per-period
       field (source, cosine angle, cosine factor).
