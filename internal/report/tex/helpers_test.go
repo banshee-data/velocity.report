@@ -208,6 +208,11 @@ func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
 			t.Fatalf("stat table should not use %q, got:\n%s", unwanted, result)
 		}
 	}
+	captionPos := strings.LastIndex(result, `\noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}`)
+	rulePos := strings.LastIndex(result, `\noindent\rule{\linewidth}{0.4pt}\par`)
+	if captionPos == -1 || rulePos == -1 || captionPos < rulePos {
+		t.Fatalf("stat table caption should appear below the flowing rows:\n%s", result)
+	}
 }
 
 func TestBuildStatTableTeX_LongTableUsesFlowRows(t *testing.T) {
@@ -246,6 +251,11 @@ func TestBuildStatTableTeX_LongTableUsesFlowRows(t *testing.T) {
 		if strings.Contains(result, unwanted) {
 			t.Fatalf("flow stat table should not force layout with %q:\n%s", unwanted, result)
 		}
+	}
+	captionPos := strings.LastIndex(result, `\noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}`)
+	rulePos := strings.LastIndex(result, `\noindent\rule{\linewidth}{0.4pt}\par`)
+	if captionPos == -1 || rulePos == -1 || captionPos < rulePos {
+		t.Fatalf("flow stat table caption should appear below the flowing rows:\n%s", result)
 	}
 }
 
@@ -456,6 +466,11 @@ func TestBuildDualHistogramTableTeX(t *testing.T) {
 	// Bucket 5-10 row should be present with phantom padding for dash alignment.
 	if !strings.Contains(result, `\phantom{0}5-10`) {
 		t.Error("expected phantom-padded bucket range \\phantom{0}5-10 in output")
+	}
+	captionPos := strings.LastIndex(result, `Table 2: Velocity Distribution (mph)`)
+	rulePos := strings.LastIndex(result, `\noindent\rule{\linewidth}{0.4pt}\par`)
+	if captionPos == -1 || rulePos == -1 || captionPos < rulePos {
+		t.Fatalf("comparison histogram caption should appear below the flowing rows:\n%s", result)
 	}
 }
 

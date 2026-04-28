@@ -447,8 +447,8 @@ Current shared rules:
 - regular short tables use `tabular` and `colortbl` row striping
 - granular and daily percentile tables use the page-flowing row renderer, not
   `supertabular`
-- page-flowing stat tables render one table designation above the flowing rows,
-  using the same `\normalfont\bfseries\small` style as captions
+- page-flowing stat tables render their caption below the flowing rows, using
+  the same `\normalfont\bfseries\small` style as other table captions
 - page-flowing stat tables render the table header, then a
   `\rule{\linewidth}{0.4pt}` below the header, one paragraph per data row, and
   a closing rule at the end of the flow

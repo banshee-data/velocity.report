@@ -154,7 +154,7 @@ func renderReportTable(t reportTable) string {
 	withStyledTable(&b, "small", func() {
 		spec := tableColumnSpec(t.columns)
 		if t.pageBreak {
-			writeFlowTable(&b, t.columns, t.rows, t.caption)
+			writeFlowTable(&b, t.columns, t.rows)
 			return
 		}
 
@@ -168,7 +168,7 @@ func renderReportTable(t reportTable) string {
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`\end{tabular}` + "\n")
 	}, func() {
-		if !t.pageBreak && t.caption != "" {
+		if t.caption != "" {
 			b.WriteString(`\par\vspace{2pt}` + "\n")
 			b.WriteString(tableCaptionTeX(t.caption) + "\n")
 		}
@@ -191,11 +191,7 @@ func tableColumnSpec(columns []tableColumn) string {
 	return b.String()
 }
 
-func writeFlowTable(b *strings.Builder, columns []tableColumn, rows [][]string, caption string) {
-	if caption != "" {
-		b.WriteString(tableCaptionTeX(caption) + "\n")
-		b.WriteString(`\par\vspace{2pt}` + "\n")
-	}
+func writeFlowTable(b *strings.Builder, columns []tableColumn, rows [][]string) {
 	b.WriteString(`\noindent`)
 	writeFlowCells(b, columns, headerCells(columns), true)
 	b.WriteString(`\par` + "\n")
@@ -343,9 +339,9 @@ func countWithUnitPhantom(count, escapedUnits string) string {
 }
 
 // BuildStatTableTeX generates a styled, page-spanning LaTeX flow table for
-// stat row data (Time | Count | p50 | p85 | p98 | Max). The table designation
-// is rendered once above the flowing rows. Returns empty string if rows is nil
-// or empty.
+// stat row data (Time | Count | p50 | p85 | p98 | Max). The table caption is
+// rendered below the flowing rows. Returns empty string if rows is nil or
+// empty.
 func BuildStatTableTeX(rows []StatRow, caption, units string) string {
 	if len(rows) == 0 {
 		return ""
