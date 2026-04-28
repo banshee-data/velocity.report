@@ -3,292 +3,376 @@
 ## 0. Status
 
 Source of truth for visual, layout, and chart-rendering decisions in the
-generated PDF report surface. Companion to [DESIGN.md](DESIGN.md) (which
-governs the cross-platform contract across web, macOS, and PDF).
+generated PDF report surface. Companion to [DESIGN.md](DESIGN.md), which
+records the cross-platform intent across web, macOS, and PDF.
 
-This document is **renderer-independent**: every decision below is recorded
-with the rationale that motivated it, so a future migration away from
-xelatex (Typst, ConTeXt, HTML→PDF, gofpdf, etc.) can replicate the design
-without re-deriving the constraints from the existing `.tex` templates.
+This document is renderer-independent where possible, but it records the
+current implementation faithfully. If the PDF renderer diverges from an older
+cross-platform assumption, this file describes the code that ships today.
 
-Operational details (deployment, fonts on disk, xelatex install,
-rsvg-convert pipeline) live in
+Operational details such as XeLaTeX installation, vendored TeX runtime, and
+`rsvg-convert` setup live in
 [platform/operations/pdf-reporting.md](../platform/operations/pdf-reporting.md).
 Historical migration record:
 [plans/pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md).
 
 ## 1. Pipeline shape (renderer-independent)
 
-```
-DB query ─► Go SVG charts (internal/report/chart) ─► chart.svg / chart.pdf
-                                                          │
-Go templates (internal/report/tex/templates) ─► report.tex┤
-                                                          ▼
-                                               compositor (xelatex today)
-                                                          │
-                                                          ▼
-                                                       report.pdf
+```text
+DB query -> Go SVG charts (internal/report/chart) -> chart.svg / chart.pdf
+                                                       |
+Go templates (internal/report/tex/templates) -> report.tex
+                                                       |
+                                                       v
+                                            compositor (xelatex today)
+                                                       |
+                                                       v
+                                             report.pdf + source.zip
 ```
 
 The pipeline has three independent stages:
 
-| Stage              | Today                   | Inputs                | Outputs               |
-| ------------------ | ----------------------- | --------------------- | --------------------- |
-| **Chart render**   | Go SVG builder          | `TimeSeriesData` etc. | SVG bytes             |
-| **SVG → image**    | `rsvg-convert -f pdf`   | SVG bytes             | per-chart PDF         |
-| **Doc compositor** | xelatex on Go templates | `.tex` + chart PDFs   | final `.pdf` + `.zip` |
+| Stage              | Today                   | Inputs                                          | Outputs                                                 |
+| ------------------ | ----------------------- | ----------------------------------------------- | ------------------------------------------------------- |
+| **Chart render**   | Go SVG builder          | `TimeSeriesData`, `HistogramData`, chart styles | SVG bytes                                               |
+| **SVG -> image**   | `rsvg-convert -f pdf`   | SVG bytes                                       | per-chart PDF, with the SVG retained for the source ZIP |
+| **Doc compositor** | xelatex on Go templates | `report.tex`, chart PDFs, packaged fonts        | final `.pdf` and source `.zip`                          |
 
-The chart-render stage is fully portable. The doc-compositor stage is the
-only place a future migration touches: every visual decision below either
-lives in the Go SVG code (carries over unchanged) or in the `.tex` templates
-(must be re-expressed in the new compositor's language).
+The chart-render stage is portable. The compositor stage is the only place a
+future migration has to re-express layout semantics.
+
+The source ZIP is part of the product surface. It currently contains:
+
+- `report.tex`
+- chart SVG sources (`timeseries.svg`, `histogram.svg`, `comparison.svg`,
+  `map.svg` when present)
+- the embedded Atkinson font files under `fonts/`
+- a `README.md` explaining how to rebuild the PDF locally
+
+### 1.1 Inputs that change the rendered output
+
+The PDF layout is driven by a small set of runtime knobs in
+`internal/api/server_reports_generate.go` and `internal/report/config.go`:
+
+| Input             | Current behaviour                                                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paper_size`      | Defaults to US Letter. `a4` remains an explicit option. This controls both LaTeX paper geometry and chart physical dimensions.                                                                     |
+| `expanded_chart`  | Default `false` keeps sparse time-series charts consolidated. `true` inserts explicit missing buckets across the full requested range, which changes spacing, gap rendering, and SVG tooltip text. |
+| `histogram`       | Enables the overview histogram and the histogram table(s).                                                                                                                                         |
+| `include_map`     | Enables the final one-column map page when map SVG bytes are present.                                                                                                                              |
+| comparison period | Adds the grouped comparison histogram, comparison time-series figure, and comparison tables.                                                                                                       |
+| `compare_source`  | Changes which dataset is queried for t2. If omitted, t2 falls back to the primary `source`. This affects the plotted and tabulated data but is not currently printed in the PDF text.              |
 
 ## 2. Document structure
 
 ### 2.1 Layout and section order
 
-Two-column body (`\twocolumn`) on a centred title block (`@twocolumnfalse`).
-The chart figures break out to single column (`\onecolumn`) so a wide
-time-series fits at full text-width.
+The report uses a centred title block above a two-column body:
+
+- `report.tex` opens with `\twocolumn[...]` and a `@twocolumnfalse` title block.
+- Full-width chart figures switch the document to `\onecolumn`.
+- The optional map page forces `\clearpage` and then `\onecolumn`.
 
 Section order is invariant:
 
-1. Title block: site name, surveyor/contact, period range
-2. **Velocity Overview** — site, period(s), total count, speed limit, key-metrics table, histogram thumbnail
-3. **Site Information** — optional description and speed-limit note
-4. **The Science** — methodology paragraph
-5. **Hardware Configuration** + **Survey Parameters** — two stacked tables
-6. **Statistics** — supertabular percentile breakdown(s)
-7. **Chart Section** — full-width time-series figure(s)
-8. **Map Section** — optional site-map figure on a final page
+1. Title block: site name, then optional surveyor/contact line. The contact is
+   rendered as a `mailto:` hyperlink when present. The date range is **not** in
+   the title block; it lives in the footer.
+2. **Velocity Overview**:
+   Single mode shows site, period, total count, speed limit, key metrics, and
+   the optional single histogram.
+   Comparison mode shows site, primary period (t1), comparison period (t2),
+   combined count, key metrics, and the optional grouped comparison histogram.
+3. **Site Information**: optional description and optional speed-limit note.
+4. **Citizen Radar** and **Aggregation and Percentiles**: the science copy is
+   split across these two subsections, not a single generic "science" heading.
+5. **Hardware Configuration** and **Survey Parameters**: two stacked key/value
+   tables.
+6. **Statistics**:
+   Single mode shows the optional histogram table and a granular percentile
+   breakdown.
+   Comparison mode shows the dual histogram table, a daily percentile summary,
+   and a granular merged comparison breakdown.
+7. **Chart Section**:
+   Single mode renders one full-width time-series chart.
+   Comparison mode renders up to two full-width time-series charts, first t1
+   and then t2.
+8. **Map Section**: optional final-page site map.
 
-Single vs comparison reports share section identity; only the _content_ of
-each section differs (one period vs two). This is enforced by the dispatch
-template `period_report.tex`:
+Single vs comparison dispatch is controlled by `period_report.tex`:
 
+```text
+<<if .CompareStartDate>>
+<<template "period_report_comparison" .>>
+<<else>>
+<<template "period_report_single" .>>
+<<end>>
 ```
-{{if .CompareStartDate}}{{template "period_report_comparison" .}}
-{{else}}{{template "period_report_single" .}}{{end}}
-```
 
-with paired `_single` / `_comparison` definitions for every section.
+### 2.2 Page geometry and paper
 
-### 2.2 Page geometry
+The preamble uses `\documentclass[10pt,<paper option>]{article}`.
 
-| Margin | Size  | Reason                                                                                                  |
-| ------ | ----- | ------------------------------------------------------------------------------------------------------- |
-| Top    | 1.8cm | Header rule + site location                                                                             |
-| Bottom | 1.0cm | Footer rule with period range and page number                                                           |
-| Left   | 1.0cm | Tight side margin — column gutter (`\columnsep=14pt`) does the visual work between the two body columns |
-| Right  | 1.0cm | "                                                                                                       |
+| Margin | Size  | Reason                                                                    |
+| ------ | ----- | ------------------------------------------------------------------------- |
+| Top    | 1.8cm | Header rule plus site location                                            |
+| Bottom | 1.0cm | Footer rule plus period range and page number                             |
+| Left   | 1.0cm | Tight side margin; the 14pt column gutter does the visual separation work |
+| Right  | 1.0cm | Symmetric with left                                                       |
 
-US Letter is the default Python-standard report size; A4 remains an explicit
-option. `paperTextWidthMM` (`chart/config.go`)
-returns the matching textwidth so chart SVGs are emitted at the _exact_
-physical dimensions the LaTeX `\includegraphics[width=\textwidth]` will
-honour. Charts must never be re-scaled by the compositor — that is what
-keeps font sizes and tick density legible.
+Other fixed layout values:
+
+- `\columnsep = 14pt`
+- `\headrulewidth = 0.8pt`
+- `\footrulewidth = 0.8pt`
+- `\headheight = 12pt`
+- `\headsep = 10pt`
+
+`paperTextWidthMM()` in `internal/report/chart/config.go` is the canonical
+bridge between page geometry and SVG chart dimensions:
+
+- Letter text width: `215.9mm - 20mm = 195.9mm`
+- A4 text width: `210.0mm - 20mm = 190.0mm`
+
+Charts are emitted at those physical sizes and then included into LaTeX at
+`\textwidth` or `\linewidth`. The compositor should not add another scaling
+decision on top.
+
+### 2.3 Header and footer contract
+
+The running header/footer is part of the visual design:
+
+- Header left: bold `velocity.report` hyperlink
+- Header right: italic site/location text
+- Footer left: period range in `YYYY-MM-DD to YYYY-MM-DD`, with `vs` between t1
+  and t2 in comparison mode
+- Footer right: page number
 
 ## 3. Typography
 
-- **Family:** Atkinson Hyperlegible (open-licence, optimised for reduced
-  visual acuity). Embedded into both the SVG charts and the LaTeX
-  document via `\setmainfont{...}[Path=<FontDir>/...]` (`fontspec`).
-- **Sizes:** body 11pt; section headers `\Large` bold; subsection
-  `\large` bold; tick labels in a separate `AxisTickFontPx` scale (see §4).
-- **Single source for the font binary:** `internal/report/chart/assets/`
-  via `//go:embed`, surfaced by `assets.AllFonts()`. The chart package and
-  the workdir copy that xelatex reads both pull from the same place.
+The report uses a deliberate split between narrative text and data tables.
 
-A future renderer must:
+- **Narrative family:** Atkinson Hyperlegible, embedded as the document's sans
+  family through `\setsansfont[...]` plus `\renewcommand{\familydefault}{\sfdefault}`.
+- **Data-table family:** Atkinson Hyperlegible Mono, embedded separately as
+  `\AtkinsonMono` and used only inside the reusable table helper.
+- **Body size:** 10pt article class.
+- **Section heads:** `\Large` bold for sections, `\large` bold for subsections.
+- **Captions:** `\captionsetup{font=small,labelfont=bf,textfont=bf}`. Captions are
+  bold sans, not monospace.
 
-- embed Atkinson Hyperlegible the same way (or the report changes brand);
-- preserve the LaTeX-equivalent font sizes converted to its own unit system.
+The packaged font set is currently:
+
+- `AtkinsonHyperlegible-Regular.ttf`
+- `AtkinsonHyperlegible-Bold.ttf`
+- `AtkinsonHyperlegible-Italic.ttf`
+- `AtkinsonHyperlegible-BoldItalic.ttf`
+- `AtkinsonHyperlegibleMono-VariableFont_wght.ttf`
+- `AtkinsonHyperlegibleMono-Italic-VariableFont_wght.ttf`
+
+All six files come from `internal/report/chart/assets/` via `//go:embed` and
+`assets.AllFonts()`. The chart renderer, the temporary workdir, and the source
+ZIP all consume the same bytes.
+
+A future renderer must preserve both the sans/mono split and the same bundled
+font provenance, or the report's tone and density will drift.
 
 ## 4. Chart design
 
 ### 4.1 Sizing policy
 
-Charts are rendered at _physical_ mm dimensions, then converted to PDF at
-96 DPI by `rsvg-convert`. There is no scaling step inside the compositor.
+Charts are rendered at physical millimetre dimensions and converted at 96 DPI.
+There is no compositor-side relayout.
 
-| Chart                  | Width                  | Aspect | Reason                                                                                                               |
-| ---------------------- | ---------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
-| Time-series            | `paperTextWidthMM`     | 2.7:1  | Full text width (single-column block); 2.7:1 leaves room for legend underneath without forcing labels into rotation. |
-| Histogram (single)     | `paperTextWidthMM / 2` | 1:0.55 | Half-width so two histograms or a histogram + key-metrics fit side by side in the two-column body.                   |
-| Histogram (comparison) | `paperTextWidthMM / 2` | 1:0.55 | Same; grouped bars share the slot.                                                                                   |
+| Chart                  | Width                  | Aspect | Current rationale                                                                                                     |
+| ---------------------- | ---------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Time-series            | `paperTextWidthMM`     | 2.7:1  | Full-width chart section with room for dual Y axes, horizontal X labels, and bottom legend                            |
+| Histogram (single)     | `paperTextWidthMM / 2` | 1:0.55 | One text-column chart in the two-column overview                                                                      |
+| Histogram (comparison) | `paperTextWidthMM / 2` | 1:0.70 | Same column width, but taller to fit the internal chart title, rotated bucket labels, axis labels, and in-plot legend |
 
-Font sizes in `ChartStyle` are tuned to the physical chart width so 9.5px
-ticks render as readable type at print scale.
+The single histogram and grouped comparison histogram are both included at
+`\linewidth` inside the overview's two-column flow. The grouped comparison
+version is taller, not wider.
 
 ### 4.2 Time-series chart
 
-The flagship chart: percentile lines, reference lines, count bars, and
-gap dividers on a dual-axis canvas.
+The flagship chart combines percentile lines, count bars, reference lines,
+gap dividers, dual Y axes, and a bottom legend.
 
-#### Y-axes
+#### Y axes
 
-- **Left axis:** speed. Tick step is `niceStep(rawSpeedMax, 6)` with a
-  floor of 5. So a 35 mph range yields step=5 (8 ticks); a 60 mph range
-  yields step=10 (7 ticks). This avoids 13 cramped ticks at higher ranges.
-- **Right axis:** observation count. Tick step is `niceStep(countAxisMax, 4)`
-  — independent of the speed axis because counts can run from tens to
-  millions and need their own magnitude-aware step.
+- **Left axis:** speed. The renderer uses `niceStep(rawSpeedMax, 6)` with a
+  floor of 5, where `rawSpeedMax` is the highest observed speed series value.
+  The axis ceiling is rounded up to the next multiple of the chosen step.
+- **Right axis:** count. The renderer starts from
+  `countAxisMax = maxCount * CountAxisScale`, where `CountAxisScale = 1.6`, and
+  chooses `niceStep(countAxisMax, 4)`. Tick marks are then emitted at multiples
+  of that step up to the largest multiple not exceeding the scaled ceiling.
 
-Both ceilings are rounded _up_ to the next multiple of the step so the top
-tick is a round number ("60", "1000"), never "57" or "950".
+The two axes are intentionally independent. The speed axis optimises for clean
+headline values; the count axis optimises for readable order-of-magnitude
+context.
 
 #### Series
 
-| Series | Colour    | Marker   | Line style    | Why                                                          |
-| ------ | --------- | -------- | ------------- | ------------------------------------------------------------ |
-| `p50`  | `#fbd92f` | triangle | solid         | Median; warm yellow keeps it visually subordinate.           |
-| `p85`  | `#f7b32b` | square   | solid         | Upper-typical; orange escalates from p50.                    |
-| `p98`  | `#f25f5c` | circle   | solid         | The number stakeholders argue about; warning red.            |
-| `max`  | `#2d1e2f` | (none)   | dashed `1 3`  | Single-event line, not population statistic; muted dark hue. |
-| count  | `#2d1e2f` | bar      | filled, α=.25 | Volume context behind the percentile lines.                  |
+| Series     | Colour    | Marker   | Line style         | Notes                                      |
+| ---------- | --------- | -------- | ------------------ | ------------------------------------------ |
+| `p50`      | `#fbd92f` | triangle | solid              | Median                                     |
+| `p85`      | `#f7b32b` | square   | solid              | Upper-typical speed                        |
+| `p98`      | `#f25f5c` | circle   | solid              | Fastest 2 percent                          |
+| `max`      | `#2d1e2f` | x        | dashed `1 3`       | Single-event outlier line                  |
+| count bars | `#2d1e2f` | bar      | filled, alpha 0.25 | Volume context behind the percentile lines |
 
-Legend order is fixed: p50, p85, p98, max, then auxiliary signals
-(reference lines, low-sample swatch). Same order as the web app — change
-both at once.
+Legend order is fixed: `p50`, `p85`, `p98`, `Max`, then any auxiliary legend
+items (`p98 overall`, `max overall`, `low sample`). Count bars are visible in
+the plot but are not given a dedicated legend item.
 
-#### Series segmentation (NaN gaps)
+#### Low-sample masking and gap segmentation
 
-Polylines must remain **continuous** across day boundaries. They break
-_only_ at NaN values. NaN is generated when:
+The renderer uses two thresholds from `ChartStyle`:
 
-- the bucket genuinely has no samples; or
-- the bucket has fewer than `CountMissingThreshold` samples (default 5)
-  — masked via `ApplyCountMask`, which copies the slice and NaN-ifies
-  speeds while preserving `Count` so the count bar and tooltip still
-  show the truth.
+- `CountMissingThreshold = 5`: values below this are masked to `NaN` by
+  `ApplyCountMask()`.
+- `LowSampleThreshold = 50`: values from 5 up to 49 keep their count bars but
+  gain a translucent orange background swatch.
 
-Each contiguous run of non-NaN samples emits its own `<polyline>`. Markers
-are skipped at NaN positions so a missing point looks like a missing
-point, not a connect-the-dots artefact.
+Masked buckets break the percentile polylines into separate segments. Markers
+are skipped at masked points.
 
-#### Gap dividers (replaces day-boundary markers)
+The chart also detects real temporal coverage gaps with `detectTimeGaps()`.
+That function marks any step larger than `1.5 * minStep` across the observed
+series. Those gaps also break the polylines.
 
-A single dashed vertical line is drawn at the _first_ index of every NaN
-run. This is the only vertical divider on the chart — day boundaries do
-**not** get their own marker, because crossing midnight inside a
-contiguous run of data should not visually fragment the line.
+#### Consolidated vs expanded spacing
 
-```
-inGap := false
-for i := range n {
-    isNaN := math.IsNaN(maskedPts[i].P50Speed)
-    if !inGap && isNaN && i > 0 {
-        x := leftPx + float64(i)/n * plotW
-        line(x, topPx, x, bottomPx,
-             stroke="#999" stroke-dasharray="3 3" opacity="0.6")
-    }
-    inGap = isNaN
-}
-```
+This branch supports two spacing modes:
 
-Rationale: a 3-day report with eight hours of data per day used to render
-as a continuous line jumping over the gaps with day-boundary verticals
-that didn't help orient the reader. Now it renders as three visually
-separate "blocks" with a dashed cut between them, which matches how
-operators read the data.
+- **Default / consolidated (`expanded_chart = false`)**: only observed buckets
+  are drawn. Long coverage gaps are visually compressed, but a dashed divider is
+  drawn where the gap begins.
+- **Expanded (`expanded_chart = true`)**: `ExpandTimeSeriesGapsInRange()` inserts
+  explicit zero-count, `NaN` placeholders from the requested start time through
+  the requested end time. Missing periods then occupy real horizontal space in
+  the chart.
+
+This switch affects X-axis spacing, divider placement, and SVG tooltip text.
+
+#### Gap dividers
+
+There are two divider cases, both rendered as the same dashed grey vertical
+stroke:
+
+1. the first masked bucket in a `NaN` run, or
+2. the midpoint between two observed buckets separated by a detected time gap
+
+Day boundaries by themselves do **not** create a divider.
 
 #### Reference lines
 
-Two horizontal dashed lines, drawn behind the series:
+Two optional horizontal reference lines can be drawn behind the percentile
+series:
 
-- `p98=NN` in `ColourP98` at `data.P98Reference` (the aggregate p98
-  across the full range — the headline figure).
-- `max=NN` in `ColourMax` at `data.MaxReference`.
+- `p98=NN` at `data.P98Reference`, using `ColourP98` and dash `6 3`
+- `max=NN` at `data.MaxReference`, using `ColourMax` and dash `1 3`
 
-Both labels are right-aligned at `leftPx-6` on the speed axis, beside (not
-on top of) regular tick numbers. To prevent overlap when the reference
-line lands close to a tick, the label is drawn with a tight white
-background rect (no stroke):
+Both labels are rendered by the local `labelWithBg()` helper. It draws a white
+rectangle behind the text so the label can sit on the left speed axis without
+colliding with ordinary tick labels.
 
-```
-labelWithBg(x, y, "p98=34", colour):
-    estW = len(label) * 0.62 * fontPx
-    rect(x - estW - 2, y - 0.8*fontPx - 2, estW + 4, fontPx + 4, fill=white)
-    text(x, y, "p98=34", text-anchor=end, fill=colour, weight=bold)
-```
+Those same references appear in the legend as `p98 overall` and `max overall`
+when present.
 
-This is needed because SVG has no native text-with-background primitive;
-the compositor cannot help. A future renderer must reproduce the
-manually-drawn background rect.
+#### X axis
 
-#### X-axis
+The current PDF renderer does **not** use the older span-aware
+`pickTickCadence()` table. It now emits horizontal, one-line labels and then
+culls overlaps.
 
-Tick cadence is **span-aware** (`pickTickCadence`):
+Candidate ticks are generated as follows:
 
-| Span   | Cadence      | Label format   |
-| ------ | ------------ | -------------- |
-| ≤12h   | 2-hourly     | `15:04`        |
-| ≤48h   | 6-hourly     | `Jan 02 15:04` |
-| ≤7d    | 12-hourly    | `Jan 02 15:04` |
-| ≤14d   | daily        | `Jan 02`       |
-| ≤90d   | weekly (ISO) | `Jan 02`       |
-| longer | monthly      | `Jan 2006`     |
+- if the plotted span is at least 24 hours, emit ticks at day boundaries with
+  labels `Jan 02`
+- otherwise, emit the first point, the first point of each new day, and every
+  third bucket within a day with labels `Jan 02 15:04`
 
-Target: 6–10 visible labels regardless of span (matching DESIGN.md §4.1).
-Labels rotate -45° automatically when projected tick spacing falls below
-the estimated label width.
+After that, the renderer estimates label width and keeps only ticks that are at
+least one estimated label width apart.
 
-### 4.3 Histogram chart
+This is the actual PDF behaviour today. If the cross-platform contract moves
+back to span-aware cadence, update both this file and `docs/ui/DESIGN.md` in the
+same PR.
 
-#### Y-axis is **percentage**, not count
+#### Legend and empty state
 
-Both `RenderHistogram` (single) and `RenderComparison` (grouped) display
-percentage of period total on the Y-axis. Reasons:
+The legend sits in a bordered box along the bottom of the chart. Empty datasets
+still render a correctly sized chart canvas with a centred grey `No data`
+message.
 
-- A two-period comparison must show comparable bars; raw counts disagree
-  even when the _shape_ of the distribution is identical.
-- A reader scanning the headline histogram cares about _what fraction of
-  drivers exceeded 30 mph_, not how many absolute observations there were.
-- The companion histogram **table** (built by `BuildHistogramTableTeX` /
-  `BuildDualHistogramTableTeX`) shows both count and percent; the chart
-  reflects the more interpretable axis.
+### 4.3 Histogram charts
 
-#### Tick step
+#### Y axis is percentage, not raw count
 
-`pctStep := pctNiceStep(maxPct)` — wraps `niceStep(maxPct, 5)` with a
-minimum of 5. So a peaked distribution at 60% (where one bucket holds
-60% of the population) renders 0/10/20/30/40/50/60 (step=10), not
-13 cramped ticks at step=5.
+Both histogram renderers use percentage of period total on the vertical axis.
+That makes period shapes comparable even when the absolute sample count differs.
+
+`pctNiceStep(maxPct)` wraps `niceStep(maxPct, 5)` with a minimum of 5.
 
 #### Bucket labels
 
 `BucketLabel(lo, hi, maxBucket)` returns:
 
-- `"20-25"` for an interior bucket, or
-- `"70+"` for the saturating bucket at and above `maxBucket`.
+- `20-25` for an interior bucket
+- `70+` for the saturating bucket at and above `maxBucket`
 
-Labels rotate -45° at the X axis to fit the narrow column width.
+All bucket labels rotate `-45deg`.
 
-#### Single vs comparison
+#### Single histogram
 
-| Mode       | Bars                   | Colour                           | Width                             |
-| ---------- | ---------------------- | -------------------------------- | --------------------------------- |
-| Single     | One per bucket         | `ColourSteelBlue` (α=0.7)        | `BarWidthFraction` of slot        |
-| Comparison | Two grouped per bucket | t1: `ColourP50`, t2: `ColourP98` | half-slot each, with internal gap |
+`RenderHistogram()` produces:
 
-Comparison legend lays out left and right halves: t1 in left quarter,
-t2 in right quarter, so date-range labels (which can be 20+ chars)
-do not overlap.
+- one steel-blue bar per bucket (`ColourSteelBlue`, alpha 0.7)
+- black X-axis tick marks below each bucket label
+- Y tick labels with the percent sign included (`0%`, `10%`, ...)
+- X-axis label `Speed (<units>)`
+
+There is no legend and no internal chart title in the single histogram.
+
+#### Comparison histogram
+
+`RenderComparison()` produces:
+
+- paired bars that touch inside each bucket (`groupGap = 0`)
+- t1 in `ColourP50`, t2 in `ColourP98`
+- an internal SVG title: `Velocity Distribution Comparison`
+- numeric Y tick labels plus a rotated Y-axis title `Percentage (%)`
+- X-axis label `Velocity (<units>)`
+- an in-plot legend box near the top-left, with the full `t1: ...` and
+  `t2: ...` date-range labels supplied by the report builder
+
+This chart is still overview-column width, but the taller 0.70 aspect keeps the
+rotated labels and legend from colliding.
+
+#### Empty state
+
+Like the time-series renderer, histogram renderers keep the fixed chart size and
+fall back to a centred grey `No data` label when there is nothing to plot.
 
 ## 5. Tables
 
-### 5.1 Table-styling helper
+### 5.1 Table renderer stack
 
-`withStyledTable(b, fontSize, body, afterReset)` (`tex/helpers.go`) is
-the canonical way to emit any styled table. It opens a group, applies
-typeface and spacing, calls `\rowcolors{...}`, runs the body, and
-resets — the helper is the only place those styling decisions live:
+The current table system is two-layered:
 
-```
+1. `withStyledTable()` applies the shared visual treatment.
+2. `renderReportTable()` chooses either `tabular` or `supertabular` from a
+   small `reportTable` descriptor (`columns`, `rows`, `caption`, `pageBreak`).
+
+The shared table-style wrapper is:
+
+```text
 {
   \AtkinsonMono\<fontSize>
-  \renewcommand{\arraystretch}{1.04}
+  \renewcommand{\arraystretch}{1.00}
   \setlength{\tabcolsep}{2pt}
   \rowcolors{2}{black!2}{white}
   <body>
@@ -297,169 +381,248 @@ resets — the helper is the only place those styling decisions live:
 }
 ```
 
-All page-spanning data tables (stat table, histogram table, dual
-histogram table) use this helper. New tables should use it too — do
-not reach for `\rowcolors` directly.
+The narrative key/value tables in `survey_parameters.tex` are the exception.
+They are handwritten in the template because they have no header row and stay
+within a single column.
 
-### 5.2 Row-colour rules
+### 5.2 Captions, colour, and page breaks
 
-| Table                              | Row 1              | Body alternation             | Why `\rowcolors` start row                   |
-| ---------------------------------- | ------------------ | ---------------------------- | -------------------------------------------- |
-| Stat table, histogram tables       | header (no colour) | `black!2` / white from row 2 | `\rowcolors{2}` skips the styled header      |
-| Hardware Config, Survey Parameters | data row 1         | `black!2` / white from row 1 | `\rowcolors{1}` — there is no header to skip |
-| Key Metrics                        | header             | `black!2` / white from row 2 | Header present                               |
+Current shared rules:
 
-**`black!2` is the canonical alternating tint** across all tables — match
-it whenever a new table is added. The colour is deliberately light
-(printer-safe, gray-only) and works on every output medium.
+- alternating tint: `black!2`
+- page-spanning tables: `supertabular`
+- first-page header only: `renderReportTable()` currently uses
+  `\tablefirsthead{...}` with an empty `\tablehead{}`; later pages do **not**
+  repeat the header row
+- caption helper: `tableCaptionTeX()` renders `\normalfont\bfseries\small`
 
-### 5.3 Column rules
+The bold caption style is deliberate. It matches the current LaTeX preamble and
+the checked-in TeX golden files.
 
-The stat and histogram tables draw thin vertical column rules
-(`!{\color{black!20}\vrule}`) between every column to keep aligned
-numbers readable in a dense supertabular. Hardware/Survey parameters
-do not — those are two-column key/value tables and rules add clutter.
+### 5.3 Column layout
 
-### 5.4 Survey-parameters labels
+The branch-tip table system no longer uses vertical rules between columns.
+Instead it uses fixed-width `p{...}` columns with explicit left/right ragging.
+All reusable data tables trim outer padding with `@{}` at both edges.
 
-The left key column is `p{0.44\linewidth}` and lives inside a two-column
-body, so it is narrow. Labels were shortened deliberately to prevent
-wrapping:
+Current width allocations:
 
-| Old label                   | New label                         |
-| --------------------------- | --------------------------------- |
-| `Minimum speed (cutoff):`   | `Min speed:`                      |
-| `Cosine Error Angle:`       | `Cosine angle:`                   |
-| `Cosine Error Factor:`      | `Cosine factor:`                  |
-| `Data Source:` (single)     | `Data source:`                    |
-| `Data Source:` (comparison) | `Source (t1):` and `Source (t2):` |
+| Table                  | Current column widths                          |
+| ---------------------- | ---------------------------------------------- |
+| single key metrics     | `0.55`, `0.42`                                 |
+| comparison key metrics | `0.31`, `0.22`, `0.22`, `0.19`                 |
+| stat table             | `0.24`, `0.12`, `0.14`, `0.14`, `0.14`, `0.14` |
+| histogram table        | `0.35`, `0.29`, `0.32`                         |
+| dual histogram table   | `0.15`, `0.14`, `0.14`, `0.14`, `0.14`, `0.21` |
 
-A new field that needs to fit here should aim for ≤16 characters
-including punctuation, or it will wrap onto two lines.
+Headers are bold sans. Numeric columns are ragged-left in TeX terms
+(`\raggedleft`) so they line up visually against the right edge of their fixed
+column.
+
+### 5.4 Dense-value formatting details
+
+Several formatting helpers exist purely to keep dense tables aligned:
+
+- `FormatTime()` emits compact timestamps as `M/D HH:MM`, not ISO `YYYY-MM-DD`.
+- `statStartTimeTeX()` pads one-digit month, day, and hour values with
+  `\phantom{0}` so rows stay visually aligned in the stat table.
+- histogram bucket labels pad one-digit starts with `\phantom{0}` for the same
+  reason.
+- the comparison key-metrics `Vehicle Count` row adds `\phantom{ <units>}` to
+  both count cells so the counts align with the speed rows above them.
+
+These helpers are not incidental formatting trivia; they are part of the
+designed table density.
+
+### 5.5 Current table builders and captions
+
+| Builder                             | Output                                | Current caption                            |
+| ----------------------------------- | ------------------------------------- | ------------------------------------------ |
+| `BuildSingleKeyMetricsTableTeX`     | 2-column key-metrics table            | `Table 1: Key Metrics`                     |
+| `BuildComparisonKeyMetricsTableTeX` | 4-column key-metrics comparison table | `Table 1: Key Metrics`                     |
+| `BuildHistogramTableTeX`            | single-period histogram table         | `Table 2: Velocity Distribution (<units>)` |
+| `BuildDualHistogramTableTeX`        | t1/t2 histogram comparison table      | `Table 2: Velocity Distribution (<units>)` |
+| `BuildStatTableTeX`                 | granular or daily percentile table    | supplied by caller (`Table 3` / `Table 4`) |
+
+### 5.6 Hardware and survey-parameter tables
+
+The two template-owned key/value tables use a slightly different treatment from
+the generic data-table stack:
+
+- font size: `\small`
+- `\arraystretch = 1.04`
+- `\tabcolsep = 2pt`
+- alternating rows start at row 1 with `\rowcolors{1}{black!2}{white}`
+- key/value widths: `p{0.44\linewidth}` and `p{0.52\linewidth}`
+
+Current hardware rows are:
+
+- Radar Sensor
+- Firmware version (optional)
+- Transmit Frequency
+- Sample Rate
+- Velocity Resolution
+- Azimuth Field of View
+- Elevation Field of View
+
+Current survey rows are:
+
+- Units
+- Minimum speed (cutoff)
+- Roll-up Period
+- Timezone
+- Start time / End time (RFC3339 in single mode)
+- Start time (t1/t2) and End time (t1/t2) in comparison mode
+- cosine correction label, or cosine angle/factor rows when available
+
+`Source` and `CompareSource` still influence the report data path, but they are
+not currently rendered as visible rows in the PDF.
+
+When any cosine-correction field is present, the section appends the italic note
+`Note: speeds have been corrected to account for sensor angle.`
 
 ## 6. Comparison-mode design
 
-### 6.1 t1/t2 nomenclature
+### 6.1 t1 / t2 naming
 
-When a report shows two periods, the two periods are always referred to
-as **t1** (primary) and **t2** (compared). This is the user-facing label
-in:
+The comparison report consistently refers to the two periods as t1 and t2 on
+the surfaces that are actually rendered today:
 
-- Survey Parameters table rows (`Start time (t1)`, `Source (t2)`, etc.)
-- Statistics table headings (`t1 Count`, `t2 %`, `Delta`)
-- Chart legends and figure captions
-- The footer period range (`<t1 range> vs <t2 range>`)
+- overview bullets: `Primary period (t1)` and `Comparison period (t2)`
+- grouped histogram legend labels: `t1: <range>` and `t2: <range>`
+- comparison time-series captions
+- histogram-table column heads (`t1 Count`, `t1 %`, `t2 Count`, `t2 %`)
+- footer period range (`<t1 range> vs <t2 range>`)
 
-Using `t1`/`t2` everywhere lets readers pivot between sections without
-re-establishing which period is which.
+Survey parameters use t1/t2 only where they need a per-period distinction:
+start/end times and cosine correction rows.
 
-### 6.2 Per-period fields
+### 6.2 Visible comparison outputs
 
-Each period carries its own:
+When a comparison period is present, the PDF can surface up to four comparison
+artifacts:
 
-- **Source** (`Source` and `CompareSource`) — t2's source can differ from
-  t1 (e.g. t1 from `radar_data_transits`, t2 from `radar_objects` after
-  a sensor swap). Both must be displayed.
-- **Cosine angle / factor** (`CosineAngle` + `CompareCosineAngle`) — the
-  sensor angle correction is a per-period property; if t1 and t2 used
-  different mounting angles, both show.
+1. grouped comparison histogram in the overview (when histograms are enabled)
+2. daily percentile summary table
+3. merged granular percentile breakdown table
+4. second full-width time-series figure for t2
 
-When either `CosineAngle > 0` or `CompareCosineAngle > 0`, the survey
-parameters section appends the line _"Speeds have been corrected for
-sensor angle changes."_ — disclosure that values are not raw.
+The comparison chart section is sequential, not overlaid: one figure for t1 and
+one figure for t2.
 
 ### 6.3 Deltas
 
-Statistics show absolute and percentage deltas:
+The rendered comparison key-metrics table currently shows **percentage deltas
+only**.
 
-- `DeltaP50` etc. — signed difference `(t2 − t1)`, formatted `+1.50` /
-  `-0.40`. Source: `FormatDelta(primary, compare)`.
-- `DeltaP50Pct` etc. — signed percentage change `(t2 − t1) / t1 * 100`,
-  formatted `+6.1%` / `-3.2%`. Source: `FormatDeltaPercent`.
+`FormatDeltaPercent(primary, compare)` computes:
 
-NaN inputs produce `--`. Zero baseline produces `--` for the percent
-delta (no division by zero implied).
+```text
+(compare - primary) / primary * 100
+```
+
+That means positive values indicate t2 is above t1. `NaN`, `Inf`, or a zero
+primary baseline render as `--`.
+
+Absolute delta helpers still exist in template data (`DeltaP50`, `DeltaP85`,
+and so on), but the current `.tex` templates do not surface them.
+
+### 6.4 Comparison inputs that change the rendered result
+
+Per-period differences that matter today:
+
+- t2 can query a different source (`compare_source`), though the chosen source is
+  not printed
+- t2 can use a different cosine correction angle or multi-period cosine label
+- t1 and t2 date ranges are shown everywhere the reader needs to distinguish the
+  periods
 
 ## 7. Palette
 
 Every colour used in the PDF chart engine resolves to a constant in
 `internal/report/chart/palette.go`. The palette is deliberately small:
 
-| Constant          | Hex       | Used in                                             |
-| ----------------- | --------- | --------------------------------------------------- |
-| `ColourP50`       | `#fbd92f` | p50 series, comparison-bar t1 fill                  |
-| `ColourP85`       | `#f7b32b` | p85 series, low-sample background swatch            |
-| `ColourP98`       | `#f25f5c` | p98 series, p98 reference line, comparison t2 fill  |
-| `ColourMax`       | `#2d1e2f` | max series, max reference line, count bars          |
-| `ColourCountBar`  | `#2d1e2f` | (alias for max — count bars share the dark hue)     |
-| `ColourLowSample` | `#f7b32b` | (alias for p85 — low-sample swatch shares the warn) |
-| `ColourSteelBlue` | `#4682b4` | Histogram bars (single mode)                        |
+| Constant          | Hex       | Used in                                                |
+| ----------------- | --------- | ------------------------------------------------------ |
+| `ColourP50`       | `#fbd92f` | p50 series, comparison-bar t1 fill                     |
+| `ColourP85`       | `#f7b32b` | p85 series, low-sample background swatch               |
+| `ColourP98`       | `#f25f5c` | p98 series, p98 reference line, comparison-bar t2 fill |
+| `ColourMax`       | `#2d1e2f` | max series, max reference line, count bars             |
+| `ColourCountBar`  | `#2d1e2f` | alias used by count bars                               |
+| `ColourLowSample` | `#f7b32b` | alias used by low-sample swatch                        |
+| `ColourSteelBlue` | `#4682b4` | single-histogram bars                                  |
 
-Cross-platform palette source of truth and rationale live in
-[DESIGN.md §3.3](DESIGN.md#33-percentile-metric-colour-mapping-charts).
-Web (`palette.ts`), Go PDF (this file), and macOS must stay in sync —
-change all three in the same PR.
+Cross-platform palette rationale lives in
+[DESIGN.md §3.3](DESIGN.md#33-percentile-metric-colour-mapping-charts). If a
+palette constant changes, update the web palette and any macOS visualiser use in
+the same PR.
 
-LaTeX-side colour definitions (`\definecolor{vrP50}{HTML}{fbd92f}` etc.)
-in `preamble.tex` are decorative-only (footer / header). They duplicate
-the palette into the typesetter's namespace; if the chart palette
-changes, regenerate them.
+The LaTeX-side `vrP50`, `vrP85`, `vrP98`, and `vrMax` colour declarations in
+`preamble.tex` are a parallel typesetter namespace. Keep them aligned with the
+chart constants.
 
 ## 8. Renderer-portability cheat sheet
 
-If/when xelatex is replaced, the following responsibilities have to be
-re-homed in the new compositor. Rows are sorted by migration risk.
+If XeLaTeX is replaced, the following responsibilities must move with it.
 
-| Responsibility                                   | xelatex implementation                                    | What an alternative needs                                                        |
-| ------------------------------------------------ | --------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Embed Atkinson Hyperlegible                      | `\setmainfont{...}[Path=...]` via `fontspec`              | Native font embedding (Typst `text(font:...)`, CSS `@font-face`, etc.)           |
-| Two-column flow + single-column figure breakouts | `\twocolumn[...]` + `\onecolumn` per figure               | Multi-column page layout with break-out support                                  |
-| Page-spanning, multi-page tables                 | `supertabular` + `\tablehead` / `\tabletail`              | Repeating table head, page-spanning rows                                         |
-| Alternating row colours                          | `colortbl` `\rowcolors{n}{a}{b}`                          | Same effect; styled-row alternation by start-row index                           |
-| Inline column rules                              | `!{\color{black!20}\vrule}` in `tabular` colspec          | Per-column-rule colour control                                                   |
-| SVG embedding                                    | `rsvg-convert` to PDF, then `\includegraphics{chart.pdf}` | Native SVG support (Typst, HTML/CSS), or keep `rsvg-convert` and embed as image  |
-| Header/footer with site location + period        | `fancyhdr` `\fancyhead/\fancyfoot`                        | Equivalent running-header support with template fields                           |
-| Special-character escaping                       | `EscapeTeX` (Go) on every interpolated string             | Per-renderer escape function over the same character set (`& % $ # _ { } ~ ^ \`) |
-| Hyperlinks                                       | `hyperref` package + `\href{}{}`                          | Native hyperlink support                                                         |
+| Responsibility                         | Current xelatex implementation                                                      | What an alternative needs                                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                   | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
+| Two-column flow + full-width breakouts | `\twocolumn[...]`, then `\onecolumn` for charts                                     | Equivalent multi-column layout with break-out figures                                                                    |
+| Optional map final page                | `\clearpage` plus `\onecolumn`                                                      | Equivalent page break and full-width final figure                                                                        |
+| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, and `\tabletail{\hline}` | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
+| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                           | Per-column width control and ragged alignment                                                                            |
+| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                    | Same row-striping semantics                                                                                              |
+| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                 | Native SVG support or the same SVG-to-image bridge                                                                       |
+| Running header/footer                  | `fancyhdr`                                                                          | Equivalent template-driven running heads and feet                                                                        |
+| Escaping                               | `EscapeTeX()`                                                                       | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                                     |
+| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                         | Native link support for site URL, contact email, and science links                                                       |
 
-The chart-render stage produces SVG — it is independent of the doc
-compositor. A migration only needs to:
+The chart stage remains the easiest part to port because the SVG is already the
+final chart specification.
 
-1. Re-express the eight `templates/*.tex` files in the new template
-   language, preserving the section order from §2.1.
-2. Re-implement `BuildStatTableTeX`, `BuildHistogramTableTeX`, and
-   `BuildDualHistogramTableTeX` (currently in `tex/helpers.go`) in the
-   new compositor's table primitive.
-3. Re-implement `EscapeTeX` for the new template language.
-4. Embed Atkinson Hyperlegible per §3.
+A renderer migration needs to re-home:
 
-Everything in §4 (chart design) is preserved as-is — the SVGs do not
-change.
+1. the ten current templates: `report.tex`, `preamble.tex`, `period_report.tex`,
+   `overview.tex`, `site_info.tex`, `science.tex`, `survey_parameters.tex`,
+   `statistics.tex`, `chart_section.tex`, and `map_section.tex`
+2. the reusable table stack in `tex/helpers.go`, especially `withStyledTable()`,
+   `renderReportTable()`, `tableCaptionTeX()`, and the `Build*TableTeX`
+   functions
+3. the compact timestamp and padding helpers (`FormatTime`, `statStartTimeTeX`,
+   `paddedDecimalTeX`, `paddedClockTeX`)
+4. the same bundled font set from `assets.AllFonts()`
 
 ## 9. Cross-references
 
-- Cross-platform contract (palette, legend order, tick density,
-  segmentation rules): [DESIGN.md](DESIGN.md)
-- Operations and deployment (fonts, xelatex install,
-  rsvg-convert, package layout):
+- Cross-platform UI design contract: [DESIGN.md](DESIGN.md)
+- PDF reporting operations and runtime setup:
   [platform/operations/pdf-reporting.md](../platform/operations/pdf-reporting.md)
-- Migration history (Python → Go):
+- Migration history (Python -> Go):
   [plans/pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md)
+- Layout inspection tool for rendered PDFs:
+  [../../scripts/compare_report_layout.py](../../scripts/compare_report_layout.py)
 
 ## 10. PR checklist (PDF report changes)
 
 Before merging a PR that touches the PDF report:
 
-- [ ] Palette changes propagated to web and macOS (DESIGN.md §3.3).
-- [ ] New table uses `withStyledTable`; alternating tint is `black!2`.
-- [ ] New survey-parameter rows fit the 0.44-linewidth left column.
-- [ ] Comparison sections render _both_ t1 and t2 of every per-period
-      field (source, cosine angle, cosine factor).
-- [ ] Chart axis tick step is computed (`niceStep` / `pctNiceStep`),
-      not hardcoded.
-- [ ] NaN handling: polylines break only on NaN; markers skip NaN;
-      gap divider drawn at the first NaN of each run.
-- [ ] Reference-line labels use `labelWithBg` (white-fill rect behind
-      the text).
-- [ ] Golden tex files regenerated (`go test ./internal/report/tex/... -update`).
-- [ ] `make lint-go && make test-go` green.
+- [ ] Palette changes propagated to the other renderers that consume the shared
+      contract.
+- [ ] New reusable data tables go through `renderReportTable()` and
+      `withStyledTable()` unless they are intentionally template-owned key/value
+      tables.
+- [ ] Table striping remains `black!2`.
+- [ ] The sans/mono font split remains intact and any new packaged font bytes are
+      added through `assets.AllFonts()`.
+- [ ] Comparison histogram sizing still reflects the taller `1:0.70` aspect.
+- [ ] Time-series gap behaviour is still correct for both consolidated and
+      expanded-chart modes.
+- [ ] X-axis changes are reflected here and, if they affect the intended shared
+      chart contract, also in [DESIGN.md](DESIGN.md).
+- [ ] New survey-parameter rows fit the `0.44\linewidth` key column.
+- [ ] If layout changed, inspect a rendered PDF directly and use
+      `scripts/compare_report_layout.py` when a before/after diff is useful.
+- [ ] Golden TeX files regenerated when the template output changed:
+      `go test ./internal/report/tex/... -update`.
+- [ ] `make lint-go && make test-go` green when the change touches report code.
