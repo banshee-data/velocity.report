@@ -1,4 +1,8 @@
 _site/
 src/docs
 src/data
+# Symlinked top-level docs (README.md, ARCHITECTURE.md, etc.) are generated
+# by scripts/docs-offline-symlinks.sh and not checked in. The canonical
+# homepage src/index.md is committed and must be kept.
 src/*.md
+!src/index.md
