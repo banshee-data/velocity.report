@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -114,7 +115,7 @@ func tableCaptionTeX(caption string) string {
 func withStyledTable(b *strings.Builder, fontSize string, body func(), afterReset func()) {
 	b.WriteString("{\n")
 	b.WriteString(`\AtkinsonMono\` + fontSize + "\n")
-	b.WriteString(`\renewcommand{\arraystretch}{1.04}` + "\n")
+	b.WriteString(`\renewcommand{\arraystretch}{1.00}` + "\n")
 	b.WriteString(`\setlength{\tabcolsep}{2pt}` + "\n")
 	b.WriteString(`\rowcolors{2}{` + tableStripeColour + `}{white}` + "\n")
 	body()
@@ -125,25 +126,117 @@ func withStyledTable(b *strings.Builder, fontSize string, body func(), afterRese
 	b.WriteString("}\n")
 }
 
+type tableAlignment string
+
+const (
+	tableAlignLeft  tableAlignment = "left"
+	tableAlignRight tableAlignment = "right"
+)
+
+type tableColumn struct {
+	header string
+	width  string
+	align  tableAlignment
+}
+
+type reportTable struct {
+	columns   []tableColumn
+	rows      [][]string
+	caption   string
+	pageBreak bool
+}
+
+func renderReportTable(t reportTable) string {
+	var b strings.Builder
+	withStyledTable(&b, "small", func() {
+		spec := tableColumnSpec(t.columns)
+		if t.pageBreak {
+			b.WriteString(`\tablefirsthead{%` + "\n")
+			writeTableHeader(&b, t.columns)
+			b.WriteString(`  \hline` + "\n")
+			b.WriteString("}\n")
+			b.WriteString(`\tablehead{}` + "\n")
+			b.WriteString(`\tabletail{\hline}` + "\n")
+			b.WriteString(`\noindent` + "\n")
+			b.WriteString(`\begin{supertabular}{` + spec + `}` + "\n")
+			for _, row := range t.rows {
+				writeTableRow(&b, row)
+			}
+			b.WriteString(`\end{supertabular}` + "\n")
+			return
+		}
+
+		b.WriteString(`\noindent` + "\n")
+		b.WriteString(`\begin{tabular}{` + spec + `}` + "\n")
+		writeTableHeader(&b, t.columns)
+		b.WriteString(`\hline` + "\n")
+		for _, row := range t.rows {
+			writeTableRow(&b, row)
+		}
+		b.WriteString(`\hline` + "\n")
+		b.WriteString(`\end{tabular}` + "\n")
+	}, func() {
+		if t.caption != "" {
+			b.WriteString(`\par\vspace{2pt}` + "\n")
+			b.WriteString(tableCaptionTeX(t.caption) + "\n")
+		}
+	})
+	return b.String()
+}
+
+func tableColumnSpec(columns []tableColumn) string {
+	var b strings.Builder
+	b.WriteString("@{}")
+	for _, col := range columns {
+		switch col.align {
+		case tableAlignRight:
+			b.WriteString(`>{\raggedleft\arraybackslash}p{` + col.width + `}`)
+		default:
+			b.WriteString(`>{\raggedright\arraybackslash}p{` + col.width + `}`)
+		}
+	}
+	b.WriteString("@{}")
+	return b.String()
+}
+
+func writeTableHeader(b *strings.Builder, columns []tableColumn) {
+	for i, col := range columns {
+		if i > 0 {
+			b.WriteString(" & ")
+		}
+		b.WriteString(`{\sffamily\bfseries ` + col.header + `}`)
+	}
+	b.WriteString(` \\` + "\n")
+}
+
+func writeTableRow(b *strings.Builder, row []string) {
+	for i, cell := range row {
+		if i > 0 {
+			b.WriteString(" & ")
+		}
+		b.WriteString(cell)
+	}
+	b.WriteString(` \\` + "\n")
+}
+
 // BuildSingleKeyMetricsTableTeX generates the styled 2-column key metrics
 // tabular (Metric | Value) for single-survey mode. Inputs are pre-formatted
 // display strings (e.g. "25.00") and must already be TeX-escaped where needed.
 func BuildSingleKeyMetricsTableTeX(p50, p85, p98, maxSpeed, units string) string {
-	var b strings.Builder
-	withStyledTable(&b, "small", func() {
-		b.WriteString(`\begin{tabular}{lr}` + "\n")
-		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Value} \\` + "\n")
-		b.WriteString(`\hline` + "\n")
-		fmt.Fprintf(&b, "p50 Velocity & %s %s \\\\\n", p50, units)
-		fmt.Fprintf(&b, "p85 Velocity & %s %s \\\\\n", p85, units)
-		fmt.Fprintf(&b, "p98 Velocity & %s %s \\\\\n", p98, units)
-		fmt.Fprintf(&b, "Max Velocity & %s %s \\\\\n", maxSpeed, units)
-		b.WriteString(`\end{tabular}` + "\n")
-	}, func() {
-		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(tableCaptionTeX("Table 1: Key Metrics") + "\n")
+	units = EscapeTeX(units)
+	return renderReportTable(reportTable{
+		columns: []tableColumn{
+			{header: "Metric", width: `0.55\linewidth`, align: tableAlignLeft},
+			{header: "Value", width: `0.42\linewidth`, align: tableAlignRight},
+		},
+		rows: [][]string{
+			{"p50 Velocity", fmt.Sprintf("%s %s", p50, units)},
+			{"p85 Velocity", fmt.Sprintf("%s %s", p85, units)},
+			{"p98 Velocity", fmt.Sprintf("%s %s", p98, units)},
+			{"Max Velocity", fmt.Sprintf("%s %s", maxSpeed, units)},
+		},
+		caption: "Table 1: Key Metrics",
 	})
-	return b.String()
 }
 
 // BuildComparisonKeyMetricsTableTeX generates the 4-column key metrics tabular
@@ -157,23 +250,31 @@ func BuildComparisonKeyMetricsTableTeX(
 	totalCountFmt, compareTotalCountFmt string,
 	units string,
 ) string {
-	var b strings.Builder
-	withStyledTable(&b, "small", func() {
-		b.WriteString(`\begin{tabular}{lrrr}` + "\n")
-		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\` + "\n")
-		b.WriteString(`\hline` + "\n")
-		fmt.Fprintf(&b, "p50 Velocity & %s %s & %s %s & %s \\\\\n", p50, units, compareP50, units, deltaP50Pct)
-		fmt.Fprintf(&b, "p85 Velocity & %s %s & %s %s & %s \\\\\n", p85, units, compareP85, units, deltaP85Pct)
-		fmt.Fprintf(&b, "p98 Velocity & %s %s & %s %s & %s \\\\\n", p98, units, compareP98, units, deltaP98Pct)
-		fmt.Fprintf(&b, "Max Velocity & %s %s & %s %s & %s \\\\\n", maxSpeed, units, compareMax, units, deltaMaxPct)
-		fmt.Fprintf(&b, "Vehicle Count & %s & %s & \\\\\n", totalCountFmt, compareTotalCountFmt)
-		b.WriteString(`\end{tabular}` + "\n")
-	}, func() {
-		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(tableCaptionTeX("Table 1: Key Metrics") + "\n")
+	escapedUnits := EscapeTeX(units)
+	table := renderReportTable(reportTable{
+		columns: []tableColumn{
+			{header: "Metric", width: `0.31\linewidth`, align: tableAlignLeft},
+			{header: "Period t1", width: `0.22\linewidth`, align: tableAlignRight},
+			{header: "Period t2", width: `0.22\linewidth`, align: tableAlignRight},
+			{header: "Change", width: `0.19\linewidth`, align: tableAlignRight},
+		},
+		rows: [][]string{
+			{"p50 Velocity", fmt.Sprintf("%s %s", p50, escapedUnits), fmt.Sprintf("%s %s", compareP50, escapedUnits), deltaP50Pct},
+			{"p85 Velocity", fmt.Sprintf("%s %s", p85, escapedUnits), fmt.Sprintf("%s %s", compareP85, escapedUnits), deltaP85Pct},
+			{"p98 Velocity", fmt.Sprintf("%s %s", p98, escapedUnits), fmt.Sprintf("%s %s", compareP98, escapedUnits), deltaP98Pct},
+			{"Max Velocity", fmt.Sprintf("%s %s", maxSpeed, escapedUnits), fmt.Sprintf("%s %s", compareMax, escapedUnits), deltaMaxPct},
+			{"Vehicle Count", countWithUnitPhantom(totalCountFmt, escapedUnits), countWithUnitPhantom(compareTotalCountFmt, escapedUnits), ""},
+		},
+		caption: "Table 1: Key Metrics",
 	})
-	b.WriteString(`\par` + "\n")
-	return b.String()
+	return table + `\par` + "\n"
+}
+
+func countWithUnitPhantom(count, escapedUnits string) string {
+	if count == "" || escapedUnits == "" {
+		return count
+	}
+	return count + `\phantom{ ` + escapedUnits + `}`
 }
 
 // BuildStatTableTeX generates a styled, page-spanning LaTeX supertabular for
@@ -183,31 +284,73 @@ func BuildStatTableTeX(rows []StatRow, caption, units string) string {
 	if len(rows) == 0 {
 		return ""
 	}
-	var b strings.Builder
 	escapedUnits := EscapeTeX(units)
-	withStyledTable(&b, "scriptsize", func() {
-		b.WriteString(`\tablehead{%` + "\n")
-		b.WriteString("  \\hline\n")
-		b.WriteString(`  {\sffamily\bfseries\footnotesize Start Time} & {\sffamily\bfseries\footnotesize Count} & {\sffamily\bfseries\footnotesize \shortstack[r]{p50 \\ (` + escapedUnits + `)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{p85 \\ (` + escapedUnits + `)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{p98 \\ (` + escapedUnits + `)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{Max \\ (` + escapedUnits + `)}} \\` + "\n")
-		b.WriteString("  \\hline\n")
-		b.WriteString("}\n")
-		b.WriteString(`\tabletail{\hline}` + "\n")
-		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{supertabular}{>{\raggedright\arraybackslash}p{0.29\linewidth}>{\raggedleft\arraybackslash}p{0.10\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}}` + "\n")
-		for _, row := range rows {
-			fmt.Fprintf(&b, "%s & %d & %s & %s & %s & %s \\\\\n",
-				EscapeTeX(row.StartTime), row.Count, row.P50, row.P85, row.P98, row.MaxSpeed)
-		}
-		b.WriteString(`\end{supertabular}` + "\n")
-		b.WriteString(`\end{center}` + "\n")
-	}, func() {
-		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(tableCaptionTeX(caption) + "\n")
+	tableRows := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		tableRows = append(tableRows, []string{
+			statStartTimeTeX(row.StartTime),
+			fmt.Sprintf("%d", row.Count),
+			row.P50,
+			row.P85,
+			row.P98,
+			row.MaxSpeed,
+		})
+	}
+	return renderReportTable(reportTable{
+		columns: []tableColumn{
+			{header: "Start Time", width: `0.24\linewidth`, align: tableAlignLeft},
+			{header: "Count", width: `0.12\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{p50 \\ (` + escapedUnits + `)}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{p85 \\ (` + escapedUnits + `)}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{p98 \\ (` + escapedUnits + `)}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{Max \\ (` + escapedUnits + `)}`, width: `0.14\linewidth`, align: tableAlignRight},
+		},
+		rows:      tableRows,
+		caption:   caption,
+		pageBreak: true,
 	})
-	return b.String()
 }
 
-// BuildDualHistogramTableTeX generates a 6-column LaTeX tabular comparing two
+func statStartTimeTeX(s string) string {
+	parts := strings.SplitN(s, " ", 2)
+	if len(parts) != 2 {
+		return EscapeTeX(s)
+	}
+	dateParts := strings.Split(parts[0], "/")
+	if len(dateParts) != 2 {
+		return EscapeTeX(s)
+	}
+	month, monthErr := strconv.Atoi(dateParts[0])
+	day, dayErr := strconv.Atoi(dateParts[1])
+	if monthErr != nil || dayErr != nil {
+		return EscapeTeX(s)
+	}
+	return paddedDecimalTeX(month) + "/" + paddedDecimalTeX(day) + " " + paddedClockTeX(parts[1])
+}
+
+func paddedDecimalTeX(n int) string {
+	if n >= 0 && n < 10 {
+		return `\phantom{0}` + strconv.Itoa(n)
+	}
+	return strconv.Itoa(n)
+}
+
+func paddedClockTeX(clock string) string {
+	parts := strings.SplitN(clock, ":", 2)
+	if len(parts) != 2 {
+		return EscapeTeX(clock)
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return EscapeTeX(clock)
+	}
+	if hour >= 0 && hour < 10 && len(parts[0]) == 1 {
+		return `\phantom{0}` + EscapeTeX(parts[0]) + ":" + EscapeTeX(parts[1])
+	}
+	return EscapeTeX(parts[0]) + ":" + EscapeTeX(parts[1])
+}
+
+// BuildDualHistogramTableTeX generates a 6-column LaTeX table comparing two
 // histogram periods (t1 and t2). Bucket | t1 Count | t1 % | t2 Count | t2 % | Delta %
 // Includes Table 2 caption. Returns empty string if both histograms are nil/empty.
 func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cutoff, maxBucket float64, units string) string {
@@ -292,45 +435,49 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 		return fmt.Sprintf("%.1f\\%%", d)
 	}
 
+	var tableRows [][]string
+	if belowP > 0 || belowC > 0 {
+		tableRows = append(tableRows, []string{
+			fmt.Sprintf("$<$%.0f", cutoff),
+			fmt.Sprintf("%d", belowP), pctP(belowP),
+			fmt.Sprintf("%d", belowC), pctC(belowC),
+			delta(belowP, belowC),
+		})
+	}
+	for _, row := range rows {
+		tableRows = append(tableRows, []string{
+			row.label,
+			fmt.Sprintf("%d", row.p), pctP(row.p),
+			fmt.Sprintf("%d", row.c), pctC(row.c),
+			delta(row.p, row.c),
+		})
+	}
+	if aboveP > 0 || aboveC > 0 {
+		tableRows = append(tableRows, []string{
+			fmt.Sprintf("%.0f+", maxBucket),
+			fmt.Sprintf("%d", aboveP), pctP(aboveP),
+			fmt.Sprintf("%d", aboveC), pctC(aboveC),
+			delta(aboveP, aboveC),
+		})
+	}
+
 	escapedUnits := EscapeTeX(units)
-
-	var b strings.Builder
-	withStyledTable(&b, "small", func() {
-		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{tabular}{lrrrrr}` + "\n")
-		b.WriteString(`\hline` + "\n")
-		b.WriteString(`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
-		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ Count}}`)
-		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ \%}}`)
-		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ Count}}`)
-		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t2 \\ \%}}`)
-		b.WriteString(` & {\sffamily\bfseries\footnotesize Delta} \\` + "\n")
-		b.WriteString(`\hline` + "\n")
-
-		if belowP > 0 || belowC > 0 {
-			fmt.Fprintf(&b, "$<$%.0f & %d & %s & %d & %s & %s \\\\\n",
-				cutoff, belowP, pctP(belowP), belowC, pctC(belowC), delta(belowP, belowC))
-		}
-		for _, row := range rows {
-			fmt.Fprintf(&b, "%s & %d & %s & %d & %s & %s \\\\\n",
-				row.label, row.p, pctP(row.p), row.c, pctC(row.c), delta(row.p, row.c))
-		}
-		if aboveP > 0 || aboveC > 0 {
-			fmt.Fprintf(&b, "%.0f+ & %d & %s & %d & %s & %s \\\\\n",
-				maxBucket, aboveP, pctP(aboveP), aboveC, pctC(aboveC), delta(aboveP, aboveC))
-		}
-
-		b.WriteString(`\hline` + "\n")
-		b.WriteString(`\end{tabular}` + "\n")
-		b.WriteString(`\end{center}` + "\n")
-	}, func() {
-		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(tableCaptionTeX("Table 2: Velocity Distribution ("+units+")") + "\n")
+	return renderReportTable(reportTable{
+		columns: []tableColumn{
+			{header: `\shortstack[l]{Bucket \\ (` + escapedUnits + `)}`, width: `0.15\linewidth`, align: tableAlignLeft},
+			{header: `\shortstack[r]{t1 \\ Count}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{t1 \\ \%}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{t2 \\ Count}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `\shortstack[r]{t2 \\ \%}`, width: `0.14\linewidth`, align: tableAlignRight},
+			{header: `Delta`, width: `0.21\linewidth`, align: tableAlignRight},
+		},
+		rows:      tableRows,
+		caption:   "Table 2: Velocity Distribution (" + units + ")",
+		pageBreak: true,
 	})
-	return b.String()
 }
 
-// BuildHistogramTableTeX generates LaTeX tabular content for histogram data.
+// BuildHistogramTableTeX generates LaTeX table content for histogram data.
 // Produces a table with Bucket | Count | Percent columns.
 // Includes <N row for below-cutoff data and N+ row for above-max data.
 func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBucket float64, units string) string {
@@ -354,72 +501,57 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 		return ""
 	}
 
-	var b strings.Builder
-	// Opening group: same visual style as BuildStatTableTeX (alternating row
-	// colours, grey column rules, monospace scriptsize with sans-serif headers).
-	withStyledTable(&b, "small", func() {
-		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{tabular}{lrr}` + "\n")
-		b.WriteString(`\hline` + "\n")
-		b.WriteString(
-			`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & ` +
-				`{\sffamily\bfseries\footnotesize Count} & ` +
-				`{\sffamily\bfseries\footnotesize Percent} \\` + "\n")
-		b.WriteString(`\hline` + "\n")
+	var belowCount, aboveCount int64
+	type displayRow struct {
+		label string
+		count int64
+	}
+	var rows []displayRow
 
-		// Pre-aggregate below-cutoff and above-max buckets.
-		var belowCount, aboveCount int64
-		type displayRow struct {
-			label string
-			count int64
-		}
-		var rows []displayRow
-
-		hasUpperCap := maxBucket > 0
-		for _, k := range keys {
-			count := buckets[k]
-			switch {
-			case k < cutoff:
-				belowCount += count
-			case hasUpperCap && k >= maxBucket:
-				aboveCount += count
-			default:
-				loStr := fmt.Sprintf("%.0f", k)
-				if len(loStr) < 2 {
-					// Pad single-digit bucket starts so dashes align with two-digit rows.
-					loStr = `\phantom{0}` + loStr
-				}
-				rows = append(rows, displayRow{
-					label: loStr + `-` + fmt.Sprintf("%.0f", k+bucketSz),
-					count: count,
-				})
+	hasUpperCap := maxBucket > 0
+	for _, k := range keys {
+		count := buckets[k]
+		switch {
+		case k < cutoff:
+			belowCount += count
+		case hasUpperCap && k >= maxBucket:
+			aboveCount += count
+		default:
+			loStr := fmt.Sprintf("%.0f", k)
+			if len(loStr) < 2 {
+				// Pad single-digit bucket starts so dashes align with two-digit rows.
+				loStr = `\phantom{0}` + loStr
 			}
+			rows = append(rows, displayRow{
+				label: loStr + `-` + fmt.Sprintf("%.0f", k+bucketSz),
+				count: count,
+			})
 		}
+	}
 
-		// Emit aggregated below-cutoff row first.
-		if belowCount > 0 {
-			pct := float64(belowCount) / float64(total) * 100.0
-			fmt.Fprintf(&b, "$<$%.0f & %d & %.1f\\%% \\\\\n", cutoff, belowCount, pct)
-		}
+	var tableRows [][]string
+	if belowCount > 0 {
+		pct := float64(belowCount) / float64(total) * 100.0
+		tableRows = append(tableRows, []string{fmt.Sprintf("$<$%.0f", cutoff), fmt.Sprintf("%d", belowCount), fmt.Sprintf("%.1f\\%%", pct)})
+	}
+	for _, row := range rows {
+		pct := float64(row.count) / float64(total) * 100.0
+		tableRows = append(tableRows, []string{row.label, fmt.Sprintf("%d", row.count), fmt.Sprintf("%.1f\\%%", pct)})
+	}
+	if aboveCount > 0 {
+		pct := float64(aboveCount) / float64(total) * 100.0
+		tableRows = append(tableRows, []string{fmt.Sprintf("%.0f+", maxBucket), fmt.Sprintf("%d", aboveCount), fmt.Sprintf("%.1f\\%%", pct)})
+	}
 
-		// Emit normal range rows.
-		for _, row := range rows {
-			pct := float64(row.count) / float64(total) * 100.0
-			fmt.Fprintf(&b, "%s & %d & %.1f\\%% \\\\\n", row.label, row.count, pct)
-		}
-
-		// Emit aggregated above-max row last.
-		if aboveCount > 0 {
-			pct := float64(aboveCount) / float64(total) * 100.0
-			fmt.Fprintf(&b, "%.0f+ & %d & %.1f\\%% \\\\\n", maxBucket, aboveCount, pct)
-		}
-
-		b.WriteString(`\hline` + "\n")
-		b.WriteString(`\end{tabular}` + "\n")
-		b.WriteString(`\end{center}` + "\n")
-	}, func() {
-		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(tableCaptionTeX("Table 2: Velocity Distribution ("+units+")") + "\n")
+	escapedUnits := EscapeTeX(units)
+	return renderReportTable(reportTable{
+		columns: []tableColumn{
+			{header: `\shortstack[l]{Bucket \\ (` + escapedUnits + `)}`, width: `0.35\linewidth`, align: tableAlignLeft},
+			{header: `Count`, width: `0.29\linewidth`, align: tableAlignRight},
+			{header: `Percent`, width: `0.32\linewidth`, align: tableAlignRight},
+		},
+		rows:      tableRows,
+		caption:   "Table 2: Velocity Distribution (" + units + ")",
+		pageBreak: true,
 	})
-	return b.String()
 }

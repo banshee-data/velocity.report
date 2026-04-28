@@ -3,7 +3,6 @@ package chart
 import (
 	"fmt"
 	"math"
-	"strings"
 	"time"
 )
 
@@ -115,33 +114,52 @@ func ExpandTimeSeriesGapsInRange(pts []TimeSeriesPoint, groupSeconds int64, star
 	return out
 }
 
-// XTicks generates Python-report-style tick labels for the time-series X axis:
-// always label day starts, then label every third observed bucket within a day.
+// XTicks generates report tick labels without diagonal rotation. Sub-day ranges
+// use one-line date+time labels; longer ranges label day starts only.
 func XTicks(pts []TimeSeriesPoint) []XTick {
 	if len(pts) < 2 {
 		if len(pts) == 1 {
-			return []XTick{{Index: 0, Label: pts[0].StartTime.Format("Jan 02\n15:04")}}
+			return []XTick{{Index: 0, Label: pts[0].StartTime.Format("Jan 02 15:04")}}
 		}
 		return nil
 	}
 
-	ticks := []XTick{{Index: 0, Label: pts[0].StartTime.Format("Jan 02\n15:04")}}
+	if pts[len(pts)-1].StartTime.Sub(pts[0].StartTime) >= 24*time.Hour {
+		boundaries := DayBoundaries(pts)
+		ticks := make([]XTick, 0, len(boundaries))
+		for _, idx := range boundaries {
+			ticks = append(ticks, XTick{Index: idx, Label: pts[idx].StartTime.Format("Jan 02")})
+		}
+		return ticks
+	}
+
+	ticks := []XTick{{Index: 0, Label: pts[0].StartTime.Format("Jan 02 15:04")}}
 	prevY, prevM, prevD := pts[0].StartTime.Date()
 	bucketsInDay := 0
 	for i := 1; i < len(pts); i++ {
 		y, m, d := pts[i].StartTime.Date()
 		if y != prevY || m != prevM || d != prevD {
-			ticks = append(ticks, XTick{Index: i, Label: pts[i].StartTime.Format("Jan 02\n15:04")})
+			ticks = append(ticks, XTick{Index: i, Label: pts[i].StartTime.Format("Jan 02 15:04")})
 			prevY, prevM, prevD = y, m, d
 			bucketsInDay = 0
 			continue
 		}
 		bucketsInDay++
 		if bucketsInDay%3 == 0 {
-			ticks = append(ticks, XTick{Index: i, Label: pts[i].StartTime.Format("15:04")})
+			ticks = append(ticks, XTick{Index: i, Label: pts[i].StartTime.Format("Jan 02 15:04")})
 		}
 	}
 	return ticks
+}
+
+func estimateXTickLabelWidth(ticks []XTick, fontPx float64) float64 {
+	maxChars := 0
+	for _, tick := range ticks {
+		if len(tick.Label) > maxChars {
+			maxChars = len(tick.Label)
+		}
+	}
+	return float64(maxChars) * 0.62 * fontPx
 }
 
 // RenderTimeSeries produces a time-series SVG chart with speed percentile
@@ -166,37 +184,12 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	maskedPts := ApplyCountMask(data.Points, style.CountMissingThreshold)
 	timeGaps := detectTimeGaps(data.Points)
 
-	// Decide whether x-axis labels need rotation based on time span.
-	// Also compute estLabelWidthPx for tick-density culling below.
-	rotateXLabels := false
-	var estLabelWidthPx float64
-	var span time.Duration
-	if len(data.Points) >= 2 {
-		span = data.Points[len(data.Points)-1].StartTime.Sub(data.Points[0].StartTime)
-		var labelChars float64
-		switch {
-		case span <= 12*time.Hour:
-			labelChars = 5 // "15:04"
-		case span <= 7*24*time.Hour:
-			labelChars = 12 // "Jan 02 15:04"
-		default:
-			labelChars = 6 // "Jan 02"
-		}
-		estLabelWidthPx = labelChars * 0.7 * style.AxisTickFontPx
-		tentativePlotW := (0.93 - 0.12) * wPx
-		previewTicks := XTicks(data.Points)
-		if len(previewTicks) > 1 {
-			tickSpacing := tentativePlotW / float64(len(previewTicks))
-			rotateXLabels = tickSpacing < estLabelWidthPx
-		}
-	}
+	previewTicks := XTicks(data.Points)
+	estLabelWidthPx := estimateXTickLabelWidth(previewTicks, style.AxisTickFontPx)
 
 	// Layout. Leave ~7% on each side for y-axis tick labels and a tall
 	// enough bottom strip for date/time tick labels plus the legend.
-	tickLabelBlock := 2.6 * style.AxisTickFontPx // two-line labels
-	if rotateXLabels {
-		tickLabelBlock = 6.3 * style.AxisTickFontPx // rotated label vertical extent
-	}
+	tickLabelBlock := 2.0 * style.AxisTickFontPx
 	legendBlock := style.LegendFontPx + 6
 	bottomMargin := tickLabelBlock + legendBlock + 4
 
@@ -429,18 +422,9 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 
 	// X-axis ticks — then cull any that would produce overlapping labels.
-	// XTicks emits one tick per cadence bucket, but sparse or non-UTC datasets
-	// can produce consecutive ticks only a few pixels apart (e.g. Jan 15 10:00
-	// and Jan 15 12:00 land in different 12h buckets when data starts mid-morning).
-	ticks := XTicks(data.Points)
+	ticks := previewTicks
 	if len(ticks) > 1 && estLabelWidthPx > 0 {
-		// For rotated labels (diagonal text going up-left), two adjacent labels
-		// at x1 and x2 overlap when (x2-x1) < label_len/√2. Use 0.8 as the
-		// √2 reciprocal with a small tolerance margin.
 		minGapPx := estLabelWidthPx
-		if rotateXLabels {
-			minGapPx = estLabelWidthPx * 0.8
-		}
 		kept := ticks[:1]
 		for i := 1; i < len(ticks); i++ {
 			if xOf(ticks[i].Index)-xOf(kept[len(kept)-1].Index) >= minGapPx {
@@ -453,22 +437,11 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	for _, t := range ticks {
 		x := xOf(t.Index)
 		c.Line(x, bottomPx, x, bottomPx+3, `stroke="black" stroke-width="0.5"`)
-		if rotateXLabels {
-			y := bottomPx + 6
-			c.Text(x, y, t.Label,
-				fmt.Sprintf(
-					`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`,
-					style.AxisTickFontPx, x, y))
-		} else {
-			parts := strings.Split(t.Label, "\n")
-			for j, part := range parts {
-				y := bottomPx + style.AxisTickFontPx*(float64(j)+1) + 3
-				c.Text(x, y, part,
-					fmt.Sprintf(
-						`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="middle"`,
-						style.AxisTickFontPx))
-			}
-		}
+		y := bottomPx + style.AxisTickFontPx + 3
+		c.Text(x, y, t.Label,
+			fmt.Sprintf(
+				`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="middle"`,
+				style.AxisTickFontPx))
 	}
 	c.EndGroup()
 

@@ -19,11 +19,13 @@ import (
 // mockDB implements the DB interface with fixture data.
 type mockDB struct {
 	callCount int
+	siteIDs   []int
 	rollupFn  func(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error)
 }
 
 func (m *mockDB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error) {
 	m.callCount++
+	m.siteIDs = append(m.siteIDs, siteID)
 	if m.rollupFn != nil {
 		return m.rollupFn(startUnix, endUnix, groupSeconds, minSpeed, dataSource, modelVersion, histBucketSize, histMax, siteID, boundaryThreshold)
 	}
@@ -211,6 +213,12 @@ func TestGenerate_EndToEnd(t *testing.T) {
 			t.Errorf("ZIP missing %s; has: %v", want, zipNames)
 		}
 	}
+	reportTeX := readZipEntry(t, result.ZIPPath, "report.tex")
+	for _, unwanted := range []string{"Speed limit:", "Posted: 25 mph"} {
+		if strings.Contains(reportTeX, unwanted) {
+			t.Fatalf("single report should not render speed-limit product text %q:\n%s", unwanted, reportTeX)
+		}
+	}
 
 	// Verify the mock DB was called at least twice (summary + time-series).
 	if m.callCount < 2 {
@@ -276,6 +284,53 @@ func TestGenerate_WithComparison(t *testing.T) {
 	// Should have 6 DB calls: primary (summary, time-series, daily) + comparison (summary, time-series, daily).
 	if m.callCount != 6 {
 		t.Errorf("expected 6 DB calls, got %d", m.callCount)
+	}
+}
+
+func TestGenerate_ReportStatsQueriesUsePythonCompatibleSiteIDs(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	outDir := t.TempDir()
+	m := &mockDB{}
+
+	cfg := Config{
+		SiteID:        42,
+		Location:      "Compare Street",
+		Surveyor:      "J. Engineer",
+		Contact:       "test@example.com",
+		StartDate:     "2025-06-01",
+		EndDate:       "2025-06-02",
+		Timezone:      "UTC",
+		Units:         "mph",
+		Group:         "1h",
+		Source:        "radar_data_transits",
+		CompareSource: "radar_objects",
+		MinSpeed:      5.0,
+		Histogram:     true,
+		CosineAngle:   21.0,
+
+		CompareStart: "2025-05-01",
+		CompareEnd:   "2025-05-02",
+
+		OutputDir: outDir,
+	}
+
+	if _, err := Generate(context.Background(), m, cfg); err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+	if len(m.siteIDs) != 6 {
+		t.Fatalf("expected 6 report stats queries, got %d site IDs: %v", len(m.siteIDs), m.siteIDs)
+	}
+	for i, got := range m.siteIDs[:3] {
+		if got != 0 {
+			t.Fatalf("primary transit query %d used siteID %d; want 0 to match Python report metrics", i, got)
+		}
+	}
+	for i, got := range m.siteIDs[3:] {
+		if got != cfg.SiteID {
+			t.Fatalf("comparison object query %d used siteID %d; want %d to match Python report metrics", i, got, cfg.SiteID)
+		}
 	}
 }
 

@@ -226,6 +226,9 @@ func TestRenderTeX_SingleReportUsesSinglePeriodModule(t *testing.T) {
 	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 to 2024-01-31}`) {
 		t.Error("single report footer should include the period range")
 	}
+	if strings.Contains(s, `Speed limit:`) {
+		t.Error("single report overview should not include speed limit until multi-limit reporting is supported")
+	}
 }
 
 func TestRenderTeX_MapSectionAppearsAfterCharts(t *testing.T) {
@@ -265,7 +268,7 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 
 	s := string(out)
 	for _, want := range []string{
-		`\renewcommand{\arraystretch}{1.04}`,
+		`\renewcommand{\arraystretch}{1.00}`,
 		`\vspace{10pt}`,
 	} {
 		if !strings.Contains(s, want) {

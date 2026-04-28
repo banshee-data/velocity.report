@@ -327,6 +327,57 @@ func TestXTicks_SignatureTakesOnlyPoints(t *testing.T) {
 	}
 }
 
+func TestXTicks_SubDayUsesDateTimeLabels(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	ticks := XTicks(makeTestPoints(6, start, time.Hour))
+	if len(ticks) < 2 {
+		t.Fatalf("expected multiple ticks, got %v", ticks)
+	}
+	for _, tick := range ticks {
+		if strings.Contains(tick.Label, "\n") {
+			t.Fatalf("sub-day labels should be one line, got %q", tick.Label)
+		}
+		if !strings.Contains(tick.Label, "Jun 15 ") || !strings.Contains(tick.Label, ":") {
+			t.Fatalf("sub-day label %q should use 'MMM DD HH:mm'", tick.Label)
+		}
+	}
+}
+
+func TestXTicks_MultiDayUsesDateLabels(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	ticks := XTicks(makeTestPoints(49, start, time.Hour))
+	want := []string{"Jun 15", "Jun 16", "Jun 17"}
+	if len(ticks) != len(want) {
+		t.Fatalf("ticks = %v, want labels %v", ticks, want)
+	}
+	for i, label := range want {
+		if ticks[i].Label != label {
+			t.Fatalf("tick %d label = %q, want %q (ticks: %v)", i, ticks[i].Label, label, ticks)
+		}
+		if strings.Contains(ticks[i].Label, ":") || strings.Contains(ticks[i].Label, "\n") {
+			t.Fatalf("multi-day label should be date-only, got %q", ticks[i].Label)
+		}
+	}
+}
+
+func TestRenderTimeSeries_XAxisLabelsAreHorizontal(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	svg, err := RenderTimeSeries(TimeSeriesData{
+		Points: makeTestPoints(12, start, time.Hour),
+		Units:  "mph",
+	}, DefaultTimeSeriesStyle(PaperA4))
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+	svgStr := string(svg)
+	if strings.Contains(svgStr, `rotate(-45`) {
+		t.Fatalf("time-series x-axis labels should not be rotated: %s", svgStr)
+	}
+	if !strings.Contains(svgStr, "Jun 15 08:00") {
+		t.Fatalf("expected one-line date/time x-axis label, got:\n%s", svgStr)
+	}
+}
+
 func TestRenderTimeSeries_Empty(t *testing.T) {
 	data := TimeSeriesData{
 		Points: nil,

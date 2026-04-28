@@ -85,14 +85,24 @@ type loadedData struct {
 	totalCount    int
 }
 
+// The legacy Python report used raw transit speeds, while object rollups were
+// site-corrected. Keep PDF metrics on that baseline.
+func reportStatsSiteID(source string, cfg Config) int {
+	if source == "radar_data_transits" {
+		return 0
+	}
+	return cfg.SiteID
+}
+
 func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error) {
 	cfg := plan.cfg
+	statsSiteID := reportStatsSiteID(cfg.Source, cfg)
 
 	summaryResult, err := database.RadarObjectRollupRange(
 		plan.startUnix, plan.endUnix, 0, plan.minSpeedMPS,
 		cfg.Source, cfg.ModelVersion,
 		plan.histBucketMPS, plan.histMaxMPS,
-		cfg.SiteID, cfg.BoundaryThreshold,
+		statsSiteID, cfg.BoundaryThreshold,
 	)
 	if err != nil {
 		return loadedData{}, fmt.Errorf("summary query: %w", err)
@@ -102,7 +112,7 @@ func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error
 		plan.startUnix, plan.endUnix, plan.groupSeconds, plan.minSpeedMPS,
 		cfg.Source, cfg.ModelVersion,
 		0, 0,
-		cfg.SiteID, cfg.BoundaryThreshold,
+		statsSiteID, cfg.BoundaryThreshold,
 	)
 	if err != nil {
 		return loadedData{}, fmt.Errorf("time-series query: %w", err)
@@ -114,7 +124,7 @@ func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error
 			plan.startUnix, plan.endUnix, 86400, plan.minSpeedMPS,
 			cfg.Source, cfg.ModelVersion,
 			0, 0,
-			cfg.SiteID, cfg.BoundaryThreshold,
+			statsSiteID, cfg.BoundaryThreshold,
 		)
 		if err != nil {
 			return loadedData{}, fmt.Errorf("primary daily query: %w", err)
@@ -336,8 +346,7 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 		ModelVersion:                 tex.EscapeTeX(cfg.ModelVersion),
 		FirmwareVersion:              tex.EscapeTeX(cfg.FirmwareVersion),
 
-		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
-		PaperOption:    paperTexOption(plan.paper),
+		PaperOption: paperTexOption(plan.paper),
 	}
 	if _, ok := charts.zipFiles["histogram.svg"]; ok {
 		td.HistogramChart = "histogram.pdf"

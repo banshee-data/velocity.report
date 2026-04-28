@@ -103,17 +103,19 @@
 \subsection*{Key Metrics}
 {
 \AtkinsonMono\small
-\renewcommand{\arraystretch}{1.04}
+\renewcommand{\arraystretch}{1.00}
 \setlength{\tabcolsep}{2pt}
 \rowcolors{2}{black!2}{white}
-\begin{tabular}{lrrr}
+\noindent
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedleft\arraybackslash}p{0.22\linewidth}>{\raggedleft\arraybackslash}p{0.22\linewidth}>{\raggedleft\arraybackslash}p{0.19\linewidth}@{}}
 {\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\
 \hline
 p50 Velocity & 25.00 mph & 26.00 mph & +6.1% \\
 p85 Velocity & 30.00 mph & 31.00 mph & +4.0% \\
 p98 Velocity & 35.00 mph & 36.00 mph & +2.3% \\
 Max Velocity & 42.00 mph & 45.00 mph & +6.9% \\
-Vehicle Count & 1,000 & 900 & \\
+Vehicle Count & 1,000\phantom{ mph} & 900\phantom{ mph} &  \\
+\hline
 \end{tabular}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
@@ -158,8 +160,9 @@ However, percentile metrics can be unstable in periods with low sample counts. T
 \subsection*{Hardware Configuration}
 
 {
+\small
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.04}
+\renewcommand{\arraystretch}{1.00}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Radar Sensor: & \texttt{OmniPreSense OPS243-A} \\
@@ -176,8 +179,9 @@ Elevation Field of View: & \texttt{24°} \\
 \subsection*{Survey Parameters}
 
 {
+\small
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.04}
+\renewcommand{\arraystretch}{1.00}
 \rowcolors{1}{black!2}{white}
 \begin{tabular}{>{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}}
 Units: & \texttt{mph} \\
@@ -202,21 +206,20 @@ End time (t2): & \texttt{2024-02-28T23:59:59Z} \\
 
 
 {
-\AtkinsonMono\scriptsize
-\renewcommand{\arraystretch}{1.04}
+\AtkinsonMono\small
+\renewcommand{\arraystretch}{1.00}
 \setlength{\tabcolsep}{2pt}
 \rowcolors{2}{black!2}{white}
-\tablehead{%
-  \hline
-  {\sffamily\bfseries\footnotesize Start Time} & {\sffamily\bfseries\footnotesize Count} & {\sffamily\bfseries\footnotesize \shortstack[r]{p50 \\ (mph)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{p85 \\ (mph)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{p98 \\ (mph)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{Max \\ (mph)}} \\
+\tablefirsthead{%
+{\sffamily\bfseries Start Time} & {\sffamily\bfseries Count} & {\sffamily\bfseries \shortstack[r]{p50 \\ (mph)}} & {\sffamily\bfseries \shortstack[r]{p85 \\ (mph)}} & {\sffamily\bfseries \shortstack[r]{p98 \\ (mph)}} & {\sffamily\bfseries \shortstack[r]{Max \\ (mph)}} \\
   \hline
 }
+\tablehead{}
 \tabletail{\hline}
-\begin{center}
-\begin{supertabular}{>{\raggedright\arraybackslash}p{0.29\linewidth}>{\raggedleft\arraybackslash}p{0.10\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}}
-1/15 09:00 & 42 & 24.50 & 29.80 & 34.20 & 40.10 \\
+\noindent
+\begin{supertabular}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}}
+\phantom{0}1/15 09:00 & 42 & 24.50 & 29.80 & 34.20 & 40.10 \\
 \end{supertabular}
-\end{center}
 \rowcolors{0}{}{}
 \par\vspace{2pt}
 \noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}

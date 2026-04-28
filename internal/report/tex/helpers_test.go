@@ -121,7 +121,7 @@ func TestBuildHistogramTableTeX(t *testing.T) {
 	}
 
 	// Check structural markers.
-	for _, want := range []string{`\hline`, `\begin{tabular`, `\end{tabular`, `\rowcolors`, `\sffamily`, "50+"} {
+	for _, want := range []string{`\hline`, `tabular`, `\rowcolors`, `\sffamily`, "50+"} {
 		if !strings.Contains(result, want) {
 			t.Errorf("result missing %q", want)
 		}
@@ -137,6 +137,168 @@ func TestBuildHistogramTableTeX(t *testing.T) {
 	}
 	if dataRows != 5 {
 		t.Errorf("expected 5 data rows, got %d", dataRows)
+	}
+}
+
+func TestStyledTablesDoNotDrawTopRuleAboveHeader(t *testing.T) {
+	stat := BuildStatTableTeX([]StatRow{{
+		StartTime: "6/2 08:00",
+		Count:     109,
+		P50:       "23.43",
+		P85:       "35.71",
+		P98:       "43.78",
+		MaxSpeed:  "46.47",
+	}}, "Detailed Data", "mph")
+	hist := BuildHistogramTableTeX(map[float64]int64{5: 10, 10: 20}, 5, 5, 50, "mph")
+	dual := BuildDualHistogramTableTeX(
+		map[float64]int64{5: 10, 10: 20},
+		map[float64]int64{5: 15, 10: 25},
+		5, 5, 50, "mph",
+	)
+
+	for name, table := range map[string]string{
+		"stat":      stat,
+		"histogram": hist,
+		"dual":      dual,
+	} {
+		header := "Bucket"
+		if name == "stat" {
+			header = "Start Time"
+		}
+		headerPos := strings.Index(table, header)
+		rulePos := strings.Index(table, `\hline`)
+		if headerPos == -1 || rulePos == -1 {
+			t.Fatalf("%s table missing header or rule:\n%s", name, table)
+		}
+		if rulePos < headerPos {
+			t.Fatalf("%s table has a top rule before the header:\n%s", name, table)
+		}
+	}
+}
+
+func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
+	result := BuildStatTableTeX([]StatRow{{
+		StartTime: "6/2 08:00",
+		Count:     109,
+		P50:       "23.43",
+		P85:       "35.71",
+		P98:       "43.78",
+		MaxSpeed:  "46.47",
+	}}, "Detailed Data", "mph")
+
+	for _, want := range []string{
+		`\AtkinsonMono\small`,
+		`@{}>{\raggedright\arraybackslash}p{0.24\linewidth}`,
+		`>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}`,
+		`\begin{supertabular}`,
+	} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("stat table missing %q:\n%s", want, result)
+		}
+	}
+	if strings.Contains(result, `\AtkinsonMono\scriptsize`) || strings.Contains(result, `\footnotesize`) {
+		t.Fatalf("stat table should use the shared table font size, got:\n%s", result)
+	}
+}
+
+func TestReportTablesUseSharedFullWidthFormatting(t *testing.T) {
+	tables := map[string]string{
+		"single key metrics": BuildSingleKeyMetricsTableTeX("25.00", "30.00", "35.00", "42.00", "mph"),
+		"comparison key metrics": BuildComparisonKeyMetricsTableTeX(
+			"25.00", "30.00", "35.00", "42.00",
+			"26.00", "31.00", "36.00", "45.00",
+			"+4.0\\%", "+3.3\\%", "+2.9\\%", "+7.1\\%",
+			"1,000", "900",
+			"mph",
+		),
+		"velocity distribution": BuildHistogramTableTeX(map[float64]int64{5: 10, 10: 20}, 5, 5, 50, "mph"),
+		"comparison velocity distribution": BuildDualHistogramTableTeX(
+			map[float64]int64{5: 10, 10: 20},
+			map[float64]int64{5: 15, 10: 25},
+			5, 5, 50, "mph",
+		),
+		"stat": BuildStatTableTeX([]StatRow{{
+			StartTime: "6/2 08:00",
+			Count:     109,
+			P50:       "23.43",
+			P85:       "35.71",
+			P98:       "43.78",
+			MaxSpeed:  "46.47",
+		}}, "Detailed Data", "mph"),
+	}
+
+	for name, table := range tables {
+		for _, want := range []string{
+			`\AtkinsonMono\small`,
+			`\renewcommand{\arraystretch}{1.00}`,
+			`\setlength{\tabcolsep}{2pt}`,
+			`\rowcolors{2}{black!2}{white}`,
+			`\noindent`,
+			`@{}>{\raggedright\arraybackslash}p{`,
+			`{\sffamily\bfseries `,
+		} {
+			if !strings.Contains(table, want) {
+				t.Fatalf("%s table missing shared format %q:\n%s", name, want, table)
+			}
+		}
+		for _, unwanted := range []string{
+			`\begin{center}`,
+			`\begin{tabular*}`,
+			`\extracolsep`,
+			`\AtkinsonMono\scriptsize`,
+			`\footnotesize`,
+		} {
+			if strings.Contains(table, unwanted) {
+				t.Fatalf("%s table should not use legacy format %q:\n%s", name, unwanted, table)
+			}
+		}
+	}
+}
+
+func TestComparisonKeyMetricsPadsCountCellsUnderSpeedUnits(t *testing.T) {
+	mph := BuildComparisonKeyMetricsTableTeX(
+		"25.14", "30.00", "35.00", "42.00",
+		"26.10", "31.00", "36.00", "45.00",
+		"+4.0\\%", "+3.3\\%", "+2.9\\%", "+7.1\\%",
+		"1,345", "900",
+		"mph",
+	)
+	for _, want := range []string{
+		`25.14 mph`,
+		`Vehicle Count & 1,345\phantom{ mph} & 900\phantom{ mph}`,
+	} {
+		if !strings.Contains(mph, want) {
+			t.Fatalf("mph comparison table missing %q:\n%s", want, mph)
+		}
+	}
+
+	kmph := BuildComparisonKeyMetricsTableTeX(
+		"25.14", "30.00", "35.00", "42.00",
+		"26.10", "31.00", "36.00", "45.00",
+		"+4.0\\%", "+3.3\\%", "+2.9\\%", "+7.1\\%",
+		"1,345", "900",
+		"kmph",
+	)
+	if !strings.Contains(kmph, `Vehicle Count & 1,345\phantom{ kmph} & 900\phantom{ kmph}`) {
+		t.Fatalf("kmph comparison table should pad count cells with the longer unit phantom:\n%s", kmph)
+	}
+}
+
+func TestBuildStatTableTeX_PadsDatesForSlashAndColonAlignment(t *testing.T) {
+	result := BuildStatTableTeX([]StatRow{
+		{StartTime: "1/1 0:00", Count: 1, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"},
+		{StartTime: "1/15 00:00", Count: 2, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"},
+		{StartTime: "12/31 09:00", Count: 3, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"},
+	}, "Detailed Data", "mph")
+
+	for _, want := range []string{
+		`\phantom{0}1/\phantom{0}1 \phantom{0}0:00`,
+		`\phantom{0}1/15 00:00`,
+		`12/31 09:00`,
+	} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("stat table missing padded time %q:\n%s", want, result)
+		}
 	}
 }
 

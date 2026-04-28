@@ -112,6 +112,7 @@ func RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error) {
 		label := BucketLabel(k, hi, data.MaxBucket)
 		x := leftM + float64(i)*barSlot + barSlot/2
 		y := bottomM + style.AxisTickFontPx + 6
+		c.Line(x, bottomM, x, bottomM+3, `stroke="black" stroke-width="0.5"`)
 		c.Text(x, y, label,
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`,
 				style.AxisTickFontPx, x, y))
@@ -194,7 +195,7 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 	n := len(allKeys)
 	slotW := plotW / float64(n)
 	groupW := slotW * 0.9
-	groupGap := slotW * 0.02
+	groupGap := 0.0
 	barW := (groupW - groupGap) / 2
 	if barW < 1 {
 		barW = 1
@@ -261,6 +262,7 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		label := BucketLabel(k, hi, maxBucket)
 		labelX := slotX + slotW/2
 		labelY := bottomM + style.AxisTickFontPx + 6
+		c.Line(labelX, bottomM, labelX, bottomM+3, `stroke="black" stroke-width="0.5"`)
 		c.Text(labelX, labelY, label,
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end" transform="rotate(-45,%.4f,%.4f)"`, style.AxisTickFontPx, labelX, labelY))
 	}
