@@ -3,6 +3,8 @@ const path = require("path");
 const cheerio = require("cheerio");
 const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
+const markdownItTexmath = require("markdown-it-texmath");
+const katex = require("katex");
 
 function isExternalHref(href) {
   return (
@@ -128,16 +130,29 @@ module.exports = function (eleventyConfig) {
     breaks: false,
     linkify: true,
     typographer: true,
-  }).use(markdownItAnchor, {
-    permalink: markdownItAnchor.permalink.ariaHidden({
-      placement: "after",
-      class: "header-anchor",
-      symbol: "#",
-      ariaHidden: false,
-    }),
-    level: [1, 2, 3, 4, 5, 6],
-    slugify: githubSlugify,
-  });
+  })
+    .use(markdownItAnchor, {
+      permalink: markdownItAnchor.permalink.ariaHidden({
+        placement: "after",
+        class: "header-anchor",
+        symbol: "#",
+        ariaHidden: false,
+      }),
+      level: [1, 2, 3, 4, 5, 6],
+      slugify: githubSlugify,
+    })
+    .use(markdownItTexmath, {
+      engine: katex,
+      delimiters: "dollars",
+      katexOptions: {
+        // throwOnError must be false: a malformed equation in a single doc
+        // page should produce a visible error in that one block, not break
+        // the whole offline-docs build.
+        throwOnError: false,
+        strict: "ignore",
+        trust: true,
+      },
+    });
 
   const defaultFence =
     markdownLibrary.renderer.rules.fence ||
@@ -177,6 +192,10 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({
     "node_modules/mermaid/dist/mermaid.esm.min.mjs":
       "assets/mermaid.esm.min.mjs",
+    // KaTeX CSS references `fonts/<font>.woff2` etc. with relative URLs, so
+    // place the fonts as a sibling of katex.min.css in `_site/assets/`.
+    "node_modules/katex/dist/katex.min.css": "assets/katex.min.css",
+    "node_modules/katex/dist/fonts": "assets/fonts",
   });
 
   // The mermaid ESM entry imports `./chunks/mermaid.esm.min/chunk-*.mjs` at
