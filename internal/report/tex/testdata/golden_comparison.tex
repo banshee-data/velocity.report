@@ -25,6 +25,19 @@
 \usepackage{afterpage}
 \usepackage{array}
 
+% Give the first page of page-breaking supertabular tables a little extra
+% vertical room in two-column mode. Later pages still need room for the
+% trailing caption that follows the environment.
+\makeatletter
+\newdimen\vrSuperTabularFirstPageAdjustment
+\vrSuperTabularFirstPageAdjustment=12\baselineskip
+\let\vr@orig@calfirstpageht\@calfirstpageht
+\def\@calfirstpageht{%
+  \vr@orig@calfirstpageht
+  \global\advance\ST@pageleft by \vrSuperTabularFirstPageAdjustment
+}
+\makeatother
+
 % Column separator
 \setlength{\columnsep}{14pt}
 \setlength{\emergencystretch}{2em}
@@ -109,7 +122,7 @@
 \rowcolors{2}{black!2}{white}
 \noindent
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedleft\arraybackslash}p{0.22\linewidth}>{\raggedleft\arraybackslash}p{0.22\linewidth}>{\raggedleft\arraybackslash}p{0.19\linewidth}@{}}
-{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\
+{\sffamily\bfseries Metric} & \multicolumn{1}{>{\raggedleft\arraybackslash}p{0.22\linewidth}}{\makebox[\linewidth][r]{\makebox[5.8em][l]{\sffamily\bfseries Period t1}}} & \multicolumn{1}{>{\raggedleft\arraybackslash}p{0.22\linewidth}}{\makebox[\linewidth][r]{\makebox[5.8em][l]{\sffamily\bfseries Period t2}}} & {\sffamily\bfseries Change} \\
 \hline
 Vehicle Count & 1,000\phantom{ mph} & 900\phantom{ mph} &  \\
 p50 Velocity & 25.00 mph & 26.00 mph & +6.1% \\
@@ -217,7 +230,6 @@ End time (t2): & \texttt{2024-02-28T23:59:59Z} \\
 }
 \tablehead{}
 \tabletail{\hline}
-\enlargethispage{6\baselineskip}
 \noindent
 \begin{supertabular}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}}
 \phantom{0}1/15 09:00 & 42 & 24.50 & 29.80 & 34.20 & 40.10 \\

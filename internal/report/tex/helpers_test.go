@@ -193,7 +193,6 @@ func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
 		`\AtkinsonMono\small`,
 		`@{}>{\raggedright\arraybackslash}p{0.24\linewidth}`,
 		`>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}`,
-		`\enlargethispage{6\baselineskip}`,
 		`\begin{supertabular}`,
 	} {
 		if !strings.Contains(result, want) {
@@ -246,8 +245,8 @@ func TestReportTablesUseSharedFullWidthFormatting(t *testing.T) {
 			}
 		}
 		if name == "comparison velocity distribution" || name == "stat" {
-			if !strings.Contains(table, `\enlargethispage{6\baselineskip}`) {
-				t.Fatalf("%s table should enlarge the current column for six extra rows:\n%s", name, table)
+			if strings.Contains(table, `\enlargethispage{`) {
+				t.Fatalf("%s table should no longer emit dead enlargethispage directives:\n%s", name, table)
 			}
 		}
 		for _, unwanted := range []string{
@@ -275,6 +274,7 @@ func TestComparisonKeyMetricsPadsCountCellsUnderSpeedUnits(t *testing.T) {
 	for _, want := range []string{
 		`25.14 mph`,
 		`Vehicle Count & 1,345\phantom{ mph} & 900\phantom{ mph}`,
+		`\multicolumn{1}{>{\raggedleft\arraybackslash}p{0.22\linewidth}}{\makebox[\linewidth][r]{\makebox[5.8em][l]{\sffamily\bfseries Period t1}}} & \multicolumn{1}{>{\raggedleft\arraybackslash}p{0.22\linewidth}}{\makebox[\linewidth][r]{\makebox[5.8em][l]{\sffamily\bfseries Period t2}}}`,
 	} {
 		if !strings.Contains(mph, want) {
 			t.Fatalf("mph comparison table missing %q:\n%s", want, mph)

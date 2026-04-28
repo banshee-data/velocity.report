@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/xml"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -469,5 +471,48 @@ func TestRenderTimeSeries_ReferenceLineAndHoverTooltips(t *testing.T) {
 	}
 	if !strings.Contains(svgStr, "count: 100") {
 		t.Fatal("expected hover tooltip metrics in SVG")
+	}
+}
+
+func TestRenderTimeSeries_LowSampleLegendRedistributesToFit(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := makeTestPoints(6, start, time.Hour)
+	pts[1].Count = 20
+
+	style := DefaultTimeSeriesStyle(PaperA4)
+	style.WidthMM = 90
+	style.HeightMM = 42
+
+	svg, err := RenderTimeSeries(TimeSeriesData{
+		Points:       pts,
+		Units:        "mph",
+		P98Reference: 32,
+		MaxReference: 38,
+	}, style)
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+
+	svgStr := string(svg)
+	labelPattern := regexp.MustCompile(`<text x="([0-9.]+)" y="([0-9.]+)"[^>]*>(p50|p85|p98|Max|p98 overall|max overall|low sample \((?:&lt;|<)50\))</text>`)
+	matches := labelPattern.FindAllStringSubmatch(svgStr, -1)
+	uniqueY := make(map[string]struct{})
+	for _, match := range matches {
+		uniqueY[match[2]] = struct{}{}
+	}
+	if len(uniqueY) < 2 {
+		t.Fatalf("expected redistributed legend rows for narrow chart with low-sample item, got %d unique legend rows in:\n%s", len(uniqueY), svgStr)
+	}
+	lowSampleMatch := regexp.MustCompile(`<text x="([0-9.]+)" y="([0-9.]+)"[^>]*>low sample \((?:&lt;|<)50\)</text>`).FindStringSubmatch(svgStr)
+	if len(lowSampleMatch) != 3 {
+		t.Fatalf("expected low-sample legend label in SVG, got:\n%s", svgStr)
+	}
+	textX, err := strconv.ParseFloat(lowSampleMatch[1], 64)
+	if err != nil {
+		t.Fatalf("parse low-sample legend x: %v", err)
+	}
+	rightPx := 0.93 * style.WidthMM * pxPerMM
+	if textX+estimateLegendLabelWidth("low sample (<50)", style.LegendFontPx) > rightPx-4 {
+		t.Fatalf("expected low-sample legend label to fit within legend box, textX=%.2f rightPx=%.2f", textX, rightPx)
 	}
 }

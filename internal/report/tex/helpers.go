@@ -107,7 +107,6 @@ func FormatCount(n int) string {
 }
 
 const tableStripeColour = "black!2"
-const pageBreakTableExtraRows = 6
 
 func tableCaptionTeX(caption string) string {
 	return `\noindent\makebox[\linewidth]{{\normalfont\bfseries\small ` + EscapeTeX(caption) + `}}`
@@ -135,9 +134,11 @@ const (
 )
 
 type tableColumn struct {
-	header string
-	width  string
-	align  tableAlignment
+	header      string
+	width       string
+	align       tableAlignment
+	headerAlign tableAlignment
+	headerBoxW  string
 }
 
 type reportTable struct {
@@ -158,7 +159,6 @@ func renderReportTable(t reportTable) string {
 			b.WriteString("}\n")
 			b.WriteString(`\tablehead{}` + "\n")
 			b.WriteString(`\tabletail{\hline}` + "\n")
-			b.WriteString(`\enlargethispage{` + strconv.Itoa(pageBreakTableExtraRows) + `\baselineskip}` + "\n")
 			b.WriteString(`\noindent` + "\n")
 			b.WriteString(`\begin{supertabular}{` + spec + `}` + "\n")
 			for _, row := range t.rows {
@@ -206,9 +206,29 @@ func writeTableHeader(b *strings.Builder, columns []tableColumn) {
 		if i > 0 {
 			b.WriteString(" & ")
 		}
-		b.WriteString(`{\sffamily\bfseries ` + col.header + `}`)
+		if col.headerAlign != "" {
+			b.WriteString(`\multicolumn{1}{` + headerColumnSpec(col) + `}{`)
+			if col.headerBoxW != "" {
+				b.WriteString(`\makebox[\linewidth][r]{\makebox[` + col.headerBoxW + `][l]{\sffamily\bfseries ` + col.header + `}}`)
+			} else {
+				b.WriteString(`\sffamily\bfseries ` + col.header)
+			}
+			b.WriteString(`}`)
+			continue
+		}
+		b.WriteString(`{\sffamily\bfseries `)
+		b.WriteString(col.header + `}`)
 	}
 	b.WriteString(` \\` + "\n")
+}
+
+func headerColumnSpec(col tableColumn) string {
+	switch col.headerAlign {
+	case tableAlignRight:
+		return `>{\raggedleft\arraybackslash}p{` + col.width + `}`
+	default:
+		return `>{\raggedright\arraybackslash}p{` + col.width + `}`
+	}
 }
 
 func writeTableRow(b *strings.Builder, row []string) {
@@ -256,8 +276,8 @@ func BuildComparisonKeyMetricsTableTeX(
 	table := renderReportTable(reportTable{
 		columns: []tableColumn{
 			{header: "Metric", width: `0.31\linewidth`, align: tableAlignLeft},
-			{header: "Period t1", width: `0.22\linewidth`, align: tableAlignRight},
-			{header: "Period t2", width: `0.22\linewidth`, align: tableAlignRight},
+			{header: "Period t1", width: `0.22\linewidth`, align: tableAlignRight, headerAlign: tableAlignRight, headerBoxW: `5.8em`},
+			{header: "Period t2", width: `0.22\linewidth`, align: tableAlignRight, headerAlign: tableAlignRight, headerBoxW: `5.8em`},
 			{header: "Change", width: `0.19\linewidth`, align: tableAlignRight},
 		},
 		rows: [][]string{

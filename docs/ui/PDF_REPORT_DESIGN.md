@@ -236,7 +236,10 @@ context.
 
 Legend order is fixed: `p50`, `p85`, `p98`, `Max`, then any auxiliary legend
 items (`p98 overall`, `max overall`, `low sample`). Count bars are visible in
-the plot but are not given a dedicated legend item.
+the plot but are not given a dedicated legend item. Items are packed into one
+or more rows using estimated label widths; when the low-sample item would push
+the row past the legend box width, the renderer redistributes items across
+additional rows instead of letting the final label run off the right edge.
 
 #### Low-sample masking and gap segmentation
 
@@ -408,9 +411,11 @@ Current shared rules:
 
 - alternating tint: `black!2`
 - page-spanning tables: `supertabular`
-- page-spanning tables enlarge the current page goal by
-  `\enlargethispage{6\baselineskip}` before the `supertabular` begins so the
-  current column can carry roughly six extra table rows before breaking
+- page-spanning tables patch `supertabular`'s internal page-height accounting
+  in the preamble, adding `12\baselineskip` to `\ST@pageleft` only when the
+  first page of a long table is initialised so that opening column can carry
+  roughly a dozen extra rows without forcing later continuation pages down
+  into the footer
 - short single-column tables such as `BuildHistogramTableTeX()` stay on regular
   `tabular` flow so they do not force awkward two-column breaks
 - first-page header only: `renderReportTable()` currently uses
@@ -441,7 +446,10 @@ Current width allocations:
 
 Headers are bold sans. Numeric columns are ragged-left in TeX terms
 (`\raggedleft`) so they line up visually against the right edge of their fixed
-column.
+column. The comparison key-metrics `Period t1` and `Period t2` header labels
+are rendered in a right-anchored fixed-width `5.8em` box inside their columns
+so the left edge of each label tracks the aligned value block below instead of
+the full column edge.
 
 ### 5.4 Dense-value formatting details
 
@@ -594,7 +602,7 @@ If XeLaTeX is replaced, the following responsibilities must move with it.
 | Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                               | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
 | Two-column flow + full-width breakouts | `\twocolumn[...]`, then either `figure*` + `\afterpage{\clearpage}` for a single time-series chart with no map or one shared `\onecolumn` section for the single chart plus map; comparison charts still switch to `\onecolumn` | Equivalent multi-column layout with break-out figures                                                                    |
 | Optional map final page                | `\clearpage` plus `\onecolumn`, except when the single-report chart path has already opened the shared final one-column section                                                                                                 | Equivalent page break and full-width final figure                                                                        |
-| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, `\tabletail{\hline}`, and `\enlargethispage{6\baselineskip}`                                                                                                         | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
+| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, `\tabletail{\hline}`, plus a preamble patch that adds `12\baselineskip` to `\ST@pageleft` only for the opening page/column of the table                              | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
 | Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                       | Per-column width control and ragged alignment                                                                            |
 | Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                | Same row-striping semantics                                                                                              |
 | SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                             | Native SVG support or the same SVG-to-image bridge                                                                       |

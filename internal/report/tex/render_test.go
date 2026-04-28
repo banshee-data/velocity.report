@@ -361,7 +361,8 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	for _, want := range []string{
 		`\renewcommand{\arraystretch}{1.00}`,
 		`\vspace{10pt}`,
-		`\enlargethispage{6\baselineskip}`,
+		`\vrSuperTabularFirstPageAdjustment=12\baselineskip`,
+		`\global\advance\ST@pageleft by \vrSuperTabularFirstPageAdjustment`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("expected spacing directive %q in rendered output", want)
