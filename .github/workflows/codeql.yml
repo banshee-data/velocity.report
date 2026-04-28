@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a # v3.35.2
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -47,9 +47,9 @@ jobs:
         run: ./scripts/ensure-web-stub.sh
       - name: Autobuild
         if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@c8b1dcd6d6c4f1f1bb3c7a5f8d4e6f6b0a5b7c2d # v3
+        uses: github/codeql-action/autobuild@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a # v3.35.2
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@97a4e71d54665c3e0f5f9efb58289f6a1ebf7af8 # v3
+        uses: github/codeql-action/analyze@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a # v3.35.2
         with:
           category: "/language:${{ matrix.language }}"
