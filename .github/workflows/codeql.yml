@@ -42,11 +42,14 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
+      - name: Prepare Go web embed stub
+        if: matrix.language == 'go' && matrix.build-mode == 'autobuild'
+        run: ./scripts/ensure-web-stub.sh
       - name: Autobuild
         if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@c8b1dcd6d6c4f1f1bb3c7a5f8d4e6f6b0a5b7c2d # v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@97a4e71d54665c3e0f5f9efb58289f6a1ebf7af8 # v3
         with:
           category: "/language:${{ matrix.language }}"
