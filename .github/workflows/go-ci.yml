@@ -71,6 +71,9 @@ jobs:
       - name: Build web stub for embed
         run: ./scripts/ensure-web-stub.sh
 
+      - name: Build offline docs stub for embed
+        run: ./scripts/ensure-docs-stub.sh
+
       - name: Build binaries
         run: |
           go build -tags=pcap -o velocity-report-local ./cmd/radar
@@ -96,6 +99,9 @@ jobs:
 
       - name: Build web stub for embed
         run: ./scripts/ensure-web-stub.sh
+
+      - name: Build offline docs stub for embed
+        run: ./scripts/ensure-docs-stub.sh
 
       - name: Run core tests
         run: |
@@ -146,6 +152,9 @@ jobs:
 
       - name: Build web stub for embed
         run: ./scripts/ensure-web-stub.sh
+
+      - name: Build offline docs stub for embed
+        run: ./scripts/ensure-docs-stub.sh
 
       - name: Run LiDAR tests
         run: |
@@ -205,6 +214,9 @@ jobs:
           cd web
           pnpm install
           pnpm run build
+
+      - name: Build offline docs stub for embed
+        run: ./scripts/ensure-docs-stub.sh
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
