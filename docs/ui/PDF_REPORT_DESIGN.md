@@ -70,7 +70,12 @@ The PDF layout is driven by a small set of runtime knobs in
 The report uses a centred title block above a two-column body:
 
 - `report.tex` opens with `\twocolumn[...]` and a `@twocolumnfalse` title block.
-- Full-width chart figures switch the document to `\onecolumn`.
+- The single-report full-width time-series chart is emitted as a `figure*`
+  float and then flushed with `\afterpage{\clearpage}`, so the preceding
+  report pages stay in two-column flow and the current data page can extend to
+  the bottom margin before the chart page begins.
+- The comparison chart section switches to `\onecolumn` for its sequential
+  full-width time-series figures.
 - The optional map page forces `\clearpage` and then `\onecolumn`.
 
 Section order is invariant:
@@ -184,11 +189,11 @@ font provenance, or the report's tone and density will drift.
 Charts are rendered at physical millimetre dimensions and converted at 96 DPI.
 There is no compositor-side relayout.
 
-| Chart                  | Width                  | Aspect | Current rationale                                                                                                     |
-| ---------------------- | ---------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
-| Time-series            | `paperTextWidthMM`     | 2.7:1  | Full-width chart section with room for dual Y axes, horizontal X labels, and bottom legend                            |
-| Histogram (single)     | `paperTextWidthMM / 2` | 1:0.55 | One text-column chart in the two-column overview                                                                      |
-| Histogram (comparison) | `paperTextWidthMM / 2` | 1:0.70 | Same column width, but taller to fit the internal chart title, rotated bucket labels, axis labels, and in-plot legend |
+| Chart                  | Width                  | Aspect | Current rationale                                                                                                                |
+| ---------------------- | ---------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Time-series            | `paperTextWidthMM`     | 2.7:1  | Full-width chart section with room for dual Y axes, horizontal X labels, and bottom legend                                       |
+| Histogram (single)     | `paperTextWidthMM / 2` | 1:0.55 | One text-column chart in the two-column overview                                                                                 |
+| Histogram (comparison) | `paperTextWidthMM / 2` | 1:0.70 | Same column width, but taller to fit the internal chart title, rotated bucket labels, axis labels, and a legend beneath the plot |
 
 The single histogram and grouped comparison histogram are both included at
 `\linewidth` inside the overview's two-column flow. The grouped comparison
@@ -349,14 +354,14 @@ There is no legend and no internal chart title in the single histogram.
 
 - paired bars that touch inside each bucket (`groupGap = 0`)
 - t1 in `ColourP50`, t2 in `ColourP98`
-- an internal SVG title: `Velocity Distribution Comparison`
 - numeric Y tick labels plus a rotated Y-axis title `Percentage (%)`
 - X-axis label `Velocity (<units>)`
-- an in-plot legend box near the top-left, with the full `t1: ...` and
-  `t2: ...` date-range labels supplied by the report builder
+- a full-width bordered legend box below the chart content, after the bucket
+  labels and X-axis label, with the full `t1: ...` and `t2: ...` date-range
+  labels supplied by the report builder
 
 This chart is still overview-column width, but the taller 0.70 aspect keeps the
-rotated labels and legend from colliding.
+rotated labels, X-axis title, and external legend from colliding.
 
 #### Empty state
 
@@ -397,6 +402,8 @@ Current shared rules:
 
 - alternating tint: `black!2`
 - page-spanning tables: `supertabular`
+- short single-column tables such as `BuildHistogramTableTeX()` stay on regular
+  `tabular` flow so they do not force awkward two-column breaks
 - first-page header only: `renderReportTable()` currently uses
   `\tablefirsthead{...}` with an empty `\tablehead{}`; later pages do **not**
   repeat the header row
@@ -571,18 +578,18 @@ chart constants.
 
 If XeLaTeX is replaced, the following responsibilities must move with it.
 
-| Responsibility                         | Current xelatex implementation                                                      | What an alternative needs                                                                                                |
-| -------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                   | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
-| Two-column flow + full-width breakouts | `\twocolumn[...]`, then `\onecolumn` for charts                                     | Equivalent multi-column layout with break-out figures                                                                    |
-| Optional map final page                | `\clearpage` plus `\onecolumn`                                                      | Equivalent page break and full-width final figure                                                                        |
-| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, and `\tabletail{\hline}` | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
-| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                           | Per-column width control and ragged alignment                                                                            |
-| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                    | Same row-striping semantics                                                                                              |
-| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                 | Native SVG support or the same SVG-to-image bridge                                                                       |
-| Running header/footer                  | `fancyhdr`                                                                          | Equivalent template-driven running heads and feet                                                                        |
-| Escaping                               | `EscapeTeX()`                                                                       | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                                     |
-| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                         | Native link support for site URL, contact email, and science links                                                       |
+| Responsibility                         | Current xelatex implementation                                                                                                       | What an alternative needs                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                    | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
+| Two-column flow + full-width breakouts | `\twocolumn[...]`, then `figure*` + `\afterpage{\clearpage}` for the single time-series chart and `\onecolumn` for comparison charts | Equivalent multi-column layout with break-out figures                                                                    |
+| Optional map final page                | `\clearpage` plus `\onecolumn`                                                                                                       | Equivalent page break and full-width final figure                                                                        |
+| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, and `\tabletail{\hline}`                                                  | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
+| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                            | Per-column width control and ragged alignment                                                                            |
+| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                     | Same row-striping semantics                                                                                              |
+| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                  | Native SVG support or the same SVG-to-image bridge                                                                       |
+| Running header/footer                  | `fancyhdr`                                                                                                                           | Equivalent template-driven running heads and feet                                                                        |
+| Escaping                               | `EscapeTeX()`                                                                                                                        | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                                     |
+| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                          | Native link support for site URL, contact email, and science links                                                       |
 
 The chart stage remains the easiest part to port because the SVG is already the
 final chart specification.
