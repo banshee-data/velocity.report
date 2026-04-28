@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const cheerio = require("cheerio");
 const markdownIt = require("markdown-it");
@@ -176,6 +177,28 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({
     "node_modules/mermaid/dist/mermaid.esm.min.mjs":
       "assets/mermaid.esm.min.mjs",
+  });
+
+  // The mermaid ESM entry imports `./chunks/mermaid.esm.min/chunk-*.mjs` at
+  // runtime, so the entry alone is not loadable in the browser. Copy each
+  // sibling `.mjs` chunk into `_site/assets/chunks/mermaid.esm.min/` and skip
+  // the matching `.map` files (~11 MB of sourcemaps that would inflate the
+  // embedded binary for no runtime benefit).
+  eleventyConfig.on("eleventy.after", () => {
+    const chunkSrc = path.resolve(
+      __dirname,
+      "node_modules/mermaid/dist/chunks/mermaid.esm.min",
+    );
+    const chunkDest = path.resolve(
+      __dirname,
+      "_site/assets/chunks/mermaid.esm.min",
+    );
+    if (!fs.existsSync(chunkSrc)) return;
+    fs.mkdirSync(chunkDest, { recursive: true });
+    for (const entry of fs.readdirSync(chunkSrc)) {
+      if (!entry.endsWith(".mjs")) continue;
+      fs.copyFileSync(path.join(chunkSrc, entry), path.join(chunkDest, entry));
+    }
   });
   eleventyConfig.addPassthroughCopy(
     "src/**/*.{png,jpg,jpeg,gif,svg,webp,pdf,json,yml,yaml,bib,txt,py,toml}",
