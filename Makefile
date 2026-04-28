@@ -886,6 +886,8 @@ test: test-go test-web test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests..."
 	@go test ./...
 
@@ -897,6 +899,8 @@ tex-compare:
 
 # Run Go unit tests with coverage
 test-go-cov:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests with coverage..."
 	@go test ./... -coverprofile=coverage.out -covermode=atomic
 	@go tool cover -html=coverage.out -o coverage.html
@@ -1244,7 +1248,10 @@ lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Merm
 check-docs-offline-links:
 	@node scripts/check-docs-offline-links.js
 
-lint-docs-offline: build-docs-offline
+# Non-mutating: validates the rendered offline docs site if one exists.
+# To rebuild before linting, run `make build-docs-offline` (which itself
+# invokes check-docs-offline-links).
+lint-docs-offline: check-docs-offline-links
 
 check-md-links: ## Check dead relative links and stale backtick paths in Markdown (no other lint)
 	@printf '%s\n' 'to ignore a line add: <!-- link-ignore -->'

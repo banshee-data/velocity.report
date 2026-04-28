@@ -5,10 +5,10 @@ const path = require("path");
 const { createRequire } = require("module");
 
 const repoRoot = path.resolve(__dirname, "..");
-const docsRequire = createRequire(path.join(repoRoot, "docs_html/package.json"));
-const cheerio = docsRequire("cheerio");
-const siteRoot = path.resolve(process.argv[2] || path.join(repoRoot, "docs_html/_site"));
-const strictAnchors = process.argv.includes("--strict-anchors");
+const args = process.argv.slice(2);
+const strictAnchors = args.includes("--strict-anchors");
+const positional = args.find((arg) => !arg.startsWith("-"));
+const siteRoot = path.resolve(positional || path.join(repoRoot, "docs_html/_site"));
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -85,6 +85,26 @@ if (!fs.existsSync(siteRoot)) {
 const errors = [];
 const warnings = [];
 const htmlFiles = walk(siteRoot);
+
+// If the site only contains the embed stub (i.e. offline docs were never
+// built), skip the link check rather than failing. `make build-docs-offline`
+// produces a real site; this keeps `make lint` non-mutating on clean checkouts.
+const stubSource = path.resolve(repoRoot, "docs_html/stub-index.html");
+const stubTarget = path.join(siteRoot, "index.html");
+if (
+  htmlFiles.length === 1 &&
+  htmlFiles[0] === stubTarget &&
+  fs.existsSync(stubSource) &&
+  fs.readFileSync(stubTarget, "utf8") === fs.readFileSync(stubSource, "utf8")
+) {
+  console.log("Offline docs site contains only the embed stub; skipping link check.");
+  process.exit(0);
+}
+
+// Real site: load cheerio from the docs_html dependency tree. Deferred until
+// here so the stub-skip path doesn't require `make install-docs-offline`.
+const docsRequire = createRequire(path.join(repoRoot, "docs_html/package.json"));
+const cheerio = docsRequire("cheerio");
 
 for (const file of htmlFiles) {
   const html = fs.readFileSync(file, "utf8");
