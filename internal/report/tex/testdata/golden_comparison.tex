@@ -22,6 +22,7 @@
 \usepackage{caption}
 \usepackage{multicol}
 \usepackage{float}
+\usepackage{afterpage}
 \usepackage{array}
 
 % Column separator
@@ -110,11 +111,11 @@
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedleft\arraybackslash}p{0.22\linewidth}>{\raggedleft\arraybackslash}p{0.22\linewidth}>{\raggedleft\arraybackslash}p{0.19\linewidth}@{}}
 {\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\
 \hline
+Vehicle Count & 1,000\phantom{ mph} & 900\phantom{ mph} &  \\
 p50 Velocity & 25.00 mph & 26.00 mph & +6.1% \\
 p85 Velocity & 30.00 mph & 31.00 mph & +4.0% \\
 p98 Velocity & 35.00 mph & 36.00 mph & +2.3% \\
 Max Velocity & 42.00 mph & 45.00 mph & +6.9% \\
-Vehicle Count & 1,000\phantom{ mph} & 900\phantom{ mph} &  \\
 \hline
 \end{tabular}
 \rowcolors{0}{}{}
