@@ -140,8 +140,8 @@ func TestChartEndpoints_TimeSeries(t *testing.T) {
 	if !strings.Contains(body, "<svg") {
 		t.Errorf("response body does not contain <svg root element")
 	}
-	if !strings.Contains(body, `width="190.000mm"`) {
-		t.Errorf("expected A4 time-series width, got %s", body)
+	if !strings.Contains(body, `width="195.900mm"`) {
+		t.Errorf("expected default letter time-series width, got %s", body)
 	}
 	if !strings.Contains(body, `class="p98-reference"`) {
 		t.Errorf("expected aggregate p98 reference line, got %s", body)

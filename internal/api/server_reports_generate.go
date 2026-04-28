@@ -35,7 +35,7 @@ type ReportRequest struct {
 	HistBucketSize    float64 `json:"hist_bucket_size"`   // histogram bucket size
 	HistMax           float64 `json:"hist_max"`           // histogram max value
 
-	// Paper size for PDF output: "a4" (default) or "letter"
+	// Paper size for PDF output: "letter" (default) or "a4"
 	PaperSize string `json:"paper_size"`
 
 	// ExpandedChart preserves linear timestamp spacing in time-series charts.

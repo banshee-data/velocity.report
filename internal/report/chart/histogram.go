@@ -184,9 +184,9 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 
 	leftM := 0.15 * wPx
 	rightM := 0.95 * wPx
-	topM := 0.02 * hPx // minimal top padding
-	// Reserve space below plot for rotated tick labels, x-axis label + legend box.
-	bottomM := 0.62 * hPx
+	topM := 0.12 * hPx
+	// Reserve space below plot for rotated tick labels and x-axis label.
+	bottomM := 0.72 * hPx
 
 	plotW := rightM - leftM
 	plotH := bottomM - topM
@@ -231,6 +231,10 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		maxBucket = compare.MaxBucket
 	}
 
+	c.Text((leftM+rightM)/2, style.AxisLabelFontPx+2,
+		"Velocity Distribution Comparison",
+		fmt.Sprintf(`font-size="%.1f" text-anchor="middle" font-weight="bold"`, style.AxisLabelFontPx*1.15))
+
 	for i, k := range allKeys {
 		slotX := leftM + float64(i)*slotW
 		groupX := slotX + (slotW-groupW)/2
@@ -273,6 +277,11 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 			fmt.Sprintf("%.0f%%", v),
 			fmt.Sprintf(`font-size="%.1f" text-anchor="end"`, style.AxisTickFontPx))
 	}
+	labelX := 0.055 * wPx
+	labelY := (topM + bottomM) / 2
+	c.Text(labelX, labelY, "Percentage (%)",
+		fmt.Sprintf(`font-size="%.1f" text-anchor="middle" transform="rotate(-90 %.2f %.2f)"`,
+			style.AxisLabelFontPx, labelX, labelY))
 
 	// Rotated tick labels anchor at bottomM + AxisTickFontPx + 6 and extend
 	// diagonally up-left; their lowest point is the anchor itself. The glyph
@@ -287,20 +296,20 @@ func RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel
 		fmt.Sprintf("Speed (%s)", primary.Units),
 		fmt.Sprintf(`font-size="%.1f" text-anchor="middle"`, style.AxisLabelFontPx))
 
-	// Legend — bordered box with t1 swatch on the left half, t2 on the right.
-	legBoxTop := axisLabelY + 8
-	legBoxH := style.LegendFontPx + 8
-	legMid := leftM + plotW/2
-	c.Rect(leftM, legBoxTop, plotW, legBoxH, `fill="white" stroke="#ccc" stroke-width="0.6"`)
-	swatchY := legBoxTop + (legBoxH-8)/2
-	textY := legBoxTop + legBoxH/2 + style.LegendFontPx*0.35
-	// Left swatch + label (t1).
-	c.Rect(leftM+6, swatchY, 9, 8, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP50))
-	c.Text(leftM+18, textY, primaryLabel,
+	// Legend — bordered box inside the plot near the top-left.
+	legBoxX := leftM + 6
+	legBoxY := topM + 6
+	legBoxW := plotW * 0.52
+	legBoxH := style.LegendFontPx*2 + 16
+	c.Rect(legBoxX, legBoxY, legBoxW, legBoxH, `fill="white" fill-opacity="0.94" stroke="#ccc" stroke-width="0.6"`)
+	swatchX := legBoxX + 8
+	row1Y := legBoxY + style.LegendFontPx + 5
+	row2Y := row1Y + style.LegendFontPx + 4
+	c.Rect(swatchX, row1Y-style.LegendFontPx*0.65, 9, 8, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP50))
+	c.Text(swatchX+13, row1Y, primaryLabel,
 		fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
-	// Right swatch + label (t2).
-	c.Rect(legMid+6, swatchY, 9, 8, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP98))
-	c.Text(legMid+18, textY, compareLabel,
+	c.Rect(swatchX, row2Y-style.LegendFontPx*0.65, 9, 8, fmt.Sprintf(`fill="%s" fill-opacity="0.75"`, ColourP98))
+	c.Text(swatchX+13, row2Y, compareLabel,
 		fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
 
 	c.EndGroup()

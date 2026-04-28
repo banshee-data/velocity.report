@@ -26,10 +26,12 @@ type TemplateData struct {
 	Description string
 
 	// Survey period
-	StartDate string // formatted display date
-	EndDate   string
-	Timezone  string
-	Units     string
+	StartDate        string // formatted display date
+	EndDate          string
+	StartTimeDisplay string
+	EndTimeDisplay   string
+	Timezone         string
+	Units            string
 
 	// Statistics (formatted strings)
 	P50        string
@@ -55,13 +57,15 @@ type TemplateData struct {
 	StatRows []StatRow
 
 	// Comparison metadata (empty if no comparison)
-	CompareStartDate string
-	CompareEndDate   string
-	CompareP50       string
-	CompareP85       string
-	CompareP98       string
-	CompareMax       string
-	CompareCount     int
+	CompareStartDate        string
+	CompareEndDate          string
+	CompareStartTimeDisplay string
+	CompareEndTimeDisplay   string
+	CompareP50              string
+	CompareP85              string
+	CompareP98              string
+	CompareMax              string
+	CompareCount            int
 
 	// Comparison deltas: absolute (primary - compare) with sign.
 	DeltaP50 string

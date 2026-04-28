@@ -1,4 +1,5 @@
-<<define "display_period_range">><<.StartDate>> \textemdash{} <<.EndDate>><<if .CompareStartDate>> vs <<.CompareStartDate>> \textemdash{} <<.CompareEndDate>><<end>><<end>>
+<<define "display_period_range">><<.StartDate>> to <<.EndDate>><<if .CompareStartDate>> vs <<.CompareStartDate>> to <<.CompareEndDate>><<end>><<end>>
+<<define "footer_period_range">><<.StartDate>> to <<.EndDate>><<if .CompareStartDate>> vs <<.CompareStartDate>> to <<.CompareEndDate>><<end>><<end>>
 
 <<define "period_report">>
 <<if .CompareStartDate>>

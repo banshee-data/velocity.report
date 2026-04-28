@@ -65,7 +65,7 @@ func FormatTime(t time.Time, loc *time.Location) string {
 	if loc != nil {
 		t = t.In(loc)
 	}
-	return t.Format("2006-01-02 15:04")
+	return t.Format("1/2 15:04")
 }
 
 // FormatDeltaPercent formats the percentage change from primary to compare.
@@ -106,12 +106,18 @@ func FormatCount(n int) string {
 	return b.String()
 }
 
+const tableStripeColour = "black!2"
+
+func tableCaptionTeX(caption string) string {
+	return `\noindent\makebox[\linewidth]{\textbf{\small ` + EscapeTeX(caption) + `}}`
+}
+
 func withStyledTable(b *strings.Builder, fontSize string, body func(), afterReset func()) {
 	b.WriteString("{\n")
-	b.WriteString(`\ttfamily\` + fontSize + "\n")
+	b.WriteString(`\AtkinsonMono\` + fontSize + "\n")
 	b.WriteString(`\renewcommand{\arraystretch}{1.12}` + "\n")
-	b.WriteString(`\setlength{\tabcolsep}{3pt}` + "\n")
-	b.WriteString(`\rowcolors{2}{black!5}{white}` + "\n")
+	b.WriteString(`\setlength{\tabcolsep}{2pt}` + "\n")
+	b.WriteString(`\rowcolors{2}{` + tableStripeColour + `}{white}` + "\n")
 	body()
 	b.WriteString(`\rowcolors{0}{}{}` + "\n")
 	if afterReset != nil {
@@ -127,20 +133,20 @@ func BuildSingleKeyMetricsTableTeX(p50, p85, p98, maxSpeed, units string) string
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
 		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\begin{tabular}{lr}` + "\n")
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Value} \\` + "\n")
 		b.WriteString(`\hline` + "\n")
-		fmt.Fprintf(&b, "p50 (median) & %s %s \\\\\n", p50, units)
-		fmt.Fprintf(&b, "p85 & %s %s \\\\\n", p85, units)
-		fmt.Fprintf(&b, "p98 & %s %s \\\\\n", p98, units)
-		fmt.Fprintf(&b, "Maximum & %s %s \\\\\n", maxSpeed, units)
+		fmt.Fprintf(&b, "p50 Velocity & %s %s \\\\\n", p50, units)
+		fmt.Fprintf(&b, "p85 Velocity & %s %s \\\\\n", p85, units)
+		fmt.Fprintf(&b, "p98 Velocity & %s %s \\\\\n", p98, units)
+		fmt.Fprintf(&b, "Max Velocity & %s %s \\\\\n", maxSpeed, units)
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`\end{tabular}` + "\n")
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 1: Key Metrics}}` + "\n")
+		b.WriteString(tableCaptionTeX("Table 1: Key Metrics") + "\n")
 	})
 	return b.String()
 }
@@ -159,45 +165,44 @@ func BuildComparisonKeyMetricsTableTeX(
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
 		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\begin{tabular}{lrrr}` + "\n")
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`{\sffamily\bfseries Metric} & {\sffamily\bfseries Period t1} & {\sffamily\bfseries Period t2} & {\sffamily\bfseries Change} \\` + "\n")
 		b.WriteString(`\hline` + "\n")
-		fmt.Fprintf(&b, "p50 & %s %s & %s %s & %s \\\\\n", p50, units, compareP50, units, deltaP50Pct)
-		fmt.Fprintf(&b, "p85 & %s %s & %s %s & %s \\\\\n", p85, units, compareP85, units, deltaP85Pct)
-		fmt.Fprintf(&b, "p98 & %s %s & %s %s & %s \\\\\n", p98, units, compareP98, units, deltaP98Pct)
-		fmt.Fprintf(&b, "Max & %s %s & %s %s & %s \\\\\n", maxSpeed, units, compareMax, units, deltaMaxPct)
-		fmt.Fprintf(&b, "Count & %s & %s & \\\\\n", totalCountFmt, compareTotalCountFmt)
+		fmt.Fprintf(&b, "p50 Velocity & %s %s & %s %s & %s \\\\\n", p50, units, compareP50, units, deltaP50Pct)
+		fmt.Fprintf(&b, "p85 Velocity & %s %s & %s %s & %s \\\\\n", p85, units, compareP85, units, deltaP85Pct)
+		fmt.Fprintf(&b, "p98 Velocity & %s %s & %s %s & %s \\\\\n", p98, units, compareP98, units, deltaP98Pct)
+		fmt.Fprintf(&b, "Max Velocity & %s %s & %s %s & %s \\\\\n", maxSpeed, units, compareMax, units, deltaMaxPct)
+		fmt.Fprintf(&b, "Vehicle Count & %s & %s & \\\\\n", totalCountFmt, compareTotalCountFmt)
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`\end{tabular}` + "\n")
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 1: Key Metrics}}` + "\n")
+		b.WriteString(tableCaptionTeX("Table 1: Key Metrics") + "\n")
 	})
 	b.WriteString(`\par` + "\n")
 	return b.String()
 }
 
 // BuildStatTableTeX generates a styled, page-spanning LaTeX supertabular for
-// stat row data (Time | Count | P50 | P85 | P98 | Max). The table uses
-// alternating row colours and grey column rules, matching the single-report
-// style. caption is rendered as the table label below the table. Returns empty
-// string if rows is nil or empty.
-func BuildStatTableTeX(rows []StatRow, caption string) string {
+// stat row data (Time | Count | p50 | p85 | p98 | Max). caption is rendered as
+// the table label below the table. Returns empty string if rows is nil or empty.
+func BuildStatTableTeX(rows []StatRow, caption, units string) string {
 	if len(rows) == 0 {
 		return ""
 	}
 	var b strings.Builder
+	escapedUnits := EscapeTeX(units)
 	withStyledTable(&b, "scriptsize", func() {
 		b.WriteString(`\tablehead{%` + "\n")
 		b.WriteString("  \\hline\n")
-		b.WriteString("  {\\sffamily\\bfseries\\footnotesize Time} & {\\sffamily\\bfseries\\footnotesize Count} & {\\sffamily\\bfseries\\footnotesize P50} & {\\sffamily\\bfseries\\footnotesize P85} & {\\sffamily\\bfseries\\footnotesize P98} & {\\sffamily\\bfseries\\footnotesize Max} \\\\\n")
+		b.WriteString(`  {\sffamily\bfseries\footnotesize Start Time} & {\sffamily\bfseries\footnotesize Count} & {\sffamily\bfseries\footnotesize \shortstack[r]{p50 \\ (` + escapedUnits + `)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{p85 \\ (` + escapedUnits + `)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{p98 \\ (` + escapedUnits + `)}} & {\sffamily\bfseries\footnotesize \shortstack[r]{Max \\ (` + escapedUnits + `)}} \\` + "\n")
 		b.WriteString("  \\hline\n")
 		b.WriteString("}\n")
 		b.WriteString(`\tabletail{\hline}` + "\n")
 		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{supertabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\begin{supertabular}{>{\raggedright\arraybackslash}p{0.29\linewidth}>{\raggedleft\arraybackslash}p{0.10\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}>{\raggedleft\arraybackslash}p{0.12\linewidth}}` + "\n")
 		for _, row := range rows {
 			fmt.Fprintf(&b, "%s & %d & %s & %s & %s & %s \\\\\n",
 				EscapeTeX(row.StartTime), row.Count, row.P50, row.P85, row.P98, row.MaxSpeed)
@@ -206,7 +211,7 @@ func BuildStatTableTeX(rows []StatRow, caption string) string {
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small ` + EscapeTeX(caption) + `}}` + "\n")
+		b.WriteString(tableCaptionTeX(caption) + "\n")
 	})
 	return b.String()
 }
@@ -266,7 +271,7 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 				loStr = `\phantom{0}` + loStr
 			}
 			rows = append(rows, dualRow{
-				label: loStr + `{-}` + fmt.Sprintf("%.0f", k+bucketSz),
+				label: loStr + `-` + fmt.Sprintf("%.0f", k+bucketSz),
 				p:     primary[k],
 				c:     compare[k],
 			})
@@ -301,7 +306,7 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
 		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\begin{tabular}{lrrrrr}` + "\n")
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + escapedUnits + `)}}`)
 		b.WriteString(` & {\sffamily\bfseries\footnotesize \shortstack[r]{t1 \\ Count}}`)
@@ -329,7 +334,7 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 2: Velocity Distribution (` + escapedUnits + `)}}` + "\n")
+		b.WriteString(tableCaptionTeX("Table 2: Velocity Distribution ("+units+")") + "\n")
 	})
 	return b.String()
 }
@@ -363,7 +368,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	// colours, grey column rules, monospace scriptsize with sans-serif headers).
 	withStyledTable(&b, "small", func() {
 		b.WriteString(`\begin{center}` + "\n")
-		b.WriteString(`\begin{tabular}{l!{\color{black!20}\vrule}r!{\color{black!20}\vrule}r}` + "\n")
+		b.WriteString(`\begin{tabular}{lrr}` + "\n")
 		b.WriteString(`\hline` + "\n")
 		b.WriteString(
 			`{\sffamily\bfseries\footnotesize \shortstack[l]{Bucket \\ (` + EscapeTeX(units) + `)}} & ` +
@@ -394,7 +399,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 					loStr = `\phantom{0}` + loStr
 				}
 				rows = append(rows, displayRow{
-					label: loStr + `\textemdash{}` + fmt.Sprintf("%.0f", k+bucketSz),
+					label: loStr + `-` + fmt.Sprintf("%.0f", k+bucketSz),
 					count: count,
 				})
 			}
@@ -423,7 +428,7 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 		b.WriteString(`\end{center}` + "\n")
 	}, func() {
 		b.WriteString(`\par\vspace{2pt}` + "\n")
-		b.WriteString(`\noindent\makebox[\linewidth]{{\ttfamily\small Table 2: Speed Distribution (` + EscapeTeX(units) + `)}}` + "\n")
+		b.WriteString(tableCaptionTeX("Table 2: Velocity Distribution ("+units+")") + "\n")
 	})
 	return b.String()
 }

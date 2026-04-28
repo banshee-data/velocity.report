@@ -25,22 +25,24 @@ func normalizeForGolden(b []byte) []byte {
 
 func minimalTemplateData() TemplateData {
 	return TemplateData{
-		Location:    "Test Location",
-		StartDate:   "2024-01-01",
-		EndDate:     "2024-01-31",
-		Timezone:    "UTC",
-		Units:       "mph",
-		P50:         "25.00",
-		P85:         "30.00",
-		P98:         "35.00",
-		MaxSpeed:    "42.00",
-		TotalCount:  1000,
-		HoursCount:  720,
-		SpeedLimit:  25,
-		FontDir:     "/fonts",
-		Group:       "hourly",
-		Source:      "radar",
-		PaperOption: "a4paper",
+		Location:         "Test Location",
+		StartDate:        "2024-01-01",
+		EndDate:          "2024-01-31",
+		StartTimeDisplay: "2024-01-01T00:00:00Z",
+		EndTimeDisplay:   "2024-01-31T23:59:59Z",
+		Timezone:         "UTC",
+		Units:            "mph",
+		P50:              "25.00",
+		P85:              "30.00",
+		P98:              "35.00",
+		MaxSpeed:         "42.00",
+		TotalCount:       1000,
+		HoursCount:       720,
+		SpeedLimit:       25,
+		FontDir:          "/fonts",
+		Group:            "hourly",
+		Source:           "radar",
+		PaperOption:      "letterpaper",
 	}
 }
 
@@ -170,6 +172,8 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	data := minimalTemplateData()
 	data.CompareStartDate = "2024-02-01"
 	data.CompareEndDate = "2024-02-28"
+	data.CompareStartTimeDisplay = "2024-02-01T00:00:00Z"
+	data.CompareEndTimeDisplay = "2024-02-28T23:59:59Z"
 	data.CompareP50 = "26.00"
 	data.CompareP85 = "31.00"
 	data.CompareP98 = "36.00"
@@ -183,19 +187,18 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 
 	s := string(out)
 	// Comparison overview: period (t2) itemize entry only present in overview_comparison.
-	if !strings.Contains(s, `\item \textbf{Period (t2):} 2024-02-01 \textemdash{} 2024-02-28`) {
+	if !strings.Contains(s, `\item \textbf{Comparison period (t2):} 2024-02-01 to 2024-02-28`) {
 		t.Error("comparison section should be present when CompareStartDate is set")
 	}
-	if !strings.Contains(s, `\item \textbf{Period (t1):} 2024-01-01 \textemdash{} 2024-01-31`) {
+	if !strings.Contains(s, `\item \textbf{Primary period (t1):} 2024-01-01 to 2024-01-31`) {
 		t.Error("comparison report should render the comparison period overview module")
 	}
 	// Comparison survey parameters: Start time (t2) row (bfseries applied via column spec).
-	if !strings.Contains(s, `Start time (t2): & \texttt{2024-02-01}`) {
+	if !strings.Contains(s, `Start time (t2): & \texttt{2024-02-01T00:00:00Z}`) {
 		t.Error("comparison report should render the comparison survey-parameters module")
 	}
-	// Footer no longer shows dates; verify the date range is not in the footer.
-	if strings.Contains(s, `\fancyfoot[L]`) {
-		t.Error("comparison report footer should not contain a left-side element after date removal")
+	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 to 2024-01-31 vs 2024-02-01 to 2024-02-28}`) {
+		t.Error("comparison report footer should include the period range")
 	}
 }
 
@@ -208,21 +211,20 @@ func TestRenderTeX_SingleReportUsesSinglePeriodModule(t *testing.T) {
 	}
 
 	s := string(out)
-	if !strings.Contains(s, `\item \textbf{Period:} 2024-01-01 \textemdash{} 2024-01-31`) {
+	if !strings.Contains(s, `\item \textbf{Period:} 2024-01-01 to 2024-01-31`) {
 		t.Error("single report should render the single-period overview module")
 	}
 	if strings.Contains(s, `\item \textbf{Primary period (t1):}`) {
 		t.Error("single report unexpectedly rendered the comparison overview module")
 	}
-	if !strings.Contains(s, `Start time: & \texttt{2024-01-01}`) {
+	if !strings.Contains(s, `Start time: & \texttt{2024-01-01T00:00:00Z}`) {
 		t.Error("single report should render the single survey-parameters module")
 	}
 	if strings.Contains(s, `Start time (t2):`) {
 		t.Error("single report unexpectedly rendered the comparison survey-parameters module")
 	}
-	// Footer no longer shows dates; verify the date range is not in the footer.
-	if strings.Contains(s, `\fancyfoot[L]`) {
-		t.Error("single report footer should not contain a left-side element after date removal")
+	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 to 2024-01-31}`) {
+		t.Error("single report footer should include the period range")
 	}
 }
 
@@ -254,7 +256,7 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	data := minimalTemplateData()
 	data.HistogramTableTeX = `\begin{tabular}{lrr}\end{tabular}`
 	data.StatRows = []StatRow{{StartTime: "1/1 00:00", Count: 12, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"}}
-	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data", data.Units)
 
 	out, err := RenderTeX(data)
 	if err != nil {
@@ -263,7 +265,6 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 
 	s := string(out)
 	for _, want := range []string{
-		`\renewcommand{\arraystretch}{1.14}`,
 		`\renewcommand{\arraystretch}{1.12}`,
 		`\vspace{10pt}`,
 	} {
@@ -304,8 +305,8 @@ func TestBuildStatRows(t *testing.T) {
 	}
 
 	// First row: normal values.
-	if rows[0].StartTime != "2024-03-15 13:00" {
-		t.Errorf("row 0 StartTime = %q, want %q", rows[0].StartTime, "2024-03-15 13:00")
+	if rows[0].StartTime != "3/15 13:00" {
+		t.Errorf("row 0 StartTime = %q, want %q", rows[0].StartTime, "3/15 13:00")
 	}
 	if rows[0].Count != 150 {
 		t.Errorf("row 0 Count = %d, want 150", rows[0].Count)
@@ -326,9 +327,9 @@ func TestBuildStatRows(t *testing.T) {
 func TestRenderTeX_GoldenSingle(t *testing.T) {
 	data := minimalTemplateData()
 	data.StatRows = []StatRow{
-		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
+		{StartTime: "1/15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
 	}
-	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data", data.Units)
 	data.KeyMetricsTableTeX = BuildSingleKeyMetricsTableTeX("25.00", "30.00", "35.00", "42.00", "mph")
 	data.HistogramTableTeX = `\begin{tabular}{lrr}` + "\n" +
 		`20--25 & 120 & 12.0\% \\` + "\n" +
@@ -365,6 +366,8 @@ func TestRenderTeX_GoldenComparison(t *testing.T) {
 	data := minimalTemplateData()
 	data.CompareStartDate = "2024-02-01"
 	data.CompareEndDate = "2024-02-28"
+	data.CompareStartTimeDisplay = "2024-02-01T00:00:00Z"
+	data.CompareEndTimeDisplay = "2024-02-28T23:59:59Z"
 	data.CompareP50 = "26.00"
 	data.CompareP85 = "31.00"
 	data.CompareP98 = "36.00"
@@ -390,9 +393,9 @@ func TestRenderTeX_GoldenComparison(t *testing.T) {
 		"mph",
 	)
 	data.StatRows = []StatRow{
-		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
+		{StartTime: "1/15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
 	}
-	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data", data.Units)
 
 	out, err := RenderTeX(data)
 	if err != nil {

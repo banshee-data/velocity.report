@@ -269,8 +269,8 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 		compSVG, err := chart.RenderComparison(
 			chart.HistogramData{Buckets: primaryHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
 			chart.HistogramData{Buckets: compareHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
-			fmt.Sprintf("%s–%s", cfg.StartDate, cfg.EndDate),
-			fmt.Sprintf("%s–%s", cfg.CompareStart, cfg.CompareEnd),
+			fmt.Sprintf("t1: %s to %s", cfg.StartDate, cfg.EndDate),
+			fmt.Sprintf("t2: %s to %s", cfg.CompareStart, cfg.CompareEnd),
 			chart.DefaultComparisonHistogramStyle(plan.paper),
 		)
 		if err != nil {
@@ -309,10 +309,12 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 		SpeedLimit:  cfg.SpeedLimit,
 		Description: tex.EscapeTeX(cfg.SiteDescription),
 
-		StartDate: plan.startTime.Format("2006-01-02"),
-		EndDate:   plan.endTime.Format("2006-01-02"),
-		Timezone:  tex.EscapeTeX(cfg.Timezone),
-		Units:     tex.EscapeTeX(cfg.Units),
+		StartDate:        plan.startTime.Format("2006-01-02"),
+		EndDate:          plan.endTime.Format("2006-01-02"),
+		StartTimeDisplay: tex.EscapeTeX(plan.startTime.Format(time.RFC3339)),
+		EndTimeDisplay:   tex.EscapeTeX(plan.endTime.Format(time.RFC3339)),
+		Timezone:         tex.EscapeTeX(cfg.Timezone),
+		Units:            tex.EscapeTeX(cfg.Units),
 
 		P50:        tex.FormatNumber(data.summaryP50),
 		P85:        tex.FormatNumber(data.summaryP85),
@@ -356,6 +358,8 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 		td.CompareSource = tex.EscapeTeX(cfg.CompareSource)
 		td.CompareStartDate = data.compareResult.startDate
 		td.CompareEndDate = data.compareResult.endDate
+		td.CompareStartTimeDisplay = tex.EscapeTeX(data.compareResult.startTime.Format(time.RFC3339))
+		td.CompareEndTimeDisplay = tex.EscapeTeX(data.compareResult.endTime.Format(time.RFC3339))
 		td.CompareP50 = tex.FormatNumber(data.compareResult.p50)
 		td.CompareP85 = tex.FormatNumber(data.compareResult.p85)
 		td.CompareP98 = tex.FormatNumber(data.compareResult.p98)
@@ -407,10 +411,10 @@ func buildTemplateData(plan runPlan, data loadedData, charts chartSet, work work
 	}
 
 	if data.compareResult != nil {
-		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 4: Granular Percentile Breakdown")
-		td.DailyStatTableTeX = tex.BuildStatTableTeX(td.DailyStatRows, "Table 3: Daily Percentile Summary")
+		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 4: Granular Percentile Breakdown (Comparison)", td.Units)
+		td.DailyStatTableTeX = tex.BuildStatTableTeX(td.DailyStatRows, "Table 3: Daily Percentile Summary (Comparison)", td.Units)
 	} else {
-		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 3: Granular Percentile Breakdown")
+		td.StatTableTeX = tex.BuildStatTableTeX(td.StatRows, "Table 3: Granular Percentile Breakdown", td.Units)
 	}
 
 	return td

@@ -90,7 +90,7 @@ func TestFormatTime(t *testing.T) {
 	// 2024-03-15 20:30 UTC = 2024-03-15 13:30 PDT
 	ts := time.Date(2024, 3, 15, 20, 30, 0, 0, time.UTC)
 	got := FormatTime(ts, loc)
-	want := "2024-03-15 13:30"
+	want := "3/15 13:30"
 	if got != want {
 		t.Errorf("FormatTime() = %q, want %q", got, want)
 	}
@@ -99,7 +99,7 @@ func TestFormatTime(t *testing.T) {
 func TestFormatTime_NilLocation(t *testing.T) {
 	ts := time.Date(2024, 6, 1, 8, 5, 0, 0, time.UTC)
 	got := FormatTime(ts, nil)
-	want := "2024-06-01 08:05"
+	want := "6/1 08:05"
 	if got != want {
 		t.Errorf("FormatTime(nil loc) = %q, want %q", got, want)
 	}
@@ -163,8 +163,8 @@ func TestBuildHistogramTableTeX_CollapsesAllBucketsAtOrAboveMax(t *testing.T) {
 	result := BuildHistogramTableTeX(buckets, 5, 5, 35, "mph")
 
 	for _, want := range []string{
-		"5\\textemdash{}10 & 2050 & 12.5\\%",
-		"30\\textemdash{}35 & 18 & 0.1\\%",
+		"5-10 & 2050 & 12.5\\%",
+		"30-35 & 18 & 0.1\\%",
 		"35+ & 11 & 0.1\\%",
 	} {
 		if !strings.Contains(result, want) {
@@ -172,7 +172,7 @@ func TestBuildHistogramTableTeX_CollapsesAllBucketsAtOrAboveMax(t *testing.T) {
 		}
 	}
 
-	for _, unwanted := range []string{"35\\textemdash{}40", "40\\textemdash{}45", "45\\textemdash{}50"} {
+	for _, unwanted := range []string{"35-40", "40-45", "45-50"} {
 		if strings.Contains(result, unwanted) {
 			t.Fatalf("did not expect uncapped bucket row %q in %q", unwanted, result)
 		}
@@ -237,9 +237,9 @@ func TestBuildDualHistogramTableTeX(t *testing.T) {
 	if !strings.Contains(result, "Delta") {
 		t.Error("expected Delta column header")
 	}
-	// Bucket 5{-}10 row should be present with phantom padding for dash alignment.
-	if !strings.Contains(result, `\phantom{0}5{-}10`) {
-		t.Error("expected phantom-padded bucket range \\phantom{0}5{-}10 in output")
+	// Bucket 5-10 row should be present with phantom padding for dash alignment.
+	if !strings.Contains(result, `\phantom{0}5-10`) {
+		t.Error("expected phantom-padded bucket range \\phantom{0}5-10 in output")
 	}
 }
 

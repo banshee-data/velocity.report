@@ -33,6 +33,12 @@
   ItalicFont = *-Italic,
   BoldItalicFont = *-BoldItalic
 ]
+\newfontfamily\AtkinsonMono[
+  Path = <<.FontDir>>/,
+  Extension = .ttf,
+  Scale = MatchLowercase,
+  ItalicFont = AtkinsonHyperlegibleMono-Italic-VariableFont_wght
+]{AtkinsonHyperlegibleMono-VariableFont_wght}
 
 % Colours (matching web palette)
 \definecolor{vrP50}{HTML}{fbd92f}
@@ -40,8 +46,8 @@
 \definecolor{vrP98}{HTML}{f25f5c}
 \definecolor{vrMax}{HTML}{2d1e2f}
 
-% Caption styling — monospace, small, no bold (matches hand-built table captions)
-\captionsetup{font=small,labelfont=tt,textfont=tt}
+% Caption styling — bold sans to match the Python report standard.
+\captionsetup{font=small,labelfont=bf,textfont=bf}
 
 % Section title styling
 \titleformat{\section}{\bfseries\Large}{}{0em}{}
@@ -52,6 +58,7 @@
 \fancyhf{}
 \fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}
 \fancyhead[R]{\textit{<<.Location>>}}
+\fancyfoot[L]{\small <<template "footer_period_range" .>>}
 \fancyfoot[R]{\small Page \thepage}
 \renewcommand{\headrulewidth}{0.8pt}
 \renewcommand{\footrulewidth}{0.8pt}

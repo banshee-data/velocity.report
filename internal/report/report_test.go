@@ -354,7 +354,7 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 		Surveyor:        "J. Engineer",
 		Contact:         "test@example.com",
 		SpeedLimit:      25,
-		SiteDescription: "Escaping regression test",
+		SiteDescription: "Escaping & regression_test",
 		StartDate:       "2025-06-01",
 		EndDate:         "2025-06-02",
 		Timezone:        "UTC",
@@ -403,8 +403,8 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	if reportTex == "" {
 		t.Fatal("report.tex not found in ZIP")
 	}
-	if !strings.Contains(reportTex, `radar\_data\_transits`) {
-		t.Fatalf("expected escaped source field in report.tex, got:\n%s", reportTex)
+	if !strings.Contains(reportTex, `Escaping \& regression\_test`) {
+		t.Fatalf("expected escaped description field in report.tex, got:\n%s", reportTex)
 	}
 }
 
@@ -688,8 +688,8 @@ func TestPlanRun_PaperSizeNormalisation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("planRun default paper error: %v", err)
 	}
-	if planDefault.paper != "a4" {
-		t.Fatalf("expected default a4 paper, got %q", planDefault.paper)
+	if planDefault.paper != "letter" {
+		t.Fatalf("expected default letter paper, got %q", planDefault.paper)
 	}
 }
 

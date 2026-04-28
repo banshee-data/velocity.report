@@ -115,9 +115,8 @@ func ExpandTimeSeriesGapsInRange(pts []TimeSeriesPoint, groupSeconds int64, star
 	return out
 }
 
-// XTicks generates duration-aware tick labels for the time-series X axis.
-// Tick cadence is chosen from the total span so the chart shows 6-10 labels
-// regardless of range length (per DESIGN.md §4.1).
+// XTicks generates Python-report-style tick labels for the time-series X axis:
+// always label day starts, then label every third observed bucket within a day.
 func XTicks(pts []TimeSeriesPoint) []XTick {
 	if len(pts) < 2 {
 		if len(pts) == 1 {
@@ -126,97 +125,23 @@ func XTicks(pts []TimeSeriesPoint) []XTick {
 		return nil
 	}
 
-	first := pts[0].StartTime
-	last := pts[len(pts)-1].StartTime
-	span := last.Sub(first)
-
-	// Choose a cadence that targets ~8 labels across the span.
-	cadence := pickTickCadence(span)
-
-	// Walk points and emit a tick whenever the rounded cadence boundary
-	// advances. This is robust to irregular sampling and day-of-month jumps.
-	var ticks []XTick
-	prevBucket := int64(-1)
-	for i, pt := range pts {
-		bucket := cadence.bucket(pt.StartTime)
-		if bucket == prevBucket {
+	ticks := []XTick{{Index: 0, Label: pts[0].StartTime.Format("Jan 02\n15:04")}}
+	prevY, prevM, prevD := pts[0].StartTime.Date()
+	bucketsInDay := 0
+	for i := 1; i < len(pts); i++ {
+		y, m, d := pts[i].StartTime.Date()
+		if y != prevY || m != prevM || d != prevD {
+			ticks = append(ticks, XTick{Index: i, Label: pts[i].StartTime.Format("Jan 02\n15:04")})
+			prevY, prevM, prevD = y, m, d
+			bucketsInDay = 0
 			continue
 		}
-		prevBucket = bucket
-		ticks = append(ticks, XTick{Index: i, Label: cadence.format(pt.StartTime)})
+		bucketsInDay++
+		if bucketsInDay%3 == 0 {
+			ticks = append(ticks, XTick{Index: i, Label: pts[i].StartTime.Format("15:04")})
+		}
 	}
 	return ticks
-}
-
-// tickCadence describes an X-axis tick stride.
-type tickCadence struct {
-	// bucket returns a strictly-increasing integer key that changes when a
-	// new tick should be emitted.
-	bucket func(t time.Time) int64
-	// format produces the label shown at the tick.
-	format func(t time.Time) string
-}
-
-func pickTickCadence(span time.Duration) tickCadence {
-	switch {
-	case span <= 12*time.Hour:
-		// 2h cadence → ≤6 ticks over 12h. Bucket by local calendar hour so UTC
-		// midnight crossings don't create spurious extra ticks in non-UTC zones.
-		return tickCadence{
-			bucket: func(t time.Time) int64 {
-				y, m, d := t.Date()
-				return int64(y)*100000 + int64(m)*10000 + int64(d)*100 + int64(t.Hour()/2)
-			},
-			format: func(t time.Time) string { return t.Format("15:04") },
-		}
-	case span <= 48*time.Hour:
-		// 6h cadence → ≤8 ticks over 48h. Local-time buckets avoid UTC-day splits.
-		return tickCadence{
-			bucket: func(t time.Time) int64 {
-				y, m, d := t.Date()
-				return int64(y)*100000 + int64(m)*10000 + int64(d)*100 + int64(t.Hour()/6)
-			},
-			format: func(t time.Time) string { return t.Format("Jan 02 15:04") },
-		}
-	case span <= 7*24*time.Hour:
-		// 12h cadence for 2-7 day ranges → ≤14 ticks at weekly max. Local-time
-		// buckets prevent two ticks on the same calendar half-day (e.g. 12:00 and
-		// 16:00 in a non-UTC timezone crossing a UTC midnight boundary).
-		return tickCadence{
-			bucket: func(t time.Time) int64 {
-				y, m, d := t.Date()
-				return int64(y)*100000 + int64(m)*10000 + int64(d)*100 + int64(t.Hour()/12)
-			},
-			format: func(t time.Time) string { return t.Format("Jan 02 15:04") },
-		}
-	case span <= 14*24*time.Hour:
-		// Daily.
-		return tickCadence{
-			bucket: func(t time.Time) int64 {
-				y, m, d := t.Date()
-				return int64(y*10000 + int(m)*100 + d)
-			},
-			format: func(t time.Time) string { return t.Format("Jan 02") },
-		}
-	case span <= 90*24*time.Hour:
-		// Weekly (ISO week).
-		return tickCadence{
-			bucket: func(t time.Time) int64 {
-				y, w := t.ISOWeek()
-				return int64(y*100 + w)
-			},
-			format: func(t time.Time) string { return t.Format("Jan 02") },
-		}
-	default:
-		// Monthly.
-		return tickCadence{
-			bucket: func(t time.Time) int64 {
-				y, m, _ := t.Date()
-				return int64(y*100 + int(m))
-			},
-			format: func(t time.Time) string { return t.Format("Jan 2006") },
-		}
-	}
 }
 
 // RenderTimeSeries produces a time-series SVG chart with speed percentile
@@ -310,7 +235,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// Y-scale: speed axis rounds to the next nice-step ceiling so tick labels
 	// are always clean round numbers. Step is 5 for low ranges, 10 for higher
 	// ones (e.g. 60 mph), targeting ~6 ticks.
-	rawSpeedMax := maxSpeed * 1.1
+	rawSpeedMax := maxSpeed
 	speedStep := niceStep(rawSpeedMax, 6)
 	if speedStep < 5 {
 		speedStep = 5
@@ -324,11 +249,10 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	// Count axis uses a magnitude-appropriate step giving ~4 clean labels.
 	countAxisMax := float64(maxCount) * style.CountAxisScale
 	countStep := niceStep(countAxisMax, 4)
-	countNiceMax := math.Ceil(countAxisMax/countStep) * countStep
-	if countNiceMax <= 0 {
-		countNiceMax = countStep
+	if countAxisMax <= 0 {
+		countAxisMax = countStep
 	}
-	countScale := plotH / countNiceMax
+	countScale := plotH / countAxisMax
 
 	xOf := func(i int) float64 {
 		if n == 1 {
@@ -361,9 +285,11 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	c.EndGroup()
 
 	// Low-sample background bars.
+	hasLowSample := false
 	c.BeginGroup(`class="low-sample"`)
 	for i, pt := range data.Points {
 		if pt.Count < style.LowSampleThreshold && pt.Count >= style.CountMissingThreshold {
+			hasLowSample = true
 			bgW := barSlotW * style.BarWidthBGFraction
 			x := xOf(i) - bgW/2
 			c.Rect(x, topPx, bgW, plotH,
@@ -403,7 +329,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		refY = speedYOf(data.P98Reference)
 		c.BeginGroup(`class="p98-reference"`)
 		c.Line(leftPx, refY, rightPx, refY,
-			fmt.Sprintf(`stroke="%s" stroke-dasharray="6 3" stroke-width="1.2" opacity="0.75"`, style.ColourP98))
+			fmt.Sprintf(`stroke="%s" stroke-dasharray="6 3" stroke-width="1.0" opacity="0.55"`, style.ColourP98))
 		c.EndGroup()
 	}
 
@@ -414,7 +340,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		maxRefY = speedYOf(data.MaxReference)
 		c.BeginGroup(`class="max-reference"`)
 		c.Line(leftPx, maxRefY, rightPx, maxRefY,
-			fmt.Sprintf(`stroke="%s" stroke-dasharray="1 3" stroke-width="0.8" opacity="0.55"`, ColourMax))
+			fmt.Sprintf(`stroke="%s" stroke-dasharray="1 3" stroke-width="0.7" opacity="0.40"`, ColourMax))
 		c.EndGroup()
 	}
 
@@ -433,7 +359,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		{style.ColourP50, "triangle", func(p TimeSeriesPoint) float64 { return p.P50Speed }, "p50", ""},
 		{style.ColourP85, "square", func(p TimeSeriesPoint) float64 { return p.P85Speed }, "p85", ""},
 		{style.ColourP98, "circle", func(p TimeSeriesPoint) float64 { return p.P98Speed }, "p98", ""},
-		{style.ColourMax, "", func(p TimeSeriesPoint) float64 { return p.MaxSpeed }, "max", "1 3"},
+		{style.ColourMax, "x", func(p TimeSeriesPoint) float64 { return p.MaxSpeed }, "Max", "1 3"},
 	}
 
 	for _, s := range series {
@@ -594,7 +520,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 
 	// Count Y-axis ticks (right side) — clean labels at every countStep.
 	c.BeginGroup(`class="count-axis"`)
-	for v := 0.0; v <= countNiceMax+0.01; v += countStep {
+	for v := 0.0; v <= countAxisMax+0.01; v += countStep {
 		y := bottomPx - v*countScale
 		c.Line(rightPx, y, rightPx+4, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(rightPx+6, y+style.AxisTickFontPx/3,
@@ -631,15 +557,24 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	}
 	c.EndGroup()
 
-	// Legend along the bottom. Evenly spaced across the plot width.
-	legY := hPx - style.LegendFontPx/2 - 2
-	legItems := len(series) + 1 // + low-sample swatch
+	// Legend along the bottom in a bordered box, matching the Python report.
+	legBoxH := style.LegendFontPx + 8
+	legBoxY := hPx - legBoxH - 2
+	legY := legBoxY + legBoxH/2
+	legItems := len(series)
 	if drawRefLine {
 		legItems++
 	}
 	if drawMaxRefLine {
 		legItems++
 	}
+	if hasLowSample {
+		legItems++
+	}
+	if legItems == 0 {
+		legItems = 1
+	}
+	c.Rect(leftPx, legBoxY, plotW, legBoxH, `fill="white" stroke="#ccc" stroke-width="0.6"`)
 	legStep := plotW / float64(legItems)
 	for i, s := range series {
 		x := leftPx + legStep*(float64(i)+0.5) - legStep/2
@@ -655,7 +590,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	if drawRefLine {
 		x := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
 		c.Line(x, legY, x+16, legY,
-			fmt.Sprintf(`stroke="%s" stroke-width="%.1f" stroke-dasharray="6 3" opacity="0.75"`, style.ColourP98, style.LineWidthPx))
+			fmt.Sprintf(`stroke="%s" stroke-width="1.0" stroke-dasharray="6 3" opacity="0.55"`, style.ColourP98))
 		c.Text(x+20, legY+style.LegendFontPx/3, "p98 overall",
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
 		legendIndex++
@@ -663,18 +598,19 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 	if drawMaxRefLine {
 		x := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
 		c.Line(x, legY, x+16, legY,
-			fmt.Sprintf(`stroke="%s" stroke-width="0.8" stroke-dasharray="1 3" opacity="0.55"`, ColourMax))
+			fmt.Sprintf(`stroke="%s" stroke-width="0.7" stroke-dasharray="1 3" opacity="0.40"`, ColourMax))
 		c.Text(x+20, legY+style.LegendFontPx/3, "max overall",
 			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
 		legendIndex++
 	}
-	// Low-sample swatch.
-	swX := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
-	c.Rect(swX, legY-style.LegendFontPx/2, 14, style.LegendFontPx,
-		fmt.Sprintf(`fill="%s" fill-opacity="0.25"`, style.ColourLowSample))
-	c.Text(swX+18, legY+style.LegendFontPx/3,
-		fmt.Sprintf("low sample (<%d)", style.LowSampleThreshold),
-		fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
+	if hasLowSample {
+		swX := leftPx + legStep*(float64(legendIndex)+0.5) - legStep/2
+		c.Rect(swX, legY-style.LegendFontPx/2, 14, style.LegendFontPx,
+			fmt.Sprintf(`fill="%s" fill-opacity="0.25"`, style.ColourLowSample))
+		c.Text(swX+18, legY+style.LegendFontPx/3,
+			fmt.Sprintf("low sample (<%d)", style.LowSampleThreshold),
+			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible"`, style.LegendFontPx))
+	}
 
 	// Title.
 	if data.Title != "" {
