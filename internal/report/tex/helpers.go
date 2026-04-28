@@ -148,6 +148,8 @@ type reportTable struct {
 	pageBreak bool
 }
 
+const balancedStatTableMaxRowsPerColumn = 52
+
 func renderReportTable(t reportTable) string {
 	var b strings.Builder
 	withStyledTable(&b, "small", func() {
@@ -184,6 +186,86 @@ func renderReportTable(t reportTable) string {
 		}
 	})
 	return b.String()
+}
+
+func renderSideBySideBalancedReportTable(t reportTable) string {
+	pageCount := (len(t.rows) + (2 * balancedStatTableMaxRowsPerColumn) - 1) / (2 * balancedStatTableMaxRowsPerColumn)
+	if pageCount < 1 {
+		pageCount = 1
+	}
+	columnCount := pageCount * 2
+	rowsPerColumn := distributeRowsEvenly(len(t.rows), columnCount)
+
+	var b strings.Builder
+	b.WriteString(`\clearpage` + "\n")
+	b.WriteString(`\onecolumn` + "\n")
+
+	rowOffset := 0
+	for page := 0; page < pageCount; page++ {
+		if page > 0 {
+			b.WriteString(`\clearpage` + "\n")
+		}
+
+		leftCount := rowsPerColumn[page*2]
+		rightCount := rowsPerColumn[page*2+1]
+		leftRows := t.rows[rowOffset : rowOffset+leftCount]
+		rowOffset += leftCount
+		rightRows := t.rows[rowOffset : rowOffset+rightCount]
+		rowOffset += rightCount
+
+		withStyledTable(&b, "small", func() {
+			b.WriteString(`\noindent` + "\n")
+			b.WriteString(`\begin{minipage}[t]{0.485\textwidth}` + "\n")
+			writeTabularBlock(&b, t.columns, leftRows)
+			b.WriteString(`\end{minipage}\hfill` + "\n")
+			b.WriteString(`\begin{minipage}[t]{0.485\textwidth}` + "\n")
+			if len(rightRows) > 0 {
+				writeTabularBlock(&b, t.columns, rightRows)
+			}
+			b.WriteString(`\end{minipage}` + "\n")
+		}, func() {
+			if page == pageCount-1 && t.caption != "" {
+				b.WriteString(`\par\vspace{2pt}` + "\n")
+				b.WriteString(tableCaptionTeX(t.caption) + "\n")
+			}
+		})
+	}
+
+	return b.String()
+}
+
+func writeTabularBlock(b *strings.Builder, columns []tableColumn, rows [][]string) {
+	spec := tableColumnSpec(columns)
+	b.WriteString(`\noindent` + "\n")
+	b.WriteString(`\begin{tabular}{` + spec + `}` + "\n")
+	writeTableHeader(b, columns)
+	b.WriteString(`\hline` + "\n")
+	for _, row := range rows {
+		writeTableRow(b, row)
+	}
+	b.WriteString(`\hline` + "\n")
+	b.WriteString(`\end{tabular}` + "\n")
+}
+
+func distributeRowsEvenly(totalRows, buckets int) []int {
+	distribution := make([]int, buckets)
+	if buckets <= 0 || totalRows <= 0 {
+		return distribution
+	}
+
+	base := totalRows / buckets
+	remainder := totalRows % buckets
+	for index := range distribution {
+		distribution[index] = base
+		if index < remainder {
+			distribution[index]++
+		}
+	}
+	return distribution
+}
+
+func UseBalancedStatTableLayout(rowCount int) bool {
+	return rowCount > 2*balancedStatTableMaxRowsPerColumn
 }
 
 func tableColumnSpec(columns []tableColumn) string {
@@ -318,7 +400,7 @@ func BuildStatTableTeX(rows []StatRow, caption, units string) string {
 			row.MaxSpeed,
 		})
 	}
-	return renderReportTable(reportTable{
+	table := reportTable{
 		columns: []tableColumn{
 			{header: "Start Time", width: `0.24\linewidth`, align: tableAlignLeft},
 			{header: "Count", width: `0.12\linewidth`, align: tableAlignRight},
@@ -330,7 +412,11 @@ func BuildStatTableTeX(rows []StatRow, caption, units string) string {
 		rows:      tableRows,
 		caption:   caption,
 		pageBreak: true,
-	})
+	}
+	if UseBalancedStatTableLayout(len(tableRows)) {
+		return renderSideBySideBalancedReportTable(table)
+	}
+	return renderReportTable(table)
 }
 
 func statStartTimeTeX(s string) string {

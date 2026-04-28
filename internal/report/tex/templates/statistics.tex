@@ -1,32 +1,29 @@
 <<define "statistics_single">>
 <<if .HistogramTableTeX>>
-\vspace{8pt}
-\subsection*{Speed Distribution}
-\vspace{4pt}
+\par\vspace{2pt}
+\noindent{\large\bfseries Speed Distribution}\par\vspace{2pt}
 <<.HistogramTableTeX>>
-\vspace{10pt}
+\par\vspace{0pt}
 <<end>>
 
 <<if .StatTableTeX>>
-\subsection*{Detailed Data}
-\vspace{4pt}
 <<.StatTableTeX>>
 <<end>>
 <<end>>
 
 <<define "statistics_comparison">>
 <<if .DualHistogramTableTeX>>
-\subsection*{Detailed Data Tables}
+\par\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}
 <<.DualHistogramTableTeX>>
 <<if or .DailyStatTableTeX .StatTableTeX>>
-\par\vspace{8pt}
+\par\vspace{2pt}
 <<end>>
 <<end>>
 
 <<if .DailyStatTableTeX>>
 <<.DailyStatTableTeX>>
 <<if .StatTableTeX>>
-\par\vspace{8pt}
+\par\vspace{2pt}
 <<end>>
 <<end>>
 

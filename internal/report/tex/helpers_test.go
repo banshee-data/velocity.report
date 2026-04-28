@@ -204,6 +204,36 @@ func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
 	}
 }
 
+func TestBuildStatTableTeX_LongTableUsesBalancedPages(t *testing.T) {
+	rows := make([]StatRow, 0, 120)
+	for index := 0; index < 120; index++ {
+		rows = append(rows, StatRow{
+			StartTime: "6/2 08:00",
+			Count:     100 + index,
+			P50:       "23.43",
+			P85:       "35.71",
+			P98:       "43.78",
+			MaxSpeed:  "46.47",
+		})
+	}
+
+	result := BuildStatTableTeX(rows, "Detailed Data", "mph")
+
+	for _, want := range []string{
+		`\clearpage`,
+		`\onecolumn`,
+		`\begin{minipage}[t]{0.485\textwidth}`,
+		`\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}`,
+	} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("balanced stat table missing %q:\n%s", want, result)
+		}
+	}
+	if strings.Contains(result, `\begin{supertabular}`) {
+		t.Fatalf("balanced stat table should not use supertabular:\n%s", result)
+	}
+}
+
 func TestReportTablesUseSharedFullWidthFormatting(t *testing.T) {
 	tables := map[string]string{
 		"single key metrics": BuildSingleKeyMetricsTableTeX("25.00", "30.00", "35.00", "42.00", "mph"),

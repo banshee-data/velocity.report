@@ -387,6 +387,11 @@ The current table system is two-layered:
 2. `renderReportTable()` chooses either `tabular` or `supertabular` from a
    small `reportTable` descriptor (`columns`, `rows`, `caption`, `pageBreak`).
 
+For long detailed-data tables, `BuildStatTableTeX()` now bypasses the raw
+`supertabular` flow and emits explicit balanced page chunks: each chunk starts
+with `\clearpage\onecolumn` and renders two side-by-side `tabular` blocks so
+the rows are distributed evenly across the two visual columns on each page.
+
 The shared table-style wrapper is:
 
 ```text
@@ -410,20 +415,25 @@ within a single column.
 Current shared rules:
 
 - alternating tint: `black!2`
-- page-spanning tables: `supertabular`
-- page-spanning tables patch `supertabular`'s internal page-height accounting
-  in the preamble, adding `12\baselineskip` to `\ST@pageleft` only when the
-  first page of a long table is initialised so that opening column can carry
-  roughly a dozen extra rows without forcing later continuation pages down
-  into the footer
+- short page-spanning tables still use `supertabular`
+- long detailed-data tables use explicit balanced two-column page chunks in
+  one-column mode rather than relying on `supertabular` to rebalance rows
+- the preamble still patches `supertabular`'s internal page-height accounting
+  for any remaining continuation tables, adding `20\baselineskip` to
+  `\ST@pageleft` on the opening table column and `8\baselineskip` on later
+  continuation columns
 - short single-column tables such as `BuildHistogramTableTeX()` stay on regular
   `tabular` flow so they do not force awkward two-column breaks
 - first-page header only: `renderReportTable()` currently uses
   `\tablefirsthead{...}` with an empty `\tablehead{}`; later pages do **not**
   repeat the header row
 - caption helper: `tableCaptionTeX()` renders `\normalfont\bfseries\small`
-- comparison-mode long tables are separated by `\par\vspace{8pt}` between
-  Tables 2, 3, and 4 so stacked captions do not drift together
+- statistics sections use tight inline bold headings instead of `\subsection*`
+  before the long tables so Table 3 can start in the remaining column below
+  Table 2 when there is space
+- comparison-mode long tables are separated by `\par\vspace{2pt}` between
+  Tables 2, 3, and 4 so adjacent captions stay readable without pushing the
+  next table into a fresh page too early
 
 The bold caption style is deliberate. It matches the current LaTeX preamble and
 the checked-in TeX golden files.
@@ -597,18 +607,18 @@ chart constants.
 
 If XeLaTeX is replaced, the following responsibilities must move with it.
 
-| Responsibility                         | Current xelatex implementation                                                                                                                                                                                                  | What an alternative needs                                                                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                               | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
-| Two-column flow + full-width breakouts | `\twocolumn[...]`, then either `figure*` + `\afterpage{\clearpage}` for a single time-series chart with no map or one shared `\onecolumn` section for the single chart plus map; comparison charts still switch to `\onecolumn` | Equivalent multi-column layout with break-out figures                                                                    |
-| Optional map final page                | `\clearpage` plus `\onecolumn`, except when the single-report chart path has already opened the shared final one-column section                                                                                                 | Equivalent page break and full-width final figure                                                                        |
-| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, `\tabletail{\hline}`, plus a preamble patch that adds `12\baselineskip` to `\ST@pageleft` only for the opening page/column of the table                              | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
-| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                       | Per-column width control and ragged alignment                                                                            |
-| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                | Same row-striping semantics                                                                                              |
-| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                             | Native SVG support or the same SVG-to-image bridge                                                                       |
-| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                                      | Equivalent template-driven running heads and feet                                                                        |
-| Escaping                               | `EscapeTeX()`                                                                                                                                                                                                                   | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                                     |
-| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                                     | Native link support for site URL, contact email, and science links                                                       |
+| Responsibility                         | Current xelatex implementation                                                                                                                                                                                                  | What an alternative needs                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                               | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                   |
+| Two-column flow + full-width breakouts | `\twocolumn[...]`, then either `figure*` + `\afterpage{\clearpage}` for a single time-series chart with no map or one shared `\onecolumn` section for the single chart plus map; comparison charts still switch to `\onecolumn` | Equivalent multi-column layout with break-out figures                                           |
+| Optional map final page                | `\clearpage` plus `\onecolumn`, except when the single-report chart path has already opened the shared final one-column section                                                                                                 | Equivalent page break and full-width final figure                                               |
+| Page-spanning tables                   | Short tables use `supertabular`; long detailed-data tables switch to `\clearpage\onecolumn` and explicit paired `tabular` blocks sized to balance rows across each page's two visual columns                                    | Equivalent multi-page table support, including balanced two-column paging for long stats tables |
+| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                       | Per-column width control and ragged alignment                                                   |
+| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                | Same row-striping semantics                                                                     |
+| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                             | Native SVG support or the same SVG-to-image bridge                                              |
+| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                                      | Equivalent template-driven running heads and feet                                               |
+| Escaping                               | `EscapeTeX()`                                                                                                                                                                                                                   | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                            |
+| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                                     | Native link support for site URL, contact email, and science links                              |
 
 The chart stage remains the easiest part to port because the SVG is already the
 final chart specification.

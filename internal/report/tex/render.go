@@ -91,8 +91,9 @@ type TemplateData struct {
 	DailyStatRows []StatRow
 
 	// Pre-rendered LaTeX stat tables (styled supertabular with caption).
-	StatTableTeX      string
-	DailyStatTableTeX string
+	StatTableTeX         string
+	DailyStatTableTeX    string
+	StatsTablesOneColumn bool
 
 	// Dual-period histogram table (pre-rendered LaTeX; comparison mode only).
 	DualHistogramTableTeX string

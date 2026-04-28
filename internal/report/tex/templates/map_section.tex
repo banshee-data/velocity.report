@@ -1,6 +1,8 @@
 <<define "map_section">>
 <<if .MapChart>>
-<<if .CompareStartDate>>
+<<if .StatsTablesOneColumn>>
+\clearpage
+<<else if .CompareStartDate>>
 \clearpage
 \onecolumn
 <<else>>

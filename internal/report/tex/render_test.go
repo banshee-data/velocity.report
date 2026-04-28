@@ -360,9 +360,12 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	s := string(out)
 	for _, want := range []string{
 		`\renewcommand{\arraystretch}{1.00}`,
-		`\vspace{10pt}`,
-		`\vrSuperTabularFirstPageAdjustment=12\baselineskip`,
+		`\par\vspace{2pt}`,
+		`\noindent{\large\bfseries Speed Distribution}\par\vspace{2pt}`,
+		`\vrSuperTabularFirstPageAdjustment=20\baselineskip`,
+		`\vrSuperTabularNextPageAdjustment=8\baselineskip`,
 		`\global\advance\ST@pageleft by \vrSuperTabularFirstPageAdjustment`,
+		`\global\advance\ST@pageleft by \vrSuperTabularNextPageAdjustment`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("expected spacing directive %q in rendered output", want)
@@ -395,7 +398,10 @@ func TestRenderTeX_ComparisonStatisticsSeparateLongTables(t *testing.T) {
 	}
 	betweenDualAndDaily := s[dualPos:dailyPos]
 	betweenDailyAndGranular := s[dailyPos:granularPos]
-	if !strings.Contains(betweenDualAndDaily, `\par\vspace{8pt}`) || !strings.Contains(betweenDailyAndGranular, `\par\vspace{8pt}`) {
+	if !strings.Contains(s, `\par\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}`) {
+		t.Fatalf("expected comparison statistics heading to use the tighter inline style, got:\n%s", s)
+	}
+	if !strings.Contains(betweenDualAndDaily, `\par\vspace{2pt}`) || !strings.Contains(betweenDailyAndGranular, `\par\vspace{2pt}`) {
 		t.Fatalf("expected comparison statistics tables to be separated by explicit vertical spacing, got:\n%s", s)
 	}
 }

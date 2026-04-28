@@ -1,6 +1,13 @@
 <<define "chart_section_single">>
 <<if .TimeSeriesChart>>
-<<if .MapChart>>
+<<if .StatsTablesOneColumn>>
+\clearpage
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
+\caption{Speed percentiles and observation counts over time}
+\end{figure}
+<<else if .MapChart>>
 \clearpage
 \onecolumn
 \begin{figure}[H]
@@ -21,7 +28,11 @@
 
 <<define "chart_section_comparison">>
 <<if .TimeSeriesChart>>
+<<if .StatsTablesOneColumn>>
+\clearpage
+<<else>>
 \onecolumn
+<<end>>
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{<<.TimeSeriesChart>>}
