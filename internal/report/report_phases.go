@@ -204,9 +204,11 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 		tsPoints = chart.ExpandTimeSeriesGapsInRange(tsPoints, plan.groupSeconds, plan.startTime, plan.endTime)
 	}
 	tsData := chart.TimeSeriesData{
-		Points: tsPoints,
-		Units:  cfg.Units,
-		Title:  "",
+		Points:       tsPoints,
+		Units:        cfg.Units,
+		Title:        "",
+		P98Reference: data.summaryP98,
+		MaxReference: data.summaryMax,
 	}
 	tsSVG, err := chart.RenderTimeSeries(tsData, chart.DefaultTimeSeriesStyle(plan.paper))
 	if err != nil {
@@ -222,8 +224,10 @@ func renderCharts(ctx context.Context, plan runPlan, data loadedData, work workS
 			ctsPoints = chart.ExpandTimeSeriesGapsInRange(ctsPoints, plan.groupSeconds, data.compareResult.startTime, data.compareResult.endTime)
 		}
 		ctsData := chart.TimeSeriesData{
-			Points: ctsPoints,
-			Units:  cfg.Units,
+			Points:       ctsPoints,
+			Units:        cfg.Units,
+			P98Reference: data.compareResult.p98,
+			MaxReference: data.compareResult.maxSpeed,
 		}
 		ctsSVG, err := chart.RenderTimeSeries(ctsData, chart.DefaultTimeSeriesStyle(plan.paper))
 		if err != nil {

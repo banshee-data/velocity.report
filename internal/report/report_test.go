@@ -387,6 +387,14 @@ func TestGenerate_WithComparisonWithoutHistogramDoesNotReferenceComparisonPDF(t 
 		t.Fatalf("ZIP missing timeseries_compare.svg; has: %v", zipNames)
 	}
 
+	compareTimeSeriesSVG := readZipEntry(t, result.ZIPPath, "timeseries_compare.svg")
+	if !strings.Contains(compareTimeSeriesSVG, `class="p98-reference"`) || !strings.Contains(compareTimeSeriesSVG, `class="max-reference"`) {
+		t.Fatalf("comparison time-series should include aggregate p98 and max reference lines, got:\n%s", compareTimeSeriesSVG)
+	}
+	if !strings.Contains(compareTimeSeriesSVG, "p98 overall") || !strings.Contains(compareTimeSeriesSVG, "max overall") {
+		t.Fatalf("comparison time-series should include aggregate reference legend labels, got:\n%s", compareTimeSeriesSVG)
+	}
+
 	reportTeX := readZipEntry(t, result.ZIPPath, "report.tex")
 	if strings.Contains(reportTeX, "comparison.pdf") {
 		t.Fatalf("report.tex should not reference comparison.pdf when it was not rendered:\n%s", reportTeX)
@@ -463,7 +471,7 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	}
 }
 
-func TestGenerate_TimeSeriesSVGOmitsAggregateReferenceLines(t *testing.T) {
+func TestGenerate_TimeSeriesSVGIncludesAggregateReferenceLines(t *testing.T) {
 	binDir := createMockBinaries(t)
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
 
@@ -491,11 +499,14 @@ func TestGenerate_TimeSeriesSVGOmitsAggregateReferenceLines(t *testing.T) {
 	}
 
 	timeseriesSVG := readZipEntry(t, result.ZIPPath, "timeseries.svg")
-	if strings.Contains(timeseriesSVG, `class="p98-reference"`) {
-		t.Fatalf("report time-series should match Python layout without aggregate p98 reference line, got:\n%s", timeseriesSVG)
+	if !strings.Contains(timeseriesSVG, `class="p98-reference"`) || !strings.Contains(timeseriesSVG, `class="max-reference"`) {
+		t.Fatalf("report time-series should include aggregate p98 and max reference lines, got:\n%s", timeseriesSVG)
 	}
-	if strings.Contains(timeseriesSVG, "p98 overall") || strings.Contains(timeseriesSVG, "max overall") {
-		t.Fatalf("report time-series should not include aggregate reference legend labels, got:\n%s", timeseriesSVG)
+	if !strings.Contains(timeseriesSVG, "p98 overall") || !strings.Contains(timeseriesSVG, "max overall") {
+		t.Fatalf("report time-series should include aggregate reference legend labels, got:\n%s", timeseriesSVG)
+	}
+	if strings.Contains(timeseriesSVG, `stroke-width="1.5"`) {
+		t.Fatalf("report time-series max series should not render x markers, got:\n%s", timeseriesSVG)
 	}
 }
 

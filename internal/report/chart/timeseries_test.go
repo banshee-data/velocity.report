@@ -135,9 +135,11 @@ func TestExpandTimeSeriesGapsInRange(t *testing.T) {
 func TestRenderTimeSeries_Structure(t *testing.T) {
 	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
 	data := TimeSeriesData{
-		Points: makeTestPoints(12, start, time.Hour),
-		Units:  "mph",
-		Title:  "Test Chart",
+		Points:       makeTestPoints(12, start, time.Hour),
+		Units:        "mph",
+		Title:        "Test Chart",
+		P98Reference: 33,
+		MaxReference: 39,
 	}
 	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle(PaperA4))
 	if err != nil {
@@ -158,6 +160,15 @@ func TestRenderTimeSeries_Structure(t *testing.T) {
 	svgStr := string(svg)
 	if !strings.Contains(svgStr, "<polyline") {
 		t.Error("output should contain <polyline> elements")
+	}
+	if !strings.Contains(svgStr, `class="p98-reference"`) || !strings.Contains(svgStr, `class="max-reference"`) {
+		t.Error("output should contain aggregate p98 and max reference lines")
+	}
+	if !strings.Contains(svgStr, "p98 overall") || !strings.Contains(svgStr, "max overall") {
+		t.Error("output should contain aggregate p98 and max legend labels")
+	}
+	if strings.Contains(svgStr, `stroke-width="1.5"`) {
+		t.Error("max series should not render x markers")
 	}
 }
 

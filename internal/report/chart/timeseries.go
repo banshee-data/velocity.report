@@ -352,7 +352,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		{style.ColourP50, "triangle", func(p TimeSeriesPoint) float64 { return p.P50Speed }, "p50", ""},
 		{style.ColourP85, "square", func(p TimeSeriesPoint) float64 { return p.P85Speed }, "p85", ""},
 		{style.ColourP98, "circle", func(p TimeSeriesPoint) float64 { return p.P98Speed }, "p98", ""},
-		{style.ColourMax, "x", func(p TimeSeriesPoint) float64 { return p.MaxSpeed }, "Max", "1 3"},
+		{style.ColourMax, "", func(p TimeSeriesPoint) float64 { return p.MaxSpeed }, "Max", "1 3"},
 	}
 
 	for _, s := range series {

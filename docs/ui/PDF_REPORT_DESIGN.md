@@ -220,7 +220,7 @@ context.
 | `p50`      | `#fbd92f` | triangle | solid              | Median                                     |
 | `p85`      | `#f7b32b` | square   | solid              | Upper-typical speed                        |
 | `p98`      | `#f25f5c` | circle   | solid              | Fastest 2 percent                          |
-| `max`      | `#2d1e2f` | x        | dashed `1 3`       | Single-event outlier line                  |
+| `max`      | `#2d1e2f` | none     | dashed `1 3`       | Single-event outlier line                  |
 | count bars | `#2d1e2f` | bar      | filled, alpha 0.25 | Volume context behind the percentile lines |
 
 Legend order is fixed: `p50`, `p85`, `p98`, `Max`, then any auxiliary legend
@@ -274,6 +274,12 @@ series:
 
 - `p98=NN` at `data.P98Reference`, using `ColourP98` and dash `6 3`
 - `max=NN` at `data.MaxReference`, using `ColourMax` and dash `1 3`
+
+In the current report pipeline, `renderCharts()` populates those values for
+both `timeseries.svg` and `timeseries_compare.svg` from the period-wide summary
+metrics for the primary and comparison ranges respectively. That means both the
+single-period and comparison report time-series charts now carry the aggregate
+`p98 overall` and `max overall` guides whenever summary data exists.
 
 Both labels are rendered by the local `labelWithBg()` helper. It draws a white
 rectangle behind the text so the label can sit on the left speed axis without
