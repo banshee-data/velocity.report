@@ -56,8 +56,18 @@
       </aside>
       <div class="page">
         <header class="topbar">
-          <span>Offline documentation</span>
-          <a href="/README/">README</a>
+          <nav class="breadcrumbs" aria-label="Breadcrumb">
+            {% for crumb in page.url | breadcrumbs(collections.docsPages) %}
+              {% if not loop.first %}
+                <span class="breadcrumb-sep" aria-hidden="true">/</span>
+              {% endif %}
+              {% if crumb.url %}
+                <a class="breadcrumb-link" href="{{ crumb.url }}">{{ crumb.name }}</a>
+              {% else %}
+                <span class="breadcrumb-current"{% if crumb.current %} aria-current="page"{% endif %}>{{ crumb.name }}</span>
+              {% endif %}
+            {% endfor %}
+          </nav>
         </header>
         <main id="content" class="content">
           {{ content | safe }}
@@ -125,6 +135,39 @@
           initMermaid(next);
           renderMermaid();
         });
+      }
+
+      // Persist tree expand/collapse state across navigations.
+      const tree = document.querySelector("[data-doc-tree]");
+      if (tree) {
+        const TREE_KEY = "docs-tree-open";
+        let saved = {};
+        try {
+          saved = JSON.parse(localStorage.getItem(TREE_KEY) || "{}") || {};
+        } catch (e) {
+          saved = {};
+        }
+        tree.querySelectorAll("details[data-tree-path]").forEach((d) => {
+          const p = d.dataset.treePath;
+          if (p in saved) d.open = !!saved[p];
+        });
+        tree.addEventListener(
+          "toggle",
+          (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLDetailsElement)) return;
+            const p = target.dataset.treePath;
+            if (!p) return;
+            try {
+              const map = JSON.parse(localStorage.getItem(TREE_KEY) || "{}") || {};
+              map[p] = target.open;
+              localStorage.setItem(TREE_KEY, JSON.stringify(map));
+            } catch (err) {
+              // ignore — quota or private mode
+            }
+          },
+          true,
+        );
       }
     </script>
   </body>

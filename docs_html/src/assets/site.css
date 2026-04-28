@@ -159,33 +159,100 @@ a {
   display: none;
 }
 
-.nav h2 {
-  color: var(--muted);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  margin: 1.25rem 0 0.4rem;
-  text-transform: uppercase;
+.nav {
+  font-size: 0.9rem;
 }
 
-.nav ol {
+.tree-root,
+.tree-children {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.nav a {
+.tree-children {
+  padding-left: 1rem;
+}
+
+.tree-item {
+  margin: 0;
+}
+
+.tree-link {
   border-radius: 6px;
   color: var(--text);
   display: block;
-  font-size: 0.9rem;
-  padding: 0.35rem 0.5rem;
+  padding: 0.3rem 0.5rem;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.tree-link:hover,
+.tree-link[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tree-folder > .tree-summary {
+  align-items: center;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  gap: 0.25rem;
+  list-style: none;
+  padding: 0.3rem 0.4rem;
+}
+
+.tree-folder > .tree-summary::-webkit-details-marker,
+.tree-folder > .tree-summary::marker {
+  display: none;
+  content: "";
+}
+
+.tree-folder > .tree-summary:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tree-disclosure {
+  border-color: transparent transparent transparent currentColor;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  display: inline-block;
+  flex-shrink: 0;
+  height: 0;
+  margin-right: 0.15rem;
+  opacity: 0.7;
+  transition: transform 0.12s ease;
+  width: 0;
+}
+
+.tree-folder[open] > .tree-summary > .tree-disclosure {
+  transform: rotate(90deg);
+}
+
+.tree-folder-link {
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text);
+  flex: 1 1 auto;
+  font-weight: 600;
+  padding: 0;
   text-decoration: none;
 }
 
-.nav a:hover,
-.nav a[aria-current="page"] {
-  background: var(--accent-soft);
+.tree-folder-name {
+  color: var(--text);
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.tree-folder-link[aria-current="page"] {
   color: var(--accent);
+}
+
+.tree-leaf[aria-current="page"] {
+  font-weight: 600;
 }
 
 .page {
@@ -203,13 +270,42 @@ a {
   flex-wrap: wrap;
   font-size: 0.85rem;
   gap: 1rem;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 0.75rem 2rem;
 }
 
 .topbar a,
 .footer a {
   color: var(--accent);
+}
+
+.breadcrumbs {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.breadcrumb-link {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.breadcrumb-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.breadcrumb-sep {
+  color: var(--muted);
+  opacity: 0.6;
+  user-select: none;
+}
+
+.breadcrumb-current {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .footer {

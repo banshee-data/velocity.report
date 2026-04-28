@@ -113,6 +113,102 @@ function navGroup(inputPath) {
   return "Repository";
 }
 
+function humanizeSegment(segment) {
+  if (!segment) return "";
+  return String(segment)
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+// Build a hierarchical tree of pages keyed by URL segments. Each node has:
+//   { name, segment, path, url, title, children, hasCurrent }
+// A node's `url` is null when the segment has no corresponding page (a pure
+// folder); the tree is otherwise navigable via the URLs alone.
+function buildDocsTree(pages, currentUrl) {
+  const root = { children: new Map() };
+  for (const page of pages || []) {
+    if (!page.url || page.url === "/") continue;
+    const segments = page.url.split("/").filter(Boolean);
+    if (!segments.length) continue;
+    let node = root;
+    let acc = "";
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      acc += "/" + segment;
+      if (!node.children.has(segment)) {
+        node.children.set(segment, {
+          segment,
+          name: humanizeSegment(segment),
+          path: acc,
+          url: null,
+          title: null,
+          children: new Map(),
+        });
+      }
+      node = node.children.get(segment);
+      if (i === segments.length - 1) {
+        node.url = page.url;
+        node.title = page?.data?.title || node.name;
+      }
+    }
+  }
+  function finalize(node) {
+    const list = [];
+    for (const child of node.children.values()) {
+      const finalized = finalize(child);
+      list.push(finalized);
+    }
+    list.sort((a, b) => {
+      const aFolder = a.children.length > 0 ? 0 : 1;
+      const bFolder = b.children.length > 0 ? 0 : 1;
+      if (aFolder !== bFolder) return aFolder - bFolder;
+      return a.name.localeCompare(b.name);
+    });
+    const hasCurrent =
+      (currentUrl && node.url === currentUrl) ||
+      list.some((c) => c.hasCurrent);
+    return {
+      segment: node.segment,
+      name: node.name,
+      path: node.path,
+      url: node.url,
+      title: node.title || node.name,
+      children: list,
+      hasCurrent: !!hasCurrent,
+    };
+  }
+  const finalizedRoot = finalize(root);
+  return finalizedRoot.children;
+}
+
+// Breadcrumb trail for a given page URL. Each entry is `{name, url}`; the
+// final entry has `url: null` (current page, not clickable). Intermediate
+// segments are linked iff a page exists at that path.
+function buildBreadcrumbs(currentUrl, pages) {
+  const crumbs = [{ name: "Offline docs", url: "/", current: false }];
+  if (!currentUrl || currentUrl === "/") {
+    crumbs[0].current = true;
+    crumbs[0].url = null;
+    return crumbs;
+  }
+  const segments = currentUrl.split("/").filter(Boolean);
+  const urlsByPath = new Set((pages || []).map((p) => p.url));
+  let acc = "";
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    acc += "/" + segment;
+    const candidate = acc + "/";
+    const isLast = i === segments.length - 1;
+    const url = isLast ? null : urlsByPath.has(candidate) ? candidate : null;
+    crumbs.push({
+      name: humanizeSegment(segment),
+      url,
+      current: isLast,
+    });
+  }
+  return crumbs;
+}
+
 function githubSlugify(value) {
   return String(value)
     .trim()
@@ -260,6 +356,14 @@ module.exports = function (eleventyConfig) {
     }
     return groups;
   });
+
+  eleventyConfig.addFilter("docsTree", (items, currentUrl) =>
+    buildDocsTree(items, currentUrl),
+  );
+
+  eleventyConfig.addFilter("breadcrumbs", (currentUrl, items) =>
+    buildBreadcrumbs(currentUrl, items),
+  );
 
   eleventyConfig.addFilter("titleFromPath", humanizePath);
   eleventyConfig.addFilter("navGroup", navGroup);

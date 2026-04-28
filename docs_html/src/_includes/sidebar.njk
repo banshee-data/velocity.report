@@ -1,14 +1,33 @@
-<nav class="nav">
-  {% for group in collections.docsPages | docsNavGroups %}
-    <h2>{{ group.name }}</h2>
-    <ol>
-      {% for item in group.items %}
-      <li>
-        <a href="{{ item.url }}" {% if item.url == page.url %}aria-current="page"{% endif %}>
-          {{ item | docsTitle }}
-        </a>
-      </li>
-      {% endfor %}
-    </ol>
-  {% endfor %}
+{% macro renderTreeNode(node, currentUrl) %}
+  {% set isCurrent = node.url and (node.url == currentUrl) %}
+  {% set isFolder = node.children and node.children.length %}
+  <li class="tree-item{% if isCurrent %} is-current{% endif %}">
+    {% if isFolder %}
+      <details class="tree-folder" data-tree-path="{{ node.path }}"{% if node.hasCurrent %} open{% endif %}>
+        <summary class="tree-summary">
+          <span class="tree-disclosure" aria-hidden="true"></span>
+          {% if node.url %}
+            <a class="tree-link tree-folder-link" href="{{ node.url }}"{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
+          {% else %}
+            <span class="tree-folder-name">{{ node.name }}</span>
+          {% endif %}
+        </summary>
+        <ul class="tree-children" role="group">
+          {% for child in node.children %}
+            {{ renderTreeNode(child, currentUrl) }}
+          {% endfor %}
+        </ul>
+      </details>
+    {% else %}
+      <a class="tree-link tree-leaf" href="{{ node.url }}"{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
+    {% endif %}
+  </li>
+{% endmacro %}
+
+<nav class="nav" aria-label="Documentation tree">
+  <ul class="tree-root" role="tree" data-doc-tree>
+    {% for node in collections.docsPages | docsTree(page.url) %}
+      {{ renderTreeNode(node, page.url) }}
+    {% endfor %}
+  </ul>
 </nav>
