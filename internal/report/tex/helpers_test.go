@@ -194,6 +194,7 @@ func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
 
 	for _, want := range []string{
 		`\AtkinsonMono\small`,
+		`\noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}`,
 		`\makebox[0.24\linewidth][l]{\strut \sffamily\bfseries Start Time}`,
 		`\makebox[0.14\linewidth][r]{\strut \sffamily\bfseries \shortstack[r]{p50 \\ (mph)}}`,
 		`\colorbox{black!2}`,
@@ -225,6 +226,7 @@ func TestBuildStatTableTeX_LongTableUsesFlowRows(t *testing.T) {
 	result := BuildStatTableTeX(rows, "Detailed Data", "mph")
 
 	for _, want := range []string{
+		`\noindent\makebox[\linewidth]{{\normalfont\bfseries\small Detailed Data}}`,
 		`\makebox[\linewidth][l]`,
 		`\makebox[0.24\linewidth][l]`,
 		`\makebox[0.14\linewidth][r]`,
@@ -233,6 +235,11 @@ func TestBuildStatTableTeX_LongTableUsesFlowRows(t *testing.T) {
 	} {
 		if !strings.Contains(result, want) {
 			t.Fatalf("flow stat table missing %q:\n%s", want, result)
+		}
+	}
+	for _, unwanted := range []string{`\columnbreak`, `Detailed Data (cont.)`} {
+		if strings.Contains(result, unwanted) {
+			t.Fatalf("flow stat table should not use %q:\n%s", unwanted, result)
 		}
 	}
 	for _, unwanted := range []string{`\clearpage`, `\onecolumn`, `\begin{minipage}`, `\begin{supertabular}`} {

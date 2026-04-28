@@ -244,8 +244,15 @@ func TestRenderTeX_MapSectionAppearsAfterCharts(t *testing.T) {
 	s := string(out)
 	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
 	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Chart and Map}\par\vspace{2pt}`)
 	if chartPos == -1 || mapPos == -1 {
 		t.Fatalf("expected both chart and map sections in rendered output")
+	}
+	if headingPos == -1 {
+		t.Fatal("expected chart/map media heading")
+	}
+	if headingPos > chartPos {
+		t.Fatal("expected chart/map media heading inside the first media block")
 	}
 	if mapPos <= chartPos {
 		t.Fatalf("expected map section after chart section")
@@ -275,11 +282,18 @@ func TestRenderTeX_SingleChartSectionUsesNaturalFullWidthBlock(t *testing.T) {
 	}
 	bodyEnd := strings.Index(s, `\end{multicols}`)
 	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Chart}\par\vspace{2pt}`)
 	if bodyEnd == -1 || chartPos == -1 || chartPos <= bodyEnd {
 		t.Fatal("expected full-width single chart after the balanced multicols body")
 	}
 	if !strings.Contains(s, `\captionof{figure}{Speed percentiles and observation counts over time}`) {
 		t.Fatal("expected inline full-width single chart caption")
+	}
+	if headingPos == -1 {
+		t.Fatal("expected single chart media heading")
+	}
+	if headingPos > chartPos {
+		t.Fatal("expected single chart heading inside the first media block")
 	}
 }
 
@@ -301,14 +315,45 @@ func TestRenderTeX_SingleChartSectionCollapsesWithMapWhenPresent(t *testing.T) {
 	}
 	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
 	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Chart and Map}\par\vspace{2pt}`)
 	if chartPos == -1 || mapPos == -1 {
 		t.Fatal("expected both single chart and map graphics in rendered output")
+	}
+	if headingPos == -1 {
+		t.Fatal("expected single chart/map media heading")
+	}
+	if headingPos > chartPos {
+		t.Fatal("expected single chart/map heading inside the first media block")
 	}
 	if mapPos <= chartPos {
 		t.Fatal("expected map to follow the single chart in natural full-width flow")
 	}
 	if strings.Count(s, `\captionof{figure}`) < 2 {
 		t.Fatal("expected chart and map to use inline figure captions")
+	}
+}
+
+func TestRenderTeX_ComparisonMediaHeadingReflectsChartsAndMap(t *testing.T) {
+	data := minimalTemplateData()
+	data.CompareStartDate = "2024-02-01"
+	data.CompareEndDate = "2024-02-28"
+	data.TimeSeriesChart = "timeseries-t1.pdf"
+	data.CompareTimeSeriesChart = "timeseries-t2.pdf"
+	data.MapChart = "map.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Charts and Map}\par\vspace{2pt}`)
+	chartPos := strings.Index(s, `\includegraphics[width=\linewidth]{timeseries-t1.pdf}`)
+	if headingPos == -1 {
+		t.Fatal("expected comparison charts/map media heading")
+	}
+	if chartPos == -1 || headingPos > chartPos {
+		t.Fatal("expected comparison media heading inside the first media block")
 	}
 }
 
@@ -395,8 +440,8 @@ func TestRenderTeX_ComparisonStatisticsSeparateLongTables(t *testing.T) {
 	}
 	betweenDualAndDaily := s[dualPos:dailyPos]
 	betweenDailyAndGranular := s[dailyPos:granularPos]
-	if !strings.Contains(s, `\par\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}`) {
-		t.Fatalf("expected comparison statistics heading to use the tighter inline style, got:\n%s", s)
+	if !strings.Contains(s, `\par\vspace{8pt}`+"\n"+`\noindent\begin{minipage}{\linewidth}`+"\n"+`\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}`) {
+		t.Fatalf("expected comparison statistics heading to include deliberate top spacing, got:\n%s", s)
 	}
 	if !strings.Contains(betweenDualAndDaily, `\par\vspace{2pt}`) || !strings.Contains(betweenDailyAndGranular, `\par\vspace{2pt}`) {
 		t.Fatalf("expected comparison statistics tables to be separated by explicit vertical spacing, got:\n%s", s)

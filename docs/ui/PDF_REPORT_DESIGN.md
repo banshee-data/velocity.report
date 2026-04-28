@@ -79,9 +79,16 @@ natural full-width media blocks:
 - Overview histograms inside the body are inline `minipage` blocks with
   `\captionof{figure}` rather than floats, which keeps them compatible with
   `multicols`.
+- The overview histogram intentionally leaves `8pt` after Figure 1 so the
+  following **Site Information** heading cannot collide with the caption.
 - Time-series charts and the optional map are full-width inline `minipage`
   blocks after `\end{multicols}`. They do not use `figure*`, `\afterpage`,
   `\clearpage`, or `\onecolumn`.
+- A media heading appears immediately before the first full-width media block:
+  `Chart`, `Chart and Map`, `Charts`, `Charts and Map`, or `Map`, depending on
+  which time-series and map figures are present.
+- That media heading is emitted inside the first full-width media `minipage`,
+  so the heading and Figure 2 stay together when the page breaks.
 - Because the chart/map blocks are ordinary full-width content, they can start
   on the same page as the balanced table section when enough vertical room
   remains; otherwise LaTeX moves them naturally to the next page.
@@ -110,9 +117,9 @@ Section order is invariant:
    Comparison mode shows the dual histogram table, a daily percentile summary,
    and a granular merged comparison breakdown.
 7. **Chart Section**:
-   Single mode renders one full-width time-series chart.
-   Comparison mode renders up to two full-width time-series charts, first t1
-   and then t2.
+   A compact heading describes the full-width media set. Single mode renders
+   one full-width time-series chart. Comparison mode renders up to two
+   full-width time-series charts, first t1 and then t2.
 8. **Map Section**: optional full-width site map after the chart block.
 
 Single vs comparison body dispatch is controlled by `period_report.tex`:
@@ -212,8 +219,9 @@ There is no compositor-side relayout.
 | Histogram (comparison) | `paperTextWidthMM / 2` | 1:0.70 | Same column width, but taller to fit the internal chart title, rotated bucket labels, axis labels, and a legend beneath the plot |
 
 The single histogram and grouped comparison histogram are both included at
-`\linewidth` inside the overview's two-column flow. The grouped comparison
-version is taller, not wider.
+`\linewidth` inside the overview's two-column flow, followed by `8pt` of
+vertical space before the next text section. The grouped comparison version is
+taller, not wider.
 
 ### 4.2 Time-series chart
 
@@ -439,9 +447,11 @@ Current shared rules:
 - regular short tables use `tabular` and `colortbl` row striping
 - granular and daily percentile tables use the page-flowing row renderer, not
   `supertabular`
-- page-flowing stat tables render the header once, then a `\rule{\linewidth}{0.4pt}`
-  below the header, one paragraph per data row, and a closing rule after the
-  final row
+- page-flowing stat tables render one table designation above the flowing rows,
+  using the same `\normalfont\bfseries\small` style as captions
+- page-flowing stat tables render the table header, then a
+  `\rule{\linewidth}{0.4pt}` below the header, one paragraph per data row, and
+  a closing rule at the end of the flow
 - page-flowing stat-table stripes are manual `\colorbox{black!2}{...}` wrappers
   around every other row; `\fboxsep` must remain `0pt` so the striping reaches
   the same visual width as the fixed columns
@@ -451,6 +461,11 @@ Current shared rules:
 - statistics sections use tight inline bold headings instead of `\subsection*`
   before the long tables so Table 3 can start in the remaining column below
   Table 2 when there is space
+- the **Detailed Data Tables** heading has `8pt` of top spacing so it does not
+  collide with the preceding survey-parameter note or section content
+- the **Speed Distribution** and **Detailed Data Tables** heading-plus-first-table
+  blocks are wrapped in a `minipage` so the heading cannot separate from the
+  table it introduces
 - comparison-mode long tables are separated by `\par\vspace{2pt}` between
   Tables 2, 3, and 4 so adjacent captions stay readable without pushing the
   next table into a fresh page too early
@@ -629,18 +644,18 @@ chart constants.
 
 If XeLaTeX is replaced, the following responsibilities must move with it.
 
-| Responsibility                         | Current xelatex implementation                                                                                                                                                                                                                     | What an alternative needs                                                                                       |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                                                  | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                   |
-| Two-column flow + full-width breakouts | Title in normal flow; report body in balanced `multicols`; overview charts are inline column-width `minipage` blocks; time-series charts are inline full-width `minipage` blocks after `\end{multicols}`                                           | Equivalent balanced two-column body plus natural full-width blocks that can share the ending table page         |
-| Optional map final block               | Inline full-width `minipage` after the time-series chart block, with no forced `\clearpage` or `\onecolumn`                                                                                                                                        | Equivalent natural full-width map block after charts                                                            |
-| Page-spanning tables                   | Granular and daily percentile tables are emitted as paragraph-level flow rows: a one-time header, full-width `\makebox` cells per row, manual `\colorbox` striping, and `\rule` separators, so rows break naturally in the current two-column flow | Equivalent multi-page row flow with fixed cell widths, striping, captions, and no forced one-column page breaks |
-| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                                          | Per-column width control and ragged alignment                                                                   |
-| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                                   | Same row-striping semantics                                                                                     |
-| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                                                | Native SVG support or the same SVG-to-image bridge                                                              |
-| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                                                         | Equivalent template-driven running heads and feet                                                               |
-| Escaping                               | `EscapeTeX()`                                                                                                                                                                                                                                      | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                            |
-| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                                                        | Native link support for site URL, contact email, and science links                                              |
+| Responsibility                         | Current xelatex implementation                                                                                                                                                                              | What an alternative needs                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                           | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                   |
+| Two-column flow + full-width breakouts | Title in normal flow; report body in balanced `multicols`; overview charts are inline column-width `minipage` blocks; time-series charts are inline full-width `minipage` blocks after `\end{multicols}`    | Equivalent balanced two-column body plus natural full-width blocks that can share the ending table page         |
+| Optional map final block               | Inline full-width `minipage` after the time-series chart block, with no forced `\clearpage` or `\onecolumn`                                                                                                 | Equivalent natural full-width map block after charts                                                            |
+| Page-spanning tables                   | Granular and daily percentile tables are emitted as paragraph-level flow rows with one designation above the flow, full-width `\makebox` cells per row, manual `\colorbox` striping, and `\rule` separators | Equivalent multi-page row flow with fixed cell widths, striping, captions, and no forced one-column page breaks |
+| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                   | Per-column width control and ragged alignment                                                                   |
+| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                            | Same row-striping semantics                                                                                     |
+| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                         | Native SVG support or the same SVG-to-image bridge                                                              |
+| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                  | Equivalent template-driven running heads and feet                                                               |
+| Escaping                               | `EscapeTeX()`                                                                                                                                                                                               | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                            |
+| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                 | Native link support for site URL, contact email, and science links                                              |
 
 The chart stage remains the easiest part to port because the SVG is already the
 final chart specification.

@@ -1,8 +1,10 @@
 <<define "statistics_single">>
 <<if .HistogramTableTeX>>
 \par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \noindent{\large\bfseries Speed Distribution}\par\vspace{2pt}
 <<.HistogramTableTeX>>
+\end{minipage}
 \par\vspace{0pt}
 <<end>>
 
@@ -13,8 +15,11 @@
 
 <<define "statistics_comparison">>
 <<if .DualHistogramTableTeX>>
-\par\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}
+\par\vspace{8pt}
+\noindent\begin{minipage}{\linewidth}
+\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}
 <<.DualHistogramTableTeX>>
+\end{minipage}
 <<if or .DailyStatTableTeX .StatTableTeX>>
 \par\vspace{2pt}
 <<end>>
