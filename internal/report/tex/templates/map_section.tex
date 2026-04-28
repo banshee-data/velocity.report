@@ -1,7 +1,14 @@
 <<define "map_section">>
 <<if .MapChart>>
+<<if .CompareStartDate>>
 \clearpage
 \onecolumn
+<<else>>
+<<if not .TimeSeriesChart>>
+\clearpage
+\onecolumn
+<<end>>
+<<end>>
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{<<.MapChart>>}

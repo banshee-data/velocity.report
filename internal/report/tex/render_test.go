@@ -279,6 +279,73 @@ func TestRenderTeX_SingleChartSectionUsesFullWidthFloatWithoutOneColumnMode(t *t
 	}
 }
 
+func TestRenderTeX_SingleChartSectionCollapsesWithMapWhenPresent(t *testing.T) {
+	data := minimalTemplateData()
+	data.TimeSeriesChart = "timeseries.pdf"
+	data.MapChart = "map.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	if strings.Contains(s, `\begin{figure*}[t]`) {
+		t.Fatal("single report chart should not use figure* when a map is present")
+	}
+	if strings.Contains(s, `\afterpage{\clearpage}`) {
+		t.Fatal("single report chart should not defer the page flush when a map is present")
+	}
+	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
+	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
+	if chartPos == -1 || mapPos == -1 {
+		t.Fatal("expected both single chart and map graphics in rendered output")
+	}
+	if mapPos <= chartPos {
+		t.Fatal("expected map to follow the single chart in one-column flow")
+	}
+	if strings.Count(s, `\clearpage`) != 1 {
+		t.Fatalf("expected a single clearpage for the combined chart/map section, got %d", strings.Count(s, `\clearpage`))
+	}
+	if strings.Count(s, `\onecolumn`) != 1 {
+		t.Fatalf("expected a single onecolumn switch for the combined chart/map section, got %d", strings.Count(s, `\onecolumn`))
+	}
+	if !strings.Contains(s, `\begin{figure}[H]`) {
+		t.Fatal("expected combined single chart/map section to use anchored one-column figures")
+	}
+}
+
+func TestRenderTeX_OverviewHistogramFiguresAvoidLegacyCenterSpacing(t *testing.T) {
+	data := minimalTemplateData()
+	data.HistogramChart = "histogram.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	histogramPos := strings.Index(s, `\includegraphics[width=\linewidth]{histogram.pdf}`)
+	if histogramPos == -1 {
+		t.Fatal("expected overview histogram figure in rendered output")
+	}
+	start := histogramPos - 120
+	if start < 0 {
+		start = 0
+	}
+	end := histogramPos + 120
+	if end > len(s) {
+		end = len(s)
+	}
+	snippet := s[start:end]
+	if strings.Contains(snippet, `\begin{center}`) || strings.Contains(snippet, `\end{center}`) {
+		t.Fatal("overview histogram figure should not be wrapped in a center environment")
+	}
+	if strings.Contains(snippet, `\vspace{8pt}`) {
+		t.Fatal("overview histogram should not keep the legacy gap between Table 1 and Figure 1")
+	}
+}
+
 func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	data := minimalTemplateData()
 	data.HistogramTableTeX = `\begin{tabular}{lrr}\end{tabular}`
@@ -294,10 +361,41 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	for _, want := range []string{
 		`\renewcommand{\arraystretch}{1.00}`,
 		`\vspace{10pt}`,
+		`\enlargethispage{6\baselineskip}`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("expected spacing directive %q in rendered output", want)
 		}
+	}
+}
+
+func TestRenderTeX_ComparisonStatisticsSeparateLongTables(t *testing.T) {
+	data := minimalTemplateData()
+	data.CompareStartDate = "2024-02-01"
+	data.CompareEndDate = "2024-02-28"
+	data.DualHistogramTableTeX = `DUAL-TABLE`
+	data.DailyStatTableTeX = `DAILY-TABLE`
+	data.StatTableTeX = `GRANULAR-TABLE`
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	dualPos := strings.Index(s, `DUAL-TABLE`)
+	dailyPos := strings.Index(s, `DAILY-TABLE`)
+	granularPos := strings.Index(s, `GRANULAR-TABLE`)
+	if dualPos == -1 || dailyPos == -1 || granularPos == -1 {
+		t.Fatalf("expected all comparison statistics tables in rendered output, got:\n%s", s)
+	}
+	if !(dualPos < dailyPos && dailyPos < granularPos) {
+		t.Fatalf("expected comparison statistics tables in order dual -> daily -> granular, got:\n%s", s)
+	}
+	betweenDualAndDaily := s[dualPos:dailyPos]
+	betweenDailyAndGranular := s[dailyPos:granularPos]
+	if !strings.Contains(betweenDualAndDaily, `\par\vspace{8pt}`) || !strings.Contains(betweenDailyAndGranular, `\par\vspace{8pt}`) {
+		t.Fatalf("expected comparison statistics tables to be separated by explicit vertical spacing, got:\n%s", s)
 	}
 }
 

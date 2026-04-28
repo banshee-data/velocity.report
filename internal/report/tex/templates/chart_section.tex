@@ -1,5 +1,14 @@
 <<define "chart_section_single">>
 <<if .TimeSeriesChart>>
+<<if .MapChart>>
+\clearpage
+\onecolumn
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
+\caption{Speed percentiles and observation counts over time}
+\end{figure}
+<<else>>
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
@@ -8,25 +17,22 @@
 \afterpage{\clearpage}
 <<end>>
 <<end>>
+<<end>>
 
 <<define "chart_section_comparison">>
 <<if .TimeSeriesChart>>
 \onecolumn
-\begin{center}
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{<<.TimeSeriesChart>>}
 \caption{Velocity over time (t1: <<.StartDate>> to <<.EndDate>>)}
 \end{figure}
-\end{center}
 <<end>>
 <<if .CompareTimeSeriesChart>>
-\begin{center}
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{<<.CompareTimeSeriesChart>>}
 \caption{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
 \end{figure}
-\end{center}
 <<end>>
 <<end>>

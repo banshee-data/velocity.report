@@ -54,14 +54,14 @@ The source ZIP is part of the product surface. It currently contains:
 The PDF layout is driven by a small set of runtime knobs in
 `internal/api/server_reports_generate.go` and `internal/report/config.go`:
 
-| Input             | Current behaviour                                                                                                                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `paper_size`      | Defaults to US Letter. `a4` remains an explicit option. This controls both LaTeX paper geometry and chart physical dimensions.                                                                     |
-| `expanded_chart`  | Default `false` keeps sparse time-series charts consolidated. `true` inserts explicit missing buckets across the full requested range, which changes spacing, gap rendering, and SVG tooltip text. |
-| `histogram`       | Enables the overview histogram and the histogram table(s).                                                                                                                                         |
-| `include_map`     | Enables the final one-column map page when map SVG bytes are present.                                                                                                                              |
-| comparison period | Adds the grouped comparison histogram, comparison time-series figure, and comparison tables.                                                                                                       |
-| `compare_source`  | Changes which dataset is queried for t2. If omitted, t2 falls back to the primary `source`. This affects the plotted and tabulated data but is not currently printed in the PDF text.              |
+| Input             | Current behaviour                                                                                                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paper_size`      | Defaults to US Letter. `a4` remains an explicit option. This controls both LaTeX paper geometry and chart physical dimensions.                                                                                                        |
+| `expanded_chart`  | Default `false` keeps sparse time-series charts consolidated. `true` inserts explicit missing buckets across the full requested range, which changes spacing, gap rendering, and SVG tooltip text.                                    |
+| `histogram`       | Enables the overview histogram and the histogram table(s).                                                                                                                                                                            |
+| `include_map`     | Enables the final map figure when map SVG bytes are present. In single-report mode with a time-series chart, the chart and map share the same final one-column section; otherwise the map still forces its own final one-column page. |
+| comparison period | Adds the grouped comparison histogram, comparison time-series figure, and comparison tables.                                                                                                                                          |
+| `compare_source`  | Changes which dataset is queried for t2. If omitted, t2 falls back to the primary `source`. This affects the plotted and tabulated data but is not currently printed in the PDF text.                                                 |
 
 ## 2. Document structure
 
@@ -71,12 +71,16 @@ The report uses a centred title block above a two-column body:
 
 - `report.tex` opens with `\twocolumn[...]` and a `@twocolumnfalse` title block.
 - The single-report full-width time-series chart is emitted as a `figure*`
-  float and then flushed with `\afterpage{\clearpage}`, so the preceding
-  report pages stay in two-column flow and the current data page can extend to
-  the bottom margin before the chart page begins.
+  float and then flushed with `\afterpage{\clearpage}` when there is no map,
+  so the preceding report pages stay in two-column flow and the current data
+  page can extend to the bottom margin before the chart page begins.
+- When a single report includes both the time-series chart and the map, the
+  template instead switches once to `\onecolumn` and renders both figures as
+  sequential anchored `[H]` figures in one final section.
 - The comparison chart section switches to `\onecolumn` for its sequential
   full-width time-series figures.
-- The optional map page forces `\clearpage` and then `\onecolumn`.
+- The optional map page forces `\clearpage` and then `\onecolumn` only when
+  it is not already sharing the single-report final chart section.
 
 Section order is invariant:
 
@@ -88,6 +92,8 @@ Section order is invariant:
    the optional single histogram.
    Comparison mode shows site, primary period (t1), comparison period (t2),
    combined count, key metrics, and the optional grouped comparison histogram.
+   When the overview histogram is present, Figure 1 sits immediately below
+   Table 1 without an extra template spacer or outer `center` wrapper.
 3. **Site Information**: optional description and optional speed-limit note.
 4. **Citizen Radar** and **Aggregation and Percentiles**: the science copy is
    split across these two subsections, not a single generic "science" heading.
@@ -402,12 +408,17 @@ Current shared rules:
 
 - alternating tint: `black!2`
 - page-spanning tables: `supertabular`
+- page-spanning tables enlarge the current page goal by
+  `\enlargethispage{6\baselineskip}` before the `supertabular` begins so the
+  current column can carry roughly six extra table rows before breaking
 - short single-column tables such as `BuildHistogramTableTeX()` stay on regular
   `tabular` flow so they do not force awkward two-column breaks
 - first-page header only: `renderReportTable()` currently uses
   `\tablefirsthead{...}` with an empty `\tablehead{}`; later pages do **not**
   repeat the header row
 - caption helper: `tableCaptionTeX()` renders `\normalfont\bfseries\small`
+- comparison-mode long tables are separated by `\par\vspace{8pt}` between
+  Tables 2, 3, and 4 so stacked captions do not drift together
 
 The bold caption style is deliberate. It matches the current LaTeX preamble and
 the checked-in TeX golden files.
@@ -578,18 +589,18 @@ chart constants.
 
 If XeLaTeX is replaced, the following responsibilities must move with it.
 
-| Responsibility                         | Current xelatex implementation                                                                                                       | What an alternative needs                                                                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                    | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
-| Two-column flow + full-width breakouts | `\twocolumn[...]`, then `figure*` + `\afterpage{\clearpage}` for the single time-series chart and `\onecolumn` for comparison charts | Equivalent multi-column layout with break-out figures                                                                    |
-| Optional map final page                | `\clearpage` plus `\onecolumn`                                                                                                       | Equivalent page break and full-width final figure                                                                        |
-| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, and `\tabletail{\hline}`                                                  | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
-| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                            | Per-column width control and ragged alignment                                                                            |
-| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                     | Same row-striping semantics                                                                                              |
-| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                  | Native SVG support or the same SVG-to-image bridge                                                                       |
-| Running header/footer                  | `fancyhdr`                                                                                                                           | Equivalent template-driven running heads and feet                                                                        |
-| Escaping                               | `EscapeTeX()`                                                                                                                        | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                                     |
-| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                          | Native link support for site URL, contact email, and science links                                                       |
+| Responsibility                         | Current xelatex implementation                                                                                                                                                                                                  | What an alternative needs                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Narrative sans font + mono data font   | `\setsansfont` plus `\newfontfamily\AtkinsonMono`                                                                                                                                                                               | Native embedding of both Atkinson Hyperlegible and Atkinson Hyperlegible Mono                                            |
+| Two-column flow + full-width breakouts | `\twocolumn[...]`, then either `figure*` + `\afterpage{\clearpage}` for a single time-series chart with no map or one shared `\onecolumn` section for the single chart plus map; comparison charts still switch to `\onecolumn` | Equivalent multi-column layout with break-out figures                                                                    |
+| Optional map final page                | `\clearpage` plus `\onecolumn`, except when the single-report chart path has already opened the shared final one-column section                                                                                                 | Equivalent page break and full-width final figure                                                                        |
+| Page-spanning tables                   | `supertabular` with `\tablefirsthead`, empty `\tablehead`, `\tabletail{\hline}`, and `\enlargethispage{6\baselineskip}`                                                                                                         | Equivalent multi-page table support, including the current first-page-only header behaviour unless deliberately improved |
+| Fixed-width column layout              | explicit `p{...}` widths plus ragged left/right alignment                                                                                                                                                                       | Per-column width control and ragged alignment                                                                            |
+| Alternating row colours                | `colortbl` `\rowcolors{n}{a}{b}`                                                                                                                                                                                                | Same row-striping semantics                                                                                              |
+| SVG embedding                          | `rsvg-convert` to PDF, then `\includegraphics{...}`                                                                                                                                                                             | Native SVG support or the same SVG-to-image bridge                                                                       |
+| Running header/footer                  | `fancyhdr`                                                                                                                                                                                                                      | Equivalent template-driven running heads and feet                                                                        |
+| Escaping                               | `EscapeTeX()`                                                                                                                                                                                                                   | Renderer-specific escaping for `& % $ # _ { } ~ ^ \`                                                                     |
+| Hyperlinks                             | `hyperref` plus `\href{}{}`                                                                                                                                                                                                     | Native link support for site URL, contact email, and science links                                                       |
 
 The chart stage remains the easiest part to port because the SVG is already the
 final chart specification.

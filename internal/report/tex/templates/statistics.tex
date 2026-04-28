@@ -18,10 +18,16 @@
 <<if .DualHistogramTableTeX>>
 \subsection*{Detailed Data Tables}
 <<.DualHistogramTableTeX>>
+<<if or .DailyStatTableTeX .StatTableTeX>>
+\par\vspace{8pt}
+<<end>>
 <<end>>
 
 <<if .DailyStatTableTeX>>
 <<.DailyStatTableTeX>>
+<<if .StatTableTeX>>
+\par\vspace{8pt}
+<<end>>
 <<end>>
 
 <<if .StatTableTeX>>

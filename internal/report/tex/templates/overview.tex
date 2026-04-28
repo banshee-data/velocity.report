@@ -13,16 +13,13 @@
 \subsection*{Key Metrics}
 \vspace{4pt}
 <<.KeyMetricsTableTeX>>
-\vspace{8pt}
 
 <<if .HistogramChart>>
-\begin{center}
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{<<.HistogramChart>>}
 \caption{Velocity Distribution Histogram}
 \end{figure}
-\end{center}
 \vspace{-28pt}
 <<end>>
 <<end>>
@@ -44,22 +41,18 @@
 <<.KeyMetricsTableTeX>>
 
 <<if .CompareChart>>
-\begin{center}
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{<<.CompareChart>>}
 \caption{Velocity Distribution Histogram}
 \end{figure}
-\end{center}
 \vspace{-28pt}
 <<else if .HistogramChart>>
-\begin{center}
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{<<.HistogramChart>>}
 \caption{Velocity Distribution Histogram}
 \end{figure}
-\end{center}
 \vspace{-28pt}
 <<end>>
 <<end>>

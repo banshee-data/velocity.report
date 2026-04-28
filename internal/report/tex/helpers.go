@@ -107,6 +107,7 @@ func FormatCount(n int) string {
 }
 
 const tableStripeColour = "black!2"
+const pageBreakTableExtraRows = 6
 
 func tableCaptionTeX(caption string) string {
 	return `\noindent\makebox[\linewidth]{{\normalfont\bfseries\small ` + EscapeTeX(caption) + `}}`
@@ -157,6 +158,7 @@ func renderReportTable(t reportTable) string {
 			b.WriteString("}\n")
 			b.WriteString(`\tablehead{}` + "\n")
 			b.WriteString(`\tabletail{\hline}` + "\n")
+			b.WriteString(`\enlargethispage{` + strconv.Itoa(pageBreakTableExtraRows) + `\baselineskip}` + "\n")
 			b.WriteString(`\noindent` + "\n")
 			b.WriteString(`\begin{supertabular}{` + spec + `}` + "\n")
 			for _, row := range t.rows {

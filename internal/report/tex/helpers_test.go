@@ -193,6 +193,7 @@ func TestBuildStatTableTeX_UsesFullWidthSmallTable(t *testing.T) {
 		`\AtkinsonMono\small`,
 		`@{}>{\raggedright\arraybackslash}p{0.24\linewidth}`,
 		`>{\raggedleft\arraybackslash}p{0.14\linewidth}@{}`,
+		`\enlargethispage{6\baselineskip}`,
 		`\begin{supertabular}`,
 	} {
 		if !strings.Contains(result, want) {
@@ -242,6 +243,11 @@ func TestReportTablesUseSharedFullWidthFormatting(t *testing.T) {
 		} {
 			if !strings.Contains(table, want) {
 				t.Fatalf("%s table missing shared format %q:\n%s", name, want, table)
+			}
+		}
+		if name == "comparison velocity distribution" || name == "stat" {
+			if !strings.Contains(table, `\enlargethispage{6\baselineskip}`) {
+				t.Fatalf("%s table should enlarge the current column for six extra rows:\n%s", name, table)
 			}
 		}
 		for _, unwanted := range []string{
