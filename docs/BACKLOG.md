@@ -32,7 +32,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
-- [#482] Offline docs URL surfaced from backend: replace the hard-coded `:8083` in `web/src/lib/docsUrl.ts` with a value sourced from `/api/capabilities` (or build-time env), so the Web UI's Docs nav link tracks `--docs-listen` overrides instead of breaking on non-default ports `S`
+- [#482] Offline docs URL hardening: keep the Web UI's Docs nav link on same-origin `/docs/` so localhost, LAN, and Tailscale Serve access all work through the primary HTTP surface `S`
 
 ### v0.5.4 - Perception pipeline + algorithm foundations (054)
 

@@ -6,9 +6,9 @@ permalink: /
 # Offline Documentation
 
 This site is embedded into the `velocity-report` binary and is served from the
-main web UI at `/docs/`, with a direct local docs listener available on port
-`8083`. It includes repository documentation, schema references, and maths notes
-for field deployments that cannot rely on internet access.
+main web UI at `/docs/`. It includes repository documentation, schema
+references, and maths notes for field deployments that cannot rely on internet
+access.
 
 ## Start Here
 

@@ -120,8 +120,16 @@ log_info "Web frontend built"
 # ---------------------------------------------------------------------------
 # 3a. Build embedded offline docs
 # ---------------------------------------------------------------------------
+log_info "Installing embedded offline docs dependencies..."
+make -C "$REPO_ROOT" install-docs-offline
+log_info "Embedded offline docs dependencies installed"
+
 log_info "Building embedded offline docs site..."
 make -C "$REPO_ROOT" BUILD_TIME="$BUILD_TIME" build-docs-offline
+if [[ ! -f "$REPO_ROOT/docs_html/_site/index.html" ]]; then
+    log_error "Embedded offline docs build did not produce docs_html/_site/index.html"
+    exit 1
+fi
 log_info "Embedded offline docs built"
 
 # ---------------------------------------------------------------------------
@@ -226,7 +234,7 @@ cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
 log_info "Copied tuning defaults"
 
 # Remove legacy raw Markdown docs staging from older image builds. The offline
-# docs now ship inside the velocity-report binary and are served on :8083.
+# docs now ship inside the velocity-report binary and are served at /docs/.
 rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
 
 # Copy reference data (maths, structures, experiments) — excludes explore/

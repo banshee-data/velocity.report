@@ -49,9 +49,7 @@ var (
 	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
 	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
 	listen       = flag.String("listen", ":8080", "Listen address")
-	docsListen   = flag.String("docs-listen", ":8083", "HTTP listen address for embedded offline docs")
-	docsDisable  = flag.Bool("docs-disable", false, "Disable embedded offline docs listener")
-	docsSource   = flag.String("docs-source", docsite.SourceEmbed, "Offline docs source: embed or disk")
+	docsSource   = flag.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
 	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
@@ -319,13 +317,8 @@ func main() {
 	if *listen == "" {
 		log.Fatal("Listen address is required: use --listen, e.g. --listen 0.0.0.0:8080")
 	}
-	if !*docsDisable {
-		if *docsListen == "" {
-			log.Fatal("Docs listen address is required unless --docs-disable is set: use --docs-listen, e.g. --docs-listen 0.0.0.0:8083")
-		}
-		if err := docsite.ValidateSource(*docsSource); err != nil {
-			log.Fatal(err)
-		}
+	if err := docsite.ValidateSource(*docsSource); err != nil {
+		log.Fatal(err)
 	}
 	if *port == "" {
 		log.Fatal("Serial port is required: use --port, e.g. --port /dev/ttySC1")
@@ -411,17 +404,6 @@ func main() {
 	var wg sync.WaitGroup
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-
-	if !*docsDisable {
-		log.Printf("Starting offline docs server on %s (source=%s)", *docsListen, *docsSource)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := docsite.Start(ctx, *docsListen, *docsSource, docsite.DefaultDiskDir); err != nil && err != context.Canceled {
-				log.Printf("Offline docs server error: %v. Continuing without embedded docs", err)
-			}
-		}()
-	}
 
 	// Lidar webserver instance (if enabled)
 	var lidarServer *server.Server
@@ -923,14 +905,12 @@ func main() {
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
-		if !*docsDisable {
-			if handler, err := docsite.Handler(*docsSource, docsite.DefaultDiskDir); err != nil {
-				log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
-			} else if err := docsite.Mount(mux, docsite.DefaultMount, handler); err != nil {
-				log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
-			} else {
-				log.Printf("Offline docs available on main HTTP server at %s", docsite.DefaultMount)
-			}
+		if handler, err := docsite.Handler(*docsSource, docsite.DefaultDiskDir); err != nil {
+			log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
+		} else if err := docsite.Mount(mux, docsite.DefaultMount, handler); err != nil {
+			log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
+		} else {
+			log.Printf("Offline docs available on main HTTP server at %s (source=%s)", docsite.DefaultMount, *docsSource)
 		}
 		radarSerial.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)

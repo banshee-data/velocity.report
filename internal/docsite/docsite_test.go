@@ -1,15 +1,12 @@
 package docsite
 
 import (
-	"context"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestValidateSource(t *testing.T) {
@@ -124,51 +121,5 @@ func TestMountRedirectsBarePrefix(t *testing.T) {
 	}
 	if got, want := rec.Header().Get("Location"), "/docs/?from=settings"; got != want {
 		t.Fatalf("Location = %q, want %q", got, want)
-	}
-}
-
-func TestRunShutdown(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("offline docs"), 0o644); err != nil {
-		t.Fatalf("write index: %v", err)
-	}
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	addr := listener.Addr().String()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- Run(ctx, listener, SourceDisk, dir)
-	}()
-
-	client := http.Client{Timeout: time.Second}
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		resp, err := client.Get("http://" + addr + "/")
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				t.Fatalf("GET / status = %d, want 200", resp.StatusCode)
-			}
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("docs server did not start: %v", err)
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-
-	cancel()
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("Run returned error: %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("docs server did not shut down")
 	}
 }

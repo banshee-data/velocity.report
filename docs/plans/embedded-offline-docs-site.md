@@ -1,4 +1,4 @@
-# Embedded offline docs site (`:8083`)
+# Embedded offline docs site (`/docs/`)
 
 Status: Phases 1–3 landed in PR #480; Phase 4 partial; Phase 5 deferred. Last updated 2026-04-28.
 Owner: Architecture (Grace) → handed off to Appius / on-branch implementation in PR #480.
@@ -10,7 +10,7 @@ See [§9 Implementation status](#9-implementation-status-2026-04-28) for what ha
 
 ## 1. Problem statement & use case
 
-Field operators deploy velocity.report on a Raspberry Pi in locations that may have no internet (rural roads, locked-down council networks, temporary monitoring sites). When something goes wrong — a misbehaving radar, a confusing chart, an unexpected percentile — the operator needs to read the docs from the device itself, not from `velocity.report` over the public web. The Go server already binds to `:8080` (HTTP API + Svelte frontend) and `:50051` (gRPC). We want a third listener on `:8083` that serves the project's internal documentation, schema references, and algorithm maths offline. The on-disk content already exists (`docs/`, `data/structures/`, `data/maths/`, root `*.md`); the work is wrapping it in a navigable, link-safe Eleventy site that ships with the binary and can be browsed on the Pi's local network.
+Field operators deploy velocity.report on a Raspberry Pi in locations that may have no internet (rural roads, locked-down council networks, temporary monitoring sites). When something goes wrong — a misbehaving radar, a confusing chart, an unexpected percentile — the operator needs to read the docs from the device itself, not from `velocity.report` over the public web. The Go server already binds to `:8080` (HTTP API + Svelte frontend) and `:50051` (gRPC). The internal docs are served from the same HTTP surface at `/docs/`, so localhost, LAN access, and single-port reverse proxies such as Tailscale Serve all reach the same embedded documentation. The on-disk content already exists (`docs/`, `data/structures/`, `data/maths/`, root `*.md`); the work is wrapping it in a navigable, link-safe Eleventy site that ships with the binary and can be browsed on the Pi's local network.
 
 "Offline" is the term of art used throughout this plan. It means the same thing it always does: a deployment with no expectation of internet reachability, where every byte the operator needs must already be on the device.
 
@@ -26,7 +26,7 @@ Field operators deploy velocity.report on a Raspberry Pi in locations that may h
 
 Three structural reasons, in priority order:
 
-1. **Audience separation is a privacy boundary, not a stylistic preference.** `public_html/` is the public marketing/docs site that ships to `velocity.report`. `docs/` contains plans, devlogs, design notes, internal architecture decisions, and security threat models. Merging means every commit risks accidentally publishing internal-only material to the open web. A separate project lets the build for `:8083` glob `docs/**` freely, while `public_html/` continues to opt-in only the curated public pages it already lists. A merge inverts the safer default.
+1. **Audience separation is a privacy boundary, not a stylistic preference.** `public_html/` is the public marketing/docs site that ships to `velocity.report`. `docs/` contains plans, devlogs, design notes, internal architecture decisions, and security threat models. Merging means every commit risks accidentally publishing internal-only material to the open web. A separate project lets the offline-docs build glob `docs/**` freely, while `public_html/` continues to opt-in only the curated public pages it already lists. A merge inverts the safer default.
 2. **The two sites have different lifecycle owners.** `public_html/` is versioned with the marketing release cadence and is hand-curated by Terry; `docs_html/` will be a near-mechanical build over the repo's existing markdown trees, refreshed every time the binary is rebuilt. Coupling them means a typo in an internal devlog can block a marketing deploy, and a Tailwind theme update on the public site forces a Go rebuild.
 3. **The split test passes for separation.**
    - Different owned surface (operator on-device vs public web).
@@ -62,15 +62,9 @@ The legitimate concern with two Eleventy projects is config and theme drift. We 
    │   ┌────────────────────┐  ┌─────────────────────────────┐    │
    │   │ HTTP :8080         │  │ gRPC :50051                 │    │
    │   │ /api/* + Svelte    │  │ FrameBundle stream          │    │
-   │   │ (existing)         │  │ (existing)                  │    │
+   │   │ /docs/* offline    │  │ (existing)                  │    │
+   │   │ docs               │  │                             │    │
    │   └────────────────────┘  └─────────────────────────────┘    │
-   │                                                              │
-   │   ┌──────────────────────────────────────────────────────┐   │
-   │   │ HTTP :8083  (NEW)                                    │   │
-   │   │ Static file server over embed.FS                     │   │
-   │   │ Root = docs_html/_site/  (built by Eleventy)         │   │
-   │   │ Read-only; no auth (LAN-only by deployment posture)  │   │
-   │   └──────────────────────────────────────────────────────┘   │
    │             ▲                                                │
    │             │ go:embed all:docs_html/_site                   │
    │             │                                                │
@@ -87,17 +81,15 @@ The legitimate concern with two Eleventy projects is config and theme drift. We 
    └──────────────────────────────────────────────────────────────┘
 ```
 
-### Where the listener lives
+### Where the route lives
 
-A new package `internal/docsite/` owns the embed and the HTTP handler. `cmd/radar/radar.go` already wires `:8080`, `:8081` (lidar monitor), `:50051` (gRPC). Add a flag mirroring the existing pattern:
+A new package `internal/docsite/` owns the embed and the HTTP handler. `cmd/radar/radar.go` mounts that handler on the existing API/frontend mux at `/docs/`.
 
-| Flag             | Default | Purpose                                            |
-| ---------------- | ------- | -------------------------------------------------- |
-| `--docs-listen`  | `:8083` | Address for the embedded docs site                 |
-| `--docs-disable` | `false` | Skip starting the docs listener (useful for tests) |
-| `--docs-source`  | `embed` | `embed` (default) or `disk` for dev iteration      |
+| Flag            | Default | Purpose                                       |
+| --------------- | ------- | --------------------------------------------- |
+| `--docs-source` | `embed` | `embed` (default) or `disk` for dev iteration |
 
-The handler is trivial: `http.FileServer(http.FS(subFS))` where `subFS` is the rooted `docs_html/_site/` subtree. No authentication; the deployment posture is LAN-only and matches the existing `:8080` UI. Privacy review (Malory) before merge.
+The handler is trivial: `http.FileServer(http.FS(subFS))` where `subFS` is the rooted `docs_html/_site/` subtree, mounted via `http.StripPrefix("/docs", handler)`. No authentication; the deployment posture is LAN-only and matches the existing `:8080` UI. Privacy review (Malory) before merge.
 
 ### How content is built
 
@@ -225,7 +217,7 @@ The dev loop must not require rebuilding the Go binary. Standardise on a single 
 make dev-docs-offline
 ```
 
-Runs `eleventy --serve --port=8093` inside `docs_html/` after creating the symlinks. Operator-doc authors edit any `.md` file in `docs/`, `data/`, or repo root; Eleventy live-reloads in the browser. Port `8093` (parallel to the existing `8090` for `public_html/`) avoids collision with the embedded `:8083` running inside a real Go server.
+Runs `eleventy --serve --port=8093` inside `docs_html/` after creating the symlinks. Operator-doc authors edit any `.md` file in `docs/`, `data/`, or repo root; Eleventy live-reloads in the browser. Port `8093` (parallel to the existing `8090` for `public_html/`) keeps the authoring preview separate from the Go server's `/docs/` route.
 
 This is the **only** supported dev mode. Authors should not need to start a Go process to write or preview docs.
 
@@ -234,8 +226,8 @@ This is the **only** supported dev mode. Authors should not need to start a Go p
 `eleventy --serve` is a fast loop, not a faithful one. The following classes of bug will pass cleanly under `dev-docs-offline` and only surface in a full `make build-radar-local` or in CI. A developer working on integration plumbing must run the full build:
 
 1. **`go:embed` directive correctness.** A typo in `//go:embed all:docs_html/_site` (missing `all:`, wrong path, trailing slash mistake) compiles and runs cleanly when the embed FS is empty — Go does not error on an empty match for `embed.FS`. Eleventy serve never touches the embed. **Catch:** Phase 3 tests must assert `len(fs.ReadDir(embedded, "."))) > 0` at startup.
-2. **`:8083` listener wiring.** Whether `cmd/radar/radar.go` actually starts the listener, registers the handler, parses `--docs-listen`, and respects `--docs-disable`. Eleventy serve runs on `:8093` from Node and tells you nothing about the Go side.
-3. **Coexistence with `:8080` and `:50051`.** Port conflicts (e.g. someone re-uses `:8083` for a future service), graceful shutdown ordering on SIGTERM, partial-failure behaviour when one listener fails to bind. Eleventy is alone in its address space.
+2. **`/docs/` route wiring.** Whether `cmd/radar/radar.go` mounts the handler on the main mux and preserves the API/frontend routes around it. Eleventy serve runs on `:8093` from Node and tells you nothing about the Go side.
+3. **Coexistence with `:8080` and `:50051`.** Route conflicts, graceful shutdown ordering on SIGTERM, and partial-failure behaviour when the disk docs source is unavailable. Eleventy is alone in its address space.
 4. **`embed.FS` vs `os.DirFS` path semantics.** `embed.FS` is rooted at the import path, uses forward slashes always, and treats the prefix differently from `os.DirFS`. A handler that works against `os.DirFS("docs_html/_site")` may serve `/index.html` from the wrong subtree when switched to `embed.FS`. The `--docs-source=disk` knob exists for runtime A/B but the default ship path is embed.
 5. **Go-side content-type defaults and 404 handling.** `http.FileServer` infers content types from extensions and returns its own 404 page. Eleventy serve uses Browsersync defaults. The two will differ on (a) `.svg` content-type, (b) directory-index behaviour for paths without trailing slash, (c) the body of a 404 response. Operator UX wants the Go behaviour validated.
 6. **Empty embedded FS (fresh-checkout case).** Before Eleventy has ever run, `docs_html/_site/` is empty or only contains the stub. The Go server should serve the stub gracefully, not panic, and not 500. Eleventy serve cannot reproduce this state by definition — it only runs after the input is present.
@@ -288,25 +280,25 @@ The two checks are complementary: `check-md-links` validates the markdown source
 
 ### Failure registry
 
-| Component                                    | Failure mode                                            | Recovery                                                                             |
-| -------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `:8083` listener fails to bind (port in use) | Log warning, continue without docs site                 | Existing `:8080` and gRPC stay up; operator can SSH and `cat` the markdown           |
-| Embedded `_site/` empty or missing files     | Stub `index.html` returned with apology copy + repo URL | Build fails earlier in CI via link checker; runtime fallback only matters during dev |
-| Eleventy build fails in CI                   | Block PR                                                | `make build-docs-offline` is a quality gate                                          |
-| Link rewriter misses the `.md → /` strip     | Internal 404 on `:8083`                                 | `check-docs-offline-links` catches before merge                                      |
-| Symlink target missing                       | Eleventy build fails loudly                             | `build-docs-offline` recreates symlinks every run; `clean-docs-offline` resets state |
-| GitHub blob URL link offline                 | Browser tries to reach github.com, hangs or fails       | Phase 2 lint warning; Phase >2 optionally rewrite blob URLs to local paths           |
-| `go:embed` size grows large                  | Binary bloats over time                                 | Track binary size in CI; if > 50 MB, revisit "embed vs sidecar tarball" trade        |
+| Component                                | Failure mode                                            | Recovery                                                                             |
+| ---------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `/docs/` route fails to mount            | Log warning, continue without docs site                 | Existing API/frontend and gRPC stay up; operator can SSH and `cat` the markdown      |
+| Embedded `_site/` empty or missing files | Stub `index.html` returned with apology copy + repo URL | Build fails earlier in CI via link checker; runtime fallback only matters during dev |
+| Eleventy build fails in CI               | Block PR                                                | `make build-docs-offline` is a quality gate                                          |
+| Link rewriter misses the `.md → /` strip | Internal 404 on `/docs/`                                | `check-docs-offline-links` catches before merge                                      |
+| Symlink target missing                   | Eleventy build fails loudly                             | `build-docs-offline` recreates symlinks every run; `clean-docs-offline` resets state |
+| GitHub blob URL link offline             | Browser tries to reach github.com, hangs or fails       | Phase 2 lint warning; Phase >2 optionally rewrite blob URLs to local paths           |
+| `go:embed` size grows large              | Binary bloats over time                                 | Track binary size in CI; if > 50 MB, revisit "embed vs sidecar tarball" trade        |
 
 ### Open questions
 
 1. **Search.** Operators may want to grep across docs. Eleventy supports plugin-based search (Pagefind, Lunr). Recommend deferring to Phase 5 and shipping a "use Cmd-F or browse the sidebar" v1. Ask Florence for prioritisation against operator feedback.
 2. **Diagrams (Mermaid, SVG).** `docs/` contains Mermaid code fences. `public_html/` does not currently render Mermaid. Decide whether the offline site renders Mermaid client-side (extra JS, but no network needed) or pre-renders to SVG at build time (cleaner, matches `make check-mermaid`). Recommend pre-render to SVG.
 3. **`devlog/` and `plans/` exposure.** Even on the operator-only site, do we want plans visible? My recommendation: yes — operators benefit from "why was this designed this way" context, and the site never reaches the public internet by deployment posture. But this is Florence's call.
-4. **Discoverability.** Should the Svelte frontend on `:8080` link to `:8083`? A small "docs" link in the footer ("Docs (offline)") would be useful and is a one-line change.
+4. **Discoverability.** The Svelte frontend should link to same-origin `/docs/` so localhost, LAN, and Tailscale Serve all work without exposing another port.
 5. **Versioning.** The offline site shows the docs as of the binary's git SHA. Add a footer with `version.Version` / `version.GitSHA` so operators know whether they need to upgrade. Trivial; do it in Phase 1.
 6. **Image asset paths.** Some `docs/` images are referenced as `./images/foo.png`. Need to confirm Eleventy passthrough copies binary assets alongside the markdown when sources arrive via symlink; spike this in Phase 1. <!-- link-ignore -->
-7. **Auth posture.** `:8083` is unauthenticated. Malory should sign off that this is acceptable given that `:8080` (and the API behind it) is also unauthenticated and the deployment is LAN-only. If the answer is "auth required", we have a separate, larger discussion.
+7. **Auth posture.** `/docs/` is unauthenticated. Malory should sign off that this is acceptable given that the main UI and API are also unauthenticated and the deployment is LAN-only. If the answer is "auth required", we have a separate, larger discussion.
 8. **GitHub blob URLs in source.** Some authored markdown links to `https://github.com/.../blob/...`. Phase 2 emits a build warning per occurrence; whether to rewrite them to local URLs in v2 is a separate decision.
 
 ---
@@ -332,15 +324,15 @@ Each phase is a PR-sized chunk. Sequence is strict: do not start Phase N+1 befor
 - Spike: confirm image and SVG assets resolve correctly across symlink boundaries; fix any passthrough gaps.
 - Output: every internal link in the four content roots resolves on `:8093`, and CI fails on regressions.
 
-### Phase 3 — Go embed and `:8083` listener
+### Phase 3 — Go embed and `/docs/` route
 
 - New package `internal/docsite/` with `embed.go` (`go:embed all:docs_html/_site`) and `handler.go` (`http.FileServer` over the subtree).
-- New flags `--docs-listen`, `--docs-disable`, `--docs-source` in `cmd/radar/radar.go`.
+- New `--docs-source` flag in `cmd/radar/radar.go`.
 - `--docs-source=disk` reads from `docs_html/_site/` via `os.DirFS` for dev iteration; default `embed`.
 - Update `build-radar-*` targets to call `build-docs-offline` (or its stub equivalent) as a prerequisite, mirroring the `ensure-web-stub.sh` pattern.
 - Add startup assertion: `embed.FS` non-empty (§5.2 item 1).
-- Add `:8083` to the systemd service notes / firewall guidance in operator docs.
-- Output: `velocity-report` binary serves the docs site at `http://<pi>.local:8083/`.
+- Document that the systemd service exposes docs on the main web UI at `/docs/`.
+- Output: `velocity-report` binary serves the docs site at `http://<pi>.local:8080/docs/`.
 
 ### Phase 4 — Polish and operator value-adds
 
@@ -376,14 +368,13 @@ This section records what landed against this plan. Source of truth: PR #480 (br
 - The internal link rewriter went **beyond** the plan's "~15-line `.md → /` strip" and now resolves Markdown links to actual repo paths (`outputURLForSourcePath` + `rewriteHrefForInput` in `docs_html/.eleventy.js`). It walks candidate targets (direct, `+.md`, `README.md`, `index.md`) inside the input root and only falls back to the bare `.md → /` strip when no source file matches. This is more code than the plan predicted (~80 lines) but it correctly handles `[x](../foo)` (no extension), `[x](dir/)` (directory → README), and `README.md` rewriting that the simple strip would have missed. <!-- link-ignore -->
 - `scripts/check-docs-offline-links.js` validates every rendered `<a href>`, including `#anchor` resolution, and warns on `github.com/.../blob/...` URLs (per §7 Q8). The Makefile target `lint-docs-offline` is non-mutating: it delegates to `check-docs-offline-links` against an existing `_site/`. To rebuild before linting, run `make build-docs-offline`. The script skips gracefully when the site contains only the embed stub, so `make lint` works on a clean checkout without `make install-docs-offline`.
 
-**Phase 3 — Go embed and `:8083` listener (complete).**
+**Phase 3 — Go embed and `/docs/` route (complete).**
 
 - New package `internal/docsite/` (`docsite.go`, `docsite_test.go`).
 - Embed declared at the repo root in `assets.go`: `//go:embed all:docs_html/_site` → `var DocsSiteFiles embed.FS`. The `docsite` package consumes it via `fs.Sub(radar.DocsSiteFiles, "docs_html/_site")`.
-- New flags wired in `cmd/radar/radar.go`:
-  - `--docs-listen` (default `:8083`)
-  - `--docs-disable` (default `false`)
+- New flag wired in `cmd/radar/radar.go`:
   - `--docs-source` (`embed` default, `disk` for dev iteration)
+- The docs handler is mounted on the main HTTP mux at `/docs/`; no separate docs port is opened.
 - All Go CI jobs and Makefile test targets that compile code now run `scripts/ensure-docs-stub.sh` after `ensure-web-stub.sh`, so the embed pattern always matches at least one file (the stub on a clean tree, the real site after a build).
 
 **Phase 4 — Polish (partial).**
@@ -399,14 +390,14 @@ This section records what landed against this plan. Source of truth: PR #480 (br
 
 ### 9.2 Resolved open questions (§7)
 
-| Question                                | Resolution                                                                                                                                                        |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q2. Diagrams (Mermaid pre-render vs JS) | Chose client-side via the bundled mermaid ESM. Trade-off in §9.3.                                                                                                 |
-| Q3. `devlog/` and `plans/` exposure     | Both are exposed; the deployment posture is LAN-only and operators benefit from "why was this designed this way" context.                                         |
-| Q4. Discoverability from the Svelte UI  | Done; the URL is currently hard-coded to `:8083` (issue [#482](https://github.com/banshee-data/velocity.report/issues/482) tracks surfacing it from the backend). |
-| Q5. Versioning footer                   | Done.                                                                                                                                                             |
-| Q6. Image asset paths                   | Confirmed working through symlinks and Eleventy passthrough copy.                                                                                                 |
-| Q8. GitHub blob URLs                    | Link checker emits warnings; rewrite to local paths still deferred.                                                                                               |
+| Question                                | Resolution                                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Q2. Diagrams (Mermaid pre-render vs JS) | Chose client-side via the bundled mermaid ESM. Trade-off in §9.3.                                                         |
+| Q3. `devlog/` and `plans/` exposure     | Both are exposed; the deployment posture is LAN-only and operators benefit from "why was this designed this way" context. |
+| Q4. Discoverability from the Svelte UI  | Done; the URL is same-origin `/docs/`, which works for localhost, LAN, and single-port Tailscale Serve access.            |
+| Q5. Versioning footer                   | Done.                                                                                                                     |
+| Q6. Image asset paths                   | Confirmed working through symlinks and Eleventy passthrough copy.                                                         |
+| Q8. GitHub blob URLs                    | Link checker emits warnings; rewrite to local paths still deferred.                                                       |
 
 ### 9.3 Mermaid: divergence from plan
 
@@ -423,7 +414,7 @@ The plan recommended pre-rendering Mermaid fences to SVG at build time (Phase 4,
 **What it costs.**
 
 - ~3.5 MB of mermaid `.mjs` chunks shipped inside the binary's embedded FS.
-- The page does ~9 chunk fetches plus a few diagram-type-specific chunks on first render. Network is local (`:8083`) so latency is negligible, but it is non-zero JS work.
+- The page does ~9 chunk fetches plus a few diagram-type-specific chunks on first render. Network is same-origin and local to the Pi's web UI, so latency is negligible, but it is non-zero JS work.
 - A non-JS browser sees the raw mermaid source text inside `<pre class="mermaid">`. Acceptable for the current operator browser baseline; not acceptable if an `elinks` user appears.
 
 **Reversible if needed.** If the chunk size or the JS-required posture becomes a problem, the substitution is local: replace the markdown-it fence rule and the `eleventy.after` hook with a build-time call into `@mermaid-js/mermaid-cli`. No content changes required.
@@ -434,9 +425,8 @@ These are tracked outside this plan; do not let merging this PR imply they are d
 
 | Item                                                                                                                                                                                                                | Where it lives        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| Surface offline docs URL from the backend so the Web UI link tracks `--docs-listen` instead of hard-coded `:8083`. Capabilities endpoint or build-time env. Backlog **v0.5.3**.                                     | Issue [#482]          |
 | Decide Node baseline for offline docs build: chevrotain@12 needs Node ≥22 and cheerio@1.2 needs ≥20.18, but README/CONTRIBUTING document Node 18+. Either downgrade deps or raise the baseline. Backlog **v0.5.2**. | Issue [#483]          |
-| Operator documentation in `docs/platform/operations/`: introduce `:8083`, document the flags, document how to disable.                                                                                              | Phase 4 leftover.     |
+| Operator documentation in `docs/platform/operations/`: document `/docs/` on the main web UI and the `--docs-source` dev knob.                                                                                       | Phase 4 leftover.     |
 | `github.com/.../blob/...` URL rewriting (current behaviour: link checker warns, no rewrite).                                                                                                                        | §7 Q8 leftover.       |
 | Auth posture review by Malory (§7 Q7). Current: LAN-only, no auth, matches `:8080`.                                                                                                                                 | §7 Q7 review pending. |
 | Search (Pagefind or equivalent).                                                                                                                                                                                    | Phase 5, deferred.    |
@@ -448,7 +438,7 @@ These are tracked outside this plan; do not let merging this PR imply they are d
 
 ## Architecture decision record (summary)
 
-- **Decision:** Add an embedded offline operator docs site as a separate Eleventy project at `docs_html/`, served by a new HTTP listener on `:8083` from inside the existing Go server, content embedded via `go:embed`. Cross-tree links resolve via filesystem symlinks that mirror the repo layout under `docs_html/src/`; the only residual rewriter strips `.md` from internal hrefs.
+- **Decision:** Add an embedded offline operator docs site as a separate Eleventy project at `docs_html/`, served from the existing Go HTTP server at `/docs/`, content embedded via `go:embed`. Cross-tree links resolve via filesystem symlinks that mirror the repo layout under `docs_html/src/`; the only residual rewriter strips `.md` from internal hrefs.
 - **Status:** Proposed.
 - **Drivers:** Field operators need offline docs; existing `public_html/` has the wrong audience; `docs/` already has the content.
 - **Consequences:**
@@ -461,4 +451,4 @@ These are tracked outside this plan; do not let merging this PR imply they are d
   - − Watcher coverage requires explicit `addWatchTarget` per canonical root; one-line config.
   - − Binary size grows by the size of the rendered HTML tree; track in CI.
 - **Alternatives:** merge into `public_html/` (rejected: privacy boundary), render markdown at request time in Go (rejected: duplicates Eleventy stack), rewrite all links via a markdown-it plugin (rejected: more code than the symlink-first approach), do nothing (rejected: fails non-technical operators).
-- **Reviewers required before merge:** Malory (unauthenticated `:8083` posture), Florence (devlog/plans exposure decision), Appius (implementation hand-off).
+- **Reviewers required before merge:** Malory (unauthenticated `/docs/` posture), Florence (devlog/plans exposure decision), Appius (implementation hand-off).
