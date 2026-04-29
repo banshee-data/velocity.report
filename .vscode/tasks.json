@@ -17,21 +17,6 @@
       }
     },
     {
-      "label": "Python: Run Tests",
-      "type": "shell",
-      "command": "make",
-      "args": ["test-python"],
-      "group": {
-        "kind": "test",
-        "isDefault": false
-      },
-      "problemMatcher": ["$python"],
-      "presentation": {
-        "reveal": "silent",
-        "panel": "shared"
-      }
-    },
-    {
       "label": "JS: Run Tests",
       "type": "shell",
       "command": "pnpm",

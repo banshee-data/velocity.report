@@ -11,7 +11,6 @@
   "Prettier-SQL.keywordCase": "upper",
   "Prettier-SQL.newlineBeforeSemicolon": false,
   "Prettier-SQL.SQLFlavourOverride": "sqlite",
-  // Go settings
   "go.lintOnSave": "file",
   "go.lintTool": "golangci-lint",
   "go.formatTool": "goimports",
@@ -36,27 +35,9 @@
       ]
     }
   ],
-  // Python settings
-  "python.defaultInterpreterPath": "./.venv/bin/python",
-  "python.testing.pytestEnabled": true,
-  "python.testing.pytestArgs": [
-    "pdf_generator/tests",
-    "-v",
-    "--strict-markers"
-  ],
-  "python.testing.cwd": "${workspaceFolder}/tools/pdf-generator",
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "always"
-    }
-  },
-  // JavaScript tests (Jest)
   "jest.rootPath": ".",
   "jest.jestCommandLine": "pnpm --filter ./web test",
   "jest.runMode": "on-demand",
-  // JavaScript/TypeScript settings
   "[javascript]": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -77,7 +58,6 @@
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  // Svelte extension settings - sync with web/.prettierrc
   "svelte.plugin.svelte.format.config.singleQuote": true,
   "svelte.plugin.svelte.format.config.printWidth": 100
 }
