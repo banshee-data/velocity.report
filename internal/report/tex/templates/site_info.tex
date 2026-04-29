@@ -1,12 +1,7 @@
 <<define "site_info">>
-<<if or .Description .SpeedLimitNote>>
-\subsection*{Site Information}
 <<if .Description>>
+\subsection*{Site Information}
 <<.Description>>
-<<end>>
-<<if .SpeedLimitNote>>
-<<.SpeedLimitNote>>
-<<end>>
 \par
 <<end>>
 <<end>>

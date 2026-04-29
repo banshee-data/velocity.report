@@ -12,7 +12,6 @@ type Config struct {
 	Contact         string
 	SpeedLimit      int
 	SiteDescription string
-	SpeedLimitNote  string
 
 	// Survey period
 	StartDate string // YYYY-MM-DD
@@ -49,7 +48,7 @@ type Config struct {
 	MapSVG     []byte
 
 	// PaperSize selects physical chart dimensions and LaTeX paper
-	// ("a4" or "letter"). Empty defaults to "a4".
+	// ("letter" or "a4"). Empty defaults to "letter".
 	PaperSize string
 
 	// ExpandedChart preserves linear timestamp spacing in time-series charts by

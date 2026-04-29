@@ -25,22 +25,24 @@ func normalizeForGolden(b []byte) []byte {
 
 func minimalTemplateData() TemplateData {
 	return TemplateData{
-		Location:    "Test Location",
-		StartDate:   "2024-01-01",
-		EndDate:     "2024-01-31",
-		Timezone:    "UTC",
-		Units:       "mph",
-		P50:         "25.00",
-		P85:         "30.00",
-		P98:         "35.00",
-		MaxSpeed:    "42.00",
-		TotalCount:  1000,
-		HoursCount:  720,
-		SpeedLimit:  25,
-		FontDir:     "/fonts",
-		Group:       "hourly",
-		Source:      "radar",
-		PaperOption: "a4paper",
+		Location:         "Test Location",
+		StartDate:        "2024-01-01",
+		EndDate:          "2024-01-31",
+		StartTimeDisplay: "2024-01-01T00:00:00Z",
+		EndTimeDisplay:   "2024-01-31T23:59:59Z",
+		Timezone:         "UTC",
+		Units:            "mph",
+		P50:              "25.00",
+		P85:              "30.00",
+		P98:              "35.00",
+		MaxSpeed:         "42.00",
+		TotalCount:       1000,
+		HoursCount:       720,
+		SpeedLimit:       25,
+		FontDir:          "/fonts",
+		Group:            "hourly",
+		Source:           "radar",
+		PaperOption:      "letterpaper",
 	}
 }
 
@@ -170,6 +172,8 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 	data := minimalTemplateData()
 	data.CompareStartDate = "2024-02-01"
 	data.CompareEndDate = "2024-02-28"
+	data.CompareStartTimeDisplay = "2024-02-01T00:00:00Z"
+	data.CompareEndTimeDisplay = "2024-02-28T23:59:59Z"
 	data.CompareP50 = "26.00"
 	data.CompareP85 = "31.00"
 	data.CompareP98 = "36.00"
@@ -183,19 +187,18 @@ func TestRenderTeX_ConditionalComparison_Present(t *testing.T) {
 
 	s := string(out)
 	// Comparison overview: period (t2) itemize entry only present in overview_comparison.
-	if !strings.Contains(s, `\item \textbf{Period (t2):} 2024-02-01 \textemdash{} 2024-02-28`) {
+	if !strings.Contains(s, `\item \textbf{Comparison period (t2):} 2024-02-01 to 2024-02-28`) {
 		t.Error("comparison section should be present when CompareStartDate is set")
 	}
-	if !strings.Contains(s, `\item \textbf{Period (t1):} 2024-01-01 \textemdash{} 2024-01-31`) {
+	if !strings.Contains(s, `\item \textbf{Primary period (t1):} 2024-01-01 to 2024-01-31`) {
 		t.Error("comparison report should render the comparison period overview module")
 	}
 	// Comparison survey parameters: Start time (t2) row (bfseries applied via column spec).
-	if !strings.Contains(s, `Start time (t2): & \texttt{2024-02-01}`) {
+	if !strings.Contains(s, `Start time (t2): & \texttt{2024-02-01T00:00:00Z}`) {
 		t.Error("comparison report should render the comparison survey-parameters module")
 	}
-	// Footer no longer shows dates; verify the date range is not in the footer.
-	if strings.Contains(s, `\fancyfoot[L]`) {
-		t.Error("comparison report footer should not contain a left-side element after date removal")
+	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 to 2024-01-31 vs 2024-02-01 to 2024-02-28}`) {
+		t.Error("comparison report footer should include the period range")
 	}
 }
 
@@ -208,21 +211,23 @@ func TestRenderTeX_SingleReportUsesSinglePeriodModule(t *testing.T) {
 	}
 
 	s := string(out)
-	if !strings.Contains(s, `\item \textbf{Period:} 2024-01-01 \textemdash{} 2024-01-31`) {
+	if !strings.Contains(s, `\item \textbf{Period:} 2024-01-01 to 2024-01-31`) {
 		t.Error("single report should render the single-period overview module")
 	}
 	if strings.Contains(s, `\item \textbf{Primary period (t1):}`) {
 		t.Error("single report unexpectedly rendered the comparison overview module")
 	}
-	if !strings.Contains(s, `Start time: & \texttt{2024-01-01}`) {
+	if !strings.Contains(s, `Start time: & \texttt{2024-01-01T00:00:00Z}`) {
 		t.Error("single report should render the single survey-parameters module")
 	}
 	if strings.Contains(s, `Start time (t2):`) {
 		t.Error("single report unexpectedly rendered the comparison survey-parameters module")
 	}
-	// Footer no longer shows dates; verify the date range is not in the footer.
-	if strings.Contains(s, `\fancyfoot[L]`) {
-		t.Error("single report footer should not contain a left-side element after date removal")
+	if !strings.Contains(s, `\fancyfoot[L]{\small 2024-01-01 to 2024-01-31}`) {
+		t.Error("single report footer should include the period range")
+	}
+	if strings.Contains(s, `Speed limit:`) {
+		t.Error("single report overview should not include speed limit until multi-limit reporting is supported")
 	}
 }
 
@@ -239,14 +244,147 @@ func TestRenderTeX_MapSectionAppearsAfterCharts(t *testing.T) {
 	s := string(out)
 	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
 	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Chart and Map}\par\vspace{2pt}`)
 	if chartPos == -1 || mapPos == -1 {
 		t.Fatalf("expected both chart and map sections in rendered output")
+	}
+	if headingPos == -1 {
+		t.Fatal("expected chart/map media heading")
+	}
+	if headingPos > chartPos {
+		t.Fatal("expected chart/map media heading inside the first media block")
 	}
 	if mapPos <= chartPos {
 		t.Fatalf("expected map section after chart section")
 	}
-	if !strings.Contains(s, `\clearpage`) {
-		t.Fatal("expected map section to force a final page break")
+	if strings.Contains(s, `\clearpage`) || strings.Contains(s, `\onecolumn`) {
+		t.Fatal("chart/map section should not force a page break or one-column mode")
+	}
+}
+
+func TestRenderTeX_SingleChartSectionUsesNaturalFullWidthBlock(t *testing.T) {
+	data := minimalTemplateData()
+	data.TimeSeriesChart = "timeseries.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	if strings.Contains(s, `\begin{figure*}`) || strings.Contains(s, `\begin{figure}[H]`) {
+		t.Fatal("single report chart section should not use floats")
+	}
+	for _, unwanted := range []string{`\onecolumn`, `\clearpage`, `\afterpage{\clearpage}`} {
+		if strings.Contains(s, unwanted) {
+			t.Fatalf("single report chart section should not force layout with %q", unwanted)
+		}
+	}
+	bodyEnd := strings.Index(s, `\end{multicols}`)
+	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Chart}\par\vspace{2pt}`)
+	if bodyEnd == -1 || chartPos == -1 || chartPos <= bodyEnd {
+		t.Fatal("expected full-width single chart after the balanced multicols body")
+	}
+	if !strings.Contains(s, `\captionof{figure}{Speed percentiles and observation counts over time}`) {
+		t.Fatal("expected inline full-width single chart caption")
+	}
+	if headingPos == -1 {
+		t.Fatal("expected single chart media heading")
+	}
+	if headingPos > chartPos {
+		t.Fatal("expected single chart heading inside the first media block")
+	}
+}
+
+func TestRenderTeX_SingleChartSectionCollapsesWithMapWhenPresent(t *testing.T) {
+	data := minimalTemplateData()
+	data.TimeSeriesChart = "timeseries.pdf"
+	data.MapChart = "map.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	for _, unwanted := range []string{`\begin{figure*}`, `\begin{figure}[H]`, `\afterpage{\clearpage}`, `\clearpage`, `\onecolumn`} {
+		if strings.Contains(s, unwanted) {
+			t.Fatalf("single report chart/map section should not force layout with %q", unwanted)
+		}
+	}
+	chartPos := strings.Index(s, `\includegraphics[width=\textwidth]{timeseries.pdf}`)
+	mapPos := strings.Index(s, `\includegraphics[width=\textwidth]{map.pdf}`)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Chart and Map}\par\vspace{2pt}`)
+	if chartPos == -1 || mapPos == -1 {
+		t.Fatal("expected both single chart and map graphics in rendered output")
+	}
+	if headingPos == -1 {
+		t.Fatal("expected single chart/map media heading")
+	}
+	if headingPos > chartPos {
+		t.Fatal("expected single chart/map heading inside the first media block")
+	}
+	if mapPos <= chartPos {
+		t.Fatal("expected map to follow the single chart in natural full-width flow")
+	}
+	if strings.Count(s, `\captionof{figure}`) < 2 {
+		t.Fatal("expected chart and map to use inline figure captions")
+	}
+}
+
+func TestRenderTeX_ComparisonMediaHeadingReflectsChartsAndMap(t *testing.T) {
+	data := minimalTemplateData()
+	data.CompareStartDate = "2024-02-01"
+	data.CompareEndDate = "2024-02-28"
+	data.TimeSeriesChart = "timeseries-t1.pdf"
+	data.CompareTimeSeriesChart = "timeseries-t2.pdf"
+	data.MapChart = "map.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	headingPos := strings.Index(s, `\noindent{\large\bfseries Charts and Map}\par\vspace{2pt}`)
+	chartPos := strings.Index(s, `\includegraphics[width=\linewidth]{timeseries-t1.pdf}`)
+	if headingPos == -1 {
+		t.Fatal("expected comparison charts/map media heading")
+	}
+	if chartPos == -1 || headingPos > chartPos {
+		t.Fatal("expected comparison media heading inside the first media block")
+	}
+}
+
+func TestRenderTeX_OverviewHistogramFiguresAvoidLegacyCenterSpacing(t *testing.T) {
+	data := minimalTemplateData()
+	data.HistogramChart = "histogram.pdf"
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	histogramPos := strings.Index(s, `\includegraphics[width=\linewidth]{histogram.pdf}`)
+	if histogramPos == -1 {
+		t.Fatal("expected overview histogram figure in rendered output")
+	}
+	start := histogramPos - 120
+	if start < 0 {
+		start = 0
+	}
+	end := histogramPos + 120
+	if end > len(s) {
+		end = len(s)
+	}
+	snippet := s[start:end]
+	if strings.Contains(snippet, `\begin{center}`) || strings.Contains(snippet, `\end{center}`) {
+		t.Fatal("overview histogram figure should not be wrapped in a center environment")
+	}
+	if strings.Contains(snippet, `\vspace{8pt}`) {
+		t.Fatal("overview histogram should not keep the legacy gap between Table 1 and Figure 1")
 	}
 }
 
@@ -254,7 +392,7 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 	data := minimalTemplateData()
 	data.HistogramTableTeX = `\begin{tabular}{lrr}\end{tabular}`
 	data.StatRows = []StatRow{{StartTime: "1/1 00:00", Count: 12, P50: "1", P85: "2", P98: "3", MaxSpeed: "4"}}
-	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data", data.Units)
 
 	out, err := RenderTeX(data)
 	if err != nil {
@@ -263,13 +401,50 @@ func TestRenderTeX_TableSpacingDirectivesPresent(t *testing.T) {
 
 	s := string(out)
 	for _, want := range []string{
-		`\renewcommand{\arraystretch}{1.14}`,
-		`\renewcommand{\arraystretch}{1.12}`,
-		`\vspace{10pt}`,
+		`\renewcommand{\arraystretch}{1.00}`,
+		`\par\vspace{2pt}`,
+		`\noindent{\large\bfseries Speed Distribution}\par\vspace{2pt}`,
+		`\setlength{\fboxsep}{0pt}`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("expected spacing directive %q in rendered output", want)
 		}
+	}
+	if strings.Contains(s, `\vrSuperTabular`) || strings.Contains(s, `\ST@pageleft`) {
+		t.Fatalf("report should not include obsolete supertabular page-height patches:\n%s", s)
+	}
+}
+
+func TestRenderTeX_ComparisonStatisticsSeparateLongTables(t *testing.T) {
+	data := minimalTemplateData()
+	data.CompareStartDate = "2024-02-01"
+	data.CompareEndDate = "2024-02-28"
+	data.DualHistogramTableTeX = `DUAL-TABLE`
+	data.DailyStatTableTeX = `DAILY-TABLE`
+	data.StatTableTeX = `GRANULAR-TABLE`
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	dualPos := strings.Index(s, `DUAL-TABLE`)
+	dailyPos := strings.Index(s, `DAILY-TABLE`)
+	granularPos := strings.Index(s, `GRANULAR-TABLE`)
+	if dualPos == -1 || dailyPos == -1 || granularPos == -1 {
+		t.Fatalf("expected all comparison statistics tables in rendered output, got:\n%s", s)
+	}
+	if !(dualPos < dailyPos && dailyPos < granularPos) {
+		t.Fatalf("expected comparison statistics tables in order dual -> daily -> granular, got:\n%s", s)
+	}
+	betweenDualAndDaily := s[dualPos:dailyPos]
+	betweenDailyAndGranular := s[dailyPos:granularPos]
+	if !strings.Contains(s, `\par\vspace{8pt}`+"\n"+`\noindent\begin{minipage}{\linewidth}`+"\n"+`\noindent{\large\bfseries Speed Distribution and Detailed Data}\par\vspace{2pt}`) {
+		t.Fatalf("expected comparison statistics heading to include deliberate top spacing, got:\n%s", s)
+	}
+	if !strings.Contains(betweenDualAndDaily, `\par\vspace{2pt}`) || !strings.Contains(betweenDailyAndGranular, `\par\vspace{2pt}`) {
+		t.Fatalf("expected comparison statistics tables to be separated by explicit vertical spacing, got:\n%s", s)
 	}
 }
 
@@ -304,8 +479,8 @@ func TestBuildStatRows(t *testing.T) {
 	}
 
 	// First row: normal values.
-	if rows[0].StartTime != "2024-03-15 13:00" {
-		t.Errorf("row 0 StartTime = %q, want %q", rows[0].StartTime, "2024-03-15 13:00")
+	if rows[0].StartTime != "3/15 13:00" {
+		t.Errorf("row 0 StartTime = %q, want %q", rows[0].StartTime, "3/15 13:00")
 	}
 	if rows[0].Count != 150 {
 		t.Errorf("row 0 Count = %d, want 150", rows[0].Count)
@@ -326,9 +501,9 @@ func TestBuildStatRows(t *testing.T) {
 func TestRenderTeX_GoldenSingle(t *testing.T) {
 	data := minimalTemplateData()
 	data.StatRows = []StatRow{
-		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
+		{StartTime: "1/15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
 	}
-	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data", data.Units)
 	data.KeyMetricsTableTeX = BuildSingleKeyMetricsTableTeX("25.00", "30.00", "35.00", "42.00", "mph")
 	data.HistogramTableTeX = `\begin{tabular}{lrr}` + "\n" +
 		`20--25 & 120 & 12.0\% \\` + "\n" +
@@ -365,6 +540,8 @@ func TestRenderTeX_GoldenComparison(t *testing.T) {
 	data := minimalTemplateData()
 	data.CompareStartDate = "2024-02-01"
 	data.CompareEndDate = "2024-02-28"
+	data.CompareStartTimeDisplay = "2024-02-01T00:00:00Z"
+	data.CompareEndTimeDisplay = "2024-02-28T23:59:59Z"
 	data.CompareP50 = "26.00"
 	data.CompareP85 = "31.00"
 	data.CompareP98 = "36.00"
@@ -390,9 +567,9 @@ func TestRenderTeX_GoldenComparison(t *testing.T) {
 		"mph",
 	)
 	data.StatRows = []StatRow{
-		{StartTime: "2024-01-15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
+		{StartTime: "1/15 09:00", Count: 42, P50: "24.50", P85: "29.80", P98: "34.20", MaxSpeed: "40.10"},
 	}
-	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data")
+	data.StatTableTeX = BuildStatTableTeX(data.StatRows, "Detailed Data", data.Units)
 
 	out, err := RenderTeX(data)
 	if err != nil {

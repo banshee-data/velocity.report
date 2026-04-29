@@ -9,13 +9,16 @@ const (
 )
 
 // NormalisePaperSize returns a canonical PaperSize for common spellings.
-// Unknown values fall back to A4.
+// Unknown and empty values fall back to Letter, matching the Python report
+// standard used for printed PDFs.
 func NormalisePaperSize(s string) PaperSize {
 	switch s {
+	case "a4", "A4", "a4paper", "A4Paper", "A4PAPER":
+		return PaperA4
 	case "letter", "LETTER", "Letter", "us-letter", "us_letter":
 		return PaperLetter
 	default:
-		return PaperA4
+		return PaperLetter
 	}
 }
 

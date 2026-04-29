@@ -1,32 +1,46 @@
+<<define "media_heading_text">><<if .CompareTimeSeriesChart>><<if .MapChart>>Charts and Map<<else>>Charts<<end>><<else if .TimeSeriesChart>><<if .MapChart>>Chart and Map<<else>>Chart<<end>><<else>>Map<<end>><<end>>
+
 <<define "chart_section_single">>
 <<if .TimeSeriesChart>>
-\onecolumn
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
+\noindent{\large\bfseries <<template "media_heading_text" .>>}\par\vspace{2pt}
 \centering
 \includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
-\caption{Speed percentiles and observation counts over time}
-\end{figure}
+\captionof{figure}{Speed percentiles and observation counts over time}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<end>>
 
 <<define "chart_section_comparison">>
 <<if .TimeSeriesChart>>
-\onecolumn
-\begin{center}
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
+\noindent{\large\bfseries <<template "media_heading_text" .>>}\par\vspace{2pt}
 \centering
 \includegraphics[width=\linewidth]{<<.TimeSeriesChart>>}
-\caption{Velocity over time (t1: <<.StartDate>> \textemdash{} <<.EndDate>>)}
-\end{figure}
-\end{center}
+\captionof{figure}{Velocity over time (t1: <<.StartDate>> to <<.EndDate>>)}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
-<<if .CompareTimeSeriesChart>>
-\begin{center}
-\begin{figure}[H]
+<<if and (not .TimeSeriesChart) .CompareTimeSeriesChart>>
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
+\noindent{\large\bfseries <<template "media_heading_text" .>>}\par\vspace{2pt}
 \centering
 \includegraphics[width=\linewidth]{<<.CompareTimeSeriesChart>>}
-\caption{Velocity over time (t2: <<.CompareStartDate>> \textemdash{} <<.CompareEndDate>>)}
-\end{figure}
-\end{center}
+\captionof{figure}{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
+\end{minipage}
+\par\vspace{2pt}
+<<end>>
+<<if and .TimeSeriesChart .CompareTimeSeriesChart>>
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
+\centering
+\includegraphics[width=\linewidth]{<<.CompareTimeSeriesChart>>}
+\captionof{figure}{Velocity over time (t2: <<.CompareStartDate>> to <<.CompareEndDate>>)}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<end>>

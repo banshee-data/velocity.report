@@ -2,25 +2,28 @@
 
 \begin{document}
 
-\twocolumn[
-  \begin{@twocolumnfalse}
-  \vspace{-8pt}
-  \begin{center}
-  {\huge\bfseries <<.Location>>\par}
-  \vspace{0.1cm}
+\vspace{-8pt}
+\begin{center}
+{\huge\bfseries <<.Location>>\par}
+\vspace{0.1cm}
 <<- if or .Surveyor .Contact>>
-  {\large
-  <<if .Surveyor>>Surveyor: \textit{<<.Surveyor>>}<<end>>
-  <<if and .Surveyor .Contact>>\ \textbullet\ <<end>>
-  <<if .Contact>>Contact: \href{mailto:<<.Contact>>}{<<.Contact>>}<<end>>
-  \par}
+{\large
+<<if .Surveyor>>Surveyor: \textit{<<.Surveyor>>}<<end>>
+<<if and .Surveyor .Contact>>\ \textbullet\ <<end>>
+<<if .Contact>>Contact: \href{mailto:<<.Contact>>}{<<.Contact>>}<<end>>
+\par}
 <<- end>>
-  \end{center}
-  \vspace{6pt}
-  \end{@twocolumnfalse}
-]
+\end{center}
 
+\begin{multicols}{2}
 <<template "period_report" .>>
+\end{multicols}
+
+<<if .CompareStartDate>>
+<<template "chart_section_comparison" .>>
+<<else>>
+<<template "chart_section_single" .>>
+<<end>>
 <<template "map_section" .>>
 
 \end{document}
