@@ -16,7 +16,7 @@ cd velocity.report
 | Go server                 | `make build-radar-local` | Build with pcap support (local dev)                              |
 | Web frontend              | `make install-web`       | Install pnpm/npm dependencies                                    |
 | Documentation             | `make install-docs`      | Install Eleventy dependencies                                    |
-| Python tools (DEPRECATED) | `make install-python`    | Create `.venv/` for deprecated pdf-generator reference copy only |
+| Python tools              | `make install-python`    | Create `.venv/` for doc scripts, formatting, data exploration    |
 
 ### pcap Build Notes
 
@@ -77,9 +77,9 @@ Target naming: `<action>-<subsystem>[-<variant>]`
 - Cross-compilation for ARM64 (Raspberry Pi 4)
 - Run `make help` for the full list
 
-## Python Virtual Environment (DEPRECATED)
+## Python Virtual Environment
 
-The Python venv at `.venv/` is retained for local development against the deprecated `tools/pdf-generator/` reference copy only. PDF generation in production uses the Go pipeline (`internal/report/`). Run `make install-python` to create the venv if you need it for reference work.
+The `.venv/` at the repo root is developer tooling only — not installed on deployed devices. It provides formatting (black/ruff), data exploration scripts, and hardware documentation tools. PDF generation uses the Go pipeline (`internal/report/`). Run `make install-python` to create the venv. See `docs/platform/operations/python-venv.md` for the full picture.
 
 ## SQLite
 

@@ -604,7 +604,7 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 | ---------------------- | -------------------------------------------------- | --------------------------------------- |
 | velocity-report server | `/usr/local/bin/velocity-report`                   | Radar data collection and web dashboard |
 | velocity-ctl           | `/usr/local/bin/velocity-ctl`                      | Device management and updates           |
-| Generated reports      | `/opt/velocity-report/tools/pdf-generator/output/` | PDF output directory                    |
+| Generated reports      | `/var/lib/velocity-report/reports/`                | PDF output directory                    |
 | Systemd service        | `/etc/systemd/system/velocity-report.service`      | Starts automatically on boot            |
 | Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`                | TLS termination, HTTPS on port 443      |
 | TLS certificates       | `/var/lib/velocity-report/tls/`                    | Local CA and server certificate         |

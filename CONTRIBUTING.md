@@ -120,8 +120,6 @@ Read next:
   language across web, macOS, and report outputs
 - [docs/VISION.md](docs/VISION.md): product goals, target users, and
   reporting outcomes the UI needs to support
-- [tools/pdf-generator/README.md](tools/pdf-generator/README.md): report
-  surface, chart pipeline, and configuration model
 - [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md): concrete workflows, UX
   targets, and architecture for the LiDAR visualiser
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
@@ -233,8 +231,6 @@ Read next:
   current frontend design gaps and follow-up work
 - [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md):
   roadmap for retiring legacy Go-embedded dashboards
-- [tools/pdf-generator/README.md](tools/pdf-generator/README.md): PDF report
-  pipeline, chart builders, and configuration
 - [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md): macOS
   visualiser setup, build, and architecture
 - [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
@@ -460,7 +456,6 @@ make test-web          # Web tests (Jest)
 ### Writing tests
 
 - **Go**: `*_test.go` files alongside the code they test.
-- **Python**: [tools/pdf-generator/pdf_generator/tests/](tools/pdf-generator/pdf_generator/tests).
 - **Web**: Jest, with test files matching
   `**/__tests__/**/*.[jt]s` or `**/?(*.)+(spec|test).[jt]s`.
 
@@ -476,7 +471,7 @@ velocity.report/
 ├── internal/             # Go server internals
 ├── web/                  # Svelte web frontend
 ├── public_html/          # Public documentation site (Eleventy)
-├── tools/pdf-generator/  # Python PDF generation
+├── tools/                # Developer tools (visualiser, heatmap, diagrams)
 ├── docs/                 # Internal docs, plans, architecture
 └── scripts/              # Utility scripts
 ```
@@ -488,9 +483,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture.
 When changing behaviour, update all affected docs:
 
 - The main [README.md](README.md)
-- Component READMEs: [web/README.md](web/README.md),
-  [tools/pdf-generator/README.md](tools/pdf-generator/README.md),
-  [public_html/README.md](public_html/README.md)
+- Component READMEs: [web/README.md](web/README.md), [public_html/README.md](public_html/README.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md) for design changes
 - [public_html/src/guides/](public_html/src/guides/) for user-facing guides
 

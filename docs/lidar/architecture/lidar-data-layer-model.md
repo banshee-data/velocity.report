@@ -151,7 +151,7 @@ flowchart TB
         L10c["VelocityVisualiser.app "]
         L10d["HTML dashboard ⛔"]
         L10b["Svelte clients 🌐"]
-        L10a["pdf-generator ⚠️"]
+        L10a["📄 PDF report"]
     end
 
     %% ── P0 sensor → IO ──────────────────────────────────
@@ -221,7 +221,7 @@ flowchart TB
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
     class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L6f,L8a,L8b,L8c,L9a,L9b,L9c implemented;
     class L3f,L5h,L6e,L7a gap;
-    class L10a deprecated;
+    class L10a implemented;
     class L10b,L10c client;
     class L10d deprecated;
 ```
@@ -250,7 +250,7 @@ flowchart TB
   `radar_data_transits` via the transit worker; L6f derives transit-level
   speed, direction, and event metadata; L8a computes histograms,
   percentiles, and report rollups. L8a feeds L9a (Radar REST APIs) which
-  serves L10a (pdf-generator) and L10b (Svelte clients).
+  serves L10a (Go PDF pipeline) and L10b (Svelte clients).
 - **LiDAR tracking (L5bg).** The combined block covers the full tracker:
   L5b/L5d together form the 4-state constant-velocity Kalman tracker
   (predict before association, update after); L5c is Hungarian
@@ -269,10 +269,10 @@ flowchart TB
 - **L9 fan-out.** L9b (LiDAR REST APIs) serves three clients: L10b
   (Svelte clients), L10c (VelocityVisualiser.app), and L10d (HTML
   dashboard ⛔). L9c (gRPC streams) serves L10c exclusively for real-time
-  3D visualisation. L9a (Radar REST APIs) serves L10a (pdf-generator) and
+  3D visualisation. L9a (Radar REST APIs) serves L10a (Go PDF pipeline) and
   L10b (Svelte clients).
 - **L10 clients.** All four L10 nodes are implemented applications:
-  L10a is the Python PyLaTeX PDF generator (deprecated, to be replaced by Go-native PDF generation),
+  L10a is the Go PDF pipeline (`internal/report/` — native SVG charts, `text/template` LaTeX, xelatex),
   L10b is a Svelte 5 web app,
   L10c is a native macOS Metal visualiser with gRPC streaming, and L10d
   is a legacy Go-embedded HTML dashboard marked deprecated (⛔).
@@ -332,7 +332,7 @@ block.
 | L9a   | Radar REST APIs               | REST / JSON reporting surfaces                                                                                                                                                                                                                                                                                                                                                         | [api/server.go](../../../internal/api/server.go)                                                     | 🔄  | [Radar networking design](../../radar/architecture/networking.md)                                                                                                        |
 | L9b   | LiDAR REST APIs               | REST / JSON dashboard, replay, scene, and track APIs                                                                                                                                                                                                                                                                                                                                   | [server/](../../../internal/lidar/server/)                                                           | 🔄  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
 | L9c   | gRPC streams                  | gRPC streaming with frame codec, overlay preferences, and replay                                                                                                                                                                                                                                                                                                                       | [l9endpoints/grpc_server.go](../../../internal/lidar/l9endpoints/grpc_server.go)                     | 🔄  | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
-| L10a  | pdf-generator                 | PyLaTeX report generation with charts, maps, and statistical tables                                                                                                                                                                                                                                                                                                                    | [tools/pdf-generator/](../../../tools/pdf-generator/)                                                | 🔄  | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md)                                                                                                         |
+| L10a  | PDF report (Go)               | Native Go PDF pipeline: direct DB query, SVG charts, `text/template` LaTeX, xelatex                                                                                                                                                                                                                                                                                                   | [internal/report/](../../../internal/report/)                                                         | ✅  | [PDF reporting](../../platform/operations/pdf-reporting.md)                                                                                                              |
 | L10b  | Svelte clients                | Svelte 5 dashboard with site management, radar reports, and LiDAR run views                                                                                                                                                                                                                                                                                                            | [web/](../../../web/)                                                                                | 🔄  | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md)                                                                                            |
 | L10c  | VelocityVisualiser.app        | Native macOS Metal 3D point-cloud visualisation with gRPC streaming client                                                                                                                                                                                                                                                                                                             | [tools/visualiser-macos/](../../../tools/visualiser-macos/)                                          | 🔄  | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
 | L10d  | HTML dashboard                | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`)                                                                                                                                                                                                                                                                                                              | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
@@ -523,7 +523,7 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 | L7 Scene      | `internal/lidar/l7scene/`                                            | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
 | L8 Analytics  | [internal/lidar/l8analytics/](../../../internal/lidar/l8analytics)   | _Canonical package to be created: existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
 | L9 Endpoints  | [internal/lidar/l9endpoints/](../../../internal/lidar/l9endpoints)   | _Rename from `internal/lidar/visualiser/`_: `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
-| L10 Clients   | _(no Go package)_                                                    | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [tools/pdf-generator/](../../../tools/pdf-generator) (Python)         | 📄     |
+| L10 Clients   | _(no Go package)_                                                    | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [internal/report/](../../../internal/report) (Go PDF)                 | 📄     |
 
 Cross-cutting packages:
 

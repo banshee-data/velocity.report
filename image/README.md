@@ -11,13 +11,11 @@ then purges the APT packages (~1 GB saved).
 
 ### What the image contains
 
-| Component                            | Install Path                                |
-| ------------------------------------ | ------------------------------------------- |
-| `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report`            |
-| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`               |
-| PDF generator (Python)               | `/opt/velocity-report/tools/pdf-generator/` |
-| Python venv                          | `/opt/velocity-report/.venv/`               |
-| Web frontend                         | Embedded in Go binary                       |
+| Component                            | Install Path                     |
+| ------------------------------------ | -------------------------------- |
+| `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report` |
+| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`    |
+| Web frontend                         | Embedded in Go binary            |
 
 LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 
@@ -63,9 +61,7 @@ image/
     │   ├── 00-run.sh
     │   └── files/
     │       └── velocity-update              # Redirect stub (prints "use velocity-ctl upgrade")
-    ├── 02-velocity-python/         # Python venv + PDF generator
-    │   └── 00-run.sh
-    ├── 03-velocity-config/         # User, service, serial, udev
+    ├── 02-velocity-config/         # User, service, serial, udev
     │   ├── 00-run.sh
     │   └── files/
     │       ├── 99-velocity-report.rules
@@ -132,10 +128,9 @@ downloaded from the GitHub Release.
 | -------------------------------- | --------------- |
 | Raspberry Pi OS Lite (base)      | ~450 MB         |
 | TeX Live (minimal vendored tree) | ~143 MB         |
-| Python 3 + venv + PDF deps       | ~200 MB         |
 | Go binaries (server + ctl, pcap) | ~35 MB          |
 | LiDAR + web + system config      | ~11 MB          |
-| **Total (xz compressed)**        | **~350–500 MB** |
+| **Total (xz compressed)**        | **~150–300 MB** |
 
 ## Design document
 

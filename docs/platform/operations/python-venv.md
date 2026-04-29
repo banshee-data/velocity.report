@@ -31,7 +31,6 @@ Everything else uses the single shared virtual environment at `.venv/` in the pr
 | Tool / directory | Purpose |
 | --- | --- |
 | `black`, `ruff` | Python formatting and linting (`make format-python`, `make lint-python`) |
-| `tools/pdf-generator/` | **Deprecated** (v0.5) — Python reference implementation; tests still runnable locally |
 | `tools/grid-heatmap/` | LiDAR grid visualisation for field analysis |
 | `tools/rack-drawing/` | Hardware rack diagram generation |
 | `tools/connector-pinouts/` | Connector pinout documentation SVGs |
@@ -55,8 +54,6 @@ make install-diagrams     # Adds build123d to .venv/ (optional, for CAD renderin
 velocity.report/
 ├── .venv/                    # Shared virtual environment (not committed)
 ├── requirements.txt          # Pinned deps (pip-compile output)
-├── tox.ini                   # Pytest config for tools/pdf-generator/
-├── tools/pdf-generator/      # Deprecated Python PDF reference (v0.5)
 ├── tools/grid-heatmap/       # Uses root .venv
 ├── tools/rack-drawing/       # Uses root .venv
 ├── tools/connector-pinouts/  # Uses root .venv
@@ -83,10 +80,10 @@ velocity.report/
 | `make install-diagrams` | Add `build123d` to `.venv/` for CAD rendering |
 | `make format-python` | Run `black` + `ruff --fix` across all Python |
 | `make lint-python` | Run `black --check` + `ruff` (non-mutating) |
-| `make test-python` | Run pdf-generator tests (deprecated tool, local dev only) |
+| `make test-python` | Stub — pdf-generator deleted; target retained to avoid breakage |
 | `make test-python-cov` | Same with HTML coverage report |
 
-`test-python` is **not** included in the `make test` aggregate. It remains available for developers working on the deprecated pdf-generator reference implementation.
+`test-python` is **not** included in the `make test` aggregate. The pdf-generator it previously exercised has been deleted from the repository.
 
 ## Dependency management
 
@@ -97,19 +94,11 @@ velocity.report/
 3. Commit both files
 
 Key dependency groups:
-- **PDF generation (deprecated):** PyLaTeX, reportlab
 - **Data analysis:** pandas, numpy, scipy
 - **Visualisation:** matplotlib, seaborn
 - **Testing:** pytest, pytest-cov
 - **Formatting:** black, ruff
 
-## Deprecated pdf-generator
+## Removed pdf-generator
 
-`tools/pdf-generator/` is the Python PDF pipeline superseded by Go in v0.5. It is:
-
-- Retained for reference while the Go pipeline matures
-- Not installed on Raspberry Pi images
-- Not invoked by the Go server
-- Planned for deletion in v0.6
-
-Its tests (`make test-python`) remain runnable locally. Do not add new features or fix bugs here.
+`tools/pdf-generator/` was the Python PDF pipeline, superseded by Go in v0.5 and deleted from the repository in v0.6. The Go pipeline (`internal/report/`) is the sole PDF generation path. `requirements.txt` may still list PyLaTeX/reportlab as historical artefacts; they are unused.

@@ -50,7 +50,6 @@ Automated tools:
 make lint-go                    # Go formatting only (gofmt)
 go vet ./...                    # Go static analysis (vet)
 staticcheck ./...               # Go static analysis (staticcheck)
-bandit -r tools/pdf-generator/  # Python security
 npm audit                       # JS dependencies
 ```
 

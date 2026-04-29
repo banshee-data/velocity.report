@@ -32,7 +32,7 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 1. For each endpoint, read the Go handler function
 2. Check DB: does the handler call any `db.*` or `store.*` method?
 3. Check Web: search `web/src/` for `fetch()` calls to this path
-4. Check PDF: search `tools/pdf-generator/` for API client calls to this path
+4. Check PDF: search `internal/report/` for direct DB calls or references to this path
 5. Check Mac: search `tools/visualiser-macos/` for HTTP calls to this path
 
 Key files:
@@ -43,7 +43,7 @@ Key files:
 - `internal/lidar/monitor/run_track_api.go` — run/track API handlers
 - `internal/api/lidar_labels.go` — label API handlers
 - `web/src/lib/api/` — Svelte fetch calls
-- `tools/pdf-generator/pdf_generator/core/api_client.py` — PDF API client
+- `internal/report/report.go` — Go PDF pipeline entry point
 - `tools/visualiser-macos/VelocityVisualiser/` — Mac HTTP calls
 
 #### gRPC + Proto Surfaces (§3, §14)
@@ -76,7 +76,7 @@ Key files:
 - `internal/db/schema.sql` — table definitions
 - `internal/lidar/storage/sqlite/` — Go DB access layer
 - `internal/api/` — JSON serialisation in HTTP handlers
-- `tools/pdf-generator/pdf_generator/core/api_client.py`
+- `internal/report/report.go`
 
 #### Pipeline + Structs (§6, §7, §8, §9, §13)
 
@@ -157,7 +157,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 
 ### PDF ✅ requires
 
-1. Python API client in `tools/pdf-generator/` fetches the endpoint
+1. Go PDF pipeline in `internal/report/` queries the DB or uses the field
 2. The field is used in the LaTeX template
 
 ### Mac ✅ requires

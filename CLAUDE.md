@@ -74,10 +74,9 @@ pnpm run test -- -t "test name regex"
 ### Setup (first time)
 
 ```bash
-make install-web          # Installs web deps via pnpm
-make install-docs         # Installs Eleventy deps for docs site
-make install-docs-offline # Installs Eleventy deps for offline docs site
-make install-python       # DEPRECATED: local dev only (Python pdf-generator reference copy)
+make install-web      # Installs web deps via pnpm
+make install-docs     # Installs Eleventy deps for docs site
+make install-python   # DEPRECATED: local dev only (Python pdf-generator reference copy)
 ```
 
 ### Other useful targets
@@ -143,9 +142,9 @@ Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit
 
 Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Go `text/template` LaTeX assembly ([internal/report/tex](internal/report/tex)) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity-report pdf` (CLI subcommand in [cmd/radar/pdf.go](cmd/radar/pdf.go)).
 
-### Python PDF generator ([tools/pdf-generator/](tools/pdf-generator/)) (DEPRECATED)
+### Python PDF generator — removed
 
-Retained for reference only. Not used in deployed systems since v0.5. Will be removed in v0.6. Do not add new features or fix bugs here.
+`tools/pdf-generator/` was removed from the repository. The Go pipeline above handles all PDF generation.
 
 ### Web frontend (`web/`)
 

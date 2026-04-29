@@ -105,8 +105,7 @@ Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 | Makefile        | `Makefile`                                                                        | No: string constant | Passes                             |
 | CI workflows    | `.github/workflows/*.yml`                                                         | No: substitution    | Passes                             |
 | Xcode           | `project.pbxproj` MARKETING_VERSION                                               | No: string          | Passes                             |
-| Python          | [tools/pdf-generator/pyproject.toml](../../../tools/pdf-generator/pyproject.toml) | Lenient (PEP 440)   | Passes; PyPI normalises to `0.5.4` |
-| rpi-imager JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)               | No                  | Passes                             |
+| rpi-imager JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json) | No | Passes |
 
 Two surfaces hard-block: [web/package.json](../../../web/package.json) and [public_html/package.json](../../../public_html/package.json).
 Every CI run validates the version field against strict SemVer.

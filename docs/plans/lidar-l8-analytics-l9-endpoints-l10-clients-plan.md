@@ -97,7 +97,7 @@ There is no [internal/lidar/l8analytics/](../../internal/lidar/l8analytics) pack
 
 - [web/src/routes/lidar/](../../web/src/routes/lidar)
 - [tools/visualiser-macos/](../../tools/visualiser-macos)
-- [tools/pdf-generator/](../../tools/pdf-generator)
+- `tools/pdf-generator/`
 - `internal/lidar/monitor/html/` and `internal/lidar/monitor/assets/` plus the embedded ECharts sweep/dashboard pages that should move to [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
 
 ### Existing docs still lag the code
@@ -386,7 +386,7 @@ internal/lidar/
 └── ...
 ```
 
-Long term, `L10 Clients` remains a documentation label spanning `web/`, [tools/visualiser-macos/](../../tools/visualiser-macos), and [tools/pdf-generator/](../../tools/pdf-generator). During the transition, [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) is allowed as a temporary asset-only subtree for deprecated embedded dashboards. It contains no Go code, is embedded into the Go binary by `l9endpoints/`, and should be removed once the consolidated frontend replaces those clients.
+Long term, `L10 Clients` remains a documentation label spanning `web/`, [tools/visualiser-macos/](../../tools/visualiser-macos), and `tools/pdf-generator/`. During the transition, [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) is allowed as a temporary asset-only subtree for deprecated embedded dashboards. It contains no Go code, is embedded into the Go binary by `l9endpoints/`, and should be removed once the consolidated frontend replaces those clients.
 
 ## Risks and guardrails
 

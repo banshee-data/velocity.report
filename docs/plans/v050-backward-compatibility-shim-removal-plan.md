@@ -213,9 +213,9 @@ document the intent.
 
 | Item                        | Location                                                                                                                       | Status  | Detail                                                                   |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
-| Dual-format parsing         | [tools/pdf-generator/pdf_generator/core/api_client.py](../../tools/pdf-generator/pdf_generator/core/api_client.py)             | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
-| Legacy list-format handling | [tools/pdf-generator/pdf_generator/cli/main.py](../../tools/pdf-generator/pdf_generator/cli/main.py)                           | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
-| Legacy-format test coverage | [tools/pdf-generator/pdf_generator/tests/test_api_client.py](../../tools/pdf-generator/pdf_generator/tests/test_api_client.py) | Removed | `test_get_stats_legacy_format()` no longer exists                        |
+| Dual-format parsing         | `tools/pdf-generator/pdf_generator/core/api_client.py`             | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
+| Legacy list-format handling | `tools/pdf-generator/pdf_generator/cli/main.py`                           | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
+| Legacy-format test coverage | `tools/pdf-generator/pdf_generator/tests/test_api_client.py` | Removed | `test_get_stats_legacy_format()` no longer exists                        |
 
 **Action:** No further action needed.
 
@@ -225,8 +225,8 @@ document the intent.
 
 | Item                    | Location                                                                                                                   | Status  | Detail                                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
-| `geometry` property     | [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim  |
-| Dict conversion helpers | [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties |
+| `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim  |
+| Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties |
 
 **Action:** No further action needed.
 
@@ -236,7 +236,7 @@ document the intent.
 
 | Item         | Location                                                                                                                       | Status  | Detail                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
-| Stub classes | [tools/pdf-generator/pdf_generator/core/document_builder.py](../../tools/pdf-generator/pdf_generator/core/document_builder.py) | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
+| Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
 
 **Action:** Make `pylatex` a hard dependency. Remove the fallback stubs. The PDF
 generator is non-functional without pylatex: the stubs just defer the error.

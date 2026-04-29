@@ -78,7 +78,7 @@ Versions follow strict SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`). Pre-release t
 When changing functionality, update **all** relevant docs:
 
 - Main `README.md`
-- Component READMEs: `cmd/radar/README.md`, `tools/pdf-generator/README.md`, `web/README.md`
+- Component READMEs: `cmd/radar/README.md`, `web/README.md`
 - `ARCHITECTURE.md` for system design changes
 - `public_html/src/guides/setup.md` for user-facing setup instructions
 

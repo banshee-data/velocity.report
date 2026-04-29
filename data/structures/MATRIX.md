@@ -589,18 +589,16 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 11. PDF generator: Python surfaces
+## 11. PDF generator: Go pipeline surfaces
 
-**Source:** [tools/pdf-generator/pdf_generator/core/api_client.py](../../tools/pdf-generator/pdf_generator/core/api_client.py)
+**Source:** [internal/report/](../../internal/report/)
 
-| Folder                       | File                  | Consumer                                                 | DB  | Web | PDF | Mac |
-| ---------------------------- | --------------------- | -------------------------------------------------------- | --- | --- | --- | --- |
-| `tools/pdf-generator/…/core` | `api_client.py`       | `RadarStatsClient.query()` → `/api/radar_stats`          | -   | -   | ✅  | -   |
-| `tools/pdf-generator/…/core` | `api_client.py`       | `get_site_config_periods()` → `/api/site_config_periods` | -   | -   | ✅  | -   |
-| `tools/pdf-generator/…/core` | `api_client.py`       | `get_site()` → `/api/sites/{id}`                         | -   | -   | ✅  | -   |
-| `tools/pdf-generator/…/core` | `chart_builder.py`    | Speed charts + histograms                                | -   | -   | ✅  | -   |
-| `tools/pdf-generator/…/core` | `document_builder.py` | LaTeX document assembly                                  | -   | -   | ✅  | -   |
-| `tools/pdf-generator/…/core` | `map_utils.py`        | Site map generation                                      | -   | -   | ✅  | -   |
+| Package                                              | File           | Consumer                                         | DB  | Web | PDF | Mac |
+| ---------------------------------------------------- | -------------- | ------------------------------------------------ | --- | --- | --- | --- |
+| [internal/report](../../internal/report)             | `report.go`    | Direct DB query → `Generate(ctx, db, cfg)`       | ✅  | -   | ✅  | -   |
+| [internal/report/chart](../../internal/report/chart) | `timeseries.go`| Speed percentile + count time-series SVG         | -   | -   | ✅  | -   |
+| [internal/report/chart](../../internal/report/chart) | `histogram.go` | Speed distribution histogram SVG                 | -   | -   | ✅  | -   |
+| [internal/report/tex](../../internal/report/tex)     | `render.go`    | Go `text/template` → `.tex` → `xelatex` → `.pdf` | -   | -   | ✅  | -   |
 
 ---
 
