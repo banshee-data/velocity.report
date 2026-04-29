@@ -10,7 +10,7 @@ Type=simple
 # Radar is active on /dev/ttySC1 (Waveshare SC16IS752 HAT, channel B).
 # The --port default matches the binary default so it is not specified
 # explicitly here.  Override with --port if the device path differs.
-ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json
+ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json --docs-listen 0.0.0.0:8083
 WorkingDirectory=/var/lib/velocity-report
 Environment="VELOCITY_PDF_BACKEND=go"
 Environment="VELOCITY_TEX_ROOT=/opt/velocity-report/texlive"

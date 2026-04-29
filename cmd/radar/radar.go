@@ -413,6 +413,7 @@ func main() {
 	defer stop()
 
 	if !*docsDisable {
+		log.Printf("Starting offline docs server on %s (source=%s)", *docsListen, *docsSource)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

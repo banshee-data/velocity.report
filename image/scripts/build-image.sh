@@ -118,6 +118,13 @@ fi
 log_info "Web frontend built"
 
 # ---------------------------------------------------------------------------
+# 3a. Build embedded offline docs
+# ---------------------------------------------------------------------------
+log_info "Building embedded offline docs site..."
+make -C "$REPO_ROOT" BUILD_TIME="$BUILD_TIME" build-docs-offline
+log_info "Embedded offline docs built"
+
+# ---------------------------------------------------------------------------
 # 4. Build ARM64 binaries
 # ---------------------------------------------------------------------------
 BINARIES_DIR="$IMAGE_DIR/velocity-binaries"
@@ -218,12 +225,9 @@ mkdir -p "$CONFIG_DEST"
 cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
 log_info "Copied tuning defaults"
 
-# Copy project documentation into the stage for installation to /opt
-DOCS_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
-rm -rf "$DOCS_DEST"
-cp -r "$REPO_ROOT/docs" "$DOCS_DEST"
-find "$DOCS_DEST" -name '.DS_Store' -delete 2>/dev/null || true
-log_info "Copied docs"
+# Remove legacy raw Markdown docs staging from older image builds. The offline
+# docs now ship inside the velocity-report binary and are served on :8083.
+rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
 
 # Copy reference data (maths, structures, experiments) — excludes explore/
 DATA_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
