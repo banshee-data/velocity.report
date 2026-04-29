@@ -1,6 +1,6 @@
 # .dockerignore — Exclude non-essential files from Docker build context
 # Used by image/Dockerfile.build for ARM64 binary compilation.
-# Only Go source, go.mod/go.sum, scripts/, and web/stub-index.html are needed.
+# Only Go source, go.mod/go.sum, embed inputs, and stub scripts are needed.
 
 # Exclude everything by default, then whitelist what we need
 *
@@ -13,10 +13,28 @@
 !assets.go
 !static/
 
-# Exclude test pcap/data from internal (large binary files)
-internal/lidar/perf/pcap/
+# Exclude non-build internal artefacts from Docker context.
+internal/lidar/perf/
+internal/api/tools/pdf-generator/output/
+internal/db/*.db
+internal/db/schema.sql.bak
+cmd/**/*_test.go
+internal/**/*_test.go
+cmd/**/testdata/
+internal/**/testdata/
 
 # Web frontend (built assets embedded via //go:embed web/build/*)
 !web/build/
 !web/stub-index.html
 !scripts/ensure-web-stub.sh
+
+# Embedded offline docs inputs (built before image binaries are compiled)
+# Re-open the parent directory, then keep only the embed tree and stub source.
+!docs_html/
+docs_html/**
+!docs_html/_site/
+!docs_html/_site/**
+docs_html/_site/data/maths/papers/*.pdf
+!docs_html/_site/.embed-stub
+!docs_html/stub-index.html
+!scripts/ensure-docs-stub.sh

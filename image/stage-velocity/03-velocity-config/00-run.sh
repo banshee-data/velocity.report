@@ -51,11 +51,6 @@ CHEOF
 install -m 644 files/config/tuning.defaults.json \
     "${ROOTFS_DIR}/opt/velocity-report/config/tuning.defaults.json"
 
-# Install project documentation
-if [ -d files/docs ]; then
-    cp -r files/docs "${ROOTFS_DIR}/opt/velocity-report/docs"
-fi
-
 # Install reference data (maths, structures, experiments)
 if [ -d files/data ]; then
     cp -r files/data "${ROOTFS_DIR}/opt/velocity-report/data"

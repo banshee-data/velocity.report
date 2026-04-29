@@ -29,8 +29,10 @@ RUN go mod download
 # Copy the full source tree
 COPY . .
 
-# Ensure web stub exists for Go embed
+# Ensure embed stubs exist for direct Dockerfile builds. The image build script
+# performs the full web and offline-docs builds before invoking Docker.
 RUN ./scripts/ensure-web-stub.sh
+RUN ./scripts/ensure-docs-stub.sh
 
 # Version metadata passed at build time
 ARG VERSION=dev

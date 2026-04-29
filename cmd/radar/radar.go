@@ -22,6 +22,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/docsite"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/banshee-data/velocity.report/internal/units"
 
@@ -48,6 +49,7 @@ var (
 	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
 	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
 	listen       = flag.String("listen", ":8080", "Listen address")
+	docsSource   = flag.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
 	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
@@ -314,6 +316,9 @@ func main() {
 
 	if *listen == "" {
 		log.Fatal("Listen address is required: use --listen, e.g. --listen 0.0.0.0:8080")
+	}
+	if err := docsite.ValidateSource(*docsSource); err != nil {
+		log.Fatal(err)
 	}
 	if *port == "" {
 		log.Fatal("Serial port is required: use --port, e.g. --port /dev/ttySC1")
@@ -900,6 +905,13 @@ func main() {
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
+		if handler, err := docsite.Handler(*docsSource, docsite.DefaultDiskDir); err != nil {
+			log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
+		} else if err := docsite.Mount(mux, docsite.DefaultMount, handler); err != nil {
+			log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
+		} else {
+			log.Printf("Offline docs available on main HTTP server at %s (source=%s)", docsite.DefaultMount, *docsSource)
+		}
 		radarSerial.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
 

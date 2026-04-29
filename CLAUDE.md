@@ -35,7 +35,11 @@ make format-web && make lint-web && make test-web && make build-web
 ```bash
 make build-radar-local     # Go server, local dev (requires libpcap)
 make build-radar-linux     # Go server, ARM64 cross-compile (no pcap)
+make build-radar-mac       # Go server, macOS ARM64 with pcap
+make build-radar-mac-intel # Go server, macOS AMD64 with pcap
 make build-web             # Svelte frontend → web/build/
+make build-docs            # Eleventy docs site → docs_html/_site/
+make build-docs-offline    # Embedded offline docs site (Eleventy)
 make build-ctl             # velocity-ctl management binary
 make build-mac             # macOS visualiser (requires Xcode)
 ```
@@ -45,18 +49,23 @@ If `make build-radar-local` fails due to missing pcap: `brew install libpcap` (m
 ### Development servers
 
 ```bash
-make dev-go    # Go server with radar disabled (localhost:8080)
-make dev-web   # Vite dev server (localhost:5173)
+make dev-go              # Go server with radar disabled (localhost:8080)
+make dev-go-latex-full   # Go server with full system LaTeX
+make dev-go-lidar        # Go server with LiDAR enabled (gRPC mode)
+make dev-go-lidar-both   # Go server with LiDAR + 2370 foreground forward
+make dev-web             # Vite dev server (localhost:5173)
+make dev-docs            # Eleventy docs dev server
+make dev-docs-offline    # Embedded offline docs dev server
 ```
 
 ### Running a single test
 
 ```bash
-# Go — single package or test
+# Go: single package or test
 go test ./internal/lidar/l4perception/... -v
 go test ./internal/lidar/l5tracks -run '^TestKalmanPredict$' -v
 
-# Web (Jest) — single file or test name
+# Web (Jest): single file or test name
 cd web
 pnpm run test -- path/to/file.test.ts
 pnpm run test -- -t "test name regex"
@@ -65,9 +74,10 @@ pnpm run test -- -t "test name regex"
 ### Setup (first time)
 
 ```bash
-make install-web      # Installs web deps via pnpm
-make install-docs     # Installs Eleventy deps for docs site
-make install-python   # DEPRECATED: local dev only (Python pdf-generator reference copy)
+make install-web          # Installs web deps via pnpm
+make install-docs         # Installs Eleventy deps for docs site
+make install-docs-offline # Installs Eleventy deps for offline docs site
+make install-python       # DEPRECATED: local dev only (Python pdf-generator reference copy)
 ```
 
 ### Other useful targets
@@ -84,9 +94,11 @@ The system has four independent components communicating over HTTP and gRPC:
 
 ```
 Radar (USB-serial) ──┐
-                     ├──► Go server (SQLite) ──► HTTP API (:8080) ──► Web frontend (Svelte)
-LiDAR (UDP/Ethernet)─┘         │                               └──► Go PDF pipeline (internal/report)
-                                └──► gRPC (:50051) ──────────────────► macOS visualiser (Swift/Metal)
+                     ├──► Go server (SQLite) ──► HTTP API (:8080) ────► Web frontend (Svelte)
+LiDAR (UDP/Ethernet)─┘         │                        │          └──► Go PDF pipeline (internal/report)
+                               │                        └─────────────► /docs/ (offline docs)
+                               ├───────────────► LiDAR HTTP (:8081)
+                               └───────────────► gRPC (:50051) ───────► macOS visualiser (Swift/Metal)
 ```
 
 ### Go server (`cmd/`, `internal/`)
@@ -96,23 +108,26 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 - **Radar ingest** (`internal/radar/`): serial port reader for OmniPreSense OPS243-A → inserts `radar_data` and `radar_objects`
 - **LiDAR ingest** (`internal/lidar/`): UDP packet decoder for Hesai Pandar40P → layered perception pipeline (L1–L9)
 - **Transit worker**: background sessionisation of `radar_data` → `radar_data_transits`
-- **HTTP API** (`internal/api/`): `GET /api/radar_stats`, `GET /api/config`, `POST /command`
-- **gRPC server** (`internal/lidar/l9endpoints/`): streams `FrameBundle` protobufs to the macOS visualiser; supports live, replay (`.vrlog`), and synthetic modes
+- **HTTP API** ([internal/api/](internal/api/)): radar stats, config, capabilities, report generation, sites, site-config periods, timeline, transit worker control, DB stats, SVG chart endpoints (`/api/charts/timeseries|histogram|comparison`)
+- **Offline docs** ([internal/docsite/](internal/docsite/)): serves the embedded Eleventy docs site at `/docs/` on the main HTTP mux; source is `embed` (default) or `disk`
+- **gRPC server** (`internal/lidar/l9endpoints/`): streams `FrameBundle` protobufs to the macOS visualiser; supports live, PCAP replay, VRLOG replay, and synthetic modes
 
 ### LiDAR perception pipeline (`internal/lidar/l*`)
 
-Ten-layer pipeline, L1–L6 implemented; L8 and L9 present as analytics and endpoint packages:
+Layer pipeline (L1–L9; L7 is unimplemented):
 
-| Layer | Package         | Purpose                                                               |
-| ----- | --------------- | --------------------------------------------------------------------- |
-| L1    | `l1packets/`    | Hesai UDP decode, PCAP replay                                         |
-| L2    | `l2frames/`     | Frame assembly, coordinate transforms                                 |
-| L3    | `l3grid/`       | Background subtraction (EMA grid, Welford variance, adaptive regions) |
-| L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes (PCA), ground removal      |
-| L5    | `l5tracks/`     | Kalman-filtered MOT, Hungarian assignment, occlusion coasting         |
-| L6    | `l6objects/`    | Rule-based classification (8 object types)                            |
-| L8    | `l8analytics/`  | Run stats, track labelling, HINT parameter tuner                      |
-| L9    | `l9endpoints/`  | gRPC streaming, HTTP API, chart rendering                             |
+| Layer | Package         | Purpose                                                                          |
+| ----- | --------------- | -------------------------------------------------------------------------------- |
+| L1    | `l1packets/`    | Hesai UDP decode, PCAP replay; sub-packages `network/` and `parse/`              |
+| L2    | `l2frames/`     | Frame assembly from raw points, polar↔Cartesian geometry, frame export           |
+| L3    | `l3grid/`       | Background model (EMA + Welford variance), foreground extraction, region mgmt    |
+| L4    | `l4perception/` | DBSCAN clustering, OBB estimation (PCA), ground removal, voxel downsampling      |
+| L5    | `l5tracks/`     | Kalman-filtered MOT, Hungarian assignment, OBB heading smoothing, track coasting |
+| L6    | `l6objects/`    | Track classification (vehicle, pedestrian, noise) and quality assessment         |
+| L8    | `l8analytics/`  | Run metrics, cross-run comparisons, scoring, percentile helpers                  |
+| L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI    |
+
+**`pipeline/`** is the composition root: it orchestrates L3–L6 and is the only package that imports from all layer packages; layer packages never import `pipeline/`.
 
 Parameter tuning: `internal/lidar/sweep/`; combinatorial sweep, auto-tuner, and HINT (human-involved) tuner.
 
@@ -126,9 +141,9 @@ Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit
 
 ### Go PDF report pipeline (`internal/report/`)
 
-Produces PDF reports: direct DB queries → SVG charts (`internal/report/chart`) → Go `text/template` LaTeX assembly (`internal/report/tex`) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity-report pdf` (CLI subcommand in `cmd/radar/pdf.go`).
+Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Go `text/template` LaTeX assembly ([internal/report/tex](internal/report/tex)) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity-report pdf` (CLI subcommand in [cmd/radar/pdf.go](cmd/radar/pdf.go)).
 
-### Python PDF generator (`tools/pdf-generator/`) — DEPRECATED
+### Python PDF generator ([tools/pdf-generator/](tools/pdf-generator/)) (DEPRECATED)
 
 Retained for reference only. Not used in deployed systems since v0.5. Will be removed in v0.6. Do not add new features or fix bugs here.
 
@@ -142,23 +157,23 @@ Swift/SwiftUI/Metal app (macOS 14+, M1+). gRPC client streaming `FrameBundle` pr
 
 ### Protobuf (`proto/`)
 
-`proto/velocity_visualiser/v1/visualiser.proto` defines `VisualiserService` and `FrameBundle`. Regenerate with `make proto-gen`.
+[proto/velocity_visualiser/v1/visualiser.proto](proto/velocity_visualiser/v1/visualiser.proto) defines `VisualiserService` and `FrameBundle`. Regenerate with `make proto-gen`.
 
 ## Agents
 
 Seven named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
 
-| Agent      | Domain                                    | Class     | File                       |
-| ---------- | ----------------------------------------- | --------- | -------------------------- |
-| **Appius** | Implementation, code review, migrations   | Technical | `.claude/agents/appius.md` |
-| **Euler**  | Algorithms, maths, statistical validation | Technical | `.claude/agents/euler.md`  |
-| **Grace**  | Architecture, design docs, feature specs  | Technical | `.claude/agents/grace.md`  |
-| **Malory** | Security, pen test, privacy verification  | Technical | `.claude/agents/malory.md` |
-| **Flo**    | Planning, sequencing, risk, coordination  | Editorial | `.claude/agents/flo.md`    |
-| **Terry**  | Documentation, UX copy, release notes     | Editorial | `.claude/agents/terry.md`  |
-| **Ruth**   | Scope decisions, tradeoffs, arbitration   | Both      | `.claude/agents/ruth.md`   |
+| Agent      | Domain                                    | Class     | File                                                 |
+| ---------- | ----------------------------------------- | --------- | ---------------------------------------------------- |
+| **Appius** | Implementation, code review, migrations   | Technical | [.claude/agents/appius.md](.claude/agents/appius.md) |
+| **Euler**  | Algorithms, maths, statistical validation | Technical | [.claude/agents/euler.md](.claude/agents/euler.md)   |
+| **Grace**  | Architecture, design docs, feature specs  | Technical | [.claude/agents/grace.md](.claude/agents/grace.md)   |
+| **Malory** | Security, pen test, privacy verification  | Technical | [.claude/agents/malory.md](.claude/agents/malory.md) |
+| **Flo**    | Planning, sequencing, risk, coordination  | Editorial | [.claude/agents/flo.md](.claude/agents/flo.md)       |
+| **Terry**  | Documentation, UX copy, release notes     | Editorial | [.claude/agents/terry.md](.claude/agents/terry.md)   |
+| **Ruth**   | Scope decisions, tradeoffs, arbitration   | Both      | [.claude/agents/ruth.md](.claude/agents/ruth.md)     |
 
-Paired Copilot definitions live in `.github/agents/`. Check drift with `make check-agent-drift`.
+Paired Copilot definitions live in [.github/agents/](.github/agents/). Check drift with `make check-agent-drift`.
 
 Each agent references the shared knowledge modules in `.github/knowledge/` rather than restating project facts. See `docs/platform/operations/agent-preparedness.md` for the full layered knowledge architecture.
 
@@ -183,14 +198,16 @@ The following workflow skills are available as slash commands:
 | docs-release-prep   | `/docs-release-prep [--scope X]`  | Links, graduation, simplify, split, questions, disk image prep              |
 | release-prep        | `/release-prep [--scope X]`       | Full release gate: format, lint, test, build, drift, style, docs, changelog |
 
-Skill definitions: `.claude/skills/*/SKILL.md`.
+Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
 
 ## Commit format
 
-See `.github/knowledge/coding-standards.md` for the full prefix table and rules. AI edits always include `[ai]` plus the language tag.
+See [.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md) for the full prefix table and rules. AI edits always include `[ai]` plus the language tag.
+
+Commits that change behaviour must include test updates for affected code in the same commit. Do not split the test update into a follow-up.
 
 ## Key conventions
 
-See `.github/knowledge/coding-standards.md` for production paths, product names, version format, formatting rules, and documentation update policy.
+See [.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md) for production paths, product names, version format, formatting rules, and documentation update policy.
 
 - **Speed percentiles** (`p85`, `p98`) are aggregate over a population of vehicle max speeds, not per-track observations

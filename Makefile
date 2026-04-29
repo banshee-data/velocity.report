@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre11
+VERSION := 0.5.1-pre12
 
 # =============================================================================
 # HELP TARGET (default)
@@ -29,6 +29,7 @@ help:
 	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
+	@echo "  build-docs-offline   Build embedded offline docs site (Eleventy)"
 	@echo "  wiring               Generate radar wiring diagram (WireViz)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
@@ -54,6 +55,7 @@ help:
 	@echo "  install-web          Install web dependencies (shared cache via pnpm; local via npm)"
 	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
+	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled, precompiled LaTeX)"
@@ -63,7 +65,9 @@ help:
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
+	@echo "  dev-docs-offline     Start embedded offline docs dev server"
 	@echo "  dev-docs-kill        Stop stale docs dev server processes"
+	@echo "  dev-docs-offline-kill Stop stale offline docs dev server processes"
 	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
 	@echo "  dev-ssh              SSH to velocity@velocity.local (refreshes known_hosts if key rotated)"
 	@echo "  dev-ssh-audit        Remote health-check on a freshly booted Pi (9-step audit)"
@@ -203,18 +207,22 @@ WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
 build-radar-linux:
 	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-mac:
 	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-mac-intel:
 	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar
 
 build-tools:
@@ -344,6 +352,20 @@ build-docs:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
+
+.PHONY: build-docs-offline
+build-docs-offline:
+	@echo "Building embedded offline docs site..."
+	@./scripts/docs-offline-symlinks.sh create
+	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@$(MAKE) check-docs-offline-links
+	@echo "✓ Offline docs build complete: docs_html/_site/"
 
 WIRING_SRC = docs/platform/hardware/radar-wiring.yml
 
@@ -513,7 +535,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-diagrams activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
+.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -609,6 +631,13 @@ clean-web:
 	@echo "Cleaning web build artifacts..."
 	@rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*
 
+clean-docs-offline:
+	@echo "Cleaning embedded offline docs build artifacts..."
+	@./scripts/docs-offline-symlinks.sh clean
+	@rm -rf docs_html/_site
+	@mkdir -p docs_html/_site
+	@printf '%s\n' "This placeholder keeps Go's docs_html/_site embed pattern valid on clean checkouts." > docs_html/_site/.embed-stub
+
 activate-web-cache:
 	@echo "Activating shared web dependency cache..."
 	@$(WEB_CACHE_SCRIPT) ensure
@@ -628,6 +657,20 @@ install-docs:
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
 
+install-docs-offline:
+	@echo "Installing offline docs dependencies..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		if [ -f pnpm-lock.yaml ]; then \
+			pnpm install --frozen-lockfile; \
+		else \
+			pnpm install --no-frozen-lockfile; \
+		fi; \
+		elif command -v npm >/dev/null 2>&1; then \
+			npm install; \
+		else \
+			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+		fi
+
 .PHONY: ensure-python-tools
 ensure-python-tools:
 	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ]; then \
@@ -638,7 +681,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -768,6 +811,27 @@ dev-docs: dev-docs-kill
 			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
 
+dev-docs-offline-kill:
+	@echo "Stopping stale offline docs dev server processes..."
+	@pids=$$(ps ax -o pid,args | grep 'docs_html/node_modules/.*eleventy' | grep -v grep | awk '{print $$1}'); \
+	if [ -n "$$pids" ]; then \
+		echo "Killing PIDs: $$pids"; \
+		echo "$$pids" | xargs kill 2>/dev/null || true; \
+	else \
+		echo "No stale processes found."; \
+	fi
+
+dev-docs-offline: dev-docs-offline-kill
+	@echo "Starting offline docs dev server..."
+	@./scripts/docs-offline-symlinks.sh create
+	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run dev; \
+		elif command -v npm >/dev/null 2>&1; then \
+		npm run dev; \
+		else \
+			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
+		fi
+
 # Visualiser server mode: synthetic (default), replay, live
 # Examples:
 #   make dev-vis-server                                          # synthetic mode
@@ -824,6 +888,8 @@ test: test-go test-web test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests..."
 	@go test ./...
 
@@ -835,6 +901,8 @@ tex-compare:
 
 # Run Go unit tests with coverage
 test-go-cov:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests with coverage..."
 	@go test ./... -coverprofile=coverage.out -covermode=atomic
 	@go tool cover -html=coverage.out -o coverage.html
@@ -1149,9 +1217,9 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
+.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs
+lint: lint-go lint-web lint-docs lint-docs-offline
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -1178,6 +1246,14 @@ update-release-json: ## Update release.json + os-list-velocity.json from GitHub 
 lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
+
+check-docs-offline-links:
+	@node scripts/check-docs-offline-links.js
+
+# Non-mutating: validates the rendered offline docs site if one exists.
+# To rebuild before linting, run `make build-docs-offline` (which itself
+# invokes check-docs-offline-links).
+lint-docs-offline: check-docs-offline-links
 
 check-md-links: ## Check dead relative links and stale backtick paths in Markdown (no other lint)
 	@printf '%s\n' 'to ignore a line add: <!-- link-ignore -->'

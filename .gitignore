@@ -13,6 +13,8 @@ Thumbs.db
 # Build Outputs & Caches
 # =============================================================================
 _site/
+!docs_html/_site/
+!docs_html/_site/.embed-stub
 public_html/dist/
 .build/
 /build/
