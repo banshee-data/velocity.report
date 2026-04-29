@@ -44,7 +44,7 @@ Users need the ability to:
 
 **iReports & Visualisation:**
 
-- PDF generator via Python/LaTeX.
+- PDF generator (Go pipeline, `internal/report/`).
 - Statistical summaries (P50, P85, P98).
 - **Report Comparison:** The system supports generating reports that compare two data sets (e.g., "Main Period" t1 vs "Comparison Period" t2).
 

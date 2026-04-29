@@ -48,15 +48,15 @@ The macOS visualiser uses system/semantic colours only and currently renders no 
 
 ### 1.3 No single-source palette definition: medium
 
-**Location:** Three independent definitions exist:
+**Location:** Independent definitions exist in:
 
-- Python: [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) (canonical)
+- Go: [internal/report/chart/palette.go](../../internal/report/chart/palette.go) (Go PDF pipeline — authoritative)
 - Web: [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) (non-compliant)
 - DESIGN.md §3.3 (specification)
 
 There is no machine-readable single-source file that all platforms import or generate from.
 
-**Action:** Create [web/src/lib/palette.ts](../../web/src/lib/palette.ts) exporting the canonical palette. Document in DESIGN.md that Python's `config_manager.py` and the new `palette.ts` are the two authoritative sources. Consider a future shared JSON/YAML palette that both stacks can derive from.
+**Action:** Create [web/src/lib/palette.ts](../../web/src/lib/palette.ts) exporting the canonical palette. Consider a future shared JSON/YAML palette that both the Go and web stacks can derive from.
 
 **Effort:** 2–4 hours
 
@@ -269,7 +269,7 @@ No Cypress, Playwright, or other E2E framework is configured. API integration is
 
 [codecov.yml](../../codecov.yml) sets a 1% threshold, effectively disabling coverage gates. The web Jest config has 90% thresholds but only for [web/src/lib/](../../web/src/lib).
 
-**Action:** After improving test coverage, increase codecov thresholds to meaningful levels (e.g. 60–70% for Go, 80% for web lib, 50% for Python).
+**Action:** After improving test coverage, increase codecov thresholds to meaningful levels (e.g. 60–70% for Go, 80% for web lib).
 
 **Effort:** 30 minutes (config change after coverage improves)
 
@@ -358,14 +358,6 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 **Action:** Audit which packages use each driver. If `mattn/go-sqlite3` can be fully replaced by `modernc.org/sqlite`, remove it to simplify the build (eliminates CGO requirement for some build targets).
 
 **Effort:** 2–4 hours (audit + migration if feasible)
-
-### 11.2 Python version inconsistency: low
-
-[ARCHITECTURE.md](../../ARCHITECTURE.md) states Python 3.9+, [CONTRIBUTING.md](../../CONTRIBUTING.md) states Python 3.11+, [tox.ini](../../tox.ini) targets Python 3.12, and [requirements.txt](../../requirements.txt) pins modern versions that may not support 3.9.
-
-**Action:** Align all documentation to the actual minimum version (3.12 per [tox.ini](../../tox.ini)). Update ARCHITECTURE.md and CONTRIBUTING.md accordingly.
-
-**Effort:** 15 minutes
 
 ---
 

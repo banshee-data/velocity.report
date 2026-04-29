@@ -391,7 +391,7 @@ backfill_ring_elevations --db sensor_data.db
 
 **Testing Targets (5):**
 
-- `test` - Run all tests (Go + Python + Web)
+- `test` - Run all tests (Go + Web)
 - `test-go` - Go unit tests only
 - `test-python` - Python tests
 - `test-python-cov` - Python tests with coverage
@@ -399,7 +399,7 @@ backfill_ring_elevations --db sensor_data.db
 
 **Code Quality Targets (8):**
 
-- `format` - Format all code (Go + Python + Web)
+- `format` - Format all code (Go + Python tools + Web)
 - `format-go` - Format Go code
 - `format-python` - Format Python code
 - `format-web` - Format web code
@@ -497,9 +497,6 @@ curl -X POST http://localhost:8080/api/generate_report \
     "units": "mph"
   }'
 
-# Via command line (using Python tools)
-cd tools/pdf-generator
-make pdf-report CONFIG=my-config.json
 ```
 
 #### Parameter sweep testing
@@ -519,11 +516,6 @@ make plot-multisweep INPUT=sweep-results.csv
 ```
 
 ### Environment variables
-
-**PDF Generator:**
-
-- `PDF_GENERATOR_DIR` - PDF generator directory (default: auto-detect)
-- `PDF_GENERATOR_PYTHON` - Python binary path (default: auto-detect)
 
 **Development:**
 

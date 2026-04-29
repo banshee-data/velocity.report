@@ -144,8 +144,7 @@ Full design: [TDL plan](plans/data-track-description-language-plan.md).
 
 ### 6.1 PDF report
 
-The existing Python PDF generator ([tools/pdf-generator/](../tools/pdf-generator))
-produces professional street-speed
+The Go PDF pipeline (`internal/report/`) produces professional street-speed
 reports. The vision extends it to:
 
 - **Pull from the fused transit schema** rather than raw radar tables alone.

@@ -103,22 +103,6 @@ It is a purpose-built on-device management tool with no SSH surface.
   └── config.yaml
 ```
 
-## Python environment strategy
-
-Python scripts need dependencies (matplotlib, PyLaTeX, etc.). Solution:
-virtual environment in a shared location.
-
-```
-/usr/local/share/velocity-report/python/.venv/
-```
-
-The `velocity-report pdf` subcommand discovers Python via a fallback chain:
-
-1. `/usr/local/share/velocity-report/python/.venv/bin/python3`
-2. `$VELOCITY_REPORT_PYTHON` environment variable
-3. System `python3`
-4. Error with helpful message
-
 ## Command structure
 
 ### Main binary: `velocity-report`
