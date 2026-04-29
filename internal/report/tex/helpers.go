@@ -535,7 +535,7 @@ func BuildDualHistogramTableTeX(primary, compare map[float64]int64, bucketSz, cu
 			{header: `Delta`, width: `0.21\linewidth`, align: tableAlignRight},
 		},
 		rows:      tableRows,
-		caption:   "Table 2: Velocity Distribution (" + units + ")",
+		caption:   "Table 2: Velocity Distribution (" + escapedUnits + ")",
 		pageBreak: true,
 	})
 }

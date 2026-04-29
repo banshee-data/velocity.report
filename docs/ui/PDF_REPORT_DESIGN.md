@@ -106,7 +106,7 @@ Section order is invariant:
    combined count, key metrics, and the optional grouped comparison histogram.
    When the overview histogram is present, Figure 1 sits immediately below
    Table 1 without an extra template spacer or outer `center` wrapper.
-3. **Site Information**: optional description and optional speed-limit note.
+3. **Site Information**: optional description.
 4. **Citizen Radar** and **Aggregation and Percentiles**: the science copy is
    split across these two subsections, not a single generic "science" heading.
 5. **Hardware Configuration** and **Survey Parameters**: two stacked key/value
@@ -529,7 +529,7 @@ The two template-owned key/value tables use a slightly different treatment from
 the generic data-table stack:
 
 - font size: `\small`
-- `\arraystretch = 1.04`
+- `\arraystretch = 1.00`
 - `\tabcolsep = 2pt`
 - alternating rows start at row 1 with `\rowcolors{1}{black!2}{white}`
 - key/value widths: `p{0.44\linewidth}` and `p{0.52\linewidth}`
