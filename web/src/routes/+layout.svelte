@@ -35,13 +35,13 @@
 	import './app.css';
 
 	let { children } = $props();
-	let docsUrl = '/';
+	// Compute the offline docs URL synchronously from the page URL so the Docs
+	// nav link has the correct href on first paint instead of briefly pointing
+	// at "/" until onMount runs.
+	let docsUrl = $derived(offlineDocsUrl({ href: page.url.href }));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
-	onMount(() => {
-		docsUrl = offlineDocsUrl(window.location);
-		return startCapabilitiesPolling();
-	});
+	onMount(() => startCapabilitiesPolling());
 	onDestroy(stopCapabilitiesPolling);
 
 	settings({
