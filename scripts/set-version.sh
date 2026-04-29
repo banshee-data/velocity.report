@@ -8,7 +8,6 @@ VERSION=""
 UPDATE_MAKEFILE=0
 UPDATE_WEB=0
 UPDATE_DOCS=0
-UPDATE_PDF=0
 UPDATE_MAC=0
 
 # Color codes for output
@@ -32,7 +31,6 @@ Targets (default: --all):
   --makefile    Update Makefile VERSION variable (affects Go binaries)
   --web         Update web/package.json version
   --docs        Update public_html/package.json version
-  --pdf         Update tools/pdf-generator/pyproject.toml version
   --mac         Update tools/visualiser-macos Xcode project version
 
 Examples:
@@ -162,34 +160,6 @@ update_docs() {
     log_info "Updated $file: $old_version → $VERSION"
 }
 
-# Update tools/pdf-generator/pyproject.toml
-update_pdf() {
-    local file="tools/pdf-generator/pyproject.toml"
-    local old_version
-
-    if [[ ! -f "$file" ]]; then
-        log_warn "$file not found, skipping"
-        return 0
-    fi
-
-    # pyproject.toml format: version = "0.2.0"
-    old_version=$(grep -E '^version = ' "$file" | sed 's/version = "\(.*\)"/\1/')
-
-    if [[ -z "$old_version" ]]; then
-        log_error "Could not find version in $file"
-        return 1
-    fi
-
-    # Use sed to replace the version
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$file"
-    else
-        sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$file"
-    fi
-
-    log_info "Updated $file: $old_version → $VERSION"
-}
-
 # Update tools/visualiser-macos Xcode project
 update_mac() {
     local project_file="tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj"
@@ -241,7 +211,6 @@ for arg in "$@"; do
             UPDATE_MAKEFILE=1
             UPDATE_WEB=1
             UPDATE_DOCS=1
-            UPDATE_PDF=1
             UPDATE_MAC=1
             ;;
         --makefile)
@@ -252,9 +221,6 @@ for arg in "$@"; do
             ;;
         --docs)
             UPDATE_DOCS=1
-            ;;
-        --pdf)
-            UPDATE_PDF=1
             ;;
         --mac)
             UPDATE_MAC=1
@@ -267,7 +233,7 @@ for arg in "$@"; do
 done
 
 # Check if at least one target is selected
-if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 && $UPDATE_PDF -eq 0 && $UPDATE_MAC -eq 0 ]]; then
+if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 && $UPDATE_MAC -eq 0 ]]; then
     log_error "No targets specified"
     usage
 fi
@@ -280,7 +246,6 @@ EXIT_CODE=0
 [[ $UPDATE_MAKEFILE -eq 1 ]] && update_makefile || EXIT_CODE=$?
 [[ $UPDATE_WEB -eq 1 ]] && update_web || EXIT_CODE=$?
 [[ $UPDATE_DOCS -eq 1 ]] && update_docs || EXIT_CODE=$?
-[[ $UPDATE_PDF -eq 1 ]] && update_pdf || EXIT_CODE=$?
 [[ $UPDATE_MAC -eq 1 ]] && update_mac || EXIT_CODE=$?
 
 echo ""
