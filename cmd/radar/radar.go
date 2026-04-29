@@ -319,11 +319,13 @@ func main() {
 	if *listen == "" {
 		log.Fatal("Listen address is required: use --listen, e.g. --listen 0.0.0.0:8080")
 	}
-	if !*docsDisable && *docsListen == "" {
-		log.Fatal("Docs listen address is required unless --docs-disable is set: use --docs-listen, e.g. --docs-listen 0.0.0.0:8083")
-	}
-	if err := docsite.ValidateSource(*docsSource); err != nil {
-		log.Fatal(err)
+	if !*docsDisable {
+		if *docsListen == "" {
+			log.Fatal("Docs listen address is required unless --docs-disable is set: use --docs-listen, e.g. --docs-listen 0.0.0.0:8083")
+		}
+		if err := docsite.ValidateSource(*docsSource); err != nil {
+			log.Fatal(err)
+		}
 	}
 	if *port == "" {
 		log.Fatal("Serial port is required: use --port, e.g. --port /dev/ttySC1")

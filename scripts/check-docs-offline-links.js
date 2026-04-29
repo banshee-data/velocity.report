@@ -8,7 +8,9 @@ const repoRoot = path.resolve(__dirname, "..");
 const args = process.argv.slice(2);
 const strictAnchors = args.includes("--strict-anchors");
 const positional = args.find((arg) => !arg.startsWith("-"));
-const siteRoot = path.resolve(positional || path.join(repoRoot, "docs_html/_site"));
+const defaultSiteRoot = path.join(repoRoot, "docs_html/_site");
+const siteRoot = path.resolve(positional || defaultSiteRoot);
+const explicitSiteRoot = Boolean(positional);
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -23,11 +25,7 @@ function walk(dir, out = []) {
 }
 
 function isExternal(href) {
-  return (
-    !href ||
-    href.startsWith("//") ||
-    /^[a-z][a-z0-9+.-]*:/i.test(href)
-  );
+  return !href || href.startsWith("//") || /^[a-z][a-z0-9+.-]*:/i.test(href);
 }
 
 function pageURLForFile(file) {
@@ -38,46 +36,77 @@ function pageURLForFile(file) {
   return `/${rel}`;
 }
 
+function decodeURLComponent(value) {
+  try {
+    return { value: decodeURIComponent(value) };
+  } catch (error) {
+    return { error };
+  }
+}
+
 function fileForURLPath(urlPathname) {
-  const decoded = decodeURIComponent(urlPathname);
+  const decodedPath = decodeURLComponent(urlPathname);
+  if (decodedPath.error) {
+    return {
+      error: `malformed percent-encoding in path ${urlPathname}: ${decodedPath.error.message}`,
+    };
+  }
+
+  const decoded = decodedPath.value;
   const relative = decoded.replace(/^\/+/, "");
   const candidate = path.resolve(siteRoot, relative);
   const relativeToSite = path.relative(siteRoot, candidate);
   if (relativeToSite.startsWith("..") || path.isAbsolute(relativeToSite)) {
-    return null;
+    return { file: null };
   }
 
   if (decoded.endsWith("/")) {
-    return path.join(candidate, "index.html");
+    return { file: path.join(candidate, "index.html") };
   }
   if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-    return path.join(candidate, "index.html");
+    return { file: path.join(candidate, "index.html") };
   }
   if (fs.existsSync(candidate)) {
-    return candidate;
+    return { file: candidate };
   }
   const indexCandidate = path.join(candidate, "index.html");
   if (fs.existsSync(indexCandidate)) {
-    return indexCandidate;
+    return { file: indexCandidate };
   }
-  return candidate;
+  return { file: candidate };
+}
+
+const anchorCache = new Map();
+
+function anchorsForFile(file) {
+  if (anchorCache.has(file)) return anchorCache.get(file);
+  if (!fs.existsSync(file) || !file.endsWith(".html")) {
+    anchorCache.set(file, null);
+    return null;
+  }
+
+  const html = fs.readFileSync(file, "utf8");
+  const $ = cheerio.load(html);
+  const anchors = new Set();
+  $("[id]").each((_, element) => anchors.add($(element).attr("id")));
+  $("[name]").each((_, element) => anchors.add($(element).attr("name")));
+  anchorCache.set(file, anchors);
+  return anchors;
 }
 
 function targetHasAnchor(file, anchor) {
   if (!anchor) return true;
-  if (!fs.existsSync(file) || !file.endsWith(".html")) return false;
-  const html = fs.readFileSync(file, "utf8");
-  const $ = cheerio.load(html);
-  const idMatch = $("[id]")
-    .toArray()
-    .some((element) => $(element).attr("id") === anchor);
-  const nameMatch = $("[name]")
-    .toArray()
-    .some((element) => $(element).attr("name") === anchor);
-  return idMatch || nameMatch;
+  const anchors = anchorsForFile(file);
+  return Boolean(anchors && anchors.has(anchor));
 }
 
 if (!fs.existsSync(siteRoot)) {
+  if (!explicitSiteRoot && siteRoot === path.resolve(defaultSiteRoot)) {
+    console.log(
+      `Offline docs site not found: ${siteRoot}; skipping link check.`,
+    );
+    process.exit(0);
+  }
   console.error(`Offline docs site not found: ${siteRoot}`);
   process.exit(1);
 }
@@ -97,13 +126,17 @@ if (
   fs.existsSync(stubSource) &&
   fs.readFileSync(stubTarget, "utf8") === fs.readFileSync(stubSource, "utf8")
 ) {
-  console.log("Offline docs site contains only the embed stub; skipping link check.");
+  console.log(
+    "Offline docs site contains only the embed stub; skipping link check.",
+  );
   process.exit(0);
 }
 
 // Real site: load cheerio from the docs_html dependency tree. Deferred until
 // here so the stub-skip path doesn't require `make install-docs-offline`.
-const docsRequire = createRequire(path.join(repoRoot, "docs_html/package.json"));
+const docsRequire = createRequire(
+  path.join(repoRoot, "docs_html/package.json"),
+);
 const cheerio = docsRequire("cheerio");
 
 for (const file of htmlFiles) {
@@ -117,13 +150,17 @@ for (const file of htmlFiles) {
     if (!href) return;
 
     if (/^https:\/\/github\.com\/.+\/blob\//i.test(href)) {
-      warnings.push(`${path.relative(siteRoot, file)}: GitHub blob URL remains external: ${href}`);
+      warnings.push(
+        `${path.relative(siteRoot, file)}: GitHub blob URL remains external: ${href}`,
+      );
     }
 
     if (isExternal(href)) return;
     if (!href.startsWith("/") && !href.startsWith("#")) {
       if (/\.md(?:$|[?#])/i.test(href)) {
-        warnings.push(`${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`);
+        warnings.push(
+          `${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`,
+        );
       }
       return;
     }
@@ -132,11 +169,21 @@ for (const file of htmlFiles) {
     try {
       resolved = new URL(href, base);
     } catch (error) {
-      errors.push(`${path.relative(siteRoot, file)}: invalid href ${href}: ${error.message}`);
+      errors.push(
+        `${path.relative(siteRoot, file)}: invalid href ${href}: ${error.message}`,
+      );
       return;
     }
 
-    const targetFile = fileForURLPath(resolved.pathname);
+    const target = fileForURLPath(resolved.pathname);
+    if (target.error) {
+      errors.push(
+        `${path.relative(siteRoot, file)}: invalid href ${href}: ${target.error}`,
+      );
+      return;
+    }
+
+    const targetFile = target.file;
     if (!targetFile || !fs.existsSync(targetFile)) {
       errors.push(
         `${path.relative(siteRoot, file)}: unresolved link ${href} -> ${resolved.pathname}`,
@@ -144,13 +191,22 @@ for (const file of htmlFiles) {
       return;
     }
 
-    const anchor = decodeURIComponent(resolved.hash.replace(/^#/, ""));
+    const rawAnchor = resolved.hash.replace(/^#/, "");
+    const decodedAnchor = decodeURLComponent(rawAnchor);
+    if (decodedAnchor.error) {
+      errors.push(
+        `${path.relative(siteRoot, file)}: invalid href ${href}: malformed percent-encoding in anchor ${rawAnchor}: ${decodedAnchor.error.message}`,
+      );
+      return;
+    }
+
+    const anchor = decodedAnchor.value;
     if (/^L\d+(?:-L\d+)?$/.test(anchor)) return;
     if (anchor && !targetHasAnchor(targetFile, anchor)) {
       const message = `${path.relative(siteRoot, file)}: missing anchor ${href} -> ${path.relative(
-          siteRoot,
-          targetFile,
-        )}#${anchor}`;
+        siteRoot,
+        targetFile,
+      )}#${anchor}`;
       if (strictAnchors) {
         errors.push(message);
       } else {
@@ -172,4 +228,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`Offline docs links OK (${htmlFiles.length} HTML file(s) checked).`);
+console.log(
+  `Offline docs links OK (${htmlFiles.length} HTML file(s) checked).`,
+);

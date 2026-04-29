@@ -368,7 +368,7 @@ This section records what landed against this plan. Source of truth: PR #480 (br
 - New Eleventy project at `docs_html/` with `package.json`, `.eleventy.js`, `src/_layouts/base.njk`, `src/_includes/sidebar.njk`, `src/index.md`, `src/assets/site.css`.
 - `docs_html/stub-index.html` ships in tree; `scripts/ensure-docs-stub.sh` copies it to `_site/index.html` if no Eleventy build has run, so `go build` is green on a fresh clone.
 - Symlinking script `scripts/docs-offline-symlinks.sh` creates `docs_html/src/{docs,data}` plus per-file symlinks for repo-root `*.md`.
-- `addWatchTarget` registered for `../docs`, `../data`, `../README.md`, `../ARCHITECTURE.md`, `../TENETS.md` so live reload works through symlinks.
+- `addWatchTarget` registered for `../docs`, `../data`, `../README.md`, `../ARCHITECTURE.md`, `../TENETS.md` so live reload works through symlinks. <!-- link-ignore -->
 - Make targets: `install-docs-offline`, `build-docs-offline`, `dev-docs-offline`, `dev-docs-offline-kill`, `clean-docs-offline`.
 
 **Phase 2 — Link rewriter and link checker (complete, with one design adjustment).**
