@@ -461,11 +461,12 @@ Current shared rules:
 - statistics sections use tight inline bold headings instead of `\subsection*`
   before the long tables so Table 3 can start in the remaining column below
   Table 2 when there is space
-- the **Detailed Data Tables** heading has `8pt` of top spacing so it does not
-  collide with the preceding survey-parameter note or section content
-- the **Speed Distribution** and **Detailed Data Tables** heading-plus-first-table
-  blocks are wrapped in a `minipage` so the heading cannot separate from the
-  table it introduces
+- the **Speed Distribution and Detailed Data** heading has `8pt` of top spacing
+  so it does not collide with the preceding survey-parameter note or section
+  content
+- the **Speed Distribution** and **Speed Distribution and Detailed Data**
+  heading-plus-first-table blocks are wrapped in a `minipage` so the heading
+  cannot separate from the table it introduces
 - comparison-mode long tables are separated by `\par\vspace{2pt}` between
   Tables 2, 3, and 4 so adjacent captions stay readable without pushing the
   next table into a fresh page too early
