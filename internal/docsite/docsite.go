@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,21 +72,36 @@ func DiskHandler(diskDir string) (http.Handler, error) {
 	return http.FileServer(http.Dir(absDir)), nil
 }
 
+// Start binds a TCP listener at `listen` and serves the offline docs until
+// `ctx` is cancelled. Returned errors include any bind failure as well as
+// server runtime errors. For tests that need to know the bound port without
+// racing on it, use Run with a pre-bound listener instead.
 func Start(ctx context.Context, listen, source, diskDir string) error {
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", listen, err)
+	}
+	return Run(ctx, listener, source, diskDir)
+}
+
+// Run serves the offline docs on the provided listener until `ctx` is
+// cancelled. It takes ownership of the listener: on shutdown the listener is
+// closed by the underlying http.Server. This is the test-friendly entry
+// point — callers that have already bound a port avoid the close-then-rebind
+// race that affected an earlier version of TestStartShutdown.
+func Run(ctx context.Context, listener net.Listener, source, diskDir string) error {
 	handler, err := Handler(source, diskDir)
 	if err != nil {
+		_ = listener.Close()
 		return err
 	}
 
-	server := &http.Server{
-		Addr:    listen,
-		Handler: handler,
-	}
+	server := &http.Server{Handler: handler}
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("Offline docs server listening on %s (source=%s)", listen, source)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("Offline docs server listening on %s (source=%s)", listener.Addr(), source)
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return
 		}

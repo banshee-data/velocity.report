@@ -64,7 +64,7 @@ func TestHandlerInvalidSource(t *testing.T) {
 	}
 }
 
-func TestStartShutdown(t *testing.T) {
+func TestRunShutdown(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("offline docs"), 0o644); err != nil {
 		t.Fatalf("write index: %v", err)
@@ -75,14 +75,11 @@ func TestStartShutdown(t *testing.T) {
 		t.Fatalf("listen: %v", err)
 	}
 	addr := listener.Addr().String()
-	if err := listener.Close(); err != nil {
-		t.Fatalf("close listener: %v", err)
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Start(ctx, addr, SourceDisk, dir)
+		errCh <- Run(ctx, listener, SourceDisk, dir)
 	}()
 
 	client := http.Client{Timeout: time.Second}
@@ -106,7 +103,7 @@ func TestStartShutdown(t *testing.T) {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			t.Fatalf("Start returned error: %v", err)
+			t.Fatalf("Run returned error: %v", err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("docs server did not shut down")
