@@ -78,10 +78,6 @@ flags:
     paths:
       - cmd/
     carryforward: true
-  python:
-    paths:
-      - tools/pdf-generator/
-    carryforward: true
   web:
     paths:
       - web/src/

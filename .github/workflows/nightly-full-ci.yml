@@ -126,16 +126,6 @@ jobs:
           pnpm install
           pnpm run build
 
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
-          cache-dependency-path: "requirements.txt"
-
-      - name: Install Python dependencies
-        run: make install-python
-
       - name: Run API integration tests with race detector
         env:
           VELOCITY_TEX_ROOT: ${{ github.workspace }}/build/texlive-minimal
@@ -166,33 +156,6 @@ jobs:
 
       - name: Build production bundle
         run: pnpm run build
-
-  python-full:
-    name: "🐍 Python Full"
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
-          cache-dependency-path: "requirements.txt"
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Check LaTeX package parity
-        run: python tools/pdf-generator/scripts/check_latex_package_parity.py
-
-      - name: Run Python test suite
-        working-directory: tools/pdf-generator
-        run: python -m pytest -v
 
   docs-math-consistency:
     name: "📚 Docs + Math Consistency"
