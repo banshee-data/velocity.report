@@ -11,9 +11,9 @@ notes for field deployments that cannot rely on internet access.
 
 ## Start Here
 
-- [README](README.md)
-- [Architecture](ARCHITECTURE.md)
-- [Tenets](TENETS.md)
-- [Documentation Index](docs/DOCS.md)
-- [Data Structures](data/structures/DATA_STRUCTURES.md)
-- [Maths](data/maths/MATHS.md)
+- [README](README.md) <!-- link-ignore -->
+- [Architecture](ARCHITECTURE.md) <!-- link-ignore -->
+- [Tenets](TENETS.md) <!-- link-ignore -->
+- [Documentation Index](docs/DOCS.md) <!-- link-ignore -->
+- [Data Structures](data/structures/DATA_STRUCTURES.md) <!-- link-ignore -->
+- [Maths](data/maths/MATHS.md) <!-- link-ignore -->
