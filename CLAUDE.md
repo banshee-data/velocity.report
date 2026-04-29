@@ -97,8 +97,8 @@ Radar (USB-serial) ──┐
                      ├──► Go server (SQLite) ──► HTTP API (:8080) ────► Web frontend (Svelte)
 LiDAR (UDP/Ethernet)─┘         │                        │          └──► Go PDF pipeline (internal/report)
                                │                        └─────────────► /docs/ (offline docs)
-                               ├──► LiDAR HTTP monitor (:8081)
-                               └──► gRPC (:50051) ────────────────────► macOS visualiser (Swift/Metal)
+                               ├───────────────► LiDAR HTTP (:8081)
+                               └───────────────► gRPC (:50051) ───────► macOS visualiser (Swift/Metal)
 ```
 
 ### Go server (`cmd/`, `internal/`)
