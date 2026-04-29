@@ -7,10 +7,10 @@ The Raspberry Pi image pipeline produces a ready-to-flash SD card image, removin
 ## Problem
 
 Deploying velocity.report on a Raspberry Pi requires a multi-step manual
-process: flashing Raspberry Pi OS, SSHing in, installing Go binaries, setting
-up Python venv with LaTeX dependencies, configuring RS-232 HAT drivers, and
-enabling systemd services. This is a barrier for neighbourhood change-makers
-who are not comfortable with Linux system administration.
+process: flashing Raspberry Pi OS, SSHing in, installing Go binaries, installing
+LaTeX dependencies, configuring RS-232 HAT drivers, and enabling systemd
+services. This is a barrier for neighbourhood change-makers who are not
+comfortable with Linux system administration.
 
 ## Two-Tier solution
 
@@ -28,8 +28,8 @@ PDF generation, and web dashboard.
 ┌─────────────────────────────────────────────────────────────┐
 │                   CI Pipeline (GitHub Actions)              │
 │  ┌───────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │ pi-gen /      │    │ Go cross-    │    │ Python wheel │  │
-│  │ rpi-image-gen │◄───│ compile      │◄───│ + LaTeX deps │  │
+│  │ pi-gen /      │    │ Go cross-    │    │ LaTeX deps   │  │
+│  │ rpi-image-gen │◄───│ compile      │◄───│              │  │
 │  └──────┬────────┘    └──────────────┘    └──────────────┘  │
 │         ▼                                                   │
 │  ┌──────────────┐    ┌───────────────────────────────────┐  │
@@ -44,13 +44,11 @@ The image extends Raspberry Pi OS Lite (64-bit, Bookworm) with:
 
 ### Binaries
 
-| Component                            | Install Path                                |
-| ------------------------------------ | ------------------------------------------- |
-| `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report`            |
-| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`               |
-| PDF generator (Python)               | `/opt/velocity-report/tools/pdf-generator/` |
-| Python venv                          | `/opt/velocity-report/.venv/`               |
-| Web frontend                         | Embedded in Go binary                       |
+| Component                            | Install Path                     |
+| ------------------------------------ | -------------------------------- |
+| `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report` |
+| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`    |
+| Web frontend                         | Embedded in Go binary            |
 
 The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**;
@@ -103,8 +101,7 @@ pi-gen/
 ├── stage-velocity/                 # Custom stage
 │   ├── 00-packages                 # APT (texlive, libpcap-dev, etc.)
 │   ├── 01-velocity-binaries/       # Go binaries + update script
-│   ├── 02-velocity-python/         # Venv + PDF generator
-│   ├── 03-velocity-config/         # User, service, serial, udev
+│   ├── 02-velocity-config/         # User, service, serial, udev
 │   ├── 04-velocity-lidar/          # LiDAR network (disabled)
 │   ├── 05-velocity-wifi/           # US regulatory fallback
 │   └── EXPORT_IMAGE
@@ -121,11 +118,10 @@ stabilise.
 | -------------------------------------------- | --------------- |
 | Raspberry Pi OS Lite (base)                  | ~450 MB         |
 | TeX Live (before reduction)                  | ~800 MB         |
-| Python 3 + venv + PDF deps                   | ~200 MB         |
 | Go binaries (server + deploy, pcap)          | ~35 MB          |
 | LiDAR + web + system config                  | ~11 MB          |
-| **Total (compressed, before TeX reduction)** | **~600–900 MB** |
-| **Target (after TeX reduction)**             | **~350–500 MB** |
+| **Total (compressed, before TeX reduction)** | **~400–700 MB** |
+| **Target (after TeX reduction)**             | **~150–300 MB** |
 
 ### LaTeX size reduction (chosen: pre-compiled templates)
 
@@ -189,7 +185,6 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 | TeX Live size bloat        | Pre-compiled templates; target < 200 MB                   |
 | pi-gen build flakiness     | Pin package versions; local APT mirror in CI; retry logic |
 | ARM64 QEMU emulation speed | Native ARM64 runners or cross-compile outside chroot      |
-| Python venv portability    | Build inside ARM64 chroot or use platform-specific wheels |
 | GitHub 2 GB asset limit    | xz compression (3:1 ratio); CDN for larger images         |
 | Serial port conflicts      | `miniuart-bt` overlay moves Bluetooth to mini-UART        |
 | "It didn't boot" support   | Troubleshooting docs, systemd journal, web UI status page |

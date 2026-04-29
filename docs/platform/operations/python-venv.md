@@ -1,59 +1,115 @@
-# Python virtual environment: single shared `.venv`
+# Python developer tooling
 
-- **Status:** DEPRECATED (v0.5) — Retained for local development of the reference Python PDF generator only. Production deployments do not use Python.
+- **Production status:** Python is not installed on Raspberry Pi images (removed in v0.5). All production PDF generation runs in Go (`internal/report/`).
+- **Dev status:** Python is used for CI linting scripts, data exploration, hardware documentation tools, and CAD rendering. All tooling is developer-only.
 
-- **Note:** PDF generation migrated to the Go pipeline (`internal/report/`) in v0.5. The Python venv is no longer required for building or running the server. The `.venv/` is retained locally for anyone developing against the deprecated `tools/pdf-generator/` reference copy.
+## Two tiers of Python usage
 
-The deprecated Python tools share a single virtual environment at `.venv/` in the project root.
+### Tier 1 — System `python3` (no setup required)
 
-## Architecture
+The doc-linting and CI scripts in `scripts/` are invoked with system `python3` directly. No venv or install step is needed.
 
-The repository uses a single shared Python virtual environment at `.venv/`
-for all Python tools (PDF generator, data visualisation, analysis scripts).
+```
+scripts/check-mermaid-blocks.py       # make lint-docs
+scripts/check-prose-line-width.py     # make lint-docs
+scripts/check-plan-canonical-links.py # make lint-docs
+scripts/check-relative-links.py       # make lint-docs
+scripts/check-backtick-paths.py       # make lint-docs
+scripts/check-doc-header-metadata.py  # make lint-docs / make format-docs
+scripts/check-british-spelling.py     # make lint-docs
+scripts/check-release-hashes.py       # make lint-docs
+scripts/update-release-json.py        # make update-release-json
+scripts/check-action-pins.py          # CI
+```
+
+These scripts have no third-party dependencies beyond the standard library or packages available on the CI runner.
+
+### Tier 2 — Shared `.venv/` (run `make install-python`)
+
+Everything else uses the single shared virtual environment at `.venv/` in the project root:
+
+| Tool / directory | Purpose |
+| --- | --- |
+| `black`, `ruff` | Python formatting and linting (`make format-python`, `make lint-python`) |
+| `tools/pdf-generator/` | **Deprecated** (v0.5) — Python reference implementation; tests still runnable locally |
+| `tools/grid-heatmap/` | LiDAR grid visualisation for field analysis |
+| `tools/rack-drawing/` | Hardware rack diagram generation |
+| `tools/connector-pinouts/` | Connector pinout documentation SVGs |
+| `tools/_render/svg_to_png.py` | SVG rasterisation helper |
+| `tools/guide-overlays/` | Sensor positioning overlay drawings |
+| `data/explore/` | Research data analysis (matplotlib, scipy, pandas) |
+| `build123d` (via `make install-diagrams`) | 3D CAD rendering for hardware docs |
+
+## Setup
+
+```bash
+make install-python       # Creates .venv/, installs requirements.txt
+make install-diagrams     # Adds build123d to .venv/ (optional, for CAD rendering)
+```
+
+`make install-python` tries `python3.12`, falls back to `python3`. Reuses an existing venv if the Python version matches.
+
+## Repository layout
 
 ```
 velocity.report/
-├── .venv/                    # Single shared environment
-├── requirements.in            # Human-editable dependency list
-├── requirements.txt           # Pinned versions (pip-compile)
-├── tools/pdf-generator/       # Uses root .venv
-├── tools/grid-heatmap/        # Uses root .venv
-└── data/multisweep-graph/     # Uses root .venv
+├── .venv/                    # Shared virtual environment (not committed)
+├── requirements.txt          # Pinned deps (pip-compile output)
+├── tox.ini                   # Pytest config for tools/pdf-generator/
+├── tools/pdf-generator/      # Deprecated Python PDF reference (v0.5)
+├── tools/grid-heatmap/       # Uses root .venv
+├── tools/rack-drawing/       # Uses root .venv
+├── tools/connector-pinouts/  # Uses root .venv
+└── data/explore/             # Uses root .venv
 ```
 
-### Key facts
-
-- **One command:** `make install-python` sets up everything
-- **Single source of truth:** `requirements.in` at repository root
-- **Pinned dependencies:** [requirements.txt](../../../requirements.txt) generated with `pip-compile`
-- All Makefile Python targets use `VENV_PYTHON = .venv/bin/python3`
-
-## Dependency management
-
-Root `requirements.in` includes all packages for all Python tools:
-
-- PDF generation: PyLaTeX, reportlab
-- Data analysis: pandas, numpy, scipy
-- Visualisation: matplotlib, seaborn
-- Testing: pytest, pytest-cov
-- Formatting: black, ruff
-
-## Go server integration
-
-The Go server no longer invokes Python. The PDF pipeline runs entirely within the Go process (`internal/report/`). The `.venv/` path reference in the Go server was removed in v0.5.
+`data/explore/align/` has its own `pyproject.toml` (requires Python 3.9+, different deps); it is not part of the shared venv.
 
 ## Makefile variables
 
-| Variable      | Value                     |
-| ------------- | ------------------------- |
-| `VENV_DIR`    | `.venv`                   |
+| Variable | Value |
+| --- | --- |
+| `VENV_DIR` | `.venv` |
 | `VENV_PYTHON` | `$(VENV_DIR)/bin/python3` |
-| `VENV_PIP`    | `$(VENV_DIR)/bin/pip`     |
-| `VENV_PYTEST` | `$(VENV_DIR)/bin/pytest`  |
+| `VENV_PIP` | `$(VENV_DIR)/bin/pip` |
+| `VENV_PYTEST` | `$(VENV_DIR)/bin/pytest` |
+| `PYTHON_VERSION` | `3.12` |
 
-## Consolidation background
+## Makefile targets
 
-Previously the repo had two conflicting venv approaches: a root-level `.venv/`
-for data visualisation and a `tools/pdf-generator/.venv/` for PDF generation.
-This caused duplicate dependency management, confusing scripts, and wasted
-disk space. The consolidation merged all requirements into the root `.venv/`.
+| Target | What it does |
+| --- | --- |
+| `make install-python` | Create/reuse `.venv/`, install `requirements.txt` |
+| `make install-diagrams` | Add `build123d` to `.venv/` for CAD rendering |
+| `make format-python` | Run `black` + `ruff --fix` across all Python |
+| `make lint-python` | Run `black --check` + `ruff` (non-mutating) |
+| `make test-python` | Run pdf-generator tests (deprecated tool, local dev only) |
+| `make test-python-cov` | Same with HTML coverage report |
+
+`test-python` is **not** included in the `make test` aggregate. It remains available for developers working on the deprecated pdf-generator reference implementation.
+
+## Dependency management
+
+`requirements.txt` is pip-compile output. To add a dependency:
+
+1. Edit `requirements.in` (human-editable source list)
+2. Run `pip-compile requirements.in` to regenerate `requirements.txt`
+3. Commit both files
+
+Key dependency groups:
+- **PDF generation (deprecated):** PyLaTeX, reportlab
+- **Data analysis:** pandas, numpy, scipy
+- **Visualisation:** matplotlib, seaborn
+- **Testing:** pytest, pytest-cov
+- **Formatting:** black, ruff
+
+## Deprecated pdf-generator
+
+`tools/pdf-generator/` is the Python PDF pipeline superseded by Go in v0.5. It is:
+
+- Retained for reference while the Go pipeline matures
+- Not installed on Raspberry Pi images
+- Not invoked by the Go server
+- Planned for deletion in v0.6
+
+Its tests (`make test-python`) remain runnable locally. Do not add new features or fix bugs here.

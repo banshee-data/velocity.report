@@ -158,23 +158,6 @@ embedded via `go:embed`. Use custom delimiters `<<` and `>>` (via
 
 Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 
-## Python modules to replace
-
-| Module                 | Lines | Replacement                                    |
-| ---------------------- | ----- | ---------------------------------------------- |
-| `chart_builder.py`     | ~900  | Go SVG chart package (`internal/report/chart`) |
-| `chart_saver.py`       | ~185  | Go SVG writer + optional SVG→PDF conversion    |
-| `pdf_generator.py`     | ~730  | Go template engine (`internal/report/tex`)     |
-| `document_builder.py`  | ~350  | Go LaTeX preamble template                     |
-| `report_sections.py`   | ~250  | Go section templates                           |
-| `table_builders.py`    | ~200  | Go LaTeX table templates                       |
-| `config_manager.py`    | ~530  | Go config struct (extend `ReportRequest`)      |
-| `api_client.py`        | ~150  | Direct DB query (no HTTP)                      |
-| `data_transformers.py` | ~200  | Go normalisation within chart package          |
-| `map_utils.py`         | ~300  | Go `encoding/xml` SVG manipulation             |
-| `zip_utils.py`         | ~80   | Go `archive/zip` (stdlib)                      |
-| `cli/main.py`          | ~60   | Go `pdf` subcommand                            |
-
 ## Relationship to other decisions
 
 - **D-08 (Precompiled LaTeX):** Complementary. D-08 reduces TeX from ~800 MB
