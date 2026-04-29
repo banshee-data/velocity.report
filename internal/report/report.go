@@ -128,13 +128,14 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 	if source == "" {
 		source = cfg.Source
 	}
+	statsSiteID := reportStatsSiteID(source, cfg)
 
 	// Summary query (aggregate + histogram).
 	summaryResult, err := database.RadarObjectRollupRange(
 		cs.Unix(), ce.Unix(), 0, minSpeedMPS,
 		source, cfg.ModelVersion,
 		histBucketMPS, histMaxMPS,
-		cfg.SiteID, cfg.BoundaryThreshold,
+		statsSiteID, cfg.BoundaryThreshold,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compare summary: %w", err)
@@ -145,7 +146,7 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 		cs.Unix(), ce.Unix(), groupSeconds, minSpeedMPS,
 		source, cfg.ModelVersion,
 		0, 0,
-		cfg.SiteID, cfg.BoundaryThreshold,
+		statsSiteID, cfg.BoundaryThreshold,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compare timeseries: %w", err)
@@ -156,7 +157,7 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 		cs.Unix(), ce.Unix(), 86400, minSpeedMPS,
 		source, cfg.ModelVersion,
 		0, 0,
-		cfg.SiteID, cfg.BoundaryThreshold,
+		statsSiteID, cfg.BoundaryThreshold,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compare daily: %w", err)

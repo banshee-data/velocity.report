@@ -19,11 +19,13 @@ import (
 // mockDB implements the DB interface with fixture data.
 type mockDB struct {
 	callCount int
+	siteIDs   []int
 	rollupFn  func(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error)
 }
 
 func (m *mockDB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, minSpeed float64, dataSource string, modelVersion string, histBucketSize, histMax float64, siteID int, boundaryThreshold int) (*db.RadarStatsResult, error) {
 	m.callCount++
+	m.siteIDs = append(m.siteIDs, siteID)
 	if m.rollupFn != nil {
 		return m.rollupFn(startUnix, endUnix, groupSeconds, minSpeed, dataSource, modelVersion, histBucketSize, histMax, siteID, boundaryThreshold)
 	}
@@ -150,7 +152,6 @@ func TestGenerate_EndToEnd(t *testing.T) {
 		Contact:         "test@example.com",
 		SpeedLimit:      25,
 		SiteDescription: "Test site for unit tests",
-		SpeedLimitNote:  "Posted: 25 mph",
 
 		StartDate: "2025-06-01",
 		EndDate:   "2025-06-02",
@@ -209,6 +210,12 @@ func TestGenerate_EndToEnd(t *testing.T) {
 	for _, want := range []string{"report.tex", "timeseries.svg", "histogram.svg"} {
 		if !zipNames[want] {
 			t.Errorf("ZIP missing %s; has: %v", want, zipNames)
+		}
+	}
+	reportTeX := readZipEntry(t, result.ZIPPath, "report.tex")
+	for _, unwanted := range []string{"Speed limit:", "Posted: 25 mph"} {
+		if strings.Contains(reportTeX, unwanted) {
+			t.Fatalf("single report should not render speed-limit product text %q:\n%s", unwanted, reportTeX)
 		}
 	}
 
@@ -279,6 +286,53 @@ func TestGenerate_WithComparison(t *testing.T) {
 	}
 }
 
+func TestGenerate_ReportStatsQueriesUsePythonCompatibleSiteIDs(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	outDir := t.TempDir()
+	m := &mockDB{}
+
+	cfg := Config{
+		SiteID:        42,
+		Location:      "Compare Street",
+		Surveyor:      "J. Engineer",
+		Contact:       "test@example.com",
+		StartDate:     "2025-06-01",
+		EndDate:       "2025-06-02",
+		Timezone:      "UTC",
+		Units:         "mph",
+		Group:         "1h",
+		Source:        "radar_data_transits",
+		CompareSource: "radar_objects",
+		MinSpeed:      5.0,
+		Histogram:     true,
+		CosineAngle:   21.0,
+
+		CompareStart: "2025-05-01",
+		CompareEnd:   "2025-05-02",
+
+		OutputDir: outDir,
+	}
+
+	if _, err := Generate(context.Background(), m, cfg); err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+	if len(m.siteIDs) != 6 {
+		t.Fatalf("expected 6 report stats queries, got %d site IDs: %v", len(m.siteIDs), m.siteIDs)
+	}
+	for i, got := range m.siteIDs[:3] {
+		if got != 0 {
+			t.Fatalf("primary transit query %d used siteID %d; want 0 to match Python report metrics", i, got)
+		}
+	}
+	for i, got := range m.siteIDs[3:] {
+		if got != cfg.SiteID {
+			t.Fatalf("comparison object query %d used siteID %d; want %d to match Python report metrics", i, got, cfg.SiteID)
+		}
+	}
+}
+
 func TestGenerate_WithComparisonWithoutHistogramDoesNotReferenceComparisonPDF(t *testing.T) {
 	binDir := createMockBinaries(t)
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
@@ -332,6 +386,14 @@ func TestGenerate_WithComparisonWithoutHistogramDoesNotReferenceComparisonPDF(t 
 		t.Fatalf("ZIP missing timeseries_compare.svg; has: %v", zipNames)
 	}
 
+	compareTimeSeriesSVG := readZipEntry(t, result.ZIPPath, "timeseries_compare.svg")
+	if !strings.Contains(compareTimeSeriesSVG, `class="p98-reference"`) || !strings.Contains(compareTimeSeriesSVG, `class="max-reference"`) {
+		t.Fatalf("comparison time-series should include aggregate p98 and max reference lines, got:\n%s", compareTimeSeriesSVG)
+	}
+	if !strings.Contains(compareTimeSeriesSVG, "p98 overall") || !strings.Contains(compareTimeSeriesSVG, "max overall") {
+		t.Fatalf("comparison time-series should include aggregate reference legend labels, got:\n%s", compareTimeSeriesSVG)
+	}
+
 	reportTeX := readZipEntry(t, result.ZIPPath, "report.tex")
 	if strings.Contains(reportTeX, "comparison.pdf") {
 		t.Fatalf("report.tex should not reference comparison.pdf when it was not rendered:\n%s", reportTeX)
@@ -354,7 +416,7 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 		Surveyor:        "J. Engineer",
 		Contact:         "test@example.com",
 		SpeedLimit:      25,
-		SiteDescription: "Escaping regression test",
+		SiteDescription: "Escaping & regression_test",
 		StartDate:       "2025-06-01",
 		EndDate:         "2025-06-02",
 		Timezone:        "UTC",
@@ -403,12 +465,12 @@ func TestGenerate_EscapesTemplateFields(t *testing.T) {
 	if reportTex == "" {
 		t.Fatal("report.tex not found in ZIP")
 	}
-	if !strings.Contains(reportTex, `radar\_data\_transits`) {
-		t.Fatalf("expected escaped source field in report.tex, got:\n%s", reportTex)
+	if !strings.Contains(reportTex, `Escaping \& regression\_test`) {
+		t.Fatalf("expected escaped description field in report.tex, got:\n%s", reportTex)
 	}
 }
 
-func TestGenerate_TimeSeriesSVGIncludesAggregateP98Reference(t *testing.T) {
+func TestGenerate_TimeSeriesSVGIncludesAggregateReferenceLines(t *testing.T) {
 	binDir := createMockBinaries(t)
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
 
@@ -436,11 +498,14 @@ func TestGenerate_TimeSeriesSVGIncludesAggregateP98Reference(t *testing.T) {
 	}
 
 	timeseriesSVG := readZipEntry(t, result.ZIPPath, "timeseries.svg")
-	if !strings.Contains(timeseriesSVG, `class="p98-reference"`) {
-		t.Fatalf("expected aggregate p98 reference line in timeseries.svg, got:\n%s", timeseriesSVG)
+	if !strings.Contains(timeseriesSVG, `class="p98-reference"`) || !strings.Contains(timeseriesSVG, `class="max-reference"`) {
+		t.Fatalf("report time-series should include aggregate p98 and max reference lines, got:\n%s", timeseriesSVG)
 	}
-	if !strings.Contains(timeseriesSVG, "p98 overall") {
-		t.Fatalf("expected p98 overall legend label in timeseries.svg, got:\n%s", timeseriesSVG)
+	if !strings.Contains(timeseriesSVG, "p98 overall") || !strings.Contains(timeseriesSVG, "max overall") {
+		t.Fatalf("report time-series should include aggregate reference legend labels, got:\n%s", timeseriesSVG)
+	}
+	if strings.Contains(timeseriesSVG, `stroke-width="1.5"`) {
+		t.Fatalf("report time-series max series should not render x markers, got:\n%s", timeseriesSVG)
 	}
 }
 
@@ -688,8 +753,8 @@ func TestPlanRun_PaperSizeNormalisation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("planRun default paper error: %v", err)
 	}
-	if planDefault.paper != "a4" {
-		t.Fatalf("expected default a4 paper, got %q", planDefault.paper)
+	if planDefault.paper != "letter" {
+		t.Fatalf("expected default letter paper, got %q", planDefault.paper)
 	}
 }
 
@@ -738,7 +803,6 @@ func TestGenerate_OutputDirMustBeAbsolute(t *testing.T) {
 		Contact:         "test@example.com",
 		SpeedLimit:      25,
 		SiteDescription: "Test site for unit tests",
-		SpeedLimitNote:  "Posted: 25 mph",
 		StartDate:       "2025-06-01",
 		EndDate:         "2025-06-02",
 		Timezone:        "UTC",

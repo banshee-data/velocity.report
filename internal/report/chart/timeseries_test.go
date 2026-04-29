@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/xml"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -135,9 +137,11 @@ func TestExpandTimeSeriesGapsInRange(t *testing.T) {
 func TestRenderTimeSeries_Structure(t *testing.T) {
 	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
 	data := TimeSeriesData{
-		Points: makeTestPoints(12, start, time.Hour),
-		Units:  "mph",
-		Title:  "Test Chart",
+		Points:       makeTestPoints(12, start, time.Hour),
+		Units:        "mph",
+		Title:        "Test Chart",
+		P98Reference: 33,
+		MaxReference: 39,
 	}
 	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle(PaperA4))
 	if err != nil {
@@ -158,6 +162,15 @@ func TestRenderTimeSeries_Structure(t *testing.T) {
 	svgStr := string(svg)
 	if !strings.Contains(svgStr, "<polyline") {
 		t.Error("output should contain <polyline> elements")
+	}
+	if !strings.Contains(svgStr, `class="p98-reference"`) || !strings.Contains(svgStr, `class="max-reference"`) {
+		t.Error("output should contain aggregate p98 and max reference lines")
+	}
+	if !strings.Contains(svgStr, "p98 overall") || !strings.Contains(svgStr, "max overall") {
+		t.Error("output should contain aggregate p98 and max legend labels")
+	}
+	if strings.Contains(svgStr, `stroke-width="1.5"`) {
+		t.Error("max series should not render x markers")
 	}
 }
 
@@ -327,6 +340,57 @@ func TestXTicks_SignatureTakesOnlyPoints(t *testing.T) {
 	}
 }
 
+func TestXTicks_SubDayUsesDateTimeLabels(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	ticks := XTicks(makeTestPoints(6, start, time.Hour))
+	if len(ticks) < 2 {
+		t.Fatalf("expected multiple ticks, got %v", ticks)
+	}
+	for _, tick := range ticks {
+		if strings.Contains(tick.Label, "\n") {
+			t.Fatalf("sub-day labels should be one line, got %q", tick.Label)
+		}
+		if !strings.Contains(tick.Label, "Jun 15 ") || !strings.Contains(tick.Label, ":") {
+			t.Fatalf("sub-day label %q should use 'MMM DD HH:mm'", tick.Label)
+		}
+	}
+}
+
+func TestXTicks_MultiDayUsesDateLabels(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	ticks := XTicks(makeTestPoints(49, start, time.Hour))
+	want := []string{"Jun 15", "Jun 16", "Jun 17"}
+	if len(ticks) != len(want) {
+		t.Fatalf("ticks = %v, want labels %v", ticks, want)
+	}
+	for i, label := range want {
+		if ticks[i].Label != label {
+			t.Fatalf("tick %d label = %q, want %q (ticks: %v)", i, ticks[i].Label, label, ticks)
+		}
+		if strings.Contains(ticks[i].Label, ":") || strings.Contains(ticks[i].Label, "\n") {
+			t.Fatalf("multi-day label should be date-only, got %q", ticks[i].Label)
+		}
+	}
+}
+
+func TestRenderTimeSeries_XAxisLabelsAreHorizontal(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	svg, err := RenderTimeSeries(TimeSeriesData{
+		Points: makeTestPoints(12, start, time.Hour),
+		Units:  "mph",
+	}, DefaultTimeSeriesStyle(PaperA4))
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+	svgStr := string(svg)
+	if strings.Contains(svgStr, `rotate(-45`) {
+		t.Fatalf("time-series x-axis labels should not be rotated: %s", svgStr)
+	}
+	if !strings.Contains(svgStr, "Jun 15 08:00") {
+		t.Fatalf("expected one-line date/time x-axis label, got:\n%s", svgStr)
+	}
+}
+
 func TestRenderTimeSeries_Empty(t *testing.T) {
 	data := TimeSeriesData{
 		Points: nil,
@@ -407,5 +471,48 @@ func TestRenderTimeSeries_ReferenceLineAndHoverTooltips(t *testing.T) {
 	}
 	if !strings.Contains(svgStr, "count: 100") {
 		t.Fatal("expected hover tooltip metrics in SVG")
+	}
+}
+
+func TestRenderTimeSeries_LowSampleLegendRedistributesToFit(t *testing.T) {
+	start := time.Date(2025, 6, 15, 8, 0, 0, 0, time.UTC)
+	pts := makeTestPoints(6, start, time.Hour)
+	pts[1].Count = 20
+
+	style := DefaultTimeSeriesStyle(PaperA4)
+	style.WidthMM = 90
+	style.HeightMM = 42
+
+	svg, err := RenderTimeSeries(TimeSeriesData{
+		Points:       pts,
+		Units:        "mph",
+		P98Reference: 32,
+		MaxReference: 38,
+	}, style)
+	if err != nil {
+		t.Fatalf("RenderTimeSeries error: %v", err)
+	}
+
+	svgStr := string(svg)
+	labelPattern := regexp.MustCompile(`<text x="([0-9.]+)" y="([0-9.]+)"[^>]*>(p50|p85|p98|Max|p98 overall|max overall|low sample \((?:&lt;|<)50\))</text>`)
+	matches := labelPattern.FindAllStringSubmatch(svgStr, -1)
+	uniqueY := make(map[string]struct{})
+	for _, match := range matches {
+		uniqueY[match[2]] = struct{}{}
+	}
+	if len(uniqueY) < 2 {
+		t.Fatalf("expected redistributed legend rows for narrow chart with low-sample item, got %d unique legend rows in:\n%s", len(uniqueY), svgStr)
+	}
+	lowSampleMatch := regexp.MustCompile(`<text x="([0-9.]+)" y="([0-9.]+)"[^>]*>low sample \((?:&lt;|<)50\)</text>`).FindStringSubmatch(svgStr)
+	if len(lowSampleMatch) != 3 {
+		t.Fatalf("expected low-sample legend label in SVG, got:\n%s", svgStr)
+	}
+	textX, err := strconv.ParseFloat(lowSampleMatch[1], 64)
+	if err != nil {
+		t.Fatalf("parse low-sample legend x: %v", err)
+	}
+	rightPx := 0.93 * style.WidthMM * pxPerMM
+	if textX+estimateLegendLabelWidth("low sample (<50)", style.LegendFontPx) > rightPx-4 {
+		t.Fatalf("expected low-sample legend label to fit within legend box, textX=%.2f rightPx=%.2f", textX, rightPx)
 	}
 }

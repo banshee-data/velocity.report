@@ -92,7 +92,6 @@ func main() {
 		CosineAngle:       30.0,
 		CosineFactor:      1.1547,
 		ModelVersion:      "hourly-cron",
-		SpeedLimitNote:    "Posted speed limit: 25 mph",
 		PaperOption:       "a4paper",
 	}
 

@@ -26,10 +26,12 @@ type TemplateData struct {
 	Description string
 
 	// Survey period
-	StartDate string // formatted display date
-	EndDate   string
-	Timezone  string
-	Units     string
+	StartDate        string // formatted display date
+	EndDate          string
+	StartTimeDisplay string
+	EndTimeDisplay   string
+	Timezone         string
+	Units            string
 
 	// Statistics (formatted strings)
 	P50        string
@@ -55,13 +57,15 @@ type TemplateData struct {
 	StatRows []StatRow
 
 	// Comparison metadata (empty if no comparison)
-	CompareStartDate string
-	CompareEndDate   string
-	CompareP50       string
-	CompareP85       string
-	CompareP98       string
-	CompareMax       string
-	CompareCount     int
+	CompareStartDate        string
+	CompareEndDate          string
+	CompareStartTimeDisplay string
+	CompareEndTimeDisplay   string
+	CompareP50              string
+	CompareP85              string
+	CompareP98              string
+	CompareMax              string
+	CompareCount            int
 
 	// Comparison deltas: absolute (primary - compare) with sign.
 	DeltaP50 string
@@ -86,7 +90,7 @@ type TemplateData struct {
 	// Daily summary rows (comparison mode: both periods merged, sorted by time).
 	DailyStatRows []StatRow
 
-	// Pre-rendered LaTeX stat tables (styled supertabular with caption).
+	// Pre-rendered LaTeX stat tables (styled flow tables with captions).
 	StatTableTeX      string
 	DailyStatTableTeX string
 
@@ -112,11 +116,8 @@ type TemplateData struct {
 	ModelVersion          string
 	FirmwareVersion       string // optional; omitted from hardware table when empty
 
-	// Speed limit note (e.g. "Posted speed limit: 25 mph")
-	SpeedLimitNote string
-
 	// LaTeX paper option (e.g. "a4paper" or "letterpaper"). Required: the
-	// preamble template renders `\documentclass[11pt,<PaperOption>]{article}`
+	// preamble template renders `\documentclass[10pt,<PaperOption>]{article}`
 	// with no fallback, so an empty value produces an invalid documentclass
 	// line. Production callers set this via report.paperTexOption().
 	PaperOption string

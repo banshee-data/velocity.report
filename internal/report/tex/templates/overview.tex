@@ -6,25 +6,22 @@
   \setlength{\parsep}{0pt}
   \setlength{\leftmargini}{10pt}
   \item \textbf{Site:} <<.Location>>
-  \item \textbf{Period:} <<.StartDate>> \textemdash{} <<.EndDate>>
+  \item \textbf{Period:} <<.StartDate>> to <<.EndDate>>
   \item \textbf{Total vehicle count:}<<if .TotalCountFormatted>> <<.TotalCountFormatted>><<end>>
-  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
 \end{itemize}
 
-\subsection*{Key Traffic Speed Metrics}
+\subsection*{Key Metrics}
 \vspace{4pt}
 <<.KeyMetricsTableTeX>>
-\vspace{8pt}
 
 <<if .HistogramChart>>
-\begin{center}
-\begin{figure}[H]
+\par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=\linewidth]{<<.HistogramChart>>}
-\caption{Velocity Distribution Histogram}
-\end{figure}
-\end{center}
-\vspace{-28pt}
+\captionof{figure}{Velocity Distribution Histogram}
+\end{minipage}
+\par\vspace{8pt}
 <<end>>
 <<end>>
 
@@ -36,31 +33,29 @@
   \setlength{\parsep}{0pt}
   \setlength{\leftmargini}{10pt}
   \item \textbf{Site:} <<.Location>>
-  \item \textbf{Period (t1):} <<.StartDate>> \textemdash{} <<.EndDate>>
-  \item \textbf{Period (t2):} <<.CompareStartDate>> \textemdash{} <<.CompareEndDate>>
+  \item \textbf{Primary period (t1):} <<.StartDate>> to <<.EndDate>>
+  \item \textbf{Comparison period (t2):} <<.CompareStartDate>> to <<.CompareEndDate>>
   \item \textbf{Total vehicle count:}<<if .CombinedCountFormatted>> <<.CombinedCountFormatted>><<end>>
 \end{itemize}
 
-\subsection*{Key Traffic Speed Metrics}
+\subsection*{Key Metrics}
 <<.KeyMetricsTableTeX>>
 
 <<if .CompareChart>>
-\begin{center}
-\begin{figure}[H]
+\par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=\linewidth]{<<.CompareChart>>}
-\caption{Velocity Distribution: t1 vs t2}
-\end{figure}
-\end{center}
-\vspace{-28pt}
+\captionof{figure}{Velocity Distribution Histogram Comparison (t1 vs t2)}
+\end{minipage}
+\par\vspace{8pt}
 <<else if .HistogramChart>>
-\begin{center}
-\begin{figure}[H]
+\par\vspace{2pt}
+\noindent\begin{minipage}{\linewidth}
 \centering
 \includegraphics[width=\linewidth]{<<.HistogramChart>>}
-\caption{Velocity Distribution Histogram}
-\end{figure}
-\end{center}
-\vspace{-28pt}
+\captionof{figure}{Velocity Distribution Histogram}
+\end{minipage}
+\par\vspace{8pt}
 <<end>>
 <<end>>

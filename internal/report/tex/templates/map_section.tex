@@ -1,13 +1,14 @@
 <<define "map_section">>
 <<if .MapChart>>
-\clearpage
-\onecolumn
-\section*{Site Map}
-\vspace{4pt}
-\begin{figure}[H]
+\par\vspace{4pt}
+\noindent\begin{minipage}{\textwidth}
+<<if and (not .TimeSeriesChart) (not .CompareTimeSeriesChart)>>
+\noindent{\large\bfseries <<template "media_heading_text" .>>}\par\vspace{2pt}
+<<end>>
 \centering
 \includegraphics[width=\textwidth]{<<.MapChart>>}
-\caption{Site map with radar coverage}
-\end{figure}
+\captionof{figure}{Site Location Map with radar location (circle) and coverage area (red triangle)}
+\end{minipage}
+\par\vspace{2pt}
 <<end>>
 <<end>>
