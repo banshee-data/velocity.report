@@ -101,7 +101,6 @@ if [ -d /opt/velocity-report ]; then
   ls -la /opt/velocity-report/.git/HEAD 2>/dev/null || echo "not a git repo"
   git -C /opt/velocity-report log --oneline -1 2>/dev/null || true
   git -C /opt/velocity-report status --short 2>/dev/null && echo "(working tree clean)" || true
-  ls -la /opt/velocity-report/.venv/bin/python 2>/dev/null || echo "no venv"
   ls -la /opt/velocity-report/config/tuning.defaults.json 2>/dev/null || echo "tuning config MISSING"
 else
   echo "/opt/velocity-report does not exist"
@@ -271,28 +270,6 @@ make install-web
 make build-web
 make build-radar-linux
 ```
-
-## Optional: sync `/opt/velocity-report`
-
-The canonical service template sets:
-
-- `PDF_GENERATOR_DIR=/opt/velocity-report/tools/pdf-generator`
-- `PDF_GENERATOR_PYTHON=/opt/velocity-report/.venv/bin/python`
-
-If the running host uses that layout, upgrade `/opt/velocity-report` to the
-same `TARGET_REF` when the release includes PDF generator changes.
-
-If `/opt/velocity-report` is a clean git checkout:
-
-```bash
-cd /opt/velocity-report
-RUN_AS git status --short
-RUN_AS git fetch --tags --prune
-RUN_AS git checkout "$TARGET_REF"
-RUN_AS make install-python
-```
-
-If that checkout is dirty, stop and ask instead of force-resetting it.
 
 ## Backup and stop the service
 
