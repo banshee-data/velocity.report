@@ -115,9 +115,17 @@ const errors = [];
 const warnings = [];
 const htmlFiles = walk(siteRoot);
 
-// If the site only contains the embed stub (i.e. offline docs were never
-// built), skip the link check rather than failing. `make build-docs-offline`
-// produces a real site; this keeps `make lint` non-mutating on clean checkouts.
+// If the default site contains only the tracked embed marker, offline docs have
+// not been built yet. Skip before loading docs_html dependencies so `make lint`
+// remains non-mutating on clean checkouts.
+if (!explicitSiteRoot && htmlFiles.length === 0) {
+  console.log("Offline docs site contains no HTML files; skipping link check.");
+  process.exit(0);
+}
+
+// If the site only contains the embed stub (i.e. offline docs were never built
+// but a Make/CI stub script has run), skip the link check rather than failing.
+// `make build-docs-offline` produces a real site.
 const stubSource = path.resolve(repoRoot, "docs_html/stub-index.html");
 const stubTarget = path.join(siteRoot, "index.html");
 if (

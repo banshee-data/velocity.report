@@ -635,6 +635,8 @@ clean-docs-offline:
 	@echo "Cleaning embedded offline docs build artifacts..."
 	@./scripts/docs-offline-symlinks.sh clean
 	@rm -rf docs_html/_site
+	@mkdir -p docs_html/_site
+	@printf '%s\n' "This placeholder keeps Go's docs_html/_site embed pattern valid on clean checkouts." > docs_html/_site/.embed-stub
 
 activate-web-cache:
 	@echo "Activating shared web dependency cache..."

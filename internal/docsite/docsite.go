@@ -1,7 +1,9 @@
 package docsite
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -45,10 +47,17 @@ func EmbeddedHandler() (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open embedded docs site: %w", err)
 	}
-	if err := ensureNonEmpty(siteFS); err != nil {
-		return nil, err
+	if _, err := fs.Stat(siteFS, "index.html"); err == nil {
+		return http.FileServer(http.FS(siteFS)), nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("read embedded docs index: %w", err)
 	}
-	return http.FileServer(http.FS(siteFS)), nil
+
+	if len(radar.DocsSiteStub) == 0 {
+		return nil, fmt.Errorf("embedded docs site is missing index.html and stub page is empty")
+	}
+	log.Printf("Embedded docs site is not built; serving stub page")
+	return embeddedStubHandler(radar.DocsSiteStub), nil
 }
 
 func DiskHandler(diskDir string) (http.Handler, error) {
@@ -122,13 +131,13 @@ func Run(ctx context.Context, listener net.Listener, source, diskDir string) err
 	}
 }
 
-func ensureNonEmpty(siteFS fs.FS) error {
-	entries, err := fs.ReadDir(siteFS, ".")
-	if err != nil {
-		return fmt.Errorf("read embedded docs site: %w", err)
-	}
-	if len(entries) == 0 {
-		return fmt.Errorf("embedded docs site is empty")
-	}
-	return nil
+func embeddedStubHandler(stub []byte) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" && r.URL.Path != "/index.html" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(stub))
+	})
 }

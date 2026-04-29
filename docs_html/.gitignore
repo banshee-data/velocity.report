@@ -1,4 +1,5 @@
-_site/
+_site/*
+!_site/.embed-stub
 src/docs
 src/data
 # Symlinked top-level docs (README.md, ARCHITECTURE.md, etc.) are generated

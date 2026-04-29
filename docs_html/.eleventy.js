@@ -6,6 +6,9 @@ const markdownItAnchor = require("markdown-it-anchor");
 const markdownItTexmath = require("markdown-it-texmath");
 const katex = require("katex");
 
+const embedStubMarker =
+  "This placeholder keeps Go's docs_html/_site embed pattern valid on clean checkouts.\n";
+
 function isExternalHref(href) {
   return (
     !href ||
@@ -165,8 +168,7 @@ function buildDocsTree(pages, currentUrl) {
       return a.name.localeCompare(b.name);
     });
     const hasCurrent =
-      (currentUrl && node.url === currentUrl) ||
-      list.some((c) => c.hasCurrent);
+      (currentUrl && node.url === currentUrl) || list.some((c) => c.hasCurrent);
     return {
       segment: node.segment,
       name: node.name,
@@ -300,6 +302,11 @@ module.exports = function (eleventyConfig) {
   // the matching `.map` files (~11 MB of sourcemaps that would inflate the
   // embedded binary for no runtime benefit).
   eleventyConfig.on("eleventy.after", () => {
+    fs.writeFileSync(
+      path.resolve(__dirname, "_site/.embed-stub"),
+      embedStubMarker,
+    );
+
     const chunkSrc = path.resolve(
       __dirname,
       "node_modules/mermaid/dist/chunks/mermaid.esm.min",
