@@ -56,16 +56,14 @@ For full build setup, dev servers, and testing: see [knowledge/build-and-test.md
 
 **Critical paths (hyphen, not dot):**
 
-| Path                                      | Purpose                                    |
-| ----------------------------------------- | ------------------------------------------ |
-| `/var/lib/velocity-report/`               | Data directory                             |
-| `/var/lib/velocity-report/sensor_data.db` | Database                                   |
-| `/usr/local/bin/velocity-report`          | Service binary                             |
-| `.venv/`                                  | Python venv (developer tools — not on RPi) |
+| Path                                      | Purpose                                                      |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `/var/lib/velocity-report/`               | Data directory                                               |
+| `/var/lib/velocity-report/sensor_data.db` | Database                                                     |
+| `/usr/local/bin/velocity-report`          | Service binary                                               |
+| `.venv/`                                  | Python developer tooling only (not in production/RPi images) |
 
-**Commit format:** `[prefix] description` — see [knowledge/coding-standards.md](knowledge/coding-standards.md) for prefix table and rules. AI edits always include `[ai]` tag plus language tag.
-
-**Python venv:** `.venv/` used for developer tooling (doc scripts, data exploration, formatting). Not installed on deployed devices. See `docs/platform/operations/python-venv.md`.
+**Note:** `.venv/` is for local developer tooling and scripts. It is not included in deployed production binaries or Raspberry Pi images.
 
 **SQLite:** `modernc.org/sqlite v1.44.3` (SQLite 3.51.2). Use `DROP COLUMN` directly in new migrations.
 

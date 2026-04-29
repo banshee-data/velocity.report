@@ -21,7 +21,7 @@ Optional detailed explanation if needed.
 | Prefix   | Scope                                                         |
 | -------- | ------------------------------------------------------------- |
 | `[go]`   | Go code, server, APIs                                         |
-| `[py]`   | Python code (PDF generator, tools)                            |
+| `[py]`   | Python code (tools, scripts, data)                            |
 | `[js]`   | JavaScript/TypeScript (SvelteKit frontend, Vite)              |
 | `[mac]`  | macOS files (Swift, Xcode)                                    |
 | `[docs]` | Documentation (Markdown guides, READMEs)                      |
@@ -50,12 +50,12 @@ Optional detailed explanation if needed.
 
 **Critical: use hyphen, not dot.**
 
-| Path                                      | Purpose                          |
-| ----------------------------------------- | -------------------------------- |
-| `/var/lib/velocity-report/`               | Data directory                   |
-| `/var/lib/velocity-report/sensor_data.db` | Database                         |
-| `/usr/local/bin/velocity-report`          | Service binary                   |
-| `.venv/`                                  | Python venv (root level, shared) |
+| Path                                      | Purpose                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/var/lib/velocity-report/`               | Data directory                                                                                   |
+| `/var/lib/velocity-report/sensor_data.db` | Database                                                                                         |
+| `/usr/local/bin/velocity-report`          | Service binary                                                                                   |
+| `.venv/`                                  | Python venv for developer tooling only (root level, shared; excluded from production/RPi images) |
 
 ## Product Names
 

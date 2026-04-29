@@ -11,12 +11,11 @@ cd velocity.report
 
 ## Initial Setup
 
-| Subsystem     | Command                  | Purpose                                                       |
-| ------------- | ------------------------ | ------------------------------------------------------------- |
-| Go server     | `make build-radar-local` | Build with pcap support (local dev)                           |
-| Web frontend  | `make install-web`       | Install pnpm/npm dependencies                                 |
-| Documentation | `make install-docs`      | Install Eleventy dependencies                                 |
-| Python tools  | `make install-python`    | Create `.venv/` for doc scripts, formatting, data exploration |
+| Subsystem     | Command                  | Purpose                             |
+| ------------- | ------------------------ | ----------------------------------- |
+| Go server     | `make build-radar-local` | Build with pcap support (local dev) |
+| Web frontend  | `make install-web`       | Install pnpm/npm dependencies       |
+| Documentation | `make install-docs`      | Install Eleventy dependencies       |
 
 ### pcap Build Notes
 
@@ -38,12 +37,11 @@ make test      # Run all test suites
 
 ## Testing
 
-| Command                         | Scope                                       |
-| ------------------------------- | ------------------------------------------- |
-| `make test`                     | All tests (Go + Web)                        |
-| `make test-go`                  | Go unit tests                               |
-| `make test-web`                 | Web tests                                   |
-| `make test-python` (DEPRECATED) | Python PDF generator tests — local dev only |
+| Command         | Scope                |
+| --------------- | -------------------- |
+| `make test`     | All tests (Go + Web) |
+| `make test-go`  | Go unit tests        |
+| `make test-web` | Web tests            |
 
 ### Per-Language Validation
 
@@ -76,10 +74,6 @@ Target naming: `<action>-<subsystem>[-<variant>]`
 - 101+ documented targets available
 - Cross-compilation for ARM64 (Raspberry Pi 4)
 - Run `make help` for the full list
-
-## Python Virtual Environment
-
-The `.venv/` at the repo root is developer tooling only — not installed on deployed devices. It provides formatting (black/ruff), data exploration scripts, and hardware documentation tools. PDF generation uses the Go pipeline (`internal/report/`). Run `make install-python` to create the venv. See `docs/platform/operations/python-venv.md` for the full picture.
 
 ## SQLite
 

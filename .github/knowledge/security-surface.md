@@ -54,7 +54,6 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 Check for known CVEs and supply chain risk:
 
 - `go.mod` — Go modules
-- `requirements.txt` — Python packages
 - `package.json` — npm packages
 
 `make lint` runs formatting and style checks for Go, Python, web, and documentation code.
