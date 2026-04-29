@@ -14,6 +14,7 @@ import (
 
 	radar "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/db"
+	radarPkg "github.com/banshee-data/velocity.report/internal/radar"
 	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
@@ -119,7 +120,15 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	command := r.FormValue("command")
+	command := strings.TrimSpace(r.FormValue("command"))
+	if command == "" {
+		http.Error(w, "Missing command", http.StatusBadRequest)
+		return
+	}
+	if !radarPkg.IsAllowedCommand(command) {
+		http.Error(w, "Command not allowed", http.StatusBadRequest)
+		return
+	}
 
 	if err := s.m.SendCommand(command); err != nil {
 		http.Error(w, "Failed to send command", http.StatusInternalServerError)

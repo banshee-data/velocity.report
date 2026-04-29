@@ -184,3 +184,13 @@ var AllowedCommands = []string{
 	"A.", // Read current settings from persistent memory
 	"AX", // Reset flash settings to factory defaults
 }
+
+// IsAllowedCommand reports whether cmd is in the AllowedCommands whitelist.
+func IsAllowedCommand(cmd string) bool {
+	for _, c := range AllowedCommands {
+		if c == cmd {
+			return true
+		}
+	}
+	return false
+}

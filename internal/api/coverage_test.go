@@ -1078,9 +1078,9 @@ func TestSendCommandHandler_Empty(t *testing.T) {
 
 	server.sendCommandHandler(w, req)
 
-	// Empty command should still succeed (just sends empty string)
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
+	// Empty command is rejected with 400
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
 
@@ -1743,9 +1743,9 @@ func TestSendCommandHandler_EmptyCommand(t *testing.T) {
 
 	server.sendCommandHandler(w, req)
 
-	// Should return error or accept empty command
-	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 200 or 400, got %d", w.Code)
+	// Empty command is rejected with 400
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
 
