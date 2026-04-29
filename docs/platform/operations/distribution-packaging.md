@@ -58,7 +58,7 @@ It is a purpose-built on-device management tool with no SSH surface.
 | **Main Server**              | Go            | [cmd/radar/](../../../cmd/radar)                                                   | Manual build + setup script       |
 | **Migrate CLI**              | Go subcommand | [internal/db/migrate_cli.go](../../../internal/db/migrate_cli.go)                  | Part of main binary               |
 | **Sweep Tool**               | Go            | [cmd/sweep/](../../../cmd/sweep)                                                   | Manual build (`make build-tools`) |
-| **PDF Generator**            | Go            | [internal/report/](../../../internal/report)                                        | Built into main binary            |
+| **PDF Generator**            | Go            | [internal/report/](../../../internal/report)                                       | Built into main binary            |
 | **Transit Backfill**         | Go            | `cmd/transit-backfill/`                                                            | Manual `go build`                 |
 | **Ring Elevations Backfill** | Go            | [cmd/tools/backfill_ring_elevations/](../../../cmd/tools/backfill_ring_elevations) | Manual `go build`                 |
 | **Grid Heatmap**             | Python        | [tools/grid-heatmap/](../../../tools/grid-heatmap)                                 | Manual invocation                 |

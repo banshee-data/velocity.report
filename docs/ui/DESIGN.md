@@ -206,11 +206,11 @@ The macOS visualiser follows native platform conventions:
 
 ### 7.1 Rendering engines (current → target)
 
-| Surface | Current renderer                             | Target renderer                              | Status          |
-| ------- | -------------------------------------------- | -------------------------------------------- | --------------- |
-| Web   | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)             | Stable          |
-| PDF   | Python matplotlib (removed in v0.5)       | Go native SVG → `rsvg-convert` → PDF figures | Complete (v0.5) |
-| macOS | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D  | Stable          |
+| Surface | Current renderer                          | Target renderer                              | Status          |
+| ------- | ----------------------------------------- | -------------------------------------------- | --------------- |
+| Web     | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)             | Stable          |
+| PDF     | Python matplotlib (removed in v0.5)       | Go native SVG → `rsvg-convert` → PDF figures | Complete (v0.5) |
+| macOS   | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D  | Stable          |
 
 The Go PDF pipeline ([internal/report/](../../internal/report/)) replaced the Python matplotlib stack in v0.5. The completed migration plan: [pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md).
 

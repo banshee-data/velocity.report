@@ -11,12 +11,12 @@ cd velocity.report
 
 ## Initial Setup
 
-| Subsystem                 | Command                  | Purpose                                                          |
-| ------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| Go server                 | `make build-radar-local` | Build with pcap support (local dev)                              |
-| Web frontend              | `make install-web`       | Install pnpm/npm dependencies                                    |
-| Documentation             | `make install-docs`      | Install Eleventy dependencies                                    |
-| Python tools              | `make install-python`    | Create `.venv/` for doc scripts, formatting, data exploration    |
+| Subsystem     | Command                  | Purpose                                                       |
+| ------------- | ------------------------ | ------------------------------------------------------------- |
+| Go server     | `make build-radar-local` | Build with pcap support (local dev)                           |
+| Web frontend  | `make install-web`       | Install pnpm/npm dependencies                                 |
+| Documentation | `make install-docs`      | Install Eleventy dependencies                                 |
+| Python tools  | `make install-python`    | Create `.venv/` for doc scripts, formatting, data exploration |
 
 ### pcap Build Notes
 

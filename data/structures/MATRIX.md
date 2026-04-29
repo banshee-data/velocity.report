@@ -593,12 +593,12 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 **Source:** [internal/report/](../../internal/report/)
 
-| Package                                              | File           | Consumer                                         | DB  | Web | PDF | Mac |
-| ---------------------------------------------------- | -------------- | ------------------------------------------------ | --- | --- | --- | --- |
-| [internal/report](../../internal/report)             | `report.go`    | Direct DB query → `Generate(ctx, db, cfg)`       | ✅  | -   | ✅  | -   |
-| [internal/report/chart](../../internal/report/chart) | `timeseries.go`| Speed percentile + count time-series SVG         | -   | -   | ✅  | -   |
-| [internal/report/chart](../../internal/report/chart) | `histogram.go` | Speed distribution histogram SVG                 | -   | -   | ✅  | -   |
-| [internal/report/tex](../../internal/report/tex)     | `render.go`    | Go `text/template` → `.tex` → `xelatex` → `.pdf` | -   | -   | ✅  | -   |
+| Package                                              | File            | Consumer                                         | DB  | Web | PDF | Mac |
+| ---------------------------------------------------- | --------------- | ------------------------------------------------ | --- | --- | --- | --- |
+| [internal/report](../../internal/report)             | `report.go`     | Direct DB query → `Generate(ctx, db, cfg)`       | ✅  | -   | ✅  | -   |
+| [internal/report/chart](../../internal/report/chart) | `timeseries.go` | Speed percentile + count time-series SVG         | -   | -   | ✅  | -   |
+| [internal/report/chart](../../internal/report/chart) | `histogram.go`  | Speed distribution histogram SVG                 | -   | -   | ✅  | -   |
+| [internal/report/tex](../../internal/report/tex)     | `render.go`     | Go `text/template` → `.tex` → `xelatex` → `.pdf` | -   | -   | ✅  | -   |
 
 ---
 

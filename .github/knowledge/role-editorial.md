@@ -12,16 +12,16 @@ These files contain canonical project facts. Read them when needed rather than r
 
 ## Documentation Landscape
 
-| Document                        | Audience     | Purpose                                                  |
-| ------------------------------- | ------------ | -------------------------------------------------------- |
-| `README.md`                     | Contributors | Project overview, quick start                            |
-| `ARCHITECTURE.md`               | Developers   | Full system design                                       |
-| `CONTRIBUTING.md`               | Contributors | Workflow and standards                                   |
-| `cmd/radar/README.md`           | Developers   | Go server specifics                                      |
-| `web/README.md`                 | Developers   | Frontend specifics                                       |
-| `public_html/src/guides/`       | End users    | Setup and usage guides                                   |
-| `docs/`                         | Internal     | Plans, backlogs, research notes                          |
-| `config/CONFIG.md`              | Developers   | Tuning parameter documentation and maths cross-reference |
+| Document                  | Audience     | Purpose                                                  |
+| ------------------------- | ------------ | -------------------------------------------------------- |
+| `README.md`               | Contributors | Project overview, quick start                            |
+| `ARCHITECTURE.md`         | Developers   | Full system design                                       |
+| `CONTRIBUTING.md`         | Contributors | Workflow and standards                                   |
+| `cmd/radar/README.md`     | Developers   | Go server specifics                                      |
+| `web/README.md`           | Developers   | Frontend specifics                                       |
+| `public_html/src/guides/` | End users    | Setup and usage guides                                   |
+| `docs/`                   | Internal     | Plans, backlogs, research notes                          |
+| `config/CONFIG.md`        | Developers   | Tuning parameter documentation and maths cross-reference |
 
 ## Writing Style
 

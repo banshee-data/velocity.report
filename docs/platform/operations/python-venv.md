@@ -28,16 +28,16 @@ These scripts have no third-party dependencies beyond the standard library or pa
 
 Everything else uses the single shared virtual environment at `.venv/` in the project root:
 
-| Tool / directory | Purpose |
-| --- | --- |
-| `black`, `ruff` | Python formatting and linting (`make format-python`, `make lint-python`) |
-| `tools/grid-heatmap/` | LiDAR grid visualisation for field analysis |
-| `tools/rack-drawing/` | Hardware rack diagram generation |
-| `tools/connector-pinouts/` | Connector pinout documentation SVGs |
-| `tools/_render/svg_to_png.py` | SVG rasterisation helper |
-| `tools/guide-overlays/` | Sensor positioning overlay drawings |
-| `data/explore/` | Research data analysis (matplotlib, scipy, pandas) |
-| `build123d` (via `make install-diagrams`) | 3D CAD rendering for hardware docs |
+| Tool / directory                          | Purpose                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| `black`, `ruff`                           | Python formatting and linting (`make format-python`, `make lint-python`) |
+| `tools/grid-heatmap/`                     | LiDAR grid visualisation for field analysis                              |
+| `tools/rack-drawing/`                     | Hardware rack diagram generation                                         |
+| `tools/connector-pinouts/`                | Connector pinout documentation SVGs                                      |
+| `tools/_render/svg_to_png.py`             | SVG rasterisation helper                                                 |
+| `tools/guide-overlays/`                   | Sensor positioning overlay drawings                                      |
+| `data/explore/`                           | Research data analysis (matplotlib, scipy, pandas)                       |
+| `build123d` (via `make install-diagrams`) | 3D CAD rendering for hardware docs                                       |
 
 ## Setup
 
@@ -64,24 +64,24 @@ velocity.report/
 
 ## Makefile variables
 
-| Variable | Value |
-| --- | --- |
-| `VENV_DIR` | `.venv` |
-| `VENV_PYTHON` | `$(VENV_DIR)/bin/python3` |
-| `VENV_PIP` | `$(VENV_DIR)/bin/pip` |
-| `VENV_PYTEST` | `$(VENV_DIR)/bin/pytest` |
-| `PYTHON_VERSION` | `3.12` |
+| Variable         | Value                     |
+| ---------------- | ------------------------- |
+| `VENV_DIR`       | `.venv`                   |
+| `VENV_PYTHON`    | `$(VENV_DIR)/bin/python3` |
+| `VENV_PIP`       | `$(VENV_DIR)/bin/pip`     |
+| `VENV_PYTEST`    | `$(VENV_DIR)/bin/pytest`  |
+| `PYTHON_VERSION` | `3.12`                    |
 
 ## Makefile targets
 
-| Target | What it does |
-| --- | --- |
-| `make install-python` | Create/reuse `.venv/`, install `requirements.txt` |
-| `make install-diagrams` | Add `build123d` to `.venv/` for CAD rendering |
-| `make format-python` | Run `black` + `ruff --fix` across all Python |
-| `make lint-python` | Run `black --check` + `ruff` (non-mutating) |
-| `make test-python` | Stub — pdf-generator deleted; target retained to avoid breakage |
-| `make test-python-cov` | Same with HTML coverage report |
+| Target                  | What it does                                                    |
+| ----------------------- | --------------------------------------------------------------- |
+| `make install-python`   | Create/reuse `.venv/`, install `requirements.txt`               |
+| `make install-diagrams` | Add `build123d` to `.venv/` for CAD rendering                   |
+| `make format-python`    | Run `black` + `ruff --fix` across all Python                    |
+| `make lint-python`      | Run `black --check` + `ruff` (non-mutating)                     |
+| `make test-python`      | Stub — pdf-generator deleted; target retained to avoid breakage |
+| `make test-python-cov`  | Same with HTML coverage report                                  |
 
 `test-python` is **not** included in the `make test` aggregate. The pdf-generator it previously exercised has been deleted from the repository.
 
@@ -94,6 +94,7 @@ velocity.report/
 3. Commit both files
 
 Key dependency groups:
+
 - **Data analysis:** pandas, numpy, scipy
 - **Visualisation:** matplotlib, seaborn
 - **Testing:** pytest, pytest-cov

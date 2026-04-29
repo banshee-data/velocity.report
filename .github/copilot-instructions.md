@@ -17,15 +17,15 @@ See [TENETS.md](../TENETS.md) for the full project constitution. The short versi
 
 **velocity.report** is a privacy-focused traffic monitoring system for neighbourhood change-makers.
 
-| Component                  | Language          | Location                  |
-| -------------------------- | ----------------- | ------------------------- |
-| Server                     | Go                | `cmd/`, `internal/`       |
-| PDF reports                | Go + XeLaTeX      | `internal/report/`        |
-| Web frontend               | Svelte/TypeScript | `web/`                    |
-| macOS visualiser           | Swift/Metal       | `tools/visualiser-macos/` |
-| Database                   | SQLite            | local file                |
-| Docs site                  | Eleventy          | `public_html/`            |
-| PDF pipeline               | Go                | `internal/report/`        |
+| Component        | Language          | Location                  |
+| ---------------- | ----------------- | ------------------------- |
+| Server           | Go                | `cmd/`, `internal/`       |
+| PDF reports      | Go + XeLaTeX      | `internal/report/`        |
+| Web frontend     | Svelte/TypeScript | `web/`                    |
+| macOS visualiser | Swift/Metal       | `tools/visualiser-macos/` |
+| Database         | SQLite            | local file                |
+| Docs site        | Eleventy          | `public_html/`            |
+| PDF pipeline     | Go                | `internal/report/`        |
 
 **Deployment:** Raspberry Pi 4 (ARM64 Linux), systemd service, local-only.
 
@@ -43,10 +43,10 @@ make test      # Run all test suites
 
 ## Validation Protocol
 
-| Language            | Commands                                                                                                  |
-| ------------------- | --------------------------------------------------------------------------------------------------------- |
-| Go  | `make format-go && make lint-go && make test-go && make build-radar-local` |
-| Web | `make format-web && make lint-web && make test-web && make build-web`      |
+| Language | Commands                                                                   |
+| -------- | -------------------------------------------------------------------------- |
+| Go       | `make format-go && make lint-go && make test-go && make build-radar-local` |
+| Web      | `make format-web && make lint-web && make test-web && make build-web`      |
 
 If the Go build fails due to missing pcap on the cross-compile host: install `libpcap-dev` (Linux) or `brew install libpcap` (macOS), then use `make build-radar-linux`.
 
@@ -56,11 +56,11 @@ For full build setup, dev servers, and testing: see [knowledge/build-and-test.md
 
 **Critical paths (hyphen, not dot):**
 
-| Path                                      | Purpose                          |
-| ----------------------------------------- | -------------------------------- |
-| `/var/lib/velocity-report/`               | Data directory                   |
-| `/var/lib/velocity-report/sensor_data.db` | Database                         |
-| `/usr/local/bin/velocity-report`          | Service binary                   |
+| Path                                      | Purpose                                    |
+| ----------------------------------------- | ------------------------------------------ |
+| `/var/lib/velocity-report/`               | Data directory                             |
+| `/var/lib/velocity-report/sensor_data.db` | Database                                   |
+| `/usr/local/bin/velocity-report`          | Service binary                             |
 | `.venv/`                                  | Python venv (developer tools — not on RPi) |
 
 **Commit format:** `[prefix] description` — see [knowledge/coding-standards.md](knowledge/coding-standards.md) for prefix table and rules. AI edits always include `[ai]` tag plus language tag.

@@ -97,15 +97,15 @@ Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 
 ## Version validity analysis
 
-| Surface         | File                                                                              | Validates SemVer?   | Effect of `0.5.04`                 |
-| --------------- | --------------------------------------------------------------------------------- | ------------------- | ---------------------------------- |
-| npm (web)       | [web/package.json](../../../web/package.json)                                     | **Yes: strict**     | **Rejects with parse error**       |
-| npm (docs)      | [public_html/package.json](../../../public_html/package.json)                     | **Yes: strict**     | **Rejects with parse error**       |
-| Go version pkg  | [internal/version/version.go](../../../internal/version/version.go)               | No: display only    | Passes                             |
-| Makefile        | `Makefile`                                                                        | No: string constant | Passes                             |
-| CI workflows    | `.github/workflows/*.yml`                                                         | No: substitution    | Passes                             |
-| Xcode           | `project.pbxproj` MARKETING_VERSION                                               | No: string          | Passes                             |
-| rpi-imager JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json) | No | Passes |
+| Surface         | File                                                                | Validates SemVer?   | Effect of `0.5.04`           |
+| --------------- | ------------------------------------------------------------------- | ------------------- | ---------------------------- |
+| npm (web)       | [web/package.json](../../../web/package.json)                       | **Yes: strict**     | **Rejects with parse error** |
+| npm (docs)      | [public_html/package.json](../../../public_html/package.json)       | **Yes: strict**     | **Rejects with parse error** |
+| Go version pkg  | [internal/version/version.go](../../../internal/version/version.go) | No: display only    | Passes                       |
+| Makefile        | `Makefile`                                                          | No: string constant | Passes                       |
+| CI workflows    | `.github/workflows/*.yml`                                           | No: substitution    | Passes                       |
+| Xcode           | `project.pbxproj` MARKETING_VERSION                                 | No: string          | Passes                       |
+| rpi-imager JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json) | No                  | Passes                       |
 
 Two surfaces hard-block: [web/package.json](../../../web/package.json) and [public_html/package.json](../../../public_html/package.json).
 Every CI run validates the version field against strict SemVer.
