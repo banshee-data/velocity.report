@@ -24,6 +24,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - Version-bump consolidation: pin 3 dead-metadata package versions to `"0.0.0"`, strip `--web`/`--docs`/`--pdf` targets from `set-version.sh`, simplify CI version-check workflow: [design doc](plans/version-bump-consolidation-plan.md) `S`
 - [#455] `InlineSvgChart` SVG injection hardening: replace `{@html svg}` injection with `<img src>` / `<object data>` or an SVG sanitiser; audit `/api/charts/*` callers to confirm no user-supplied strings flow into chart SVG text; remove the `svelte/no-at-html-tags` lint disable on `web/src/lib/components/charts/InlineSvgChart.svelte`: [design doc](plans/pdf-go-chart-migration-plan.md#v052--inlinesvgchart-svg-injection-hardening) `S`
+- [#483] Node baseline for offline docs build: decide whether to downgrade `docs_html` dependencies to versions compatible with the documented Node 18+ baseline, or formally raise the repo baseline (chevrotain@12 needs ≥22, cheerio@1.2 needs ≥20.18); update README, CONTRIBUTING, and CI matrix to match the chosen answer `S`
 
 ### v0.5.3 - Data contracts + metrics (053)
 
@@ -31,6 +32,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
+- [#482] Offline docs URL surfaced from backend: replace the hard-coded `:8083` in `web/src/lib/docsUrl.ts` with a value sourced from `/api/capabilities` (or build-time env), so the Web UI's Docs nav link tracks `--docs-listen` overrides instead of breaking on non-default ports `S`
 
 ### v0.5.4 - Perception pipeline + algorithm foundations (054)
 

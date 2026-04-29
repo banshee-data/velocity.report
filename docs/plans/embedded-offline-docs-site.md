@@ -1,8 +1,10 @@
 # Embedded offline docs site (`:8083`)
 
-Status: Draft (Grace, 2026-04-25, rev 2)
-Owner: Architecture (Grace) → handoff to Appius for implementation
+Status: Phases 1–3 landed in PR #480; Phase 4 partial; Phase 5 deferred. Last updated 2026-04-28.
+Owner: Architecture (Grace) → handed off to Appius / on-branch implementation in PR #480.
 Scope mode: HOLD — minimum viable architecture; no new dependencies on cloud, no new languages.
+
+See [§9 Implementation status](#9-implementation-status-2026-04-28) for what has shipped vs what remains.
 
 ---
 
@@ -352,6 +354,95 @@ Each phase is a PR-sized chunk. Sequence is strict: do not start Phase N+1 befor
 
 - Add Pagefind or equivalent if and only if Florence confirms operator demand.
 - This is the kind of thing where "do nothing" is genuinely a valid option for v1.
+
+---
+
+## 9. Implementation status (2026-04-28)
+
+This section records what landed against this plan. Source of truth: PR #480 (branch `codex/embedded-offline-docs-site-phase-1-4-essentials`).
+
+### 9.1 Landed in PR #480
+
+**Phase 1 — Skeleton site (complete).**
+
+- New Eleventy project at `docs_html/` with `package.json`, `.eleventy.js`, `src/_layouts/base.njk`, `src/_includes/sidebar.njk`, `src/index.md`, `src/assets/site.css`.
+- `docs_html/stub-index.html` ships in tree; `scripts/ensure-docs-stub.sh` copies it to `_site/index.html` if no Eleventy build has run, so `go build` is green on a fresh clone.
+- Symlinking script `scripts/docs-offline-symlinks.sh` creates `docs_html/src/{docs,data}` plus per-file symlinks for repo-root `*.md`.
+- `addWatchTarget` registered for `../docs`, `../data`, `../README.md`, `../ARCHITECTURE.md`, `../TENETS.md` so live reload works through symlinks. <!-- link-ignore -->
+- Make targets: `install-docs-offline`, `build-docs-offline`, `dev-docs-offline`, `dev-docs-offline-kill`, `clean-docs-offline`.
+
+**Phase 2 — Link rewriter and link checker (complete, with one design adjustment).**
+
+- The internal link rewriter went **beyond** the plan's "~15-line `.md → /` strip" and now resolves Markdown links to actual repo paths (`outputURLForSourcePath` + `rewriteHrefForInput` in `docs_html/.eleventy.js`). It walks candidate targets (direct, `+.md`, `README.md`, `index.md`) inside the input root and only falls back to the bare `.md → /` strip when no source file matches. This is more code than the plan predicted (~80 lines) but it correctly handles `[x](../foo)` (no extension), `[x](dir/)` (directory → README), and `README.md` rewriting that the simple strip would have missed. <!-- link-ignore -->
+- `scripts/check-docs-offline-links.js` validates every rendered `<a href>`, including `#anchor` resolution, and warns on `github.com/.../blob/...` URLs (per §7 Q8). The Makefile target `lint-docs-offline` is non-mutating: it delegates to `check-docs-offline-links` against an existing `_site/`. To rebuild before linting, run `make build-docs-offline`. The script skips gracefully when the site contains only the embed stub, so `make lint` works on a clean checkout without `make install-docs-offline`.
+
+**Phase 3 — Go embed and `:8083` listener (complete).**
+
+- New package `internal/docsite/` (`docsite.go`, `docsite_test.go`).
+- Embed declared at the repo root in `assets.go`: `//go:embed all:docs_html/_site` → `var DocsSiteFiles embed.FS`. The `docsite` package consumes it via `fs.Sub(radar.DocsSiteFiles, "docs_html/_site")`.
+- New flags wired in `cmd/radar/radar.go`:
+  - `--docs-listen` (default `:8083`)
+  - `--docs-disable` (default `false`)
+  - `--docs-source` (`embed` default, `disk` for dev iteration)
+- All Go CI jobs and Makefile test targets that compile code now run `scripts/ensure-docs-stub.sh` after `ensure-web-stub.sh`, so the embed pattern always matches at least one file (the stub on a clean tree, the real site after a build).
+
+**Phase 4 — Polish (partial).**
+
+| Item                                                                      | Status                                                                                                                             |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| "Docs (offline)" nav link from the Svelte UI                              | Done — `web/src/lib/docsUrl.ts` + nav entry in `web/src/routes/+layout.svelte`.                                                    |
+| Version footer (`build.version`, `build.gitShort`, `build.buildTime`)     | Done — `docs_html/src/_data/build.js` reads the env vars set by `make build-docs-offline`.                                         |
+| Mermaid rendering                                                         | **Diverged from plan.** Client-side render via the bundled `mermaid.esm.min.mjs` rather than build-time SVG pre-render — see §9.3. |
+| KaTeX math rendering (not in original plan; raised by `data/maths/` need) | Done — `markdown-it-texmath` + `katex` server-side; `katex.min.css` and `dist/fonts/` shipped in `_site/assets/`.                  |
+| Dark mode (not in original plan)                                          | Done — `[data-theme="dark"]` token set; sticky brand+toggle header at the top of the sidebar; mermaid theme tracks the selection.  |
+| Operator documentation in `docs/platform/operations/`                     | Not yet written. See §9.4.                                                                                                         |
+
+### 9.2 Resolved open questions (§7)
+
+| Question                                | Resolution                                                                                                                                                        |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q2. Diagrams (Mermaid pre-render vs JS) | Chose client-side via the bundled mermaid ESM. Trade-off in §9.3.                                                                                                 |
+| Q3. `devlog/` and `plans/` exposure     | Both are exposed; the deployment posture is LAN-only and operators benefit from "why was this designed this way" context.                                         |
+| Q4. Discoverability from the Svelte UI  | Done; the URL is currently hard-coded to `:8083` (issue [#482](https://github.com/banshee-data/velocity.report/issues/482) tracks surfacing it from the backend). |
+| Q5. Versioning footer                   | Done.                                                                                                                                                             |
+| Q6. Image asset paths                   | Confirmed working through symlinks and Eleventy passthrough copy.                                                                                                 |
+| Q8. GitHub blob URLs                    | Link checker emits warnings; rewrite to local paths still deferred.                                                                                               |
+
+### 9.3 Mermaid: divergence from plan
+
+The plan recommended pre-rendering Mermaid fences to SVG at build time (Phase 4, Q2). The implementation ships **client-side** rendering instead.
+
+**What was built.** A markdown-it fence rule turns ` ```mermaid ` blocks into `<pre class="mermaid">` elements. `base.njk` imports `mermaid.esm.min.mjs` from `/assets/mermaid.esm.min.mjs` and calls `mermaid.run({ querySelector: "pre.mermaid" })` after page load (and re-runs on theme toggle so colours track the dark/light selection). The full mermaid ESM bundle is split into ~80 chunks under `node_modules/mermaid/dist/chunks/mermaid.esm.min/`; an `eleventy.after` hook copies each `.mjs` chunk to `_site/assets/chunks/mermaid.esm.min/` (skipping the ~11 MB of `.map` sourcemaps).
+
+**Why the divergence.**
+
+- The plan's pre-render path requires headless Chrome or `mermaid-cli` at build time, which adds a substantial transitive dependency to `docs_html/` and to CI. Client-side rendering re-uses the bundle that already exists in the npm dep graph.
+- Authoring loop: a content author writing a new Mermaid fence sees it render immediately under `eleventy --serve` with no extra build step.
+- Theme tracking: the dark-mode toggle re-renders mermaid with `theme: "dark"` (vs `"neutral"` for light) without a rebuild. Pre-rendered SVG would have to ship two SVG variants per diagram or be styled in CSS only.
+
+**What it costs.**
+
+- ~3.5 MB of mermaid `.mjs` chunks shipped inside the binary's embedded FS.
+- The page does ~9 chunk fetches plus a few diagram-type-specific chunks on first render. Network is local (`:8083`) so latency is negligible, but it is non-zero JS work.
+- A non-JS browser sees the raw mermaid source text inside `<pre class="mermaid">`. Acceptable for the current operator browser baseline; not acceptable if an `elinks` user appears.
+
+**Reversible if needed.** If the chunk size or the JS-required posture becomes a problem, the substitution is local: replace the markdown-it fence rule and the `eleventy.after` hook with a build-time call into `@mermaid-js/mermaid-cli`. No content changes required.
+
+### 9.4 Open follow-ups (not in PR #480)
+
+These are tracked outside this plan; do not let merging this PR imply they are done.
+
+| Item                                                                                                                                                                                                                | Where it lives        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Surface offline docs URL from the backend so the Web UI link tracks `--docs-listen` instead of hard-coded `:8083`. Capabilities endpoint or build-time env. Backlog **v0.5.3**.                                     | Issue [#482]          |
+| Decide Node baseline for offline docs build: chevrotain@12 needs Node ≥22 and cheerio@1.2 needs ≥20.18, but README/CONTRIBUTING document Node 18+. Either downgrade deps or raise the baseline. Backlog **v0.5.2**. | Issue [#483]          |
+| Operator documentation in `docs/platform/operations/`: introduce `:8083`, document the flags, document how to disable.                                                                                              | Phase 4 leftover.     |
+| `github.com/.../blob/...` URL rewriting (current behaviour: link checker warns, no rewrite).                                                                                                                        | §7 Q8 leftover.       |
+| Auth posture review by Malory (§7 Q7). Current: LAN-only, no auth, matches `:8080`.                                                                                                                                 | §7 Q7 review pending. |
+| Search (Pagefind or equivalent).                                                                                                                                                                                    | Phase 5, deferred.    |
+
+[#482]: https://github.com/banshee-data/velocity.report/issues/482
+[#483]: https://github.com/banshee-data/velocity.report/issues/483
 
 ---
 

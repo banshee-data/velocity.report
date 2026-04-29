@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		mdiBookOpenPageVariantOutline,
 		mdiChartBoxOutline,
 		mdiCog,
 		mdiFileDocument,
@@ -22,6 +23,7 @@
 	} from 'svelte-ux';
 
 	import { page } from '$app/state';
+	import { offlineDocsUrl } from '$lib/docsUrl';
 	import { discord } from '$lib/icons';
 	import {
 		capabilities,
@@ -33,9 +35,13 @@
 	import './app.css';
 
 	let { children } = $props();
+	// Compute the offline docs URL synchronously from the page URL so the Docs
+	// nav link has the correct href on first paint instead of briefly pointing
+	// at "/" until onMount runs.
+	let docsUrl = $derived(offlineDocsUrl({ href: page.url.href }));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
-	onMount(startCapabilitiesPolling);
+	onMount(() => startCapabilitiesPolling());
 	onDestroy(stopCapabilitiesPolling);
 
 	settings({
@@ -90,6 +96,12 @@
 <AppLayout>
 	<nav slot="nav">
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
+		<NavItem
+			text="Docs"
+			icon={mdiBookOpenPageVariantOutline}
+			path={docsUrl}
+			currentUrl={page.url}
+		/>
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={page.url} />
 		{#if $capabilities.lidar.enabled}

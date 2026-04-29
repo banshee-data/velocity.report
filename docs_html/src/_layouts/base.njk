@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or page.inputPath | titleFromPath }} | velocity.report offline docs</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("docs-theme");
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme = stored === "dark" || stored === "light"
+            ? stored
+            : prefersDark ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="/assets/katex.min.css">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Documentation navigation">
+        <div class="sidebar-header">
+          <a class="brand" href="/">
+            <span class="brand-name">velocity.report</span>
+            <span class="brand-subtitle">Offline docs</span>
+          </a>
+          <button
+            type="button"
+            class="theme-toggle"
+            data-theme-toggle
+            aria-label="Toggle theme"
+            title="Toggle theme"
+          >
+            <span class="theme-toggle-icon icon-moon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+              </svg>
+            </span>
+            <span class="theme-toggle-icon icon-sun" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="4"></circle>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+              </svg>
+            </span>
+          </button>
+        </div>
+        {% include "sidebar.njk" %}
+      </aside>
+      <div class="page">
+        <header class="topbar">
+          <nav class="breadcrumbs" aria-label="Breadcrumb">
+            {% for crumb in page.url | breadcrumbs(collections.docsPages) %}
+              {% if not loop.first %}
+                <span class="breadcrumb-sep" aria-hidden="true">/</span>
+              {% endif %}
+              {% if crumb.url %}
+                <a class="breadcrumb-link" href="{{ crumb.url }}">{{ crumb.name }}</a>
+              {% else %}
+                <span class="breadcrumb-current"{% if crumb.current %} aria-current="page"{% endif %}>{{ crumb.name }}</span>
+              {% endif %}
+            {% endfor %}
+          </nav>
+        </header>
+        <main id="content" class="content">
+          {{ content | safe }}
+        </main>
+        <footer class="footer">
+          <span>velocity.report v{{ build.version }}</span>
+          <span>git {{ build.gitShort }}</span>
+          <span>built {{ build.buildTime }}</span>
+        </footer>
+      </div>
+    </div>
+    <script type="module">
+      import mermaid from "/assets/mermaid.esm.min.mjs";
+
+      function mermaidThemeFor(docTheme) {
+        return docTheme === "dark" ? "dark" : "neutral";
+      }
+
+      function initMermaid(theme) {
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: "strict",
+          theme: mermaidThemeFor(theme),
+        });
+      }
+
+      async function renderMermaid() {
+        const blocks = document.querySelectorAll("pre.mermaid");
+        // Mermaid mutates the element on render; reset textContent from a saved
+        // copy so subsequent re-renders (after theme change) work.
+        blocks.forEach((el) => {
+          if (!el.dataset.source) {
+            el.dataset.source = el.textContent;
+          } else {
+            el.textContent = el.dataset.source;
+          }
+          el.removeAttribute("data-processed");
+        });
+        try {
+          await mermaid.run({ querySelector: "pre.mermaid" });
+        } catch (err) {
+          console.warn("mermaid render failed", err);
+        }
+      }
+
+      const initialTheme =
+        document.documentElement.getAttribute("data-theme") || "light";
+      initMermaid(initialTheme);
+      renderMermaid();
+
+      const toggle = document.querySelector("[data-theme-toggle]");
+
+      function updateToggleLabel(theme) {
+        if (!toggle) return;
+        const next = theme === "dark" ? "light" : "dark";
+        const label = "Switch to " + next + " mode";
+        toggle.setAttribute("aria-label", label);
+        toggle.setAttribute("title", label);
+      }
+
+      updateToggleLabel(initialTheme);
+
+      if (toggle) {
+        toggle.addEventListener("click", () => {
+          const current =
+            document.documentElement.getAttribute("data-theme") === "dark"
+              ? "dark"
+              : "light";
+          const next = current === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          try {
+            localStorage.setItem("docs-theme", next);
+          } catch (e) {
+            // ignore — quota or private mode
+          }
+          updateToggleLabel(next);
+          initMermaid(next);
+          renderMermaid();
+        });
+      }
+
+      // Persist tree expand/collapse state across navigations.
+      const tree = document.querySelector("[data-doc-tree]");
+      if (tree) {
+        const TREE_KEY = "docs-tree-open";
+        let saved = {};
+        try {
+          saved = JSON.parse(localStorage.getItem(TREE_KEY) || "{}") || {};
+        } catch (e) {
+          saved = {};
+        }
+        tree.querySelectorAll("details[data-tree-path]").forEach((d) => {
+          const p = d.dataset.treePath;
+          if (p in saved) d.open = !!saved[p];
+        });
+        tree.addEventListener(
+          "toggle",
+          (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLDetailsElement)) return;
+            const p = target.dataset.treePath;
+            if (!p) return;
+            try {
+              const map = JSON.parse(localStorage.getItem(TREE_KEY) || "{}") || {};
+              map[p] = target.open;
+              localStorage.setItem(TREE_KEY, JSON.stringify(map));
+            } catch (err) {
+              // ignore — quota or private mode
+            }
+          },
+          true,
+        );
+      }
+    </script>
+  </body>
+</html>
