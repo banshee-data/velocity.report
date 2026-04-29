@@ -13,6 +13,7 @@
 	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '$lib/paper';
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
 	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
+	import { mdiBookOpenPageVariantOutline } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, SelectField, Switch } from 'svelte-ux';
 
@@ -345,6 +346,18 @@
 						options={AVAILABLE_PAPER_SIZES}
 						clearable={false}
 					/>
+				</div>
+			</Card>
+
+			<Card title="Documentation" class="h-full">
+				<div class="space-y-4 p-4">
+					<p class="text-surface-content/70 text-sm">
+						Open the embedded offline documentation served by this device.
+					</p>
+
+					<Button href="/docs/" icon={mdiBookOpenPageVariantOutline} variant="outline">
+						Open docs
+					</Button>
 				</div>
 			</Card>
 		</div>

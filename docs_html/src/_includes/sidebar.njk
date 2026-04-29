@@ -7,7 +7,7 @@
         <summary class="tree-summary">
           <span class="tree-disclosure" aria-hidden="true"></span>
           {% if node.url %}
-            <a class="tree-link tree-folder-link" href="{{ node.url }}"{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
+            <a class="tree-link tree-folder-link" href="{{ node.url | docsRelativeUrl(currentUrl) }}" data-docs-internal{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
           {% else %}
             <span class="tree-folder-name">{{ node.name }}</span>
           {% endif %}
@@ -19,7 +19,7 @@
         </ul>
       </details>
     {% else %}
-      <a class="tree-link tree-leaf" href="{{ node.url }}"{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
+      <a class="tree-link tree-leaf" href="{{ node.url | docsRelativeUrl(currentUrl) }}" data-docs-internal{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
     {% endif %}
   </li>
 {% endmacro %}

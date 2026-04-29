@@ -164,14 +164,16 @@ for (const file of htmlFiles) {
     }
 
     if (isExternal(href)) return;
-    if (!href.startsWith("/") && !href.startsWith("#")) {
-      if (/\.md(?:$|[?#])/i.test(href)) {
-        warnings.push(
-          `${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`,
-        );
-      }
-      return;
+    if (/\.md(?:$|[?#])/i.test(href)) {
+      warnings.push(
+        `${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`,
+      );
     }
+    const shouldValidateRelative =
+      href.startsWith("/") ||
+      href.startsWith("#") ||
+      $(element).attr("data-docs-internal") !== undefined;
+    if (!shouldValidateRelative) return;
 
     let resolved;
     try {

@@ -923,6 +923,15 @@ func main() {
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
+		if !*docsDisable {
+			if handler, err := docsite.Handler(*docsSource, docsite.DefaultDiskDir); err != nil {
+				log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
+			} else if err := docsite.Mount(mux, docsite.DefaultMount, handler); err != nil {
+				log.Printf("Offline docs route %s unavailable on main HTTP server: %v", docsite.DefaultMount, err)
+			} else {
+				log.Printf("Offline docs available on main HTTP server at %s", docsite.DefaultMount)
+			}
+		}
 		radarSerial.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
 

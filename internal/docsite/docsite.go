@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	radar "github.com/banshee-data/velocity.report"
@@ -21,6 +22,7 @@ const (
 	SourceDisk  = "disk"
 
 	DefaultDiskDir = "docs_html/_site"
+	DefaultMount   = "/docs/"
 )
 
 func ValidateSource(source string) error {
@@ -40,6 +42,32 @@ func Handler(source, diskDir string) (http.Handler, error) {
 		return DiskHandler(diskDir)
 	}
 	return EmbeddedHandler()
+}
+
+func Mount(mux *http.ServeMux, mountPath string, handler http.Handler) error {
+	if mux == nil {
+		return errors.New("docs mux is nil")
+	}
+	if handler == nil {
+		return errors.New("docs handler is nil")
+	}
+
+	trimmed := strings.Trim(mountPath, "/")
+	if trimmed == "" {
+		return fmt.Errorf("docs mount path %q must not be root", mountPath)
+	}
+	prefix := "/" + trimmed
+	prefixWithSlash := prefix + "/"
+
+	mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
+		target := prefixWithSlash
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	})
+	mux.Handle(prefixWithSlash, http.StripPrefix(prefix, handler))
+	return nil
 }
 
 func EmbeddedHandler() (http.Handler, error) {

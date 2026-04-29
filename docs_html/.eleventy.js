@@ -34,6 +34,27 @@ function rewriteMarkdownHref(href) {
   return `${pathname.slice(0, -3)}/${query}${hash}`;
 }
 
+function relativeURLForPage(href, currentUrl) {
+  if (isExternalHref(href)) return href;
+
+  const { pathname, query, hash } = splitHref(href);
+  if (!pathname || !pathname.startsWith("/")) return href;
+
+  const fromPath = splitHref(currentUrl || "/").pathname || "/";
+  const fromDir = fromPath.endsWith("/")
+    ? fromPath
+    : `${path.posix.dirname(fromPath)}/`;
+  let relative = path.posix.relative(fromDir, pathname);
+  if (!relative) relative = ".";
+  if (pathname.endsWith("/") && !relative.endsWith("/")) {
+    relative += "/";
+  }
+  if (!relative.startsWith(".")) {
+    relative = `./${relative}`;
+  }
+  return `${relative}${query}${hash}`;
+}
+
 function splitHref(href) {
   const hashIndex = href.indexOf("#");
   const beforeHash = hashIndex === -1 ? href : href.slice(0, hashIndex);
@@ -63,13 +84,13 @@ function outputURLForSourcePath(inputRoot, targetPath) {
   return `/${rel}`;
 }
 
-function rewriteHrefForInput(href, inputPath) {
-  if (isExternalHref(href) || !inputPath) return href;
+function resolveHrefForInput(href, inputPath) {
+  if (isExternalHref(href) || !inputPath) return { href, resolved: false };
 
   const inputRoot = path.resolve("src");
   const sourceDir = path.dirname(path.resolve(inputPath));
   const { pathname, query, hash } = splitHref(href);
-  if (!pathname) return href;
+  if (!pathname) return { href, resolved: false };
 
   const candidates = [];
   const direct = path.resolve(sourceDir, pathname);
@@ -88,10 +109,12 @@ function rewriteHrefForInput(href, inputPath) {
       continue;
     }
     const outputURL = outputURLForSourcePath(inputRoot, candidate);
-    if (outputURL) return `${outputURL}${query}${hash}`;
+    if (outputURL) {
+      return { href: `${outputURL}${query}${hash}`, resolved: true };
+    }
   }
 
-  return rewriteMarkdownHref(href);
+  return { href: rewriteMarkdownHref(href), resolved: false };
 }
 
 function humanizePath(inputPath) {
@@ -374,6 +397,7 @@ module.exports = function (eleventyConfig) {
 
   eleventyConfig.addFilter("titleFromPath", humanizePath);
   eleventyConfig.addFilter("navGroup", navGroup);
+  eleventyConfig.addFilter("docsRelativeUrl", relativeURLForPage);
 
   eleventyConfig.addTransform("rewrite-md-hrefs", function (content) {
     if (!this.page.outputPath || !this.page.outputPath.endsWith(".html")) {
@@ -381,8 +405,16 @@ module.exports = function (eleventyConfig) {
     }
     const $ = cheerio.load(content, { decodeEntities: false });
     $("a[href]").each((_, element) => {
+      if ($(element).attr("data-docs-internal") !== undefined) return;
       const href = $(element).attr("href");
-      $(element).attr("href", rewriteHrefForInput(href, this.inputPath));
+      const result = resolveHrefForInput(href, this.inputPath);
+      if (result.resolved) {
+        $(element).attr("data-docs-internal", "true");
+      }
+      $(element).attr(
+        "href",
+        relativeURLForPage(result.href, this.page.url || "/"),
+      );
     });
     return $.html();
   });

@@ -20,15 +20,15 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="/assets/katex.min.css">
-    <link rel="stylesheet" href="/assets/site.css">
+    <link rel="stylesheet" href="{{ "/assets/katex.min.css" | docsRelativeUrl(page.url) }}">
+    <link rel="stylesheet" href="{{ "/assets/site.css" | docsRelativeUrl(page.url) }}">
   </head>
   <body>
     <a class="skip-link" href="#content">Skip to content</a>
     <div class="shell">
       <aside class="sidebar" aria-label="Documentation navigation">
         <div class="sidebar-header">
-          <a class="brand" href="/">
+          <a class="brand" href="{{ "/" | docsRelativeUrl(page.url) }}" data-docs-internal>
             <span class="brand-name">velocity.report</span>
             <span class="brand-subtitle">Offline docs</span>
           </a>
@@ -62,7 +62,7 @@
                 <span class="breadcrumb-sep" aria-hidden="true">/</span>
               {% endif %}
               {% if crumb.url %}
-                <a class="breadcrumb-link" href="{{ crumb.url }}">{{ crumb.name }}</a>
+                <a class="breadcrumb-link" href="{{ crumb.url | docsRelativeUrl(page.url) }}" data-docs-internal>{{ crumb.name }}</a>
               {% else %}
                 <span class="breadcrumb-current"{% if crumb.current %} aria-current="page"{% endif %}>{{ crumb.name }}</span>
               {% endif %}
@@ -80,7 +80,7 @@
       </div>
     </div>
     <script type="module">
-      import mermaid from "/assets/mermaid.esm.min.mjs";
+      import mermaid from "{{ "/assets/mermaid.esm.min.mjs" | docsRelativeUrl(page.url) }}";
 
       function mermaidThemeFor(docTheme) {
         return docTheme === "dark" ? "dark" : "neutral";
