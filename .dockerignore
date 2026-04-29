@@ -21,9 +21,12 @@ internal/lidar/perf/pcap/
 !web/stub-index.html
 !scripts/ensure-web-stub.sh
 
-# Embedded offline docs (built before image binaries are compiled)
+# Embedded offline docs inputs (built before image binaries are compiled)
+# Re-open the parent directory, then keep only the embed tree and stub source.
 !docs_html/
+docs_html/**
 !docs_html/_site/
 !docs_html/_site/**
+!docs_html/_site/.embed-stub
 !docs_html/stub-index.html
 !scripts/ensure-docs-stub.sh
