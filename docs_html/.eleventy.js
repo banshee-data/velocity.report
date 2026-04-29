@@ -344,9 +344,19 @@ module.exports = function (eleventyConfig) {
       if (!entry.endsWith(".mjs")) continue;
       fs.copyFileSync(path.join(chunkSrc, entry), path.join(chunkDest, entry));
     }
+
+    // Keep the offline docs index and metadata pages, but do not ship the raw
+    // research paper PDFs inside the embedded docs tree.
+    const papersDir = path.resolve(__dirname, "_site/data/maths/papers");
+    if (fs.existsSync(papersDir)) {
+      for (const entry of fs.readdirSync(papersDir)) {
+        if (!entry.toLowerCase().endsWith(".pdf")) continue;
+        fs.rmSync(path.join(papersDir, entry), { force: true });
+      }
+    }
   });
   eleventyConfig.addPassthroughCopy(
-    "src/**/*.{png,jpg,jpeg,gif,svg,webp,pdf,json,yml,yaml,bib,txt,py,toml}",
+    "src/**/*.{png,jpg,jpeg,gif,svg,webp,json,yml,yaml,bib,txt,py,toml}",
   );
 
   for (const watchTarget of [
