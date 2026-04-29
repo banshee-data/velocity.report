@@ -373,6 +373,20 @@ func TestBuildHistogramTableTeX_Empty(t *testing.T) {
 	}
 }
 
+func TestBuildHistogramTableTeX_EscapesCaptionUnits(t *testing.T) {
+	result := BuildHistogramTableTeX(map[float64]int64{5: 10}, 5, 5, 50, `mph_adj`)
+	if !strings.Contains(result, `Table 2: Velocity Distribution (mph\_adj)`) {
+		t.Fatalf("expected histogram caption to escape units:\n%s", result)
+	}
+}
+
+func TestBuildDualHistogramTableTeX_EscapesCaptionUnits(t *testing.T) {
+	result := BuildDualHistogramTableTeX(map[float64]int64{5: 10}, map[float64]int64{5: 8}, 5, 5, 50, `mph_adj`)
+	if !strings.Contains(result, `Table 2: Velocity Distribution (mph\_adj)`) {
+		t.Fatalf("expected dual histogram caption to escape units:\n%s", result)
+	}
+}
+
 func TestBuildHistogramTableTeX_CollapsesAllBucketsAtOrAboveMax(t *testing.T) {
 	buckets := map[float64]int64{
 		5:  2050,

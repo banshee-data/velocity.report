@@ -226,7 +226,6 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	contact := req.Contact
 	speedLimit := req.SpeedLimit
 	siteDescription := req.SiteDescription
-	speedLimitNote := ""
 
 	if site != nil {
 		location = site.Location
@@ -260,7 +259,6 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		contact,
 		speedLimit,
 		siteDescription,
-		speedLimitNote,
 	)
 	cfg.CosineCorrectionLabel = cosineCorrectionLabel
 	cfg.CompareCosineCorrectionLabel = compareCosineCorrectionLabel
@@ -368,7 +366,7 @@ func buildReportConfig(
 	cosineErrorAngle float64,
 	location, surveyor, contact string,
 	speedLimit int,
-	siteDescription, speedLimitNote string,
+	siteDescription string,
 ) report.Config {
 	cfg := report.Config{
 		SiteID:             *req.SiteID,
@@ -377,7 +375,6 @@ func buildReportConfig(
 		Contact:            contact,
 		SpeedLimit:         speedLimit,
 		SiteDescription:    siteDescription,
-		SpeedLimitNote:     speedLimitNote,
 		StartDate:          req.StartDate,
 		EndDate:            req.EndDate,
 		Timezone:           req.Timezone,

@@ -12,7 +12,6 @@ type Config struct {
 	Contact         string
 	SpeedLimit      int
 	SiteDescription string
-	SpeedLimitNote  string
 
 	// Survey period
 	StartDate string // YYYY-MM-DD

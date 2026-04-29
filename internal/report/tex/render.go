@@ -116,9 +116,6 @@ type TemplateData struct {
 	ModelVersion          string
 	FirmwareVersion       string // optional; omitted from hardware table when empty
 
-	// Speed limit note (e.g. "Posted speed limit: 25 mph")
-	SpeedLimitNote string
-
 	// LaTeX paper option (e.g. "a4paper" or "letterpaper"). Required: the
 	// preamble template renders `\documentclass[10pt,<PaperOption>]{article}`
 	// with no fallback, so an empty value produces an invalid documentclass

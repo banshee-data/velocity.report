@@ -283,7 +283,7 @@ func TestBuildReportConfig_FieldMapping(t *testing.T) {
 		CompareCosineAngle: 7.5,
 	}
 
-	cfg := buildReportConfig(req, nil, 3.5, "Test Location", "Test Surveyor", "test@example.com", 30, "Test description", "")
+	cfg := buildReportConfig(req, nil, 3.5, "Test Location", "Test Surveyor", "test@example.com", 30, "Test description")
 
 	if cfg.CompareCosineAngle != 7.5 {
 		t.Errorf("CompareCosineAngle: got %v, want 7.5", cfg.CompareCosineAngle)

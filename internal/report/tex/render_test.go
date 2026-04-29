@@ -440,7 +440,7 @@ func TestRenderTeX_ComparisonStatisticsSeparateLongTables(t *testing.T) {
 	}
 	betweenDualAndDaily := s[dualPos:dailyPos]
 	betweenDailyAndGranular := s[dailyPos:granularPos]
-	if !strings.Contains(s, `\par\vspace{8pt}`+"\n"+`\noindent\begin{minipage}{\linewidth}`+"\n"+`\noindent{\large\bfseries Detailed Data Tables}\par\vspace{2pt}`) {
+	if !strings.Contains(s, `\par\vspace{8pt}`+"\n"+`\noindent\begin{minipage}{\linewidth}`+"\n"+`\noindent{\large\bfseries Speed Distribution and Detailed Data}\par\vspace{2pt}`) {
 		t.Fatalf("expected comparison statistics heading to include deliberate top spacing, got:\n%s", s)
 	}
 	if !strings.Contains(betweenDualAndDaily, `\par\vspace{2pt}`) || !strings.Contains(betweenDailyAndGranular, `\par\vspace{2pt}`) {

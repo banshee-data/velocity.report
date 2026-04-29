@@ -152,7 +152,6 @@ func TestGenerate_EndToEnd(t *testing.T) {
 		Contact:         "test@example.com",
 		SpeedLimit:      25,
 		SiteDescription: "Test site for unit tests",
-		SpeedLimitNote:  "Posted: 25 mph",
 
 		StartDate: "2025-06-01",
 		EndDate:   "2025-06-02",
@@ -804,7 +803,6 @@ func TestGenerate_OutputDirMustBeAbsolute(t *testing.T) {
 		Contact:         "test@example.com",
 		SpeedLimit:      25,
 		SiteDescription: "Test site for unit tests",
-		SpeedLimitNote:  "Posted: 25 mph",
 		StartDate:       "2025-06-01",
 		EndDate:         "2025-06-02",
 		Timezone:        "UTC",
