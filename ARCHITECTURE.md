@@ -1,4 +1,8 @@
-# velocity.report architecture
+```
+____ ____ ____ _  _ _ ___ ____ ____ ___ _  _ ____ ____
+|__| |__/ |    |__| |  |  |___ |     |  |  | |__/ |___
+|  | |  \ |___ |  | |  |  |___ |___  |  |__| |  \ |___
+```
 
 This document describes the system architecture, component relationships, data flow,
 and integration points for the velocity.report traffic monitoring system.
