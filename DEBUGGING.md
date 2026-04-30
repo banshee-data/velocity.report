@@ -1096,8 +1096,12 @@ Go gRPC server not running or wrong address.
 
 ### Regenerating protobuf stubs
 
-Generated files are gitignored. On a fresh clone, or after changing
-`proto/velocity_visualiser/v1/visualiser.proto`, regenerate them:
+The Swift stubs under `tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`
+are gitignored (generated at build time). The Go stubs under
+`internal/lidar/l9endpoints/pb/` are committed to the repository.
+
+On a fresh clone, or after changing `proto/velocity_visualiser/v1/visualiser.proto`,
+regenerate:
 
 ```bash
 # One-time: install pinned toolchain (protoc, swift-protobuf, grpc-swift-2)
