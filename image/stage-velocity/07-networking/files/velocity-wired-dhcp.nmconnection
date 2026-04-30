@@ -5,6 +5,7 @@ type=ethernet
 autoconnect=true
 autoconnect-priority=100
 autoconnect-retries=0
+interface-name=eth0
 
 [ethernet]
 
