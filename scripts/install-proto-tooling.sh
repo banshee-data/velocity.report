@@ -101,9 +101,18 @@ ok "protoc-gen-go-grpc ${PROTOC_GEN_GO_GRPC_VERSION}"
 if [ "$OS" = "Darwin" ]; then
     need brew "install Homebrew from https://brew.sh"
 
+    # On ARM macOS runners the shell may be launched under Rosetta (x86_64),
+    # which conflicts with Homebrew's native ARM prefix (/opt/homebrew).
+    # Force native ARM execution for brew to avoid the
+    # "Cannot install under Rosetta 2 in ARM default prefix" error.
+    BREW="brew"
+    if [ "$(uname -m)" = "arm64" ]; then
+        BREW="arch -arm64 brew"
+    fi
+
     # protoc + swift-protobuf via Homebrew (latest; no formula-version pinning)
     info "Installing protoc + swift-protobuf via Homebrew..."
-    brew install protobuf swift-protobuf
+    $BREW install protobuf swift-protobuf
     ok "protoc ($(protoc --version 2>/dev/null | head -1), Homebrew latest)"
     ok "protoc-gen-swift (swift-protobuf, Homebrew latest)"
 
