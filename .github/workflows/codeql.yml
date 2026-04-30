@@ -53,6 +53,12 @@ jobs:
         if: matrix.build-mode == 'autobuild'
         uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
 
+      - name: Setup proto toolchain and generate Swift stubs
+        if: matrix.language == 'swift'
+        uses: ./.github/actions/setup-proto
+        with:
+          generate: swift
+
       - name: Build Swift app for CodeQL
         if: matrix.language == 'swift'
         working-directory: tools/visualiser-macos

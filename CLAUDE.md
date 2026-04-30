@@ -82,7 +82,8 @@ make install-python   # Local dev Python tooling
 ### Other useful targets
 
 ```bash
-make proto-gen        # Regenerate Go + Swift protobuf stubs
+./scripts/install-proto-tooling.sh  # Install pinned protoc + gRPC-Swift toolchain (once)
+make proto-gen        # Regenerate Go + Swift protobuf stubs (delegated to scripts/generate-protos.sh)
 go run ./cmd/radar pdf --config report.json --db sensor_data.db --output ./reports
 make test-go-cov      # Go tests with coverage (→ coverage.html)
 ```

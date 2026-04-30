@@ -1,0 +1,43 @@
+name: "Setup proto toolchain"
+description: >
+  Installs and caches the pinned protobuf + gRPC-Swift toolchain on macOS.
+  After this action runs, `make proto-gen-swift` (or `make proto-gen-go`) is
+  ready to execute. Version pins live in scripts/install-proto-tooling.sh.
+
+inputs:
+  generate:
+    description: "Run generation after install: swift | go | all | none"
+    default: "swift"
+
+runs:
+  using: "composite"
+  steps:
+    # Cache the compiled grpc-swift-protobuf binary between runs.
+    # The cache key embeds the pinned version from install-proto-tooling.sh.
+    - name: Cache grpc-swift plugin binary
+      id: cache-grpc-swift
+      uses: actions/cache@v4
+      with:
+        path: /tmp/protoc-gen-grpc-swift-binary
+        key: grpc-swift-protobuf-2.0.0-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Restore grpc-swift binary from cache
+      if: steps.cache-grpc-swift.outputs.cache-hit == 'true'
+      shell: bash
+      run: sudo install -m 755 /tmp/protoc-gen-grpc-swift-binary /usr/local/bin/protoc-gen-grpc-swift-2
+
+    - name: Install proto toolchain
+      shell: bash
+      env:
+        GRPC_SWIFT_BUILD_DIR: /tmp/grpc-swift-protobuf-build
+      run: ./scripts/install-proto-tooling.sh
+
+    - name: Save grpc-swift binary to cache
+      if: steps.cache-grpc-swift.outputs.cache-hit != 'true'
+      shell: bash
+      run: cp /usr/local/bin/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift-binary
+
+    - name: Generate proto stubs
+      if: inputs.generate != 'none'
+      shell: bash
+      run: ./scripts/generate-protos.sh ${{ inputs.generate }}
