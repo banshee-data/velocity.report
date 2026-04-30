@@ -44,14 +44,10 @@ help:
 	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
-	@echo "  install-python       Set up Python PDF generator venv (deprecated — local dev only)"
+	@echo "  install-python       Set up Python developer-tooling venv (local dev only; not used in production/RPi images)"
 	@echo "  build-texlive-minimal Build local minimal TeX tree for production mode"
 	@echo "  build-tex-fmt        Rebuild velocity-report.fmt in local minimal TeX tree"
 	@echo "  install-texlive-minimal Install local minimal TeX tree to /opt/velocity-report"
-	@echo "  deploy-install-latex Install LaTeX on remote target (deprecated)"
-	@echo "  deploy-install-latex-minimal Copy local minimal TeX tree to remote target (deprecated)"
-	@echo "  validate-tex-minimal Compare report output between full and minimal TeX"
-	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target (deprecated)"
 	@echo "  install-web          Install web dependencies (shared cache via pnpm; local via npm)"
 	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
@@ -79,12 +75,10 @@ help:
 	@echo "  vrlog-compare        Compare two .vrlog analyses (VRLOG_A=path VRLOG_B=path)"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run all tests (Go + Python + Web + macOS)"
+	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
-	@echo "  test-python          Run Python PDF generator tests"
-	@echo "  test-python-cov      Run Python tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
@@ -105,7 +99,7 @@ help:
 	@echo "  schema-erd-from-dot  Render schema SVG from SCHEMA.dot or DOT=/path/to/file.dot"
 	@echo ""
 	@echo "FORMATTING (mutating):"
-	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
+	@echo "  format               Format aggregate code surfaces (Go + Web + macOS + SQL + Markdown)"
 	@echo "  format-go            Format Go code (gofmt)"
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
@@ -114,7 +108,7 @@ help:
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
-	@echo "  lint                 Lint all code, fail if formatting needed"
+	@echo "  lint                 Lint aggregate code surfaces, fail if formatting needed"
 	@echo "  lint-go              Check Go formatting"
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
@@ -127,30 +121,14 @@ help:
 	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
 	@echo "  check-config-maths-strict Validate config maths keys with strict webserver parity"
 	@echo ""
-	@echo "PDF GENERATOR:"
-	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
-	@echo "  pdf-report           Generate PDF from config (CONFIG=file.json)"
-	@echo "  pdf-config           Create example configuration"
-	@echo "  pdf-demo             Run configuration demo"
-	@echo "  pdf-test             Run PDF tests (alias for test-python)"
-	@echo "  pdf                  Alias for pdf-report"
-	@echo "  clean-python         Clean PDF output files"
-	@echo ""
 	@echo "DIAGRAMS:"
 	@echo "  install-diagrams     Install build123d (3D CAD kernel) into shared venv"
 	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
 	@echo ""
-	@echo "DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl):"
-	@echo "  setup-radar          Install server on this host (requires sudo, legacy, removed)"
-	@echo "  deploy-install       Removed — use RPi image or manual install"
-	@echo "  deploy-upgrade       Removed — use velocity-ctl upgrade"
-	@echo "  deploy-status        Removed — use velocity-ctl status"
-	@echo "  deploy-health        Removed — use velocity-ctl status"
-	@echo ""
 	@echo "UTILITIES:"
-	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
+	@echo "  version-exact        Update version across codebase (VER=0.5.1 TARGETS='--all')"
 	@echo "  update-release-json  Refresh release.json/os-list from GitHub Releases (ARGS='--ci --channel prerelease --validate')"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
@@ -535,15 +513,13 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
+.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
 VENV_PYTHON = $(VENV_DIR)/bin/python3
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
-PDF_DIR = tools/pdf-generator
-PDF_OUTPUT_DIR ?= $(PDF_DIR)/output
 PYTHON_VERSION = 3.12
 TEX_MINIMAL_DIR ?= build/texlive-minimal
 
@@ -879,11 +855,11 @@ vrlog-compare:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary tex-compare test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary tex-compare test-web test-web-cov test-mac test-mac-cov coverage
 
 MAC_DIR = tools/visualiser-macos
 
-# Aggregate test target: runs Go, web, Python, and macOS tests in sequence
+# Aggregate test target: runs Go, web, and macOS tests in sequence
 test: test-go test-web test-mac
 
 # Run Go unit tests for the whole repository
@@ -913,17 +889,6 @@ test-go-coverage-summary:
 	@echo "Computing Go coverage by directory..."
 	@go test -cover ./cmd/... 2>/dev/null | awk '/^ok.*coverage:/ {gsub(/%/, "", $$5); sum+=$$5; count++} END {if (count>0) printf "cmd/      coverage: %.1f%%\n", sum/count; else print "cmd/      coverage: 0.0%"}'
 	@go test -cover ./internal/... 2>/dev/null | awk '/^ok.*coverage:/ {gsub(/%/, "", $$5); sum+=$$5; count++} END {if (count>0) printf "internal/ coverage: %.1f%%\n", sum/count; else print "internal/ coverage: 0.0%"}'
-
-# Run Python tests for the PDF generator. Ensures venv is setup first.
-test-python:
-	@echo "Running Python (PDF generator) tests..."
-	@$(MAKE) install-python
-	@$(MAKE) pdf-test
-
-test-python-cov:
-	@echo "Running PDF generator tests with coverage..."
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) --cov=pdf_generator --cov-report=html --cov-report=xml pdf_generator/tests/
-	@echo "Coverage report: $(PDF_DIR)/htmlcov/index.html"
 
 # Run web test suite (Jest) using pnpm inside the web directory
 test-web:
@@ -1003,7 +968,6 @@ coverage: test-go-cov test-web-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
 	@echo "  - Go:     coverage.html"
-	@echo "  - Python: $(PDF_DIR)/htmlcov/index.html"
 	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
 	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
 
@@ -1363,165 +1327,6 @@ lint-web:
 	fi
 
 # =============================================================================
-# PDF GENERATOR (deprecated — retained for local dev; production uses Go pipeline)
-# Report generation: POST /api/generate_report or `velocity-report pdf --config cfg.json`
-# =============================================================================
-
-.PHONY: pdf-check-latex-parity pdf-test validate-tex-minimal pdf-report pdf-config pdf-demo pdf clean-python
-
-pdf-check-latex-parity:
-	@echo "Checking LaTeX package parity..."
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) scripts/check_latex_package_parity.py
-
-pdf-test: pdf-check-latex-parity
-	@echo "Running PDF generator tests..."
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) pdf_generator/tests/
-
-validate-tex-minimal:
-	@config_value="$(CONFIG)"; \
-	if [ -z "$$config_value" ]; then \
-		config_value="$(PDF_DIR)/config.minimal.json"; \
-		echo "CONFIG not set; defaulting to $$config_value"; \
-	fi; \
-	if [ -f "$$config_value" ]; then \
-		config_path="$$(cd "$$(dirname "$$config_value")" && pwd)/$$(basename "$$config_value")"; \
-	elif [ -f "$(PDF_DIR)/$$config_value" ]; then \
-		config_path="$$(cd "$(PDF_DIR)" && pwd)/$$config_value"; \
-	else \
-		echo "Error: Config file not found: $$config_value"; \
-		echo "Usage: make validate-tex-minimal CONFIG=config.json"; \
-		exit 1; \
-	fi; \
-	if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
-		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
-		echo "Run 'make build-texlive-minimal' first."; \
-		exit 1; \
-	fi; \
-	if [ ! -f "$(TEX_MINIMAL_DIR)/texmf-dist/web2c/xelatex/xelatex.fmt" ]; then \
-		echo "Error: precompiled flow requested but $(TEX_MINIMAL_DIR)/texmf-dist/web2c/xelatex/xelatex.fmt not found."; \
-		echo "Run 'make build-tex-fmt' (or rebuild via 'make build-texlive-minimal')."; \
-		exit 1; \
-	fi; \
-	api_base="$${API_BASE_URL:-http://localhost:8080}"; \
-	if command -v curl >/dev/null 2>&1; then \
-		if ! curl -fsS --max-time 5 "$$api_base/health" >/dev/null 2>&1; then \
-			echo "Error: API health check failed at $$api_base/health"; \
-			echo "Start the backend first (precompiled: make dev-go, full TeX: make dev-go-latex-full)."; \
-			echo "Or set API_BASE_URL to a reachable instance."; \
-			exit 1; \
-		fi; \
-	else \
-		echo "Warning: curl not found; skipping API health check"; \
-	fi; \
-	tmp_dir=$$(mktemp -d); \
-	ref_pdf="$$tmp_dir/reference.pdf"; \
-	min_pdf="$$tmp_dir/minimal.pdf"; \
-	ref_stamp="$$tmp_dir/reference.stamp"; \
-	min_stamp="$$tmp_dir/minimal.stamp"; \
-	touch "$$ref_stamp"; \
-	echo "Generating reference report (development mode)..."; \
-	if ! $(MAKE) --no-print-directory pdf-report CONFIG="$$config_path"; then \
-		echo "Error: reference report generation failed."; \
-		echo "Artifacts kept in $$tmp_dir"; \
-		exit 1; \
-	fi; \
-	ref_candidates="$$(find "$(PDF_DIR)" -type f -name '*_report.pdf' -newer "$$ref_stamp" 2>/dev/null)"; \
-	if [ -z "$$ref_candidates" ]; then \
-		echo "Error: No new *_report.pdf found under $(PDF_DIR) for the reference run."; \
-		echo "Artifacts kept in $$tmp_dir"; \
-		exit 1; \
-	fi; \
-	ref_latest=$$(printf '%s\n' "$$ref_candidates" | xargs ls -t | head -n1); \
-	cp "$$ref_latest" "$$ref_pdf"; \
-	touch "$$min_stamp"; \
-	echo "Generating report using minimal TeX tree (production mode)..."; \
-	if ! VELOCITY_TEX_ROOT="$$(cd "$(TEX_MINIMAL_DIR)" && pwd)" $(MAKE) --no-print-directory pdf-report CONFIG="$$config_path"; then \
-		echo "Error: minimal-tree report generation failed."; \
-		echo "Artifacts kept in $$tmp_dir"; \
-		exit 1; \
-	fi; \
-	min_candidates="$$(find "$(PDF_DIR)" -type f -name '*_report.pdf' -newer "$$min_stamp" 2>/dev/null)"; \
-	if [ -z "$$min_candidates" ]; then \
-		echo "Error: No new *_report.pdf found under $(PDF_DIR) for the minimal run."; \
-		echo "Artifacts kept in $$tmp_dir"; \
-		exit 1; \
-	fi; \
-	min_latest=$$(printf '%s\n' "$$min_candidates" | xargs ls -t | head -n1); \
-	cp "$$min_latest" "$$min_pdf"; \
-	if command -v pdfinfo >/dev/null 2>&1; then \
-		ref_pages=$$(pdfinfo "$$ref_pdf" | awk -F: '/^Pages:/ {gsub(/ /, "", $$2); print $$2}'); \
-		min_pages=$$(pdfinfo "$$min_pdf" | awk -F: '/^Pages:/ {gsub(/ /, "", $$2); print $$2}'); \
-		if [ "$$ref_pages" != "$$min_pages" ]; then \
-			echo "Error: Page count mismatch (reference=$$ref_pages, minimal=$$min_pages)"; \
-			echo "Artifacts kept in $$tmp_dir"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "Warning: pdfinfo not found; skipping page count check"; \
-	fi; \
-	if command -v pdftotext >/dev/null 2>&1; then \
-		pdftotext "$$ref_pdf" "$$tmp_dir/reference.txt"; \
-		pdftotext "$$min_pdf" "$$tmp_dir/minimal.txt"; \
-		if ! diff -u "$$tmp_dir/reference.txt" "$$tmp_dir/minimal.txt" > "$$tmp_dir/text.diff"; then \
-			echo "Error: Extracted text differs (see $$tmp_dir/text.diff)"; \
-			echo "Artifacts kept in $$tmp_dir"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "Warning: pdftotext not found; skipping text diff"; \
-	fi; \
-	if command -v diff-pdf >/dev/null 2>&1; then \
-		if ! diff-pdf "$$ref_pdf" "$$min_pdf" >/dev/null 2>&1; then \
-			echo "Error: Visual PDF diff detected"; \
-			diff-pdf --output-diff="$$tmp_dir/visual-diff.pdf" "$$ref_pdf" "$$min_pdf" >/dev/null 2>&1 || true; \
-			echo "Artifacts kept in $$tmp_dir"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "Warning: diff-pdf not found; skipping visual comparison"; \
-	fi; \
-	echo "✓ Minimal TeX validation passed"; \
-	rm -rf "$$tmp_dir"
-
-pdf-report:
-	@if [ -z "$(CONFIG)" ]; then \
-		echo "Error: CONFIG required. Usage: make pdf-report CONFIG=config.json"; \
-		exit 1; \
-	fi
-	@if [ -f "$(CONFIG)" ]; then \
-		CONFIG_PATH="$$(cd $$(dirname "$(CONFIG)") && pwd)/$$(basename "$(CONFIG)")"; \
-	elif [ -f "$(PDF_DIR)/$(CONFIG)" ]; then \
-		CONFIG_PATH="$(CONFIG)"; \
-	else \
-		echo "Error: Config file not found: $(CONFIG)"; \
-		echo "Try: make pdf-report CONFIG=config.example.json"; \
-		exit 1; \
-	fi; \
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.main $$CONFIG_PATH
-
-pdf-config:
-	@echo "Creating example configuration..."
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.create_config
-
-pdf-demo:
-	@echo "Running configuration system demo..."
-	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.demo
-
-# Convenience alias
-pdf: pdf-report
-
-clean-python:
-	@echo "Cleaning PDF generator outputs..."
-	rm -rf $(PDF_DIR)/output/*.pdf
-	rm -rf $(PDF_DIR)/output/*.tex
-	rm -rf $(PDF_DIR)/output/*.svg
-	rm -rf $(PDF_DIR)/.pytest_cache
-	rm -rf $(PDF_DIR)/htmlcov
-	rm -rf $(PDF_DIR)/.coverage
-	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
-	@echo "✓ Cleaned"
-
-# =============================================================================
 # DIAGRAMS
 # =============================================================================
 
@@ -1555,33 +1360,6 @@ render-overlays:
 render: render-diagrams render-overlays
 
 # =============================================================================
-# DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl)
-# =============================================================================
-
-.PHONY: deploy-install deploy-upgrade deploy-status deploy-health
-
-# Friendly error stubs for anyone who tries the old commands
-deploy-install:
-	@echo "❌ REMOVED: deploy-install has been removed in v0.5.1." >&2
-	@echo "   Flash the RPi image or install manually. See docs/plans/deploy-rpi-imager-fork-plan.md" >&2
-	@exit 1
-
-deploy-upgrade:
-	@echo "❌ REMOVED: deploy-upgrade has been removed in v0.5.1." >&2
-	@echo "   Use: sudo velocity-ctl upgrade" >&2
-	@exit 1
-
-deploy-status:
-	@echo "❌ REMOVED: deploy-status has been removed in v0.5.1." >&2
-	@echo "   Use: sudo velocity-ctl status" >&2
-	@exit 1
-
-deploy-health:
-	@echo "❌ REMOVED: deploy-health has been removed in v0.5.1." >&2
-	@echo "   Use: sudo velocity-ctl status" >&2
-	@exit 1
-
-# =============================================================================
 # UTILITIES
 # =============================================================================
 
@@ -1592,7 +1370,7 @@ version-exact:
 		echo "Usage: make version-exact VER=<version> TARGETS='<targets>'"; \
 		echo ""; \
 		echo "Example: make version-exact VER=0.4.0-pre2 TARGETS='--all'"; \
-		echo "         make version-exact VER=0.5.0 TARGETS='--makefile --deploy --pdf'"; \
+		echo "         make version-exact VER=0.5.0 TARGETS='--makefile --web --docs --mac'"; \
 		echo ""; \
 		./scripts/set-version.sh; \
 		exit 1; \
