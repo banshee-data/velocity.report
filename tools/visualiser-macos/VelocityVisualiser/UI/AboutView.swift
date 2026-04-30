@@ -50,9 +50,9 @@ struct AboutView: View {
                     title: "Civic Engagement Platform",
                     body: "velocity.report is a street safety platform for neighbourhoods. "
                         + "It measures vehicle speeds using affordable radar sensors and turns that data "
-                        + "into PDF reports — speed distributions, percentile analysis — "
-                        + "the kind of evidence a residents\u{2019} group can put in front of a council and "
-                        + "expect to be taken seriously. "
+                        + "into PDF reports: speed distributions, percentile analysis. "
+                        + "This is the kind of evidence a residents' group can put in front of a council "
+                        + "and expect to be taken seriously. "
                         + "Designed for streets where people of all ages should feel safe: "
                         + "the eight-year-old on a bicycle, the eighty-year-old crossing to the shops."
                 )
@@ -61,11 +61,11 @@ struct AboutView: View {
                     title: "Two Stacks, One Purpose",
                     body:
                         "The production stack pairs a radar sensor with a Go server, SQLite database, "
-                        + "and PDF reports — local, offline, and deliberately self-contained. "
-                        + "This visualiser belongs to the research stack: a LiDAR-based scene analysis pipeline "
+                        + "and PDF reports: local, offline, and deliberately self-contained. "
+                        + "This visualiser belongs to the research stack, a LiDAR-based scene analysis pipeline "
                         + "being built toward unified object tracking and richer spatial understanding. "
                         + "Both stacks serve the same end. The production stack is ready today. "
-                        + "The research stack is where today\u{2019}s curiosity becomes tomorrow\u{2019}s capability."
+                        + "The research stack is where today's curiosity becomes tomorrow's capability."
                 )
 
                 aboutSection(
@@ -82,8 +82,12 @@ struct AboutView: View {
                         + "Clone the repository, follow the README, and the production stack "
                         + "can be running the same afternoon. "
                         + "The visualiser requires a local server with LiDAR support. "
-                        + "Both are documented; neither requires special expertise to deploy, "
-                        + "only patience and a willingness to read before clicking.")
+                        + "Both are documented. Neither requires special expertise to deploy, "
+                        + "only patience and a willingness to read before clicking. "
+                        + "To download the server software, visit the "
+                        + "[latest releases page](https://github.com/banshee-data/velocity.report/releases/latest). "
+                        + "The server runs on Linux or macOS. For detailed setup instructions, "
+                        + "refer to the [setup guide](https://velocity.report/guides/setup).")
             }.padding(.horizontal, 16)
 
             Divider().padding(.horizontal, 24)
