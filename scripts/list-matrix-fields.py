@@ -3,7 +3,8 @@
 
 Scans Go, Proto, Swift, SQL, and selected repo metadata and prints a
 structured inventory of HTTP endpoints, gRPC methods, DB tables/columns,
-pipeline stages, tuning parameters, cmd/ entry points, and debug routes.
+pipeline stages, tuning parameters, cmd/ entry points, report-pipeline
+reference files, and debug routes.
 
 Two modes:
     python scripts/list-matrix-fields.py              # human-readable surface list
@@ -112,7 +113,7 @@ class MatrixInventory:
     pipeline_stages: list[PipelineStage] = field(default_factory=list)
     tuning_params: list[TuningParam] = field(default_factory=list)
     cmd_entries: list[CmdEntry] = field(default_factory=list)
-    pdf_consumers: list[ExternalConsumer] = field(default_factory=list)
+    report_pipeline_surfaces: list[ExternalConsumer] = field(default_factory=list)
     mac_http_consumers: list[ExternalConsumer] = field(default_factory=list)
     debug_routes: list[DebugRoute] = field(default_factory=list)
     computed_structs: list[GoStruct] = field(default_factory=list)
@@ -623,10 +624,10 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
 
 
 # ---------------------------------------------------------------------------
-# §11  PDF report pipeline surfaces
+# §11  Go report pipeline reference
 # ---------------------------------------------------------------------------
 
-_PDF_PIPELINE_SURFACES: list[tuple[str, str]] = [
+_REPORT_PIPELINE_SURFACES: list[tuple[str, str]] = [
     (
         "internal/report/report.go",
         "Direct DB query -> Generate(ctx, db, cfg)",
@@ -646,9 +647,9 @@ _PDF_PIPELINE_SURFACES: list[tuple[str, str]] = [
 ]
 
 
-def extract_pdf_consumers(root: Path) -> list[ExternalConsumer]:
+def extract_report_pipeline_surfaces(root: Path) -> list[ExternalConsumer]:
     results: list[ExternalConsumer] = []
-    for rel_path, consumer in _PDF_PIPELINE_SURFACES:
+    for rel_path, consumer in _REPORT_PIPELINE_SURFACES:
         src = root / rel_path
         if not src.is_file():
             continue
@@ -1036,8 +1037,8 @@ def print_text_report(inv: MatrixInventory) -> None:
         print(f"  {e.binary:<25s}  {e.location}")
     print(f"  Total: {len(inv.cmd_entries)}")
 
-    _header("PDF Report Pipeline Surfaces", "§11")
-    for c in inv.pdf_consumers:
+    _header("Go Report Pipeline Reference", "§11")
+    for c in inv.report_pipeline_surfaces:
         print(f"  {c.file}")
         for ep in c.endpoints:
             print(f"    → {ep}")
@@ -1110,7 +1111,7 @@ def print_text_report(inv: MatrixInventory) -> None:
 # ---------------------------------------------------------------------------
 
 # Surfaces to trace per item
-_SURFACES = ["DB", "Web", "PDF", "Mac"]
+_SURFACES = ["DB", "Web", "Mac"]
 
 # Section groupings for LLM context-window partitioning.
 # Each group is a self-contained tracing task an LLM can handle in one request.
@@ -1121,8 +1122,8 @@ _SECTION_GROUPS: list[dict[str, object]] = [
         "sections": ["§1", "§2"],
         "focus": (
             "Trace every HTTP endpoint to determine which surfaces consume it. "
-            "Check Go handler → DB calls, web/src fetch() calls, "
-            "internal/report pipeline call sites, tools/visualiser-macos HTTP calls."
+            "Check Go handler → DB calls, web/src fetch() calls, and "
+            "tools/visualiser-macos HTTP calls."
         ),
     },
     {
@@ -1142,7 +1143,7 @@ _SECTION_GROUPS: list[dict[str, object]] = [
         "focus": (
             "Trace every table and column. DB is always ✅. "
             "Check which columns appear in HTTP JSON responses (Web), "
-            "PDF reporting queries (PDF), or gRPC/Swift calls (Mac). "
+            "or gRPC/Swift calls (Mac). "
             "Flag deprecated columns as 🗑️."
         ),
     },
@@ -1219,7 +1220,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            f"handler `{ep.handler}` → check DB calls, web/src fetch, Go PDF pipeline call sites, Mac HTTP",
+            f"handler `{ep.handler}` → check DB calls, web/src fetch, Mac HTTP",
         )
 
     # §2 LiDAR HTTP
@@ -1258,7 +1259,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"table: {t.name}",
             t.file,
             "",
-            f"DB=✅ always. Web: handlers SELECT from `{t.name}`? PDF: internal/report query or chart use? Mac: gRPC?",
+            f"DB=✅ always. Web: handlers SELECT from `{t.name}`? Mac: gRPC?",
         )
 
     # §5 DB columns
@@ -1272,7 +1273,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
                 f"{t.name}.{col}",
                 t.file,
                 "",
-                f"DB=✅. Check JSON serialisation of `{col}`, PDF usage, gRPC/Mac exposure. Flag 🗑️ if deprecated.",
+                f"DB=✅. Check JSON serialisation of `{col}` and gRPC/Mac exposure. Flag 🗑️ if deprecated.",
             )
 
     # §6 Pipeline stages
@@ -1337,7 +1338,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"{p.go_field} (json:{p.json_key})",
             "internal/config/tuning.go",
             "",
-            "DB: params_json in lidar_analysis_runs? Web: GET /api/lidar/params? PDF/Mac: —",
+            "DB: params_json in lidar_analysis_runs? Web: GET /api/lidar/params? Mac: —",
         )
 
     # §13 Classification
@@ -1376,7 +1377,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            "DB: SQLite chart query? Web=✅ embedded ECharts at /debug/lidar/*. PDF/Mac: —",
+            "DB: SQLite chart query? Web=✅ embedded ECharts at /debug/lidar/*. Mac: —",
         )
 
     # §16 cmd entries
@@ -1418,7 +1419,7 @@ def print_markdown_checklist(items: list[ChecklistItem]) -> None:
     print("## How to use this checklist")
     print()
     print("Each **Task Group** below is sized for one LLM context window.")
-    print("For each item, trace its exposure across four surfaces:")
+    print("For each item, trace its exposure across three surfaces:")
     print()
     print("| Mark | Meaning |")
     print("|------|---------|")
@@ -1430,7 +1431,7 @@ def print_markdown_checklist(items: list[ChecklistItem]) -> None:
     print()
     print(
         "**Surfaces:** DB (SQLite), Web (Svelte UI :8080), "
-        "PDF (Go report pipeline), Mac (Metal visualiser via gRPC)"
+        "Mac (Metal visualiser via gRPC)"
     )
     print()
 
@@ -1455,13 +1456,13 @@ def print_markdown_checklist(items: list[ChecklistItem]) -> None:
                 current_section = item.section
                 print(f"### {item.section} {item.section_title}")
                 print()
-                print("| ID | Item | Source | DB | Web | PDF | Mac | Notes |")
-                print("|---|---|---|---|---|---|---|---|")
+                print("| ID | Item | Source | DB | Web | Mac | Notes |")
+                print("|---|---|---|---|---|---|---|")
 
             handler_str = f" → `{item.handler}`" if item.handler else ""
             print(
                 f"| {item.id} | `{item.label}` | "
-                f"`{item.source_file}`{handler_str} | | | | | "
+                f"`{item.source_file}`{handler_str} | | | | "
                 f"{item.trace_hint} |"
             )
 
@@ -1510,7 +1511,7 @@ def main() -> None:
         pipeline_stages=extract_pipeline_stages(root),
         tuning_params=extract_tuning_params(root),
         cmd_entries=extract_cmd_entries(root),
-        pdf_consumers=extract_pdf_consumers(root),
+        report_pipeline_surfaces=extract_report_pipeline_surfaces(root),
         mac_http_consumers=extract_mac_http_consumers(root),
         debug_routes=extract_debug_routes(root),
         computed_structs=extract_computed_structs(root),

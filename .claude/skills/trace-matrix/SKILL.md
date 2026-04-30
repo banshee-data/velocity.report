@@ -6,7 +6,7 @@ argument-hint: "[task-group: http | grpc | db | pipeline | tuning | all]"
 
 # Skill: trace-matrix
 
-Maintain `data/structures/MATRIX.md`: the canonical mapping of every backend surface (HTTP endpoints, gRPC methods, DB tables/columns, pipeline stages, structs, tuning params, cmd/ entry points, debug routes) to four consumer surfaces: **DB**, **Web**, **PDF**, **Mac**.
+Maintain `data/structures/MATRIX.md`: the canonical mapping of every backend surface (HTTP endpoints, gRPC methods, DB tables/columns, pipeline stages, structs, tuning params, cmd/ entry points, debug routes) to three consumer surfaces: **DB**, **Web**, **Mac**.
 
 ## Usage
 
@@ -36,6 +36,8 @@ This scans Go, Proto, Swift, SQL, and selected repo metadata and outputs a markd
 
 Read `data/structures/MATRIX.md` to understand existing surface marks. This file is the ground truth to update.
 
+`§11` is a reference inventory of Go report pipeline files only. Do not assign DB/Web/Mac surface marks to that section.
+
 ### 3. Trace one task group at a time
 
 #### HTTP API surfaces (§1, §2)
@@ -45,8 +47,7 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 1. For each endpoint, read the Go handler function
 2. Check DB: does the handler call any `db.*` or `store.*` method?
 3. Check Web: search `web/src/` for `fetch()` calls to this path
-4. Check PDF: search `internal/report/` for direct DB calls or references to this path
-5. Check Mac: search `tools/visualiser-macos/` for HTTP calls to this path
+4. Check Mac: search `tools/visualiser-macos/` for HTTP calls to this path
 
 Key files:
 
@@ -57,7 +58,6 @@ Key files:
 - `internal/lidar/server/scene_api.go`: scene and evaluation handlers
 - `internal/api/lidar_labels.go`: label API handlers
 - `web/src/lib/api/`: Svelte fetch calls
-- `internal/report/report.go`: Go PDF pipeline entry point
 - `tools/visualiser-macos/VelocityVisualiser/`: Mac HTTP calls
 
 #### gRPC + proto surfaces (§3, §14)
@@ -81,16 +81,14 @@ Key files:
 
 1. DB is always ✅ for every table and column
 2. For each column, check if it appears in JSON serialisation (→ Web)
-3. Check if the Go PDF pipeline queries it (→ PDF)
-4. Check if it appears in gRPC proto or Swift code (→ Mac)
-5. Flag deprecated columns (p50/p85/p95 speed percentiles) as 🗑️
+3. Check if it appears in gRPC proto or Swift code (→ Mac)
+4. Flag deprecated columns (p50/p85/p95 speed percentiles) as 🗑️
 
 Key files:
 
 - `internal/db/schema.sql`: table definitions
 - `internal/lidar/storage/sqlite/`: Go DB access layer
 - `internal/api/`: JSON serialisation in HTTP handlers
-- `internal/report/report.go`: Go PDF pipeline (direct DB queries)
 
 #### Pipeline + structs (§6, §7, §8, §9, §13)
 
@@ -169,11 +167,6 @@ A mark can only be set if direct code evidence exists.
 
 The handler returns the field but only behind a query parameter, or the frontend does not yet consume it. Note the condition in the MATRIX notes column.
 
-### PDF ✅ requires
-
-1. Go PDF pipeline in `internal/report/` queries the DB or uses the field
-2. The field is used in a TeX template or chart
-
 ### Mac ✅ requires
 
 1. Proto message field in `proto/velocity_visualiser/v1/visualiser.proto`
@@ -189,7 +182,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 ### Summary table counts
 
 - **Total column**: count rows in the corresponding MATRIX section.
-- **Per-surface columns**: count ✅ marks only. Do not count 🔶 or 📋.
+- **Per-surface columns**: count ✅ marks only in the DB, Web, and Mac columns. Do not count 🔶 or 📋.
 - After editing any section table, **recount from the table** and update the summary. Never propagate a number from a prior edit.
 
 ## Anti-patterns: never do these
