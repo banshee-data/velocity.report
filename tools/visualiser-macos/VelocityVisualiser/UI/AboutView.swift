@@ -10,7 +10,10 @@ struct AboutView: View {
 
     private let projectURL = URL(string: "https://velocity.report")!
     private let githubURL = URL(string: "https://github.com/banshee-data/velocity.report")!
+    private let releasesURL = URL(
+        string: "https://github.com/banshee-data/velocity.report/releases/latest")!
     private let licenceURL = URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!
+    private let setupGuideURL = URL(string: "https://velocity.report/guides/setup")!
     private var gitSHADisplay: String { String(BuildInfo.gitSHA.prefix(7)) }
     private var githubRevisionURL: URL {
         URL(string: "https://github.com/banshee-data/velocity.report/tree/\(BuildInfo.gitSHA)")!
@@ -49,11 +52,9 @@ struct AboutView: View {
                 aboutSection(
                     title: "Civic Engagement Platform",
                     body: "velocity.report is a street safety platform for neighbourhoods. "
-                        + "It measures vehicle speeds using affordable radar sensors and turns that data "
-                        + "into PDF reports: speed distributions, percentile analysis. "
-                        + "This is the kind of evidence a residents' group can put in front of a council "
-                        + "and expect to be taken seriously. "
-                        + "Designed for streets where people of all ages should feel safe: "
+                        + "It measures vehicle speeds and turns the results into reports a residents' group "
+                        + "can take to a council meeting. "
+                        + "It is built for streets where people of all ages should feel safe: "
                         + "the eight-year-old on a bicycle, the eighty-year-old crossing to the shops."
                 )
 
@@ -61,11 +62,9 @@ struct AboutView: View {
                     title: "Two Stacks, One Purpose",
                     body:
                         "The production stack pairs a radar sensor with a Go server, SQLite database, "
-                        + "and PDF reports: local, offline, and deliberately self-contained. "
-                        + "This visualiser belongs to the research stack, a LiDAR-based scene analysis pipeline "
-                        + "being built toward unified object tracking and richer spatial understanding. "
-                        + "Both stacks serve the same end. The production stack is ready today. "
-                        + "The research stack is where today's curiosity becomes tomorrow's capability."
+                        + "and PDF reports: local, offline, and self-contained. "
+                        + "This visualiser belongs to the research stack, a LiDAR pipeline for richer scene "
+                        + "understanding. Both stacks serve the same goal: safer streets backed by evidence."
                 )
 
                 aboutSection(
@@ -79,15 +78,14 @@ struct AboutView: View {
                 aboutSection(
                     title: "Source & Setup",
                     body: "The full source is on GitHub under an Apache 2.0 licence. "
-                        + "Clone the repository, follow the README, and the production stack "
-                        + "can be running the same afternoon. "
-                        + "The visualiser requires a local server with LiDAR support. "
-                        + "Both are documented. Neither requires special expertise to deploy, "
-                        + "only patience and a willingness to read before clicking. "
-                        + "To download the server software, visit the "
-                        + "[latest releases page](https://github.com/banshee-data/velocity.report/releases/latest). "
-                        + "The server runs on Linux or macOS. For detailed setup instructions, "
-                        + "refer to the [setup guide](https://velocity.report/guides/setup).")
+                        + "The visualiser needs a local velocity.report server with LiDAR support. "
+                        + "You can run the server on Linux or macOS. Download a release, then follow the "
+                        + "setup guide before connecting this app.")
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Link("Download server software", destination: releasesURL)
+                    Link("Open setup guide", destination: setupGuideURL)
+                }.font(.caption).tint(.accentColor)
             }.padding(.horizontal, 16)
 
             Divider().padding(.horizontal, 24)
