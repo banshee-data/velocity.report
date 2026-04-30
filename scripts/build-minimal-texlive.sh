@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-MANIFEST="${MANIFEST:-${REPO_ROOT}/tools/pdf-generator/tex/dependency-manifest.txt}"
-INI_FILE="${INI_FILE:-${REPO_ROOT}/tools/pdf-generator/tex/velocity-report.ini}"
+MANIFEST="${MANIFEST:-${REPO_ROOT}/internal/report/tex/dependency-manifest.txt}"
+INI_FILE="${INI_FILE:-${REPO_ROOT}/internal/report/tex/velocity-report.ini}"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/build/texlive-minimal}"
 TEXLIVE_ROOT="${TEXLIVE_ROOT:-}"
 XELATEX_BIN="${XELATEX_BIN:-}"
