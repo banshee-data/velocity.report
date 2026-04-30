@@ -1,0 +1,16 @@
+[connection]
+id=velocity-wired-dhcp
+uuid=18c4775f-505d-444e-946e-d0a82ad63df3
+type=ethernet
+autoconnect=true
+autoconnect-priority=100
+autoconnect-retries=0
+
+[ethernet]
+
+[ipv4]
+method=auto
+may-fail=false
+
+[ipv6]
+method=ignore

@@ -23,6 +23,7 @@ LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 
 - Systemd service auto-starts on boot
 - Data directory `/var/lib/velocity-report/` owned by `velocity` user
+- Primary wired LAN pre-configured for NetworkManager DHCP
 - UART overlay enabled for RS-232 HAT radar connection
 - Serial console removed from kernel command line
 - USB-Serial udev rule creates `/dev/velocity-radar` symlink
@@ -74,6 +75,13 @@ image/
     │   ├── 00-run.sh
     │   └── files/
     │       └── wpa_supplicant.conf
+    ├── 06-cleanup/                 # Remove build-time and developer packages
+    │   └── 00-run.sh
+    ├── 07-networking/              # Final NetworkManager defaults
+    │   ├── 00-run.sh
+    │   └── files/
+    │       ├── NetworkManager.state
+    │       └── velocity-wired-dhcp.nmconnection
     └── EXPORT_IMAGE
 ```
 
@@ -121,6 +129,26 @@ rpi-imager --repo https://velocity.report/images/os-list.json
 
 Or use any image-writing tool (`dd`, balenaEtcher) with the `.img.xz` file
 downloaded from the GitHub Release.
+
+## First-boot networking checks
+
+The image installs a NetworkManager DHCP profile for wired LAN. If the device
+boots with only `127.0.0.1`, check the physical link and NetworkManager state:
+
+```bash
+ip -br link
+ip -br addr
+nmcli device status
+systemctl status NetworkManager --no-pager
+journalctl -u NetworkManager -b --no-pager
+```
+
+To force a wired DHCP retry from the console:
+
+```bash
+sudo nmcli networking on
+sudo nmcli device connect eth0
+```
 
 ## Image size budget (phase 1)
 
