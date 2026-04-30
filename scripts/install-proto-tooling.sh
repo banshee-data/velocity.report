@@ -23,7 +23,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Version pins — update here and nowhere else
 # ---------------------------------------------------------------------------
-GRPC_SWIFT_PROTOBUF_VERSION="2.0.0"    # git tag in grpc/grpc-swift-protobuf
+GRPC_SWIFT_PROTOBUF_VERSION="2.1.2"    # git tag in grpc/grpc-swift-protobuf
 PROTOC_GEN_GO_VERSION="v1.36.11"       # matches google.golang.org/protobuf in go.mod
 PROTOC_GEN_GO_GRPC_VERSION="v1.5.1"    # latest stable grpc protoc plugin
 
