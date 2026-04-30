@@ -304,7 +304,7 @@ The project roadmap lives in
 ### Prerequisites
 
 - **Go 1.25+**: server development
-- **Python 3.11+**: PDF generator
+- **Python 3.11+**: developer tooling and scripts
 - **Node.js 18+** with pnpm: web frontend
 - **SQLite3**: database (also the entire database strategy, which is
   one of the nicer things about the project)
@@ -449,7 +449,7 @@ See DESIGN.md §9 for the full UI and chart PR checklist.
 ```bash
 make test              # Everything
 make test-go           # Go unit tests
-make test-python       # Python tests
+make test-python       # Python script/tool tests
 make test-web          # Web tests (Jest)
 ```
 

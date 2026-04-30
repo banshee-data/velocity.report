@@ -79,6 +79,8 @@ help:
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
+	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
+	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
@@ -521,6 +523,13 @@ VENV_PYTHON = $(VENV_DIR)/bin/python3
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PYTHON_VERSION = 3.12
+PYTHON_TEST_PATHS = \
+	scripts/test_config_tools.py \
+	scripts/test_list_matrix_fields.py \
+	scripts/test_order_schema_tables.py \
+	scripts/test_sqlite_erd.py \
+	tools/grid-heatmap/test_pcap_mode.py \
+	tools/grid-heatmap/test_plot_grid_heatmap.py
 TEX_MINIMAL_DIR ?= build/texlive-minimal
 
 # Build: Local minimal TeX tree
@@ -855,7 +864,7 @@ vrlog-compare:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary tex-compare test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage
 
 MAC_DIR = tools/visualiser-macos
 
@@ -868,6 +877,15 @@ test-go:
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests..."
 	@go test ./...
+
+test-python: ensure-python-tools
+	@echo "Running Python script/tool tests..."
+	@$(VENV_PYTEST) $(PYTHON_TEST_PATHS)
+
+test-python-cov: ensure-python-tools
+	@echo "Running Python script/tool tests with coverage..."
+	@$(VENV_PYTEST) --cov=scripts --cov=tools/grid-heatmap --cov-report=term-missing --cov-report=html:htmlcov-python $(PYTHON_TEST_PATHS)
+	@echo "Coverage report: htmlcov-python/index.html"
 
 # Compare Go tex output against golden files; re-run with -update flag to regenerate.
 tex-compare:

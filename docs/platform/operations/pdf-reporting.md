@@ -52,6 +52,11 @@ Web UI → POST /api/generate_report (or CLI: velocity-report pdf)
   → Go: os/exec → xelatex → .pdf
 ```
 
+Generated report artifacts are stored under
+`VELOCITY_REPORT_OUTPUT_DIR` when set. Deployed images default to
+`/var/lib/velocity-report/reports`; local development defaults to
+`.tmp/reports` at the repository root.
+
 ## Package layout
 
 ```

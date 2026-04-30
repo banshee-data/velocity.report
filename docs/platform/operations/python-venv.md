@@ -74,16 +74,16 @@ velocity.report/
 
 ## Makefile targets
 
-| Target                  | What it does                                                    |
-| ----------------------- | --------------------------------------------------------------- |
-| `make install-python`   | Create/reuse `.venv/`, install `requirements.txt`               |
-| `make install-diagrams` | Add `build123d` to `.venv/` for CAD rendering                   |
-| `make format-python`    | Run `black` + `ruff --fix` across all Python                    |
-| `make lint-python`      | Run `black --check` + `ruff` (non-mutating)                     |
-| `make test-python`      | Stub — pdf-generator deleted; target retained to avoid breakage |
-| `make test-python-cov`  | Same with HTML coverage report                                  |
+| Target                  | What it does                                      |
+| ----------------------- | ------------------------------------------------- |
+| `make install-python`   | Create/reuse `.venv/`, install `requirements.txt` |
+| `make install-diagrams` | Add `build123d` to `.venv/` for CAD rendering     |
+| `make format-python`    | Run `black` + `ruff --fix` across all Python      |
+| `make lint-python`      | Run `black --check` + `ruff` (non-mutating)       |
+| `make test-python`      | Run Python script/tool tests                      |
+| `make test-python-cov`  | Run Python script/tool tests with HTML coverage   |
 
-`test-python` is **not** included in the `make test` aggregate. The pdf-generator it previously exercised has been deleted from the repository.
+`test-python` is **not** included in the `make test` aggregate. The pdf-generator it previously exercised has been deleted from the repository; the target now covers the remaining repo-native Python tooling.
 
 ## Dependency management
 

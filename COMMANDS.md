@@ -38,7 +38,7 @@ Legacy aliases are kept for compatibility.
 | **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary`                   | `test-python-cov` | `test-web-cov` | -              | -            |
 | **format**         | `format-go`                                                   | `format-python`   | `format-web`   | `format-docs`  | `format-mac` |
 | **lint**           | `lint-go`                                                     | `lint-python`     | `lint-web`     | -              | -            |
-| **clean**          | -                                                             | `clean-python`    | -              | -              | `clean-mac`  |
+| **clean**          | -                                                             | -                 | -              | -              | `clean-mac`  |
 
 **Cross-cutting formatting targets:**
 
@@ -46,7 +46,7 @@ Legacy aliases are kept for compatibility.
 
 ## Aggregate targets
 
-- `test`: Run all tests (Go + Python + Web + macOS)
+- `test`: Run aggregate tests (Go + Web + macOS)
 - `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
 - `lint`: Lint all code (Go + Python + Web); fails if formatting needed
 - `coverage`: Generate coverage reports for all components
@@ -65,12 +65,12 @@ Legacy aliases are kept for compatibility.
 
 ## Testing targets
 
-- `test`: Run all tests (Go + Python + Web + macOS)
+- `test`: Run aggregate tests (Go + Web + macOS)
 - `test-go`: Run Go unit tests
 - `test-go-cov`: Run Go tests with coverage
 - `test-go-coverage-summary`: Show coverage summary for cmd/ and internal/
-- `test-python`: Run Python PDF generator tests
-- `test-python-cov`: Run Python tests with coverage
+- `test-python`: Run Python script/tool tests
+- `test-python-cov`: Run Python script/tool tests with coverage
 - `test-web`: Run web tests (Jest)
 - `test-web-cov`: Run web tests with coverage
 - `test-mac`: Run macOS visualiser tests (XCTest)
@@ -141,14 +141,6 @@ Legacy aliases are kept for compatibility.
 - `migrate-force`: Force version (recovery, VERSION=N)
 - `migrate-baseline`: Set baseline version (VERSION=N)
 - `schema-sync`: Regenerate schema.sql from latest migrations
-
-## PDF generator targets
-
-- `pdf-report`: Generate PDF from config file
-- `pdf-config`: Create example configuration
-- `pdf-demo`: Run configuration demo
-- `pdf-test`: Run PDF tests (alias for test-python)
-- `pdf`: Convenience alias for pdf-report
 
 ## Utility targets
 

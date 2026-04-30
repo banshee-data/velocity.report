@@ -2,8 +2,8 @@
  * Canonical percentile colour palette for velocity.report charts.
  *
  * These hex values are the single authoritative source for the web frontend.
- * They must match DESIGN.md §3.3 and the Python PDF generator palette in
- * tools/pdf-generator/pdf_generator/core/config_manager.py.
+ * They must match DESIGN.md §3.3 and the Go report palette in
+ * internal/report/chart/palette.go.
  *
  * Legend order: p50, p85, p98, max, then count/auxiliary signals.
  */

@@ -499,7 +499,7 @@ _PIPELINE_STAGE_SURFACES = [
     ),
     (
         "l5tracks",
-        "internal/lidar/l5tracks/tracking.go",
+        "internal/lidar/l5tracks/tracking_metrics.go",
         "L5 TrackingMetrics (fragmentation, jitter)",
     ),
     (
@@ -508,9 +508,9 @@ _PIPELINE_STAGE_SURFACES = [
         "L6 Evaluation (quality metrics)",
     ),
     (
-        "l6objects",
-        "internal/lidar/l6objects/quality.go",
-        "L6 RunStatistics (12 fields)",
+        "l8analytics",
+        "internal/lidar/l8analytics/summary.go",
+        "L8 RunStatistics (12 fields)",
     ),
     (
         "l6objects",
@@ -786,9 +786,12 @@ _COMPUTED_STRUCT_TARGETS: list[tuple[str, list[str]]] = [
         [
             "NoiseCoverageMetrics",
             "TrainingDatasetSummary",
-            "RunStatistics",
             "TrackQualityMetrics",
         ],
+    ),
+    (
+        "internal/lidar/l8analytics/summary.go",
+        ["RunStatistics"],
     ),
     (
         "internal/lidar/l6objects/features.go",
@@ -799,7 +802,7 @@ _COMPUTED_STRUCT_TARGETS: list[tuple[str, list[str]]] = [
         ["FrameMetrics"],
     ),
     (
-        "internal/lidar/l5tracks/tracking.go",
+        "internal/lidar/l5tracks/tracking_metrics.go",
         ["TrackAlignmentMetrics"],
     ),
     (
@@ -845,6 +848,10 @@ def extract_computed_structs(root: Path) -> list[GoStruct]:
             pkg = Path(rel_path).parent.name
         for name in struct_names:
             fields = _extract_struct_fields(text, name)
+            if not fields:
+                raise ValueError(
+                    f"configured struct {name!r} has no extracted fields in {rel_path}"
+                )
             results.append(
                 GoStruct(
                     package=pkg,

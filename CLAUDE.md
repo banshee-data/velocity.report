@@ -76,14 +76,14 @@ pnpm run test -- -t "test name regex"
 ```bash
 make install-web      # Installs web deps via pnpm
 make install-docs     # Installs Eleventy deps for docs site
-make install-python   # DEPRECATED: local dev only (Python pdf-generator reference copy)
+make install-python   # Local dev Python tooling
 ```
 
 ### Other useful targets
 
 ```bash
 make proto-gen        # Regenerate Go + Swift protobuf stubs
-make pdf-report CONFIG=config.json   # Generate a PDF report (Go pipeline)
+go run ./cmd/radar pdf --config report.json --db sensor_data.db --output ./reports
 make test-go-cov      # Go tests with coverage (→ coverage.html)
 ```
 

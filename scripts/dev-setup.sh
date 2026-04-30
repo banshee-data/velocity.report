@@ -399,8 +399,8 @@ print_next_steps() {
 
     if [ "$SKIP_GO" = false ]; then
         echo -e "${BLUE}Go Server:${NC}"
-        echo "  make build          # Build binaries"
-        echo "  make run            # Run server (requires sensors)"
+        echo "  make build-radar-local  # Build local radar binary"
+        echo "  make dev-go             # Run local server (radar disabled)"
         echo "  make test           # Run tests"
         echo ""
     fi
@@ -408,7 +408,7 @@ print_next_steps() {
     if [ "$SKIP_PYTHON" = false ]; then
         echo -e "${BLUE}Python Tooling:${NC}"
         echo "  source .venv/bin/activate"
-        echo "  make test-python    # Run Python script tests"
+        echo "  make test-python    # Run Python script/tool tests"
         echo ""
     fi
 
@@ -426,7 +426,7 @@ print_next_steps() {
     echo "  ARCHITECTURE.md     # System architecture"
     echo "  CONTRIBUTING.md     # Development guide"
     echo "  DEBUGGING.md        # Common issues"
-    echo "  PERFORMANCE.md      # Performance tuning"
+    echo "  MAGIC_NUMBERS.md    # Tunable constants and thresholds"
     echo ""
 
     echo -e "${BLUE}Code Formatting:${NC}"

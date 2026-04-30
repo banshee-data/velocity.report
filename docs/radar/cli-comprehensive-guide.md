@@ -391,10 +391,10 @@ backfill_ring_elevations --db sensor_data.db
 
 **Testing Targets (5):**
 
-- `test` - Run all tests (Go + Web)
+- `test` - Run aggregate tests (Go + Web + macOS)
 - `test-go` - Go unit tests only
-- `test-python` - Python tests
-- `test-python-cov` - Python tests with coverage
+- `test-python` - Python script/tool tests
+- `test-python-cov` - Python script/tool tests with coverage
 - `test-web` - Web tests
 
 **Code Quality Targets (8):**
@@ -426,24 +426,12 @@ backfill_ring_elevations --db sensor_data.db
 - `deploy-health` - Check remote health
 - `setup-radar` - Setup radar hardware
 
-**PDF/Report Targets (5):**
-
-- `pdf-report` - Generate PDF report
-- `pdf-config` - Create PDF config template
-- `pdf-test` - Test PDF generation
-- `pdf-demo` - Generate demo report
-- `pdf` - Alias for pdf-report
-
 **Installation Targets (4):**
 
 - `install-python` - Install Python dependencies
 - `install-web` - Install web dependencies
 - `install-docs` - Install docs dependencies
 - `ensure-python-tools` - Ensure Python formatting tools
-
-**Cleanup Targets (1):**
-
-- `clean-python` - Clean Python artifacts
 
 **Monitoring/Logging Targets (2):**
 
