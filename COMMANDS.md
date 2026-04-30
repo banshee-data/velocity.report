@@ -88,9 +88,18 @@ Legacy aliases are kept for compatibility.
 
 ## Protobuf code generation
 
+Bootstrap the pinned toolchain once before generating:
+
+```bash
+./scripts/install-proto-tooling.sh
+```
+
 - `proto-gen`: Generate protobuf stubs for all languages
-- `proto-gen-go`: Generate Go protobuf stubs
-- `proto-gen-swift`: Generate Swift protobuf stubs (macOS visualiser)
+- `proto-gen-go`: Generate Go stubs (protoc-gen-go + protoc-gen-go-grpc required)
+- `proto-gen-swift`: Generate Swift stubs (protoc-gen-swift + protoc-gen-grpc-swift-2 required)
+
+`make build-mac` and `make test-mac` call `make proto-gen-swift` automatically.
+Tool versions are pinned in `scripts/install-proto-tooling.sh`.
 
 ## Deployment targets (removed)
 
