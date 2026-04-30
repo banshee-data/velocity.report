@@ -64,6 +64,9 @@ image/stage-velocity/03-velocity-config/files/*
 *.img.xz
 *.img.xz.sha256
 
+# Legacy local leftovers from the removed Python PDF generator.
+tools/pdf-generator/
+
 # =============================================================================
 # Database Files
 # =============================================================================
