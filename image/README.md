@@ -62,7 +62,9 @@ image/
     │   ├── 00-run.sh
     │   └── files/
     │       └── velocity-update              # Redirect stub (prints "use velocity-ctl upgrade")
-    ├── 02-velocity-config/         # User, service, serial, udev
+    ├── 02-velocity-python/         # Report output directory and velocity user
+    │   └── 00-run.sh
+    ├── 03-velocity-config/         # User, service, serial, udev
     │   ├── 00-run.sh
     │   └── files/
     │       ├── 99-velocity-report.rules
