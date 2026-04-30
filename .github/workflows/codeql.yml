@@ -7,7 +7,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   schedule:
-    # Weekly scan on Saturday at 04:17 UTC (staggered to avoid peak load)
     - cron: "17 4 * * 6"
 
 permissions:
@@ -33,7 +32,7 @@ jobs:
           - language: python
             build-mode: none
           - language: swift
-            build-mode: autobuild
+            build-mode: manual
 
     steps:
       - name: Checkout code
@@ -53,6 +52,17 @@ jobs:
       - name: Autobuild
         if: matrix.build-mode == 'autobuild'
         uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
+
+      - name: Build Swift app for CodeQL
+        if: matrix.language == 'swift'
+        working-directory: tools/visualiser-macos
+        run: |
+          xcodebuild \
+            -project VelocityVisualiser.xcodeproj \
+            -scheme VelocityVisualiser \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
