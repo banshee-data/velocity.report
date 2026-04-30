@@ -442,7 +442,7 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
 
 
 # ---------------------------------------------------------------------------
-# §11  PDF generator consumers (Python)
+# §11  PDF report consumers (current pipeline)
 # ---------------------------------------------------------------------------
 
 _PY_URL_RE = re.compile(
@@ -455,7 +455,7 @@ _PY_FSTRING_URL_RE = re.compile(
 
 
 def extract_pdf_consumers(root: Path) -> list[ExternalConsumer]:
-    pdf_dir = root / "tools" / "pdf-generator" / "pdf_generator" / "core"
+    pdf_dir = root / "internal" / "report"
     if not pdf_dir.is_dir():
         return []
     results: list[ExternalConsumer] = []
@@ -840,7 +840,7 @@ def print_text_report(inv: MatrixInventory) -> None:
         print(f"  {e.binary:<25s}  {e.location}")
     print(f"  Total: {len(inv.cmd_entries)}")
 
-    _header("PDF Generator Consumers (Python)", "§11")
+    _header("PDF Report Consumers", "§11")
     for c in inv.pdf_consumers:
         print(f"  {c.file}")
         for ep in c.endpoints:
@@ -926,7 +926,7 @@ _SECTION_GROUPS: list[dict[str, object]] = [
         "focus": (
             "Trace every HTTP endpoint to determine which surfaces consume it. "
             "Check Go handler → DB calls, web/src fetch() calls, "
-            "tools/pdf-generator API client, tools/visualiser-macos HTTP calls."
+            "internal/report pipeline call sites, tools/visualiser-macos HTTP calls."
         ),
     },
     {
@@ -946,7 +946,7 @@ _SECTION_GROUPS: list[dict[str, object]] = [
         "focus": (
             "Trace every table and column. DB is always ✅. "
             "Check which columns appear in HTTP JSON responses (Web), "
-            "PDF generator queries (PDF), or gRPC/Swift calls (Mac). "
+            "PDF reporting queries (PDF), or gRPC/Swift calls (Mac). "
             "Flag deprecated columns as 🗑️."
         ),
     },

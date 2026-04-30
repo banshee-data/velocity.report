@@ -387,21 +387,6 @@ setup_database() {
     fi
 }
 
-# Create example configs
-create_example_configs() {
-    print_step "Creating example configuration files"
-
-    if [ ! -f "tools/pdf-generator/config.example.json" ]; then
-        source .venv/bin/activate
-        cd tools/pdf-generator
-        run_with_log "Generating config.example.json" python -m pdf_generator.cli.create_config --output config.example.json
-        cd ../..
-        deactivate
-    else
-        print_success "config.example.json already exists"
-    fi
-}
-
 # Print next steps
 print_next_steps() {
     echo ""
@@ -421,12 +406,9 @@ print_next_steps() {
     fi
 
     if [ "$SKIP_PYTHON" = false ]; then
-        echo -e "${BLUE}Python PDF Generator:${NC}"
+        echo -e "${BLUE}Python Tooling:${NC}"
         echo "  source .venv/bin/activate"
-        echo "  cd tools/pdf-generator"
-        echo "  python -m pdf_generator.cli.create_config --output my-config.json"
-        echo "  # Edit my-config.json with your values"
-        echo "  python internal/report/query_data/get_stats.py my-config.json"
+        echo "  make test-python    # Run Python script tests"
         echo ""
     fi
 
@@ -487,9 +469,6 @@ main() {
 
     # Setup database
     setup_database
-
-    # Create example configs
-    create_example_configs
 
     # Print next steps
     print_next_steps

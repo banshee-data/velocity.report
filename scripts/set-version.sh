@@ -43,9 +43,6 @@ Examples:
   # Update only web frontend
   $0 0.5.0 --web
 
-  # Update only PDF generator
-  $0 0.5.0 --pdf
-
   # Update only macOS visualiser
   $0 0.5.0 --mac
 
