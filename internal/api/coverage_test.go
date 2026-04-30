@@ -581,10 +581,10 @@ func TestDownloadReport_PDFFileNotFound(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Set up a custom PDF directory
+	// Set up a custom report output directory.
 	tempDir := t.TempDir()
-	os.Setenv("PDF_GENERATOR_DIR", tempDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tempDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
 	// Create a report record pointing to a non-existent file
 	report := &db.SiteReport{
@@ -617,10 +617,10 @@ func TestDownloadReport_Success(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Set up a custom PDF directory with a test file
+	// Set up a custom report output directory with a test file.
 	tempDir := t.TempDir()
-	os.Setenv("PDF_GENERATOR_DIR", tempDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tempDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
 	// Create output directory and test PDF file
 	outputDir := filepath.Join(tempDir, "output")
@@ -673,10 +673,10 @@ func TestDownloadReport_ZIPSuccess(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Set up a custom PDF directory with test files
+	// Set up a custom report output directory with test files.
 	tempDir := t.TempDir()
-	os.Setenv("PDF_GENERATOR_DIR", tempDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tempDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
 	// Create output directory and test files
 	outputDir := filepath.Join(tempDir, "output")
@@ -730,8 +730,8 @@ func TestDownloadReport_PathTraversal(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	tempDir := t.TempDir()
-	os.Setenv("PDF_GENERATOR_DIR", tempDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tempDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
 	// Create report with malicious path
 	report := &db.SiteReport{
@@ -766,8 +766,8 @@ func TestHandleReports_ListWithFilename(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	tempDir := t.TempDir()
-	os.Setenv("PDF_GENERATOR_DIR", tempDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tempDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
 	// Create output directory and test files
 	outputDir := filepath.Join(tempDir, "output")
@@ -1120,14 +1120,6 @@ func TestGenerateReport_WithValidSiteAndConfigPeriod(t *testing.T) {
 	if err := dbInst.CreateSiteConfigPeriod(period); err != nil {
 		t.Fatalf("Failed to create period: %v", err)
 	}
-
-	// Mock the PDF generator - use /usr/bin/true on macOS, /bin/true on Linux
-	truePath := "/usr/bin/true"
-	if _, err := os.Stat(truePath); os.IsNotExist(err) {
-		truePath = "/bin/true" // Fallback for Linux
-	}
-	os.Setenv("PDF_GENERATOR_PYTHON", truePath)
-	defer os.Unsetenv("PDF_GENERATOR_PYTHON")
 
 	body := map[string]interface{}{
 		"start_date":         "2024-01-01",
@@ -1609,7 +1601,7 @@ func TestHandleReports_DownloadPDF(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Create temp directory structure for PDF generator
+	// Create temp report output directory structure.
 	tmpDir := t.TempDir()
 	outputDir := filepath.Join(tmpDir, "output")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -1622,11 +1614,11 @@ func TestHandleReports_DownloadPDF(t *testing.T) {
 		t.Fatalf("Failed to create test PDF: %v", err)
 	}
 
-	// Set PDF_GENERATOR_DIR to the temp directory
-	os.Setenv("PDF_GENERATOR_DIR", tmpDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	// Set VELOCITY_REPORT_OUTPUT_DIR to the temp directory
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tmpDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
-	// Create site and report with relative filepath (relative to PDF_GENERATOR_DIR)
+	// Create site and report with relative filepath under the report output root.
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
 	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
@@ -1749,14 +1741,14 @@ func TestSendCommandHandler_EmptyCommand(t *testing.T) {
 	}
 }
 
-// TestGetPDFGeneratorDir_Override tests PDF generator dir with env override
-func TestGetPDFGeneratorDir_Override(t *testing.T) {
+// TestGetReportOutputRoot_Override tests report output root with env override.
+func TestGetReportOutputRoot_Override(t *testing.T) {
 	// Set environment variable
 	tmpDir := t.TempDir()
-	os.Setenv("PDF_GENERATOR_DIR", tmpDir)
-	defer os.Unsetenv("PDF_GENERATOR_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tmpDir)
+	defer os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
-	dir, err := getPDFGeneratorDir()
+	dir, err := getReportOutputRoot()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -1766,17 +1758,16 @@ func TestGetPDFGeneratorDir_Override(t *testing.T) {
 	}
 }
 
-// TestGetPDFGeneratorDir_Default tests PDF generator dir without override
-func TestGetPDFGeneratorDir_Default(t *testing.T) {
-	os.Unsetenv("PDF_GENERATOR_DIR")
+// TestGetReportOutputRoot_Default tests report output root without override.
+func TestGetReportOutputRoot_Default(t *testing.T) {
+	os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 
-	dir, err := getPDFGeneratorDir()
+	dir, err := getReportOutputRoot()
 
 	// May succeed or fail depending on whether relative path exists
 	// Just ensure it doesn't panic and returns a reasonable result
 	if err != nil {
-		// Expected if tools/pdf-generator doesn't exist relative to CWD
-		t.Logf("getPDFGeneratorDir returned error (expected in test env): %v", err)
+		t.Logf("getReportOutputRoot returned error: %v", err)
 	} else if dir == "" {
 		t.Error("Expected non-empty directory path")
 	}

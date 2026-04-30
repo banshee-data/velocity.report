@@ -6,7 +6,7 @@ argument-hint: "[task-group: http | grpc | db | pipeline | tuning | all]"
 
 # Skill: trace-matrix
 
-Maintain `data/structures/MATRIX.md`: the canonical mapping of every backend surface (HTTP endpoints, gRPC methods, DB tables/columns, pipeline stages, structs, tuning params, cmd/ entry points, debug routes) to four consumer surfaces: **DB**, **Web**, **PDF**, **Mac**.
+Maintain `data/structures/MATRIX.md`: the canonical mapping of every backend surface (HTTP endpoints, gRPC methods, DB tables/columns, pipeline stages, structs, tuning params, cmd/ entry points, debug routes) to three consumer surfaces: **DB**, **Web**, **Mac**.
 
 ## Usage
 
@@ -30,11 +30,13 @@ Without an argument, process all task groups sequentially (may require multiple 
 python3 scripts/list-matrix-fields.py --checklist
 ```
 
-This scans Go, Proto, Python, and Swift source files and outputs a markdown checklist with **533+ items** across **5 task groups**, each sized for one context window.
+This scans Go, Proto, Swift, SQL, and selected repo metadata and outputs a markdown checklist across **5 task groups**, each sized for one context window.
 
 ### 2. Read the current matrix
 
 Read `data/structures/MATRIX.md` to understand existing surface marks. This file is the ground truth to update.
+
+`§11` is a reference inventory of Go report pipeline files only. Do not assign DB/Web/Mac surface marks to that section.
 
 ### 3. Trace one task group at a time
 
@@ -45,18 +47,17 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 1. For each endpoint, read the Go handler function
 2. Check DB: does the handler call any `db.*` or `store.*` method?
 3. Check Web: search `web/src/` for `fetch()` calls to this path
-4. Check PDF: search `tools/pdf-generator/` for API client calls to this path
-5. Check Mac: search `tools/visualiser-macos/` for HTTP calls to this path
+4. Check Mac: search `tools/visualiser-macos/` for HTTP calls to this path
 
 Key files:
 
 - `internal/api/server.go`: radar HTTP handlers
-- `internal/lidar/monitor/webserver.go`: LiDAR HTTP handlers
-- `internal/lidar/monitor/track_api.go`: track API handlers
-- `internal/lidar/monitor/run_track_api.go`: run/track API handlers
+- `internal/lidar/server/routes.go`: LiDAR route registration and core HTTP handlers
+- `internal/lidar/server/track_api.go`: track API handlers
+- `internal/lidar/server/run_track_api.go`: run/track API handlers
+- `internal/lidar/server/scene_api.go`: scene and evaluation handlers
 - `internal/api/lidar_labels.go`: label API handlers
 - `web/src/lib/api/`: Svelte fetch calls
-- `tools/pdf-generator/pdf_generator/core/api_client.py`: PDF API client
 - `tools/visualiser-macos/VelocityVisualiser/`: Mac HTTP calls
 
 #### gRPC + proto surfaces (§3, §14)
@@ -72,7 +73,7 @@ Key files:
 
 - `proto/velocity_visualiser/v1/visualiser.proto`
 - `internal/lidar/grpc/`: Go gRPC server implementation
-- `tools/visualiser-macos/VelocityVisualiser/GRPCClient.swift`
+- `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`
 
 #### Database schema surfaces (§4, §5)
 
@@ -80,16 +81,14 @@ Key files:
 
 1. DB is always ✅ for every table and column
 2. For each column, check if it appears in JSON serialisation (→ Web)
-3. Check if PDF generator queries it (→ PDF)
-4. Check if it appears in gRPC proto or Swift code (→ Mac)
-5. Flag deprecated columns (p50/p85/p95 speed percentiles) as 🗑️
+3. Check if it appears in gRPC proto or Swift code (→ Mac)
+4. Flag deprecated columns (p50/p85/p95 speed percentiles) as 🗑️
 
 Key files:
 
 - `internal/db/schema.sql`: table definitions
 - `internal/lidar/storage/sqlite/`: Go DB access layer
 - `internal/api/`: JSON serialisation in HTTP handlers
-- `tools/pdf-generator/pdf_generator/core/api_client.py`
 
 #### Pipeline + structs (§6, §7, §8, §9, §13)
 
@@ -120,7 +119,7 @@ Key files:
 Key files:
 
 - `internal/config/tuning.go`: tuning parameter definitions
-- `internal/lidar/monitor/chart_api.go`: ECharts endpoints
+- `internal/lidar/server/chart_api.go`: ECharts endpoints
 - `cmd/`: all binary entry points
 - `internal/db/db.go`: debug/admin route attachments
 
@@ -168,11 +167,6 @@ A mark can only be set if direct code evidence exists.
 
 The handler returns the field but only behind a query parameter, or the frontend does not yet consume it. Note the condition in the MATRIX notes column.
 
-### PDF ✅ requires
-
-1. Python API client in `tools/pdf-generator/` fetches the endpoint
-2. The field is used in the LaTeX template
-
 ### Mac ✅ requires
 
 1. Proto message field in `proto/velocity_visualiser/v1/visualiser.proto`
@@ -188,7 +182,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 ### Summary table counts
 
 - **Total column**: count rows in the corresponding MATRIX section.
-- **Per-surface columns**: count ✅ marks only. Do not count 🔶 or 📋.
+- **Per-surface columns**: count ✅ marks only in the DB, Web, and Mac columns. Do not count 🔶 or 📋.
 - After editing any section table, **recount from the table** and update the summary. Never propagate a number from a prior edit.
 
 ## Anti-patterns: never do these

@@ -15,7 +15,6 @@
 
 # Exclude non-build internal artefacts from Docker context.
 internal/lidar/perf/
-internal/api/tools/pdf-generator/output/
 internal/db/*.db
 internal/db/schema.sql.bak
 cmd/**/*_test.go

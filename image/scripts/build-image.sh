@@ -224,8 +224,8 @@ trap cleanup EXIT
 TEXLIVE_DEST="$IMAGE_DIR/stage-velocity/00-install-packages/files"
 mkdir -p "$TEXLIVE_DEST"
 cp "$REPO_ROOT/scripts/build-minimal-texlive.sh" "$TEXLIVE_DEST/"
-cp "$REPO_ROOT/tools/pdf-generator/tex/dependency-manifest.txt" "$TEXLIVE_DEST/"
-cp "$REPO_ROOT/tools/pdf-generator/tex/velocity-report.ini" "$TEXLIVE_DEST/"
+cp "$REPO_ROOT/internal/report/tex/dependency-manifest.txt" "$TEXLIVE_DEST/"
+cp "$REPO_ROOT/internal/report/tex/velocity-report.ini" "$TEXLIVE_DEST/"
 log_info "Copied minimal TeX Live build files"
 
 CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"

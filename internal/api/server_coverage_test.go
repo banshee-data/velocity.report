@@ -630,11 +630,11 @@ func TestDownloadReport_InvalidFileFormat(t *testing.T) {
 	}
 }
 
-// TestGetPDFGeneratorDir_ReturnsPath tests successful directory resolution
-func TestGetPDFGeneratorDir_ReturnsPath(t *testing.T) {
-	dir, err := getPDFGeneratorDir()
+// TestGetReportOutputRoot_ReturnsPath tests successful directory resolution
+func TestGetReportOutputRoot_ReturnsPath(t *testing.T) {
+	dir, err := getReportOutputRoot()
 	if err != nil {
-		t.Fatalf("getPDFGeneratorDir() failed: %v", err)
+		t.Fatalf("getReportOutputRoot() failed: %v", err)
 	}
 
 	if dir == "" {
@@ -1729,24 +1729,24 @@ func TestListEvents_ValidWithParams(t *testing.T) {
 	}
 }
 
-// TestGetPDFGeneratorDir_EnvOverride tests getPDFGeneratorDir with env var set.
-func TestGetPDFGeneratorDir_EnvOverride(t *testing.T) {
-	old := os.Getenv("PDF_GENERATOR_DIR")
-	os.Setenv("PDF_GENERATOR_DIR", "/tmp/test-pdf-dir")
+// TestGetReportOutputRoot_EnvOverride tests getReportOutputRoot with env var set.
+func TestGetReportOutputRoot_EnvOverride(t *testing.T) {
+	old := os.Getenv("VELOCITY_REPORT_OUTPUT_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", "/tmp/test-report-dir")
 	defer func() {
 		if old == "" {
-			os.Unsetenv("PDF_GENERATOR_DIR")
+			os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 		} else {
-			os.Setenv("PDF_GENERATOR_DIR", old)
+			os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", old)
 		}
 	}()
 
-	dir, err := getPDFGeneratorDir()
+	dir, err := getReportOutputRoot()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if dir != "/tmp/test-pdf-dir" {
-		t.Errorf("Expected /tmp/test-pdf-dir, got %s", dir)
+	if dir != "/tmp/test-report-dir" {
+		t.Errorf("Expected /tmp/test-report-dir, got %s", dir)
 	}
 }
 
@@ -1836,14 +1836,14 @@ func TestDownloadReport_SuccessfulPDFDownload(t *testing.T) {
 		t.Fatalf("create report: %v", err)
 	}
 
-	// Set PDF_GENERATOR_DIR to point to our temp directory
-	old := os.Getenv("PDF_GENERATOR_DIR")
-	os.Setenv("PDF_GENERATOR_DIR", tmpDir)
+	// Set VELOCITY_REPORT_OUTPUT_DIR to point to our temp directory.
+	old := os.Getenv("VELOCITY_REPORT_OUTPUT_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", tmpDir)
 	defer func() {
 		if old == "" {
-			os.Unsetenv("PDF_GENERATOR_DIR")
+			os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 		} else {
-			os.Setenv("PDF_GENERATOR_DIR", old)
+			os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", old)
 		}
 	}()
 

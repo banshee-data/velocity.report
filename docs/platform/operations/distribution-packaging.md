@@ -58,7 +58,7 @@ It is a purpose-built on-device management tool with no SSH surface.
 | **Main Server**              | Go            | [cmd/radar/](../../../cmd/radar)                                                   | Manual build + setup script       |
 | **Migrate CLI**              | Go subcommand | [internal/db/migrate_cli.go](../../../internal/db/migrate_cli.go)                  | Part of main binary               |
 | **Sweep Tool**               | Go            | [cmd/sweep/](../../../cmd/sweep)                                                   | Manual build (`make build-tools`) |
-| **PDF Generator**            | Python        | [tools/pdf-generator/](../../../tools/pdf-generator)                               | PYTHONPATH + Makefile             |
+| **PDF Generator**            | Go            | [internal/report/](../../../internal/report)                                       | Built into main binary            |
 | **Transit Backfill**         | Go            | `cmd/transit-backfill/`                                                            | Manual `go build`                 |
 | **Ring Elevations Backfill** | Go            | [cmd/tools/backfill_ring_elevations/](../../../cmd/tools/backfill_ring_elevations) | Manual `go build`                 |
 | **Grid Heatmap**             | Python        | [tools/grid-heatmap/](../../../tools/grid-heatmap)                                 | Manual invocation                 |
@@ -87,10 +87,6 @@ It is a purpose-built on-device management tool with no SSH surface.
   └── velocity-report-backfill-rings     # Utility binary (~15 MB)
 
 /usr/local/share/velocity-report/
-  ├── python/                            # Python packages
-  │   ├── .venv/                         # Virtual environment
-  │   ├── pdf_generator/
-  │   └── grid_heatmap/
   └── docs/
 
 /var/lib/velocity-report/                # Data directory
@@ -103,22 +99,6 @@ It is a purpose-built on-device management tool with no SSH surface.
   └── config.yaml
 ```
 
-## Python environment strategy
-
-Python scripts need dependencies (matplotlib, PyLaTeX, etc.). Solution:
-virtual environment in a shared location.
-
-```
-/usr/local/share/velocity-report/python/.venv/
-```
-
-The `velocity-report pdf` subcommand discovers Python via a fallback chain:
-
-1. `/usr/local/share/velocity-report/python/.venv/bin/python3`
-2. `$VELOCITY_REPORT_PYTHON` environment variable
-3. System `python3`
-4. Error with helpful message
-
 ## Command structure
 
 ### Main binary: `velocity-report`
@@ -127,7 +107,7 @@ The `velocity-report pdf` subcommand discovers Python via a fallback chain:
 velocity-report                  # Start server (default, backward compat)
 velocity-report serve            # Start server (explicit)
 velocity-report migrate up       # Database migrations (existing)
-velocity-report pdf config.json  # Generate PDF report (calls Python)
+velocity-report pdf config.json  # Generate PDF report
 velocity-report backfill ...     # Transit backfill
 velocity-report version          # Show version info
 velocity-report help             # Show help

@@ -193,7 +193,7 @@ when compiling a velocity.report PDF.
    ```
 3. Parse output to extract unique `.sty`, `.cls`, `.def`, `.fd`, `.tfm`, `.cfg`
    files
-4. Save the list as [tools/pdf-generator/tex/dependency-manifest.txt](../../tools/pdf-generator/tex/dependency-manifest.txt)
+4. Save the list as `tools/pdf-generator/tex/dependency-manifest.txt`
 
 **Deliverable**: `dependency-manifest.txt`; one file path per line, relative to
 the TeX Live root.
@@ -224,7 +224,7 @@ Makefile target.
 
 **Steps**:
 
-1. Create [tools/pdf-generator/tex/velocity-report.ini](../../tools/pdf-generator/tex/velocity-report.ini): the format source:
+1. Create `tools/pdf-generator/tex/velocity-report.ini`: the format source:
    ```tex
    % velocity-report.ini: custom XeLaTeX format for velocity.report PDFs
    % Build: xelatex -ini velocity-report.ini
@@ -255,7 +255,7 @@ modes.
 
 #### 4.1 New module: `tex_environment.py`
 
-Create [tools/pdf-generator/pdf_generator/core/tex_environment.py](../../tools/pdf-generator/pdf_generator/core/tex_environment.py) with a `TexEnvironment` dataclass and a `resolve_tex_environment()` factory function.
+Create `tools/pdf-generator/pdf_generator/core/tex_environment.py` with a `TexEnvironment` dataclass and a `resolve_tex_environment()` factory function.
 
 **`TexEnvironment` fields:**
 
@@ -434,6 +434,6 @@ the tree is hand-curated or TinyTeX-managed.
 - [TeX format files: TeX FAQ](https://texfaq.org/FAQ-fmt)
 - [PyLaTeX documentation](https://jeltef.github.io/PyLaTeX/current/)
 - [TinyTeX: Yihui Xie](https://yihui.org/tinytex/)
-- [tools/pdf-generator/pdf_generator/core/document_builder.py](../../tools/pdf-generator/pdf_generator/core/document_builder.py): package list
-- [tools/pdf-generator/pdf_generator/core/pdf_generator.py](../../tools/pdf-generator/pdf_generator/core/pdf_generator.py): compiler invocation
-- [tools/pdf-generator/pdf_generator/core/dependency_checker.py](../../tools/pdf-generator/pdf_generator/core/dependency_checker.py): LaTeX checks
+- `tools/pdf-generator/pdf_generator/core/document_builder.py`: package list
+- `tools/pdf-generator/pdf_generator/core/pdf_generator.py`: compiler invocation
+- `tools/pdf-generator/pdf_generator/core/dependency_checker.py`: LaTeX checks

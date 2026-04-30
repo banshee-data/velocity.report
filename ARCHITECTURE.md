@@ -226,30 +226,30 @@ see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
            │                       │                           │
            ▼                       ▼                           ▼
 ┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
-│    WEB PROJECT      │ │   PYTHON PROJECT    │ │  macOS VISUALISER   │
+│    WEB PROJECT      │ │   GO PDF PIPELINE   │ │  macOS VISUALISER   │
 ├─────────────────────┤ ├─────────────────────┤ ├─────────────────────┤
-│  web/               │ │  tools/pdf-generator│ │  tools/visualiser-  │
-│  Svelte Frontend    │ │  CLI Tools          │ │  macos/             │
-│  • TypeScript       │ │  • create_config    │ │                     │
-│  • Vite             │ │  • demo             │ │  Swift/SwiftUI App  │
-│  • pnpm             │ │                     │ │  • Metal GPU render │
-│                     │ │  Core Modules       │ │  • grpc-swift client│
-│  API Client         │ │  • api_client       │ │                     │
-│  • fetch/axios      │ │  • chart_builder    │ │  Features:          │
-│                     │ │  • table_builders   │ │  • 3D point clouds  │
-│                     │ │  • doc_builder      │ │  • Track box/trail  │
-│                     │ │                     │ │  • Playback control │
-│                     │ │  LaTeX Compiler     │ │  • Camera orbit/pan │
-│                     │ │  • XeLaTeX          │ │  • Overlay toggles  │
-│                     │ │  • matplotlib       │ │                     │
+│  web/               │ │  internal/report/   │ │  tools/visualiser-  │
+│  Svelte Frontend    │ │                     │ │  macos/             │
+│  • TypeScript       │ │  • Direct DB query  │ │                     │
+│  • Vite             │ │  • SVG chart gen    │ │  Swift/SwiftUI App  │
+│  • pnpm             │ │  • text/template    │ │  • Metal GPU render │
+│                     │ │    LaTeX            │ │  • grpc-swift client│
+│  API Client         │ │  • xelatex          │ │                     │
+│  • fetch/axios      │ │  • rsvg-convert     │ │  Features:          │
+│                     │ │                     │ │  • 3D point clouds  │
+│                     │ │  PDF Output         │ │  • Track box/trail  │
+│                     │ │  output/*.pdf       │ │  • Playback control │
+│                     │ │                     │ │  • Camera orbit/pan │
+│                     │ │                     │ │  • Overlay toggles  │
+│                     │ │                     │ │                     │
 │                     │ │                     │ │  Modes:             │
-│                     │ │  PDF Output         │ │  • Live streaming   │
-│                     │ │  output/*.pdf       │ │  • Replay .vrlog    │
+│                     │ │                     │ │  • Live streaming   │
+│                     │ │                     │ │  • Replay .vrlog    │
 │                     │ │                     │ │  • Synthetic test   │
 │  Runtime            │ │  Runtime            │ │                     │
-│  • Dev: :5173       │ │  • CLI on demand    │ │  Runtime            │
-│  • Prod: Go static  │ │  • Python 3.9+      │ │  • macOS 14+ (M1+)  │
-│                     │ │  • Virtual env      │ │  • Metal GPU        │
+│  • Dev: :5173       │ │  • In-process       │ │  Runtime            │
+│  • Prod: Go static  │ │  • No extra runtime │ │  • macOS 14+ (M1+)  │
+│                     │ │                     │ │  • Metal GPU        │
 └─────────────────────┘ └─────────────────────┘ └─────────────────────┘
 ```
 
@@ -338,13 +338,9 @@ Invoked via `POST /api/generate_report` or `velocity-report pdf --config cfg.jso
 - `xelatex` — TeX compilation (vendored minimal TeX Live tree in `/opt/velocity-report/texlive`)
 - `rsvg-convert` — SVG → PDF conversion for chart figures (`librsvg2-bin`)
 
-### Python PDF generator (deprecated — retained for reference)
+### Python PDF generator (removed)
 
-**Location**: `tools/pdf-generator/` **Status**: Deprecated; removed from deployed images in v0.5.
-
-The Python pipeline (matplotlib charts, PyLaTeX document assembly) is superseded by the Go
-report pipeline above. The directory is retained in the repository until v0.6.
-See `tools/pdf-generator/README.md` for the deprecation notice.
+The Python PDF pipeline (matplotlib charts, PyLaTeX document assembly) was removed in v0.5 and replaced by the native Go pipeline above. The `tools/pdf-generator/` directory was deleted from the repository.
 
 ### Web frontend
 
@@ -534,9 +530,6 @@ changes over time. Key aspects:
   - Transit worker → sessionize `radar_data` → `radar_data_transits`
   - LiDAR background grid → `lidar_bg_snapshot`
   - [PLANNED] LiDAR tracking → `lidar_objects`
-- **Python PDF Generator** (deprecated): Read-only (via HTTP API)
-  - Queries transit data from 3 sources for comparison reports
-  - Aggregates statistics across detection methods
 - **Web Frontend**: Read-only (via HTTP API)
   - Real-time dashboard showing all 3 transit sources
 
@@ -665,15 +658,12 @@ Three Transit Sources:
 ### PDF report generation
 
 ```
-1. User → Run create_config.py → Generate config.json
-2. User → Run demo.py with config.json
-3. demo.py → api_client.py → HTTP GET /api/radar_stats → Go Server
-4. Go Server → Query SQLite → Return JSON
-5. api_client.py → Parse JSON → Pass to chart_builder, table_builders
-6. chart_builder → matplotlib → PNG charts
-7. table_builders → PyLaTeX → LaTeX tables
-8. document_builder → Combine → LaTeX document
-9. XeLaTeX → Compile → PDF output
+1. User → POST /api/generate_report (or: velocity-report pdf config.json)
+2. Go server → internal/report/report.go → Direct SQLite query
+3. internal/report/chart/*.go → SVG charts → rsvg-convert → PDF charts
+4. internal/report/tex/render.go → text/template → .tex file
+5. os/exec → xelatex → .pdf output
+6. archive/zip → .zip archive (tex + SVGs + PDF)
 ```
 
 ### Web visualisation
@@ -723,18 +713,6 @@ Synthetic Mode (Testing):
 | Serial     | github.com/tarm/serial  | -       | Sensor communication    |
 | Deployment | systemd                 | -       | Service management      |
 | Build      | Make                    | -       | Build automation        |
-
-### Python PDF generator (deprecated)
-
-| Component      | Technology | Version | Purpose             |
-| -------------- | ---------- | ------- | ------------------- |
-| Language       | Python     | 3.11+   | Report generation   |
-| Charts         | matplotlib | 3.9+    | Data visualisation  |
-| LaTeX          | PyLaTeX    | 1.4+    | Document generation |
-| HTTP           | requests   | 2.32+   | API client          |
-| Testing        | pytest     | 8.4+    | Test framework      |
-| Coverage       | pytest-cov | 7.0+    | Coverage reporting  |
-| LaTeX Compiler | XeLaTeX    | -       | PDF compilation     |
 
 ### Web frontend
 
@@ -916,17 +894,6 @@ rpc StopRecording(RecordingRequest) returns (RecordingStatus);
 - Tracks per frame: Up to 200
 - Latency: < 50ms end-to-end
 
-### Python ↔ LaTeX
-
-**Interface**: PyLaTeX → XeLaTeX subprocess
-
-**Process**:
-
-1. PyLaTeX generates `.tex` file
-2. `subprocess.run(['xelatex', ...])` compiles
-3. Retry logic for LaTeX errors
-4. Cleanup of intermediate files (`.aux`, `.log`)
-
 ## Data & evaluation
 
 ### VRLOG recording format
@@ -1033,11 +1000,6 @@ Developer Machine (macOS/Linux/Windows)
 Go Development:
 • ./app-local -dev (local build)
 • Mock sensors or test data
-
-Python Development:
-• tools/pdf-generator/ (PYTHONPATH method)
-• make pdf-test (532 tests)
-• make pdf-demo (interactive testing)
 
 Web Development:
 • pnpm dev (Vite dev server)

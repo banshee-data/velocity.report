@@ -52,6 +52,11 @@ Web UI → POST /api/generate_report (or CLI: velocity-report pdf)
   → Go: os/exec → xelatex → .pdf
 ```
 
+Generated report artifacts are stored under
+`VELOCITY_REPORT_OUTPUT_DIR` when set. Deployed images default to
+`/var/lib/velocity-report/reports`; local development defaults to
+`.tmp/reports` at the repository root.
+
 ## Package layout
 
 ```
@@ -157,23 +162,6 @@ embedded via `go:embed`. Use custom delimiters `<<` and `>>` (via
 | `vrMax`     | `#2d1e2f` | Maximum speed   |
 
 Font: Atkinson Hyperlegible (XeTeX `fontspec`).
-
-## Python modules to replace
-
-| Module                 | Lines | Replacement                                    |
-| ---------------------- | ----- | ---------------------------------------------- |
-| `chart_builder.py`     | ~900  | Go SVG chart package (`internal/report/chart`) |
-| `chart_saver.py`       | ~185  | Go SVG writer + optional SVG→PDF conversion    |
-| `pdf_generator.py`     | ~730  | Go template engine (`internal/report/tex`)     |
-| `document_builder.py`  | ~350  | Go LaTeX preamble template                     |
-| `report_sections.py`   | ~250  | Go section templates                           |
-| `table_builders.py`    | ~200  | Go LaTeX table templates                       |
-| `config_manager.py`    | ~530  | Go config struct (extend `ReportRequest`)      |
-| `api_client.py`        | ~150  | Direct DB query (no HTTP)                      |
-| `data_transformers.py` | ~200  | Go normalisation within chart package          |
-| `map_utils.py`         | ~300  | Go `encoding/xml` SVG manipulation             |
-| `zip_utils.py`         | ~80   | Go `archive/zip` (stdlib)                      |
-| `cli/main.py`          | ~60   | Go `pdf` subcommand                            |
 
 ## Relationship to other decisions
 

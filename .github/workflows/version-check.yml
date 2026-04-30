@@ -92,29 +92,6 @@ jobs:
             echo "::notice::Radar version updated: $OLD_VERSION → $NEW_VERSION"
           fi
 
-      - name: Check PDF generator version
-        id: pdf_version
-        run: |
-          echo "Checking PDF generator changes..."
-          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'tools/pdf-generator/' | grep -v -E '(test_.*\.py$|.*_test\.py$|conftest\.py$|/tests/)' | grep -q .; then
-            echo "pdf_changed=true" >> $GITHUB_OUTPUT
-
-            OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:tools/pdf-generator/pyproject.toml 2>/dev/null | grep '^version =' | cut -d'"' -f2 || echo "unknown")
-            NEW_VERSION=$(grep '^version =' tools/pdf-generator/pyproject.toml | cut -d'"' -f2)
-
-            echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
-            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-            if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
-              echo "pdf_version_unchanged=true" >> $GITHUB_OUTPUT
-              echo "::warning::PDF generator code changed but version unchanged: $NEW_VERSION"
-            else
-              echo "::notice::PDF generator version updated: $OLD_VERSION → $NEW_VERSION"
-            fi
-          else
-            echo "pdf_changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Check web frontend version
         id: web_version
         run: |
@@ -203,19 +180,6 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Other components
-          if [ "${{ steps.pdf_version.outputs.pdf_changed }}" = "true" ]; then
-            echo "## 📄 PDF Generator" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ steps.pdf_version.outputs.pdf_version_unchanged }}" = "true" ]; then
-              echo "⚠️ **Code changed but version unchanged:** ${{ steps.pdf_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-              echo "- Review changes and update `tools/pdf-generator/pyproject.toml` if needed" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ **Version Updated:** ${{ steps.pdf_version.outputs.old }} → ${{ steps.pdf_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
           if [ "${{ steps.web_version.outputs.web_changed }}" = "true" ]; then
             echo "## 🌐 Web Frontend" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -241,7 +205,6 @@ jobs:
           steps.api.outputs.api_removed == 'true' ||
           steps.cli.outputs.cli_breaking == 'true' ||
           steps.cli.outputs.cli_added == 'true' ||
-          steps.pdf_version.outputs.pdf_version_unchanged == 'true' ||
           steps.web_version.outputs.web_version_unchanged == 'true' ||
           (steps.radar_version.outputs.radar_version_unchanged == 'true' &&
            (steps.migrations.outputs.migration_added == 'true' ||
@@ -254,7 +217,6 @@ jobs:
             const cliBreaking = '${{ steps.cli.outputs.cli_breaking }}' === 'true';
             const cliAdded = '${{ steps.cli.outputs.cli_added }}' === 'true';
             const radarUnchanged = '${{ steps.radar_version.outputs.radar_version_unchanged }}' === 'true';
-            const pdfUnchanged = '${{ steps.pdf_version.outputs.pdf_version_unchanged }}' === 'true';
             const webUnchanged = '${{ steps.web_version.outputs.web_version_unchanged }}' === 'true';
 
             let breaking = [];
@@ -286,10 +248,6 @@ jobs:
               warnings.push('❌ **Radar version unchanged** - consider bumping version in `Makefile`');
             }
 
-            if (pdfUnchanged) {
-              warnings.push('❌ **PDF Generator code changed but version unchanged** - update `tools/pdf-generator/pyproject.toml`');
-            }
-
             if (webUnchanged) {
               warnings.push('❌ **Web Frontend code changed but version unchanged** - update `web/package.json`');
             }
@@ -297,9 +255,6 @@ jobs:
             // Always show version info if any component changed
             if ('${{ steps.radar_version.outputs.radar_version_changed }}' === 'true') {
               componentVersions.push('Radar: ${{ steps.radar_version.outputs.old }} → ${{ steps.radar_version.outputs.new }}');
-            }
-            if ('${{ steps.pdf_version.outputs.pdf_changed }}' === 'true' && !pdfUnchanged) {
-              componentVersions.push('PDF Generator: ${{ steps.pdf_version.outputs.old }} → ${{ steps.pdf_version.outputs.new }}');
             }
             if ('${{ steps.web_version.outputs.web_changed }}' === 'true' && !webUnchanged) {
               componentVersions.push('Web Frontend: ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}');

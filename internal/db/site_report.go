@@ -13,7 +13,7 @@ type SiteReport struct {
 	SiteID      int       `json:"site_id"`
 	StartDate   string    `json:"start_date"`   // YYYY-MM-DD
 	EndDate     string    `json:"end_date"`     // YYYY-MM-DD
-	Filepath    string    `json:"filepath"`     // Relative path from pdf-generator directory
+	Filepath    string    `json:"filepath"`     // Relative path from report output root
 	Filename    string    `json:"filename"`     // PDF filename
 	ZipFilepath *string   `json:"zip_filepath"` // Relative path to sources ZIP
 	ZipFilename *string   `json:"zip_filename"` // ZIP filename

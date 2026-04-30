@@ -27,11 +27,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: "3.12"
-
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -42,12 +37,6 @@ jobs:
         with:
           version: 10
 
-      - name: Install Python dependencies
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install --upgrade pip
-          .venv/bin/pip install -r requirements.txt
-
       - name: Install web dependencies
         run: cd web && pnpm install --frozen-lockfile
 
@@ -55,29 +44,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      # Step 1: Check and fix Python version consistency
-      - name: Check Python version consistency
-        id: python_version
-        run: |
-          echo "Checking Python version consistency..."
-          if ! bash ./scripts/check-python-version.sh; then
-            echo "needs_fix=true" >> $GITHUB_OUTPUT
-            echo "Python version mismatches found"
-          else
-            echo "needs_fix=false" >> $GITHUB_OUTPUT
-            echo "Python versions are consistent"
-          fi
-
-      - name: Fix Python version references
-        if: steps.python_version.outputs.needs_fix == 'true'
-        run: |
-          echo "Fixing Python version references..."
-          bash ./scripts/check-python-version.sh --fix
-          if [[ -n $(git status --porcelain) ]]; then
-            git add -A
-            git commit -m "[ci][py] update Python version references for CI compatibility"
-          fi
 
       # Step 2: Format Go code
       - name: Format Go code
@@ -90,18 +56,7 @@ jobs:
             git commit -m "[ci][go] auto-fix formatting (gofmt -s -w)"
           fi
 
-      # Step 3: Format Python code
-      - name: Format Python code
-        run: make format-python
-
-      - name: Commit Python formatting
-        run: |
-          if [[ -n $(git status --porcelain) ]]; then
-            git add -A
-            git commit -m "[ci][py] auto-fix formatting (black + ruff)"
-          fi
-
-      # Step 4: Format Web code
+      # Step 3: Format Web code
       - name: Format Web code
         run: make format-web
 
@@ -146,11 +101,9 @@ jobs:
 
             ## Changes
             This PR contains separate commits for each type of fix:
-            1. **Python version updates** (if needed): Updated Python version references for GitHub Actions compatibility
-            2. **Go formatting**: `make format-go` (gofmt -s -w)
-            3. **Python formatting**: `make format-python` (black + ruff --fix)
-            4. **Web formatting**: `make format-web` (prettier)
-            5. **Doc header metadata**: `check-doc-header-metadata.py --fix` (format normalisation and date key removal)
+            1. **Go formatting**: `make format-go` (gofmt -s -w)
+            2. **Web formatting**: `make format-web` (prettier)
+            3. **Doc header metadata**: `check-doc-header-metadata.py --fix` (format normalisation and date key removal)
 
             ## Why this PR exists
             CI lint jobs are advisory (non-blocking) to reduce friction for contributors.

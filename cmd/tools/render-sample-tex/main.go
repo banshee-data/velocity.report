@@ -1,8 +1,4 @@
-// render-sample-tex renders the Go report .tex template with sample data
-// approximating the Python reference fixture at
-// tools/pdf-generator/output/verification-test-4-205825_sources/
-// verification-test-4-205825_report.tex, so the two can be diffed to
-// identify drift between the Python and Go pipelines.
+// render-sample-tex renders the Go report .tex template with sample data.
 //
 // Usage:
 //
@@ -14,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/report/chart"
@@ -31,6 +29,10 @@ func main() {
 		30: 971, 35: 631, 40: 183, 45: 24, 50: 3,
 	}
 	histTex := tex.BuildHistogramTableTeX(buckets, 5.0, 5.0, 50.0, "mph")
+	fontDir, err := reportFontDir()
+	if err != nil {
+		log.Fatalf("resolve font dir: %v", err)
+	}
 
 	mk := func(y, m, d, H int, count int, p50, p85, p98, max float64) chart.TimeSeriesPoint {
 		return chart.TimeSeriesPoint{
@@ -65,12 +67,11 @@ func main() {
 	}
 
 	data := tex.TemplateData{
-		Location:   "Test Street, Test City",
-		Surveyor:   "Test Surveyor",
-		Contact:    "test@example.com",
-		SpeedLimit: 25,
-		Description: "Sample survey to demonstrate the Go-side PDF pipeline " +
-			"output against the Python reference fixture.",
+		Location:          "Test Street, Test City",
+		Surveyor:          "Test Surveyor",
+		Contact:           "test@example.com",
+		SpeedLimit:        25,
+		Description:       "Sample survey to demonstrate the Go-side PDF pipeline output.",
 		StartDate:         "2025-06-02",
 		EndDate:           "2025-06-04",
 		Timezone:          "US/Pacific",
@@ -83,7 +84,7 @@ func main() {
 		HoursCount:        22,
 		TimeSeriesChart:   "timeseries.pdf",
 		HistogramChart:    "histogram.pdf",
-		FontDir:           "/Users/david/code/velocity.report/tools/pdf-generator/pdf_generator/core/fonts",
+		FontDir:           fontDir,
 		HistogramTableTeX: histTex,
 		StatRows:          tex.BuildStatRows(pts, loc),
 		Source:            "radar_data_transits",
@@ -103,4 +104,21 @@ func main() {
 		log.Fatalf("write: %v", err)
 	}
 	fmt.Printf("wrote %d bytes to %s\n", len(out1), *out)
+}
+
+func reportFontDir() (string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("failed to resolve current source path")
+	}
+	return filepath.Abs(filepath.Join(
+		filepath.Dir(file),
+		"..",
+		"..",
+		"..",
+		"internal",
+		"report",
+		"chart",
+		"assets",
+	))
 }

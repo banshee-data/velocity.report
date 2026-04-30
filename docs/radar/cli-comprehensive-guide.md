@@ -391,15 +391,15 @@ backfill_ring_elevations --db sensor_data.db
 
 **Testing Targets (5):**
 
-- `test` - Run all tests (Go + Python + Web)
+- `test` - Run aggregate tests (Go + Web + macOS)
 - `test-go` - Go unit tests only
-- `test-python` - Python tests
-- `test-python-cov` - Python tests with coverage
+- `test-python` - Python script/tool tests
+- `test-python-cov` - Python script/tool tests with coverage
 - `test-web` - Web tests
 
 **Code Quality Targets (8):**
 
-- `format` - Format all code (Go + Python + Web)
+- `format` - Format all code (Go + Python tools + Web)
 - `format-go` - Format Go code
 - `format-python` - Format Python code
 - `format-web` - Format web code
@@ -426,24 +426,12 @@ backfill_ring_elevations --db sensor_data.db
 - `deploy-health` - Check remote health
 - `setup-radar` - Setup radar hardware
 
-**PDF/Report Targets (5):**
-
-- `pdf-report` - Generate PDF report
-- `pdf-config` - Create PDF config template
-- `pdf-test` - Test PDF generation
-- `pdf-demo` - Generate demo report
-- `pdf` - Alias for pdf-report
-
 **Installation Targets (4):**
 
 - `install-python` - Install Python dependencies
 - `install-web` - Install web dependencies
 - `install-docs` - Install docs dependencies
 - `ensure-python-tools` - Ensure Python formatting tools
-
-**Cleanup Targets (1):**
-
-- `clean-python` - Clean Python artifacts
 
 **Monitoring/Logging Targets (2):**
 
@@ -497,9 +485,6 @@ curl -X POST http://localhost:8080/api/generate_report \
     "units": "mph"
   }'
 
-# Via command line (using Python tools)
-cd tools/pdf-generator
-make pdf-report CONFIG=my-config.json
 ```
 
 #### Parameter sweep testing
@@ -519,11 +504,6 @@ make plot-multisweep INPUT=sweep-results.csv
 ```
 
 ### Environment variables
-
-**PDF Generator:**
-
-- `PDF_GENERATOR_DIR` - PDF generator directory (default: auto-detect)
-- `PDF_GENERATOR_PYTHON` - Python binary path (default: auto-detect)
 
 **Development:**
 

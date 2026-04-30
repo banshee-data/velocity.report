@@ -1,14 +1,12 @@
 # Code coverage
 
-This project uses [Codecov](https://codecov.io) to track code coverage across all
-three main components: Go server, Python PDF generator, and Web frontend.
+This project uses [Codecov](https://codecov.io) to track code coverage across the two active components: Go server and Web frontend.
 
 ## Coverage badges
 
 The README displays live coverage badges for each component:
 
 - **Go Coverage**: Test coverage for `internal/` packages (~89% average)
-- **Python Coverage**: Test coverage for the PDF generator in [tools/pdf-generator/](../tools/pdf-generator)
 - **Web Coverage**: Test coverage for the Svelte web frontend in [web/src/](../web/src)
 
 Each badge links to detailed coverage reports on Codecov.
@@ -26,7 +24,6 @@ make coverage
 This will create HTML reports at:
 
 - Go: [`coverage.html`](../coverage.html) <!-- link-ignore -->
-- Python: [`tools/pdf-generator/htmlcov/index.html`](../tools/pdf-generator/htmlcov/index.html) <!-- link-ignore -->
 - Web: [`web/coverage/lcov-report/index.html`](../web/coverage/lcov-report/index.html) <!-- link-ignore -->
 
 ### Individual components
@@ -37,14 +34,6 @@ This will create HTML reports at:
 make test-go-cov
 open coverage.html  # macOS
 xdg-open coverage.html  # Linux
-```
-
-**Python:**
-
-```bash
-make test-python-cov
-open tools/pdf-generator/htmlcov/index.html  # macOS
-xdg-open tools/pdf-generator/htmlcov/index.html  # Linux
 ```
 
 **Web:**
@@ -68,7 +57,7 @@ Coverage is automatically generated and uploaded to Codecov on every pull reques
 
 The repository includes a [codecov.yml](../codecov.yml) configuration that:
 
-- Defines separate flags for `go`, `python`, and `web` components
+- Defines separate flags for `go` and `web` components
 - Configures path-based coverage tracking
 - Sets coverage thresholds
 - Enables PR comments with coverage diffs
@@ -89,7 +78,6 @@ For CI to upload coverage data, a `CODECOV_TOKEN` secret must be configured:
 The project aims for:
 
 - **Go**: 80%+ coverage for core packages
-- **Python**: 90%+ coverage (enforced via `pytest-cov`)
 - **Web**: 90%+ coverage (enforced via Jest threshold in `jest.config.js`)
 
 ## Excluding files from coverage
@@ -97,10 +85,6 @@ The project aims for:
 ### Go
 
 Use the `//go:build ignore` build tag to exclude generated code from coverage.
-
-### Python
-
-Configure `.coveragerc` or use the inline `# pragma: no cover` comment to exclude specific lines or branches.
 
 ### Web
 
@@ -122,9 +106,6 @@ Ensure dependencies are installed:
 # Go: No extra dependencies needed
 go test -coverprofile=coverage.out ./...
 
-# Python: pytest and pytest-cov
-make install-python
-
 # Web: Jest and coverage tools
 make install-web
 ```
@@ -132,5 +113,4 @@ make install-web
 ### Coverage percentage seems wrong
 
 - **Go**: Make sure you're running tests with `-covermode=atomic` for accurate concurrency coverage
-- **Python**: Check that `PYTHONPATH` includes the package root
 - **Web**: Verify `collectCoverageFrom` patterns in `jest.config.js` are correct

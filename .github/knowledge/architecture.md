@@ -6,25 +6,25 @@ Canonical reference for the velocity.report system architecture. For the full de
 
 **velocity.report** is a privacy-focused traffic monitoring system with four components:
 
-| Component            | Language          | Location                  | Purpose                          |
-| -------------------- | ----------------- | ------------------------- | -------------------------------- |
-| Go server            | Go                | `cmd/`, `internal/`       | Sensor data collection, HTTP API |
-| Python PDF generator | Python            | `tools/pdf-generator/`    | Professional report generation   |
-| Web frontend         | Svelte/TypeScript | `web/`                    | Real-time visualisation          |
-| macOS visualiser     | Swift/Metal       | `tools/visualiser-macos/` | 3D LiDAR point cloud rendering   |
+| Component        | Language          | Location                  | Purpose                          |
+| ---------------- | ----------------- | ------------------------- | -------------------------------- |
+| Go server        | Go                | `cmd/`, `internal/`       | Sensor data collection, HTTP API |
+| Go PDF pipeline  | Go                | `internal/report/`        | Professional report generation   |
+| Web frontend     | Svelte/TypeScript | `web/`                    | Real-time visualisation          |
+| macOS visualiser | Swift/Metal       | `tools/visualiser-macos/` | 3D LiDAR point cloud rendering   |
 
 ## Technology Stack
 
-| Layer      | Technology                        | Notes                             |
-| ---------- | --------------------------------- | --------------------------------- |
-| Server     | Go 1.25+                          | stdlib `net/http`, `database/sql` |
-| Database   | SQLite 3.51.2 (modernc.org)       | Pure-Go driver, WAL mode          |
-| Reports    | Python 3.11+, matplotlib, PyLaTeX | XeLaTeX compilation               |
-| Frontend   | Svelte 5, TypeScript, Vite 7+     | pnpm, ESLint                      |
-| Visualiser | Swift 5.9+, SwiftUI, Metal        | macOS 14+, grpc-swift             |
-| Streaming  | gRPC + protobuf                   | Port 50051, server-streaming      |
-| Docs site  | Eleventy                          | `public_html/`                    |
-| Build      | Make                              | 101+ documented targets           |
+| Layer      | Technology                    | Notes                             |
+| ---------- | ----------------------------- | --------------------------------- |
+| Server     | Go 1.25+                      | stdlib `net/http`, `database/sql` |
+| Database   | SQLite 3.51.2 (modernc.org)   | Pure-Go driver, WAL mode          |
+| Reports    | Go, `text/template`, XeLaTeX  | Direct DB query, SVG charts       |
+| Frontend   | Svelte 5, TypeScript, Vite 7+ | pnpm, ESLint                      |
+| Visualiser | Swift 5.9+, SwiftUI, Metal    | macOS 14+, grpc-swift             |
+| Streaming  | gRPC + protobuf               | Port 50051, server-streaming      |
+| Docs site  | Eleventy                      | `public_html/`                    |
+| Build      | Make                          | 101+ documented targets           |
 
 ## Deployment Target
 
@@ -68,14 +68,14 @@ Transit Worker (background)
 
 ## Integration Points
 
-| From → To              | Interface      | Port/Path      |
-| ---------------------- | -------------- | -------------- |
-| Radar → Go server      | Serial (USB)   | `/dev/ttyUSB0` |
-| LIDAR → Go server      | UDP            | 192.168.100.x  |
-| Go server → SQLite     | database/sql   | File I/O       |
-| Go server → Web/Python | HTTP REST JSON | `:8080`        |
-| Go server → Visualiser | gRPC streaming | `:50051`       |
-| Python → PDF           | XeLaTeX        | subprocess     |
+| From → To              | Interface      | Port/Path          |
+| ---------------------- | -------------- | ------------------ |
+| Radar → Go server      | Serial (USB)   | `/dev/ttyUSB0`     |
+| LIDAR → Go server      | UDP            | 192.168.100.x      |
+| Go server → SQLite     | database/sql   | File I/O           |
+| Go server → Web        | HTTP REST JSON | `:8080`            |
+| Go server → PDF        | in-process     | `internal/report/` |
+| Go server → Visualiser | gRPC streaming | `:50051`           |
 
 ## API Endpoints
 
@@ -112,9 +112,8 @@ velocity.report/
 │   ├── radar/                # Radar sensor logic
 │   └── ...                   # See full tree in repo
 ├── web/                      # Svelte frontend
-├── tools/                    # Python + native tooling
-│   ├── grid-heatmap/         # Grid heatmap plotting
-│   ├── pdf-generator/        # PDF report generation
+├── tools/                    # Developer tools
+│   ├── grid-heatmap/         # Grid heatmap plotting (Python)
 │   └── visualiser-macos/     # macOS 3D visualiser
 ├── config/                   # LiDAR tuning configs
 ├── docs/                     # Internal documentation

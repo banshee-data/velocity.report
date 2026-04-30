@@ -38,7 +38,7 @@ UI surface is being changed:
 - Metrics naming and observability contracts
 - Code coverage methodology
 - Data science reproducibility principles
-- Python tooling and venv management
+- Python developer tooling (scripts and shared venv — not on RPi)
 - Code-formatting standards
 - PDF reporting infrastructure
 - AI agent architecture

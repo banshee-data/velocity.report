@@ -9,6 +9,6 @@ if ! id velocity >/dev/null 2>&1; then
     useradd --system --home-dir /var/lib/velocity-report --shell /usr/sbin/nologin velocity
 fi
 
-mkdir -p /opt/velocity-report/tools/pdf-generator/output
-chown velocity:velocity /opt/velocity-report/tools/pdf-generator/output
+mkdir -p /var/lib/velocity-report/reports/output
+chown -R velocity:velocity /var/lib/velocity-report/reports
 CHEOF

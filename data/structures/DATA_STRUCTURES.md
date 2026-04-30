@@ -75,6 +75,6 @@ Contributions welcome.
       in `radar_data_transits` (speed stats, duration, gap analysis).
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql) (`radar_data_transits` table)
 
-- [ ] **PDF report data contract**: inputs consumed by the Python PDF generator
-      (API response shapes, CSV exports, chart specifications).
-      Source: [`tools/pdf-generator/`](../../tools/pdf-generator/)
+- [ ] **PDF report data contract**: inputs consumed by the Go PDF pipeline
+      (API response shapes, chart specifications).
+      Source: [`internal/report/`](../../internal/report/)

@@ -600,14 +600,14 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 ### What the image includes
 
-| Component              | Location                                           | Purpose                                 |
-| ---------------------- | -------------------------------------------------- | --------------------------------------- |
-| velocity-report server | `/usr/local/bin/velocity-report`                   | Radar data collection and web dashboard |
-| velocity-ctl           | `/usr/local/bin/velocity-ctl`                      | Device management and updates           |
-| Generated reports      | `/opt/velocity-report/tools/pdf-generator/output/` | PDF output directory                    |
-| Systemd service        | `/etc/systemd/system/velocity-report.service`      | Starts automatically on boot            |
-| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`                | TLS termination, HTTPS on port 443      |
-| TLS certificates       | `/var/lib/velocity-report/tls/`                    | Local CA and server certificate         |
+| Component              | Location                                      | Purpose                                 |
+| ---------------------- | --------------------------------------------- | --------------------------------------- |
+| velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard |
+| velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
+| Generated reports      | `/var/lib/velocity-report/reports/`           | PDF output directory                    |
+| Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
+| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`           | TLS termination, HTTPS on port 443      |
+| TLS certificates       | `/var/lib/velocity-report/tls/`               | Local CA and server certificate         |
 
 The image also pre-configures serial port settings, UART overlays, sensor initialisation (JSON mode, units, magnitude reporting), and the service user.
 

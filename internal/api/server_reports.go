@@ -156,11 +156,11 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 		return
 	}
 
-	// Get the PDF generator directory
-	pdfDir, err := getPDFGeneratorDir()
+	// Get the report output root.
+	reportRoot, err := getReportOutputRoot()
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine PDF generator directory: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine report output directory: %v", err))
 		return
 	}
 
@@ -174,18 +174,18 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 			s.writeJSONError(w, http.StatusNotFound, "ZIP file not available for this report")
 			return
 		}
-		filePath = filepath.Join(pdfDir, *report.ZipFilepath)
+		filePath = filepath.Join(reportRoot, *report.ZipFilepath)
 		filename = *report.ZipFilename
 		contentType = "application/zip"
 	} else {
 		// Default to PDF
-		filePath = filepath.Join(pdfDir, report.Filepath)
+		filePath = filepath.Join(reportRoot, report.Filepath)
 		filename = report.Filename
 		contentType = "application/pdf"
 	}
 
-	// Validate path is within pdf-generator directory (security check)
-	if err := security.ValidatePathWithinDirectory(filePath, pdfDir); err != nil {
+	// Validate path is within the report output root.
+	if err := security.ValidatePathWithinDirectory(filePath, reportRoot); err != nil {
 		log.Printf("Security: rejected download path %s: %v", filePath, err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")

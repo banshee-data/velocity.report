@@ -387,21 +387,6 @@ setup_database() {
     fi
 }
 
-# Create example configs
-create_example_configs() {
-    print_step "Creating example configuration files"
-
-    if [ ! -f "tools/pdf-generator/config.example.json" ]; then
-        source .venv/bin/activate
-        cd tools/pdf-generator
-        run_with_log "Generating config.example.json" python -m pdf_generator.cli.create_config --output config.example.json
-        cd ../..
-        deactivate
-    else
-        print_success "config.example.json already exists"
-    fi
-}
-
 # Print next steps
 print_next_steps() {
     echo ""
@@ -414,19 +399,16 @@ print_next_steps() {
 
     if [ "$SKIP_GO" = false ]; then
         echo -e "${BLUE}Go Server:${NC}"
-        echo "  make build          # Build binaries"
-        echo "  make run            # Run server (requires sensors)"
+        echo "  make build-radar-local  # Build local radar binary"
+        echo "  make dev-go             # Run local server (radar disabled)"
         echo "  make test           # Run tests"
         echo ""
     fi
 
     if [ "$SKIP_PYTHON" = false ]; then
-        echo -e "${BLUE}Python PDF Generator:${NC}"
+        echo -e "${BLUE}Python Tooling:${NC}"
         echo "  source .venv/bin/activate"
-        echo "  cd tools/pdf-generator"
-        echo "  python -m pdf_generator.cli.create_config --output my-config.json"
-        echo "  # Edit my-config.json with your values"
-        echo "  python internal/report/query_data/get_stats.py my-config.json"
+        echo "  make test-python    # Run Python script/tool tests"
         echo ""
     fi
 
@@ -444,7 +426,7 @@ print_next_steps() {
     echo "  ARCHITECTURE.md     # System architecture"
     echo "  CONTRIBUTING.md     # Development guide"
     echo "  DEBUGGING.md        # Common issues"
-    echo "  PERFORMANCE.md      # Performance tuning"
+    echo "  MAGIC_NUMBERS.md    # Tunable constants and thresholds"
     echo ""
 
     echo -e "${BLUE}Code Formatting:${NC}"
@@ -487,9 +469,6 @@ main() {
 
     # Setup database
     setup_database
-
-    # Create example configs
-    create_example_configs
 
     # Print next steps
     print_next_steps

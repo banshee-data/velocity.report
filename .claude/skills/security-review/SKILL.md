@@ -14,7 +14,7 @@ Run a structured security review. Produces severity-rated findings with exploit 
 /security-review
 /security-review internal/api/
 /security-review internal/lidar/
-/security-review tools/pdf-generator/
+/security-review internal/report/
 /security-review all
 ```
 

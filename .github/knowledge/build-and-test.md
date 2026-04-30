@@ -11,12 +11,11 @@ cd velocity.report
 
 ## Initial Setup
 
-| Subsystem                 | Command                  | Purpose                                                          |
-| ------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| Go server                 | `make build-radar-local` | Build with pcap support (local dev)                              |
-| Web frontend              | `make install-web`       | Install pnpm/npm dependencies                                    |
-| Documentation             | `make install-docs`      | Install Eleventy dependencies                                    |
-| Python tools (DEPRECATED) | `make install-python`    | Create `.venv/` for deprecated pdf-generator reference copy only |
+| Subsystem     | Command                  | Purpose                             |
+| ------------- | ------------------------ | ----------------------------------- |
+| Go server     | `make build-radar-local` | Build with pcap support (local dev) |
+| Web frontend  | `make install-web`       | Install pnpm/npm dependencies       |
+| Documentation | `make install-docs`      | Install Eleventy dependencies       |
 
 ### pcap Build Notes
 
@@ -38,12 +37,11 @@ make test      # Run all test suites
 
 ## Testing
 
-| Command                         | Scope                                       |
-| ------------------------------- | ------------------------------------------- |
-| `make test`                     | All tests (Go + Web)                        |
-| `make test-go`                  | Go unit tests                               |
-| `make test-web`                 | Web tests                                   |
-| `make test-python` (DEPRECATED) | Python PDF generator tests — local dev only |
+| Command         | Scope                |
+| --------------- | -------------------- |
+| `make test`     | All tests (Go + Web) |
+| `make test-go`  | Go unit tests        |
+| `make test-web` | Web tests            |
 
 ### Per-Language Validation
 
@@ -76,10 +74,6 @@ Target naming: `<action>-<subsystem>[-<variant>]`
 - 101+ documented targets available
 - Cross-compilation for ARM64 (Raspberry Pi 4)
 - Run `make help` for the full list
-
-## Python Virtual Environment (DEPRECATED)
-
-The Python venv at `.venv/` is retained for local development against the deprecated `tools/pdf-generator/` reference copy only. PDF generation in production uses the Go pipeline (`internal/report/`). Run `make install-python` to create the venv if you need it for reference work.
 
 ## SQLite
 
