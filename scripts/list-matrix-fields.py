@@ -152,23 +152,83 @@ _HANDLE_FUNC_RE = re.compile(
     r's\.mux\.HandleFunc\(\s*"([^"]+)"\s*,\s*(\S+?)\s*\)',
 )
 
+_RADAR_METHOD_OVERRIDES = {
+    "/events": "GET",
+    "/command": "POST",
+    "/api/radar_stats": "GET",
+    "/api/config": "GET",
+    "/api/capabilities": "GET",
+    "/api/generate_report": "POST",
+    "/api/sites": "GET/POST",
+    "/api/sites/": "GET/PUT/DELETE",
+    "/api/site_config_periods": "GET/POST",
+    "/api/timeline": "GET",
+    "/api/reports/": "GET/DELETE",
+    "/api/transit_worker": "GET/POST",
+    "/api/db_stats": "GET",
+    "/api/charts/timeseries": "GET",
+    "/api/charts/histogram": "GET",
+    "/api/charts/comparison": "GET",
+}
+
+_RADAR_PATH_OVERRIDES = {
+    "/api/sites/": "/api/sites/{id}",
+}
+
+_RADAR_EXTRA_ENDPOINTS = [
+    (
+        "GET",
+        "/api/reports/site/{siteId}",
+        "s.handleReports",
+        "internal/api/server_reports.go",
+    ),
+    ("GET", "/api/reports/{id}", "s.handleReports", "internal/api/server_reports.go"),
+    (
+        "GET",
+        "/api/reports/{id}/download/{f}",
+        "s.handleReports",
+        "internal/api/server_reports.go",
+    ),
+]
+
 
 def extract_radar_http(root: Path) -> list[Endpoint]:
     src = root / "internal" / "api" / "server.go"
     text = _read(src)
     results: list[Endpoint] = []
+    seen: set[tuple[str, str]] = set()
     for m in _HANDLE_FUNC_RE.finditer(text):
         path, handler = m.group(1), m.group(2)
         if path.startswith("/debug") or path.startswith("/app") or path == "/":
             continue
         if path == "/favicon.ico":
             continue
+        path = _RADAR_PATH_OVERRIDES.get(path, path)
+        method = _RADAR_METHOD_OVERRIDES.get(m.group(1), "*")
+        key = (method, path)
+        if key in seen:
+            continue
+        seen.add(key)
         results.append(
             Endpoint(
-                method="*",
+                method=method,
                 path=path,
                 handler=handler,
                 file=_rel(src, root),
+            )
+        )
+
+    for method, path, handler, rel_path in _RADAR_EXTRA_ENDPOINTS:
+        key = (method, path)
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(
+            Endpoint(
+                method=method,
+                path=path,
+                handler=handler,
+                file=rel_path,
             )
         )
     return results
@@ -189,6 +249,57 @@ _MUX_HANDLE_RE = re.compile(
     r'mux\.HandleFunc\(\s*"([^"]+)"\s*,\s*(\S+?)\s*\)',
 )
 
+# Comment annotations such as:
+#   // GET /api/lidar/runs/{run_id}
+#   // - GET/POST /api/lidar/scenes
+_COMMENT_ENDPOINT_RE = re.compile(
+    r"^\s*//\s*(?:-\s*)?"
+    r"((?:GET|POST|PUT|DELETE|PATCH)(?:/(?:GET|POST|PUT|DELETE|PATCH))*)"
+    r"\s+([^\s]+)",
+    re.MULTILINE,
+)
+
+_SKIP_GENERIC_LIDAR_ROUTES = {
+    "ws.trackAPI.handleTrackByID",
+    "ws.handleRunTrackAPI",
+    "ws.handleSceneByID",
+}
+
+_LIDAR_ROUTE_PATH_OVERRIDES = {
+    ("GET", "/api/lidar/sweeps/", "ws.handleGetSweep"): "/api/lidar/sweeps/{id}",
+    ("*", "/api/lidar/labels/", "api.handleLabelByID"): "/api/lidar/labels/{id}",
+}
+
+_LIDAR_METHOD_OVERRIDES = {
+    "/health": "GET",
+    "/api/lidar/server": "GET",
+    "/api/lidar/monitor": "GET",
+    "/api/lidar/export_snapshot": "GET",
+    "/api/lidar/export_next_frame": "GET",
+    "/api/lidar/export_frame_sequence": "GET",
+    "/api/lidar/export_foreground": "GET",
+    "/api/lidar/params": "GET/POST",
+    "/api/lidar/sweep/auto": "GET/POST",
+    "/api/lidar/sweep/hint": "GET/POST",
+    "/api/lidar/background/grid": "GET",
+    "/api/lidar/chart/polar": "GET",
+    "/api/lidar/chart/heatmap": "GET",
+    "/api/lidar/chart/foreground": "GET",
+    "/api/lidar/chart/clusters": "GET",
+    "/api/lidar/chart/traffic": "GET",
+    "/api/lidar/tracks": "GET",
+    "/api/lidar/tracks/history": "GET",
+    "/api/lidar/tracks/active": "GET",
+    "/api/lidar/tracks/metrics": "GET",
+    "/api/lidar/tracks/summary": "GET",
+    "/api/lidar/clusters": "GET",
+    "/api/lidar/observations": "GET",
+    "/api/lidar/tracks/clear": "POST",
+    "/api/lidar/labels": "GET/POST",
+    "/api/lidar/labels/export": "GET",
+    "/api/lidar/labels/{id}": "GET/PUT/DELETE",
+}
+
 
 def _split_method_path(raw: str) -> tuple[str, str]:
     """Split 'GET /foo' into ('GET', '/foo') or ('*', '/foo')."""
@@ -200,13 +311,40 @@ def _split_method_path(raw: str) -> tuple[str, str]:
 
 def extract_lidar_http(root: Path) -> list[Endpoint]:
     files = [
-        root / "internal" / "lidar" / "monitor" / "webserver.go",
-        root / "internal" / "lidar" / "monitor" / "track_api.go",
-        root / "internal" / "lidar" / "monitor" / "run_track_api.go",
+        root / "internal" / "lidar" / "server" / "routes.go",
+        root / "internal" / "lidar" / "server" / "track_api.go",
+        root / "internal" / "lidar" / "server" / "run_track_api.go",
+        root / "internal" / "lidar" / "server" / "scene_api.go",
         root / "internal" / "api" / "lidar_labels.go",
     ]
     results: list[Endpoint] = []
     seen: set[str] = set()
+
+    def add_endpoint(method: str, path: str, handler: str, rel: str) -> None:
+        generic_key = f"* {path}"
+        if method != "*" and generic_key in seen:
+            seen.remove(generic_key)
+            results[:] = [
+                ep for ep in results if not (ep.method == "*" and ep.path == path)
+            ]
+
+        key = f"{method} {path}"
+        if key in seen:
+            return
+
+        if method == "*" and any(ep.path == path for ep in results):
+            return
+
+        seen.add(key)
+        results.append(
+            Endpoint(
+                method=method,
+                path=path,
+                handler=handler,
+                file=rel,
+            )
+        )
+
     for src in files:
         text = _read(src)
         rel = _rel(src, root)
@@ -214,21 +352,26 @@ def extract_lidar_http(root: Path) -> list[Endpoint]:
             for m in regex.finditer(text):
                 raw, handler = m.group(1), m.group(2)
                 method, path = _split_method_path(raw)
+                if any(marker in handler for marker in _SKIP_GENERIC_LIDAR_ROUTES):
+                    continue
+                path = _LIDAR_ROUTE_PATH_OVERRIDES.get((method, path, handler), path)
+                method = _LIDAR_METHOD_OVERRIDES.get(path, method)
                 if path.startswith("/debug"):
                     continue
                 if path == "/":
                     continue
-                key = f"{method} {path}"
-                if key not in seen:
-                    seen.add(key)
-                    results.append(
-                        Endpoint(
-                            method=method,
-                            path=path,
-                            handler=handler,
-                            file=rel,
-                        )
-                    )
+                add_endpoint(method, path, handler, rel)
+
+        for m in _COMMENT_ENDPOINT_RE.finditer(text):
+            method = m.group(1)
+            path = m.group(2).split("?", 1)[0].rstrip(".,)")
+            if not path.startswith("/"):
+                continue
+            if path.startswith("/debug"):
+                continue
+            if path == "/":
+                continue
+            add_endpoint(method, path, "comment-annotated route", rel)
     return results
 
 
@@ -320,23 +463,6 @@ def extract_db_tables(root: Path) -> list[DBTable]:
             )
         )
 
-    # Also scan migrations for additional tables
-    migrations_dir = root / "internal" / "db" / "migrations"
-    if migrations_dir.is_dir():
-        for mig in sorted(migrations_dir.glob("*.up.sql")):
-            mig_text = _read(mig)
-            for tm in _CREATE_TABLE_RE.finditer(mig_text):
-                table_name = tm.group(1)
-                if any(t.name == table_name for t in results):
-                    continue
-                results.append(
-                    DBTable(
-                        name=table_name,
-                        columns=[],
-                        file=_rel(mig, root),
-                    )
-                )
-
     return results
 
 
@@ -344,33 +470,88 @@ def extract_db_tables(root: Path) -> list[DBTable]:
 # §6  Pipeline stages
 # ---------------------------------------------------------------------------
 
-_PIPELINE_DIRS = [
-    ("l2frames", "L2 Frame Builder"),
-    ("l3grid", "L3 Background + Foreground"),
-    ("l4perception", "L4 Clustering (DBSCAN)"),
-    ("l5tracks", "L5 Tracking (Kalman)"),
-    ("l6eval", "L6 Evaluation"),
-    ("l6objects", "L6 Objects / Quality"),
-    ("adapters", "L6 Ground-Truth Adapter"),
+_PIPELINE_STAGE_SURFACES = [
+    (
+        "l2frames",
+        "internal/lidar/l2frames/frame_builder.go",
+        "L2 Frame Builder (UDP -> point clouds)",
+    ),
+    (
+        "l3grid",
+        "internal/lidar/l3grid/background.go",
+        "L3 Background Grid (foreground/background)",
+    ),
+    (
+        "l3grid",
+        "internal/lidar/l3grid/foreground.go",
+        "L3 FrameMetrics (foreground fraction)",
+    ),
+    (
+        "l4perception",
+        "internal/lidar/l4perception/dbscan_clusterer.go",
+        "L4 Clustering (DBSCAN -> world clusters)",
+    ),
+    (
+        "l5tracks",
+        "internal/lidar/l5tracks/tracking.go",
+        "L5 Tracking (Kalman -> tracked objects)",
+    ),
+    (
+        "l5tracks",
+        "internal/lidar/l5tracks/tracking.go",
+        "L5 TrackingMetrics (fragmentation, jitter)",
+    ),
+    (
+        "adapters",
+        "internal/lidar/adapters/ground_truth.go",
+        "L6 Evaluation (quality metrics)",
+    ),
+    (
+        "l6objects",
+        "internal/lidar/l6objects/quality.go",
+        "L6 RunStatistics (12 fields)",
+    ),
+    (
+        "l6objects",
+        "internal/lidar/l6objects/quality.go",
+        "L6 TrackQualityMetrics (8 fields)",
+    ),
+    (
+        "l6objects",
+        "internal/lidar/l6objects/quality.go",
+        "L6 NoiseCoverageMetrics (7 fields)",
+    ),
+    (
+        "l6objects",
+        "internal/lidar/l6objects/quality.go",
+        "L6 TrainingDatasetSummary (7 fields)",
+    ),
+    (
+        "l6objects",
+        "internal/lidar/l6objects/features.go",
+        "L6 TrackFeatures (20 features)",
+    ),
+    (
+        "l6objects",
+        "internal/lidar/l6objects/features.go",
+        "L6 ClusterFeatures (10 features)",
+    ),
 ]
 
 
 def extract_pipeline_stages(root: Path) -> list[PipelineStage]:
     results: list[PipelineStage] = []
-    base = root / "internal" / "lidar"
-    for dirname, desc in _PIPELINE_DIRS:
-        pkg_dir = base / dirname
-        if pkg_dir.is_dir():
-            go_files = sorted(pkg_dir.glob("*.go"))
-            go_files = [f for f in go_files if not f.name.endswith("_test.go")]
-            for gf in go_files:
-                results.append(
-                    PipelineStage(
-                        package=dirname,
-                        file=_rel(gf, root),
-                        description=desc,
-                    )
-                )
+    for package, rel_path, description in _PIPELINE_STAGE_SURFACES:
+        src = root / rel_path
+        if not src.is_file():
+            continue
+        results.append(
+            PipelineStage(
+                package=package,
+                file=_rel(src, root),
+                description=description,
+            )
+        )
     return results
 
 
@@ -522,7 +703,7 @@ def extract_mac_http_consumers(root: Path) -> list[ExternalConsumer]:
 
 def extract_debug_routes(root: Path) -> list[DebugRoute]:
     files = [
-        root / "internal" / "lidar" / "monitor" / "webserver.go",
+        root / "internal" / "lidar" / "server" / "routes.go",
         root / "internal" / "api" / "server.go",
     ]
     results: list[DebugRoute] = []
@@ -555,7 +736,17 @@ def extract_debug_routes(root: Path) -> list[DebugRoute]:
             "internal/serialmux/serialmux.go",
         ),
         (
+            "/debug/send-command-api",
+            "serialmux.AttachAdminRoutes",
+            "internal/serialmux/serialmux.go",
+        ),
+        (
             "/debug/tail",
+            "serialmux.AttachAdminRoutes",
+            "internal/serialmux/serialmux.go",
+        ),
+        (
+            "/debug/tail.js",
             "serialmux.AttachAdminRoutes",
             "internal/serialmux/serialmux.go",
         ),
@@ -572,7 +763,15 @@ def extract_debug_routes(root: Path) -> list[DebugRoute]:
     for path, handler, file in _STATIC_ROUTES:
         results.append(DebugRoute(path=path, handler=handler, file=file))
 
-    return results
+    seen: set[str] = set()
+    deduped: list[DebugRoute] = []
+    for route in results:
+        if route.path in seen:
+            continue
+        seen.add(route.path)
+        deduped.append(route)
+
+    return deduped
 
 
 # ---------------------------------------------------------------------------

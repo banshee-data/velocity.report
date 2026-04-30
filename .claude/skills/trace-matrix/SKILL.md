@@ -51,9 +51,10 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 Key files:
 
 - `internal/api/server.go`: radar HTTP handlers
-- `internal/lidar/monitor/webserver.go`: LiDAR HTTP handlers
-- `internal/lidar/monitor/track_api.go`: track API handlers
-- `internal/lidar/monitor/run_track_api.go`: run/track API handlers
+- `internal/lidar/server/routes.go`: LiDAR route registration and core HTTP handlers
+- `internal/lidar/server/track_api.go`: track API handlers
+- `internal/lidar/server/run_track_api.go`: run/track API handlers
+- `internal/lidar/server/scene_api.go`: scene and evaluation handlers
 - `internal/api/lidar_labels.go`: label API handlers
 - `web/src/lib/api/`: Svelte fetch calls
 - `internal/report/report.go`: Go PDF pipeline entry point
@@ -72,7 +73,7 @@ Key files:
 
 - `proto/velocity_visualiser/v1/visualiser.proto`
 - `internal/lidar/grpc/`: Go gRPC server implementation
-- `tools/visualiser-macos/VelocityVisualiser/GRPCClient.swift`
+- `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`
 
 #### Database schema surfaces (§4, §5)
 
@@ -120,7 +121,7 @@ Key files:
 Key files:
 
 - `internal/config/tuning.go`: tuning parameter definitions
-- `internal/lidar/monitor/chart_api.go`: ECharts endpoints
+- `internal/lidar/server/chart_api.go`: ECharts endpoints
 - `cmd/`: all binary entry points
 - `internal/db/db.go`: debug/admin route attachments
 
