@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """List backend surface inventory for velocity.report.
 
-Scans Go, Proto, Python, and Swift source files and prints a structured
-inventory of HTTP endpoints, gRPC methods, DB tables/columns, pipeline
-stages, tuning parameters, cmd/ entry points, and debug routes.
+Scans Go, Proto, Swift, SQL, and selected repo metadata and prints a
+structured inventory of HTTP endpoints, gRPC methods, DB tables/columns,
+pipeline stages, tuning parameters, cmd/ entry points, and debug routes.
 
 Two modes:
     python scripts/list-matrix-fields.py              # human-readable surface list
@@ -442,44 +442,41 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
 
 
 # ---------------------------------------------------------------------------
-# §11  PDF report consumers (current pipeline)
+# §11  PDF report pipeline surfaces
 # ---------------------------------------------------------------------------
 
-_PY_URL_RE = re.compile(
-    r"(?:self\.(?:base_url|api_url)|base_url)\s*" r'(?:\+\s*f?"|=\s*f?")' r'([^"]+)"',
-)
-
-_PY_FSTRING_URL_RE = re.compile(
-    r'f"[^"]*(/api/[^"{}]*(?:\{[^}]*\}[^"{}]*)*)[^"]*"',
-)
+_PDF_PIPELINE_SURFACES: list[tuple[str, str]] = [
+    (
+        "internal/report/report.go",
+        "Direct DB query -> Generate(ctx, db, cfg)",
+    ),
+    (
+        "internal/report/chart/timeseries.go",
+        "Speed percentile + count time-series SVG",
+    ),
+    (
+        "internal/report/chart/histogram.go",
+        "Speed distribution histogram SVG",
+    ),
+    (
+        "internal/report/tex/render.go",
+        "Go text/template -> .tex -> xelatex -> .pdf",
+    ),
+]
 
 
 def extract_pdf_consumers(root: Path) -> list[ExternalConsumer]:
-    pdf_dir = root / "internal" / "report"
-    if not pdf_dir.is_dir():
-        return []
     results: list[ExternalConsumer] = []
-    for py_file in sorted(pdf_dir.glob("*.py")):
-        if py_file.name.startswith("__"):
+    for rel_path, consumer in _PDF_PIPELINE_SURFACES:
+        src = root / rel_path
+        if not src.is_file():
             continue
-        text = _read(py_file)
-        endpoints: list[str] = []
-        for m in _PY_FSTRING_URL_RE.finditer(text):
-            ep = m.group(1).strip()
-            if ep and ep not in endpoints:
-                endpoints.append(ep)
-        # Also look for url assignments with /api/ paths
-        for m in _PY_URL_RE.finditer(text):
-            ep = m.group(1).strip()
-            if "/api/" in ep and ep not in endpoints:
-                endpoints.append(ep)
-        if endpoints:
-            results.append(
-                ExternalConsumer(
-                    file=_rel(py_file, root),
-                    endpoints=endpoints,
-                )
+        results.append(
+            ExternalConsumer(
+                file=_rel(src, root),
+                endpoints=[consumer],
             )
+        )
     return results
 
 
@@ -840,7 +837,7 @@ def print_text_report(inv: MatrixInventory) -> None:
         print(f"  {e.binary:<25s}  {e.location}")
     print(f"  Total: {len(inv.cmd_entries)}")
 
-    _header("PDF Report Consumers", "§11")
+    _header("PDF Report Pipeline Surfaces", "§11")
     for c in inv.pdf_consumers:
         print(f"  {c.file}")
         for ep in c.endpoints:
@@ -1023,7 +1020,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            f"handler `{ep.handler}` → check DB calls, web/src fetch, PDF api_client, Mac HTTP",
+            f"handler `{ep.handler}` → check DB calls, web/src fetch, Go PDF pipeline call sites, Mac HTTP",
         )
 
     # §2 LiDAR HTTP
@@ -1062,7 +1059,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"table: {t.name}",
             t.file,
             "",
-            f"DB=✅ always. Web: handlers SELECT from `{t.name}`? PDF: api_client? Mac: gRPC?",
+            f"DB=✅ always. Web: handlers SELECT from `{t.name}`? PDF: internal/report query or chart use? Mac: gRPC?",
         )
 
     # §5 DB columns
@@ -1234,7 +1231,7 @@ def print_markdown_checklist(items: list[ChecklistItem]) -> None:
     print()
     print(
         "**Surfaces:** DB (SQLite), Web (Svelte UI :8080), "
-        "PDF (Python LaTeX generator), Mac (Metal visualiser via gRPC)"
+        "PDF (Go report pipeline), Mac (Metal visualiser via gRPC)"
     )
     print()
 

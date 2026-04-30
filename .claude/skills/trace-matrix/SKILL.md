@@ -30,7 +30,7 @@ Without an argument, process all task groups sequentially (may require multiple 
 python3 scripts/list-matrix-fields.py --checklist
 ```
 
-This scans Go, Proto, Python, and Swift source files and outputs a markdown checklist with **533+ items** across **5 task groups**, each sized for one context window.
+This scans Go, Proto, Swift, SQL, and selected repo metadata and outputs a markdown checklist across **5 task groups**, each sized for one context window.
 
 ### 2. Read the current matrix
 
@@ -80,7 +80,7 @@ Key files:
 
 1. DB is always ✅ for every table and column
 2. For each column, check if it appears in JSON serialisation (→ Web)
-3. Check if PDF generator queries it (→ PDF)
+3. Check if the Go PDF pipeline queries it (→ PDF)
 4. Check if it appears in gRPC proto or Swift code (→ Mac)
 5. Flag deprecated columns (p50/p85/p95 speed percentiles) as 🗑️
 

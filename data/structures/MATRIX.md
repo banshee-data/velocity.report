@@ -9,7 +9,7 @@
 Complete mapping of components, API endpoints, database tables, data
 structures, and pipeline stages across the velocity.report codebase. Shows
 which surfaces consume each item: **DB** (SQLite persistence), **Web**
-(Svelte UI on `:8080`), **PDF** (Python LaTeX generator), **Mac** (Metal
+(Svelte UI on `:8080`), **PDF** (Go report pipeline), **Mac** (Metal
 visualiser via gRPC).
 
 - **Source:** Full-codebase audit (March 2026)
@@ -589,7 +589,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 11. PDF generator: Go pipeline surfaces
+## 11. PDF report pipeline surfaces
 
 **Source:** [internal/report/](../../internal/report/)
 
