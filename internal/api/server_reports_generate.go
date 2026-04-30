@@ -273,7 +273,7 @@ func (s *Server) generateReportGo(
 	cfg report.Config,
 ) {
 	// Determine output directory.
-	pdfDir, err := getPDFGeneratorDir()
+	reportRoot, err := getReportOutputRoot()
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine output directory: %v", err))
@@ -282,7 +282,7 @@ func (s *Server) generateReportGo(
 
 	now := time.Now()
 	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
-	cfg.OutputDir = filepath.Join(pdfDir, "output", runID)
+	cfg.OutputDir = filepath.Join(reportRoot, "output", runID)
 
 	result, err := report.Generate(r.Context(), s.db, cfg)
 	if err != nil {
@@ -297,21 +297,21 @@ func (s *Server) generateReportGo(
 	}
 
 	// Security: validate output paths are within the expected directory.
-	if err := security.ValidatePathWithinDirectory(result.PDFPath, pdfDir); err != nil {
+	if err := security.ValidatePathWithinDirectory(result.PDFPath, reportRoot); err != nil {
 		log.Printf("Security: rejected Go PDF path %s: %v", result.PDFPath, err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
-	if err := security.ValidatePathWithinDirectory(result.ZIPPath, pdfDir); err != nil {
+	if err := security.ValidatePathWithinDirectory(result.ZIPPath, reportRoot); err != nil {
 		log.Printf("Security: rejected Go ZIP path %s: %v", result.ZIPPath, err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
 
-	// Build relative paths matching the Python path convention.
-	relativePdfPath, relativeZipPath, err := relativeReportPaths(pdfDir, result.PDFPath, result.ZIPPath)
+	// Store paths relative to the report output root.
+	relativePdfPath, relativeZipPath, err := relativeReportPaths(reportRoot, result.PDFPath, result.ZIPPath)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, err.Error())
@@ -405,32 +405,49 @@ func buildReportConfig(
 	return cfg
 }
 
-// getPDFGeneratorDir determines the PDF generator directory.
-// Can be overridden via PDF_GENERATOR_DIR env var.
-// Default to /opt/velocity-report/tools/pdf-generator for deployed systems,
-// or tools/pdf-generator relative to current directory for development.
-func getPDFGeneratorDir() (string, error) {
-	pdfDir := os.Getenv("PDF_GENERATOR_DIR")
-	if pdfDir != "" {
-		return pdfDir, nil
+const (
+	reportOutputDirEnv       = "VELOCITY_REPORT_OUTPUT_DIR"
+	deployedReportOutputRoot = "/var/lib/velocity-report/reports"
+)
+
+// getReportOutputRoot determines where generated report artifacts are stored.
+// Can be overridden via VELOCITY_REPORT_OUTPUT_DIR.
+func getReportOutputRoot() (string, error) {
+	reportRoot := os.Getenv(reportOutputDirEnv)
+	if reportRoot != "" {
+		return reportRoot, nil
 	}
 
-	// Check if deployed location exists
-	deployedPath := "/opt/velocity-report/tools/pdf-generator"
-	if _, err := os.Stat(deployedPath); err == nil {
-		return deployedPath, nil
+	if _, err := os.Stat(deployedReportOutputRoot); err == nil {
+		return deployedReportOutputRoot, nil
 	}
 
-	// Fall back to development location
-	repoRoot, err := os.Getwd()
+	repoRoot, err := findRepoRoot()
 	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
+		return "", fmt.Errorf("failed to determine repository root: %w", err)
 	}
-	return filepath.Join(repoRoot, "tools", "pdf-generator"), nil
+	return filepath.Join(repoRoot, ".tmp", "reports"), nil
 }
 
-func relativeReportPaths(pdfDir, pdfPath, zipPath string) (string, string, error) {
-	relativePDFPath, err := filepath.Rel(pdfDir, pdfPath)
+func findRepoRoot() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for dir := cwd; ; dir = filepath.Dir(dir) {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return cwd, nil
+		}
+	}
+}
+
+func relativeReportPaths(reportRoot, pdfPath, zipPath string) (string, string, error) {
+	relativePDFPath, err := filepath.Rel(reportRoot, pdfPath)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to compute relative PDF path")
 	}
@@ -438,7 +455,7 @@ func relativeReportPaths(pdfDir, pdfPath, zipPath string) (string, string, error
 		return "", "", fmt.Errorf("failed to compute relative PDF path")
 	}
 
-	relativeZIPPath, err := filepath.Rel(pdfDir, zipPath)
+	relativeZIPPath, err := filepath.Rel(reportRoot, zipPath)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to compute relative ZIP path")
 	}

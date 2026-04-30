@@ -18,14 +18,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
-// truePath returns the path to the 'true' binary (macOS uses /usr/bin/true, Linux uses /bin/true)
-func truePath() string {
-	if _, err := os.Stat("/usr/bin/true"); err == nil {
-		return "/usr/bin/true"
-	}
-	return "/bin/true"
-}
-
 // TestSendCommandHandler tests the /command endpoint
 func TestSendCommandHandler(t *testing.T) {
 	server, dbInst := setupTestServer(t)
@@ -628,17 +620,12 @@ func TestGenerateReport_MinSpeedParameter(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			// Mock the PDF generator by setting the env var
-			os.Setenv("PDF_GENERATOR_PYTHON", truePath())
-			defer os.Unsetenv("PDF_GENERATOR_PYTHON")
-
 			server.generateReport(w, req)
 
-			// We expect this to fail because 'true' doesn't produce valid output,
-			// but the important part is that it doesn't fail on parameter validation
+			// The important part is that it doesn't fail on parameter validation.
 			if tt.wantPass {
 				if w.Code != http.StatusInternalServerError {
-					// Should pass validation but fail on execution
+					// Should pass validation but may fail in the Go report pipeline.
 					t.Logf("Expected status 500 (execution error), got %d", w.Code)
 				}
 			} else {
@@ -708,17 +695,12 @@ func TestGenerateReport_BoundaryThresholdParameter(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			// Mock the PDF generator by setting the env var
-			os.Setenv("PDF_GENERATOR_PYTHON", truePath())
-			defer os.Unsetenv("PDF_GENERATOR_PYTHON")
-
 			server.generateReport(w, req)
 
-			// We expect this to fail because 'true' doesn't produce valid output,
-			// but the important part is that it doesn't fail on parameter validation
+			// The important part is that it doesn't fail on parameter validation.
 			if tt.wantPass {
 				if w.Code != http.StatusInternalServerError {
-					// Should pass validation but fail on execution
+					// Should pass validation but may fail in the Go report pipeline.
 					t.Logf("Expected status 500 (execution error), got %d", w.Code)
 				}
 			} else {
@@ -775,13 +757,9 @@ func TestGenerateReport_CombinedMinSpeedAndBoundaryThreshold(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	// Mock the PDF generator by setting the env var
-	os.Setenv("PDF_GENERATOR_PYTHON", truePath())
-	defer os.Unsetenv("PDF_GENERATOR_PYTHON")
-
 	server.generateReport(w, req)
 
-	// Should pass validation but fail on execution
+	// Should pass validation but may fail in the Go report pipeline.
 	if w.Code != http.StatusInternalServerError {
 		t.Logf("Expected status 500 (execution error), got %d", w.Code)
 	}
@@ -899,16 +877,16 @@ func TestServeMux(t *testing.T) {
 	}
 }
 
-// TestGetPDFGeneratorDir tests the PDF generator directory logic
-func TestGetPDFGeneratorDir(t *testing.T) {
+// TestGetReportOutputRoot tests the report output directory logic
+func TestGetReportOutputRoot(t *testing.T) {
 	// Save and restore environment
-	origDir := os.Getenv("PDF_GENERATOR_DIR")
-	defer os.Setenv("PDF_GENERATOR_DIR", origDir)
+	origDir := os.Getenv("VELOCITY_REPORT_OUTPUT_DIR")
+	defer os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", origDir)
 
 	// Test with environment override
 	t.Run("env_override", func(t *testing.T) {
-		os.Setenv("PDF_GENERATOR_DIR", "/custom/path")
-		dir, err := getPDFGeneratorDir()
+		os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", "/custom/path")
+		dir, err := getReportOutputRoot()
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -919,14 +897,13 @@ func TestGetPDFGeneratorDir(t *testing.T) {
 
 	// Test fallback to development location
 	t.Run("development_fallback", func(t *testing.T) {
-		os.Unsetenv("PDF_GENERATOR_DIR")
-		dir, err := getPDFGeneratorDir()
+		os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
+		dir, err := getReportOutputRoot()
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		// Should contain tools/pdf-generator
-		if !strings.Contains(dir, filepath.Join("tools", "pdf-generator")) {
-			t.Errorf("Expected path to contain 'tools/pdf-generator', got '%s'", dir)
+		if !strings.Contains(dir, filepath.Join(".tmp", "reports")) {
+			t.Errorf("Expected path to contain '.tmp/reports', got '%s'", dir)
 		}
 	})
 }

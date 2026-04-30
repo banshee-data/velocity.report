@@ -407,7 +407,7 @@ func postGenerateReportRequest(t *testing.T, server *Server, reqBody ReportReque
 }
 
 func TestRelativeReportPaths_Valid(t *testing.T) {
-	root := filepath.Join(string(os.PathSeparator), "tmp", "pdf-generator")
+	root := filepath.Join(string(os.PathSeparator), "tmp", "reports")
 	pdfPath := filepath.Join(root, "output", "run-1", "report.pdf")
 	zipPath := filepath.Join(root, "output", "run-1", "report_sources.zip")
 
@@ -424,7 +424,7 @@ func TestRelativeReportPaths_Valid(t *testing.T) {
 }
 
 func TestRelativeReportPaths_RejectEscape(t *testing.T) {
-	root := filepath.Join(string(os.PathSeparator), "tmp", "pdf-generator")
+	root := filepath.Join(string(os.PathSeparator), "tmp", "reports")
 	badPDF := filepath.Join(string(os.PathSeparator), "tmp", "outside", "report.pdf")
 	zipPath := filepath.Join(root, "output", "run-1", "report_sources.zip")
 

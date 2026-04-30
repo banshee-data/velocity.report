@@ -28,29 +28,22 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 		t.Fatalf("failed to create site: %v", err)
 	}
 
-	// Create temporary output directory for test files
-	tmpDir := t.TempDir()
+	// Create temporary output directory for test files.
+	reportRoot := t.TempDir()
 	runID := "test-20251022-100000"
-	outputDir := filepath.Join(tmpDir, "output", runID)
+	outputDir := filepath.Join(reportRoot, "output", runID)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		t.Fatalf("failed to create output dir: %v", err)
 	}
 
-	// Create a temporary directory that will act as our repo root
-	testRepoRoot := t.TempDir()
-	pdfDir := filepath.Join(testRepoRoot, "tools", "pdf-generator")
-	if err := os.MkdirAll(filepath.Join(pdfDir, "output", runID), 0755); err != nil {
-		t.Fatalf("failed to create pdf dir structure: %v", err)
-	}
-
-	// Override PDF_GENERATOR_DIR for this test (save and restore original)
-	origPdfGenDir := os.Getenv("PDF_GENERATOR_DIR")
-	os.Setenv("PDF_GENERATOR_DIR", pdfDir)
+	// Override VELOCITY_REPORT_OUTPUT_DIR for this test (save and restore original)
+	origReportOutputDir := os.Getenv("VELOCITY_REPORT_OUTPUT_DIR")
+	os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", reportRoot)
 	defer func() {
-		if origPdfGenDir != "" {
-			os.Setenv("PDF_GENERATOR_DIR", origPdfGenDir)
+		if origReportOutputDir != "" {
+			os.Setenv("VELOCITY_REPORT_OUTPUT_DIR", origReportOutputDir)
 		} else {
-			os.Unsetenv("PDF_GENERATOR_DIR")
+			os.Unsetenv("VELOCITY_REPORT_OUTPUT_DIR")
 		}
 	}()
 
@@ -86,8 +79,8 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create the actual files on disk with the disk filename
-			diskPDFPath := filepath.Join(pdfDir, "output", runID, tt.diskFilename)
-			diskZIPPath := filepath.Join(pdfDir, "output", runID, tt.diskZipname)
+			diskPDFPath := filepath.Join(reportRoot, "output", runID, tt.diskFilename)
+			diskZIPPath := filepath.Join(reportRoot, "output", runID, tt.diskZipname)
 
 			if err := os.WriteFile(diskPDFPath, []byte("fake pdf content"), 0644); err != nil {
 				t.Fatalf("failed to create test PDF: %v", err)
