@@ -13,13 +13,14 @@ runs:
   using: "composite"
   steps:
     # Cache the compiled grpc-swift-protobuf binary between runs.
-    # The cache key embeds the pinned version from install-proto-tooling.sh.
+    # Key includes a hash of the install script so any version-pin change
+    # busts the cache automatically — no manual key update required.
     - name: Cache grpc-swift plugin binary
       id: cache-grpc-swift
       uses: actions/cache@v4
       with:
         path: /tmp/protoc-gen-grpc-swift-binary
-        key: grpc-swift-protobuf-2.0.0-${{ runner.os }}-${{ runner.arch }}
+        key: grpc-swift-protobuf-${{ hashFiles('scripts/install-proto-tooling.sh') }}-${{ runner.os }}-${{ runner.arch }}
 
     - name: Restore grpc-swift binary from cache
       if: steps.cache-grpc-swift.outputs.cache-hit == 'true'
