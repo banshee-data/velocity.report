@@ -91,14 +91,24 @@ make test-go-cov      # Go tests with coverage (→ coverage.html)
 
 The system has four independent components communicating over HTTP and gRPC:
 
+```mermaid
+flowchart LR
+	Radar[Radar sensor\nUSB serial] --> Go[Go server\nRaspberry Pi]
+	Lidar[LiDAR sensor\nUDP/Ethernet] --> Go
+	Go --> DB[(SQLite\nsensor_data.db)]
+	Go --> API[HTTP API\n:8080]
+	Go --> GRPC[gRPC stream\n:50051]
+	API --> Web[Web frontend\nSvelte]
+	API --> PDF[Go PDF pipeline\ninternal/report]
+	GRPC --> Vis[macOS visualiser\nSwift/Metal]
 ```
-Radar (USB-serial) ──┐
-                     ├──► Go server (SQLite) ──► HTTP API (:8080) ────► Web frontend (Svelte)
-LiDAR (UDP/Ethernet)─┘         │                        │          └──► Go PDF pipeline (internal/report)
-                               │                        └─────────────► /docs/ (offline docs)
-                               ├───────────────► LiDAR HTTP (:8081)
-                               └───────────────► gRPC (:50051) ───────► macOS visualiser (Swift/Metal)
-```
+
+### Data-flow notes for AI agents
+
+- The physical deployment diagram in [ARCHITECTURE.md](ARCHITECTURE.md) was simplified on purpose.
+- Detailed host and network facts now live in tables: network configuration and key runtime paths.
+- Canonical LiDAR layer topology (L1-L10 chart and reading notes) lives in [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md).
+- Treat this file as the high-level map; use [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md) for authoritative detail.
 
 ### Go server (`cmd/`, `internal/`)
 
@@ -114,6 +124,8 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 ### LiDAR perception pipeline (`internal/lidar/l*`)
 
 Layer pipeline (L1–L9; L7 is unimplemented):
+
+For the canonical L1-L10 model and concept chart, see [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md).
 
 | Layer | Package         | Purpose                                                                          |
 | ----- | --------------- | -------------------------------------------------------------------------------- |
