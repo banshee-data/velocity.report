@@ -45,6 +45,13 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
+      - name: Setup Go
+        if: matrix.language == 'swift'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Prepare Go web embed stub
         if: matrix.language == 'go' && matrix.build-mode == 'autobuild'
         run: ./scripts/ensure-web-stub.sh
