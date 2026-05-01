@@ -132,7 +132,7 @@ Core runtime on Raspberry Pi:
 
 ### LiDAR layer map (L1-L10)
 
-## Segmented concept status chart
+#### Segmented concept status chart
 
 This is the primary visual breakdown for the layer model. Green nodes show
 implemented components; grey nodes mark planned extensions with no runtime

@@ -107,8 +107,8 @@ flowchart LR
 
 - The physical deployment diagram in [ARCHITECTURE.md](ARCHITECTURE.md) was simplified on purpose.
 - Detailed host and network facts now live in tables: network configuration and key runtime paths.
-- Canonical LiDAR layer topology (L1-L10 chart and reading notes) lives in [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md).
-- Treat this file as the high-level map; use [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md) for authoritative detail.
+- Canonical LiDAR layer topology (including the L1-L10 concept chart and reading notes) lives in [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
+- Treat this file as the high-level map; use [ARCHITECTURE.md](ARCHITECTURE.md) for authoritative detail.
 
 ### Go server (`cmd/`, `internal/`)
 
@@ -125,7 +125,7 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 
 Layer pipeline (L1–L9; L7 is unimplemented):
 
-For the canonical L1-L10 model and concept chart, see [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md).
+For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
 
 | Layer | Package         | Purpose                                                                          |
 | ----- | --------------- | -------------------------------------------------------------------------------- |
