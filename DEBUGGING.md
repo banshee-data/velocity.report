@@ -1096,13 +1096,36 @@ Go gRPC server not running or wrong address.
 
 ### Regenerating protobuf stubs
 
-When the protobuf schema changes:
+The Swift stubs under `tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`
+are gitignored (generated at build time). The Go stubs under
+`internal/lidar/l9endpoints/pb/` are committed to the repository.
+
+On a fresh clone, or after changing `proto/velocity_visualiser/v1/visualiser.proto`,
+regenerate:
 
 ```bash
+# One-time: install pinned toolchain (protoc, swift-protobuf, grpc-swift-2)
+./scripts/install-proto-tooling.sh
+
+# Generate stubs for all languages
 make proto-gen
+
+# Or individual targets
+make proto-gen-go    # Go stubs → internal/lidar/l9endpoints/pb/
+make proto-gen-swift # Swift stubs → tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
 ```
 
-Generated Swift files are placed in: `tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/` <!-- link-ignore-->
+`make build-mac` and `make test-mac` call `make proto-gen-swift` automatically.
+
+### Missing `Velocity_Visualiser_V1_*` symbols in Xcode
+
+If Xcode reports errors like `cannot find type 'Velocity_Visualiser_V1_Frame'`, the
+generated Swift stubs are absent:
+
+```bash
+./scripts/install-proto-tooling.sh
+make proto-gen-swift
+```
 
 ---
 

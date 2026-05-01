@@ -215,12 +215,12 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: /tmp/protoc-gen-grpc-swift
-          key: grpc-swift-protobuf-2.0.0-macos-15
+          key: grpc-swift-protobuf-2.1.2-macos-15
 
       - name: Build grpc-swift plugin from source
         if: steps.cache-grpc-swift.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch 2.0.0 https://github.com/grpc/grpc-swift-protobuf.git /tmp/grpc-swift-protobuf
+          git clone --depth 1 --branch 2.1.2 https://github.com/grpc/grpc-swift-protobuf.git /tmp/grpc-swift-protobuf
           cd /tmp/grpc-swift-protobuf
           swift build -c release --product protoc-gen-grpc-swift-2
           cp .build/release/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift

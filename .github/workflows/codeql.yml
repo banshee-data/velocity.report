@@ -1,0 +1,83 @@
+name: 🔐 CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: "17 4 * * 6"
+
+permissions:
+  contents: read
+  security-events: write
+  packages: read
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: swift
+            build-mode: manual
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+
+      - name: Setup Go
+        if: matrix.language == 'swift'
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Prepare Go web embed stub
+        if: matrix.language == 'go' && matrix.build-mode == 'autobuild'
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Autobuild
+        if: matrix.build-mode == 'autobuild'
+        uses: github/codeql-action/autobuild@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
+
+      - name: Setup proto toolchain and generate Swift stubs
+        if: matrix.language == 'swift'
+        uses: ./.github/actions/setup-proto
+        with:
+          generate: swift
+
+      - name: Build Swift app for CodeQL
+        if: matrix.language == 'swift'
+        working-directory: tools/visualiser-macos
+        run: |
+          xcodebuild \
+            -project VelocityVisualiser.xcodeproj \
+            -scheme VelocityVisualiser \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
+        with:
+          category: "/language:${{matrix.language}}"
