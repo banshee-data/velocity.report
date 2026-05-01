@@ -92,15 +92,23 @@ make test-go-cov      # Go tests with coverage (→ coverage.html)
 The system has four independent components communicating over HTTP and gRPC:
 
 ```mermaid
-flowchart LR
-	Radar[Radar sensor\nUSB serial] --> Go[Go server\nRaspberry Pi]
-	Lidar[LiDAR sensor\nUDP/Ethernet] --> Go
-	Go --> DB[(SQLite\nsensor_data.db)]
-	Go --> API[HTTP API\n:8080]
-	Go --> GRPC[gRPC stream\n:50051]
-	API --> Web[Web frontend\nSvelte]
-	API --> PDF[Go PDF pipeline\ninternal/report]
-	GRPC --> Vis[macOS visualiser\nSwift/Metal]
+flowchart TB
+	Radar[Radar - serial] --> Go[Go binary]
+	Lidar[LiDAR - ethernet] --> Go
+
+	subgraph A[ ]
+		direction LR
+		Go
+		DB[(SQLite)]
+	end
+	style A fill:transparent,stroke:transparent
+
+	DB <--> Go
+	Go --> API[HTTP :8080]
+	Go --> GRPC[gRPC :50051]
+	API --> Web[Web - Svelte]
+	API --> PDF[PDF report]
+	GRPC --> Vis[macOS visualiser]
 ```
 
 ### Data-flow notes for AI agents
