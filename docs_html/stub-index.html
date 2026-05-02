@@ -1,17 +1,60 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>velocity.report offline docs</title>
-  </head>
-  <body>
-    <main>
-      <h1>Offline Documentation Not Built</h1>
-      <p>
-        The embedded documentation site has not been built in this checkout.
-        Run <code>make build-docs-offline</code> to generate the full site.
-      </p>
-    </main>
-  </body>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>🚨 velocity.report 🚨 offline docs not built</title>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #01241a;
+      color: #fff;
+    }
+
+    .card {
+      max-width: 600px;
+      padding: 20px;
+      background: #fff;
+      color: #000;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      margin: 0.5rem 0;
+    }
+
+    code {
+      display: block;
+      margin: 1rem 0;
+      padding: 0.5rem;
+      background: #f4f4f4;
+      border-radius: 4px;
+      color: #047857;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>offline /docs not built</h1>
+    <p>Run the following commands to generate the offline docs:</p>
+    <code>make install-docs-offline</code>
+    <code>make build-docs-offline</code>
+    <p>Once built, the docs will be available at <code>/docs/</code></p>
+  </div>
+</body>
+
 </html>
