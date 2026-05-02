@@ -21,6 +21,5 @@ install -m 600 files/NetworkManager.state \
 
 on_chroot << 'CHEOF'
 systemctl enable NetworkManager.service
-systemctl enable NetworkManager-wait-online.service || true
-systemctl enable wpa_supplicant.service || true
+systemctl disable NetworkManager-wait-online.service || true
 CHEOF

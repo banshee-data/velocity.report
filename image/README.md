@@ -145,6 +145,10 @@ systemctl status NetworkManager --no-pager
 journalctl -u NetworkManager -b --no-pager
 ```
 
+If `ip -br link` shows `NO-CARRIER` for `eth0`, fix the cable, switch port,
+or upstream Ethernet link before chasing DHCP. NetworkManager cannot request
+an address until the Pi detects carrier.
+
 To force a wired DHCP retry from the console:
 
 ```bash
