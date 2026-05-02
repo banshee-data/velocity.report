@@ -108,14 +108,13 @@ Core runtime on Raspberry Pi:
 
 #### Network configuration
 
-| Surface                 | Endpoint                  | Purpose                                        |
-| ----------------------- | ------------------------- | ---------------------------------------------- |
-| LiDAR listener (Pi NIC) | `192.168.100.151/24`      | Receives LiDAR UDP packets                     |
-| LiDAR sensor source     | `192.168.100.202`         | Sensor IP sending UDP packets                  |
-| Local LAN               | `192.168.1.x`             | Serves HTTP API and gRPC to local clients      |
-| HTTP API                | `0.0.0.0:8080`            | Radar stats, config, commands, and report APIs |
-| HTTPS edge (optional)   | `:443 -> :8080` via nginx | TLS termination for browser clients            |
-| gRPC visualiser stream  | `0.0.0.0:50051`           | `VisualiserService` frame streaming            |
+| Surface                 | Endpoint             | Purpose                                        |
+| ----------------------- | -------------------- | ---------------------------------------------- |
+| LiDAR listener (Pi NIC) | `192.168.100.151/24` | Receives LiDAR UDP packets                     |
+| LiDAR sensor source     | `192.168.100.202`    | Sensor IP sending UDP packets                  |
+| Local LAN               | via DHCP             | Serves HTTP API and gRPC to local clients      |
+| HTTP API                | `0.0.0.0:8080`       | Radar stats, config, commands, and report APIs |
+| gRPC visualiser stream  | `0.0.0.0:50051`      | `VisualiserService` frame streaming            |
 
 #### Key paths and runtime artefacts
 
