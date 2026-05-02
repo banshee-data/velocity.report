@@ -95,19 +95,22 @@ The system has four independent components communicating over HTTP and gRPC:
 flowchart TB
 	Radar["Radar <br> (serial)"]
 	Lidar["LiDAR <br> (ethernet)"]
-	API[HTTP API <br> :8080]
 	GRPC[gRPC API <br> :50051]
-	API --> PDF[PDF report]
-	API --> Web["Web <br> (Svelte)"]
 	GRPC --> Vis[macOS visualiser]
-	Go["Go binary"]
-	Go --> GRPC
+	LiDAR_API[LiDAR API <br> :8081]
+	API[HTTP API <br> :8080]
+	LiDAR_API --> Vis
+	LiDAR_API --> Web
+	API --> Web["Web <br> (Svelte)"]
+	API --> PDF[PDF report]
+	Go --> LiDAR_API
 	Go --> API
-	Go
-	Lidar --> Go
-	Radar --> Go
-	DB[("SQLite")]
+	Go --> GRPC
+	Go["Go binary"]
 	DB <--> Go
+	DB[("SQLite")]
+	Radar --> Go
+	Lidar --> Go
 ```
 
 ### Data-flow notes for AI agents
