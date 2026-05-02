@@ -120,9 +120,9 @@ title: "velocity.report: Measure Traffic Speeds, Demand Safer Streets"
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Raspberry Pi Imager custom repo</p>
                     <p class="dl-muted"><a href="https://www.raspberrypi.com/software/" class="link">Install Raspberry Pi Imager</a>, then run this in a terminal. The <code>--repo</code> flag works on all platforms; the path to the binary varies by OS.</p>
                     <div class="dl-hash-box max-w-full text-xs font-mono text-gray-600 dark:text-gray-300">
-                        <span class="dl-hash-text" style="white-space:pre;padding-right:4rem;">cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" && ./rpi-imager --repo {{ release.rpi_imager_repo_url }}</span>
+                        <span class="dl-hash-text" style="white-space:pre;padding-right:4rem;">cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" && ./rpi-imager --disable-telemetry --repo {{ release.rpi_imager_repo_url }}</span>
                         <button type="button" aria-label="Copy Raspberry Pi Imager command"
-                            data-sha='cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" && ./rpi-imager --repo {{ release.rpi_imager_repo_url }}'
+                            data-sha='cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" && ./rpi-imager --disable-telemetry --repo {{ release.rpi_imager_repo_url }}'
                             data-select-target=".dl-hash-text"
                             class="copy-sha-btn"
                             style="top:50%;transform:translateY(-50%);bottom:auto;height:1.35rem;">copy</button>

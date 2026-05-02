@@ -156,15 +156,16 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 
 ## What stays in the monorepo
 
-| Asset                   | Location                                                                                                                                                | Reason                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| pi-gen stage scripts    | [image/stage-velocity/](../../../image/stage-velocity)                                                                                                  | Tightly coupled to server releases                                |
-| OS-list repository JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)                                                                                     | Updated by CI on release                                          |
-| Image CI workflow       | [.github/workflows/build-image.yml](../../../.github/workflows/build-image.yml)                                                                         | Triggered by monorepo releases                                    |
-| systemd service         | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../../image/stage-velocity/03-velocity-config/files/velocity-report.service) | Canonical source                                                  |
-| udev rules              | [image/stage-velocity/03-velocity-config/files/](../../../image/stage-velocity/03-velocity-config/files)                                                | Device permissions                                                |
-| Management binary       | [cmd/velocity-ctl/](../../../cmd/velocity-ctl)                                                                                                          | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version` |
-| LiDAR network config    | [image/stage-velocity/04-velocity-lidar/files/lidar-network.conf](../../../image/stage-velocity/04-velocity-lidar/files/lidar-network.conf)             | Static IP for 192.168.100.x                                       |
+| Asset                   | Location                                                                                                                                                        | Reason                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| pi-gen stage scripts    | [image/stage-velocity/](../../../image/stage-velocity)                                                                                                          | Tightly coupled to server releases                                |
+| OS-list repository JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)                                                                                             | Updated by CI on release                                          |
+| Image CI workflow       | [.github/workflows/build-image.yml](../../../.github/workflows/build-image.yml)                                                                                 | Triggered by monorepo releases                                    |
+| systemd service         | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../../image/stage-velocity/03-velocity-config/files/velocity-report.service)         | Canonical source                                                  |
+| udev rules              | [image/stage-velocity/03-velocity-config/files/](../../../image/stage-velocity/03-velocity-config/files)                                                        | Device permissions                                                |
+| Management binary       | [cmd/velocity-ctl/](../../../cmd/velocity-ctl)                                                                                                                  | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version` |
+| Primary LAN config      | [image/stage-velocity/07-networking/files/velocity-wired-dhcp.nmconnection](../../../image/stage-velocity/07-networking/files/velocity-wired-dhcp.nmconnection) | NetworkManager DHCP on wired Ethernet                             |
+| LiDAR network config    | [image/stage-velocity/04-velocity-lidar/files/lidar-network.conf](../../../image/stage-velocity/04-velocity-lidar/files/lidar-network.conf)                     | Static IP for 192.168.100.x                                       |
 
 ## Security
 

@@ -48,13 +48,7 @@ cleanup() {
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
-    # Remove staged root documents
-    local stage_files="$IMAGE_DIR/stage-velocity/03-velocity-config/files"
-    for f in README.md ARCHITECTURE.md CHANGELOG.md CODE_OF_CONDUCT.md \
-             COMMANDS.md CONTRIBUTING.md DEBUGGING.md TENETS.md LICENSE; do
-        rm -f "$stage_files/$f"
-    done
-    rm -f "$stage_files/velocity-report-build"
+    rm -f "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build"
 }
 
 # ---------------------------------------------------------------------------
@@ -275,24 +269,6 @@ mkdir -p "$PUBLIC_HTML_DEST"
 cp -r "$REPO_ROOT/public_html/_site/"* "$PUBLIC_HTML_DEST/"
 find "$PUBLIC_HTML_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied public_html site"
-
-# Copy root-level project documents into /opt/velocity-report/
-# These are the files listed in README.md § Project Documents plus
-# other root documents useful for on-device reference.
-for f in \
-    README.md \
-    ARCHITECTURE.md \
-    CHANGELOG.md \
-    CODE_OF_CONDUCT.md \
-    COMMANDS.md \
-    CONTRIBUTING.md \
-    TENETS.md \
-    DEBUGGING.md \
-    LICENSE; do
-    [ -f "$REPO_ROOT/$f" ] && install -m 644 "$REPO_ROOT/$f" \
-        "$IMAGE_DIR/stage-velocity/03-velocity-config/files/$f"
-done
-log_info "Copied root project documents"
 
 # ---------------------------------------------------------------------------
 # 7. Copy custom stage and binaries into pi-gen

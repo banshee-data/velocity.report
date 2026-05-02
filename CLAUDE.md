@@ -91,14 +91,34 @@ make test-go-cov      # Go tests with coverage (→ coverage.html)
 
 The system has four independent components communicating over HTTP and gRPC:
 
+```mermaid
+flowchart TB
+	Radar["Radar <br> (serial)"]
+	Lidar["LiDAR <br> (ethernet)"]
+	GRPC[gRPC API <br> :50051]
+	GRPC --> Vis[macOS visualiser]
+	LiDAR_API[LiDAR API <br> :8081]
+	API[HTTP API <br> :8080]
+	LiDAR_API --> Vis
+	LiDAR_API --> Web
+	API --> Web["Web <br> (Svelte)"]
+	API --> PDF[PDF report]
+	Go --> LiDAR_API
+	Go --> API
+	Go --> GRPC
+	Go["Go binary"]
+	DB <--> Go
+	DB[("SQLite")]
+	Radar --> Go
+	Lidar --> Go
 ```
-Radar (USB-serial) ──┐
-                     ├──► Go server (SQLite) ──► HTTP API (:8080) ────► Web frontend (Svelte)
-LiDAR (UDP/Ethernet)─┘         │                        │          └──► Go PDF pipeline (internal/report)
-                               │                        └─────────────► /docs/ (offline docs)
-                               ├───────────────► LiDAR HTTP (:8081)
-                               └───────────────► gRPC (:50051) ───────► macOS visualiser (Swift/Metal)
-```
+
+### Data-flow notes for AI agents
+
+- The physical deployment diagram in [ARCHITECTURE.md](ARCHITECTURE.md) was simplified on purpose.
+- Detailed host and network facts now live in tables: network configuration and key runtime paths.
+- Canonical LiDAR layer topology (including the L1-L10 concept chart and reading notes) lives in [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
+- Treat this file as the high-level map; use [ARCHITECTURE.md](ARCHITECTURE.md) for authoritative detail.
 
 ### Go server (`cmd/`, `internal/`)
 
@@ -114,6 +134,8 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 ### LiDAR perception pipeline (`internal/lidar/l*`)
 
 Layer pipeline (L1–L9; L7 is unimplemented):
+
+For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
 
 | Layer | Package         | Purpose                                                                          |
 | ----- | --------------- | -------------------------------------------------------------------------------- |
