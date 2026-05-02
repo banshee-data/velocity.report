@@ -77,23 +77,33 @@ jobs:
         with:
           working-directory: web
 
+      - name: Set build metadata
+        run: |
+          VERSION="${RELEASE_TAG:-dev}"
+          VERSION="${VERSION#v}"
+          GIT_SHA="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "VERSION=$VERSION"
+            echo "GIT_SHA=$GIT_SHA"
+            echo "BUILD_TIME=$BUILD_TIME"
+          } >> "$GITHUB_ENV"
+
       - name: Build web frontend
         # The Go binary embeds web/build/ via //go:embed (see assets.go).
-        # If we skip this step, ensure-web-stub.sh inside the Dockerfile
-        # plants a "Frontend Not Built" placeholder that gets baked into
-        # the released binary.
-        run: pnpm --dir web run build
+        # Keep the version metadata aligned with the Go ldflags source.
+        run: make VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-web
+
+      - name: Build offline docs
+        run: |
+          make install-docs-offline
+          make VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-docs-offline
 
       - name: Build ARM64 binaries via Docker
         # Uses image/Dockerfile.build (Debian bookworm + multiarch) to avoid
         # the Ubuntu 24.04 apt-sources gap where libpcap-dev:arm64 is not
         # available without manually adding ports.ubuntu.com/ubuntu-ports.
         run: |
-          VERSION="${RELEASE_TAG:-dev}"
-          VERSION="${VERSION#v}"
-          GIT_SHA="$(git rev-parse HEAD)"
-          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
           docker build \
             --platform linux/amd64 \
             -f image/Dockerfile.build \
@@ -198,6 +208,18 @@ jobs:
 
       - name: Setup qemu-user-static for pi-gen
         uses: ./.github/actions/setup-qemu-pigen
+
+      - name: Set build metadata
+        run: |
+          VERSION="${RELEASE_TAG:-dev}"
+          VERSION="${VERSION#v}"
+          GIT_SHA="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "VERSION=$VERSION"
+            echo "GIT_SHA=$GIT_SHA"
+            echo "BUILD_TIME=$BUILD_TIME"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Node.js with pnpm (web)
         uses: ./.github/actions/setup-node-pnpm
