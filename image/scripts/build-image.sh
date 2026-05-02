@@ -83,6 +83,8 @@ fi
 # derives from this single date call to guarantee consistency.
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_TS_COMPACT="${BUILD_TIME//[-:]/}"
+VERSION="${VERSION:-$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')}"
+GIT_SHA="${GIT_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "unknown")}"
 
 # ---------------------------------------------------------------------------
 # 3. Check prerequisites
@@ -101,14 +103,7 @@ fi
 # 3. Build web frontend
 # ---------------------------------------------------------------------------
 log_info "Building web frontend..."
-if command -v pnpm &>/dev/null; then
-    (cd "$REPO_ROOT/web" && pnpm run build)
-elif command -v npm &>/dev/null; then
-    (cd "$REPO_ROOT/web" && npm run build)
-else
-    log_error "pnpm or npm is required to build the web frontend"
-    exit 1
-fi
+make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-web
 log_info "Web frontend built"
 
 # ---------------------------------------------------------------------------
@@ -119,7 +114,7 @@ make -C "$REPO_ROOT" install-docs-offline
 log_info "Embedded offline docs dependencies installed"
 
 log_info "Building embedded offline docs site..."
-make -C "$REPO_ROOT" BUILD_TIME="$BUILD_TIME" build-docs-offline
+make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-docs-offline
 if [[ ! -f "$REPO_ROOT/docs_html/_site/index.html" ]]; then
     log_error "Embedded offline docs build did not produce docs_html/_site/index.html"
     exit 1
@@ -161,9 +156,6 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
         log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
-
-        VERSION=$(grep '^VERSION :=' Makefile | awk '{print $3}')
-        GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
         docker build \
             --platform linux/amd64 \
