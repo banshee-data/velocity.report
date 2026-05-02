@@ -72,10 +72,10 @@ Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 
 ## Sensor hardware
 
-| Sensor | Model                 | Measurement    | Interface           | Key Specifications                                                                     |
-| ------ | --------------------- | -------------- | ------------------- | -------------------------------------------------------------------------------------- |
-| Radar  | OmniPreSense OPS243-A | Doppler speed  | USB-Serial (RS-232) | K-band (24 GHz), ±0.1 mph accuracy, FFT-based, configurable speed/magnitude thresholds |
-| LiDAR  | Hesai Pandar40P       | 3D point cloud | Ethernet/UDP (PoE)  | 40 beams, 200 m range, 10 Hz rotation, 0.2° azimuth resolution, ~70,000 points/frame   |
+| Sensor | Model                 | Measurement    | Interface           | Key Specifications                                                                        |
+| ------ | --------------------- | -------------- | ------------------- | ----------------------------------------------------------------------------------------- |
+| Radar  | OmniPreSense OPS243-A | Doppler speed  | USB-Serial (RS-232) | K-band (24 GHz), ±0.1 mph accuracy, FFT-based, configurable speed/magnitude thresholds    |
+| LiDAR  | Hesai Pandar40P       | 3D point cloud | Ethernet/UDP (PoE)  | 40 beams, 100 m range, 10-20 Hz rotation, 0.2° azimuth resolution, ~700,000 points/second |
 
 Radar delivers Doppler-accurate speed through a narrow field of view.
 LiDAR delivers full-scene geometry: shape, trajectory, and classification across the entire road.
@@ -108,13 +108,13 @@ Core runtime on Raspberry Pi:
 
 #### Network configuration
 
-| Surface                 | Endpoint             | Purpose                                        |
-| ----------------------- | -------------------- | ---------------------------------------------- |
-| LiDAR listener (Pi NIC) | `192.168.100.151/24` | Receives LiDAR UDP packets                     |
-| LiDAR sensor source     | `192.168.100.202`    | Sensor IP sending UDP packets                  |
-| Local LAN               | via DHCP             | Serves HTTP API and gRPC to local clients      |
-| HTTP API                | `0.0.0.0:8080`       | Radar stats, config, commands, and report APIs |
-| gRPC visualiser stream  | `0.0.0.0:50051`      | `VisualiserService` frame streaming            |
+| Surface                | Endpoint             | Purpose                                        |
+| ---------------------- | -------------------- | ---------------------------------------------- |
+| LiDAR listener         | `192.168.100.151/24` | Receives LiDAR UDP packets                     |
+| LiDAR sensor source    | `192.168.100.202`    | Sensor IP sending UDP packets                  |
+| Local LAN              | via DHCP             | Serves HTTP API and gRPC to local clients      |
+| HTTP API               | `0.0.0.0:8080`       | Radar stats, config, commands, and report APIs |
+| gRPC visualiser stream | `0.0.0.0:50051`      | `VisualiserService` frame streaming            |
 
 #### Key paths and runtime artefacts
 
