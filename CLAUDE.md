@@ -93,22 +93,21 @@ The system has four independent components communicating over HTTP and gRPC:
 
 ```mermaid
 flowchart TB
-	Radar[Radar - serial] --> Go[Go binary]
-	Lidar[LiDAR - ethernet] --> Go
-
-	subgraph A[ ]
-		direction LR
-		Go
-		DB[(SQLite)]
-	end
-	style A fill:transparent,stroke:transparent
-
-	DB <--> Go
-	Go --> API[HTTP :8080]
-	Go --> GRPC[gRPC :50051]
-	API --> Web[Web - Svelte]
+	Radar["Radar <br> (serial)"]
+	Lidar["LiDAR <br> (ethernet)"]
+	API[HTTP API <br> :8080]
+	GRPC[gRPC API <br> :50051]
 	API --> PDF[PDF report]
+	API --> Web["Web <br> (Svelte)"]
 	GRPC --> Vis[macOS visualiser]
+	Go["Go binary"]
+	Go --> GRPC
+	Go --> API
+	Go
+	Lidar --> Go
+	Radar --> Go
+	DB[("SQLite")]
+	DB <--> Go
 ```
 
 ### Data-flow notes for AI agents
