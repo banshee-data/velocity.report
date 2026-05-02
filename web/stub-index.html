@@ -1,60 +1,58 @@
 <!doctype html>
 <html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>🚨 velocity.report 🚨 frontend not built</title>
+		<style>
+			body {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 100vh;
+				margin: 0;
+				font-family: Arial, sans-serif;
+				background: #01241a;
+				color: #fff;
+			}
 
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>🚨 velocity.report 🚨 frontend not built</title>
-	<style>
-		body {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			min-height: 100vh;
-			margin: 0;
-			font-family: Arial, sans-serif;
-			background: #01241a;
-			color: #fff;
-		}
+			.card {
+				max-width: 600px;
+				padding: 20px;
+				background: #fff;
+				color: #000;
+				border-radius: 12px;
+				box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+				text-align: center;
+			}
 
-		.card {
-			max-width: 600px;
-			padding: 20px;
-			background: #fff;
-			color: #000;
-			border-radius: 12px;
-			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-			text-align: center;
-		}
+			h1 {
+				font-size: 1.8rem;
+				margin-bottom: 1rem;
+			}
 
-		h1 {
-			font-size: 1.8rem;
-			margin-bottom: 1rem;
-		}
+			p {
+				margin: 0.5rem 0;
+			}
 
-		p {
-			margin: 0.5rem 0;
-		}
+			code {
+				display: block;
+				margin: 1rem 0;
+				padding: 0.5rem;
+				background: #f4f4f4;
+				border-radius: 4px;
+				color: #047857;
+			}
+		</style>
+	</head>
 
-		code {
-			display: block;
-			margin: 1rem 0;
-			padding: 0.5rem;
-			background: #f4f4f4;
-			border-radius: 4px;
-			color: #047857;
-		}
-	</style>
-</head>
-
-<body>
-	<div class="card">
-		<h1>web frontend not built</h1>
-		<p>Run the following command to build the web frontend:</p>
-		<code>make build-web</code>
-		<p>Or navigate to the <code>web</code> directory and run:</p>
-		<code>pnpm run build</code>
-	</div>
-</body>
-
+	<body>
+		<div class="card">
+			<h1>web frontend not built</h1>
+			<p>Run the following command to build the web frontend:</p>
+			<code>make build-web</code>
+			<p>Or navigate to the <code>web</code> directory and run:</p>
+			<code>pnpm run build</code>
+		</div>
+	</body>
 </html>
