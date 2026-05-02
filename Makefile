@@ -21,12 +21,16 @@ help:
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
+	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
+	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
+	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
 	@echo "  build-ctl            Build velocity-ctl device management binary"
 	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
 	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
 	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
 	@echo "  clean-images         Remove old images, keeping only the latest build"
+	@echo "  build-embedded-assets Build static assets embedded in release binaries"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-docs-offline   Build embedded offline docs site (Eleventy)"
@@ -224,6 +228,29 @@ build-ctl:
 
 build-ctl-linux:
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-ctl-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity-ctl
+
+.PHONY: build-embedded-assets
+build-embedded-assets:
+	@./scripts/build-embedded-assets.sh
+
+.PHONY: release-ensure-github-release release-build-linux-binaries release-build-darwin-radar release-package-linux-radar release-build-image-from-staged-binaries release-normalize-image-artifact
+release-ensure-github-release:
+	@./scripts/release-assets.sh ensure-github-release
+
+release-build-linux-binaries:
+	@./scripts/release-assets.sh build-linux-binaries
+
+release-build-darwin-radar:
+	@./scripts/release-assets.sh build-darwin-radar
+
+release-package-linux-radar:
+	@./scripts/release-assets.sh package-linux-radar
+
+release-build-image-from-staged-binaries:
+	@./scripts/release-assets.sh build-image-from-staged-binaries
+
+release-normalize-image-artifact:
+	@./scripts/release-assets.sh normalize-image-artifact
 
 # Build a Raspberry Pi image using pi-gen (requires Docker)
 # Compiles ARM64 Go binaries with pcap support inside a Docker container,

@@ -16,6 +16,7 @@
 # Options:
 #   --skip-binaries   Reuse binaries from a previous build
 #   --host-build      Build binaries with the host Go toolchain (no Docker compile)
+#   --binaries-only   Build web/docs assets and ARM64 binaries, then stop
 #   --ssh-key <path>  Install an SSH public key for the login user
 
 set -euo pipefail
@@ -56,11 +57,13 @@ cleanup() {
 # ---------------------------------------------------------------------------
 SKIP_BINARIES=0
 HOST_BUILD=0
+BINARIES_ONLY=0
 SSH_KEY_PATH=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --skip-binaries) SKIP_BINARIES=1; shift ;;
         --host-build)    HOST_BUILD=1; shift ;;
+        --binaries-only) BINARIES_ONLY=1; shift ;;
         --ssh-key)
             if [[ -z "${2:-}" ]]; then
                 log_error "--ssh-key requires a path to a public key file"
@@ -76,12 +79,17 @@ if [[ -n "$SSH_KEY_PATH" && ! -f "$SSH_KEY_PATH" ]]; then
     exit 1
 fi
 
+if [[ "$BINARIES_ONLY" -eq 1 && "$SKIP_BINARIES" -eq 1 ]]; then
+    log_error "--binaries-only cannot be combined with --skip-binaries"
+    exit 1
+fi
+
 # ---------------------------------------------------------------------------
 # 2. Compute build timestamp once for the entire script
 # ---------------------------------------------------------------------------
 # Every timestamp in this build (Docker args, MOTD metadata, image filename)
 # derives from this single date call to guarantee consistency.
-BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_TIME="${BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 BUILD_TS_COMPACT="${BUILD_TIME//[-:]/}"
 VERSION="${VERSION:-$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')}"
 GIT_SHA="${GIT_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "unknown")}"
@@ -89,37 +97,17 @@ GIT_SHA="${GIT_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "un
 # ---------------------------------------------------------------------------
 # 3. Check prerequisites
 # ---------------------------------------------------------------------------
-if ! command -v docker &>/dev/null; then
-    log_error "Docker is required but not installed"
-    exit 1
+if [[ "$HOST_BUILD" -eq 0 || "$BINARIES_ONLY" -eq 0 ]]; then
+    if ! command -v docker &>/dev/null; then
+        log_error "Docker is required but not installed"
+        exit 1
+    fi
+
+    if ! docker info &>/dev/null; then
+        log_error "Docker daemon is not running — start Docker Desktop and try again"
+        exit 1
+    fi
 fi
-
-if ! docker info &>/dev/null; then
-    log_error "Docker daemon is not running — start Docker Desktop and try again"
-    exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# 3. Build web frontend
-# ---------------------------------------------------------------------------
-log_info "Building web frontend..."
-make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-web
-log_info "Web frontend built"
-
-# ---------------------------------------------------------------------------
-# 3a. Build embedded offline docs
-# ---------------------------------------------------------------------------
-log_info "Installing embedded offline docs dependencies..."
-make -C "$REPO_ROOT" install-docs-offline
-log_info "Embedded offline docs dependencies installed"
-
-log_info "Building embedded offline docs site..."
-make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-docs-offline
-if [[ ! -f "$REPO_ROOT/docs_html/_site/index.html" ]]; then
-    log_error "Embedded offline docs build did not produce docs_html/_site/index.html"
-    exit 1
-fi
-log_info "Embedded offline docs built"
 
 # ---------------------------------------------------------------------------
 # 4. Build ARM64 binaries
@@ -128,6 +116,14 @@ BINARIES_DIR="$IMAGE_DIR/velocity-binaries"
 mkdir -p "$BINARIES_DIR"
 
 if [[ "$SKIP_BINARIES" -eq 0 ]]; then
+    log_info "Building embedded static assets..."
+    make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-embedded-assets
+    if [[ ! -f "$REPO_ROOT/docs_html/_site/index.html" ]]; then
+        log_error "Embedded offline docs build did not produce docs_html/_site/index.html"
+        exit 1
+    fi
+    log_info "Embedded static assets built"
+
     cd "$REPO_ROOT"
 
     if [[ "$HOST_BUILD" -eq 1 ]]; then
@@ -174,12 +170,22 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
 
     chmod +x "$BINARIES_DIR"/*
     log_info "Binaries staged in $BINARIES_DIR"
+else
+    if [[ ! -x "$BINARIES_DIR/velocity-report" || ! -x "$BINARIES_DIR/velocity-ctl" ]]; then
+        log_error "--skip-binaries requires executable $BINARIES_DIR/velocity-report and velocity-ctl"
+        exit 1
+    fi
+    log_info "Using pre-staged binaries in $BINARIES_DIR"
+fi
+
+if [[ "$BINARIES_ONLY" -eq 1 ]]; then
+    log_info "Binary build complete; skipping image assembly (--binaries-only)"
+    exit 0
 fi
 
 # Write build metadata for the login MOTD and on-device diagnostics.
 # The stage script installs this to /etc/velocity-report-build.
-VERSION=$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')
-GIT_SHA_SHORT=$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+GIT_SHA_SHORT="${GIT_SHA:0:7}"
 cat > "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build" << BUILDEOF
 # velocity.report image build metadata — stamped at image creation time.
 VR_VERSION="$VERSION"
