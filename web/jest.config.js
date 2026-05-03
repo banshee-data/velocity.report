@@ -7,13 +7,14 @@ const repoRoot = resolve(__dirname, '..');
 const localRequire = createRequire(import.meta.url);
 
 // Resolve full entry point paths for pnpm compatibility when rootDir != web/
-const tsJestEntry = localRequire.resolve('ts-jest');
 const svelteJesterEntry = localRequire.resolve('svelte-jester');
+const esbuildTransformerEntry = resolve(__dirname, 'jest.esbuild-transformer.cjs');
 
 /** @type {import('jest').Config} */
 export default {
 	rootDir: repoRoot,
 	testEnvironment: 'jsdom',
+	watchman: false,
 	extensionsToTreatAsEsm: ['.ts', '.svelte'],
 	roots: ['<rootDir>/web/src', '<rootDir>/internal/lidar/l9endpoints/l10clients/assets'],
 	coverageProvider: 'v8',
@@ -27,27 +28,15 @@ export default {
 	},
 	transform: {
 		'^.+\\.ts$': [
-			tsJestEntry,
+			esbuildTransformerEntry,
 			{
-				tsconfig: {
-					target: 'es2022',
-					module: 'esnext',
-					moduleResolution: 'bundler',
-					resolveJsonModule: true,
-					allowJs: true,
-					checkJs: true,
-					esModuleInterop: true,
-					isolatedModules: true,
-					skipLibCheck: true,
-					strict: true
-				},
-				useESM: true
+				target: 'es2022'
 			}
 		],
 		'^.+\\.svelte$': [
 			svelteJesterEntry,
 			{
-				preprocess: true,
+				preprocess: false,
 				compilerOptions: {
 					dev: true
 				}
