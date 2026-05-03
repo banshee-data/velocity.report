@@ -143,7 +143,7 @@ db-backup # Backup database
   **Proposed (After):**
 
 - With config file (cleaner): `velocity-report --config /etc/velocity-report.toml serve`
-- Or explicit flags (organized by subcommand): `velocity-report serve --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db`
+- Or explicit flags (organised by subcommand): `velocity-report serve --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db`
 - Unified tools binary: `velocity-tools sweep --mode multi --output results.csv`
 - `velocity-tools deploy install --target mypi --binary ./velocity-report-{version}-linux-arm64`
 - `velocity-tools backfill-transits --start 2024-01-01T00:00:00Z --end 2024-01-31T23:59:59Z`
