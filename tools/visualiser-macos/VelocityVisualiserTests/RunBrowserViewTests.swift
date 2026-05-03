@@ -82,7 +82,8 @@ struct AnalysisRunComputedPropertyTests {
             runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, replayCaseName: "kirk1")
+            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
+            replayCaseName: "kirk1")
         // UUID: first 8 chars up to first dash
         #expect(run.shortIdPrefix == "4ea0f3ab")
         #expect(run.replayCaseName == "kirk1")
@@ -311,10 +312,10 @@ struct PlaybackStatusModelTests {
             runID: "run-123", appState: state, runBrowserState: state.runBrowserState
         ) { nil }
 
-        XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
+        XCTAssertEqual(state.prepareForNewReplayCallCount, 0)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
-        // prepareForNewReplay resets isLive; the failed load does not restore it.
-        XCTAssertFalse(state.isLive)
+        // A failed load returns before playback state is reset or replay activated.
+        XCTAssertTrue(state.isLive)
         XCTAssertNil(state.currentRunID)
         XCTAssertNil(state.replayFrameEncoding)
     }
