@@ -4156,7 +4156,9 @@ describe('HINT Functions', () => {
 			expect(document.getElementById('hint-label-count')!.textContent).toContain('8/10');
 			expect(document.getElementById('hint-label-pct')!.textContent).toContain('80');
 			expect(document.getElementById('hint-label-bar')!.style.width).toBe('80%');
-			expect(document.getElementById('hint-continue-btn')!.disabled).toBe(false);
+			expect((document.getElementById('hint-continue-btn') as HTMLButtonElement).disabled).toBe(
+				false
+			);
 			expect(document.getElementById('hint-carried-count')!.textContent).toContain('3');
 			expect(document.getElementById('hint-tracks-link')!.getAttribute('href')).toContain(
 				'run-abc'
@@ -4196,7 +4198,9 @@ describe('HINT Functions', () => {
 				label_progress: { labelled: 2, total: 10, progress_pct: 20 }
 			});
 
-			expect(document.getElementById('hint-continue-btn')!.disabled).toBe(true);
+			expect((document.getElementById('hint-continue-btn') as HTMLButtonElement).disabled).toBe(
+				true
+			);
 		});
 
 		it('renders running_sweep state with auto-tune info', () => {
@@ -4293,7 +4297,9 @@ describe('HINT Functions', () => {
 				'/api/lidar/sweep/hint/continue',
 				expect.objectContaining({ method: 'POST' })
 			);
-			expect(document.getElementById('hint-continue-btn')!.disabled).toBe(true);
+			expect((document.getElementById('hint-continue-btn') as HTMLButtonElement).disabled).toBe(
+				true
+			);
 		});
 
 		it('shows error on failure', async () => {
@@ -5134,3 +5140,5 @@ afterAll(() => {
 	URL.createObjectURL = origCreateObjectURL;
 	URL.revokeObjectURL = origRevokeObjectURL;
 });
+
+export {};

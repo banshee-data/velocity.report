@@ -158,6 +158,8 @@ describe('escapeHTML', () => {
 	});
 });
 
+export {};
+
 describe('regionColors', () => {
 	it('is an array of 20 hex colour strings', () => {
 		expect(Array.isArray(regionColors)).toBe(true);

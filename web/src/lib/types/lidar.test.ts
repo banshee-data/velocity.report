@@ -28,6 +28,10 @@ describe('lidar types', () => {
 			expect(TRACK_COLORS.car).toBe('#FF5722');
 		});
 
+		it('should have correct colour for truck', () => {
+			expect(TRACK_COLORS.truck).toBe('#F97316');
+		});
+
 		it('should have correct colour for bird', () => {
 			expect(TRACK_COLORS.bird).toBe('#FFC107');
 		});
@@ -52,13 +56,19 @@ describe('lidar types', () => {
 			expect(TRACK_COLORS.cyclist).toBe('#00BCD4');
 		});
 
-		it('should have all 8 track colours defined', () => {
+		it('should have correct colour for motorcyclist', () => {
+			expect(TRACK_COLORS.motorcyclist).toBe('#EC4899');
+		});
+
+		it('should have all display and state track colours defined', () => {
 			const keys = Object.keys(TRACK_COLORS);
-			expect(keys).toHaveLength(8);
+			expect(keys).toHaveLength(10);
 			expect(keys).toContain('pedestrian');
 			expect(keys).toContain('car');
+			expect(keys).toContain('truck');
 			expect(keys).toContain('bus');
 			expect(keys).toContain('cyclist');
+			expect(keys).toContain('motorcyclist');
 			expect(keys).toContain('bird');
 			expect(keys).toContain('dynamic');
 			expect(keys).toContain('tentative');

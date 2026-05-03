@@ -137,3 +137,5 @@ describe('formatDuration', () => {
 		expect(formatDuration(89.6)).toBe('1m 30s');
 	});
 });
+
+export {};
