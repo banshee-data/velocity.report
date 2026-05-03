@@ -19,8 +19,16 @@ export interface Track {
 	speed_mps: number;
 	/** Current heading (radians, world frame) */
 	heading_rad: number;
-	/** Classified object type (optional) */
-	object_class?: 'pedestrian' | 'car' | 'bus' | 'cyclist' | 'bird' | 'dynamic';
+	/** Classified object type (optional, includes display-only reserved classes) */
+	object_class?:
+		| 'pedestrian'
+		| 'car'
+		| 'truck'
+		| 'bus'
+		| 'cyclist'
+		| 'motorcyclist'
+		| 'bird'
+		| 'dynamic';
 	/** Confidence in object classification (0-1, optional) */
 	object_confidence?: number;
 	/** Number of observations for this track */
@@ -173,8 +181,10 @@ export interface TrackStateSummary {
 export const TRACK_COLORS = {
 	pedestrian: '#4CAF50', // Green
 	car: '#FF5722', // Deep Orange
+	truck: '#F97316', // Orange
 	bus: '#7B1FA2', // Purple
 	cyclist: '#00BCD4', // Cyan
+	motorcyclist: '#EC4899', // Pink
 	bird: '#FFC107', // Amber
 	dynamic: '#9E9E9E', // Grey
 	tentative: '#FF9800', // Orange (unconfirmed)
