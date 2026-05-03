@@ -8,7 +8,8 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		paths: {
-			base: '/app'
+			base: '/app',
+			relative: false
 		},
 		prerender: {
 			handleMissingId: 'warn',

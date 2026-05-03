@@ -254,6 +254,11 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 			}
 		}
 
+		if isFrontendAssetRequest(path) {
+			http.NotFound(w, r)
+			return
+		}
+
 		// Fall back to index.html for SPA routing
 		if !tryServeFile("/index.html") {
 			http.NotFound(w, r)
@@ -306,5 +311,18 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		return nil
 	case err := <-errCh:
 		return err
+	}
+}
+
+func isFrontendAssetRequest(path string) bool {
+	if strings.Contains(path, "/_app/") {
+		return true
+	}
+
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".css", ".gif", ".ico", ".jpg", ".jpeg", ".js", ".json", ".map", ".png", ".svg", ".txt", ".wasm", ".webmanifest", ".woff", ".woff2":
+		return true
+	default:
+		return false
 	}
 }
