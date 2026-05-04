@@ -19,7 +19,7 @@
 		"format": "pnpm run prettier:write",
 		"prettier:check": "prettier --check .",
 		"prettier:write": "prettier --write .",
-		"lint": "pnpm run prettier:check && eslint .",
+		"lint": "pnpm run prettier:check && pnpm exec eslint .",
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"test:coverage": "jest --coverage",
