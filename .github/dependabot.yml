@@ -19,12 +19,12 @@ updates:
     patterns: ["*"]
     multi-ecosystem-group: "application"
 
-  - package-ecosystem: "npm"
+  - package-ecosystem: "pnpm"
     directory: "/web"
     patterns: ["*"]
     multi-ecosystem-group: "application"
 
-  - package-ecosystem: "npm"
+  - package-ecosystem: "pnpm"
     directory: "/docs"
     patterns: ["*"]
     multi-ecosystem-group: "documentation"
