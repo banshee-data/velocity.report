@@ -33,6 +33,7 @@
   "pnpm": {
     "overrides": {
       "liquidjs@<=10.25.4": "10.25.5",
+      "minimatch@<3.1.5": "3.1.5",
       "picomatch@<2.3.2": "2.3.2"
     }
   }
