@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-VERSION="${VERSION:-$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')}"
+VERSION="${VERSION:-$(make -s -C "$REPO_ROOT" print-version)}"
 BUILD_TIME="${BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 
 make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-web

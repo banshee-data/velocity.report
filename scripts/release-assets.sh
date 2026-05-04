@@ -7,10 +7,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE_DIR="$REPO_ROOT/image"
 
+ref_name_looks_like_tag() {
+    [[ -n "${GITHUB_REF_NAME:-}" && "${GITHUB_REF_NAME}" =~ ^v[0-9] ]]
+}
+
 release_tag() {
     if [[ -n "${RELEASE_TAG:-}" ]]; then
         printf '%s\n' "$RELEASE_TAG"
-    elif [[ -n "${GITHUB_REF_NAME:-}" ]]; then
+    elif [[ "${GITHUB_REF_TYPE:-}" == "tag" ]] || ref_name_looks_like_tag; then
         printf '%s\n' "$GITHUB_REF_NAME"
     else
         printf '%s\n' ""
@@ -41,7 +45,8 @@ build_time() {
 }
 
 ensure_github_release() {
-    local tag="${GITHUB_REF_NAME:-$(release_tag)}"
+    local tag
+    tag="$(release_tag)"
     if [[ -z "$tag" ]]; then
         echo "release tag is required; set GITHUB_REF_NAME or RELEASE_TAG" >&2
         exit 2
@@ -138,7 +143,7 @@ build_image_from_staged_binaries() {
 
 normalize_image_artifact() {
     local image_path
-    image_path="$(find "$IMAGE_DIR/.pi-gen/deploy" -name '*.img.xz' -type f | sort | tail -1)"
+    image_path="$(find "$IMAGE_DIR/.pi-gen/deploy" -name '*.img.xz' -type f -exec ls -t {} + 2>/dev/null | head -n1)"
     if [[ -z "$image_path" ]]; then
         echo "::error::No .img.xz file found in image/.pi-gen/deploy"
         exit 1
