@@ -1,13 +1,17 @@
-import prettier from 'eslint-config-prettier';
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
+import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
+const commonJsDisabledRules = Object.fromEntries(
+	[...new Set(svelte.configs.recommended.flatMap((config) => Object.keys(config.rules ?? {})))].map(
+		(ruleName) => [ruleName, 'off']
+	)
+);
 
 export default ts.config(
 	includeIgnoreFile(gitignorePath),
@@ -32,14 +36,23 @@ export default ts.config(
 			parserOptions: {
 				projectService: true,
 				extraFileExtensions: ['.svelte'],
-				parser: ts.parser,
-				svelteConfig
+				parser: ts.parser
 			}
 		},
 		rules: {
 			// The core rule does not understand Svelte reactive assignments
 			// ($: x = …) and flags them as useless. Disable for .svelte files.
 			'no-useless-assignment': 'off'
+		}
+	},
+	{
+		files: ['**/*.cjs'],
+		languageOptions: {
+			sourceType: 'commonjs'
+		},
+		rules: {
+			...commonJsDisabledRules,
+			'@typescript-eslint/no-require-imports': 'off'
 		}
 	}
 );

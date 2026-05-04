@@ -440,7 +440,7 @@ Create a command-line tool for analysing LIDAR frames with AV standard-compatibl
 // frame-analyzer --compare pred.parquet gt.parquet
 //
 // Modes:
-// analyze Process raw LIDAR data (PCAP or live)
+// analyse Process raw LIDAR data (PCAP or live)
 // evaluate Compare predictions against AV standard ground truth
 // export Export training data in various formats
 //
@@ -449,7 +449,7 @@ Create a command-line tool for analysing LIDAR frames with AV standard-compatibl
 // --dataset AV standard Parquet dataset path
 // --output Output directory for analysis results
 // --format Output format: json, parquet, tfrecord
-// --viz Enable visualization output
+// --viz Enable visualisation output
 // --metrics Compute detection/tracking metrics
 
 ### 5.2 Analysis output format
@@ -561,12 +561,12 @@ More efficient than DBSCAN for structured point clouds with known density patter
 
 **EuclideanClusterExtractor** fields:
 
-| Field            | Type           | Description                                      |
-| ---------------- | -------------- | ------------------------------------------------ |
-| ClusterTolerance | `float64`      | Distance threshold for neighbors (default: 0.5m) |
-| MinClusterSize   | `int`          | Minimum points per cluster (default: 10)         |
-| MaxClusterSize   | `int`          | Maximum points per cluster (default: 25000)      |
-| spatialIndex     | `*OctreeIndex` | Spatial index for efficient neighbor queries     |
+| Field            | Type           | Description                                       |
+| ---------------- | -------------- | ------------------------------------------------- |
+| ClusterTolerance | `float64`      | Distance threshold for neighbours (default: 0.5m) |
+| MinClusterSize   | `int`          | Minimum points per cluster (default: 10)          |
+| MaxClusterSize   | `int`          | Maximum points per cluster (default: 25000)       |
+| spatialIndex     | `*OctreeIndex` | Spatial index for efficient neighbour queries     |
 
 ### 6.3 Octree spatial index
 

@@ -90,7 +90,8 @@ private let logger = DevLogger(category: "AppState")
     @Published var replayFinished: Bool = false  // True when replay stream reached EOF
     @Published var currentFrameIndex: UInt64 = 0  // 0-based index in log (for stepping)
     @Published var totalFrames: UInt64 = 0
-    @Published var isSeekable: Bool = false  // True when seek/step is supported (e.g. .vrlog replay)
+    // True when seek/step is supported, for example .vrlog replay.
+    @Published var isSeekable: Bool = false
     @Published var timeDisplayMode: TimeDisplayMode = .elapsed  // Clock display mode
     @Published private(set) var inFlightPlaybackCommand: PlaybackCommandKind?
     @Published private(set) var commandStartedAt: Date?
@@ -146,7 +147,8 @@ private let logger = DevLogger(category: "AppState")
     @Published var clusterCount: Int = 0
     @Published var trackCount: Int = 0
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
-    @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
+    // Projected track labels for overlay.
+    @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []
     /// Metal view drawable size — intentionally NOT @Published to avoid
     /// GeometryReader → metalViewSize → objectWillChange → layout → cycle.
     var metalViewSize: CGSize = .zero
@@ -158,7 +160,8 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Track Filters
 
-    @Published var filterOnlyInBox: Bool = false  // Only show foreground points inside bounding boxes
+    // Only show foreground points inside bounding boxes.
+    @Published var filterOnlyInBox: Bool = false
     @Published var filterMinHits: Int = 0  // Minimum number of frames (hits) for a track
     @Published var filterMaxHits: Int = 0  // Maximum hits (0 = no limit)
     @Published var filterMinPointsPerFrame: Int = 0  // Minimum observation count per frame
@@ -324,6 +327,9 @@ private let logger = DevLogger(category: "AppState")
 
     var displayPlaybackMode: PlaybackMode {
         if !isConnected && playbackMode == .unknown { return .unknown }
+        if playbackMode == .live && !isLive {
+            return isSeekable ? .replaySeekable : .replayNonSeekable
+        }
         return playbackMode
     }
 
@@ -1223,7 +1229,11 @@ private let logger = DevLogger(category: "AppState")
             panelOpen
             ? .milliseconds(100)  // ~10 fps UI when panel visible
             : .milliseconds(16)  // ~60 fps cap to avoid landing inside layout passes
-        if uiNow - lastUIUpdateClock >= minUIInterval {
+        if renderer == nil {
+            applyFrameStateUpdate(
+                frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
+                newLabels: newLabels, generation: eventGeneration)
+        } else if frameCount == 0 || uiNow - lastUIUpdateClock >= minUIInterval {
             lastUIUpdateClock = uiNow
             Task { [weak self] in
                 guard let self else { return }
@@ -1361,6 +1371,8 @@ private let logger = DevLogger(category: "AppState")
             )
         }
 
+        let wasSeekingAtFrameStart = isSeekingInProgress
+
         // Clear seeking guard when the first post-seek frame arrives.
         // The seek RPC keeps isSeekingInProgress=true so stale buffered
         // frames can't flicker the seek bar.  Once the command finishes
@@ -1389,7 +1401,7 @@ private let logger = DevLogger(category: "AppState")
         // Update replay progress (skip if user is interacting with slider).
         // Frame-index progress is preferred — it is robust against non-linear
         // timestamp distribution and background-frame timestamp contamination.
-        if !isLive && !isSeekingInProgress {
+        if !isLive && !wasSeekingAtFrameStart && !isSeekingInProgress {
             if totalFrames > 1 {
                 replayProgress = max(0, min(1, Double(currentFrameIndex) / Double(totalFrames - 1)))
             } else if logEndTimestamp > logStartTimestamp {

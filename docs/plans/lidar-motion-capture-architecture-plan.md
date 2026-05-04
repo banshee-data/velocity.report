@@ -232,7 +232,7 @@ Covariance: P (13×13 matrix)
 - Kalman gain
 - State update
 - Covariance update
-- Quaternion normalization (maintain unit constraint)
+- Quaternion normalisation (maintain unit constraint)
 
 ### Object orientation estimation
 
