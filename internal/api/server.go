@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	urlpath "path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -319,7 +320,7 @@ func isFrontendAssetRequest(path string) bool {
 		return true
 	}
 
-	switch strings.ToLower(filepath.Ext(path)) {
+	switch strings.ToLower(urlpath.Ext(path)) {
 	case ".css", ".gif", ".ico", ".jpg", ".jpeg", ".js", ".json", ".map", ".png", ".svg", ".txt", ".wasm", ".webmanifest", ".woff", ".woff2":
 		return true
 	default:

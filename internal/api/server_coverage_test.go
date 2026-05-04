@@ -18,6 +18,51 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 )
 
+func startServerOnFreePort(t *testing.T, server *Server, devMode bool) (string, context.CancelFunc, <-chan error) {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to bind test listener: %v", err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.Start(ctx, addr, devMode)
+	}()
+
+	if err := waitForServer(addr, 5*time.Second); err != nil {
+		cancel()
+		select {
+		case serverErr := <-errCh:
+			if serverErr != nil {
+				t.Fatalf("server failed before readiness probe succeeded: %v", serverErr)
+			}
+		default:
+		}
+		t.Fatalf("server did not become ready: %v", err)
+	}
+
+	return addr, cancel, errCh
+}
+
+func waitForServer(addr string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 50*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	return fmt.Errorf("timed out waiting for %s", addr)
+}
+
 // Coverage tests for server.go - focused on uncovered paths
 
 // cleanupClosedDB removes database files after a test that closed the DB early
@@ -797,22 +842,7 @@ func TestStart_ProductionModeListenAndShutdown(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Pick a free port
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.Start(ctx, addr, false)
-	}()
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	addr, cancel, errCh := startServerOnFreePort(t, server, false)
 
 	// Make a request to verify server is running - root should redirect to /app/
 	resp, err := http.Get("http://" + addr + "/")
@@ -887,29 +917,23 @@ func TestStart_DevModeWithBuildDir(t *testing.T) {
 	// Create a temp directory to act as CWD with web/build
 	tmp := t.TempDir()
 	buildDir := filepath.Join(tmp, "web", "build")
-	os.MkdirAll(buildDir, 0755)
-	os.WriteFile(filepath.Join(buildDir, "index.html"), []byte("<html>test</html>"), 0644)
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		t.Fatalf("failed to create build dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(buildDir, "index.html"), []byte("<html>test</html>"), 0644); err != nil {
+		t.Fatalf("failed to write index.html: %v", err)
+	}
 
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
 	defer os.Chdir(origDir)
 
-	// Pick a free port
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.Start(ctx, addr, true)
-	}()
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	addr, cancel, errCh := startServerOnFreePort(t, server, true)
 
 	// Make a request to /app/ which should serve index.html from dev build dir
 	resp, err := http.Get("http://" + addr + "/app/")
@@ -966,26 +990,16 @@ func TestStart_DevModeSPAFallbackDoesNotMaskMissingAssets(t *testing.T) {
 		t.Fatalf("failed to write start.js: %v", err)
 	}
 
-	origDir, _ := os.Getwd()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatalf("failed to chdir: %v", err)
 	}
 	defer os.Chdir(origDir)
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.Start(ctx, addr, true)
-	}()
-
-	time.Sleep(100 * time.Millisecond)
+	addr, cancel, errCh := startServerOnFreePort(t, server, true)
 
 	resp, err := http.Get("http://" + addr + "/app/site/1")
 	if err != nil {
