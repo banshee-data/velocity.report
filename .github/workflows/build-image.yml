@@ -28,43 +28,13 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - name: Create or reuse GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists."
-            exit 0
-          fi
-
-          if ! gh api "repos/$GH_REPO/git/refs/tags/$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "::error::Expected pushed tag $GITHUB_REF_NAME to exist before publishing the release."
-            exit 1
-          fi
-
-          CREATE_ARGS=(
-            "$GITHUB_REF_NAME"
-            --verify-tag
-            --title "$GITHUB_REF_NAME"
-            --notes ""
-          )
-
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
-            CREATE_ARGS+=(--prerelease)
-          fi
-
-          if gh release create "${CREATE_ARGS[@]}"; then
-            exit 0
-          fi
-
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME appeared during create; continuing."
-            exit 0
-          fi
-
-          echo "::error::Failed to create or reuse release $GITHUB_REF_NAME."
-          exit 1
+        run: make release-ensure-github-release
 
   build-binaries:
     name: Cross-compile Go binaries (Linux ARM64)
@@ -77,44 +47,15 @@ jobs:
         with:
           working-directory: web
 
-      - name: Build web frontend
-        # The Go binary embeds web/build/ via //go:embed (see assets.go).
-        # If we skip this step, ensure-web-stub.sh inside the Dockerfile
-        # plants a "Frontend Not Built" placeholder that gets baked into
-        # the released binary.
-        run: pnpm --dir web run build
-
-      - name: Build ARM64 binaries via Docker
-        # Uses image/Dockerfile.build (Debian bookworm + multiarch) to avoid
-        # the Ubuntu 24.04 apt-sources gap where libpcap-dev:arm64 is not
-        # available without manually adding ports.ubuntu.com/ubuntu-ports.
-        run: |
-          VERSION="${RELEASE_TAG:-dev}"
-          VERSION="${VERSION#v}"
-          GIT_SHA="$(git rev-parse HEAD)"
-          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          docker build \
-            --platform linux/amd64 \
-            -f image/Dockerfile.build \
-            --build-arg VERSION="$VERSION" \
-            --build-arg GIT_SHA="$GIT_SHA" \
-            --build-arg BUILD_TIME="$BUILD_TIME" \
-            -t velocity-builder \
-            .
-
-          CONTAINER_ID=$(docker create velocity-builder)
-          docker cp "$CONTAINER_ID:/out/velocity-report" velocity-report-arm64
-          docker cp "$CONTAINER_ID:/out/velocity-ctl" velocity-ctl-arm64
-          docker rm "$CONTAINER_ID"
-          chmod +x velocity-report-arm64 velocity-ctl-arm64
+      - name: Build ARM64 binaries via repo target
+        run: make release-build-linux-binaries
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: velocity-binaries
           path: |
-            velocity-report-arm64
-            velocity-ctl-arm64
+            image/velocity-binaries/velocity-report
+            image/velocity-binaries/velocity-ctl
           retention-days: 1
 
   release-linux-radar:
@@ -125,16 +66,15 @@ jobs:
       - build-binaries
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: velocity-binaries
           path: dist/linux
 
       - name: Package Linux release asset
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          mv dist/linux/velocity-report-arm64 "dist/linux/velocity-report-${VERSION}-linux-arm64"
-          echo "RADAR_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64" >> "$GITHUB_ENV"
+        run: make release-package-linux-radar
 
       - name: Upload Linux release asset
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
@@ -161,24 +101,8 @@ jobs:
         with:
           working-directory: web
 
-      - name: Build web frontend
-        run: pnpm --dir web run build
-
       - name: Build Darwin ARM64 radar binary
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          GIT_SHA="$(git rev-parse HEAD)"
-          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          ./scripts/ensure-web-stub.sh
-
-          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -tags=pcap \
-            -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
-            -o "velocity-report-${VERSION}-darwin-arm64" \
-            ./cmd/radar
-
-          echo "RADAR_PATH=velocity-report-${VERSION}-darwin-arm64" >> "$GITHUB_ENV"
+        run: make release-build-darwin-radar
 
       - name: Upload Darwin release asset
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
@@ -199,11 +123,6 @@ jobs:
       - name: Setup qemu-user-static for pi-gen
         uses: ./.github/actions/setup-qemu-pigen
 
-      - name: Setup Node.js with pnpm (web)
-        uses: ./.github/actions/setup-node-pnpm
-        with:
-          working-directory: web
-
       - name: Setup Node.js with pnpm (public_html)
         uses: ./.github/actions/setup-node-pnpm
         with:
@@ -214,33 +133,11 @@ jobs:
           name: velocity-binaries
           path: image/velocity-binaries
 
-      - name: Rename staged binaries
-        run: |
-          mv image/velocity-binaries/velocity-report-arm64 image/velocity-binaries/velocity-report
-          mv image/velocity-binaries/velocity-ctl-arm64 image/velocity-binaries/velocity-ctl
-          chmod +x image/velocity-binaries/*
-
       - name: Build image with repo helper
-        run: ./image/scripts/build-image.sh --skip-binaries
+        run: make release-build-image-from-staged-binaries
 
       - name: Normalise image artifact
-        run: |
-          IMAGE_PATH="$(find image/.pi-gen/deploy -name '*.img.xz' -type f | sort | tail -1)"
-          if [ -z "$IMAGE_PATH" ]; then
-            echo "::error::No .img.xz file found in image/.pi-gen/deploy"
-            exit 1
-          fi
-
-          FINAL_IMAGE_PATH="$IMAGE_PATH"
-
-          if [ -n "${RELEASE_TAG}" ]; then
-            VERSION="${RELEASE_TAG#v}"
-            FINAL_IMAGE_PATH="$(dirname "$IMAGE_PATH")/velocity-report-${VERSION}.img.xz"
-            mv "$IMAGE_PATH" "$FINAL_IMAGE_PATH"
-          fi
-
-          echo "IMAGE_PATH=$FINAL_IMAGE_PATH" >> "$GITHUB_ENV"
-          echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
+        run: make release-normalize-image-artifact
 
       - name: Upload image to release
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
@@ -259,11 +156,6 @@ jobs:
       - name: Setup qemu-user-static for pi-gen
         uses: ./.github/actions/setup-qemu-pigen
 
-      - name: Setup Node.js with pnpm (web)
-        uses: ./.github/actions/setup-node-pnpm
-        with:
-          working-directory: web
-
       - name: Setup Node.js with pnpm (public_html)
         uses: ./.github/actions/setup-node-pnpm
         with:
@@ -274,33 +166,11 @@ jobs:
           name: velocity-binaries
           path: image/velocity-binaries
 
-      - name: Rename staged binaries
-        run: |
-          mv image/velocity-binaries/velocity-report-arm64 image/velocity-binaries/velocity-report
-          mv image/velocity-binaries/velocity-ctl-arm64 image/velocity-binaries/velocity-ctl
-          chmod +x image/velocity-binaries/*
-
       - name: Build image with repo helper
-        run: ./image/scripts/build-image.sh --skip-binaries
+        run: make release-build-image-from-staged-binaries
 
       - name: Normalise image artifact
-        run: |
-          IMAGE_PATH="$(find image/.pi-gen/deploy -name '*.img.xz' -type f | sort | tail -1)"
-          if [ -z "$IMAGE_PATH" ]; then
-            echo "::error::No .img.xz file found in image/.pi-gen/deploy"
-            exit 1
-          fi
-
-          FINAL_IMAGE_PATH="$IMAGE_PATH"
-
-          if [ -n "${RELEASE_TAG}" ]; then
-            VERSION="${RELEASE_TAG#v}"
-            FINAL_IMAGE_PATH="$(dirname "$IMAGE_PATH")/velocity-report-${VERSION}.img.xz"
-            mv "$IMAGE_PATH" "$FINAL_IMAGE_PATH"
-          fi
-
-          echo "IMAGE_PATH=$FINAL_IMAGE_PATH" >> "$GITHUB_ENV"
-          echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
+        run: make release-normalize-image-artifact
 
       - name: Upload image as artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

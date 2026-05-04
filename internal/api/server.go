@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	urlpath "path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -144,6 +146,22 @@ func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
 // will be preserved and served. This avoids losing preconfigured routes when
 // starting the server.
 func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		return err
+	}
+
+	return s.startWithListener(ctx, listener, devMode)
+}
+
+func (s *Server) startWithListener(ctx context.Context, listener net.Listener, devMode bool) error {
+	closeListener := true
+	defer func() {
+		if closeListener {
+			_ = listener.Close()
+		}
+	}()
+
 	// Store debug mode for use in handlers
 	s.debugMode = devMode
 
@@ -254,6 +272,11 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 			}
 		}
 
+		if isFrontendAssetRequest(path) {
+			http.NotFound(w, r)
+			return
+		}
+
 		// Fall back to index.html for SPA routing
 		if !tryServeFile("/index.html") {
 			http.NotFound(w, r)
@@ -269,17 +292,15 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		http.NotFound(w, r)
 	})
 
-	server := &http.Server{
-		Addr:    listen,
-		Handler: LoggingMiddleware(mux),
-	}
+	server := &http.Server{Handler: LoggingMiddleware(mux)}
 
-	log.Printf("HTTP server listening on %s", listen)
+	log.Printf("HTTP server listening on %s", listener.Addr())
 
 	// Run server in background and wait for either context cancellation or error
 	errCh := make(chan error, 1)
+	closeListener = false
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return
 		}
@@ -306,5 +327,18 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		return nil
 	case err := <-errCh:
 		return err
+	}
+}
+
+func isFrontendAssetRequest(path string) bool {
+	if strings.Contains(path, "/_app/") {
+		return true
+	}
+
+	switch strings.ToLower(urlpath.Ext(path)) {
+	case ".css", ".gif", ".ico", ".jpg", ".jpeg", ".js", ".json", ".map", ".png", ".svg", ".txt", ".wasm", ".webmanifest", ".woff", ".woff2":
+		return true
+	default:
+		return false
 	}
 }

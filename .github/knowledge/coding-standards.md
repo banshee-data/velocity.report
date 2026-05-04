@@ -104,6 +104,18 @@ Code formatting is automated. Run `make format` before committing. Per-language:
 | Python      | `black` + `ruff` | `make format-python` |
 | Web (JS/TS) | `prettier`       | `make format-web`    |
 
+## CI Workflow Design
+
+GitHub Actions workflows are thin wrappers. Keep workflow YAML focused on
+triggering jobs, selecting runners, checking out code, installing runner
+dependencies, uploading/downloading artifacts, and invoking canonical `make`
+targets.
+
+Do not put product build logic, release metadata derivation, artifact naming,
+or packaging rules directly in workflow `run:` blocks. Put that logic in
+repo-owned scripts, expose it through `make`, and call the Make target from the
+workflow. The same command should be runnable locally for parity with CI.
+
 ## Timestamps
 
 All machine-generated timestamps must be **UTC ISO 8601** with a trailing `Z`:

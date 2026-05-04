@@ -96,12 +96,6 @@
 <AppLayout>
 	<nav slot="nav">
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
-		<NavItem
-			text="Docs"
-			icon={mdiBookOpenPageVariantOutline}
-			path={docsUrl}
-			currentUrl={page.url}
-		/>
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={page.url} />
 		{#if $capabilities.lidar.enabled}
@@ -131,6 +125,12 @@
 			/>
 		{/if}
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
+		<NavItem
+			text="Docs"
+			icon={mdiBookOpenPageVariantOutline}
+			path={docsUrl}
+			currentUrl={page.url}
+		/>
 	</nav>
 
 	<AppBar title="velocity.report">

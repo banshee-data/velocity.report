@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,54 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 )
+
+func startServerOnFreePort(t *testing.T, server *Server, devMode bool) (string, context.CancelFunc, <-chan error) {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to bind test listener: %v", err)
+	}
+	addr := ln.Addr().String()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.startWithListener(ctx, ln, devMode)
+	}()
+
+	if err := waitForServer(addr, 5*time.Second); err != nil {
+		cancel()
+		select {
+		case serverErr := <-errCh:
+			if serverErr != nil {
+				t.Fatalf("server failed before readiness probe succeeded: %v", serverErr)
+			}
+		default:
+		}
+		t.Fatalf("server did not become ready: %v", err)
+	}
+
+	return addr, cancel, errCh
+}
+
+func waitForServer(addr string, timeout time.Duration) error {
+	client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	url := "http://" + addr + "/"
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(url)
+		if err == nil {
+			_ = resp.Body.Close()
+			return nil
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	return fmt.Errorf("timed out waiting for %s", addr)
+}
 
 // Coverage tests for server.go - focused on uncovered paths
 
@@ -796,22 +845,7 @@ func TestStart_ProductionModeListenAndShutdown(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	// Pick a free port
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.Start(ctx, addr, false)
-	}()
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	addr, cancel, errCh := startServerOnFreePort(t, server, false)
 
 	// Make a request to verify server is running - root should redirect to /app/
 	resp, err := http.Get("http://" + addr + "/")
@@ -886,29 +920,23 @@ func TestStart_DevModeWithBuildDir(t *testing.T) {
 	// Create a temp directory to act as CWD with web/build
 	tmp := t.TempDir()
 	buildDir := filepath.Join(tmp, "web", "build")
-	os.MkdirAll(buildDir, 0755)
-	os.WriteFile(filepath.Join(buildDir, "index.html"), []byte("<html>test</html>"), 0644)
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		t.Fatalf("failed to create build dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(buildDir, "index.html"), []byte("<html>test</html>"), 0644); err != nil {
+		t.Fatalf("failed to write index.html: %v", err)
+	}
 
-	origDir, _ := os.Getwd()
-	os.Chdir(tmp)
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
 	defer os.Chdir(origDir)
 
-	// Pick a free port
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.Start(ctx, addr, true)
-	}()
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	addr, cancel, errCh := startServerOnFreePort(t, server, true)
 
 	// Make a request to /app/ which should serve index.html from dev build dir
 	resp, err := http.Get("http://" + addr + "/app/")
@@ -935,6 +963,89 @@ func TestStart_DevModeWithBuildDir(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusFound {
 		t.Errorf("Expected redirect for trailing slash with query, got %d", resp.StatusCode)
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("Server returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown timed out")
+	}
+}
+
+func TestStart_DevModeSPAFallbackDoesNotMaskMissingAssets(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	tmp := t.TempDir()
+	buildDir := filepath.Join(tmp, "web", "build")
+	entryDir := filepath.Join(buildDir, "_app", "immutable", "entry")
+	if err := os.MkdirAll(entryDir, 0755); err != nil {
+		t.Fatalf("failed to create build entry dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(buildDir, "index.html"), []byte("<html>app shell</html>"), 0644); err != nil {
+		t.Fatalf("failed to write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(entryDir, "start.js"), []byte("export {};"), 0644); err != nil {
+		t.Fatalf("failed to write start.js: %v", err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	addr, cancel, errCh := startServerOnFreePort(t, server, true)
+
+	resp, err := http.Get("http://" + addr + "/app/site/1")
+	if err != nil {
+		t.Fatalf("failed to request SPA route: %v", err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("failed to read SPA response: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected SPA fallback status 200, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "app shell") {
+		t.Fatalf("expected SPA fallback body, got %q", string(body))
+	}
+
+	resp, err = http.Get("http://" + addr + "/app/_app/immutable/entry/start.js")
+	if err != nil {
+		t.Fatalf("failed to request frontend asset: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected existing frontend asset status 200, got %d", resp.StatusCode)
+	}
+	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "javascript") {
+		t.Fatalf("expected JavaScript content type, got %q", contentType)
+	}
+
+	resp, err = http.Get("http://" + addr + "/app/site/_app/immutable/entry/start.js")
+	if err != nil {
+		t.Fatalf("failed to request missing nested frontend asset: %v", err)
+	}
+	body, err = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("failed to read missing asset response: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected missing nested frontend asset status 404, got %d", resp.StatusCode)
+	}
+	if strings.Contains(string(body), "app shell") {
+		t.Fatalf("missing frontend asset was served the SPA fallback body")
 	}
 
 	cancel()
