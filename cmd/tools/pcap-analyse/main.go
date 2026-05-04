@@ -841,7 +841,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			classifier.ClassifyAndUpdate(track)
 		}
 
-		if track.State == l5tracks.TrackConfirmed {
+		if track.TrackState == l5tracks.TrackConfirmed {
 			result.ConfirmedTracks++
 		}
 
@@ -855,9 +855,9 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			TrackID:      track.TrackID,
 			Class:        class,
 			Confidence:   track.ObjectConfidence,
-			StartTime:    time.Unix(0, track.FirstUnixNanos).Format(time.RFC3339),
-			EndTime:      time.Unix(0, track.LastUnixNanos).Format(time.RFC3339),
-			DurationSecs: float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9,
+			StartTime:    time.Unix(0, track.StartUnixNanos).Format(time.RFC3339),
+			EndTime:      time.Unix(0, track.EndUnixNanos).Format(time.RFC3339),
+			DurationSecs: float64(track.EndUnixNanos-track.StartUnixNanos) / 1e9,
 			Observations: track.ObservationCount,
 			AvgSpeedMps:  track.AvgSpeedMps,
 			MaxSpeedMps:  track.MaxSpeedMps,
