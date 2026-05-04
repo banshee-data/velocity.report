@@ -185,6 +185,11 @@ LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal
 WEB_DIR = web
 WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
+.PHONY: print-version
+print-version:
+	@echo $(VERSION)
+
+
 # =============================================================================
 # BUILD TARGETS (Go cross-compilation)
 # =============================================================================
