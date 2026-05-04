@@ -3,7 +3,7 @@ version: 2
 multi-ecosystem-groups:
   application:
     schedule:
-      interval: "monthly"
+      interval: "weekly"
   documentation:
     schedule:
       interval: "monthly"
@@ -25,6 +25,11 @@ updates:
     multi-ecosystem-group: "application"
 
   - package-ecosystem: "npm"
-    directory: "/docs"
+    directory: "/docs_html"
+    patterns: ["*"]
+    multi-ecosystem-group: "documentation"
+
+  - package-ecosystem: "npm"
+    directory: "/public_html"
     patterns: ["*"]
     multi-ecosystem-group: "documentation"

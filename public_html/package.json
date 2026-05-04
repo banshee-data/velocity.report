@@ -1,6 +1,6 @@
 {
   "name": "velocity.report",
-  "version": "0.5.1-pre15",
+  "version": "0.5.1-pre16",
   "description": "https://velocity.report",
   "main": "index.js",
   "scripts": {
@@ -33,6 +33,7 @@
   "pnpm": {
     "overrides": {
       "liquidjs@<=10.25.4": "10.25.5",
+      "minimatch@<3.1.5": "3.1.5",
       "picomatch@<2.3.2": "2.3.2"
     }
   }
