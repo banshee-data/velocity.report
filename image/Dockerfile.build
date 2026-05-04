@@ -9,7 +9,7 @@
 #   docker build -f image/Dockerfile.build -t velocity-builder .
 #   docker run --rm -v $PWD/image/velocity-binaries:/out velocity-builder
 
-FROM golang:1.25-bookworm
+FROM golang:1.26-bookworm
 
 # Install ARM64 cross-compilation toolchain and libpcap headers
 RUN dpkg --add-architecture arm64 && \
