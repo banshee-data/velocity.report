@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	urlpath "path"
@@ -145,6 +146,22 @@ func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
 // will be preserved and served. This avoids losing preconfigured routes when
 // starting the server.
 func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		return err
+	}
+
+	return s.startWithListener(ctx, listener, devMode)
+}
+
+func (s *Server) startWithListener(ctx context.Context, listener net.Listener, devMode bool) error {
+	closeListener := true
+	defer func() {
+		if closeListener {
+			_ = listener.Close()
+		}
+	}()
+
 	// Store debug mode for use in handlers
 	s.debugMode = devMode
 
@@ -275,17 +292,15 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		http.NotFound(w, r)
 	})
 
-	server := &http.Server{
-		Addr:    listen,
-		Handler: LoggingMiddleware(mux),
-	}
+	server := &http.Server{Handler: LoggingMiddleware(mux)}
 
-	log.Printf("HTTP server listening on %s", listen)
+	log.Printf("HTTP server listening on %s", listener.Addr())
 
 	// Run server in background and wait for either context cancellation or error
 	errCh := make(chan error, 1)
+	closeListener = false
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return
 		}

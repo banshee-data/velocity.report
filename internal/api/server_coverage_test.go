@@ -26,12 +26,11 @@ func startServerOnFreePort(t *testing.T, server *Server, devMode bool) (string, 
 		t.Fatalf("failed to bind test listener: %v", err)
 	}
 	addr := ln.Addr().String()
-	ln.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.Start(ctx, addr, devMode)
+		errCh <- server.startWithListener(ctx, ln, devMode)
 	}()
 
 	if err := waitForServer(addr, 5*time.Second); err != nil {
@@ -50,11 +49,15 @@ func startServerOnFreePort(t *testing.T, server *Server, devMode bool) (string, 
 }
 
 func waitForServer(addr string, timeout time.Duration) error {
+	client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	url := "http://" + addr + "/"
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 50*time.Millisecond)
+		resp, err := client.Get(url)
 		if err == nil {
-			_ = conn.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 		time.Sleep(25 * time.Millisecond)
