@@ -133,6 +133,9 @@ jobs:
           name: velocity-binaries
           path: image/velocity-binaries
 
+      - name: Ensure staged binaries are executable
+        run: chmod +x image/velocity-binaries/velocity-report image/velocity-binaries/velocity-ctl
+
       - name: Build image with repo helper
         run: make release-build-image-from-staged-binaries
 
@@ -165,6 +168,9 @@ jobs:
         with:
           name: velocity-binaries
           path: image/velocity-binaries
+
+      - name: Ensure staged binaries are executable
+        run: chmod +x image/velocity-binaries/velocity-report image/velocity-binaries/velocity-ctl
 
       - name: Build image with repo helper
         run: make release-build-image-from-staged-binaries
