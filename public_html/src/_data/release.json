@@ -18,14 +18,14 @@
   },
   "prerelease": {
     "linux_arm64": {
-      "version": "0.5.1-pre14",
-      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre14/velocity-report-0.5.1-pre14-linux-arm64",
-      "sha256": "1e147e402e0fad413f541d11777ac93b2ae1f3841c5f1d130ae01784d965a126"
+      "version": "0.5.1-pre17",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre17/velocity-report-0.5.1-pre17-linux-arm64",
+      "sha256": "9e56168c2d725ab9ce3c8834b6018840dcbf0ffcd229327ecb51b0b9104b054c"
     },
     "mac_arm64": {
-      "version": "0.5.1-pre14",
-      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre14/velocity-report-0.5.1-pre14-darwin-arm64",
-      "sha256": "412cb80614d9c168baaa8e6c0d3a5ba3e224ff859640dbb540fd67a607baffda"
+      "version": "0.5.1-pre17",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre17/velocity-report-0.5.1-pre17-darwin-arm64",
+      "sha256": "950d8f0fe5334c583bb70bc6fbe2863f630692bdf460dbbf0ccd7e2f11e1a7c9"
     },
     "visualiser": {
       "version": "",
@@ -34,14 +34,14 @@
     }
   },
   "rpi_image": {
-    "version": "0.5.1-pre14",
-    "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre14/velocity-report-0.5.1-pre14.img.xz",
-    "sha256": "c017d0a82ed59ce6143b59485db66a72e8ee1eaad696305ce2fb743230c90a81",
-    "extract_sha256": "0a9cd94cb396bc9f3ebf51947532ec508122d3f27cb2461e5d3c9d817d3fef16",
-    "release_url": "https://github.com/banshee-data/velocity.report/releases/tag/v0.5.1-pre14",
-    "download_size": 356753652,
-    "extract_size": 2306867200,
-    "release_date": "2026-05-02"
+    "version": "0.5.1-pre17",
+    "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre17/velocity-report-0.5.1-pre17.img.xz",
+    "sha256": "82613d00c4a7e95eefe497e3cc09c19ab3f4960731b6dbde8e1e382f80511793",
+    "extract_sha256": "0bf11a4ecec943a6a3e501a1f2778c22648a44a746616f80d539ac6df0dec9db",
+    "release_url": "https://github.com/banshee-data/velocity.report/releases/tag/v0.5.1-pre17",
+    "download_size": 367769100,
+    "extract_size": 2357198848,
+    "release_date": "2026-05-05"
   },
   "rpi_imager_repo_url": "https://velocity.report/rpi.json"
 }
