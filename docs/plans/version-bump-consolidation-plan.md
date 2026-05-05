@@ -217,9 +217,9 @@ Ordered by execution — items under Item 1 must land before Item 2.
 **Item 1 — simplify `set-build-env.js` (prerequisite):**
 
 - [x] Remove the `readFileSync` / `dirname` / `fileURLToPath` imports and `package.json` read from `web/scripts/set-build-env.js` (`S`)
-- [x] Set `PUBLIC_WEB_VERSION = buildVersion` (mirror `PUBLIC_BUILD_VERSION`) (`S`)
+- [x] ~~Set `PUBLIC_WEB_VERSION = buildVersion` (mirror `PUBLIC_BUILD_VERSION`)~~ — went one step further: the meta tag was already redundant with `app-build-version`, so `<meta name="app-web-version">` was removed from `web/src/app.html` and the `PUBLIC_WEB_VERSION` env-var assignment dropped. `app-build-version` is now the single canonical version meta tag.
 - [x] Update the stale `// canonical source` comment in `set-build-env.js` (`S`)
-- [x] Verify `make build-web` embeds the correct version in both `app-build-version` and `app-web-version` meta tags (`S`)
+- [x] Verify `make build-web` embeds the correct version in the `app-build-version` meta tag (`S`)
 
 **Item 2 — pin metadata:**
 
