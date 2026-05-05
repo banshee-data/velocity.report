@@ -28,7 +28,6 @@ if (!buildVersion) {
 process.env.PUBLIC_GIT_SHA = gitSha;
 process.env.PUBLIC_BUILD_TIME = buildTime;
 process.env.PUBLIC_BUILD_VERSION = buildVersion;
-process.env.PUBLIC_WEB_VERSION = buildVersion;
 
 // Get the command to run (everything after the first argument)
 const args = process.argv.slice(3);
