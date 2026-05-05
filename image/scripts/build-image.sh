@@ -171,10 +171,11 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
     chmod +x "$BINARIES_DIR"/*
     log_info "Binaries staged in $BINARIES_DIR"
 else
-    if [[ ! -x "$BINARIES_DIR/velocity-report" || ! -x "$BINARIES_DIR/velocity-ctl" ]]; then
-        log_error "--skip-binaries requires executable $BINARIES_DIR/velocity-report and velocity-ctl"
+    if [[ ! -f "$BINARIES_DIR/velocity-report" || ! -f "$BINARIES_DIR/velocity-ctl" ]]; then
+        log_error "--skip-binaries requires staged binaries at $BINARIES_DIR/velocity-report and velocity-ctl"
         exit 1
     fi
+    chmod +x "$BINARIES_DIR/velocity-report" "$BINARIES_DIR/velocity-ctl"
     log_info "Using pre-staged binaries in $BINARIES_DIR"
 fi
 
