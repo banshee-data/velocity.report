@@ -1,0 +1,8 @@
+{
+  "url": "https://velocity.report",
+  "name": "velocity.report",
+  "description": "Open-source speed monitoring for neighbourhood streets. A Raspberry Pi and a radar sensor become a speed logger and PDF report. No cameras, no licence plates, no cloud.",
+  "og_image": "/img/guide-stack.jpg",
+  "og_image_width": 1200,
+  "og_image_height": 900
+}
