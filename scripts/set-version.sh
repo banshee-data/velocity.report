@@ -135,10 +135,9 @@ shift
 # Validate version format
 validate_version "$VERSION"
 
-# Parse targets
+# Parse targets — no targets means --all (matches usage text)
 if [[ $# -eq 0 ]]; then
-    # No targets specified, show usage
-    usage
+    set -- --all
 fi
 
 for arg in "$@"; do

@@ -134,7 +134,7 @@ help:
 	@echo "  render               Run all render targets (diagrams + overlays)"
 	@echo ""
 	@echo "UTILITIES:"
-	@echo "  version-exact        Update version across codebase (VER=0.5.1 TARGETS='--all')"
+	@echo "  version-exact        Update version across codebase (VER=0.5.1 [TARGETS=...])"
 	@echo "  update-release-json  Refresh release.json/os-list from GitHub Releases (ARGS='--ci --channel prerelease --validate')"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
@@ -1417,18 +1417,14 @@ render: render-diagrams render-overlays
 
 version-exact:
 	@if [ -z "$(VER)" ]; then \
-		echo "Usage: make version-exact VER=<version> TARGETS='<targets>'"; \
+		echo "Usage: make version-exact VER=<version> [TARGETS='<targets>']"; \
 		echo ""; \
-		echo "Example: make version-exact VER=0.4.0-pre2 TARGETS='--all'"; \
+		echo "Example: make version-exact VER=0.4.0-pre2"; \
 		echo "         make version-exact VER=0.5.0 TARGETS='--makefile --mac'"; \
 		echo ""; \
+		echo "When TARGETS is omitted, set-version.sh defaults to --all."; \
+		echo ""; \
 		./scripts/set-version.sh; \
-		exit 1; \
-	fi
-	@if [ -z "$(TARGETS)" ]; then \
-		echo "Error: TARGETS not specified"; \
-		echo "Usage: make version-exact VER=<version> TARGETS='<targets>'"; \
-		echo "Example: make version-exact VER=0.4.0-pre2 TARGETS='--all'"; \
 		exit 1; \
 	fi
 	@./scripts/set-version.sh $(VER) $(TARGETS)
