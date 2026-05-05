@@ -1420,7 +1420,7 @@ version-exact:
 		echo "Usage: make version-exact VER=<version> TARGETS='<targets>'"; \
 		echo ""; \
 		echo "Example: make version-exact VER=0.4.0-pre2 TARGETS='--all'"; \
-		echo "         make version-exact VER=0.5.0 TARGETS='--makefile --web --docs --mac'"; \
+		echo "         make version-exact VER=0.5.0 TARGETS='--makefile --mac'"; \
 		echo ""; \
 		./scripts/set-version.sh; \
 		exit 1; \

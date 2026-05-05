@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 import { execSync, spawn } from 'child_process';
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 
 // Get git SHA (short form)
 let gitSha = process.env.PUBLIC_GIT_SHA;
@@ -21,22 +18,17 @@ if (!buildTime) {
 	buildTime = process.argv[2] === 'dev' ? 'DEV_MODE' : new Date().toISOString();
 }
 
-// Get build version (from Makefile VERSION via environment)
+// Get build version (from Makefile VERSION via environment — canonical source)
 let buildVersion = process.env.PUBLIC_BUILD_VERSION;
 if (!buildVersion) {
 	buildVersion = 'unknown';
 }
 
-// Get web version (from package.json — canonical source)
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
-const webVersion = pkg.version || 'unknown';
-
 // Set environment variables
 process.env.PUBLIC_GIT_SHA = gitSha;
 process.env.PUBLIC_BUILD_TIME = buildTime;
 process.env.PUBLIC_BUILD_VERSION = buildVersion;
-process.env.PUBLIC_WEB_VERSION = webVersion;
+process.env.PUBLIC_WEB_VERSION = buildVersion;
 
 // Get the command to run (everything after the first argument)
 const args = process.argv.slice(3);

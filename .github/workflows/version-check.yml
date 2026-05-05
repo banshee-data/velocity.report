@@ -92,29 +92,6 @@ jobs:
             echo "::notice::Radar version updated: $OLD_VERSION → $NEW_VERSION"
           fi
 
-      - name: Check web frontend version
-        id: web_version
-        run: |
-          echo "Checking web frontend changes..."
-          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'web/' | grep -v -E '(.*\.test\.(ts|js|tsx|jsx)$|.*\.spec\.(ts|js|tsx|jsx)$|__tests__/)' | grep -q .; then
-            echo "web_changed=true" >> $GITHUB_OUTPUT
-
-            OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:web/package.json 2>/dev/null | grep '"version"' | cut -d'"' -f4 || echo "unknown")
-            NEW_VERSION=$(grep '"version"' web/package.json | cut -d'"' -f4)
-
-            echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
-            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-            if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
-              echo "web_version_unchanged=true" >> $GITHUB_OUTPUT
-              echo "::warning::Web frontend code changed but version unchanged: $NEW_VERSION"
-            else
-              echo "::notice::Web frontend version updated: $OLD_VERSION → $NEW_VERSION"
-            fi
-          else
-            echo "web_changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Generate advisory summary
         run: |
           echo "# 📊 Version Bump Advisory" >> $GITHUB_STEP_SUMMARY
@@ -180,18 +157,6 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ steps.web_version.outputs.web_changed }}" = "true" ]; then
-            echo "## 🌐 Web Frontend" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ steps.web_version.outputs.web_version_unchanged }}" = "true" ]; then
-              echo "⚠️ **Code changed but version unchanged:** ${{ steps.web_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-              echo "- Review changes and update `web/package.json` if needed" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ **Version Updated:** ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
           # Footer
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -205,7 +170,6 @@ jobs:
           steps.api.outputs.api_removed == 'true' ||
           steps.cli.outputs.cli_breaking == 'true' ||
           steps.cli.outputs.cli_added == 'true' ||
-          steps.web_version.outputs.web_version_unchanged == 'true' ||
           (steps.radar_version.outputs.radar_version_unchanged == 'true' &&
            (steps.migrations.outputs.migration_added == 'true' ||
             steps.api.outputs.api_added == 'true'))
@@ -217,7 +181,6 @@ jobs:
             const cliBreaking = '${{ steps.cli.outputs.cli_breaking }}' === 'true';
             const cliAdded = '${{ steps.cli.outputs.cli_added }}' === 'true';
             const radarUnchanged = '${{ steps.radar_version.outputs.radar_version_unchanged }}' === 'true';
-            const webUnchanged = '${{ steps.web_version.outputs.web_version_unchanged }}' === 'true';
 
             let breaking = [];
             let features = [];
@@ -248,16 +211,9 @@ jobs:
               warnings.push('❌ **Radar version unchanged** - consider bumping version in `Makefile`');
             }
 
-            if (webUnchanged) {
-              warnings.push('❌ **Web Frontend code changed but version unchanged** - update `web/package.json`');
-            }
-
             // Always show version info if any component changed
             if ('${{ steps.radar_version.outputs.radar_version_changed }}' === 'true') {
               componentVersions.push('Radar: ${{ steps.radar_version.outputs.old }} → ${{ steps.radar_version.outputs.new }}');
-            }
-            if ('${{ steps.web_version.outputs.web_changed }}' === 'true' && !webUnchanged) {
-              componentVersions.push('Web Frontend: ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}');
             }
 
             if (breaking.length === 0 && features.length === 0 && warnings.length === 0 && componentVersions.length === 0) {
