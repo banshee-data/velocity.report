@@ -353,6 +353,19 @@ build-web:
 	fi
 	@echo "✓ Web build complete: web/build/"
 
+.PHONY: ensure-dev-web-build
+ensure-dev-web-build:
+	@if [ ! -f web/build/index.html ]; then \
+		echo "Web build missing; running 'make build-web'..."; \
+		$(MAKE) build-web; \
+	elif [ Makefile -nt web/build/index.html ] || [ web/package.json -nt web/build/index.html ] || [ web/src/app.html -nt web/build/index.html ] || [ web/scripts/set-build-env.js -nt web/build/index.html ] || find web/src web/static -type f -newer web/build/index.html -print -quit | grep -q .; then \
+		echo "Web build stale; running 'make build-web'..."; \
+		$(MAKE) build-web; \
+	elif grep -q 'name="app-web-version"' web/build/index.html || ! grep -q 'meta name="app-build-version" content="$(VERSION)"' web/build/index.html; then \
+		echo "Web build metadata stale; running 'make build-web'..."; \
+		$(MAKE) build-web; \
+	fi
+
 .PHONY: build-docs
 build-docs:
 	@echo "Building documentation site..."
@@ -777,21 +790,26 @@ dev-ssh-audit:
 	@./scripts/dev-ssh-audit.sh
 
 dev-go:
+	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go_require_precompiled_root)
 	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS))
 
 dev-go-latex-full:
+	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go,$(DEV_GO_LATEX_FULL_FLAGS))
 
 dev-go-lidar:
+	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go_require_precompiled_root)
 	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
 
 dev-go-lidar-trace:
+	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go_require_precompiled_root)
 	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
 
 dev-go-lidar-both:
+	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go_require_precompiled_root)
 	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
 
