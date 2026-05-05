@@ -1,6 +1,6 @@
 # Version-bump consolidation (v0.5.2)
 
-- **Status:** Draft
+- **Status:** Complete
 - **Layers:** Cross-cutting (build tooling, CI)
 - **Target:** v0.5.2; housekeeping and cleanup release
 - **Companion plans:** [PDF generation migration to Go](pdf-go-chart-migration-plan.md) (deprecates `tools/pdf-generator/` wholesale — strengthens the case for pinning `pyproject.toml`)
@@ -216,35 +216,36 @@ Ordered by execution — items under Item 1 must land before Item 2.
 
 **Item 1 — simplify `set-build-env.js` (prerequisite):**
 
-- [ ] Remove the `readFileSync` / `dirname` / `fileURLToPath` imports and `package.json` read from `web/scripts/set-build-env.js` (`S`)
-- [ ] Set `PUBLIC_WEB_VERSION = buildVersion` (mirror `PUBLIC_BUILD_VERSION`) (`S`)
-- [ ] Update the stale `// canonical source` comment in `set-build-env.js` (`S`)
-- [ ] Verify `make build-web` embeds the correct version in both `app-build-version` and `app-web-version` meta tags (`S`)
+- [x] Remove the `readFileSync` / `dirname` / `fileURLToPath` imports and `package.json` read from `web/scripts/set-build-env.js` (`S`)
+- [x] ~~Set `PUBLIC_WEB_VERSION = buildVersion` (mirror `PUBLIC_BUILD_VERSION`)~~ — went one step further: the meta tag was already redundant with `app-build-version`, so `<meta name="app-web-version">` was removed from `web/src/app.html` and the `PUBLIC_WEB_VERSION` env-var assignment dropped. `app-build-version` is now the single canonical version meta tag.
+- [x] Update the stale `// canonical source` comment in `set-build-env.js` (`S`)
+- [x] Verify `make build-web` embeds the correct version in the `app-build-version` meta tag (`S`)
 
 **Item 2 — pin metadata:**
 
-- [ ] Pin `web/package.json` version to `"0.0.0"` (`S`)
-- [ ] Pin `public_html/package.json` version to `"0.0.0"` (`S`)
-- [ ] Pin `tools/pdf-generator/pyproject.toml` version to `"0.0.0"` (`S`)
+- [x] Pin `web/package.json` version to `"0.0.0"` (`S`)
+- [x] Pin `public_html/package.json` version to `"0.0.0"` (`S`)
+- [x] Pin `docs_html/package.json` version to `"0.0.0"` (`S`) — added as an extension to the original plan; the embedded offline-docs site was a fourth dead-metadata file that drifted from the Makefile (was at `0.5.1-pre8` while Makefile was `0.5.1-pre16`)
+- [x] ~~Pin `tools/pdf-generator/pyproject.toml` version to `"0.0.0"`~~ — superseded: `tools/pdf-generator/` was removed from the repo entirely as part of the [PDF→Go migration](pdf-go-chart-migration-plan.md), so there is no longer a file to pin
 
 **Item 3 — strip `set-version.sh`:**
 
-- [ ] Remove `update_web()`, `update_docs()`, `update_pdf()` from `scripts/set-version.sh` (`S`)
-- [ ] Update `--all` expansion in `set-version.sh` to cover only `--makefile` + `--mac` (`S`)
-- [ ] Update usage text and examples in `set-version.sh` (`S`)
-- [ ] Remove the stale `--deploy` reference in `set-version.sh:3` (`S`)
-- [ ] Remove the stale `--deploy` example in the `Makefile:1490` `version-exact` help (`S`)
+- [x] Remove `update_web()`, `update_docs()` from `scripts/set-version.sh` (`S`) — `update_pdf()` did not exist in the current codebase; removed only the `update_web()` and `update_docs()` functions and the `--web`/`--docs` flags
+- [x] Update `--all` expansion in `set-version.sh` to cover only `--makefile` + `--mac` (`S`)
+- [x] Update usage text and examples in `set-version.sh` (`S`)
+- [x] Remove the stale `--deploy` reference in `set-version.sh:3` (`S`)
+- [x] Remove the stale `--deploy` example in the `Makefile:1490` `version-exact` help (`S`)
 
 **Item 4 — CI:**
 
-- [ ] Remove the web-frontend version-drift step from `.github/workflows/version-check.yml` (`S`)
-- [ ] Remove the PDF-generator version-drift step from `.github/workflows/version-check.yml` (`S`)
-- [ ] Keep the Makefile radar-version check and migration detection (`S`)
+- [x] Remove the web-frontend version-drift step from `.github/workflows/version-check.yml` (`S`)
+- [x] ~~Remove the PDF-generator version-drift step from `.github/workflows/version-check.yml`~~ — no such step exists in the current workflow; superseded with the pdf-generator removal
+- [x] Keep the Makefile radar-version check and migration detection (`S`)
 
 **Item 5 — verification:**
 
-- [ ] Verify `make version-bump` on a throwaway branch modifies only `Makefile` + `project.pbxproj` (`S`)
-- [ ] Verify `make build-radar-local` is unaffected (`S`)
+- [x] Verify `make version-bump` on a throwaway branch modifies only `Makefile` + `project.pbxproj` (`S`)
+- [x] Verify `make build-radar-local` is unaffected (`S`)
 
 ### Deferred
 

@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # set-version.sh - Update version numbers across the velocity.report codebase
-# Usage: ./scripts/set-version.sh <version> [--all|--makefile|--deploy|--web|--docs]
+# Usage: ./scripts/set-version.sh <version> [--all|--makefile|--mac]
 
 set -euo pipefail
 
 VERSION=""
 UPDATE_MAKEFILE=0
-UPDATE_WEB=0
-UPDATE_DOCS=0
 UPDATE_MAC=0
 
 # Color codes for output
@@ -27,10 +25,8 @@ Arguments:
   <version>     Version string (e.g., 0.4.0-pre2, 1.0.0, 0.5.0-rc1)
 
 Targets (default: --all):
-  --all         Update all version references
-  --makefile    Update Makefile VERSION variable (affects Go binaries)
-  --web         Update web/package.json version
-  --docs        Update public_html/package.json version
+  --all         Update all version references (Makefile + macOS visualiser)
+  --makefile    Update Makefile VERSION variable (affects Go binaries and web build)
   --mac         Update tools/visualiser-macos Xcode project version
 
 Examples:
@@ -39,9 +35,6 @@ Examples:
 
   # Update only Go-related versions (Makefile)
   $0 0.4.0-pre2 --makefile
-
-  # Update only web frontend
-  $0 0.5.0 --web
 
   # Update only macOS visualiser
   $0 0.5.0 --mac
@@ -103,60 +96,6 @@ update_makefile() {
     log_info "Updated $file: $old_version → $VERSION"
 }
 
-# Update web/package.json
-update_web() {
-    local file="web/package.json"
-    local old_version
-
-    if [[ ! -f "$file" ]]; then
-        log_error "$file not found"
-        return 1
-    fi
-
-    old_version=$(grep -E '^\s*"version":' "$file" | sed 's/.*"version": "\(.*\)".*/\1/')
-
-    if [[ -z "$old_version" ]]; then
-        log_error "Could not find version in $file"
-        return 1
-    fi
-
-    # Use sed to replace the version
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$file"
-    else
-        sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$file"
-    fi
-
-    log_info "Updated $file: $old_version → $VERSION"
-}
-
-# Update docs/package.json
-update_docs() {
-    local file="public_html/package.json"
-    local old_version
-
-    if [[ ! -f "$file" ]]; then
-        log_warn "$file not found, skipping"
-        return 0
-    fi
-
-    old_version=$(grep -E '^\s*"version":' "$file" | sed 's/.*"version": "\(.*\)".*/\1/')
-
-    if [[ -z "$old_version" ]]; then
-        log_error "Could not find version in $file"
-        return 1
-    fi
-
-    # Use sed to replace the version
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$file"
-    else
-        sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$file"
-    fi
-
-    log_info "Updated $file: $old_version → $VERSION"
-}
-
 # Update tools/visualiser-macos Xcode project
 update_mac() {
     local project_file="tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj"
@@ -196,28 +135,19 @@ shift
 # Validate version format
 validate_version "$VERSION"
 
-# Parse targets
+# Parse targets — no targets means --all (matches usage text)
 if [[ $# -eq 0 ]]; then
-    # No targets specified, show usage
-    usage
+    set -- --all
 fi
 
 for arg in "$@"; do
     case "$arg" in
         --all)
             UPDATE_MAKEFILE=1
-            UPDATE_WEB=1
-            UPDATE_DOCS=1
             UPDATE_MAC=1
             ;;
         --makefile)
             UPDATE_MAKEFILE=1
-            ;;
-        --web)
-            UPDATE_WEB=1
-            ;;
-        --docs)
-            UPDATE_DOCS=1
             ;;
         --mac)
             UPDATE_MAC=1
@@ -230,7 +160,7 @@ for arg in "$@"; do
 done
 
 # Check if at least one target is selected
-if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_WEB -eq 0 && $UPDATE_DOCS -eq 0 && $UPDATE_MAC -eq 0 ]]; then
+if [[ $UPDATE_MAKEFILE -eq 0 && $UPDATE_MAC -eq 0 ]]; then
     log_error "No targets specified"
     usage
 fi
@@ -241,8 +171,6 @@ echo ""
 
 EXIT_CODE=0
 [[ $UPDATE_MAKEFILE -eq 1 ]] && update_makefile || EXIT_CODE=$?
-[[ $UPDATE_WEB -eq 1 ]] && update_web || EXIT_CODE=$?
-[[ $UPDATE_DOCS -eq 1 ]] && update_docs || EXIT_CODE=$?
 [[ $UPDATE_MAC -eq 1 ]] && update_mac || EXIT_CODE=$?
 
 echo ""
