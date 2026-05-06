@@ -1,6 +1,6 @@
 ---
 layout: page.njk
-title: "Guides — velocity.report"
+title: "Guides: velocity.report"
 description: "How-to guides for building and running a velocity.report sensor: hardware, setup, and producing PDF reports from your data."
 eleventyExcludeFromCollections: true
 ---

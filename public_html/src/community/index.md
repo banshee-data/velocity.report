@@ -1,6 +1,6 @@
 ---
 layout: page.njk
-title: "Community — velocity.report"
+title: "Community: velocity.report"
 description: "Discord and GitHub for velocity.report users and contributors. Chat, support, bug reports, and feature requests."
 eleventyExcludeFromCollections: true
 ---
