@@ -27,6 +27,28 @@ Pre-release tags append a hyphen suffix: `0.5.1-pre1`, `0.6.0-rc1`.
 A version like `0.5.04` is invalid: the patch segment `04` has a leading
 zero. Use `0.5.4` instead. See § Version Validity Analysis.
 
+## Version bump workflow
+
+Routine version bumps update two files and stop there.
+
+| Surface               | File                                                                                                                                                                    | Rule                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Canonical version     | `Makefile` `VERSION :=`                                                                                                                                                 | Single source of truth for shipped version strings           |
+| macOS app metadata    | [tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj](../../../tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj) `MARKETING_VERSION` | Kept in step with `Makefile` for Finder/About-screen display |
+| Web package metadata  | [web/package.json](../../../web/package.json)                                                                                                                           | Pinned to `0.0.0`; not bumped                                |
+| Public docs metadata  | [public_html/package.json](../../../public_html/package.json)                                                                                                           | Pinned to `0.0.0`; not bumped                                |
+| Offline docs metadata | [docs_html/package.json](../../../docs_html/package.json)                                                                                                               | Pinned to `0.0.0`; not bumped                                |
+
+The web build now treats `app-build-version` as the only canonical HTML
+version meta tag. The older `app-web-version` tag and its
+`PUBLIC_WEB_VERSION` plumbing were removed because they duplicated the
+Makefile-derived build version while creating extra merge-conflict surface.
+
+Accordingly, `make version-bump` and `scripts/set-version.sh --all`
+update only `Makefile` and `project.pbxproj`. Package manifests for the
+private web and docs projects stay pinned at `0.0.0`, which is a
+sensible number for metadata nobody ships or reads at runtime.
+
 ## Two filename tiers
 
 ### Release: tagged GitHub releases
@@ -93,7 +115,7 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 | macOS visualiser DMG       | `{dt}-VelocityVisualiser-{v}-{sha7}.dmg`       |
 
 Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
-— they are never published.
+because they are never published.
 
 ## Version validity analysis
 
@@ -159,6 +181,12 @@ same timestamp.**
 
 Each column is a separate build environment. The invariant is
 one `date -u` call per environment, threaded to every consumer.
+
+## Operational notes
+
+- Keep `VERSION` in `Makefile` as the single source of truth for release and build metadata.
+- Do not reintroduce version-bump writes to `web/package.json`, `public_html/package.json`, or `docs_html/package.json` unless one of those files gains a real runtime or publication consumer.
+- If the macOS app still shows the old version after a bump, check `project.pbxproj` before looking for something more exotic. Xcode is often the room where version strings go to sulk.
 
 ## Alternatives considered
 

@@ -27,11 +27,11 @@ Core philosophy:
 
 ### 2.1 Surfaces
 
-This document applies to exactly three **surfaces** — places a user sees charts or operational data:
+This document applies to exactly three **surfaces**: places a user sees charts or operational data.
 
 1. **Web app** (Svelte): `web/`
 2. **macOS app** (SwiftUI + Metal): [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
-3. **PDF reports** — generated documents delivered as `.pdf`
+3. **PDF reports**: generated documents delivered as `.pdf`
 
 PDF is a surface, not a rendering engine. The mechanism that produces the charts inside a PDF is a separate concern (see §7).
 
@@ -40,8 +40,8 @@ PDF is a surface, not a rendering engine. The mechanism that produces the charts
 Chart rendering is converging on a single SVG-first pipeline:
 
 - **Web:** LayerChart/d3-scale components producing inline SVG in Svelte
-- **PDF (current):** Go native SVG generation (`internal/report/chart/`) → `rsvg-convert` → PDF figures via `text/template` LaTeX — shipped v0.5
-- **PDF (removed):** Python matplotlib + PyLaTeX pipeline — superseded by Go pipeline in v0.5, directory deleted from repository
+- **PDF (current):** Go native SVG generation (`internal/report/chart/`) → `rsvg-convert` → PDF figures via `text/template` LaTeX, shipped in v0.5
+- **PDF (removed):** Python matplotlib + PyLaTeX pipeline, superseded by Go pipeline in v0.5; directory deleted from repository
 
 The Python matplotlib stack has been replaced by the Go pipeline (v0.5). New chart work should not add matplotlib dependencies.
 
@@ -225,7 +225,7 @@ Both the web frontend and the future Go PDF pipeline render charts as SVG. This 
 
 ### 7.3 Shared chart abstractions
 
-To keep charts visually consistent across web and PDF, the following properties must be governed by shared constants or equivalent configuration — not left to renderer defaults.
+To keep charts visually consistent across web and PDF, the following properties must be governed by shared constants or equivalent configuration, not left to renderer defaults.
 
 | Property                   | What it controls                                                            | Web source                                 | Go PDF source (planned)                     |
 | -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |

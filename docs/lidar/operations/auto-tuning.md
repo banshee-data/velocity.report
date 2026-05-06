@@ -36,17 +36,8 @@ Auto-tuning iteratively searches the parameter space to find values that maximis
 - When acceptance rates or track quality degrade
 - When adding new parameters to the tuning configuration
 
-**Key terms:**
-
-| Term       | Meaning                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------- |
-| **Sweep**  | A batch run that evaluates every combination in a parameter grid                          |
-| **Combo**  | One specific set of parameter values being evaluated                                      |
-| **Round**  | One complete sweep; auto-tuning runs multiple rounds with progressively narrower bounds   |
-| **Top K**  | The best-scoring combinations from a round, used to narrow bounds for the next round      |
-| **Settle** | The warmup period where the background model stabilises before sampling begins            |
-| **Scene**  | A named evaluation environment with labelled reference tracks for ground truth scoring    |
-| **Run**    | A single processing pass over data with fixed parameters, producing tracks for evaluation |
+**Key terms:** sweep, combo, round, top K, settle, scene, run — defined in
+[tuning-guide.md §Glossary](tuning-guide.md#glossary).
 
 ---
 

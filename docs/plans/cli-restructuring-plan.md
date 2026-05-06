@@ -1,5 +1,7 @@
 # CLI restructuring plan
 
+- **Canonical:** [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md)
+
 Proposed improvements to the velocity.report CLI architecture: subcommand hierarchy, API versioning, configuration file support, and utility consolidation.
 
 For the current implemented CLI reference, see [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md).

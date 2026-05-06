@@ -1,7 +1,7 @@
 # LiDAR network configuration
 
 - **Status:** Proposed
-- **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`lidar-sidecar-overview.md`](./lidar-sidecar-overview.md), [`networking.md`](../../radar/architecture/networking.md)
+- **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`LIDAR_ARCHITECTURE.md`](./LIDAR_ARCHITECTURE.md), [`networking.md`](../../radar/architecture/networking.md)
 
 Architecture for interface-aware UDP binding, network diagnostics, hot-reload configuration, and a settings UI for the LiDAR sensor network layer.
 
