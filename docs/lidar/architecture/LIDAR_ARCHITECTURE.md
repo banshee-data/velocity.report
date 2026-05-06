@@ -6,7 +6,7 @@ This is the canonical reference for the ten-layer LiDAR data processing model us
 
 ## Purpose
 
-A single authoritative layer model for LiDAR data processing in velocity.report. The model defines ten layers: six implemented (L1–L6), one planned (L7), and three structurally present but being formalised (L8–L10). Layer numbers are permanent identifiers: once assigned, a layer number never changes meaning, even if the implementation evolves over years.
+A single authoritative layer model for LiDAR data processing in velocity.report. The model defines ten layers: six implemented sensor layers (L1–L6), one planned scene layer (L7), and three implemented consumption layers (L8–L10) whose package boundaries are now largely settled. Layer numbers are permanent identifiers: once assigned, a layer number never changes meaning, even if the implementation evolves over years.
 
 The design draws on established LiDAR/AV processing pipeline literature (see [§ Algorithm heritage](#algorithm-heritage-and-literature-alignment)) but is deliberately practical rather than academic. OSI is only a reference point; these layers match real code packages and real data flow.
 
@@ -16,18 +16,18 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## The ten layers
 
-| Layer | Label          | Tier        | Scope                                                           | Go package     | Status         |
-| ----- | -------------- | ----------- | --------------------------------------------------------------- | -------------- | -------------- |
-| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                               | `l1packets`    | ✅ Implemented |
-| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports               | `l2frames`     | ✅ Implemented |
-| L3    | **Grid**       | Sensor      | Background/foreground separation state                          | `l3grid`       | ✅ Implemented |
-| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                    | `l4perception` | ✅ Implemented |
-| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                      | `l5tracks`     | ✅ Implemented |
-| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping              | `l6objects`    | ✅ Implemented |
-| L7    | **Scene**      | Scene       | Persistent canonical world model with multi-sensor fusion       | `l7scene`      | 💭 Planning    |
-| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring              | `l8analytics`  | 🔄 Refactoring |
-| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs      | `l9endpoints`  | 🔄 Refactoring |
-| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline) | –              | 🔄 Refactoring |
+| Layer | Label          | Tier        | Scope                                                           | Go package              | Status         |
+| ----- | -------------- | ----------- | --------------------------------------------------------------- | ----------------------- | -------------- |
+| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                               | `l1packets`             | ✅ Implemented |
+| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports               | `l2frames`              | ✅ Implemented |
+| L3    | **Grid**       | Sensor      | Background/foreground separation state                          | `l3grid`                | ✅ Implemented |
+| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                    | `l4perception`          | ✅ Implemented |
+| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                      | `l5tracks`              | ✅ Implemented |
+| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping              | `l6objects`             | ✅ Implemented |
+| L7    | **Scene**      | Scene       | Persistent canonical world model with multi-sensor fusion       | `l7scene`               | 💭 Planning    |
+| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring              | `l8analytics`           | ✅ Implemented |
+| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs      | `server`, `l9endpoints` | ✅ Implemented |
+| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline) | –                       | ✅ Implemented |
 
 ## Segmented concept status chart
 
@@ -276,7 +276,7 @@ flowchart TB
 - Green: implemented
 - Grey: reserved layer slot with no runtime implementation yet
 - Blue-grey: OS + hardware shown for ingress context only
-- Beige: downstream client surfaces (implemented in Python, Svelte, or Swift)
+- Beige: downstream client surfaces (implemented in Go, Svelte, or Swift)
 - Red: deprecated; scheduled for removal or replacement
 - Solid arrows: implemented code
 - Dashed arrows: reference links for future work
@@ -329,7 +329,7 @@ block.
 | L10a  | PDF report (Go)               | Native Go PDF pipeline: direct DB query, SVG charts, `text/template` LaTeX, xelatex                                                                                                                                                                                                                                                                                                    | [internal/report/](../../../internal/report/)                                                        | ✅  | [PDF reporting](../../platform/operations/pdf-reporting.md)                                                                                                              |
 | L10b  | Svelte clients                | Svelte 5 dashboard with site management, radar reports, and LiDAR run views                                                                                                                                                                                                                                                                                                            | [web/](../../../web/)                                                                                | 🔄  | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md)                                                                                            |
 | L10c  | VelocityVisualiser.app        | Native macOS Metal 3D point-cloud visualisation with gRPC streaming client                                                                                                                                                                                                                                                                                                             | [tools/visualiser-macos/](../../../tools/visualiser-macos/)                                          | 🔄  | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
-| L10d  | HTML dashboard                | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`)                                                                                                                                                                                                                                                                                                              | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
+| L10d  | HTML dashboard                | Legacy Go-embedded LiDAR dashboard served by `server/` from assets embedded under `l9endpoints/l10clients/html/`                                                                                                                                                                                                                                                                       | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
 
 ### Design rationale for ten layers
 
@@ -512,19 +512,19 @@ The layer alignment migration is **complete** (items 1–12, 14 in [the review d
 
 Post-migration file sizes:
 
-| File                               | Lines | Notes                                            |
-| ---------------------------------- | ----- | ------------------------------------------------ |
-| `l3grid/background.go`             | 1,628 | Core grid processing (split from 2,610)          |
-| `l3grid/background_persistence.go` | 450   | Snapshot serialisation, DB restore/persist       |
-| `l3grid/background_export.go`      | 350   | Heatmaps, ASC export, region debug info          |
-| `l3grid/background_drift.go`       | 245   | M3.5 sensor movement and drift detection         |
-| `monitor/webserver.go`             | 2,746 | Server init, routes, handlers (split from 4,067) |
-| `monitor/datasource_handlers.go`   | 682   | UDP/PCAP data source management                  |
-| `monitor/playback_handlers.go`     | 589   | PCAP/VRLOG playback controls                     |
-| `storage/sqlite/analysis_run.go`   | 1,325 | Run CRUD (domain logic moved to l6objects)       |
-| `l6objects/comparison.go`          | 81    | ComputeTemporalIoU, comparison types             |
+| File                               | Lines | Notes                                                   |
+| ---------------------------------- | ----- | ------------------------------------------------------- |
+| `l3grid/background.go`             | 1,628 | Core grid processing (split from 2,610)                 |
+| `l3grid/background_persistence.go` | 450   | Snapshot serialisation, DB restore/persist              |
+| `l3grid/background_export.go`      | 350   | Heatmaps, ASC export, region debug info                 |
+| `l3grid/background_drift.go`       | 245   | M3.5 sensor movement and drift detection                |
+| `server/server.go`                 | 423   | Server struct, config, lifecycle, legacy asset wiring   |
+| `server/datasource_handlers.go`    | 823   | UDP/PCAP data source management                         |
+| `server/playback_handlers.go`      | 612   | PCAP/VRLOG playback controls                            |
+| `storage/sqlite/analysis_run.go`   | 381   | Run storage plus compatibility aliases to `l8analytics` |
+| `l6objects/comparison.go`          | 21    | Compatibility aliases to `l8analytics` comparison types |
 
-Further size/complexity reduction opportunities are documented in the [review doc's "Further Opportunities" section](lidar-layer-alignment-refactor-review.md#further-opportunities-to-reduce-size-and-complexity), covering ECharts handler extraction, sweep file splits, Go-embedded dashboard retirement, and visualiser codec consolidation.
+Further size/complexity reduction opportunities remain documented in the [review doc's "Further Opportunities" section](lidar-layer-alignment-refactor-review.md#further-opportunities-to-reduce-size-and-complexity), with the remaining L8-L10 work now centred on legacy dashboard retirement and endpoint cleanup rather than package migration.
 
 ---
 
@@ -736,7 +736,7 @@ The following layer numbers and names are **permanently assigned**. Implementati
 
 4. **Package names track layer numbers.** `l7scene/`, `l8analytics/`, `l9endpoints/`: the numeric prefix ensures filesystem ordering matches the data flow.
 
-5. **Cross-cutting packages remain unnumbered.** `pipeline/`, `storage/`, `adapters/`, `sweep/`, `monitor/` serve multiple layers and carry no layer number.
+5. **Cross-cutting packages remain unnumbered.** `pipeline/`, `storage/`, `adapters/`, `sweep/`, and transport-facing parts of `server/` serve multiple layers and carry no layer number.
 
 ### Potential future expansions (reserved concepts, no layer assigned)
 

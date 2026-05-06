@@ -6,7 +6,7 @@ This is the canonical reference for the ten-layer LiDAR data processing model us
 
 ## Purpose
 
-A single authoritative layer model for LiDAR data processing in velocity.report. The model defines ten layers: six implemented (L1–L6), one planned (L7), and three structurally present but being formalised (L8–L10). Layer numbers are permanent identifiers: once assigned, a layer number never changes meaning, even if the implementation evolves over years.
+A single authoritative layer model for LiDAR data processing in velocity.report. The model defines ten layers: six implemented sensor layers (L1–L6), one planned scene layer (L7), and three implemented consumption layers (L8–L10) whose package boundaries are now largely settled. Layer numbers are permanent identifiers: once assigned, a layer number never changes meaning, even if the implementation evolves over years.
 
 The design draws on established LiDAR/AV processing pipeline literature (see [§ Algorithm heritage](#algorithm-heritage-and-literature-alignment)) but is deliberately practical rather than academic. OSI is only a reference point; these layers match real code packages and real data flow.
 
@@ -16,18 +16,18 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## The ten layers
 
-| Layer | Label          | Scope                                                                                              | Typical forms                                                                             | Status          |
-| ----- | -------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------- |
-| L1    | **Packets**    | Sensor-wire transport and capture                                                                  | Hesai UDP payloads, PCAP packets, radar serial frames                                     | ✅ Implemented  |
-| L2    | **Frames**     | Time-coherent frame assembly and geometry exports                                                  | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export                        | ✅ Implemented  |
-| L3    | **Grid**       | Background/foreground separation state                                                             | `BackgroundGrid`, ring/azimuth bins, foreground mask                                      | ✅ Implemented  |
-| L4    | **Perception** | Per-frame object primitives and measurements                                                       | `WorldCluster`, `TrackObservation`, `HeightBandFilter` (ground removal)                   | ✅ Implemented  |
-| L5    | **Tracks**     | Multi-frame identity and motion continuity                                                         | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented  |
-| L6    | **Objects**    | Semantic object interpretation and dataset mapping                                                 | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented  |
-| L7    | **Scene**      | Persistent canonical world model: accumulated geometry, priors, and multi-sensor fusion            | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned      |
-| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                                 | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🚧 Move pending |
-| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                             | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🚧 Move pending |
-| L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline; deprecated: Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF report pipeline (Go)                    | 🚧 Move pending |
+| Layer | Label          | Scope                                                                                              | Typical forms                                                                             | Status         |
+| ----- | -------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
+| L1    | **Packets**    | Sensor-wire transport and capture                                                                  | Hesai UDP payloads, PCAP packets, radar serial frames                                     | ✅ Implemented |
+| L2    | **Frames**     | Time-coherent frame assembly and geometry exports                                                  | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export                        | ✅ Implemented |
+| L3    | **Grid**       | Background/foreground separation state                                                             | `BackgroundGrid`, ring/azimuth bins, foreground mask                                      | ✅ Implemented |
+| L4    | **Perception** | Per-frame object primitives and measurements                                                       | `WorldCluster`, `TrackObservation`, `HeightBandFilter` (ground removal)                   | ✅ Implemented |
+| L5    | **Tracks**     | Multi-frame identity and motion continuity                                                         | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented |
+| L6    | **Objects**    | Semantic object interpretation and dataset mapping                                                 | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented |
+| L7    | **Scene**      | Persistent canonical world model: accumulated geometry, priors, and multi-sensor fusion            | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
+| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                                 | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | ✅ Implemented |
+| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                             | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | ✅ Implemented |
+| L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline; deprecated: Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF report pipeline (Go)                    | ✅ Implemented |
 
 ## Canonical L1-L10 stack reference
 
@@ -91,7 +91,7 @@ The canonical concept chart lives in [ARCHITECTURE.md](../../../ARCHITECTURE.md#
 - Green: implemented
 - Grey: reserved layer slot with no runtime implementation yet
 - Blue-grey: OS + hardware shown for ingress context only
-- Beige: downstream client surfaces (implemented in Python, Svelte, or Swift)
+- Beige: downstream client surfaces (implemented in Go, Svelte, or Swift)
 - Red: deprecated; scheduled for removal or replacement
 - Solid arrows: implemented code
 - Dashed arrows: reference links for future work
@@ -144,7 +144,7 @@ block.
 | L10a  | PDF report (Go)               | Native Go PDF pipeline: direct DB query, SVG charts, `text/template` LaTeX, xelatex                                                                                                                                                                                                                                                                                                    | [internal/report/](../../../internal/report/)                                                        | ✅  | [PDF reporting](../../platform/operations/pdf-reporting.md)                                                                                                              |
 | L10b  | Svelte clients                | Svelte 5 dashboard with site management, radar reports, and LiDAR run views                                                                                                                                                                                                                                                                                                            | [web/](../../../web/)                                                                                | 🔄  | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md)                                                                                            |
 | L10c  | VelocityVisualiser.app        | Native macOS Metal 3D point-cloud visualisation with gRPC streaming client                                                                                                                                                                                                                                                                                                             | [tools/visualiser-macos/](../../../tools/visualiser-macos/)                                          | 🔄  | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
-| L10d  | HTML dashboard                | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`)                                                                                                                                                                                                                                                                                                              | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
+| L10d  | HTML dashboard                | Legacy Go-embedded LiDAR dashboard served by `server/` from assets embedded under `l9endpoints/l10clients/html/`                                                                                                                                                                                                                                                                       | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
 
 ### Design rationale for ten layers
 
@@ -266,7 +266,7 @@ L9  Endpoints ─ Server-side payload shaping
 L10 Clients ─── Downstream renderers (no Go package)
                  Browser: Svelte web frontend
                  Native: Swift/Metal VelocityVisualiser
-                 Reports: Python PDF generator
+                 Reports: Go PDF report pipeline
 ```
 
 ### Simplified single-sensor flow (current implementation)
@@ -321,18 +321,18 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 
 ## Current repository alignment
 
-| Layer         | Canonical package                                                    | Key files                                                                                                                                                  | Status |
-| ------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| L1 Packets    | [internal/lidar/l1packets/](../../../internal/lidar/l1packets)       | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                 | ✅     |
-| L2 Frames     | [internal/lidar/l2frames/](../../../internal/lidar/l2frames)         | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                 | ✅     |
-| L3 Grid       | [internal/lidar/l3grid/](../../../internal/lidar/l3grid)             | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                  | ✅     |
-| L4 Perception | [internal/lidar/l4perception/](../../../internal/lidar/l4perception) | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                             | ✅     |
-| L5 Tracks     | [internal/lidar/l5tracks/](../../../internal/lidar/l5tracks)         | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                      | ✅     |
-| L6 Objects    | [internal/lidar/l6objects/](../../../internal/lidar/l6objects)       | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                          | ✅     |
-| L7 Scene      | `internal/lidar/l7scene/`                                            | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
-| L8 Analytics  | [internal/lidar/l8analytics/](../../../internal/lidar/l8analytics)   | _Canonical package to be created: existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
-| L9 Endpoints  | [internal/lidar/l9endpoints/](../../../internal/lidar/l9endpoints)   | _Rename from `internal/lidar/visualiser/`_: `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
-| L10 Clients   | _(no Go package)_                                                    | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [internal/report/](../../../internal/report) (Go PDF)                 | 📄     |
+| Layer         | Canonical package                                                                                                            | Key files                                                                                                                                                                                                    | Status |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| L1 Packets    | [internal/lidar/l1packets/](../../../internal/lidar/l1packets)                                                               | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                                                                   | ✅     |
+| L2 Frames     | [internal/lidar/l2frames/](../../../internal/lidar/l2frames)                                                                 | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                                                                   | ✅     |
+| L3 Grid       | [internal/lidar/l3grid/](../../../internal/lidar/l3grid)                                                                     | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                                                                    | ✅     |
+| L4 Perception | [internal/lidar/l4perception/](../../../internal/lidar/l4perception)                                                         | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                                                                               | ✅     |
+| L5 Tracks     | [internal/lidar/l5tracks/](../../../internal/lidar/l5tracks)                                                                 | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                                                                        | ✅     |
+| L6 Objects    | [internal/lidar/l6objects/](../../../internal/lidar/l6objects)                                                               | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                                                                            | ✅     |
+| L7 Scene      | `internal/lidar/l7scene/`                                                                                                    | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                                                                                 | 📋     |
+| L8 Analytics  | [internal/lidar/l8analytics/](../../../internal/lidar/l8analytics)                                                           | `doc.go`, `summary.go`, `comparison.go`, `labels.go`; compatibility aliases remain in `l6objects` and `storage/sqlite`                                                                                       | ✅     |
+| L9 Endpoints  | [internal/lidar/l9endpoints/](../../../internal/lidar/l9endpoints), [internal/lidar/server/](../../../internal/lidar/server) | `l9endpoints/grpc_server.go`, `chart_data.go`, `adapter.go`, `publisher.go`; `server/routes.go` and `server/chart_api.go` provide the REST transport shell                                                   | ✅     |
+| L10 Clients   | _(no Go package)_                                                                                                            | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [internal/report/](../../../internal/report) (Go PDF), embedded legacy HTML assets under `l9endpoints/l10clients/html/` | ✅     |
 
 Cross-cutting packages:
 
@@ -341,7 +341,7 @@ Cross-cutting packages:
 | [internal/lidar/pipeline/](../../../internal/lidar/pipeline)             | Orchestration (stage interfaces)                                                                                                                                          |
 | [internal/lidar/storage/sqlite/](../../../internal/lidar/storage/sqlite) | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
 | [internal/lidar/adapters/](../../../internal/lidar/adapters)             | Transport and IO boundaries                                                                                                                                               |
-| `internal/lidar/monitor/`                                                | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9)                                                                                              |
+| [internal/lidar/server/](../../../internal/lidar/server)                 | HTTP route registration, data-source management, and thin REST transport shells for L9                                                                                    |
 | [internal/lidar/sweep/](../../../internal/lidar/sweep)                   | Parameter sweep and auto-tuning                                                                                                                                           |
 
 Backward-compatible type aliases remain in the parent [internal/lidar/](../../../internal/lidar) package so existing callers continue to work.
@@ -537,18 +537,18 @@ L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusiv
 
 The following layer numbers and names are **permanently assigned**. Implementation status will evolve, but the number-to-concept mapping never changes.
 
-| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                        |
-| ------ | ---------- | ------------------------------------ | ------------- | -------------------------------------------- |
-| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor             |
-| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                     |
-| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                      |
-| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                 |
-| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                |
-| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                       |
-| L7     | Scene      | Persistent canonical world model     | Planned       | Multi-frame, multi-sensor, priors            |
-| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | Currently in `monitor/`; run comparison, IoU |
-| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `monitor/` dashboards; `visualiser/` gRPC    |
-| L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release      |
+| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                                           |
+| ------ | ---------- | ------------------------------------ | ------------- | --------------------------------------------------------------- |
+| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor                                |
+| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                                        |
+| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                                         |
+| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                                    |
+| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                                   |
+| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                                          |
+| L7     | Scene      | Persistent canonical world model     | Planned       | Multi-frame, multi-sensor, priors                               |
+| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | `l8analytics/` canonical; compatibility aliases remain          |
+| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `l9endpoints/` gRPC and payload types; `server/` REST transport |
+| L10    | Clients    | Downstream renderers                 | v0.1.0        | Svelte, macOS visualiser, and Go PDF all ship today             |
 
 ### Rules for future evolution
 
@@ -560,7 +560,7 @@ The following layer numbers and names are **permanently assigned**. Implementati
 
 4. **Package names track layer numbers.** `l7scene/`, `l8analytics/`, `l9endpoints/`: the numeric prefix ensures filesystem ordering matches the data flow.
 
-5. **Cross-cutting packages remain unnumbered.** `pipeline/`, `storage/`, `adapters/`, `sweep/`, `monitor/` serve multiple layers and carry no layer number.
+5. **Cross-cutting packages remain unnumbered.** `pipeline/`, `storage/`, `adapters/`, `sweep/`, and transport-facing parts of `server/` serve multiple layers and carry no layer number.
 
 ### Potential future expansions (reserved concepts, no layer assigned)
 
