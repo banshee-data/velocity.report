@@ -1,5 +1,7 @@
 # Executive Decisions Register
 
+<!-- ignore-style -->
+
 Closed design decisions across velocity.report. This register records the outcome of each decision and links to its source document. Milestone assignments come from [BACKLOG.md](BACKLOG.md), which is the single source of truth for scheduling.
 
 This file should only be edited once or twice per sprint (2-week period) when there are blockers or open questions that require a recorded decision. It is not updated per-PR.

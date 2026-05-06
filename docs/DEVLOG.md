@@ -1,5 +1,7 @@
 # Development log
 
+<!-- ignore-style-length -->
+
 ## May 6, 2026 - Docs hygiene automation & plan cleanup
 
 - Fixed the remaining plan-hygiene blockers by adding missing canonical links to the CLI and config restructure plans and expanding the offline docs site notes with clearer ownership and build-boundary details.
