@@ -57,7 +57,7 @@
 - Integrated ascfix Markdown formatter into CI, then removed it: corrupts hand-crafted ASCII art. Documented findings as an operations note.
 - Removed compilable code blocks from 30 plan files and 8 hub docs: replaced Go, SQL, JSON, YAML, Protobuf, and other fenced blocks with field tables and prose. Banned Author/Authors metadata and added metadata audit to docs-release-prep (#465).
 - Fixed tag-triggered release asset builds and image uploads in CI (#466).
-- {dd/fix/dependabot-updates} Tightened pnpm override ranges and added node engines constraint.
+- Tightened pnpm override ranges and added node engines constraint.
 
 ## April 11, 2026 - README refresh, dependency fixes & documentation polish
 
@@ -68,7 +68,7 @@
 - Added width-check skill for advisory prose line-width validation and update-PR-description skill for generating structured PR descriptions from branch diffs.
 - Added release-prep skill documentation. Updated documentation structure guidelines to prefer prose and tables over pre-built code blocks.
 - Added detailed API endpoint specifications for serial configuration and testing. Refactored transit deduplication documentation.
-- {dd/fix/dependabot-updates} Fixed 19 dependabot alerts across Go, npm, and Python ecosystems.
+- Fixed 19 dependabot alerts across Go, npm, and Python ecosystems.
 
 ## April 10, 2026 - documentation standardisation & plan graduation
 
@@ -87,7 +87,7 @@
 - Switched CI Go setup to `go-version-file` for automatic version tracking (#451). Backed out the SonarCloud integration.
 - Added the documentation standardisation audit plan with gate definitions and checklist (#452).
 - Added Vite config symlink for worktree support (#454).
-- {worktree-chart-migration} Built Go-native SVG chart rendering: histogram and time-series packages with Atkinson Hyperlegible font support, LaTeX template rendering, and a PDF report generation subcommand with ZIP output.
+- Built Go-native SVG chart rendering: histogram and time-series packages with Atkinson Hyperlegible font support, LaTeX template rendering, and a PDF report generation subcommand with ZIP output.
 - Began the documentation audit: fixed 8 gate violations, graduated 15 complete plans to symlinks, consolidated the visualiser app directory, reclassified PCAP design docs as plans, and added config cross-references.
 
 ## April 8, 2026 - map editor, homepage build & tooling
