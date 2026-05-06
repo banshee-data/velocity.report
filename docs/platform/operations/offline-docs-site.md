@@ -2,11 +2,17 @@
 
 Active plan: [embedded-offline-docs-site.md](../../plans/embedded-offline-docs-site.md)
 
-This page is the stable home for the embedded `/docs/` site: what it is for, how it is built, how it is served, and which parts belong to the offline operator shell rather than the public Eleventy site.
+This page is the stable home for the embedded `/docs/` site: what it is
+for, how it is built, how it is served, and which parts belong to the
+offline operator shell rather than the public Eleventy site.
 
 ## Purpose
 
-The offline docs site lets an operator read technical guidance from the device itself when the deployment has no internet access or no business trusting the internet with the job. It is served from the main Go HTTP surface at `/docs/`, so localhost, LAN access, and single-port reverse proxies all reach the same embedded documentation.
+The offline docs site lets an operator read technical guidance from the
+device itself when the deployment has no internet access or no business
+trusting the internet with the job. It is served from the main Go HTTP
+surface at `/docs/`, so localhost, LAN access, and single-port reverse
+proxies all reach the same embedded documentation.
 
 ## Ownership split
 
