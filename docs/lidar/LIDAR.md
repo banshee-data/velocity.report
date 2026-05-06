@@ -33,7 +33,7 @@ alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
 | Topic                   | Document                                                                                           |
 | ----------------------- | -------------------------------------------------------------------------------------------------- |
 | Ten-layer architecture  | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
-| System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                   |
+| Pipeline component map  | [architecture/lidar-pipeline-reference.md](architecture/lidar-pipeline-reference.md)               |
 | Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
 | Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
 | Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |

@@ -192,7 +192,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 ## See also
 
-- [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) - Background subtraction and grid management
+- [LiDAR Architecture](../architecture/LIDAR_ARCHITECTURE.md) - Background subtraction (L3) and grid management
 - [Data Source Switching](data-source-switching.md) - PCAP replay implementation
 - [Foreground Tracking Status](../architecture/foreground-tracking.md#current-operational-status): Current issues and debugging
 - [Settling time optimisation](settling-time-optimisation.md) - Settling convergence tuning

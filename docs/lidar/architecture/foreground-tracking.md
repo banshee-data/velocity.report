@@ -629,7 +629,7 @@ See [Configuration Reference](#configuration-reference) below for runtime parame
 ### C. related documentation
 
 - [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview
-- [docs/lidar/architecture/lidar-sidecar-overview.md](lidar-sidecar-overview.md) - LIDAR implementation details
+- [docs/lidar/architecture/LIDAR_ARCHITECTURE.md](LIDAR_ARCHITECTURE.md) - LiDAR implementation details
 - [docs/DEVLOG.md](../../DEVLOG.md) - Development history
 - [internal/lidar/l3grid/background.go](../../../internal/lidar/l3grid/background.go) - Background grid implementation
 - [internal/lidar/l5tracks/types.go](../../../internal/lidar/l5tracks/types.go) - Track data structures
@@ -780,5 +780,5 @@ multiplied by `1.0 + 3.0 × (100 − count) / 100` (4× at count 0, 1× at 100+)
 
 - **[LiDAR Pipeline Reference](lidar-pipeline-reference.md)**: Pipeline data flow, existing components, and deployment architecture
 - **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)**: Alternative algorithm design for sparse-point tracking with velocity coherence
-- **[LIDAR Sidecar Overview](lidar-sidecar-overview.md)**: Technical implementation overview and module structure
+- **[LiDAR Architecture](LIDAR_ARCHITECTURE.md)**: Canonical layer model, package map, and per-layer literature alignment
 - **[Development Log](../../DEVLOG.md)**: Chronological implementation history
