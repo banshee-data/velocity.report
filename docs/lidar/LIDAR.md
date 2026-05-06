@@ -1,24 +1,10 @@
 # LiDAR
 
-Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P).
-
-For the canonical ten-layer processing architecture, implementation status, and literature
-alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
-
-## Layer summary
-
-| Layer | Label      | Package (Go)                                                    | Responsibility                                               |
-| ----- | ---------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
-| L1    | Packets    | `l1packets`                                                     | Wire transport, UDP capture, PCAP replay, packet parsing     |
-| L2    | Frames     | `l2frames`                                                      | Frame assembly, timestamps, geometry conversion              |
-| L3    | Grid       | `l3grid`                                                        | Background model, foreground masking, persistence, regions   |
-| L4    | Perception | `l4perception`                                                  | Per-frame clustering, OBBs, ground removal                   |
-| L5    | Tracks     | `l5tracks`                                                      | Temporal association, identity, lifecycle, motion estimation |
-| L6    | Objects    | `l6objects`                                                     | Semantic classification, per-object quality                  |
-| L7    | Scene      | _(planned)_                                                     | Persistent world model, multi-sensor fusion                  |
-| L8    | Analytics  | `l8analytics`                                                   | Canonical metrics, summaries, comparisons, scoring           |
-| L9    | Endpoints  | `l9endpoints`                                                   | gRPC streams, chart payload shaping, debug views             |
-| L10   | Clients    | `web/`, [tools/visualiser-macos/](../../tools/visualiser-macos) | Browser, native, and report-generation consumers             |
+Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P). The
+canonical ten-layer processing architecture, package map, implementation
+status, and literature alignment all live in
+[architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md). This
+file is just the index — start there for any layer detail.
 
 ## Folder structure
 
@@ -43,7 +29,9 @@ alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
 
 ## Terminology
 
-Core terms used across the LiDAR tracking system.
+Core domain terms for the LiDAR tracking system. Tuning-pipeline terms (sweep,
+combo, round, auto-tune, HINT) live in
+[operations/tuning-guide.md §Glossary](operations/tuning-guide.md#glossary).
 
 | Term                   | Definition                                                                                                                                                   |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -53,8 +41,6 @@ Core terms used across the LiDAR tracking system.
 | **Observation**        | A single cluster-to-track association at one point in time (one frame's measurement of a track).                                                             |
 | **Scene**              | A named collection of reference ground-truth labels for a specific sensor environment (installation, angle, location). Used for evaluating tracking quality. |
 | **Run** (Analysis Run) | A single processing pass over a data source (live or PCAP) with fixed parameters, producing tracks that can be compared against a scene's ground truth.      |
-| **Sweep**              | A batch execution that varies parameter combinations, running one analysis per combination and collecting metrics for comparison.                            |
-| **Auto-Tune**          | An iterative sweep that narrows parameter bounds across rounds, converging on optimal parameters via objective scoring.                                      |
 
 ## Label taxonomy
 
