@@ -18,6 +18,10 @@
 #   --host-build      Build binaries with the host Go toolchain (no Docker compile)
 #   --binaries-only   Build web/docs assets and ARM64 binaries, then stop
 #   --ssh-key <path>  Install an SSH public key for the login user
+#
+# Tailscale: the image ships with tailscaled installed but masked.  The
+# operator opts in via the velocity.report web UI (Settings → Tailscale)
+# at runtime; there is no build-time auth-key flow.
 
 set -euo pipefail
 

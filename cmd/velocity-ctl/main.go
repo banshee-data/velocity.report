@@ -30,6 +30,7 @@ Commands:
   rollback  Restore previous version from backup
   backup    Snapshot binary + database
   status    Show service status
+  tailscale Manage tailscaled lifecycle (enable/disable)
   version   Print version information
 
 Run 'velocity-ctl <command> --help' for command-specific usage.`
@@ -62,6 +63,11 @@ func main() {
 	case "status":
 		if err := runStatus(args); err != nil {
 			fmt.Fprintf(os.Stderr, "status failed: %v\n", err)
+			os.Exit(1)
+		}
+	case "tailscale":
+		if err := runTailscale(args); err != nil {
+			fmt.Fprintf(os.Stderr, "tailscale: %v\n", err)
 			os.Exit(1)
 		}
 	case "version":
