@@ -749,6 +749,7 @@ These capabilities might emerge in the future. They would extend existing layers
 | Radar speed annotation                             | L5, L6, or L7 | See [§ Multi-modality: radar + LiDAR](#multi-modality-radar--lidar) — open tradeoff with current sensors |
 | Predictive trajectory (motion forecasting)         | L5 or L7      | Extends track state with predicted future positions                                                      |
 | Multi-intersection corridor analytics              | L8            | Aggregation across multiple L7 scene instances                                                           |
+| Federated learning (edge-to-cloud)                 | L8            | Model updates from distributed deployments; no raw data leaves the edge                                  |
 | Real-time alerting / notification                  | L9            | Threshold-triggered events pushed to clients                                                             |
 
 #### Multi-position vs multi-modality
