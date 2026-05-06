@@ -1,8 +1,9 @@
 # Embedded offline docs site (`/docs/`)
 
-Status: Milestone 1 shipped in PR #480. Milestone 2 planned: finish the remaining operator polish, add shared public guide/tool surfaces, and ship offline search.
-Owner: Architecture (Grace) → handed off to Appius / on-branch implementation in PR #480.
-Scope mode: HOLD — minimum viable architecture; no new dependencies on cloud, no new languages.
+- **Status:** Milestone 1 shipped in PR #480. Milestone 2 planned: finish the remaining operator polish, add shared public guide/tool surfaces, and ship offline search.
+- **Owner:** Architecture (Grace) → handed off to Appius / on-branch implementation in PR #480.
+- **Scope mode:** HOLD — minimum viable architecture; no new dependencies on cloud, no new languages.
+- **Canonical:** [offline-docs-site.md](../platform/operations/offline-docs-site.md)
 
 See [§8 Milestone plan](#8-milestone-plan) and [§9 Implementation status](#9-implementation-status-2026-04-29) for what shipped in Milestone 1 and what remains in Milestone 2.
 

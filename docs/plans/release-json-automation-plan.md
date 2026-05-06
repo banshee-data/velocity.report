@@ -4,7 +4,7 @@
 - **Layers:** Cross-cutting (CI, branch protection, release workflow)
 - **Target:** after v0.5.2; unblocks single-PR release flow while tightening `main`
 - **Companion plans:** [Version-bump consolidation](version-bump-consolidation-plan.md); [Deploy: rpi-imager fork](deploy-rpi-imager-fork-plan.md); [Deploy: distribution packaging](deploy-distribution-packaging-plan.md)
-- **Canonical:** this document
+- **Canonical:** [rpi-imager.md](../platform/operations/rpi-imager.md)
 
 ## Motivation
 

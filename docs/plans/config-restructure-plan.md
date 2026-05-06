@@ -1,6 +1,7 @@
 # Config restructure: flat → layer-scoped
 
 - **Status:** Phase 1 complete, Phase 2 adjusted, Phase 2B proposed, Phase 3 pending
+- **Canonical:** [CONFIG.md](../../config/CONFIG.md)
 - **Schema version:** `2`
 - **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),
   layer-isolated evaluation, and coherent parameter grouping.
