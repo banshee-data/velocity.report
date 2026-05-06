@@ -16,18 +16,18 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## The ten layers
 
-| Layer | Label          | Tier        | Scope                                                         | Go package     | Status         |
-| ----- | -------------- | ----------- | ------------------------------------------------------------- | -------------- | -------------- |
-| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                             | `l1packets`    | ✅ Implemented |
-| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports             | `l2frames`     | ✅ Implemented |
-| L3    | **Grid**       | Sensor      | Background/foreground separation state                        | `l3grid`       | ✅ Implemented |
-| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                  | `l4perception` | ✅ Implemented |
-| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                    | `l5tracks`     | ✅ Implemented |
-| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping            | `l6objects`    | ✅ Implemented |
-| L7    | **Scene**      | Scene       | Persistent canonical world model with multi-sensor fusion     | `l7scene`      | 💭 Planning    |
-| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring            | `l8analytics`  | 🔄 Refactoring |
-| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs    | `l9endpoints`  | 🔄 Refactoring |
-| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, PDF generator) | –              | 🔄 Refactoring |
+| Layer | Label          | Tier        | Scope                                                           | Go package     | Status         |
+| ----- | -------------- | ----------- | --------------------------------------------------------------- | -------------- | -------------- |
+| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                               | `l1packets`    | ✅ Implemented |
+| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports               | `l2frames`     | ✅ Implemented |
+| L3    | **Grid**       | Sensor      | Background/foreground separation state                          | `l3grid`       | ✅ Implemented |
+| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                    | `l4perception` | ✅ Implemented |
+| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                      | `l5tracks`     | ✅ Implemented |
+| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping              | `l6objects`    | ✅ Implemented |
+| L7    | **Scene**      | Scene       | Persistent canonical world model with multi-sensor fusion       | `l7scene`      | 💭 Planning    |
+| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring              | `l8analytics`  | 🔄 Refactoring |
+| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs      | `l9endpoints`  | 🔄 Refactoring |
+| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline) | –              | 🔄 Refactoring |
 
 ## Segmented concept status chart
 

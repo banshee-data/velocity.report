@@ -16,18 +16,18 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## The ten layers
 
-| Layer | Label          | Scope                                                                                                   | Typical forms                                                                             | Status          |
-| ----- | -------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------- |
-| L1    | **Packets**    | Sensor-wire transport and capture                                                                       | Hesai UDP payloads, PCAP packets, radar serial frames                                     | ✅ Implemented  |
-| L2    | **Frames**     | Time-coherent frame assembly and geometry exports                                                       | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export                        | ✅ Implemented  |
-| L3    | **Grid**       | Background/foreground separation state                                                                  | `BackgroundGrid`, ring/azimuth bins, foreground mask                                      | ✅ Implemented  |
-| L4    | **Perception** | Per-frame object primitives and measurements                                                            | `WorldCluster`, `TrackObservation`, `HeightBandFilter` (ground removal)                   | ✅ Implemented  |
-| L5    | **Tracks**     | Multi-frame identity and motion continuity                                                              | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented  |
-| L6    | **Objects**    | Semantic object interpretation and dataset mapping                                                      | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented  |
-| L7    | **Scene**      | Persistent canonical world model: accumulated geometry, priors, and multi-sensor fusion                 | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned      |
-| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                                      | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🚧 Move pending |
-| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                                  | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🚧 Move pending |
-| L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift; deprecated: Python PDF generator, Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python, deprecated)          | 🚧 Move pending |
+| Layer | Label          | Scope                                                                                              | Typical forms                                                                             | Status          |
+| ----- | -------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------- |
+| L1    | **Packets**    | Sensor-wire transport and capture                                                                  | Hesai UDP payloads, PCAP packets, radar serial frames                                     | ✅ Implemented  |
+| L2    | **Frames**     | Time-coherent frame assembly and geometry exports                                                  | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export                        | ✅ Implemented  |
+| L3    | **Grid**       | Background/foreground separation state                                                             | `BackgroundGrid`, ring/azimuth bins, foreground mask                                      | ✅ Implemented  |
+| L4    | **Perception** | Per-frame object primitives and measurements                                                       | `WorldCluster`, `TrackObservation`, `HeightBandFilter` (ground removal)                   | ✅ Implemented  |
+| L5    | **Tracks**     | Multi-frame identity and motion continuity                                                         | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented  |
+| L6    | **Objects**    | Semantic object interpretation and dataset mapping                                                 | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented  |
+| L7    | **Scene**      | Persistent canonical world model: accumulated geometry, priors, and multi-sensor fusion            | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned      |
+| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                                 | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🚧 Move pending |
+| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                             | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🚧 Move pending |
+| L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline; deprecated: Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF report pipeline (Go)                    | 🚧 Move pending |
 
 ## Canonical L1-L10 stack reference
 
@@ -204,7 +204,7 @@ The core processing pipeline runs once per LiDAR frame (~10 Hz for Hesai Pandar4
 
 L1  Packets ─── UDP payloads arrive from sensor (or PCAP replay)
  │               Hesai Pandar40P: 40-ring returns, ~700K pts/sec
- │               Radar: serial frames (OmniPreSense OPS243-C)
+ │               Radar: serial frames (OmniPreSense OPS243-A)
  │               Future: additional LiDAR/radar on separate ports
  │
 L2  Frames ──── Frame assembly: polar points → time-coherent LiDARFrame

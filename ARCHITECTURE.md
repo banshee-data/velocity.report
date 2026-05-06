@@ -39,7 +39,7 @@ see [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md).
 The core product is radar-based speed measurement:
 a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data,
 and produces professional reports ready for a city engineer's desk or a planning committee hearing.
-(PDF generation is migrating from the legacy Python + LaTeX tool into the Go server.) No cameras,
+PDF generation runs through the native Go + XeLaTeX pipeline. No cameras,
 no licence plates, no personally identifiable information: by architecture, not by policy.
 
 The LiDAR pipeline extends the picture.
@@ -58,7 +58,7 @@ Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 | Component            | Language            | Purpose                                                            |
 | -------------------- | ------------------- | ------------------------------------------------------------------ |
 | **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
-| **PDF generator**    | Go + XeLaTeX        | Professional speed reports with charts, statistics, and formatting |
+| **PDF reports**      | Go + XeLaTeX        | Professional speed reports with charts, statistics, and formatting |
 | **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
 | **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
 
@@ -407,10 +407,6 @@ Invoked via `POST /api/generate_report` or `velocity-report pdf --config cfg.jso
 - `xelatex` — TeX compilation (vendored minimal TeX Live tree in `/opt/velocity-report/texlive`)
 - `rsvg-convert` — SVG → PDF conversion for chart figures (`librsvg2-bin`)
 
-### Python PDF generator (removed)
-
-The Python PDF pipeline (matplotlib charts, PyLaTeX document assembly) was removed in v0.5 and replaced by the native Go pipeline above. The `tools/pdf-generator/` directory was deleted from the repository.
-
 ### Web frontend
 
 **Location**: `/web/`
@@ -518,7 +514,7 @@ service VisualiserService {
 
 **Location**: `./sensor_data.db`, managed by [internal/db/](internal/db) <!-- link-ignore -->
 
-**Database**: SQLite 3.51.2 (via `modernc.org/sqlite v1.44.3`)
+**Database**: SQLite (via `modernc.org/sqlite v1.50.0`)
 
 **Schema Design**:
 
@@ -772,26 +768,26 @@ Synthetic Mode (Testing):
 
 ### Go server
 
-| Component  | Technology              | Version | Purpose                 |
-| ---------- | ----------------------- | ------- | ----------------------- |
-| Language   | Go                      | 1.25+   | High-performance server |
-| Database   | SQLite                  | 3.51    | Data storage            |
-| HTTP       | net/http (stdlib)       | -       | API server              |
-| gRPC       | google.golang.org/grpc  | 1.60+   | Visualiser streaming    |
-| Protobuf   | google.golang.org/proto | 1.32+   | Data serialisation      |
-| Serial     | github.com/tarm/serial  | -       | Sensor communication    |
-| Deployment | systemd                 | -       | Service management      |
-| Build      | Make                    | -       | Build automation        |
+| Component  | Technology                    | Version | Purpose                 |
+| ---------- | ----------------------------- | ------- | ----------------------- |
+| Language   | Go                            | 1.26+   | High-performance server |
+| Database   | SQLite (`modernc.org/sqlite`) | v1.50.0 | Data storage            |
+| HTTP       | net/http (stdlib)             | -       | API server              |
+| gRPC       | google.golang.org/grpc        | 1.81+   | Visualiser streaming    |
+| Protobuf   | google.golang.org/proto       | 1.36+   | Data serialisation      |
+| Serial     | go.bug.st/serial              | 1.6+    | Sensor communication    |
+| Deployment | systemd                       | -       | Service management      |
+| Build      | Make                          | -       | Build automation        |
 
 ### Web frontend
 
 | Component       | Technology | Version | Purpose               |
 | --------------- | ---------- | ------- | --------------------- |
 | Framework       | Svelte     | 5.x     | Reactive UI           |
-| Language        | TypeScript | 5.x     | Type safety           |
-| Build Tool      | Vite       | 6.x     | Dev server & bundling |
-| Package Manager | pnpm       | 9.x     | Dependency management |
-| Linting         | ESLint     | 9.x     | Code quality          |
+| Language        | TypeScript | 6.x     | Type safety           |
+| Build Tool      | Vite       | 8.x     | Dev server & bundling |
+| Package Manager | pnpm       | 10.x    | Dependency management |
+| Linting         | ESLint     | 10.x    | Code quality          |
 
 ### macOS visualiser
 
