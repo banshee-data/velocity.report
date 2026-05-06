@@ -1159,7 +1159,7 @@
 - Rebased and implemented RadarObject parsing.
 - Restructured into [cmd/radar/](../cmd/radar), `internal/*` packages.
 - Renamed project to velocity.report.
-- Added Apache 2.0 license.
+- Added Apache 2.0 licence.
 - Implemented JSON parsing for radar data.
 - Added unit tests for parsing.
 

@@ -221,7 +221,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
-│  On 2025-03-02 00:00:00 UTC:                                    │
+│  On 2025-03-02T00:00:00Z:                                       │
 │  1. Create archives/2025-02_data.db                             │
 │  2. Move Feb data from main → 2025-02_data.db                   │
 │  3. Make 2025-02_data.db read-only (chmod 444)                  │
@@ -773,7 +773,7 @@ Partitions:       8 / 125       [█░░░░░░░░░]  6%
 SD Card:         18GB / 64GB    [███░░░░░░░] 28%
 USB HDD:         24GB / 1TB     [░░░░░░░░░░]  2%
 
-Last Rotation:    2025-03-02 00:00:15 UTC  ✅ Success
+Last Rotation:    2025-03-02T00:00:15Z     ✅ Success
 Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 ```
 

@@ -109,7 +109,7 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 | macOS visualiser DMG       | `{dt}-VelocityVisualiser-{v}-{sha7}.dmg`       |
 
 Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
-— they are never published.
+because they are never published.
 
 ## Version validity analysis
 
