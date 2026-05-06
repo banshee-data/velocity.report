@@ -8,6 +8,7 @@ time: 2-4 hours
 cost: $650
 date: 2026-04-15T12:00:00Z
 tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
+og_image: /img/guide-hero.jpg
 ---
 
 **A weatherproof traffic logger that keeps data local, requires no cameras, and helps you make a data-informed case for safer streets.**
