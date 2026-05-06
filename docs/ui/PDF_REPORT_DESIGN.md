@@ -244,6 +244,10 @@ context.
 
 #### Series
 
+Colours follow the canonical percentile palette in
+[DESIGN.md §3.3](DESIGN.md#33-percentile-metric-colour-mapping-charts);
+update there if the values change. Markers and line styles are PDF-specific.
+
 | Series     | Colour    | Marker   | Line style         | Notes                                      |
 | ---------- | --------- | -------- | ------------------ | ------------------------------------------ |
 | `p50`      | `#fbd92f` | triangle | solid              | Median                                     |

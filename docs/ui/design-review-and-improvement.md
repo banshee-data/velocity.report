@@ -1,7 +1,12 @@
 # Design review and improvement plan
 
-Reference: [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
-Backlog: [BACKLOG.md](../BACKLOG.md); P1 item 6
+- **Status:** Point-in-time audit. Open items have been extracted into
+  [BACKLOG.md](../BACKLOG.md); resolved items are kept in this doc as a record.
+  Section anchors (§1.1, §3.3, etc.) are referenced from BACKLOG.md, so this
+  file stays at its current path.
+
+- Reference: [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- Backlog: [BACKLOG.md](../BACKLOG.md); P1 item 6
 
 ## Purpose
 
