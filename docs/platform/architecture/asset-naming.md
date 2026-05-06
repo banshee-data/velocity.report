@@ -31,17 +31,23 @@ zero. Use `0.5.4` instead. See § Version Validity Analysis.
 
 Routine version bumps update two files and stop there.
 
-| Surface               | File                                                          | Rule                                                         |
-| --------------------- | ------------------------------------------------------------- | ------------------------------------------------------------ |
-| Canonical version     | `Makefile` `VERSION :=`                                       | Single source of truth for shipped version strings           |
-| macOS app metadata    | `project.pbxproj` `MARKETING_VERSION`                         | Kept in step with `Makefile` for Finder/About-screen display |
-| Web package metadata  | [web/package.json](../../../web/package.json)                 | Pinned to `0.0.0`; not bumped                                |
-| Public docs metadata  | [public_html/package.json](../../../public_html/package.json) | Pinned to `0.0.0`; not bumped                                |
-| Offline docs metadata | [docs_html/package.json](../../../docs_html/package.json)     | Pinned to `0.0.0`; not bumped                                |
+| Surface               | File                                                                                                                                                                    | Rule                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Canonical version     | `Makefile` `VERSION :=`                                                                                                                                                 | Single source of truth for shipped version strings           |
+| macOS app metadata    | [tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj](../../../tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj) `MARKETING_VERSION` | Kept in step with `Makefile` for Finder/About-screen display |
+| Web package metadata  | [web/package.json](../../../web/package.json)                                                                                                                           | Pinned to `0.0.0`; not bumped                                |
+| Public docs metadata  | [public_html/package.json](../../../public_html/package.json)                                                                                                           | Pinned to `0.0.0`; not bumped                                |
+| Offline docs metadata | [docs_html/package.json](../../../docs_html/package.json)                                                                                                               | Pinned to `0.0.0`; not bumped                                |
 
-The web build now treats `app-build-version` as the only canonical HTML version meta tag. The older `app-web-version` tag and its `PUBLIC_WEB_VERSION` plumbing were removed because they duplicated the Makefile-derived build version while creating extra merge-conflict surface.
+The web build now treats `app-build-version` as the only canonical HTML
+version meta tag. The older `app-web-version` tag and its
+`PUBLIC_WEB_VERSION` plumbing were removed because they duplicated the
+Makefile-derived build version while creating extra merge-conflict surface.
 
-Accordingly, `make version-bump` and `scripts/set-version.sh --all` update only `Makefile` and `project.pbxproj`. Package manifests for the private web and docs projects stay pinned at `0.0.0`, which is a sensible number for metadata nobody ships or reads at runtime.
+Accordingly, `make version-bump` and `scripts/set-version.sh --all`
+update only `Makefile` and `project.pbxproj`. Package manifests for the
+private web and docs projects stay pinned at `0.0.0`, which is a
+sensible number for metadata nobody ships or reads at runtime.
 
 ## Two filename tiers
 
