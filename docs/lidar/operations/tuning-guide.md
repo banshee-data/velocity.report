@@ -16,6 +16,24 @@ multi-round optimisation with human feedback:
 | 4. Multi-round auto-tuning   | [auto-tuning.md](auto-tuning.md)                   | Iterative grid search with automatic bound narrowing                 |
 | 5. Human-in-the-loop tuning  | [hint-sweep-mode.md](hint-sweep-mode.md)           | HINT mode: human labels drive the objective function each round      |
 
+## Glossary
+
+Terminology used across the tuning docs. Linked from individual tool docs so the
+definitions live in exactly one place.
+
+| Term             | Meaning                                                                                   |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| **Sweep**        | A batch run that evaluates every combination in a parameter grid                          |
+| **Combo**        | One specific set of parameter values being evaluated within a sweep                       |
+| **Round**        | One complete sweep; auto-tuning runs multiple rounds with progressively narrower bounds   |
+| **Top K**        | The best-scoring combinations from a round, used to narrow bounds for the next round      |
+| **Settle**       | The warmup period where the background model stabilises before sampling begins            |
+| **Scene**        | A named evaluation environment with labelled reference tracks for ground-truth scoring    |
+| **Run**          | A single processing pass over data with fixed parameters, producing tracks for evaluation |
+| **Manual sweep** | Operator-driven grid search: full control over param grid and metric visualisation        |
+| **Auto-tune**    | Automated multi-round narrowing with weighted proxy metrics                               |
+| **HINT**         | Human-Involved Numerical Tuning: human labels drive the objective function each round     |
+
 ## Quick troubleshooting
 
 If the pipeline produces poor results (jitter, fragmentation, empty boxes),

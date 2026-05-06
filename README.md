@@ -165,7 +165,7 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 
 ## Quick start
 
-Requires Go 1.25+, Node.js 18+, and pnpm.
+Requires Go 1.26+, Node.js 20.19+, and pnpm 10+.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full prerequisites.
 
 ```sh

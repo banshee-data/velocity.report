@@ -363,8 +363,103 @@ Example: set `show_clusters`, `show_tracks`, `show_trails` to true; disable `sho
 
 ---
 
-## 7. Related documents
+## 7. Implementation status
+
+The proto schema (`proto/velocity_visualiser/v1/visualiser.proto`) is the
+canonical source. This section tracks how completely each declared field is
+served by the runtime serialiser in `internal/lidar/visualiser/grpc_server.go`.
+
+### 7.1 Track field serialisation: complete
+
+All `Track` fields declared in `visualiser.proto` are serialised by
+`frameBundleToProto()`:
+
+- Covariance matrix (`covariance_4x4`)
+- Feature fields (`height_p95_max`, `intensity_mean_avg`)
+- Speed fields (`avg_speed_mps`, `max_speed_mps`)
+- Quality fields (`class_confidence`, `track_length_metres`, `track_duration_secs`)
+- Occlusion state (`occlusion_count`, `occlusion_state`)
+- Background snapshot serialisation (M3.5)
+
+Test: `TestFrameBundleToProto_TrackFieldCompleteness` asserts every Track
+field round-trips correctly.
+
+### 7.2 ObjectClass enum: complete
+
+Proto field 26 is `ObjectClass object_class` (typed enum, not string):
+
+```
+OBJECT_CLASS_UNSPECIFIED, NOISE, DYNAMIC, PEDESTRIAN, CYCLIST,
+BIRD, BUS, CAR, TRUCK, MOTORCYCLIST
+```
+
+Conversion: `objectClassFromString()` maps canonical class strings to enum.
+`classifyOrConvert()` handles VRLOG backward compatibility (re-classifies
+from per-frame features for legacy recordings).
+
+Tests: 6 dedicated tests including round-trip, empty-to-unspecified, and a
+meta-test ensuring no `l6objects` constant is missed.
+
+### 7.3 Speed field direction
+
+- Field 24: `avg_speed_mps` (running mean); stable.
+- Raw maximum field renamed from `peak_speed_mps` to `max_speed_mps`.
+- Aggregate-percentile labels are **not** on the `Track` proto. Percentile
+  computation applies only to grouped/report surfaces.
+- Name `peak_speed_mps` is reserved for a future filtered/context-aware
+  top-speed metric.
+
+### 7.4 Remaining gaps
+
+**Debug overlays (pending):**
+
+- `FrameAdapter.adaptDebugFrame()` builds `DebugOverlaySet` correctly.
+- `frameBundleToProto()` does **not** yet map `frame.Debug` into
+  `pb.FrameBundle.Debug`.
+- Existing tests assert the broken behaviour (`Debug == nil`); these need
+  replacement with positive serialisation tests.
+
+**Overlay mode controls:**
+
+- Decision recorded: `include_debug` gates server-side emission.
+  `SetOverlayModes()` remains client-side/advisory only; no server-side
+  subset filtering.
+- `supports_debug=true` in capabilities should be treated as capability
+  declaration, not per-overlay filtering support.
+
+**Cluster field parity (pending):**
+
+Declared but not yet serialised:
+
+- `Cluster.height_p95`
+- `Cluster.intensity_mean`
+- `Cluster.sample_points` (also needs adapter propagation from
+  `l4perception.WorldCluster`)
+
+### 7.5 Deferred items (tracked in BACKLOG.md)
+
+- Debug overlay serialisation in `frameBundleToProto()`
+- Positive integration serialisation tests replacing negative debug tests
+- Cluster feature field serialisation
+- `SeekToTimestamp()` diagnostic logging gated behind debug flag
+- `SeekToTimestamp()` O(n) linear scan → O(log n) binary search with
+  prebuilt sorted index
+
+### 7.6 Key files
+
+| File                                                                                                    | Role                                              |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [proto/velocity_visualiser/v1/visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) | Schema definition                                 |
+| `internal/lidar/visualiser/grpc_server.go`                                                              | `frameBundleToProto()` serialiser                 |
+| `internal/lidar/visualiser/adapter.go`                                                                  | Frame adapter (internal model → visualiser model) |
+| `tools/visualiser-macos/.../VisualiserClient.swift`                                                     | Swift gRPC client                                 |
+| `tools/visualiser-macos/.../ContentView.swift`                                                          | macOS UI bindings                                 |
+
+---
+
+## 8. Related documents
 
 - [velocity-visualiser-architecture.md](./architecture.md) – System architecture (includes problem statement)
 - [velocity-visualiser-implementation.md](./implementation.md) – Implementation milestones
 - [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- Source plan: [docs/plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)

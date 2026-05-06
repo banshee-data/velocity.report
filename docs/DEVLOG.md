@@ -1,5 +1,105 @@
 # Development log
 
+<!-- ignore-style-length -->
+
+## May 6, 2026 - Docs hygiene automation & plan cleanup
+
+- Fixed the remaining plan-hygiene blockers by adding missing canonical links to the CLI and config restructure plans and expanding the offline docs site notes with clearer ownership and build-boundary details.
+- Added the `style-fix` skill for repeatable STYLE.md checks and safe auto-fixes, including ignore markers for whole-file skips and length-only skips where mechanical cleanup would do more harm than good.
+- Corrected spelling and punctuation across multiple docs and refreshed this devlog so recently merged work no longer carries stale branch tags.
+
+## May 5, 2026 - Version ownership cleanup, release prep & docs bookkeeping
+
+- Consolidated version ownership so routine version bumps now touch only `Makefile` and the macOS Xcode project; `set-version.sh --all` now follows that rule directly, and runtime-irrelevant package manifests are pinned to `0.0.0` instead of pretending to be canonical (#497).
+- Removed the redundant `app-web-version` meta tag, marked the version-bump consolidation plan complete, and reflected the new single-source versioning approach in the plan and backlog docs.
+- Fixed the image build path to restore executable bits on staged binaries before packaging, then refreshed the release JSON metadata for the `0.5.1-pre17` cut (#496, #498).
+- Graduated the version-bump consolidation plan into the asset naming architecture doc with explicit workflow and operational notes, and added completed backlog entries for the public protractor tool and embedded offline docs milestone.
+- {patrickod/homepage-opengraph} Added Open Graph tags across site pages so shared links carry sane titles and previews instead of the usual social-media guesswork.
+
+## May 4, 2026 - CI build logic cleanup & dependency refresh
+
+- Moved more release and image build logic out of GitHub Actions YAML and into repo-owned scripts and Make targets, added `ensure-dev-web-build`, and rewrote the offline docs stub page so the missing-build state is explained in plain English (#491).
+- Fixed `pcap-analyse` to read the correct `TrackState`, `StartUnixNanos`, and `EndUnixNanos` fields, then added focused coverage so the mapping stays fixed (#492).
+- Moved the image build container to `golang:1.26-bookworm`, removed the pinned pnpm version from setup, and stripped redundant workflow `chmod` steps that were doing busywork in public.
+- Switched Dependabot back to pnpm for the workspace, adjusted its schedule and paths, and landed grouped documentation and application dependency updates in two waves (#489, #493, #494, #495).
+- Consolidated version bumps to the Makefile and Xcode project, pinned unused package manifests to `0.0.0`, and cut the `0.5.1-pre17` release metadata.
+
+## May 2, 2026 - Deterministic DHCP image behaviour
+
+- Made DHCP configuration deterministic in the image build, bound the profile to `eth0`, and added first-boot networking checks so the appliance stops improvising with its own network stack (#488).
+- Updated image-side troubleshooting to disable `NetworkManager-wait-online.service` and explain the DHCP failure mode more clearly in the README and image docs.
+- Enriched build and image metadata with version and git SHA information, added new release asset management/build targets, and cleaned up the stub HTML shown when frontend or docs assets are missing.
+- Added frontend asset request handling and corresponding tests, expanded dashboard test coverage, refined `Track` colour/class handling, and refreshed release metadata and download links for the `0.5.1-pre14` cut (#490).
+
+## April 30, 2026 - PDF pipeline simplification & proto CI work
+
+- Removed the Python PDF generator from current documentation, CI setup, Make targets, VS Code settings, and production expectations; the Go report pipeline is now the only supported PDF path, while Python stays for developer tooling only (#485).
+- Updated report-pipeline docs, TeX dependency paths, and related scripts so the repository stops talking about removed PDF machinery as if it might still stroll back in later.
+- Refactored the proto pipeline so CI calls repo-owned scripts and Make targets instead of growing more shell inside workflow YAML, with better cache-key derivation, prerequisite checks, and clearer DEBUGGING notes (#486).
+- {dd/ci/add-swift} Continued the Swift security and CI branch: added CodeQL coverage for Swift, fixed action pinning and native ARM Homebrew handling in proto setup, bumped grpc-swift-protobuf codegen, and polished the macOS About view.
+
+## April 29, 2026 - Offline docs, report polish & dependency refresh
+
+- Landed embedded offline docs Phase 1: added the offline docs site structure and styling, embedded docsite server and validation, `/docs` routing, `offlineDocsUrl` logic with tests, and a Docs navigation entry in the web UI (#480).
+- Brought the offline docs experience closer to the main site with a Markdown-rendered index, KaTeX maths support, copied Mermaid ESM chunks, tree-view sidebar navigation, breadcrumb top bar, dark-mode toggle, sticky sidebar header, and accessibility fixes around the theme control.
+- Removed `tools/pdf-generator` and the rest of its paperwork trail across docs, CI, scripts, config, and versioning, and updated report-pipeline naming so the current Go implementation is described as the real thing rather than a rumour (#485).
+- Continued report-pipeline polish: default paper size is now US Letter, table typography moved to Atkinson Hyperlegible Mono, long tables switched to flow-table handling, and histogram/time-series layouts got clearer labelling, legend placement, spacing, and tests (#481).
+- Refreshed cross-ecosystem dependencies and bumped `postcss` in the docs site pipeline (#462, #476).
+
+## April 28, 2026 - Image build repair & release workflow guardrails
+
+- Fixed the failing image build path and tightened GitHub release creation checks so the workflow verifies tag existence before publishing instead of discovering reality at the most inconvenient moment (#479).
+- Added CodeQL workflow coverage, repaired invalid action SHA pins, and addressed a sanitisation finding while the security tooling was already on the operating table.
+- Continued the offline docs follow-up work from PR #480: added embed-stub steps to Go CI, made offline docs linting non-mutating, tracked review follow-ups in the backlog and plan docs, and suppressed stale link-check reports for runtime-resolved hrefs.
+- Kept pushing the report pipeline forward with p98/max reference lines, better histogram and caption layout, balanced long-table rendering, improved TeX spacing, and review-fix passes across Go, TeX, and docs.
+
+## April 27, 2026 - Deployment docs & packaging model cleanup
+
+- Clarified setup and TLS guidance for the `0.5.1-pre8` release, refreshed release metadata and checksums, and removed stale nginx and local-CA assumptions from the docs where the system had already moved on (#477).
+- Reworked deployment and packaging docs around the versioned single-binary install model, tighter sudo boundaries, clearer CLI architecture, and the current greenfield image assumptions (#478).
+- Shipped the first full embedded offline docs path in code as well as prose: Go server support, docs site structure and styles, `offlineDocsUrl` logic with tests, Docs navigation wiring, and build/management scripts.
+- Fixed workflow brittleness by building the web frontend before cross-compiling release binaries, verifying tag existence before GitHub release creation, and bumping to `0.5.1-pre10`.
+- Continued PDF/report design cleanup with updated table styling docs, Atkinson Hyperlegible Mono italic font assets, template refactors, and a Poppler-based PDF comparison script.
+
+## April 26, 2026 - Chart migration lands
+
+- Completed the chart migration and Python deprecation pass: the Go chart and report pipeline is the production path, while Python is documented as developer tooling rather than deployment runtime (#455).
+- Improved report and chart correctness around sparse hourly gaps, expanded charts, DST-safe date ranges, unit/source validation, cosine metadata, and source validation on chart endpoints.
+- Added key-metrics tables and further chart polish to the LaTeX report output, including adaptive ticks, histogram percentages, clearer period labels, tighter captions, and better spacing.
+- Continued the docs cleanup around embedded offline docs, setup privacy wording, TLS state, and release metadata so the narrative around the platform matches the system that actually exists.
+
+## April 25, 2026 - Pure-Go TeX study reaches a no-go verdict
+
+- Added a feasibility study for replacing `xelatex` with the pure-Go `star-tex` engine, then recorded the practical answer: no, because the current templates rely on LaTeX and XeTeX features that `star-tex` does not implement (#475).
+- Added a canonical PDF report design document and kept refining the Go/TeX report output with key-metrics tables, clearer labels, better row colours, improved margins, and more legible comparison-chart wording.
+- Hardened report and chart behaviour with DST-safe date ranges, cosine metadata derived from the requested ranges, validation of units and sources, source validation on chart endpoints, and stale preview clearing after SVG load failures.
+- Added time-gap detection and expanded-chart handling so sparse hourly data keeps linear timestamp spacing, with matching Go and web changes and tests.
+- Added helper scripts for generating test reports from the API and comparing generated PDFs with Poppler tools.
+
+## April 21, 2026 - Browser protractor tool added
+
+- Added a minimal web protractor under `/tools/protractor` that reports alignment angle and colour-grades the acceptable 15-25 degree range (#470).
+
+## April 20, 2026 - Pinout corrections & release automation planning
+
+- Corrected the OPS700 harness diagrams to female-face views, updated the captions to match cable-end orientation, and trimmed the pinout layouts so the diagrams reflect the thing a human would actually see in hand (#473).
+- Shared SVG-to-PNG rasterisation across the render tools, moved connector pinout generation into the `tools/` structure, and fixed `make wiring` for current WireViz flag behaviour.
+- Added the version-bump consolidation plan and linked it into backlog planning as follow-on work rather than leaving the idea to roam the repo unsupervised.
+- Expanded the release JSON automation plan with resolved open questions, a phased implementation checklist, security review guidance, and clearer `DEBUGGING.md` migration notes about flag ordering and `dialout` setup (#474).
+
+## April 19, 2026 - Homepage copy, overlays & release tooling
+
+- Refreshed the homepage hero, headline, CTA, and FAQ copy so the front page explains the project more directly and puts the sample report front and centre (#471).
+- Added hardware-stack overlay diagrams for the setup guide and compressed the source photography so the diagrams explain the enclosure contents without hauling around unnecessary image bulk.
+- Introduced `scripts/update-release-json.py` with cached asset hashing, `.img.xz` hash extraction, validation mode, and a matching Make target for updating release metadata.
+- Refreshed `release.json` and the Raspberry Pi Imager JSON for the next prerelease cut and fixed a YAML parse warning in the action-pin workflow.
+
+## April 18, 2026 - Release metadata cleanup & Tailscale branch work
+
+- Reworked release discovery around `releases.json` as the single source of truth, with per-asset version, URL, and SHA metadata instead of a channel-level grab bag that needed too much interpretation (#469).
+- Taught `velocity-ctl upgrade` to consume that metadata directly, verify per-asset SHA-256 hashes before install, and handle prerelease ordering and fallback rules more sanely.
+- {patrickod/tailscale-automation} Added Tailscale to the base image and boot-partition configuration path so operators can opt into `*.ts.net` HTTPS for the web UI without local certificate wrangling.
+
 ## April 17, 2026 - Supply-chain hardening & documentation trust fixes
 
 - Added SHA verification to `velocity-ctl upgrade`: binary download is verified against the per-asset `sha256` published in `https://velocity.report/release.json` before install. Hash mismatch aborts; an empty `sha256` entry (older release metadata) warns and continues. Resolves the open TODO in `internal/ctl/manager.go`.
@@ -57,7 +157,7 @@
 - Integrated ascfix Markdown formatter into CI, then removed it: corrupts hand-crafted ASCII art. Documented findings as an operations note.
 - Removed compilable code blocks from 30 plan files and 8 hub docs: replaced Go, SQL, JSON, YAML, Protobuf, and other fenced blocks with field tables and prose. Banned Author/Authors metadata and added metadata audit to docs-release-prep (#465).
 - Fixed tag-triggered release asset builds and image uploads in CI (#466).
-- {dd/fix/dependabot-updates} Tightened pnpm override ranges and added node engines constraint.
+- Tightened pnpm override ranges and added node engines constraint.
 
 ## April 11, 2026 - README refresh, dependency fixes & documentation polish
 
@@ -68,7 +168,7 @@
 - Added width-check skill for advisory prose line-width validation and update-PR-description skill for generating structured PR descriptions from branch diffs.
 - Added release-prep skill documentation. Updated documentation structure guidelines to prefer prose and tables over pre-built code blocks.
 - Added detailed API endpoint specifications for serial configuration and testing. Refactored transit deduplication documentation.
-- {dd/fix/dependabot-updates} Fixed 19 dependabot alerts across Go, npm, and Python ecosystems.
+- Fixed 19 dependabot alerts across Go, npm, and Python ecosystems.
 
 ## April 10, 2026 - documentation standardisation & plan graduation
 
@@ -87,7 +187,7 @@
 - Switched CI Go setup to `go-version-file` for automatic version tracking (#451). Backed out the SonarCloud integration.
 - Added the documentation standardisation audit plan with gate definitions and checklist (#452).
 - Added Vite config symlink for worktree support (#454).
-- {worktree-chart-migration} Built Go-native SVG chart rendering: histogram and time-series packages with Atkinson Hyperlegible font support, LaTeX template rendering, and a PDF report generation subcommand with ZIP output.
+- Built Go-native SVG chart rendering: histogram and time-series packages with Atkinson Hyperlegible font support, LaTeX template rendering, and a PDF report generation subcommand with ZIP output.
 - Began the documentation audit: fixed 8 gate violations, graduated 15 complete plans to symlinks, consolidated the visualiser app directory, reclassified PCAP design docs as plans, and added config cross-references.
 
 ## April 8, 2026 - map editor, homepage build & tooling
@@ -1159,7 +1259,7 @@
 - Rebased and implemented RadarObject parsing.
 - Restructured into [cmd/radar/](../cmd/radar), `internal/*` packages.
 - Renamed project to velocity.report.
-- Added Apache 2.0 license.
+- Added Apache 2.0 licence.
 - Implemented JSON parsing for radar data.
 - Added unit tests for parsing.
 

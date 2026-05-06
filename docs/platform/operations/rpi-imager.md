@@ -152,7 +152,7 @@ full stack. Targets: `pi4-64bit`, `pi400-64bit`, `pi5-64bit`.
 Only pursue if user research shows the custom repo step is a significant
 adoption barrier, or custom first-boot fields are needed (site name, radar
 port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`)
-— different tech stack (C++/Qt), release cadence, and contributor profile.
+with a different tech stack (C++/Qt), release cadence, and contributor profile.
 
 ## What stays in the monorepo
 

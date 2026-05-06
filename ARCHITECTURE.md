@@ -39,7 +39,7 @@ see [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md).
 The core product is radar-based speed measurement:
 a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data,
 and produces professional reports ready for a city engineer's desk or a planning committee hearing.
-(PDF generation is migrating from the legacy Python + LaTeX tool into the Go server.) No cameras,
+PDF generation runs through the native Go + XeLaTeX pipeline. No cameras,
 no licence plates, no personally identifiable information: by architecture, not by policy.
 
 The LiDAR pipeline extends the picture.
@@ -58,7 +58,7 @@ Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 | Component            | Language            | Purpose                                                            |
 | -------------------- | ------------------- | ------------------------------------------------------------------ |
 | **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
-| **PDF generator**    | Go + XeLaTeX        | Professional speed reports with charts, statistics, and formatting |
+| **PDF reports**      | Go + XeLaTeX        | Professional speed reports with charts, statistics, and formatting |
 | **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
 | **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
 
@@ -131,6 +131,12 @@ Core runtime on Raspberry Pi:
 
 ### LiDAR layer map (L1-L10)
 
+The LiDAR pipeline is organised into ten frozen layers (L1 packets through
+L10 clients) with a permanent number-to-concept mapping. Layer numbers are
+frozen identifiers: once assigned, a number never changes meaning. Per-layer
+scope, package boundaries, stability guarantees, and literature alignment live
+in [docs/lidar/architecture/LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md).
+
 #### Segmented concept status chart
 
 This is the primary visual breakdown for the layer model. Green nodes show
@@ -140,187 +146,248 @@ stays visually fixed.
 
 ```mermaid
 flowchart TB
-  classDef implemented fill:#dff3e4,stroke:#2f6b3b,color:#183a1f;
-  classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
-  classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
-  classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
-  classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
-  classDef deprecated fill:#fde8e8,stroke:#b91c1c,color:#7f1d1d;
+    classDef implemented fill:#dff3e4,stroke:#2f6b3b,color:#183a1f;
+    classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
+    classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
+    classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
+    classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
+    classDef deprecated fill:#fde8e8,stroke:#b91c1c,color:#7f1d1d;
 
-  subgraph P0_sensors["P0 Sources"]
-    direction LR
-    P0c["LiDAR sensor"]
-    P0b["Disk storage"]
-  end
+    subgraph P0_sensors["P0 Sources"]
+        direction LR
+        P0c["LiDAR sensor"]
+        P0b["Disk storage"]
+    end
 
-  P0a["Radar sensor"]
+    P0a["Radar sensor"]
 
-  subgraph P0_io["P0 I/O"]
-    direction LR
-    P0f["UDP socket"]
-    P0e["Filesystem"]
-  end
+    subgraph P0_io["P0 I/O"]
+        direction LR
+        P0f["UDP socket"]
+        P0e["Filesystem"]
+    end
 
-  P0d["Serial IO"]
+    P0d["Serial IO"]
 
-  subgraph L1sub["L1 Packets"]
-    direction LR
-    L1b["LiDAR ingest"]
-    L1c["PCAP replay"]
-  end
+    subgraph L1sub["L1 Packets"]
+        direction LR
+        L1b["LiDAR ingest"]
+        L1c["PCAP replay"]
+    end
 
-  subgraph L1["L1 Ingest"]
-    direction LR
-    L1sub
-    L1a["Radar ingest"]
-  end
+    subgraph L1["L1 Ingest"]
+        direction LR
+        L1sub
+        L1a["Radar ingest"]
+    end
 
-  subgraph L2["L2 Frames"]
-    direction TB
-    L2a["Frame assembly"]
-    L2b["Sensor transform"]
-    L2c["Frame export"]
-  end
+    subgraph L2["L2 Frames"]
+        direction TB
+        L2a["Frame assembly"]
+        L2b["Sensor transform"]
+        L2c["Frame export"]
+    end
 
-  subgraph L3["L3 Grid"]
-    direction LR
-    L3a["Accumulator"]
-    L3b["EMA background"]
-    L3c["Foreground gating"]
-    L3d["Region cache"]
-    L3f["VC Foreground"]
-  end
+    subgraph L3["L3 Grid"]
+        direction LR
+        L3a["Accumulator"]
+        L3b["EMA background"]
+        L3c["Foreground gating"]
+        L3d["Region cache"]
+        L3f["VC Foreground"]
+    end
 
-  subgraph L4["L4 Perception"]
-    direction TB
-    L4ad["Cluster extraction"]
-    L4e["OBB geometry"]
-  end
+    subgraph L4["L4 Perception"]
+        direction TB
+        L4ad["Cluster extraction"]
+        L4e["OBB geometry"]
+    end
 
-  subgraph L5["L5 Tracking"]
-    L5a["Radar sessions"]
-    L5sub
-  end
+    subgraph L5["L5 Tracking"]
+        L5a["Radar sessions"]
+        L5sub
+    end
 
 
-  subgraph L5sub["L5 Tracks"]
-    direction TB
-    L5bg["LiDAR tracking"]
-    L5h["Motion extensions"]
-  end
+    subgraph L5sub["L5 Tracks"]
+        direction TB
+        L5bg["LiDAR tracking"]
+        L5h["Motion extensions"]
+    end
 
-  subgraph L6["L6 Objects"]
-    direction LR
-    L6a["Feature aggregation"]
-    L6b["Classification"]
-    L6c["Run stats"]
-    L6e["ML classifier"]
-  end
+    subgraph L6["L6 Objects"]
+        direction LR
+        L6a["Feature aggregation"]
+        L6b["Classification"]
+        L6c["Run stats"]
+        L6e["ML classifier"]
+    end
 
-  L6f["Radar objects"]
+    L6f["Radar objects"]
 
-  subgraph L7["L7 Scene"]
-    direction TB
-    L7a["Reserved"]
-  end
+    subgraph L7["L7 Scene"]
+        direction TB
+        L7a["Reserved"]
+    end
 
-  subgraph L8sub["L8 Analytics"]
-    L8b["LiDAR metrics"]
-    L8c["Sweep tuning / HINT"]
-  end
+    subgraph L8sub["L8 Analytics"]
+        L8b["LiDAR metrics"]
+        L8c["Sweep tuning / HINT"]
+    end
 
-  subgraph L8["L8 Analytics"]
-    direction LR
-    L8sub
-    L8a["Radar metrics"]
-  end
+    subgraph L8["L8 Analytics"]
+        direction LR
+        L8sub
+        L8a["Radar metrics"]
+    end
 
-  subgraph L9["L9 Endpoints"]
-    direction LR
-    L9c["gRPC streams"]
-    L9b["LiDAR REST APIs"]
-    L9a["Radar REST APIs"]
-  end
+    subgraph L9["L9 Endpoints"]
+        direction LR
+        L9c["gRPC streams"]
+        L9b["LiDAR REST APIs"]
+        L9a["Radar REST APIs"]
+    end
 
-  subgraph L10["L10 Clients"]
-    direction LR
-    L10c["VelocityVisualiser.app "]
-    L10d["HTML dashboard ⛔"]
-    L10b["Svelte clients 🌐"]
-    L10a["PDF report 📄"]
-  end
+    subgraph L10["L10 Clients"]
+        direction LR
+        L10c["VelocityVisualiser.app "]
+        L10d["HTML dashboard ⛔"]
+        L10b["Svelte clients 🌐"]
+        L10a["📄 PDF report"]
+    end
 
-  %% ── P0 sensor → IO ──────────────────────────────────
-  P0c --> P0f
-  P0b --> P0e
-  P0a --> P0d
-  P0f --> L1b
-  P0e --> L1c
-  P0d --> L1a
+    %% ── P0 sensor → IO ──────────────────────────────────
+    P0c --> P0f
+    P0b --> P0e
+    P0a --> P0d
+    P0f --> L1b
+    P0e --> L1c
+    P0d --> L1a
 
-  %% ── L1→L2 main LiDAR path ─────────────────────────
-  L1b --> L2a
-  L1c --> L2a
-  L2a --> L2b
-  L2a --> L3a
-  L2b --> L2c
+    %% ── L1→L2 main LiDAR path ─────────────────────────
+    L1b --> L2a
+    L1c --> L2a
+    L2a --> L2b
+    L2a --> L3a
+    L2b --> L2c
 
-  %% ── Radar path (right column) ──────────────────────
-  L1a --> L5a
-  L5a --> L6f
-  L6f --> L8a
-  L1a --> L8a
+    %% ── Radar path (right column) ──────────────────────
+    L1a --> L5a
+    L5a --> L6f
+    L6f --> L8a
+    L1a --> L8a
 
-  %% ── L3→L4→L5→L6 LiDAR pipeline ────────────────────
-  L3a --> L3b
-  L3a --> L3f
-  L3b --> L3c
-  L3b --> L3d
-  L3c --> L4ad
-  L4ad --> L4e
-  L3b --> L9c
-  L4e --> L9c
-  L4e --> L5bg
-  L7a -.-> L9c
-  L6c --> L8b
-  L8b --> L8c
-  L6b --> L9c
-  L6b --> L9b
-  L6a --> L6b
-  L6b --> L6c
-  L6a -.-> L6e
-  L6b -.-> L7a
-  L5bg --> L6a
-  L5bg -.-> L5h
+    %% ── L3→L4→L5→L6 LiDAR pipeline ────────────────────
+    L3a --> L3b
+    L3a --> L3f
+    L3b --> L3c
+    L3b --> L3d
+    L3c --> L4ad
+    L4ad --> L4e
+    L3b --> L9c
+    L4e --> L9c
+    L4e --> L5bg
+    L7a -.-> L9c
+    L6c --> L8b
+    L8b --> L8c
+    L6b --> L9c
+    L6b --> L9b
+    L6a --> L6b
+    L6b --> L6c
+    L6a -.-> L6e
+    L6b -.-> L7a
+    L5bg --> L6a
+    L5bg -.-> L5h
 
-  %% ── L6→L8 stats path ──────────────────────────────
+    %% ── L6→L8 stats path ──────────────────────────────
 
-  %% ── Skip edges and endpoints to L9 ─────────────────
-  L8b --> L9b
-  L8c --> L9b
-  L8a --> L9a
+    %% ── Skip edges and endpoints to L9 ─────────────────
+    L8b --> L9b
+    L8c --> L9b
+    L8a --> L9a
 
-  %% ── L9→L10 clients ───────────────────────
-  L9c --> L10c
-  L9b --> L10c
-  L9b --> L10d
-  L9b --> L10b
-  L9a --> L10b
-  L9a --> L10a
+    %% ── L9→L10 clients ───────────────────────
+    L9c --> L10c
+    L9b --> L10c
+    L9b --> L10d
+    L9b --> L10b
+    L9a --> L10b
+    L9a --> L10a
 
-  style P0_sensors fill:none,stroke:none,color:transparent
-  style P0_io fill:none,stroke:none,color:transparent
-  style L1 fill:none,stroke:none,color:transparent
-  style L5 fill:none,stroke:none,color:transparent
-  style L8 fill:none,stroke:none,color:transparent
+    style P0_sensors fill:none,stroke:none,color:transparent
+    style P0_io fill:none,stroke:none,color:transparent
+    style L1 fill:none,stroke:none,color:transparent
+    style L5 fill:none,stroke:none,color:transparent
+    style L8 fill:none,stroke:none,color:transparent
 
-  class P0a,P0b,P0c,P0d,P0e,P0f infra;
-  class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L6f,L8a,L8b,L8c,L9a,L9b,L9c implemented;
-  class L3f,L5h,L6e,L7a gap;
-  class L10a implemented;
-  class L10b,L10c client;
-  class L10d deprecated;
+    class P0a,P0b,P0c,P0d,P0e,P0f infra;
+    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L6f,L8a,L8b,L8c,L9a,L9b,L9c implemented;
+    class L3f,L5h,L6e,L7a gap;
+    class L10a implemented;
+    class L10b,L10c client;
+    class L10d deprecated;
 ```
+
+**Reading notes**
+
+- **Polar vs Cartesian paths.** The LiDAR tracking path stays in polar
+  coordinates through L3 (Accumulator → EMA background → Foreground gating)
+  and only moves into world Cartesian at L4ad (Cluster extraction). The
+  earlier sensor-space transform in L2b (Sensor transform) is a
+  frame/export side path: `AddPointsPolar()` materialises XYZ for
+  `LiDARFrame`, ASC, and LidarView use, and the tracking path then
+  reconstructs polar points before `ProcessFramePolarWithMask()`.
+- **Region cache and settling.** L3d (Region cache) belongs to settling
+  control rather than a separate post-grid stage. During warmup, `l3grid`
+  can attempt an early region restore from the database after roughly
+  10 frames; when settling completes naturally, it identifies regions and
+  persists a linked grid-and-region snapshot for later restore.
+- **VC Foreground (L3f).** A planned extension that uses
+  velocity-consistent foreground extraction within the grid layer, fed
+  from the accumulator (L3a). Currently a grey/planned node with no
+  runtime code.
+- **Radar path.** The radar path now has its own object stage: L1a (Radar
+  ingest) → L5a (Radar sessions) → L6f (Radar objects) → L8a (Radar
+  metrics). L5a sessionises raw `radar_data` into
+  `radar_data_transits` via the transit worker; L6f derives transit-level
+  speed, direction, and event metadata; L8a computes histograms,
+  percentiles, and report rollups. L8a feeds L9a (Radar REST APIs) which
+  serves L10a (Go PDF pipeline) and L10b (Svelte clients).
+- **LiDAR tracking (L5bg).** The combined block covers the full tracker:
+  L5b/L5d together form the 4-state constant-velocity Kalman tracker
+  (predict before association, update after); L5c is Hungarian
+  assignment; L5e detects merge/split coherence anomalies; L5f manages
+  the birth/confirm/coast/delete lifecycle; L5g computes velocity-trail
+  quality metrics. L5h (Motion extensions) is reserved for future
+  motion-model upgrades beyond the CV baseline (CA / CTRV / IMM).
+- **ML classifier (L6e).** A planned research lane for learned
+  classification to complement or replace the current rule-based
+  classifier (L6b). Dashed edge from L6a (Feature aggregation) indicates
+  the intended data flow.
+- **L8 Analytics structure.** The chart splits L8 into two visual groups:
+  L8sub contains LiDAR-side analytics (L8b LiDAR metrics → L8c Sweep
+  tuning / HINT), while L8a (Radar metrics) sits alongside for the radar
+  path. Both feed into L9 endpoints.
+- **L9 fan-out.** L9b (LiDAR REST APIs) serves three clients: L10b
+  (Svelte clients), L10c (VelocityVisualiser.app), and L10d (HTML
+  dashboard ⛔). L9c (gRPC streams) serves L10c exclusively for real-time
+  3D visualisation. L9a (Radar REST APIs) serves L10a (Go PDF pipeline) and
+  L10b (Svelte clients).
+- **L10 clients.** All four L10 nodes are implemented applications:
+  L10a is the Go PDF pipeline (`internal/report/` — native SVG charts, `text/template` LaTeX, xelatex),
+  L10b is a Svelte 5 web app,
+  L10c is a native macOS Metal visualiser with gRPC streaming, and L10d
+  is a legacy Go-embedded HTML dashboard marked deprecated (⛔).
+
+**Legend**
+
+- Green: implemented
+- Grey: reserved layer slot with no runtime implementation yet
+- Blue-grey: OS + hardware shown for ingress context only
+- Beige: downstream client surfaces (implemented in Go, Svelte, or Swift)
+- Red: deprecated; scheduled for removal or replacement
+- Solid arrows: implemented code
+- Dashed arrows: reference links for future work
 
 ## Components
 
@@ -406,10 +473,6 @@ Invoked via `POST /api/generate_report` or `velocity-report pdf --config cfg.jso
 
 - `xelatex` — TeX compilation (vendored minimal TeX Live tree in `/opt/velocity-report/texlive`)
 - `rsvg-convert` — SVG → PDF conversion for chart figures (`librsvg2-bin`)
-
-### Python PDF generator (removed)
-
-The Python PDF pipeline (matplotlib charts, PyLaTeX document assembly) was removed in v0.5 and replaced by the native Go pipeline above. The `tools/pdf-generator/` directory was deleted from the repository.
 
 ### Web frontend
 
@@ -518,7 +581,7 @@ service VisualiserService {
 
 **Location**: `./sensor_data.db`, managed by [internal/db/](internal/db) <!-- link-ignore -->
 
-**Database**: SQLite 3.51.2 (via `modernc.org/sqlite v1.44.3`)
+**Database**: SQLite (via `modernc.org/sqlite v1.50.0`)
 
 **Schema Design**:
 
@@ -605,94 +668,18 @@ changes over time. Key aspects:
 ## Perception pipeline
 
 The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame:
-background subtraction, clustering, tracking, and classification.
-Each layer is a separate Go package under [internal/lidar/](internal/lidar),
-with its own parameters, tests, and maths reference. The pipeline aims to process
-~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
+background subtraction (L3), clustering and geometry (L4), multi-object
+tracking (L5), and classification (L6). Each layer is a separate Go package
+under [internal/lidar/](internal/lidar), with its own parameters, tests, and
+maths reference. The pipeline processes ~70,000 points per frame on a
+Raspberry Pi 4 with no cloud dependency.
 
-### L3: background model
-
-The background model separates static scene (road surface, buildings,
-vegetation) from moving objects.
-It maintains a 40 × 3,600 polar grid (one row per LiDAR beam,
-one column per 0.1° azimuth bin) where each cell tracks an exponentially weighted moving average of
-range values and a Welford online variance estimate.
-
-Cells are classified into three adaptive region types: **stable** (pavement, walls:
-low variance, tight foreground threshold), **variable** (parked cars, street furniture:
-moderate variance, relaxed threshold), and **volatile** (trees, reflective surfaces:
-high variance, wide threshold).
-The classification adapts per cell,
-so a parking space that empties mid-session reclassifies automatically.
-A point counts as foreground when its range deviates from the cell's background mean by more than a
-threshold scaled to the cell's region type.
-
-The grid settles over a configurable number of frames.
-Until a cell has seen enough observations,
-it remains unsettled and does not contribute to foreground extraction,
-which prevents the first vehicle through the scene from becoming part of the background.
-
-### L4: clustering and geometry
-
-Foreground points are grouped into spatial clusters using DBSCAN with a grid-accelerated spatial
-index. The index maps each point to a cell via a Szudzik pairing function on signed grid
-coordinates, making neighbourhood queries O(1) per point instead of O(n).
-Clusters are filtered by size, aspect ratio, and point count to reject noise and scene artefacts.
-
-Each cluster gets an oriented bounding box (OBB) fitted via 2D PCA on its ground-plane projection.
-PCA alone is ambiguous (the eigenvectors can flip 180° or swap axes between frames),
-so the pipeline applies heading disambiguation guards:
-aspect-ratio locking for near-square clusters,
-90° jump rejection against the previous frame's heading,
-and EMA temporal smoothing (α = 0.08) to absorb jitter without lagging real turns.
-
-Ground-plane points within each cluster are removed using a local height threshold relative to the
-cluster's lowest points.
-
-### L5: multi-object tracking
-
-Tracking follows the predict–associate–update loop.
-Each track maintains a constant-velocity Kalman filter with state vector `[X, Y, VX, VY]` and a 4 ×
-4 covariance matrix.
-The motion model assumes constant velocity between frames,
-simple enough to run at 10 Hz on constrained hardware,
-accurate enough for urban traffic where vehicles rarely accelerate hard between 100 ms frames.
-
-Association uses the Hungarian algorithm (Kuhn–Munkres) with Mahalanobis distance as the cost
-metric. Three gating guards reject implausible assignments before they reach the solver:
-a Euclidean position jump limit (5 m), an implied speed limit (30 m/s),
-and a Mahalanobis distance² threshold (36).
-Unmatched detections spawn tentative tracks;
-unmatched tracks enter a coasting window where the Kalman prediction runs without measurement
-updates.
-
-Track lifecycle:
-a new track is **tentative** until it accumulates 4 consecutive hits, then **confirmed**.
-A confirmed track tolerates up to 15 consecutive misses (coasting through brief occlusions) before
-deletion. Tentative tracks are deleted after 3 misses.
-Covariance inflates progressively during coasting,
-so a coasted track's association gate widens naturally:
-it accepts a returning detection at greater distance but with lower confidence.
-
-### L6: classification
-
-Each confirmed track is classified using a rule-based system (v1.2) that evaluates spatial and
-kinematic features: bounding box dimensions, aspect ratio, speed, point count, and height profile.
-The classifier assigns one of eight object types:
-car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and dynamic (unclassified moving object),
-with confidence levels at three tiers: high (0.85), medium (0.70), and low (0.50).
-
-The rule set uses threshold ranges derived from measured vehicle dimensions and typical urban
-speeds. Truck and motorcyclist labels are currently display-only:
-visible in the visualiser and VRLOG replay but not selectable in the labelling UI,
-pending wider validation data.
-The `ClassDynamic` label catches moving objects that do not match any specific profile,
-useful for flagging edge cases rather than forcing a wrong classification.
-
-The classification is deliberately rule-based rather than learned.
-With single-digit labelled sessions, a trained classifier would overfit;
-the rule set is transparent, tuneable,
-and correct enough to structure the data for future ML work when the ground truth corpus is larger.
+For algorithm details (EMA polar grid, DBSCAN with Szudzik index, PCA-based
+OBBs, Kalman + Hungarian tracking, rule-based classification), see the
+per-layer sections in
+[docs/lidar/architecture/LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md).
+The maths reference for each layer lives under
+[data/maths/](data/maths/).
 
 ## Data flow
 
@@ -772,26 +759,26 @@ Synthetic Mode (Testing):
 
 ### Go server
 
-| Component  | Technology              | Version | Purpose                 |
-| ---------- | ----------------------- | ------- | ----------------------- |
-| Language   | Go                      | 1.25+   | High-performance server |
-| Database   | SQLite                  | 3.51    | Data storage            |
-| HTTP       | net/http (stdlib)       | -       | API server              |
-| gRPC       | google.golang.org/grpc  | 1.60+   | Visualiser streaming    |
-| Protobuf   | google.golang.org/proto | 1.32+   | Data serialisation      |
-| Serial     | github.com/tarm/serial  | -       | Sensor communication    |
-| Deployment | systemd                 | -       | Service management      |
-| Build      | Make                    | -       | Build automation        |
+| Component  | Technology                    | Version | Purpose                 |
+| ---------- | ----------------------------- | ------- | ----------------------- |
+| Language   | Go                            | 1.26+   | High-performance server |
+| Database   | SQLite (`modernc.org/sqlite`) | v1.50.0 | Data storage            |
+| HTTP       | net/http (stdlib)             | -       | API server              |
+| gRPC       | google.golang.org/grpc        | 1.81+   | Visualiser streaming    |
+| Protobuf   | google.golang.org/proto       | 1.36+   | Data serialisation      |
+| Serial     | go.bug.st/serial              | 1.6+    | Sensor communication    |
+| Deployment | systemd                       | -       | Service management      |
+| Build      | Make                          | -       | Build automation        |
 
 ### Web frontend
 
 | Component       | Technology | Version | Purpose               |
 | --------------- | ---------- | ------- | --------------------- |
 | Framework       | Svelte     | 5.x     | Reactive UI           |
-| Language        | TypeScript | 5.x     | Type safety           |
-| Build Tool      | Vite       | 6.x     | Dev server & bundling |
-| Package Manager | pnpm       | 9.x     | Dependency management |
-| Linting         | ESLint     | 9.x     | Code quality          |
+| Language        | TypeScript | 6.x     | Type safety           |
+| Build Tool      | Vite       | 8.x     | Dev server & bundling |
+| Package Manager | pnpm       | 10.x    | Dependency management |
+| Linting         | ESLint     | 10.x    | Code quality          |
 
 ### macOS visualiser
 

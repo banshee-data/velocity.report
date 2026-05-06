@@ -544,7 +544,7 @@ Link ground plane tiles to GPS coordinates:
 
 **Privacy Alignment:**
 
-- Consistent with privacy-first design (no cameras, no license plates)
+- Consistent with privacy-first design (no cameras, no licence plates)
 - Local-only storage (SQLite database)
 - No external transmission of coordinates
 
