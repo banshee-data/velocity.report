@@ -70,6 +70,10 @@ The production pipeline uses four math-heavy layers:
   Mathematical audit of L1–L6 implementations, addresses open questions from plans and proposals,
   synthesises ground plane and priors alignment, builds the dependency graph,
   and defines a prioritised high-value work list.
+- [Paper-vs-Implementation Gap Analysis](paper-implementation-gap-analysis.md):
+  Cross-reference of all downloaded papers against production code (L3–L8),
+  classifying gaps as mathematical deviations, missing edge cases,
+  missing tests, or future work blocked by paywalls.
 
 ### Active maths (implemented in current runtime)
 
@@ -85,6 +89,10 @@ The production pipeline uses four math-heavy layers:
 - [Tracking Maths](tracking-maths.md):
   CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions,
   and stability metrics.
+- [Classification Maths](classification-maths.md):
+  Rule-based feature aggregation and thresholds for L6 object classes (pedestrian,
+  cyclist, bird, bus, car, noise, other), and the SemanticKITTI / Waymo /
+  Panoptic nuScenes mapping that supports AV-taxonomy export.
 
 ### Proposals (not yet active; see [Roadmap](#prioritised-proposal-roadmap) below)
 
@@ -236,9 +244,25 @@ they improve will be removed.
 
 ## Config mapping
 
-Note on naming: this repository does **not** contain a `config/tracking.json` file.
 Runtime tuning is loaded from [config/tuning.defaults.json](../../config/tuning.defaults.json)
 (or another JSON passed with `--config`) via [internal/config/tuning.go](../../internal/config/tuning.go).
+This repository does **not** contain a `config/tracking.json` file.
+
+The schema is **versioned and engine-selectable**. Each math layer (L3, L4, L5)
+declares an `engine` string that names which sub-block of parameters is active;
+only the selected engine's block is read at runtime. Future-engine blocks are
+present in the schema so configs can be staged ahead of code rollouts.
+
+```
+{
+  "version": 1,
+  "l1":       { "sensor": "...", "data_source": "..." },
+  "l3":       { "engine": "ema_baseline_v1", "ema_baseline_v1": { ... } },
+  "l4":       { "engine": "dbscan_xy_v1",     "dbscan_xy_v1":    { ... } },
+  "l5":       { "engine": "cv_kf_v1",         "cv_kf_v1":        { ... } },
+  "pipeline": { ... }
+}
+```
 
 See also: [docs/lidar/operations/config-param-tuning.md](../../docs/lidar/operations/config-param-tuning.md)
 for the operational tuning workflow aimed at operators (grouped by tuning task
@@ -246,91 +270,81 @@ rather than mathematical source).
 
 ### L3 background grid settling maths ([`background-grid-settling-maths.md`](background-grid-settling-maths.md))
 
-- Keys:
-  - `background_update_fraction`
-  - `closeness_multiplier`
-  - `safety_margin_meters`
-  - `noise_relative`
-  - `neighbor_confirmation_count`
-  - `seed_from_first`
-  - `warmup_duration_nanos`
-  - `warmup_min_frames`
-  - `post_settle_update_fraction`
-- Getter/source path:
-  - [internal/config/tuning.go](../../internal/config/tuning.go)
+- Engine selector: `l3.engine` — production: `ema_baseline_v1`; future: `ema_track_assist_v2`
+- Active keys (`l3.ema_baseline_v1.*`):
+  - Update / decay: `background_update_fraction`, `post_settle_update_fraction`
+  - Foreground gating: `closeness_multiplier`, `safety_margin_metres`, `noise_relative`, `neighbour_confirmation_count`, `sensor_movement_foreground_threshold`
+  - Warmup / settling: `seed_from_first`, `warmup_duration_nanos`, `warmup_min_frames`, `settling_period`, `settling_min_coverage`, `settling_min_confidence`, `settling_max_spread_delta`, `settling_min_region_stability`
+  - Freeze / lock: `freeze_duration`, `freeze_threshold_multiplier`, `locked_baseline_threshold`, `locked_baseline_multiplier`, `min_confidence_floor`
+  - Drift / reacquisition: `background_drift_threshold_metres`, `background_drift_ratio_threshold`, `reacquisition_boost_multiplier`
+  - Snapshot persistence: `snapshot_interval`, `change_threshold_snapshot`
+  - Diagnostics: `enable_diagnostics`
+- Future engine `ema_track_assist_v2` adds: `promotion_near_gate_low`, `promotion_near_gate_high`, `promotion_threshold` (track-assisted foreground promotion).
+- Getter/source path: [internal/config/tuning.go](../../internal/config/tuning.go) (`L3Common`)
 - Runtime mapping:
   - [internal/lidar/l3grid/config.go](../../internal/lidar/l3grid/config.go) (`BackgroundConfigFromTuning`)
   - [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go) and [internal/lidar/l3grid/background.go](../../internal/lidar/l3grid/background.go)
-- Important non-file defaults still applied in code:
-  - freeze duration, lock thresholds, reacquisition boost ([internal/lidar/l3grid/config.go](../../internal/lidar/l3grid/config.go), [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go))
 
 ### L4 ground surface maths ([`ground-plane-maths.md`](ground-plane-maths.md))
 
-- Current config status:
-  - No dedicated ground-plane tuning block is wired yet.
+- Current config status: no dedicated ground-plane engine block; ground handling is folded into the active L4 engine (height-band gating + ground removal toggle).
 - Effective upstream controls:
   - L3 settling keys above (input quality to L4)
-  - `height_band_floor`, `height_band_ceiling`, `remove_ground`
-  - region-selection gates derived from `noise_relative`, `safety_margin_meters`, `closeness_multiplier`, and `neighbor_confirmation_count`
+  - `l4.dbscan_xy_v1.height_band_floor`, `height_band_ceiling`, `remove_ground`
+  - Region-selection gates derived from `noise_relative`, `safety_margin_metres`, `closeness_multiplier`, and `neighbour_confirmation_count`
 - Runtime mapping:
-  - [cmd/radar/radar.go](../../cmd/radar/radar.go) -> [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) -> [internal/lidar/l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
+  - [cmd/radar/radar.go](../../cmd/radar/radar.go) → [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) → [internal/lidar/l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
 
 ### L4 clustering maths ([`clustering-maths.md`](clustering-maths.md))
 
-- Keys:
-  - `foreground_dbscan_eps`
-  - `foreground_min_cluster_points`
-  - `max_cluster_diameter`
-  - `min_cluster_diameter`
-  - `max_cluster_aspect_ratio`
-- Getter/source path:
-  - [internal/config/tuning.go](../../internal/config/tuning.go)
+- Engine selector: `l4.engine` — production: `dbscan_xy_v1`; future: `two_stage_mahalanobis_v2`, `hdbscan_adaptive_v1`
+- Active keys (`l4.dbscan_xy_v1.*`):
+  - Density: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
+  - Geometry filters: `max_cluster_diameter`, `min_cluster_diameter`, `max_cluster_aspect_ratio`
+  - Ground / height: `height_band_floor`, `height_band_ceiling`, `remove_ground`
+- Future engine `two_stage_mahalanobis_v2` adds: `velocity_coherence_gate`, `min_velocity_confidence`.
+- Future engine `hdbscan_adaptive_v1` adds: `min_cluster_size`, `min_samples`.
+- Getter/source path: [internal/config/tuning.go](../../internal/config/tuning.go) (`L4Common`)
 - Runtime mapping:
   - [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go) (`DefaultDBSCANParams`)
-  - pipeline use in [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go)
+  - Pipeline use in [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go)
 
 ### L5 tracking maths ([`tracking-maths.md`](tracking-maths.md))
 
-- Keys:
-  - `gating_distance_squared`
-  - `process_noise_pos`
-  - `process_noise_vel`
-  - `measurement_noise`
-  - `occlusion_cov_inflation`
-  - `hits_to_confirm`
-  - `max_misses`
-  - `max_misses_confirmed`
-  - `max_tracks`
-  - `max_reasonable_speed_mps`
-  - `max_position_jump_meters`
-  - `max_predict_dt`
-  - `max_covariance_diag`
-  - `min_points_for_pca`
-  - `obb_heading_smoothing_alpha`
-  - `obb_aspect_ratio_lock_threshold`
-  - `max_track_history_length`
-  - `max_speed_history_length`
-  - `merge_size_ratio`
-  - `split_size_ratio`
-  - `deleted_track_grace_period`
-  - `min_observations_for_classification`
-- Getter/source path:
-  - [internal/config/tuning.go](../../internal/config/tuning.go)
+- Engine selector: `l5.engine` — production: `cv_kf_v1`; future: `imm_cv_ca_v2`, `imm_cv_ca_rts_eval_v2`
+- Active keys (`l5.cv_kf_v1.*`):
+  - Kalman noise: `process_noise_pos`, `process_noise_vel`, `measurement_noise`, `occlusion_cov_inflation`
+  - Gating / association: `gating_distance_squared`, `max_position_jump_metres`, `max_predict_dt`, `max_covariance_diag`
+  - Lifecycle: `hits_to_confirm`, `max_misses`, `max_misses_confirmed`, `max_tracks`, `deleted_track_grace_period`
+  - Speed bounds: `max_reasonable_speed_mps`
+  - OBB / heading: `min_points_for_pca`, `obb_heading_smoothing_alpha`, `obb_aspect_ratio_lock_threshold`
+  - Merge / split: `merge_size_ratio`, `split_size_ratio`
+  - History / classification readiness: `max_track_history_length`, `max_speed_history_length`, `min_observations_for_classification`
+- Future engine `imm_cv_ca_v2` adds: `transition_cv_to_ca`, `transition_ca_to_cv`, `ca_process_noise_acc`, `low_speed_heading_freeze_mps`.
+- Future engine `imm_cv_ca_rts_eval_v2` extends `imm_cv_ca_v2` with: `rts_smoothing_window`.
+- Getter/source path: [internal/config/tuning.go](../../internal/config/tuning.go) (`L5Common`)
 - Runtime mapping:
   - [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go) (`TrackerConfigFromTuning`)
-  - tracker wiring in [cmd/radar/radar.go](../../cmd/radar/radar.go)
+  - Tracker wiring in [cmd/radar/radar.go](../../cmd/radar/radar.go)
+
+### L1 sensor and data source
+
+- Keys (`l1.*`):
+  - `sensor` — sensor model identifier (e.g. `pandar40p`)
+  - `data_source` — runtime ingest source selector (e.g. `live`, `pcap`, `vrlog`)
+- Runtime mapping: [internal/lidar/l1packets/](../../internal/lidar/l1packets/)
 
 ### Pipeline timing/persistence controls (cross-cutting)
 
-- Keys:
+- Keys (`pipeline.*`):
   - `buffer_timeout`
   - `min_frame_points`
   - `flush_interval`
   - `background_flush`
-  - `enable_diagnostics`
 - Runtime mapping:
-  - pipeline/bootstrap in [cmd/radar/radar.go](../../cmd/radar/radar.go)
-  - background flusher in [internal/lidar/l3grid/background_flusher.go](../../internal/lidar/l3grid/background_flusher.go)
+  - Pipeline/bootstrap in [cmd/radar/radar.go](../../cmd/radar/radar.go)
+  - Background flusher in [internal/lidar/l3grid/background_flusher.go](../../internal/lidar/l3grid/background_flusher.go)
+- Note: per-engine `enable_diagnostics` lives inside the engine block (e.g. `l3.ema_baseline_v1.enable_diagnostics`), not at the pipeline level.
 
 ## What is intentionally not here
 
