@@ -7,7 +7,6 @@ on:
     paths:
       - "tools/visualiser-macos/**"
       - "proto/velocity_visualiser/**"
-      - ".github/workflows/mac-ci.yml"
 
   # Tags and manual dispatch produce a versioned DMG artefact.
   push:
