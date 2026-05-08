@@ -55,21 +55,29 @@ import (
 var serveFlags = flag.NewFlagSet("velocity-serve", flag.ExitOnError)
 
 var (
-	fixtureMode   = serveFlags.Bool("fixture", false, "Load fixture to local database")
-	debugMode     = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen        = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
-	docsSource    = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
-	port          = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
-	unitsFlag     = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
-	timezoneFlag  = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
-	disableRadar  = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag    = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
-	versionFlag   = serveFlags.Bool("version", false, "Print version information and exit")
-	versionShort  = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
-	configFile    = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
-	logLevel      = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
-	selfCheck     = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
-	selfCheckLive = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
+	fixtureMode  = serveFlags.Bool("fixture", false, "Load fixture to local database")
+	debugMode    = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
+	listen       = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
+	docsSource   = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
+	port         = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
+	unitsFlag    = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPathFlag   = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
+	versionFlag  = serveFlags.Bool("version", false, "Print version information and exit")
+	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
+	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
+	logLevel     = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+	// tsCapEnforcement controls Tailscale capability-grant authorization.
+	//   off (default): cap checks disabled; every reachable peer is admin.
+	//                  Lockout-safe by definition.
+	//   on:            cap checks enforced for tailnet-sourced requests.
+	//                  LAN/loopback peers are still admin (the LAN is the
+	//                  trust boundary in those deployments).  Recovery from
+	//                  a botched ACL: drop back to LAN access, fix grants.
+	tsCapEnforcement = serveFlags.String("ts-cap-enforcement", "off", "Tailscale capability-grant enforcement: off (default) or on")
+	selfCheck        = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
+	selfCheckLive    = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
 )
 
 const (
@@ -977,6 +985,18 @@ func Main(args []string) int {
 		tsManager.Start(ctx)
 		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)
+
+		// Capability-grant authorization.  Non-Tailscale sources
+		// (loopback, LAN) are always treated as admin; only requests
+		// arriving via tailscale serve are subject to cap checks.
+		// Default mode is "off"; flip to "on" after grants are wired
+		// in the tailnet ACL.  Recovery from a botched ACL is via
+		// the LAN bypass.
+		if mode, err := api.ParseEnforcement(*tsCapEnforcement); err != nil {
+			log.Fatalf("invalid -ts-cap-enforcement: %v", err)
+		} else {
+			apiServer.SetAuthGate(tsManager, mode)
+		}
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// When LiDAR is enabled we report "starting" here; the subsystem should

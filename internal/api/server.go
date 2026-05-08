@@ -32,6 +32,7 @@ type Server struct {
 	capabilitiesProvider CapabilitiesProvider // Interface for sensor capability reporting
 	tailscale            TailscaleController  // Interface for Tailscale enable/disable/status
 	serialManager        *SerialPortManager
+	authGate             *authGate // Capability-grant authorization (nil = allow all)
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -116,6 +117,108 @@ func (s *Server) currentSerialMux() serialmux.SerialMuxInterface {
 	return s.m
 }
 
+// SetAuthGate enables capability-grant authorization for the whole
+// HTTP surface.  When mode is EnforcementOff (or tc is nil), every
+// request is admin and no daemon calls are made.  When mode is
+// EnforcementOn, the auth wrapper installed at Start() time gates
+// every route that is not on the allowlist (see authAllowlist) at
+// CapAdmin by default; explicitly registered View routes (see
+// viewRoutes) require only CapView.  This default-deny shape means
+// adding a new mutating endpoint cannot accidentally bypass auth.
+func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
+	s.authGate = newAuthGate(tc, mode)
+}
+
+// viewRoutes is the allowlist of read-only endpoints that should
+// be reachable by holders of velocity.report/cap/view.  Anything
+// not listed here defaults to CapAdmin.  Match is by exact path
+// or, when the entry ends in "/", by prefix.
+var viewRoutes = map[string]struct{}{
+	"/events":                {},
+	"/api/commands":          {},
+	"/api/events":            {},
+	"/api/radar_stats":       {},
+	"/api/config":            {},
+	"/api/capabilities":      {},
+	"/api/version":           {},
+	"/api/timeline":          {},
+	"/api/db_stats":          {},
+	"/api/charts/timeseries": {},
+	"/api/charts/histogram":  {},
+	"/api/charts/comparison": {},
+}
+
+// viewRoutesGetOnly is the allowlist of paths where GET/HEAD/OPTIONS
+// require CapView but write methods require CapAdmin.  Used for
+// REST collections that mix read and write under one mux entry
+// (e.g. /api/sites, /api/reports/).
+var viewRoutesGetOnly = []string{
+	"/api/sites",
+	"/api/sites/",
+	"/api/site_config_periods",
+	"/api/reports/",
+}
+
+// authAllowlist is the set of paths exempted from cap checks
+// entirely.  Only paths whose unauthenticated reachability is
+// either (a) a deliberate UX feature or (b) a recovery channel
+// belong here.
+var authAllowlist = []string{
+	// SPA static assets — the page itself must be reachable so the
+	// app can render an "unauthorized" state.
+	"/",
+	"/app/",
+	"/favicon.ico",
+	// Tailscale status read so an operator with a botched grant
+	// policy can still see the daemon state and recover.  Note
+	// that enable/disable are NOT on the allowlist.
+	"/api/tailscale/status",
+}
+
+// classifyRoute reports the CapKind required for path+method.  Used
+// by the wrapper installed at Start() time.  Allowlist hits return
+// (false, _).
+//
+// Match rules for both authAllowlist and viewRoutesGetOnly:
+//   - Exact path match.
+//   - If the entry ends in "/", it matches any path *strictly under*
+//     that prefix.  The root "/" is treated as exact-match only,
+//     otherwise it would absorb every URL.
+func classifyRoute(path, method string) (gated bool, required CapKind) {
+	if pathMatchesAny(path, authAllowlist) {
+		return false, 0
+	}
+	if _, ok := viewRoutes[path]; ok {
+		return true, CapView
+	}
+	if pathMatchesAny(path, viewRoutesGetOnly) {
+		switch method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			return true, CapView
+		default:
+			return true, CapAdmin
+		}
+	}
+	// Default-deny: anything not explicitly view-classified requires
+	// admin.  This is the property that prevents a forgotten new
+	// route from silently bypassing auth.
+	return true, CapAdmin
+}
+
+// pathMatchesAny applies the exact-or-prefix rule documented on
+// classifyRoute.  Note that "/" is exact-match only.
+func pathMatchesAny(path string, patterns []string) bool {
+	for _, p := range patterns {
+		if p == path {
+			return true
+		}
+		if p != "/" && strings.HasSuffix(p, "/") && strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) ServeMux() *http.ServeMux {
 	if s.mux != nil {
 		return s.mux
@@ -124,6 +227,14 @@ func (s *Server) ServeMux() *http.ServeMux {
 
 	// Note: pprof endpoints are provided by tailscale's tsweb via db.AttachAdminRoutes()
 	// Usage: go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
+
+	// Routes are NOT gated individually here. The auth wrapper
+	// installed at Start() time gates the entire mux by classifying
+	// each request's path against viewRoutes / viewRoutesGetOnly /
+	// authAllowlist (see the maps above). This is intentional: a
+	// new route added after this point, including routes attached
+	// by external packages via mux.Handle, inherits the default-deny
+	// policy automatically.
 
 	s.mux.HandleFunc("/admin/radar/command", s.sendCommandHandler) // mutating device control: admin namespace (per cli-restructuring plan), not /api
 	s.mux.HandleFunc("/api/commands", s.listCommandsHandler)       // OPS24x command catalogue (dashboard dropdown)
@@ -134,15 +245,15 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/version", s.showVersion)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
-	s.mux.HandleFunc("/api/sites/", s.handleSites) // Note trailing slash to match /api/sites and /api/sites/*
+	s.mux.HandleFunc("/api/sites/", s.handleSites)
 	s.mux.HandleFunc("/api/site_config_periods", s.handleSiteConfigPeriods)
 	s.mux.HandleFunc("/api/timeline", s.handleTimeline)
-	s.mux.HandleFunc("/api/reports/", s.handleReports)                  // Report management endpoints
-	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker)      // Transit worker control
-	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)            // Database table sizes and disk usage
-	s.mux.HandleFunc("/api/charts/timeseries", s.handleChartTimeSeries) // SVG time-series chart
-	s.mux.HandleFunc("/api/charts/histogram", s.handleChartHistogram)   // SVG histogram chart
-	s.mux.HandleFunc("/api/charts/comparison", s.handleChartComparison) // SVG comparison chart
+	s.mux.HandleFunc("/api/reports/", s.handleReports)
+	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker)
+	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)
+	s.mux.HandleFunc("/api/charts/timeseries", s.handleChartTimeSeries)
+	s.mux.HandleFunc("/api/charts/histogram", s.handleChartHistogram)
+	s.mux.HandleFunc("/api/charts/comparison", s.handleChartComparison)
 	s.mux.HandleFunc("/api/tailscale/status", s.handleTailscaleStatus)
 	s.mux.HandleFunc("/api/tailscale/enable", s.handleTailscaleEnable)
 	s.mux.HandleFunc("/api/tailscale/disable", s.handleTailscaleDisable)
@@ -155,6 +266,27 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/serial/devices", s.handleSerialDevices)
 	s.mux.HandleFunc("/api/serial/reload", s.handleSerialReload)
 	return s.mux
+}
+
+// authWrapper wraps next with the configured auth gate, classifying
+// each request via classifyRoute.  Returns next unchanged when the
+// gate is disabled (mode=off or no PeerAuthClient).  Installed once
+// at Start() time so it covers handlers attached after ServeMux()
+// was called (e.g. radarSerial.AttachAdminRoutes, the LiDAR routes,
+// the offline docs site).
+func (s *Server) authWrapper(next http.Handler) http.Handler {
+	if s.authGate == nil || s.authGate.mode == EnforcementOff {
+		return next
+	}
+	gate := s.authGate
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gated, required := classifyRoute(r.URL.Path, r.Method)
+		if !gated {
+			next.ServeHTTP(w, r)
+			return
+		}
+		gate.requireCap(required, next).ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
@@ -407,7 +539,9 @@ func (s *Server) startWithListener(ctx context.Context, listener net.Listener, d
 		http.NotFound(w, r)
 	})
 
-	server := &http.Server{Handler: LoggingMiddleware(mux)}
+	// Order: logging on the outside (so 403s from auth are logged),
+	// auth on the inside (so the cap check sees the real handler).
+	server := &http.Server{Handler: LoggingMiddleware(s.authWrapper(mux))}
 
 	log.Printf("HTTP server listening on %s", listener.Addr())
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
 )
@@ -177,6 +178,7 @@ type fakeClient struct {
 	startLogin    func(ctx context.Context) error
 	start         func(ctx context.Context, opts ipn.Options) error
 	watchBus      func(ctx context.Context) (BusWatcher, error)
+	whoIs         func(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error)
 
 	editPrefsCalls    int32
 	setServeCfgCalls  int32
@@ -265,6 +267,13 @@ func (f *fakeClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (
 		return f.watchBus(ctx)
 	}
 	return newFakeBusWatcher(), nil
+}
+
+func (f *fakeClient) WhoIs(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error) {
+	if f.whoIs != nil {
+		return f.whoIs(ctx, remoteAddr)
+	}
+	return nil, errors.New("whoIs not configured")
 }
 
 type fakeSystemd struct {

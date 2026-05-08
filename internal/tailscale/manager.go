@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"tailscale.com/client/local"
+	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
 )
@@ -70,6 +71,7 @@ type LocalClient interface {
 	// substitute on a logged-out node.
 	Start(ctx context.Context, opts ipn.Options) error
 	WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error)
+	WhoIs(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error)
 }
 
 // BusWatcher is the slice of *local.IPNBusWatcher we depend on.
@@ -110,6 +112,9 @@ func (r *realLocalClient) Start(ctx context.Context, opts ipn.Options) error {
 }
 func (r *realLocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error) {
 	return r.c.WatchIPNBus(ctx, mask)
+}
+func (r *realLocalClient) WhoIs(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error) {
+	return r.c.WhoIs(ctx, remoteAddr)
 }
 
 // SystemdActor performs the privileged systemd lifecycle operations
@@ -188,6 +193,11 @@ type Manager struct {
 	// rand source for backoff jitter (seeded per-Manager so multiple
 	// devices don't synchronise their reconnects).
 	rng *rand.Rand
+
+	// Caches consulted by the api layer's auth middleware.  Both are
+	// short-TTL and process-local; see peercaps.go.
+	peerCache   peerCache
+	prefixCache prefixCache
 }
 
 // Option configures a Manager at construction time.

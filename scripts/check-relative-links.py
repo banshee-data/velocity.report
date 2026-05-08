@@ -17,6 +17,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 # Pattern matches Markdown links: [text](target)
 # Captures the target path (group 1).
@@ -116,6 +117,12 @@ def check_file(filepath: Path, root: Path) -> list[tuple[int, str, str]]:
             path_part = target.split("#")[0]
             if not path_part:
                 continue
+
+            # Decode percent-escapes (e.g. %28 -> "(") so links to paths
+            # containing characters that must be escaped in URLs (such as the
+            # SvelteKit `(group)` route folders) resolve to real filesystem
+            # paths.
+            path_part = unquote(path_part)
 
             # Resolve relative to the directory containing the source file.
             # Use the resolved (real) path so symlinked plan files evaluate
