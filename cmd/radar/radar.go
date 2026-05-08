@@ -62,6 +62,14 @@ var (
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
 	configFile   = flag.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
 	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+	// tsCapEnforcement controls Tailscale capability-grant authorization.
+	//   off (default): cap checks disabled; every reachable peer is admin.
+	//                  Lockout-safe by definition.
+	//   on:            cap checks enforced for tailnet-sourced requests.
+	//                  LAN/loopback peers are still admin (the LAN is the
+	//                  trust boundary in those deployments).  Recovery from
+	//                  a botched ACL: drop back to LAN access, fix grants.
+	tsCapEnforcement = flag.String("ts-cap-enforcement", "off", "Tailscale capability-grant enforcement: off (default) or on")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -896,6 +904,18 @@ func main() {
 		tsManager.Start(ctx)
 		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)
+
+		// Capability-grant authorization.  Non-Tailscale sources
+		// (loopback, LAN) are always treated as admin; only requests
+		// arriving via tailscale serve are subject to cap checks.
+		// Default mode is "off"; flip to "on" after grants are wired
+		// in the tailnet ACL.  Recovery from a botched ACL is via
+		// the LAN bypass.
+		if mode, err := api.ParseEnforcement(*tsCapEnforcement); err != nil {
+			log.Fatalf("invalid -ts-cap-enforcement: %v", err)
+		} else {
+			apiServer.SetAuthGate(tsManager, mode)
+		}
 
 		// Wire capabilities provider so /api/capabilities reports sensor state.
 		// When LiDAR is enabled we report "starting" here; the subsystem should
