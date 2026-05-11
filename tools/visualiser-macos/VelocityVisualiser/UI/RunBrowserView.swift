@@ -27,11 +27,10 @@ private enum RunBrowserLayout {
     // Attempt the load first — if the guard rejects it (e.g. already
     // loading), bail out without touching playback state.
     let loadResponse = await loadRunForReplay()
-    guard let loadResponse else { return }
+    guard loadResponse != nil else { return }
 
     // Only reset playback state after a successful load.
     appState.prepareForNewReplay()
-    appState.setReplayFrameEncoding(loadResponse.frameEncoding)
     // Set currentRunID so labels route to run-track API
     appState.currentRunID = runID
     await runBrowserState.primeTrackCache(runID: runID)
@@ -134,7 +133,6 @@ private enum RunBrowserLayout {
                         Task {
                             await runBrowserState.stopReplay()
                             await MainActor.run {
-                                appState.setReplayFrameEncoding(nil)
                                 appState.setPlaybackMode(.live)
                                 appState.currentRunID = nil
                             }

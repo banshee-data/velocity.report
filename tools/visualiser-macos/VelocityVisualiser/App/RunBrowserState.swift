@@ -133,12 +133,7 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
             let loadResponse = try await apiClient.loadVRLog(runID: runID)
             selectedRunID = runID
             let frameEncoding = (loadResponse.frameEncoding ?? "unknown").lowercased()
-            if frameEncoding == "json" {
-                logger.warning(
-                    "Loaded VRLOG for run \(runID) using legacy JSON frames; replay will be slower")
-            } else {
-                logger.info("Loaded VRLOG for run \(runID) using \(frameEncoding) frames")
-            }
+            logger.info("Loaded VRLOG for run \(runID) using \(frameEncoding) frames")
             isLoadingReplay = false
             return loadResponse
         } catch {
