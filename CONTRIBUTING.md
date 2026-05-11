@@ -305,7 +305,7 @@ The project roadmap lives in
 
 - **Go 1.26+**: server development
 - **Python 3.11+**: developer tooling and scripts
-- **Node.js 20.19+** with pnpm 10+: web frontend
+- **Node.js 20.19+** with pnpm 10+: web frontend, public docs, and embedded offline docs
 - **SQLite3**: database (also the entire database strategy, which is
   one of the nicer things about the project)
 
