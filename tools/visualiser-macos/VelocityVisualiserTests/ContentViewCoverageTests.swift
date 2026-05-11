@@ -341,33 +341,31 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
 
     func testLiveMode() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "LIVE", mode: .live, isConnected: true, showsLegacyJSONWarning: false)
+            modeLabel: "LIVE", mode: .live, isConnected: true)
         let _ = view.body
     }
 
     func testReplayNonSeekable() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isConnected: true,
-            showsLegacyJSONWarning: false)
+            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isConnected: true)
         let _ = view.body
     }
 
     func testReplaySeekable() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true,
-            showsLegacyJSONWarning: true)
+            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true)
         let _ = view.body
     }
 
     func testUnknownMode() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "??", mode: .unknown, isConnected: true, showsLegacyJSONWarning: false)
+            modeLabel: "??", mode: .unknown, isConnected: true)
         let _ = view.body
     }
 
     func testDisconnected() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "LIVE", mode: .live, isConnected: false, showsLegacyJSONWarning: false)
+            modeLabel: "LIVE", mode: .live, isConnected: false)
         let _ = view.body
     }
 }
