@@ -60,7 +60,7 @@ handling are simpler and more explicit.
   machine that wandered into production. It ships with the dedicated `velocity` service account,
   udev rules, first-boot checks, deterministic DHCP on `eth0`, build metadata in the MOTD, and
   clearer troubleshooting for real networking failures.
-- **`velocity-ctl` upgrades**: now consume per-asset metadata from `releases.json`, verify
+- **`velocity-ctl` upgrades**: now consume per-asset metadata from `release.json`, verify
   SHA-256 hashes before install, and handle release selection with clearer rules.
 - **Versioned artefacts and release metadata**: now cover Go binaries, the macOS DMG, Raspberry
   Pi images, homepage downloads, and the Imager catalogue.
