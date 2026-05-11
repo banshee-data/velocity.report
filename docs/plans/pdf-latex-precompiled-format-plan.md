@@ -1,12 +1,17 @@
 # Precompiled LaTeX format plan
 
-- **Status:** Draft; awaiting review before implementation
+- **Status:** Cancelled — superseded wholesale by the Typst cutover
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Parent:** [RPi Imager Fork Design § 4.6 Option B](deploy-rpi-imager-fork-plan.md)
-- **Goal:** Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
+- **Superseded by:** [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md) § Work unit C
+- **Original goal:** Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
   tree and precompiled `.fmt` file, reducing the Raspberry Pi image by ~700–750 MB
   while preserving byte-identical PDF output.
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
+
+---
+
+> **Cancellation note (2026-05):** the v0.5.1 consolidation plan replaces xelatex with Typst, deleting the minimal TeX tree, the build-minimal-texlive scripts, and the `librsvg2-bin`/`fonts-noto-color-emoji`/`fonts-lmodern` apt deps in one move. The `.fmt` precompile optimisation has no remaining surface to apply to: Typst has no equivalent of a precompiled format file, and the cold-start xelatex cost this plan was trying to amortise disappears with the pipeline change. The analysis below is preserved for historical context and as the dependency manifest reference that informed the Typst port.
 
 ## Problem summary
 

@@ -1,9 +1,14 @@
 # Simplification and deprecation plan
 
-- **Status:** Approved (Phase 1 complete)
+- **Status:** Approved (Phase 1 complete; image-surface items absorbed into the v0.5.1 consolidation plan)
 - **Canonical:** [simplification-deprecation.md](../platform/operations/simplification-deprecation.md)
+- **Related:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — owns the image apt-surface and `cmd/` consolidation in v0.5.1
 
 - **Layers:** Cross-cutting (platform)
+
+---
+
+> **Sequencing update (2026-05):** the "Project B execution" item that the v0.6.0 backlog row pointed at is now overlapped by [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) work units A and E. The two plans agree on direction (one binary, fewer apt packages, no `cmd/sweep` shipped sibling); the consolidation plan owns the v0.5.1 sequencing and the image stage edits, this plan continues to own the Makefile / CLI-flag / metrics-stats trim line items that survive into v0.5.8.
 
 ## Goal
 

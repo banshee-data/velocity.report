@@ -1,11 +1,16 @@
 # Binary size reduction plan (v0.5.x)
 
-- **Status:** Active
+- **Status:** Active — size budget is the load-bearing constraint on the v0.5.1 consolidation
 - **Layers:** Cross-cutting (Go build, web frontend, CI)
-- **Target:** v0.5.0; ship a binary < 40 MB, with CI enforcement to prevent regression
+- **Target:** v0.5.0 baseline; v0.5.1 budget must hold under embedded Typst + new `go:embed` payloads
 - **Companion plans:**
-  [web-frontend-consolidation-plan.md](web-frontend-consolidation-plan.md)
+  [web-frontend-consolidation-plan.md](web-frontend-consolidation-plan.md),
+  [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md)
 - **Canonical:** [simplification-deprecation §Binary Size](../platform/operations/simplification-deprecation.md#binary-size)
+
+---
+
+> **v0.5.1 follow-on (2026-05):** [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md) lands new embedded payloads inside the single binary in v0.5.1: the Typst CLI (~30 MB ARM64), the tuning defaults, network/udev/wpa_supplicant fallback files, and the build stamp. The < 40 MB ceiling from this plan remains the preferred budget from the v0.5.0 reduction work, but for the v0.5.1 Typst embed it is a tracking target rather than a hard CI blocker. Use this plan to measure and report size changes during consolidation, and follow the consolidation plan's documented exception path (including vendoring Typst under `/opt/velocity-report/typst/` instead of embedding) if the embedded payloads cannot stay within that budget.
 
 ## Motivation
 

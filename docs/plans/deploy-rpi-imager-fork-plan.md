@@ -1,13 +1,15 @@
 # velocity.report Raspberry Pi imager: design document
 
-- **Status:** Active; Phase 1 complete (v0.5.1), Phase 2 targeting v0.6.0
+- **Status:** Active; Phase 1 complete (v0.5.1), Phase 2 cancelled (replaced by Typst cutover)
 - **Layers:** Cross-cutting (deployment infrastructure)
-- **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
+- **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency), [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) (image surface consolidation)
 - **Canonical:** [rpi-imager.md](../platform/operations/rpi-imager.md)
 
 ---
 
 > **Executive summary and motivation:** see [rpi-imager.md](../platform/operations/rpi-imager.md).
+
+> **Phase 2 cancellation (2026-05):** the "precompiled `.fmt`" goal below is **superseded** by [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit C. Replacing xelatex with Typst eliminates the whole xelatex pipeline, so the format-precompile optimisation has no remaining surface to apply to. The §4.2 image contents inventory below is also out of date: **v0.5.1 Phase 1 still shipped** a minimal TeX tree and on-device updates via `velocity-ctl upgrade`, but the parent consolidation plan defines the later post-v0.5.1 target state: one Go binary, no `velocity-ctl`, no Python venv, no Python PDF generator, no TeX tree, no nginx, and Tailscale as a runtime opt-in. Treat the parent plan as canonical for that later consolidated image state.
 
 ---
 
@@ -40,19 +42,21 @@ with radar collection and PDF report generation functional. The user can
 subsequently run `sudo velocity-ctl upgrade` to upgrade to a newer release
 without losing their sensor data.
 
-### Phase 2: format pre-compilation (v0.6.0)
+### Phase 2: format pre-compilation (cancelled — replaced by Typst cutover in v0.5.1)
 
-**Goal:** Reduce PDF compilation time by shipping pre-compiled `.fmt` format
-files alongside the minimal TeX tree shipped in Phase 1.
+> **Cancelled.** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit C replaces xelatex with Typst entirely. There is no `.fmt` artifact in Typst's model and the underlying problem (cold-start LaTeX compile cost) disappears with the pipeline change. The section is preserved below for historical context only.
 
-- Pre-compile `xelatex -ini` format files for each report template
-- Audit template dependencies to confirm which `.sty`, `.cls`, and
-  font files are needed
-- Validate PDF output parity between full and minimal TeX installations
-- Measure before/after image sizes and compilation times
+~~**Goal:** Reduce PDF compilation time by shipping pre-compiled `.fmt` format
+files alongside the minimal TeX tree shipped in Phase 1.~~
 
-**Prerequisite:** Phase 1 shipped and validated on real hardware. The working
-image provides the baseline against which Phase 2 size reductions are measured.
+- ~~Pre-compile `xelatex -ini` format files for each report template~~
+- ~~Audit template dependencies to confirm which `.sty`, `.cls`, and
+  font files are needed~~
+- ~~Validate PDF output parity between full and minimal TeX installations~~
+- ~~Measure before/after image sizes and compilation times~~
+
+~~**Prerequisite:** Phase 1 shipped and validated on real hardware. The working
+image provides the baseline against which Phase 2 size reductions are measured.~~
 
 ---
 

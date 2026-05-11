@@ -27,12 +27,12 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
 
 ## Tracking snapshot
 
-| Outcome             | Sections                        | Notes                                                                                                                                                                        |
-| ------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Removed in code     | §2-§4, §6, §7, §9-§13, §17, §18 | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code, and VRLOG legacy speed-key fallback all clean       |
-| Complete / resolved | §1, §15                         | Speed contract reset landed in #352; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified                                                   |
-| Deferred / retained | §5, §8                          | Either owned by another plan or still an active implementation path rather than a removable shim today                                                                       |
-| Reclassified        | §16                             | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                                                                |
+| Outcome             | Sections                        | Notes                                                                                                                                                               |
+| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Removed in code     | §2-§4, §6, §7, §9-§13, §17, §18 | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code, and VRLOG legacy speed-key fallback all clean |
+| Complete / resolved | §1, §15                         | Speed contract reset landed in #352; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified                                            |
+| Deferred / retained | §5, §8                          | Either owned by another plan or still an active implementation path rather than a removable shim today                                                              |
+| Reclassified        | §16                             | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                                                       |
 
 ## Shim work already removed
 
