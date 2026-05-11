@@ -1,4 +1,4 @@
-# Single-binary image consolidation (v0.5.1 → v0.5.2)
+# Single-binary image consolidation
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go binary, image build, systemd, PDF pipeline, Tailscale, sudoers)
