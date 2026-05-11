@@ -535,7 +535,10 @@
 
 			<Card title="P98 Speed" role="article">
 				<div class="pt-0 pr-4 pb-4 pl-4">
-					<p class="text-3xl font-bold text-green-600" aria-label="98th percentile speed">
+					<p
+						class="text-3xl font-bold text-green-600 dark:text-green-400"
+						aria-label="98th percentile speed"
+					>
 						{p98Speed.toFixed(1)}
 						{getUnitLabel($displayUnits)}
 					</p>
@@ -551,17 +554,18 @@
 		{/if}
 
 		{#if timeSeriesChartUrl}
-			<div class="block w-full rounded border p-4">
+			<div class="bg-surface-100 block w-full rounded border p-4">
 				<InlineSvgChart
 					url={timeSeriesChartUrl}
 					label="Vehicle count bars and percentile speed lines"
 					loadingLabel="Refreshing chart…"
+					themeMode="dashboard"
 					minHeight={340}
 				/>
 			</div>
 
 			<!-- Accessible data table fallback -->
-			<details class="rounded border p-4">
+			<details class="bg-surface-100 rounded border p-4">
 				<summary class="cursor-pointer text-sm font-medium">View data table</summary>
 				<div class="mt-4 overflow-x-auto">
 					<table class="w-full text-sm">

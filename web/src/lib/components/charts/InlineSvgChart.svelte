@@ -1,33 +1,66 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import {
+		buildInlineSvgChartBlobUrl,
 		buildInlineSvgChartRequestUrl,
-		isInlineSvgContentType
+		type InlineSvgChartTheme,
+		type InlineSvgChartThemeMode,
+		isInlineSvgContentType,
+		resolveInlineSvgChartDarkColours,
+		transformInlineSvgChartSvg
 	} from '$lib/components/charts/inlineSvgChart';
+	import { onMount } from 'svelte';
+	import { getSettings } from 'svelte-ux';
 
 	export let url = '';
 	export let label = 'Chart preview';
 	export let loadingLabel = 'Loading chart…';
 	export let minHeight = 320;
+	export let themeMode: InlineSvgChartThemeMode = 'source';
 
-	let svg = '';
+	let imageUrl = '';
 	let loading = false;
 	let error = '';
+	let sourceSvg = '';
+	let isDashboardDarkTheme = false;
 	let requestSerial = 0;
 	let lastRequestedUrl = '';
+	let imageKey = 0;
+	let frameElement: HTMLDivElement | null = null;
+
+	const { currentTheme } = getSettings();
 
 	$: if (browser && url !== lastRequestedUrl) {
 		lastRequestedUrl = url;
 		void loadSvg(url);
 	}
 
+	$: isDashboardDarkTheme = themeMode === 'dashboard' && $currentTheme.dark;
+
+	onMount(() => {
+		if (!browser) {
+			return;
+		}
+
+		return () => {
+			revokeImageUrl();
+		};
+	});
+
+	$: if (browser && sourceSvg && themeMode !== 'source') {
+		// Reference `isDashboardDarkTheme` so this statement re-runs when the
+		// theme toggles — without it, Svelte only tracks `sourceSvg` / `themeMode`
+		// and the SVG would stay frozen on its first-render theme.
+		void isDashboardDarkTheme;
+		renderSvgForCurrentTheme();
+	}
+
 	async function loadSvg(nextUrl: string) {
 		const serial = ++requestSerial;
 
 		if (!nextUrl) {
-			svg = '';
+			clearChart();
 			loading = false;
-			error = '';
 			return;
 		}
 
@@ -42,53 +75,86 @@
 					'Cache-Control': 'no-cache'
 				}
 			});
-			if (!response.ok) {
-				throw new Error('Could not load chart preview.');
-			}
-			if (!isInlineSvgContentType(response.headers.get('content-type'))) {
+			if (!response.ok || !isInlineSvgContentType(response.headers.get('content-type'))) {
 				throw new Error('Could not load chart preview.');
 			}
 			const text = await response.text();
 			if (serial !== requestSerial) {
 				return;
 			}
-			svg = text;
+			sourceSvg = text;
+			renderSvgForCurrentTheme();
+			loading = false;
 		} catch {
 			if (serial !== requestSerial) {
 				return;
 			}
-			svg = '';
+			clearChart();
 			error = 'Could not load chart preview.';
-		} finally {
-			if (serial === requestSerial) {
-				loading = false;
-			}
 		}
+	}
+
+	function renderSvgForCurrentTheme() {
+		if (!sourceSvg) {
+			revokeImageUrl();
+			return;
+		}
+
+		const theme: InlineSvgChartTheme = isDashboardDarkTheme ? 'dark' : 'light';
+		const colours = theme === 'dark' ? resolveInlineSvgChartDarkColours(frameElement) : undefined;
+		const themedSvg =
+			themeMode === 'dashboard' ? transformInlineSvgChartSvg(sourceSvg, theme, colours) : sourceSvg;
+
+		revokeImageUrl();
+		imageUrl = buildInlineSvgChartBlobUrl(themedSvg);
+		imageKey += 1;
+	}
+
+	function revokeImageUrl() {
+		if (imageUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(imageUrl);
+		}
+		imageUrl = '';
+	}
+
+	function clearChart() {
+		sourceSvg = '';
+		revokeImageUrl();
+		loading = false;
+		error = '';
+	}
+
+	function handleImageLoad() {
+		loading = false;
+	}
+
+	function handleImageError() {
+		revokeImageUrl();
+		loading = false;
+		error = 'Could not load chart preview.';
 	}
 </script>
 
 {#if url}
 	<div
+		bind:this={frameElement}
 		class="chart-frame"
 		style={`--chart-min-height: ${minHeight}px;`}
-		role="img"
-		aria-label={label}
 		aria-busy={loading ? 'true' : 'false'}
 	>
-		{#if svg}
-			<div class:chart-faded={loading}>
-				<!--
-					Deferred to v0.5.2 (BACKLOG.md, PR #455 comment 3139975818):
-					replace {@html} with <img src> / <object data> or sanitise on
-					injection. Safe today: same-origin only, server-rendered chart
-					SVGs with no user-controlled script/handler attributes.
-				-->
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html svg}
-			</div>
+		{#if imageUrl}
+			{#key imageKey}
+				<img
+					class:chart-faded={loading}
+					src={imageUrl}
+					alt={label}
+					on:load={handleImageLoad}
+					on:error={handleImageError}
+				/>
+			{/key}
 		{/if}
 
-		{#if loading || !svg}
+		{#if loading || !imageUrl}
 			<div class="chart-loading" role="status" aria-live="polite">
 				<div class="chart-loading__shimmer" aria-hidden="true"></div>
 				<p>{loadingLabel}</p>
@@ -112,10 +178,17 @@
 		position: relative;
 		min-height: var(--chart-min-height);
 		overflow: hidden;
-		background: white;
+		background: var(--color-surface-100);
+		color: var(--color-surface-content);
 	}
 
 	.chart-frame :global(svg) {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.chart-frame img {
 		display: block;
 		width: 100%;
 		height: auto;
@@ -132,8 +205,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.92));
-		color: rgba(17, 24, 39, 0.85);
+		background: color-mix(in srgb, var(--color-surface-100) 90%, transparent);
+		color: color-mix(in srgb, var(--color-surface-content) 85%, transparent);
 		font-size: 0.95rem;
 		font-weight: 500;
 	}

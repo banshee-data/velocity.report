@@ -165,7 +165,7 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 
 ## Quick start
 
-Requires Go 1.26+, Node.js 20.19+, and pnpm 10+.
+Requires Go 1.26+, Node.js 20.19+, and pnpm 10+ for the web and Eleventy docs builds.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full prerequisites.
 
 ```sh

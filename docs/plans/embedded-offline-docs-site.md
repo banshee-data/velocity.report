@@ -474,10 +474,9 @@ The original plan recommended pre-rendering Mermaid fences to SVG at build time.
 
 These are tracked outside this plan; do not let merging this PR imply they are done.
 
-| Item                                                                                                                                                                                                                | Where it lives           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Decide Node baseline for offline docs build: chevrotain@12 needs Node ≥22 and cheerio@1.2 needs ≥20.18, but README/CONTRIBUTING document Node 18+. Either downgrade deps or raise the baseline. Backlog **v0.5.2**. | Issue [#483]             |
-| Auth posture review by Malory. Current: LAN-only, no auth, matches `:8080`.                                                                                                                                         | Section 7, Auth posture. |
+| Item                                                                        | Where it lives           |
+| --------------------------------------------------------------------------- | ------------------------ |
+| Auth posture review by Malory. Current: LAN-only, no auth, matches `:8080`. | Section 7, Auth posture. |
 
 [#482]: https://github.com/banshee-data/velocity.report/issues/482
 [#483]: https://github.com/banshee-data/velocity.report/issues/483
