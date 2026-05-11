@@ -12,7 +12,7 @@ Public-facing documentation site for the velocity.report citizen radar system, b
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (v20.19 or higher)
-- [pnpm](https://pnpm.io/) package manager
+- [pnpm](https://pnpm.io/) package manager (v10 or higher)
 
 ## Quick start
 
