@@ -111,7 +111,21 @@ export function transformInlineSvgChartSvg(
 		return sourceSvg;
 	}
 
+	const namespace = root.namespaceURI ?? 'http://www.w3.org/2000/svg';
+	const background = documentSvg.createElementNS(namespace, 'rect');
+	background.setAttribute('x', '0');
+	background.setAttribute('y', '0');
+	background.setAttribute('width', '100%');
+	background.setAttribute('height', '100%');
+	background.setAttribute('fill', colours.background);
+	background.setAttribute('data-inline-svg-chart-background', 'true');
+	root.insertBefore(background, root.firstChild);
+
 	for (const element of Array.from(root.querySelectorAll('*'))) {
+		if (element.getAttribute('data-inline-svg-chart-background') === 'true') {
+			continue;
+		}
+
 		for (const attribute of ['fill', 'stroke'] as const) {
 			const current = element.getAttribute(attribute);
 			if (!current) {

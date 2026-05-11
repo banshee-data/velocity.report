@@ -61,6 +61,8 @@ describe('inlineSvgChart helpers', () => {
 		const documentSvg = new DOMParser().parseFromString(darkSvg, 'image/svg+xml');
 		const root = documentSvg.documentElement;
 
+		expect(root.firstElementChild?.getAttribute('data-inline-svg-chart-background')).toBe('true');
+		expect(root.firstElementChild?.getAttribute('fill')).toBe('#000000');
 		expect(root.querySelector('.x-axis line')?.getAttribute('stroke')).toBe('#ffffff');
 		expect(root.querySelector('.gap-dividers line')?.getAttribute('stroke')).toBe('#ffffff');
 		expect(root.querySelector('.max-reference line')?.getAttribute('stroke')).toBe('#ffffff');
@@ -86,9 +88,11 @@ describe('inlineSvgChart helpers', () => {
 		const darkSvg = transformInlineSvgChartSvg(svg, 'dark', colours);
 		const documentSvg = new DOMParser().parseFromString(darkSvg, 'image/svg+xml');
 		const root = documentSvg.documentElement;
+		const borderedRect = root.querySelector('rect[stroke]');
 
+		expect(root.firstElementChild?.getAttribute('fill')).toBe('rgb(39, 39, 42)');
 		expect(root.querySelector('text')?.getAttribute('fill')).toBe('rgb(244, 244, 245)');
-		expect(root.querySelector('rect')?.getAttribute('fill')).toBe('rgb(39, 39, 42)');
-		expect(root.querySelector('rect')?.getAttribute('stroke')).toBe('rgb(244, 244, 245)');
+		expect(borderedRect?.getAttribute('fill')).toBe('rgb(39, 39, 42)');
+		expect(borderedRect?.getAttribute('stroke')).toBe('rgb(244, 244, 245)');
 	});
 });
