@@ -3,11 +3,7 @@ package analysis
 import (
 	"bytes"
 	"encoding/json"
-	"path/filepath"
 	"testing"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
-	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 )
 
 func TestTrackDetailMarshalUsesMaxSpeedMps(t *testing.T) {
@@ -46,55 +42,5 @@ func TestTrackDetailUnmarshalUsesMaxSpeedMps(t *testing.T) {
 	}
 	if td.MaxSpeedMps != 9.1 {
 		t.Errorf("MaxSpeedMps = %v, want 9.1", td.MaxSpeedMps)
-	}
-}
-
-func TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing(t *testing.T) {
-	tmpDir := t.TempDir()
-	basePath := filepath.Join(tmpDir, "legacy-max-missing.vrlog")
-
-	rec, err := recorder.NewRecorder(basePath, "legacy-sensor")
-	if err != nil {
-		t.Fatalf("NewRecorder() error = %v", err)
-	}
-
-	baseTime := int64(1_000_000_000_000)
-	speeds := []float32{1.5, 4.0, 3.2}
-	for i, speed := range speeds {
-		ts := baseTime + int64(i)*100_000_000
-		frame := &l9endpoints.FrameBundle{
-			TimestampNanos: ts,
-			Tracks: &l9endpoints.TrackSet{
-				TimestampNanos: ts,
-				Tracks: []l9endpoints.Track{
-					{
-						TrackID: "legacy-track", MaxSpeedMps: 0,
-						ObservationCount: i + 1, State: l9endpoints.TrackStateConfirmed,
-						SpeedMps: speed,
-
-						Hits:           i + 1,
-						FirstSeenNanos: baseTime,
-						LastSeenNanos:  ts,
-					},
-				},
-			},
-		}
-		if err := rec.Record(frame); err != nil {
-			t.Fatalf("Record frame %d: %v", i, err)
-		}
-	}
-	if err := rec.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-
-	report, _, err := GenerateReport(basePath)
-	if err != nil {
-		t.Fatalf("GenerateReport() error = %v", err)
-	}
-	if len(report.Tracks) != 1 {
-		t.Fatalf("len(report.Tracks) = %d, want 1", len(report.Tracks))
-	}
-	if got := report.Tracks[0].MaxSpeedMps; got != 4.0 {
-		t.Errorf("MaxSpeedMps = %v, want 4.0", got)
 	}
 }
