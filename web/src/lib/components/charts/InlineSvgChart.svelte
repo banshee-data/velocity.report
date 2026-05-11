@@ -10,60 +10,72 @@
 	export let loadingLabel = 'Loading chart…';
 	export let minHeight = 320;
 
-	let svg = '';
+	let requestUrl = '';
 	let loading = false;
 	let error = '';
-	let requestSerial = 0;
 	let lastRequestedUrl = '';
+	let imageKey = 0;
 
 	$: if (browser && url !== lastRequestedUrl) {
 		lastRequestedUrl = url;
-		void loadSvg(url);
+		loadSvg(url);
 	}
 
-	async function loadSvg(nextUrl: string) {
-		const serial = ++requestSerial;
-
+	function loadSvg(nextUrl: string) {
 		if (!nextUrl) {
-			svg = '';
+			requestUrl = '';
 			loading = false;
 			error = '';
 			return;
 		}
 
-		loading = true;
-		error = '';
+		try {
+			requestUrl = buildInlineSvgChartRequestUrl(
+				nextUrl,
+				window.location.origin,
+				Date.now()
+			).toString();
+			imageKey += 1;
+			loading = true;
+			error = '';
+		} catch {
+			requestUrl = '';
+			loading = false;
+			error = 'Could not load chart preview.';
+		}
+	}
+
+	async function verifySvgResponse(event: Event) {
+		const image = event.currentTarget;
+		if (!(image instanceof HTMLImageElement) || !image.currentSrc) {
+			loading = false;
+			error = 'Could not load chart preview.';
+			return;
+		}
 
 		try {
-			const requestUrl = buildInlineSvgChartRequestUrl(nextUrl, window.location.origin, Date.now());
-			const response = await fetch(requestUrl, {
+			const response = await fetch(image.currentSrc, {
 				cache: 'no-store',
 				headers: {
 					'Cache-Control': 'no-cache'
 				}
 			});
-			if (!response.ok) {
+			if (!response.ok || !isInlineSvgContentType(response.headers.get('content-type'))) {
 				throw new Error('Could not load chart preview.');
 			}
-			if (!isInlineSvgContentType(response.headers.get('content-type'))) {
-				throw new Error('Could not load chart preview.');
-			}
-			const text = await response.text();
-			if (serial !== requestSerial) {
-				return;
-			}
-			svg = text;
+			loading = false;
+			error = '';
 		} catch {
-			if (serial !== requestSerial) {
-				return;
-			}
-			svg = '';
+			requestUrl = '';
+			loading = false;
 			error = 'Could not load chart preview.';
-		} finally {
-			if (serial === requestSerial) {
-				loading = false;
-			}
 		}
+	}
+
+	function handleImageError() {
+		requestUrl = '';
+		loading = false;
+		error = 'Could not load chart preview.';
 	}
 </script>
 
@@ -71,24 +83,21 @@
 	<div
 		class="chart-frame"
 		style={`--chart-min-height: ${minHeight}px;`}
-		role="img"
-		aria-label={label}
 		aria-busy={loading ? 'true' : 'false'}
 	>
-		{#if svg}
-			<div class:chart-faded={loading}>
-				<!--
-					Deferred to v0.5.2 (BACKLOG.md, PR #455 comment 3139975818):
-					replace {@html} with <img src> / <object data> or sanitise on
-					injection. Safe today: same-origin only, server-rendered chart
-					SVGs with no user-controlled script/handler attributes.
-				-->
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-				{@html svg}
-			</div>
+		{#if requestUrl}
+			{#key imageKey}
+				<img
+					class:chart-faded={loading}
+					src={requestUrl}
+					alt={label}
+					on:load={verifySvgResponse}
+					on:error={handleImageError}
+				/>
+			{/key}
 		{/if}
 
-		{#if loading || !svg}
+		{#if loading || !requestUrl}
 			<div class="chart-loading" role="status" aria-live="polite">
 				<div class="chart-loading__shimmer" aria-hidden="true"></div>
 				<p>{loadingLabel}</p>
@@ -116,6 +125,12 @@
 	}
 
 	.chart-frame :global(svg) {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.chart-frame img {
 		display: block;
 		width: 100%;
 		height: auto;
