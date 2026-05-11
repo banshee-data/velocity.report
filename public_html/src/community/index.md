@@ -82,7 +82,7 @@ If that sounds like your kind of work, the role map above will point you to the 
 
 We are actively shaping the next-generation interface, so this is a good moment to say what works and what does not.
 
-Review the current design prototype here: [Project Butterfly Net](https://velocity.report/design/20260511-Velocity_Report_Butterfly_Net.html).
+Review the current design prototype here: [Project Butterfly Net](/design/20260511-Velocity_Report_Butterfly_Net.html). <!-- link-ignore -->
 
 Useful design feedback is concrete. Tell us where the workflow becomes unclear, what information feels missing, and what the interface gets wrong.
 
