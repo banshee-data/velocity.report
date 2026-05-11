@@ -556,6 +556,7 @@
 					url={timeSeriesChartUrl}
 					label="Vehicle count bars and percentile speed lines"
 					loadingLabel="Refreshing chart…"
+					themeMode="dashboard"
 					minHeight={340}
 				/>
 			</div>

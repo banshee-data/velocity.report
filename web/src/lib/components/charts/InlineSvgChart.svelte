@@ -1,60 +1,78 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import {
+		buildInlineSvgChartBlobUrl,
 		buildInlineSvgChartRequestUrl,
-		isInlineSvgContentType
+		detectInlineSvgChartTheme,
+		type InlineSvgChartTheme,
+		type InlineSvgChartThemeMode,
+		isInlineSvgContentType,
+		transformInlineSvgChartSvg
 	} from '$lib/components/charts/inlineSvgChart';
+	import { onMount } from 'svelte';
 
 	export let url = '';
 	export let label = 'Chart preview';
 	export let loadingLabel = 'Loading chart…';
 	export let minHeight = 320;
+	export let themeMode: InlineSvgChartThemeMode = 'source';
 
-	let requestUrl = '';
+	let imageUrl = '';
 	let loading = false;
 	let error = '';
+	let sourceSvg = '';
+	let activeTheme: InlineSvgChartTheme = 'light';
+	let requestSerial = 0;
 	let lastRequestedUrl = '';
 	let imageKey = 0;
+	let frameElement: HTMLDivElement | null = null;
+	let themeObserver: MutationObserver | null = null;
 
 	$: if (browser && url !== lastRequestedUrl) {
 		lastRequestedUrl = url;
-		loadSvg(url);
+		void loadSvg(url);
 	}
 
-	function loadSvg(nextUrl: string) {
+	onMount(() => {
+		if (!browser) {
+			return;
+		}
+
+		themeObserver = new MutationObserver(() => {
+			if (themeMode !== 'source' && sourceSvg) {
+				renderSvgForCurrentTheme();
+			}
+		});
+		themeObserver.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['class', 'data-theme', 'style']
+		});
+
+		return () => {
+			themeObserver?.disconnect();
+			revokeImageUrl();
+		};
+	});
+
+	$: if (browser && sourceSvg && themeMode !== 'source') {
+		renderSvgForCurrentTheme();
+	}
+
+	async function loadSvg(nextUrl: string) {
+		const serial = ++requestSerial;
+
 		if (!nextUrl) {
-			requestUrl = '';
+			clearChart();
 			loading = false;
-			error = '';
 			return;
 		}
 
-		try {
-			requestUrl = buildInlineSvgChartRequestUrl(
-				nextUrl,
-				window.location.origin,
-				Date.now()
-			).toString();
-			imageKey += 1;
-			loading = true;
-			error = '';
-		} catch {
-			requestUrl = '';
-			loading = false;
-			error = 'Could not load chart preview.';
-		}
-	}
-
-	async function verifySvgResponse(event: Event) {
-		const image = event.currentTarget;
-		if (!(image instanceof HTMLImageElement) || !image.currentSrc) {
-			loading = false;
-			error = 'Could not load chart preview.';
-			return;
-		}
+		loading = true;
+		error = '';
 
 		try {
-			const response = await fetch(image.currentSrc, {
+			const requestUrl = buildInlineSvgChartRequestUrl(nextUrl, window.location.origin, Date.now());
+			const response = await fetch(requestUrl, {
 				cache: 'no-store',
 				headers: {
 					'Cache-Control': 'no-cache'
@@ -63,17 +81,60 @@
 			if (!response.ok || !isInlineSvgContentType(response.headers.get('content-type'))) {
 				throw new Error('Could not load chart preview.');
 			}
+			const text = await response.text();
+			if (serial !== requestSerial) {
+				return;
+			}
+			sourceSvg = text;
+			renderSvgForCurrentTheme();
 			loading = false;
-			error = '';
 		} catch {
-			requestUrl = '';
-			loading = false;
+			if (serial !== requestSerial) {
+				return;
+			}
+			clearChart();
 			error = 'Could not load chart preview.';
 		}
 	}
 
+	function renderSvgForCurrentTheme() {
+		if (!sourceSvg) {
+			activeTheme = 'light';
+			revokeImageUrl();
+			return;
+		}
+
+		const theme = themeMode === 'dashboard' ? detectInlineSvgChartTheme(frameElement) : 'light';
+		activeTheme = theme;
+		const themedSvg =
+			themeMode === 'dashboard' ? transformInlineSvgChartSvg(sourceSvg, theme) : sourceSvg;
+
+		revokeImageUrl();
+		imageUrl = buildInlineSvgChartBlobUrl(themedSvg);
+		imageKey += 1;
+	}
+
+	function revokeImageUrl() {
+		if (imageUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(imageUrl);
+		}
+		imageUrl = '';
+	}
+
+	function clearChart() {
+		sourceSvg = '';
+		activeTheme = 'light';
+		revokeImageUrl();
+		loading = false;
+		error = '';
+	}
+
+	function handleImageLoad() {
+		loading = false;
+	}
+
 	function handleImageError() {
-		requestUrl = '';
+		revokeImageUrl();
 		loading = false;
 		error = 'Could not load chart preview.';
 	}
@@ -81,24 +142,31 @@
 
 {#if url}
 	<div
+		bind:this={frameElement}
 		class="chart-frame"
+		class:chart-frame-dark={activeTheme === 'dark'}
 		style={`--chart-min-height: ${minHeight}px;`}
 		aria-busy={loading ? 'true' : 'false'}
 	>
-		{#if requestUrl}
+		{#if imageUrl}
 			{#key imageKey}
 				<img
 					class:chart-faded={loading}
-					src={requestUrl}
+					src={imageUrl}
 					alt={label}
-					on:load={verifySvgResponse}
+					on:load={handleImageLoad}
 					on:error={handleImageError}
 				/>
 			{/key}
 		{/if}
 
-		{#if loading || !requestUrl}
-			<div class="chart-loading" role="status" aria-live="polite">
+		{#if loading || !imageUrl}
+			<div
+				class:chart-loading-dark={activeTheme === 'dark'}
+				class="chart-loading"
+				role="status"
+				aria-live="polite"
+			>
 				<div class="chart-loading__shimmer" aria-hidden="true"></div>
 				<p>{loadingLabel}</p>
 			</div>
@@ -122,6 +190,10 @@
 		min-height: var(--chart-min-height);
 		overflow: hidden;
 		background: white;
+	}
+
+	.chart-frame-dark {
+		background: #000;
 	}
 
 	.chart-frame :global(svg) {
@@ -151,6 +223,11 @@
 		color: rgba(17, 24, 39, 0.85);
 		font-size: 0.95rem;
 		font-weight: 500;
+	}
+
+	.chart-loading-dark {
+		background: linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.82));
+		color: rgba(255, 255, 255, 0.88);
 	}
 
 	.chart-loading__shimmer {
