@@ -1,4 +1,4 @@
-# Changelog
+> My log has a message for you ⸺ Margaret Lanterman
 
 ```
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⢿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -28,7 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Versioning
 
-Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains independent semantic versions:
+velocity.report keeps release version ownership in just two places, because letting every
+manifest announce its own version is how you end up with three clocks, four answers, and a
+perfectly sincere argument about which lie is canonical.
 
 - **MAJOR**: Breaking changes (removed CLI flags, breaking API changes, incompatible migrations)
 - **MINOR**: New features, backward-compatible (new flags, new endpoints, additive migrations)
@@ -36,44 +38,84 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 **Version Locations:**
 
-- Radar: `Makefile` → `VERSION := X.Y.Z` (injected via ldflags at build time)
-- Web Frontend: [web/package.json](web/package.json) → `"version": "X.Y.Z"`
+- Repo and release assets: `Makefile` → `VERSION := X.Y.Z`
+- macOS app bundle metadata:
+  `tools/visualiser-macos/VelocityVisualiser.xcodeproj/project.pbxproj`
+
+Package manifests that are not runtime version sources stay pinned to `0.0.0`. If a file does
+not decide what ships, it does not get a vote merely because it has learned to hold a number.
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
-## [0.5.1] - 2026-04-16 🌞 `Sunny Southeast`
+## [0.5.1] - 2026-05-11 🌞 `Sunny Southeast`
 
-The release where velocity.report learns to be understood by someone who did not build it. Flashable Pi image, setup guide with real photographs, standardised voice across every error message, and seven AI agent personas to keep the docs from drifting.
+This release makes the system easier to ship, easier to trust, and easier to use on the device it
+is meant to live on. The Raspberry Pi image is more disciplined, the Go report pipeline is now the
+only supported production path, offline docs ship with the application, and version and release
+handling are simpler and more explicit.
 
-### Deployment
+### Deployment & Packaging
 
-- **Raspberry Pi image pipeline**: pi-gen stage scripts, CI workflow, minimal TeX Live (~143 MB, ~1 GB saved). Dedicated `velocity` service account, udev rules (`/dev/velocity-radar`), UART overlay, static LiDAR IP, Wi-Fi fallback, and systemd service.
-- **`velocity-ctl`**: on-device management (`upgrade`, `rollback`, `backup`, `status`, `version`). Replaces `velocity-deploy` and `velocity-update`.
-- **Versioned asset naming** across Go binaries, `velocity-ctl`, RPi images, and DMG. MOTD shows build version, timestamp, and SHA.
-- **rpi-imager catalogue** (`os-list-velocity.json`, https://velocity.report/rpi.json ) and **homepage download section** with SHA-256 hashes and clipboard copy.
+- **Raspberry Pi image path**: now behaves more like an appliance and less like a development
+  machine that wandered into production. It ships with the dedicated `velocity` service account,
+  udev rules, first-boot checks, deterministic DHCP on `eth0`, build metadata in the MOTD, and
+  clearer troubleshooting for real networking failures.
+- **`velocity-ctl` upgrades**: now consume per-asset metadata from `release.json`, verify
+  SHA-256 hashes before install, and handle release selection with clearer rules.
+- **Versioned artefacts and release metadata**: now cover Go binaries, the macOS DMG, Raspberry
+  Pi images, homepage downloads, and the Imager catalogue.
+- **Version ownership cleanup**: routine version bumps now touch `Makefile` and the macOS Xcode
+  project, while runtime-irrelevant package manifests stay pinned to `0.0.0`.
+- **Packaging model**: was simplified around the image-first and single-binary install story,
+  with better executable-bit restoration during image builds and release creation checks that make
+  sure the tag exists before a release is published.
 
-### Documentation
+### Reports, Docs & Offline Help
 
-- **Setup guide**: hardware photographs, wiring diagrams, step-by-step instructions (+4,273 lines).
-- **`STYLE.md`**: British English conventions, heading rules, and prose mechanics.
-- **Plan hygiene**: graduated 10 plans to symlinks, fixed 23 dead links, narrative openings on 58 hub docs, removed code blocks from 38 files. README refreshed with sample report and visualiser screenshots.
-- **Setup guide TLS**: removed CA certificate download instruction; replaced with browser-native exception steps. Tailscale reframed as recommended path for clean HTTPS via `*.ts.net`.
+- **Go report pipeline**: is now plainly the production PDF path. The old Python PDF generator was
+  removed from current docs, CI, settings, scripts, and operational expectations instead of being
+  treated as if it might still be coming back.
+- **Report output**: improved across the board with DST-safe date ranges, sparse-gap handling,
+  unit and source validation, key-metrics tables, p98/max reference lines, clearer legends and
+  captions, US Letter defaults, Atkinson Hyperlegible Mono table typography, flow-table handling,
+  and helper tooling for API-driven report generation and PDF comparison.
+- **Embedded offline docs**: landed as a real product feature, not a note in a plan. The system
+  now serves `/docs/` from the Go binary with a Markdown index, KaTeX, Mermaid support, sidebar
+  tree navigation, breadcrumbs, dark-mode control, and matching web navigation.
+- **Documentation cleanup**: kept pace with the code. Setup, TLS, deployment, packaging, LiDAR,
+  maths, and release docs were rewritten or consolidated so the repo describes the system that
+  ships rather than the one that used to be standing here.
 
-### Platform
+### Web, macOS & Tools
 
-- **Standardised project voice**: rewrote ~250 error and status messages across Go, Python, and Svelte.
-- **CI**: `go-version-file`; fixed QEMU cross-compilation and tag-triggered asset builds; Vite worktree symlink. All GitHub Actions `uses:` lines pinned to commit SHAs.
+- **Web UI**: gained safer map-editing flows, frontend asset request handling, better dashboard
+  coverage, Open Graph metadata, clearer homepage copy, and Tailscale enable/disable controls for
+  opt-in `*.ts.net` access.
+- **macOS visualiser and proto tooling**: got less fragile through Swift CodeQL coverage, native
+  ARM Homebrew handling in proto setup, grpc-swift-protobuf updates, About-view polish, the `uuid`
+  `11.1.1` fix, and macOS CI path filtering so it runs when it should.
+- **Supporting tools**: kept multiplying in useful directions: browser-based protractor alignment,
+  rack and wiring drawing helpers, connector pinout rendering, Poppler PDF comparison tooling, and
+  release metadata automation.
 
-### Security
+### CI, Security & Build Discipline
 
-- **Dependency updates** across Go, npm, and Python. Fixed dev-mode path traversal in Vite.
-- **`velocity-ctl upgrade` SHA verification**: verifies the downloaded binary before installation against the per-asset `sha256` published in `https://velocity.report/release.json`. Missing checksum warns and proceeds for older releases.
-- **GitHub Actions SHA pinning**: all `uses:` lines across 13 workflow files converted from version tags to immutable commit SHAs.
+- **CI logic**: moved further out of workflow YAML and back into repo-owned scripts and Make
+  targets, including proto setup, release/image builds, web-build freshness checks, and clearer
+  missing-build stub pages.
+- **Security hardening**: continued across dependency refreshes, GitHub Action SHA pinning, Vite
+  path-traversal fixes, Swift CodeQL, release-asset verification, and targeted review of Trivy,
+  Axios, and OpenSSF exposure.
+- **Build correctness**: improved with QEMU/image fixes, tag-trigger repair, corrected
+  `pcap-analyse` field mapping plus focused coverage, removal of redundant workflow `chmod` steps,
+  and native ARM handling in the proto toolchain.
 
 ### Fixes
 
-- **macOS visualiser**: `APIError` exhaustive switch for Swift compiler compliance.
-- **Homepage mobile layout**: theming and download card spacing.
+- **Setup and release guidance**: now matches the Tailscale-first HTTPS path, browser-native trust
+  exceptions, current packaging model, and current release metadata flow.
+- **Small but consequential repairs**: include homepage layout fixes, cleaner docs-site tables,
+  corrected pinout diagrams, and better image-networking behaviour.
 
 ## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 

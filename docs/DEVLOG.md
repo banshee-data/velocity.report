@@ -2,11 +2,20 @@
 
 <!-- ignore-style-length -->
 
-## May 6, 2026 - Docs hygiene automation & plan cleanup
+## May 7, 2026 - Release pre18 & macOS CI fix
+
+- Cut the `0.5.1-pre18` release: refreshed download links and asset checksums in `release.json` and the Raspberry Pi Imager catalogue (#501).
+- Fixed the failing macOS CI run by updating `uuid` to 11.1.1 with matching pnpm overrides, and excluded `mac-ci.yml` from pull-request path triggers so it stops firing on unrelated changes (#502).
+
+## May 6, 2026 - Docs hygiene, LiDAR docs consolidation & Tailscale web UI
 
 - Fixed the remaining plan-hygiene blockers by adding missing canonical links to the CLI and config restructure plans and expanding the offline docs site notes with clearer ownership and build-boundary details.
 - Added the `style-fix` skill for repeatable STYLE.md checks and safe auto-fixes, including ignore markers for whole-file skips and length-only skips where mechanical cleanup would do more harm than good.
 - Corrected spelling and punctuation across multiple docs and refreshed this devlog so recently merged work no longer carries stale branch tags.
+- Consolidated the LiDAR docs cluster: pruned `docs/lidar/LIDAR.md` to a true index, symlinked `lidar-sidecar-overview.md` and `lidar-data-layer-model.md` to `LIDAR_ARCHITECTURE.md`, trimmed `foreground-tracking.md` to design rationale only, moved the ten-layer mermaid diagram into `ARCHITECTURE.md` as its canonical home, and trimmed the LiDAR sections of `ARCHITECTURE.md` to a summary plus link (#499).
+- Moved the tuning glossary into `tuning-guide.md`, consolidated the UI documentation cluster (palette, proto-contract, plan moves), and fixed broken relative links in the moved performance investigation doc.
+- Updated `data/maths/MATHS.md` to reflect the engine-selectable config schema so the maths reference stops pointing at retired engine-specific knobs.
+- Landed the Tailscale work: web UI enable/disable for opt-in tailnet enrolment across Go and Svelte, plus image build and file-based config support, and bumped the version to `0.5.1-pre18` to mark the cut (#472).
 
 ## May 5, 2026 - Version ownership cleanup, release prep & docs bookkeeping
 
@@ -14,7 +23,7 @@
 - Removed the redundant `app-web-version` meta tag, marked the version-bump consolidation plan complete, and reflected the new single-source versioning approach in the plan and backlog docs.
 - Fixed the image build path to restore executable bits on staged binaries before packaging, then refreshed the release JSON metadata for the `0.5.1-pre17` cut (#496, #498).
 - Graduated the version-bump consolidation plan into the asset naming architecture doc with explicit workflow and operational notes, and added completed backlog entries for the public protractor tool and embedded offline docs milestone.
-- {patrickod/homepage-opengraph} Added Open Graph tags across site pages so shared links carry sane titles and previews instead of the usual social-media guesswork.
+- Added Open Graph tags across site pages so shared links carry sane titles and previews instead of the usual social-media guesswork (#500).
 
 ## May 4, 2026 - CI build logic cleanup & dependency refresh
 
@@ -98,7 +107,7 @@
 
 - Reworked release discovery around `releases.json` as the single source of truth, with per-asset version, URL, and SHA metadata instead of a channel-level grab bag that needed too much interpretation (#469).
 - Taught `velocity-ctl upgrade` to consume that metadata directly, verify per-asset SHA-256 hashes before install, and handle prerelease ordering and fallback rules more sanely.
-- {patrickod/tailscale-automation} Added Tailscale to the base image and boot-partition configuration path so operators can opt into `*.ts.net` HTTPS for the web UI without local certificate wrangling.
+- Added Tailscale to the base image and boot-partition configuration path so operators can opt into `*.ts.net` HTTPS for the web UI without local certificate wrangling (#472).
 
 ## April 17, 2026 - Supply-chain hardening & documentation trust fixes
 

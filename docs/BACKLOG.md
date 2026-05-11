@@ -11,46 +11,45 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## 05x Sunny southeast 🌞
 
-### v0.5.2 - Housekeeping + cleanup (052)
+### v0.5.1 - Release hardening (051)
 
-- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](plans/pcap-split-tool-plan.md) `M`
-- Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M`
-- [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
-- Documentation standardisation: metadata format and date enforcement complete with CI linter; opening-paragraph audit complete (58 docs updated); 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
-- Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
-- Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
-- [#455] `InlineSvgChart` SVG injection hardening: replace `{@html svg}` injection with `<img src>` / `<object data>` or an SVG sanitiser; audit `/api/charts/*` callers to confirm no user-supplied strings flow into chart SVG text; remove the `svelte/no-at-html-tags` lint disable on `web/src/lib/components/charts/InlineSvgChart.svelte`: [design doc](plans/pdf-go-chart-migration-plan.md#v052--inlinesvgchart-svg-injection-hardening) `S`
-- [#483] Node baseline for offline docs build: decide whether to downgrade `docs_html` dependencies to versions compatible with the documented Node 18+ baseline, or formally raise the repo baseline (chevrotain@12 needs ≥22, cheerio@1.2 needs ≥20.18); update README, CONTRIBUTING, and CI matrix to match the chosen answer `S`
-- Embedded offline docs M2: finish shared public guide/tool surfaces, add offline search, and implement targeted same-repo GitHub blob URL rewrites for the embedded site; see [design doc](plans/embedded-offline-docs-site.md) `M`
+- [#455] `InlineSvgChart` SVG injection hardening: replace `{@html svg}` injection with `<img src>` / `<object data>` or an SVG sanitiser; audit `/api/charts/*` callers; remove the `svelte/no-at-html-tags` lint disable on `web/src/lib/components/charts/InlineSvgChart.svelte`: [design doc](plans/pdf-go-chart-migration-plan.md#v052--inlinesvgchart-svg-injection-hardening) `S`
+- [#483] Node baseline for offline docs build: decide whether to downgrade `docs_html` dependencies to versions compatible with the documented Node 18+ baseline, or formally raise the repo baseline (chevrotain@12 needs ≥22, cheerio@1.2 needs ≥20.18); update README, CONTRIBUTING, and CI matrix: `S`
+- Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
 
-### v0.5.3 - Data contracts + metrics (053)
+### v0.5.2 - LiDAR measurement + replay foundations (052)
+
+- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3); produces the corpus segments the perf harness and replay-eval need: [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](plans/pcap-split-tool-plan.md) `M`
+- Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary; required to make perf-harness results reproducible: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M` {math}
+- LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks; foundational for all subsequent math work: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
+- LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening; in progress and load-bearing for replay evaluation: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M` {math}
+- LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness landing first: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
+- Paper-implementation gap remediation P1a (Kalman fixes): K1 (full-Q process noise test), K2 (Joseph-form covariance update); both flagged as Medium-impact mathematical gaps in tracker gating accuracy: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1b (background + tracker metrics): B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+
+### v0.5.3 - Data contracts + observability (053)
 
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
 
-### v0.5.4 - Perception pipeline + algorithm foundations (054)
+### v0.5.4 - Perception pipeline + extractor foundations (054)
 
-- LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
-- LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
-- LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Velocity-coherent extractor (dynamic algorithm selection Phases 2–3): per-point velocity estimation, frame history, and opt-in `VelocityCoherentExtractor` behind runtime flag: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - [#388] Dynamic segmentation for LiDAR background regions: adaptive background region boundaries based on scene geometry rather than fixed grid `M`
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
 
-### v0.5.5 - Algorithm correctness + gap remediation (055)
+### v0.5.5 - Tracker correctness + robustness (055)
 
 - [#391] Geometry-coherent tracking (P1 maths, D-04): persistent geometry state in L5 track association for spatial consistency: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
-- Paper-implementation gap remediation P1a, Kalman fixes: K1 (full-Q process noise test), K2 (Joseph-form covariance update): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
-- Paper-implementation gap remediation P1b, background + tracker metrics: B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P2 (edge-case hardening): D2 (MinPts self-inclusion), D3 (near-merge cluster separation), S2/S3 (confirmed-vs-tentative priority), P3 (heading disambiguation chain), C2 (classification boundaries), V1 (coasting prediction error), G1 (Patchwork++ evaluation): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P3 (completeness + robustness): K3 (covariance symmetry monitoring), K4 (identity preservation unlike-class), B3/B4/B5 (bimodal/reacquisition/locked-baseline background tests), H1/H2 (Hungarian edge cases), M3 (temporal IoU), G1 (sloped-road), HW1 (noise model vs sensor spec), P1 (degenerate OBB): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - [#397] OBB review status and heading telemetry prep: document Fix E/F completion status for oriented bounding boxes, add cluster debug flag prep, tracker heading instrumentation, and config updates for remaining OBB stability work: `S`
 - [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391; close without merge if those branches land first: `S`
 
-### v0.5.6 - Structural hygiene + layer foundations (056)
+### v0.5.6 - Layer cleanup + codebase hygiene (056)
 
 - Go codebase structural hygiene: label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0): [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go cmd/ business logic extraction: move ~1,050 LOC of testable logic from `cmd/` into `internal/`: capabilities provider, LiDAR helpers, adapter bridges, transits CLI dispatch, config migration, backfill SQL, settling eval: [design doc](plans/go-cmd-extraction-plan.md) `M`
@@ -61,8 +60,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Rename `visualiser/` → `l9endpoints/` and update all import paths (L8/L9/L10 Phase 4a): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `S`
 - SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 
-### v0.5.7 - Replay/Runtime stabilisation (057)
+### v0.5.7 - Replay UX + runtime stability (057)
 
+- [#381] Classification display vs selectable enum split: keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go: [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
+- LiDAR background grid display bug: `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud: `S`
 - Visualiser debug overlay + cluster proto follow-through: finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 - Visualiser performance and scene health metrics: timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - Frontend background debug surfaces: Swift visualiser debugging outputs for background settlement: [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
@@ -71,16 +72,18 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1 (v0.5.3): [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
 - [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 
-### v0.5.8 - Product polish + release readiness (058)
+### v0.5.8 - Operator workflows + product polish (058)
 
 - [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
+- [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
 - Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
-- [#381] Classification display vs selectable enum split: keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go: [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
-- Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
+- Embedded offline docs M2: finish shared public guide/tool surfaces, add offline search, and implement targeted same-repo GitHub blob URL rewrites for the embedded site; see [design doc](plans/embedded-offline-docs-site.md) `M` {frontend}
+- Documentation standardisation: metadata format and date enforcement complete with CI linter; opening-paragraph audit complete (58 docs updated); 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Domain tag vocabulary: add `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
 - [#403] Bumper sticker generator: configurable Python/pycairo tool for rendering road-safety bumper sticker designs to SVG or PNG; dataclass-driven layout with Cool S decoration; Makefile targets `generate-stickers` and `generate-stickers-svg`: `S`
 
-### v0.5.9 - Sweep & experimentation infrastructure (059)
+### v0.5.9 - Sweep observability + experiment persistence (059)
 
 - Distributed sweep workers: implement parallel sweep execution across multiple cores or nodes; plan landed in #382: [design doc](plans/lidar-distributed-sweep-workers-plan.md) `S`
 - HINT metric observability (Batch A): surface per-track and per-run diagnostics to labellers and HINT history; combo breakdowns and ComboResult persistence: [design doc](plans/hint-metric-observability-plan.md) `S`
@@ -91,10 +94,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.6.0 - Deployment & packaging (060)
 
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
-- `velocity-report` unified binary scaffold: main entrypoint + subcommand dispatcher: [design doc](plans/deploy-distribution-packaging-plan.md) `M`
-- `radar`/`lidar`/`pdf` subcommand wiring into unified binary: [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 - RPi image Phase 2: precompiled LaTeX `.fmt` for faster PDF generation; vendored TeX tree already shipped in v0.5.1: [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `S`
-- `velocity-ctl upgrade` checksum verification: fetch `SHA256SUMS` release asset and verify downloaded binary before installing; see [internal/ctl/manager.go](../internal/ctl/manager.go) TODO and [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2 `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 
@@ -105,6 +105,17 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - macOS local server Phase 4: Login Item via `SMAppService.mainApp` for optional start-at-login with headless mode; "Start at Login" menu toggle; easy disable from System Settings: [design doc](plans/macos-local-server-plan.md) `S`
 - macOS local server Phase 5: integrate local server entry into Server Manager UI; auto-created "Local" entry with process + connection status; depends on server-manager.md Phases 1–2: [design doc](plans/macos-local-server-plan.md) `S`
 - VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
+
+### v0.6.2 - Design system foundations (062)
+
+- Design tokens canonicalisation: codify colour, type scale, spacing, radii, motion, and elevation as TypeScript exports + CSS custom properties; Figma library mirrors the same tokens; web app, visualiser, and report SVG all source from one place. Subsumes [shared palette module](ui/design-review-and-improvement.md#palette) and `ChartStyle` cross-surface coherence. `M`
+- Component primitive library: button, input, select, dialog, toast, tab, table, card, chart-frame, KPI-tile; Storybook (or equivalent) with visual-regression baselines; replaces ad-hoc CSS class soup in existing routes. `M`
+- Sensor utilisation visualisation kit: standard primitives for radar coverage cones, LiDAR foreground/background heatmaps, sensor health status tiles, and per-region settling-quality views. Surfaces the data already collected by L3/L8 in a way the operator can read at a glance. `M`
+- Gamification surfaces (labelling + civic): contribution loops for track labelling (streak, accuracy delta), per-site civic dashboards (transits, p98 trend, calmest hour), and badge primitives for label-rollup milestones; uses the same primitive library. Surfaces the existing HINT and label-rollup data without inventing new schemas. `M`
+- Claude-assisted component generation workflow: documented loop for taking a Figma frame or rough sketch through to a brand-voice-aligned Svelte component; integrates with the brand-voice plugin and the design-review checklist; ships a starter recipe in `.claude/skills/` once stable. `M`
+- Route audit and wireframes: every existing route mapped against the design system; missing routes (sensor-health, civic dashboard, labelling streak) wireframed; output is a single page in `docs/ui/` that the 0.7.0 work treats as the spec. `S`
+- Accessibility primitives baked in: focus-ring tokens, prefers-reduced-motion handling, theme parity assertions (dark/light), colour-blind-safe palette validation via axe + manual review. Pulls forward the [accessibility testing](ui/design-review-and-improvement.md#accessibility) item from 0.7.0. `S`
+- VelocityVisualiser palette parity: shared palette constants between web and macOS visualiser so 3D scene point/track/box colours track the same tokens; light-mode 3D scene piggybacks on this. `S`
 
 ## 07x Rebel realm ⛰️
 
@@ -118,12 +129,9 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Track labelling Phase 9 UI (Swift, D-07): seekable replay, Swift-native labelling: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 - Profile comparison system: cross-run evaluation UI, scene evaluation APIs: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 - Frontend decomposition (Svelte stores): item 13: tracksStore, runsStore, missedRegionStore: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md) `M`
-- Accessibility testing: add axe-core/playwright asserting no critical violations on each route: [design doc §7.2](ui/design-review-and-improvement.md) `S`
 - Web: display runtime version and git SHA in settings UI for admin/debug visibility `S`
 - Widescreen content containment (D-13): add vr-page max-width centring at ≥3000px: [design doc §2.2](ui/design-review-and-improvement.md) `S`
-- macOS palette constants: prepare shared palette definition when metric charts added to visualiser: [design doc §1.2](ui/design-review-and-improvement.md) `S`
 - LayerChart policy in LiDAR routes: enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps: [design doc §4.2](ui/design-review-and-improvement.md) `S`
-- ChartStyle frontend/backend coherence: design mechanism for Svelte frontend and Go report package to consume `ChartStyle` control knobs consistently (palette tokens, font size, layout constants) across both rendering surfaces; ensures PDF and web charts stay visually aligned: [design doc](plans/pdf-go-chart-migration-plan.md) `S`
 
 ## 08x Mobile mesh 📶
 
@@ -219,13 +227,13 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#328] Visualiser `ObjectClass` enum: 9-class enum on proto field 26, `objectClassFromString` / `classifyOrConvert` conversion, Go + Swift tests: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#328] Visualiser track field serialisation: all Track fields now round-trip in `frameBundleToProto`, `TestFrameBundleToProto_TrackFieldCompleteness` added: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#330] Platform simplification Phase 1: deprecation signalling and deploy retirement gate: [design doc](plans/platform-simplification-and-deprecation-plan.md)
-- [#352] v0.5.0 breaking changes: proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings: [design doc](plans/platform-simplification-and-deprecation-plan.md)
-- [#352] Visualiser proto contract parity + debug overlays: `FrameBundle.debug` streaming, cluster/track field serialisation, `avg_speed_mps` → `median_speed_mps` + p85/p98: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#352] `FrameTypeEmpty` and deterministic recording guarantee: `FrameTypeEmpty` (value 4) for sensor rotations with no foreground objects; blocking frame channel ensures 1:1 PCAP-to-VRLOG mapping; throttle-safe recording: [design doc](../data/structures/VRLOG_FORMAT.md)
 - [#352] Benchmark mode and runtime profiling: BenchmarkMode toggle for performance tracing, pprof HTTP routes, heap-allocation tracking in health summary: [design doc](plans/lidar-clustering-observability-and-benchmark-plan.md)
 - [#352] Occlusion aggregate metrics: per-frame occlusion stats in TrackingMetrics and sweep pipeline; speed_ratio sweep variable; dashboard exposure: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 - [#352] PCAP analysis replay hardening: blocking frame channel for zero-drop analysis, speed-mode rename (fastest→analysis, fixed→scaled), SpeedRatio API, per-phase backoff logging with SubLogger, batched track DB writes, disable persistence during analysis runs, replay epoch tracking, FrameBuilder deadlock fix: [design doc](lidar/operations/pcap-analysis-mode.md)
 - [#352] Proto `peak_speed_mps` → `max_speed_mps` rename (D-19): proto field 25, Go/Swift/TS model rename, regenerated bindings; SQL column deferred to migration 000030: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#352] v0.5.0 breaking changes: proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings: [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#352] Visualiser proto contract parity + debug overlays: `FrameBundle.debug` streaming, cluster/track field serialisation, `avg_speed_mps` → `median_speed_mps` + p85/p98: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#352] Visualiser track proto parity: branch-local percentile fields not merged; `peak_speed_mps` → `max_speed_mps` rename landed on proto/Go/Swift/TS; SQL column deferred to migration 000030: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#356] VRLOG analysis §12.1 metrics: `analyse-vrlog` command with `GenerateReport` and `CompareReports` for implementable-now track quality metrics and distribution statistics: [design doc](../data/structures/VRLOG_ANALYSIS_FORMAT.md)
 - [#360] Shared web cache for worktrees: activated shared Vite cache directory for git worktree workflows
@@ -262,16 +270,19 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#422] Canonical plan graduation: Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 25 plans graduated to symlinks, 10 plans DRY-trimmed; `/plan-graduation` skill created; `Graduated plan:` links removed from hub docs: [design doc](platform/architecture/canonical-plan-graduation.md)
 - [#424] Remote-host upgrade runbook and API naming consistency: runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work: [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#429] LiDAR immutable run config (P0/P1/P2): deterministic config asset model: `lidar_param_sets`, `lidar_run_configs`, configasset package, single-source run creation, API/UI provenance, VRLOG metadata, legacy column removal (migrations 000035–000036): [design doc](plans/lidar-immutable-run-config-asset-plan.md)
-- [#436] (#210) RPi image Phase 1: `image/` directory with pi-gen stages, `build-image.yml` CI workflow, `os-list-velocity.json`, `velocity-ctl` binary; minimal TeX Live tree extracted at build time: [design doc](plans/deploy-rpi-imager-fork-plan.md)
 - [#436] (#210) Raspberry Pi image pipeline: test image on physical Raspberry Pi 4 hardware and produce first `.img.xz` release asset: [design doc](plans/deploy-rpi-imager-fork-plan.md) `XS`
+- [#436] (#210) RPi image Phase 1: `image/` directory with pi-gen stages, `build-image.yml` CI workflow, `os-list-velocity.json`, `velocity-ctl` binary; minimal TeX Live tree extracted at build time: [design doc](plans/deploy-rpi-imager-fork-plan.md)
 - [#436] PDF map quality parity with web: the SVG map stored in `site.map_svg_data` is rendered at a fixed 600×400 viewBox from Overpass API vector data, but the web UI shows raster tiles from OSM at zoom 15 with far more detail; raise SVG viewBox to 1200×800, increase road stroke widths proportionally, add Overpass queries for missing feature types (amenity labels, place names, POI markers), and match tile-layer detail at the configured zoom level; the marker overlay and SVG→PDF conversion path are already vector-clean: `S`
 - [#436] Stale localStorage date range: `reportSettings` persists absolute `dateRange.from`/`dateRange.to` ISO strings with no TTL; returning after days shows old dates; add freshness check or persist relative period instead of absolute timestamps: `S`
 - [#445] Setup guide refresh: update [public_html/src/guides/setup.md](../public_html/src/guides/setup.md) with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 - [#447] Agent knowledge architecture (all phases): [../TENETS.md](../TENETS.md), [.github/knowledge/](../.github/knowledge) shared modules, condensed Copilot agent files, [CLAUDE.md](../CLAUDE.md), [.claude/agents/](../.claude/agents) (7 Claude-native personas), [.claude/skills/](../.claude/skills) (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
 - [#449] Error surface voice audit: rewrite ~250 user-facing error and status messages across Go, Python, TypeScript, and shell to use consistent, human voice; string-content-only changes: [design doc](plans/error-surface-voice-audit-plan.md) `M`
+- [#455] (#410) `velocity-report` unified binary scaffold + `pdf` subcommand wiring: `cmd/radar/radar.go` dispatches `version`, `migrate`, `transits`, and `pdf` subcommands; `cmd/radar/pdf.go` is the canonical PDF entrypoint; rest of `radar`/`lidar` already live inside the main binary: [design doc](plans/deploy-distribution-packaging-plan.md)
 - [#455] PDF generation migration to Go: replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - [#457] Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 - [#459] Documentation and data DRY audit (Groups 1–4): 14 gate violations fixed, 14 plans graduated to symlinks, visualiser-app subdirectory consolidated, PCAP ops docs unified, tailscale guide relocated, playback-speed doc moved, config cross-references added, warmup-trails-fix resolved, architecture review artefacts classified, 58 docs given narrative openings, link checker symlink resolution fixed, dead link checks moved to nightly CI, image build includes docs site: [design doc](plans/docs-data-dry-audit-plan.md)
 - [#470] Public protractor tool: added `/tool/protractor/` for measuring cosine-error alignment angles from a photo, with colour-graded guidance, interactive overlay controls, downloadable overlay output, setup-guide integration, and site styling for the new tool: `S`
+- [#472] (#9) Tailscale remote access setup guide: Tailscale enrolment on RPi, headless `tailscale up` flags, ACL recommendations, and SSH-over-Tailscale; published at [docs/platform/operations/tailscale-remote-access.md](platform/operations/tailscale-remote-access.md); code support for file-based config landed in #472
 - [#480] Embedded offline docs Milestone 1: scaffolded the separate `docs_html/` Eleventy site, added offline build/dev/link-check targets, embedded the generated site in the Go binary, served it at `/docs/`, and added the `--docs-source` dev knob while leaving Milestone 2 work in backlog: [design doc](plans/embedded-offline-docs-site.md) `M`
 - [#497] Version-bump consolidation: pinned `web/package.json`, `public_html/package.json`, and `docs_html/package.json` to `"0.0.0"`; stripped `--web`/`--docs` targets from `set-version.sh`; removed the now-redundant `<meta name="app-web-version">` tag and `PUBLIC_WEB_VERSION` env var from the web build (the surviving `app-build-version` meta tag is sourced from the Makefile-canonical `PUBLIC_BUILD_VERSION`); CI version-check workflow simplified. `make version-bump` now updates only `Makefile` + `project.pbxproj`: [design doc](plans/version-bump-consolidation-plan.md)
+- [#498] `velocity-ctl upgrade` checksum verification: per-asset metadata sourced from `release.json`, SHA-256 verified before install, prerelease + fallback logic tightened; shipped during the 0.5.1 pre-release cycle: [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2
