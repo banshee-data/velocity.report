@@ -1,11 +1,17 @@
 # Multi-call binary, versioned on disk, symlink-swap rollback
 
-- **Document Version:** 1.1
-- **Status:** Proposed
+- **Document Version:** 1.2
+- **Status:** Approved (v0.5.1 cutover; sequenced as work unit A of the consolidation plan)
+- **Target:** v0.5.1 (pulled forward from v0.6.0)
 - **Layers:** Go binaries, image build, install scripts, release pipeline, sudoers
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 - **Related:** [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md), [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md), [cli-restructuring-plan.md](./cli-restructuring-plan.md)
+- **Parent plan:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — this plan supplies the dispatcher and on-disk layout; consolidation plan owns the v0.5.1 sequencing
 - **Supersedes:** the multi-binary recommendation in §5 of [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) and the relevant sections of [cli-restructuring-plan.md](./cli-restructuring-plan.md)
+
+---
+
+> **Sequencing update (2026-05):** the dispatcher, namespaces, symlink layout, and sudoers contract specified here are now scheduled for v0.5.1, not v0.6.0. The "fold sweep / ctl later" residual is retired — both fold into the single binary inside v0.5.1 per [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit A.
 
 ---
 

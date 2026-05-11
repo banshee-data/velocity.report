@@ -1,12 +1,17 @@
 # CLI restructuring plan
 
+- **Status:** Superseded — the v0.5.1 consolidation plan owns the public CLI surface
 - **Canonical:** [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md)
+- **Parent plan:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — work unit A folds `velocity-ctl`, `sweep`, and the redirect stub into the multi-call `velocity` binary
+- **Supersedes-by:** [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) (namespace tree), [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) (v0.5.1 sequencing)
 
-Proposed improvements to the velocity.report CLI architecture: subcommand hierarchy, API versioning, configuration file support, and utility consolidation.
+Historical record of the CLI restructuring direction. The promoted command surface (`velocity <namespace> ...`) and compatibility contract (`velocity-report` server alias, transitional `velocity-ctl` redirect) now live in the two parent plans above. This document is preserved for the problem analysis and the per-area rationale.
 
 For the current implemented CLI reference, see [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md).
 
 ---
+
+> **Drift note (2026-05):** the original "two binaries: `velocity-report` + `velocity-tools`" split below is superseded. One binary, multi-call dispatch on `argv[0]` plus `argv[1]`, with utility binaries folded as namespaces (`tune sweep`, `data backfill`, `device ...`). Treat the section below as motivation only.
 
 ## Problems & opportunities
 

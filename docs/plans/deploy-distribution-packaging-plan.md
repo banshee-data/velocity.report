@@ -1,14 +1,15 @@
 # velocity.report distribution and packaging plan
 
-- **Document Version:** 1.1
-- **Status:** Proposed Architecture (partially superseded — see banner)
+- **Document Version:** 1.2
+- **Status:** Historical context only — superseded by the consolidation plan
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
-- **Drift:** several Phase-1/3/4 decisions are superseded by [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) and [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md). Strikethrough sections below preserve the earlier intent for context.
+- **Parent plan:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — the v0.5.1 consolidation plan now owns the public packaging surface
+- **Drift:** several Phase-1/3/4 decisions are superseded by [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md), [deploy-nginx-removal-plan.md](./deploy-nginx-removal-plan.md), and [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md). Strikethrough sections below preserve the earlier intent for context.
 
 ---
 
-> **Drift summary (2026-04):** this plan was written assuming (a) a `cmd/velocity-report/` Cobra-style binary with subcommands, (b) `velocity-ctl` as a separate artifact, (c) sibling utility binaries (`velocity-report-sweep`, `velocity-report-backfill-rings`), and (d) a flat install at `/usr/local/bin/`. The current direction is a single busybox-style `velocity` binary living at `/opt/velocity-report/versions/<v>/velocity`, with `/usr/local/bin/velocity` as the canonical entry point, `/usr/local/bin/velocity-report` as the server-compatibility alias, and shell lifecycle aliases in `/etc/profile.d/velocity-aliases.sh`. Treat [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) as canonical for the promoted public command surface; the strikethroughs below preserve older packaging intent for context.
+> **Drift summary (2026-05):** this plan was written assuming (a) a `cmd/velocity-report/` Cobra-style binary with subcommands, (b) `velocity-ctl` as a separate artifact, (c) sibling utility binaries (`velocity-report-sweep`, `velocity-report-backfill-rings`), and (d) a flat install at `/usr/local/bin/`. The current direction is a single busybox-style `velocity` binary living at `/opt/velocity-report/versions/<v>/velocity`, with `/usr/local/bin/velocity` as the canonical entry point, `/usr/local/bin/velocity-report` as the server-compatibility alias, and shell lifecycle aliases in `/etc/profile.d/velocity-aliases.sh`. The v0.5.1 consolidation plan additionally folds `sweep` and `velocity-update` into the single binary and replaces xelatex with an embedded Typst. Treat [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) and [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) as canonical for the promoted public command surface; the strikethroughs below preserve older packaging intent for context.
 
 > **Architecture, design rationale, and current-state analysis:** see [distribution-packaging.md](../platform/operations/distribution-packaging.md) for the chosen subcommand model, component inventory, user personas, tradeoff analysis, and system layout.
 
