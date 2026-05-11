@@ -422,7 +422,12 @@ build-docs-offline:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@$(MAKE) check-docs-offline-links
+	@$(MAKE) verify-docs-offline-build
 	@echo "✓ Offline docs build complete: docs_html/_site/"
+
+.PHONY: verify-docs-offline-build
+verify-docs-offline-build:
+	@./scripts/verify-docs-offline-build.sh
 
 WIRING_SRC = docs/platform/hardware/radar-wiring.yml
 

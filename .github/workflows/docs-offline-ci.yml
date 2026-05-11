@@ -14,6 +14,7 @@ on:
       - "Makefile"
       - "scripts/docs-offline-symlinks.sh"
       - "scripts/check-docs-offline-links.js"
+      - "scripts/verify-docs-offline-build.sh"
       - ".github/workflows/docs-offline-ci.yml"
       - ".github/actions/setup-node-pnpm/**"
 
@@ -39,8 +40,4 @@ jobs:
         run: make build-docs-offline
 
       - name: Verify build output
-        run: |
-          test -f docs_html/_site/index.html
-          echo "✓ Offline docs build successful"
-          echo "Build output size: $(du -sh docs_html/_site | cut -f1)"
-          echo "Files generated: $(find docs_html/_site -type f | wc -l)"
+        run: make verify-docs-offline-build
