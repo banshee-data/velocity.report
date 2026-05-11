@@ -1,0 +1,46 @@
+name: 📚 Offline docs CI
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "docs_html/**"
+      - "docs/**"
+      - "data/**"
+      - "*.md"
+      - "Makefile"
+      - "scripts/docs-offline-symlinks.sh"
+      - "scripts/check-docs-offline-links.js"
+      - ".github/workflows/docs-offline-ci.yml"
+      - ".github/actions/setup-node-pnpm/**"
+
+concurrency:
+  group: docs-offline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: "🔨 Build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js with pnpm
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: "20.19.0"
+          working-directory: docs_html
+
+      - name: Build offline docs site
+        run: make build-docs-offline
+
+      - name: Verify build output
+        run: |
+          test -f docs_html/_site/index.html
+          echo "✓ Offline docs build successful"
+          echo "Build output size: $(du -sh docs_html/_site | cut -f1)"
+          echo "Files generated: $(find docs_html/_site -type f | wc -l)"
