@@ -47,54 +47,54 @@ Connect with other velocity.report users and contributors
 
 ## Contributing
 
-velocity.report improves when practical people notice rough edges and then decide, very reasonably, to do something about them. If that sounds like you, start with the **[Contributing Guide](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)**. It covers conventions, code style, testing, and the pull request process without making a religion out of any of them.
+If you want to contribute, start with the **[Contributing Guide](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)**.
 
-We prefer contributions that make the system clearer, safer, easier to operate, or harder to misunderstand. Glamour is optional. Useful work is not.
+The best contributions make the system clearer, safer, easier to operate, or harder to misunderstand.
 
-We are especially interested in contributors who like difficult, inspectable problems: the sort involving tracking drift, geometry that refuses to sit still, foreground extraction in messy scenes, and metrics that need to survive contact with reality rather than merely a tidy benchmark chart.
+We are especially interested in people who like inspectable technical problems: tracking drift, foreground extraction, geometry, replayable evaluation, and metrics that hold up outside a slide deck.
 
-If you want the map before the expedition, read the **[Finding your way in](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md#finding-your-way-in)** section, then browse the active **[plans folder](https://github.com/banshee-data/velocity.report/tree/main/docs/plans)** and the current **[backlog](https://github.com/banshee-data/velocity.report/blob/main/docs/BACKLOG.md)**. One tells you how the work is shaped. The other tells you what still needs doing. This is a surprisingly effective arrangement.
+For a quick map, read **[Finding your way in](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md#finding-your-way-in)**, then browse the **[backlog](https://github.com/banshee-data/velocity.report/blob/main/docs/BACKLOG.md)** and the active **[plans folder](https://github.com/banshee-data/velocity.report/tree/main/docs/plans)**.
 
 ### Code contributions
 
-- **New features** - Build something the product genuinely needs, then check the [open feature requests](https://github.com/banshee-data/velocity.report/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature) to avoid inventing a second queue for the same idea.
-- **Bug fixes** - Remove defects, oddities, and those behaviours that are technically functional in the same way a shopping trolley with one square wheel is technically mobile.
-- **Testing** - Add coverage where confidence is thin, tighten existing checks, and report failures with enough detail that someone else can reproduce the problem without consulting a crystal ball.
+- **New features** - Build something the product needs, and check the [open feature requests](https://github.com/banshee-data/velocity.report/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature) first.
+- **Bug fixes** - Remove defects and sharpen rough edges.
+- **Testing** - Add coverage where confidence is thin, and report failures clearly enough to reproduce.
 
 ### Maths, tracking, and perception work
 
-- **Perception engineering** - Work on clustering, tracking, classification, ground modelling, radar-plus-LiDAR fusion, and the surrounding geometry that keeps object identities intact from one frame to the next.
-- **Current high-value problems** - Geometry-coherent tracking, velocity-coherent foreground extraction, interpretable classification, pose anchors, and ground-plane modelling are all active areas where a careful contributor can do real damage to bad assumptions.
-- **Data science and evaluation** - Help with labelled reference sets, replayable scorecards, threshold studies, drift analysis, and traffic-engineering metrics that can survive a room full of sceptical adults. The open research queue lives in [data/QUESTIONS.md](https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md).
-- **Evidence-first contributions** - If you claim an improvement, bring the artefacts: parameter bundle, validation date, replay pack, scene or run IDs, and the baseline you beat. Otherwise it is just a story, and the repository already contains several of those.
+- **Perception engineering** - Work on clustering, tracking, classification, ground modelling, radar-plus-LiDAR fusion, and the geometry around them.
+- **Current problems** - Geometry-coherent tracking, velocity-coherent foreground extraction, interpretable classification, pose anchors, and ground-plane modelling are active areas.
+- **Data science and evaluation** - Help with labelled reference sets, replayable scorecards, threshold studies, drift analysis, and traffic-engineering metrics. The open research queue lives in [data/QUESTIONS.md](https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md).
+- **Evidence-first contributions** - Bring the artefacts: parameter bundle, validation date, replay pack, scene or run IDs, and the baseline you beat.
 
-If that sounds like your kind of trouble, the role map above will point you toward the right documents instead of leaving you to wander the repo like an archaeologist with poor lighting.
+If that sounds like your kind of work, the role map above will point you to the right documents.
 
 ### Non-Code contributions
 
-- **Survey** - Build a citizen radar, measure speeds in your area, and turn local concern into evidence rather than folklore.
-- **Advocacy** - Tell people the project exists, what it does, and why measuring traffic should not require starting a private surveillance hobby.
-- **Feedback** - Share your use cases, friction points, and feature requests, especially when the interface makes you do something twice or guess what it meant.
-- **Documentation** - Write guides, examples, and explanations that help the next person get further with less muttering.
-- **Community support** - Answer questions on Discord, help newcomers orient themselves, and save somebody else an afternoon of preventable confusion.
+- **Survey** - Build a citizen radar and turn local concern into evidence.
+- **Advocacy** - Tell people the project exists and why privacy matters here.
+- **Feedback** - Share use cases, friction points, and feature requests.
+- **Documentation** - Write guides, examples, and explanations.
+- **Community support** - Help answer questions on Discord.
 
 ### Design feedback
 
-We are actively shaping the next-generation interface, which means this is an unusually good moment to say what works, what does not, and which bit makes you narrow your eyes at the screen.
+We are actively shaping the next-generation interface, so this is a good moment to say what works and what does not.
 
 Review the current design prototype here: [Project Butterfly Net](https://velocity.report/design/20260511-Velocity_Report_Butterfly_Net.html).
 
-Useful design feedback is concrete. Tell us where the workflow becomes unclear, what information feels missing, what looks trustworthy or dubious, and which part asks the user to do the software's share of the work.
+Useful design feedback is concrete. Tell us where the workflow becomes unclear, what information feels missing, and what the interface gets wrong.
 
 ## Code of conduct
 
-We want a community that is useful, welcoming, and civil. Please read the [Code of Conduct](https://github.com/banshee-data/velocity.report/blob/main/CODE_OF_CONDUCT.md) before joining in. It exists so people can contribute without also having to dodge unnecessary nonsense.
+We want a community that is useful, welcoming, and civil. Please read the [Code of Conduct](https://github.com/banshee-data/velocity.report/blob/main/CODE_OF_CONDUCT.md) before joining in.
 
 ## Getting help
 
 ### Support channels
 
-1. **[Discord](https://discord.gg/XXh6jXVFkt)** - Best for real-time questions, practical discussion, and the sort of small uncertainty that should not need a formal incident report.
-2. **[GitHub Issues](https://github.com/banshee-data/velocity.report/issues)** - Best for bug reports, feature requests, and anything that benefits from a durable paper trail.
+1. **[Discord](https://discord.gg/XXh6jXVFkt)** - Best for real-time questions and discussion.
+2. **[GitHub Issues](https://github.com/banshee-data/velocity.report/issues)** - Best for bug reports, feature requests, and anything that needs a durable paper trail.
 
 </div>
