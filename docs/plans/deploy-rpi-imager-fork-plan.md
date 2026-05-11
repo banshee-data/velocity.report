@@ -9,7 +9,7 @@
 
 > **Executive summary and motivation:** see [rpi-imager.md](../platform/operations/rpi-imager.md).
 
-> **Phase 2 cancellation (2026-05):** the "precompiled `.fmt`" goal below is **superseded** by [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit C. Replacing xelatex with Typst eliminates the whole xelatex pipeline, so the format-precompile optimisation has no remaining surface to apply to. The §4.2 image contents inventory below is also out of date: starting in v0.5.1 the image carries one Go binary, no `velocity-ctl`, no Python venv, no Python PDF generator, no TeX tree, no nginx, and the Tailscale install moves to a runtime opt-in. Treat the parent plan as canonical for the v0.5.1+ image contents.
+> **Phase 2 cancellation (2026-05):** the "precompiled `.fmt`" goal below is **superseded** by [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) § Work unit C. Replacing xelatex with Typst eliminates the whole xelatex pipeline, so the format-precompile optimisation has no remaining surface to apply to. The §4.2 image contents inventory below is also out of date: **v0.5.1 Phase 1 still shipped** a minimal TeX tree and on-device updates via `velocity-ctl upgrade`, but the parent consolidation plan defines the later post-v0.5.1 target state: one Go binary, no `velocity-ctl`, no Python venv, no Python PDF generator, no TeX tree, no nginx, and Tailscale as a runtime opt-in. Treat the parent plan as canonical for that later consolidated image state.
 
 ---
 

@@ -10,7 +10,7 @@
 
 ---
 
-> **v0.5.1 follow-on (2026-05):** [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md) lands new embedded payloads inside the single binary in v0.5.1: the Typst CLI (~30 MB ARM64), the tuning defaults, network/udev/wpa_supplicant fallback files, and the build stamp. The < 40 MB ceiling from this plan is the enforced budget the consolidation plan has to defend; the consolidation plan's recorded escape hatch (vendor Typst under `/opt/velocity-report/typst/` instead of embedding) only fires if CI enforcement here fails. Treat this plan as the CI gate for the consolidation work, not as a competing direction.
+> **v0.5.1 follow-on (2026-05):** [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md) lands new embedded payloads inside the single binary in v0.5.1: the Typst CLI (~30 MB ARM64), the tuning defaults, network/udev/wpa_supplicant fallback files, and the build stamp. The < 40 MB ceiling from this plan remains the preferred budget from the v0.5.0 reduction work, but for the v0.5.1 Typst embed it is a tracking target rather than a hard CI blocker. Use this plan to measure and report size changes during consolidation, and follow the consolidation plan's documented exception path (including vendoring Typst under `/opt/velocity-report/typst/` instead of embedding) if the embedded payloads cannot stay within that budget.
 
 ## Motivation
 

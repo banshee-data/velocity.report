@@ -3,7 +3,7 @@
 - **Status:** Superseded — the v0.5.1 consolidation plan owns the public CLI surface
 - **Canonical:** [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md)
 - **Parent plan:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — work unit A folds `velocity-ctl`, `sweep`, and the redirect stub into the multi-call `velocity` binary
-- **Supersedes-by:** [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) (namespace tree), [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) (v0.5.1 sequencing)
+- **Superseded by:** [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) (namespace tree), [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) (v0.5.1 sequencing)
 
 Historical record of the CLI restructuring direction. The promoted command surface (`velocity <namespace> ...`) and compatibility contract (`velocity-report` server alias, transitional `velocity-ctl` redirect) now live in the two parent plans above. This document is preserved for the problem analysis and the per-area rationale.
 
