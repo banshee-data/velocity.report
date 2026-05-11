@@ -2,7 +2,8 @@ import {
 	buildInlineSvgChartRequestUrl,
 	isInlineSvgContentType,
 	resolveInlineSvgChartTheme,
-	transformInlineSvgChartSvg
+	transformInlineSvgChartSvg,
+	type InlineSvgChartDarkColours
 } from './inlineSvgChart';
 
 describe('inlineSvgChart helpers', () => {
@@ -60,7 +61,6 @@ describe('inlineSvgChart helpers', () => {
 		const documentSvg = new DOMParser().parseFromString(darkSvg, 'image/svg+xml');
 		const root = documentSvg.documentElement;
 
-		expect(root.querySelector('rect[data-inline-svg-chart-background="true"]')).not.toBeNull();
 		expect(root.querySelector('.x-axis line')?.getAttribute('stroke')).toBe('#ffffff');
 		expect(root.querySelector('.gap-dividers line')?.getAttribute('stroke')).toBe('#ffffff');
 		expect(root.querySelector('.max-reference line')?.getAttribute('stroke')).toBe('#ffffff');
@@ -68,5 +68,27 @@ describe('inlineSvgChart helpers', () => {
 		expect(root.querySelector('text')?.getAttribute('fill')).toBe('#ffffff');
 		expect(root.querySelector('rect[stroke="#ffffff"]')?.getAttribute('fill')).toBe('#000000');
 		expect(transformInlineSvgChartSvg(svg, 'light')).toBe(svg);
+	});
+
+	it('honours injected dark-theme colours so frame colours match surface tokens', () => {
+		const svg = [
+			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40">',
+			'<rect fill="white" stroke="#ccc" x="1" y="1" width="98" height="38"/>',
+			'<text x="10" y="35">Axis label</text>',
+			'</svg>'
+		].join('');
+
+		const colours: InlineSvgChartDarkColours = {
+			background: 'rgb(39, 39, 42)',
+			text: 'rgb(244, 244, 245)'
+		};
+
+		const darkSvg = transformInlineSvgChartSvg(svg, 'dark', colours);
+		const documentSvg = new DOMParser().parseFromString(darkSvg, 'image/svg+xml');
+		const root = documentSvg.documentElement;
+
+		expect(root.querySelector('text')?.getAttribute('fill')).toBe('rgb(244, 244, 245)');
+		expect(root.querySelector('rect')?.getAttribute('fill')).toBe('rgb(39, 39, 42)');
+		expect(root.querySelector('rect')?.getAttribute('stroke')).toBe('rgb(244, 244, 245)');
 	});
 });

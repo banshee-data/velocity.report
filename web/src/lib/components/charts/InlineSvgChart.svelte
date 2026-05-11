@@ -3,13 +3,14 @@
 	import {
 		buildInlineSvgChartBlobUrl,
 		buildInlineSvgChartRequestUrl,
-		detectInlineSvgChartTheme,
 		type InlineSvgChartTheme,
 		type InlineSvgChartThemeMode,
 		isInlineSvgContentType,
+		resolveInlineSvgChartDarkColours,
 		transformInlineSvgChartSvg
 	} from '$lib/components/charts/inlineSvgChart';
 	import { onMount } from 'svelte';
+	import { getSettings } from 'svelte-ux';
 
 	export let url = '';
 	export let label = 'Chart preview';
@@ -21,40 +22,36 @@
 	let loading = false;
 	let error = '';
 	let sourceSvg = '';
-	let activeTheme: InlineSvgChartTheme = 'light';
+	let isDashboardDarkTheme = false;
 	let requestSerial = 0;
 	let lastRequestedUrl = '';
 	let imageKey = 0;
 	let frameElement: HTMLDivElement | null = null;
-	let themeObserver: MutationObserver | null = null;
+
+	const { currentTheme } = getSettings();
 
 	$: if (browser && url !== lastRequestedUrl) {
 		lastRequestedUrl = url;
 		void loadSvg(url);
 	}
 
+	$: isDashboardDarkTheme = themeMode === 'dashboard' && $currentTheme.dark;
+
 	onMount(() => {
 		if (!browser) {
 			return;
 		}
 
-		themeObserver = new MutationObserver(() => {
-			if (themeMode !== 'source' && sourceSvg) {
-				renderSvgForCurrentTheme();
-			}
-		});
-		themeObserver.observe(document.documentElement, {
-			attributes: true,
-			attributeFilter: ['class', 'data-theme', 'style']
-		});
-
 		return () => {
-			themeObserver?.disconnect();
 			revokeImageUrl();
 		};
 	});
 
 	$: if (browser && sourceSvg && themeMode !== 'source') {
+		// Reference `isDashboardDarkTheme` so this statement re-runs when the
+		// theme toggles — without it, Svelte only tracks `sourceSvg` / `themeMode`
+		// and the SVG would stay frozen on its first-render theme.
+		void isDashboardDarkTheme;
 		renderSvgForCurrentTheme();
 	}
 
@@ -99,15 +96,14 @@
 
 	function renderSvgForCurrentTheme() {
 		if (!sourceSvg) {
-			activeTheme = 'light';
 			revokeImageUrl();
 			return;
 		}
 
-		const theme = themeMode === 'dashboard' ? detectInlineSvgChartTheme(frameElement) : 'light';
-		activeTheme = theme;
+		const theme: InlineSvgChartTheme = isDashboardDarkTheme ? 'dark' : 'light';
+		const colours = theme === 'dark' ? resolveInlineSvgChartDarkColours(frameElement) : undefined;
 		const themedSvg =
-			themeMode === 'dashboard' ? transformInlineSvgChartSvg(sourceSvg, theme) : sourceSvg;
+			themeMode === 'dashboard' ? transformInlineSvgChartSvg(sourceSvg, theme, colours) : sourceSvg;
 
 		revokeImageUrl();
 		imageUrl = buildInlineSvgChartBlobUrl(themedSvg);
@@ -123,7 +119,6 @@
 
 	function clearChart() {
 		sourceSvg = '';
-		activeTheme = 'light';
 		revokeImageUrl();
 		loading = false;
 		error = '';
@@ -144,7 +139,6 @@
 	<div
 		bind:this={frameElement}
 		class="chart-frame"
-		class:chart-frame-dark={activeTheme === 'dark'}
 		style={`--chart-min-height: ${minHeight}px;`}
 		aria-busy={loading ? 'true' : 'false'}
 	>
@@ -161,12 +155,7 @@
 		{/if}
 
 		{#if loading || !imageUrl}
-			<div
-				class:chart-loading-dark={activeTheme === 'dark'}
-				class="chart-loading"
-				role="status"
-				aria-live="polite"
-			>
+			<div class="chart-loading" role="status" aria-live="polite">
 				<div class="chart-loading__shimmer" aria-hidden="true"></div>
 				<p>{loadingLabel}</p>
 			</div>
@@ -189,11 +178,8 @@
 		position: relative;
 		min-height: var(--chart-min-height);
 		overflow: hidden;
-		background: white;
-	}
-
-	.chart-frame-dark {
-		background: #000;
+		background: var(--color-surface-100);
+		color: var(--color-surface-content);
 	}
 
 	.chart-frame :global(svg) {
@@ -219,15 +205,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.92));
-		color: rgba(17, 24, 39, 0.85);
+		background: color-mix(in srgb, var(--color-surface-100) 90%, transparent);
+		color: color-mix(in srgb, var(--color-surface-content) 85%, transparent);
 		font-size: 0.95rem;
 		font-weight: 500;
-	}
-
-	.chart-loading-dark {
-		background: linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.82));
-		color: rgba(255, 255, 255, 0.88);
 	}
 
 	.chart-loading__shimmer {
