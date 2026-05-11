@@ -414,6 +414,27 @@ th {
   text-align: center;
 }
 
+.doc-embed {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.doc-embed-frame {
+  background: #ffffff;
+  border: 0;
+  display: block;
+  min-height: 80vh;
+  width: 100%;
+}
+
+.doc-embed-note {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 860px) {
   .shell {
     display: block;
@@ -438,5 +459,9 @@ th {
   .topbar,
   .footer {
     padding: 0.75rem 1rem;
+  }
+
+  .doc-embed-frame {
+    min-height: 65vh;
   }
 }
