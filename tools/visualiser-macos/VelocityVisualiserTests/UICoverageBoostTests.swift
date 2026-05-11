@@ -948,20 +948,19 @@ struct SerialiseFlagsTests {
 @available(macOS 15.0, *) @MainActor final class PlaybackModeBadgeAdditionalTests: XCTestCase {
     func testLiveMode() {
         let view = PlaybackModeBadgeView(
-            modeLabel: "LIVE", mode: .live, isConnected: true, showsLegacyJSONWarning: false)
+            modeLabel: "LIVE", mode: .live, isConnected: true)
         let _ = view.body
     }
 
     func testSeekableMode() {
         let view = PlaybackModeBadgeView(
-            modeLabel: "VRLOG", mode: .replaySeekable, isConnected: true,
-            showsLegacyJSONWarning: true)
+            modeLabel: "VRLOG", mode: .replaySeekable, isConnected: true)
         let _ = view.body
     }
 
     func testDisconnected() {
         let view = PlaybackModeBadgeView(
-            modeLabel: "?", mode: .unknown, isConnected: false, showsLegacyJSONWarning: false)
+            modeLabel: "?", mode: .unknown, isConnected: false)
         let _ = view.body
     }
 }

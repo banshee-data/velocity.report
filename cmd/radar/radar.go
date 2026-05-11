@@ -730,11 +730,7 @@ func main() {
 				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
 					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
-				if frameEncoding == string(recorder.FrameEncodingJSON) {
-					log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s, legacy JSON decode path; replay may be slower)", vrlogPath, frameEncoding)
-				} else {
-					log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
-				}
+				log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
 				return frameEncoding, nil
 			},
 			OnVRLogStop: func() {
