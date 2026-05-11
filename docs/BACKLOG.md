@@ -91,6 +91,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.6.0 - Deployment & packaging (060)
 
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
 - RPi image Phase 2: precompiled LaTeX `.fmt` for faster PDF generation; vendored TeX tree already shipped in v0.5.1: [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
@@ -119,6 +120,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.7.0 - United frontend (070)
 
 - (#252) Frontend unification (Phases 0–5): migrate status/regions/sweep to Svelte, retire port 8081: [design doc](plans/web-frontend-consolidation-plan.md) `L`
+- Project Butterfly Net Phase 1: introduce recording-period-backed operator workflows across the Svelte app — new Sensor page, redesigned Sites list, Concept B Reports workspace, and dashboard structural refresh; derives report date range + cosine angle from recording periods while preserving date-range compatibility; builds on the 0.6.2 design-system/spec work rather than duplicating it: [design doc](plans/ui-project-butterfly-net.md) `L`
 - ECharts → LayerChart rewrite (non-report charts, D-11): migrate live dashboard and real-time stats charts to Svelte LayerChart; report-view charts (time-series, histogram, comparison) are served as SVG by Go and consumed directly: [design doc](ui/DESIGN.md) `L`
 - Frontend SVG chart consumption (D-11, D-17): wire Svelte frontend to consume Go-generated SVG charts from `/api/charts/*` for report views; retire ECharts for those views; `ChartStyle` control knobs already designed for dual-surface use: [design doc](plans/pdf-go-chart-migration-plan.md) `M`
 - Retire Go-embedded dashboards: ~2,000 lines removed from monitor once Svelte dashboards replace ECharts: [review doc §7](lidar/architecture/lidar-layer-alignment-refactor-review.md) `L`

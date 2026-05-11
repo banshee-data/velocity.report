@@ -47,31 +47,54 @@ Connect with other velocity.report users and contributors
 
 ## Contributing
 
-We welcome contributions from the community! For full details on conventions, code style, and the pull request process, see our **[Contributing Guide](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)**.
+If you want to contribute, start with the **[Contributing Guide](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)**.
+
+The best contributions make the system clearer, safer, easier to operate, or harder to misunderstand.
+
+We are especially interested in people who like inspectable technical problems: tracking drift, foreground extraction, geometry, replayable evaluation, and metrics that hold up outside a slide deck.
+
+For a quick map, read **[Finding your way in](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md#finding-your-way-in)**, then browse the **[backlog](https://github.com/banshee-data/velocity.report/blob/main/docs/BACKLOG.md)** and the active **[plans folder](https://github.com/banshee-data/velocity.report/tree/main/docs/plans)**.
 
 ### Code contributions
 
-- **New Features** - Implement new capabilities and enhancements, check out [open feature requests](https://github.com/banshee-data/velocity.report/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)
-- **Bug Fixes** - Help squash bugs and improve stability
-- **Testing** - Add test coverage and report issues
+- **New features** - Build something the product needs, and check the [open feature requests](https://github.com/banshee-data/velocity.report/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature) first.
+- **Bug fixes** - Remove defects and sharpen rough edges.
+- **Testing** - Add coverage where confidence is thin, and report failures clearly enough to reproduce.
+
+### Maths, tracking, and perception work
+
+- **Perception engineering** - Work on clustering, tracking, classification, ground modelling, radar-plus-LiDAR fusion, and the geometry around them.
+- **Current problems** - Geometry-coherent tracking, velocity-coherent foreground extraction, interpretable classification, pose anchors, and ground-plane modelling are active areas.
+- **Data science and evaluation** - Help with labelled reference sets, replayable scorecards, threshold studies, drift analysis, and traffic-engineering metrics. The open research queue lives in [data/QUESTIONS.md](https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md).
+- **Evidence-first contributions** - Bring the artefacts: parameter bundle, validation date, replay pack, scene or run IDs, and the baseline you beat.
+
+If that sounds like your kind of work, the role map above will point you to the right documents.
 
 ### Non-Code contributions
 
-- **Survey** - Build a citizen radar and log speeds in your area
-- **Advocacy** - Spread the word about velocity.report online and in person
-- **Feedback** - Share your use cases and feature requests
-- **Documentation** - Write tutorials, guides, and how-tos
-- **Community Support** - Help answer questions on Discord
+- **Survey** - Build a citizen radar and turn local concern into evidence.
+- **Advocacy** - Tell people the project exists and why privacy matters here.
+- **Feedback** - Share use cases, friction points, and feature requests.
+- **Documentation** - Write guides, examples, and explanations.
+- **Community support** - Help answer questions on Discord.
+
+### Design feedback
+
+We are actively shaping the next-generation interface, so this is a good moment to say what works and what does not.
+
+Review the current design prototype here: [Project Butterfly Net](/design/20260511-Velocity_Report_Butterfly_Net.html). <!-- link-ignore -->
+
+Useful design feedback is concrete. Tell us where the workflow becomes unclear, what information feels missing, and what the interface gets wrong.
 
 ## Code of conduct
 
-We are committed to providing a welcoming and inclusive community. Please read our [Code of Conduct](https://github.com/banshee-data/velocity.report/blob/main/CODE_OF_CONDUCT.md) before participating.
+We want a community that is useful, welcoming, and civil. Please read the [Code of Conduct](https://github.com/banshee-data/velocity.report/blob/main/CODE_OF_CONDUCT.md) before joining in.
 
 ## Getting help
 
 ### Support channels
 
-1. **[Discord](https://discord.gg/XXh6jXVFkt)** - Best for real-time questions and discussion
-2. **[GitHub Issues](https://github.com/banshee-data/velocity.report/issues)** - For bug reports and feature requests
+1. **[Discord](https://discord.gg/XXh6jXVFkt)** - Best for real-time questions and discussion.
+2. **[GitHub Issues](https://github.com/banshee-data/velocity.report/issues)** - Best for bug reports, feature requests, and anything that needs a durable paper trail.
 
 </div>

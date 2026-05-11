@@ -310,6 +310,7 @@ module.exports = function (eleventyConfig) {
   });
 
   eleventyConfig.addPassthroughCopy("src/assets");
+  eleventyConfig.addPassthroughCopy("src/docs/ui/design/**/*.html");
   eleventyConfig.addPassthroughCopy({
     "node_modules/mermaid/dist/mermaid.esm.min.mjs":
       "assets/mermaid.esm.min.mjs",
@@ -437,8 +438,8 @@ module.exports = function (eleventyConfig) {
       layouts: "_layouts",
       data: "_data",
     },
-    templateFormats: ["html", "md", "njk"],
-    htmlTemplateEngine: "njk",
+    templateFormats: ["md", "njk"],
+    htmlTemplateEngine: false,
     markdownTemplateEngine: false,
   };
 };

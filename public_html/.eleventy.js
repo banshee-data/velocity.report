@@ -49,6 +49,7 @@ module.exports = function (eleventyConfig) {
   // Copy static files directly to output
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
   eleventyConfig.addPassthroughCopy("src/js");
+  eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");
@@ -147,8 +148,8 @@ module.exports = function (eleventyConfig) {
       layouts: "_layouts",
       data: "_data",
     },
-    templateFormats: ["html", "md", "njk"],
-    htmlTemplateEngine: "njk",
+    templateFormats: ["md", "njk"],
+    htmlTemplateEngine: false,
     markdownTemplateEngine: "njk",
   };
 };
