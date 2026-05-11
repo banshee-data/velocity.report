@@ -14,6 +14,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.5.1 - Release hardening (051)
 
 - [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
+- [#503] Opt-in Tailscale ACL roles: consume Tailscale capability grants to derive admin/view access for the web UI while keeping LAN access fully privileged by default `S`
+- [#461] `/command` whitelist + localhost listen defaults: restrict the `/command` API to allowed radar commands, reject empty or non-whitelisted payloads, and default the main and LiDAR HTTP listeners to `127.0.0.1` with aligned docs/tests `S`
 
 ### v0.5.2 - LiDAR measurement + replay foundations (052)
 
