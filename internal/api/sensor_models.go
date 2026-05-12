@@ -1,39 +1,43 @@
 package api
 
+import (
+	_ "embed"
+	"encoding/json"
+	"fmt"
+)
+
 // SensorModel defines capabilities and initialisation commands for a radar sensor
 type SensorModel struct {
-	Slug            string   `json:"slug"`
-	DisplayName     string   `json:"display_name"`
-	HasDoppler      bool     `json:"has_doppler"`
-	HasFMCW         bool     `json:"has_fmcw"`
-	HasDistance     bool     `json:"has_distance"`
-	DefaultBaudRate int      `json:"default_baud_rate"`
-	InitCommands    []string `json:"init_commands"`
-	Description     string   `json:"description"`
+	Slug               string   `json:"slug"`
+	DisplayName        string   `json:"display_name"`
+	HasDoppler         bool     `json:"has_doppler"`
+	HasFMCW            bool     `json:"has_fmcw"`
+	HasDistance        bool     `json:"has_distance"`
+	DefaultBaudRate    int      `json:"default_baud_rate"`
+	SupportedBaudRates []int    `json:"supported_baud_rates"`
+	InitCommands       []string `json:"init_commands"`
+	Description        string   `json:"description"`
 }
 
-// SupportedSensorModels is the application-level registry of sensor models
-var SupportedSensorModels = map[string]SensorModel{
-	"ops243-a": {
-		Slug:            "ops243-a",
-		DisplayName:     "OmniPreSense OPS243-A",
-		HasDoppler:      true,
-		HasFMCW:         false,
-		HasDistance:     false,
-		DefaultBaudRate: 19200,
-		InitCommands:    []string{"AX", "OJ", "OS", "OM", "OH", "OC"},
-		Description:     "Doppler radar with speed measurement only",
-	},
-	"ops243-c": {
-		Slug:            "ops243-c",
-		DisplayName:     "OmniPreSense OPS243-C",
-		HasDoppler:      true,
-		HasFMCW:         true,
-		HasDistance:     true,
-		DefaultBaudRate: 19200,
-		InitCommands:    []string{"AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"},
-		Description:     "FMCW radar with both speed and distance measurement",
-	},
+//go:embed sensor_models.json
+var sensorModelsJSON []byte
+
+// SupportedSensorModels is the application-level registry of sensor models,
+// loaded from the embedded sensor_models.json asset at package init.
+var SupportedSensorModels = loadSensorModels()
+
+func loadSensorModels() map[string]SensorModel {
+	var file struct {
+		Models []SensorModel `json:"models"`
+	}
+	if err := json.Unmarshal(sensorModelsJSON, &file); err != nil {
+		panic(fmt.Sprintf("sensor_models.json: %v", err))
+	}
+	out := make(map[string]SensorModel, len(file.Models))
+	for _, m := range file.Models {
+		out[m.Slug] = m
+	}
+	return out
 }
 
 // GetSensorModel looks up a sensor model by slug

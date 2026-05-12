@@ -1,0 +1,26 @@
+{
+	"models": [
+		{
+			"slug": "ops243-a",
+			"display_name": "OmniPreSense OPS243-A",
+			"has_doppler": true,
+			"has_fmcw": false,
+			"has_distance": false,
+			"default_baud_rate": 19200,
+			"supported_baud_rates": [9600, 19200, 57600, 115200, 230400],
+			"init_commands": ["AX", "OJ", "OS", "OM", "OH", "OC"],
+			"description": "Doppler radar with speed measurement only"
+		},
+		{
+			"slug": "ops243-c",
+			"display_name": "OmniPreSense OPS243-C",
+			"has_doppler": true,
+			"has_fmcw": true,
+			"has_distance": true,
+			"default_baud_rate": 19200,
+			"supported_baud_rates": [9600, 19200, 57600, 115200, 230400],
+			"init_commands": ["AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"],
+			"description": "FMCW radar with both speed and distance measurement"
+		}
+	]
+}
