@@ -1,7 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { Button, Checkbox, Dialog, Drawer, Field, Notification, TextField } from 'svelte-ux';
 	import {
 		createSerialConfig,
 		deleteSerialConfig,
@@ -10,15 +7,25 @@
 		getSerialDevices,
 		testSerialPort,
 		updateSerialConfig,
-		type SensorModel,
 		type SerialConfig,
 		type SerialConfigRequest,
 		type SerialDevice,
 		type SerialTestResponse
 	} from '$lib/api';
+	import { onMount } from 'svelte';
+	import {
+		Button,
+		Checkbox,
+		Dialog,
+		Drawer,
+		Field,
+		Notification,
+		SelectField,
+		TextField
+	} from 'svelte-ux';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let configs = $state<SerialConfig[]>([]);
-	let sensorModels = $state<SensorModel[]>([]);
 	let availableDevices = $state<SerialDevice[]>([]);
 	let loading = $state(true);
 	let message = $state('');
@@ -47,6 +54,7 @@
 
 	let testResult = $state<SerialTestResponse | null>(null);
 	let testing = $state(false);
+	let rescanning = $state(false);
 	let deletingConfig = $state<SerialConfig | null>(null);
 
 	let portPathOptions = $state<{ value: string; label: string }[]>([]);
@@ -77,7 +85,6 @@
 				getSerialDevices()
 			]);
 			configs = configsData;
-			sensorModels = modelsData;
 			availableDevices = devicesData;
 
 			const uniquePortPaths = new SvelteSet<string>();
@@ -88,7 +95,10 @@
 				.sort()
 				.map((path) => ({ value: path, label: path }));
 
-			sensorModelOptions = sensorModels.map((model) => ({
+			// Build options directly from the awaited response so the data
+			// flow is obvious — reading the $state mirror in the same tick
+			// has bitten us before with empty dropdowns.
+			sensorModelOptions = modelsData.map((model) => ({
 				value: model.slug,
 				label: model.display_name
 			}));
@@ -179,6 +189,37 @@
 		} catch (e) {
 			console.error('Failed to delete config:', e);
 			showMessage(`Failed to delete configuration: ${e}`, 'error');
+		}
+	}
+
+	// USB serial adapters can be hot-plugged after the page loads; this
+	// re-runs device enumeration on demand without reloading configs or
+	// sensor models (those don't change at runtime).
+	async function rescanDevices() {
+		try {
+			rescanning = true;
+			const devices = await getSerialDevices();
+			availableDevices = devices;
+
+			const uniquePortPaths = new SvelteSet<string>();
+			devices.forEach((d) => uniquePortPaths.add(d.port_path));
+			configs.forEach((c) => uniquePortPaths.add(c.port_path));
+
+			portPathOptions = Array.from(uniquePortPaths)
+				.sort()
+				.map((path) => ({ value: path, label: path }));
+
+			showMessage(
+				devices.length === 0
+					? 'No serial devices detected.'
+					: `Found ${devices.length} device${devices.length === 1 ? '' : 's'}.`,
+				devices.length === 0 ? 'info' : 'success'
+			);
+		} catch (e) {
+			console.error('Failed to rescan devices:', e);
+			showMessage('Failed to rescan serial devices', 'error');
+		} finally {
+			rescanning = false;
 		}
 	}
 
@@ -293,16 +334,47 @@
 			<div class="flex-1 space-y-4 overflow-y-auto p-4">
 				<TextField label="Configuration Name" bind:value={formData.name} required />
 
+				<!-- Port path is a free-text input with discovered ports as
+				     suggestions: not every device shows up under /dev
+				     enumeration (USB hubs, custom drivers, BeagleBone PRU
+				     pins), so users must be able to type a path that
+				     wasn't auto-detected. -->
 				<Field label="Port Path" let:id>
-					<select
-						{id}
-						bind:value={formData.port_path}
-						class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-					>
+					<div class="flex gap-2">
+						<input
+							{id}
+							type="text"
+							bind:value={formData.port_path}
+							list="serial-port-suggestions"
+							placeholder="/dev/ttyUSB0"
+							autocomplete="off"
+							spellcheck="false"
+							class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 flex-1 rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+						/>
+						<Button
+							on:click={rescanDevices}
+							variant="outline"
+							size="sm"
+							disabled={rescanning}
+							title="Re-scan for serial devices (use after plugging in a USB adapter)"
+						>
+							{rescanning ? 'Scanning...' : 'Rescan'}
+						</Button>
+					</div>
+					<datalist id="serial-port-suggestions">
 						{#each portPathOptions as opt (opt.value)}
-							<option value={opt.value}>{opt.label}</option>
+							<option value={opt.value}></option>
 						{/each}
-					</select>
+					</datalist>
+					<p class="text-surface-content/60 mt-1 text-xs">
+						{#if portPathOptions.length === 0}
+							No ports auto-detected — plug in your adapter and click Rescan, or type the device
+							path manually.
+						{:else}
+							{portPathOptions.length} port{portPathOptions.length === 1 ? '' : 's'} detected. Click Rescan
+							after plugging in a new adapter.
+						{/if}
+					</p>
 				</Field>
 
 				<Field label="Baud Rate" let:id>
@@ -317,17 +389,12 @@
 					</select>
 				</Field>
 
-				<Field label="Sensor Model" let:id>
-					<select
-						{id}
-						bind:value={formData.sensor_model}
-						class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-					>
-						{#each sensorModelOptions as opt (opt.value)}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				</Field>
+				<SelectField
+					label="Sensor Model"
+					bind:value={formData.sensor_model}
+					options={sensorModelOptions}
+					clearable={false}
+				/>
 
 				<div class="grid grid-cols-3 gap-4">
 					<Field label="Data Bits" let:id>
