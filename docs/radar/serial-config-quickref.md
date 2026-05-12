@@ -1,172 +1,123 @@
 # Serial configuration UI - quick reference
 
-- **Full Specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
+- **Status:** Active on this branch; most of the operator surface is landed, with rollout work still open
+- **Full specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
+- **API reference:** See [docs/radar/architecture/serial-configuration-api.md](architecture/serial-configuration-api.md)
+- **Implementation plan:** See [docs/plans/serial-configuration-implementation-plan.md](../plans/serial-configuration-implementation-plan.md)
 
-Quick-reference summary of the serial port configuration UI feature, covering core requirements, implementation phases, and key API endpoints.
+Quick-reference summary of what the serial configuration work on this branch actually brings, what it still does not do, and what remains before the backlog item can be closed without crossing fingers.
 
 ## What this feature enables
 
-Users can configure and test radar serial ports through a web interface instead of editing systemd service files.
+Users can manage radar serial settings through a local web interface instead of editing service files by hand. The branch lands database-backed storage, a real serial test surface, model metadata, available-port listing, and a dedicated `/settings/serial` page for create, edit, delete, and test workflows.
 
-## Core requirements
+It also adds a reload manager that can swap the active serial mux at runtime. What it does not yet do is make the main radar startup path load the database config by default, nor does it ship the auto-detect helpers originally described in the design draft.
 
-1. **Database Schema** - Store serial port configurations in SQLite
-2. **API Endpoints** - REST API for CRUD operations and testing
-3. **Serial Testing** - Validate port connectivity and auto-detect baud rate
-4. **Device Discovery** - List unassigned serial devices and auto-detect connected sensors
-5. **Web UI** - User-friendly interface at `/settings/serial`
-6. **Server Integration** - Load configs from DB at startup
-7. **Backward Compatible** - CLI flags still work
+## Delivered on this branch
 
-## Implementation phases
+1. **Database-backed configuration**: `radar_serial_config` now stores serial port definitions in SQLite.
+2. **Shipped API surface**: CRUD, sensor-model listing, available-device listing, serial testing, and reload endpoints are present.
+3. **Operator UI**: `/settings/serial` provides list, create, edit, delete, and test flows.
+4. **Application-owned sensor models**: OPS243 model metadata lives in Go code, not in a separate lookup table.
+5. **Hot-reload building block**: `SerialPortManager` can reload the active serial mux from DB state.
+6. **Backward compatibility**: the CLI `--port` path still exists.
 
-### Phase 1: database foundation (1-2 days)
+## Remaining work
 
-- Create `radar_serial_config` table
-- Migration with default HAT configuration
-- Server loads from database
-- CLI flag fallback for compatibility
+- Wire [cmd/radar/radar.go](../../cmd/radar/radar.go) to load enabled serial configs from the database at startup, with CLI fallback preserved.
+- Install the live `SerialPortManager` into the API server so saved settings can be applied to the real runtime path rather than only to tests.
+- Decide whether reload is explicit or automatic after save, then reflect that in the UI.
+- Add the deferred `auto-detect` and `detect-baud` endpoints plus the matching UI buttons if issue #290 is to be called fully complete.
+- Write the operator guide and run the flow on real Pi hardware.
 
-### Phase 2: API endpoints (3-4 days)
+## What the functionality brings
 
-- `/api/serial/configs` - CRUD operations
-- `/api/serial/devices` - Enumerate available serial paths (excludes ones already configured)
-- `/api/serial/test` - Test connection
-- `/api/serial/auto-detect` - Find connected device + baud
-- `/api/serial/detect-baud` - Auto-detect baud rate for known port
-- Unit and integration tests
-
-### Phase 3: web UI (4-5 days)
-
-- Configuration list page
-- Edit/create modal
-- Test connection UI
-- Device detection workflow (Detect Device button + filtered port dropdown)
-- Auto-detect baud button
-- User documentation
-
-### Phase 4: multi-sensor (future)
-
-- Multiple SerialMux instances
-- Data tagging with sensor ID
-- Multi-sensor analytics
+- Operators can inspect and edit serial settings without SSHing in to rewrite service arguments.
+- The test endpoint can validate a port and return raw responses before a config is trusted.
+- The UI can keep track of multiple saved configurations, even though the runtime currently still behaves like a single-active-sensor system.
+- Device listing filters out already-assigned ports so the UI is less likely to invite a foot-gun.
+- The reload manager lays the groundwork for live changes without full service restarts.
 
 ## Key design decisions
 
 1. **Database over config files** - Consistent with existing patterns
-2. **Application-side sensor models** - No migrations needed for new sensors, CHECK constraint validates
+2. **Application-side sensor models** - Application code owns capabilities; the DB enforces only a basic slug shape
 3. **Read-only testing** - Safe and non-disruptive
-4. **Selectable baud rates** - Prevents errors, auto-detect as helper
+4. **Selectable baud rates** - Prevents errors; auto-detect remains deferred
 5. **Multiple SerialMux instances** - Future-ready for multi-sensor
 
-## Database schema (FR1)
+## Database schema
 
 The `radar_serial_config` table stores serial port configurations:
 
-| Column         | Type    | Constraint / Default                                                 |
-| -------------- | ------- | -------------------------------------------------------------------- |
-| `id`           | INTEGER | PRIMARY KEY AUTOINCREMENT                                            |
-| `name`         | TEXT    | NOT NULL UNIQUE                                                      |
-| `port_path`    | TEXT    | NOT NULL                                                             |
-| `baud_rate`    | INTEGER | NOT NULL DEFAULT 19200                                               |
-| `data_bits`    | INTEGER | NOT NULL DEFAULT 8                                                   |
-| `stop_bits`    | INTEGER | NOT NULL DEFAULT 1                                                   |
-| `parity`       | TEXT    | NOT NULL DEFAULT `'N'`                                               |
-| `enabled`      | INTEGER | NOT NULL DEFAULT 1                                                   |
-| `description`  | TEXT    |                                                                      |
-| `sensor_model` | TEXT    | NOT NULL DEFAULT `'ops243-a'`, CHECK IN (`'ops243-a'`, `'ops243-c'`) |
-| `created_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                             |
-| `updated_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                             |
+| Column         | Type    | Constraint / Default                                              |
+| -------------- | ------- | ----------------------------------------------------------------- |
+| `id`           | INTEGER | PRIMARY KEY AUTOINCREMENT                                         |
+| `name`         | TEXT    | NOT NULL UNIQUE                                                   |
+| `port_path`    | TEXT    | NOT NULL                                                          |
+| `baud_rate`    | INTEGER | NOT NULL DEFAULT 19200                                            |
+| `data_bits`    | INTEGER | NOT NULL DEFAULT 8                                                |
+| `stop_bits`    | INTEGER | NOT NULL DEFAULT 1                                                |
+| `parity`       | TEXT    | NOT NULL DEFAULT `'N'`                                            |
+| `enabled`      | INTEGER | NOT NULL DEFAULT 1                                                |
+| `description`  | TEXT    |                                                                   |
+| `sensor_model` | TEXT    | NOT NULL DEFAULT `'ops243-a'`, basic `LIKE 'ops243-%'` validation |
+| `created_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                          |
+| `updated_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                          |
 
-**Note:** Sensor model information (capabilities, init commands) is stored in application code, not the database. The CHECK constraint validates that only supported sensor models are used.
+**Note:** Sensor model capabilities and initialisation commands are stored in application code. The database enforces a basic slug shape; the API validates supported models.
 
-## API endpoints (FR2-FR4)
+## Current API surface
 
 - `GET /api/serial/configs` - List all configurations
 - `GET /api/serial/configs/:id` - Get single configuration
-- `POST /api/serial/configs` - Create configuration (sensor_model validated against CHECK constraint)
+- `POST /api/serial/configs` - Create configuration
 - `PUT /api/serial/configs/:id` - Update configuration
 - `DELETE /api/serial/configs/:id` - Delete configuration
 - `GET /api/serial/devices` - List available serial devices (skips any port_path already in `radar_serial_config`)
 - `GET /api/serial/models` - List available sensor models (from application code)
 - `POST /api/serial/test` - Test serial port connection (with auto-correct baud option)
-- `POST /api/serial/auto-detect` - Probe all unassigned devices to find connected OPS243 sensors
-- `POST /api/serial/detect-baud` - Auto-detect baud rate for specified port
+- `POST /api/serial/reload` - Reload the live serial mux from the enabled database config
 
-## Testing algorithm (FR3)
+Deferred, not shipped on this branch:
+
+- `POST /api/serial/auto-detect`
+- `POST /api/serial/detect-baud`
+
+## Testing behaviour
 
 1. Open serial port with specified settings
-2. Send safe query command (`??`)
+2. Send safe query commands (`??`, `I?`)
 3. Wait for response (5 second timeout)
 4. Parse and log response (JSON or non-JSON)
    - Log both JSON and non-JSON responses for diagnostics
    - Non-JSON responses are valid for certain commands (e.g., `I?` returns plain text)
-5. Auto-correct baud rate if enabled (query with `I?` command, returns non-JSON response)
+5. Auto-correct baud rate in the response if enabled (query with `I?` command, returns non-JSON response)
 6. Return success/failure with diagnostics and captured responses
 
-**Baud Rate Auto-Correction:**
-When `auto_correct_baud: true` is set in test request, the system queries the device's current baud rate using the `I?` command (which returns a non-JSON numeric response). If the device reports a different rate than configured (e.g., user manually issued `I1`, `I2`, `I4`, or `I5` commands), the configuration is automatically updated to match the device's actual setting.
-
-**Response Logging:**
-All command responses are logged, including both JSON and non-JSON formats. This is essential because:
-
-- Query commands like `I?` return non-JSON text (e.g., "19200")
-- Device may not be in JSON mode before initialisation
-- Raw responses provide diagnostic information for troubleshooting
-
-## Auto-Detection (FR4)
-
-1. `GET /api/serial/devices` enumerates `/dev/tty*` and `/dev/serial*` entries, removes anything already saved in `radar_serial_config`, and returns USB metadata for labelling
-2. `POST /api/serial/auto-detect` iterates through the remaining device paths, probing each at common baud rates using safe commands (`??`, `I?`)
-3. On success, returns the detected `port_path`, `detected_baud_rate`, inferred `sensor_model`, and raw responses for diagnostics
-4. On failure, reports the ports tested and the ones excluded because they are already assigned, along with troubleshooting suggestions
-5. Users can still call `POST /api/serial/detect-baud` when only the baud rate needs to be identified for a known port
+**Baud Rate Auto-Correction:** When `auto_correct_baud: true` is set in the test request, the response reports the device's detected baud rate when it differs from the requested rate. The branch does not yet persist that correction back into `radar_serial_config` automatically.
 
 ## File locations
 
 **Backend:**
 
-- Migration: `internal/db/migrations/20251106_create_radar_serial_config.sql`
-- API handlers: `internal/api/serial_config.go`
-- Serial testing: `internal/api/serial_test.go`
-- Server changes: [cmd/radar/radar.go](../../cmd/radar/radar.go)
+- Schema snapshot: [internal/db/schema.sql](../../internal/db/schema.sql)
+- Migration files: [internal/db/migrations/000029_create_radar_serial_config.up.sql](../../internal/db/migrations/000029_create_radar_serial_config.up.sql), [internal/db/migrations/000029_create_radar_serial_config.down.sql](../../internal/db/migrations/000029_create_radar_serial_config.down.sql)
+- DB helpers: [internal/db/serial_config.go](../../internal/db/serial_config.go)
+- Sensor model registry: [internal/api/sensor_models.go](../../internal/api/sensor_models.go)
+- CRUD handlers: [internal/api/serial_config.go](../../internal/api/serial_config.go)
+- Test/device handlers: [internal/api/serial.go](../../internal/api/serial.go)
+- Reload manager: [internal/api/serial_reload.go](../../internal/api/serial_reload.go)
+- Server routes: [internal/api/server.go](../../internal/api/server.go)
 
 **Frontend:**
 
-- Route: `web/src/routes/settings/serial/+page.svelte`
-- API client: [web/src/lib/api.ts](../../web/src/lib/api.ts) (extend)
-- Types: `web/src/lib/types/serial.ts`
+- Route: [web/src/routes/(constrained)/settings/serial/+page.svelte](<../../web/src/routes/(constrained)/settings/serial/+page.svelte>)
+- API client: [web/src/lib/api.ts](../../web/src/lib/api.ts)
 
-**Documentation:**
+## Close-out view
 
-- User guide: `docs/src/guides/serial-configuration.md`
-- API reference: `docs/api/serial-endpoints.md`
+- Done enough to demonstrate the feature: yes.
+- Done enough to close issue #290 without qualifiers: not quite.
 
-## Success criteria
-
-- Users can configure serial ports via web UI
-- Test connection validates settings before saving
-- Auto-detect finds correct baud rate
-- Backward compatible with existing deployments
-- No breaking changes to CLI flags
-- Zero data collection downtime during changes
-
-## Security considerations
-
-- Restrict port paths to `/dev/tty*` and `/dev/serial*`
-- Prevent command injection via input validation
-- Rate limit test operations
-- Mutex protection for concurrent port access
-- Clear error messages for permission issues
-
-## Migration path
-
-**Existing Users:**
-
-1. Update binary (migration runs automatically)
-2. Serial config appears in database
-3. CLI flags still work (backward compatible)
-4. Optionally configure via UI
-5. Eventually remove CLI flags from service file
-
-**No Breaking Changes** - Existing deployments continue working
+The branch has earned the right to close most of the checklist. The remaining work is runtime adoption, apply/reload UX, auto-detect helpers, and operator documentation.
