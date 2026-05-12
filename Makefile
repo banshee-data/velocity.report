@@ -96,6 +96,7 @@ help:
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
+	@echo "  loc-coverage-chart   Render LOC + coverage SVG to dist/loc-coverage.svg"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
@@ -1015,7 +1016,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1146,6 +1147,22 @@ coverage: test-go-cov test-web-cov test-mac-cov
 	@echo "  - Go:     coverage.html"
 	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
 	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
+
+# Render the LOC + coverage chart SVG into dist/loc-coverage.svg.
+# Reads coverage.out, $(WEB_DIR)/coverage/lcov.info, and
+# $(MAC_DIR)/coverage.info if present; any missing file degrades that bucket
+# to un-hatched with a stderr warning. Used by .github/workflows/loc-coverage-chart.yml.
+loc-coverage-chart:
+	@command -v cloc >/dev/null 2>&1 || { \
+	  echo "cloc not found. Install with: brew install cloc / apt-get install cloc"; \
+	  exit 1; }
+	@mkdir -p dist
+	@python3 scripts/loc-coverage-chart.py \
+	  --go-coverage coverage.out \
+	  --web-coverage $(WEB_DIR)/coverage/lcov.info \
+	  --mac-coverage $(MAC_DIR)/coverage.info \
+	  --output dist/loc-coverage.svg
+	@echo "Wrote dist/loc-coverage.svg"
 
 # Run performance regression test
 test-perf:

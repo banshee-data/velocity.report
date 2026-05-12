@@ -15,6 +15,7 @@ Thumbs.db
 _site/
 .build/
 /build/
+/dist/
 .cache/
 .gocache/
 .gomodcache/
