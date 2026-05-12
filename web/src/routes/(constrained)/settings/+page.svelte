@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import {
 		disableTailscale,
 		enableTailscale,
@@ -12,6 +11,7 @@
 		type TransitRunInfo,
 		type TransitWorkerState
 	} from '$lib/api';
+	import SerialConfigSection from '$lib/components/SerialConfigSection.svelte';
 	import { paperSize, initializePaperSize, updatePaperSize } from '$lib/stores/paper';
 	import QRCode from 'qrcode';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '$lib/stores/timezone';
@@ -19,7 +19,6 @@
 	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '$lib/paper';
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
 	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
-	import { mdiBookOpenPageVariantOutline } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button, Card, Header, SelectField, Switch } from 'svelte-ux';
 
@@ -406,22 +405,10 @@
 </svelte:head>
 
 <div id="main-content" class="space-y-6 p-4">
-	<Header title="Settings" subheading="Display units, timezone, and transit worker" />
-
-	<!-- Navigation to other settings pages -->
-	<Card title="Settings Sections">
-		<div class="space-y-2 p-4">
-			<a
-				href={resolve('/settings/serial')}
-				class="hover:bg-surface-100 block rounded-lg border p-4 transition-colors"
-			>
-				<h3 class="font-semibold">Serial Configuration</h3>
-				<p class="text-surface-content/70 text-sm">
-					Configure and test radar sensor serial port connections
-				</p>
-			</a>
-		</div>
-	</Card>
+	<Header
+		title="Settings"
+		subheading="Display preferences, sensor serial ports, transit worker, and Tailscale"
+	/>
 
 	{#if loading}
 		<Card>
@@ -430,69 +417,39 @@
 			</div>
 		</Card>
 	{:else}
-		<div class="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
-			<Card title="Display Units" class="h-full">
-				<div class="space-y-4 p-4">
-					<p class="text-surface-content/70 text-sm">
-						Choose your preferred units for displaying speed values. Changes are saved automatically
-						and will override the server default ({getUnitLabel(config.units as Unit)}).
-					</p>
+		<Card title="Display Preferences">
+			<div class="space-y-4 p-4">
+				<SelectField
+					label="Speed units"
+					bind:value={selectedUnits}
+					options={AVAILABLE_UNITS}
+					clearable={false}
+				/>
+				<SelectField
+					label="Timezone"
+					bind:value={selectedTimezone}
+					options={AVAILABLE_TIMEZONES}
+					clearable={false}
+				/>
+				<SelectField
+					label="PDF paper size"
+					bind:value={selectedPaperSize}
+					options={AVAILABLE_PAPER_SIZES}
+					clearable={false}
+				/>
+				<p class="text-surface-content/70 text-xs">
+					Saved to this browser. Server defaults: {getUnitLabel(config.units as Unit)},
+					{getTimezoneLabel(config.timezone as Timezone)}. Current paper:
+					{getPaperLabel($paperSize)}.
+				</p>
+			</div>
+		</Card>
 
-					<SelectField
-						label="Speed Units"
-						bind:value={selectedUnits}
-						options={AVAILABLE_UNITS}
-						clearable={false}
-					/>
-				</div>
-			</Card>
-
-			<Card title="Display Timezone" class="h-full">
-				<div class="space-y-4 p-4">
-					<p class="text-surface-content/70 text-sm">
-						Choose your preferred timezone for displaying timestamps. Changes are saved
-						automatically and will override the server default ({getTimezoneLabel(
-							config.timezone as Timezone
-						)}).
-					</p>
-
-					<SelectField
-						label="Timezone"
-						bind:value={selectedTimezone}
-						options={AVAILABLE_TIMEZONES}
-						clearable={false}
-					/>
-				</div>
-			</Card>
-
-			<Card title="PDF Paper Size" class="h-full">
-				<div class="space-y-4 p-4">
-					<p class="text-surface-content/70 text-sm">
-						Choose the paper size used when generating PDF reports. Charts are sized to fit the
-						selected paper. Current selection: {getPaperLabel($paperSize)}.
-					</p>
-
-					<SelectField
-						label="Paper Size"
-						bind:value={selectedPaperSize}
-						options={AVAILABLE_PAPER_SIZES}
-						clearable={false}
-					/>
-				</div>
-			</Card>
-
-			<Card title="Documentation" class="h-full">
-				<div class="space-y-4 p-4">
-					<p class="text-surface-content/70 text-sm">
-						Open the embedded offline documentation served by this device.
-					</p>
-
-					<Button href="/docs/" icon={mdiBookOpenPageVariantOutline} variant="outline">
-						Open docs
-					</Button>
-				</div>
-			</Card>
-		</div>
+		<Card title="Sensor Serial Ports">
+			<div class="p-4">
+				<SerialConfigSection />
+			</div>
+		</Card>
 
 		{#if message}
 			<Card>
@@ -511,41 +468,6 @@
 				</div>
 			</Card>
 		{/if}
-
-		<Card title="Current Configuration">
-			<div class="grid grid-cols-1 gap-6 px-4 pb-4 md:grid-cols-2">
-				<div>
-					<p class="text-surface-content/60 mb-2 text-xs font-medium tracking-wide uppercase">
-						Display Units
-					</p>
-					<div class="text-sm">
-						<div class="flex justify-between gap-4 py-1">
-							<span class="text-surface-content/60">Server default</span>
-							<span>{getUnitLabel(config.units as Unit)}</span>
-						</div>
-						<div class="flex justify-between gap-4 py-1">
-							<span class="text-surface-content/60">Your setting</span>
-							<span class="font-medium">{getUnitLabel($displayUnits)}</span>
-						</div>
-					</div>
-				</div>
-				<div>
-					<p class="text-surface-content/60 mb-2 text-xs font-medium tracking-wide uppercase">
-						Display Timezone
-					</p>
-					<div class="text-sm">
-						<div class="flex justify-between gap-4 py-1">
-							<span class="text-surface-content/60">Server default</span>
-							<span>{getTimezoneLabel(config.timezone as Timezone)}</span>
-						</div>
-						<div class="flex justify-between gap-4 py-1">
-							<span class="text-surface-content/60">Your setting</span>
-							<span class="font-medium">{getTimezoneLabel($displayTimezone)}</span>
-						</div>
-					</div>
-				</div>
-			</div>
-		</Card>
 
 		<Card title="Transit Worker">
 			<div class="space-y-4 p-4">

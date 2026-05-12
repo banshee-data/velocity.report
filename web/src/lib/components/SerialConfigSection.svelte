@@ -1,16 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import {
-		Button,
-		Card,
-		Checkbox,
-		Dialog,
-		Field,
-		Header,
-		Notification,
-		TextField
-	} from 'svelte-ux';
+	import { Button, Checkbox, Dialog, Drawer, Field, Notification, TextField } from 'svelte-ux';
 	import {
 		createSerialConfig,
 		deleteSerialConfig,
@@ -26,7 +17,6 @@
 		type SerialTestResponse
 	} from '$lib/api';
 
-	// State
 	let configs = $state<SerialConfig[]>([]);
 	let sensorModels = $state<SensorModel[]>([]);
 	let availableDevices = $state<SerialDevice[]>([]);
@@ -34,17 +24,14 @@
 	let message = $state('');
 	let messageType = $state<'success' | 'error' | 'info'>('info');
 
-	// Load all data on mount
-	onMount(async () => {
-		await loadData();
-	});
-
-	// Dialog states
-	let showEditDialog = $state(false);
+	// The edit form lives in a right-side Drawer on desktop (full width on
+	// mobile via the `w-full sm:max-w-md` root class).  Delete confirmation
+	// and Test Result stay as centred Dialogs — destructive confirms and
+	// one-shot reads read better as modals.
+	let showEditDrawer = $state(false);
 	let showDeleteDialog = $state(false);
 	let showTestResultDialog = $state(false);
 
-	// Edit form state
 	let editingConfig = $state<SerialConfig | null>(null);
 	let formData = $state<SerialConfigRequest>({
 		name: '',
@@ -58,12 +45,28 @@
 		sensor_model: 'ops243-a'
 	});
 
-	// Test result state
 	let testResult = $state<SerialTestResponse | null>(null);
 	let testing = $state(false);
-
-	// Delete confirmation state
 	let deletingConfig = $state<SerialConfig | null>(null);
+
+	let portPathOptions = $state<{ value: string; label: string }[]>([]);
+	let sensorModelOptions = $state<{ value: string; label: string }[]>([]);
+
+	const baudRates = [9600, 19200, 38400, 57600, 115200];
+	const parityOptions = [
+		{ value: 'N', label: 'None' },
+		{ value: 'E', label: 'Even' },
+		{ value: 'O', label: 'Odd' }
+	];
+	const dataBitsArray = [5, 6, 7, 8];
+	const stopBitsArray = [1, 2];
+	const baudRateOptions = baudRates.map((rate) => ({ value: rate, label: rate.toString() }));
+	const dataBitsOptions = dataBitsArray.map((n) => ({ value: n, label: n.toString() }));
+	const stopBitsOptions = stopBitsArray.map((n) => ({ value: n, label: n.toString() }));
+
+	onMount(() => {
+		loadData();
+	});
 
 	async function loadData() {
 		try {
@@ -77,17 +80,13 @@
 			sensorModels = modelsData;
 			availableDevices = devicesData;
 
-			// Build comprehensive port options including all devices and existing configs
 			const uniquePortPaths = new SvelteSet<string>();
 			devicesData.forEach((d) => uniquePortPaths.add(d.port_path));
 			configsData.forEach((c) => uniquePortPaths.add(c.port_path));
 
 			portPathOptions = Array.from(uniquePortPaths)
 				.sort()
-				.map((path) => ({
-					value: path,
-					label: path
-				}));
+				.map((path) => ({ value: path, label: path }));
 
 			sensorModelOptions = sensorModels.map((model) => ({
 				value: model.slug,
@@ -109,16 +108,14 @@
 		}, 5000);
 	}
 
-	function openCreateDialog() {
+	function openCreateDrawer() {
 		editingConfig = null;
-
 		const defaultPort =
 			availableDevices.length > 0
 				? availableDevices[0].port_path
 				: portPathOptions.length > 0
 					? portPathOptions[0].value
 					: '';
-
 		formData = {
 			name: '',
 			port_path: defaultPort,
@@ -130,11 +127,10 @@
 			description: '',
 			sensor_model: 'ops243-a'
 		};
-
-		showEditDialog = true;
+		showEditDrawer = true;
 	}
 
-	function openEditDialog(config: SerialConfig) {
+	function openEditDrawer(config: SerialConfig) {
 		editingConfig = config;
 		formData = {
 			name: config.name,
@@ -147,8 +143,7 @@
 			description: config.description,
 			sensor_model: config.sensor_model
 		};
-
-		showEditDialog = true;
+		showEditDrawer = true;
 	}
 
 	function openDeleteDialog(config: SerialConfig) {
@@ -165,7 +160,7 @@
 				await createSerialConfig(formData);
 				showMessage('Configuration created successfully', 'success');
 			}
-			showEditDialog = false;
+			showEditDrawer = false;
 			await loadData();
 		} catch (e) {
 			console.error('Failed to save config:', e);
@@ -175,7 +170,6 @@
 
 	async function handleDelete() {
 		if (!deletingConfig) return;
-
 		try {
 			await deleteSerialConfig(deletingConfig.id);
 			showMessage('Configuration deleted successfully', 'success');
@@ -200,11 +194,9 @@
 				timeout_seconds: 5,
 				auto_correct_baud: true
 			});
-
 			if (testResult.baud_rate !== formData.baud_rate) {
 				formData.baud_rate = testResult.baud_rate;
 			}
-
 			showTestResultDialog = true;
 		} catch (e) {
 			console.error('Failed to test serial port:', e);
@@ -213,35 +205,9 @@
 			testing = false;
 		}
 	}
-
-	// Option arrays
-	const baudRates = [9600, 19200, 38400, 57600, 115200];
-	const parityOptions = [
-		{ value: 'N', label: 'None' },
-		{ value: 'E', label: 'Even' },
-		{ value: 'O', label: 'Odd' }
-	];
-	const dataBitsArray = [5, 6, 7, 8];
-	const stopBitsArray = [1, 2];
-
-	let portPathOptions = $state<{ value: string; label: string }[]>([]);
-	const baudRateOptions = baudRates.map((rate) => ({ value: rate, label: rate.toString() }));
-	const dataBitsOptions = dataBitsArray.map((n) => ({ value: n, label: n.toString() }));
-	const stopBitsOptions = stopBitsArray.map((n) => ({ value: n, label: n.toString() }));
-	let sensorModelOptions = $state<{ value: string; label: string }[]>([]);
 </script>
 
-<svelte:head>
-	<title>Serial Configuration ⚙️ velocity.report</title>
-	<meta name="description" content="Configure radar serial port settings" />
-</svelte:head>
-
-<div id="main-content" class="space-y-6 p-4">
-	<Header
-		title="Serial Configuration"
-		subheading="Configure and test radar sensor serial port connections."
-	/>
-
+<div class="space-y-4">
 	{#if message}
 		<Notification
 			title={messageType === 'success' ? 'Success' : messageType === 'error' ? 'Error' : 'Info'}
@@ -256,174 +222,170 @@
 	{/if}
 
 	{#if loading}
-		<Card>
-			<div class="p-4" role="status" aria-live="polite">
-				<p>Loading serial configurations...</p>
-			</div>
-		</Card>
+		<p class="text-surface-content/70 text-sm" role="status" aria-live="polite">
+			Loading serial configurations...
+		</p>
 	{:else}
-		<Card>
-			<div class="space-y-4 p-4">
-				<div class="flex items-center justify-between">
-					<h2 class="text-lg font-semibold">Serial Port Configurations</h2>
-					<Button on:click={openCreateDialog} variant="fill" color="primary">
-						Add Serial Port
-					</Button>
-				</div>
+		<div class="flex items-center justify-between">
+			<p class="text-surface-content/70 text-sm">
+				Configure and test radar sensor serial port connections.
+			</p>
+			<Button on:click={openCreateDrawer} variant="fill" color="primary">Add serial port</Button>
+		</div>
 
-				{#if configs.length === 0}
-					<p class="text-surface-content/70">No serial configurations found.</p>
-				{:else}
-					<div class="overflow-x-auto">
-						<table class="w-full border-collapse">
-							<thead>
-								<tr class="border-b">
-									<th class="px-4 py-2 text-left font-semibold">Name</th>
-									<th class="px-4 py-2 text-left font-semibold">Port Path</th>
-									<th class="px-4 py-2 text-left font-semibold">Baud Rate</th>
-									<th class="px-4 py-2 text-left font-semibold">Status</th>
-									<th class="px-4 py-2 text-left font-semibold">Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each configs as row (row.id)}
-									<tr class="hover:bg-surface-50 border-b transition-colors">
-										<td class="px-4 py-2">{row.name}</td>
-										<td class="px-4 py-2">{row.port_path}</td>
-										<td class="px-4 py-2">{row.baud_rate}</td>
-										<td class="px-4 py-2">
-											{#if row.enabled}
-												<span class="text-success-500 font-medium">Enabled</span>
-											{:else}
-												<span class="text-surface-content/50">Disabled</span>
-											{/if}
-										</td>
-										<td class="px-4 py-2">
-											<div class="flex gap-2">
-												<Button on:click={() => openEditDialog(row)} size="sm" variant="outline">
-													Edit
-												</Button>
-												<Button
-													on:click={() => openDeleteDialog(row)}
-													size="sm"
-													variant="outline"
-													color="danger"
-												>
-													Delete
-												</Button>
-											</div>
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
+		{#if configs.length === 0}
+			<p class="text-surface-content/70 text-sm">No serial configurations found.</p>
+		{:else}
+			<div class="overflow-x-auto">
+				<table class="w-full border-collapse">
+					<thead>
+						<tr class="border-b">
+							<th class="px-4 py-2 text-left font-semibold">Name</th>
+							<th class="px-4 py-2 text-left font-semibold">Port Path</th>
+							<th class="px-4 py-2 text-left font-semibold">Baud Rate</th>
+							<th class="px-4 py-2 text-left font-semibold">Status</th>
+							<th class="px-4 py-2 text-left font-semibold">Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each configs as row (row.id)}
+							<tr class="hover:bg-surface-50 border-b transition-colors">
+								<td class="px-4 py-2">{row.name}</td>
+								<td class="px-4 py-2">{row.port_path}</td>
+								<td class="px-4 py-2">{row.baud_rate}</td>
+								<td class="px-4 py-2">
+									{#if row.enabled}
+										<span class="text-success-500 font-medium">Enabled</span>
+									{:else}
+										<span class="text-surface-content/50">Disabled</span>
+									{/if}
+								</td>
+								<td class="px-4 py-2">
+									<div class="flex gap-2">
+										<Button on:click={() => openEditDrawer(row)} size="sm" variant="outline">
+											Edit
+										</Button>
+										<Button
+											on:click={() => openDeleteDialog(row)}
+											size="sm"
+											variant="outline"
+											color="danger"
+										>
+											Delete
+										</Button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
-		</Card>
+		{/if}
 	{/if}
 
-	<!-- Edit/Create Dialog -->
-	<Dialog bind:open={showEditDialog} class="max-w-2xl">
-		<div class="space-y-4 p-6">
-			<h2 class="text-xl font-semibold">
-				{editingConfig ? 'Edit' : 'Create'} Serial Configuration
-			</h2>
+	<!-- Edit/Create Drawer (right-side on desktop, full-width on mobile) -->
+	<Drawer bind:open={showEditDrawer} placement="right" classes={{ root: 'w-full sm:max-w-md' }}>
+		<div class="flex h-full flex-col">
+			<header class="border-b p-4 text-lg font-semibold">
+				{editingConfig ? 'Edit' : 'Add'} serial port
+			</header>
 
-			<TextField label="Configuration Name" bind:value={formData.name} required />
+			<div class="flex-1 space-y-4 overflow-y-auto p-4">
+				<TextField label="Configuration Name" bind:value={formData.name} required />
 
-			<Field label="Port Path" let:id>
-				<select
-					{id}
-					bind:value={formData.port_path}
-					class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-				>
-					{#each portPathOptions as opt (opt.value)}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</Field>
-
-			<Field label="Baud Rate" let:id>
-				<select
-					{id}
-					bind:value={formData.baud_rate}
-					class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-				>
-					{#each baudRateOptions as opt (opt.value)}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</Field>
-
-			<Field label="Sensor Model" let:id>
-				<select
-					{id}
-					bind:value={formData.sensor_model}
-					class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-				>
-					{#each sensorModelOptions as opt (opt.value)}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			</Field>
-
-			<div class="grid grid-cols-3 gap-4">
-				<Field label="Data Bits" let:id>
+				<Field label="Port Path" let:id>
 					<select
 						{id}
-						bind:value={formData.data_bits}
+						bind:value={formData.port_path}
 						class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
 					>
-						{#each dataBitsOptions as opt (opt.value)}
+						{#each portPathOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</select>
 				</Field>
 
-				<Field label="Stop Bits" let:id>
+				<Field label="Baud Rate" let:id>
 					<select
 						{id}
-						bind:value={formData.stop_bits}
+						bind:value={formData.baud_rate}
 						class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
 					>
-						{#each stopBitsOptions as opt (opt.value)}
+						{#each baudRateOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</select>
 				</Field>
 
-				<Field label="Parity" let:id>
+				<Field label="Sensor Model" let:id>
 					<select
 						{id}
-						bind:value={formData.parity}
+						bind:value={formData.sensor_model}
 						class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
 					>
-						{#each parityOptions as opt (opt.value)}
+						{#each sensorModelOptions as opt (opt.value)}
 							<option value={opt.value}>{opt.label}</option>
 						{/each}
 					</select>
+				</Field>
+
+				<div class="grid grid-cols-3 gap-4">
+					<Field label="Data Bits" let:id>
+						<select
+							{id}
+							bind:value={formData.data_bits}
+							class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+						>
+							{#each dataBitsOptions as opt (opt.value)}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</Field>
+
+					<Field label="Stop Bits" let:id>
+						<select
+							{id}
+							bind:value={formData.stop_bits}
+							class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+						>
+							{#each stopBitsOptions as opt (opt.value)}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</Field>
+
+					<Field label="Parity" let:id>
+						<select
+							{id}
+							bind:value={formData.parity}
+							class="border-surface-content/20 bg-surface-100 focus:border-primary focus:ring-primary/20 w-full rounded border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+						>
+							{#each parityOptions as opt (opt.value)}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</Field>
+				</div>
+
+				<TextField label="Description" bind:value={formData.description} multiline rows={3} />
+
+				<Field label="Enabled" let:id>
+					<Checkbox {id} bind:checked={formData.enabled}>Enable</Checkbox>
 				</Field>
 			</div>
 
-			<TextField label="Description" bind:value={formData.description} multiline rows={3} />
-
-			<Field label="Enabled" let:id>
-				<Checkbox {id} bind:checked={formData.enabled}>Enable</Checkbox>
-			</Field>
-
-			<div class="flex gap-2 pt-4">
+			<footer class="flex gap-2 border-t p-4">
 				<Button on:click={handleTest} variant="outline" disabled={testing}>
-					{testing ? 'Testing...' : 'Test Connection'}
+					{testing ? 'Testing...' : 'Test connection'}
 				</Button>
 				<div class="flex-1"></div>
-				<Button on:click={() => (showEditDialog = false)} variant="outline">Cancel</Button>
+				<Button on:click={() => (showEditDrawer = false)} variant="outline">Cancel</Button>
 				<Button on:click={handleSave} variant="fill" color="primary">Save</Button>
-			</div>
+			</footer>
 		</div>
-	</Dialog>
+	</Drawer>
 
-	<!-- Delete Confirmation Dialog -->
+	<!-- Delete Confirmation (modal — destructive) -->
 	<Dialog bind:open={showDeleteDialog} class="max-w-md">
 		<div class="space-y-4 p-6">
 			<h2 class="text-xl font-semibold">Delete Configuration</h2>
@@ -438,7 +400,7 @@
 		</div>
 	</Dialog>
 
-	<!-- Test Result Dialog -->
+	<!-- Test Result (modal — one-shot read-only) -->
 	<Dialog bind:open={showTestResultDialog} class="max-w-2xl">
 		<div class="space-y-4 p-6">
 			<h2 class="text-xl font-semibold">Serial Port Test Results</h2>
