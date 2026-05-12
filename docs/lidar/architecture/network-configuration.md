@@ -1,7 +1,7 @@
 # LiDAR network configuration
 
 - **Status:** Proposed
-- **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`LIDAR_ARCHITECTURE.md`](./LIDAR_ARCHITECTURE.md), [`networking.md`](../../radar/architecture/networking.md)
+- **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`LIDAR_ARCHITECTURE.md`](./LIDAR_ARCHITECTURE.md), [`networking.md`](../../radar/architecture/networking.md), [`sensor-catalog-and-runtime-config.md`](../../platform/architecture/sensor-catalog-and-runtime-config.md)
 
 Architecture for interface-aware UDP binding, network diagnostics, hot-reload configuration, and a settings UI for the LiDAR sensor network layer.
 
@@ -71,9 +71,9 @@ The Hesai Pandar40P broadcasts UDP packets at ~1,400 packets/sec (~10 Mbps) on i
 
 ### Database schema
 
-A new `lidar_network_config` table stores the network binding configuration, following the `radar_serial_config` pattern:
+A new `lidar_network_config` table stores the network binding configuration, following the `radar_serial_config` pattern while relying on the shared sensor catalog for model defaults and parser identity:
 
-> **Source:** Migration in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Table `lidar_network_config` with columns: id, name, interface_name, bind_address, udp_port (default 2369, CHECK 1024–65535), receive_buffer (default 4 MiB, CHECK 64 KiB – 64 MiB), enabled, description, sensor_model (CHECK `LIKE 'hesai-%'`), forward_enabled, forward_address, forward_port, created_at, updated_at. An AFTER UPDATE trigger maintains `updated_at`.
+> **Source:** Migration in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Table `lidar_network_config` with columns: id, name, interface_name, bind_address, udp_port (default 2369, CHECK 1024–65535), receive_buffer (default 4 MiB, CHECK 64 KiB – 64 MiB), enabled, description, sensor_model, forward_enabled, forward_address, forward_port, created_at, updated_at. `sensor_model` should reference a shared catalog slug such as `hesai-pandar40p`, `velodyne-vlp16`, or `ouster-os1-64`, rather than baking vendor-specific transport assumptions into the table.
 
 **Key fields:**
 
@@ -83,10 +83,12 @@ A new `lidar_network_config` table stores the network binding configuration, fol
 | `bind_address`   | Explicit IP to bind (e.g., `192.168.1.100`). Empty string = derive from interface_name                                                                                   |
 | `udp_port`       | UDP port to listen on (default 2369). Restricted to unprivileged range                                                                                                   |
 | `receive_buffer` | OS socket receive buffer in bytes (default 4 MiB, max 64 MiB). Higher values reduce packet drops under burst load; 64 MiB ceiling is safe on Raspberry Pi 4 (1–8 GB RAM) |
-| `sensor_model`   | Sensor identifier for parser selection. CHECK constraint: `LIKE 'hesai-%'`                                                                                               |
+| `sensor_model`   | Sensor identifier for parser selection, resolved through the shared sensor catalog                                                                                       |
 | `forward_*`      | Packet forwarding target (configured via `l1.forward_port` and `l1.foreground_forward_port` in the tuning config file)                                                   |
 
 **Bind address resolution:** When `interface_name` is set but `bind_address` is empty, the system resolves the interface's primary IPv4 address at bind time. When both are empty, the listener binds to `0.0.0.0` (wildcard). When `bind_address` is explicit, it is used directly regardless of `interface_name`.
+
+The important boundary is that interface names, bind addresses, enabled flags, and forwarding choices stay in `lidar_network_config`; model defaults such as parser identity, default ports, and supported timestamp modes belong in the shared sensor catalog.
 
 ### LiDAR network manager
 

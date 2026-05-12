@@ -1,7 +1,7 @@
 # LiDAR multi-model ingestion and configuration
 
 - **Status:** Proposed
-- **Related:** [`LIDAR_ARCHITECTURE.md`](./LIDAR_ARCHITECTURE.md), [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md)
+- **Related:** [`LIDAR_ARCHITECTURE.md`](./LIDAR_ARCHITECTURE.md), [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md), [`sensor-catalog-and-runtime-config.md`](../../platform/architecture/sensor-catalog-and-runtime-config.md)
 
 Architecture changes needed to support multiple LiDAR sensor models with different UDP packet formats, while preserving the single-binary, privacy-first deployment model.
 
@@ -66,17 +66,17 @@ These should live behind per-model parser implementations so L2+ layers stay unc
 
 ## Configuration storage
 
-Use SQLite as canonical storage with three focused tables:
+Use the shared sensor catalog plus LiDAR-specific runtime tables, rather than inventing a second model catalogue just for LiDAR.
 
-1. `lidar_model_catalog`
-   - immutable model identity and default capability metadata
-   - seeded from embedded defaults on startup/migration
+1. Shared sensor catalog
+   - immutable model identity, capability metadata, parser identity, and ingest defaults
+   - seeded from embedded defaults and served to both radar and LiDAR surfaces
 2. `lidar_model_profiles`
-   - operator-editable per-site overrides (ports, timestamp mode, calibration paths, parser knobs)
+   - operator-editable LiDAR-specific overrides such as timestamp mode, calibration paths, and parser knobs
 3. `lidar_ingest_config`
    - active ingestion binding (network interface/bind address/port + selected profile), one enabled row
 
-This mirrors existing repository conventions: stable catalogue + editable config + single active runtime binding.
+This mirrors the platform rule documented in [sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md): one catalog entry describes the model, while runtime tables describe how this host talks to that model.
 
 ## Configuration serving
 

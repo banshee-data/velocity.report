@@ -3,6 +3,7 @@
 - **Status:** Active
 - **Issue:** Serial config + test (baud, port) via UI
 - **Implementation plan:** [../../plans/serial-configuration-implementation-plan.md](../../plans/serial-configuration-implementation-plan.md)
+- **Related platform architecture:** [../../platform/architecture/sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md)
 
 Design specification for a web-based interface that lets users configure and test radar serial port settings without manually editing systemd service files.
 
@@ -112,8 +113,8 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Rationale:**
 
-- **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via SQLite CHECK constraint
-- **Application-Side Logic:** Sensor capabilities and initialisation commands stored in application code, not database
+- **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via the API and runtime catalog
+- **Application-Side Logic:** Sensor capabilities and ingest defaults live in the application-owned catalog, not the database
 - **CHECK Constraint:** Validates sensor model values at database level without requiring separate table
 - **Migration-Friendly:** Adding new sensor models only requires application update, not database migration
 - **Serial Settings (8N1):** Standard configuration for OPS243A radar (8 data bits, No parity, 1 stop bit)
@@ -125,7 +126,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Sensor Model Information (Application Code):**
 
-> **Source:** Sensor model registry in [internal/api/sensor_models.go](../../../internal/api/sensor_models.go). Defines `SensorModel` and `SupportedSensorModels` for `ops243-a` and `ops243-c`.
+> **Source:** Sensor model registry in [internal/api/sensor_models.go](../../../internal/api/sensor_models.go). The current implementation is radar-shaped today; the intended cross-cutting direction is documented in [sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md).
 
 #### FR2: Go API endpoints for serial configuration
 
@@ -466,7 +467,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Rejected:** Database reference table requires migrations for new sensors. Freeform text lacks validation and type safety.
 
-The CHECK constraint in the migration validates sensor model slugs at the database level. Adding new sensor models requires both an application update and a migration to update the CHECK constraint.
+The current radar implementation uses an application-owned catalog plus lightweight DB validation. As LiDAR families are added, the catalog should evolve into the shared cross-family model described in [sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md), while `radar_serial_config` remains the runtime table for local serial settings.
 
 ## Migration path for existing deployments
 
