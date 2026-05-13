@@ -701,18 +701,6 @@ CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases 
         , 0.5
           );
 
-CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes (sensor_id);
-
-CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes (pcap_file);
-
-CREATE INDEX idx_missed_regions_run_id ON lidar_missed_regions (run_id);
-
-CREATE INDEX idx_lidar_sweeps_sensor ON lidar_sweeps (sensor_id);
-
-CREATE INDEX idx_lidar_sweeps_status ON lidar_sweeps (status);
-
-CREATE UNIQUE INDEX idx_evaluations_pair ON lidar_evaluations (reference_run_id, candidate_run_id);
-
    CREATE TABLE radar_serial_config (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
