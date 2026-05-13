@@ -89,24 +89,47 @@ class BucketStats:
 
 
 def run_cloc(repo_root: Path) -> dict[str, int]:
-    """Return {language: code_lines} via cloc, restricted to git-tracked files."""
+    """Return {language: code_lines} via cloc, restricted to git-tracked files.
+
+    We enumerate git-tracked files ourselves and pipe them to cloc via
+    ``--list-file=-`` rather than using cloc's ``--vcs=git`` mode. That
+    sidesteps cloc's restriction that ``--exclude-dir`` accepts only bare
+    directory names (cloc 2.08 errors out on path-style entries like
+    ``web/build``) and gives us deterministic, exact control over which
+    tracked files are counted.
+    """
     if shutil.which("cloc") is None:
         sys.exit(
             "cloc not found on PATH. Install with: brew install cloc / "
             "apt-get install cloc."
         )
-    exclude_arg = ",".join(EXCLUDE_DIRS)
-    cmd = [
-        "cloc",
-        "--json",
-        "--quiet",
-        "--vcs=git",
-        "--exclude-dir=" + exclude_arg,
-        "--exclude-ext=pb.go",
-        str(repo_root),
-    ]
-    out = subprocess.run(cmd, capture_output=True, check=True, text=True)
-    payload = json.loads(out.stdout)
+    ls = subprocess.run(
+        ["git", "ls-files"],
+        cwd=repo_root,
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    selected: list[str] = []
+    for path in ls.stdout.splitlines():
+        if not path:
+            continue
+        if any(path == p or path.startswith(p + "/") for p in EXCLUDE_DIRS):
+            continue
+        if path.endswith(".pb.go"):
+            continue
+        selected.append(path)
+    if not selected:
+        sys.exit("git ls-files returned no tracked files to count.")
+    proc = subprocess.run(
+        ["cloc", "--json", "--quiet", "--list-file=-"],
+        cwd=repo_root,
+        input="\n".join(selected),
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    payload = json.loads(proc.stdout)
     return {
         lang: data["code"]
         for lang, data in payload.items()
