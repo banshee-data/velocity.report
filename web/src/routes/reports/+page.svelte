@@ -28,7 +28,7 @@
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
 	import { onMount } from 'svelte';
-	import { Button, Card, DateRangeField, Header, SelectField } from 'svelte-ux';
+	import { Button, DateRangeField, SelectField } from 'svelte-ux';
 
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let loading = true;
@@ -364,280 +364,298 @@
 	<meta name="description" content="Generate traffic reports and compare survey periods" />
 </svelte:head>
 
-<div id="main-content" class="space-y-6 p-4">
-	<Header title="Report Generator" subheading="Generate PDF reports and compare survey periods" />
-
-	{#if loading}
-		<div role="status" aria-live="polite" aria-busy="true">
-			<p>Loading report options…</p>
-			<span class="sr-only">Please wait while we fetch configuration data</span>
+<main id="main-content" class="vr-page">
+	<div class="vr-toolbar">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-surface-content text-2xl font-semibold">Report Generator</h1>
+				<p class="text-surface-content/60 mt-1 text-sm">
+					Generate PDF reports and compare survey periods
+				</p>
+			</div>
 		</div>
-	{:else if error}
-		<div
-			role="alert"
-			aria-live="assertive"
-			class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
-		>
-			{error}
-		</div>
-	{:else}
-		{#if hasReportFeedback}
-			<Card>
-				<div class="space-y-3 p-4">
-					{#if reportMessage}
-						<div
-							role={lastGeneratedReportId !== null ? 'status' : 'alert'}
-							aria-live="polite"
-							class={`rounded border p-3 ${reportMessageTone}`}
-						>
-							{reportMessage}
-						</div>
-					{/if}
+	</div>
 
-					{#if lastGeneratedReportId !== null}
-						<div class="space-y-3" role="region" aria-label="Report download options">
-							<h3 class="text-base font-semibold">Report Ready</h3>
-							{#if reportMetadata}
-								<div class="flex gap-2">
-									<!-- eslint-disable svelte/no-navigation-without-resolve -->
-									<a
-										href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
-										class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
-										download
-										aria-label="Download PDF report"
-									>
-										📄 Download PDF
-									</a>
-									{#if reportMetadata.zip_filename}
-										<!-- eslint-disable svelte/no-navigation-without-resolve -->
-										<a
-											href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
-											class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
-											download
-											aria-label="Download source files as ZIP archive"
-										>
-											📦 Download Sources (ZIP)
-										</a>
-									{/if}
+	<div class="flex flex-1 overflow-hidden">
+		<div class="flex-1 space-y-6 overflow-y-auto p-6">
+			{#if loading}
+				<div role="status" aria-live="polite" aria-busy="true">
+					<p>Loading report options…</p>
+					<span class="sr-only">Please wait while we fetch configuration data</span>
+				</div>
+			{:else if error}
+				<div
+					role="alert"
+					aria-live="assertive"
+					class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+				>
+					{error}
+				</div>
+			{:else}
+				{#if hasReportFeedback}
+					<section class="border-surface-content/10 bg-surface-100 rounded-lg border">
+						<div class="space-y-3 p-4">
+							{#if reportMessage}
+								<div
+									role={lastGeneratedReportId !== null ? 'status' : 'alert'}
+									aria-live="polite"
+									class={`rounded border p-3 ${reportMessageTone}`}
+								>
+									{reportMessage}
 								</div>
-							{:else}
-								<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
-									Loading download links...
-								</p>
 							{/if}
-							<p class="text-surface-600-300-token text-xs">
-								The ZIP file contains LaTeX source files and chart SVG assets for custom editing.
+
+							{#if lastGeneratedReportId !== null}
+								<div class="space-y-3" role="region" aria-label="Report download options">
+									<h3 class="text-base font-semibold">Report Ready</h3>
+									{#if reportMetadata}
+										<div class="flex gap-2">
+											<!-- eslint-disable svelte/no-navigation-without-resolve -->
+											<a
+												href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
+												class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+												download
+												aria-label="Download PDF report"
+											>
+												📄 Download PDF
+											</a>
+											{#if reportMetadata.zip_filename}
+												<!-- eslint-disable svelte/no-navigation-without-resolve -->
+												<a
+													href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
+													class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+													download
+													aria-label="Download source files as ZIP archive"
+												>
+													📦 Download Sources (ZIP)
+												</a>
+											{/if}
+										</div>
+									{:else}
+										<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
+											Loading download links...
+										</p>
+									{/if}
+									<p class="text-surface-600-300-token text-xs">
+										The ZIP file contains LaTeX source files and chart SVG assets for custom
+										editing.
+									</p>
+								</div>
+							{/if}
+						</div>
+					</section>
+				{/if}
+
+				<section class="border-surface-content/10 bg-surface-100 rounded-lg border">
+					<div class="space-y-4 p-6">
+						<div class="flex flex-wrap items-end gap-4">
+							<div class="w-70 space-y-2">
+								<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
+								<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
+							</div>
+							<div class="w-24">
+								<DataSourceSelector bind:value={selectedSource} />
+							</div>
+							<div class="w-24">
+								<SelectField bind:value={group} label="Group" {options} clearable={false} />
+							</div>
+							<!-- Keep the site selector wide enough for typical site names. -->
+							<div class="w-38">
+								<SelectField
+									bind:value={selectedSiteId}
+									label="Site"
+									options={siteOptions}
+									clearable={false}
+								/>
+							</div>
+						</div>
+						<div class="flex flex-wrap items-end gap-4">
+							<div class="w-42">
+								<label class="text-surface-content/80 block text-sm font-medium">
+									Min Speed ({$displayUnits})
+									<input
+										type="number"
+										bind:value={minSpeed}
+										min="0"
+										step="1"
+										class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+									/>
+								</label>
+							</div>
+							<div class="w-42">
+								<label class="text-surface-content/80 block text-sm font-medium">
+									Max Speed Cutoff ({$displayUnits})
+									<input
+										type="number"
+										bind:value={maxSpeedCutoff}
+										min="0"
+										step="5"
+										placeholder="None"
+										class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+									/>
+								</label>
+							</div>
+							<div class="w-42">
+								<label class="text-surface-content/80 block text-sm font-medium">
+									Min Period Count
+									<input
+										type="number"
+										bind:value={boundaryThreshold}
+										min="0"
+										step="1"
+										class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+									/>
+								</label>
+							</div>
+						</div>
+
+						<label class="text-surface-content/80 flex items-start gap-2 text-sm font-medium">
+							<input type="checkbox" bind:checked={expandedChart} class="mt-0.5 h-4 w-4" />
+							<span>
+								Expanded chart
+								<span class="text-surface-content/60 block text-xs font-normal">
+									Show all time periods with linear timestamps. Leave off to collapse sparse gaps
+									for a consolidated chart.
+								</span>
+							</span>
+						</label>
+
+						<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
+							<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />
+							Compare against another period
+						</label>
+
+						{#if compareEnabled}
+							<div class="flex flex-wrap items-end gap-4">
+								<div class="w-70 space-y-2">
+									<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
+									<DateRangeField
+										bind:value={compareRange}
+										periodTypes={[PeriodType.Day]}
+										stepper
+									/>
+								</div>
+								<div class="w-24">
+									<DataSourceSelector bind:value={compareSource} />
+								</div>
+							</div>
+						{/if}
+
+						<div class="flex flex-wrap items-center gap-3">
+							<Button
+								on:click={handleGenerateReport}
+								disabled={generatingReport || selectedSiteId == null}
+								variant="fill"
+								color="primary"
+								aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
+							>
+								{generatingReport ? 'Generating…' : 'Generate Report'}
+							</Button>
+							<p class="text-surface-content/60 text-xs">
+								Reports use {$displayUnits} units and {$displayTimezone} timezone settings.
 							</p>
 						</div>
-					{/if}
-				</div>
-			</Card>
-		{/if}
+					</div>
+				</section>
 
-		<Card>
-			<div class="space-y-4 p-6">
-				<div class="flex flex-wrap items-end gap-4">
-					<div class="w-70 space-y-2">
-						<p class="text-surface-content/80 text-sm font-medium">Primary period</p>
-						<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
-					</div>
-					<div class="w-24">
-						<DataSourceSelector bind:value={selectedSource} />
-					</div>
-					<div class="w-24">
-						<SelectField bind:value={group} label="Group" {options} clearable={false} />
-					</div>
-					<!-- Keep the site selector wide enough for typical site names. -->
-					<div class="w-38">
-						<SelectField
-							bind:value={selectedSiteId}
-							label="Site"
-							options={siteOptions}
-							clearable={false}
-						/>
-					</div>
-				</div>
-				<div class="flex flex-wrap items-end gap-4">
-					<div class="w-42">
-						<label class="text-surface-content/80 block text-sm font-medium">
-							Min Speed ({$displayUnits})
-							<input
-								type="number"
-								bind:value={minSpeed}
-								min="0"
-								step="1"
-								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-							/>
-						</label>
-					</div>
-					<div class="w-42">
-						<label class="text-surface-content/80 block text-sm font-medium">
-							Max Speed Cutoff ({$displayUnits})
-							<input
-								type="number"
-								bind:value={maxSpeedCutoff}
-								min="0"
-								step="5"
-								placeholder="None"
-								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-							/>
-						</label>
-					</div>
-					<div class="w-42">
-						<label class="text-surface-content/80 block text-sm font-medium">
-							Min Period Count
-							<input
-								type="number"
-								bind:value={boundaryThreshold}
-								min="0"
-								step="1"
-								class="border-surface-content/20 bg-surface-100 mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-							/>
-						</label>
-					</div>
-				</div>
-
-				<label class="text-surface-content/80 flex items-start gap-2 text-sm font-medium">
-					<input type="checkbox" bind:checked={expandedChart} class="mt-0.5 h-4 w-4" />
-					<span>
-						Expanded chart
-						<span class="text-surface-content/60 block text-xs font-normal">
-							Show all time periods with linear timestamps. Leave off to collapse sparse gaps for a
-							consolidated chart.
-						</span>
-					</span>
-				</label>
-
-				<label class="text-surface-content/80 flex items-center gap-2 text-sm font-medium">
-					<input type="checkbox" bind:checked={compareEnabled} class="h-4 w-4" />
-					Compare against another period
-				</label>
-
-				{#if compareEnabled}
-					<div class="flex flex-wrap items-end gap-4">
-						<div class="w-70 space-y-2">
-							<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
-							<DateRangeField bind:value={compareRange} periodTypes={[PeriodType.Day]} stepper />
-						</div>
-						<div class="w-24">
-							<DataSourceSelector bind:value={compareSource} />
-						</div>
-					</div>
-				{/if}
-
-				<div class="flex flex-wrap items-center gap-3">
-					<Button
-						on:click={handleGenerateReport}
-						disabled={generatingReport || selectedSiteId == null}
-						variant="fill"
-						color="primary"
-						aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
-					>
-						{generatingReport ? 'Generating…' : 'Generate Report'}
-					</Button>
-					<p class="text-surface-content/60 text-xs">
-						Reports use {$displayUnits} units and {$displayTimezone} timezone settings.
-					</p>
-				</div>
-			</div>
-		</Card>
-
-		<Card>
-			<div class="space-y-3 p-6">
-				<h3 class="text-base font-semibold">Site Details</h3>
-				{#if selectedSite}
-					<dl class="text-surface-content/80 grid gap-3 text-sm md:grid-cols-2">
-						<div>
-							<dt class="text-surface-content font-semibold">Location</dt>
-							<dd>{selectedSite.location}</dd>
-						</div>
-						<div>
-							<dt class="text-surface-content font-semibold">Speed Limit</dt>
-							<dd>{selectedSite.speed_limit} {$displayUnits}</dd>
-						</div>
-						<div>
-							<dt class="text-surface-content font-semibold">Surveyor</dt>
-							<dd>{selectedSite.surveyor}</dd>
-						</div>
-						<div>
-							<dt class="text-surface-content font-semibold">Contact</dt>
-							<dd>{selectedSite.contact}</dd>
-						</div>
-						{#if selectedSite.site_description}
-							<div class="md:col-span-2">
-								<dt class="text-surface-content font-semibold">Site Description</dt>
-								<dd>{selectedSite.site_description}</dd>
-							</div>
+				<section class="border-surface-content/10 bg-surface-100 rounded-lg border">
+					<div class="space-y-3 p-6">
+						<h3 class="text-base font-semibold">Site Details</h3>
+						{#if selectedSite}
+							<dl class="text-surface-content/80 grid gap-3 text-sm md:grid-cols-2">
+								<div>
+									<dt class="text-surface-content font-semibold">Location</dt>
+									<dd>{selectedSite.location}</dd>
+								</div>
+								<div>
+									<dt class="text-surface-content font-semibold">Speed Limit</dt>
+									<dd>{selectedSite.speed_limit} {$displayUnits}</dd>
+								</div>
+								<div>
+									<dt class="text-surface-content font-semibold">Surveyor</dt>
+									<dd>{selectedSite.surveyor}</dd>
+								</div>
+								<div>
+									<dt class="text-surface-content font-semibold">Contact</dt>
+									<dd>{selectedSite.contact}</dd>
+								</div>
+								{#if selectedSite.site_description}
+									<div class="md:col-span-2">
+										<dt class="text-surface-content font-semibold">Site Description</dt>
+										<dd>{selectedSite.site_description}</dd>
+									</div>
+								{/if}
+								{#if selectedSite.speed_limit_note}
+									<div class="md:col-span-2">
+										<dt class="text-surface-content font-semibold">Speed Limit Notes</dt>
+										<dd>{selectedSite.speed_limit_note}</dd>
+									</div>
+								{/if}
+							</dl>
+						{:else}
+							<p class="text-surface-content/60 text-sm">Select a site to view report details.</p>
 						{/if}
-						{#if selectedSite.speed_limit_note}
-							<div class="md:col-span-2">
-								<dt class="text-surface-content font-semibold">Speed Limit Notes</dt>
-								<dd>{selectedSite.speed_limit_note}</dd>
-							</div>
-						{/if}
-					</dl>
-				{:else}
-					<p class="text-surface-content/60 text-sm">Select a site to view report details.</p>
-				{/if}
-			</div>
-		</Card>
-
-		{#if reportTimeSeriesChartUrl || reportHistogramChartUrl || reportComparisonChartUrl}
-			<Card>
-				<div class="space-y-4 p-6">
-					<div class="space-y-1">
-						<h3 class="text-base font-semibold">Chart Previews</h3>
-						<p class="text-surface-content/70 text-sm">
-							These previews come from the Go SVG chart endpoints used by the report pipeline.
-						</p>
 					</div>
+				</section>
 
-					<div class="grid gap-4 lg:grid-cols-2">
-						{#if reportTimeSeriesChartUrl}
-							<div class="space-y-2 rounded border p-3 lg:col-span-2">
-								<h4 class="text-sm font-semibold">Time-series overview</h4>
-								<InlineSvgChart
-									url={reportTimeSeriesChartUrl}
-									label="Preview of the report time-series chart"
-									loadingLabel="Loading time-series preview…"
-									minHeight={340}
-								/>
-							</div>
-						{/if}
-
-						{#if reportHistogramChartUrl}
-							<div class="space-y-2 rounded border p-3">
-								<h4 class="text-sm font-semibold">Velocity distribution</h4>
-								<InlineSvgChart
-									url={reportHistogramChartUrl}
-									label="Preview of the report histogram chart"
-									loadingLabel="Loading histogram preview…"
-									minHeight={250}
-								/>
-							</div>
-						{/if}
-
-						{#if compareEnabled && reportComparisonChartUrl}
-							<div class="space-y-2 rounded border p-3">
-								<h4 class="text-sm font-semibold">Comparison distribution</h4>
-								<InlineSvgChart
-									url={reportComparisonChartUrl}
-									label="Preview of the report comparison histogram chart"
-									loadingLabel="Loading comparison preview…"
-									minHeight={250}
-								/>
-							</div>
-						{:else if compareEnabled}
-							<div class="space-y-2 rounded border p-3">
-								<h4 class="text-sm font-semibold">Comparison distribution</h4>
+				{#if reportTimeSeriesChartUrl || reportHistogramChartUrl || reportComparisonChartUrl}
+					<section class="border-surface-content/10 bg-surface-100 rounded-lg border">
+						<div class="space-y-4 p-6">
+							<div class="space-y-1">
+								<h3 class="text-base font-semibold">Chart Previews</h3>
 								<p class="text-surface-content/70 text-sm">
-									Select a complete comparison range to preview the comparison chart.
+									These previews come from the Go SVG chart endpoints used by the report pipeline.
 								</p>
 							</div>
-						{/if}
-					</div>
-				</div>
-			</Card>
-		{/if}
-	{/if}
-</div>
+
+							<div class="grid gap-4 lg:grid-cols-2">
+								{#if reportTimeSeriesChartUrl}
+									<div class="space-y-2 rounded border p-3 lg:col-span-2">
+										<h4 class="text-sm font-semibold">Time-series overview</h4>
+										<InlineSvgChart
+											url={reportTimeSeriesChartUrl}
+											label="Preview of the report time-series chart"
+											loadingLabel="Loading time-series preview…"
+											minHeight={340}
+										/>
+									</div>
+								{/if}
+
+								{#if reportHistogramChartUrl}
+									<div class="space-y-2 rounded border p-3">
+										<h4 class="text-sm font-semibold">Velocity distribution</h4>
+										<InlineSvgChart
+											url={reportHistogramChartUrl}
+											label="Preview of the report histogram chart"
+											loadingLabel="Loading histogram preview…"
+											minHeight={250}
+										/>
+									</div>
+								{/if}
+
+								{#if compareEnabled && reportComparisonChartUrl}
+									<div class="space-y-2 rounded border p-3">
+										<h4 class="text-sm font-semibold">Comparison distribution</h4>
+										<InlineSvgChart
+											url={reportComparisonChartUrl}
+											label="Preview of the report comparison histogram chart"
+											loadingLabel="Loading comparison preview…"
+											minHeight={250}
+										/>
+									</div>
+								{:else if compareEnabled}
+									<div class="space-y-2 rounded border p-3">
+										<h4 class="text-sm font-semibold">Comparison distribution</h4>
+										<p class="text-surface-content/70 text-sm">
+											Select a complete comparison range to preview the comparison chart.
+										</p>
+									</div>
+								{/if}
+							</div>
+						</div>
+					</section>
+				{/if}
+			{/if}
+		</div>
+	</div>
+</main>
