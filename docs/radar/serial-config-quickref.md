@@ -102,7 +102,7 @@ Deferred, not shipped on this branch:
 **Backend:**
 
 - Schema snapshot: [internal/db/schema.sql](../../internal/db/schema.sql)
-- Migration files: [internal/db/migrations/000029_create_radar_serial_config.up.sql](../../internal/db/migrations/000029_create_radar_serial_config.up.sql), [internal/db/migrations/000029_create_radar_serial_config.down.sql](../../internal/db/migrations/000029_create_radar_serial_config.down.sql)
+- Migration files: [internal/db/migrations/000038_create_radar_serial_config.up.sql](../../internal/db/migrations/000038_create_radar_serial_config.up.sql), [internal/db/migrations/000038_create_radar_serial_config.down.sql](../../internal/db/migrations/000038_create_radar_serial_config.down.sql)
 - DB helpers: [internal/db/serial_config.go](../../internal/db/serial_config.go)
 - Sensor model registry: [internal/api/sensor_models.go](../../internal/api/sensor_models.go)
 - CRUD handlers: [internal/api/serial_config.go](../../internal/api/serial_config.go)

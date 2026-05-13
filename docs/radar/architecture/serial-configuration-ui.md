@@ -122,7 +122,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Enabled Flag:** Allow disabling sensors without deletion
 - **Default HAT Config:** `/dev/ttySC1` is the SC16IS762 HAT default for Raspberry Pi
 
-**Migration Files:** `internal/db/migrations/000029_create_radar_serial_config.up.sql`, `internal/db/migrations/000029_create_radar_serial_config.down.sql`
+**Migration Files:** `internal/db/migrations/000038_create_radar_serial_config.up.sql`, `internal/db/migrations/000038_create_radar_serial_config.down.sql`
 
 **Sensor Model Information (Application Code):**
 

@@ -13,7 +13,7 @@ This branch changes the centre of gravity. Serial configuration becomes database
 
 ## Current state
 
-- The schema snapshot now includes `radar_serial_config` in [internal/db/schema.sql](../../internal/db/schema.sql), with migration files at [internal/db/migrations/000029_create_radar_serial_config.up.sql](../../internal/db/migrations/000029_create_radar_serial_config.up.sql) and [internal/db/migrations/000029_create_radar_serial_config.down.sql](../../internal/db/migrations/000029_create_radar_serial_config.down.sql).
+- The schema snapshot now includes `radar_serial_config` in [internal/db/schema.sql](../../internal/db/schema.sql), with migration files at [internal/db/migrations/000038_create_radar_serial_config.up.sql](../../internal/db/migrations/000038_create_radar_serial_config.up.sql) and [internal/db/migrations/000038_create_radar_serial_config.down.sql](../../internal/db/migrations/000038_create_radar_serial_config.down.sql).
 - CRUD helpers for serial configurations exist in [internal/db/serial_config.go](../../internal/db/serial_config.go).
 - The API server exposes `GET/POST/PUT/DELETE` config routes plus models, devices, test, and reload routes in [internal/api/server.go](../../internal/api/server.go), with handlers in [internal/api/serial_config.go](../../internal/api/serial_config.go), [internal/api/serial.go](../../internal/api/serial.go), and [internal/api/serial_reload.go](../../internal/api/serial_reload.go).
 - Sensor model metadata is application-owned in [internal/api/sensor_models.go](../../internal/api/sensor_models.go).
