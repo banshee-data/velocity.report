@@ -18,6 +18,17 @@ private let logger = DevLogger(category: "AppState")
 /// Global application state, observable by SwiftUI views.
 @available(macOS 15.0, *) @MainActor class AppState: ObservableObject {
 
+    private static let testEnvironmentKeys = [
+        "XCTestConfigurationFilePath", "XCTestBundlePath", "XCInjectBundleInto",
+    ]
+
+    nonisolated static var isRunningUnderXCTest: Bool {
+        testEnvironmentKeys.contains { ProcessInfo.processInfo.environment[$0] != nil }
+            || NSClassFromString("XCTestCase") != nil
+    }
+
+    nonisolated static var shouldAutoConnectOnStartup: Bool { !isRunningUnderXCTest }
+
     enum PlaybackMode: String, Equatable {
         case unknown
         case live
@@ -299,8 +310,15 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Initialisation
 
-    init() {
+    init(autoConnectOnStartup: Bool? = nil) {
         // FPS is calculated per-frame using exponential moving average
+
+        let autoConnectOnStartup = autoConnectOnStartup ?? Self.shouldAutoConnectOnStartup
+
+        guard autoConnectOnStartup else {
+            logger.info("Skipping startup auto-connect while running tests")
+            return
+        }
 
         // Auto-connect on startup
         Task {

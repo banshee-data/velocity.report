@@ -17,7 +17,13 @@ private let appLogger = DevLogger(category: "App")
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        WindowGroup { ContentView().environmentObject(appState) }.commands {
+        WindowGroup {
+            if AppState.isRunningUnderXCTest {
+                EmptyView()
+            } else {
+                ContentView().environmentObject(appState)
+            }
+        }.commands {
             // Use simple commands without observing state changes
             // to minimize AttributeGraph cycles
             AppCommands(appState: appState)
