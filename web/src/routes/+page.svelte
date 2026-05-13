@@ -11,7 +11,7 @@
 	import { PeriodType } from '@layerstack/utils';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { Button, Card, DateRangeField, Header } from 'svelte-ux';
+	import { Button, Card, DateRangeField } from 'svelte-ux';
 	import {
 		buildTimeSeriesChartPath,
 		generateReport,
@@ -389,214 +389,231 @@
 	<meta name="description" content="Real-time vehicle traffic statistics and speed analytics" />
 </svelte:head>
 
-<main id="main-content" class="space-y-6 p-4">
-	<Header title="Dashboard" subheading="Vehicle traffic statistics and analytics" />
-
-	{#if loading}
-		<div role="status" aria-live="polite" aria-busy="true">
-			<p>Loading stats…</p>
-			<span class="sr-only">Please wait while we fetch your traffic data</span>
-		</div>
-	{:else if error}
-		<div
-			role="alert"
-			aria-live="assertive"
-			class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
-		>
-			{error}
-		</div>
-	{:else}
-		<div class="flex flex-wrap items-end gap-3">
-			<div class="w-70">
-				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
-			</div>
-			<div class="w-24">
-				<label for="dashboard-group" class="text-surface-content/70 mb-1 block text-xs font-medium">
-					Group
-				</label>
-				<select
-					id="dashboard-group"
-					bind:value={group}
-					class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
-				>
-					{#each groupOptions as option (option)}
-						<option value={option}>{option}</option>
-					{/each}
-				</select>
-			</div>
-			<div class="w-24">
-				<DataSourceSelector bind:value={selectedSource} />
-			</div>
-			<div class="w-38">
-				<label for="dashboard-site" class="text-surface-content/70 mb-1 block text-xs font-medium">
-					Site
-				</label>
-				<!-- Use on:change with parseInt to avoid HTML <select> coercing
-					 selectedSiteId from number to string. -->
-				<select
-					id="dashboard-site"
-					value={selectedSiteId}
-					on:change={(e) => {
-						const raw = e.currentTarget.value;
-						selectedSiteId = raw === '' ? null : parseInt(raw, 10);
-					}}
-					class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
-				>
-					{#if siteOptions.length === 0}
-						<option value="">No sites</option>
-					{:else}
-						{#each siteOptions as option (option.value)}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					{/if}
-				</select>
-			</div>
-			<div class="w-18">
-				<Button
-					on:click={handleGenerateReport}
-					disabled={generatingReport || selectedSiteId == null}
-					variant="fill"
-					color="primary"
-					class="whitespace-normal"
-					aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
-				>
-					{generatingReport ? 'Generating...' : 'Generate'}
-				</Button>
+<main id="main-content" class="vr-page">
+	<div class="vr-toolbar">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-surface-content text-2xl font-semibold">Dashboard</h1>
+				<p class="text-surface-content/60 mt-1 text-sm">Vehicle traffic statistics and analytics</p>
 			</div>
 		</div>
+	</div>
 
-		{#if refreshError}
-			<div
-				role="alert"
-				aria-live="polite"
-				class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
-			>
-				{refreshError}
-			</div>
-		{/if}
-
-		{#if reportMessage}
-			<div
-				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
-				aria-live="polite"
-				class="rounded border p-3 {lastGeneratedReportId !== null
-					? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
-					: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'}"
-			>
-				{reportMessage}
-			</div>
-		{/if}
-
-		{#if lastGeneratedReportId !== null}
-			<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
-				<h3 class="text-base font-semibold">Report Ready</h3>
-				{#if reportMetadata}
-					<div class="flex gap-2">
-						<!-- eslint-disable svelte/no-navigation-without-resolve -->
-						<a
-							href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
-							class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
-							download
-							aria-label="Download PDF report"
-						>
-							📄 Download Report
-						</a>
-						{#if reportMetadata.zip_filename}
-							<!-- eslint-disable svelte/no-navigation-without-resolve -->
-							<a
-								href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
-								class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
-								download
-								aria-label="Download source files as ZIP archive"
-							>
-								📦 Download ZIP
-							</a>
-						{/if}
+	<div class="flex flex-1 overflow-hidden">
+		<div class="flex-1 space-y-6 overflow-y-auto p-6">
+			{#if loading}
+				<div role="status" aria-live="polite" aria-busy="true">
+					<p>Loading stats…</p>
+					<span class="sr-only">Please wait while we fetch your traffic data</span>
+				</div>
+			{:else if error}
+				<div
+					role="alert"
+					aria-live="assertive"
+					class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+				>
+					{error}
+				</div>
+			{:else}
+				<div class="flex flex-wrap items-end gap-3">
+					<div class="w-70">
+						<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 					</div>
-				{:else}
-					<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
-						Loading download links...
+					<div class="w-24">
+						<label
+							for="dashboard-group"
+							class="text-surface-content/70 mb-1 block text-xs font-medium"
+						>
+							Group
+						</label>
+						<select
+							id="dashboard-group"
+							bind:value={group}
+							class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
+						>
+							{#each groupOptions as option (option)}
+								<option value={option}>{option}</option>
+							{/each}
+						</select>
+					</div>
+					<div class="w-24">
+						<DataSourceSelector bind:value={selectedSource} />
+					</div>
+					<div class="w-38">
+						<label
+							for="dashboard-site"
+							class="text-surface-content/70 mb-1 block text-xs font-medium"
+						>
+							Site
+						</label>
+						<!-- Use on:change with parseInt to avoid HTML <select> coercing
+					 selectedSiteId from number to string. -->
+						<select
+							id="dashboard-site"
+							value={selectedSiteId}
+							on:change={(e) => {
+								const raw = e.currentTarget.value;
+								selectedSiteId = raw === '' ? null : parseInt(raw, 10);
+							}}
+							class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
+						>
+							{#if siteOptions.length === 0}
+								<option value="">No sites</option>
+							{:else}
+								{#each siteOptions as option (option.value)}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							{/if}
+						</select>
+					</div>
+					<div class="w-18">
+						<Button
+							on:click={handleGenerateReport}
+							disabled={generatingReport || selectedSiteId == null}
+							variant="fill"
+							color="primary"
+							class="whitespace-normal"
+							aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
+						>
+							{generatingReport ? 'Generating...' : 'Generate'}
+						</Button>
+					</div>
+				</div>
+
+				{#if refreshError}
+					<div
+						role="alert"
+						aria-live="polite"
+						class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+					>
+						{refreshError}
+					</div>
+				{/if}
+
+				{#if reportMessage}
+					<div
+						role={lastGeneratedReportId !== null ? 'status' : 'alert'}
+						aria-live="polite"
+						class="rounded border p-3 {lastGeneratedReportId !== null
+							? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
+							: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'}"
+					>
+						{reportMessage}
+					</div>
+				{/if}
+
+				{#if lastGeneratedReportId !== null}
+					<div class="card space-y-3 p-4" role="region" aria-label="Report download options">
+						<h3 class="text-base font-semibold">Report Ready</h3>
+						{#if reportMetadata}
+							<div class="flex gap-2">
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
+									class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+									download
+									aria-label="Download PDF report"
+								>
+									📄 Download Report
+								</a>
+								{#if reportMetadata.zip_filename}
+									<!-- eslint-disable svelte/no-navigation-without-resolve -->
+									<a
+										href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
+										class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+										download
+										aria-label="Download source files as ZIP archive"
+									>
+										📦 Download ZIP
+									</a>
+								{/if}
+							</div>
+						{:else}
+							<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
+								Loading download links...
+							</p>
+						{/if}
+						<p class="text-surface-600-300-token text-xs">
+							The ZIP file contains LaTeX source files and chart PDFs for custom editing
+						</p>
+					</div>
+				{/if}
+
+				<div class="vr-stat-grid" role="region" aria-label="Traffic statistics summary">
+					<Card title="Vehicle Count" role="article">
+						<div class="pt-0 pr-4 pb-4 pl-4">
+							<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">
+								{totalCount}
+							</p>
+						</div>
+					</Card>
+
+					<Card title="P98 Speed" role="article">
+						<div class="pt-0 pr-4 pb-4 pl-4">
+							<p
+								class="text-3xl font-bold text-green-600 dark:text-green-400"
+								aria-label="98th percentile speed"
+							>
+								{p98Speed.toFixed(1)}
+								{getUnitLabel($displayUnits)}
+							</p>
+						</div>
+					</Card>
+				</div>
+
+				{#if cosineCorrectionLabel}
+					<p class="text-surface-600-300-token text-xs">
+						Corrected for cosine error angle{cosineCorrectionAngles.length > 1 ? 's' : ''}:
+						{cosineCorrectionLabel}
 					</p>
 				{/if}
-				<p class="text-surface-600-300-token text-xs">
-					The ZIP file contains LaTeX source files and chart PDFs for custom editing
-				</p>
-			</div>
-		{/if}
 
-		<div class="vr-stat-grid" role="region" aria-label="Traffic statistics summary">
-			<Card title="Vehicle Count" role="article">
-				<div class="pt-0 pr-4 pb-4 pl-4">
-					<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">
-						{totalCount}
-					</p>
-				</div>
-			</Card>
+				{#if timeSeriesChartUrl}
+					<div class="bg-surface-100 block w-full rounded border p-4">
+						<InlineSvgChart
+							url={timeSeriesChartUrl}
+							label="Vehicle count bars and percentile speed lines"
+							loadingLabel="Refreshing chart…"
+							themeMode="dashboard"
+							minHeight={340}
+						/>
+					</div>
 
-			<Card title="P98 Speed" role="article">
-				<div class="pt-0 pr-4 pb-4 pl-4">
-					<p
-						class="text-3xl font-bold text-green-600 dark:text-green-400"
-						aria-label="98th percentile speed"
-					>
-						{p98Speed.toFixed(1)}
-						{getUnitLabel($displayUnits)}
-					</p>
-				</div>
-			</Card>
+					<!-- Accessible data table fallback -->
+					<details class="bg-surface-100 rounded border p-4">
+						<summary class="cursor-pointer text-sm font-medium">View data table</summary>
+						<div class="mt-4 overflow-x-auto">
+							<table class="w-full text-sm">
+								<caption class="sr-only">
+									Speed statistics over time showing P50, P85, P98, and maximum values
+								</caption>
+								<thead>
+									<tr class="border-b">
+										<th scope="col" class="px-2 py-2 text-left">Time</th>
+										<th scope="col" class="px-2 py-2 text-right">Count</th>
+										<th scope="col" class="px-2 py-2 text-right">P50</th>
+										<th scope="col" class="px-2 py-2 text-right">P85</th>
+										<th scope="col" class="px-2 py-2 text-right">P98</th>
+										<th scope="col" class="px-2 py-2 text-right">Max</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each stats as row (row.date.getTime())}
+										<tr class="border-b">
+											<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
+											<td class="px-2 py-2 text-right">{row.count}</td>
+											<td class="px-2 py-2 text-right">{row.p50.toFixed(1)}</td>
+											<td class="px-2 py-2 text-right">{row.p85.toFixed(1)}</td>
+											<td class="px-2 py-2 text-right">{row.p98.toFixed(1)}</td>
+											<td class="px-2 py-2 text-right">{row.max.toFixed(1)}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</details>
+				{/if}
+			{/if}
 		</div>
-
-		{#if cosineCorrectionLabel}
-			<p class="text-surface-600-300-token text-xs">
-				Corrected for cosine error angle{cosineCorrectionAngles.length > 1 ? 's' : ''}:
-				{cosineCorrectionLabel}
-			</p>
-		{/if}
-
-		{#if timeSeriesChartUrl}
-			<div class="bg-surface-100 block w-full rounded border p-4">
-				<InlineSvgChart
-					url={timeSeriesChartUrl}
-					label="Vehicle count bars and percentile speed lines"
-					loadingLabel="Refreshing chart…"
-					themeMode="dashboard"
-					minHeight={340}
-				/>
-			</div>
-
-			<!-- Accessible data table fallback -->
-			<details class="bg-surface-100 rounded border p-4">
-				<summary class="cursor-pointer text-sm font-medium">View data table</summary>
-				<div class="mt-4 overflow-x-auto">
-					<table class="w-full text-sm">
-						<caption class="sr-only">
-							Speed statistics over time showing P50, P85, P98, and maximum values
-						</caption>
-						<thead>
-							<tr class="border-b">
-								<th scope="col" class="px-2 py-2 text-left">Time</th>
-								<th scope="col" class="px-2 py-2 text-right">Count</th>
-								<th scope="col" class="px-2 py-2 text-right">P50</th>
-								<th scope="col" class="px-2 py-2 text-right">P85</th>
-								<th scope="col" class="px-2 py-2 text-right">P98</th>
-								<th scope="col" class="px-2 py-2 text-right">Max</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each stats as row (row.date.getTime())}
-								<tr class="border-b">
-									<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
-									<td class="px-2 py-2 text-right">{row.count}</td>
-									<td class="px-2 py-2 text-right">{row.p50.toFixed(1)}</td>
-									<td class="px-2 py-2 text-right">{row.p85.toFixed(1)}</td>
-									<td class="px-2 py-2 text-right">{row.p98.toFixed(1)}</td>
-									<td class="px-2 py-2 text-right">{row.max.toFixed(1)}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			</details>
-		{/if}
-	{/if}
+	</div>
 </main>

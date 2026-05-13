@@ -34,7 +34,6 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import {
 		Button,
-		Card,
 		Checkbox,
 		Dialog,
 		Field,
@@ -606,14 +605,17 @@
 		<div class="flex-1 overflow-y-auto p-6">
 			<div class="mx-auto max-w-3xl space-y-6">
 				{#if loading}
-					<Card>
-						<div class="p-4" role="status" aria-live="polite">
-							<p>Loading settings...</p>
-						</div>
-					</Card>
+					<div class="text-surface-content/50 py-12 text-center" role="status" aria-live="polite">
+						Loading settings...
+					</div>
 				{:else}
-					<Card title="Display Preferences">
-						<div class="space-y-4 p-4">
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Display Preferences
+						</h2>
+						<div class="space-y-4">
 							<SelectField
 								label="Speed units"
 								bind:value={selectedUnits}
@@ -638,10 +640,15 @@
 								{getPaperLabel($paperSize)}.
 							</p>
 						</div>
-					</Card>
+					</section>
 
-					<Card title="Sensor Serial Ports">
-						<div class="space-y-4 p-4">
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Sensor Serial Ports
+						</h2>
+						<div class="space-y-4">
 							{#if serialMessage}
 								<Notification
 									title={serialMessageType === 'success'
@@ -721,28 +728,27 @@
 								</div>
 							{/if}
 						</div>
-					</Card>
+					</section>
 
 					{#if message}
-						<Card>
-							<div
-								class="p-4"
-								role={message.includes('Could not') ? 'alert' : 'status'}
-								aria-live="polite"
-							>
-								<p
-									class="text-sm"
-									class:text-green-600={!message.includes('Could not')}
-									class:text-red-600={message.includes('Could not')}
-								>
-									{message}
-								</p>
-							</div>
-						</Card>
+						<div
+							class="rounded px-4 py-3 text-sm {message.includes('Could not')
+								? 'bg-red-50 text-red-600'
+								: 'bg-green-50 text-green-700'}"
+							role={message.includes('Could not') ? 'alert' : 'status'}
+							aria-live="polite"
+						>
+							{message}
+						</div>
 					{/if}
 
-					<Card title="Transit Worker">
-						<div class="space-y-4 p-4">
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Transit Worker
+						</h2>
+						<div class="space-y-4">
 							<p class="text-surface-content/70 text-sm">
 								The transit worker periodically processes raw radar data into vehicle transits. When
 								enabled, it runs on a schedule configured by the server. Toggling it on will also
@@ -822,10 +828,15 @@
 								</div>
 							</div>
 						</div>
-					</Card>
+					</section>
 
-					<Card title="Tailscale">
-						<div class="space-y-4 p-4">
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Tailscale
+						</h2>
+						<div class="space-y-4">
 							<p class="text-surface-content/70 text-sm">
 								Tailscale puts this device on your private tailnet so you can reach the web UI from
 								anywhere and SSH in without opening any ports on your LAN. When enabled, the device
@@ -953,7 +964,7 @@
 								</div>
 							{/if}
 						</div>
-					</Card>
+					</section>
 				{/if}
 			</div>
 		</div>

@@ -14,7 +14,7 @@
 	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
 	import { mdiAlert, mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount, tick } from 'svelte';
-	import { Button, Card, Header, Notification, TextField } from 'svelte-ux';
+	import { Button, Card, Notification, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
@@ -295,11 +295,15 @@
 </svelte:head>
 
 <div id="main-content" class="space-y-6 p-4">
-	<div class="flex items-center justify-between">
-		<Header
-			title={isNewSite ? 'Create New Site' : 'Edit Site'}
-			subheading={isNewSite ? 'Add a new radar survey site' : 'Update site configuration'}
-		/>
+	<div class="flex items-start justify-between">
+		<div>
+			<h1 class="text-surface-content text-2xl font-semibold">
+				{isNewSite ? 'Create New Site' : 'Edit Site'}
+			</h1>
+			<p class="text-surface-content/60 mt-1 text-sm">
+				{isNewSite ? 'Add a new radar survey site' : 'Update site configuration'}
+			</p>
+		</div>
 		<Button on:click={handleCancel} icon={mdiArrowLeft} variant="outline">Back to List</Button>
 	</div>
 
