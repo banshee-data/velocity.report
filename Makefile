@@ -963,7 +963,7 @@ test-go:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests..."
-	@go test ./...
+	@env -u GOROOT go test ./...
 
 test-python: ensure-python-tools
 	@echo "Running Python script/tool tests..."
@@ -985,8 +985,8 @@ test-go-cov:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests with coverage..."
-	@go test ./... -coverprofile=coverage.out -covermode=atomic
-	@go tool cover -html=coverage.out -o coverage.html
+	@env -u GOROOT go test ./... -coverprofile=coverage.out -covermode=atomic
+	@env -u GOROOT go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
 # Show coverage summary for cmd/ and internal/ packages
@@ -1025,10 +1025,13 @@ test-mac:
 		"$(GIT_SHA)" \
 		"$(BUILD_TIME)" \
 		> $(MAC_DIR)/VelocityVisualiser/App/BuildInfo.swift
-	@cd $(MAC_DIR) && xcodebuild test \
+	@cd $(MAC_DIR) && xcodebuild build-for-testing \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
+		-skip-testing:VelocityVisualiserUITests \
+		-derivedDataPath ./DerivedData \
 		-destination 'platform=macOS'
+	@cd $(MAC_DIR) && xcrun xctest ./DerivedData/Build/Products/Debug/VelocityVisualiserTests.xctest
 
 # Run macOS visualiser tests with coverage
 # Coverage results are written to $(MAC_DIR)/coverage/
@@ -1054,6 +1057,7 @@ test-mac-cov:
 	@cd $(MAC_DIR) && xcodebuild test \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
+		-skip-testing:VelocityVisualiserUITests \
 		-destination 'platform=macOS' \
 		-enableCodeCoverage YES \
 		-derivedDataPath ./DerivedData \
