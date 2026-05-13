@@ -2910,7 +2910,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getHINTState } = await import('./api');
-				await expect(getHINTState()).rejects.toThrow('Failed to get HINT state: 500');
+				await expect(getHINTState()).rejects.toThrow('Could not load HINT state: 500');
 			});
 		});
 
@@ -2993,7 +2993,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { stopHINT } = await import('./api');
-				await expect(stopHINT()).rejects.toThrow('Failed to stop HINT: 500');
+				await expect(stopHINT()).rejects.toThrow('Could not stop HINT: 500');
 			});
 		});
 	});
