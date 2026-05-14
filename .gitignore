@@ -157,6 +157,7 @@ tools/*/output/*
 tools/visualiser-macos/build/
 tools/visualiser-macos/DerivedData/
 tools/visualiser-macos/.build/
+*.profraw
 
 # Test results
 tools/visualiser-macos/TestResults*
