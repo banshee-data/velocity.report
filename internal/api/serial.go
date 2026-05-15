@@ -5,12 +5,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"go.bug.st/serial"
 )
+
+var supplementalSerialDevicePattern = regexp.MustCompile(`^(ttySC)[0-9]{1,3}$`)
+
+var supplementalSerialSymlinkDirs = []string{"/dev/serial/by-id", "/dev/serial/by-path"}
 
 // SerialTestRequest represents the request body for testing serial port
 type SerialTestRequest struct {
@@ -412,30 +420,88 @@ func (s *Server) handleSerialDevices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Filter out already-configured ports and build response
-	var devices []SerialDeviceInfo
-	now := time.Now().Unix()
-
-	for _, portPath := range ports {
-		// Skip if already configured
-		if configuredPorts[portPath] {
-			continue
-		}
-
-		// Create device info
-		friendlyName := getFriendlyName(portPath)
-
-		devices = append(devices, SerialDeviceInfo{
-			PortPath:     portPath,
-			FriendlyName: friendlyName,
-			LastSeen:     now,
-		})
-	}
+	devices := buildSerialDeviceList(configuredPorts, ports, listSupplementalSerialPorts(os.ReadDir), time.Now().Unix())
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(devices); err != nil {
 		log.Printf("Error encoding serial devices response: %v", err)
 	}
+}
+
+func buildSerialDeviceList(
+	configuredPorts map[string]bool,
+	enumeratedPorts []string,
+	supplementalPorts []string,
+	now int64,
+) []SerialDeviceInfo {
+	seen := make(map[string]bool)
+	devices := make([]SerialDeviceInfo, 0, len(enumeratedPorts)+len(supplementalPorts))
+	addPort := func(portPath string) {
+		if portPath == "" || configuredPorts[portPath] || seen[portPath] {
+			return
+		}
+		seen[portPath] = true
+		devices = append(devices, SerialDeviceInfo{
+			PortPath:     portPath,
+			FriendlyName: getFriendlyName(portPath),
+			LastSeen:     now,
+		})
+	}
+
+	for _, portPath := range enumeratedPorts {
+		addPort(portPath)
+	}
+
+	for _, portPath := range supplementalPorts {
+		addPort(portPath)
+	}
+
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].PortPath < devices[j].PortPath
+	})
+
+	return devices
+}
+
+func listSupplementalSerialPorts(readDir func(string) ([]os.DirEntry, error)) []string {
+	if readDir == nil {
+		return nil
+	}
+
+	ports := make([]string, 0)
+	seen := make(map[string]bool)
+	addPort := func(portPath string) {
+		if portPath == "" || seen[portPath] {
+			return
+		}
+		seen[portPath] = true
+		ports = append(ports, portPath)
+	}
+
+	if entries, err := readDir("/dev"); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() || !supplementalSerialDevicePattern.MatchString(entry.Name()) {
+				continue
+			}
+			addPort(filepath.Join("/dev", entry.Name()))
+		}
+	}
+
+	for _, dir := range supplementalSerialSymlinkDirs {
+		entries, err := readDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			addPort(filepath.Join(dir, entry.Name()))
+		}
+	}
+
+	sort.Strings(ports)
+	return ports
 }
 
 // getFriendlyName generates a user-friendly name for a serial port

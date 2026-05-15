@@ -3,14 +3,31 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
+
+type fakeDirEntry struct {
+	name  string
+	isDir bool
+}
+
+func (e fakeDirEntry) Name() string { return e.name }
+func (e fakeDirEntry) IsDir() bool  { return e.isDir }
+func (e fakeDirEntry) Type() fs.FileMode {
+	if e.isDir {
+		return fs.ModeDir
+	}
+	return 0
+}
+func (e fakeDirEntry) Info() (fs.FileInfo, error) { return nil, nil }
 
 func TestSerialTestCommands_DefaultProbeUsesQueryOnly(t *testing.T) {
 	got := serialTestCommands(false)
@@ -25,6 +42,63 @@ func TestSerialTestCommands_AutoCorrectAddsBaudQuery(t *testing.T) {
 	got := serialTestCommands(true)
 	want := []string{"??", "I?"}
 
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestListSupplementalSerialPorts_FindsTTYSCAndSerialSymlinks(t *testing.T) {
+	readDir := func(path string) ([]os.DirEntry, error) {
+		switch path {
+		case "/dev":
+			return []os.DirEntry{
+				fakeDirEntry{name: "ttySC1"},
+				fakeDirEntry{name: "tty0"},
+				fakeDirEntry{name: "ttyUSB0"},
+			}, nil
+		case "/dev/serial/by-id":
+			return []os.DirEntry{fakeDirEntry{name: "usb-ops243-a"}}, nil
+		case "/dev/serial/by-path":
+			return nil, os.ErrNotExist
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	got := listSupplementalSerialPorts(readDir)
+	want := []string{"/dev/serial/by-id/usb-ops243-a", "/dev/ttySC1"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestBuildSerialDeviceList_IncludesSupplementalPorts(t *testing.T) {
+	devices := buildSerialDeviceList(map[string]bool{}, []string{"/dev/ttyUSB0"}, []string{"/dev/ttySC1"}, 123)
+
+	got := make([]string, 0, len(devices))
+	for _, device := range devices {
+		got = append(got, device.PortPath)
+	}
+
+	want := []string{"/dev/ttySC1", "/dev/ttyUSB0"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+	if devices[0].FriendlyName != "SC16IS762 HAT (ttySC1)" {
+		t.Fatalf("unexpected friendly name for default hat: %q", devices[0].FriendlyName)
+	}
+}
+
+func TestBuildSerialDeviceList_SkipsConfiguredSupplementalPort(t *testing.T) {
+	devices := buildSerialDeviceList(map[string]bool{"/dev/ttySC1": true}, []string{"/dev/ttyUSB0"}, []string{"/dev/ttySC1"}, 123)
+
+	got := make([]string, 0, len(devices))
+	for _, device := range devices {
+		got = append(got, device.PortPath)
+	}
+
+	want := []string{"/dev/ttyUSB0"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %v, got %v", want, got)
 	}
