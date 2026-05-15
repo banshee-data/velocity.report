@@ -53,6 +53,110 @@ type SerialDeviceInfo struct {
 	LastSeen     int64  `json:"last_seen"`
 }
 
+func applySerialTestDefaults(req *SerialTestRequest) {
+	if req.BaudRate == 0 {
+		req.BaudRate = 19200
+	}
+	if req.DataBits == 0 {
+		req.DataBits = 8
+	}
+	if req.StopBits == 0 {
+		req.StopBits = 1
+	}
+	if req.Parity == "" {
+		req.Parity = "N"
+	}
+	if req.TimeoutSeconds == 0 {
+		req.TimeoutSeconds = 5
+	}
+}
+
+func normaliseSerialTestOptions(req SerialTestRequest) (serialmux.PortOptions, error) {
+	opts := serialmux.PortOptions{
+		BaudRate: req.BaudRate,
+		DataBits: req.DataBits,
+		StopBits: req.StopBits,
+		Parity:   req.Parity,
+	}
+
+	return opts.Normalise()
+}
+
+func serialOptionsEqual(a, b serialmux.PortOptions) bool {
+	return a.BaudRate == b.BaudRate &&
+		a.DataBits == b.DataBits &&
+		a.StopBits == b.StopBits &&
+		a.Parity == b.Parity
+}
+
+func (s *Server) activeSerialTestResult(req SerialTestRequest) (SerialTestResponse, bool) {
+	if s.serialManager == nil {
+		return SerialTestResponse{}, false
+	}
+
+	snap := s.serialManager.Snapshot()
+	if snap.PortPath == "" || snap.PortPath != req.PortPath {
+		return SerialTestResponse{}, false
+	}
+
+	normalisedReq, err := normaliseSerialTestOptions(req)
+	if err != nil {
+		return SerialTestResponse{
+			Success:        false,
+			PortPath:       req.PortPath,
+			BaudRate:       req.BaudRate,
+			TestDurationMS: 0,
+			Error:          fmt.Sprintf("Invalid serial configuration: %v", err),
+			Message:        "Serial port test failed",
+			Suggestion:     "Check baud rate, data bits, stop bits, and parity settings",
+		}, true
+	}
+
+	normalisedActive, err := snap.Options.Normalise()
+	if err != nil {
+		normalisedActive = snap.Options
+	}
+
+	if !serialOptionsEqual(normalisedReq, normalisedActive) {
+		return SerialTestResponse{
+			Success:        false,
+			PortPath:       req.PortPath,
+			BaudRate:       normalisedReq.BaudRate,
+			TestDurationMS: 0,
+			Error:          "Port is currently in use by the active serial connection",
+			Message:        "Serial port test failed",
+			Suggestion: fmt.Sprintf(
+				"The live radar connection is already using this port at %d baud, %d data bits, %d stop bit(s), parity %s. Save/apply the new settings or stop the active connection before testing this port separately.",
+				normalisedActive.BaudRate,
+				normalisedActive.DataBits,
+				normalisedActive.StopBits,
+				normalisedActive.Parity,
+			),
+		}, true
+	}
+
+	if s.serialManager.CurrentMux() == nil {
+		return SerialTestResponse{
+			Success:        false,
+			PortPath:       req.PortPath,
+			BaudRate:       normalisedReq.BaudRate,
+			TestDurationMS: 0,
+			Error:          "Port is configured as active but no live serial connection is available",
+			Message:        "Serial port test failed",
+			Suggestion:     "Check service status and serial connection logs before retrying.",
+		}, true
+	}
+
+	return SerialTestResponse{
+		Success:        true,
+		PortPath:       req.PortPath,
+		BaudRate:       normalisedReq.BaudRate,
+		TestDurationMS: 0,
+		Message:        "Serial port is already active and owned by the live radar connection",
+		Suggestion:     "The service is already using this port with the requested settings, so no separate test open was attempted.",
+	}, true
+}
+
 // handleSerialTest handles POST /api/serial/test
 func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -78,34 +182,19 @@ func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set defaults
-	if req.BaudRate == 0 {
-		req.BaudRate = 19200
-	}
-	if req.DataBits == 0 {
-		req.DataBits = 8
-	}
-	if req.StopBits == 0 {
-		req.StopBits = 1
-	}
-	if req.Parity == "" {
-		req.Parity = "N"
-	}
-	if req.TimeoutSeconds == 0 {
-		req.TimeoutSeconds = 5
+	applySerialTestDefaults(&req)
+
+	if result, handled := s.activeSerialTestResult(req); handled {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			log.Printf("Error encoding serial test response for active port %q: %v", req.PortPath, err)
+		}
+		return
 	}
 
 	// Perform the serial port test
 	result := testSerialPort(req)
-
-	// Warn if the port is currently in use by the active SerialPortManager
-	if s.serialManager != nil {
-		snap := s.serialManager.Snapshot()
-		if snap.PortPath == req.PortPath {
-			result.Suggestion = "Warning: this port is currently in use by the active serial connection. " +
-				"Testing may temporarily disrupt the active connection. " + result.Suggestion
-		}
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	// Always return 200 OK, even for test failure (not an API error)
@@ -122,14 +211,7 @@ func testSerialPort(req SerialTestRequest) SerialTestResponse {
 	startTime := time.Now()
 
 	// Build and validate options using the shared PortOptions type
-	opts := serialmux.PortOptions{
-		BaudRate: req.BaudRate,
-		DataBits: req.DataBits,
-		StopBits: req.StopBits,
-		Parity:   req.Parity,
-	}
-
-	normalised, err := opts.Normalise()
+	normalised, err := normaliseSerialTestOptions(req)
 	if err != nil {
 		return SerialTestResponse{
 			Success:        false,
