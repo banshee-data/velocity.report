@@ -14,24 +14,23 @@
 		updateSerialConfig,
 		updateTransitWorker,
 		type Config,
+		type SensorModel,
 		type SerialConfig,
 		type SerialConfigRequest,
 		type SerialDevice,
 		type SerialTestResponse,
-		type SensorModel,
 		type TailscaleStatus,
 		type TransitRunInfo,
 		type TransitWorkerState
 	} from '$lib/api';
-	import { paperSize, initializePaperSize, updatePaperSize } from '$lib/stores/paper';
-	import QRCode from 'qrcode';
+	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '$lib/paper';
+	import { initializePaperSize, paperSize, updatePaperSize } from '$lib/stores/paper';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits, updateUnits } from '$lib/stores/units';
-	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '$lib/paper';
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
 	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
+	import QRCode from 'qrcode';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import {
 		Button,
 		Checkbox,
@@ -42,6 +41,7 @@
 		Switch,
 		TextField
 	} from 'svelte-ux';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	// ─── Display preferences (units, timezone, paper size) ───────────────
 	let config: Config = { units: 'mph', timezone: 'UTC' };
@@ -406,10 +406,24 @@
 		setTimeout(() => (serialMessage = ''), 5000);
 	}
 
-	function rebuildPortPathOptions(devices: SerialDevice[], configs: SerialConfig[]) {
+	function updateFormData(patch: Partial<SerialConfigRequest>) {
+		formData = {
+			...formData,
+			...patch
+		};
+	}
+
+	function rebuildPortPathOptions(
+		devices: SerialDevice[],
+		configs: SerialConfig[],
+		currentPortPath = ''
+	) {
 		const seen = new SvelteSet<string>();
 		devices.forEach((d) => seen.add(d.port_path));
 		configs.forEach((c) => seen.add(c.port_path));
+		if (currentPortPath.trim()) {
+			seen.add(currentPortPath.trim());
+		}
 		portPathOptions = Array.from(seen)
 			.sort()
 			.map((path) => ({ value: path, label: path }));
@@ -428,7 +442,7 @@
 			]);
 			serialConfigs = configs;
 			availableDevices = devices;
-			rebuildPortPathOptions(devices, configs);
+			rebuildPortPathOptions(devices, configs, formData.port_path);
 			sensorModelOptions = models.map((m: SensorModel) => ({
 				value: m.slug,
 				label: m.display_name
@@ -444,7 +458,7 @@
 			rescanning = true;
 			const devices = await getSerialDevices();
 			availableDevices = devices;
-			rebuildPortPathOptions(devices, serialConfigs);
+			rebuildPortPathOptions(devices, serialConfigs, formData.port_path);
 			showSerialMessage(
 				devices.length === 0
 					? 'No serial devices detected.'
@@ -478,6 +492,7 @@
 			description: '',
 			sensor_model: 'ops243-a'
 		};
+		rebuildPortPathOptions(availableDevices, serialConfigs, formData.port_path);
 		manualPortEntry = !defaultPort || !isDetectedPort(defaultPort);
 		showEditPanel = true;
 	}
@@ -495,6 +510,7 @@
 			description: c.description,
 			sensor_model: c.sensor_model
 		};
+		rebuildPortPathOptions(availableDevices, serialConfigs, formData.port_path);
 		manualPortEntry = !isDetectedPort(c.port_path);
 		showEditPanel = true;
 	}
@@ -992,7 +1008,12 @@
 				</header>
 
 				<div class="flex-1 space-y-4 overflow-y-auto p-4">
-					<TextField label="Configuration Name" bind:value={formData.name} required />
+					<TextField
+						label="Configuration Name"
+						value={formData.name}
+						on:change={(e) => updateFormData({ name: (e as CustomEvent).detail.value ?? '' })}
+						required
+					/>
 
 					<!-- Port path: SelectField for detected devices, with a
 					     toggle to a free-text TextField for non-enumerated
@@ -1001,7 +1022,9 @@
 						{#if manualPortEntry}
 							<TextField
 								label="Port Path"
-								bind:value={formData.port_path}
+								value={formData.port_path}
+								on:change={(e) =>
+									updateFormData({ port_path: (e as CustomEvent).detail.value ?? '' })}
 								placeholder="/dev/ttyUSB0"
 							/>
 						{:else}
@@ -1012,12 +1035,7 @@
 							<SelectField
 								label="Port Path"
 								value={formData.port_path}
-								on:change={(e) => {
-									formData = {
-										...formData,
-										port_path: (e as CustomEvent).detail.value
-									};
-								}}
+								on:change={(e) => updateFormData({ port_path: (e as CustomEvent).detail.value })}
 								options={portPathOptions}
 								clearable={false}
 								placeholder={portPathOptions.length === 0
@@ -1036,14 +1054,17 @@
 								{rescanning ? 'Scanning...' : 'Rescan'}
 							</Button>
 							<Button
-								on:click={() => (manualPortEntry = !manualPortEntry)}
+								on:click={() => {
+									manualPortEntry = !manualPortEntry;
+									rebuildPortPathOptions(availableDevices, serialConfigs, formData.port_path);
+								}}
 								variant="outline"
 								size="sm"
 							>
 								{manualPortEntry ? 'Pick from detected ports' : 'Enter path manually'}
 							</Button>
 							<p class="text-surface-content/60 text-xs">
-								{portPathOptions.length} detected
+								{availableDevices.length} detected, {portPathOptions.length} available
 							</p>
 						</div>
 					</div>
@@ -1111,7 +1132,14 @@
 						</Field>
 					</div>
 
-					<TextField label="Description" bind:value={formData.description} multiline rows={3} />
+					<TextField
+						label="Description"
+						value={formData.description}
+						on:change={(e) =>
+							updateFormData({ description: (e as CustomEvent).detail.value ?? '' })}
+						multiline
+						rows={3}
+					/>
 
 					<Field label="Enabled" let:id>
 						<Checkbox {id} bind:checked={formData.enabled}>Enable</Checkbox>
