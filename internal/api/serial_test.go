@@ -5,11 +5,30 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
+
+func TestSerialTestCommands_DefaultProbeUsesQueryOnly(t *testing.T) {
+	got := serialTestCommands(false)
+	want := []string{"??"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func TestSerialTestCommands_AutoCorrectAddsBaudQuery(t *testing.T) {
+	got := serialTestCommands(true)
+	want := []string{"??", "I?"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
 
 func TestHandleSerialTest_UsesActiveConnectionForMatchingConfig(t *testing.T) {
 	server := NewServer(nil, nil, "mph", "UTC")

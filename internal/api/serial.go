@@ -89,6 +89,15 @@ func serialOptionsEqual(a, b serialmux.PortOptions) bool {
 		a.Parity == b.Parity
 }
 
+func serialTestCommands(autoCorrectBaud bool) []string {
+	commands := []string{"??"}
+	if autoCorrectBaud {
+		commands = append(commands, "I?")
+	}
+
+	return commands
+}
+
 func (s *Server) activeSerialTestResult(req SerialTestRequest) (SerialTestResponse, bool) {
 	if s.serialManager == nil {
 		return SerialTestResponse{}, false
@@ -260,9 +269,9 @@ func testSerialPort(req SerialTestRequest) SerialTestResponse {
 	var rawResponses []SerialCommandResult
 	var totalBytesRead int
 
-	// Send test commands
-	// Test commands: "??" queries firmware info, "I?" queries baud rate
-	testCommands := []string{"??", "I?"}
+	// Send read-only test commands. "??" queries firmware info; "I?" is only
+	// needed when the caller explicitly wants baud auto-detection.
+	testCommands := serialTestCommands(req.AutoCorrectBaud)
 
 	for _, cmd := range testCommands {
 		// Send command
