@@ -57,7 +57,7 @@ The current implementation expects a full object for `PUT`, not a sparse patch.
 | `product_id`    | string  | Present in the shape; not currently populated |
 | `last_seen`     | integer | Unix timestamp                                |
 
-Enumerates serial ports via `serial.GetPortsList()`. Filters out paths already saved in `radar_serial_config` and derives a friendly label from the device name.
+Enumerates serial ports via `serial.GetPortsList()` and supplements that list with supported `/dev` device nodes the upstream library misses (for example `ttySC*`) plus `/dev/serial/by-*` links. Filters out paths already saved in `radar_serial_config` and derives a friendly label from the device name.
 
 **Sensor model object** (endpoint 7):
 
