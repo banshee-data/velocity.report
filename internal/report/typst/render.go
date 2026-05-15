@@ -1,0 +1,143 @@
+// Package typst is the Phase 0 prototype that renders velocity reports
+// through the Typst typesetter via the github.com/Dadido3/go-typst wrapper.
+//
+// The package is deliberately minimal: it embeds the .typ templates and the
+// Atkinson Hyperlegible fonts, materialises them into a temporary working
+// directory along with the caller's data, and shells out to `typst compile`.
+package typst
+
+import (
+	"bytes"
+	"embed"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+
+	gotypst "github.com/Dadido3/go-typst"
+)
+
+//go:embed templates
+var templatesFS embed.FS
+
+// Asset is a binary blob (chart SVG, map SVG, etc.) that the report embeds
+// via #image(). The Name is used as the relative path inside the working
+// directory; the template references it as e.g. `data.charts.timeseries`.
+type Asset struct {
+	Name string
+	Data []byte
+}
+
+// Options controls a single Render call.
+type Options struct {
+	// Data is the structured payload exposed to the template as `data` after
+	// being marshalled to data.json in the working directory.
+	Data any
+
+	// Assets are extra files (SVG charts, etc.) to materialise alongside the
+	// templates so that #image() calls resolve. The file path inside the
+	// working directory is Asset.Name.
+	Assets []Asset
+
+	// FontDir is a directory of .ttf/.otf files passed to typst via
+	// --font-path. If empty, typst will fall back to system + embedded fonts.
+	FontDir string
+
+	// IgnoreSystemFonts, when true, instructs typst to ignore the host's
+	// system fonts and use only FontDir + embedded fonts. Recommended for
+	// reproducible builds.
+	IgnoreSystemFonts bool
+
+	// TypstPath overrides the typst executable. When empty, the binary is
+	// looked up on PATH.
+	TypstPath string
+}
+
+// Render compiles the embedded templates against opts.Data and writes the
+// resulting PDF to out. The working directory used for compilation is
+// removed before Render returns.
+func Render(out io.Writer, opts Options) error {
+	workDir, err := os.MkdirTemp("", "velocity-report-typst-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	if err := materialiseTemplates(workDir); err != nil {
+		return err
+	}
+	if err := writeData(workDir, opts.Data); err != nil {
+		return err
+	}
+	for _, asset := range opts.Assets {
+		dest := filepath.Join(workDir, asset.Name)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return fmt.Errorf("mkdir %s: %w", filepath.Dir(dest), err)
+		}
+		if err := os.WriteFile(dest, asset.Data, 0o644); err != nil {
+			return fmt.Errorf("write asset %s: %w", asset.Name, err)
+		}
+	}
+
+	caller := gotypst.CLI{}
+	if opts.TypstPath != "" {
+		caller.ExecutablePath = opts.TypstPath
+	}
+
+	// Bootstrap: typst reads the document from stdin, which has no implicit
+	// path, so relative imports inside the entry file fail. We address this
+	// by feeding a one-line bootstrap on stdin that includes the real entry
+	// via an absolute path rooted at workDir (so `/report.typ` resolves to
+	// workDir/report.typ).
+	bootstrap := []byte(`#include "/report.typ"`)
+
+	compileOpts := &gotypst.OptionsCompile{
+		Root:              workDir,
+		Format:            gotypst.OutputFormatPDF,
+		IgnoreSystemFonts: opts.IgnoreSystemFonts,
+	}
+	if opts.FontDir != "" {
+		compileOpts.FontPaths = []string{opts.FontDir}
+	}
+
+	if err := caller.Compile(bytes.NewReader(bootstrap), out, compileOpts); err != nil {
+		return fmt.Errorf("typst compile: %w", err)
+	}
+	return nil
+}
+
+// materialiseTemplates copies the embedded templates/ tree into workDir at
+// the top level (so report.typ ends up at workDir/report.typ).
+func materialiseTemplates(workDir string) error {
+	return fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel("templates", path)
+		if err != nil {
+			return err
+		}
+		dest := filepath.Join(workDir, rel)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return err
+		}
+		body, err := templatesFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(dest, body, 0o644)
+	})
+}
+
+func writeData(workDir string, data any) error {
+	body, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal report data: %w", err)
+	}
+	return os.WriteFile(filepath.Join(workDir, "data.json"), body, 0o644)
+}

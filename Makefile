@@ -1504,6 +1504,23 @@ lint-web:
 		echo "$(WEB_DIR) does not exist; skipping web format check"; \
 	fi
 
+# Phase 0 prototype: render the bundled sample fixture through the Typst
+# pipeline (internal/report/typst). Requires the `typst` binary on PATH.
+.PHONY: pdf-typst-prototype
+
+pdf-typst-prototype:
+	@command -v typst >/dev/null 2>&1 || { \
+		echo "Error: typst binary not found on PATH."; \
+		echo "Install: https://github.com/typst/typst/releases (any 0.13+ release)"; \
+		exit 1; \
+	}
+	@mkdir -p build/report
+	go run ./internal/report/typst/cmd/typst-prototype \
+		-data internal/report/typst/testdata/sample.json \
+		-out build/report/typst-prototype.pdf \
+		-font-dir internal/report/chart/assets
+	@echo "✓ Wrote build/report/typst-prototype.pdf"
+
 # =============================================================================
 # DIAGRAMS
 # =============================================================================

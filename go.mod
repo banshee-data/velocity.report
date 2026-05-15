@@ -3,6 +3,7 @@ module github.com/banshee-data/velocity.report
 go 1.26.4
 
 require (
+	github.com/Dadido3/go-typst v0.10.0
 	github.com/go-echarts/go-echarts/v2 v2.7.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
@@ -46,6 +47,7 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/smasher164/xid v0.1.2 // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
 	github.com/tailscale/hujson v0.0.0-20260302212456-ecc657c15afd // indirect
 	github.com/tailscale/setec v0.0.0-20251203133219-2ab774e4129a // indirect
