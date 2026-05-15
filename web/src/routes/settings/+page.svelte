@@ -550,7 +550,7 @@
 				stop_bits: formData.stop_bits,
 				parity: formData.parity,
 				timeout_seconds: 5,
-				auto_correct_baud: true
+				auto_correct_baud: false
 			});
 			if (testResult.baud_rate !== formData.baud_rate) {
 				formData.baud_rate = testResult.baud_rate;
