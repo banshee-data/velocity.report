@@ -3,7 +3,6 @@ package tailscale
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"sync/atomic"
 	"testing"
 
@@ -14,9 +13,9 @@ import (
 )
 
 // peercapsClient is a minimal LocalClient that only implements the
-// methods LookupPeer and LocalTailnetPrefixes touch.  Reusing the
-// fakeClient from manager_test.go would work but pulls in too much
-// noise; this stub keeps the peercaps tests focused.
+// methods LookupPeer touches.  Reusing the fakeClient from
+// manager_test.go would work but pulls in too much noise; this stub
+// keeps the peercaps tests focused.
 type peercapsClient struct {
 	whoIsFn  func(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error)
 	statusFn func(ctx context.Context) (*ipnstate.Status, error)
@@ -116,6 +115,33 @@ func TestLookupPeer_NotFound(t *testing.T) {
 	}
 }
 
+func TestLookupPeer_TransientErrorsNotMisclassified(t *testing.T) {
+	// Errors that merely contain "not found" or "404" must NOT be
+	// classified as authoritative ErrPeerNotFound — otherwise a
+	// transport blip with a generic message causes the api layer
+	// to fail closed (403) instead of fail open.
+	cases := []string{
+		"some upstream said: not found",
+		"http 404 while reading response",
+		"resource not found at /local/v0/whois",
+	}
+	for _, msg := range cases {
+		t.Run(msg, func(t *testing.T) {
+			c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
+				return nil, errors.New(msg)
+			}}
+			m := newMgr(c)
+			_, err := m.LookupPeer(context.Background(), "100.64.0.5")
+			if errors.Is(err, ErrPeerNotFound) {
+				t.Fatalf("err %q was misclassified as ErrPeerNotFound", msg)
+			}
+			if err == nil {
+				t.Fatalf("expected a transient error, got nil")
+			}
+		})
+	}
+}
+
 func TestLookupPeer_TransientErrorNotCached(t *testing.T) {
 	calls := 0
 	c := &peercapsClient{whoIsFn: func(_ context.Context, _ string) (*apitype.WhoIsResponse, error) {
@@ -161,26 +187,5 @@ func TestLookupPeer_NotFoundCached(t *testing.T) {
 	}
 	if got := c.whoIsCalls.Load(); got != 1 {
 		t.Errorf("ErrPeerNotFound should be cached: got %d daemon calls, want 1", got)
-	}
-}
-
-func TestLocalTailnetPrefixes_Cached(t *testing.T) {
-	c := &peercapsClient{statusFn: func(_ context.Context) (*ipnstate.Status, error) {
-		return &ipnstate.Status{Self: &ipnstate.PeerStatus{
-			TailscaleIPs: []netip.Addr{
-				netip.MustParseAddr("100.64.5.5"),
-				netip.MustParseAddr("fd7a:115c:a1e0::5"),
-			},
-		}}, nil
-	}}
-	m := newMgr(c)
-	for i := 0; i < 4; i++ {
-		out := m.LocalTailnetPrefixes(context.Background())
-		if len(out) != 2 {
-			t.Fatalf("got %d prefixes, want 2", len(out))
-		}
-	}
-	if got := c.statusCalls.Load(); got != 1 {
-		t.Errorf("LocalTailnetPrefixes should be cached: got %d Status calls, want 1", got)
 	}
 }
