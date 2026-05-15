@@ -8,7 +8,40 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/units"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
+
+// VersionInfo is the JSON shape returned by /api/version.  Useful for
+// confirming which build is actually deployed when behaviour diverges
+// from the source tree.
+type VersionInfo struct {
+	Version   string `json:"version"`
+	GitSHA    string `json:"git_sha"`
+	BuildTime string `json:"build_time"`
+}
+
+// showVersion reports the build information (Version, GitSHA, BuildTime)
+// stamped into the binary at link time.  Returns "dev"/"unknown"/"unknown"
+// when run from `go run` without LDFLAGS.
+func (s *Server) showVersion(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	info := VersionInfo{
+		Version:   version.Version,
+		GitSHA:    version.GitSHA,
+		BuildTime: version.BuildTime,
+	}
+
+	if err := json.NewEncoder(w).Encode(info); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write version")
+		return
+	}
+}
 
 func (s *Server) showConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

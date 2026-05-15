@@ -73,6 +73,34 @@ func TestListSupplementalSerialPorts_FindsTTYSCAndSerialSymlinks(t *testing.T) {
 	}
 }
 
+// Regression for https://… field report: a Pi 5 + SC16IS762 HAT exposes
+// both /dev/ttySC0 and /dev/ttySC1; the original test only covered ttySC1
+// so a deployed binary that silently dropped ttySC0 went unnoticed.
+func TestListSupplementalSerialPorts_FindsAllTTYSCNumbers(t *testing.T) {
+	readDir := func(path string) ([]os.DirEntry, error) {
+		switch path {
+		case "/dev":
+			return []os.DirEntry{
+				fakeDirEntry{name: "ttySC0"},
+				fakeDirEntry{name: "ttySC1"},
+				fakeDirEntry{name: "ttySC10"},
+				fakeDirEntry{name: "ttySC100"},
+				fakeDirEntry{name: "ttySC1234"}, // 4 digits — out of range, must NOT match
+				fakeDirEntry{name: "ttySC"},     // no digits — must NOT match
+			}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	got := listSupplementalSerialPorts(readDir)
+	want := []string{"/dev/ttySC0", "/dev/ttySC1", "/dev/ttySC10", "/dev/ttySC100"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
 func TestBuildSerialDeviceList_IncludesSupplementalPorts(t *testing.T) {
 	devices := buildSerialDeviceList(map[string]bool{}, []string{"/dev/ttyUSB0"}, []string{"/dev/ttySC1"}, 123)
 
