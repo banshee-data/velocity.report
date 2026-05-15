@@ -19,11 +19,11 @@ where outbound traffic is sensitive, so the default state is
 | Concern             | Where it lives                                                                                                                |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Package install     | [image/stage-velocity/07-velocity-tailscale/01-run.sh](../../../image/stage-velocity/07-velocity-tailscale/01-run.sh)         |
-| systemd unmask flow | [cmd/velocity-ctl/tailscale.go](../../../cmd/velocity-ctl/tailscale.go)                                                       |
+| systemd unmask flow | [internal/cmd/device/tailscale.go](../../../internal/cmd/device/tailscale.go)                                                 |
 | sudoers grant       | [image/stage-velocity/03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) (lines 49–51) |
 | Manager / IPN bus   | [internal/tailscale/manager.go](../../../internal/tailscale/manager.go)                                                       |
 | HTTP endpoints      | [internal/api/server_tailscale.go](../../../internal/api/server_tailscale.go)                                                 |
-| Web UI              | [web/src/routes/(constrained)/settings/+page.svelte](../../../web/src/routes/%28constrained%29/settings/+page.svelte)         |
+| Web UI              | [web/src/routes/settings/+page.svelte](../../../web/src/routes/settings/+page.svelte)                                         |
 
 ## Trust model
 
