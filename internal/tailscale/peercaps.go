@@ -12,7 +12,6 @@ package tailscale
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -115,23 +114,18 @@ func (m *Manager) lookupPeerUncached(ctx context.Context, remoteAddr string) (Pe
 }
 
 // isPeerNotFound reports whether err looks like the local API's
-// "address not found in NetMap" response.  The local client today
-// returns a wrapped error whose message ends in "no match for IP";
-// match conservatively to avoid widening to transient errors.
+// authoritative "no such peer" response.  The local client today
+// returns a wrapped error whose message contains "no match for IP";
+// match only that exact phrase.  Broader substrings like "not found"
+// or "404" would catch unrelated transport errors and incorrectly
+// fail closed (403) when the safe degradation is fail open.  If
+// upstream renames the phrase, we'll classify NotFound as transient
+// and fail open — the right way round if we must be wrong.
 func isPeerNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Cheap substring match.  Upstream may rename this; the worst
-	// case is we treat NotFound as transient and the api layer fails
-	// open instead of closed, which is the safer degradation.
-	s := err.Error()
-	for _, needle := range []string{"no match for IP", "not found", "404"} {
-		if strings.Contains(s, needle) {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(err.Error(), "no match for IP")
 }
 
 // peerCacheTTL bounds how long a successful or NotFound result is
@@ -180,56 +174,4 @@ func (c *peerCache) set(k string, e peerCacheEntry) {
 	}
 	e.at = time.Now()
 	c.m[k] = e
-}
-
-// LocalTailnetPrefixes returns the IP prefixes that the tailnet
-// assigns to this node.  The result is cached for a short period
-// (the assignment effectively never changes during a session) so
-// that the per-request fallback in the api layer does not hit the
-// daemon socket on the hot path.
-func (m *Manager) LocalTailnetPrefixes(ctx context.Context) []netip.Prefix {
-	if v, ok := m.prefixCache.get(); ok {
-		return v
-	}
-	st, err := m.lc.StatusWithoutPeers(ctx)
-	if err != nil || st == nil || st.Self == nil {
-		return nil
-	}
-	out := make([]netip.Prefix, 0, len(st.Self.TailscaleIPs))
-	for _, ip := range st.Self.TailscaleIPs {
-		if !ip.IsValid() {
-			continue
-		}
-		bits := 32
-		if ip.Is6() {
-			bits = 128
-		}
-		out = append(out, netip.PrefixFrom(ip, bits))
-	}
-	m.prefixCache.set(out)
-	return out
-}
-
-const prefixCacheTTL = 30 * time.Second
-
-type prefixCache struct {
-	mu  sync.Mutex
-	val []netip.Prefix
-	at  time.Time
-}
-
-func (c *prefixCache) get() ([]netip.Prefix, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if time.Since(c.at) > prefixCacheTTL {
-		return nil, false
-	}
-	return c.val, true
-}
-
-func (c *prefixCache) set(v []netip.Prefix) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.val = v
-	c.at = time.Now()
 }

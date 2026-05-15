@@ -15,8 +15,7 @@ import (
 // fakePeerAuth is a hand-rolled stub of PeerAuthClient.  Function
 // fields keep tests free of mocking ceremony.
 type fakePeerAuth struct {
-	lookup   func(ip string) (tailscale.PeerIdentity, error)
-	prefixes []netip.Prefix
+	lookup func(ip string) (tailscale.PeerIdentity, error)
 }
 
 func (f *fakePeerAuth) LookupPeer(_ context.Context, remoteAddr string) (tailscale.PeerIdentity, error) {
@@ -24,10 +23,6 @@ func (f *fakePeerAuth) LookupPeer(_ context.Context, remoteAddr string) (tailsca
 		return tailscale.PeerIdentity{}, errors.New("not configured")
 	}
 	return f.lookup(remoteAddr)
-}
-
-func (f *fakePeerAuth) LocalTailnetPrefixes(_ context.Context) []netip.Prefix {
-	return f.prefixes
 }
 
 func id(view, admin bool) tailscale.PeerIdentity {
@@ -61,13 +56,11 @@ func TestClassifySource_XFFOnlyTrustedFromLoopback(t *testing.T) {
 	// The principal-eng review's #1: XFF must NOT be honoured when
 	// r.RemoteAddr is non-loopback, otherwise a LAN attacker who
 	// can reach :8080 directly forges a tailnet identity.
-	g := newAuthGate(&fakePeerAuth{}, EnforcementOn)
-
 	tailnetXFF := "100.64.0.5"
 
 	// Loopback upstream + XFF tailnet IP -> classified as tailnet.
 	r := mkReq("127.0.0.1:54321", tailnetXFF)
-	ip, fromTailnet := classifySource(r, g, context.Background())
+	ip, fromTailnet := classifySource(r)
 	if !fromTailnet {
 		t.Errorf("loopback+XFF tailnet: expected tailnet, got non-tailnet")
 	}
@@ -78,7 +71,7 @@ func TestClassifySource_XFFOnlyTrustedFromLoopback(t *testing.T) {
 	// LAN upstream + spoofed XFF tailnet IP -> NOT tailnet.
 	// The XFF must be ignored entirely.
 	r = mkReq("192.168.1.50:33445", tailnetXFF)
-	ip, fromTailnet = classifySource(r, g, context.Background())
+	ip, fromTailnet = classifySource(r)
 	if fromTailnet {
 		t.Errorf("LAN+spoofed XFF: expected non-tailnet, got tailnet (forgery accepted)")
 	}
@@ -88,7 +81,7 @@ func TestClassifySource_XFFOnlyTrustedFromLoopback(t *testing.T) {
 
 	// Loopback + no XFF -> loopback IP, non-tailnet (host-local).
 	r = mkReq("127.0.0.1:54321", "")
-	ip, fromTailnet = classifySource(r, g, context.Background())
+	ip, fromTailnet = classifySource(r)
 	if fromTailnet || !ip.IsLoopback() {
 		t.Errorf("loopback no XFF: ip=%s tailnet=%v, want loopback non-tailnet", ip, fromTailnet)
 	}
@@ -261,6 +254,7 @@ func TestClassifyRoute(t *testing.T) {
 	}{
 		// Allowlist
 		{"/", "GET", false, 0},
+		{"/app", "GET", false, 0}, // bare path; mux would 301 to /app/ but wrapper runs first
 		{"/app/", "GET", false, 0},
 		{"/app/index.html", "GET", false, 0},
 		{"/favicon.ico", "GET", false, 0},
@@ -279,6 +273,8 @@ func TestClassifyRoute(t *testing.T) {
 		{"/api/sites", "POST", true, CapAdmin},
 		{"/api/sites/42", "GET", true, CapView},
 		{"/api/sites/42", "DELETE", true, CapAdmin},
+		{"/api/reports", "GET", true, CapView},   // bare list endpoint, view-gated
+		{"/api/reports", "POST", true, CapAdmin}, // mutating bare path requires admin
 		{"/api/reports/abc", "GET", true, CapView},
 		{"/api/reports/abc", "DELETE", true, CapAdmin},
 
