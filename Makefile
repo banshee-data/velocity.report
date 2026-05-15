@@ -17,6 +17,7 @@ help:
 	@echo ""
 	@echo "BUILD TARGETS (Go cross-compilation):"
 	@echo "  build-radar-linux    Build for Linux ARM64 with pcap"
+	@echo "  build-radar-linux-docker Build for Linux ARM64 with pcap inside Docker (outputs to image/velocity-binaries/)"
 	@echo "  build-radar-mac      Build for macOS ARM64 with pcap"
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
@@ -198,6 +199,11 @@ build-radar-linux:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/radar
+
+.PHONY: build-radar-linux-docker
+build-radar-linux-docker:
+	@VERSION="$(VERSION)" BUILD_TIME="$(BUILD_TIME)" GIT_SHA="$(GIT_SHA)" ./image/scripts/build-image.sh --binaries-only
+	@echo "Binaries available:"; ls -l image/velocity-binaries || true
 
 build-radar-mac:
 	@./scripts/ensure-web-stub.sh
