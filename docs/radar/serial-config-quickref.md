@@ -1,23 +1,23 @@
 # Serial configuration UI - quick reference
 
-- **Status:** Active on this branch; most of the operator surface is landed, with rollout work still open
+- **Status:** Active; most of the operator surface is landed, with rollout work still open
 - **Full specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
 - **API reference:** See [docs/radar/architecture/serial-configuration-api.md](architecture/serial-configuration-api.md)
 - **Implementation plan:** See [docs/plans/serial-configuration-implementation-plan.md](../plans/serial-configuration-implementation-plan.md)
 
-Quick-reference summary of what the serial configuration work on this branch actually brings, what it still does not do, and what remains before the backlog item can be closed without crossing fingers.
+Quick-reference summary of what the current serial configuration work actually brings, what it still does not do, and what remains before the backlog item can be closed without crossing fingers.
 
 ## What this feature enables
 
-Users can manage radar serial settings through a local web interface instead of editing service files by hand. The branch lands database-backed storage, a real serial test surface, model metadata, available-port listing, and a dedicated `/settings/serial` page for create, edit, delete, and test workflows.
+Users can manage radar serial settings through a local web interface instead of editing service files by hand. The current implementation lands database-backed storage, a real serial test surface, model metadata, available-port listing, and a Sensor Serial Ports section on `/settings` for create, edit, delete, and test workflows.
 
 It also adds a reload manager that can swap the active serial mux at runtime. What it does not yet do is make the main radar startup path load the database config by default, nor does it ship the auto-detect helpers originally described in the design draft.
 
-## Delivered on this branch
+## Delivered in the current implementation
 
 1. **Database-backed configuration**: `radar_serial_config` now stores serial port definitions in SQLite.
 2. **Shipped API surface**: CRUD, sensor-model listing, available-device listing, serial testing, and reload endpoints are present.
-3. **Operator UI**: `/settings/serial` provides list, create, edit, delete, and test flows.
+3. **Operator UI**: the Sensor Serial Ports section on `/settings` provides list, create, edit, delete, and test flows.
 4. **Application-owned sensor models**: OPS243 model metadata lives in Go code, not in a separate lookup table.
 5. **Hot-reload building block**: `SerialPortManager` can reload the active serial mux from DB state.
 6. **Backward compatibility**: the CLI `--port` path still exists.
@@ -79,7 +79,7 @@ The `radar_serial_config` table stores serial port configurations:
 - `POST /api/serial/test` - Test serial port connection (with auto-correct baud option)
 - `POST /api/serial/reload` - Reload the live serial mux from the enabled database config
 
-Deferred, not shipped on this branch:
+Deferred, not shipped in the current implementation:
 
 - `POST /api/serial/auto-detect`
 - `POST /api/serial/detect-baud`
@@ -112,7 +112,7 @@ Deferred, not shipped on this branch:
 
 **Frontend:**
 
-- Route: [web/src/routes/(constrained)/settings/serial/+page.svelte](<../../web/src/routes/(constrained)/settings/serial/+page.svelte>)
+- Route: [web/src/routes/settings/+page.svelte](../../web/src/routes/settings/+page.svelte) (Sensor Serial Ports section)
 - API client: [web/src/lib/api.ts](../../web/src/lib/api.ts)
 
 ## Close-out view

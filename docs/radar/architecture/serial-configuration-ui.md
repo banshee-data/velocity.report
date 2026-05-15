@@ -13,14 +13,14 @@ Enable users to configure and test radar serial port settings through the web in
 
 ## Implementation snapshot
 
-This document began as a design proposal. On this branch, much of it has moved into code.
+This document began as a design proposal. Much of it has now moved into code.
 
 **Landed now:**
 
 - `radar_serial_config` schema, migration files, and DB CRUD helpers
 - API routes for configs, models, devices, test, and reload
 - Application-owned sensor model registry
-- `/settings/serial` UI for list, create, edit, delete, and test flows
+- Sensor Serial Ports section on `/settings` for list, create, edit, delete, and test flows
 - `SerialPortManager` hot-reload machinery and tests
 
 **Still open:**
@@ -142,7 +142,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 #### FR4: serial auto-detection (port + baud)
 
-Two endpoints were proposed to help users find connected radar devices: `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`. They remain planned work on this branch rather than shipped functionality.
+Two endpoints were proposed to help users find connected radar devices: `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`. They remain planned work in the current implementation rather than shipped functionality.
 
 See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the auto-detection algorithm and response schemas.
 
@@ -150,7 +150,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Requirement:** User interface to view, edit, test, and manage serial configurations
 
-**Route:** `/settings/serial` (new sub-route under settings)
+**Route:** `/settings` (current implementation places serial configuration in the Sensor Serial Ports section rather than a dedicated sub-route)
 
 **Page Components:**
 
@@ -172,8 +172,8 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
      - Advanced: Data Bits, Stop Bits, Parity (defaults to 8N1)
    - Buttons:
      - "Test Connection" - Runs FR3 test with auto-correct option
-       - "Detect Device" - Planned, not yet shipped on this branch
-       - "Auto-Detect Baud" - Planned, not yet shipped on this branch
+     - "Detect Device" - Planned, not yet shipped in the current implementation
+     - "Auto-Detect Baud" - Planned, not yet shipped in the current implementation
      - "Save" - Creates/updates configuration
      - "Cancel" - Discards changes
 
@@ -188,9 +188,9 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Implementation:**
 
-- **Route File:** `web/src/routes/settings/serial/+page.svelte`
-- **API Client:** [web/src/lib/api.ts](../../../web/src/lib/api.ts) (extend existing API helpers)
-- **TypeScript Types:** `web/src/lib/types/serial.ts` (new file)
+- **Route File:** [web/src/routes/settings/+page.svelte](../../../web/src/routes/settings/+page.svelte)
+- **API Client:** [web/src/lib/api.ts](../../../web/src/lib/api.ts)
+- **TypeScript Types:** Serial configuration request/response types live in [web/src/lib/api.ts](../../../web/src/lib/api.ts)
 
 **Design Pattern:** Follow existing settings page patterns
 
@@ -341,7 +341,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Deliverables:**
 
-1. `/settings/serial` route and page component (FR5)
+1. Sensor Serial Ports section on `/settings` (FR5)
 2. Configuration list view
 3. Edit/Create modal with form validation
 4. Test connection button with results display
@@ -493,7 +493,7 @@ sudo cp /path/to/new/velocity-report /usr/local/bin/
 sudo systemctl start velocity-report
 
 # 2. Configure via web UI (optional)
-# Visit http://raspberrypi.local:8080/settings/serial
+# Visit http://raspberrypi.local:8080/settings
 # Test and verify serial configuration
 
 # 3. Clean up service file (optional)

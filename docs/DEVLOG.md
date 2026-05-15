@@ -600,9 +600,9 @@
 - Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
 - Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
 - Updated [LiDAR data layer model](lidar/architecture/LIDAR_ARCHITECTURE.md) documentation with visualisation details.
-- {copilot/update-serial-configuration-ui} Added serial configuration backend (#290): DB layer with `serial_configs` table, API CRUD handlers, and a reload manager that hot-swaps serial port bindings without restarting the service.
-- {copilot/update-serial-configuration-ui} Added serial configuration web UI: settings page with create/edit/delete dialogs, port test dialog, and `uniquePortPaths` deduplication.
-- {copilot/update-serial-configuration-ui} Expanded Go test coverage for serial config reload and added Jest threshold enforcement for the web frontend.
+- Added serial configuration backend (#290): DB layer with `radar_serial_config`, API CRUD handlers, and a reload manager that hot-swaps serial port bindings without restarting the service.
+- Added serial configuration UI to the Settings page: create/edit/delete dialogs, port test dialog, and deduplicated port options.
+- Expanded Go test coverage for serial config reload and added Jest threshold enforcement for the web frontend.
 
 ## February 19, 2026 - LiDAR layer alignment & architecture review
 

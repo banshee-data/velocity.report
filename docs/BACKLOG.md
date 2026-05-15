@@ -13,7 +13,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
-- [#290] (#11) Finish serial configuration rollout: wire DB-backed serial config into radar startup, add a clear apply/reload path, ship device/baud auto-detect, and publish the operator guide for `/settings/serial`: [implementation plan](plans/serial-configuration-implementation-plan.md) `M`
+- [#290] (#11) Finish serial configuration rollout: wire DB-backed serial config into radar startup, add a clear apply/reload path, ship device/baud auto-detect, and publish the operator guide for the serial settings section on `/settings`: [implementation plan](plans/serial-configuration-implementation-plan.md) `M`
 - replace xelatex with Typst; delete the 143 MB minimal TeX tree, the build-minimal-texlive scripts, and the `librsvg2-bin`/`fonts-noto-color-emoji`/`fonts-lmodern` apt deps; PDF parity job runs both pipelines for one release: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `L`
 - in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/`; image ships zero Tailscale state until operator opts in via the web UI: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `M`
 - [#503] Opt-in Tailscale ACL roles: consume Tailscale capability grants to derive admin/view access for the web UI while keeping LAN access fully privileged by default `S`

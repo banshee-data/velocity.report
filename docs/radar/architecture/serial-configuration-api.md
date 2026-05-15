@@ -4,7 +4,7 @@
 - **Parent:** [serial-configuration-ui.md](serial-configuration-ui.md)
 - **Implementation plan:** [../../plans/serial-configuration-implementation-plan.md](../../plans/serial-configuration-implementation-plan.md)
 
-API reference for the serial configuration surface shipped on this branch. This document separates the endpoints that exist today from the endpoints that remain planned.
+API reference for the serial configuration surface in the current implementation. This document separates the endpoints that exist today from the endpoints that remain planned.
 
 ## Current endpoints
 
@@ -122,7 +122,7 @@ Success returns `success`, `message`, and a `config` snapshot describing the new
 
 ### Notes
 
-- The branch reports the detected baud rate, but does not persist that correction back into the saved configuration automatically.
+- The current implementation reports the detected baud rate, but does not persist that correction back into the saved configuration automatically.
 - When the tested port matches the current `SerialPortManager` snapshot, the response warns that the live connection may be disrupted.
 
 ## Reload endpoint
@@ -139,11 +139,11 @@ Success returns `success`, `message`, and a `config` snapshot describing the new
 
 ### Important limitation
 
-The reload manager exists, but this branch does not yet prove that the main radar startup path installs it in production. Treat `/api/serial/reload` as implemented API surface with rollout work still pending.
+The reload manager exists, but the current radar startup path does not yet prove that it is installed in production. Treat `/api/serial/reload` as implemented API surface with rollout work still pending.
 
 ## Deferred endpoints
 
-These were part of the original design but are not present on this branch:
+These were part of the original design but are not present in the current implementation:
 
 - `POST /api/serial/auto-detect`
 - `POST /api/serial/detect-baud`

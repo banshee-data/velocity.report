@@ -2,14 +2,14 @@
 
 - **Status:** Active
 - **Layers:** Go server, API, database, web frontend, documentation
-- **Target:** v0.5.1; most of the operator-facing surface is now on this branch, so the remaining work is rollout and completion rather than invention
+- **Target:** v0.5.1; most of the operator-facing surface is now landed, so the remaining work is rollout and completion rather than invention
 - **Canonical:** [serial-config-quickref.md](../radar/serial-config-quickref.md) <!-- link-ignore -->
 
 ## Motivation
 
 Radar serial setup currently asks too much of operators. Editing service files by hand is fine if you already know where the trapdoors are, but it is a poor way to validate baud rate, port choice, or whether the device at the other end is awake and willing.
 
-This branch changes the centre of gravity. Serial configuration becomes database-backed, visible in the web UI, and testable through local API calls. The remaining work is mostly about making the running radar process obey those saved settings automatically and finishing the last bits of operator polish.
+This work changes the centre of gravity. Serial configuration becomes database-backed, visible in the web UI, and testable through local API calls. The remaining work is mostly about making the running radar process obey those saved settings automatically and finishing the last bits of operator polish.
 
 ## Current state
 
@@ -17,20 +17,20 @@ This branch changes the centre of gravity. Serial configuration becomes database
 - CRUD helpers for serial configurations exist in [internal/db/serial_config.go](../../internal/db/serial_config.go).
 - The API server exposes `GET/POST/PUT/DELETE` config routes plus models, devices, test, and reload routes in [internal/api/server.go](../../internal/api/server.go), with handlers in [internal/api/serial_config.go](../../internal/api/serial_config.go), [internal/api/serial.go](../../internal/api/serial.go), and [internal/api/serial_reload.go](../../internal/api/serial_reload.go).
 - Sensor model metadata is application-owned in [internal/api/sensor_models.go](../../internal/api/sensor_models.go).
-- The web UI ships a dedicated page at [web/src/routes/(constrained)/settings/serial/+page.svelte](<../../web/src/routes/(constrained)/settings/serial/+page.svelte>) backed by helpers in [web/src/lib/api.ts](../../web/src/lib/api.ts).
-- The branch includes test coverage for DB access, API handlers, and reload behaviour in [internal/db/serial_config_test.go](../../internal/db/serial_config_test.go), [internal/api/serial_config_test.go](../../internal/api/serial_config_test.go), and [internal/api/serial_reload_test.go](../../internal/api/serial_reload_test.go).
+- The web UI ships serial configuration inside the Sensor Serial Ports section of [web/src/routes/settings/+page.svelte](../../web/src/routes/settings/+page.svelte), backed by helpers in [web/src/lib/api.ts](../../web/src/lib/api.ts).
+- The current codebase includes test coverage for DB access, API handlers, and reload behaviour in [internal/db/serial_config_test.go](../../internal/db/serial_config_test.go), [internal/api/serial_config_test.go](../../internal/api/serial_config_test.go), and [internal/api/serial_reload_test.go](../../internal/api/serial_reload_test.go).
 - The hot-reload manager exists, but startup wiring from [cmd/radar/radar.go](../../cmd/radar/radar.go) still appears to be CLI-port-first rather than DB-config-first.
-- Auto-detect endpoints and UI affordances described in the original design are not present on this branch.
+- Auto-detect endpoints and UI affordances described in the original design are not present in the current implementation.
 
 ## Findings
 
-| Area             | Current state                                                                                                                           | Severity | Release view                                     |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
-| Storage          | Schema, migration, and DB helpers are landed                                                                                            | Low      | Done for this release                            |
-| API core         | CRUD, model listing, device listing, test, and reload endpoints are landed                                                              | Low      | Done for this release                            |
-| Runtime adoption | `SerialPortManager` exists, but `cmd/radar/radar.go` is not yet using DB-backed config as the main startup path                         | High     | Must finish before calling the feature complete  |
-| UX completion    | `/settings/serial` supports list/create/edit/delete/test, but not device auto-detect, baud-only detect, or an obvious apply/reload path | Medium   | Safe to defer some polish, not all               |
-| Documentation    | Design docs still read like a proposal and over-promise unshipped endpoints                                                             | Medium   | Fix now so the release notes do not lie politely |
+| Area             | Current state                                                                                                                                                       | Severity | Release view                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
+| Storage          | Schema, migration, and DB helpers are landed                                                                                                                        | Low      | Done for this release                            |
+| API core         | CRUD, model listing, device listing, test, and reload endpoints are landed                                                                                          | Low      | Done for this release                            |
+| Runtime adoption | `SerialPortManager` exists, but `cmd/radar/radar.go` is not yet using DB-backed config as the main startup path                                                     | High     | Must finish before calling the feature complete  |
+| UX completion    | The Sensor Serial Ports section on `/settings` supports list/create/edit/delete/test, but not device auto-detect, baud-only detect, or an obvious apply/reload path | Medium   | Safe to defer some polish, not all               |
+| Documentation    | Design docs still read like a proposal and over-promise unshipped endpoints                                                                                         | Medium   | Fix now so the release notes do not lie politely |
 
 ## Design / approach
 
@@ -45,7 +45,7 @@ Treat this as a completion pass, not a second design exercise.
 
 ### Item 1: close the documentation gap
 
-**Summary:** Update the radar serial docs so they describe what this branch already delivers and what remains.
+**Summary:** Update the radar serial docs so they describe what the current implementation already delivers and what remains.
 
 **Steps:**
 
@@ -74,7 +74,7 @@ Treat this as a completion pass, not a second design exercise.
 **Steps:**
 
 1. Decide whether reload is explicit or automatic after save.
-2. Add the chosen affordance to `/settings/serial`.
+2. Add the chosen affordance to the Sensor Serial Ports section on `/settings`.
 3. Validate the flow on real hardware.
 
 **Milestone:** v0.5.1
@@ -114,7 +114,7 @@ Treat this as a completion pass, not a second design exercise.
 - [x] Added sensor model registry in application code
 - [x] Added `/api/serial/configs`, `/api/serial/models`, `/api/serial/devices`, `/api/serial/test`, and `/api/serial/reload`
 - [x] Added `SerialPortManager` hot-reload machinery and tests
-- [x] Added `/settings/serial` UI for list, create, edit, delete, and test workflows
+- [x] Added the Sensor Serial Ports UI on `/settings` for list, create, edit, delete, and test workflows
 - [x] Added branch-level documentation and devlog entries describing the delivered work
 
 ### Outstanding
