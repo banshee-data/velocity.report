@@ -64,6 +64,39 @@ var (
 	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
 )
 
+func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, error) {
+	dbPath := defaultDBPath
+	positionals := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			positionals = append(positionals, args[i+1:]...)
+			return positionals, dbPath, nil
+		case arg == "--db-path":
+			if i+1 >= len(args) {
+				return nil, "", fmt.Errorf("flag needs an argument: --db-path")
+			}
+			dbPath = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--db-path="):
+			dbPath = strings.TrimPrefix(arg, "--db-path=")
+			if dbPath == "" {
+				return nil, "", fmt.Errorf("flag needs an argument: --db-path")
+			}
+		case arg == "--help" || arg == "-h":
+			return []string{"help"}, dbPath, nil
+		case strings.HasPrefix(arg, "-"):
+			return nil, "", fmt.Errorf("unknown migrate flag: %s", arg)
+		default:
+			positionals = append(positionals, arg)
+		}
+	}
+
+	return positionals, dbPath, nil
+}
+
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
 	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
@@ -284,24 +317,13 @@ func main() {
 			os.Exit(0)
 		}
 		if subcommand == "migrate" {
-			// Re-parse flags after "migrate" subcommand to allow:
-			//   velocity-report migrate up --db-path /custom.db
-			// or:
-			//   velocity-report --db-path /custom.db migrate up
-			//
-			// flag.Parse() stops at first non-flag arg, so flags after "migrate"
-			// weren't parsed. Create new FlagSet to parse remaining args.
-			migrateFlags := flag.NewFlagSet("migrate", flag.ExitOnError)
-			migrateDBPath := migrateFlags.String("db-path", *dbPathFlag, "path to sqlite DB file")
-
-			// Parse flags from args after "migrate"
-			remainingArgs := flag.Args()[1:] // Everything after "migrate"
-			if err := migrateFlags.Parse(remainingArgs); err != nil {
-				log.Fatalf("Could not parse migrate flags: %v. Run 'velocity-report migrate --help' for usage", err)
+			remainingArgs := flag.Args()[1:]
+			migrateArgs, migrateDBPath, err := parseMigrateCommandArgs(remainingArgs, *dbPathFlag)
+			if err != nil {
+				log.Fatalf("Could not parse migrate flags: %v. Run 'velocity-report migrate help' for usage", err)
 			}
 
-			// Pass positional args (non-flag args after parsing) to migrate command
-			db.RunMigrateCommand(migrateFlags.Args(), *migrateDBPath)
+			db.RunMigrateCommand(migrateArgs, migrateDBPath)
 			return
 		}
 		if subcommand == "transits" {
