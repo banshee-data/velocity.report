@@ -127,6 +127,12 @@ func (s *Server) currentSerialMux() serialmux.SerialMuxInterface {
 // adding a new mutating endpoint cannot accidentally bypass auth.
 func (s *Server) SetAuthGate(tc PeerAuthClient, mode CapEnforcement) {
 	s.authGate = newAuthGate(tc, mode)
+	// One-line arming record so operators can grep journald for the
+	// transition.  The wording is referenced from
+	// docs/platform/operations/tailscale-remote-access.md.
+	if s.authGate.mode == EnforcementOn {
+		log.Print("auth: capability enforcement armed (mode=on)")
+	}
 }
 
 // viewRoutes is the allowlist of read-only endpoints that should
@@ -156,6 +162,7 @@ var viewRoutesGetOnly = []string{
 	"/api/sites",
 	"/api/sites/",
 	"/api/site_config_periods",
+	"/api/reports",
 	"/api/reports/",
 }
 
@@ -165,8 +172,12 @@ var viewRoutesGetOnly = []string{
 // belong here.
 var authAllowlist = []string{
 	// SPA static assets — the page itself must be reachable so the
-	// app can render an "unauthorized" state.
+	// app can render an "unauthorized" state.  `/app` is listed in
+	// addition to `/app/` because the auth wrapper runs before the
+	// ServeMux trailing-slash redirect, so a bare `/app` would
+	// otherwise hit default-deny instead of redirecting.
 	"/",
+	"/app",
 	"/app/",
 	"/favicon.ico",
 	// Tailscale status read so an operator with a botched grant

@@ -106,11 +106,6 @@ type PeerAuthClient interface {
 	// authoritative that the address is not a tailnet peer; any
 	// other error is treated as transient.
 	LookupPeer(ctx context.Context, remoteAddr string) (tailscale.PeerIdentity, error)
-	// LocalTailnetPrefixes returns the tailnet IPs assigned to this
-	// node, used as a belt-and-braces fallback when the CGNAT-range
-	// shortcut does not match (e.g. custom CGNAT ranges).  May
-	// return nil when the daemon is unreachable.
-	LocalTailnetPrefixes(ctx context.Context) []netip.Prefix
 }
 
 // authGate carries the per-server configuration for the middleware.
@@ -147,7 +142,7 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 		ctx, cancel := context.WithTimeout(r.Context(), g.timeout)
 		defer cancel()
 
-		clientIP, fromTailnet := classifySource(r, g, ctx)
+		clientIP, fromTailnet := classifySource(r)
 		if !fromTailnet {
 			// LAN/loopback peers retain full access — the LAN
 			// itself is the trust boundary in those deployments.
@@ -195,7 +190,7 @@ func (g *authGate) requireCap(required CapKind, next http.Handler) http.Handler 
 // serve's local proxy.  Anywhere else, only r.RemoteAddr is
 // trusted, which prevents a LAN attacker who can reach :8080
 // directly from forging a tailnet identity by setting XFF.
-func classifySource(r *http.Request, g *authGate, ctx context.Context) (netip.Addr, bool) {
+func classifySource(r *http.Request) (netip.Addr, bool) {
 	remoteIP := remoteAddrIP(r)
 	if !remoteIP.IsValid() {
 		return netip.Addr{}, false
@@ -204,7 +199,7 @@ func classifySource(r *http.Request, g *authGate, ctx context.Context) (netip.Ad
 	// by which tailscale serve forwards requests to us).
 	if remoteIP.IsLoopback() {
 		if xff := firstXFF(r.Header.Get("X-Forwarded-For")); xff.IsValid() {
-			if isTailnetIP(ctx, g, xff) {
+			if isTailnetIP(xff) {
 				return xff, true
 			}
 			// XFF is set but not a tailnet IP: a misconfigured
@@ -222,7 +217,7 @@ func classifySource(r *http.Request, g *authGate, ctx context.Context) (netip.Ad
 	// direct connection from a tailnet IP (rare but possible if the
 	// operator explicitly bound the tailnet IP) is treated as
 	// tailnet, but the much more common case is a LAN address.
-	return remoteIP, isTailnetIP(ctx, g, remoteIP)
+	return remoteIP, isTailnetIP(remoteIP)
 }
 
 // firstXFF parses the first entry of an X-Forwarded-For header.
@@ -252,22 +247,14 @@ func remoteAddrIP(r *http.Request) netip.Addr {
 }
 
 // isTailnetIP reports whether ip is in Tailscale's CGNAT range
-// (the static /10 for IPv4 and /48 for IPv6) or in one of the
-// prefixes the local daemon reports as the node's own (a fallback
-// for unusual deployments).  Cached at the daemon-call layer.
-func isTailnetIP(ctx context.Context, g *authGate, ip netip.Addr) bool {
+// (the static /10 for IPv4 and /48 for IPv6).  Custom CGNAT
+// remappings are not supported here; an operator running on a
+// non-default range would need to extend this classifier.
+func isTailnetIP(ip netip.Addr) bool {
 	if !ip.IsValid() {
 		return false
 	}
-	if isTailscaleCGNAT(ip) {
-		return true
-	}
-	for _, p := range g.tc.LocalTailnetPrefixes(ctx) {
-		if p.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return isTailscaleCGNAT(ip)
 }
 
 // Tailscale's CGNAT range is fixed (RFC 6598 100.64/10 carved out

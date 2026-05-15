@@ -194,10 +194,9 @@ type Manager struct {
 	// devices don't synchronise their reconnects).
 	rng *rand.Rand
 
-	// Caches consulted by the api layer's auth middleware.  Both are
-	// short-TTL and process-local; see peercaps.go.
-	peerCache   peerCache
-	prefixCache prefixCache
+	// Cache consulted by the api layer's auth middleware.  Short-TTL
+	// and process-local; see peercaps.go.
+	peerCache peerCache
 }
 
 // Option configures a Manager at construction time.

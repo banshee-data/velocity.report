@@ -16,14 +16,14 @@ detail: the image is published publicly and may run in environments
 where outbound traffic is sensitive, so the default state is
 "installed but inert."
 
-| Concern             | Where it lives                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| Package install     | [image/stage-velocity/07-velocity-tailscale/01-run.sh](../../../image/stage-velocity/07-velocity-tailscale/01-run.sh) |
-| systemd unmask flow | [cmd/velocity-ctl/tailscale.go](../../../cmd/velocity-ctl/tailscale.go)               |
+| Concern             | Where it lives                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Package install     | [image/stage-velocity/07-velocity-tailscale/01-run.sh](../../../image/stage-velocity/07-velocity-tailscale/01-run.sh)         |
+| systemd unmask flow | [internal/cmd/device/tailscale.go](../../../internal/cmd/device/tailscale.go)                                                 |
 | sudoers grant       | [image/stage-velocity/03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) (lines 49–51) |
-| Manager / IPN bus   | [internal/tailscale/manager.go](../../../internal/tailscale/manager.go)               |
-| HTTP endpoints      | [internal/api/server_tailscale.go](../../../internal/api/server_tailscale.go)         |
-| Web UI              | [web/src/routes/(constrained)/settings/+page.svelte](../../../web/src/routes/%28constrained%29/settings/+page.svelte) |
+| Manager / IPN bus   | [internal/tailscale/manager.go](../../../internal/tailscale/manager.go)                                                       |
+| HTTP endpoints      | [internal/api/server_tailscale.go](../../../internal/api/server_tailscale.go)                                                 |
+| Web UI              | [web/src/routes/settings/+page.svelte](../../../web/src/routes/settings/+page.svelte)                                         |
 
 ## Trust model
 
@@ -55,7 +55,7 @@ When the operator toggles Tailscale on in Settings:
 
 1. The web UI POSTs `/api/tailscale/enable`. The Go server shells
    out to `sudo /usr/local/bin/velocity-ctl tailscale
-   enable-tailscaled`, which unmasks, enables, and starts the
+enable-tailscaled`, which unmasks, enables, and starts the
    service, waits up to 15 s for `/var/run/tailscale/tailscaled.sock`
    to appear, and runs `tailscale set --operator=velocity`.
 2. The manager subscribes to the IPN bus, calls
@@ -99,7 +99,7 @@ The image vendors the daemon and the lifecycle plumbing. It does
 There is no headless / auth-key path in the web UI. The flow is
 always interactive login. If you need headless enrolment for fleet
 deployment, run `sudo tailscale up --auth-key=…` on the Pi over SSH
-*before* using the web UI; the manager picks up the running daemon
+_before_ using the web UI; the manager picks up the running daemon
 on its first poll.
 
 ## Capability grants
@@ -136,10 +136,10 @@ Add a grant to your tailnet policy:
 The `-ts-cap-enforcement` flag on `velocity-report` controls whether
 the gate is active:
 
-| Mode  | Behaviour                                                                                                          |
-| ----- | ------------------------------------------------------------------------------------------------------------------ |
-| `off` | (default) Capability checks disabled. Every reachable peer is admin. Use this until grants are validated.          |
-| `on`  | Enforce caps for tailnet-sourced requests. LAN and loopback are still admin. Flip to `on` after grants are wired.  |
+| Mode  | Behaviour                                                                                                         |
+| ----- | ----------------------------------------------------------------------------------------------------------------- |
+| `off` | (default) Capability checks disabled. Every reachable peer is admin. Use this until grants are validated.         |
+| `on`  | Enforce caps for tailnet-sourced requests. LAN and loopback are still admin. Flip to `on` after grants are wired. |
 
 ### Trust model
 
@@ -205,13 +205,13 @@ full listener segmentation.
 
 ## Troubleshooting
 
-| Symptom                                         | Likely cause                                                                                  | Where to look                                                                                                                  |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Toggle errors with "operation not permitted"    | sudoers entry missing or the `velocity` user is not in the `velocity` group.                  | Re-image, or apply [03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) by hand.         |
-| Login URL never appears                         | Daemon cannot reach `login.tailscale.com`. Almost always a DNS or outbound-firewall problem.  | `journalctl -u tailscaled` and `tailscale netcheck` over SSH.                                                                  |
-| Connected but Settings shows "Web UI: failed"   | MagicDNS name not yet propagated, or HTTPS certs disabled in the admin console.               | The manager retries serve setup 6 times; if it still fails, enable HTTPS at `login.tailscale.com/admin/dns` and toggle off/on. |
-| Cap-gated peer gets 403 when it shouldn't       | Grant is on the wrong tailnet policy line, or `-ts-cap-enforcement=on` was set prematurely.   | Check the grant in the admin console, and look for `auth: capability enforcement armed` in the journald log.                   |
-| LAN client unexpectedly hits 403                | The LAN bypass relies on the request not coming through tailscale serve. Funnel breaks this.  | Funnel is unsupported (see Non-goals). If you've enabled it, disable it.                                                       |
+| Symptom                                       | Likely cause                                                                                 | Where to look                                                                                                                  |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Toggle errors with "operation not permitted"  | sudoers entry missing or the `velocity` user is not in the `velocity` group.                 | Re-image, or apply [03-velocity-config/00-run.sh](../../../image/stage-velocity/03-velocity-config/00-run.sh) by hand.         |
+| Login URL never appears                       | Daemon cannot reach `login.tailscale.com`. Almost always a DNS or outbound-firewall problem. | `journalctl -u tailscaled` and `tailscale netcheck` over SSH.                                                                  |
+| Connected but Settings shows "Web UI: failed" | MagicDNS name not yet propagated, or HTTPS certs disabled in the admin console.              | The manager retries serve setup 6 times; if it still fails, enable HTTPS at `login.tailscale.com/admin/dns` and toggle off/on. |
+| Cap-gated peer gets 403 when it shouldn't     | Grant is on the wrong tailnet policy line, or `-ts-cap-enforcement=on` was set prematurely.  | Check the grant in the admin console, and look for `auth: capability enforcement armed` in the journald log.                   |
+| LAN client unexpectedly hits 403              | The LAN bypass relies on the request not coming through tailscale serve. Funnel breaks this. | Funnel is unsupported (see Non-goals). If you've enabled it, disable it.                                                       |
 
 For the velocity-report side, `journalctl -u velocity-report` shows
 all auth-gate decisions (the arming event, WhoIs failures, and any
