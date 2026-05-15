@@ -53,6 +53,7 @@ module.exports = function (eleventyConfig) {
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through
   eleventyConfig.addPassthroughCopy({ "src/css/homepage.css": "css/homepage.css" });
+  eleventyConfig.addPassthroughCopy({ "src/css/header.css": "css/header.css" });
 
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");
