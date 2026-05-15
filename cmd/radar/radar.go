@@ -230,6 +230,42 @@ func visitedFlags() map[string]bool {
 	return visited
 }
 
+func defaultRuntimeSerialOptions() serialmux.PortOptions {
+	return serialmux.PortOptions{
+		BaudRate: 19200,
+		DataBits: 8,
+		StopBits: 1,
+		Parity:   "N",
+	}
+}
+
+func runtimeSerialSnapshot(portPath string, serialActive bool) api.SerialConfigSnapshot {
+	trimmedPath := strings.TrimSpace(portPath)
+	if !serialActive || trimmedPath == "" {
+		return api.SerialConfigSnapshot{}
+	}
+
+	return api.SerialConfigSnapshot{
+		PortPath: trimmedPath,
+		Source:   "cli",
+		Options:  defaultRuntimeSerialOptions(),
+	}
+}
+
+func runtimeSerialFactory(reloadEnabled bool) api.SerialMuxFactory {
+	if !reloadEnabled {
+		return nil
+	}
+
+	return func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error) {
+		return serialmux.NewRealSerialMuxWithOptions(path, opts)
+	}
+}
+
+func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterface, portPath string, serialActive bool, reloadEnabled bool) *api.SerialPortManager {
+	return api.NewSerialPortManager(database, current, runtimeSerialSnapshot(portPath, serialActive), runtimeSerialFactory(reloadEnabled))
+}
+
 // Main
 func main() {
 	// Subcommand dispatch — check before flag.Parse() so subcommand flags
@@ -404,8 +440,6 @@ func main() {
 			log.Fatalf("failed to create radar port: %v. Check device is connected and port path is correct (default /dev/ttySC1)", err)
 		}
 	}
-	defer radarSerial.Close()
-
 	if err := radarSerial.Initialise(); err != nil {
 		log.Fatalf("failed to initialise device: %v. Check device is powered on and responding", err)
 	} else {
@@ -422,6 +456,11 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v. Check file path is correct and directory is writable", err)
 	}
 	defer database.Close()
+
+	serialActive := !*disableRadar
+	reloadEnabled := !*disableRadar && !*debugMode && !*fixtureMode
+	serialManager := newRuntimeSerialManager(database, radarSerial, *port, serialActive, reloadEnabled)
+	defer serialManager.Close()
 
 	// Create a wait group for the HTTP server, serial monitor, and event handler routines
 	var wg sync.WaitGroup
@@ -853,7 +892,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := radarSerial.Monitor(ctx); err != nil && err != context.Canceled {
+		if err := serialManager.Monitor(ctx); err != nil && err != context.Canceled {
 			log.Printf("failed to monitor serial port: %v", err)
 		}
 		log.Print("monitor routine terminated")
@@ -864,8 +903,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		id, c := radarSerial.Subscribe()
-		defer radarSerial.Unsubscribe(id)
+		id, c := serialManager.Subscribe()
+		defer serialManager.Unsubscribe(id)
 		for {
 			select {
 			case payload := <-c:
@@ -906,7 +945,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
+		apiServer := api.NewServer(serialManager, database, *unitsFlag, *timezoneFlag)
+		apiServer.SetSerialManager(serialManager)
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
@@ -940,7 +980,7 @@ func main() {
 		} else {
 			log.Printf("Offline docs available on main HTTP server at %s (source=%s)", docsite.DefaultMount, *docsSource)
 		}
-		radarSerial.AttachAdminRoutes(mux)
+		serialManager.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
 
 		// Attach Lidar routes if enabled

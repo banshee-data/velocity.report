@@ -1,9 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"github.com/google/go-cmp/cmp"
@@ -61,5 +67,51 @@ func TestRadarEndToEnd(t *testing.T) {
 	// Check if the event matches the expected event
 	if diff := cmp.Diff(expectedEvent, events[0]); diff != "" {
 		t.Errorf("Event mismatch (-got +want):\n%s", diff)
+	}
+}
+
+func TestNewRuntimeSerialManager_EnablesActiveSerialTestPath(t *testing.T) {
+	disabledMux := serialmux.NewDisabledSerialMux()
+	manager := newRuntimeSerialManager(nil, disabledMux, "/dev/ttySC1", true, false)
+	defer manager.Close()
+
+	server := api.NewServer(disabledMux, nil, "mph", "UTC")
+	server.SetSerialManager(manager)
+
+	body, err := json.Marshal(map[string]any{
+		"port_path":       "/dev/ttySC1",
+		"baud_rate":       19200,
+		"data_bits":       8,
+		"stop_bits":       1,
+		"parity":          "None",
+		"timeout_seconds": 5,
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/serial/test", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	server.ServeMux().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if !resp.Success {
+		t.Fatalf("expected success response, got %+v", resp)
+	}
+	if !strings.Contains(resp.Message, "already active") {
+		t.Fatalf("expected active-port shortcut message, got %q", resp.Message)
 	}
 }
