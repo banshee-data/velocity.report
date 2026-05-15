@@ -39,6 +39,36 @@ log_info()  { echo -e "${GREEN}✓${NC} $1"; }
 log_warn()  { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 
+DOCKER_BUILDER_IMAGE="velocity-builder"
+DOCKER_BUILD_CONTAINER_ID=""
+DOCKER_BUILD_CLEANUP_REQUESTED=0
+
+cleanup_docker_build_artifacts() {
+    local phase="${1:-cleanup}"
+
+    if [[ "$DOCKER_BUILD_CLEANUP_REQUESTED" -ne 1 ]]; then
+        return
+    fi
+
+    if ! command -v docker &>/dev/null; then
+        return
+    fi
+
+    if ! docker info &>/dev/null; then
+        return
+    fi
+
+    log_info "Cleaning Docker builder image and cache (${phase})..."
+
+    if [[ -n "$DOCKER_BUILD_CONTAINER_ID" ]]; then
+        docker rm -f "$DOCKER_BUILD_CONTAINER_ID" >/dev/null 2>&1 || true
+        DOCKER_BUILD_CONTAINER_ID=""
+    fi
+
+    docker image rm -f "$DOCKER_BUILDER_IMAGE" >/dev/null 2>&1 || true
+    docker builder prune -af >/dev/null 2>&1 || true
+}
+
 # ---------------------------------------------------------------------------
 # 0. Cleanup handler — remove transient copies on exit
 # ---------------------------------------------------------------------------
@@ -46,6 +76,7 @@ PIGEN_DIR="$IMAGE_DIR/.pi-gen"
 
 cleanup() {
     log_info "Cleaning up transient build files..."
+    cleanup_docker_build_artifacts "exit"
     rm -rf "$PIGEN_DIR/stage-velocity"
     rm -rf "$PIGEN_DIR/velocity-binaries"
     # Remove transient copies staged from the repo into the working tree
@@ -113,6 +144,8 @@ if [[ "$HOST_BUILD" -eq 0 || "$BINARIES_ONLY" -eq 0 ]]; then
     fi
 fi
 
+trap cleanup EXIT
+
 # ---------------------------------------------------------------------------
 # 4. Build ARM64 binaries
 # ---------------------------------------------------------------------------
@@ -157,19 +190,25 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         # Docker build — canonical path, always produces pcap-enabled binaries.
         log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
 
+        DOCKER_BUILD_CLEANUP_REQUESTED=1
+        cleanup_docker_build_artifacts "before build"
+
         docker build \
+            --force-rm \
             --platform linux/amd64 \
             -f "$IMAGE_DIR/Dockerfile.build" \
             --build-arg VERSION="$VERSION" \
             --build-arg GIT_SHA="$GIT_SHA" \
             --build-arg BUILD_TIME="$BUILD_TIME" \
-            -t velocity-builder \
+            -t "$DOCKER_BUILDER_IMAGE" \
             .
 
-        CONTAINER_ID=$(docker create velocity-builder)
-        docker cp "$CONTAINER_ID:/out/velocity-report" "$BINARIES_DIR/velocity-report"
-        docker cp "$CONTAINER_ID:/out/velocity-ctl" "$BINARIES_DIR/velocity-ctl"
-        docker rm "$CONTAINER_ID" >/dev/null
+        DOCKER_BUILD_CONTAINER_ID=$(docker create "$DOCKER_BUILDER_IMAGE")
+        docker cp "$DOCKER_BUILD_CONTAINER_ID:/out/velocity-report" "$BINARIES_DIR/velocity-report"
+        docker cp "$DOCKER_BUILD_CONTAINER_ID:/out/velocity-ctl" "$BINARIES_DIR/velocity-ctl"
+        docker rm "$DOCKER_BUILD_CONTAINER_ID" >/dev/null
+        DOCKER_BUILD_CONTAINER_ID=""
+        cleanup_docker_build_artifacts "after build"
     fi
 
     chmod +x "$BINARIES_DIR"/*
@@ -210,8 +249,6 @@ if [[ ! -d "$PIGEN_DIR" ]]; then
     git clone --depth 1 --branch "$PIGEN_BRANCH" \
         https://github.com/RPi-Distro/pi-gen.git "$PIGEN_DIR"
 fi
-
-trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
 # 6. Copy TeX Live build config into stage directory
