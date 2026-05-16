@@ -5,16 +5,6 @@ description: "Free, open-source software that turns a Raspberry Pi and a radar s
 og_image: /img/stack.png
 ---
 
-{# ==========================================================================
-   velocity.report — homepage
-   Aesthetic: instrument · density: comfy · status strip ON
-   LiDAR framing: research preview · Hero layout: stacked
-   Release data: see public_html/src/_data/release.json
-   ========================================================================== #}
-
-    <!-- ============================================================
-         Hero
-         ============================================================ -->
     <section class="hero">
       <div class="wrap">
         <div class="hero-grid">
@@ -83,7 +73,7 @@ og_image: /img/stack.png
                   <span class="sample-stamp">Sample report</span>
                 </div>
                 <div class="panel-foot">
-                  <span class="mono">PDF · 12 pages · ready for City Hall</span>
+                  <span class="mono">PDF · ready for City Hall</span>
                   <a href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" class="mono mono-link">VIEW SAMPLE ↗</a>
                 </div>
               </div>
@@ -126,7 +116,7 @@ og_image: /img/stack.png
             <div class="meta-row">
               <span>STATUS <span class="v">STABLE</span></span>
               <span>RELEASE <span class="v">v{{ release.prerelease.linux_arm64.version }}</span></span>
-              <span>HARDWARE <span class="v">RPi 3+ · OmniPreSense</span></span>
+              <span>HARDWARE <span class="v">OmniPreSense RADAR</span></span>
             </div>
           </div>
           <div class="gen">
@@ -140,7 +130,7 @@ og_image: /img/stack.png
             <div class="meta-row">
               <span>STATUS <span class="v">EXPERIMENTAL</span></span>
               <span>PIPELINE <span class="v">CALIBRATING</span></span>
-              <span>HARDWARE <span class="v">LiDAR + macOS · Apple Silicon</span></span>
+              <span>HARDWARE <span class="v">Hesai LiDAR</span></span>
             </div>
           </div>
         </div>
@@ -161,7 +151,7 @@ og_image: /img/stack.png
         </div>
         <div class="steps">
           <div class="step">
-            <div class="num"><span><span class="step-no">01</span> · RECORD</span><span class="mono">PHASE</span></div>
+            <div class="num"><span><span class="step-no">01</span> · RECORD</span></div>
             <h3>Point it at the street.</h3>
             <p>A radar sensor mounted on a window or fence. It clocks the speed of every vehicle that passes. No images. No identifying data.</p>
             <div class="illus">
@@ -182,7 +172,7 @@ og_image: /img/stack.png
             </div>
           </div>
           <div class="step">
-            <div class="num"><span><span class="step-no">02</span> · STORE</span><span class="mono">PHASE</span></div>
+            <div class="num"><span><span class="step-no">02</span> · STORE</span></div>
             <h3>A Raspberry Pi keeps the data.</h3>
             <p>Everything runs locally on a Pi. SQLite database, on-device. No cloud account. Refresh, re-aim, run for weeks — your data, your hardware.</p>
             <div class="illus">
@@ -209,7 +199,7 @@ og_image: /img/stack.png
             </div>
           </div>
           <div class="step">
-            <div class="num"><span><span class="step-no">03</span> · REPORT</span><span class="mono">PHASE</span></div>
+            <div class="num"><span><span class="step-no">03</span> · REPORT</span></div>
             <h3>Print the PDF that wins the room.</h3>
             <p>One click generates a council-ready PDF: speed distributions, percentiles, hourly patterns, site notes. The kind of evidence that ends meetings.</p>
             <div class="illus">
@@ -240,7 +230,7 @@ og_image: /img/stack.png
                   <rect x="8" y="32" width="44" height="40" rx="2" fill="#0a1f17" stroke="#10b981" stroke-width="0.4"/>
                   <text x="30" y="56" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#6ee7b7">85th</text>
                 </g>
-                <text x="110" y="125" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">PDF · 12 PAGES</text>
+                <text x="110" y="125" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">PDF</text>
               </svg>
             </div>
           </div>
@@ -383,17 +373,13 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <!-- ============================================================
-         Audience split
-         ============================================================ -->
     <section>
       <div class="wrap">
         <div class="section-header">
           <div class="left">
             <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Two ways in</span></div>
-            <h2>Get evidence. Or help us build the tool.</h2>
+            <h2>Get evidence or help us build</h2>
           </div>
-          <div class="right">PRIMARY · ADVOCATE / SECONDARY · CONTRIBUTOR</div>
         </div>
         <div class="audience">
           <div class="aud-card">
