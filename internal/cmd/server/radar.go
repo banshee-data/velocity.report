@@ -68,6 +68,7 @@ var (
 	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
 	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
 	logLevel     = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+	selfCheck    = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
 )
 
 const (
@@ -347,6 +348,13 @@ func Main(args []string) int {
 	if *versionFlag || *versionShort {
 		version.Print("velocity-report")
 		return 0
+	}
+
+	// Static-build self-check — verify DNS, UDP, and libpcap work in the
+	// current runtime. Used by the static-build smoke test to catch
+	// musl/libc-static failure modes before shipping.
+	if *selfCheck {
+		return runSelfCheck(os.Stdout)
 	}
 
 	// Check if first argument is a subcommand

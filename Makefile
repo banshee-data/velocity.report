@@ -25,6 +25,9 @@ help:
 	@echo "  build-radar-mac-intel (alias) Build velocity for macOS AMD64 with pcap"
 	@echo "  build-radar-local    (alias) Build velocity for local development with pcap"
 	@echo "  build-tools          (alias) Build velocity (sweep is now 'velocity tune sweep')"
+	@echo "  build-radar-static       Build fully static linux/amd64 + linux/arm64 (zig+musl+libpcap.a)"
+	@echo "  build-radar-static-amd64 Build fully static linux/amd64 only"
+	@echo "  build-radar-static-arm64 Build fully static linux/arm64 only"
 	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
 	@echo "  release-radar-remote Build release Linux ARM64 binary and deploy it to DEPLOY_HOST (default velocity.local)"
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
@@ -310,6 +313,27 @@ install-typst:
 		./scripts/download-typst.sh "$(TYPST_VERSION)" "$(TYPST_GOOS)" "$(TYPST_GOARCH)" "bin/typst"; \
 		echo "Installed bin/typst — add $(CURDIR)/bin to PATH"; \
 	fi
+
+# Fully static linux/amd64 + linux/arm64 builds, performed entirely
+# inside a hermetic Docker image (image/Dockerfile.static-build) that
+# bundles zig + go + cmake + the libpcap submodule. The host only needs
+# docker and git. Produces self-contained ELF binaries with no glibc /
+# libpcap.so / libnl etc. runtime dependencies.
+#
+# BUILD_TIME defaults to the HEAD commit's committer date (UTC), so the
+# same source produces the same binary regardless of when you build.
+.PHONY: build-radar-static build-radar-static-amd64 build-radar-static-arm64
+# BUILD_TIME is intentionally not forwarded — the script defaults it to
+# the HEAD commit's committer date so the same source produces the same
+# binary. Override by exporting BUILD_TIME in the environment.
+build-radar-static:
+	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ./scripts/build-radar-static.sh
+
+build-radar-static-amd64:
+	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=amd64 ./scripts/build-radar-static.sh
+
+build-radar-static-arm64:
+	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=arm64 ./scripts/build-radar-static.sh
 
 # Run settling-eval convergence evaluation against a PCAP file.
 # Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.

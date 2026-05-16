@@ -1,0 +1,71 @@
+# static-build-ci — verify the fully-static linux/{amd64,arm64} build
+# produces working binaries on every PR and main push.
+#
+# What this catches:
+#   - Dockerfile.static-build regressions (toolchain pins, layer order)
+#   - libpcap submodule drift
+#   - --self-check failures in a clean Debian target (DNS, UDP, libpcap)
+#
+# Runs are ~3–5 minutes cold, ~1 minute warm (BuildKit cache).
+
+name: Static build CI
+
+on:
+  pull_request:
+    paths:
+      - "cmd/velocity/**"
+      - "internal/cmd/server/**"
+      - "internal/**"
+      - "image/Dockerfile.static-build*"
+      - "scripts/build-radar-static.sh"
+      - "scripts/smoke-test-static.sh"
+      - "third_party/libpcap-static/**"
+      - ".gitmodules"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/static-build-ci.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke-test:
+    name: Static build + smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # qemu/binfmt registration so we can run arm64 binaries in the
+      # smoke-test step on this amd64 runner.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build static binaries (amd64 + arm64)
+        run: make build-radar-static
+
+      - name: Smoke-test amd64 binary
+        run: |
+          bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
+          ./scripts/smoke-test-static.sh "$bin"
+
+      - name: Smoke-test arm64 binary (under qemu)
+        run: |
+          bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
+          ./scripts/smoke-test-static.sh "$bin"
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: velocity-report-static-binaries
+          path: build/static/velocity-report-*-static
+          retention-days: 14

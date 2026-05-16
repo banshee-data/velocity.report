@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper so CMake invokes `zig cc -target <triple>` as the C compiler.
+# CMake passes args after this, so the target flag must come first.
+exec zig cc -target @ZIG_TARGET@ "$@"
