@@ -514,9 +514,24 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   padding: var(--d-pad-card);
 }
 .research-grid {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 40px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 5fr); gap: 40px; align-items: start;
 }
 @media (max-width: 960px) { .research-grid { grid-template-columns: 1fr; } }
+/* Research right column stacks the visualiser image and the CTAs/links under
+ * it, so the copy on the left can breathe and the action surfaces have a
+ * clear visual anchor. */
+.research-grid .research-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.research-grid .research-actions .cta-row {
+  margin: 0;
+  flex-wrap: wrap;
+}
+.research-grid .research-actions .links {
+  margin-top: 0;
+}
 .research h3 {
   font-size: 28px; font-weight: 700; letter-spacing: -0.02em;
   margin: 14px 0 14px; color: var(--text);
@@ -1207,7 +1222,7 @@ section { padding: var(--d-pad-section) 0; position: relative; }
  * this mostly affects the panel chrome and CTA row.
  * ========================================================================== */
 .hero-cloud .copy {
-    max-width: 26rem;
+    max-width: 22rem;
 }
 @media (max-width: 880px) {
     /* On the single-column hero layout, centre the narrower panel so it
@@ -1221,11 +1236,15 @@ section { padding: var(--d-pad-section) 0; position: relative; }
  * static asset is sharper, smaller (when zoomed in), and matches what
  * lives elsewhere in the brand kit (og_image, etc.).
  * ========================================================================== */
+/* Vertically centre the stack inside the hero column so it doesn't pin to
+ * the top of the grid row when the copy column is taller. */
+.hero-cloud .stack-wrap { align-self: center; }
 .hero-cloud .stack-wrap.stack-image .stack {
     /* Strip the 3D tilt since stack.png is already pre-rotated/baked. */
     transform: none;
     aspect-ratio: auto;
-    width: min(420px, 100%);
+    /* 20% wider than the previous 420px cap. */
+    width: min(600px, 100%);
     background: transparent;
     border: none;
     filter: none;

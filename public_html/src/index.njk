@@ -75,12 +75,16 @@ og_image: /img/stack.png
       <div class="wrap">
         <div class="pipeline">
           <div class="gen">
-            <div class="gen-title">Production-ready. In the wild.</div>
+            <div class="head">
+              <div class="key"><span class="gen-no">GEN 01 · RADAR</span></div>
+              <span class="pill"><span class="dot"></span>IN THE WILD</span>
+            </div>
+            <div class="gen-title">Production-ready. Measuring today.</div>
             <div class="desc">Radar speed monitoring on Raspberry Pi. PDF reports, percentile breakdowns, and hourly patterns: already running on residential streets.</div>
             <div class="meter"><div class="fill" style="width:100%;"></div></div>
             <div class="meta-row">
               <span>STATUS <span class="v">STABLE</span></span>
-              <span>RELEASE <span class="v">v{{ release.prerelease.linux_arm64.version }}</span></span>
+              <span>RELEASE <span class="v">v{{ release.stable.linux_arm64.version }}</span></span>
               <span>HARDWARE <span class="v">OmniPreSense RADAR</span></span>
             </div>
           </div>
@@ -294,12 +298,11 @@ og_image: /img/stack.png
             <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Research</span></div>
             <h2>LiDAR pipeline: full-scene understanding.</h2>
           </div>
-          <div class="right">EXPERIMENTAL · v{{ release.stable.linux_arm64.version }}</div>
         </div>
 
         <div class="research">
           <div class="research-grid">
-            <div>
+            <div class="research-copy">
               <div class="pill-row">
                 <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
                 <span class="pill signal"><span class="dot"></span>OPEN PIPELINE</span>
@@ -307,8 +310,14 @@ og_image: /img/stack.png
               <h3>The radar tells you speeds. LiDAR tells you the whole story.</h3>
               <p>See the whole street, classify road users, and measure how they move around each other. The code is real, the maths is published, the results are still calibrating, and contributions are welcome.</p>
               <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it sees the full scene, identifies road users by type, and shows how they move around each other. That lets it answer questions radar cannot, such as how closely drivers pass cyclists, or how many roll through an intersection and at what speed.</p>
+            </div>
 
-              <div class="cta-row" style="margin-top:22px;">
+            <div class="research-actions">
+              <div class="visualiser-panel">
+                <img src="/img/visualiser-demo.gif" alt="LiDAR visualiser preview" />
+              </div>
+
+              <div class="cta-row">
                 <a href="{{ release.stable.visualiser.url }}" class="btn btn-primary">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
                   VelocityVisualiser · macOS
@@ -327,10 +336,6 @@ og_image: /img/stack.png
                 </a>
               </div>
             </div>
-
-            <div class="visualiser-panel">
-              <img src="/img/visualiser-demo.gif" alt="LiDAR visualiser preview" />
-            </div>
           </div>
         </div>
       </div>
@@ -340,7 +345,6 @@ og_image: /img/stack.png
       <div class="wrap">
         <div class="section-header">
           <div class="left">
-            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Two ways in</span></div>
             <h2>Get evidence, or help us build</h2>
           </div>
         </div>
@@ -434,7 +438,7 @@ og_image: /img/stack.png
     <section>
       <div class="wrap">
         <div class="cityhall">
-          <div class="eyebrow center"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>In the wild</span></div>
+          <div class="eyebrow center"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Advocacy</span></div>
           <h2 class="cityhall-h2">Making the case at City Hall.</h2>
           <div class="video">
             <iframe src="https://www.youtube.com/embed/ZTJOI5gYZM4?rel=0&amp;modestbranding=1" title="SFMTA Board Meeting Address" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>

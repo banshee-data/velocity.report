@@ -68,6 +68,7 @@
     border: 1px solid #243140;
 }
 .site-header .nav-code:hover { background: #111820; border-color: #2c3a4a; color: #e6ebf2; }
+.site-header .nav-code svg { display: block; }
 .site-header .nav-cta {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 7px 12px; border-radius: 6px;
