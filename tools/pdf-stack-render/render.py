@@ -48,9 +48,14 @@ except ImportError as e:  # pragma: no cover
 # The CSS stack is widened here so the exported PNG reveals more of the
 # underlying report pages, especially the left column of page 1.
 DEFAULT_STACK = [
-    {"rotate_deg": 3.0, "offset": (0, 0), "opacity": 0.85, "tint": (215, 220, 228)},
-    {"rotate_deg": 1.5, "offset": (540, 175), "opacity": 0.95, "tint": (240, 243, 248)},
-    {"rotate_deg": 0.0, "offset": (1080, 350), "opacity": 1.0, "tint": None},
+    {"rotate_deg": -6.0, "offset": (0, 0), "opacity": 0.96, "tint": (215, 220, 228)},
+    {
+        "rotate_deg": -3,
+        "offset": (-700, 175),
+        "opacity": 0.98,
+        "tint": (240, 243, 248),
+    },
+    {"rotate_deg": 0.0, "offset": (-1400, 350), "opacity": 1.0, "tint": None},
 ]
 
 # Final 3D-feel: rotate the whole stack so it leans like the design.
@@ -225,8 +230,8 @@ def main() -> int:
     canvas_h = page_h + bbox_pad * 2
     canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
 
-    # Composite pages back-to-front in PDF order so page 3 sits on top.
-    for page_img, entry in zip(rounded, stack_entries):
+    # Composite pages back-to-front so page 1 sits on the front sheet again.
+    for page_img, entry in zip(reversed(rounded), stack_entries):
         # Skip rounded corners on already-rounded pages (we did them above).
         tinted = apply_tint(page_img, entry["tint"], entry["opacity"])
         rotated = tinted.rotate(
