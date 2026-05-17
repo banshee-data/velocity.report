@@ -50,9 +50,9 @@ except ImportError as e:  # pragma: no cover
 #   pg:nth-child(2) translate(9, 9)  rotate(1.5deg) opacity .95
 #   pg:nth-child(3) translate(0, 0)  rotate(0deg)   opacity 1.0
 DEFAULT_STACK = [
-    {"rotate_deg": 3.5, "offset": (140, 140), "opacity": 0.85, "tint": (215, 220, 228)},
-    {"rotate_deg": 1.5, "offset": (70, 70), "opacity": 0.95, "tint": (240, 243, 248)},
-    {"rotate_deg": 0.0, "offset": (0, 0), "opacity": 1.00, "tint": None},
+    {"rotate_deg": 0.0, "offset": (0, 0), "opacity": 0.90, "tint": None},
+    {"rotate_deg": 1.5, "offset": (140, 140), "opacity": 0.95, "tint": (240, 243, 248)},
+    {"rotate_deg": 3.5, "offset": (280, 280), "opacity": 1.0, "tint": (215, 220, 228)},
 ]
 
 # Final 3D-feel: rotate the whole stack so it leans like the design.
