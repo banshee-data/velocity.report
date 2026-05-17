@@ -213,6 +213,21 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid comparison date range: %v", err))
 			return
 		}
+		// Fail fast when the comparison range starts in the future — there
+		// can be no data, and silently returning zeros (which was the prior
+		// behaviour) made it look like the comparison flow was broken.
+		if compareStartUnix > time.Now().Unix() {
+			w.Header().Set("Content-Type", "application/json")
+			s.writeJSONError(
+				w,
+				http.StatusBadRequest,
+				fmt.Sprintf(
+					"Comparison period %s to %s is in the future — no data exists yet. Pick a range that's already happened.",
+					req.CompareStart, req.CompareEnd,
+				),
+			)
+			return
+		}
 		compareCosine := reportCosineMetadataForRange(configPeriods, compareStartUnix, compareEndUnix)
 		if req.CompareCosineAngle == 0 {
 			req.CompareCosineAngle = compareCosine.angle

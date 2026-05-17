@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 )
@@ -181,6 +182,41 @@ func TestGenerateReport_InvalidCompareSourceReturns400(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "Invalid 'compare_source'") {
 		t.Fatalf("expected invalid compare source message, got: %s", w.Body.String())
+	}
+}
+
+// Regression for the "compare PDF report not accepting a second time
+// period" report: previously, a future-dated comparison range returned a
+// PDF with all zeros and -100% deltas, which looked like the comparison
+// flow was broken.  We now reject the request with a clear error.
+func TestGenerateReport_FutureCompareRangeRejected(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := seedChartTestData(t, dbInst)
+
+	tomorrow := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02")
+	dayAfter := time.Now().UTC().Add(48 * time.Hour).Format("2006-01-02")
+
+	reqBody := ReportRequest{
+		SiteID:        &site.ID,
+		StartDate:     "2025-12-03",
+		EndDate:       "2025-12-03",
+		CompareStart:  tomorrow,
+		CompareEnd:    dayAfter,
+		Timezone:      "UTC",
+		Units:         "mph",
+		Group:         "1h",
+		Source:        "radar_objects",
+		CompareSource: "radar_objects",
+	}
+
+	w := postGenerateReportRequest(t, server, reqBody)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for future comparison range, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "is in the future") {
+		t.Fatalf("expected future-range message, got: %s", w.Body.String())
 	}
 }
 
