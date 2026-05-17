@@ -675,7 +675,7 @@ Two Go binaries, no wrapper scripts:
 The following are removed from the repository in v0.5.1:
 
 - `cmd/deploy/`: entire directory (10 source files, 10 test files, README)
-- [image/stage-velocity/01-velocity-binaries/files/velocity-update](../../image/stage-velocity/01-velocity-binaries/files/velocity-update): bash wrapper
+- [image/stage-velocity/01-velocity-binaries/files/velocity-update](../../image/stage-velocity/01-velocity-binaries/files/velocity-update): bash wrapper <!-- link-ignore -->
 - Makefile targets: `build-deploy`, `build-deploy-linux`, `deploy-install`,
   `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`,
   `deploy-install-latex-minimal`, `deploy-update-deps`, `setup-radar`
