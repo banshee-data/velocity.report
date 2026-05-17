@@ -45,13 +45,61 @@
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 
-	const compareToDefault = new Date(fromDefault); // eslint-disable-line svelte/prefer-svelte-reactivity
-	compareToDefault.setDate(fromDefault.getDate() - 1);
-	const compareFromDefault = new Date(compareToDefault); // eslint-disable-line svelte/prefer-svelte-reactivity
-	compareFromDefault.setDate(compareToDefault.getDate() - 13);
-	let compareRange = { from: compareFromDefault, to: compareToDefault, periodType: PeriodType.Day };
+	// Compare default mirrors primary shifted one year back — that's the
+	// year-over-year case that 95% of users actually want, and it keeps
+	// compare from drifting into the future when primary moves around.
+	// The previous "13 days before primary's default" arithmetic stayed
+	// anchored to today even when primary moved months back, which is how
+	// users ended up with comparison dates in the future and silent zeros.
+	function shiftOneYearBack(d: Date): Date {
+		const out = new Date(d); // eslint-disable-line svelte/prefer-svelte-reactivity
+		out.setFullYear(out.getFullYear() - 1);
+		return out;
+	}
+	let compareRange = {
+		from: shiftOneYearBack(fromDefault),
+		to: shiftOneYearBack(today),
+		periodType: PeriodType.Day
+	};
+	// Tracks whether the user has explicitly edited the compare range.
+	// While false, the compare picker auto-follows primary (1 year back);
+	// once the user picks something, we leave it alone.
+	let compareTouched = false;
 	let compareEnabled = false;
 	let compareSource: string = 'radar_objects';
+
+	// Auto-shift compare to mirror primary (1 year back) until the user
+	// taps the compare picker themselves.  Avoids the "compare is in the
+	// future" foot-gun.
+	$: if (
+		!compareTouched &&
+		dateRange.from &&
+		dateRange.to &&
+		dateRange.from instanceof Date &&
+		dateRange.to instanceof Date
+	) {
+		const newCompareFrom = shiftOneYearBack(dateRange.from);
+		const newCompareTo = shiftOneYearBack(dateRange.to);
+		if (
+			compareRange.from?.getTime() !== newCompareFrom.getTime() ||
+			compareRange.to?.getTime() !== newCompareTo.getTime()
+		) {
+			compareRange = {
+				from: newCompareFrom,
+				to: newCompareTo,
+				periodType: PeriodType.Day
+			};
+		}
+	}
+
+	// Heuristic for "this compare range is in the future" — used to surface
+	// a warning before generating the report (the backend will also reject
+	// it, but failing earlier is friendlier).
+	$: compareInFuture =
+		compareEnabled &&
+		!!compareRange?.to &&
+		compareRange.to instanceof Date &&
+		compareRange.to.getTime() > Date.now();
 
 	let group: string = '4h';
 	let selectedSource: string = 'radar_objects';
@@ -258,6 +306,9 @@
 						PeriodType.Day
 					)
 				};
+				// Treat a restored compare range as user-touched so the
+				// year-over-year auto-shift doesn't clobber it.
+				compareTouched = true;
 			}
 
 			if (fresh) {
@@ -531,6 +582,7 @@
 									<p class="text-surface-content/80 text-sm font-medium">Comparison period</p>
 									<DateRangeField
 										bind:value={compareRange}
+										on:change={() => (compareTouched = true)}
 										periodTypes={[PeriodType.Day]}
 										stepper
 									/>
@@ -539,6 +591,12 @@
 									<DataSourceSelector bind:value={compareSource} />
 								</div>
 							</div>
+							{#if compareInFuture}
+								<p class="text-xs text-amber-600 dark:text-amber-400" role="status">
+									Comparison period extends past today — there will be no data for
+									{compareRange.to?.toLocaleDateString()} and after. Pick a range that's already happened.
+								</p>
+							{/if}
 						{/if}
 
 						<div class="flex flex-wrap items-center gap-3">
