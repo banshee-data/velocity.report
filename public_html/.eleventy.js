@@ -52,8 +52,58 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through
-  eleventyConfig.addPassthroughCopy({ "src/css/homepage.css": "css/homepage.css" });
+  eleventyConfig.addPassthroughCopy({
+    "src/css/homepage.css": "css/homepage.css",
+  });
   eleventyConfig.addPassthroughCopy({ "src/css/header.css": "css/header.css" });
+  eleventyConfig.addPassthroughCopy({ "src/css/fonts.css": "css/fonts.css" });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/three/build/three.module.js": "vendor/three/three.module.js",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/geist/files/geist-latin-400-normal.woff2":
+      "vendor/fonts/geist/geist-latin-400-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/geist/files/geist-latin-500-normal.woff2":
+      "vendor/fonts/geist/geist-latin-500-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/geist/files/geist-latin-600-normal.woff2":
+      "vendor/fonts/geist/geist-latin-600-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/geist/files/geist-latin-700-normal.woff2":
+      "vendor/fonts/geist/geist-latin-700-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/geist/files/geist-latin-800-normal.woff2":
+      "vendor/fonts/geist/geist-latin-800-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2":
+      "vendor/fonts/jetbrains-mono/jetbrains-mono-latin-400-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2":
+      "vendor/fonts/jetbrains-mono/jetbrains-mono-latin-500-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2":
+      "vendor/fonts/jetbrains-mono/jetbrains-mono-latin-600-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/newsreader/files/newsreader-latin-400-italic.woff2":
+      "vendor/fonts/newsreader/newsreader-latin-400-italic.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/eb-garamond/files/eb-garamond-latin-400-normal.woff2":
+      "vendor/fonts/eb-garamond/eb-garamond-latin-400-normal.woff2",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/@fontsource/eb-garamond/files/eb-garamond-latin-500-normal.woff2":
+      "vendor/fonts/eb-garamond/eb-garamond-latin-500-normal.woff2",
+  });
 
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");
