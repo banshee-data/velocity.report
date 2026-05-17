@@ -315,6 +315,11 @@ a:hover { color: var(--emerald-fg); }
 .pipeline .gen {
   padding: 14px 22px;
   position: relative;
+  /* Flex column so the meter + meta-row sit flush at the bottom and the
+   * description fills whatever vertical space remains. With two cells
+   * side-by-side, this is what makes the two timelines line up. */
+  display: flex;
+  flex-direction: column;
 }
 .pipeline .gen + .gen { border-left: 1px dashed var(--line-2); }
 @media (max-width: 800px) {
@@ -336,7 +341,9 @@ a:hover { color: var(--emerald-fg); }
 }
 .pipeline .gen .desc {
   color: var(--text-soft); font-size: 14px; line-height: 1.5; margin-bottom: 14px;
-  max-width: 36ch;
+  /* No width cap — let the description flow as wide as the card so each
+   * cell can wrap its own way and the bottom rows still align. */
+  flex: 1 1 auto;
 }
 .pipeline .meter {
   height: 6px; border-radius: 3px; background: var(--panel-3); overflow: hidden;
@@ -507,7 +514,7 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   padding: var(--d-pad-card);
 }
 .research-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 40px; align-items: center;
 }
 @media (max-width: 960px) { .research-grid { grid-template-columns: 1fr; } }
 .research h3 {
@@ -722,11 +729,10 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
   color: var(--text); margin-bottom: 10px;
 }
-.pipeline .gen .desc {
-  color: var(--text-soft); font-size: 14px; line-height: 1.5;
-  margin-bottom: 14px;
-  max-width: 36ch;
-}
+/* (deduped: the .pipeline .gen .desc rule lives in the pipeline section
+ * above; this previous override capped width to 36ch which is what made
+ * the two timelines drop out of alignment when descriptions had different
+ * lengths.) */
 
 /* Research section */
 .pill-row {
@@ -882,11 +888,14 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 .hero-cloud .copy h1 {
   font-family: "EB Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
   font-weight: 400;
-  font-size: clamp(2.4rem, 5.4vw, 4.4rem);
-  line-height: 1.02;
-  letter-spacing: -0.022em;
+  /* Smaller than the original clamp so the headline still reads as one or
+   * two lines inside the narrower 26rem copy panel. */
+  font-size: clamp(2rem, 4.4vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.018em;
   margin: 8px 0 22px;
   color: var(--text);
+  text-wrap: balance;
 }
 .hero-cloud .copy h1 .row    { display: block; }
 .hero-cloud .copy h1 .second { color: var(--text-soft); }
@@ -1151,4 +1160,80 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   height: 3px;
   border-radius: 50%;
   background: var(--text-mute);
+}
+
+/* ==========================================================================
+ * Brand serif — full split.
+ * Homepage marketing headlines use EB Garamond; the body, nav, and every
+ * other surface stays on Geist. Docs / community pages don't load this
+ * file, so they remain 100% Geist by construction.
+ * ========================================================================== */
+.hero-cloud .copy h1,
+.section-header h2,
+.steps .step h3,
+.research-grid h3,
+.audience .aud-card h3,
+.faq-grid .left h3,
+.cityhall .cityhall-h2,
+.cityhall blockquote {
+    font-family: "EB Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-weight: 400;
+}
+
+/* Garamond at the same heavy weights as the previous Geist headlines reads
+ * dense and cramped; ease the tracking and unbold a touch so the serif's
+ * proportions get room. The hero h1 already lives at weight 400 + wider
+ * tracking, so it stays as-is. */
+.section-header h2,
+.cityhall .cityhall-h2 {
+    font-weight: 500;
+    letter-spacing: -0.018em;
+}
+.steps .step h3,
+.research-grid h3,
+.audience .aud-card h3,
+.faq-grid .left h3 {
+    font-weight: 500;
+    letter-spacing: -0.012em;
+}
+/* City Hall blockquote was italic Newsreader; keep italic but in Garamond. */
+.cityhall blockquote {
+    font-style: italic;
+}
+
+/* ==========================================================================
+ * Narrower hero copy panel.
+ * Caps the .copy column so the panel doesn't stretch full-width on a phone
+ * (or fall halfway across the hero on desktop). Roughly 30% narrower than
+ * the original column. Text inside already has per-element max-widths so
+ * this mostly affects the panel chrome and CTA row.
+ * ========================================================================== */
+.hero-cloud .copy {
+    max-width: 26rem;
+}
+@media (max-width: 880px) {
+    /* On the single-column hero layout, centre the narrower panel so it
+     * doesn't pin to the left edge on narrow phone screens. */
+    .hero-cloud .copy { margin-left: auto; margin-right: auto; }
+}
+
+/* ==========================================================================
+ * Hero PDF — use the rendered stack.png instead of the CSS-built pages.
+ * The CSS pages were a stand-in until we had a real rendered stack. The
+ * static asset is sharper, smaller (when zoomed in), and matches what
+ * lives elsewhere in the brand kit (og_image, etc.).
+ * ========================================================================== */
+.hero-cloud .stack-wrap.stack-image .stack {
+    /* Strip the 3D tilt since stack.png is already pre-rotated/baked. */
+    transform: none;
+    aspect-ratio: auto;
+    width: min(420px, 100%);
+    background: transparent;
+    border: none;
+    filter: none;
+}
+.hero-cloud .stack-wrap.stack-image .stack img {
+    display: block;
+    width: 100%;
+    height: auto;
 }
