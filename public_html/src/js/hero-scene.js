@@ -15,10 +15,10 @@ if (!canvas) {
 }
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, alpha:false, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-renderer.setClearColor(0x06090e, 1);
+renderer.setClearColor(0x07090c, 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x06090e, 14, 62);
+scene.fog = new THREE.Fog(0x07090c, 14, 62);
 
 const camera = new THREE.PerspectiveCamera(54, 1, 0.1, 220);
 const CAM_BASE = new THREE.Vector3(-2.6, 2.6, 6.2);

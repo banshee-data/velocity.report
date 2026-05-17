@@ -816,20 +816,13 @@ section { padding: var(--d-pad-section) 0; position: relative; }
  * ========================================================================== */
 
 .hero-cloud {
-  --hc-ink:     #e8edf3;
-  --hc-ink-dim: #aab4c0;
-  --hc-muted:   #6b7a8d;
-  --hc-rule:    #1a2330;
-  --hc-veh:     #4cd1a8;
-  --hc-ped:     #ffb050;
-  --hc-bike:    #6aa9ff;
-
   position: relative;
   overflow: hidden;
   padding: var(--d-hero-pad) 0 56px;
   min-height: calc(100vh - 56px);
-  /* Hard dark backdrop so the canvas paints onto a known surface. */
-  background: #06090e;
+  /* Single dark base for the whole homepage. Matches --bg in :root and the
+   * THREE.WebGLRenderer clear colour in /js/hero-scene.js. */
+  background: var(--bg);
 }
 .hero-cloud .hero-bg {
   position: absolute;
@@ -853,8 +846,8 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(70% 65% at 32% 52%, rgba(6,9,14,.78) 0%, rgba(6,9,14,.55) 40%, rgba(6,9,14,.0) 75%),
-    linear-gradient(180deg, rgba(6,9,14,.78) 0%, rgba(6,9,14,.0) 18%, rgba(6,9,14,.0) 60%, rgba(6,9,14,.85) 100%);
+    radial-gradient(70% 65% at 32% 52%, rgba(7,9,12,.78) 0%, rgba(7,9,12,.55) 40%, rgba(7,9,12,.0) 75%),
+    linear-gradient(180deg, rgba(7,9,12,.78) 0%, rgba(7,9,12,.0) 18%, rgba(7,9,12,.0) 60%, rgba(7,9,12,.85) 100%);
 }
 .hero-cloud .hero-content {
   position: relative;
@@ -870,20 +863,21 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   .hero-cloud .hero-grid { grid-template-columns: 1fr; gap: 36px; }
 }
 
-/* Soft dim plate behind the copy column. Sits behind the text so any bright
- * cloud points behind the H1 are knocked down. The plate fades at the edges
- * so it doesn't read as a hard panel. */
+/* Solid (but still subtle) panel behind the copy column so the headline and
+ * body read cleanly over the point cloud. Tightly hugs the copy edges and
+ * has a faint border so it reads as an intentional panel rather than a fade. */
 .hero-cloud .copy { position: relative; }
 .hero-cloud .copy::before {
   content: "";
   position: absolute;
-  top: -24px; left: -32px; right: -24px; bottom: -24px;
-  background: radial-gradient(85% 80% at 35% 45%, rgba(6,9,14,.68) 0%, rgba(6,9,14,.52) 55%, rgba(6,9,14,0) 95%);
-  backdrop-filter: blur(2px) saturate(85%);
-  -webkit-backdrop-filter: blur(2px) saturate(85%);
+  top: -28px; left: -28px; right: -28px; bottom: -28px;
+  background: rgba(7,9,12,0.82);
+  backdrop-filter: blur(8px) saturate(110%);
+  -webkit-backdrop-filter: blur(8px) saturate(110%);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 14px;
   z-index: -1;
   pointer-events: none;
-  border-radius: 14px;
 }
 .hero-cloud .copy h1 {
   font-family: "EB Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
@@ -892,28 +886,25 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   line-height: 1.02;
   letter-spacing: -0.022em;
   margin: 8px 0 22px;
-  color: var(--hc-ink);
-  text-shadow: 0 1px 2px rgba(0,0,0,.6), 0 0 18px rgba(6,9,14,.65);
+  color: var(--text);
 }
 .hero-cloud .copy h1 .row    { display: block; }
-.hero-cloud .copy h1 .second { color: var(--hc-ink-dim); }
+.hero-cloud .copy h1 .second { color: var(--text-soft); }
 .hero-cloud .copy .lede {
   font-size: 18px;
   line-height: 1.55;
-  color: var(--hc-ink-dim);
+  color: var(--text-soft);
   margin: 0 0 24px;
   max-width: 46ch;
-  text-shadow: 0 1px 2px rgba(0,0,0,.65);
 }
 .hero-cloud .copy .body {
   font-size: 15.5px;
   line-height: 1.65;
-  color: var(--hc-ink-dim);
+  color: var(--text-soft);
   margin: 0 0 30px;
   max-width: 54ch;
-  text-shadow: 0 1px 2px rgba(0,0,0,.7);
 }
-.hero-cloud .copy .body b { color: var(--hc-ink); font-weight: 600; }
+.hero-cloud .copy .body b { color: var(--text); font-weight: 600; }
 
 /* CTAs — local to the hero so we don't fight the rest of the page's .btn rules. */
 .hero-cloud .ctas {
@@ -935,34 +926,42 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   cursor: pointer;
   transition: transform .12s ease, background .12s ease, border-color .12s ease;
 }
+/* Primary uses the site-wide emerald so this CTA reads as the same "button"
+ * as the Download CTA in the header and the .btn-primary buttons further down
+ * the page. Ghost stays neutral. */
 .hero-cloud .hc-btn.primary {
-  background: var(--hc-ink);
-  color: #0a0e15;
-  border-color: var(--hc-ink);
+  background: var(--emerald-3);
+  color: white;
+  border-color: rgba(16,185,129,0.35);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 6px 24px rgba(5,150,105,0.25);
 }
-.hero-cloud .hc-btn.primary:hover { transform: translateY(-1px); color: #0a0e15; }
+.hero-cloud .hc-btn.primary:hover {
+  background: var(--emerald);
+  color: white;
+  transform: translateY(-1px);
+}
 .hero-cloud .hc-btn.ghost {
   background: rgba(255,255,255,.03);
-  color: var(--hc-ink);
-  border-color: #2a3441;
+  color: var(--text);
+  border-color: var(--line-2);
 }
 .hero-cloud .hc-btn.ghost:hover {
   background: rgba(255,255,255,.06);
   border-color: #3a4757;
-  color: var(--hc-ink);
+  color: var(--text);
 }
 .hero-cloud .hc-btn svg { width: 14px; height: 14px; }
 
-/* Three-point bullets — vehicle / cyclist / pedestrian accents. */
+/* Three-point bullets — small emerald icons, matching the original main
+ * homepage's heroicon-style markers. */
 .hero-cloud .bullets {
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
   font-size: 14.5px;
   line-height: 1.55;
-  color: var(--hc-ink-dim);
+  color: var(--text-soft);
   max-width: 50ch;
-  text-shadow: 0 1px 2px rgba(0,0,0,.7);
 }
 .hero-cloud .bullets .item {
   display: flex;
@@ -971,22 +970,17 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 }
 .hero-cloud .bullets .item .marker {
   flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-top: 8px;
-  background: var(--hc-veh);
-  box-shadow: 0 0 6px rgba(76,209,168,.5);
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--emerald-2);
 }
-.hero-cloud .bullets .item:nth-child(2) .marker {
-  background: var(--hc-bike);
-  box-shadow: 0 0 6px rgba(106,169,255,.5);
+.hero-cloud .bullets .item .marker svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-.hero-cloud .bullets .item:nth-child(3) .marker {
-  background: var(--hc-ped);
-  box-shadow: 0 0 6px rgba(255,176,80,.5);
-}
-.hero-cloud .bullets b { color: var(--hc-ink); font-weight: 600; margin-right: 6px; }
+.hero-cloud .bullets b { color: var(--text); font-weight: 600; margin-right: 6px; }
 
 /* PDF stack — three CSS-rendered "pages" rotated and offset to look stacked. */
 .hero-cloud .stack-wrap {
@@ -1123,26 +1117,28 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--hc-ink-dim);
+  color: var(--text);
   text-decoration: none;
-  border: 1px solid #2a3441;
-  background: rgba(255,255,255,.02);
+  border: 1px solid var(--line-2);
+  background: rgba(7,9,12,0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   padding: 8px 14px;
   border-radius: 6px;
   align-self: center;
 }
-.hero-cloud .stack-caption:hover { color: var(--hc-ink); border-color: #3a4757; }
-.hero-cloud .stack-caption .arrow { color: var(--hc-veh); }
+.hero-cloud .stack-caption:hover { color: var(--text); border-color: #3a4757; background: rgba(7,9,12,0.92); }
+.hero-cloud .stack-caption .arrow { color: var(--emerald-2); }
 
 /* Tagline strip — sits between hero and status section. */
 .hero-tagline-bar {
-  background: #06090e;
-  border-top: 1px solid #11161e;
-  border-bottom: 1px solid #11161e;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 14px 0;
 }
 .hero-tagline-bar .tagline {
-  color: #8995a3;
+  color: var(--text-mute);
   font-size: 13.5px;
   letter-spacing: .02em;
   display: flex;
@@ -1154,5 +1150,5 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: #8995a3;
+  background: var(--text-mute);
 }
