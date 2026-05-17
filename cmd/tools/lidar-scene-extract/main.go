@@ -62,6 +62,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -202,8 +203,8 @@ func (b *sceneBuilder) scanTimeSeconds(tsNS int64) float64 {
 }
 
 // AddPointsPolar receives the parser's per-packet output. We convert each
-// point to Cartesian, range-filter, and detect scan boundaries via azimuth
-// wrap.
+// point to Cartesian, range-filter, and bin scan boundaries by timestamp
+// window.
 func (b *sceneBuilder) AddPointsPolar(points []l2frames.PointPolar) {
 	if len(points) == 0 {
 		return
@@ -285,25 +286,32 @@ func (b *sceneBuilder) finalizeScanLocked() {
 func (b *sceneBuilder) SetMotorSpeed(_ uint16) {}
 
 // snapshotStatic returns the background voxels, subsampled to roughly the
-// target count. The voxel grid already gives even spatial coverage so a
-// deterministic stride sample stays representative.
+// target count. The voxel grid already gives even spatial coverage, so a
+// deterministic stride sample over sorted voxel keys stays representative.
 func (b *sceneBuilder) snapshotStatic(target int) []scenePoint {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	n := len(b.bgVoxels)
 	out := make([]scenePoint, 0, n)
+	keys := make([]voxelKey, 0, n)
+	for key := range b.bgVoxels {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
 	if target <= 0 || target >= n {
-		for _, p := range b.bgVoxels {
-			out = append(out, p)
+		for _, key := range keys {
+			out = append(out, b.bgVoxels[key])
 		}
 		return out
 	}
 	step := float64(n) / float64(target)
 	i := 0
 	threshold := 0.0
-	for _, p := range b.bgVoxels {
+	for _, key := range keys {
 		if float64(i) >= threshold {
-			out = append(out, p)
+			out = append(out, b.bgVoxels[key])
 			threshold += step
 		}
 		i++
