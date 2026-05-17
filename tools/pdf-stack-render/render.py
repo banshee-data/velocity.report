@@ -33,7 +33,7 @@ except ImportError as e:  # pragma: no cover
     raise SystemExit(2) from e
 
 try:
-    from pdf2image import convert_from_path
+    from pdf2image import convert_from_path, pdfinfo_from_path
 except ImportError as e:  # pragma: no cover
     sys.stderr.write("error: pdf2image is required (pip install pdf2image)\n")
     sys.stderr.write("       it also needs Poppler installed on your system.\n")
@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         "--pages",
         type=int,
         default=3,
-        help="number of pages in the stack (default: 3). Capped at len(input).",
+        help="number of pages in the stack (default: 3). Capped at the PDF page count.",
     )
     p.add_argument(
         "--dpi",
@@ -193,9 +193,15 @@ def main() -> int:
         sys.stderr.write(f"error: {args.pdf} not found\n")
         return 1
 
-    n_pages = max(1, args.pages)
+    pdf_info = pdfinfo_from_path(str(args.pdf))
+    page_count = int(pdf_info.get("Pages", 0))
+    if page_count < 1:
+        sys.stderr.write(f"error: could not determine page count for {args.pdf}\n")
+        return 1
+
+    n_pages = min(max(1, args.pages), page_count)
     print(
-        f"[1/4] rasterising {args.pdf.name} @ {args.dpi} dpi (first {n_pages} pages)..."
+        f"[1/4] rasterising {args.pdf.name} @ {args.dpi} dpi (first {n_pages} of {page_count} pages)..."
     )
     pages = convert_from_path(
         str(args.pdf), dpi=args.dpi, first_page=1, last_page=n_pages
