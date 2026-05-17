@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">{# OpenGraph / Twitter Card metadata #}
+<html lang="en">
+{# OpenGraph / Twitter Card metadata #}
 {% set pageTitle = title or site.name %}
 {% set pageDescription = description or site.description %}
 {% set pageImage = og_image or site.og_image %}
@@ -9,7 +10,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
     <title>{{ pageTitle }}</title>
     <meta name="description" content="{{ pageDescription }}">
     <link rel="canonical" href="{{ pageUrl }}">
@@ -36,14 +36,12 @@
 
     <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/css/fonts.css">
-    <link rel="stylesheet" href="/css/style.css">
+    <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
+    <link rel="stylesheet" href="/css/homepage.css">
     <link rel="stylesheet" href="/css/header.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"
-        onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
 </head>
-<body class="min-h-screen page-bg">
+<body class="page aesthetic-instrument density-comfy">
+    {% include "header.njk" %}
     {{ content | safe }}
 </body>
 </html>

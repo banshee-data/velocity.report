@@ -35,6 +35,16 @@
       "liquidjs@<=10.25.4": "10.25.5",
       "minimatch@<3.1.5": "3.1.5",
       "picomatch@<2.3.2": "2.3.2"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@parcel/watcher"
+    ]
+  },
+  "dependencies": {
+    "@fontsource/eb-garamond": "^5.2.7",
+    "@fontsource/geist": "^5.2.9",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/newsreader": "^5.2.10",
+    "three": "0.160.0"
   }
 }
