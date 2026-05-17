@@ -1224,7 +1224,7 @@ section { padding: var(--d-pad-section) 0; position: relative; }
  * this mostly affects the panel chrome and CTA row.
  * ========================================================================== */
 .hero-cloud .copy {
-    max-width: 22rem;
+    max-width: 18rem;
 }
 @media (max-width: 880px) {
     /* On the single-column hero layout, centre the narrower panel so it
