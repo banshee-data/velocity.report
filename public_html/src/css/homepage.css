@@ -876,7 +876,8 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 }
 .hero-cloud .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  /* Right column slightly wider so the stack image has room to read large. */
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 64px;
   align-items: start;
 }
@@ -892,10 +893,13 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   content: "";
   position: absolute;
   top: -28px; left: -28px; right: -28px; bottom: -28px;
-  background: rgba(7,9,12,0.82);
-  backdrop-filter: blur(8px) saturate(110%);
-  -webkit-backdrop-filter: blur(8px) saturate(110%);
-  border: 1px solid rgba(255,255,255,0.04);
+  /* Lower opacity + heavier blur than before: this is now a frosted-glass
+   * plate, not a near-opaque card. Cars / cyclists / pedestrians moving
+   * through the point cloud read through it as blurred silhouettes. */
+  background: rgba(7,9,12,0.42);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  border: 1px solid rgba(255,255,255,0.06);
   border-radius: 14px;
   z-index: -1;
   pointer-events: none;
@@ -1248,8 +1252,11 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     /* Strip the 3D tilt since stack.png is already pre-rotated/baked. */
     transform: none;
     aspect-ratio: auto;
-    /* Two-column layout: larger stack so it reads as the focal artifact. */
-    width: min(640px, 100%);
+    /* Two-column layout: large stack so it dominates the right column. */
+    width: min(760px, 100%);
+    /* Always horizontally centred inside the column. */
+    margin-left: auto;
+    margin-right: auto;
     background: transparent;
     border: none;
     filter: none;
@@ -1272,12 +1279,37 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
 }
 
-/* Single-column hero (mobile / narrow): smaller stack, and push the copy
- * down so most of the LiDAR animation is visible above the fold (only h1 +
- * lede should be on the first screen). */
+/* Single-column hero (mobile / narrow): smaller stack, centred horizontally,
+ * and the LiDAR canvas pinned to the viewport top so the user sees the
+ * animation first, then scrolls the copy + stack up over it. We use
+ * position:fixed (sticky doesn't engage because the .hero-cloud's
+ * overflow:hidden turns it into a scroll container that has no actual
+ * scroll), plus a JS-driven IntersectionObserver in /js/hero-scene.js
+ * that adds .scrolled-past once the hero leaves the viewport so the
+ * fixed canvas fades out cleanly behind the next section. */
 @media (max-width: 880px) {
-    .hero-cloud { padding-top: 55vh; }
+    .hero-cloud { padding-top: 0; min-height: 100vh; }
+    .hero-cloud .hero-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        transition: opacity 350ms ease;
+    }
+    .hero-cloud.scrolled-past .hero-bg {
+        opacity: 0;
+        pointer-events: none;
+    }
+    /* Push the copy down so the first screen is dominated by the canvas. */
+    .hero-cloud .hero-content {
+        padding-top: 55vh;
+    }
+    /* Stack: smaller + explicitly centred (some flex-vs-block edge cases
+     * left it pinned left in 1-col). */
+    .hero-cloud .stack-wrap.stack-image { align-items: center; }
+    .hero-cloud .stack-wrap.stack-image .stack-link { width: 100%; display: flex; justify-content: center; }
     .hero-cloud .stack-wrap.stack-image .stack {
         width: min(280px, 72%);
+        margin-left: auto;
+        margin-right: auto;
     }
 }
