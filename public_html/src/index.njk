@@ -38,7 +38,7 @@ og_image: /img/stack.png
               </div>
               <div class="item">
                 <span class="marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
-                <span><b>Privacy by design:</b> No cameras, no faces, no licence plates. Speed data only.</span>
+                <span><b>Privacy by design:</b> No cameras, no faces, no licence plates. Traffic measurements, not identity.</span>
               </div>
               <div class="item">
                 <span class="marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></span>
@@ -79,7 +79,7 @@ og_image: /img/stack.png
               <div class="key"><span class="gen-no">GEN 01 · RADAR</span></div>
               <span class="pill"><span class="dot"></span>IN THE WILD</span>
             </div>
-            <div class="gen-title">Production-ready. Measuring today.</div>
+            <div class="gen-title">Production-ready. Measuring streets today.</div>
             <div class="desc">Radar speed monitoring on Raspberry Pi. PDF reports, percentile breakdowns, and hourly patterns: already running on residential streets.</div>
             <div class="meter"><div class="fill" style="width:100%;"></div></div>
             <div class="meta-row">
@@ -169,7 +169,7 @@ og_image: /img/stack.png
           <div class="step">
             <div class="num"><span><span class="step-no">03</span> · REPORT</span></div>
             <h3>Print the PDF that wins the room.</h3>
-            <p>One click generates a council-ready PDF: speed distributions, percentiles, hourly patterns, and site notes. The kind of evidence that leaves less room for hand-waving.</p>
+            <p>One click generates a council-ready PDF: speed distributions, percentiles, hourly patterns, and site information. The kind of evidence that leaves less room for hand-waving.</p>
             <div class="illus">
               <svg viewBox="0 0 220 130" width="100%" style="max-height:140px;">
                 <g transform="translate(38,15) rotate(-4)">
@@ -307,9 +307,19 @@ og_image: /img/stack.png
                 <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
                 <span class="pill signal"><span class="dot"></span>OPEN PIPELINE</span>
               </div>
-              <h3>The radar tells you speeds. LiDAR tells you the whole story.</h3>
+              <h3>The radar tells you speeds. LiDAR adds the rest of the scene.</h3>
               <p>See the whole street, classify road users, and measure how they move around each other. The code is real, the maths is published, the results are still calibrating, and contributions are welcome.</p>
-              <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it sees the full scene, identifies road users by type, and shows how they move around each other. That lets it answer questions radar cannot, such as how closely drivers pass cyclists, or how many roll through an intersection and at what speed.</p>
+              <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it sees the full scene, identifies road users by type, and tracks their motion through it. What it does not have yet is a finished set of street-safety metrics you can simply trust on sight. That is the work still under way.</p>
+              <div class="links">
+                <a href="https://github.com/banshee-data/velocity.report/blob/main/data/maths/MATHS.md">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Pipeline maths
+                </a>
+                <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Open research questions
+                </a>
+              </div>
             </div>
 
             <div class="research-actions">
@@ -320,20 +330,9 @@ og_image: /img/stack.png
               <div class="cta-row">
                 <a href="{{ release.stable.visualiser.url }}" class="btn btn-primary">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-                  VelocityVisualiser · macOS
+                  VelocityVisualiser.app · macOS
                 </a>
-                <a href="https://github.com/banshee-data/velocity.report" class="btn btn-ghost">Read the source ↗</a>
-              </div>
-
-              <div class="links">
-                <a href="https://github.com/banshee-data/velocity.report/blob/main/data/maths/MATHS.md">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Pipeline maths
-                </a>
-                <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  Open research questions
-                </a>
+                <a href="https://github.com/banshee-data/velocity.report/tree/main/internal/lidar" class="btn btn-ghost">Read the source ↗</a>
               </div>
             </div>
           </div>
@@ -354,7 +353,7 @@ og_image: /img/stack.png
             <h3>Measure your street.</h3>
             <p>You do not need to be a developer. Flash the Pi image once, aim it out of a window, leave it for a week, and walk into the next meeting with numbers instead of a story.</p>
             <ul>
-              <li>Flash the Raspberry Pi image once. After that, no command line is required</li>
+              <li>Flash the Raspberry Pi image once. After setup, the main workflow lives in the web dashboard</li>
               <li>Council-ready PDF with speed distributions, hourly patterns, and percentiles</li>
               <li>Privacy by design: radar only, no faces, no plates, and no cloud account</li>
               <li>Community help with mounting, aiming, and making the case</li>
@@ -370,12 +369,12 @@ og_image: /img/stack.png
           <div class="aud-card contributor">
             <div class="role">For engineers &amp; researchers</div>
             <h3>Help us see the street.</h3>
-            <p>The radar pipeline is stable. The LiDAR pipeline is open and still calibrating. Geometry, tracking, and classification all have real open questions, and all welcome pull requests.</p>
+            <p>The radar pipeline is the most mature part of the project. The LiDAR pipeline is open and still calibrating. Geometry, tracking, and classification all have real open questions, and all welcome pull requests.</p>
             <ul>
               <li>Open-source pipeline, published maths, and a public open-questions list</li>
               <li>LiDAR research preview: point clouds, tracking, classification</li>
               <li>Discord and GitHub Discussions for design conversations</li>
-              <li>Apachee2-licensed, documented, and backed by calibration data</li>
+              <li>Apache-2.0 licensed, documented, and backed by calibration data</li>
             </ul>
             <div class="aud-cta">
               <a href="https://github.com/banshee-data/velocity.report" class="btn btn-secondary">
@@ -420,7 +419,7 @@ og_image: /img/stack.png
               </div>
               <div class="faq-item">
                 <h4>What about LiDAR?</h4>
-                <p>LiDAR is research-stage work. The pipeline is open, the maths is published, and the current release is a macOS visualiser for engineers and curious users. Today, the production-ready path is radar.</p>
+                <p>LiDAR is research-stage work. The pipeline is open, the maths is published, and the current release is a macOS visualiser for engineers and curious users. Today, the most mature path is radar.</p>
               </div>
               <div class="faq-item">
                 <h4>How do I get started?</h4>
