@@ -482,13 +482,15 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   flex: 1; min-width: 0;
   cursor: text;
 }
-.dl-card .hash button {
+.dl-card .hash button,
+.dl-card .cmd button {
   font-family: var(--mono); font-size: 11px; color: var(--text-soft);
   background: var(--panel-3); border: 1px solid var(--line-2);
   border-radius: 4px; padding: 2px 8px;
   cursor: pointer;
 }
-.dl-card .hash button:hover { background: #1f2c39; color: var(--text); }
+.dl-card .hash button:hover,
+.dl-card .cmd button:hover { background: #1f2c39; color: var(--text); }
 .dl-card .req {
   font-family: var(--mono); font-size: 11px; color: var(--text-mute);
 }
@@ -514,7 +516,7 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   padding: var(--d-pad-card);
 }
 .research-grid {
-  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 5fr); gap: 40px; align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 40px; align-items: start;
 }
 @media (max-width: 960px) { .research-grid { grid-template-columns: 1fr; } }
 /* Research right column stacks the visualiser image and the CTAs/links under
