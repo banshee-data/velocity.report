@@ -8,7 +8,7 @@ visual treatment as the CSS-rendered stack in the hero design, but as a
 single PNG that can be served as `/img/stack.png` (or anywhere else).
 
 Defaults match the hero design's stack (3 pages, slight CCW lean of the
-front sheet, page 1 in front, with progressively dimmer underlays).
+front sheet, page 3 in front, with progressively dimmer underlays).
 
 Usage:
     python tools/pdf-stack-render/render.py INPUT.pdf [-o OUTPUT.png] [...]
@@ -45,14 +45,12 @@ except ImportError as e:  # pragma: no cover
 #   offset:     (dx, dy) translation in pixels at the page's native size
 #   opacity:    0-1 alpha multiplier (back pages fade)
 #   tint:       optional (r, g, b) blend to dim the back pages
-# The list below mirrors the hero design's CSS transforms:
-#   pg:nth-child(1) translate(18,18) rotate(3.5deg) opacity .85
-#   pg:nth-child(2) translate(9, 9)  rotate(1.5deg) opacity .95
-#   pg:nth-child(3) translate(0, 0)  rotate(0deg)   opacity 1.0
+# The CSS stack is widened here so the exported PNG reveals more of the
+# underlying report pages, especially the left column of page 1.
 DEFAULT_STACK = [
-    {"rotate_deg": 0.0, "offset": (0, 0), "opacity": 0.90, "tint": None},
-    {"rotate_deg": 1.5, "offset": (140, 140), "opacity": 0.95, "tint": (240, 243, 248)},
-    {"rotate_deg": 3.5, "offset": (280, 280), "opacity": 1.0, "tint": (215, 220, 228)},
+    {"rotate_deg": 3.0, "offset": (0, 0), "opacity": 0.85, "tint": (215, 220, 228)},
+    {"rotate_deg": 1.5, "offset": (540, 175), "opacity": 0.95, "tint": (240, 243, 248)},
+    {"rotate_deg": 0.0, "offset": (1080, 350), "opacity": 1.0, "tint": None},
 ]
 
 # Final 3D-feel: rotate the whole stack so it leans like the design.
@@ -227,8 +225,8 @@ def main() -> int:
     canvas_h = page_h + bbox_pad * 2
     canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
 
-    # Composite each page back-to-front
-    for idx, (page_img, entry) in enumerate(zip(rounded, stack_entries)):
+    # Composite pages back-to-front in PDF order so page 3 sits on top.
+    for page_img, entry in zip(rounded, stack_entries):
         # Skip rounded corners on already-rounded pages (we did them above).
         tinted = apply_tint(page_img, entry["tint"], entry["opacity"])
         rotated = tinted.rotate(
