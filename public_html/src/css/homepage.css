@@ -930,11 +930,14 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 }
 .hero-cloud .copy .body b { color: var(--text); font-weight: 600; }
 
-/* CTAs — local to the hero so we don't fight the rest of the page's .btn rules. */
+/* CTAs — local to the hero so we don't fight the rest of the page's .btn rules.
+ * Centred in the copy column so the two-button action row reads as the
+ * primary call-to-action of the page rather than a left-aligned afterthought. */
 .hero-cloud .ctas {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  justify-content: center;
   margin-bottom: 34px;
 }
 .hero-cloud .hc-btn {
@@ -1245,8 +1248,8 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     /* Strip the 3D tilt since stack.png is already pre-rotated/baked. */
     transform: none;
     aspect-ratio: auto;
-    /* 20% wider than the previous 420px cap. */
-    width: min(600px, 100%);
+    /* Two-column layout: larger stack so it reads as the focal artifact. */
+    width: min(640px, 100%);
     background: transparent;
     border: none;
     filter: none;
@@ -1255,4 +1258,26 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     display: block;
     width: 100%;
     height: auto;
+}
+/* The stack itself is a link to the sample report PDF. Hover lift mirrors
+ * the original main-branch homepage's stack interaction. */
+.hero-cloud .stack-wrap.stack-image .stack-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    transition: transform 350ms ease, filter 350ms ease;
+}
+.hero-cloud .stack-wrap.stack-image .stack-link:hover {
+    transform: translateY(-4px) scale(1.03);
+    filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+}
+
+/* Single-column hero (mobile / narrow): smaller stack, and push the copy
+ * down so most of the LiDAR animation is visible above the fold (only h1 +
+ * lede should be on the first screen). */
+@media (max-width: 880px) {
+    .hero-cloud { padding-top: 55vh; }
+    .hero-cloud .stack-wrap.stack-image .stack {
+        width: min(280px, 72%);
+    }
 }

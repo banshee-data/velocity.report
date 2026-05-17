@@ -105,11 +105,15 @@
 @media (max-width: 820px) {
     .site-header .nav-links { display: none; }
     .site-header .mobile-toggle { display: inline-flex; }
+    /* Mobile: keep all three actions (Discord, Code, Download) visible but
+     * drop the text labels so the bar reads as a row of three buttons. */
+    .site-header .nav-code .label,
+    .site-header .nav-cta .label { display: none; }
+    .site-header .nav-code { padding: 7px 10px; gap: 0; }
+    .site-header .nav-cta { padding: 7px 10px; gap: 0; }
 }
 @media (max-width: 520px) {
-    .site-header .nav-code { display: none; }
     .site-header .row { gap: 10px; }
-    .site-header .nav-cta { padding: 7px 10px; }
 }
 
 /* Anchor offset so the sticky header doesn't cover the target */
