@@ -5,99 +5,95 @@ description: "Open-source software that turns a Raspberry Pi and a radar sensor 
 og_image: /img/stack.png
 ---
 
-    <section class="hero">
-      <div class="wrap">
+    <section class="hero hero-cloud">
+      <div class="hero-bg">
+        <canvas id="hero-scene"></canvas>
+        <div class="hero-veil"></div>
+      </div>
+      <div class="wrap hero-content">
         <div class="hero-grid">
-          <div class="hero-left">
-            <div class="eyebrow">
-              <span class="ticks"><i></i><i></i><i></i><i></i><i></i></span>
-              <span>v{{ release.stable.linux_arm64.version }} · radar today · LiDAR research preview</span>
-            </div>
+          <div class="copy">
             <h1>
-              Measure traffic speeds.<br />
-              <span class="accent">Demand safer streets.</span>
+              <span class="row">Measure traffic speeds.</span>
+              <span class="row second">Demand safer streets.</span>
             </h1>
-            <p class="sub">
-              <strong>Open-source speed monitoring for neighbourhood streets.</strong>
-              velocity.report turns a Raspberry Pi and a radar sensor into a local speed monitor.
-              Point it at your street, then take a PDF to City Hall:
-              no cameras, no licence plates, and no cloud account attached to the arrangement.
+            <p class="lede">Open-source speed monitoring for neighbourhood streets.</p>
+            <p class="body">
+              <b>Collect the evidence yourself.</b> velocity.report is free, open-source software
+              that turns a Raspberry Pi and a radar sensor into a speed monitor. Download the Pi
+              image, point it at your street, and get a PDF you can take to City Hall: no cameras,
+              no licence plates, no cloud accounts.
             </p>
-            <div class="cta-row">
-              <a href="{{ release.rpi_image.url }}" class="btn btn-primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download the Pi image
+            <div class="ctas">
+              <a class="hc-btn primary" href="{{ release.rpi_image.url }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M6 11l6 6 6-6M5 21h14"/></svg>
+                Download
               </a>
-              <a href="/guides/setup/" class="btn btn-secondary">Setup guide</a>
+              <a class="hc-btn ghost" href="/guides/setup/">Setup Guide →</a>
             </div>
-
-            <div class="feat-row">
-              <div class="item">
-                <div class="num">01</div>
-                <div class="ttl">Before &amp; after</div>
-                <div class="desc">Measure before. Measure after. The numbers tell you whether the changes worked.</div>
-              </div>
-              <div class="item">
-                <div class="num">02</div>
-                <div class="ttl">Privacy by design</div>
-                <div class="desc">No cameras, no faces, no licence plates. It measures traffic, not private lives.</div>
-              </div>
-              <div class="item">
-                <div class="num">03</div>
-                <div class="ttl">Open source</div>
-                <div class="desc">Audit every line. Run it on your own Pi. Keep the data where it belongs.</div>
-              </div>
-              <div class="item">
-                <div class="num">04</div>
-                <div class="ttl">Offline first</div>
-                <div class="desc">All processing stays local. No cloud account, no upload step, and no data wandering off.</div>
-              </div>
+            <div class="bullets">
+              <div class="item"><span class="marker"></span><span><b>Before and after:</b> Measure before. Measure after. The numbers tell you whether the changes worked.</span></div>
+              <div class="item"><span class="marker"></span><span><b>Privacy by design:</b> No cameras, no faces, no licence plates. Speed data only.</span></div>
+              <div class="item"><span class="marker"></span><span><b>Open source:</b> Audit every line, run it on your own Pi, and keep the data on your own hardware, not someone else's cloud.</span></div>
             </div>
           </div>
 
-          <div class="hero-right">
-            <div class="hero-vis layout-stack">
-              <!-- Radar / sample report panel -->
-              <div class="vis-panel sample">
-                <span class="corner-tick tl"></span><span class="corner-tick tr"></span>
-                <span class="corner-tick bl"></span><span class="corner-tick br"></span>
-                <div class="panel-head">
-                  <span class="label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h2M20 12h2M12 2v2M12 20v2"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                    RADAR · SHIPPING · v{{ release.stable.linux_arm64.version }}
-                  </span>
-                  <span class="pill"><span class="dot"></span>IN PRODUCTION</span>
+          <div class="stack-wrap">
+            <div class="stack">
+              <div class="pg"></div>
+              <div class="pg"></div>
+              <div class="pg">
+                <div class="head"><span>velocity.report</span><span>2026-01-19</span></div>
+                <div class="title">Clarendon Avenue,<br/>San Francisco</div>
+                <div class="sub">Speed monitoring · 7 days · 14,302 vehicles observed</div>
+                <div class="pg-row">
+                  <div class="stat"><div class="lbl">Mean</div><div class="val">29.4<span class="u">mph</span></div></div>
+                  <div class="stat"><div class="lbl">85th %ile</div><div class="val">36.1<span class="u">mph</span></div></div>
+                  <div class="stat"><div class="lbl">Posted</div><div class="val">25<span class="u">mph</span></div></div>
                 </div>
-                <div class="panel-body" style="position:relative;">
-                  <img src="/img/stack.png" alt="velocity.report sample PDF report stack" />
-                  <span class="sample-stamp">Sample report</span>
+                <div class="chart">
+                  <svg viewBox="0 0 320 60" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0" stop-color="#4c8be0" stop-opacity=".6"/>
+                        <stop offset="1" stop-color="#4c8be0" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M0 58 C 40 55, 70 50, 100 35 C 130 18, 160 8, 200 12 C 240 16, 270 30, 300 48 L 320 58 Z" fill="url(#g1)"/>
+                    <path d="M0 58 C 40 55, 70 50, 100 35 C 130 18, 160 8, 200 12 C 240 16, 270 30, 300 48" fill="none" stroke="#1e40af" stroke-width="1.4"/>
+                    <line x1="178" y1="6" x2="178" y2="56" stroke="#dc2626" stroke-width="1" stroke-dasharray="2 2"/>
+                    <text x="180" y="14" font-size="6" fill="#dc2626" font-family="ui-monospace">85th</text>
+                  </svg>
                 </div>
-                <div class="panel-foot">
-                  <span class="mono">PDF · ready for City Hall</span>
-                  <a href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" class="mono mono-link">VIEW SAMPLE ↗</a>
+                <div class="bars">
+                  <div class="b" style="height:18%"></div><div class="b" style="height:28%"></div>
+                  <div class="b" style="height:42%"></div><div class="b" style="height:60%"></div>
+                  <div class="b" style="height:88%"></div><div class="b" style="height:96%"></div>
+                  <div class="b" style="height:78%"></div><div class="b" style="height:55%"></div>
+                  <div class="b" style="height:48%"></div><div class="b" style="height:62%"></div>
+                  <div class="b" style="height:80%"></div><div class="b" style="height:90%"></div>
+                  <div class="b" style="height:72%"></div><div class="b" style="height:54%"></div>
+                  <div class="b" style="height:38%"></div><div class="b" style="height:24%"></div>
                 </div>
-              </div>
-
-              <!-- LiDAR research preview panel -->
-              <div class="vis-panel lidar">
-                <span class="corner-tick tl"></span><span class="corner-tick tr"></span>
-                <span class="corner-tick bl"></span><span class="corner-tick br"></span>
-                <div class="panel-head">
-                  <span class="label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="6" opacity="0.5"/><circle cx="12" cy="12" r="10" opacity="0.25"/></svg>
-                    LIDAR · EXPERIMENTAL · v{{ release.stable.linux_arm64.version }}
-                  </span>
-                  <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
-                </div>
-                <div class="panel-body">
-                  <img src="/img/visualiser-demo.gif" alt="LiDAR visualiser preview" />
-                </div>
+                <div class="footer"><span>Page 1 of 4</span><span>generated locally · no cloud</span></div>
               </div>
             </div>
+            <a class="stack-caption" href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf">Sample Report <span class="arrow">→</span></a>
           </div>
         </div>
       </div>
     </section>
+
+    <section class="hero-tagline-bar">
+      <div class="wrap tagline">
+        <span>Raspberry Pi + radar sensor</span><span class="dot"></span>
+        <span>Local-only data</span><span class="dot"></span>
+        <span>Open source</span><span class="dot"></span>
+        <span>Audit-friendly PDFs</span>
+      </div>
+    </section>
+
+    <script type="module" src="/js/hero-scene.js"></script>
 
     <!-- ============================================================
          Pipeline status strip

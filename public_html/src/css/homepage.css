@@ -807,3 +807,352 @@ section { padding: var(--d-pad-section) 0; position: relative; }
   text-transform: uppercase;
   pointer-events: none;
 }
+
+/* ==========================================================================
+ * Hero — LiDAR point-cloud background (above the fold)
+ * Replaces the previous split radar/LiDAR panels with a full-bleed scene.
+ * Class names are scoped under .hero-cloud so they don't collide with the
+ * rest of the homepage CSS.
+ * ========================================================================== */
+
+.hero-cloud {
+  --hc-ink:     #e8edf3;
+  --hc-ink-dim: #aab4c0;
+  --hc-muted:   #6b7a8d;
+  --hc-rule:    #1a2330;
+  --hc-veh:     #4cd1a8;
+  --hc-ped:     #ffb050;
+  --hc-bike:    #6aa9ff;
+
+  position: relative;
+  overflow: hidden;
+  padding: var(--d-hero-pad) 0 56px;
+  min-height: calc(100vh - 56px);
+  /* Hard dark backdrop so the canvas paints onto a known surface. */
+  background: #06090e;
+}
+.hero-cloud .hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-cloud #hero-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Atmospheric veil — three radial/linear gradients tuned to keep the hero
+ * copy readable regardless of what the point cloud is doing behind it. */
+.hero-cloud .hero-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 65% at 32% 52%, rgba(6,9,14,.78) 0%, rgba(6,9,14,.55) 40%, rgba(6,9,14,.0) 75%),
+    linear-gradient(180deg, rgba(6,9,14,.78) 0%, rgba(6,9,14,.0) 18%, rgba(6,9,14,.0) 60%, rgba(6,9,14,.85) 100%);
+}
+.hero-cloud .hero-content {
+  position: relative;
+  z-index: 2;
+}
+.hero-cloud .hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: start;
+}
+@media (max-width: 880px) {
+  .hero-cloud .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+}
+
+/* Soft dim plate behind the copy column. Sits behind the text so any bright
+ * cloud points behind the H1 are knocked down. The plate fades at the edges
+ * so it doesn't read as a hard panel. */
+.hero-cloud .copy { position: relative; }
+.hero-cloud .copy::before {
+  content: "";
+  position: absolute;
+  top: -24px; left: -32px; right: -24px; bottom: -24px;
+  background: radial-gradient(85% 80% at 35% 45%, rgba(6,9,14,.68) 0%, rgba(6,9,14,.52) 55%, rgba(6,9,14,0) 95%);
+  backdrop-filter: blur(2px) saturate(85%);
+  -webkit-backdrop-filter: blur(2px) saturate(85%);
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 14px;
+}
+.hero-cloud .copy h1 {
+  font-family: "EB Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 5.4vw, 4.4rem);
+  line-height: 1.02;
+  letter-spacing: -0.022em;
+  margin: 8px 0 22px;
+  color: var(--hc-ink);
+  text-shadow: 0 1px 2px rgba(0,0,0,.6), 0 0 18px rgba(6,9,14,.65);
+}
+.hero-cloud .copy h1 .row    { display: block; }
+.hero-cloud .copy h1 .second { color: var(--hc-ink-dim); }
+.hero-cloud .copy .lede {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--hc-ink-dim);
+  margin: 0 0 24px;
+  max-width: 46ch;
+  text-shadow: 0 1px 2px rgba(0,0,0,.65);
+}
+.hero-cloud .copy .body {
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--hc-ink-dim);
+  margin: 0 0 30px;
+  max-width: 54ch;
+  text-shadow: 0 1px 2px rgba(0,0,0,.7);
+}
+.hero-cloud .copy .body b { color: var(--hc-ink); font-weight: 600; }
+
+/* CTAs — local to the hero so we don't fight the rest of the page's .btn rules. */
+.hero-cloud .ctas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 34px;
+}
+.hero-cloud .hc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-radius: 7px;
+  font-size: 14.5px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+.hero-cloud .hc-btn.primary {
+  background: var(--hc-ink);
+  color: #0a0e15;
+  border-color: var(--hc-ink);
+}
+.hero-cloud .hc-btn.primary:hover { transform: translateY(-1px); color: #0a0e15; }
+.hero-cloud .hc-btn.ghost {
+  background: rgba(255,255,255,.03);
+  color: var(--hc-ink);
+  border-color: #2a3441;
+}
+.hero-cloud .hc-btn.ghost:hover {
+  background: rgba(255,255,255,.06);
+  border-color: #3a4757;
+  color: var(--hc-ink);
+}
+.hero-cloud .hc-btn svg { width: 14px; height: 14px; }
+
+/* Three-point bullets — vehicle / cyclist / pedestrian accents. */
+.hero-cloud .bullets {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--hc-ink-dim);
+  max-width: 50ch;
+  text-shadow: 0 1px 2px rgba(0,0,0,.7);
+}
+.hero-cloud .bullets .item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.hero-cloud .bullets .item .marker {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 8px;
+  background: var(--hc-veh);
+  box-shadow: 0 0 6px rgba(76,209,168,.5);
+}
+.hero-cloud .bullets .item:nth-child(2) .marker {
+  background: var(--hc-bike);
+  box-shadow: 0 0 6px rgba(106,169,255,.5);
+}
+.hero-cloud .bullets .item:nth-child(3) .marker {
+  background: var(--hc-ped);
+  box-shadow: 0 0 6px rgba(255,176,80,.5);
+}
+.hero-cloud .bullets b { color: var(--hc-ink); font-weight: 600; margin-right: 6px; }
+
+/* PDF stack — three CSS-rendered "pages" rotated and offset to look stacked. */
+.hero-cloud .stack-wrap {
+  position: relative;
+  perspective: 1400px;
+  padding: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.hero-cloud .stack {
+  position: relative;
+  width: min(360px, 90%);
+  aspect-ratio: 8.5 / 11;
+  transform: rotateX(8deg) rotateY(-12deg) rotateZ(2deg);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 25px 35px rgba(0,0,0,.55));
+}
+.hero-cloud .stack .pg {
+  position: absolute;
+  inset: 0;
+  background: #fafbfc;
+  border: 1px solid #e3e8ee;
+  border-radius: 5px;
+  padding: 18px 20px;
+  overflow: hidden;
+  color: #1c2330;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.hero-cloud .stack .pg:nth-child(1) {
+  transform: translate(18px, 18px) rotate(3.5deg);
+  background: #eaecf0;
+  border-color: #cdd3da;
+  opacity: .85;
+}
+.hero-cloud .stack .pg:nth-child(2) {
+  transform: translate(9px, 9px) rotate(1.5deg);
+  background: #f3f5f8;
+  border-color: #dbe0e8;
+  opacity: .95;
+}
+.hero-cloud .stack .pg:nth-child(3) { transform: translate(0, 0) rotate(0deg); }
+.hero-cloud .pg .head {
+  font-size: 8px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #6b7280;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #e3e8ee;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+.hero-cloud .pg .title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+.hero-cloud .pg .sub {
+  font-size: 9.5px;
+  color: #475467;
+  margin-bottom: 10px;
+}
+.hero-cloud .pg .pg-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.hero-cloud .pg .stat {
+  flex: 1;
+  background: #f1f3f7;
+  border-radius: 4px;
+  padding: 6px 7px;
+}
+.hero-cloud .pg .stat .lbl {
+  font-size: 6.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.hero-cloud .pg .stat .val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+.hero-cloud .pg .stat .val .u {
+  font-size: 8.5px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-left: 2px;
+}
+.hero-cloud .pg .chart {
+  height: 60px;
+  background: #f1f3f7;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-cloud .pg .chart svg { width: 100%; height: 100%; display: block; }
+.hero-cloud .pg .bars {
+  height: 78px;
+  background: #f8fafc;
+  border-radius: 4px;
+  padding: 6px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.hero-cloud .pg .bars .b {
+  flex: 1;
+  background: linear-gradient(180deg, #6aa9ff, #4c8be0);
+  border-radius: 1px 1px 0 0;
+  min-height: 6%;
+}
+.hero-cloud .pg .footer {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 12px;
+  font-size: 7px;
+  color: #9ca3af;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #e3e8ee;
+  padding-top: 6px;
+}
+.hero-cloud .stack-caption {
+  margin-top: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--hc-ink-dim);
+  text-decoration: none;
+  border: 1px solid #2a3441;
+  background: rgba(255,255,255,.02);
+  padding: 8px 14px;
+  border-radius: 6px;
+  align-self: center;
+}
+.hero-cloud .stack-caption:hover { color: var(--hc-ink); border-color: #3a4757; }
+.hero-cloud .stack-caption .arrow { color: var(--hc-veh); }
+
+/* Tagline strip — sits between hero and status section. */
+.hero-tagline-bar {
+  background: #06090e;
+  border-top: 1px solid #11161e;
+  border-bottom: 1px solid #11161e;
+  padding: 14px 0;
+}
+.hero-tagline-bar .tagline {
+  color: #8995a3;
+  font-size: 13.5px;
+  letter-spacing: .02em;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.hero-tagline-bar .tagline .dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #8995a3;
+}
