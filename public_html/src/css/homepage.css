@@ -892,14 +892,19 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 .hero-cloud .copy::before {
   content: "";
   position: absolute;
-  top: -28px; left: -28px; right: -28px; bottom: -28px;
-  /* Lower opacity + heavier blur than before: this is now a frosted-glass
-   * plate, not a near-opaque card. Cars / cyclists / pedestrians moving
-   * through the point cloud read through it as blurred silhouettes. */
-  background: rgba(7,9,12,0.42);
+  /* Default (2-col / desktop): inset slightly tighter so the panel doesn't
+   * push right up against the header, and the top gets a positive offset
+   * (16px) so there's a clean gap above the headline. Bottom/left/right
+   * keep negative insets so the panel still hugs the copy edges. */
+  top: 16px; left: -28px; right: -28px; bottom: -28px;
+  /* About a third of the previous 0.42 — the panel is now a hint of fill
+   * rather than a clear darkening. Cars/bikes behind read through almost
+   * unaltered; the blur does most of the legibility work. */
+  background: rgba(7,9,12,0.14);
   backdrop-filter: blur(18px) saturate(115%);
   -webkit-backdrop-filter: blur(18px) saturate(115%);
-  border: 1px solid rgba(255,255,255,0.06);
+  /* No border — the panel reads as a soft frosted patch, not a card. */
+  border: 0;
   border-radius: 14px;
   z-index: -1;
   pointer-events: none;
@@ -1305,10 +1310,19 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     .hero-cloud .hero-content {
         padding-top: 55vh;
     }
-    /* On mobile the copy panel border was so faint it was invisible.
-     * Bump it to read clearly without competing with the body text. */
+    /* On mobile the previous negative -28px insets pushed the panel right
+     * up against the viewport edges. Cap the panel to the .copy column
+     * bounds (no horizontal overflow) and tighten the .copy max-width so a
+     * visible margin remains against both walls. Top inset is reduced too
+     * since the canvas above it already provides plenty of breathing room. */
+    .hero-cloud .copy {
+        max-width: min(22rem, calc(100vw - 40px));
+    }
     .hero-cloud .copy::before {
-        border-color: rgba(255, 255, 255, 0.12);
+        top: 8px;
+        left: 0;
+        right: 0;
+        bottom: -16px;
     }
     /* Stack: smaller + explicitly centred (some flex-vs-block edge cases
      * left it pinned left in 1-col). */
