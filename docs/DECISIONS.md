@@ -12,7 +12,7 @@ This file should only be edited once or twice per sprint (2-week period) when th
 
 ### D-01 — Fused transit schema
 
-Defer until Phase B — [VISION §4.1](VISION.md), [TDL plan](plans/data-track-description-language-plan.md)
+Defer until Phase B — [VISION §4.1](VISION.md), [TDL plan](plans/data-traffic-description-language-plan.md)
 
 ### D-02 — FFT radar feed ingestion
 
@@ -80,7 +80,7 @@ Go direct SVG charts (encoding/xml, no gonum) + `text/template` LaTeX; embed Atk
 
 ### D-18 — Speed percentile aggregation semantics
 
-Reserve `p50/p85/p98` for grouped/report metrics only; for speed, keep `p98` as the high-end aggregate percentile and treat `p95` as historical-only legacy — [speed percentile plan](plans/speed-percentile-aggregation-alignment-plan.md), [TDL plan](plans/data-track-description-language-plan.md)
+Reserve `p50/p85/p98` for grouped/report metrics only; for speed, keep `p98` as the high-end aggregate percentile and treat `p95` as historical-only legacy — [speed percentile plan](plans/speed-percentile-aggregation-alignment-plan.md), [TDL plan](plans/data-traffic-description-language-plan.md)
 
 ### D-19 — Track raw max vs future peak naming
 

@@ -19,7 +19,7 @@ UI surface is being changed:
 
 - Go package boundaries and import rules
 - Database schema design (two-package SQL boundary)
-- Track Description Language (TDL)
+- Traffic Description Language (TDL)
 - Structured logging model
 - Typed UUID prefix conventions
 - Platform library design (TicTacTail)

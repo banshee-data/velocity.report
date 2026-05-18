@@ -1,7 +1,7 @@
 ---
 layout: homepage.njk
 title: "velocity.report: Measure Traffic Speeds, Demand Safer Streets"
-description: "Open-source software that turns a Raspberry Pi and a radar sensor into a local speed monitor. Point it at your street, then take a PDF to City Hall instead of a hunch. Radar today. LiDAR research preview."
+description: "Open-source software that turns a Raspberry Pi and a radar sensor into a local speed monitor. Aim it at your street, then take a PDF to City Hall instead of a hunch. Radar today. LiDAR research preview."
 og_image: /img/stack.png
 ---
 
@@ -18,40 +18,42 @@ og_image: /img/stack.png
               <span class="row second">Demand safer streets.</span>
             </h1>
             <p class="lede">Open-source speed monitoring for neighbourhood streets.</p>
-            <p class="body">
-              <b>Collect the evidence yourself.</b> velocity.report is free, open-source software
-              that turns a Raspberry Pi and a radar sensor into a speed monitor. Download the Pi
-              image, point it at your street, and get a PDF you can take to City Hall: no cameras,
-              no licence plates, no cloud accounts.
-            </p>
             <div class="ctas">
               <a class="hc-btn primary" href="{{ release.rpi_image.url }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M6 11l6 6 6-6M5 21h14"/></svg>
                 Download
               </a>
-              <a class="hc-btn ghost" href="/guides/setup/">Setup Guide →</a>
+              <a class="hc-btn ghost" href="/guides/setup/">Setup guide →</a>
             </div>
+            <p class="body">
+              <b>Collect the evidence yourself.</b> velocity.report turns a Raspberry Pi and a
+              radar sensor into a local speed monitor. Download the Pi image, aim it at your
+              street, and generate a PDF you can take to City Hall: no cameras, no licence plates,
+              no cloud accounts.
+            </p>
             <div class="bullets">
               <div class="item">
                 <span class="marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg></span>
-                <span><b>Before and after:</b> Measure before. Measure after. The numbers tell you whether the changes worked.</span>
+                <span><b>Before and after:</b> Measure before. Measure after. Then you can see whether the changes worked, which is better than arguing from memory.</span>
               </div>
               <div class="item">
                 <span class="marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
-                <span><b>Privacy by design:</b> No cameras, no faces, no licence plates. Traffic measurements, not identity.</span>
+                <span><b>Privacy by design:</b> No cameras, no faces, no licence plates. Measure traffic, not identity.</span>
               </div>
               <div class="item">
                 <span class="marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></span>
-                <span><b>Open source:</b> Audit every line, run it on your own Pi, and keep the data on your own hardware, not someone else's cloud.</span>
+                <span><b>Open source:</b> Read the code, run it on your own Pi, and keep the data on hardware you control.</span>
               </div>
             </div>
           </div>
 
           <div class="stack-wrap stack-image">
-            <div class="stack">
-              <img src="/img/stack.png" alt="velocity.report sample PDF report stack" />
-            </div>
-            <a class="stack-caption" href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf">Sample Report <span class="arrow">→</span></a>
+            <a class="stack-link" href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" target="_blank" rel="noopener noreferrer" aria-label="Open the Clarendon Avenue sample report PDF">
+              <div class="stack">
+                <img src="/img/stack.png" alt="velocity.report sample PDF report stack" />
+              </div>
+            </a>
+            <a class="stack-caption" href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" target="_blank" rel="noopener noreferrer">Sample Report <span class="arrow">→</span></a>
           </div>
         </div>
       </div>
@@ -68,9 +70,6 @@ og_image: /img/stack.png
 
     <script type="module" src="/js/hero-scene.js"></script>
 
-    <!-- ============================================================
-         Pipeline status strip
-         ============================================================ -->
     <section class="status-section">
       <div class="wrap">
         <div class="pipeline">
@@ -79,8 +78,8 @@ og_image: /img/stack.png
               <div class="key"><span class="gen-no">GEN 01 · RADAR</span></div>
               <span class="pill"><span class="dot"></span>IN THE WILD</span>
             </div>
-            <div class="gen-title">Production-ready. Measuring streets today.</div>
-            <div class="desc">Radar speed monitoring on Raspberry Pi. PDF reports, percentile breakdowns, and hourly patterns: already running on residential streets.</div>
+            <div class="gen-title">Ready now. Measuring streets today.</div>
+            <div class="desc">Radar speed monitoring on Raspberry Pi. It already produces PDF reports, percentile breakdowns, and hourly patterns for real residential streets.</div>
             <div class="meter"><div class="fill" style="width:100%;"></div></div>
             <div class="meta-row">
               <span>STATUS <span class="v">STABLE</span></span>
@@ -93,8 +92,8 @@ og_image: /img/stack.png
               <div class="key"><span class="gen-no">GEN 02 · LIDAR</span></div>
               <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
             </div>
-            <div class="gen-title">Research-stage. Open and still calibrating.</div>
-            <div class="desc">Full scene capture. It classifies road users and tracks how they move around each other. Open maths, open questions: not yet something you install and forget.</div>
+            <div class="gen-title">Open research, calibrating.</div>
+            <div class="desc">LiDAR captures the whole scene, classifies road users, and tracks how they move around each other. The maths are open. The questions are open too. It is not the kind of system you install and forget, yet.</div>
             <div class="meter"><div class="fill amber" style="width:45%;"></div></div>
             <div class="meta-row">
               <span>STATUS <span class="v">EXPERIMENTAL</span></span>
@@ -106,9 +105,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <!-- ============================================================
-         How it works
-         ============================================================ -->
     <section id="how">
       <div class="wrap">
         <div class="section-header">
@@ -121,7 +117,7 @@ og_image: /img/stack.png
           <div class="step">
             <div class="num"><span><span class="step-no">01</span> · RECORD</span></div>
             <h3>Point it at the street.</h3>
-            <p>Mounted on a window or fence, a radar sensor clocks the speed of every vehicle that passes. No images. No identifying data.</p>
+            <p>Mount it on a window or fence and the radar measures passing vehicle speeds. No images. No identifying data.</p>
             <div class="illus">
               <svg viewBox="0 0 220 130" width="100%" style="max-height:140px;">
                 <defs><radialGradient id="rg1" cx="50%" cy="60%" r="60%"><stop offset="0%" stop-color="#10b981" stop-opacity="0.4"/><stop offset="100%" stop-color="#10b981" stop-opacity="0"/></radialGradient></defs>
@@ -134,15 +130,15 @@ og_image: /img/stack.png
                 <line x1="64" y1="95" x2="200" y2="110" stroke="#10b981" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.6"/>
                 <rect x="160" y="78" width="30" height="14" rx="3" fill="#243140" stroke="#6b7787" stroke-width="0.8"/>
                 <circle cx="167" cy="94" r="3" fill="#6b7787"/><circle cx="183" cy="94" r="3" fill="#6b7787"/>
-                <text x="160" y="68" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="9">34 mph</text>
-                <text x="110" y="125" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">DOPPLER · 24.125 GHz</text>
+                <text x="160" y="68" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="9">54 mph</text>
+                <text x="110" y="125" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">DOPPLER</text>
               </svg>
             </div>
           </div>
           <div class="step">
             <div class="num"><span><span class="step-no">02</span> · STORE</span></div>
             <h3>A Raspberry Pi keeps the data.</h3>
-            <p>Everything runs locally on a Pi. The SQLite database stays on the device. Re-aim it, let it run for weeks, and keep the data on hardware you control.</p>
+            <p>Everything runs locally on a Pi. The SQLite database stays on the device. Re-aim it, let it run for days or weeks, and keep the data on hardware you control.</p>
             <div class="illus">
               <svg viewBox="0 0 220 130" width="100%" style="max-height:140px;">
                 <rect x="40" y="35" width="140" height="60" rx="4" fill="#0c1a14" stroke="#10b981" stroke-width="1"/>
@@ -151,7 +147,7 @@ og_image: /img/stack.png
                 <g fill="#243140"><rect x="48" y="40" width="3" height="3"/><rect x="54" y="40" width="3" height="3"/><rect x="60" y="40" width="3" height="3"/><rect x="66" y="40" width="3" height="3"/><rect x="72" y="40" width="3" height="3"/><rect x="78" y="40" width="3" height="3"/><rect x="84" y="40" width="3" height="3"/><rect x="90" y="40" width="3" height="3"/><rect x="96" y="40" width="3" height="3"/><rect x="102" y="40" width="3" height="3"/><rect x="108" y="40" width="3" height="3"/><rect x="114" y="40" width="3" height="3"/><rect x="120" y="40" width="3" height="3"/><rect x="126" y="40" width="3" height="3"/><rect x="132" y="40" width="3" height="3"/><rect x="138" y="40" width="3" height="3"/><rect x="144" y="40" width="3" height="3"/><rect x="150" y="40" width="3" height="3"/><rect x="156" y="40" width="3" height="3"/><rect x="162" y="40" width="3" height="3"/></g>
                 <rect x="130" y="55" width="14" height="9" fill="#1b2632"/><rect x="130" y="68" width="14" height="9" fill="#1b2632"/>
                 <rect x="150" y="55" width="14" height="9" fill="#1b2632"/><rect x="150" y="68" width="14" height="9" fill="#1b2632"/>
-                <text x="46" y="50" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="7">RPi · 3+</text>
+                <text x="46" y="50" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="7">RPi</text>
                 <g>
                   <rect x="50" y="105" width="6" height="10" fill="#10b981" opacity="0.4"/>
                   <rect x="60" y="100" width="6" height="15" fill="#10b981" opacity="0.55"/>
@@ -162,14 +158,14 @@ og_image: /img/stack.png
                   <rect x="110" y="108" width="6" height="7" fill="#10b981" opacity="0.4"/>
                   <rect x="120" y="112" width="6" height="3" fill="#10b981" opacity="0.3"/>
                 </g>
-                <text x="110" y="125" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">SQLITE · LOCAL</text>
+                <text x="110" y="125" fill="#6b7787" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">SQLITE</text>
               </svg>
             </div>
           </div>
           <div class="step">
             <div class="num"><span><span class="step-no">03</span> · REPORT</span></div>
-            <h3>Print the PDF that wins the room.</h3>
-            <p>One click generates a council-ready PDF: speed distributions, percentiles, hourly patterns, and site information. The kind of evidence that leaves less room for hand-waving.</p>
+            <h3>Generate the PDF people can use.</h3>
+            <p>One click generates a council-ready PDF with speed distributions, percentiles, hourly patterns, and site information. It leaves less room for hand-waving and more room for the actual problem.</p>
             <div class="illus">
               <svg viewBox="0 0 220 130" width="100%" style="max-height:140px;">
                 <g transform="translate(38,15) rotate(-4)">
@@ -206,9 +202,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <!-- ============================================================
-         Downloads
-         ============================================================ -->
     <section id="download">
       <div class="wrap">
         <div class="section-header">
@@ -240,7 +233,7 @@ og_image: /img/stack.png
             <div class="dl-card">
               <div class="dl-title plain">Raspberry Pi Imager custom repo</div>
               <div class="desc">
-                <a href="https://www.raspberrypi.com/software/" class="inline-link">Install Raspberry Pi Imager</a>, then run this in a terminal. The <code>--repo</code> flag works on every platform. Only the path to the binary changes.
+                <a href="https://www.raspberrypi.com/software/" class="inline-link">Install Raspberry Pi Imager</a>, then run this in a terminal. The <code>--repo</code> flag should work everywhere. Only the path to the binary changes.
               </div>
               <div class="cmd">
                 <span class="h-text" title='cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" &amp;&amp; ./rpi-imager --disable-telemetry --repo {{ release.rpi_imager_repo_url }}'>cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" &amp;&amp; ./rpi-imager --disable-telemetry --repo {{ release.rpi_imager_repo_url }}</span>
@@ -285,9 +278,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <!-- ============================================================
-         Research (LiDAR)
-         ============================================================ -->
     <section id="research">
       <div class="wrap">
         <div class="section-header">
@@ -304,9 +294,9 @@ og_image: /img/stack.png
                 <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
                 <span class="pill signal"><span class="dot"></span>OPEN PIPELINE</span>
               </div>
-              <h3>The radar tells you speeds. LiDAR adds the rest of the scene.</h3>
-              <p>See the whole street, classify road users, and measure how they move around each other. The code is real, the maths is published, the results are still calibrating, and contributions are welcome.</p>
-              <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it sees the full scene, identifies road users by type, and tracks their motion through it. What it does not have yet is a finished set of street-safety metrics you can simply trust on sight. That is the work still under way.</p>
+              <p>See the whole street, classify road users, and measure how they move around each other. The code is real, the maths are published, and the results are still being calibrated.</p>
+              <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it captures the full scene, identifies road-user types, and tracks motion through it. What it does not give you yet is a finished set of street-safety metrics you can accept on sight. That part is still under active work.</p>
+              <p>One part of that future is the Traffic Description Language: a way to ask plain-English questions of the fused transit data. Questions like how closely drivers pass work crews, how much space cars leave cyclists in a bike lane, or how many cars come to a complete stop at an intersection when school gets out. In other words, the questions people actually ask once the speed chart has done its job.</p>
               <div class="links">
                 <a href="https://github.com/banshee-data/velocity.report/blob/main/data/maths/MATHS.md">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -316,10 +306,15 @@ og_image: /img/stack.png
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   Open research questions
                 </a>
+                <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/platform/architecture/traffic-description-language.md">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Traffic description language
+                </a>
               </div>
             </div>
 
             <div class="research-actions">
+              <h3>A radar logs velocity. LiDAR paints the rest of the scene.</h3>
               <div class="visualiser-panel">
                 <img src="/img/visualiser-demo.gif" alt="LiDAR visualiser preview" />
               </div>
@@ -341,19 +336,19 @@ og_image: /img/stack.png
       <div class="wrap">
         <div class="section-header">
           <div class="left">
-            <h2>Get evidence, or help us build</h2>
+            <h2>Get the evidence, or help build the next part</h2>
           </div>
         </div>
         <div class="audience">
           <div class="aud-card">
             <div class="role">For residents &amp; advocates</div>
             <h3>Measure your street.</h3>
-            <p>You do not need to be a developer. Flash the Pi image once, aim it out of a window, leave it for a week, and walk into the next meeting with numbers instead of a story.</p>
+            <p>You do not need to be a developer. Flash the Pi image, aim it out of a window, leave it running for a week, and take numbers to the next meeting instead of a story that someone can wave away.</p>
             <ul>
-              <li>Flash the Raspberry Pi image once. After setup, the main workflow lives in the web dashboard</li>
+              <li>Flash the Raspberry Pi image once; after setup, the main workflow lives in the web dashboard</li>
               <li>Council-ready PDF with speed distributions, hourly patterns, and percentiles</li>
               <li>Privacy by design: radar only, no faces, no plates, and no cloud account</li>
-              <li>Community help with mounting, aiming, and making the case</li>
+              <li>Discord help for mounting, aiming, setup snags, and making the case</li>
             </ul>
             <div class="aud-cta">
               <a href="{{ release.rpi_image.url }}" class="btn btn-primary">
@@ -366,11 +361,11 @@ og_image: /img/stack.png
           <div class="aud-card contributor">
             <div class="role">For engineers &amp; researchers</div>
             <h3>Help us see the street.</h3>
-            <p>The radar pipeline is the most mature part of the project. The LiDAR pipeline is open and still calibrating. Geometry, tracking, and classification all have real open questions, and all welcome pull requests.</p>
+            <p>The radar pipeline is the most mature part of the project. The LiDAR pipeline is open and still calibrating. Geometry, tracking, and classification still have real unanswered questions, which is another way of saying there is useful work to do.</p>
             <ul>
-              <li>Open-source pipeline, published maths, and a public open-questions list</li>
+              <li>Open-source pipeline, published maths, and a public list of open questions</li>
               <li>LiDAR research preview: point clouds, tracking, classification</li>
-              <li>Discord and GitHub Discussions for design conversations</li>
+              <li>Discord for fast design triage; GitHub issues and PRs for decisions that need a paper trail</li>
               <li>Apache-2.0 licensed, documented, and backed by calibration data</li>
             </ul>
             <div class="aud-cta">
@@ -379,15 +374,13 @@ og_image: /img/stack.png
                 Repository
               </a>
               <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md" class="btn btn-ghost">Open questions →</a>
+              <a href="/community/#discord" class="btn btn-ghost">Discord guide →</a>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ============================================================
-         FAQ
-         ============================================================ -->
     <section id="faq">
       <div class="wrap">
         <div class="faq">
@@ -395,32 +388,32 @@ og_image: /img/stack.png
             <div class="left">
               <span class="mono">FAQ</span>
               <h3>Common questions</h3>
-              <p class="faq-blurb">Quick answers to the questions sensible people ask before they download.</p>
+              <p class="faq-blurb">Quick answers to the questions people usually ask before they download.</p>
             </div>
             <div class="faq-list">
               <div class="faq-item">
                 <h4>What is this?</h4>
-                <p>An open-source traffic speed monitor. Plug a radar sensor into a Raspberry Pi, let it record how fast vehicles pass, and it produces a PDF with speed distributions, hourly patterns, and percentile breakdowns. No cloud, no cameras, and no private surveillance habit.</p>
+                <p>An open-source traffic speed monitor. Plug a radar sensor into a Raspberry Pi, let it measure how fast vehicles pass, and it produces a PDF with speed distributions, hourly patterns, and percentile breakdowns. No cloud, no cameras, and no habit of collecting things it does not need.</p>
               </div>
               <div class="faq-item">
                 <h4>Who is this for?</h4>
-                <p>You, probably. If traffic on your street moves faster than it should, this is for you. Parent associations, community groups, neighbourhood watch, and residents with a safety concern and nowhere sensible to take it. If you've ever been told to come back with evidence, this is how you get it.</p>
+                <p>People trying to show that traffic on their street is a safety problem, and to do it with numbers rather than a weary look at the road. Residents, parent groups, neighbourhood campaigns, and anyone who has been told to come back with evidence.</p>
               </div>
               <div class="faq-item">
                 <h4>What does it measure?</h4>
-                <p>Vehicle speeds. A radar sensor records how fast vehicles pass and stores the data on a Raspberry Pi. No faces, no licence plates, no images of any kind.</p>
+                <p>Vehicle speeds. A radar sensor records how fast vehicles pass and stores the results on a Raspberry Pi. No faces, no licence plates, and no images of any kind.</p>
               </div>
               <div class="faq-item">
                 <h4>Where does the data go?</h4>
-                <p>Nowhere. It stays on your device, in a local database. There is no cloud account, no upload step, nothing that sends data anywhere without your knowledge. The only way data leaves your network is when you hand (or email) someone the finished PDF.</p>
+                <p>Nowhere special. It stays on your device in a local database. There is no cloud account, no silent upload, and no side business in learning things about your street. Data leaves only when you decide to share the finished PDF.</p>
               </div>
               <div class="faq-item">
                 <h4>What about LiDAR?</h4>
-                <p>LiDAR is research-stage work. The pipeline is open, the maths is published, and the current release is a macOS visualiser for engineers and curious users. Today, the most mature path is radar.</p>
+                <p>LiDAR is still research-stage. The pipeline is open, the maths are published, and the current release includes a macOS visualiser for engineers and curious users. Today, the dependable PDF path is radar. LiDAR is not the install-it-and-forget-it path yet.</p>
               </div>
               <div class="faq-item">
                 <h4>How do I get started?</h4>
-                <p>Follow the <a href="/guides/setup/" class="inline-link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you'll have a working speed monitor and a PDF report that holds up in a council meeting.</p>
+                <p>Follow the <a href="/guides/setup/" class="inline-link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you should have a working speed monitor and a PDF report fit for a council meeting.</p>
               </div>
             </div>
           </div>
@@ -428,9 +421,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <!-- ============================================================
-         City Hall
-         ============================================================ -->
     <section>
       <div class="wrap">
         <div class="cityhall">
@@ -450,48 +440,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <!-- ============================================================
-         Footer
-         ============================================================ -->
-    <footer class="site-footer">
-      <div class="wrap">
-        <div class="foot-grid">
-          <div class="foot-col">
-            <a href="/" class="brand"><span class="dot"></span>velocity.report</a>
-            <p class="foot-blurb">Open-source speed monitoring for neighbourhood streets. Radar today. LiDAR research preview.</p>
-            <div class="foot-icons">
-              <a href="https://github.com/banshee-data/velocity.report" aria-label="GitHub"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.92.57.1.78-.25.78-.55v-1.95c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.73-1.52-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.35.78 1.05.78 2.12v3.14c0 .3.21.66.79.55A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg></a>
-              <a href="https://discord.gg/XXh6jXVFkt" aria-label="Discord"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.07.07 0 0 0-.075.035c-.21.37-.444.853-.608 1.232a18.27 18.27 0 0 0-5.487 0a12.6 12.6 0 0 0-.617-1.232.077.077 0 0 0-.075-.035A19.74 19.74 0 0 0 3.683 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.058a.08.08 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03.08.08 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106a13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.04.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418m7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418"/></svg></a>
-            </div>
-          </div>
-          <div class="foot-col">
-            <h5>Product</h5>
-            <a href="#download">Download</a>
-            <a href="/guides/setup/">Setup guide</a>
-            <a href="#how">How it works</a>
-            <a href="#faq">FAQ</a>
-          </div>
-          <div class="foot-col">
-            <h5>Research</h5>
-            <a href="#research">LiDAR pipeline</a>
-            <a href="https://github.com/banshee-data/velocity.report/blob/main/data/maths/MATHS.md">Pipeline maths</a>
-            <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md">Open questions</a>
-            <a href="https://github.com/banshee-data/velocity.report">Source code</a>
-          </div>
-          <div class="foot-col">
-            <h5>Community</h5>
-            <a href="/community/">Community</a>
-            <a href="https://github.com/banshee-data/velocity.report/discussions">Discussions</a>
-            <a href="https://discord.gg/XXh6jXVFkt">Discord</a>
-            <a href="mailto:hello@velocity.report">Contact</a>
-          </div>
-        </div>
-        <div class="foot-bottom">
-          <div>velocity.report © 2026 Banshee, Inc.</div>
-          <div>Documentation licensed under <a href="https://creativecommons.org/licenses/by/4.0/" class="inline-link">CC BY 4.0</a></div>
-        </div>
-      </div>
-    </footer>
 
     <!-- Copy-to-clipboard for SHA / command pills -->
     <script>

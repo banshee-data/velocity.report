@@ -23,7 +23,7 @@ MAPPING = {
     # Already done — included for completeness / verification
     "data-database-alignment-plan": "docs/platform/architecture/database-sql-boundary.md",
     "data-sqlite-client-standardisation-plan": "docs/platform/architecture/database-sql-boundary.md",
-    "data-track-description-language-plan": "docs/platform/architecture/track-description-language.md",
+    "data-traffic-description-language-plan": "docs/platform/architecture/traffic-description-language.md",
     "platform-hub-restructure-plan": "docs/platform/architecture/canonical-plan-graduation.md",
     # ── docs/lidar/architecture/ ──
     "lidar-layer-dependency-hygiene-plan": "docs/lidar/architecture/LIDAR_ARCHITECTURE.md",

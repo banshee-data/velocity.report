@@ -27,8 +27,8 @@
   --signal: #38bdf8;
   --danger: #ef4444;
 
-  --gb-from: #047857;
-  --gb-to: #064e3b;
+  --gb-from: #186952;
+  --gb-to: #124538;
   --gb-border: linear-gradient(135deg, var(--gb-from), var(--gb-to));
 
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -38,6 +38,7 @@
   /* density */
   --d-pad-section: 96px;
   --d-pad-card: 28px;
+  --d-pad-card-mobile: 22px;
   --d-gap: 24px;
   --d-hero-pad: 24px;
 
@@ -300,9 +301,12 @@ a:hover { color: var(--emerald-fg); }
 
 /* ===== Status / pipeline strip ===== */
 .pipeline {
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(16,185,129,0.02), transparent 50%), var(--panel);
+  background:
+    linear-gradient(180deg, rgba(16,185,129,0.02), transparent 50%) padding-box,
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--gb-border) border-box;
   padding: 22px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -393,9 +397,12 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 @media (max-width: 880px) { .steps { grid-template-columns: 1fr; } }
 .step {
   position: relative;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: var(--panel);
+  background:
+    linear-gradient(180deg, rgba(16,185,129,0.02), transparent 50%) padding-box,
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--gb-border) border-box;
   padding: var(--d-pad-card);
   display: flex; flex-direction: column;
   gap: 14px;
@@ -688,9 +695,10 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 
 .aesthetic-instrument .pipeline {
   background:
-    linear-gradient(to right, rgba(16,185,129,0.04) 0%, transparent 12%),
-    linear-gradient(to right, rgba(245,158,11,0.03) 50%, transparent 62%),
-    var(--panel);
+    linear-gradient(to right, rgba(16,185,129,0.03) 0%, transparent 12%) padding-box,
+    linear-gradient(to right, rgba(245,158,11,0.025) 50%, transparent 62%) padding-box,
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--gb-border) border-box;
 }
 
 .aesthetic-refined .corner-tick { display: none; }
@@ -876,7 +884,8 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 }
 .hero-cloud .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  /* Right column slightly wider so the stack image has room to read large. */
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 64px;
   align-items: start;
 }
@@ -891,11 +900,19 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 .hero-cloud .copy::before {
   content: "";
   position: absolute;
-  top: -28px; left: -28px; right: -28px; bottom: -28px;
-  background: rgba(7,9,12,0.82);
-  backdrop-filter: blur(8px) saturate(110%);
-  -webkit-backdrop-filter: blur(8px) saturate(110%);
-  border: 1px solid rgba(255,255,255,0.04);
+  /* Default (2-col / desktop): inset slightly tighter so the panel doesn't
+   * push right up against the header, and the top gets a positive offset
+   * (16px) so there's a clean gap above the headline. Bottom/left/right
+   * keep negative insets so the panel still hugs the copy edges. */
+  top: 16px; left: -28px; right: -28px; bottom: -28px;
+  /* About a third of the previous 0.42 — the panel is now a hint of fill
+   * rather than a clear darkening. Cars/bikes behind read through almost
+   * unaltered; the blur does most of the legibility work. */
+  background: rgba(7,9,12,0.14);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  /* No border — the panel reads as a soft frosted patch, not a card. */
+  border: 0;
   border-radius: 14px;
   z-index: -1;
   pointer-events: none;
@@ -930,11 +947,14 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 }
 .hero-cloud .copy .body b { color: var(--text); font-weight: 600; }
 
-/* CTAs — local to the hero so we don't fight the rest of the page's .btn rules. */
+/* CTAs — local to the hero so we don't fight the rest of the page's .btn rules.
+ * Centred in the copy column so the two-button action row reads as the
+ * primary call-to-action of the page rather than a left-aligned afterthought. */
 .hero-cloud .ctas {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  justify-content: center;
   margin-bottom: 34px;
 }
 .hero-cloud .hc-btn {
@@ -1245,8 +1265,11 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     /* Strip the 3D tilt since stack.png is already pre-rotated/baked. */
     transform: none;
     aspect-ratio: auto;
-    /* 20% wider than the previous 420px cap. */
-    width: min(600px, 100%);
+    /* Two-column layout: large stack so it dominates the right column. */
+    width: min(760px, 100%);
+    /* Always horizontally centred inside the column. */
+    margin-left: auto;
+    margin-right: auto;
     background: transparent;
     border: none;
     filter: none;
@@ -1255,4 +1278,78 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     display: block;
     width: 100%;
     height: auto;
+}
+/* The stack itself is a link to the sample report PDF. Hover lift mirrors
+ * the original main-branch homepage's stack interaction. */
+.hero-cloud .stack-wrap.stack-image .stack-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    transition: transform 350ms ease, filter 350ms ease;
+}
+.hero-cloud .stack-wrap.stack-image .stack-link:hover {
+    transform: translateY(-4px) scale(1.03);
+    filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+}
+
+/* Single-column hero (mobile / narrow): smaller stack, centred horizontally,
+ * and the LiDAR canvas pinned to the viewport top so the user sees the
+ * animation first, then scrolls the copy + stack up over it. We use
+ * position:fixed (sticky doesn't engage because the .hero-cloud's
+ * overflow:hidden turns it into a scroll container that has no actual
+ * scroll), plus a JS-driven IntersectionObserver in /js/hero-scene.js
+ * that adds .scrolled-past once the hero leaves the viewport so the
+ * fixed canvas fades out cleanly behind the next section. */
+@media (max-width: 880px) {
+    .hero-cloud { padding-top: 0; min-height: 100vh; }
+    .hero-cloud .hero-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        transition: opacity 350ms ease;
+    }
+    .hero-cloud.scrolled-past .hero-bg {
+        opacity: 0;
+        pointer-events: none;
+    }
+    /* Push the copy down so the canvas dominates the upper viewport, but
+     * not so far that there's an obvious dead-zone of whitespace at the
+     * very top. ~10rem (160px) shallower than the previous 55vh setting. */
+    .hero-cloud .hero-content {
+        padding-top: 55vh;
+    }
+    /* Mobile uses the same card padding rhythm as the pipeline and steps,
+     * but keeps the hero shell borderless and frosted. The panel fills the
+     * wrap width, then the content pads inward inside it. */
+    .hero-cloud .copy {
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
+      padding: var(--d-pad-card-mobile);
+    }
+    .hero-cloud .copy::before {
+      top: 0;
+        left: 0;
+        right: 0;
+      bottom: 0;
+    }
+    .pipeline {
+      padding: 0;
+    }
+    .pipeline .gen {
+      padding: var(--d-pad-card-mobile);
+    }
+    .step {
+      padding: var(--d-pad-card-mobile);
+    }
+    /* Stack: smaller + explicitly centred (some flex-vs-block edge cases
+     * left it pinned left in 1-col). */
+    .hero-cloud .stack-wrap.stack-image { align-items: center; }
+    .hero-cloud .stack-wrap.stack-image .stack-link { width: 100%; display: flex; justify-content: center; }
+    .hero-cloud .stack-wrap.stack-image .stack {
+        width: min(280px, 72%);
+        margin-left: auto;
+        margin-right: auto;
+    }
 }

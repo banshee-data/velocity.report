@@ -1,18 +1,20 @@
-# Track description language (TDL)
+# Traffic description language (TDL)
 
 - **Status:** Proposed
 - **Layers:** L8 Analytics
 
-The Track Description Language (TDL) is a natural-language query interface that lets neighbourhood advocates describe traffic questions without writing SQL.
+The Traffic Description Language (TDL) is a natural-language query interface that lets neighbourhood advocates describe traffic questions without writing SQL.
 
 ## Summary
 
-The Track Description Language is a natural-language query interface over
+The Traffic Description Language is a natural-language query interface over
 the transit database. It allows users and report generators to express
 questions like:
 
 - "What percentage of eastbound vehicles exceed 30 mph between 07:00–09:00?"
-- "Show transits where a vehicle passed within 1.5 m of a cyclist."
+- "How close do drivers get to work crews on this street?"
+- "How much space do cars leave cyclists in the bike lane?"
+- "How many cars come to a complete stop at the intersection between 14:30–15:30, when school gets out?"
 - "Average speed profile for vehicles classified as lorry."
 
 TDL is not SQL. It uses human-readable terms grounded in traffic-engineering
@@ -30,4 +32,4 @@ what they want to see without learning a query language.
 
 ## History
 
-- Full specification: [track-description-language plan](../../plans/data-track-description-language-plan.md)
+- Full specification: [traffic-description-language plan](../../plans/data-traffic-description-language-plan.md)
