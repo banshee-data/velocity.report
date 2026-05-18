@@ -1,9 +1,9 @@
-# Track description language and description interface
+# Traffic description language and description interface
 
 - **Status:** Proposed
-- **Canonical:** [track-description-language.md](../platform/architecture/track-description-language.md)
+- **Canonical:** [traffic-description-language.md](../platform/architecture/traffic-description-language.md)
 
-Defines the Track Description Language (TDL) for querying the fused transit database, and the description interface for browsing and aggregating transit statistics.
+Defines the Traffic Description Language (TDL) for querying the fused transit database, and the description interface for browsing and aggregating transit statistics.
 
 - **Layers:** L8 Analytics
   **Related:** [Product Vision](../VISION.md)
@@ -12,10 +12,12 @@ Defines the Track Description Language (TDL) for querying the fused transit data
 
 ## 1. Purpose
 
-A **Track Description Language (TDL)** provides a natural-language query interface over the transit database. It allows users and report generators to express questions like:
+A **Traffic Description Language (TDL)** provides a natural-language query interface over the transit database. It allows users and report generators to express questions like:
 
 - _"What percentage of eastbound vehicles exceed 30 mph between 07:00–09:00?"_
-- _"Show transits where a vehicle passed within 1.5 m of a cyclist."_
+- _"How close do drivers get to work crews?"_
+- _"How much space do cars leave cyclists in the bike lane?"_
+- _"How many cars come to a complete stop at the intersection between 14:30 and 15:30, when school gets out?"_
 - _"List outlier transits with speed above the p98 threshold."_
 - _"Average speed profile for vehicles classified as lorry."_
 
