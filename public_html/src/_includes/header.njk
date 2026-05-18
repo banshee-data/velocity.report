@@ -50,17 +50,25 @@
     const menu = document.getElementById('mobile-menu');
     if (!btn || !menu) return;
 
+    function closeMenu() {
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+
     btn.addEventListener('click', function(e) {
         e.stopPropagation();
         const open = menu.classList.toggle('open');
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 
+    // Close the menu when the user taps any nav link inside it (otherwise
+    // navigating to a same-page anchor leaves the panel covering the target).
+    menu.addEventListener('click', function(e) {
+        if (e.target.closest('a')) closeMenu();
+    });
+
     document.addEventListener('click', function(e) {
-        if (!btn.contains(e.target) && !menu.contains(e.target)) {
-            menu.classList.remove('open');
-            btn.setAttribute('aria-expanded', 'false');
-        }
+        if (!btn.contains(e.target) && !menu.contains(e.target)) closeMenu();
     });
 
     let t;
