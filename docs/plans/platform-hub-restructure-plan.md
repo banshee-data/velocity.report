@@ -138,16 +138,16 @@ subdirectory to keep `operations/` navigable.
 
 #### [docs/platform/architecture/](../platform/architecture)
 
-| Canonical file                  | Status | Fed by plan(s)                                                            | Notes                                   |
-| ------------------------------- | ------ | ------------------------------------------------------------------------- | --------------------------------------- |
-| `database-sql-boundary.md`      | DONE   | `data-database-alignment-plan`, `data-sqlite-client-standardisation-plan` | Two-package DB access model             |
-| `track-description-language.md` | DONE   | `data-track-description-language-plan`                                    | Query language design                   |
-| `go-package-structure.md`       | DONE   | `go-codebase-structural-hygiene-plan` †, `go-god-file-split-plan`         | Import boundaries + file size           |
-| `structured-logging.md`         | DONE   | `go-structured-logging-plan`                                              | Three-stream logging model              |
-| `typed-uuid-prefixes.md`        | DONE   | `platform-typed-uuid-prefixes-plan`                                       | Cross-package ID convention             |
-| `tictactail-library.md`         | DONE   | `tictactail-platform-plan`                                                | Generic streaming aggregation           |
-| `metrics-registry.md`           | DONE   | `metrics-registry-and-observability-plan` †                               | Naming rules + lifecycle                |
-| `canonical-plan-graduation.md`  | DONE   | `platform-canonical-project-files-plan`                                   | This graduation model (self-graduating) |
+| Canonical file                    | Status | Fed by plan(s)                                                            | Notes                                   |
+| --------------------------------- | ------ | ------------------------------------------------------------------------- | --------------------------------------- |
+| `database-sql-boundary.md`        | DONE   | `data-database-alignment-plan`, `data-sqlite-client-standardisation-plan` | Two-package DB access model             |
+| `traffic-description-language.md` | DONE   | `data-traffic-description-language-plan`                                  | Query language design                   |
+| `go-package-structure.md`         | DONE   | `go-codebase-structural-hygiene-plan` †, `go-god-file-split-plan`         | Import boundaries + file size           |
+| `structured-logging.md`           | DONE   | `go-structured-logging-plan`                                              | Three-stream logging model              |
+| `typed-uuid-prefixes.md`          | DONE   | `platform-typed-uuid-prefixes-plan`                                       | Cross-package ID convention             |
+| `tictactail-library.md`           | DONE   | `tictactail-platform-plan`                                                | Generic streaming aggregation           |
+| `metrics-registry.md`             | DONE   | `metrics-registry-and-observability-plan` †                               | Naming rules + lifecycle                |
+| `canonical-plan-graduation.md`    | DONE   | `platform-canonical-project-files-plan`                                   | This graduation model (self-graduating) |
 
 #### [docs/platform/operations/](../platform/operations)
 

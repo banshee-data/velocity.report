@@ -88,7 +88,7 @@ Read next:
   the repo-wide data science stance: metrics first, no black boxes on the critical path
 - [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md):
   how labelled runs, ground truth, and tuning fit together
-- [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md):
+- [docs/plans/data-traffic-description-language-plan.md](docs/plans/data-traffic-description-language-plan.md):
   metric and schema model for derived transit statistics
 - [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md): collected metrics,
   objectives, and decision-making for tuning

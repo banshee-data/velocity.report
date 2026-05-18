@@ -33,7 +33,7 @@ pipeline.
 A deployment on a residential street produces:
 
 1. **A professional PDF report** on vehicle speeds, volumes, and behaviour: suitable for submission to a local authority or community meeting.
-2. **A queryable database of transits** with a description interface that exposes dynamically generated statistics (driving styles, outlier behaviour, distance to cyclist, percentage coming to complete stop, peak-hour profiles).
+2. **A queryable database of transits** with a description interface that exposes dynamically generated statistics (driving styles, work-crew clearance, cyclist passing space, complete-stop counts at intersections, and time-of-day profiles such as school pick-up).
 
 Both outputs draw from a fused scene built from radar and LiDAR data.
 
@@ -132,13 +132,21 @@ This enables:
 The existing `lidar_track_obs` table already stores the required per-frame data.
 The vector scene is a read-time projection, not a separate stored artefact.
 
-## 5. Track description language
+## 5. Traffic description language
 
-A **Track Description Language (TDL)** provides a textual query interface over the fused transit
+A **Traffic Description Language (TDL)** provides a textual query interface over the fused transit
 database: an abstract schema, a JSON filter API,
 and an optional DSL for report templates and CLI queries.
 
-Full design: [TDL plan](plans/data-track-description-language-plan.md).
+The point is to let people ask street-safety questions in ordinary traffic language
+instead of SQL. That includes questions such as:
+
+- how closely drivers pass work crews,
+- how much space cars leave cyclists in a bike lane,
+- how many cars come to a complete stop at an intersection,
+- and how those answers change at specific times of day, especially when school gets out.
+
+Full design: [TDL plan](plans/data-traffic-description-language-plan.md).
 
 ## 6. Reporting
 
@@ -157,30 +165,30 @@ reports. The vision extends it to:
 A web-based interface over the transit database for browsing, aggregating, replaying,
 and exporting transit data.
 
-Full design: [TDL plan](plans/data-track-description-language-plan.md).
+Full design: [TDL plan](plans/data-traffic-description-language-plan.md).
 
 ## 7. Backlog alignment
 
 This vision document should inform prioritisation in [BACKLOG.md](BACKLOG.md):
 
-| Vision pillar                       | Supports                                                                                                                     | Deprioritises                                            |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **Radar feed expansion** (§3.1)     | FFT ingestion, multi-feed simultaneous capture                                                                               | Features unrelated to sensor data quality                |
-| **LiDAR maturation** (§3.2)         | Metrics-first tuning, track labelling QC, optional classification benchmarking                                               | Cosmetic visualiser features without tracking value      |
-| **Data science principle** (§1.1)   | Replay packs, scorecards, explicit thresholds, auditable transit metrics                                                     | Opaque model work that bypasses reproducible evaluation  |
-| **Sensor fusion** (§3.3)            | Fused transit schema, temporal association logic                                                                             | Single-sensor features that duplicate fused capabilities |
-| **Storage minimalism** (§4)         | Polyline vector scene, point-cloud ephemeral policy                                                                          | Long-term point-cloud storage, large BLOB tables         |
-| **Track Description Language** (§5) | Abstract transit schema, JSON filter API, aggregation endpoints: [design doc](plans/data-track-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints          |
-| **PDF reporting** (§6.1)            | Fused-data report templates, TDL-scoped reports                                                                              | Report features that only use radar data                 |
-| **Description interface** (§6.2)    | Transit browser, aggregate stats, vector replay: [design doc](plans/data-track-description-language-plan.md)                 | Heavy 3D visualisation in production (development-only)  |
+| Vision pillar                         | Supports                                                                                                                       | Deprioritises                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| **Radar feed expansion** (§3.1)       | FFT ingestion, multi-feed simultaneous capture                                                                                 | Features unrelated to sensor data quality                |
+| **LiDAR maturation** (§3.2)           | Metrics-first tuning, track labelling QC, optional classification benchmarking                                                 | Cosmetic visualiser features without tracking value      |
+| **Data science principle** (§1.1)     | Replay packs, scorecards, explicit thresholds, auditable transit metrics                                                       | Opaque model work that bypasses reproducible evaluation  |
+| **Sensor fusion** (§3.3)              | Fused transit schema, temporal association logic                                                                               | Single-sensor features that duplicate fused capabilities |
+| **Storage minimalism** (§4)           | Polyline vector scene, point-cloud ephemeral policy                                                                            | Long-term point-cloud storage, large BLOB tables         |
+| **Traffic Description Language** (§5) | Abstract transit schema, JSON filter API, aggregation endpoints: [design doc](plans/data-traffic-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints          |
+| **PDF reporting** (§6.1)              | Fused-data report templates, TDL-scoped reports                                                                                | Report features that only use radar data                 |
+| **Description interface** (§6.2)      | Transit browser, aggregate stats, vector replay: [design doc](plans/data-traffic-description-language-plan.md)                 | Heavy 3D visualisation in production (development-only)  |
 
 ## 8. Phasing
 
-| Phase                                | Focus                                                                                                                   | Depends On                              |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| **A: Radar completeness**            | Ingest FFT data; fuse speed + object + FFT into a single transit record                                                 | Existing radar infrastructure           |
-| **B: Fused transit schema**          | Define the fused transit table/view joining radar and LiDAR; expose via API                                             | Phase A + existing LiDAR track storage  |
-| **C: JSON filter API**               | Build the filter/aggregation endpoint over the fused schema; wire to web UI                                             | Phase B                                 |
-| **D: TDL and description interface** | Transit browser, aggregate statistics, vector-scene replay: [design doc](plans/data-track-description-language-plan.md) | Phase C                                 |
-| **E: Fused PDF reports**             | Extend PDF generator to pull from fused schema with TDL filters                                                         | Phase C                                 |
-| **F: Advanced queries**              | Close-pass analysis, driving style classification, stop compliance                                                      | Phase D + LiDAR classification maturity |
+| Phase                                | Focus                                                                                                                     | Depends On                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **A: Radar completeness**            | Ingest FFT data; fuse speed + object + FFT into a single transit record                                                   | Existing radar infrastructure           |
+| **B: Fused transit schema**          | Define the fused transit table/view joining radar and LiDAR; expose via API                                               | Phase A + existing LiDAR track storage  |
+| **C: JSON filter API**               | Build the filter/aggregation endpoint over the fused schema; wire to web UI                                               | Phase B                                 |
+| **D: TDL and description interface** | Transit browser, aggregate statistics, vector-scene replay: [design doc](plans/data-traffic-description-language-plan.md) | Phase C                                 |
+| **E: Fused PDF reports**             | Extend PDF generator to pull from fused schema with TDL filters                                                           | Phase C                                 |
+| **F: Advanced queries**              | Work-crew clearance, cyclist passing space, driving style classification, and stop-compliance by time of day              | Phase D + LiDAR classification maturity |
