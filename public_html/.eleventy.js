@@ -56,6 +56,7 @@ module.exports = function (eleventyConfig) {
     "src/css/homepage.css": "css/homepage.css",
   });
   eleventyConfig.addPassthroughCopy({ "src/css/header.css": "css/header.css" });
+  eleventyConfig.addPassthroughCopy({ "src/css/footer.css": "css/footer.css" });
   eleventyConfig.addPassthroughCopy({ "src/css/fonts.css": "css/fonts.css" });
   eleventyConfig.addPassthroughCopy({
     "node_modules/three/build/three.module.js": "vendor/three/three.module.js",
