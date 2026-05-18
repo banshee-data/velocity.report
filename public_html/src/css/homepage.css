@@ -1299,9 +1299,16 @@ section { padding: var(--d-pad-section) 0; position: relative; }
         opacity: 0;
         pointer-events: none;
     }
-    /* Push the copy down so the first screen is dominated by the canvas. */
+    /* Push the copy down so the canvas dominates the upper viewport, but
+     * not so far that there's an obvious dead-zone of whitespace at the
+     * very top. ~10rem (160px) shallower than the previous 55vh setting. */
     .hero-cloud .hero-content {
         padding-top: 55vh;
+    }
+    /* On mobile the copy panel border was so faint it was invisible.
+     * Bump it to read clearly without competing with the body text. */
+    .hero-cloud .copy::before {
+        border-color: rgba(255, 255, 255, 0.12);
     }
     /* Stack: smaller + explicitly centred (some flex-vs-block edge cases
      * left it pinned left in 1-col). */
