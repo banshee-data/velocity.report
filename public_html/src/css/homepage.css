@@ -27,8 +27,8 @@
   --signal: #38bdf8;
   --danger: #ef4444;
 
-  --gb-from: #047857;
-  --gb-to: #064e3b;
+  --gb-from: #186952;
+  --gb-to: #124538;
   --gb-border: linear-gradient(135deg, var(--gb-from), var(--gb-to));
 
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -38,6 +38,7 @@
   /* density */
   --d-pad-section: 96px;
   --d-pad-card: 28px;
+  --d-pad-card-mobile: 22px;
   --d-gap: 24px;
   --d-hero-pad: 24px;
 
@@ -300,9 +301,12 @@ a:hover { color: var(--emerald-fg); }
 
 /* ===== Status / pipeline strip ===== */
 .pipeline {
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(16,185,129,0.02), transparent 50%), var(--panel);
+  background:
+    linear-gradient(180deg, rgba(16,185,129,0.02), transparent 50%) padding-box,
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--gb-border) border-box;
   padding: 22px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -393,9 +397,12 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 @media (max-width: 880px) { .steps { grid-template-columns: 1fr; } }
 .step {
   position: relative;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: var(--panel);
+  background:
+    linear-gradient(180deg, rgba(16,185,129,0.02), transparent 50%) padding-box,
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--gb-border) border-box;
   padding: var(--d-pad-card);
   display: flex; flex-direction: column;
   gap: 14px;
@@ -688,9 +695,10 @@ section { padding: var(--d-pad-section) 0; position: relative; }
 
 .aesthetic-instrument .pipeline {
   background:
-    linear-gradient(to right, rgba(16,185,129,0.04) 0%, transparent 12%),
-    linear-gradient(to right, rgba(245,158,11,0.03) 50%, transparent 62%),
-    var(--panel);
+    linear-gradient(to right, rgba(16,185,129,0.03) 0%, transparent 12%) padding-box,
+    linear-gradient(to right, rgba(245,158,11,0.025) 50%, transparent 62%) padding-box,
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    var(--gb-border) border-box;
 }
 
 .aesthetic-refined .corner-tick { display: none; }
@@ -1310,19 +1318,30 @@ section { padding: var(--d-pad-section) 0; position: relative; }
     .hero-cloud .hero-content {
         padding-top: 55vh;
     }
-    /* On mobile the previous negative -28px insets pushed the panel right
-     * up against the viewport edges. Cap the panel to the .copy column
-     * bounds (no horizontal overflow) and tighten the .copy max-width so a
-     * visible margin remains against both walls. Top inset is reduced too
-     * since the canvas above it already provides plenty of breathing room. */
+    /* Mobile uses the same card padding rhythm as the pipeline and steps,
+     * but keeps the hero shell borderless and frosted. The panel fills the
+     * wrap width, then the content pads inward inside it. */
     .hero-cloud .copy {
-        max-width: min(22rem, calc(100vw - 40px));
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
+      padding: var(--d-pad-card-mobile);
     }
     .hero-cloud .copy::before {
-        top: 8px;
+      top: 0;
         left: 0;
         right: 0;
-        bottom: -16px;
+      bottom: 0;
+    }
+    .pipeline {
+      padding: 0;
+    }
+    .pipeline .gen {
+      padding: var(--d-pad-card-mobile);
+    }
+    .step {
+      padding: var(--d-pad-card-mobile);
     }
     /* Stack: smaller + explicitly centred (some flex-vs-block edge cases
      * left it pinned left in 1-col). */
