@@ -629,39 +629,6 @@
 						<h2
 							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
 						>
-							Display Preferences
-						</h2>
-						<div class="space-y-4">
-							<SelectField
-								label="Speed units"
-								bind:value={selectedUnits}
-								options={AVAILABLE_UNITS}
-								clearable={false}
-							/>
-							<SelectField
-								label="Timezone"
-								bind:value={selectedTimezone}
-								options={AVAILABLE_TIMEZONES}
-								clearable={false}
-							/>
-							<SelectField
-								label="PDF paper size"
-								bind:value={selectedPaperSize}
-								options={AVAILABLE_PAPER_SIZES}
-								clearable={false}
-							/>
-							<p class="text-surface-content/70 text-xs">
-								Saved to this browser. Server defaults: {getUnitLabel(config.units as Unit)},
-								{getTimezoneLabel(config.timezone as Timezone)}. Current paper:
-								{getPaperLabel($paperSize)}.
-							</p>
-						</div>
-					</section>
-
-					<section class="space-y-4">
-						<h2
-							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
-						>
 							Sensor Serial Ports
 						</h2>
 						<div class="space-y-4">
@@ -743,6 +710,39 @@
 									</table>
 								</div>
 							{/if}
+						</div>
+					</section>
+
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Display Preferences
+						</h2>
+						<div class="space-y-4">
+							<SelectField
+								label="Speed units"
+								bind:value={selectedUnits}
+								options={AVAILABLE_UNITS}
+								clearable={false}
+							/>
+							<SelectField
+								label="Timezone"
+								bind:value={selectedTimezone}
+								options={AVAILABLE_TIMEZONES}
+								clearable={false}
+							/>
+							<SelectField
+								label="PDF paper size"
+								bind:value={selectedPaperSize}
+								options={AVAILABLE_PAPER_SIZES}
+								clearable={false}
+							/>
+							<p class="text-surface-content/70 text-xs">
+								Saved to this browser. Server defaults: {getUnitLabel(config.units as Unit)},
+								{getTimezoneLabel(config.timezone as Timezone)}. Current paper:
+								{getPaperLabel($paperSize)}.
+							</p>
 						</div>
 					</section>
 
