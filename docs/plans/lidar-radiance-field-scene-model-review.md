@@ -116,7 +116,7 @@ The runtime envelope is a Raspberry Pi at ~10 Hz with no GPU. The
 sweep harness ([internal/lidar/sweep/](../../internal/lidar/sweep/))
 scores parameter sets via measurable signals (acceptance rate,
 velocity-trail alignment, fragmentation, jitter) — all derived from
-classical intermediate artifacts.
+classical intermediate artefacts.
 
 ## 4. Explainability constraints
 
