@@ -30,6 +30,15 @@ visualisation and reconstruction QA of recorded sessions. It must produce
 advisory overlays — never metrics, never civic-report content, never
 inputs to L5/L6/L8.
 
+This recommendation is consistent with — and follows directly from — the
+[ML classifier plan](lidar-ml-classifier-training-plan.md)'s explicit
+guardrails ("opaque end-to-end models are out of scope"; "the decision
+path remains explainable"). Radiance-field methods would violate those
+guardrails at L7 just as they would at L6. §4.1 enumerates the conflict
+clause by clause. §6.4 explains why more edge compute (Coral, Hailo,
+Jetson) does not change the conclusion. §10.1 lists the concrete
+offline use cases the permitted research lane is meant to address.
+
 ## 2. Non-goals
 
 - Not a comparison of NeRF variants. We treat "radiance-field-style"
@@ -154,6 +163,59 @@ configuration that survives is one where the learned component is an
 _advisory overlay_ checked against classical L4/L5/L7 outputs — at
 which point we may as well ask whether the learned component is
 purchasing anything we don't already have.
+
+### 4.1 Alignment with the ML classifier plan's guardrails
+
+The [ML classifier plan](lidar-ml-classifier-training-plan.md) is the
+project's canonical statement on which learned methods are permitted
+inside the pipeline. It is written about L6 classification, but its
+five guardrails encode the project's stance on runtime ML in general —
+nothing in their wording is L6-specific. Radiance-field methods fail
+multiple guardrails, not by accident but by category.
+
+| #   | Guardrail (verbatim from classifier plan)                                                                  | Radiance-field methods                                                                                                                                                           |
+| --- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | "The live pipeline keeps the current rule-based classifier as the default and fallback path."              | Fails by analogy. There is no classical fallback for a learned scene field — the field _is_ the representation. Hybrid (architecture C in §5) only narrowly survives.            |
+| G2  | "Candidate methods must use documented, exportable feature vectors."                                       | Fails. NeRF, splat, and SDF parameters are dense network weights or millions of primitive parameters, not feature vectors. Per-cell density samples are not human-meaningful.    |
+| G3  | "Benchmark wins must be demonstrated on fixed replay packs and labelled runs."                             | Conditionally passable but expensive. Per-scene retraining means a new model per replay pack; longitudinal comparisons require freezing model + weights + RNG seed.              |
+| G4  | "Deployment is allowed only when metric gains are reproducible and the decision path remains explainable." | Fails on the second clause. "Explain why this cell was rendered occupied" cannot be answered from network weights without additional interpretability tooling we have not built. |
+| G5  | "Opaque end-to-end models are out of scope for this lane."                                                 | Fails directly. NeRF and 3D Gaussian splatting are exactly this category.                                                                                                        |
+
+The same plan defines a four-point promotion gate. Radiance-field
+methods would have to:
+
+1. **Beat the rule-based / classical baseline on the agreed scorecard.**
+   _Hard._ The planned L7 evidence grid is already cheap and accurate
+   for the static-scene problem; there is no scorecard a learned field
+   could win on without changing what is being measured.
+2. **Avoid regressions in critical classes or noise handling.**
+   _Possible_, but the failure mode shifts from interpretable noise (a
+   noisy cluster) to opaque hallucination (a confidently rendered
+   non-existent surface). The latter is harder to detect and harder to
+   defend.
+3. **Be reproducible from versioned inputs and feature exports.**
+   _Hard._ NeRF training is stochastic, weight files are large, and
+   "feature exports" do not apply to dense implicit fields. Determinism
+   requires freezing the entire training stack.
+4. **Ship with enough metadata to audit why a class decision was made.**
+   _Hard._ This is the core black-box problem. Saliency and attribution
+   methods for NeRF/splatting are an active research area, not a
+   shippable feature.
+
+**Could the "L7 not L6" argument escape these guardrails?** No. The
+guardrails are written about runtime ML, not about L6 specifically.
+Their spirit — _no opaque end-to-end models in the live pipeline_ —
+applies wherever a learned model would shape a measurement the system
+later reports. L7 is squarely inside that envelope because L7
+representations feed downstream decisions: L7 scene constraints
+influence L5 prediction and L8 analytics
+([lidar-l7-scene-plan.md §4](lidar-l7-scene-plan.md)). Placing the
+learned model at L7 rather than L6 does not change its effect on the
+chain of custody.
+
+The classifier plan does explicitly permit learned methods _offline_
+("research lane", "not on the critical path"). Architecture A in §5
+sits inside that permission. Architectures B and C sit outside it.
 
 ## 5. Candidate architectures
 
@@ -334,6 +396,49 @@ Any of these would supersede a radiance-field approach on
 explainability while matching or beating it on dynamic-scene
 robustness.
 
+### 6.4 Hardware sensitivity — what an edge accelerator would and wouldn't change
+
+A natural follow-up question is: "would this decision change if the Pi
+had a Coral USB TPU, a Hailo NPU, or were swapped for a Jetson Orin?"
+The short answer is no. Compute is not the binding constraint. Privacy,
+auditability, and civic-report defensibility do not improve with more
+TOPS. We document this explicitly because the question will recur as
+edge accelerators become cheaper.
+
+| Accelerator                                 | What it enables                                                                                                                   | What it does not change                                                                                                                         |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **None (current target: Pi 4)**             | Nothing new. Classical L3–L7 stack runs comfortably at 10 Hz on the existing hardware.                                            | Baseline. Sets the bar every learned alternative must beat on _privacy + audit + cost_, not only accuracy.                                      |
+| **Coral USB TPU (Edge TPU, INT8, ~4 TOPS)** | Small fixed-point CNN inference. Plausibly enables a quantised CNN classifier at L6 _within_ the ML classifier plan's guardrails. | NeRF, splatting, and neural SDF do not lower well to INT8 and the op coverage is narrow. Does not unlock radiance fields in any useful form.    |
+| **Hailo-8 or similar NPU (~26 TOPS)**       | Larger CNN inference budget. Some Instant-NGP-style hash-grid lookups become tractable; small implicit fields conceivable.        | Privacy story unchanged. Audit story unchanged. Determinism still hard (quantisation noise, vendor runtime opacity).                            |
+| **Jetson Orin Nano (CUDA, ~40 TOPS)**       | LiDAR-only NeRF or neural occupancy inference at low resolution becomes feasible per site; training still offline.                | Still opaque, still per-site retraining, still no civic-report defensibility. BOM cost, power draw, and thermal envelope all change materially. |
+| **Server-class GPU (offline workstation)**  | Full radiance-field capability for offline reconstruction. The right tool for architecture A in §5.                               | Does not change the production pipeline. Does not change civic-report defensibility. Does not change the privacy story.                         |
+
+Two conclusions follow.
+
+**First**, the production decision is robust against future hardware
+upgrades. None of the binding constraints — privacy, audit-grade
+replay, civic-report defensibility, "no opaque models in the live
+chain" — is unlocked by adding compute to the edge device. If a Pi
+gains a Coral TPU tomorrow, the right thing to spend that budget on
+is the interpretable L6 classifier already permitted by the ML
+classifier plan, not a learned scene field.
+
+**Second**, the offline research lane (architecture A) is precisely
+where a server-class GPU pays off. That lane already assumes a
+desktop machine. A future contributor with a GPU can produce richer
+visualisation overlays without changing anything in the deployed
+binary. This is the only place compute meaningfully changes what is
+possible, and it changes possibility in the _visualisation_ dimension
+only — never in the _measurement_ dimension.
+
+A third, narrower observation: if the Pi ever gains an accelerator,
+the natural first occupant is the L6 CNN classifier work already
+scoped in
+[lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md),
+not a learned scene field. That work has clear guardrails, a defined
+promotion gate, and a baseline to beat. A radiance-field experiment
+on the same accelerator would have none of those things.
+
 ## 7. Why this might be the wrong direction
 
 A direct enumeration of the risks of pursuing radiance fields in
@@ -345,6 +450,8 @@ this project.
    road" is materially harder to defend than "the Bayesian evidence
    grid accumulated N consistent observations of a flat surface,
    here is its log-odds value and Welford-refined plane equation".
+   See §4.1 for the explicit, clause-by-clause conflict with the ML
+   classifier plan's guardrails.
 
 2. **Public-report difficulty.** Civic reports cite measured speeds
    and counts. The chain of custody runs sensor → packet → frame →
@@ -356,10 +463,13 @@ this project.
 
 3. **GPU/runtime cost.** The deployment target is a Raspberry Pi 4
    with no GPU. NeRF inference, even with Instant-NGP optimisations,
-   is GPU-bound. Gaussian splatting demands a CUDA-class
-   accelerator at any reasonable resolution. Neural occupancy at
-   meaningful resolution is CPU-feasible but slow and trades
-   determinism for accuracy.
+   is GPU-bound. Gaussian splatting demands a CUDA-class accelerator
+   at any reasonable resolution. Neural occupancy at meaningful
+   resolution is CPU-feasible but slow and trades determinism for
+   accuracy. See §6.4 for what edge accelerators (Coral, Hailo,
+   Jetson) would and would not change — the short answer is that
+   they unlock CNN work permitted by the ML classifier plan, not
+   radiance fields.
 
 4. **Training data requirements.** Per-scene retraining is the
    normal NeRF workflow. velocity.report deployments are sited
@@ -507,6 +617,45 @@ underneath. No view setting hides the classical pipeline outputs.
 - The L4 clusters and OBBs.
 - The L5 track IDs and Kalman states.
 - The L8 traffic measurements.
+
+### 10.1 Concrete offline use cases this would unlock
+
+The offline research lane is justified by specific deployment- and
+debugging-time questions that the classical pipeline answers poorly
+or not at all. Each use case below has identifiable inputs, outputs,
+and a clear boundary against the measurement pipeline.
+
+| Use case                                                     | Inputs                                                | Outputs                                                             | What it enables                                                                                                                       | What it must not become                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Sensor-placement QA**                                      | VRLOG from a candidate mount position; site survey    | 3D scene reconstruction of the visible field of view                | Validates that a proposed mount captures the intended traffic corridor before committing to permanent installation.                   | A reason to skip the empirical L3/L4 acceptance tests at the new site.        |
+| **Sparse-return background completion (visualisation)**      | Foreground-removed point cloud accumulated over hours | Surface or splat overlay rendering the implied static scene         | Lets a human inspector see the persistent scene that the polar EMA grid encodes implicitly; useful for sanity-checking grid settling. | Input to L3 foreground gating. The polar EMA stays canonical.                 |
+| **Synthetic viewpoint generation for multi-sensor planning** | VRLOG from sensor A                                   | Rendered "what would a sensor at position B see" preview            | Lets a planner reason about coverage overlap and occlusion before deploying a second sensor.                                          | A substitute for actual measurement at position B.                            |
+| **Sensor pose drift detection**                              | VRLOGs from the same sensor across multiple days      | Reconstruction diff (today vs. last week)                           | Flags sensors that have physically shifted (wind, knock, mount drift). Complements the planned `scene_hash` settling-state restore.   | A trigger for automatic recalibration. Drift detection notifies; humans act.  |
+| **Cluttered-scene context rendering for L4 debug**           | VRLOG window around a confusing L4 cluster            | Rendered local 3D context around the cluster                        | Gives an engineer a visual reference for why DBSCAN cohered or fragmented the cluster.                                                | An override of the classical cluster decision.                                |
+| **Calibration validation (ground tile vs. surface)**         | Settled L4 ground tiles + reconstructed surface       | Overlay showing per-tile residual against the reconstructed surface | Checks tile-fit quality across the scene; spots tiles that have settled to a locally wrong plane.                                     | An automatic tile-replacement mechanism.                                      |
+| **Pre-rendered civic-report illustration assets**            | VRLOG + reconstruction model                          | Static 3D illustration of the deployment site (decorative)          | Helps non-technical readers picture the sensor's coverage in a community-facing report.                                               | A source of measurement claims in the same report. Captioned as illustration. |
+| **Training-data augmentation for the L6 classifier**         | VRLOG of tracked objects                              | Synthetic per-track viewpoint variations                            | Feeds the ML classifier plan's existing training pipeline with more views per object, under that plan's guardrails.                   | A substitute for real labelled data. Must respect the classifier plan's gate. |
+
+Each row above terminates in a clear "what it must not become." That
+column is the boundary between the offline research lane and the
+measurement pipeline. Crossing it converts the work from
+visualisation into a production-ML proposal that has to clear the
+full classifier-plan promotion gate (§4.1) on its own merits.
+
+The lane is intentionally narrower than the union of every plausible
+use case for radiance fields elsewhere in industry. Three deliberate
+omissions:
+
+- **No real-time on-device reconstruction.** Even on a future
+  GPU-equipped Pi, real-time reconstruction would compete with the
+  measurement pipeline for the same compute and would tempt anyone
+  to surface the result in user-facing views. See §6.4.
+- **No camera-conditioned variants.** Even for offline use. See §11.
+- **No "advisory feedback" loop into the classical pipeline.** Any
+  use case where the learned output influences a classical decision
+  (e.g., "the reconstruction says this is road, so DBSCAN should
+  cluster more aggressively here") becomes architecture C, not
+  architecture A, and is rejected.
 
 ## 11. Do not do this
 
