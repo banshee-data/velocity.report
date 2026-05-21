@@ -326,6 +326,7 @@ L7 Scene
 | CityJSON specification (v1.1)                                                          | 3D city model interchange format; our L7 export target for building geometry                                             |
 | Hornung et al. (2013): **OctoMap** (doi:10.1007/s10514-012-9321-0)                     | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                              |
 | Pomerleau et al. (2014): Long-term 3D map maintenance                                  | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                              |
+| [Radiance-field scene-model review](lidar-radiance-field-scene-model-review.md)        | Decision note: classical L7 (this plan) supersedes radiance-field-style approaches for the persistent scene model        |
 
 ### Multi-sensor tracking and fusion
 
