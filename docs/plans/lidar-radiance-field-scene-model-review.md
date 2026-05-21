@@ -28,7 +28,7 @@ compute economics.
 A narrow, opt-in, **offline-only** research lane is permitted for
 visualisation and reconstruction QA of recorded sessions. It must produce
 advisory overlays — never metrics, never civic-report content, never
-inputs to L5/L6/L8.
+inputs to any production layer (L4, L5, L6, L7, L8).
 
 This recommendation is consistent with — and follows directly from — the
 [ML classifier plan](lidar-ml-classifier-training-plan.md)'s explicit
@@ -507,17 +507,17 @@ already-planned classical L7 + vector-scene-map provides an
 equivalent or stronger answer with better auditability and lower
 compute.
 
-| Capability                            | Radiance-field offer                  | Classical answer in this repo                                                                                                                |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Persistent scene representation       | Learned density / SDF over the volume | L7 vector scene map (polygons + planes + volumes) at LOD 0–3, ~35 KB compressed per 100 m × 100 m. Stored in `vector_scene_features`.        |
-| Confidence accumulation across frames | Implicit, via training loss           | Log-odds Bayesian update per scene feature, closed-form, per-frame ([lidar-l7-scene-plan.md §3.1](lidar-l7-scene-plan.md)).                  |
-| Multi-frame fusion                    | Aggregated training set               | Welford running statistics on canonical object dimensions ([§3.2](lidar-l7-scene-plan.md)); incremental scene-feature evidence.              |
-| Multi-sensor fusion                   | Joint optimisation across sensors     | Per-sensor L1–L6 pipelines + L7 Mahalanobis-gated cross-sensor association ([§3.3](lidar-l7-scene-plan.md)).                                 |
-| Occlusion reasoning                   | Learned visibility prediction         | Scene graph relations (`occluded_by`) on explicit structure features; per-track coasting in L5; structure footprints from vector scene map.  |
-| Hole filling / completion             | Implicit field interpolation          | LOD fallback in the vector scene map (parent polygon answers when no child polygon covers); OSM S3DB structure priors aligned by Procrustes. |
-| Static background prior               | Learned scene representation          | Polar EMA background ([background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md)) + vector scene map at L7.     |
-| Cross-session scene memory            | Cached weights                        | Versioned `vector_scene_snapshots` keyed by `scene_hash`; deterministic restore.                                                             |
-| Visual reconstruction for QA          | NeRF render or Gaussian splat         | Allowed only as **offline research** per architecture A in §5; not in production.                                                            |
+| Capability                            | Radiance-field offer                  | Classical answer in this repo                                                                                                                                                                                                                          |
+| ------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Persistent scene representation       | Learned density / SDF over the volume | Planned L7 vector scene map (polygons + planes + volumes) at LOD 0–3, ~35 KB compressed per 100 m × 100 m. Storage target `vector_scene_features` (when implemented; see [vector-scene-map.md §5.3](../lidar/architecture/vector-scene-map.md)).       |
+| Confidence accumulation across frames | Implicit, via training loss           | Log-odds Bayesian update per scene feature, closed-form, per-frame ([lidar-l7-scene-plan.md §3.1](lidar-l7-scene-plan.md)).                                                                                                                            |
+| Multi-frame fusion                    | Aggregated training set               | Welford running statistics on canonical object dimensions ([§3.2](lidar-l7-scene-plan.md)); incremental scene-feature evidence.                                                                                                                        |
+| Multi-sensor fusion                   | Joint optimisation across sensors     | Per-sensor L1–L6 pipelines + L7 Mahalanobis-gated cross-sensor association ([§3.3](lidar-l7-scene-plan.md)).                                                                                                                                           |
+| Occlusion reasoning                   | Learned visibility prediction         | Scene graph relations (`occluded_by`) on explicit structure features; per-track coasting in L5; structure footprints from vector scene map.                                                                                                            |
+| Hole filling / completion             | Implicit field interpolation          | LOD fallback in the vector scene map (parent polygon answers when no child polygon covers); OSM S3DB structure priors aligned by Procrustes.                                                                                                           |
+| Static background prior               | Learned scene representation          | Polar EMA background ([background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md)) + vector scene map at L7.                                                                                                               |
+| Cross-session scene memory            | Cached weights                        | Planned versioned `vector_scene_snapshots` keyed by snapshot hash (SHA256); deterministic restore. Today, `lidar_bg_regions.grid_hash` (renamed from `scene_hash` in migration 000030) provides the analogous restore path for the L3 background grid. |
+| Visual reconstruction for QA          | NeRF render or Gaussian splat         | Allowed only as **offline research** per architecture A in §5; not in production.                                                                                                                                                                      |
 
 The classical path beats the learned path on every column except
 "visual reconstruction for QA", where we accept the use case as an
