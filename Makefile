@@ -79,6 +79,9 @@ help:
 	@echo "  vrlog-analyse        Generate analysis.json for a .vrlog (VRLOG=path)"
 	@echo "  vrlog-compare        Compare two .vrlog analyses (VRLOG_A=path VRLOG_B=path)"
 	@echo ""
+	@echo "DIAGNOSTIC TOOLS:"
+	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
+	@echo ""
 	@echo "TESTING:"
 	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
 	@echo "  test-go              Run Go unit tests"
@@ -754,7 +757,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -952,6 +955,17 @@ vrlog-analyse:
 vrlog-compare:
 	@[ -n "$(VRLOG_A)" ] && [ -n "$(VRLOG_B)" ] || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
 	go run ./cmd/tools/vrlog-analyse compare "$(VRLOG_A)" "$(VRLOG_B)" $(if $(COMPARE_OUT),-o $(COMPARE_OUT))
+
+# Serial-harness CLI — exercise the velocity.report serial API directly,
+# isolating UI bugs from backend bugs. Stdlib-only Python; no venv needed.
+# Examples:
+#   make serial-harness CMD=diagnose
+#   make serial-harness HOST=http://velocity.local:8080 CMD=devices
+#   make serial-harness CMD=test ARGS="/dev/ttySC0 --baud 19200"
+serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:8080), CMD (default devices), ARGS
+	@HOST=$${HOST:-http://localhost:8080}; \
+	CMD=$${CMD:-devices}; \
+	python3 tools/serial-harness.py --host $$HOST $$CMD $$ARGS
 
 # =============================================================================
 # TESTING
