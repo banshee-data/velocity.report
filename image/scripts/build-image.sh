@@ -40,8 +40,12 @@ log_warn()  { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 
 DOCKER_BUILDER_IMAGE="velocity-builder"
+DOCKER_TOOLCHAIN_IMAGE="velocity-builder-toolchain"
 DOCKER_BUILD_CONTAINER_ID=""
 DOCKER_BUILD_CLEANUP_REQUESTED=0
+DOCKER_GO_MOD_CACHE_DIR=""
+DOCKER_GO_BUILD_CACHE_DIR=""
+DOCKER_GO_TMP_DIR=""
 
 cleanup_docker_build_artifacts() {
     local phase="${1:-cleanup}"
@@ -66,7 +70,23 @@ cleanup_docker_build_artifacts() {
     fi
 
     docker image rm -f "$DOCKER_BUILDER_IMAGE" >/dev/null 2>&1 || true
+    docker image rm -f "$DOCKER_TOOLCHAIN_IMAGE" >/dev/null 2>&1 || true
     docker builder prune -af >/dev/null 2>&1 || true
+
+    if [[ -n "$DOCKER_GO_MOD_CACHE_DIR" ]]; then
+        rm -rf "$DOCKER_GO_MOD_CACHE_DIR"
+        DOCKER_GO_MOD_CACHE_DIR=""
+    fi
+
+    if [[ -n "$DOCKER_GO_BUILD_CACHE_DIR" ]]; then
+        rm -rf "$DOCKER_GO_BUILD_CACHE_DIR"
+        DOCKER_GO_BUILD_CACHE_DIR=""
+    fi
+
+    if [[ -n "$DOCKER_GO_TMP_DIR" ]]; then
+        rm -rf "$DOCKER_GO_TMP_DIR"
+        DOCKER_GO_TMP_DIR=""
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -188,6 +208,8 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         cp -f "$CTL_BIN" "$BINARIES_DIR/velocity-ctl"
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
+        # Use a slim toolchain image plus host-mounted temp caches so the large
+        # Go module tree does not have to fit inside Docker's internal storage.
         log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
 
         DOCKER_BUILD_CLEANUP_REQUESTED=1
@@ -197,17 +219,37 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
             --force-rm \
             --platform linux/amd64 \
             -f "$IMAGE_DIR/Dockerfile.build" \
-            --build-arg VERSION="$VERSION" \
-            --build-arg GIT_SHA="$GIT_SHA" \
-            --build-arg BUILD_TIME="$BUILD_TIME" \
-            -t "$DOCKER_BUILDER_IMAGE" \
+            --target toolchain \
+            -t "$DOCKER_TOOLCHAIN_IMAGE" \
             .
 
-        DOCKER_BUILD_CONTAINER_ID=$(docker create "$DOCKER_BUILDER_IMAGE")
-        docker cp "$DOCKER_BUILD_CONTAINER_ID:/out/velocity-report" "$BINARIES_DIR/velocity-report"
-        docker cp "$DOCKER_BUILD_CONTAINER_ID:/out/velocity-ctl" "$BINARIES_DIR/velocity-ctl"
-        docker rm "$DOCKER_BUILD_CONTAINER_ID" >/dev/null
-        DOCKER_BUILD_CONTAINER_ID=""
+        DOCKER_GO_MOD_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-mod.XXXXXX")"
+        DOCKER_GO_BUILD_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-build.XXXXXX")"
+        DOCKER_GO_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-tmp.XXXXXX")"
+
+        docker run \
+            --rm \
+            --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" \
+            -e VERSION="$VERSION" \
+            -e GIT_SHA="$GIT_SHA" \
+            -e BUILD_TIME="$BUILD_TIME" \
+            -e GOMODCACHE=/tmp/go-mod-cache \
+            -e GOCACHE=/tmp/go-build-cache \
+            -e GOTMPDIR=/tmp/go-tmp \
+            -v "$REPO_ROOT:/build" \
+            -v "$BINARIES_DIR:/out" \
+            -v "$DOCKER_GO_MOD_CACHE_DIR:/tmp/go-mod-cache" \
+            -v "$DOCKER_GO_BUILD_CACHE_DIR:/tmp/go-build-cache" \
+            -v "$DOCKER_GO_TMP_DIR:/tmp/go-tmp" \
+            -w /build \
+            "$DOCKER_TOOLCHAIN_IMAGE" \
+            sh -lc '
+                export PATH=/usr/local/go/bin:$PATH
+                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-report ./cmd/radar &&
+                go build -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-ctl ./cmd/velocity-ctl
+            '
+
         cleanup_docker_build_artifacts "after build"
     fi
 
