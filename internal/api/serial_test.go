@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
@@ -53,12 +54,12 @@ func TestListSupplementalSerialPorts_FindsTTYSCAndSerialSymlinks(t *testing.T) {
 		case "/dev":
 			return []os.DirEntry{
 				fakeDirEntry{name: "ttySC1"},
-				fakeDirEntry{name: "tty0"},
+				fakeDirEntry{name: "tty0"}, // plain tty0 — no pattern matches
 				fakeDirEntry{name: "ttyUSB0"},
 			}, nil
 		case "/dev/serial/by-id":
 			return []os.DirEntry{fakeDirEntry{name: "usb-ops243-a"}}, nil
-		case "/dev/serial/by-path":
+		case "/dev/serial/by-path", "/dev/serial":
 			return nil, os.ErrNotExist
 		default:
 			return nil, os.ErrNotExist
@@ -66,10 +67,118 @@ func TestListSupplementalSerialPorts_FindsTTYSCAndSerialSymlinks(t *testing.T) {
 	}
 
 	got := listSupplementalSerialPorts(readDir)
-	want := []string{"/dev/serial/by-id/usb-ops243-a", "/dev/ttySC1"}
+	// ttyUSB0 now matches the broadened pattern set; tty0 still does not.
+	want := []string{"/dev/serial/by-id/usb-ops243-a", "/dev/ttySC1", "/dev/ttyUSB0"}
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+// Once the supplemental scan grew beyond ttySC*, we want explicit assertions
+// that every "primary fallback" pattern still matches what it claims to —
+// and that obviously-not-a-serial-port names stay out.
+func TestListSupplementalSerialPorts_BroadPatterns(t *testing.T) {
+	readDir := func(path string) ([]os.DirEntry, error) {
+		switch path {
+		case "/dev":
+			return []os.DirEntry{
+				fakeDirEntry{name: "ttySC0"},
+				fakeDirEntry{name: "ttyS0"},
+				fakeDirEntry{name: "ttyAMA10"},
+				fakeDirEntry{name: "ttyACM0"},
+				fakeDirEntry{name: "ttyUSB0"},
+				fakeDirEntry{name: "ttySCfoo"}, // letters after prefix — must NOT match
+				fakeDirEntry{name: "ttyXYZ0"},  // unknown family — must NOT match
+				fakeDirEntry{name: "random.txt"},
+				fakeDirEntry{name: "console"},
+			}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	got := listSupplementalSerialPorts(readDir)
+	want := []string{
+		"/dev/ttyACM0",
+		"/dev/ttyAMA10",
+		"/dev/ttyS0",
+		"/dev/ttySC0",
+		"/dev/ttyUSB0",
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+// /dev/serial/ (the root, not the by-id/by-path subdirs) is where the Pi's
+// primary UART symlinks live as serial0/serial1. Before this scan was
+// added, those symlinks were invisible to the supplemental fallback.
+func TestListSupplementalSerialPorts_DevSerialRoot(t *testing.T) {
+	readDir := func(path string) ([]os.DirEntry, error) {
+		switch path {
+		case "/dev":
+			return nil, nil
+		case "/dev/serial":
+			return []os.DirEntry{
+				fakeDirEntry{name: "serial0"},
+				fakeDirEntry{name: "serial1"},
+				fakeDirEntry{name: "by-id", isDir: true},
+				fakeDirEntry{name: "by-path", isDir: true},
+			}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	got := listSupplementalSerialPorts(readDir)
+	want := []string{"/dev/serial/serial0", "/dev/serial/serial1"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+// scanSupplementalSerialPorts powers the diagnostic envelope. It must
+// surface the raw /dev/ entries (so callers can spot ports missing from
+// the regex set) and report scan errors that are not "directory does not
+// exist" (which is the normal case on macOS dev hosts).
+func TestScanSupplementalSerialPorts_DiagnosticFields(t *testing.T) {
+	readDir := func(path string) ([]os.DirEntry, error) {
+		switch path {
+		case "/dev":
+			return []os.DirEntry{
+				fakeDirEntry{name: "ttyS0"},
+				fakeDirEntry{name: "ttyXYZ0"}, // raw-only
+				fakeDirEntry{name: "serial0"}, // raw-only (matched by symlink dir)
+				fakeDirEntry{name: "random.txt"},
+			}, nil
+		case "/dev/serial":
+			return nil, os.ErrPermission // real error — must be reported
+		case "/dev/serial/by-id":
+			return nil, os.ErrNotExist // missing — must NOT be reported
+		case "/dev/serial/by-path":
+			return nil, os.ErrNotExist
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	got := scanSupplementalSerialPorts(readDir)
+
+	wantPorts := []string{"/dev/ttyS0"}
+	if !reflect.DeepEqual(got.Ports, wantPorts) {
+		t.Errorf("Ports: expected %v, got %v", wantPorts, got.Ports)
+	}
+
+	wantDev := []string{"serial0", "ttyS0", "ttyXYZ0"}
+	if !reflect.DeepEqual(got.DevTTY, wantDev) {
+		t.Errorf("DevTTY: expected %v, got %v", wantDev, got.DevTTY)
+	}
+
+	if len(got.ScanError) != 1 || !strings.Contains(got.ScanError[0], "/dev/serial") {
+		t.Errorf("ScanError: expected one error mentioning /dev/serial, got %v", got.ScanError)
 	}
 }
 
@@ -175,6 +284,78 @@ func TestHandleSerialTest_UsesActiveConnectionForMatchingConfig(t *testing.T) {
 	}
 	if !strings.Contains(resp.Suggestion, "no separate test open") {
 		t.Fatalf("expected suggestion about avoiding a second open, got %q", resp.Suggestion)
+	}
+}
+
+// Diagnostic mode is opt-in via ?diagnostic=true. Without it, /api/serial/devices
+// must return the legacy []SerialDeviceInfo array so the existing frontend
+// keeps working. With it, callers (the serial-harness CLI in particular) get
+// the structured envelope with enumeration sources, configured ports, raw
+// /dev/ contents, and any scan errors.
+func TestHandleSerialDevices_DiagnosticEnvelopeOptIn(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_devices_*.db")
+	if err != nil {
+		t.Fatalf("create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := db.NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("open DB: %v", err)
+	}
+	defer database.Close()
+
+	server := NewServer(serialmux.NewDisabledSerialMux(), database, "mph", "UTC")
+
+	// Default: plain array shape (UI contract).
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/serial/devices", nil)
+		w := httptest.NewRecorder()
+		server.handleSerialDevices(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("default: expected 200, got %d (body=%s)", w.Code, w.Body.String())
+		}
+		var devices []SerialDeviceInfo
+		if err := json.Unmarshal(w.Body.Bytes(), &devices); err != nil {
+			t.Fatalf("default: response is not a []SerialDeviceInfo array: %v (body=%s)", err, w.Body.String())
+		}
+		// We don't assert on the contents — what's in /dev varies per host —
+		// only that the shape is the legacy array. An accidental envelope
+		// regression would surface here as a JSON unmarshal failure.
+	}
+
+	// ?diagnostic=true: envelope shape.
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/serial/devices?diagnostic=true", nil)
+		w := httptest.NewRecorder()
+		server.handleSerialDevices(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("diagnostic: expected 200, got %d (body=%s)", w.Code, w.Body.String())
+		}
+		var resp SerialDevicesResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("diagnostic: decode envelope: %v (body=%s)", err, w.Body.String())
+		}
+		if resp.Diagnostic == nil {
+			t.Fatalf("diagnostic: envelope.diagnostic must be present, got nil")
+		}
+		if resp.Diagnostic.EnumerationSource != "go.bug.st/serial" {
+			t.Errorf("diagnostic: enumeration_source = %q, want %q", resp.Diagnostic.EnumerationSource, "go.bug.st/serial")
+		}
+		// Devices field must always be a non-nil slice (even if empty),
+		// so the harness can index into it without a nil check.
+		if resp.Devices == nil {
+			t.Errorf("diagnostic: devices field is nil (should be [] when no devices)")
+		}
+		// ConfiguredPorts must be present (even empty) — that's how the
+		// harness shows which ports are already "owned" and therefore
+		// filtered out of the merged list.
+		if resp.Diagnostic.ConfiguredPorts == nil {
+			t.Errorf("diagnostic: configured_ports field is nil (should be [] when no configs)")
+		}
 	}
 }
 

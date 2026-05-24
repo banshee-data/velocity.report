@@ -16,9 +16,29 @@ import (
 	"go.bug.st/serial"
 )
 
-var supplementalSerialDevicePattern = regexp.MustCompile(`^(ttySC)[0-9]{1,3}$`)
+// supplementalSerialDevicePatterns is the set of device-name regexes we scan
+// /dev with as a fallback to go.bug.st/serial.GetPortsList(). The primary
+// enumeration silently drops several device classes on certain Pi/HAT
+// combinations (notably ttySC* from the SC16IS762 HAT), so we cast a wider
+// net here. Duplicates are deduped in buildSerialDeviceList — adding a
+// pattern that the primary path already returns does not produce a doubled
+// entry.
+var supplementalSerialDevicePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`^ttySC[0-9]{1,3}$`),  // SC16IS762 HAT
+	regexp.MustCompile(`^ttyS[0-9]{1,3}$`),   // legacy 16550 UART
+	regexp.MustCompile(`^ttyAMA[0-9]{1,3}$`), // Pi GPIO UART
+	regexp.MustCompile(`^ttyACM[0-9]{1,3}$`), // USB CDC (Arduino-style)
+	regexp.MustCompile(`^ttyUSB[0-9]{1,3}$`), // USB-to-serial (FTDI/CH340/etc.)
+}
 
-var supplementalSerialSymlinkDirs = []string{"/dev/serial/by-id", "/dev/serial/by-path"}
+// supplementalSerialSymlinkDirs are directories whose entries we treat as
+// serial port symlinks regardless of name. /dev/serial holds serial0/serial1
+// (the Pi's primary UART aliases); by-id and by-path are udev-managed.
+var supplementalSerialSymlinkDirs = []string{
+	"/dev/serial",
+	"/dev/serial/by-id",
+	"/dev/serial/by-path",
+}
 
 // SerialTestRequest represents the request body for testing serial port
 type SerialTestRequest struct {
@@ -59,6 +79,29 @@ type SerialDeviceInfo struct {
 	VendorID     string `json:"vendor_id,omitempty"`
 	ProductID    string `json:"product_id,omitempty"`
 	LastSeen     int64  `json:"last_seen"`
+}
+
+// SerialDevicesDiagnostic exposes the raw enumeration breakdown — primary
+// scan vs supplemental scan vs configured ports vs raw /dev/ contents —
+// so an operator (or the serial-harness CLI) can tell exactly why a given
+// port did or did not appear in the merged list. Populated only when the
+// request URL includes ?diagnostic=true.
+type SerialDevicesDiagnostic struct {
+	EnumerationSource  string   `json:"enumeration_source"`
+	EnumeratedPorts    []string `json:"enumerated_ports"`
+	EnumerationError   string   `json:"enumeration_error,omitempty"`
+	SupplementalPorts  []string `json:"supplemental_ports"`
+	SupplementalErrors []string `json:"supplemental_errors,omitempty"`
+	ConfiguredPorts    []string `json:"configured_ports"`
+	DevDirListing      []string `json:"dev_dir_listing"`
+}
+
+// SerialDevicesResponse is the envelope returned by /api/serial/devices when
+// ?diagnostic=true is set. The default response (no query param) is the
+// plain []SerialDeviceInfo array so the existing UI contract is preserved.
+type SerialDevicesResponse struct {
+	Devices    []SerialDeviceInfo       `json:"devices"`
+	Diagnostic *SerialDevicesDiagnostic `json:"diagnostic,omitempty"`
 }
 
 func applySerialTestDefaults(req *SerialTestRequest) {
@@ -391,12 +434,19 @@ func getSuggestionForError(err error) string {
 	return "Check device connection and permissions"
 }
 
-// handleSerialDevices handles GET /api/serial/devices - List available serial devices
+// handleSerialDevices handles GET /api/serial/devices - List available serial devices.
+//
+// Pass ?diagnostic=true to receive a SerialDevicesResponse envelope that
+// includes the raw enumeration breakdown alongside the merged device list.
+// The plain []SerialDeviceInfo response is preserved when the query param
+// is absent so the existing frontend keeps working without modification.
 func (s *Server) handleSerialDevices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	diagnostic := r.URL.Query().Get("diagnostic") == "true"
 
 	// Get all existing configs to filter them out
 	existingConfigs, err := s.db.GetSerialConfigs()
@@ -408,21 +458,65 @@ func (s *Server) handleSerialDevices(w http.ResponseWriter, r *http.Request) {
 
 	// Build a set of already-configured port paths
 	configuredPorts := make(map[string]bool)
+	configuredPortsList := make([]string, 0, len(existingConfigs))
 	for _, config := range existingConfigs {
 		configuredPorts[config.PortPath] = true
+		configuredPortsList = append(configuredPortsList, config.PortPath)
 	}
+	sort.Strings(configuredPortsList)
 
 	// Enumerate available serial ports
+	var enumerationErrMsg string
 	ports, err := serial.GetPortsList()
 	if err != nil {
-		log.Printf("Error enumerating serial ports: %v", err)
-		http.Error(w, "Failed to enumerate serial ports", http.StatusInternalServerError)
+		if !diagnostic {
+			log.Printf("Error enumerating serial ports: %v", err)
+			http.Error(w, "Failed to enumerate serial ports", http.StatusInternalServerError)
+			return
+		}
+		// In diagnostic mode, surface the error in the envelope rather
+		// than failing the whole request — operators care about the
+		// supplemental scan and configured-ports lists even when the
+		// primary enumeration fails.
+		log.Printf("serial: primary enumeration failed (returning empty list to diagnostic caller): %v", err)
+		enumerationErrMsg = err.Error()
+		ports = nil
+	}
+
+	scan := scanSupplementalSerialPorts(os.ReadDir)
+	devices := buildSerialDeviceList(configuredPorts, ports, scan.Ports, time.Now().Unix())
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if diagnostic {
+		// Force every []string to render as [] rather than null so the
+		// Python harness (and any other consumer) can iterate without
+		// nil-handling. Go's json package distinguishes nil slices from
+		// empty ones — we don't want that surfaced over the wire.
+		nonNil := func(s []string) []string {
+			if s == nil {
+				return []string{}
+			}
+			return s
+		}
+		resp := SerialDevicesResponse{
+			Devices: devices,
+			Diagnostic: &SerialDevicesDiagnostic{
+				EnumerationSource:  "go.bug.st/serial",
+				EnumeratedPorts:    nonNil(ports),
+				EnumerationError:   enumerationErrMsg,
+				SupplementalPorts:  nonNil(scan.Ports),
+				SupplementalErrors: nonNil(scan.ScanError),
+				ConfiguredPorts:    nonNil(configuredPortsList),
+				DevDirListing:      nonNil(scan.DevTTY),
+			},
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("Error encoding serial devices response: %v", err)
+		}
 		return
 	}
 
-	devices := buildSerialDeviceList(configuredPorts, ports, listSupplementalSerialPorts(os.ReadDir), time.Now().Unix())
-
-	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(devices); err != nil {
 		log.Printf("Error encoding serial devices response: %v", err)
 	}
@@ -463,33 +557,67 @@ func buildSerialDeviceList(
 	return devices
 }
 
-func listSupplementalSerialPorts(readDir func(string) ([]os.DirEntry, error)) []string {
+// supplementalSerialScan captures everything the supplemental scan saw,
+// so the /api/serial/devices diagnostic mode can show operators exactly
+// which ports came from where, what was in /dev/ raw, and which directories
+// failed to read. Only the Ports field is needed for the normal hot path.
+type supplementalSerialScan struct {
+	Ports     []string // discovered ports (deduped, sorted)
+	DevTTY    []string // raw /dev entries matching tty*/serial* — diagnostic only
+	ScanError []string // human-readable errors per directory, excluding ENOENT
+}
+
+// scanSupplementalSerialPorts walks /dev and the configured symlink
+// directories and reports every port it found, plus diagnostic context.
+// ENOENT on the symlink directories is expected on systems without those
+// trees (e.g. macOS dev hosts) and is intentionally not flagged as an error.
+func scanSupplementalSerialPorts(readDir func(string) ([]os.DirEntry, error)) supplementalSerialScan {
+	var result supplementalSerialScan
 	if readDir == nil {
-		return nil
+		return result
 	}
 
-	ports := make([]string, 0)
 	seen := make(map[string]bool)
 	addPort := func(portPath string) {
 		if portPath == "" || seen[portPath] {
 			return
 		}
 		seen[portPath] = true
-		ports = append(ports, portPath)
+		result.Ports = append(result.Ports, portPath)
 	}
 
 	if entries, err := readDir("/dev"); err == nil {
 		for _, entry := range entries {
-			if entry.IsDir() || !supplementalSerialDevicePattern.MatchString(entry.Name()) {
+			name := entry.Name()
+			// Capture every tty*/serial* name for diagnostic visibility,
+			// independent of whether any pattern matches. This is what
+			// lets the harness say "you have ttyXYZ0 in /dev/ but the
+			// scan ignored it — consider broadening the regex."
+			if strings.HasPrefix(name, "tty") || strings.HasPrefix(name, "serial") {
+				result.DevTTY = append(result.DevTTY, name)
+			}
+			if entry.IsDir() {
 				continue
 			}
-			addPort(filepath.Join("/dev", entry.Name()))
+			for _, pat := range supplementalSerialDevicePatterns {
+				if pat.MatchString(name) {
+					addPort(filepath.Join("/dev", name))
+					break
+				}
+			}
 		}
+	} else {
+		log.Printf("serial: /dev scan failed: %v", err)
+		result.ScanError = append(result.ScanError, fmt.Sprintf("/dev: %v", err))
 	}
 
 	for _, dir := range supplementalSerialSymlinkDirs {
 		entries, err := readDir(dir)
 		if err != nil {
+			if !os.IsNotExist(err) {
+				log.Printf("serial: %s scan failed: %v", dir, err)
+				result.ScanError = append(result.ScanError, fmt.Sprintf("%s: %v", dir, err))
+			}
 			continue
 		}
 		for _, entry := range entries {
@@ -500,8 +628,16 @@ func listSupplementalSerialPorts(readDir func(string) ([]os.DirEntry, error)) []
 		}
 	}
 
-	sort.Strings(ports)
-	return ports
+	sort.Strings(result.Ports)
+	sort.Strings(result.DevTTY)
+	return result
+}
+
+// listSupplementalSerialPorts is a thin wrapper kept for existing callers
+// and tests that only need the port list. New callers wanting diagnostic
+// data should use scanSupplementalSerialPorts directly.
+func listSupplementalSerialPorts(readDir func(string) ([]os.DirEntry, error)) []string {
+	return scanSupplementalSerialPorts(readDir).Ports
 }
 
 // getFriendlyName generates a user-friendly name for a serial port
