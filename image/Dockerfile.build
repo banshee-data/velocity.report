@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # Dockerfile.build — Cross-compile velocity.report ARM64 binaries with pcap
 #
 # This image provides a native Linux environment with libpcap-dev for
@@ -9,9 +11,9 @@
 #   docker build -f image/Dockerfile.build -t velocity-builder .
 #   docker run --rm -v $PWD/image/velocity-binaries:/out velocity-builder
 
-FROM golang:1.26-bookworm
+FROM golang:1.26-bookworm AS toolchain
 
-# Install ARM64 cross-compilation toolchain and libpcap headers
+# Install ARM64 cross-compilation toolchain and libpcap headers.
 RUN dpkg --add-architecture arm64 && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -20,12 +22,6 @@ RUN dpkg --add-architecture arm64 && \
     libpcap-dev:arm64 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /build
-
-# Copy go.mod and go.sum first for layer caching
-COPY go.mod go.sum ./
-RUN go mod download
-
 # Copy the full source tree
 COPY . .
 
@@ -33,6 +29,7 @@ COPY . .
 # performs the full web and offline-docs builds before invoking Docker.
 RUN ./scripts/ensure-web-stub.sh
 RUN ./scripts/ensure-docs-stub.sh
+RUN mkdir -p /out
 
 # Version metadata passed at build time
 ARG VERSION=dev
@@ -46,14 +43,28 @@ ENV CGO_ENABLED=1 \
     CC=aarch64-linux-gnu-gcc \
     PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
 
-RUN go build -tags=pcap -ldflags "-s -w \
-    -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
-    -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
-    -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
-    -o /out/velocity-report ./cmd/radar
+FROM toolchain AS build
 
-RUN go build -ldflags "-s -w \
-    -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
-    -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
-    -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
-    -o /out/velocity-ctl ./cmd/velocity-ctl
+WORKDIR /build
+
+# Copy go.mod and go.sum first for layer caching
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -tags=pcap -ldflags "-s -w \
+        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
+        -o /out/velocity-report ./cmd/radar && \
+    go build -ldflags "-s -w \
+        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
+        -o /out/velocity-ctl ./cmd/velocity-ctl
+
+FROM scratch AS export
+
+COPY --from=build /out/ /out/
