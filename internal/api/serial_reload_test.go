@@ -88,6 +88,28 @@ func TestSerialPortManager_CloseAndSendCommand(t *testing.T) {
 	}
 }
 
+// TestSerialPortManager_CloseIsIdempotent guards against the original
+// double-close panic: close(m.eventFanoutCh) without a guard panics on a
+// second invocation. sync.Once makes Close() safe to call repeatedly,
+// which matters for shutdown paths that may run via both signal handler
+// and explicit teardown.
+func TestSerialPortManager_CloseIsIdempotent(t *testing.T) {
+	manager := NewSerialPortManager(nil, serialmux.NewMockSerialMux([]byte("")), SerialConfigSnapshot{}, nil)
+
+	if err := manager.Close(); err != nil {
+		t.Fatalf("first Close: unexpected error: %v", err)
+	}
+	// Second call must not panic and must not return an error.
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("second Close panicked: %v", r)
+		}
+	}()
+	if err := manager.Close(); err != nil {
+		t.Fatalf("second Close: unexpected error: %v", err)
+	}
+}
+
 // TestSerialPortManager_Snapshot tests configuration snapshot
 func TestSerialPortManager_Snapshot(t *testing.T) {
 	snapshot := SerialConfigSnapshot{

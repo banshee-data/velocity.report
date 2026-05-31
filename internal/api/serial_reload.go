@@ -72,8 +72,16 @@ type SerialPortManager struct {
 
 	reloadMu sync.Mutex
 
-	// Event fanout: bridges subscriptions across mux reloads
-	eventFanoutCh chan string            // Input from mux subscription (internal use)
+	// Event fanout: bridges subscriptions across mux reloads.
+	//
+	// eventFanoutCh is a shutdown signal channel, NOT a data channel —
+	// nothing in this file sends to it. The fanout loop watches it with
+	// `<-eventFanoutCh` to detect close-triggered shutdown; live serial
+	// lines flow through currentSubCh inside runEventFanout instead.
+	// closeOnce ensures Close() is idempotent: a second call to close()
+	// on the channel would panic.
+	eventFanoutCh chan string
+	closeOnce     sync.Once
 	fanoutMu      sync.RWMutex           // Protects subscribers map
 	subscribers   map[string]chan string // Maps subscriber ID -> channel
 }
@@ -315,8 +323,9 @@ func (m *SerialPortManager) Monitor(ctx context.Context) error {
 //   - All existing subscriber channels will be closed
 func (m *SerialPortManager) Close() error {
 	m.mu.Lock()
+	alreadyClosed := m.closed
 	m.closed = true
-	if m.current != nil {
+	if !alreadyClosed && m.current != nil {
 		if err := m.current.Close(); err != nil {
 			log.Printf("Warning: failed to close current mux during shutdown: %v", err)
 		}
@@ -324,8 +333,12 @@ func (m *SerialPortManager) Close() error {
 	m.current = nil
 	m.mu.Unlock()
 
-	// Signal the event fanout loop to exit
-	close(m.eventFanoutCh)
+	// Idempotent: close(eventFanoutCh) on a second invocation would panic.
+	// sync.Once also covers the case where Close() races with itself across
+	// goroutines, even though normal usage closes once during shutdown.
+	m.closeOnce.Do(func() {
+		close(m.eventFanoutCh)
+	})
 
 	return nil
 }
