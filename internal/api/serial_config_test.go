@@ -220,6 +220,73 @@ func TestSerialConfigEndpoints(t *testing.T) {
 			t.Errorf("Expected status 400, got %d", w.Code)
 		}
 	})
+
+	// Regression: a non-standard baud rate must be rejected before the
+	// row is persisted. Previously the handler accepted any int and the
+	// failure only surfaced later in the runtime when the port was opened.
+	t.Run("POST /api/serial/configs rejects non-standard baud rate", func(t *testing.T) {
+		reqBody := SerialConfigRequest{
+			Name:        "Bad Baud",
+			PortPath:    "/dev/ttyUSB0",
+			BaudRate:    12345,
+			DataBits:    8,
+			StopBits:    1,
+			Parity:      "N",
+			SensorModel: "ops243-a",
+		}
+
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status 400 (invalid baud), got %d body=%s", w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "Invalid serial parameters") {
+			t.Errorf("Expected normalisation error message, got %q", w.Body.String())
+		}
+	})
+
+	// Same regression on the update path — previously the update handler
+	// didn't even apply defaults, never mind validate, so any garbage
+	// could overwrite a row.
+	t.Run("PUT /api/serial/configs/:id rejects invalid stop bits", func(t *testing.T) {
+		// Seed a known-good config to update.
+		seed := SerialConfigRequest{
+			Name:        "Update Target",
+			PortPath:    "/dev/ttyUSB1",
+			BaudRate:    19200,
+			DataBits:    8,
+			StopBits:    1,
+			Parity:      "N",
+			SensorModel: "ops243-a",
+		}
+		body, _ := json.Marshal(seed)
+		req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Fatalf("seed config: expected 201, got %d body=%s", w.Code, w.Body.String())
+		}
+		var created db.SerialConfig
+		if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+			t.Fatalf("decode seed: %v", err)
+		}
+
+		bad := seed
+		bad.StopBits = 3 // not 1 or 2 — must reject
+		body, _ = json.Marshal(bad)
+		req = httptest.NewRequest("PUT", fmt.Sprintf("/api/serial/configs/%d", created.ID), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status 400 (invalid stop bits), got %d body=%s", w.Code, w.Body.String())
+		}
+	})
 }
 
 // ── Additional serial_config.go tests for comprehensive coverage ──

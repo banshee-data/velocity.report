@@ -10,7 +10,30 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/security"
+	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
+
+// normaliseSerialConfigRequest applies serialmux.PortOptions defaults and
+// validation to the wire fields, then writes them back to the request so
+// downstream persistence sees the same canonicalised values that the live
+// serial layer would. Returns a 400-suitable error on invalid input.
+func normaliseSerialConfigRequest(req *SerialConfigRequest) error {
+	opts := serialmux.PortOptions{
+		BaudRate: req.BaudRate,
+		DataBits: req.DataBits,
+		StopBits: req.StopBits,
+		Parity:   req.Parity,
+	}
+	normalised, err := opts.Normalise()
+	if err != nil {
+		return err
+	}
+	req.BaudRate = normalised.BaudRate
+	req.DataBits = normalised.DataBits
+	req.StopBits = normalised.StopBits
+	req.Parity = normalised.Parity
+	return nil
+}
 
 // SerialConfigRequest represents the request body for creating/updating serial configs
 type SerialConfigRequest struct {
@@ -139,18 +162,14 @@ func (s *Server) handleCreateSerialConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Set defaults if not provided
-	if req.BaudRate == 0 {
-		req.BaudRate = 19200
-	}
-	if req.DataBits == 0 {
-		req.DataBits = 8
-	}
-	if req.StopBits == 0 {
-		req.StopBits = 1
-	}
-	if req.Parity == "" {
-		req.Parity = "N"
+	// Apply defaults and validate against the same rules the live serial
+	// path uses. Without this, invalid baud/data/stop/parity values land
+	// in SQLite and only fail later when the runtime tries to open the
+	// port — surfacing as a confusing reload failure rather than a clear
+	// API rejection.
+	if err := normaliseSerialConfigRequest(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid serial parameters: %v", err), http.StatusBadRequest)
+		return
 	}
 
 	config := &db.SerialConfig{
@@ -218,6 +237,14 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 	// Validate sensor model
 	if _, ok := GetSensorModel(req.SensorModel); !ok {
 		http.Error(w, fmt.Sprintf("Unsupported sensor model: %s", req.SensorModel), http.StatusBadRequest)
+		return
+	}
+
+	// Same normalisation as the create handler — the update path previously
+	// didn't even apply defaults, so a stop_bits=0 or parity="" update
+	// would persist garbage that the runtime later rejected.
+	if err := normaliseSerialConfigRequest(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid serial parameters: %v", err), http.StatusBadRequest)
 		return
 	}
 
