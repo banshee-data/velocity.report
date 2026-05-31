@@ -246,10 +246,11 @@ func TestPortOptions_SerialMode_Default(t *testing.T) {
 	if mode.DataBits != 8 {
 		t.Errorf("DataBits = %d, want 8", mode.DataBits)
 	}
-	// StopBits default is 1, which maps to serial.StopBits(1)
-	expectedStopBits := serial.StopBits(1)
-	if mode.StopBits != expectedStopBits {
-		t.Errorf("StopBits = %v, want %v", mode.StopBits, expectedStopBits)
+	// "1 stop bit" must map to serial.OneStopBit (the iota value 0), NOT to
+	// serial.StopBits(1) which is OnePointFiveStopBits — the original test
+	// mirrored the bug it was supposed to catch.
+	if mode.StopBits != serial.OneStopBit {
+		t.Errorf("StopBits = %v, want serial.OneStopBit", mode.StopBits)
 	}
 	if mode.Parity != serial.NoParity {
 		t.Errorf("Parity = %v, want NoParity", mode.Parity)
@@ -284,9 +285,8 @@ func TestPortOptions_SerialMode_TwoStopBits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SerialMode() error = %v", err)
 	}
-	expectedStopBits := serial.StopBits(2)
-	if mode.StopBits != expectedStopBits {
-		t.Errorf("StopBits = %v, want %v", mode.StopBits, expectedStopBits)
+	if mode.StopBits != serial.TwoStopBits {
+		t.Errorf("StopBits = %v, want serial.TwoStopBits", mode.StopBits)
 	}
 }
 

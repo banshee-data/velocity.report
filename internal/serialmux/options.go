@@ -101,10 +101,27 @@ func (o PortOptions) SerialMode() (*serial.Mode, error) {
 		return nil, err
 	}
 
+	// go.bug.st/serial's StopBits is an iota enum, NOT a stop-bit count:
+	//   OneStopBit          = 0
+	//   OnePointFiveStopBits = 1
+	//   TwoStopBits         = 2
+	// A naïve serial.StopBits(opts.StopBits) cast would map "1 stop bit" to
+	// OnePointFiveStopBits and silently corrupt the framing. Translate
+	// explicitly via the documented constants.
 	mode := &serial.Mode{
 		BaudRate: opts.BaudRate,
 		DataBits: opts.DataBits,
-		StopBits: serial.StopBits(opts.StopBits),
+	}
+	switch opts.StopBits {
+	case 1:
+		mode.StopBits = serial.OneStopBit
+	case 2:
+		mode.StopBits = serial.TwoStopBits
+	default:
+		// Normalise() guarantees 1 or 2 above, so this branch is unreachable
+		// in normal flow. Returning an error keeps the contract explicit if
+		// Normalise's invariants are ever weakened.
+		return nil, fmt.Errorf("invalid stop bits %d after normalisation: expected 1 or 2", opts.StopBits)
 	}
 
 	switch opts.Parity {
