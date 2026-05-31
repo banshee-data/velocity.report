@@ -506,7 +506,7 @@
 		6331CDED2F31B06400A770C0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/VelocityVisualiser.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VelocityVisualiser.debug.dylib";
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -530,7 +530,7 @@
 		6331CDEE2F31B06400A770C0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/VelocityVisualiser.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VelocityVisualiser.debug.dylib";
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
