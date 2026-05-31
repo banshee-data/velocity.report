@@ -67,7 +67,7 @@ func TestPortOptions_Normalise_InvalidBaudRate(t *testing.T) {
 }
 
 func TestPortOptions_Normalise_AllStandardBaudRates(t *testing.T) {
-	rates := []int{110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 256000}
+	rates := []int{110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 230400, 256000}
 	for _, rate := range rates {
 		opts := PortOptions{BaudRate: rate}
 		got, err := opts.Normalise()

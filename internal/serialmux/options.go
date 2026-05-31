@@ -9,13 +9,16 @@ import (
 
 // standardBaudRates defines the set of commonly supported baud rates.
 // Reference: https://en.wikipedia.org/wiki/Serial_port#Common_baud_rates
+// 230400 is included because the OPS243 family advertises it via
+// internal/api/sensor_models.json — without it, valid HAT-supported
+// configs would be rejected by Normalise.
 var standardBaudRates = map[int]struct{}{
 	110: {}, 300: {}, 600: {}, 1200: {}, 2400: {}, 4800: {}, 9600: {},
-	14400: {}, 19200: {}, 28800: {}, 38400: {}, 57600: {}, 115200: {}, 128000: {}, 256000: {},
+	14400: {}, 19200: {}, 28800: {}, 38400: {}, 57600: {}, 115200: {}, 128000: {}, 230400: {}, 256000: {},
 }
 
 // supportedBaudRatesStr is the string representation of supported baud rates for error messages.
-const supportedBaudRatesStr = "110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 256000"
+const supportedBaudRatesStr = "110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 128000, 230400, 256000"
 
 // PortOptions describes the serial connection parameters used when opening a real
 // serial port. The fields intentionally mirror the database configuration used by
