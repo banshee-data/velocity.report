@@ -71,7 +71,12 @@ cleanup_docker_build_artifacts() {
 
     docker image rm -f "$DOCKER_BUILDER_IMAGE" >/dev/null 2>&1 || true
     docker image rm -f "$DOCKER_TOOLCHAIN_IMAGE" >/dev/null 2>&1 || true
-    docker builder prune -af >/dev/null 2>&1 || true
+    # NOTE: do NOT run `docker builder prune -af` here. That command prunes
+    # the *global* BuildKit cache for the whole machine and can wipe out
+    # unrelated Docker work in progress. The project-specific images are
+    # already removed above; Docker's builder cache GC will reclaim the
+    # rest lazily, and operators can run an explicit `docker builder prune`
+    # themselves when they want it.
 
     if [[ -n "$DOCKER_GO_MOD_CACHE_DIR" ]]; then
         rm -rf "$DOCKER_GO_MOD_CACHE_DIR"
