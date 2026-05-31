@@ -45,6 +45,11 @@ func (db *DB) GetSerialConfigs() ([]SerialConfig, error) {
 		c.Enabled = enabled == 1
 		configs = append(configs, c)
 	}
+	// rows.Next() swallows iteration errors; rows.Err() surfaces them.
+	// Matches the pattern in internal/db/site.go.
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed iterating serial configs: %w", err)
+	}
 
 	return configs, nil
 }
@@ -95,6 +100,9 @@ func (db *DB) GetEnabledSerialConfigs() ([]SerialConfig, error) {
 		}
 		c.Enabled = enabled == 1
 		configs = append(configs, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed iterating enabled serial configs: %w", err)
 	}
 
 	return configs, nil
