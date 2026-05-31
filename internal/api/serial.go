@@ -400,7 +400,12 @@ func testSerialPort(req SerialTestRequest) SerialTestResponse {
 
 	message := "Serial port communication successful"
 	if detectedBaudRate != req.BaudRate {
-		message = fmt.Sprintf("Device reports different baud rate (%d). Configuration updated automatically.", detectedBaudRate)
+		// The auto-correct path only updates the response payload — no DB
+		// write happens here, the port is never reopened at the new baud,
+		// and the live serial manager is untouched. The prior wording
+		// ("Configuration updated automatically.") overstated that; keep
+		// it factual so the UI can prompt the operator to save manually.
+		message = fmt.Sprintf("Device reports baud rate %d (requested %d). Save the configuration at %d baud to apply this setting.", detectedBaudRate, req.BaudRate, detectedBaudRate)
 	}
 
 	return SerialTestResponse{
