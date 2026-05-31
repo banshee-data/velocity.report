@@ -1,6 +1,10 @@
 package api
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -107,6 +111,65 @@ func TestSerialPortManager_CloseIsIdempotent(t *testing.T) {
 	}()
 	if err := manager.Close(); err != nil {
 		t.Fatalf("second Close: unexpected error: %v", err)
+	}
+}
+
+// TestSerialPortManager_AdminRoutesFollowReload guards against the original
+// AttachAdminRoutes(mux *http.ServeMux) bug where the admin handlers closed
+// over the concrete mux at registration time. After a hot-reload swapped
+// m.current, the /debug/send-command-api handler kept writing to the OLD
+// (possibly closed) mux. The fix routes admin handlers through the manager
+// itself so each request resolves m.current at call time.
+//
+// We verify by:
+//  1. registering admin routes on a manager backed by port1
+//  2. POSTing a command and checking port1 received it
+//  3. swapping the manager's current mux to one backed by port2
+//  4. POSTing a different command and checking port2 (not port1) received it
+func TestSerialPortManager_AdminRoutesFollowReload(t *testing.T) {
+	port1 := serialmux.NewTestableSerialPort()
+	mux1 := serialmux.NewSerialMux(port1)
+	mgr := NewSerialPortManager(nil, mux1, SerialConfigSnapshot{}, nil)
+	defer mgr.Close()
+
+	httpMux := http.NewServeMux()
+	mgr.AttachAdminRoutes(httpMux)
+
+	post := func(cmd string) int {
+		body := strings.NewReader(url.Values{"command": {cmd}}.Encode())
+		req := httptest.NewRequest(http.MethodPost, "/debug/send-command-api", body)
+		req.RemoteAddr = "127.0.0.1:12345" // bypass tsweb loopback check
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		httpMux.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	if code := post("FIRST"); code != http.StatusOK {
+		t.Fatalf("first POST: expected 200, got %d", code)
+	}
+	if !strings.Contains(string(port1.GetWrittenData()), "FIRST") {
+		t.Fatalf("port1 should have received FIRST, got %q", port1.GetWrittenData())
+	}
+
+	// Swap the underlying mux. In production this happens via ReloadConfig;
+	// for the regression we exercise the same code path by mutating
+	// m.current directly so we don't need a real DB + factory.
+	port2 := serialmux.NewTestableSerialPort()
+	mux2 := serialmux.NewSerialMux(port2)
+	mgr.mu.Lock()
+	mgr.current = mux2
+	mgr.mu.Unlock()
+
+	if code := post("SECOND"); code != http.StatusOK {
+		t.Fatalf("second POST: expected 200, got %d", code)
+	}
+	if !strings.Contains(string(port2.GetWrittenData()), "SECOND") {
+		t.Fatalf("port2 should have received SECOND after swap, got %q (port1 saw %q)",
+			port2.GetWrittenData(), port1.GetWrittenData())
+	}
+	if strings.Contains(string(port1.GetWrittenData()), "SECOND") {
+		t.Fatalf("port1 must NOT see SECOND after the swap; got %q", port1.GetWrittenData())
 	}
 }
 

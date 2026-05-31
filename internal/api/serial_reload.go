@@ -360,14 +360,18 @@ func (m *SerialPortManager) Initialise() error {
 	return mux.Initialise()
 }
 
-// AttachAdminRoutes delegates to the current mux's admin route registration.
+// AttachAdminRoutes registers the serialmux admin endpoints against the
+// manager itself rather than the current mux. The handlers call m.SendCommand
+// / m.Subscribe per request, so a ReloadConfig() that swaps the underlying
+// mux between registration and request handling is transparent — the routes
+// always target the active mux, never a closed one.
+//
+// Previously this delegated directly to current.AttachAdminRoutes(mux), which
+// closed over the concrete mux value at registration time; after a reload
+// the /debug/ routes would still write to and read from the old (closed)
+// mux instance, silently no-oping or returning closed-channel data.
 func (m *SerialPortManager) AttachAdminRoutes(mux *http.ServeMux) {
-	m.mu.RLock()
-	current := m.current
-	m.mu.RUnlock()
-	if current != nil {
-		current.AttachAdminRoutes(mux)
-	}
+	serialmux.AttachAdminRoutes(mux, m)
 }
 
 // ReloadConfig reloads the serial configuration from the database and swaps the
