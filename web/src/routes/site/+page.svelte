@@ -105,7 +105,9 @@
 							<thead>
 								<tr class="border-surface-content/10 border-b">
 									<th scope="col" class="px-4 py-2 text-left font-semibold">Name</th>
-									<th scope="col" class="px-4 py-2 text-left font-semibold">Location</th>
+									<th scope="col" class="hidden px-4 py-2 text-left font-semibold sm:table-cell">
+										Location
+									</th>
 									<th scope="col" class="px-4 py-2 text-right font-semibold">Actions</th>
 								</tr>
 							</thead>
@@ -115,7 +117,7 @@
 										class="hover:bg-surface-50 border-surface-content/10 border-b transition-colors"
 									>
 										<th scope="row" class="px-4 py-2 text-left font-medium">{site.name}</th>
-										<td class="px-4 py-2">{site.location}</td>
+										<td class="hidden px-4 py-2 sm:table-cell">{site.location}</td>
 										<td class="px-4 py-2 text-right">
 											<div class="flex justify-end gap-2">
 												<Button
