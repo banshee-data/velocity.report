@@ -1206,7 +1206,9 @@ export interface SerialTestResponse {
 export async function getSerialConfigs(): Promise<SerialConfig[]> {
 	const res = await fetch(`${API_BASE}/serial/configs`);
 	if (!res.ok) throw new Error(`Failed to fetch serial configs: ${res.status}`);
-	return res.json();
+	// Go marshals an empty slice as JSON `null`, not `[]`. Coerce so callers
+	// can always iterate without a null-guard at every call site.
+	return (await res.json()) ?? [];
 }
 
 export async function getSerialConfig(id: number): Promise<SerialConfig> {
@@ -1257,13 +1259,15 @@ export async function deleteSerialConfig(id: number): Promise<void> {
 export async function getSensorModels(): Promise<SensorModel[]> {
 	const res = await fetch(`${API_BASE}/serial/models`);
 	if (!res.ok) throw new Error(`Failed to fetch sensor models: ${res.status}`);
-	return res.json();
+	// Coerce a JSON `null` body (empty Go slice) to an array.
+	return (await res.json()) ?? [];
 }
 
 export async function getSerialDevices(): Promise<SerialDevice[]> {
 	const res = await fetch(`${API_BASE}/serial/devices`);
 	if (!res.ok) throw new Error(`Failed to fetch serial devices: ${res.status}`);
-	return res.json();
+	// Coerce a JSON `null` body (empty Go slice) to an array.
+	return (await res.json()) ?? [];
 }
 
 export async function testSerialPort(request: SerialTestRequest): Promise<SerialTestResponse> {
