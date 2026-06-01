@@ -23,6 +23,7 @@ help:
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
 	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
+	@echo "  release-radar-remote Build release Linux ARM64 binary and deploy it to DEPLOY_HOST (default velocity.local)"
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
 	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
@@ -247,12 +248,30 @@ build-ctl-linux:
 build-embedded-assets:
 	@./scripts/build-embedded-assets.sh
 
-.PHONY: release-ensure-github-release release-build-linux-binaries release-build-darwin-radar release-package-linux-radar release-build-image-from-staged-binaries release-normalize-image-artifact
+.PHONY: release-ensure-github-release release-build-linux-binaries release-radar-remote release-build-darwin-radar release-package-linux-radar release-build-image-from-staged-binaries release-normalize-image-artifact
+DEPLOY_HOST ?= velocity.local
+DEPLOY_USER ?= pi
+DEPLOY_LOCAL_BINARY ?= image/velocity-binaries/velocity-report
+DEPLOY_TMP_DIR ?= /tmp/up
+DEPLOY_REMOTE_BIN ?= /usr/local/bin/velocity-report
+DEPLOY_REMOTE_DB_PATH ?= /var/lib/velocity-report/sensor_data.db
+DEPLOY_REMOTE_SERVICE ?= velocity-report.service
+
 release-ensure-github-release:
 	@./scripts/release-assets.sh ensure-github-release
 
 release-build-linux-binaries:
 	@./scripts/release-assets.sh build-linux-binaries
+
+release-radar-remote: release-build-linux-binaries
+	@python3 scripts/release-radar-remote.py \
+		--host "$(DEPLOY_HOST)" \
+		--user "$(DEPLOY_USER)" \
+		--local-binary "$(DEPLOY_LOCAL_BINARY)" \
+		--remote-temp-dir "$(DEPLOY_TMP_DIR)" \
+		--remote-binary "$(DEPLOY_REMOTE_BIN)" \
+		--remote-db-path "$(DEPLOY_REMOTE_DB_PATH)" \
+		--service "$(DEPLOY_REMOTE_SERVICE)"
 
 release-build-darwin-radar:
 	@./scripts/release-assets.sh build-darwin-radar
@@ -618,6 +637,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_order_schema_tables.py \
+	scripts/test_release_radar_remote.py \
 	scripts/test_sqlite_erd.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
