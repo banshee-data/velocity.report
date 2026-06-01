@@ -1278,3 +1278,39 @@ export async function testSerialPort(request: SerialTestRequest): Promise<Serial
 	}
 	return res.json();
 }
+
+/** Result of an Overpass query proxied through the Go backend. */
+export interface OverpassResult {
+	elements: Array<Record<string, unknown>>;
+	/** Id of the mirror that served the request (from X-Overpass-Mirror). */
+	servedBy: string;
+}
+
+/**
+ * Run an Overpass QL query via the backend proxy (POST /api/map/overpass).
+ *
+ * This must go through the server, not a direct browser fetch: the public
+ * Overpass mirrors reject browser User-Agents (HTTP 406/403) and send no CORS
+ * headers, and `fetch` cannot override User-Agent. The Go server uses a
+ * descriptive User-Agent and handles mirror fallback. `mirror` is an optional
+ * preferred-mirror id hint; `signal` allows the caller to cancel.
+ */
+export async function fetchOverpassQuery(
+	query: string,
+	mirror?: string,
+	signal?: AbortSignal
+): Promise<OverpassResult> {
+	const res = await fetch(`${API_BASE}/map/overpass`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ query, mirror: mirror || undefined }),
+		signal
+	});
+	if (!res.ok) {
+		const error = await res.text().catch(() => '');
+		throw new Error(`Overpass request failed: ${res.status}${error ? ` ${error}` : ''}`);
+	}
+	const servedBy = res.headers.get('X-Overpass-Mirror') ?? '';
+	const json = await res.json();
+	return { elements: Array.isArray(json?.elements) ? json.elements : [], servedBy };
+}
