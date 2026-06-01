@@ -402,7 +402,10 @@
 	function showSerialMessage(msg: string, type: 'success' | 'error' | 'info' = 'info') {
 		serialMessage = msg;
 		serialMessageType = type;
-		setTimeout(() => (serialMessage = ''), 5000);
+		// 10s, not 5s: the toast is the only confirmation after enabling/saving a
+		// port, and on mobile it surfaces inside the slide-over footer where it
+		// needs to linger long enough to read before it clears.
+		setTimeout(() => (serialMessage = ''), 10000);
 	}
 
 	function updateFormData(patch: Partial<SerialConfigRequest>) {
@@ -418,8 +421,11 @@
 		currentPortPath = ''
 	) {
 		const seen = new SvelteSet<string>();
-		devices.forEach((d) => seen.add(d.port_path));
-		configs.forEach((c) => seen.add(c.port_path));
+		// Defensive: the API can hand back `null` for an empty list (Go marshals
+		// an empty slice as JSON null). Guard so a fresh install with no devices
+		// or configs doesn't throw on .forEach.
+		(devices ?? []).forEach((d) => seen.add(d.port_path));
+		(configs ?? []).forEach((c) => seen.add(c.port_path));
 		if (currentPortPath.trim()) {
 			seen.add(currentPortPath.trim());
 		}
@@ -508,6 +514,8 @@
 
 	function openCreatePanel() {
 		editingConfig = null;
+		testResult = null;
+		serialMessage = '';
 		const defaultPort =
 			availableDevices.length > 0
 				? availableDevices[0].port_path
@@ -530,6 +538,8 @@
 
 	function openEditPanel(c: SerialConfig) {
 		editingConfig = c;
+		testResult = null;
+		serialMessage = '';
 		formData = {
 			port_path: c.port_path,
 			baud_rate: c.baud_rate,
@@ -547,6 +557,10 @@
 	function closeEditPanel() {
 		showEditPanel = false;
 		editingConfig = null;
+		// Clear the test banner but NOT serialMessage: a successful save sets the
+		// toast and then closes the panel, and we want that confirmation to
+		// survive the close so the top-of-section notification still shows it.
+		testResult = null;
 	}
 
 	async function handleSerialSave() {
@@ -600,7 +614,11 @@
 			if (testResult.baud_rate !== formData.baud_rate) {
 				formData.baud_rate = testResult.baud_rate;
 			}
-			showTestResultDialog = true;
+			// Feedback renders inline in the slide-over footer (see below), not as
+			// an auto-opened modal: the test-result Dialog stacks behind the
+			// full-screen slide-over on mobile, so a failed connection looked like
+			// "no feedback". The modal is still reachable via "View details" for
+			// the full sample-data / raw-response read-out.
 		} catch (e) {
 			console.error('Failed to test serial port:', e);
 			showSerialMessage(`Failed to test serial port: ${e}`, 'error');
@@ -661,7 +679,10 @@
 							Sensor Serial Ports
 						</h2>
 						<div class="space-y-4">
-							{#if serialMessage}
+							<!-- When the slide-over is open the toast renders inside the
+							     panel footer instead (mobile: the panel covers this
+							     area). Gate here to avoid double-rendering on desktop. -->
+							{#if serialMessage && !showEditPanel}
 								<Notification
 									title={serialMessageType === 'success'
 										? 'Success'
@@ -1195,6 +1216,71 @@
 						</div>
 					</Field>
 				</div>
+
+				<!--
+					Pinned feedback — sits between the scrollable form body and the
+					action footer so it is always visible "at the end of the edit
+					serial port", including on mobile where the slide-over is a
+					full-screen overlay that covers the top-of-section toast. Shows
+					both the save result (serialMessage) and the connection-test
+					outcome (testResult) inline, rather than relying on a modal that
+					stacks behind the overlay.
+				-->
+				{#if serialMessage || testResult}
+					<div class="border-surface-content/10 space-y-3 border-t p-4">
+						{#if serialMessage}
+							<Notification
+								title={serialMessageType === 'success'
+									? 'Success'
+									: serialMessageType === 'error'
+										? 'Error'
+										: 'Info'}
+								description={serialMessage}
+								variant={serialMessageType === 'error' ? 'fill' : 'default'}
+								class={serialMessageType === 'success'
+									? 'bg-success-50 text-success-900 border-success-200'
+									: serialMessageType === 'error'
+										? 'bg-danger-50 text-danger-900 border-danger-200'
+										: 'bg-info-50 text-info-900 border-info-200'}
+							/>
+						{/if}
+
+						{#if testResult}
+							<div
+								class="rounded-lg p-3 text-sm {testResult.success
+									? 'bg-success-50 text-success-900'
+									: 'bg-danger-50 text-danger-900'}"
+								role="status"
+								aria-live="polite"
+							>
+								<p class="font-semibold">
+									{testResult.success ? '✓ Connected' : '✗ Could not connect'}
+								</p>
+								<p>{testResult.message}</p>
+								{#if testResult.suggestion}
+									<p class="mt-1 text-xs">
+										<span class="font-semibold">Suggestion:</span>
+										{testResult.suggestion}
+									</p>
+								{/if}
+								<p class="mt-1 text-xs opacity-80">
+									Baud {testResult.baud_rate} · {testResult.test_duration_ms}ms{testResult.bytes_received
+										? ` · ${testResult.bytes_received} bytes`
+										: ''}
+								</p>
+								{#if testResult.sample_data || (testResult.raw_responses && testResult.raw_responses.length > 0)}
+									<button
+										type="button"
+										class="mt-2 text-xs underline"
+										on:click={() => (showTestResultDialog = true)}
+									>
+										View details
+									</button>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				{/if}
 
 				<footer class="flex gap-2 border-t p-4">
 					<Button on:click={handleSerialTest} variant="outline" disabled={testing}>
