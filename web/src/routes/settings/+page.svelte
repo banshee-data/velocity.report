@@ -433,22 +433,47 @@
 	}
 
 	async function loadSerialData() {
-		try {
-			const [configs, models, devices] = await Promise.all([
-				getSerialConfigs(),
-				getSensorModels(),
-				getSerialDevices()
-			]);
-			serialConfigs = configs;
-			availableDevices = devices;
-			rebuildPortPathOptions(devices, configs, formData.port_path);
-			sensorModelOptions = models.map((m: SensorModel) => ({
+		// Load the three serial endpoints independently: a failure in one
+		// (e.g. device enumeration) must not blank the others. Using
+		// Promise.all previously meant a single 500 hid the configured HAT,
+		// the sensor models, and the detected devices all at once.
+		const [configsRes, modelsRes, devicesRes] = await Promise.allSettled([
+			getSerialConfigs(),
+			getSensorModels(),
+			getSerialDevices()
+		]);
+
+		const failed: string[] = [];
+
+		if (configsRes.status === 'fulfilled') {
+			serialConfigs = configsRes.value;
+		} else {
+			console.error('Failed to load serial configs:', configsRes.reason);
+			failed.push('configurations');
+		}
+
+		if (modelsRes.status === 'fulfilled') {
+			sensorModelOptions = modelsRes.value.map((m: SensorModel) => ({
 				value: m.slug,
 				label: m.display_name
 			}));
-		} catch (e) {
-			console.error('Failed to load serial data:', e);
-			showSerialMessage('Failed to load serial configuration', 'error');
+		} else {
+			console.error('Failed to load sensor models:', modelsRes.reason);
+			failed.push('sensor models');
+		}
+
+		if (devicesRes.status === 'fulfilled') {
+			availableDevices = devicesRes.value;
+		} else {
+			console.error('Failed to load serial devices:', devicesRes.reason);
+			failed.push('detected devices');
+		}
+
+		// Rebuild the port dropdown from whatever loaded successfully.
+		rebuildPortPathOptions(availableDevices, serialConfigs, formData.port_path);
+
+		if (failed.length > 0) {
+			showSerialMessage(`Could not load ${failed.join(', ')}.`, 'error');
 		}
 	}
 
@@ -469,6 +494,15 @@
 			showSerialMessage('Failed to rescan serial devices', 'error');
 		} finally {
 			rescanning = false;
+		}
+	}
+
+	// Keyboard activation for clickable table rows (Enter/Space), matching the
+	// lidar routes' table+detail pattern.
+	function handleKeyboardActivation(e: KeyboardEvent, action: () => void) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			action();
 		}
 	}
 
@@ -656,28 +690,57 @@
 							{#if serialConfigs.length === 0}
 								<p class="text-surface-content/70 text-sm">No serial configurations found.</p>
 							{:else}
-								<div class="overflow-x-auto">
-									<table class="w-full border-collapse">
+								<!-- Table + click-to-open-detail layout, matching the lidar routes
+								     (sweeps, runs). Clicking a row opens the edit slide-over panel. -->
+								<div
+									class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border"
+								>
+									<table class="w-full">
 										<thead>
-											<tr class="border-b">
-												<th class="px-4 py-2 text-left font-semibold">Port Path</th>
-												<th class="px-4 py-2 text-left font-semibold">Status</th>
-												<th class="px-4 py-2 text-left font-semibold">Actions</th>
+											<tr class="border-surface-content/10 border-b">
+												<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+													>Port Path</th
+												>
+												<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+													>Status</th
+												>
+												<th
+													class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+													>Actions</th
+												>
 											</tr>
 										</thead>
 										<tbody>
 											{#each serialConfigs as row (row.id)}
-												<tr class="hover:bg-surface-50 border-b transition-colors">
-													<td class="px-4 py-2">{row.port_path}</td>
-													<td class="px-4 py-2">
+												<tr
+													class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0"
+												>
+													<td
+														class="text-surface-content cursor-pointer px-4 py-3 font-mono text-sm"
+														on:click={() => openEditPanel(row)}
+														on:keydown={(e) =>
+															handleKeyboardActivation(e, () => openEditPanel(row))}
+														role="button"
+														tabindex="0"
+													>
+														{row.port_path}
+													</td>
+													<td
+														class="cursor-pointer px-4 py-3 text-sm"
+														on:click={() => openEditPanel(row)}
+														on:keydown={(e) =>
+															handleKeyboardActivation(e, () => openEditPanel(row))}
+														role="button"
+														tabindex="0"
+													>
 														{#if row.enabled}
 															<span class="text-success-500 font-medium">Enabled</span>
 														{:else}
 															<span class="text-surface-content/50">Disabled</span>
 														{/if}
 													</td>
-													<td class="px-4 py-2">
-														<div class="flex gap-2">
+													<td class="px-4 py-3 text-center">
+														<div class="flex justify-center gap-2">
 															<Button
 																on:click={() => openEditPanel(row)}
 																size="sm"
@@ -994,7 +1057,7 @@
 					<button
 						type="button"
 						class="text-surface-content/60 hover:text-surface-content text-sm"
-						onclick={closeEditPanel}
+						on:click={closeEditPanel}
 						aria-label="Close serial port editor"
 					>
 						Close
