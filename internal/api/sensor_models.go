@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"sort"
 )
 
 // SensorModel defines capabilities and initialisation commands for a radar sensor
@@ -46,11 +47,17 @@ func GetSensorModel(slug string) (SensorModel, bool) {
 	return model, ok
 }
 
-// GetAllSensorModels returns a slice of all supported sensor models
+// GetAllSensorModels returns a slice of all supported sensor models, sorted by
+// slug. SupportedSensorModels is a map, so iteration order is nondeterministic;
+// sorting gives /api/serial/models a stable response order and keeps the UI
+// dropdown and any consuming tests from flaking between runs.
 func GetAllSensorModels() []SensorModel {
 	models := make([]SensorModel, 0, len(SupportedSensorModels))
 	for _, model := range SupportedSensorModels {
 		models = append(models, model)
 	}
+	sort.Slice(models, func(i, j int) bool {
+		return models[i].Slug < models[j].Slug
+	})
 	return models
 }

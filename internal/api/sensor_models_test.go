@@ -48,3 +48,18 @@ func TestSensorModelsLookupMissing(t *testing.T) {
 		t.Error("expected lookup of unknown slug to return ok=false")
 	}
 }
+
+// TestGetAllSensorModelsSortedBySlug verifies the slice is returned in a stable
+// slug-sorted order. SupportedSensorModels is a map, so without the sort the
+// order is nondeterministic and /api/serial/models could flake between runs.
+func TestGetAllSensorModelsSortedBySlug(t *testing.T) {
+	all := GetAllSensorModels()
+	if len(all) < 2 {
+		t.Fatalf("expected at least 2 sensor models, got %d", len(all))
+	}
+	for i := 1; i < len(all); i++ {
+		if all[i-1].Slug > all[i].Slug {
+			t.Errorf("GetAllSensorModels not sorted by slug: %q precedes %q", all[i-1].Slug, all[i].Slug)
+		}
+	}
+}
