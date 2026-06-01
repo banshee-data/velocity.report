@@ -27,6 +27,24 @@ input[type='number'] {
 	-moz-appearance: textfield;
 }
 
+/* Lock the document to the visible viewport so only .vr-page inner regions
+ * scroll — never the <body> itself.
+ *
+ * Every app route renders inside .vr-page (a dvh-sized shell with its own
+ * inner overflow-y-auto), so the document never needs to scroll. Without this
+ * lock, mobile browsers still let the <body> rubber-band/overscroll: that drags
+ * the position:fixed AppBar upward ("the whole frame moves up") and exposes the
+ * browser canvas — black in the dark theme — at the bottom as the URL bar
+ * collapses. overflow:hidden removes the body scroll; overscroll-behavior:none
+ * kills the bounce; the surface background means any sub-pixel transient shows
+ * the surface colour rather than black. */
+html,
+body {
+	overflow: hidden;
+	overscroll-behavior: none;
+	background-color: var(--color-surface-200);
+}
+
 /*
  * velocity.report shared standard classes — DESIGN.md §5.5
  *
