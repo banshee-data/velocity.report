@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestParseMigrateCommandArgsHandlesDBPathAfterAction(t *testing.T) {
-	args, dbPath, err := parseMigrateCommandArgs([]string{"up", "--db-path", "/tmp/custom.db"}, "sensor_data.db")
+	args, dbPath, explicitDBPath, err := parseMigrateCommandArgs([]string{"up", "--db-path", "/tmp/custom.db"}, "sensor_data.db")
 	if err != nil {
 		t.Fatalf("parseMigrateCommandArgs returned error: %v", err)
 	}
@@ -13,10 +13,13 @@ func TestParseMigrateCommandArgsHandlesDBPathAfterAction(t *testing.T) {
 	if dbPath != "/tmp/custom.db" {
 		t.Fatalf("unexpected db path: %q", dbPath)
 	}
+	if !explicitDBPath {
+		t.Fatal("expected explicit db-path to be recorded")
+	}
 }
 
 func TestParseMigrateCommandArgsHandlesDBPathBeforeAction(t *testing.T) {
-	args, dbPath, err := parseMigrateCommandArgs([]string{"--db-path=/tmp/custom.db", "status"}, "sensor_data.db")
+	args, dbPath, explicitDBPath, err := parseMigrateCommandArgs([]string{"--db-path=/tmp/custom.db", "status"}, "sensor_data.db")
 	if err != nil {
 		t.Fatalf("parseMigrateCommandArgs returned error: %v", err)
 	}
@@ -26,10 +29,13 @@ func TestParseMigrateCommandArgsHandlesDBPathBeforeAction(t *testing.T) {
 	if dbPath != "/tmp/custom.db" {
 		t.Fatalf("unexpected db path: %q", dbPath)
 	}
+	if !explicitDBPath {
+		t.Fatal("expected explicit db-path to be recorded")
+	}
 }
 
 func TestParseMigrateCommandArgsRejectsUnknownFlags(t *testing.T) {
-	_, _, err := parseMigrateCommandArgs([]string{"up", "--bogus"}, "sensor_data.db")
+	_, _, _, err := parseMigrateCommandArgs([]string{"up", "--bogus"}, "sensor_data.db")
 	if err == nil {
 		t.Fatal("expected error for unknown migrate flag")
 	}

@@ -64,8 +64,9 @@ var (
 	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
 )
 
-func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, error) {
+func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
 	dbPath := defaultDBPath
+	explicitDBPath := false
 	positionals := make([]string, 0, len(args))
 
 	for i := 0; i < len(args); i++ {
@@ -73,28 +74,30 @@ func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, str
 		switch {
 		case arg == "--":
 			positionals = append(positionals, args[i+1:]...)
-			return positionals, dbPath, nil
+			return positionals, dbPath, explicitDBPath, nil
 		case arg == "--db-path":
 			if i+1 >= len(args) {
-				return nil, "", fmt.Errorf("flag needs an argument: --db-path")
+				return nil, "", false, fmt.Errorf("flag needs an argument: --db-path")
 			}
 			dbPath = args[i+1]
+			explicitDBPath = true
 			i++
 		case strings.HasPrefix(arg, "--db-path="):
 			dbPath = strings.TrimPrefix(arg, "--db-path=")
+			explicitDBPath = true
 			if dbPath == "" {
-				return nil, "", fmt.Errorf("flag needs an argument: --db-path")
+				return nil, "", false, fmt.Errorf("flag needs an argument: --db-path")
 			}
 		case arg == "--help" || arg == "-h":
-			return []string{"help"}, dbPath, nil
+			return []string{"help"}, dbPath, explicitDBPath, nil
 		case strings.HasPrefix(arg, "-"):
-			return nil, "", fmt.Errorf("unknown migrate flag: %s", arg)
+			return nil, "", false, fmt.Errorf("unknown migrate flag: %s", arg)
 		default:
 			positionals = append(positionals, arg)
 		}
 	}
 
-	return positionals, dbPath, nil
+	return positionals, dbPath, explicitDBPath, nil
 }
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -354,7 +357,11 @@ func main() {
 		}
 		if subcommand == "migrate" {
 			remainingArgs := flag.Args()[1:]
-			migrateArgs, migrateDBPath, err := parseMigrateCommandArgs(remainingArgs, *dbPathFlag)
+			// explicitDBPath is parsed and unit-tested for completeness, but the
+			// migrate command itself now echoes the resolved absolute DB target
+			// and refuses to create a stray DB for non-bootstrap actions (see
+			// db.RunMigrateCommand), so main() no longer needs it here.
+			migrateArgs, migrateDBPath, _, err := parseMigrateCommandArgs(remainingArgs, *dbPathFlag)
 			if err != nil {
 				log.Fatalf("Could not parse migrate flags: %v. Run 'velocity-report migrate help' for usage", err)
 			}
