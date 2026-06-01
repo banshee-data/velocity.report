@@ -930,37 +930,39 @@
 
 		<!-- Coordinate Display (Read-only) -->
 		<!--
-			Stacked layout: Radar Position is a top-down list (Lat, Lng, Map Angle)
-			with the Bounding Box's 2x2 grid placed underneath rather than in a
-			side-by-side second column, so it stays readable on narrow viewports.
+			Responsive layout: the Radar Position and Bounding Box blocks stack
+			vertically on narrow viewports (readable on mobile) and sit side by
+			side from md: up so they use the available desktop width.
 		-->
-		<div class="max-w-sm space-y-4">
+		<div class="space-y-4">
 			<h4 class="font-medium">Current Coordinates</h4>
-			<div>
-				<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
-				<div class="grid grid-cols-2 gap-2">
-					<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
+			<div class="grid max-w-2xl grid-cols-1 gap-4 md:grid-cols-2">
+				<div>
+					<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
+					<div class="grid grid-cols-2 gap-2">
+						<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
+					</div>
+					<div class="mt-2">
+						<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
+						<NumberStepper
+							bind:value={localAngle}
+							step={1}
+							class="w-32"
+							on:change={(e) => setAngle(e.detail.value)}
+						>
+							<span slot="suffix">°</span>
+						</NumberStepper>
+					</div>
 				</div>
-				<div class="mt-2">
-					<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
-					<NumberStepper
-						bind:value={localAngle}
-						step={1}
-						class="w-32"
-						on:change={(e) => setAngle(e.detail.value)}
-					>
-						<span slot="suffix">°</span>
-					</NumberStepper>
-				</div>
-			</div>
-			<div>
-				<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
-				<div class="grid grid-cols-2 gap-2">
-					<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
+				<div>
+					<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
+					<div class="grid grid-cols-2 gap-2">
+						<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
+					</div>
 				</div>
 			</div>
 		</div>
