@@ -114,26 +114,30 @@ Charts do not need to be 100% identical; meaning and readability must be aligned
 
 ## 5. Web UI style system
 
-### 5.1 Existing canonical web styles
+### 5.1 Two shells
 
-Modern workspace (default for new operational views):
+**Modern workspace shell** (`vr-page` / `vr-toolbar`):
 
-- `/app/lidar/tracks`
-- `/app/lidar/scenes`
-- `/app/lidar/runs`
-- `/app/lidar/sweeps`
+- Full-width canvas inside the viewport gutters.
+- Workspace-style toolbar with primary actions and filters.
+- Use for **list/index views** of operational data — tables and dashboards the user scans, sorts, filters, and acts on.
+- Examples: `/app/lidar/tracks`, `/app/lidar/scenes`, `/app/lidar/runs`, `/app/lidar/sweeps`, `/app/site`.
 
-Classic stack (valid for constrained CRUD/settings):
+**Classic constrained shell**:
 
-- `/app/site`
-- `/app/site/[id]`
-- `/app/reports`
-- `/app/settings`
+- Reading-width content (780-1100px) centred in the viewport.
+- Single-column form/settings layout.
+- Use for **single-entity detail/edit views** and **configuration pages** — content the user reads or fills in field-by-field, not scans across rows.
+- Examples: `/app/site/[id]`, `/app/reports`, `/app/settings`.
 
 ### 5.2 Selection rule
 
-Use modern workspace by default.
-Use classic stack for linear form/settings pages with minimal real-time data behaviour.
+Choose the shell by **view intent**, not URL family:
+
+- Modern workspace when the page renders a list, table, grid, or dashboard of multiple entities or live signals, and the user is expected to scan/filter/act across rows.
+- Classic constrained when the page renders a single entity (detail, edit, settings) and the user is expected to read or edit field-by-field.
+
+**List/detail families intentionally use both shells.** A route family that contains both a list (e.g. `/app/site`) and a detail/edit view (e.g. `/app/site/[id]`) is expected to use the workspace shell for the list and the constrained shell for the detail. The visual shift between the two is the feature, not an inconsistency — it signals "you've moved from scanning to editing". Apply the same rule to future families (e.g. `/app/lidar/runs` list workspace + a hypothetical `/app/lidar/runs/[id]` constrained detail).
 
 ### 5.3 Component policy (Svelte-UX first)
 
