@@ -63,12 +63,12 @@
 
 <main id="main-content" class="vr-page">
 	<div class="vr-toolbar">
-		<div class="flex items-center justify-between">
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Site Management</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">Manage radar survey site configurations</p>
 			</div>
-			<div class="flex gap-2">
+			<div class="flex flex-shrink-0 gap-2">
 				<Button variant="outline" on:click={loadSites} disabled={loading}>
 					{loading ? 'Loading...' : 'Refresh'}
 				</Button>
@@ -99,27 +99,46 @@
 						</Button>
 					</div>
 				{:else}
-					<div class="overflow-x-auto">
-						<table class="w-full border-collapse">
+					<!-- Card-wrapped table matching the lidar routes (sweeps, runs). Site
+					     editing is a full page route, so the Edit button (not a row
+					     click) opens the detail, preserving the row-header semantics. -->
+					<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
+						<table class="w-full">
 							<caption class="sr-only">List of configured radar survey sites</caption>
 							<thead>
 								<tr class="border-surface-content/10 border-b">
-									<th scope="col" class="px-4 py-2 text-left font-semibold">Name</th>
-									<th scope="col" class="hidden px-4 py-2 text-left font-semibold sm:table-cell">
+									<th
+										scope="col"
+										class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Name</th
+									>
+									<th
+										scope="col"
+										class="text-surface-content/70 hidden px-4 py-3 text-left text-sm font-medium sm:table-cell"
+									>
 										Location
 									</th>
-									<th scope="col" class="px-4 py-2 text-right font-semibold">Actions</th>
+									<th
+										scope="col"
+										class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+										>Actions</th
+									>
 								</tr>
 							</thead>
 							<tbody>
 								{#each sites as site (site.id)}
 									<tr
-										class="hover:bg-surface-50 border-surface-content/10 border-b transition-colors"
+										class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0"
 									>
-										<th scope="row" class="px-4 py-2 text-left font-medium">{site.name}</th>
-										<td class="hidden px-4 py-2 sm:table-cell">{site.location}</td>
-										<td class="px-4 py-2 text-right">
-											<div class="flex justify-end gap-2">
+										<th
+											scope="row"
+											class="text-surface-content px-4 py-3 text-left text-sm font-medium"
+											>{site.name}</th
+										>
+										<td class="text-surface-content/70 hidden px-4 py-3 text-sm sm:table-cell"
+											>{site.location}</td
+										>
+										<td class="px-4 py-3 text-center">
+											<div class="flex justify-center gap-2">
 												<Button
 													icon={mdiPencil}
 													size="sm"
