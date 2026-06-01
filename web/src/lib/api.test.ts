@@ -3001,7 +3001,7 @@ describe('api', () => {
 	describe('Serial Configuration', () => {
 		describe('getSerialConfigs', () => {
 			it('should fetch all serial configs', async () => {
-				const mockConfigs = [{ id: 1, name: 'HAT', port_path: '/dev/ttySC1' }];
+				const mockConfigs = [{ id: 1, port_path: '/dev/ttySC1' }];
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
 					json: async () => mockConfigs
@@ -3021,7 +3021,7 @@ describe('api', () => {
 
 		describe('getSerialConfig', () => {
 			it('should fetch a single serial config', async () => {
-				const mockConfig = { id: 1, name: 'HAT', port_path: '/dev/ttySC1' };
+				const mockConfig = { id: 1, port_path: '/dev/ttySC1' };
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
 					json: async () => mockConfig
@@ -3042,14 +3042,12 @@ describe('api', () => {
 		describe('createSerialConfig', () => {
 			it('should create a serial config', async () => {
 				const newConfig = {
-					name: 'USB',
 					port_path: '/dev/ttyUSB0',
 					baud_rate: 19200,
 					data_bits: 8,
 					stop_bits: 1,
 					parity: 'N',
 					enabled: true,
-					description: '',
 					sensor_model: 'ops243-a'
 				};
 				const created = { id: 2, ...newConfig };
@@ -3075,14 +3073,12 @@ describe('api', () => {
 				const { createSerialConfig } = await import('./api');
 				await expect(
 					createSerialConfig({
-						name: 'dup',
 						port_path: '/dev/ttyUSB0',
 						baud_rate: 19200,
 						data_bits: 8,
 						stop_bits: 1,
 						parity: 'N',
 						enabled: true,
-						description: '',
 						sensor_model: 'ops243-a'
 					})
 				).rejects.toThrow('Failed to create serial config: Duplicate name');
@@ -3092,14 +3088,12 @@ describe('api', () => {
 		describe('updateSerialConfig', () => {
 			it('should update a serial config', async () => {
 				const update = {
-					name: 'Updated',
 					port_path: '/dev/ttyUSB0',
 					baud_rate: 115200,
 					data_bits: 8,
 					stop_bits: 1,
 					parity: 'N',
 					enabled: false,
-					description: 'updated',
 					sensor_model: 'ops243-c'
 				};
 				const updated = { id: 1, ...update };
@@ -3125,14 +3119,12 @@ describe('api', () => {
 				const { updateSerialConfig } = await import('./api');
 				await expect(
 					updateSerialConfig(99, {
-						name: 'x',
 						port_path: '/dev/ttyUSB0',
 						baud_rate: 19200,
 						data_bits: 8,
 						stop_bits: 1,
 						parity: 'N',
 						enabled: true,
-						description: '',
 						sensor_model: 'ops243-a'
 					})
 				).rejects.toThrow('Failed to update serial config: Not found');

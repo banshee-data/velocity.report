@@ -1134,28 +1134,24 @@ export async function stopHINT(): Promise<void> {
 
 export interface SerialConfig {
 	id: number;
-	name: string;
 	port_path: string;
 	baud_rate: number;
 	data_bits: number;
 	stop_bits: number;
 	parity: string;
 	enabled: boolean;
-	description: string;
 	sensor_model: string;
 	created_at: number;
 	updated_at: number;
 }
 
 export interface SerialConfigRequest {
-	name: string;
 	port_path: string;
 	baud_rate: number;
 	data_bits: number;
 	stop_bits: number;
 	parity: string;
 	enabled: boolean;
-	description: string;
 	sensor_model: string;
 }
 

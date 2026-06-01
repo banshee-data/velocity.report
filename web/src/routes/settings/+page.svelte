@@ -33,14 +33,15 @@
 	import { onMount } from 'svelte';
 	import {
 		Button,
-		Checkbox,
 		Dialog,
 		Field,
+		Icon,
 		Notification,
 		SelectField,
 		Switch,
 		TextField
 	} from 'svelte-ux';
+	import { mdiCheck, mdiClose } from '@mdi/js';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	// ─── Display preferences (units, timezone, paper size) ───────────────
@@ -83,14 +84,12 @@
 	let showEditPanel = false;
 	let editingConfig: SerialConfig | null = null;
 	let formData: SerialConfigRequest = {
-		name: '',
 		port_path: '',
 		baud_rate: 19200,
 		data_bits: 8,
 		stop_bits: 1,
 		parity: 'N',
 		enabled: true,
-		description: '',
 		sensor_model: 'ops243-a'
 	};
 	let manualPortEntry = false;
@@ -482,14 +481,12 @@
 					? portPathOptions[0].value
 					: '';
 		formData = {
-			name: '',
 			port_path: defaultPort,
 			baud_rate: 19200,
 			data_bits: 8,
 			stop_bits: 1,
 			parity: 'N',
 			enabled: true,
-			description: '',
 			sensor_model: 'ops243-a'
 		};
 		rebuildPortPathOptions(availableDevices, serialConfigs, formData.port_path);
@@ -500,14 +497,12 @@
 	function openEditPanel(c: SerialConfig) {
 		editingConfig = c;
 		formData = {
-			name: c.name,
 			port_path: c.port_path,
 			baud_rate: c.baud_rate,
 			data_bits: c.data_bits,
 			stop_bits: c.stop_bits,
 			parity: c.parity,
 			enabled: c.enabled,
-			description: c.description,
 			sensor_model: c.sensor_model
 		};
 		rebuildPortPathOptions(availableDevices, serialConfigs, formData.port_path);
@@ -665,9 +660,7 @@
 									<table class="w-full border-collapse">
 										<thead>
 											<tr class="border-b">
-												<th class="px-4 py-2 text-left font-semibold">Name</th>
 												<th class="px-4 py-2 text-left font-semibold">Port Path</th>
-												<th class="px-4 py-2 text-left font-semibold">Baud Rate</th>
 												<th class="px-4 py-2 text-left font-semibold">Status</th>
 												<th class="px-4 py-2 text-left font-semibold">Actions</th>
 											</tr>
@@ -675,9 +668,7 @@
 										<tbody>
 											{#each serialConfigs as row (row.id)}
 												<tr class="hover:bg-surface-50 border-b transition-colors">
-													<td class="px-4 py-2">{row.name}</td>
 													<td class="px-4 py-2">{row.port_path}</td>
-													<td class="px-4 py-2">{row.baud_rate}</td>
 													<td class="px-4 py-2">
 														{#if row.enabled}
 															<span class="text-success-500 font-medium">Enabled</span>
@@ -989,8 +980,11 @@
 		     Same affordance as /app/lidar/replay-cases — main content stays
 		     scrollable and interactive while the editor is open. -->
 		{#if showEditPanel}
+			<!-- On mobile the editor is a full-viewport fixed overlay (covers the
+			     settings page entirely, keeps the footer Save button on-screen).
+			     From sm: up it reverts to an in-flow 400px side panel. -->
 			<aside
-				class="border-surface-content/10 bg-surface-100 flex w-full flex-none flex-col overflow-y-auto border-l sm:w-[400px]"
+				class="border-surface-content/10 bg-surface-100 fixed inset-0 z-50 flex w-full flex-none flex-col overflow-y-auto border-l sm:static sm:inset-auto sm:z-auto sm:w-[400px]"
 				aria-label="Serial port editor"
 			>
 				<header class="border-surface-content/10 flex items-center justify-between border-b p-4">
@@ -1008,13 +1002,6 @@
 				</header>
 
 				<div class="flex-1 space-y-4 overflow-y-auto p-4">
-					<TextField
-						label="Configuration Name"
-						value={formData.name}
-						on:change={(e) => updateFormData({ name: (e as CustomEvent).detail.value ?? '' })}
-						required
-					/>
-
 					<!-- Port path: SelectField for detected devices, with a
 					     toggle to a free-text TextField for non-enumerated
 					     paths (HAT pins, custom drivers, etc). -->
@@ -1132,17 +1119,17 @@
 						</Field>
 					</div>
 
-					<TextField
-						label="Description"
-						value={formData.description}
-						on:change={(e) =>
-							updateFormData({ description: (e as CustomEvent).detail.value ?? '' })}
-						multiline
-						rows={3}
-					/>
-
 					<Field label="Enabled" let:id>
-						<Checkbox {id} bind:checked={formData.enabled}>Enable</Checkbox>
+						<div class="flex items-center gap-3">
+							<Switch {id} bind:checked={formData.enabled} let:checked>
+								<Icon
+									path={checked ? mdiCheck : mdiClose}
+									size="0.7rem"
+									class={checked ? 'text-primary' : 'text-surface-content/50'}
+								/>
+							</Switch>
+							<span class="text-sm">{formData.enabled ? 'Enabled' : 'Disabled'}</span>
+						</div>
 					</Field>
 				</div>
 
@@ -1164,8 +1151,8 @@
 	<div class="space-y-4 p-6">
 		<h2 class="text-xl font-semibold">Delete Configuration</h2>
 		<p>
-			Are you sure you want to delete the configuration "{deletingConfig?.name}"? This action cannot
-			be undone.
+			Are you sure you want to delete the configuration for "{deletingConfig?.port_path}"? This
+			action cannot be undone.
 		</p>
 		<div class="flex gap-2 pt-4">
 			<Button on:click={() => (showDeleteDialog = false)} variant="outline">Cancel</Button>
