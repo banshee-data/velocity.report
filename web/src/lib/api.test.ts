@@ -3068,7 +3068,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: false,
-					text: async () => 'Duplicate name'
+					text: async () => 'Port path is already configured'
 				});
 				const { createSerialConfig } = await import('./api');
 				await expect(
@@ -3081,7 +3081,7 @@ describe('api', () => {
 						enabled: true,
 						sensor_model: 'ops243-a'
 					})
-				).rejects.toThrow('Failed to create serial config: Duplicate name');
+				).rejects.toThrow('Failed to create serial config: Port path is already configured');
 			});
 		});
 
