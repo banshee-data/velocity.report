@@ -617,9 +617,9 @@
 	</div>
 
 	<div class="flex flex-1 overflow-hidden">
-		<!-- LEFT: settings cards stacked, scroll independently -->
+		<!-- LEFT: settings sections stacked, scroll independently -->
 		<div class="flex-1 overflow-y-auto p-6">
-			<div class="mx-auto max-w-3xl space-y-6">
+			<div class="vr-content-narrow space-y-6">
 				{#if loading}
 					<div class="text-surface-content/50 py-12 text-center" role="status" aria-live="polite">
 						Loading settings...

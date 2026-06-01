@@ -72,6 +72,28 @@ input[type='number'] {
 	padding: 1rem;
 }
 
+/*
+ * Inner content-width wrappers (DESIGN.md §5.1).
+ *
+ * Both pair with the vr-page shell: the shell is universal, the inner
+ * wrapper picks the content width based on view intent.
+ *
+ *   vr-content-narrow  — settings, CRUD, single-entity forms (reading width)
+ *   vr-content-wide    — analytical dashboards (bounded canvas)
+ *
+ * LiDAR workspace routes (tables, visualisations) skip the wrapper and
+ * use full canvas width inside vr-page directly.
+ */
+.vr-content-narrow {
+	margin-inline: auto;
+	max-width: 48rem; /* 768px — matches Tailwind max-w-3xl */
+}
+
+.vr-content-wide {
+	margin-inline: auto;
+	max-width: 96rem; /* 1536px — matches Tailwind max-w-screen-2xl; per DESIGN.md §5.7 analytical bound */
+}
+
 /* =========================================================================
  * Table stripes — emerald tint, barely visible, works on light and dark
  * rgba(4,120,87, …) = emerald-700; transparency does the work on both themes
