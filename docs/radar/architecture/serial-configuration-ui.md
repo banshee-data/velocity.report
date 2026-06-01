@@ -109,7 +109,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Schema Design:**
 
-> **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations). Table `radar_serial_config` with columns: id, name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model, created_at, updated_at. The current schema uses a basic `LIKE 'ops243-%'` check, while the API validates supported models in Go.
+> **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations). Table `radar_serial_config` with columns: id, port_path (UNIQUE), baud_rate, data_bits, stop_bits, parity, enabled, sensor_model, created_at, updated_at. The current schema uses a basic `LIKE 'ops243-%'` check, while the API validates supported models in Go.
 
 **Rationale:**
 

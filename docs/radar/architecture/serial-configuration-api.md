@@ -31,19 +31,17 @@ API reference for the serial configuration surface in the current implementation
 | Field          | Type    | Notes                             |
 | -------------- | ------- | --------------------------------- |
 | `id`           | integer | Auto-assigned                     |
-| `name`         | string  | Unique                            |
-| `port_path`    | string  | e.g. `/dev/ttySC1`                |
+| `port_path`    | string  | e.g. `/dev/ttySC1`; unique        |
 | `baud_rate`    | integer | 9600, 19200, 38400, 57600, 115200 |
 | `data_bits`    | integer | Default 8                         |
 | `stop_bits`    | integer | Default 1                         |
 | `parity`       | string  | `"N"` (8N1 default)               |
 | `enabled`      | boolean |                                   |
-| `description`  | string  |                                   |
 | `sensor_model` | string  | `ops243-a` or `ops243-c`          |
 | `created_at`   | integer | Unix timestamp                    |
 | `updated_at`   | integer | Unix timestamp                    |
 
-**Create/Update request body:** `name`, `port_path`, `baud_rate`, `data_bits`, `stop_bits`, `parity`, `enabled`, `description`, `sensor_model`.
+**Create/Update request body:** `port_path`, `baud_rate`, `data_bits`, `stop_bits`, `parity`, `enabled`, `sensor_model`.
 
 The current implementation expects a full object for `PUT`, not a sparse patch.
 

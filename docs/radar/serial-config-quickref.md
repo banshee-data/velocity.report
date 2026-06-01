@@ -53,14 +53,12 @@ The `radar_serial_config` table stores serial port configurations:
 | Column         | Type    | Constraint / Default                                              |
 | -------------- | ------- | ----------------------------------------------------------------- |
 | `id`           | INTEGER | PRIMARY KEY AUTOINCREMENT                                         |
-| `name`         | TEXT    | NOT NULL UNIQUE                                                   |
-| `port_path`    | TEXT    | NOT NULL                                                          |
+| `port_path`    | TEXT    | NOT NULL UNIQUE                                                   |
 | `baud_rate`    | INTEGER | NOT NULL DEFAULT 19200                                            |
 | `data_bits`    | INTEGER | NOT NULL DEFAULT 8                                                |
 | `stop_bits`    | INTEGER | NOT NULL DEFAULT 1                                                |
 | `parity`       | TEXT    | NOT NULL DEFAULT `'N'`                                            |
 | `enabled`      | INTEGER | NOT NULL DEFAULT 1                                                |
-| `description`  | TEXT    |                                                                   |
 | `sensor_model` | TEXT    | NOT NULL DEFAULT `'ops243-a'`, basic `LIKE 'ops243-%'` validation |
 | `created_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                          |
 | `updated_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                          |
