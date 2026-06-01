@@ -143,7 +143,7 @@ Legacy aliases are kept for compatibility.
 - `schema-sync`: Regenerate schema.sql from latest migrations
 
 Production Linux note: `velocity-report` defaults to `sensor_data.db` in the current working
-directory. Development on macOS or Linux can keep using `./sensor_data.db`, but deployed Linux
+directory. Development on macOS or Linux can keep using `./sensor_data.db`, but deployed Linux <!-- link-ignore -->
 service installs should target `/var/lib/velocity-report/sensor_data.db` explicitly and use the
 service account or `root`, for example `sudo -u velocity /usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db migrate status`.
 
