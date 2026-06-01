@@ -52,6 +52,7 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not delete site.';
 			showDeleteDialog = false;
+			deletingSite = null;
 		}
 	}
 </script>
@@ -186,6 +187,7 @@
 		<Button
 			on:click={() => {
 				showDeleteDialog = false;
+				deletingSite = null;
 			}}
 			variant="outline"
 		>
