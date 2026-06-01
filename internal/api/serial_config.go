@@ -72,6 +72,13 @@ func (s *Server) handleSerialConfigs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A nil slice marshals as JSON `null`, which crashes frontend callers that
+	// iterate the list (e.g. rebuildPortPathOptions' .forEach). Force `[]` for
+	// an empty config set so the wire shape is always an array.
+	if configs == nil {
+		configs = []db.SerialConfig{}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(configs); err != nil {
 		log.Printf("Error encoding serial configs response: %v", err)
