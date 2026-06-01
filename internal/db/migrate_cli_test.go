@@ -44,6 +44,66 @@ func TestRunMigrateCommand_Help(t *testing.T) {
 	// that are called by it.
 }
 
+func TestActionRequiresExistingDB(t *testing.T) {
+	cases := map[string]bool{
+		// Read/rollback/repair actions must have an existing database.
+		"down":    true,
+		"status":  true,
+		"version": true,
+		"force":   true,
+		"detect":  true,
+		// Bootstrap actions, help, and unknown actions are not guarded.
+		"up":       false,
+		"baseline": false,
+		"help":     false,
+		"":         false,
+		"bogus":    false,
+	}
+	for action, want := range cases {
+		if got := actionRequiresExistingDB(action); got != want {
+			t.Errorf("actionRequiresExistingDB(%q) = %v, want %v", action, got, want)
+		}
+	}
+}
+
+func TestCheckMigrateDBExists(t *testing.T) {
+	missing := func(string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	present := func(string) (os.FileInfo, error) { return nil, nil }
+	otherErr := func(string) (os.FileInfo, error) { return nil, os.ErrPermission }
+
+	// Bootstrap actions may run against an absent database.
+	for _, action := range []string{"up", "baseline", "help"} {
+		if err := checkMigrateDBExists(action, "/missing/sensor_data.db", missing); err != nil {
+			t.Errorf("checkMigrateDBExists(%q, missing) = %v, want nil", action, err)
+		}
+	}
+
+	// Read/rollback actions must refuse a missing database with actionable guidance.
+	for _, action := range []string{"status", "down", "version", "force", "detect"} {
+		err := checkMigrateDBExists(action, "/missing/sensor_data.db", missing)
+		if err == nil {
+			t.Errorf("checkMigrateDBExists(%q, missing) = nil, want error", action)
+			continue
+		}
+		if !strings.Contains(err.Error(), "/missing/sensor_data.db") {
+			t.Errorf("error %q should name the missing path", err)
+		}
+		if !strings.Contains(err.Error(), "migrate up") {
+			t.Errorf("error %q should suggest 'migrate up'", err)
+		}
+	}
+
+	// An existing database never triggers the guard.
+	if err := checkMigrateDBExists("status", "/exists/sensor_data.db", present); err != nil {
+		t.Errorf("checkMigrateDBExists(status, present) = %v, want nil", err)
+	}
+
+	// A non-not-exist stat error is left for OpenDB to report, not this guard.
+	if err := checkMigrateDBExists("status", "/locked/sensor_data.db", otherErr); err != nil {
+		t.Errorf("checkMigrateDBExists(status, permission error) = %v, want nil", err)
+	}
+}
+
 func TestRunMigrateCommand_KnownActions_DoNotExit(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "migrate-actions.db")

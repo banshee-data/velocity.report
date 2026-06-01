@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -29,6 +30,7 @@ type Server struct {
 	transitController    TransitController    // Interface for transit worker control
 	capabilitiesProvider CapabilitiesProvider // Interface for sensor capability reporting
 	tailscale            TailscaleController  // Interface for Tailscale enable/disable/status
+	serialManager        *SerialPortManager
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -88,6 +90,22 @@ func (s *Server) SetCapabilitiesProvider(cp CapabilitiesProvider) {
 	s.capabilitiesProvider = cp
 }
 
+// SetSerialManager installs the SerialPortManager that should be used to handle
+// hot-reload requests. When not set (nil), the /api/serial/reload endpoint will
+// return HTTP 503 Service Unavailable.
+func (s *Server) SetSerialManager(manager *SerialPortManager) {
+	s.serialManager = manager
+}
+
+func (s *Server) currentSerialMux() serialmux.SerialMuxInterface {
+	if s.serialManager != nil {
+		if mux := s.serialManager.CurrentMux(); mux != nil {
+			return mux
+		}
+	}
+	return s.m
+}
+
 func (s *Server) ServeMux() *http.ServeMux {
 	if s.mux != nil {
 		return s.mux
@@ -102,6 +120,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/capabilities", s.showCapabilities)
+	s.mux.HandleFunc("/api/version", s.showVersion)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
 	s.mux.HandleFunc("/api/sites/", s.handleSites) // Note trailing slash to match /api/sites and /api/sites/*
@@ -116,6 +135,18 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/tailscale/status", s.handleTailscaleStatus)
 	s.mux.HandleFunc("/api/tailscale/enable", s.handleTailscaleEnable)
 	s.mux.HandleFunc("/api/tailscale/disable", s.handleTailscaleDisable)
+
+	// Serial configuration endpoints
+	s.mux.HandleFunc("/api/serial/configs", s.handleSerialConfigsOrCreate)
+	s.mux.HandleFunc("/api/serial/configs/", s.handleSerialConfigByID)
+	s.mux.HandleFunc("/api/serial/models", s.handleSensorModels)
+	s.mux.HandleFunc("/api/serial/test", s.handleSerialTest)
+	s.mux.HandleFunc("/api/serial/devices", s.handleSerialDevices)
+	s.mux.HandleFunc("/api/serial/reload", s.handleSerialReload)
+
+	// Map data proxy — fetches Overpass (OSM) data server-side so the browser
+	// isn't blocked by the mirrors' User-Agent filtering and missing CORS.
+	s.mux.HandleFunc("/api/map/overpass", s.handleMapOverpass)
 	return s.mux
 }
 
@@ -127,7 +158,7 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
-	if err := s.m.SendCommand(command); err != nil {
+	if err := s.currentSerialMux().SendCommand(command); err != nil {
 		http.Error(w, "Failed to send command", http.StatusInternalServerError)
 		return
 	}
@@ -140,6 +171,41 @@ func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
 		log.Printf("failed to encode json error response: %v", err)
+	}
+}
+
+// handleSerialReload handles POST /api/serial/reload requests to reconfigure the
+// serial port with settings from the database. This endpoint is only available when
+// a SerialPortManager has been installed via SetSerialManager.
+func (s *Server) handleSerialReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.serialManager == nil {
+		s.writeJSONError(w, http.StatusServiceUnavailable, "Serial reload not available on this instance")
+		return
+	}
+
+	result, err := s.serialManager.ReloadConfig(r.Context())
+	if err != nil {
+		log.Printf("serial reload failed: %v", err)
+		// "Not configured" cases (no factory/DB, e.g. fixture or disabled
+		// modes) are availability conditions, not server faults, so report
+		// 503 to match the serialManager == nil branch above. Genuine reload
+		// failures (port open, invalid config, DB query) stay 500.
+		status := http.StatusInternalServerError
+		if errors.Is(err, ErrSerialFactoryNotConfigured) || errors.Is(err, ErrSerialDBNotConfigured) {
+			status = http.StatusServiceUnavailable
+		}
+		s.writeJSONError(w, status, fmt.Sprintf("Failed to reload serial configuration: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("Error encoding serial reload response: %v", err)
 	}
 }
 

@@ -78,10 +78,15 @@ def parse_schema(schema_content: str) -> Tuple[Dict[str, str], Dict[str, List[st
         if not table_name:
             continue
 
-        # Store the full statement (up to and including the closing semicolon)
-        # Find the end of the CREATE TABLE statement (before any CREATE INDEX/TRIGGER)
+        # Store the full statement (up to and including the closing semicolon).
+        # The lookahead split above guarantees `part` holds exactly one CREATE
+        # TABLE (any following INDEX/TRIGGER begins a new part), so the table's
+        # terminating `;` is the LAST semicolon in `part`. A greedy match is
+        # therefore required: a non-greedy `.*?;` stops at the first semicolon,
+        # which may legitimately appear inside a `--` comment or string literal
+        # within the column list, truncating the statement mid-definition.
         match = re.search(
-            r"(CREATE\s+TABLE.*?;\s*)",
+            r"(CREATE\s+TABLE.*;\s*)",
             part,
             re.IGNORECASE | re.DOTALL,
         )

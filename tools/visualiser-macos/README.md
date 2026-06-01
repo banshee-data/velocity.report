@@ -151,7 +151,11 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 ### Running tests
 
 ```bash
-xcodebuild test -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser
+# From the repository root
+make test-mac
+
+# With coverage output
+make test-mac-cov
 ```
 
 ### Regenerating Protobuf stubs

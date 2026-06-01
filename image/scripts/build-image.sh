@@ -39,6 +39,61 @@ log_info()  { echo -e "${GREEN}✓${NC} $1"; }
 log_warn()  { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 
+DOCKER_BUILDER_IMAGE="velocity-builder"
+DOCKER_TOOLCHAIN_IMAGE="velocity-builder-toolchain"
+DOCKER_BUILD_CONTAINER_ID=""
+DOCKER_BUILD_CLEANUP_REQUESTED=0
+DOCKER_GO_MOD_CACHE_DIR=""
+DOCKER_GO_BUILD_CACHE_DIR=""
+DOCKER_GO_TMP_DIR=""
+
+cleanup_docker_build_artifacts() {
+    local phase="${1:-cleanup}"
+
+    if [[ "$DOCKER_BUILD_CLEANUP_REQUESTED" -ne 1 ]]; then
+        return
+    fi
+
+    if ! command -v docker &>/dev/null; then
+        return
+    fi
+
+    if ! docker info &>/dev/null; then
+        return
+    fi
+
+    log_info "Cleaning Docker builder image and cache (${phase})..."
+
+    if [[ -n "$DOCKER_BUILD_CONTAINER_ID" ]]; then
+        docker rm -f "$DOCKER_BUILD_CONTAINER_ID" >/dev/null 2>&1 || true
+        DOCKER_BUILD_CONTAINER_ID=""
+    fi
+
+    docker image rm -f "$DOCKER_BUILDER_IMAGE" >/dev/null 2>&1 || true
+    docker image rm -f "$DOCKER_TOOLCHAIN_IMAGE" >/dev/null 2>&1 || true
+    # NOTE: do NOT run `docker builder prune -af` here. That command prunes
+    # the *global* BuildKit cache for the whole machine and can wipe out
+    # unrelated Docker work in progress. The project-specific images are
+    # already removed above; Docker's builder cache GC will reclaim the
+    # rest lazily, and operators can run an explicit `docker builder prune`
+    # themselves when they want it.
+
+    if [[ -n "$DOCKER_GO_MOD_CACHE_DIR" ]]; then
+        rm -rf "$DOCKER_GO_MOD_CACHE_DIR"
+        DOCKER_GO_MOD_CACHE_DIR=""
+    fi
+
+    if [[ -n "$DOCKER_GO_BUILD_CACHE_DIR" ]]; then
+        rm -rf "$DOCKER_GO_BUILD_CACHE_DIR"
+        DOCKER_GO_BUILD_CACHE_DIR=""
+    fi
+
+    if [[ -n "$DOCKER_GO_TMP_DIR" ]]; then
+        rm -rf "$DOCKER_GO_TMP_DIR"
+        DOCKER_GO_TMP_DIR=""
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # 0. Cleanup handler — remove transient copies on exit
 # ---------------------------------------------------------------------------
@@ -46,6 +101,7 @@ PIGEN_DIR="$IMAGE_DIR/.pi-gen"
 
 cleanup() {
     log_info "Cleaning up transient build files..."
+    cleanup_docker_build_artifacts "exit"
     rm -rf "$PIGEN_DIR/stage-velocity"
     rm -rf "$PIGEN_DIR/velocity-binaries"
     # Remove transient copies staged from the repo into the working tree
@@ -113,6 +169,8 @@ if [[ "$HOST_BUILD" -eq 0 || "$BINARIES_ONLY" -eq 0 ]]; then
     fi
 fi
 
+trap cleanup EXIT
+
 # ---------------------------------------------------------------------------
 # 4. Build ARM64 binaries
 # ---------------------------------------------------------------------------
@@ -155,21 +213,49 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         cp -f "$CTL_BIN" "$BINARIES_DIR/velocity-ctl"
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
+        # Use a slim toolchain image plus host-mounted temp caches so the large
+        # Go module tree does not have to fit inside Docker's internal storage.
         log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
 
+        DOCKER_BUILD_CLEANUP_REQUESTED=1
+        cleanup_docker_build_artifacts "before build"
+
         docker build \
+            --force-rm \
             --platform linux/amd64 \
             -f "$IMAGE_DIR/Dockerfile.build" \
-            --build-arg VERSION="$VERSION" \
-            --build-arg GIT_SHA="$GIT_SHA" \
-            --build-arg BUILD_TIME="$BUILD_TIME" \
-            -t velocity-builder \
+            --target toolchain \
+            -t "$DOCKER_TOOLCHAIN_IMAGE" \
             .
 
-        CONTAINER_ID=$(docker create velocity-builder)
-        docker cp "$CONTAINER_ID:/out/velocity-report" "$BINARIES_DIR/velocity-report"
-        docker cp "$CONTAINER_ID:/out/velocity-ctl" "$BINARIES_DIR/velocity-ctl"
-        docker rm "$CONTAINER_ID" >/dev/null
+        DOCKER_GO_MOD_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-mod.XXXXXX")"
+        DOCKER_GO_BUILD_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-build.XXXXXX")"
+        DOCKER_GO_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-tmp.XXXXXX")"
+
+        docker run \
+            --rm \
+            --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" \
+            -e VERSION="$VERSION" \
+            -e GIT_SHA="$GIT_SHA" \
+            -e BUILD_TIME="$BUILD_TIME" \
+            -e GOMODCACHE=/tmp/go-mod-cache \
+            -e GOCACHE=/tmp/go-build-cache \
+            -e GOTMPDIR=/tmp/go-tmp \
+            -v "$REPO_ROOT:/build" \
+            -v "$BINARIES_DIR:/out" \
+            -v "$DOCKER_GO_MOD_CACHE_DIR:/tmp/go-mod-cache" \
+            -v "$DOCKER_GO_BUILD_CACHE_DIR:/tmp/go-build-cache" \
+            -v "$DOCKER_GO_TMP_DIR:/tmp/go-tmp" \
+            -w /build \
+            "$DOCKER_TOOLCHAIN_IMAGE" \
+            sh -lc '
+                export PATH=/usr/local/go/bin:$PATH
+                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-report ./cmd/radar &&
+                go build -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-ctl ./cmd/velocity-ctl
+            '
+
+        cleanup_docker_build_artifacts "after build"
     fi
 
     chmod +x "$BINARIES_DIR"/*
@@ -210,8 +296,6 @@ if [[ ! -d "$PIGEN_DIR" ]]; then
     git clone --depth 1 --branch "$PIGEN_BRANCH" \
         https://github.com/RPi-Distro/pi-gen.git "$PIGEN_DIR"
 fi
-
-trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
 # 6. Copy TeX Live build config into stage directory

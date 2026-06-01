@@ -27,6 +27,24 @@ input[type='number'] {
 	-moz-appearance: textfield;
 }
 
+/* Lock the document to the visible viewport so only .vr-page inner regions
+ * scroll — never the <body> itself.
+ *
+ * Every app route renders inside .vr-page (a dvh-sized shell with its own
+ * inner overflow-y-auto), so the document never needs to scroll. Without this
+ * lock, mobile browsers still let the <body> rubber-band/overscroll: that drags
+ * the position:fixed AppBar upward ("the whole frame moves up") and exposes the
+ * browser canvas — black in the dark theme — at the bottom as the URL bar
+ * collapses. overflow:hidden removes the body scroll; overscroll-behavior:none
+ * kills the bounce; the surface background means any sub-pixel transient shows
+ * the surface colour rather than black. */
+html,
+body {
+	overflow: hidden;
+	overscroll-behavior: none;
+	background-color: var(--color-surface-200);
+}
+
 /*
  * velocity.report shared standard classes — DESIGN.md §5.5
  *
@@ -34,11 +52,23 @@ input[type='number'] {
  * Prefer composing these classes over repeating long utility strings.
  */
 
-/* Full-height page container for workspace routes. */
+/* Full-height page container for workspace routes.
+ *
+ * The fixed AppBar (svelte-ux AppLayout applies `position: fixed` to the
+ * header, height = --headerHeight = 64px) sits above this, and AppLayout gives
+ * <main> a matching 64px top margin. So page height must be viewport − 64px.
+ *
+ * Use dvh (dynamic viewport height), not vh: on mobile, 100vh is the *large*
+ * viewport (URL bar hidden), which makes the document taller than the visible
+ * area while the URL bar is shown — the body then scrolls and drags the fixed
+ * AppBar with it. dvh tracks the currently-visible viewport so the page fits
+ * exactly and only the inner content scrolls. The vh line is a fallback for
+ * browsers without dvh support. */
 .vr-page {
 	display: flex;
 	flex-direction: column;
 	height: calc(100vh - 64px);
+	height: calc(100dvh - 64px);
 	overflow: hidden;
 	background-color: var(--color-surface-200);
 }
@@ -70,6 +100,28 @@ input[type='number'] {
 	border-width: 1px;
 	border-color: color-mix(in srgb, var(--color-surface-content) 10%, transparent);
 	padding: 1rem;
+}
+
+/*
+ * Inner content-width wrappers (DESIGN.md §5.1).
+ *
+ * Both pair with the vr-page shell: the shell is universal, the inner
+ * wrapper picks the content width based on view intent.
+ *
+ *   vr-content-narrow  — settings, CRUD, single-entity forms (reading width)
+ *   vr-content-wide    — analytical dashboards (bounded canvas)
+ *
+ * LiDAR workspace routes (tables, visualisations) skip the wrapper and
+ * use full canvas width inside vr-page directly.
+ */
+.vr-content-narrow {
+	margin-inline: auto;
+	max-width: 48rem; /* 768px — matches Tailwind max-w-3xl */
+}
+
+.vr-content-wide {
+	margin-inline: auto;
+	max-width: 96rem; /* 1536px — matches Tailwind max-w-screen-2xl; per DESIGN.md §5.7 analytical bound */
 }
 
 /* =========================================================================

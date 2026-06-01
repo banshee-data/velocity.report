@@ -114,26 +114,27 @@ Charts do not need to be 100% identical; meaning and readability must be aligned
 
 ## 5. Web UI style system
 
-### 5.1 Existing canonical web styles
+### 5.1 One shell, three content widths
 
-Modern workspace (default for new operational views):
+Every web route shares the same outer shell — `vr-page` + `vr-toolbar` from [web/src/routes/app.css](../../web/src/routes/app.css). Routes differ only by **inner content width**, chosen per view intent:
 
-- `/app/lidar/tracks`
-- `/app/lidar/scenes`
-- `/app/lidar/runs`
-- `/app/lidar/sweeps`
+| Inner wrapper           | Width                       | Use for                                                                  | Examples                                                                         |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| **`vr-content-narrow`** | 768px (`max-w-3xl`)         | Settings, CRUD, single-entity forms, list views of managed entities      | `/app/settings`, `/app/site`, `/app/site/[id]`, `/app/reports`                   |
+| **`vr-content-wide`**   | 1536px (`max-w-screen-2xl`) | Analytical dashboards with charts and multi-column KPI grids             | `/app/` (dashboard)                                                              |
+| _(no wrapper)_          | Full canvas inside vr-page  | Operational LiDAR workspaces — tables, point-cloud views, sweep matrices | `/app/lidar/tracks`, `/app/lidar/scenes`, `/app/lidar/runs`, `/app/lidar/sweeps` |
 
-Classic stack (valid for constrained CRUD/settings):
-
-- `/app/site`
-- `/app/site/[id]`
-- `/app/reports`
-- `/app/settings`
+Inside the narrow/wide column, group content as flat `<section class="space-y-4">` blocks with an `<h2>` header carrying a `border-b` divider — no `<Card>` wrappers around top-level sections. The settings page is the canonical example; new radar pages should mirror its structure.
 
 ### 5.2 Selection rule
 
-Use modern workspace by default.
-Use classic stack for linear form/settings pages with minimal real-time data behaviour.
+Pick the inner wrapper by what the page asks the user to do:
+
+- **`vr-content-narrow`** when the user is reading, editing, or managing settings/entities one field or one row at a time. The narrow column keeps form rows from spreading, matches the macOS settings convention, and gives every radar configuration page a consistent feel.
+- **`vr-content-wide`** when the page is a dashboard of charts and KPIs whose value comes from horizontal breathing room. Pair with `vr-stat-grid` for KPI tiles and `vr-chart-card` for chart panels.
+- **No wrapper** when the page is an operational workspace built around a wide table, a canvas, or a split-pane inspector — typically LiDAR routes.
+
+List/detail families use the **same** wrapper throughout. A list view of an entity (e.g. `/app/site`) and the corresponding detail/edit view (`/app/site/[id]`) share the narrow column so the visual treatment stays consistent as the user moves between scan and edit. The previous guidance to mix workspaces on the list and constrained shells on the detail has been retired — having one shell with one content width per family is simpler to maintain and easier to follow as new pages are added.
 
 ### 5.3 Component policy (Svelte-UX first)
 
@@ -174,7 +175,8 @@ Standards:
 Enforcement guidance:
 
 - If a class bundle is repeated across pages/components, extract it to a standard class.
-- Prefer semantic names (for example `vr-page`, `vr-toolbar`, `vr-control-row`, `vr-stat-grid`, `vr-chart-card`) over route-specific one-offs.
+- Prefer semantic names (for example `vr-page`, `vr-toolbar`, `vr-content-narrow`, `vr-content-wide`, `vr-control-row`, `vr-stat-grid`, `vr-chart-card`) over route-specific one-offs.
+- `vr-page` is always the outer shell; `vr-content-narrow` / `vr-content-wide` go inside the scrollable column when the page needs a centred inner column (see §5.1).
 
 ### 5.6 Form and layout rules (web)
 
@@ -256,7 +258,7 @@ If palette, tick, legend, or threshold semantics change in one renderer, update 
 
 - Pixel-perfect matching between web, SwiftUI, and PDF. (Consistent meaning and readability: yes. Identical rendering: no.)
 - Replacing native macOS UI language with web-like styling.
-- Introducing a third visual style family beyond modern workspace and classic stack.
+- Introducing a fourth web content-width mode beyond the three in §5.1.
 - A single shared chart rendering function for both web and PDF (see §7.4).
 - New features or investment in the Python matplotlib chart stack.
 
@@ -264,7 +266,7 @@ If palette, tick, legend, or threshold semantics change in one renderer, update 
 
 A UI/chart PR is complete only if:
 
-- It states which style system it follows (modern/classic/mac-native).
+- It states which inner content width it uses (vr-content-narrow / vr-content-wide / no wrapper) per §5.1, or notes that it's macOS-native.
 - It uses `svelte-ux` primitives wherever feasible, with documented exceptions.
 - It avoids ad-hoc route-level chart SVG unless justified and wrapped in a reusable component.
 - It extracts repeated class bundles into shared standards CSS classes.

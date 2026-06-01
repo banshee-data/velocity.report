@@ -6,8 +6,12 @@ import (
 
 func runStatus(args []string) error {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)
-	if err := fs.Parse(args); err != nil {
+	handled, err := parseCommandFlags(fs, args)
+	if err != nil {
 		return err
+	}
+	if handled {
+		return nil
 	}
 
 	return ctlManager.RunStatus()

@@ -334,6 +334,15 @@ func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 	if len(runner.calls) == 0 {
 		t.Fatal("expected runner calls")
 	}
+
+	wantMigrationCall := cfg.BinaryPath + " --db-path " + cfg.DBPath + " migrate up"
+	for _, call := range runner.calls {
+		if call == wantMigrationCall {
+			return
+		}
+	}
+
+	t.Fatalf("expected migration call %q, got calls: %#v", wantMigrationCall, runner.calls)
 }
 
 func TestRunUpgradeNoVersionInJSON(t *testing.T) {

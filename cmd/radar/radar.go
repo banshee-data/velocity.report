@@ -64,6 +64,42 @@ var (
 	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
 )
 
+func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
+	dbPath := defaultDBPath
+	explicitDBPath := false
+	positionals := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			positionals = append(positionals, args[i+1:]...)
+			return positionals, dbPath, explicitDBPath, nil
+		case arg == "--db-path":
+			if i+1 >= len(args) {
+				return nil, "", false, fmt.Errorf("flag needs an argument: --db-path")
+			}
+			dbPath = args[i+1]
+			explicitDBPath = true
+			i++
+		case strings.HasPrefix(arg, "--db-path="):
+			dbPath = strings.TrimPrefix(arg, "--db-path=")
+			explicitDBPath = true
+			if dbPath == "" {
+				return nil, "", false, fmt.Errorf("flag needs an argument: --db-path")
+			}
+		case arg == "--help" || arg == "-h":
+			return []string{"help"}, dbPath, explicitDBPath, nil
+		case strings.HasPrefix(arg, "-"):
+			return nil, "", false, fmt.Errorf("unknown migrate flag: %s", arg)
+		default:
+			positionals = append(positionals, arg)
+		}
+	}
+
+	return positionals, dbPath, explicitDBPath, nil
+}
+
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
 	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
@@ -197,6 +233,42 @@ func visitedFlags() map[string]bool {
 	return visited
 }
 
+func defaultRuntimeSerialOptions() serialmux.PortOptions {
+	return serialmux.PortOptions{
+		BaudRate: 19200,
+		DataBits: 8,
+		StopBits: 1,
+		Parity:   "N",
+	}
+}
+
+func runtimeSerialSnapshot(portPath string, serialActive bool) api.SerialConfigSnapshot {
+	trimmedPath := strings.TrimSpace(portPath)
+	if !serialActive || trimmedPath == "" {
+		return api.SerialConfigSnapshot{}
+	}
+
+	return api.SerialConfigSnapshot{
+		PortPath: trimmedPath,
+		Source:   "cli",
+		Options:  defaultRuntimeSerialOptions(),
+	}
+}
+
+func runtimeSerialFactory(reloadEnabled bool) api.SerialMuxFactory {
+	if !reloadEnabled {
+		return nil
+	}
+
+	return func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error) {
+		return serialmux.NewRealSerialMuxWithOptions(path, opts)
+	}
+}
+
+func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterface, portPath string, serialActive bool, reloadEnabled bool) *api.SerialPortManager {
+	return api.NewSerialPortManager(database, current, runtimeSerialSnapshot(portPath, serialActive), runtimeSerialFactory(reloadEnabled))
+}
+
 // Main
 func main() {
 	// Subcommand dispatch — check before flag.Parse() so subcommand flags
@@ -284,24 +356,17 @@ func main() {
 			os.Exit(0)
 		}
 		if subcommand == "migrate" {
-			// Re-parse flags after "migrate" subcommand to allow:
-			//   velocity-report migrate up --db-path /custom.db
-			// or:
-			//   velocity-report --db-path /custom.db migrate up
-			//
-			// flag.Parse() stops at first non-flag arg, so flags after "migrate"
-			// weren't parsed. Create new FlagSet to parse remaining args.
-			migrateFlags := flag.NewFlagSet("migrate", flag.ExitOnError)
-			migrateDBPath := migrateFlags.String("db-path", *dbPathFlag, "path to sqlite DB file")
-
-			// Parse flags from args after "migrate"
-			remainingArgs := flag.Args()[1:] // Everything after "migrate"
-			if err := migrateFlags.Parse(remainingArgs); err != nil {
-				log.Fatalf("Could not parse migrate flags: %v. Run 'velocity-report migrate --help' for usage", err)
+			remainingArgs := flag.Args()[1:]
+			// explicitDBPath is parsed and unit-tested for completeness, but the
+			// migrate command itself now echoes the resolved absolute DB target
+			// and refuses to create a stray DB for non-bootstrap actions (see
+			// db.RunMigrateCommand), so main() no longer needs it here.
+			migrateArgs, migrateDBPath, _, err := parseMigrateCommandArgs(remainingArgs, *dbPathFlag)
+			if err != nil {
+				log.Fatalf("Could not parse migrate flags: %v. Run 'velocity-report migrate help' for usage", err)
 			}
 
-			// Pass positional args (non-flag args after parsing) to migrate command
-			db.RunMigrateCommand(migrateFlags.Args(), *migrateDBPath)
+			db.RunMigrateCommand(migrateArgs, migrateDBPath)
 			return
 		}
 		if subcommand == "transits" {
@@ -382,8 +447,6 @@ func main() {
 			log.Fatalf("failed to create radar port: %v. Check device is connected and port path is correct (default /dev/ttySC1)", err)
 		}
 	}
-	defer radarSerial.Close()
-
 	if err := radarSerial.Initialise(); err != nil {
 		log.Fatalf("failed to initialise device: %v. Check device is powered on and responding", err)
 	} else {
@@ -400,6 +463,11 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v. Check file path is correct and directory is writable", err)
 	}
 	defer database.Close()
+
+	serialActive := !*disableRadar
+	reloadEnabled := !*disableRadar && !*debugMode && !*fixtureMode
+	serialManager := newRuntimeSerialManager(database, radarSerial, *port, serialActive, reloadEnabled)
+	defer serialManager.Close()
 
 	// Create a wait group for the HTTP server, serial monitor, and event handler routines
 	var wg sync.WaitGroup
@@ -831,7 +899,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := radarSerial.Monitor(ctx); err != nil && err != context.Canceled {
+		if err := serialManager.Monitor(ctx); err != nil && err != context.Canceled {
 			log.Printf("failed to monitor serial port: %v", err)
 		}
 		log.Print("monitor routine terminated")
@@ -842,8 +910,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		id, c := radarSerial.Subscribe()
-		defer radarSerial.Unsubscribe(id)
+		id, c := serialManager.Subscribe()
+		defer serialManager.Unsubscribe(id)
 		for {
 			select {
 			case payload := <-c:
@@ -884,7 +952,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		apiServer := api.NewServer(radarSerial, database, *unitsFlag, *timezoneFlag)
+		apiServer := api.NewServer(serialManager, database, *unitsFlag, *timezoneFlag)
+		apiServer.SetSerialManager(serialManager)
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
@@ -918,7 +987,7 @@ func main() {
 		} else {
 			log.Printf("Offline docs available on main HTTP server at %s (source=%s)", docsite.DefaultMount, *docsSource)
 		}
-		radarSerial.AttachAdminRoutes(mux)
+		serialManager.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
 
 		// Attach Lidar routes if enabled

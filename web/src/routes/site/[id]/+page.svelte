@@ -1,0 +1,609 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import {
+		createSite,
+		getSite,
+		getTimeline,
+		listSiteConfigPeriods,
+		updateSite,
+		upsertSiteConfigPeriod,
+		type SiteConfigPeriod
+	} from '$lib/api';
+	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
+	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
+	import { mdiAlert, mdiArrowLeft, mdiContentSave } from '@mdi/js';
+	import { onMount, tick } from 'svelte';
+	import { Button, Notification, TextField } from 'svelte-ux';
+
+	let siteId: string | null = null;
+	let isNewSite = false;
+	let loading = true;
+	let error = '';
+	let saveError = '';
+	let saving = false;
+	let periodsError = '';
+	let savingPeriod = false;
+	let configPeriods: SiteConfigPeriod[] = [];
+	let unconfiguredPeriods: Array<{ start_unix: number; end_unix: number }> = [];
+	let saveErrorEl: HTMLDivElement;
+
+	// Form fields
+	let formData = {
+		name: '',
+		location: '',
+		surveyor: '',
+		contact: '',
+		address: '',
+		latitude: null as number | null,
+		longitude: null as number | null,
+		site_description: '',
+		map_angle: null as number | null,
+		include_map: false,
+		bbox_ne_lat: null as number | null,
+		bbox_ne_lng: null as number | null,
+		bbox_sw_lat: null as number | null,
+		bbox_sw_lng: null as number | null,
+		map_svg_data: null as string | null,
+		radar_svg_x: null as number | null,
+		radar_svg_y: null as number | null
+	};
+
+	let formErrors: Record<string, string> = {};
+	let periodFormErrors: Record<string, string> = {};
+
+	let periodForm = {
+		id: null as number | null,
+		start: '',
+		end: '',
+		angle: 5,
+		notes: '',
+		is_active: false
+	};
+
+	onMount(async () => {
+		// Get the site ID from the URL
+		const pathParts = window.location.pathname.split('/');
+		const id = pathParts[pathParts.length - 1];
+
+		if (id === 'new') {
+			isNewSite = true;
+			loading = false;
+		} else {
+			siteId = id;
+			await loadSite();
+			await loadConfigPeriods();
+		}
+	});
+
+	async function loadSite() {
+		if (!siteId) return;
+
+		loading = true;
+		error = '';
+		try {
+			const site = await getSite(parseInt(siteId));
+			formData = {
+				name: site.name,
+				location: site.location,
+				surveyor: site.surveyor,
+				contact: site.contact,
+				address: site.address || '',
+				latitude: site.latitude || null,
+				longitude: site.longitude || null,
+				site_description: site.site_description || '',
+				map_angle: site.map_angle || null,
+				include_map: site.include_map || false,
+				bbox_ne_lat: site.bbox_ne_lat || null,
+				bbox_ne_lng: site.bbox_ne_lng || null,
+				bbox_sw_lat: site.bbox_sw_lat || null,
+				bbox_sw_lng: site.bbox_sw_lng || null,
+				map_svg_data: site.map_svg_data || null,
+				radar_svg_x: site.radar_svg_x ?? null,
+				radar_svg_y: site.radar_svg_y ?? null
+			};
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not load site details.';
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function loadConfigPeriods() {
+		if (!siteId) return;
+		periodsError = '';
+		try {
+			const siteNumericId = parseInt(siteId);
+			configPeriods = await listSiteConfigPeriods(siteNumericId);
+			const timeline = await getTimeline(siteNumericId);
+			unconfiguredPeriods = timeline.unconfigured_periods ?? [];
+		} catch (e) {
+			periodsError = e instanceof Error ? e.message : 'Could not load site configuration periods.';
+		}
+	}
+
+	function formatUnixSeconds(value: number | null | undefined): string {
+		if (value === null || value === undefined) return '—';
+		if (value === 0) return 'Initial';
+		const date = new Date(value * 1000);
+		if (Number.isNaN(date.getTime())) return '—';
+		return date.toLocaleString();
+	}
+
+	function toUnixSeconds(value: string): number | null {
+		return fromDatetimeLocalToUnixSeconds(value);
+	}
+
+	const DEFAULT_COSINE_ERROR_ANGLE_DEG = 5;
+
+	function editPeriod(period: SiteConfigPeriod) {
+		periodForm = {
+			id: period.id ?? null,
+			start: period.effective_start_unix ? toDatetimeLocalValue(period.effective_start_unix) : '',
+			end: period.effective_end_unix ? toDatetimeLocalValue(period.effective_end_unix) : '',
+			angle: period.cosine_error_angle ?? DEFAULT_COSINE_ERROR_ANGLE_DEG,
+			notes: period.notes ?? '',
+			is_active: period.is_active
+		};
+	}
+
+	function resetPeriodForm() {
+		periodForm = {
+			id: null,
+			start: '',
+			end: '',
+			angle: DEFAULT_COSINE_ERROR_ANGLE_DEG,
+			notes: '',
+			is_active: false
+		};
+		periodFormErrors = {};
+	}
+
+	function validatePeriodForm(): boolean {
+		periodFormErrors = {};
+		const startUnix = toUnixSeconds(periodForm.start);
+		const endUnix = toUnixSeconds(periodForm.end);
+		const angleValue = Number(periodForm.angle);
+
+		if (!startUnix) {
+			periodFormErrors.start = 'Start time is required';
+		}
+		if (startUnix === 0 && !periodForm.id) {
+			periodFormErrors.start = 'Start time must be after the initial configuration';
+		}
+		if (periodForm.end && !endUnix) {
+			periodFormErrors.end = 'End time must be a valid date';
+		}
+		if (endUnix && startUnix && endUnix <= startUnix) {
+			periodFormErrors.end = 'End time must be after the start time';
+		}
+		if (Number.isNaN(angleValue)) {
+			periodFormErrors.angle = 'Cosine error angle must be a valid number';
+		} else if (angleValue < 0.0 || angleValue > 80.0) {
+			periodFormErrors.angle = 'Cosine error angle must be between 0 and 80 degrees';
+		}
+
+		return Object.keys(periodFormErrors).length === 0;
+	}
+
+	async function savePeriod() {
+		if (!siteId || !validatePeriodForm()) {
+			return;
+		}
+		savingPeriod = true;
+		periodsError = '';
+		try {
+			const startUnix = toUnixSeconds(periodForm.start);
+			const endUnix = toUnixSeconds(periodForm.end);
+			const angleValue = Number(periodForm.angle);
+			await upsertSiteConfigPeriod({
+				id: periodForm.id ?? undefined,
+				site_id: parseInt(siteId),
+				effective_start_unix: startUnix!,
+				effective_end_unix: endUnix ?? null,
+				is_active: periodForm.is_active,
+				notes: periodForm.notes || null,
+				cosine_error_angle: angleValue
+			});
+			resetPeriodForm();
+			await loadConfigPeriods();
+		} catch (e) {
+			periodsError = e instanceof Error ? e.message : 'Could not save the configuration period.';
+		} finally {
+			savingPeriod = false;
+		}
+	}
+
+	function validateForm(): boolean {
+		formErrors = {};
+
+		if (!formData.name.trim()) {
+			formErrors.name = 'Name is required';
+		}
+		if (!formData.location.trim()) {
+			formErrors.location = 'Location is required';
+		}
+		if (!formData.surveyor.trim()) {
+			formErrors.surveyor = 'Surveyor is required';
+		}
+		if (!formData.contact.trim()) {
+			formErrors.contact = 'Contact is required';
+		}
+
+		return Object.keys(formErrors).length === 0;
+	}
+
+	async function handleSave() {
+		if (!validateForm()) {
+			return;
+		}
+
+		saveError = '';
+		saving = true;
+
+		try {
+			const siteData = {
+				name: formData.name,
+				location: formData.location,
+				surveyor: formData.surveyor,
+				contact: formData.contact,
+				address: formData.address || null,
+				latitude: formData.latitude,
+				longitude: formData.longitude,
+				map_angle: formData.map_angle,
+				include_map: formData.include_map,
+				site_description: formData.site_description || null,
+				bbox_ne_lat: formData.bbox_ne_lat,
+				bbox_ne_lng: formData.bbox_ne_lng,
+				bbox_sw_lat: formData.bbox_sw_lat,
+				bbox_sw_lng: formData.bbox_sw_lng,
+				map_svg_data: formData.map_svg_data,
+				radar_svg_x: formData.radar_svg_x,
+				radar_svg_y: formData.radar_svg_y
+			};
+
+			if (isNewSite) {
+				await createSite(siteData);
+			} else if (siteId) {
+				await updateSite(parseInt(siteId), siteData);
+			}
+
+			goto(resolve('/site'));
+		} catch (e) {
+			saveError = e instanceof Error ? e.message : 'Could not save site changes.';
+			// Scroll the error into view after the DOM updates
+			await tick();
+			saveErrorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		} finally {
+			saving = false;
+		}
+	}
+
+	function handleCancel() {
+		goto(resolve('/site'));
+	}
+</script>
+
+<svelte:head>
+	<title>{isNewSite ? 'New Site' : 'Edit Site'} 🚴 velocity.report</title>
+	<meta
+		name="description"
+		content={isNewSite
+			? 'Create a new radar survey site configuration'
+			: 'Edit radar survey site configuration'}
+	/>
+</svelte:head>
+
+<main id="main-content" class="vr-page">
+	<div class="vr-toolbar">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-surface-content text-2xl font-semibold">
+					{isNewSite ? 'Create New Site' : 'Edit Site'}
+				</h1>
+				<p class="text-surface-content/60 mt-1 text-sm">
+					{isNewSite ? 'Add a new radar survey site' : 'Update site configuration'}
+				</p>
+			</div>
+			<Button on:click={handleCancel} icon={mdiArrowLeft} variant="outline">Back to List</Button>
+		</div>
+	</div>
+
+	<div class="flex flex-1 overflow-hidden">
+		<div class="flex-1 overflow-y-auto p-6">
+			<div class="vr-content-narrow space-y-6">
+				{#if loading}
+					<div role="status" aria-live="polite">
+						<p>Loading site…</p>
+					</div>
+				{:else if error}
+					<div
+						role="alert"
+						aria-live="assertive"
+						class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
+					>
+						{error}
+					</div>
+				{:else}
+					{#if saveError}
+						<div bind:this={saveErrorEl}>
+							<Notification
+								color="danger"
+								open
+								icon={mdiAlert}
+								classes={{
+									root: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
+									title: 'text-red-800 dark:text-red-200',
+									description: 'text-red-700 dark:text-red-300'
+								}}
+							>
+								<span slot="title">Could not save</span>
+								<span slot="description">{saveError}</span>
+							</Notification>
+						</div>
+					{/if}
+
+					<!-- Basic Information -->
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Basic Information
+						</h2>
+						<div class="grid grid-cols-2 gap-4">
+							<TextField
+								bind:value={formData.name}
+								label="Site Name"
+								required
+								error={formErrors.name}
+							/>
+
+							<TextField
+								bind:value={formData.location}
+								label="Location"
+								required
+								error={formErrors.location}
+							/>
+						</div>
+					</section>
+
+					<!-- Contact Information -->
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Contact Information
+						</h2>
+						<div class="grid grid-cols-2 gap-4">
+							<TextField
+								bind:value={formData.surveyor}
+								label="Surveyor"
+								required
+								error={formErrors.surveyor}
+							/>
+
+							<TextField
+								bind:value={formData.contact}
+								label="Contact"
+								required
+								error={formErrors.contact}
+							/>
+						</div>
+					</section>
+
+					<!-- Report Content -->
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Report Content
+						</h2>
+						<TextField
+							bind:value={formData.site_description}
+							label="Site Description (for report)"
+							multiline
+							classes={{ input: 'h-40' }}
+						/>
+					</section>
+
+					<!-- Map Configuration -->
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Map Configuration
+						</h2>
+						<MapEditorInteractive
+							bind:latitude={formData.latitude}
+							bind:longitude={formData.longitude}
+							bind:radarAngle={formData.map_angle}
+							bind:bboxNELat={formData.bbox_ne_lat}
+							bind:bboxNELng={formData.bbox_ne_lng}
+							bind:bboxSWLat={formData.bbox_sw_lat}
+							bind:bboxSWLng={formData.bbox_sw_lng}
+							bind:mapSvgData={formData.map_svg_data}
+							bind:includeMap={formData.include_map}
+							bind:radarSvgX={formData.radar_svg_x}
+							bind:radarSvgY={formData.radar_svg_y}
+						/>
+					</section>
+
+					{#if !isNewSite}
+						<section class="space-y-4">
+							<h2
+								class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+							>
+								Configuration Periods
+							</h2>
+							<p class="text-surface-600-300-token text-sm">
+								Define when cosine correction angles changed so reports apply the correct
+								adjustments.
+							</p>
+
+							{#if periodsError}
+								<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
+									{periodsError}
+								</div>
+							{/if}
+
+							<div class="grid gap-4 md:grid-cols-2">
+								<div>
+									<label class="mb-1 block text-sm font-medium" for="period-start"
+										>Start time *</label
+									>
+									<input
+										id="period-start"
+										type="datetime-local"
+										bind:value={periodForm.start}
+										required
+										aria-invalid={periodFormErrors.start ? 'true' : undefined}
+										aria-describedby={periodFormErrors.start ? 'period-start-error' : undefined}
+										class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.start
+											? 'border-red-500'
+											: 'border-surface-300'}"
+									/>
+									{#if periodFormErrors.start}
+										<p id="period-start-error" class="mt-1 text-xs text-red-600">
+											{periodFormErrors.start}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label class="mb-1 block text-sm font-medium" for="period-end"
+										>End time (optional)</label
+									>
+									<input
+										id="period-end"
+										type="datetime-local"
+										bind:value={periodForm.end}
+										aria-invalid={periodFormErrors.end ? 'true' : undefined}
+										aria-describedby={periodFormErrors.end ? 'period-end-error' : undefined}
+										class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.end
+											? 'border-red-500'
+											: 'border-surface-300'}"
+									/>
+									{#if periodFormErrors.end}
+										<p id="period-end-error" class="mt-1 text-xs text-red-600">
+											{periodFormErrors.end}
+										</p>
+									{/if}
+								</div>
+								<TextField
+									bind:value={periodForm.angle}
+									label="Cosine Error Angle (degrees)"
+									type="decimal"
+									required
+									error={periodFormErrors.angle}
+								/>
+								<TextField bind:value={periodForm.notes} label="Notes" />
+							</div>
+
+							<label class="flex items-center gap-2 text-sm">
+								<input type="checkbox" bind:checked={periodForm.is_active} />
+								Active for new data
+							</label>
+
+							<div class="flex flex-wrap gap-3">
+								<Button on:click={savePeriod} disabled={savingPeriod} icon={mdiContentSave}>
+									{periodForm.id ? 'Update Period' : 'Add Period'}
+								</Button>
+								<Button on:click={resetPeriodForm} variant="outline">Reset</Button>
+							</div>
+
+							{#if configPeriods.length === 0}
+								<p class="text-surface-600-300-token text-sm">No configuration periods yet.</p>
+							{:else}
+								<!-- Card-wrapped table matching the lidar routes (sweeps, runs).
+								     overflow-x-auto (not -hidden) keeps the six columns scrollable
+								     on narrow viewports. -->
+								<div
+									class="bg-surface-100 border-surface-content/10 overflow-x-auto rounded-lg border"
+								>
+									<table class="w-full text-sm">
+										<thead>
+											<tr class="border-surface-content/10 border-b">
+												<th
+													class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
+													>Start</th
+												>
+												<th
+													class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
+													>End</th
+												>
+												<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
+													>Angle</th
+												>
+												<th
+													class="text-surface-content/70 w-24 px-4 py-3 text-left text-sm font-medium"
+													>Notes</th
+												>
+												<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+													>Active</th
+												>
+												<th
+													class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+													>Actions</th
+												>
+											</tr>
+										</thead>
+										<tbody>
+											{#each configPeriods as period (period.id)}
+												<tr
+													class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0"
+												>
+													<td class="px-4 py-3 whitespace-nowrap"
+														>{formatUnixSeconds(period.effective_start_unix)}</td
+													>
+													<td class="px-4 py-3 whitespace-nowrap">
+														{period.effective_end_unix
+															? formatUnixSeconds(period.effective_end_unix)
+															: 'Open-ended'}
+													</td>
+													<td class="px-4 py-3 text-right">{period.cosine_error_angle}°</td>
+													<td class="px-4 py-3">{period.notes || '—'}</td>
+													<td class="px-4 py-3">{period.is_active ? 'Yes' : 'No'}</td>
+													<td class="px-4 py-3 text-center">
+														<Button size="sm" variant="outline" on:click={() => editPeriod(period)}>
+															Edit
+														</Button>
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							{/if}
+
+							{#if unconfiguredPeriods.length > 0}
+								<div class="space-y-2 text-sm">
+									<p class="font-semibold">Unconfigured data gaps</p>
+									<ul class="list-disc pl-5">
+										{#each unconfiguredPeriods as gap (gap.start_unix)}
+											<li>
+												{formatUnixSeconds(gap.start_unix)} → {formatUnixSeconds(gap.end_unix)}
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+						</section>
+					{/if}
+
+					<!-- Actions -->
+					<div class="flex justify-end gap-2">
+						<Button on:click={handleCancel} variant="outline" disabled={saving}>Cancel</Button>
+						<Button
+							on:click={handleSave}
+							icon={mdiContentSave}
+							variant="fill"
+							color="primary"
+							disabled={saving}
+						>
+							{saving ? 'Saving…' : isNewSite ? 'Create Site' : 'Save Changes'}
+						</Button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+</main>

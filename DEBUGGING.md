@@ -525,6 +525,33 @@ sudo journalctl -u velocity-report -n 100    # confirm migrations applied cleanl
 sqlite3 sensor_data.db ".schema radar_data"
 ```
 
+**Error**: `attempt to write a readonly database (8) in line 0: DELETE FROM schema_migrations`
+
+**Likely cause**: The migration command is targeting a database file your current user can read
+but not write, or it is using the default relative `sensor_data.db` from the current working
+directory instead of the deployed Linux service DB.
+
+**Do this**:
+
+```bash
+# Deployed Linux service: use the service DB path explicitly and run as the service account (or root)
+sudo -u velocity /usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db migrate status
+sudo -u velocity /usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db migrate down
+
+# Check for stray cwd-local databases that can hijack plain `velocity-report migrate ...`
+pwd
+ls -lh sensor_data.db*
+
+# Confirm production DB ownership; pi may be in the velocity group and still lack write access
+# if the DB is 0644 and owned by velocity:velocity.
+ls -ld /var/lib/velocity-report
+ls -l /var/lib/velocity-report/sensor_data.db*
+```
+
+Plain `velocity-report migrate down` uses the default `sensor_data.db` path relative to the
+current working directory unless `--db-path` is supplied. That default is fine for development;
+on deployed Linux systems, do not rely on it.
+
 ---
 
 ## Sensor hardware issues

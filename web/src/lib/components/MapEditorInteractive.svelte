@@ -4,10 +4,10 @@
 		buildOverpassQueries,
 		categoriseElements,
 		generateMapSvg,
-		orderedEndpoints,
 		OVERPASS_MIRRORS,
 		svgToBase64
 	} from '$lib/map-svg';
+	import { fetchOverpassQuery } from '$lib/api';
 	import {
 		mdiAlert,
 		mdiCheckCircle,
@@ -632,95 +632,21 @@
 	// Last mirror that successfully returned data.
 	let activeMirrorId = '';
 
-	// Fetch from Overpass with retry across mirror endpoints.
-	// Tries mirrors in declaration order (selected mirror first).
-	// A short connection timeout (8 s) moves quickly to the next mirror when
-	// a server is unresponsive, but once response headers arrive the body
-	// stream is read without a timeout so large payloads complete.
-	async function fetchOverpassWithRetry(
+	// Fetch Overpass data via the velocity.report backend proxy.
+	//
+	// The browser cannot call the public Overpass mirrors directly: they reject
+	// generic browser User-Agents with 406/403 (anti-scraping) and send no CORS
+	// headers, and `fetch` is forbidden from overriding the User-Agent. The Go
+	// server (`POST /api/map/overpass`) proxies the query with a descriptive
+	// User-Agent and handles mirror fallback server-side, returning the first
+	// mirror's JSON. `selectedMirror` is forwarded as a preferred-mirror hint.
+	async function fetchOverpassData(
 		query: string,
-		maxRetries: number = 1,
 		signal?: AbortSignal
 	): Promise<{ elements: Array<Record<string, unknown>> }> {
-		const CONNECTION_TIMEOUT_MS = 8_000;
-		const endpoints = orderedEndpoints(selectedMirror);
-		let lastError: Error | null = null;
-
-		for (const ep of endpoints) {
-			for (let attempt = 0; attempt <= maxRetries; attempt++) {
-				if (attempt > 0) {
-					const delay = 2000 * attempt;
-					console.log(`Retrying ${ep.url} in ${delay / 1000}s (attempt ${attempt + 1})...`);
-					await new Promise((resolve) => setTimeout(resolve, delay));
-				}
-
-				// Per-request abort: fires after CONNECTION_TIMEOUT_MS unless
-				// the caller's signal fires first.
-				const timeoutCtrl = new AbortController();
-				const timeoutId = setTimeout(() => timeoutCtrl.abort(), CONNECTION_TIMEOUT_MS);
-				// If the caller aborts, forward to our per-request controller.
-				const onCallerAbort = () => timeoutCtrl.abort();
-				signal?.addEventListener('abort', onCallerAbort, { once: true });
-
-				try {
-					const response = await fetch(ep.url, {
-						method: 'POST',
-						body: `data=${encodeURIComponent(query)}`,
-						signal: timeoutCtrl.signal
-					});
-
-					// Headers arrived — cancel the connection timeout so the
-					// body stream can complete without being killed.
-					clearTimeout(timeoutId);
-
-					if (response.ok) {
-						const contentType = response.headers.get('content-type') || '';
-						if (contentType.includes('text/html')) {
-							const body = await response.text();
-							throw new Error(
-								body.includes('timeout')
-									? 'Server too busy (timeout). Trying next endpoint...'
-									: `Unexpected HTML response from ${ep.url}`
-							);
-						}
-						activeMirrorId = ep.id;
-						return await response.json();
-					}
-
-					// 429 (rate limit) or 504 (gateway timeout) — worth retrying
-					if (response.status === 429 || response.status === 504) {
-						lastError = new Error(`${ep.url}: HTTP ${response.status}`);
-						continue;
-					}
-
-					// Other errors — skip to next endpoint
-					lastError = new Error(`${ep.url}: HTTP ${response.status}`);
-					break;
-				} catch (e) {
-					clearTimeout(timeoutId);
-					lastError = e instanceof Error ? e : new Error(String(e));
-					// Caller cancelled — propagate immediately.
-					if (signal?.aborted) throw lastError;
-					if (
-						lastError.name === 'AbortError' ||
-						lastError.message.includes('timeout') ||
-						lastError.message.includes('fetch') ||
-						lastError.message.includes('HTTP 429') ||
-						lastError.message.includes('HTTP 504')
-					) {
-						continue;
-					}
-					break;
-				} finally {
-					signal?.removeEventListener('abort', onCallerAbort);
-				}
-			}
-			console.warn(`Overpass endpoint ${ep.url} failed, trying next...`);
-		}
-
-		throw new Error(
-			lastError?.message || 'All Overpass API endpoints failed. Please try again later.'
-		);
+		const result = await fetchOverpassQuery(query, selectedMirror, signal);
+		activeMirrorId = result.servedBy;
+		return { elements: result.elements };
 	}
 
 	async function downloadMapSVG() {
@@ -741,14 +667,14 @@
 
 			console.log('Fetching essential map data (roads + buildings)...');
 			downloadStep = '1 🛣️ Roads…';
-			const essentialData = await fetchOverpassWithRetry(essentialQuery, 1, signal);
+			const essentialData = await fetchOverpassData(essentialQuery, signal);
 
 			// Enrichment is best-effort: failures produce a sparser but still useful map.
 			let enrichmentData: { elements: Array<Record<string, unknown>> } = { elements: [] };
 			try {
 				console.log('Fetching enrichment data (landuse, water, railways)...');
 				downloadStep = '2 ⛰️ Detail…';
-				enrichmentData = await fetchOverpassWithRetry(enrichmentQuery, 1, signal);
+				enrichmentData = await fetchOverpassData(enrichmentQuery, signal);
 			} catch (enrichErr) {
 				console.warn(
 					'Enrichment query failed — proceeding with roads and buildings only.',
@@ -809,11 +735,13 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
+	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<p class="text-surface-600-300-token text-sm">
 			Search for an address, or upload your own SVG map, then visually adjust the radar position.
 		</p>
-		<div class="flex items-center gap-3">
+		<!-- On mobile the Interactive/Upload toggle stacks above the Include
+		     toggle; from sm: up they share a single row. -->
+		<div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
 			<input
 				bind:this={fileInput}
 				type="file"
@@ -843,8 +771,10 @@
 					<ToggleOption value="upload">Upload</ToggleOption>
 				</ToggleGroup>
 			{/key}
-			<span class="text-sm font-medium">Include</span>
-			<Switch bind:checked={includeMap} />
+			<div class="flex items-center gap-2">
+				<span class="text-sm font-medium">Include</span>
+				<Switch bind:checked={includeMap} />
+			</div>
 		</div>
 	</div>
 
@@ -999,10 +929,15 @@
 		</div>
 
 		<!-- Coordinate Display (Read-only) -->
+		<!--
+			Responsive layout: the Radar Position and Bounding Box blocks stack
+			vertically on narrow viewports (readable on mobile) and sit side by
+			side from md: up so they use the available desktop width.
+		-->
 		<div class="space-y-4">
 			<h4 class="font-medium">Current Coordinates</h4>
-			<div class="grid grid-cols-[auto_1fr] gap-4">
-				<div class="max-w-xs">
+			<div class="grid max-w-2xl grid-cols-1 gap-4 md:grid-cols-2">
+				<div>
 					<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
 					<div class="grid grid-cols-2 gap-2">
 						<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
@@ -1036,9 +971,9 @@
 	{#if !useCustomSvg}
 		<!-- Download SVG -->
 		<div class="space-y-2">
-			<div class="flex items-center justify-between">
+			<div class="flex flex-wrap items-center justify-between gap-2">
 				<h4 class="font-medium">Download Map for Reports</h4>
-				<div class="flex items-center gap-3">
+				<div class="flex flex-wrap items-center gap-3">
 					<div class="flex items-center gap-1.5">
 						<SelectField
 							bind:value={selectedMirror}
@@ -1047,7 +982,7 @@
 								...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
 							]}
 							clearable={false}
-							classes={{ root: 'w-48' }}
+							classes={{ root: 'w-36' }}
 							dense
 							placeholder="Mirror"
 						/>

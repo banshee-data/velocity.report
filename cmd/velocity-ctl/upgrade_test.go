@@ -133,7 +133,7 @@ func TestLoadIncludePrereleasesHomeDirError(t *testing.T) {
 	}
 }
 
-func TestRunUpgradeCheckOnlyIncludePrereleases(t *testing.T) {
+func TestRunUpgradeCheckOnlyPrereleaseFlag(t *testing.T) {
 	tmp := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -159,7 +159,7 @@ func TestRunUpgradeCheckOnlyIncludePrereleases(t *testing.T) {
 	ctlManager = ctl.NewManager(cfg, nil, cmdFakeRunner{}, &out, &out)
 	defer func() { ctlManager = old }()
 
-	if err := runUpgrade([]string{"--check", "--include-prereleases"}); err != nil {
+	if err := runUpgrade([]string{"--check", "--prerelease"}); err != nil {
 		t.Fatalf("runUpgrade failed: %v", err)
 	}
 

@@ -157,6 +157,7 @@ tools/*/output/*
 tools/visualiser-macos/build/
 tools/visualiser-macos/DerivedData/
 tools/visualiser-macos/.build/
+*.profraw
 
 # Test results
 tools/visualiser-macos/TestResults*
@@ -195,3 +196,4 @@ data/maths/papers/*.pdf
 data/maths/papers/download-status.md
 *.test
 scripts/*.cover
+web/build/

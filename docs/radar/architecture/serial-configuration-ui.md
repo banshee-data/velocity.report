@@ -1,13 +1,34 @@
 # Serial configuration and testing via UI
 
-- **Status:** Draft
+- **Status:** Active
 - **Issue:** Serial config + test (baud, port) via UI
+- **Implementation plan:** [../../plans/serial-configuration-implementation-plan.md](../../plans/serial-configuration-implementation-plan.md)
+- **Related platform architecture:** [../../platform/architecture/sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md)
 
 Design specification for a web-based interface that lets users configure and test radar serial port settings without manually editing systemd service files.
 
 ## Overview
 
 Enable users to configure and test radar serial port settings through the web interface, supporting multiple radar sensors and eliminating the need to manually edit configuration files or systemd service parameters.
+
+## Implementation snapshot
+
+This document began as a design proposal. Much of it has now moved into code.
+
+**Landed now:**
+
+- `radar_serial_config` schema, migration files, and DB CRUD helpers
+- API routes for configs, models, devices, test, and reload
+- Application-owned sensor model registry
+- Sensor Serial Ports section on `/settings` for list, create, edit, delete, and test flows
+- `SerialPortManager` hot-reload machinery and tests
+
+**Still open:**
+
+- Runtime startup in [cmd/radar/radar.go](../../../cmd/radar/radar.go) still needs to adopt DB-backed serial config as the main path
+- Auto-detect and detect-baud endpoints are still planned, not shipped
+- The UI still needs a clear apply/reload story for live runtime changes
+- Operator documentation and real-hardware validation still need finishing
 
 ## Problem
 
@@ -88,12 +109,12 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Schema Design:**
 
-> **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Table `radar_serial_config` with columns: id, name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model, created_at, updated_at. CHECK constraint validates sensor_model. Default config inserts HAT entry (`/dev/ttySC1`, 19200 baud, `ops243-a`).
+> **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations). Table `radar_serial_config` with columns: id, port_path (UNIQUE), baud_rate, data_bits, stop_bits, parity, enabled, sensor_model, created_at, updated_at. The current schema uses a basic `LIKE 'ops243-%'` check, while the API validates supported models in Go.
 
 **Rationale:**
 
-- **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via SQLite CHECK constraint
-- **Application-Side Logic:** Sensor capabilities and initialisation commands stored in application code, not database
+- **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via the API and runtime catalog
+- **Application-Side Logic:** Sensor capabilities and ingest defaults live in the application-owned catalog, not the database
 - **CHECK Constraint:** Validates sensor model values at database level without requiring separate table
 - **Migration-Friendly:** Adding new sensor models only requires application update, not database migration
 - **Serial Settings (8N1):** Standard configuration for OPS243A radar (8 data bits, No parity, 1 stop bit)
@@ -101,11 +122,11 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Enabled Flag:** Allow disabling sensors without deletion
 - **Default HAT Config:** `/dev/ttySC1` is the SC16IS762 HAT default for Raspberry Pi
 
-**Migration File:** `internal/db/migrations/20251106_create_radar_serial_config.sql`
+**Migration Files:** `internal/db/migrations/000038_create_radar_serial_config.up.sql`, `internal/db/migrations/000038_create_radar_serial_config.down.sql`
 
 **Sensor Model Information (Application Code):**
 
-> **Source:** Sensor model registry in [internal/radar/](../../../internal/radar) (when implemented). Defines `SensorModel` struct and `SupportedSensorModels` map with entries for `ops243-a` (Doppler-only, 19200 baud, commands: AX/OJ/OS/OM/OH/OC) and `ops243-c` (FMCW + distance, 19200 baud, commands: AX/OJ/OS/oD/OM/oM/OH/OC).
+> **Source:** Sensor model registry in [internal/api/sensor_models.go](../../../internal/api/sensor_models.go). The current implementation is radar-shaped today; the intended cross-cutting direction is documented in [sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md).
 
 #### FR2: Go API endpoints for serial configuration
 
@@ -115,13 +136,13 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full endp
 
 #### FR3: serial port testing endpoint
 
-A `POST /api/serial/test` endpoint validates serial port configuration before saving. Sends non-destructive query commands (`??`, `I?`), reads with configurable timeout, optionally auto-corrects baud rate if the device reports a different rate via `I?`. Returns diagnostic information including raw responses (JSON and non-JSON) and actionable suggestions for common failures (port not found, permission denied, timeout, baud mismatch). Implementation in `internal/api/serial_test.go`.
+A `POST /api/serial/test` endpoint validates serial port configuration before saving. It sends non-destructive query commands (`??`, `I?`), reads with configurable timeout, optionally reports a corrected baud rate if the device reports a different rate via `I?`, and returns diagnostic information including raw responses (JSON and non-JSON). Implementation is in [internal/api/serial.go](../../../internal/api/serial.go).
 
 See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the testing algorithm, diagnostic suggestion table, and OPS243 baud rate commands.
 
 #### FR4: serial auto-detection (port + baud)
 
-Two endpoints help users find connected radar devices: `POST /api/serial/auto-detect` probes all unassigned serial ports across common baud rates to find a responsive OPS243 device, and `POST /api/serial/detect-baud` tests a known port at common rates. Both use non-destructive query commands and return diagnostic data including ports tested and ports excluded. Implementation in `internal/api/serial_test.go`.
+Two endpoints were proposed to help users find connected radar devices: `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`. They remain planned work in the current implementation rather than shipped functionality.
 
 See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the auto-detection algorithm and response schemas.
 
@@ -129,7 +150,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Requirement:** User interface to view, edit, test, and manage serial configurations
 
-**Route:** `/settings/serial` (new sub-route under settings)
+**Route:** `/settings` (current implementation places serial configuration in the Sensor Serial Ports section rather than a dedicated sub-route)
 
 **Page Components:**
 
@@ -151,8 +172,8 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
      - Advanced: Data Bits, Stop Bits, Parity (defaults to 8N1)
    - Buttons:
      - "Test Connection" - Runs FR3 test with auto-correct option
-     - "Detect Device" - Calls `/api/serial/auto-detect` and populates port + baud + model on success
-     - "Auto-Detect Baud" - Runs FR4 baud detection when port is chosen manually
+     - "Detect Device" - Planned, not yet shipped in the current implementation
+     - "Auto-Detect Baud" - Planned, not yet shipped in the current implementation
      - "Save" - Creates/updates configuration
      - "Cancel" - Discards changes
 
@@ -167,9 +188,9 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Implementation:**
 
-- **Route File:** `web/src/routes/settings/serial/+page.svelte`
-- **API Client:** [web/src/lib/api.ts](../../../web/src/lib/api.ts) (extend existing API helpers)
-- **TypeScript Types:** `web/src/lib/types/serial.ts` (new file)
+- **Route File:** [web/src/routes/settings/+page.svelte](../../../web/src/routes/settings/+page.svelte)
+- **API Client:** [web/src/lib/api.ts](../../../web/src/lib/api.ts)
+- **TypeScript Types:** Serial configuration request/response types live in [web/src/lib/api.ts](../../../web/src/lib/api.ts)
 
 **Design Pattern:** Follow existing settings page patterns
 
@@ -188,6 +209,8 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 #### FR6: server integration with database configuration
 
 **Requirement:** Load serial configuration from database at startup
+
+**Branch status:** Not yet wired into the main radar startup path.
 
 **Current Behaviour:**
 
@@ -265,6 +288,8 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 ### Phase 1: database foundation (minimal viable product)
 
+**Status:** Mostly complete. Schema and DB helpers are landed; startup adoption remains outstanding.
+
 **Goal:** Enable database-driven serial configuration without UI
 
 **Deliverables:**
@@ -284,6 +309,8 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 **Timeline:** 1-2 days
 
 ### Phase 2: API endpoints (backend complete)
+
+**Status:** Mostly complete. CRUD, models, devices, test, and reload are landed; auto-detect and detect-baud remain outstanding.
 
 **Goal:** Full CRUD operations and testing capabilities via API
 
@@ -308,11 +335,13 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 ### Phase 3: web UI (full feature)
 
+**Status:** Partially complete. The settings page ships CRUD and test flows, but not the detection helpers or finished operator documentation.
+
 **Goal:** User-friendly interface for all serial configuration tasks
 
 **Deliverables:**
 
-1. `/settings/serial` route and page component (FR5)
+1. Sensor Serial Ports section on `/settings` (FR5)
 2. Configuration list view
 3. Edit/Create modal with form validation
 4. Test connection button with results display
@@ -438,7 +467,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Rejected:** Database reference table requires migrations for new sensors. Freeform text lacks validation and type safety.
 
-The CHECK constraint in the migration validates sensor model slugs at the database level. Adding new sensor models requires both an application update and a migration to update the CHECK constraint.
+The current radar implementation uses an application-owned catalog plus lightweight DB validation. As LiDAR families are added, the catalog should evolve into the shared cross-family model described in [sensor-catalog-and-runtime-config.md](../../platform/architecture/sensor-catalog-and-runtime-config.md), while `radar_serial_config` remains the runtime table for local serial settings.
 
 ## Migration path for existing deployments
 
@@ -464,7 +493,7 @@ sudo cp /path/to/new/velocity-report /usr/local/bin/
 sudo systemctl start velocity-report
 
 # 2. Configure via web UI (optional)
-# Visit http://raspberrypi.local:8080/settings/serial
+# Visit http://raspberrypi.local:8080/settings
 # Test and verify serial configuration
 
 # 3. Clean up service file (optional)
@@ -486,7 +515,7 @@ sudo systemctl restart velocity-report
 
 1. **CLI Flag Still Works:** No breaking changes
 2. **Optional Database Config:** Can configure via UI once running
-3. **Auto-Detect Helper:** Use UI to auto-detect baud rate
+3. **Detection helpers remain planned:** choose the port manually for now and use the test flow to validate it
 
 ## Success metrics
 
@@ -501,8 +530,8 @@ sudo systemctl restart velocity-report
 
 - **API Performance:** < 200ms for config operations, < 5s for testing
 - **Test Accuracy:** 100% detection of non-working configurations
-- **Auto-Detect Success:** > 90% correct baud rate detection for OPS243A
-- **Zero Downtime:** No data collection interruption during config changes
+- **Reload Reliability:** successful apply/reload flow on supported Pi hardware
+- **Low Disruption:** no avoidable data collection interruption during config changes
 
 ### Support metrics
 
@@ -519,16 +548,16 @@ sudo systemctl restart velocity-report
 3. **Multi-Sensor Guide:** How to configure multiple radars (Phase 4)
 4. **Hardware Compatibility:** Tested serial adapters and HATs
 
-**Location:** `docs/src/guides/serial-configuration.md`
+**Current state:** tracked as remaining work in [../../plans/serial-configuration-implementation-plan.md](../../plans/serial-configuration-implementation-plan.md). The current published summary lives in [../serial-config-quickref.md](../serial-config-quickref.md).
 
 ### Developer documentation
 
-1. **API Reference:** OpenAPI/Swagger spec for serial endpoints
+1. **API Reference:** branch-level serial API reference
 2. **Database Schema:** ERD and migration history
 3. **Testing Guide:** How to run serial tests without hardware
 4. **Architecture Decision Record:** Rationale for key design choices
 
-**Location:** `docs/api/serial-endpoints.md`, [ARCHITECTURE.md](../../../ARCHITECTURE.md) update
+**Location:** [serial-configuration-api.md](serial-configuration-api.md), [../serial-config-quickref.md](../serial-config-quickref.md), and [ARCHITECTURE.md](../../../ARCHITECTURE.md) updates as needed
 
 ### In-App help
 
@@ -578,10 +607,10 @@ sudo systemctl restart velocity-report
 
 ### Open questions
 
-1. **Q: Should we support hot-swapping serial configurations without restart?**
-   - Current: Changes require server restart
-   - Trade-off: Complexity vs. user convenience
-   - Recommendation: Phase 2 feature (after basic CRUD)
+1. **Q: Should save trigger reload automatically, or should reload remain an explicit operator action?**
+   - Current: A hot-reload manager exists, but the UI workflow is not yet the final one
+   - Trade-off: Convenience vs. making runtime changes surprising
+   - Recommendation: Decide this in the v0.5.1 completion pass and document it clearly
 
 2. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
    - Current: Not addressed
@@ -655,10 +684,10 @@ sudo reboot
 
 ## Conclusion
 
-This feature enables self-service serial port configuration through a web interface, eliminating technical barriers and supporting future multi-sensor deployments. The phased implementation approach delivers value incrementally while maintaining backward compatibility and system reliability.
+This feature now has real code behind it rather than only good intentions. It already improves operator setup materially; the remaining work is to finish runtime adoption, detection helpers, and operator-facing documentation without pretending those pieces are already done.
 
 **Next Steps:**
 
-1. Review and approve this specification
-2. Create GitHub issues for each implementation phase
-3. Assign to Hadaly (implementation agent) for Phase 1 execution
+1. Wire DB-backed startup and install the real reload manager in [cmd/radar/radar.go](../../../cmd/radar/radar.go)
+2. Decide and ship the live apply/reload workflow in the UI
+3. Add the deferred detection helpers and publish the operator guide

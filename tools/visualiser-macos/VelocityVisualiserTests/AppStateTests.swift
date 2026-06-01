@@ -80,6 +80,10 @@ import XCTest
 
 @available(macOS 15.0, *) @MainActor final class PlaybackHardeningRegressionTests: XCTestCase {
 
+    func testDefaultStartupAutoConnectIsDisabledUnderXCTest() {
+        XCTAssertFalse(AppState.shouldAutoConnectOnStartup)
+    }
+
     private func waitFor(
         timeout: TimeInterval = 2.0, condition: @escaping @MainActor () -> Bool,
         file: StaticString = #filePath, line: UInt = #line

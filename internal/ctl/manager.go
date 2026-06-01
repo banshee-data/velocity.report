@@ -600,7 +600,7 @@ func copyFile(src, dst string) error {
 }
 
 func (m *Manager) runMigrations() error {
-	return m.runner.Run(m.cfg.BinaryPath, "migrate", "up", "--db-path", m.cfg.DBPath)
+	return m.runner.Run(m.cfg.BinaryPath, "--db-path", m.cfg.DBPath, "migrate", "up")
 }
 
 func (m *Manager) systemctl(action, unit string) error {

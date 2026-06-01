@@ -6,8 +6,12 @@ import (
 
 func runRollback(args []string) error {
 	fs := flag.NewFlagSet("rollback", flag.ContinueOnError)
-	if err := fs.Parse(args); err != nil {
+	handled, err := parseCommandFlags(fs, args)
+	if err != nil {
 		return err
+	}
+	if handled {
+		return nil
 	}
 
 	return ctlManager.RunRollback()

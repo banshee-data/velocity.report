@@ -1916,6 +1916,13 @@ func TestMigrateCov2_RunMigrateCommand_Version(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
+	// 'version' is a guarded action: RunMigrateCommand refuses it against a
+	// missing database (only 'up'/'baseline' bootstrap). Seed an empty database
+	// file first so the command migrates the existing DB from version 0 → 1.
+	if err := os.WriteFile(dbPath, nil, 0o600); err != nil {
+		t.Fatalf("seed empty db file: %v", err)
+	}
+
 	RunMigrateCommand([]string{"version", "1"}, dbPath)
 
 	// Verify the DB is at version 1
@@ -2964,7 +2971,13 @@ func TestMigrateCov2_Subprocess_BaselineNoArg(t *testing.T) {
 // an invalid version string.
 func TestMigrateCov2_Subprocess_VersionInvalid(t *testing.T) {
 	if os.Getenv("GO_TEST_SUBPROCESS") == "1" {
-		RunMigrateCommand([]string{"version", "abc"}, t.TempDir()+"/test.db")
+		// 'version' is guarded against a missing DB; seed an empty database file
+		// so the command reaches the version-string parse error under test.
+		dbPath := t.TempDir() + "/test.db"
+		if err := os.WriteFile(dbPath, nil, 0o600); err != nil {
+			t.Fatalf("seed empty db file: %v", err)
+		}
+		RunMigrateCommand([]string{"version", "abc"}, dbPath)
 		return
 	}
 
@@ -2981,7 +2994,13 @@ func TestMigrateCov2_Subprocess_VersionInvalid(t *testing.T) {
 // an invalid version string.
 func TestMigrateCov2_Subprocess_ForceInvalid(t *testing.T) {
 	if os.Getenv("GO_TEST_SUBPROCESS") == "1" {
-		RunMigrateCommand([]string{"force", "xyz"}, t.TempDir()+"/test.db")
+		// 'force' is guarded against a missing DB; seed an empty database file so
+		// the command reaches the version-string parse error under test.
+		dbPath := t.TempDir() + "/test.db"
+		if err := os.WriteFile(dbPath, nil, 0o600); err != nil {
+			t.Fatalf("seed empty db file: %v", err)
+		}
+		RunMigrateCommand([]string{"force", "xyz"}, dbPath)
 		return
 	}
 

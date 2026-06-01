@@ -60,6 +60,21 @@ func NewRealSerialMux(path string) (*SerialMux[serial.Port], error) {
 		StopBits: serial.OneStopBit,
 	}
 
+	return newRealSerialMux(path, mode)
+}
+
+// NewRealSerialMuxWithOptions creates a SerialMux instance backed by a real serial
+// port using the provided normalised serial options.
+func NewRealSerialMuxWithOptions(path string, opts PortOptions) (*SerialMux[serial.Port], error) {
+	mode, err := opts.SerialMode()
+	if err != nil {
+		return nil, err
+	}
+
+	return newRealSerialMux(path, mode)
+}
+
+func newRealSerialMux(path string, mode *serial.Mode) (*SerialMux[serial.Port], error) {
 	port, err := serial.Open(path, mode)
 	if err != nil {
 		return nil, err

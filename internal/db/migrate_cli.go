@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 // RunMigrateCommand handles the 'migrate' subcommand dispatching
@@ -15,6 +16,26 @@ func RunMigrateCommand(args []string, dbPath string) {
 	}
 
 	action := args[0]
+
+	// Echo the resolved absolute database target before doing anything. This is
+	// the single most useful diagnostic when a migrate command appears to act on
+	// the "wrong" database: the operator can see exactly which file will be
+	// touched, regardless of working directory or platform. No hardcoded paths.
+	absDBPath := dbPath
+	if abs, err := filepath.Abs(dbPath); err == nil {
+		absDBPath = abs
+	}
+	log.Printf("migrate: using database %s", absDBPath)
+
+	// Refuse to operate on a missing database for read/rollback/repair actions
+	// (down, status, version, force, detect). modernc's sqlite driver opens with
+	// CREATE by default, so any of these run against a mistyped path or the wrong
+	// working directory would otherwise silently materialise an empty stray
+	// database. 'up' and 'baseline' legitimately bootstrap a new file; 'help' and
+	// unknown actions need no database. This stops stray-DB creation at its source.
+	if err := checkMigrateDBExists(action, absDBPath, os.Stat); err != nil {
+		log.Fatalf("%v", err)
+	}
 
 	// Get migrations filesystem (uses embedded FS in production, local files in dev)
 	migrationsFS, err := getMigrationsFS()
@@ -69,6 +90,35 @@ func RunMigrateCommand(args []string, dbPath string) {
 		PrintMigrateHelp()
 		os.Exit(1)
 	}
+}
+
+// actionRequiresExistingDB reports whether a migrate action must run against an
+// already-existing database. These actions read, roll back, or repair state and
+// must never create a database, so a missing file (a typo or the wrong working
+// directory) is refused rather than silently materialised as an empty stray DB.
+// 'up' and 'baseline' bootstrap a new database and are intentionally excluded, as
+// are 'help' and any unknown action (handled as a usage error downstream).
+func actionRequiresExistingDB(action string) bool {
+	switch action {
+	case "down", "status", "version", "force", "detect":
+		return true
+	default:
+		return false
+	}
+}
+
+// checkMigrateDBExists returns an error when the action requires an existing
+// database but the file is absent, carrying operator guidance. Stat errors other
+// than "not exist" are left for OpenDB to report. statFn is injected for testing;
+// production passes os.Stat.
+func checkMigrateDBExists(action, dbPath string, statFn func(string) (os.FileInfo, error)) error {
+	if !actionRequiresExistingDB(action) {
+		return nil
+	}
+	if _, err := statFn(dbPath); err != nil && os.IsNotExist(err) {
+		return fmt.Errorf("no database at %s: pass --db-path <path> to target an existing database, or run 'velocity-report migrate up' to create one", dbPath)
+	}
+	return nil
 }
 
 // handleMigrateUp applies all pending migrations

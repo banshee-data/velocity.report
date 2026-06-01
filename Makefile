@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre19
+VERSION := 0.5.1-pre20
 
 # =============================================================================
 # HELP TARGET (default)
@@ -17,11 +17,13 @@ help:
 	@echo ""
 	@echo "BUILD TARGETS (Go cross-compilation):"
 	@echo "  build-radar-linux    Build for Linux ARM64 with pcap"
+	@echo "  build-radar-linux-docker Build for Linux ARM64 with pcap inside Docker (outputs to image/velocity-binaries/)"
 	@echo "  build-radar-mac      Build for macOS ARM64 with pcap"
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
 	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
+	@echo "  release-radar-remote Build release Linux ARM64 binary and deploy it to DEPLOY_HOST (default velocity.local)"
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
 	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
@@ -77,6 +79,9 @@ help:
 	@echo "  record-sample        Generate sample .vrlog file for testing"
 	@echo "  vrlog-analyse        Generate analysis.json for a .vrlog (VRLOG=path)"
 	@echo "  vrlog-compare        Compare two .vrlog analyses (VRLOG_A=path VRLOG_B=path)"
+	@echo ""
+	@echo "DIAGNOSTIC TOOLS:"
+	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
 	@echo ""
 	@echo "TESTING:"
 	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
@@ -199,6 +204,11 @@ build-radar-linux:
 	@./scripts/ensure-docs-stub.sh
 	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/radar
 
+.PHONY: build-radar-linux-docker
+build-radar-linux-docker:
+	@VERSION="$(VERSION)" BUILD_TIME="$(BUILD_TIME)" GIT_SHA="$(GIT_SHA)" ./image/scripts/build-image.sh --binaries-only
+	@echo "Binaries available:"; ls -l image/velocity-binaries || true
+
 build-radar-mac:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
@@ -238,12 +248,30 @@ build-ctl-linux:
 build-embedded-assets:
 	@./scripts/build-embedded-assets.sh
 
-.PHONY: release-ensure-github-release release-build-linux-binaries release-build-darwin-radar release-package-linux-radar release-build-image-from-staged-binaries release-normalize-image-artifact
+.PHONY: release-ensure-github-release release-build-linux-binaries release-radar-remote release-build-darwin-radar release-package-linux-radar release-build-image-from-staged-binaries release-normalize-image-artifact
+DEPLOY_HOST ?= velocity.local
+DEPLOY_USER ?= pi
+DEPLOY_LOCAL_BINARY ?= image/velocity-binaries/velocity-report
+DEPLOY_TMP_DIR ?= /tmp/up
+DEPLOY_REMOTE_BIN ?= /usr/local/bin/velocity-report
+DEPLOY_REMOTE_DB_PATH ?= /var/lib/velocity-report/sensor_data.db
+DEPLOY_REMOTE_SERVICE ?= velocity-report.service
+
 release-ensure-github-release:
 	@./scripts/release-assets.sh ensure-github-release
 
 release-build-linux-binaries:
 	@./scripts/release-assets.sh build-linux-binaries
+
+release-radar-remote: release-build-linux-binaries
+	@python3 scripts/release-radar-remote.py \
+		--host "$(DEPLOY_HOST)" \
+		--user "$(DEPLOY_USER)" \
+		--local-binary "$(DEPLOY_LOCAL_BINARY)" \
+		--remote-temp-dir "$(DEPLOY_TMP_DIR)" \
+		--remote-binary "$(DEPLOY_REMOTE_BIN)" \
+		--remote-db-path "$(DEPLOY_REMOTE_DB_PATH)" \
+		--service "$(DEPLOY_REMOTE_SERVICE)"
 
 release-build-darwin-radar:
 	@./scripts/release-assets.sh build-darwin-radar
@@ -609,6 +637,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_order_schema_tables.py \
+	scripts/test_release_radar_remote.py \
 	scripts/test_sqlite_erd.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
@@ -748,7 +777,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -947,6 +976,17 @@ vrlog-compare:
 	@[ -n "$(VRLOG_A)" ] && [ -n "$(VRLOG_B)" ] || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
 	go run ./cmd/tools/vrlog-analyse compare "$(VRLOG_A)" "$(VRLOG_B)" $(if $(COMPARE_OUT),-o $(COMPARE_OUT))
 
+# Serial-harness CLI — exercise the velocity.report serial API directly,
+# isolating UI bugs from backend bugs. Stdlib-only Python; no venv needed.
+# Examples:
+#   make serial-harness CMD=diagnose
+#   make serial-harness HOST=http://velocity.local:8080 CMD=devices
+#   make serial-harness CMD=test ARGS="/dev/ttySC0 --baud 19200"
+serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:8080), CMD (default devices), ARGS
+	@HOST=$${HOST:-http://localhost:8080}; \
+	CMD=$${CMD:-devices}; \
+	python3 tools/serial-harness.py --host $$HOST $$CMD $$ARGS
+
 # =============================================================================
 # TESTING
 # =============================================================================
@@ -963,7 +1003,7 @@ test-go:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests..."
-	@go test ./...
+	@env -u GOROOT go test ./...
 
 test-python: ensure-python-tools
 	@echo "Running Python script/tool tests..."
@@ -985,8 +1025,8 @@ test-go-cov:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go unit tests with coverage..."
-	@go test ./... -coverprofile=coverage.out -covermode=atomic
-	@go tool cover -html=coverage.out -o coverage.html
+	@env -u GOROOT go test ./... -coverprofile=coverage.out -covermode=atomic
+	@env -u GOROOT go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
 # Show coverage summary for cmd/ and internal/ packages
@@ -1025,10 +1065,13 @@ test-mac:
 		"$(GIT_SHA)" \
 		"$(BUILD_TIME)" \
 		> $(MAC_DIR)/VelocityVisualiser/App/BuildInfo.swift
-	@cd $(MAC_DIR) && xcodebuild test \
+	@cd $(MAC_DIR) && xcodebuild build-for-testing \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
+		-skip-testing:VelocityVisualiserUITests \
+		-derivedDataPath ./DerivedData \
 		-destination 'platform=macOS'
+	@cd $(MAC_DIR) && xcrun xctest ./DerivedData/Build/Products/Debug/VelocityVisualiserTests.xctest
 
 # Run macOS visualiser tests with coverage
 # Coverage results are written to $(MAC_DIR)/coverage/
@@ -1054,6 +1097,7 @@ test-mac-cov:
 	@cd $(MAC_DIR) && xcodebuild test \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
+		-skip-testing:VelocityVisualiserUITests \
 		-destination 'platform=macOS' \
 		-enableCodeCoverage YES \
 		-derivedDataPath ./DerivedData \

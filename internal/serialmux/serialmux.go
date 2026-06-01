@@ -237,7 +237,18 @@ func (s *SerialMux[T]) Close() error {
 	return s.port.Close()
 }
 
-func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
+// AttachAdminRoutes attaches the admin debug endpoints to mux, routing each
+// request through src. Use this form when the underlying mux can change at
+// runtime (hot-reload): pass an implementation that resolves to the current
+// mux per request (e.g. api.SerialPortManager). The handlers call src.X()
+// per request, so a swap between handler registration and request handling
+// is transparent.
+//
+// The receiver method (*SerialMux[T]).AttachAdminRoutes is a thin wrapper
+// that pins the routes to the receiver, kept for backwards compatibility
+// with callers that don't need hot-reload semantics (and for the existing
+// admin route tests).
+func AttachAdminRoutes(mux *http.ServeMux, src SerialMuxInterface) {
 	debug := tsweb.Debugger(mux)
 
 	// Basic command / live tail monitor interface using the below two API endpoints.
@@ -261,7 +272,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 			http.Error(w, "missing command: provide a 'command' form field", http.StatusBadRequest)
 			return
 		}
-		if err := s.SendCommand(command); err != nil {
+		if err := src.SendCommand(command); err != nil {
 			http.Error(w, "could not write command to serial port: check device is connected and port permissions allow access", http.StatusInternalServerError)
 			return
 		}
@@ -279,8 +290,8 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no") // Disable buffering for nginx
 
-		id, c := s.Subscribe()
-		defer s.Unsubscribe(id)
+		id, c := src.Subscribe()
+		defer src.Unsubscribe(id)
 
 		// Send initial ping to establish connection
 		w.Write([]byte(": ping\n\n"))
@@ -318,4 +329,13 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		defer f.Close()
 		io.Copy(w, f)
 	})
+}
+
+// AttachAdminRoutes wires the admin routes to this specific mux. Pinned to
+// the receiver — once registered, a later swap of this SerialMux for another
+// will not be observed by the handlers. Use the package-level
+// AttachAdminRoutes with a SerialPortManager (or similar) when hot-reload
+// is required.
+func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
+	AttachAdminRoutes(mux, s)
 }

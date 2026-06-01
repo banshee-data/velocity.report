@@ -22,6 +22,26 @@ func TestNewRealSerialMux(t *testing.T) {
 	}
 }
 
+func TestNewRealSerialMuxWithOptions_InvalidOptions(t *testing.T) {
+	mux, err := NewRealSerialMuxWithOptions("/dev/nonexistent-serial-port-12345", PortOptions{BaudRate: 123})
+	if err == nil {
+		t.Fatal("expected error for invalid serial options")
+	}
+	if mux != nil {
+		t.Fatal("expected nil mux when invalid options are provided")
+	}
+}
+
+func TestNewRealSerialMuxWithOptions_InvalidPath(t *testing.T) {
+	mux, err := NewRealSerialMuxWithOptions("/dev/nonexistent-serial-port-12345", PortOptions{BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N"})
+	if err == nil {
+		t.Fatal("expected error when opening non-existent serial port")
+	}
+	if mux != nil {
+		t.Fatal("expected nil mux when open fails")
+	}
+}
+
 func TestNewRealSerialPortFactory(t *testing.T) {
 	factory := NewRealSerialPortFactory()
 	if factory == nil {

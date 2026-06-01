@@ -58,10 +58,8 @@ image/
     ├── 00-install-packages/        # APT packages + minimal TeX tree build
     │   ├── 00-packages             # APT package list (texlive-xetex, fonts, etc.)
     │   └── 01-run.sh               # Builds minimal TeX tree, purges APT texlive
-    ├── 01-velocity-binaries/       # Go binaries + update script
+    ├── 01-velocity-binaries/       # Go binaries
     │   ├── 00-run.sh
-    │   └── files/
-    │       └── velocity-update              # Redirect stub (prints "use velocity-ctl upgrade")
     ├── 02-velocity-python/         # Report output directory and velocity user
     │   └── 00-run.sh
     ├── 03-velocity-config/         # User, service, serial, udev
