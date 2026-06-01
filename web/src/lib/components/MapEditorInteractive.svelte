@@ -809,11 +809,13 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
+	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<p class="text-surface-600-300-token text-sm">
 			Search for an address, or upload your own SVG map, then visually adjust the radar position.
 		</p>
-		<div class="flex items-center gap-3">
+		<!-- On mobile the Interactive/Upload toggle stacks above the Include
+		     toggle; from sm: up they share a single row. -->
+		<div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
 			<input
 				bind:this={fileInput}
 				type="file"
@@ -843,8 +845,10 @@
 					<ToggleOption value="upload">Upload</ToggleOption>
 				</ToggleGroup>
 			{/key}
-			<span class="text-sm font-medium">Include</span>
-			<Switch bind:checked={includeMap} />
+			<div class="flex items-center gap-2">
+				<span class="text-sm font-medium">Include</span>
+				<Switch bind:checked={includeMap} />
+			</div>
 		</div>
 	</div>
 
@@ -999,35 +1003,38 @@
 		</div>
 
 		<!-- Coordinate Display (Read-only) -->
-		<div class="space-y-4">
+		<!--
+			Stacked layout: Radar Position is a top-down list (Lat, Lng, Map Angle)
+			with the Bounding Box's 2x2 grid placed underneath rather than in a
+			side-by-side second column, so it stays readable on narrow viewports.
+		-->
+		<div class="max-w-sm space-y-4">
 			<h4 class="font-medium">Current Coordinates</h4>
-			<div class="grid grid-cols-[auto_1fr] gap-4">
-				<div class="max-w-xs">
-					<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
-					<div class="grid grid-cols-2 gap-2">
-						<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
-					</div>
-					<div class="mt-2">
-						<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
-						<NumberStepper
-							bind:value={localAngle}
-							step={1}
-							class="w-32"
-							on:change={(e) => setAngle(e.detail.value)}
-						>
-							<span slot="suffix">°</span>
-						</NumberStepper>
-					</div>
+			<div>
+				<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
+				<div class="space-y-2">
+					<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
 				</div>
-				<div>
-					<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
-					<div class="grid grid-cols-2 gap-2">
-						<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
-						<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
-					</div>
+				<div class="mt-2">
+					<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
+					<NumberStepper
+						bind:value={localAngle}
+						step={1}
+						class="w-32"
+						on:change={(e) => setAngle(e.detail.value)}
+					>
+						<span slot="suffix">°</span>
+					</NumberStepper>
+				</div>
+			</div>
+			<div>
+				<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
+				<div class="grid grid-cols-2 gap-2">
+					<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
+					<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
 				</div>
 			</div>
 		</div>
@@ -1036,9 +1043,9 @@
 	{#if !useCustomSvg}
 		<!-- Download SVG -->
 		<div class="space-y-2">
-			<div class="flex items-center justify-between">
+			<div class="flex flex-wrap items-center justify-between gap-2">
 				<h4 class="font-medium">Download Map for Reports</h4>
-				<div class="flex items-center gap-3">
+				<div class="flex flex-wrap items-center gap-3">
 					<div class="flex items-center gap-1.5">
 						<SelectField
 							bind:value={selectedMirror}
@@ -1047,7 +1054,7 @@
 								...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
 							]}
 							clearable={false}
-							classes={{ root: 'w-48' }}
+							classes={{ root: 'w-36' }}
 							dense
 							placeholder="Mirror"
 						/>
