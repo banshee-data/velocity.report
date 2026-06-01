@@ -362,6 +362,7 @@ func TestCreateSerialConfig_EmptyPortPath(t *testing.T) {
 func TestCreateSerialConfig_Defaults(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
+	clearSerialConfigs(t, dbInst)
 	mux := server.ServeMux()
 
 	body, _ := json.Marshal(SerialConfigRequest{
@@ -390,6 +391,42 @@ func TestCreateSerialConfig_Defaults(t *testing.T) {
 	}
 	if cfg.Parity != "N" {
 		t.Errorf("Default parity = %q, want N", cfg.Parity)
+	}
+}
+
+func TestCreateSerialConfig_DuplicatePortPath(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+	clearSerialConfigs(t, dbInst)
+
+	body, _ := json.Marshal(SerialConfigRequest{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+
+	firstReq := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstW := httptest.NewRecorder()
+	server.handleCreateSerialConfig(firstW, firstReq)
+	if firstW.Code != http.StatusCreated {
+		t.Fatalf("Expected seed create to return 201, got %d: %s", firstW.Code, firstW.Body.String())
+	}
+
+	dupReq := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
+	dupReq.Header.Set("Content-Type", "application/json")
+	dupW := httptest.NewRecorder()
+	server.handleCreateSerialConfig(dupW, dupReq)
+
+	if dupW.Code != http.StatusConflict {
+		t.Fatalf("Expected 409 for duplicate port_path, got %d: %s", dupW.Code, dupW.Body.String())
+	}
+	if !strings.Contains(dupW.Body.String(), "Port path is already configured") {
+		t.Fatalf("Expected duplicate-port error body, got %q", dupW.Body.String())
 	}
 }
 
@@ -514,6 +551,67 @@ func TestUpdateSerialConfig_NotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestUpdateSerialConfig_DuplicatePortPath(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+	clearSerialConfigs(t, dbInst)
+
+	firstID, err := dbInst.CreateSerialConfig(&db.SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create first config: %v", err)
+	}
+
+	secondID, err := dbInst.CreateSerialConfig(&db.SerialConfig{
+		PortPath:    "/dev/ttyUSB1",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create second config: %v", err)
+	}
+
+	body, _ := json.Marshal(SerialConfigRequest{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/serial/configs/%d", secondID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleUpdateSerialConfig(w, req, int(secondID))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("Expected 409 for duplicate port_path, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Port path is already configured") {
+		t.Fatalf("Expected duplicate-port error body, got %q", w.Body.String())
+	}
+
+	first, err := dbInst.GetSerialConfig(int(firstID))
+	if err != nil {
+		t.Fatalf("Failed to fetch first config: %v", err)
+	}
+	if first == nil || first.PortPath != "/dev/ttyUSB0" {
+		t.Fatalf("Expected first config to remain on /dev/ttyUSB0, got %+v", first)
 	}
 }
 

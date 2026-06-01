@@ -3,7 +3,10 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 )
+
+const serialConfigPortPathUniqueConstraint = "UNIQUE constraint failed: radar_serial_config.port_path"
 
 // SerialConfig represents a serial port configuration for a radar sensor
 type SerialConfig struct {
@@ -17,6 +20,12 @@ type SerialConfig struct {
 	SensorModel string `json:"sensor_model"`
 	CreatedAt   int64  `json:"created_at"`
 	UpdatedAt   int64  `json:"updated_at"`
+}
+
+// IsSerialConfigPortPathConflict reports whether err indicates a duplicate
+// radar_serial_config.port_path write.
+func IsSerialConfigPortPathConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), serialConfigPortPathUniqueConstraint)
 }
 
 // GetSerialConfigs returns all serial configurations

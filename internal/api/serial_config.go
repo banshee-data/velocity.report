@@ -179,6 +179,10 @@ func (s *Server) handleCreateSerialConfig(w http.ResponseWriter, r *http.Request
 	id, err := s.db.CreateSerialConfig(config)
 	if err != nil {
 		log.Printf("Error creating serial config: %v", err)
+		if db.IsSerialConfigPortPathConflict(err) {
+			http.Error(w, "Port path is already configured", http.StatusConflict)
+			return
+		}
 		http.Error(w, "Failed to create serial configuration", http.StatusInternalServerError)
 		return
 	}
@@ -246,6 +250,10 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 	err := s.db.UpdateSerialConfig(config)
 	if err != nil {
 		log.Printf("Error updating serial config %d: %v", id, err)
+		if db.IsSerialConfigPortPathConflict(err) {
+			http.Error(w, "Port path is already configured", http.StatusConflict)
+			return
+		}
 		if strings.Contains(err.Error(), "not found") {
 			http.Error(w, "Configuration not found", http.StatusNotFound)
 			return

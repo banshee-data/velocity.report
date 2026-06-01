@@ -280,6 +280,117 @@ func TestSerialConfigCreateDisabledFlag(t *testing.T) {
 	}
 }
 
+func TestSerialConfigCreateDuplicatePortPath(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_dup_create_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	defer database.Close()
+
+	first := &SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	}
+	if _, err := database.CreateSerialConfig(first); err != nil {
+		t.Fatalf("Failed to create first config: %v", err)
+	}
+
+	duplicate := &SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    115200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     false,
+		SensorModel: "ops243-c",
+	}
+	_, err = database.CreateSerialConfig(duplicate)
+	if err == nil {
+		t.Fatal("Expected duplicate port_path create to fail, got nil")
+	}
+	if !IsSerialConfigPortPathConflict(err) {
+		t.Fatalf("Expected duplicate port_path error, got %v", err)
+	}
+}
+
+func TestSerialConfigUpdateDuplicatePortPath(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_dup_update_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	defer database.Close()
+
+	firstID, err := database.CreateSerialConfig(&SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create first config: %v", err)
+	}
+
+	secondID, err := database.CreateSerialConfig(&SerialConfig{
+		PortPath:    "/dev/ttyUSB1",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create second config: %v", err)
+	}
+
+	err = database.UpdateSerialConfig(&SerialConfig{
+		ID:          int(secondID),
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	if err == nil {
+		t.Fatal("Expected duplicate port_path update to fail, got nil")
+	}
+	if !IsSerialConfigPortPathConflict(err) {
+		t.Fatalf("Expected duplicate port_path error, got %v", err)
+	}
+
+	first, err := database.GetSerialConfig(int(firstID))
+	if err != nil {
+		t.Fatalf("Failed to fetch first config: %v", err)
+	}
+	if first == nil || first.PortPath != "/dev/ttyUSB0" {
+		t.Fatalf("Expected first config to remain on /dev/ttyUSB0, got %+v", first)
+	}
+}
+
 func TestSerialConfigGetSerialConfigs_DBError(t *testing.T) {
 	tmpDB, err := os.CreateTemp("", "test_serial_config_db_err_*.db")
 	if err != nil {
