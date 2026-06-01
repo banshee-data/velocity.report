@@ -34,11 +34,23 @@ input[type='number'] {
  * Prefer composing these classes over repeating long utility strings.
  */
 
-/* Full-height page container for workspace routes. */
+/* Full-height page container for workspace routes.
+ *
+ * The fixed AppBar (svelte-ux AppLayout applies `position: fixed` to the
+ * header, height = --headerHeight = 64px) sits above this, and AppLayout gives
+ * <main> a matching 64px top margin. So page height must be viewport − 64px.
+ *
+ * Use dvh (dynamic viewport height), not vh: on mobile, 100vh is the *large*
+ * viewport (URL bar hidden), which makes the document taller than the visible
+ * area while the URL bar is shown — the body then scrolls and drags the fixed
+ * AppBar with it. dvh tracks the currently-visible viewport so the page fits
+ * exactly and only the inner content scrolls. The vh line is a fallback for
+ * browsers without dvh support. */
 .vr-page {
 	display: flex;
 	flex-direction: column;
 	height: calc(100vh - 64px);
+	height: calc(100dvh - 64px);
 	overflow: hidden;
 	background-color: var(--color-surface-200);
 }
