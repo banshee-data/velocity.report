@@ -146,7 +146,7 @@ func (s *Server) handleCreateSerialConfig(w http.ResponseWriter, r *http.Request
 
 	// Validate port path format
 	if !isValidPortPath(req.PortPath) {
-		http.Error(w, "Invalid port path. Must start with /dev/tty or /dev/serial", http.StatusBadRequest)
+		http.Error(w, "Invalid port path. Must be a serial device under /dev/ (e.g. /dev/ttyUSB0, /dev/serial0, /dev/cu.usbserial-*)", http.StatusBadRequest)
 		return
 	}
 
@@ -218,7 +218,7 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 
 	// Validate port path format
 	if !isValidPortPath(req.PortPath) {
-		http.Error(w, "Invalid port path. Must start with /dev/tty or /dev/serial", http.StatusBadRequest)
+		http.Error(w, "Invalid port path. Must be a serial device under /dev/ (e.g. /dev/ttyUSB0, /dev/serial0, /dev/cu.usbserial-*)", http.StatusBadRequest)
 		return
 	}
 
@@ -307,15 +307,25 @@ func (s *Server) handleSensorModels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// isValidPortPath validates that a port path is in an allowed format and
-// is not a symlink escape attack. It ensures the resolved path is within /dev/tty or /dev/serial.
+// isValidPortPath validates that a port path is a serial device under /dev/
+// and is not a symlink-escape attack. The decisive security check is that the
+// resolved path stays within /dev/; the prefix allowlist keeps the surface
+// tight so an unauthenticated caller cannot point the tester at block or
+// memory devices (/dev/sda, /dev/mem).
+//
+// Allowed prefixes cover every device class the enumeration can list:
+//   - /dev/tty…     Linux UARTs and USB serial (ttyS, ttyUSB, ttyACM, ttyAMA,
+//     ttySC) plus macOS dial-in nodes (/dev/tty.*)
+//   - /dev/serial…  Raspberry Pi symlinks (serial0/serial1, by-id, by-path)
+//   - /dev/cu.…     macOS call-out devices (/dev/cu.usbserial-*, cu.usbmodem*)
 func isValidPortPath(path string) bool {
 	if path == "" {
 		return false
 	}
 
-	// Check basic format: must start with /dev/tty or /dev/serial
-	validPrefix := strings.HasPrefix(path, "/dev/tty") || strings.HasPrefix(path, "/dev/serial")
+	validPrefix := strings.HasPrefix(path, "/dev/tty") ||
+		strings.HasPrefix(path, "/dev/serial") ||
+		strings.HasPrefix(path, "/dev/cu.")
 	if !validPrefix {
 		return false
 	}

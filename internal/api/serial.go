@@ -238,7 +238,7 @@ func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 
 	// Validate port path format
 	if !isValidPortPath(req.PortPath) {
-		http.Error(w, "Invalid port path. Must start with /dev/tty or /dev/serial", http.StatusBadRequest)
+		http.Error(w, "Invalid port path. Must be a serial device under /dev/ (e.g. /dev/ttyUSB0, /dev/serial0, /dev/cu.usbserial-*)", http.StatusBadRequest)
 		return
 	}
 

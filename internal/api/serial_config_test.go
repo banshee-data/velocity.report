@@ -651,9 +651,19 @@ func TestIsValidPortPath(t *testing.T) {
 		{"/dev/ttySC1", true},
 		{"/dev/serial/by-id/usb-foo", true},
 		{"/dev/ttyAMA0", true},
+		// macOS serial nodes: dial-in (tty.*) and call-out (cu.*). The cu.*
+		// devices are what go.bug.st/serial enumerates on a Mac, so the
+		// validator must accept them — otherwise a listed port cannot be added.
+		{"/dev/cu.usbserial-1410", true},
+		{"/dev/cu.usbmodem14201", true},
+		{"/dev/tty.usbserial-1410", true},
 		{"", false},
 		{"/invalid/path", false},
 		{"/dev/sda1", false},
+		// /dev/cuse (CUSE control node) must stay rejected: the allowlist is
+		// the precise "/dev/cu." prefix, not a loose "/dev/cu".
+		{"/dev/cuse", false},
+		{"/dev/mem", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.path, func(t *testing.T) {
