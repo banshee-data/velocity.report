@@ -173,6 +173,26 @@ func TestSerialPortManager_AdminRoutesFollowReload(t *testing.T) {
 	}
 }
 
+// TestHandleSerialReload_NotConfiguredReturns503 guards the handler's HTTP
+// status mapping: when a SerialPortManager is installed but has no factory
+// (fixture/disabled runtime modes), ReloadConfig returns
+// ErrSerialFactoryNotConfigured. That is an availability condition, so the
+// handler must respond 503, not 500 — matching the serialManager == nil branch.
+func TestHandleSerialReload_NotConfiguredReturns503(t *testing.T) {
+	srv := &Server{}
+	mgr := NewSerialPortManager(nil, serialmux.NewMockSerialMux([]byte("")), SerialConfigSnapshot{}, nil)
+	defer mgr.Close()
+	srv.SetSerialManager(mgr)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/serial/reload", nil)
+	w := httptest.NewRecorder()
+	srv.handleSerialReload(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 for not-configured reload, got %d", w.Code)
+	}
+}
+
 // TestSerialPortManager_Snapshot tests configuration snapshot
 func TestSerialPortManager_Snapshot(t *testing.T) {
 	snapshot := SerialConfigSnapshot{

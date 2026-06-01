@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -190,7 +191,15 @@ func (s *Server) handleSerialReload(w http.ResponseWriter, r *http.Request) {
 	result, err := s.serialManager.ReloadConfig(r.Context())
 	if err != nil {
 		log.Printf("serial reload failed: %v", err)
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reload serial configuration: %v", err))
+		// "Not configured" cases (no factory/DB, e.g. fixture or disabled
+		// modes) are availability conditions, not server faults, so report
+		// 503 to match the serialManager == nil branch above. Genuine reload
+		// failures (port open, invalid config, DB query) stay 500.
+		status := http.StatusInternalServerError
+		if errors.Is(err, ErrSerialFactoryNotConfigured) || errors.Is(err, ErrSerialDBNotConfigured) {
+			status = http.StatusServiceUnavailable
+		}
+		s.writeJSONError(w, status, fmt.Sprintf("Failed to reload serial configuration: %v", err))
 		return
 	}
 

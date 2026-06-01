@@ -19,6 +19,18 @@ import (
 // mock, disabled) can supply their own constructors.
 type SerialMuxFactory func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error)
 
+// Sentinel errors returned by ReloadConfig when the manager is installed but
+// cannot perform a reload because a dependency was never wired up. These are
+// availability conditions (e.g. fixture or disabled runtime modes), not server
+// faults, so callers should surface them as HTTP 503 rather than 500.
+var (
+	// ErrSerialFactoryNotConfigured indicates the manager has no mux factory.
+	ErrSerialFactoryNotConfigured = errors.New("serial mux factory not configured")
+	// ErrSerialDBNotConfigured indicates the manager has no database handle
+	// from which to read serial configurations.
+	ErrSerialDBNotConfigured = errors.New("database not configured")
+)
+
 // SerialConfigSnapshot describes the configuration that is currently applied to
 // the running serial mux. It mirrors the user-facing serial configuration model
 // so that API responses can report the active settings.
@@ -383,10 +395,10 @@ func (m *SerialPortManager) AttachAdminRoutes(mux *http.ServeMux) {
 // and replaced; subscriber-facing channels continue to receive events after reload.
 func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResult, error) {
 	if m.factory == nil {
-		return nil, errors.New("serial mux factory not configured")
+		return nil, ErrSerialFactoryNotConfigured
 	}
 	if m.db == nil {
-		return nil, errors.New("database not configured")
+		return nil, ErrSerialDBNotConfigured
 	}
 
 	select {
