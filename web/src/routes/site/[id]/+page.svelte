@@ -513,32 +513,56 @@
 							{#if configPeriods.length === 0}
 								<p class="text-surface-600-300-token text-sm">No configuration periods yet.</p>
 							{:else}
-								<div class="overflow-x-auto">
+								<!-- Card-wrapped table matching the lidar routes (sweeps, runs).
+								     overflow-x-auto (not -hidden) keeps the six columns scrollable
+								     on narrow viewports. -->
+								<div
+									class="bg-surface-100 border-surface-content/10 overflow-x-auto rounded-lg border"
+								>
 									<table class="w-full text-sm">
 										<thead>
-											<tr class="border-b">
-												<th class="px-2 py-2 text-left whitespace-nowrap">Start</th>
-												<th class="px-2 py-2 text-left whitespace-nowrap">End</th>
-												<th class="px-2 py-2 text-right">Angle</th>
-												<th class="w-24 px-2 py-2 text-left">Notes</th>
-												<th class="px-2 py-2 text-left">Active</th>
-												<th class="px-2 py-2 text-left">Actions</th>
+											<tr class="border-surface-content/10 border-b">
+												<th
+													class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
+													>Start</th
+												>
+												<th
+													class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium whitespace-nowrap"
+													>End</th
+												>
+												<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
+													>Angle</th
+												>
+												<th
+													class="text-surface-content/70 w-24 px-4 py-3 text-left text-sm font-medium"
+													>Notes</th
+												>
+												<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+													>Active</th
+												>
+												<th
+													class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+													>Actions</th
+												>
 											</tr>
 										</thead>
 										<tbody>
 											{#each configPeriods as period (period.id)}
-												<tr class="border-b">
-													<td class="px-2 py-2">{formatUnixSeconds(period.effective_start_unix)}</td
+												<tr
+													class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0"
+												>
+													<td class="px-4 py-3 whitespace-nowrap"
+														>{formatUnixSeconds(period.effective_start_unix)}</td
 													>
-													<td class="px-2 py-2">
+													<td class="px-4 py-3 whitespace-nowrap">
 														{period.effective_end_unix
 															? formatUnixSeconds(period.effective_end_unix)
 															: 'Open-ended'}
 													</td>
-													<td class="px-2 py-2 text-right">{period.cosine_error_angle}°</td>
-													<td class="px-2 py-2">{period.notes || '—'}</td>
-													<td class="px-2 py-2">{period.is_active ? 'Yes' : 'No'}</td>
-													<td class="px-2 py-2">
+													<td class="px-4 py-3 text-right">{period.cosine_error_angle}°</td>
+													<td class="px-4 py-3">{period.notes || '—'}</td>
+													<td class="px-4 py-3">{period.is_active ? 'Yes' : 'No'}</td>
+													<td class="px-4 py-3 text-center">
 														<Button size="sm" variant="outline" on:click={() => editPeriod(period)}>
 															Edit
 														</Button>
