@@ -37,14 +37,12 @@ func normaliseSerialConfigRequest(req *SerialConfigRequest) error {
 
 // SerialConfigRequest represents the request body for creating/updating serial configs
 type SerialConfigRequest struct {
-	Name        string `json:"name"`
 	PortPath    string `json:"port_path"`
 	BaudRate    int    `json:"baud_rate"`
 	DataBits    int    `json:"data_bits"`
 	StopBits    int    `json:"stop_bits"`
 	Parity      string `json:"parity"`
 	Enabled     bool   `json:"enabled"`
-	Description string `json:"description"`
 	SensorModel string `json:"sensor_model"`
 }
 
@@ -141,10 +139,6 @@ func (s *Server) handleCreateSerialConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	// Validate required fields
-	if req.Name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
-		return
-	}
 	if req.PortPath == "" {
 		http.Error(w, "Port path is required", http.StatusBadRequest)
 		return
@@ -173,24 +167,18 @@ func (s *Server) handleCreateSerialConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	config := &db.SerialConfig{
-		Name:        req.Name,
 		PortPath:    req.PortPath,
 		BaudRate:    req.BaudRate,
 		DataBits:    req.DataBits,
 		StopBits:    req.StopBits,
 		Parity:      req.Parity,
 		Enabled:     req.Enabled,
-		Description: req.Description,
 		SensorModel: req.SensorModel,
 	}
 
 	id, err := s.db.CreateSerialConfig(config)
 	if err != nil {
 		log.Printf("Error creating serial config: %v", err)
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			http.Error(w, "Configuration with this name already exists", http.StatusConflict)
-			return
-		}
 		http.Error(w, "Failed to create serial configuration", http.StatusInternalServerError)
 		return
 	}
@@ -219,10 +207,6 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	// Validate required fields
-	if req.Name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
-		return
-	}
 	if req.PortPath == "" {
 		http.Error(w, "Port path is required", http.StatusBadRequest)
 		return
@@ -250,14 +234,12 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 
 	config := &db.SerialConfig{
 		ID:          id,
-		Name:        req.Name,
 		PortPath:    req.PortPath,
 		BaudRate:    req.BaudRate,
 		DataBits:    req.DataBits,
 		StopBits:    req.StopBits,
 		Parity:      req.Parity,
 		Enabled:     req.Enabled,
-		Description: req.Description,
 		SensorModel: req.SensorModel,
 	}
 
@@ -266,10 +248,6 @@ func (s *Server) handleUpdateSerialConfig(w http.ResponseWriter, r *http.Request
 		log.Printf("Error updating serial config %d: %v", id, err)
 		if strings.Contains(err.Error(), "not found") {
 			http.Error(w, "Configuration not found", http.StatusNotFound)
-			return
-		}
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			http.Error(w, "Configuration with this name already exists", http.StatusConflict)
 			return
 		}
 		http.Error(w, "Failed to update serial configuration", http.StatusInternalServerError)

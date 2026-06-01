@@ -177,7 +177,6 @@ func TestSerialPortManager_AdminRoutesFollowReload(t *testing.T) {
 func TestSerialPortManager_Snapshot(t *testing.T) {
 	snapshot := SerialConfigSnapshot{
 		ConfigID: 42,
-		Name:     "Test Config",
 		PortPath: "/dev/ttyUSB0",
 		Source:   "database",
 		Options:  serialmux.PortOptions{BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N"},
@@ -189,9 +188,6 @@ func TestSerialPortManager_Snapshot(t *testing.T) {
 	got := manager.Snapshot()
 	if got.ConfigID != 42 {
 		t.Errorf("Expected config ID 42, got %d", got.ConfigID)
-	}
-	if got.Name != "Test Config" {
-		t.Errorf("Expected name 'Test Config', got '%s'", got.Name)
 	}
 	if got.PortPath != "/dev/ttyUSB0" {
 		t.Errorf("Expected port '/dev/ttyUSB0', got '%s'", got.PortPath)

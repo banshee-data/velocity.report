@@ -17,6 +17,20 @@ import (
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
+// clearSerialConfigs removes every row from radar_serial_config, including the
+// default /dev/ttySC1 HAT config that migration 000038 seeds into every fresh
+// database (and which schema.sql now reproduces faithfully). Reload tests that
+// assert against a specific set of enabled configs must call this first so the
+// seed does not hijack ReloadConfig's `configs[0]` selection — otherwise a
+// same-port test silently degrades into a different-port test, and a
+// "no enabled configs" test finds the seed and never hits its error path.
+func clearSerialConfigs(t *testing.T, database *db.DB) {
+	t.Helper()
+	if _, err := database.Exec("DELETE FROM radar_serial_config"); err != nil {
+		t.Fatalf("failed to clear seeded serial configs: %v", err)
+	}
+}
+
 func TestSerialConfigEndpoints(t *testing.T) {
 	// Create a temporary database
 	tmpDB, err := os.CreateTemp("", "test_api_serial_*.db")
@@ -79,14 +93,12 @@ func TestSerialConfigEndpoints(t *testing.T) {
 	var createdID int
 	t.Run("POST /api/serial/configs", func(t *testing.T) {
 		reqBody := SerialConfigRequest{
-			Name:        "Test USB Radar",
 			PortPath:    "/dev/ttyUSB0",
 			BaudRate:    19200,
 			DataBits:    8,
 			StopBits:    1,
 			Parity:      "N",
 			Enabled:     true,
-			Description: "Test radar sensor",
 			SensorModel: "ops243-a",
 		}
 
@@ -105,8 +117,8 @@ func TestSerialConfigEndpoints(t *testing.T) {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
 
-		if created.Name != reqBody.Name {
-			t.Errorf("Expected name '%s', got '%s'", reqBody.Name, created.Name)
+		if created.PortPath != reqBody.PortPath {
+			t.Errorf("Expected port path '%s', got '%s'", reqBody.PortPath, created.PortPath)
 		}
 
 		createdID = created.ID
@@ -135,14 +147,12 @@ func TestSerialConfigEndpoints(t *testing.T) {
 	// Test PUT /api/serial/configs/:id
 	t.Run("PUT /api/serial/configs/:id", func(t *testing.T) {
 		updateReq := SerialConfigRequest{
-			Name:        "Updated Test Radar",
 			PortPath:    "/dev/ttyUSB0",
 			BaudRate:    115200,
 			DataBits:    8,
 			StopBits:    1,
 			Parity:      "N",
 			Enabled:     false,
-			Description: "Updated description",
 			SensorModel: "ops243-c",
 		}
 
@@ -159,10 +169,6 @@ func TestSerialConfigEndpoints(t *testing.T) {
 		var updated db.SerialConfig
 		if err := json.NewDecoder(w.Body).Decode(&updated); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
-		}
-
-		if updated.Name != updateReq.Name {
-			t.Errorf("Expected name '%s', got '%s'", updateReq.Name, updated.Name)
 		}
 
 		if updated.BaudRate != 115200 {
@@ -184,7 +190,6 @@ func TestSerialConfigEndpoints(t *testing.T) {
 	// Test invalid port path
 	t.Run("POST /api/serial/configs with invalid port", func(t *testing.T) {
 		reqBody := SerialConfigRequest{
-			Name:        "Invalid Port",
 			PortPath:    "/invalid/path",
 			BaudRate:    19200,
 			SensorModel: "ops243-a",
@@ -204,7 +209,6 @@ func TestSerialConfigEndpoints(t *testing.T) {
 	// Test invalid sensor model
 	t.Run("POST /api/serial/configs with invalid sensor model", func(t *testing.T) {
 		reqBody := SerialConfigRequest{
-			Name:        "Invalid Sensor",
 			PortPath:    "/dev/ttyUSB0",
 			BaudRate:    19200,
 			SensorModel: "invalid-model",
@@ -226,7 +230,6 @@ func TestSerialConfigEndpoints(t *testing.T) {
 	// failure only surfaced later in the runtime when the port was opened.
 	t.Run("POST /api/serial/configs rejects non-standard baud rate", func(t *testing.T) {
 		reqBody := SerialConfigRequest{
-			Name:        "Bad Baud",
 			PortPath:    "/dev/ttyUSB0",
 			BaudRate:    12345,
 			DataBits:    8,
@@ -255,7 +258,6 @@ func TestSerialConfigEndpoints(t *testing.T) {
 	t.Run("PUT /api/serial/configs/:id rejects invalid stop bits", func(t *testing.T) {
 		// Seed a known-good config to update.
 		seed := SerialConfigRequest{
-			Name:        "Update Target",
 			PortPath:    "/dev/ttyUSB1",
 			BaudRate:    19200,
 			DataBits:    8,
@@ -343,25 +345,11 @@ func TestCreateSerialConfig_InvalidBody(t *testing.T) {
 	}
 }
 
-func TestCreateSerialConfig_EmptyName(t *testing.T) {
-	server, dbInst := setupTestServer(t)
-	defer cleanupTestServer(t, dbInst)
-
-	body, _ := json.Marshal(SerialConfigRequest{PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a"})
-	req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	server.handleCreateSerialConfig(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400, got %d", w.Code)
-	}
-}
-
 func TestCreateSerialConfig_EmptyPortPath(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	body, _ := json.Marshal(SerialConfigRequest{Name: "test", SensorModel: "ops243-a"})
+	body, _ := json.Marshal(SerialConfigRequest{SensorModel: "ops243-a"})
 	req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	server.handleCreateSerialConfig(w, req)
@@ -377,7 +365,6 @@ func TestCreateSerialConfig_Defaults(t *testing.T) {
 	mux := server.ServeMux()
 
 	body, _ := json.Marshal(SerialConfigRequest{
-		Name:        "DefaultsTest",
 		PortPath:    "/dev/ttyUSB0",
 		Enabled:     true,
 		SensorModel: "ops243-a",
@@ -403,35 +390,6 @@ func TestCreateSerialConfig_Defaults(t *testing.T) {
 	}
 	if cfg.Parity != "N" {
 		t.Errorf("Default parity = %q, want N", cfg.Parity)
-	}
-}
-
-func TestCreateSerialConfig_DuplicateName(t *testing.T) {
-	server, dbInst := setupTestServer(t)
-	defer cleanupTestServer(t, dbInst)
-	mux := server.ServeMux()
-
-	body, _ := json.Marshal(SerialConfigRequest{
-		Name: "Dup", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a", Enabled: true,
-	})
-
-	// First create
-	req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("First create failed: %d %s", w.Code, w.Body.String())
-	}
-
-	// Second create with same name
-	body, _ = json.Marshal(SerialConfigRequest{
-		Name: "Dup", PortPath: "/dev/ttyUSB1", SensorModel: "ops243-a", Enabled: true,
-	})
-	req = httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
-	w = httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != http.StatusConflict {
-		t.Errorf("Expected 409 for duplicate name, got %d", w.Code)
 	}
 }
 
@@ -500,25 +458,11 @@ func TestUpdateSerialConfig_InvalidBody(t *testing.T) {
 	}
 }
 
-func TestUpdateSerialConfig_EmptyName(t *testing.T) {
-	server, dbInst := setupTestServer(t)
-	defer cleanupTestServer(t, dbInst)
-
-	body, _ := json.Marshal(SerialConfigRequest{PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a"})
-	req := httptest.NewRequest("PUT", "/api/serial/configs/1", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	server.handleUpdateSerialConfig(w, req, 1)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400, got %d", w.Code)
-	}
-}
-
 func TestUpdateSerialConfig_EmptyPortPath(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	body, _ := json.Marshal(SerialConfigRequest{Name: "X", SensorModel: "ops243-a"})
+	body, _ := json.Marshal(SerialConfigRequest{SensorModel: "ops243-a"})
 	req := httptest.NewRequest("PUT", "/api/serial/configs/1", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	server.handleUpdateSerialConfig(w, req, 1)
@@ -532,7 +476,7 @@ func TestUpdateSerialConfig_InvalidPortPath(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	body, _ := json.Marshal(SerialConfigRequest{Name: "X", PortPath: "/bad/path", SensorModel: "ops243-a"})
+	body, _ := json.Marshal(SerialConfigRequest{PortPath: "/bad/path", SensorModel: "ops243-a"})
 	req := httptest.NewRequest("PUT", "/api/serial/configs/1", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	server.handleUpdateSerialConfig(w, req, 1)
@@ -546,7 +490,7 @@ func TestUpdateSerialConfig_InvalidSensorModel(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	body, _ := json.Marshal(SerialConfigRequest{Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "bad"})
+	body, _ := json.Marshal(SerialConfigRequest{PortPath: "/dev/ttyUSB0", SensorModel: "bad"})
 	req := httptest.NewRequest("PUT", "/api/serial/configs/1", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	server.handleUpdateSerialConfig(w, req, 1)
@@ -561,7 +505,7 @@ func TestUpdateSerialConfig_NotFound(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	body, _ := json.Marshal(SerialConfigRequest{
-		Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
 		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
 	})
 	req := httptest.NewRequest("PUT", "/api/serial/configs/99999", bytes.NewReader(body))
@@ -783,6 +727,10 @@ func TestSerialPortManager_ReloadConfig_NoEnabledConfigs(t *testing.T) {
 	}
 	defer database.Close()
 
+	// A fresh DB carries migration 000038's default /dev/ttySC1 seed; clear it so
+	// this test genuinely reaches the "no enabled configs" error path.
+	clearSerialConfigs(t, database)
+
 	factory := func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error) {
 		return &mockSerialMuxForReload{}, nil
 	}
@@ -811,9 +759,12 @@ func TestSerialPortManager_ReloadConfig_AlreadyActive(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	// Insert an enabled config
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "Active", PortPath: "/dev/ttyUSB0", BaudRate: 19200,
+		PortPath: "/dev/ttyUSB0", BaudRate: 19200,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -857,9 +808,12 @@ func TestSerialPortManager_ReloadConfig_DifferentPort(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	// Insert an enabled config
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "NewPort", PortPath: "/dev/ttyUSB1", BaudRate: 9600,
+		PortPath: "/dev/ttyUSB1", BaudRate: 9600,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -907,9 +861,12 @@ func TestSerialPortManager_ReloadConfig_SamePort(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	// Insert an enabled config with different baud rate
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "SamePort", PortPath: "/dev/ttyUSB0", BaudRate: 9600,
+		PortPath: "/dev/ttyUSB0", BaudRate: 9600,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -954,8 +911,11 @@ func TestSerialPortManager_ReloadConfig_FactoryError(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "FailPort", PortPath: "/dev/ttyUSB0", BaudRate: 19200,
+		PortPath: "/dev/ttyUSB0", BaudRate: 19200,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -991,8 +951,11 @@ func TestSerialPortManager_ReloadConfig_SamePortFactoryError(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "FailSame", PortPath: "/dev/ttyUSB0", BaudRate: 9600,
+		PortPath: "/dev/ttyUSB0", BaudRate: 9600,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -1029,8 +992,11 @@ func TestSerialPortManager_ReloadConfig_InitialiseError(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "InitFail", PortPath: "/dev/ttyUSB1", BaudRate: 19200,
+		PortPath: "/dev/ttyUSB1", BaudRate: 19200,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -1066,8 +1032,11 @@ func TestSerialPortManager_ReloadConfig_SamePortInitialiseError(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "SameInitFail", PortPath: "/dev/ttyUSB0", BaudRate: 9600,
+		PortPath: "/dev/ttyUSB0", BaudRate: 9600,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -1223,9 +1192,12 @@ func TestHandleSerialReload_WithManager(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	// Insert an enabled config
 	_, err = database.CreateSerialConfig(&db.SerialConfig{
-		Name: "Handler", PortPath: "/dev/ttyUSB0", BaudRate: 19200,
+		PortPath: "/dev/ttyUSB0", BaudRate: 19200,
 		DataBits: 8, StopBits: 1, Parity: "N", Enabled: true, SensorModel: "ops243-a",
 	})
 	if err != nil {
@@ -1270,6 +1242,10 @@ func TestHandleSerialReload_FailedReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
+
+	// Migration 000038 seeds a default enabled config into fresh DBs; clear it so
+	// the reload genuinely finds no enabled configs and fails as intended.
+	clearSerialConfigs(t, database)
 
 	// No enabled configs — will cause error
 	factory := func(path string, opts serialmux.PortOptions) (serialmux.SerialMuxInterface, error) {
@@ -1330,7 +1306,7 @@ func TestCreateSerialConfig_DBError(t *testing.T) {
 	defer cleanupClosedDB(t, fname)
 
 	body, _ := json.Marshal(SerialConfigRequest{
-		Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
 		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
 	})
 	req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
@@ -1349,7 +1325,7 @@ func TestUpdateSerialConfig_DBError(t *testing.T) {
 	defer cleanupClosedDB(t, fname)
 
 	body, _ := json.Marshal(SerialConfigRequest{
-		Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
 		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
 	})
 	req := httptest.NewRequest("PUT", "/api/serial/configs/1", bytes.NewReader(body))
@@ -1373,39 +1349,6 @@ func TestDeleteSerialConfig_DBError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500, got %d", w.Code)
-	}
-}
-
-func TestUpdateSerialConfig_DuplicateNameConflict(t *testing.T) {
-	server, dbInst := setupTestServer(t)
-	defer cleanupTestServer(t, dbInst)
-	mux := server.ServeMux()
-
-	// Create two configs
-	for _, name := range []string{"First", "Second"} {
-		body, _ := json.Marshal(SerialConfigRequest{
-			Name: name, PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
-			BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N", Enabled: true,
-		})
-		req := httptest.NewRequest("POST", "/api/serial/configs", bytes.NewReader(body))
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
-		if w.Code != http.StatusCreated {
-			t.Fatalf("Failed to create config %s: %d %s", name, w.Code, w.Body.String())
-		}
-	}
-
-	// Try to rename Second to First — should get 409 Conflict
-	body, _ := json.Marshal(SerialConfigRequest{
-		Name: "First", PortPath: "/dev/ttyUSB1", SensorModel: "ops243-a",
-		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
-	})
-	req := httptest.NewRequest("PUT", "/api/serial/configs/2", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Errorf("Expected 409, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -1604,9 +1547,12 @@ func TestSerialPortManager_ReloadConfig_InvalidNormalise(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear migration 000038's default seed so configs[0] is the row we insert.
+	clearSerialConfigs(t, database)
+
 	// Insert config with invalid baud rate that passes DB CHECK but fails PortOptions.Normalise
-	_, err = database.Exec(`INSERT INTO radar_serial_config (name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model)
-		VALUES ('Bad', '/dev/ttyUSB0', 12345, 8, 1, 'N', 1, '', 'ops243-a')`)
+	_, err = database.Exec(`INSERT INTO radar_serial_config (port_path, baud_rate, data_bits, stop_bits, parity, enabled, sensor_model)
+		VALUES ('/dev/ttyUSB0', 12345, 8, 1, 'N', 1, 'ops243-a')`)
 	if err != nil {
 		t.Fatal(err)
 	}

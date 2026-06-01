@@ -24,7 +24,6 @@ type SerialMuxFactory func(path string, opts serialmux.PortOptions) (serialmux.S
 // so that API responses can report the active settings.
 type SerialConfigSnapshot struct {
 	ConfigID int                   `json:"config_id,omitempty"`
-	Name     string                `json:"name,omitempty"`
 	PortPath string                `json:"port_path"`
 	Source   string                `json:"source"`
 	Options  serialmux.PortOptions `json:"options"`
@@ -427,10 +426,9 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	if currentSnap.PortPath == cfg.PortPath && optionsEqual {
 		return &SerialReloadResult{
 			Success: true,
-			Message: fmt.Sprintf("Serial configuration %q already active", cfg.Name),
+			Message: fmt.Sprintf("Serial configuration %q already active", cfg.PortPath),
 			Config: &SerialConfigSnapshot{
 				ConfigID: cfg.ID,
-				Name:     cfg.Name,
 				PortPath: cfg.PortPath,
 				Source:   "database",
 				Options:  normalised,
@@ -496,7 +494,6 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 	m.mu.Lock()
 	snap := SerialConfigSnapshot{
 		ConfigID: cfg.ID,
-		Name:     cfg.Name,
 		PortPath: cfg.PortPath,
 		Source:   "database",
 		Options:  normalised,
@@ -515,7 +512,7 @@ func (m *SerialPortManager) ReloadConfig(ctx context.Context) (*SerialReloadResu
 
 	return &SerialReloadResult{
 		Success: true,
-		Message: fmt.Sprintf("Reloaded serial configuration %q", cfg.Name),
+		Message: fmt.Sprintf("Reloaded serial configuration %q", cfg.PortPath),
 		Config:  &snap,
 	}, nil
 }

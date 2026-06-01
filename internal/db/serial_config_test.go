@@ -28,14 +28,12 @@ func TestSerialConfig(t *testing.T) {
 
 	// Test CreateSerialConfig
 	newConfig := &SerialConfig{
-		Name:        "USB Radar #1",
 		PortPath:    "/dev/ttyUSB0",
 		BaudRate:    19200,
 		DataBits:    8,
 		StopBits:    1,
 		Parity:      "N",
 		Enabled:     true,
-		Description: "USB-connected radar sensor",
 		SensorModel: "ops243-a",
 	}
 
@@ -55,9 +53,6 @@ func TestSerialConfig(t *testing.T) {
 	if retrieved == nil {
 		t.Fatal("Expected to retrieve config, got nil")
 	}
-	if retrieved.Name != newConfig.Name {
-		t.Errorf("Expected name '%s', got '%s'", newConfig.Name, retrieved.Name)
-	}
 	if retrieved.PortPath != newConfig.PortPath {
 		t.Errorf("Expected port '%s', got '%s'", newConfig.PortPath, retrieved.PortPath)
 	}
@@ -72,7 +67,7 @@ func TestSerialConfig(t *testing.T) {
 	}
 
 	// Test UpdateSerialConfig
-	retrieved.Description = "Updated description"
+	retrieved.BaudRate = 115200
 	retrieved.Enabled = false
 	err = db.UpdateSerialConfig(retrieved)
 	if err != nil {
@@ -83,8 +78,8 @@ func TestSerialConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get updated config: %v", err)
 	}
-	if updated.Description != "Updated description" {
-		t.Errorf("Expected updated description, got '%s'", updated.Description)
+	if updated.BaudRate != 115200 {
+		t.Errorf("Expected updated baud rate 115200, got %d", updated.BaudRate)
 	}
 	if updated.Enabled {
 		t.Error("Expected config to be disabled")
@@ -123,56 +118,6 @@ func TestSerialConfig(t *testing.T) {
 	}
 }
 
-func TestSerialConfigUniqueConstraint(t *testing.T) {
-	tmpDB, err := os.CreateTemp("", "test_serial_config_unique_*.db")
-	if err != nil {
-		t.Fatalf("Failed to create temp DB: %v", err)
-	}
-	defer os.Remove(tmpDB.Name())
-	tmpDB.Close()
-
-	db, err := NewDB(tmpDB.Name())
-	if err != nil {
-		t.Fatalf("Failed to create DB: %v", err)
-	}
-	defer db.Close()
-
-	// Create a config first
-	firstConfig := &SerialConfig{
-		Name:        "Test Config",
-		PortPath:    "/dev/ttyUSB0",
-		BaudRate:    19200,
-		DataBits:    8,
-		StopBits:    1,
-		Parity:      "N",
-		Enabled:     true,
-		Description: "First config",
-		SensorModel: "ops243-a",
-	}
-	_, err = db.CreateSerialConfig(firstConfig)
-	if err != nil {
-		t.Fatalf("Failed to create first config: %v", err)
-	}
-
-	// Try to create a config with the same name
-	duplicateConfig := &SerialConfig{
-		Name:        "Test Config",
-		PortPath:    "/dev/ttyUSB1",
-		BaudRate:    19200,
-		DataBits:    8,
-		StopBits:    1,
-		Parity:      "N",
-		Enabled:     true,
-		Description: "Duplicate name",
-		SensorModel: "ops243-a",
-	}
-
-	_, err = db.CreateSerialConfig(duplicateConfig)
-	if err == nil {
-		t.Error("Expected error when creating config with duplicate name, got nil")
-	}
-}
-
 func TestSerialConfigInvalidSensorModel(t *testing.T) {
 	tmpDB, err := os.CreateTemp("", "test_serial_config_invalid_*.db")
 	if err != nil {
@@ -189,14 +134,12 @@ func TestSerialConfigInvalidSensorModel(t *testing.T) {
 
 	// Try to create a config with invalid sensor model
 	invalidConfig := &SerialConfig{
-		Name:        "Invalid Sensor",
 		PortPath:    "/dev/ttyUSB0",
 		BaudRate:    19200,
 		DataBits:    8,
 		StopBits:    1,
 		Parity:      "N",
 		Enabled:     true,
-		Description: "Invalid sensor model",
 		SensorModel: "invalid-model",
 	}
 
@@ -222,7 +165,6 @@ func TestSerialConfigUpdateNotFound(t *testing.T) {
 
 	err = database.UpdateSerialConfig(&SerialConfig{
 		ID:          99999,
-		Name:        "Does Not Exist",
 		PortPath:    "/dev/ttyUSB0",
 		BaudRate:    19200,
 		DataBits:    8,
@@ -295,7 +237,6 @@ func TestSerialConfigCreateDisabledFlag(t *testing.T) {
 
 	// Create with Enabled=false
 	cfg := &SerialConfig{
-		Name:        "Disabled Config",
 		PortPath:    "/dev/ttyUSB0",
 		BaudRate:    19200,
 		DataBits:    8,
@@ -414,7 +355,7 @@ func TestSerialConfigUpdateSerialConfig_DBError(t *testing.T) {
 	database.Close()
 
 	err = database.UpdateSerialConfig(&SerialConfig{
-		ID: 1, Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		ID: 1, PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
 		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
 	})
 	if err == nil {
@@ -457,7 +398,7 @@ func TestSerialConfigCreateSerialConfig_DBError(t *testing.T) {
 	database.Close()
 
 	_, err = database.CreateSerialConfig(&SerialConfig{
-		Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
 		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
 	})
 	if err == nil {
