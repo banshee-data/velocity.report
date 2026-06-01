@@ -395,6 +395,24 @@
         , length_m DOUBLE NOT NULL AS (JSON_EXTRACT(raw_event, '$.length_m')) STORED
           );
 
+   CREATE TABLE radar_serial_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , port_path TEXT NOT NULL UNIQUE
+        , baud_rate INTEGER NOT NULL DEFAULT 19200
+        , data_bits INTEGER NOT NULL DEFAULT 8
+        , stop_bits INTEGER NOT NULL DEFAULT 1
+        , parity TEXT NOT NULL DEFAULT 'N'
+        , enabled INTEGER NOT NULL DEFAULT 1
+        , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+          -- Note: Detailed sensor_model validation is performed in Go using the
+          -- SupportedSensorModels registry; this CHECK only enforces a basic
+          -- format to avoid requiring schema migrations when new models are added.
+
+        , CHECK (sensor_model LIKE 'ops243-%')
+          );
+
    CREATE TABLE IF NOT EXISTS "radar_transit_links" (
           link_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
@@ -642,7 +660,29 @@ CREATE INDEX idx_lidar_run_records_replay_case ON lidar_run_records (replay_case
 
 CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases (recommended_param_set_id);
 
+CREATE INDEX idx_radar_serial_config_enabled ON radar_serial_config (enabled);
+
+CREATE TRIGGER update_radar_serial_config_timestamp AFTER
+   UPDATE ON radar_serial_config BEGIN
+   UPDATE radar_serial_config
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+
+END;
+
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
+   INSERT OR IGNORE INTO "radar_serial_config" (
+          "id"
+        , "port_path"
+        , "baud_rate"
+        , "data_bits"
+        , "stop_bits"
+        , "parity"
+        , "enabled"
+        , "sensor_model"
+          )
+   VALUES (1, '/dev/ttySC1', 19200, 8, 1, 'N', 1, 'ops243-a');
+
    INSERT OR IGNORE INTO "site" (
           "id"
         , "name"
@@ -661,6 +701,8 @@ CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases 
         , "bbox_sw_lat"
         , "bbox_sw_lng"
         , "map_svg_data"
+        , "radar_svg_x"
+        , "radar_svg_y"
           )
    VALUES (
           1
@@ -680,6 +722,8 @@ CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases 
         , NULL
         , NULL
         , NULL
+        , NULL
+        , NULL
           );
 
    INSERT OR IGNORE INTO "site_config_periods" (
@@ -694,39 +738,9 @@ CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases 
    VALUES (
           1
         , 1
-        , 1773500966
+        , 1773500966.0
         , NULL
         , 1
         , 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
         , 0.5
           );
-
-   CREATE TABLE radar_serial_config (
-          id INTEGER PRIMARY KEY AUTOINCREMENT
-        , name TEXT NOT NULL UNIQUE
-        , port_path TEXT NOT NULL
-        , baud_rate INTEGER NOT NULL DEFAULT 19200
-        , data_bits INTEGER NOT NULL DEFAULT 8
-        , stop_bits INTEGER NOT NULL DEFAULT 1
-        , parity TEXT NOT NULL DEFAULT 'N'
-        , enabled INTEGER NOT NULL DEFAULT 1
-        , description TEXT
-        , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
-        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-          -- Note: Detailed sensor_model validation is performed in Go using the
-          -- SupportedSensorModels registry; this CHECK only enforces a basic
-          -- format to avoid requiring schema migrations when new models are added.
-
-        , CHECK (sensor_model LIKE 'ops243-%')
-          );
-
-CREATE INDEX idx_radar_serial_config_enabled ON radar_serial_config (enabled);
-
-CREATE TRIGGER update_radar_serial_config_timestamp AFTER
-   UPDATE ON radar_serial_config BEGIN
-   UPDATE radar_serial_config
-      SET updated_at = STRFTIME('%s', 'now')
-    WHERE id = NEW.id;
-
-END;

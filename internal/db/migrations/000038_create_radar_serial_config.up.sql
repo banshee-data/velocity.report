@@ -4,14 +4,12 @@
 -- Serial port configurations table
    CREATE TABLE IF NOT EXISTS radar_serial_config (
           id INTEGER PRIMARY KEY AUTOINCREMENT
-        , name TEXT NOT NULL UNIQUE
-        , port_path TEXT NOT NULL
+        , port_path TEXT NOT NULL UNIQUE
         , baud_rate INTEGER NOT NULL DEFAULT 19200
         , data_bits INTEGER NOT NULL DEFAULT 8
         , stop_bits INTEGER NOT NULL DEFAULT 1
         , parity TEXT NOT NULL DEFAULT 'N'
         , enabled INTEGER NOT NULL DEFAULT 1
-        , description TEXT
         , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
         , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
@@ -34,26 +32,14 @@ CREATE TRIGGER IF NOT EXISTS update_radar_serial_config_timestamp AFTER
 END;
 
 -- +migrate StatementEnd
--- Insert default configuration for HAT (Raspberry Pi header)
+-- Insert default configuration for HAT (Raspberry Pi header, SC16IS762)
    INSERT OR IGNORE INTO radar_serial_config (
-          name
-        , port_path
+          port_path
         , baud_rate
         , data_bits
         , stop_bits
         , parity
         , enabled
-        , description
         , sensor_model
           )
-   VALUES (
-          'Default HAT'
-        , '/dev/ttySC1'
-        , 19200
-        , 8
-        , 1
-        , 'N'
-        , 1
-        , 'Default serial configuration for Raspberry Pi HAT (SC16IS762)'
-        , 'ops243-a'
-          );
+   VALUES ('/dev/ttySC1', 19200, 8, 1, 'N', 1, 'ops243-a');
