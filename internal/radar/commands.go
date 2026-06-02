@@ -93,6 +93,8 @@ var KnownCommands = []Command{
 	{"Os", "Disable speed reporting (Doppler)"},
 	{"OD", "Enable range reporting (FMCW)"},
 	{"Od", "Disable range reporting (FMCW)"},
+	{"oD", "Enable range reporting (FMCW, lowercase form)"},
+	{"od", "Disable range reporting (FMCW, lowercase form)"},
 	{"OB", "Enable binary (hex) output"},
 	{"Ob", "Disable binary (hex) output"},
 	{"OF", "Enable FFT output (Doppler mode)"},

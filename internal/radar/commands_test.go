@@ -37,6 +37,7 @@ func TestKnownCommands_ContainsExpectedCommands(t *testing.T) {
 		"OJ", // Enable JSON output mode (sent during init)
 		"OH", // Enable human-readable timestamp (sent during init)
 		"OC", // Enable processing-activity lights (sent during init)
+		"oD", // Enable range reporting, FMCW lowercase form (sent during init)
 	}
 
 	commandSet := make(map[string]bool)
