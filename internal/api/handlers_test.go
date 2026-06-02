@@ -25,7 +25,7 @@ func TestSendCommandHandler(t *testing.T) {
 
 	// Test POST with command
 	t.Run("POST_with_command", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader("command=??"))
+		req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader("command=OJ"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 

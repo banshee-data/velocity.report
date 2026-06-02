@@ -186,7 +186,7 @@
 - Created the plan-graduation skill with slim hub-doc template and two-PR graduation rule. Added the docs-release-prep skill.
 - Resolved the lidar-schema-robustness plan as complete. Added status lines to 7 plans, consolidated webserver-tuning into the fixit plan.
 - Added CI docs link health check and refined linting scripts. Auto-built the documentation site when missing from the RPi image.
-- {dd/fix/security-c2-c3} Hardened serial command injection protection and restricted default listen addresses to localhost.
+- {dd/fix/security-c2-c3} Restricted default listen addresses to localhost. Dropped the `/command` allowlist after confirming the OPS24x API command set is config/query-only and non-destructive (no firmware-flash command per AN-010-Z); the endpoint now forwards any command to the sensor.
 
 ## April 9, 2026 - asset naming, Go report generation & RPi image security
 

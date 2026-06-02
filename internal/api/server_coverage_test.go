@@ -1512,8 +1512,8 @@ func TestSendCommandHandler_POSTSuccess(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/command?command=??", nil)
-	req.Form = map[string][]string{"command": {"??"}}
+	req := httptest.NewRequest(http.MethodPost, "/api/command?command=test", nil)
+	req.Form = map[string][]string{"command": {"test"}}
 	w := httptest.NewRecorder()
 	server.sendCommandHandler(w, req)
 

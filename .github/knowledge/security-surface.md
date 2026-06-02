@@ -21,7 +21,7 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 
 ### Radar Serial (/dev/ttyUSB0)
 
-- Command injection via serial interface
+- Serial command surface: the OPS24x API command set (AN-010-Z) is fixed, config/query-only, and non-destructive — there is no firmware-flash command. The `/command` endpoint therefore forwards commands to the sensor without an allowlist; the control is access restriction (localhost-only binding, planned API auth), not command-string filtering.
 - Buffer overflows in serial parsing
 - Device spoofing
 - Privilege escalation via device permissions
