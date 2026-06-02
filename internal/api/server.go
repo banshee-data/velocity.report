@@ -17,6 +17,7 @@ import (
 
 	radar "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/db"
+	radarcmd "github.com/banshee-data/velocity.report/internal/radar"
 	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
@@ -117,6 +118,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 
 	s.mux.HandleFunc("/events", s.listEvents)
 	s.mux.HandleFunc("/command", s.sendCommandHandler)
+	s.mux.HandleFunc("/api/commands", s.listCommandsHandler) // OPS24x command catalogue (dashboard dropdown)
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/capabilities", s.showCapabilities)
@@ -158,12 +160,37 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
+	// Advisory check only: the OPS24x command set is config/query-only with no
+	// firmware-flash command, so we forward whatever is asked. An unknown
+	// command is still sent, but we log a warning so a typo or undocumented
+	// command is visible. Access control is localhost binding + planned API
+	// auth, not command-string filtering. See internal/radar/commands.go.
+	if command != "" && !radarcmd.IsKnownCommand(command) {
+		log.Printf("warning: command %q is not in the known OPS24x command catalogue; forwarding anyway", command)
+	}
+
 	if err := s.currentSerialMux().SendCommand(command); err != nil {
 		http.Error(w, "Failed to send command", http.StatusInternalServerError)
 		return
 	}
 	if _, err := io.WriteString(w, "Command sent successfully"); err != nil {
 		log.Printf("failed to write command response: %v", err)
+	}
+}
+
+// listCommandsHandler serves GET /api/commands, returning the catalogue of
+// documented OPS24x commands as JSON. It backs a dashboard command dropdown.
+// The catalogue is advisory (see sendCommandHandler): callers may still send
+// commands that are not listed here.
+func (s *Server) listCommandsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(radarcmd.KnownCommands); err != nil {
+		log.Printf("failed to encode commands response: %v", err)
 	}
 }
 

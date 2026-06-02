@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	radarcmd "github.com/banshee-data/velocity.report/internal/radar"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
@@ -45,6 +46,77 @@ func TestSendCommandHandler(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		server.sendCommandHandler(w, req)
+
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Errorf("Expected status 405, got %d", w.Code)
+		}
+	})
+
+	// An unknown command is advisory-only: it is forwarded (warning logged),
+	// not rejected. The catalogue is not a security boundary.
+	t.Run("unknown_command_is_forwarded", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader("command=ZZ"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+
+		server.sendCommandHandler(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected unknown command to be forwarded with status 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Command sent successfully") {
+			t.Errorf("Expected success message for forwarded unknown command, got: %s", w.Body.String())
+		}
+	})
+}
+
+// TestListCommandsHandler tests the GET /api/commands catalogue endpoint that
+// backs the dashboard command dropdown.
+func TestListCommandsHandler(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	t.Run("GET_returns_catalogue", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/commands", nil)
+		w := httptest.NewRecorder()
+
+		server.listCommandsHandler(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d", w.Code)
+		}
+		if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+			t.Errorf("Expected application/json, got %q", ct)
+		}
+
+		var got []radarcmd.Command
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("Failed to decode commands response: %v", err)
+		}
+		if len(got) != len(radarcmd.KnownCommands) {
+			t.Errorf("Expected %d commands, got %d", len(radarcmd.KnownCommands), len(got))
+		}
+
+		found := false
+		for _, c := range got {
+			if c.Code == "OJ" {
+				if c.Description == "" {
+					t.Error("Expected OJ to carry a description for the dropdown")
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected catalogue to include OJ")
+		}
+	})
+
+	t.Run("POST_method_not_allowed", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/commands", nil)
+		w := httptest.NewRecorder()
+
+		server.listCommandsHandler(w, req)
 
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Errorf("Expected status 405, got %d", w.Code)
