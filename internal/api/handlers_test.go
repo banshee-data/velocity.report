@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,24 @@ func TestSendCommandHandler(t *testing.T) {
 
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Errorf("Expected status 405, got %d", w.Code)
+		}
+	})
+
+	// A command containing control characters is rejected before forwarding, so
+	// a single request cannot smuggle multiple serial commands via embedded
+	// line breaks (e.g. "AX\nOJ").
+	t.Run("control_characters_rejected", func(t *testing.T) {
+		for _, payload := range []string{"AX\nOJ", "AX\rOJ", "OJ\x00", "OJ\t"} {
+			form := url.Values{"command": {payload}}
+			req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			w := httptest.NewRecorder()
+
+			server.sendCommandHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("command %q: expected status 400, got %d", payload, w.Code)
+			}
 		}
 	})
 

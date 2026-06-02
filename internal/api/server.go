@@ -160,6 +160,16 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 
 	command := r.FormValue("command")
 
+	// Reject control characters before anything else. SendCommand writes the
+	// string verbatim (only appending a trailing newline), so an embedded \n or
+	// \r would smuggle multiple serial commands into a single request
+	// (e.g. "AX\nOJ"), and a null byte could truncate it. One command per
+	// request; control characters are never part of a valid OPS24x command.
+	if strings.ContainsFunc(command, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		http.Error(w, "Command must not contain control characters", http.StatusBadRequest)
+		return
+	}
+
 	// Advisory check only: the OPS24x command set is config/query-only with no
 	// firmware-flash command, so we forward whatever is asked. An unknown
 	// command is still sent, but we log a warning so a typo or undocumented
