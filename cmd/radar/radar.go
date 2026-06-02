@@ -49,7 +49,7 @@ import (
 var (
 	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
 	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen       = flag.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 to expose on all interfaces)")
+	listen       = flag.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
 	docsSource   = flag.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
 	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
@@ -103,7 +103,7 @@ func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, str
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
 	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen    = flag.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 to expose on all interfaces)")
+	lidarListen    = flag.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
 	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
 	lidarUDPRcvBuf = flag.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
 	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
