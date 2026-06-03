@@ -1522,18 +1522,18 @@ if (canvas) {
 // a .scrolled-past class so the CSS fades the canvas out. Reverse it on
 // scroll back up so the hero feels alive on bidirectional navigation.
 {
-  const heroEl = canvas.closest('.hero-cloud');
-  if (heroEl && 'IntersectionObserver' in window) {
+  const heroEl = canvas.closest(".hero-cloud");
+  if (heroEl && "IntersectionObserver" in window) {
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          heroEl.classList.toggle('scrolled-past', !entry.isIntersecting);
+          heroEl.classList.toggle("scrolled-past", !entry.isIntersecting);
         }
       },
       // Fire the fade exactly when the hero's bottom passes the top of the
       // viewport (no rootMargin), so the canvas stays fully visible while
       // any part of the hero is still in view.
-      { rootMargin: '0px', threshold: 0 },
+      { rootMargin: "0px", threshold: 0 },
     );
     io.observe(heroEl);
   }
