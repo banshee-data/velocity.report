@@ -137,7 +137,7 @@ func TestSendCommandHandler_NonPOST(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/command", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/radar/command", nil)
 	w := httptest.NewRecorder()
 
 	server.sendCommandHandler(w, req)

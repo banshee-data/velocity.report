@@ -117,8 +117,8 @@ func (s *Server) ServeMux() *http.ServeMux {
 	// Usage: go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
 
 	s.mux.HandleFunc("/events", s.listEvents)
-	s.mux.HandleFunc("/command", s.sendCommandHandler)
-	s.mux.HandleFunc("/api/commands", s.listCommandsHandler) // OPS24x command catalogue (dashboard dropdown)
+	s.mux.HandleFunc("/admin/radar/command", s.sendCommandHandler) // mutating device control: admin namespace (per cli-restructuring plan), not /api
+	s.mux.HandleFunc("/api/commands", s.listCommandsHandler)       // OPS24x command catalogue (dashboard dropdown)
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/capabilities", s.showCapabilities)
@@ -154,7 +154,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -166,7 +166,7 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	// (e.g. "AX\nOJ"), and a null byte could truncate it. One command per
 	// request; control characters are never part of a valid OPS24x command.
 	if strings.ContainsFunc(command, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
-		http.Error(w, "Command must not contain control characters", http.StatusBadRequest)
+		s.writeJSONError(w, http.StatusBadRequest, "Command must not contain control characters")
 		return
 	}
 
@@ -180,7 +180,7 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.currentSerialMux().SendCommand(command); err != nil {
-		http.Error(w, "Failed to send command", http.StatusInternalServerError)
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to send command")
 		return
 	}
 	if _, err := io.WriteString(w, "Command sent successfully"); err != nil {
@@ -194,7 +194,7 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 // commands that are not listed here.
 func (s *Server) listCommandsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -205,6 +205,7 @@ func (s *Server) listCommandsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
 		log.Printf("failed to encode json error response: %v", err)

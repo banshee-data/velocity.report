@@ -3,11 +3,11 @@
 //
 // The catalogue is advisory, not a security boundary. The OPS24x command set is
 // config/query-only and non-destructive — there is no firmware-flash command —
-// so the /command HTTP handler forwards any command to the sensor. Commands not
-// found in the catalogue are still forwarded; the handler logs an advisory
-// warning so a typo is visible without blocking legitimate but undocumented or
-// newly added commands. Access is restricted by binding to localhost (and
-// planned API auth), not by filtering command strings.
+// so the POST /admin/radar/command HTTP handler forwards any command to the
+// sensor. Commands not found in the catalogue are still forwarded; the handler
+// logs an advisory warning so a typo is visible without blocking legitimate but
+// undocumented or newly added commands. Access is restricted by binding to
+// localhost (and planned API auth), not by filtering command strings.
 //
 // KnownCommands is enumerable so a dashboard can present a command dropdown; it
 // is exposed over HTTP via GET /api/commands.

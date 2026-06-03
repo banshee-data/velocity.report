@@ -27,7 +27,7 @@ func TestSendCommandHandler(t *testing.T) {
 
 	// Test POST with command
 	t.Run("POST_with_command", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader("command=OJ"))
+		req := httptest.NewRequest(http.MethodPost, "/admin/radar/command", strings.NewReader("command=OJ"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 
@@ -43,7 +43,7 @@ func TestSendCommandHandler(t *testing.T) {
 
 	// Test GET (method not allowed)
 	t.Run("GET_method_not_allowed", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/command", nil)
+		req := httptest.NewRequest(http.MethodGet, "/admin/radar/command", nil)
 		w := httptest.NewRecorder()
 
 		server.sendCommandHandler(w, req)
@@ -59,7 +59,7 @@ func TestSendCommandHandler(t *testing.T) {
 	t.Run("control_characters_rejected", func(t *testing.T) {
 		for _, payload := range []string{"AX\nOJ", "AX\rOJ", "OJ\x00", "OJ\t"} {
 			form := url.Values{"command": {payload}}
-			req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/admin/radar/command", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			w := httptest.NewRecorder()
 
@@ -74,7 +74,7 @@ func TestSendCommandHandler(t *testing.T) {
 	// An unknown command is advisory-only: it is forwarded (warning logged),
 	// not rejected. The catalogue is not a security boundary.
 	t.Run("unknown_command_is_forwarded", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/command", strings.NewReader("command=ZZ"))
+		req := httptest.NewRequest(http.MethodPost, "/admin/radar/command", strings.NewReader("command=ZZ"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 
