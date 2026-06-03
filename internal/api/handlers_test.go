@@ -20,7 +20,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
 
-// TestSendCommandHandler tests the /command endpoint
+// TestSendCommandHandler tests the /admin/radar/command endpoint
 func TestSendCommandHandler(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
@@ -1071,7 +1071,7 @@ func TestListEvents_WithTimezoneParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/events?timezone="+tt.timezone, nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/events?timezone="+tt.timezone, nil)
 			w := httptest.NewRecorder()
 
 			server.listEvents(w, req)
