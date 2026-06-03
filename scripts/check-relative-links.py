@@ -57,14 +57,19 @@ def find_markdown_files(root: Path, repo_root: Path) -> list[Path]:
 
     for dirpath, dirnames, filenames in os.walk(root):
         current_dir = Path(dirpath)
+        # Path of current_dir relative to the repo root, used only to spot the
+        # `.claude` directory.  When root is outside repo_root (e.g. an absolute
+        # path argument), relative_to raises ValueError; treat that as "not
+        # under repo_root" rather than crashing the walk.
+        try:
+            repo_rel_parts = current_dir.relative_to(repo_root).parts
+        except ValueError:
+            repo_rel_parts = ()
         dirnames[:] = [
             d
             for d in dirnames
             if d not in SKIP_DIRS
-            and not (
-                d == "worktrees"
-                and current_dir.relative_to(repo_root).parts == (".claude",)
-            )
+            and not (d == "worktrees" and repo_rel_parts == (".claude",))
             # pi-gen stage package dirs contain bundled copies of repo files
             # whose relative links resolve against the repo root, not the
             # stage directory.  Only skip 'files/' under image/stage-*.
