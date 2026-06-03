@@ -154,8 +154,8 @@ _HANDLE_FUNC_RE = re.compile(
 )
 
 _RADAR_METHOD_OVERRIDES = {
-    "/events": "GET",
-    "/command": "POST",
+    "/api/events": "GET",
+    "/admin/radar/command": "POST",
     "/api/radar_stats": "GET",
     "/api/config": "GET",
     "/api/capabilities": "GET",
@@ -1185,7 +1185,7 @@ class ChecklistItem:
     id: str  # e.g. "§1.003"
     section: str  # e.g. "§1"
     section_title: str
-    label: str  # human-readable: "GET /events"
+    label: str  # human-readable: "GET /api/events"
     source_file: str  # e.g. "internal/api/server.go"
     handler: str  # e.g. "s.listEvents"
     trace_hint: str  # brief guidance for the LLM
