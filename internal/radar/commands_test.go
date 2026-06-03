@@ -38,6 +38,9 @@ func TestKnownCommands_ContainsExpectedCommands(t *testing.T) {
 		"OH", // Enable human-readable timestamp (sent during init)
 		"OC", // Enable processing-activity lights (sent during init)
 		"oD", // Enable range reporting, FMCW lowercase form (sent during init)
+		"C=", // Set sensor clock (sent during init as C=<epoch>)
+		"CZ", // Set timezone (sent during init as CZ<name><offset>)
+		"R>", // Set lower speed filter (sent during init as R>0.25)
 	}
 
 	commandSet := make(map[string]bool)
@@ -81,6 +84,27 @@ func TestIsKnownCommand(t *testing.T) {
 	for _, tt := range tests {
 		if got := IsKnownCommand(tt.cmd); got != tt.want {
 			t.Errorf("IsKnownCommand(%q) = %v, want %v", tt.cmd, got, tt.want)
+		}
+	}
+}
+
+func TestIsKnownCommandCode(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want bool
+	}{
+		{"OJ", true},           // exact two-character code
+		{"R>0.25", true},       // parameterised filter (init path)
+		{"C=1700000000", true}, // parameterised clock sync (init path)
+		{"CZPST-8", true},      // parameterised timezone (init path)
+		{"XQ", false},          // genuine unknown code
+		{"ZZ99", false},        // unknown code with argument
+		{"R", false},           // shorter than a two-character code
+		{"", false},            // empty
+	}
+	for _, tt := range tests {
+		if got := IsKnownCommandCode(tt.cmd); got != tt.want {
+			t.Errorf("IsKnownCommandCode(%q) = %v, want %v", tt.cmd, got, tt.want)
 		}
 	}
 }

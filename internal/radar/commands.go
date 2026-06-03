@@ -74,6 +74,8 @@ var KnownCommands = []Command{
 	// Filtering & Direction
 	{"R?", "Query current speed filter settings"},
 	{"r?", "Query current range filter settings"},
+	{"R>", "Report only speeds at or above a threshold (R><value>)"},
+	{"R<", "Report only speeds at or below a threshold (R<<value>)"},
 	{"R+", "Report inbound direction only"},
 	{"R-", "Report outbound direction only"},
 	{"R|", "Clear any directional filtering"},
@@ -174,6 +176,8 @@ var KnownCommands = []Command{
 
 	// Clock
 	{"C?", "Query sensor clock (time since power-on)"},
+	{"C=", "Set sensor clock to a UNIX timestamp (C=<epoch seconds>)"},
+	{"CZ", "Set timezone name and UTC offset (CZ<name><hours>)"},
 
 	// Power & Transmit Settings
 	{"PA", "Set active power mode"},
@@ -240,4 +244,18 @@ func IsKnownCommand(cmd string) bool {
 		}
 	}
 	return false
+}
+
+// IsKnownCommandCode reports whether the two-character code at the start of cmd
+// is documented in KnownCommands. Every catalogue code is exactly two
+// characters; parameterised commands carry an argument after the code (e.g.
+// "R>0.25", "C=1700000000", "CZPST-8"), so matching on the leading code lets
+// the advisory warning recognise them without cataloguing every possible
+// argument. Returns false for cmd shorter than two characters. Codes are
+// ASCII per AN-010-Z, so a byte-slice prefix is sufficient.
+func IsKnownCommandCode(cmd string) bool {
+	if len(cmd) < 2 {
+		return false
+	}
+	return IsKnownCommand(cmd[:2])
 }

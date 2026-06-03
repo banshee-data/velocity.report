@@ -174,8 +174,10 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	// firmware-flash command, so we forward whatever is asked. An unknown
 	// command is still sent, but we log a warning so a typo or undocumented
 	// command is visible. Access control is localhost binding + planned API
-	// auth, not command-string filtering. See internal/radar/commands.go.
-	if command != "" && !radarcmd.IsKnownCommand(command) {
+	// auth, not command-string filtering. We match the two-character code so
+	// parameterised commands (e.g. "R>0.25", "C=...") are recognised rather
+	// than warned about. See internal/radar/commands.go.
+	if command != "" && !radarcmd.IsKnownCommandCode(command) {
 		log.Printf("warning: command %q is not in the known OPS24x command catalogue; forwarding anyway", command)
 	}
 
