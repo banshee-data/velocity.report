@@ -79,12 +79,12 @@ Transit Worker (background)
 
 ## API Endpoints
 
-| Method | Path               | Purpose                       |
-| ------ | ------------------ | ----------------------------- |
-| GET    | `/api/radar_stats` | Aggregated transit statistics |
-| GET    | `/api/config`      | System configuration          |
-| POST   | `/command`         | Send radar commands           |
-| GET    | `/events`          | Raw event stream              |
+| Method | Path                   | Purpose                       |
+| ------ | ---------------------- | ----------------------------- |
+| GET    | `/api/radar_stats`     | Aggregated transit statistics |
+| GET    | `/api/config`          | System configuration          |
+| POST   | `/admin/radar/command` | Send radar commands           |
+| GET    | `/api/events`          | Recent radar detection events |
 
 ## Traffic Metrics
 

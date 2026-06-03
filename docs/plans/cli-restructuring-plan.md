@@ -52,6 +52,17 @@ For the current implemented CLI reference, see [cli-comprehensive-guide.md](../r
    - **Issue:** No config file support, all configuration via flags
    - **Impact:** Complex deployments require unwieldy command lines
 
+### HTTP API consistency audit (2026-06)
+
+Concrete inconsistencies found while moving `POST /command` to `POST /admin/radar/command` on security branch `dd/fix/security-c2-c3`. These extend item 4 (HTTP API Inconsistency) with specifics; land them during the Phase 2 `/api/v1` versioning pass.
+
+- **`/events` → `/api/events` (done on `dd/fix/security-c2-c3`):** it was the only non-prefixed read route, now promoted under `/api/*`. Renamed outright rather than aliased: the Svelte client (`web/src/lib/api.ts`) already targeted `/api/events`, so the bare route had no runtime caller. The `/api/v1` pass layers `/api/v1/events` on top.
+- **Command-noun split:** `POST /admin/radar/command` (mutating, admin namespace) versus `GET /api/commands` (read-only catalogue). The split is deliberate, but the convention should be documented so it is not mistaken for drift.
+- **Error-body format (remainder of the JSON sweep):** the command endpoints and the shared `writeJSONError` helper now emit `{"error": "..."}` with `Content-Type: application/json`, but roughly 50 handlers still emit plain-text `http.Error`. Sweep the remainder (`serial.go`, `serial_config.go`, `map.go`, `handleSerialReload`) onto `writeJSONError` for a uniform error contract.
+- **Error-message casing:** sentence-case ("Method not allowed") in some handlers, lowercase in others; settle one convention.
+- **Route-token style:** snake_case (`radar_stats`, `db_stats`, `generate_report`) mixed with bare nouns; settle during the versioning pass.
+- **Trailing-slash handling:** `/api/sites` plus `/api/sites/` dual registration versus single registrations elsewhere; standardise the approach.
+
 ---
 
 ## Proposed solution

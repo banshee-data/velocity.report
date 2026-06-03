@@ -408,7 +408,7 @@ flowchart TB
 - **[internal/api/](internal/api)** - HTTP API endpoints
   - `/api/radar_stats` - Statistical summaries and rollups
   - `/api/config` - Configuration retrieval
-  - `/command` - Send radar commands
+  - `/admin/radar/command` - Send radar commands
   - RESTful design with JSON responses
 
 - **[internal/radar/](internal/radar)** - Radar sensor integration
@@ -853,7 +853,7 @@ Response: {
   "timezone": "America/Los_Angeles"
 }
 
-GET /events
+GET /api/events
 Response: [
   {
     "uptime": 12345.67,

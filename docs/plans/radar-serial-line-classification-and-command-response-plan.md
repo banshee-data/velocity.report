@@ -8,7 +8,7 @@
 
 ## Motivation
 
-`POST /command` is write-only today. The operator sends an OPS24x command and the
+`POST /admin/radar/command` is write-only today. The operator sends an OPS24x command and the
 sensor's reply vanishes into the database log and the localhost-only `/debug/tail`
 stream. Query commands (`?V` firmware, `O?` output settings, `??` module info,
 `A?` persistent settings, `N?` object count) are far more useful if the dashboard
@@ -65,7 +65,7 @@ Facts as of this branch (`internal/serialmux/serialmux.go`, `parse.go`,
   `Initialise`), a query's reply is emitted as JSON line(s) interleaved with the
   continuous measurement stream on the same UART. There is no tag tying a reply to
   the command that caused it.
-- **`/events` is a database query, not a live stream** (server_admin.go:95). The only
+- **`/api/events` is a database query, not a live stream** (server_admin.go:95). The only
   network-exposed live view of raw serial lines today is `/debug/tail`, behind the
   localhost/Tailscale boundary.
 
@@ -77,7 +77,7 @@ Facts as of this branch (`internal/serialmux/serialmux.go`, `parse.go`,
 | Classifier robustness   | Substring match; misfiles config echoes containing "speed"; non-JSON → `unknown` | Medium   | Replace with structure-aware classifier               |
 | Response correlation    | No protocol framing; reply interleaves with measurement stream                   | High     | Heuristic, best-effort only; document as such         |
 | Fan-out reliability     | Buffer-1, lossy `default:` drop; reply can be dropped under load                 | High     | Needs a non-lossy armed tap for capture               |
-| Live-data disclosure    | A naive capture window returns measurement JSON on `/command`                    | High     | Filter by class structurally; never return object/raw |
+| Live-data disclosure    | A naive capture window returns measurement JSON on `/admin/radar/command`        | High     | Filter by class structurally; never return object/raw |
 | Stream type             | `Subscribe()` yields `chan string`; class is not carried                         | Medium   | Carry classification on the line; interface change    |
 
 ## Design / approach
@@ -178,13 +178,17 @@ Behaviour:
   measurement lines are filtered out by class, by construction, not by an ad-hoc
   string filter at the handler.
 
-The HTTP surface stays opt-in so the default contract does not change:
+The HTTP surface stays opt-in so the default never blocks:
 
-- `POST /command` remains fire-and-forget by default.
-- `POST /command?wait=true&timeout=…` calls `SendCommandWithResponse` and returns
+- `POST /admin/radar/command` remains fire-and-forget by default.
+- `POST /admin/radar/command?wait=true&timeout=…` calls `SendCommandWithResponse` and returns
   JSON `{ "sent": true, "response": [...], "timed_out": false }`.
 - The existing control-character reject and advisory catalogue warning are kept
   unchanged in front of both paths.
+- Default success responses speak JSON too: the fire-and-forget path returns
+  `{ "sent": true }` rather than the plain-text `Command sent successfully`, matching
+  the JSON error bodies the endpoint now returns. This is a body-shape change only;
+  the default still never blocks. (2026-06 API error-body audit follow-in.)
 
 ### Boundaries and invariants
 
@@ -235,7 +239,7 @@ structure-aware classifier, classify in `Monitor`, and change `Subscribe()` to y
 
 ### Item 3: opt-in HTTP surface
 
-**Summary:** `POST /command?wait=true&timeout=…` returns the filtered response as
+**Summary:** `POST /admin/radar/command?wait=true&timeout=…` returns the filtered response as
 JSON; default stays fire-and-forget.
 
 **Steps:**
@@ -243,7 +247,12 @@ JSON; default stays fire-and-forget.
 1. Parse `wait` / `timeout` (clamp to a sane max), keep control-char reject and
    advisory warn.
 2. Call `SendCommandWithResponse`; encode `{sent, response, timed_out}`.
-3. Handler tests for the wait path, timeout, and the unchanged default path.
+3. Align the default fire-and-forget success body with the JSON error bodies the
+   endpoint now returns: respond `{ "sent": true }` instead of the plain-text
+   `Command sent successfully` (2026-06 API error-body audit follow-in; see
+   `cli-restructuring-plan.md`). The default response shape changes, so update the
+   handler tests that currently assert the plain-text body.
+4. Handler tests for the wait path, timeout, and the default path.
 
 **Milestone:** unscheduled.
 
@@ -301,7 +310,7 @@ cannot remove them.
    complexity) versus a best-effort larger-buffer subscriber (simpler, can miss the
    reply under load). Which trade-off do we accept?
 4. **API shape.** New `SendCommandWithResponse` plus `?wait=true` opt-in (recommended,
-   keeps the default non-blocking), or change `/command` semantics outright?
+   keeps the default non-blocking), or change `/admin/radar/command` semantics outright?
 5. **Stop condition.** First `ClassConfig` line, first N lines, or all lines within
    the window? What are N and the byte cap?
 6. **Timeout policy.** Default and maximum (for example 500 ms default, 2 s cap). Is
@@ -323,7 +332,7 @@ cannot remove them.
 | Risk                                                                 | Likelihood | Impact | Mitigation                                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Armed tap blocks the scanner goroutine                               | Medium     | High   | Bound the tap, govern with timeout, disarm on consumer exit; never block `Monitor`                                                                                                                                                                                                                          |
-| Live measurement data leaks onto `/command`                          | Medium     | High   | Filter by class structurally; return only `ClassConfig`/`ClassOther`, never measurement                                                                                                                                                                                                                     |
+| Live measurement data leaks onto `/admin/radar/command`              | Medium     | High   | Filter by class structurally; return only `ClassConfig`/`ClassOther`, never measurement                                                                                                                                                                                                                     |
 | Classifier mis-keys a real reply                                     | Medium     | Medium | Enumerate keys from spec + live capture; `ClassOther` catch-all is safe                                                                                                                                                                                                                                     |
 | Interface change breaks compilation across packages                  | High       | Low    | Mechanical; the build surfaces every call site                                                                                                                                                                                                                                                              |
 | `commandMu` held during window serialises commands                   | Medium     | Medium | Tight default timeout, hard cap, document the contract                                                                                                                                                                                                                                                      |
@@ -337,7 +346,7 @@ cannot remove them.
 ### Complete
 
 - [x] Investigation: traced send path, fan-out, classifier, and the three stream
-      consumers; confirmed `/events` is a DB query and `/debug/tail` is the only live
+      consumers; confirmed `/api/events` is a DB query and `/debug/tail` is the only live
       exposure.
 
 ### Outstanding

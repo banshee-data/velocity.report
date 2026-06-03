@@ -950,7 +950,7 @@ These are the right place for service status, service start and stop, restart, a
 | Site configuration         | `GET/POST /api/sites`, `GET/POST /api/site_config_periods`                                   |
 | Reports                    | `POST /api/generate_report`, `GET/DELETE /api/reports/*`                                     |
 | Charts                     | `GET/POST /api/charts/timeseries`, `GET /api/charts/histogram`, `GET /api/charts/comparison` |
-| Control                    | `POST /command`, `GET/POST /api/transit_worker`                                              |
+| Control                    | `POST /admin/radar/command`, `GET/POST /api/transit_worker`                                  |
 
 #### 5. What we should not promote
 

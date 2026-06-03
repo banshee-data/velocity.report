@@ -21,7 +21,7 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 
 ### Radar Serial (/dev/ttyUSB0)
 
-- Serial command surface: the OPS24x API command set (AN-010-Z) is fixed, config/query-only, and non-destructive — there is no firmware-flash command. The `/command` endpoint therefore forwards any command to the sensor; the control is access restriction (localhost-only binding, planned API auth), not command-string filtering. `internal/radar/commands.go` holds an **advisory** catalogue of documented commands (`KnownCommands`): unknown commands are still forwarded but logged with a warning, and the catalogue is exposed read-only via `GET /api/commands` to power a dashboard command dropdown. Do not mistake the catalogue for an allowlist — it is not a security boundary.
+- Serial command surface: the OPS24x API command set (AN-010-Z) is fixed, config/query-only, and non-destructive — there is no firmware-flash command. The `/admin/radar/command` endpoint therefore forwards any command to the sensor; the control is access restriction (localhost-only binding, planned API auth), not command-string filtering. `internal/radar/commands.go` holds an **advisory** catalogue of documented commands (`KnownCommands`): unknown commands are still forwarded but logged with a warning, and the catalogue is exposed read-only via `GET /api/commands` to power a dashboard command dropdown. Do not mistake the catalogue for an allowlist — it is not a security boundary.
 - Buffer overflows in serial parsing
 - Device spoofing
 - Privilege escalation via device permissions
