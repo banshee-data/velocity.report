@@ -78,8 +78,8 @@ sudo tailscale up \
 Once Tailscale is running on both the Pi and a phone/laptop:
 
 ```text
-http://velocity-pi:8080        # MagicDNS (if enabled)
-http://100.x.y.z:8080          # Tailscale IP (always works)
+http://velocity-pi             # web UI on :80 (MagicDNS, if enabled)
+http://100.x.y.z               # web UI on :80 (Tailscale IP, always works)
 ```
 
 The LiDAR monitor is on `:8081`:
@@ -89,7 +89,7 @@ http://velocity-pi:8081
 ```
 
 Tailscale-protected debug endpoints (serial commands, DB backup, tailsql,
-pprof) are served on `:8080` under `/debug/*` via `tsweb.Debugger`: these
+pprof) are served on `:80` under `/debug/*` via `tsweb.Debugger`: these
 are accessible only from loopback or authenticated Tailscale peers. See
 [networking.md](../../radar/architecture/networking.md) for the full listener
 segmentation.
@@ -120,8 +120,8 @@ nodes (useful if you add a second Pi).
 ### Restricting port access
 
 For tighter control, replace `*` with specific ports: set the destination
-to `tag:velocity-report:8080,8081,22` to restrict access to the web UI
-(8080), LiDAR monitor (8081), and SSH (22) only.
+to `tag:velocity-report:80,8081,22` to restrict access to the web UI
+(80), LiDAR monitor (8081), and SSH (22) only.
 
 ## 5. SSH access via Tailscale
 
@@ -157,10 +157,10 @@ From any enrolled device:
 tailscale ping velocity-pi
 
 # Verify the web UI
-curl -s http://velocity-pi:8080/api/config | head -c 200
+curl -s http://velocity-pi/api/config | head -c 200
 
 # Verify debug endpoints (Tailscale peers only)
-curl -s http://velocity-pi:8080/debug/db-stats
+curl -s http://velocity-pi/debug/db-stats
 ```
 
 From the Pi itself:

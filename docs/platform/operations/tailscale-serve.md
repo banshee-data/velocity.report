@@ -49,7 +49,7 @@ HTTPS with a valid certificate and no browser warning.
 
 | Command                                    | Effect                                                                          |
 | ------------------------------------------ | ------------------------------------------------------------------------------- |
-| `tailscale up`                             | Enrolls the Pi in your tailnet and provisions its MagicDNS `*.ts.net` name      |
+| `tailscale up`                             | Enrols the Pi in your tailnet and provisions its MagicDNS `*.ts.net` name       |
 | `tailscale serve --bg http://localhost:80` | Terminates TLS on `:443` over the tailnet and proxies to the local `:80` server |
 | `tailscale serve status`                   | Shows the active mappings and the public HTTPS URL                              |
 
