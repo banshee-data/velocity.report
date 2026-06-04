@@ -60,8 +60,8 @@ Don't bundle. Tailscale Serve requires the user to log into their tailnet, which
 
 ## Files to change
 
-- **Delete** [image/stage-velocity/03-velocity-config/files/velocity-nginx.conf](../../image/stage-velocity/03-velocity-config/files/velocity-nginx.conf)
-- **Delete** [image/stage-velocity/03-velocity-config/files/velocity-generate-tls.sh](../../image/stage-velocity/03-velocity-config/files/velocity-generate-tls.sh)
+- **Delete** `image/stage-velocity/03-velocity-config/files/velocity-nginx.conf`
+- **Delete** `image/stage-velocity/03-velocity-config/files/velocity-generate-tls.sh`
 - **Delete** `image/stage-velocity/03-velocity-config/files/velocity-generate-tls.service`
 - **Edit** [image/stage-velocity/03-velocity-config/00-run.sh](../../image/stage-velocity/03-velocity-config/00-run.sh) — drop nginx package install, drop `velocity-generate-tls` enable, drop `nginx` enable; remove `/var/lib/velocity-report/tls/` directory creation
 - **Edit** [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) — change `ExecStart` to listen on `:80`; add `AmbientCapabilities=CAP_NET_BIND_SERVICE` and `CapabilityBoundingSet=CAP_NET_BIND_SERVICE`; keep `User=velocity`
