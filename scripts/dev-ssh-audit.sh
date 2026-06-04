@@ -106,12 +106,13 @@ done
 
 header "2. HTTP service on :80"
 
-# The Go server binds :80 directly (no nginx, no TLS termination). Expect 200.
-HTTP_CODE=$(ssh_run curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost/ 2>/dev/null || echo "000")
+# The Go server binds :80 directly (no nginx, no TLS). GET / 302-redirects to
+# /app/, so probe the app entry point directly for a clean 200.
+HTTP_CODE=$(ssh_run curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost/app/ 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "200" ]; then
-    pass "HTTP on :80 serves ${HTTP_CODE}"
+    pass "HTTP on :80 serves /app/ (${HTTP_CODE})"
 else
-    fail "HTTP on :80: expected 200, got ${HTTP_CODE}"
+    fail "HTTP on :80 /app/: expected 200, got ${HTTP_CODE}"
 fi
 
 # --------------------------------------------------------------------------- #
