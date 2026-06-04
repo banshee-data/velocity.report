@@ -220,9 +220,9 @@ The image installs shell aliases for common operations: `velocity-status`, `velo
 
 _Estimated time: 5 minutes_
 
-Open a browser on any device on the same network: [https://velocity.local](https://velocity.local)
+Open a browser on any device on the same network: [http://velocity.local](http://velocity.local)
 
-The Pi generates a local TLS certificate on first boot. HTTPS protects your dashboard session from being read by other devices on the same local network. Your browser will show a certificate warning because that certificate chain is not trusted by default outside the device. This is expected, and safe to accept. Click **Advanced → Proceed to velocity.local** (Chrome/Edge) or **Accept the Risk and Continue** (Firefox/Safari). No certificate installation is needed.
+The dashboard is served over plain HTTP on your local network: no port number, no certificate to install, and no browser warning to click through. The device serves only aggregate speed data and no personal information, so it ships HTTP-only on the LAN by design. If you want a trusted HTTPS padlock — for example to reach the device securely from outside your home — that is a Tailscale opt-in, covered in [Remote access with Tailscale](#remote-access-with-tailscale-optional) below.
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
@@ -232,7 +232,7 @@ The Pi generates a local TLS certificate on first boot. HTTPS protects your dash
 
 1. Check the service is running: `velocity-status`
 2. Find the Pi's IP address: `hostname -I`
-3. Test from the Pi itself: `curl -k https://localhost/`
+3. Test from the Pi itself: `curl http://localhost/`
 4. Check logs: `velocity-log`
 
 ---
@@ -325,7 +325,7 @@ _Estimated time: 10 minutes_
 
 Before generating reports, configure your site in the dashboard so speed measurements are corrected for your mounting angle.
 
-1. Open the dashboard at [https://velocity.local](https://velocity.local)
+1. Open the dashboard at [http://velocity.local](http://velocity.local)
 2. Navigate to **Site Settings**
 3. Set the **site location** on the interactive map. The map is optional; see [Your address in reports](#your-address-in-reports) in Step 6 before deciding how much location detail to include.
 4. Set the **cosine error angle** to match your radar mounting angle from Step 4. Drag the red dot on the radar field-of-view triangle to adjust the angle visually, or type the value directly. The triangle should encompass the road lanes you want to measure.
@@ -340,7 +340,7 @@ The system stores this as the active site configuration period. Reports use the 
 
 After collecting data for a few days, generate professional reports from the dashboard.
 
-1. Open the dashboard at [https://velocity.local](https://velocity.local)
+1. Open the dashboard at [http://velocity.local](http://velocity.local)
 2. Select your site and set the **date range** for the report period
 3. Click **Generate Report**
 4. Download the PDF
@@ -458,7 +458,7 @@ A week of data shows patterns. A month is compelling. Three months across season
 
 ### Local network (recommended)
 
-The dashboard runs on HTTPS (port 443) and is reachable from devices on the same network. The Pi generates a local TLS certificate on first boot, and HTTP requests on port 80 redirect to HTTPS automatically. Unless you configure port forwarding or another remote-access path, the dashboard stays on your local network.
+The dashboard runs on plain HTTP (port 80) and is reachable from devices on the same network at `http://velocity.local` — no port number and no certificate to install. Unless you configure port forwarding or another remote-access path, the dashboard stays on your local network. For a browser-trusted HTTPS padlock, add Tailscale (see below).
 
 **Best practices**:
 
@@ -469,7 +469,7 @@ The dashboard runs on HTTPS (port 443) and is reachable from devices on the same
 
 ### Remote access with Tailscale (optional)
 
-[Tailscale](https://tailscale.com) is an optional tool for operators who need private reachability from outside their home network without opening a port on the router. It is useful for SSH, administration, and putting the Pi on a private mesh network. The primary browser path documented in this guide is still the local dashboard at [https://velocity.local](https://velocity.local).
+[Tailscale](https://tailscale.com) is an optional tool for operators who need private reachability from outside their home network without opening a port on the router. It is useful for SSH, administration, and putting the Pi on a private mesh network. The primary browser path documented in this guide is still the local dashboard at [http://velocity.local](http://velocity.local).
 
 ```bash
 # Install Tailscale on your Pi
@@ -481,11 +481,19 @@ sudo tailscale up
 
 Follow the authentication URL, install Tailscale on your phone or laptop, then use the Tailscale network for SSH and private device access.
 
-See the [Tailscale documentation](https://tailscale.com/kb/start) for details.
+**Want an HTTPS padlock?** Tailscale can also put a browser-trusted HTTPS certificate in front of the dashboard — no warnings, nothing to install on each device. After `tailscale up`, run one more command:
+
+```bash
+# Serve the local dashboard over HTTPS on your tailnet
+sudo tailscale serve --bg http://localhost:80
+sudo tailscale serve status   # prints the https://<host>.<tailnet>.ts.net URL
+```
+
+Open the printed `*.ts.net` URL from any device on your tailnet. See the [Tailscale documentation](https://tailscale.com/kb/start) for details.
 
 ### Shared and untrusted networks
 
-If the Pi is connected to a shared network (school, workplace, library, or multi-tenant building), other devices on that network can reach the dashboard. The dashboard has no user authentication: anyone who can reach port 443 can view the speed and traffic volume data.
+If the Pi is connected to a shared network (school, workplace, library, or multi-tenant building), other devices on that network can reach the dashboard. The dashboard has no user authentication: anyone who can reach port 80 can view the speed and traffic volume data.
 
 This is not a privacy risk to vehicles or residents: the dashboard shows only aggregate speed metrics, not identities or personal information. If you do not want other network users viewing your traffic measurements, isolate the device using one of the options below.
 
@@ -499,7 +507,7 @@ If isolation is not possible, do not assume Tailscale or a dashboard setting wil
 
 ### Public internet
 
-Do not expose this service to the public internet. The dashboard has no user authentication, and the local TLS certificate is intended for the Pi's local hostname rather than a public-facing deployment. Use a private access path such as Tailscale if you need remote administration.
+Do not expose this service to the public internet. The dashboard has no user authentication and is served over plain HTTP on the local hostname, so it is not built for a public-facing deployment. Use a private access path such as Tailscale if you need remote administration.
 
 ---
 
@@ -573,14 +581,13 @@ velocity-start
 
 ## Troubleshooting
 
-| Problem                 | Fix                                                                                             |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| No sensor data          | `ls /dev/serial0` or `ls /dev/velocity-radar` to check the device                               |
-| Service will not start  | `velocity-log` to check logs                                                                    |
-| Dashboard will not load | `velocity-status` to verify the service                                                         |
-| Certificate warning     | Click **Advanced → Proceed** (Chrome/Edge) or **Accept the Risk and Continue** (Firefox/Safari) |
-| Garbled or CSV output   | Connect via `screen /dev/serial0 19200` and send `OJ` then `A!`                                 |
-| Permission denied       | `sudo usermod -a -G dialout $USER` then log out and back in                                     |
+| Problem                 | Fix                                                               |
+| ----------------------- | ----------------------------------------------------------------- |
+| No sensor data          | `ls /dev/serial0` or `ls /dev/velocity-radar` to check the device |
+| Service will not start  | `velocity-log` to check logs                                      |
+| Dashboard will not load | `velocity-status` to verify the service                           |
+| Garbled or CSV output   | Connect via `screen /dev/serial0 19200` and send `OJ` then `A!`   |
+| Permission denied       | `sudo usermod -a -G dialout $USER` then log out and back in       |
 
 USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
@@ -607,25 +614,25 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 | velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
 | Generated reports      | `/var/lib/velocity-report/reports/`           | PDF output directory                    |
 | Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
-| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`           | TLS termination, HTTPS on port 443      |
-| TLS certificates       | `/var/lib/velocity-report/tls/`               | Local CA and server certificate         |
+
+The Go server binds port 80 directly as the non-root `velocity` user (granted `CAP_NET_BIND_SERVICE` by the systemd unit), so there is no reverse proxy and no TLS layer to manage. HTTPS is an optional Tailscale add-on (see [Remote access with Tailscale](#remote-access-with-tailscale-optional)).
 
 The image also pre-configures serial port settings, UART overlays, sensor initialisation (JSON mode, units, magnitude reporting), and the service user.
 
 ### Commands
 
-| Command                             | Purpose                                                     |
-| ----------------------------------- | ----------------------------------------------------------- |
-| `velocity-status`                   | `systemctl status velocity-report.service`                  |
-| `velocity-log`                      | `journalctl -u velocity-report.service -u nginx.service -f` |
-| `velocity-bounce`                   | `sudo systemctl restart velocity-report.service`            |
-| `velocity-stop`                     | `sudo systemctl stop velocity-report.service`               |
-| `velocity-start`                    | `sudo systemctl start velocity-report.service`              |
-| `velocity-report version`           | Print the installed server version                          |
-| `sudo velocity-ctl upgrade --check` | Check whether a newer release is available                  |
-| `sudo velocity-ctl upgrade`         | Download and apply the latest release                       |
-| `sudo velocity-ctl rollback`        | Restore the previous version                                |
-| `sudo velocity-ctl backup`          | Create a timestamped snapshot of binary and database        |
+| Command                             | Purpose                                              |
+| ----------------------------------- | ---------------------------------------------------- |
+| `velocity-status`                   | `systemctl status velocity-report.service`           |
+| `velocity-log`                      | `journalctl -u velocity-report.service -f`           |
+| `velocity-bounce`                   | `sudo systemctl restart velocity-report.service`     |
+| `velocity-stop`                     | `sudo systemctl stop velocity-report.service`        |
+| `velocity-start`                    | `sudo systemctl start velocity-report.service`       |
+| `velocity-report version`           | Print the installed server version                   |
+| `sudo velocity-ctl upgrade --check` | Check whether a newer release is available           |
+| `sudo velocity-ctl upgrade`         | Download and apply the latest release                |
+| `sudo velocity-ctl rollback`        | Restore the previous version                         |
+| `sudo velocity-ctl backup`          | Create a timestamped snapshot of binary and database |
 
 ---
 

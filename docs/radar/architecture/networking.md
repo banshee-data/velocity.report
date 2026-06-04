@@ -95,7 +95,7 @@ The primary access control mechanism is **network-level segmentation** using [Ta
 
 ### Current limitations
 
-- The HTTP listeners bind to all interfaces (`:8080`, `:8081`) by default. On a shared LAN, any host can reach the LiDAR tuning APIs.
+- The HTTP listeners default to loopback (`127.0.0.1:8080`, `127.0.0.1:8081`), but real deployments bind them LAN-wide: the Pi image serves the radar API on `:80` (all interfaces, via the systemd unit) and `make dev-go` uses `:8080`. Whenever a listener is bound to all interfaces, any host on a shared LAN can reach it — including the LiDAR tuning APIs when LiDAR is enabled.
 - There is no per-request authentication on the public or LiDAR listeners. The threat model assumes a private deployment LAN with no untrusted hosts.
 - The Svelte frontend makes unauthenticated API calls to the local server.
 
@@ -103,7 +103,7 @@ The primary access control mechanism is **network-level segmentation** using [Ta
 
 For field deployments on shared or semi-trusted networks:
 
-1. **Bind to specific interfaces**: Use `--listen 127.0.0.1:8080` and `--lidar-listen 127.0.0.1:8081` to restrict access to localhost, then expose via Tailscale only.
+1. **Bind to specific interfaces**: loopback is already the binary default — pass `--listen 127.0.0.1:8080` and `--lidar-listen 127.0.0.1:8081` explicitly (overriding the image's LAN-wide `:80`) to restrict access to localhost, then expose via Tailscale only.
 2. **Firewall rules**: Use `iptables`/`nftables` to restrict access to ports 8080/8081 to specific source IPs or the Tailscale interface (`tailscale0`).
 3. **Tailscale ACLs**: Use Tailscale ACL policies to control which peers can reach the device.
 
