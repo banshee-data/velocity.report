@@ -5,131 +5,229 @@
  * ========================================================================== */
 
 .site-header {
-    position: sticky; top: 0; z-index: 50;
-    /* Frosted glass to match the hero copy panel: low-opacity dark fill with
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  /* Frosted glass to match the hero copy panel: low-opacity dark fill with
      * a heavy blur, so large point-cloud features behind the bar still read
      * through it as soft silhouettes rather than getting hidden behind a
      * near-opaque plate. */
-    background: rgba(7, 9, 12, 0.42);
-    backdrop-filter: blur(18px) saturate(115%);
-    -webkit-backdrop-filter: blur(18px) saturate(115%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    font-family: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    -webkit-font-smoothing: antialiased;
-    color: #e6ebf2;
+  background: rgba(7, 9, 12, 0.42);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-family:
+    "Geist",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #e6ebf2;
 }
 .site-header .wrap {
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: 0 24px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 .site-header .row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 56px;
 }
-.site-header a { text-decoration: none; color: inherit; }
+.site-header a {
+  text-decoration: none;
+  color: inherit;
+}
 .site-header .brand {
-    display: inline-flex; align-items: baseline; gap: 8px;
-    font-weight: 700; font-size: 16px; letter-spacing: -0.01em;
-    color: #e6ebf2;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: #e6ebf2;
 }
 .site-header .brand .dot {
-    width: 8px; height: 8px; border-radius: 999px;
-    background: #10b981;
-    box-shadow: 0 0 0 3px rgba(16,185,129,0.18), 0 0 16px rgba(16,185,129,0.55);
-    animation: hdr-pulse 2.4s ease-in-out infinite;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.18),
+    0 0 16px rgba(16, 185, 129, 0.55);
+  animation: hdr-pulse 2.4s ease-in-out infinite;
 }
 @keyframes hdr-pulse {
-    0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.18), 0 0 16px rgba(16,185,129,0.55); }
-    50%      { box-shadow: 0 0 0 5px rgba(16,185,129,0.10), 0 0 22px rgba(16,185,129,0.75); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(16, 185, 129, 0.18),
+      0 0 16px rgba(16, 185, 129, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(16, 185, 129, 0.1),
+      0 0 22px rgba(16, 185, 129, 0.75);
+  }
 }
 .site-header .nav-links {
-    display: flex; gap: 2px; margin-left: 8px;
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
 }
 .site-header .nav-links a {
-    display: inline-flex; align-items: center;
-    padding: 6px 10px; border-radius: 6px;
-    font-size: 14px; font-weight: 500; color: #a7b2c0;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #a7b2c0;
 }
-.site-header .nav-links a:hover { color: #e6ebf2; background: #111820; }
-.site-header .nav-spacer { flex: 1; }
+.site-header .nav-links a:hover {
+  color: #e6ebf2;
+  background: #111820;
+}
+.site-header .nav-spacer {
+  flex: 1;
+}
 .site-header .nav-icons {
-    display: flex; gap: 6px; align-items: center;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 .site-header .nav-icons .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; border-radius: 6px;
-    color: #a7b2c0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  color: #a7b2c0;
 }
-.site-header .nav-icons .icon-btn:hover { color: #e6ebf2; background: #111820; }
+.site-header .nav-icons .icon-btn:hover {
+  color: #e6ebf2;
+  background: #111820;
+}
 .site-header .nav-code {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 12px; border-radius: 6px;
-    background: transparent; color: #e6ebf2;
-    font-size: 13px; font-weight: 600;
-    border: 1px solid #243140;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: #e6ebf2;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #243140;
 }
-.site-header .nav-code:hover { background: #111820; border-color: #2c3a4a; color: #e6ebf2; }
-.site-header .nav-code svg { display: block; }
+.site-header .nav-code:hover {
+  background: #111820;
+  border-color: #2c3a4a;
+  color: #e6ebf2;
+}
+.site-header .nav-code svg {
+  display: block;
+}
 .site-header .nav-cta {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 12px; border-radius: 6px;
-    background: #047857; color: white;
-    font-size: 13px; font-weight: 600;
-    border: 1px solid #065f46;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  background: #047857;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #065f46;
 }
-.site-header .nav-cta:hover { background: #10b981; color: white; }
+.site-header .nav-cta:hover {
+  background: #10b981;
+  color: white;
+}
 
 /* Mobile hamburger */
 .site-header .mobile-toggle {
-    display: none;
-    background: transparent; border: 0; padding: 6px;
-    color: #a7b2c0; cursor: pointer; border-radius: 6px;
-    align-items: center; justify-content: center;
+  display: none;
+  background: transparent;
+  border: 0;
+  padding: 6px;
+  color: #a7b2c0;
+  cursor: pointer;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
 }
-.site-header .mobile-toggle:hover { color: #e6ebf2; background: #111820; }
+.site-header .mobile-toggle:hover {
+  color: #e6ebf2;
+  background: #111820;
+}
 /* Mobile menu — overlays as an absolute drop-down so opening it doesn't
  * resize the sticky bar and push the rest of the page down. Inherits the
  * same frosted-glass treatment as the nav row so it reads as part of it. */
 .site-header .mobile-menu {
-    display: none;
-    flex-direction: column;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 6px 16px 12px;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    background: rgba(7, 9, 12, 0.82);
-    backdrop-filter: blur(18px) saturate(115%);
-    -webkit-backdrop-filter: blur(18px) saturate(115%);
+  display: none;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 16px 12px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: rgba(7, 9, 12, 0.82);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
 }
-.site-header .wrap { position: relative; }
-.site-header .mobile-menu.open { display: flex; }
+.site-header .wrap {
+  position: relative;
+}
+.site-header .mobile-menu.open {
+  display: flex;
+}
 .site-header .mobile-menu a {
-    display: block;
-    padding: 10px 6px;
-    color: #a7b2c0;
-    font-size: 14px;
-    border-radius: 6px;
+  display: block;
+  padding: 10px 6px;
+  color: #a7b2c0;
+  font-size: 14px;
+  border-radius: 6px;
 }
-.site-header .mobile-menu a:hover { color: #e6ebf2; background: #111820; }
+.site-header .mobile-menu a:hover {
+  color: #e6ebf2;
+  background: #111820;
+}
 
 @media (max-width: 820px) {
-    .site-header .nav-links { display: none; }
-    .site-header .mobile-toggle { display: inline-flex; }
-    /* Mobile: keep all three actions (Discord, Code, Download) visible but
+  .site-header .nav-links {
+    display: none;
+  }
+  .site-header .mobile-toggle {
+    display: inline-flex;
+  }
+  /* Mobile: keep all three actions (Discord, Code, Download) visible but
      * drop the text labels so the bar reads as a row of three buttons. */
-    .site-header .nav-code .label,
-    .site-header .nav-cta .label { display: none; }
-    .site-header .nav-code { padding: 7px 10px; gap: 0; }
-    .site-header .nav-cta { padding: 7px 10px; gap: 0; }
+  .site-header .nav-code .label,
+  .site-header .nav-cta .label {
+    display: none;
+  }
+  .site-header .nav-code {
+    padding: 7px 10px;
+    gap: 0;
+  }
+  .site-header .nav-cta {
+    padding: 7px 10px;
+    gap: 0;
+  }
 }
 @media (max-width: 520px) {
-    .site-header .row { gap: 10px; }
+  .site-header .row {
+    gap: 10px;
+  }
 }
 
 /* Anchor offset so the sticky header doesn't cover the target */
-html { scroll-padding-top: 72px; }
+html {
+  scroll-padding-top: 72px;
+}

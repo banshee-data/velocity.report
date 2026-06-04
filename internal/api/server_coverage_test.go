@@ -137,7 +137,7 @@ func TestSendCommandHandler_NonPOST(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/command", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/radar/command", nil)
 	w := httptest.NewRecorder()
 
 	server.sendCommandHandler(w, req)
@@ -190,7 +190,7 @@ func TestListEvents_NonGET(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodPost, "/events", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/events", nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)
@@ -208,7 +208,7 @@ func TestListEvents_DBError(t *testing.T) {
 	// Close DB to force error
 	dbInst.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events", nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)
@@ -1512,7 +1512,7 @@ func TestSendCommandHandler_POSTSuccess(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/command?command=test", nil)
+	req := httptest.NewRequest(http.MethodPost, "/admin/radar/command?command=test", nil)
 	req.Form = map[string][]string{"command": {"test"}}
 	w := httptest.NewRecorder()
 	server.sendCommandHandler(w, req)

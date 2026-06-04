@@ -42,7 +42,7 @@ Browser ─https─> nginx:443 ─> go:8080         Browser ─http──> go:80
 | ------------------------------------------- | ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
 | Browser padlock on LAN                      | Yellow → green after CA install | None (plain HTTP)                  | Cosmetic + perception                                                    |
 | Site-permission APIs (camera/mic/clipboard) | Granted under HTTPS origin      | Some APIs gated to secure contexts | None today — we use no secure-context APIs                               |
-| SSE / `/events`                             | Works under TLS                 | Works under HTTP                   | None                                                                     |
+| SSE / `/debug/tail`                         | Works under TLS                 | Works under HTTP                   | None                                                                     |
 | Eavesdropping on LAN                        | Mitigated                       | Visible to anyone on the LAN       | Real but accepted: device serves no PII per [TENETS.md](../../TENETS.md) |
 | Tampering on LAN                            | Mitigated                       | A LAN attacker can MITM            | Real; same threat model as any unencrypted LAN service                   |
 | Deep links from HTTPS sites                 | Allowed                         | Mixed-content blocked              | None — no integrations require this                                      |
@@ -78,7 +78,7 @@ Don't bundle. Tailscale Serve requires the user to log into their tailnet, which
 2. On the Pi: `ss -ltnp` shows `velocity-report` on `:80`. No nginx. No `:443`. No `:8080` in production.
 3. `journalctl -u velocity-report` shows clean start; binding `:80` succeeds under `User=velocity`.
 4. From a Tailnet peer (after `tailscale serve --bg http://localhost:80` on the device): `curl https://<host>.<tailnet>.ts.net/api/radar_stats` returns 200 with a valid Let's Encrypt cert.
-5. SSE smoke test: open `/events` in a browser, leave it for 90 seconds, confirm the stream stays open. (Go has no nginx-style buffering middleware in the path, but verify.)
+5. SSE smoke test: on the Pi or a Tailnet peer, open `/debug/tail` (the localhost/Tailscale-only live serial stream) and leave it for 90 seconds; confirm the stream stays open. `/api/events` is a database query, not SSE, so it is not the right probe. (Go has no nginx-style buffering middleware in the path, but verify.)
 6. Image-size diff: `du -sh` before/after on the image stage; expect ~30 MB drop from removing nginx + the openssl cert flow.
 
 ## Greenfield assumption

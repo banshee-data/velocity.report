@@ -40,27 +40,51 @@ SKIP_DIRS = {
 }
 
 
-def find_markdown_files(root: Path) -> list[Path]:
+def is_claude_worktree_path(path: Path, repo_root: Path) -> bool:
+    """Return True when *path* is within .claude/worktrees/."""
+    try:
+        rel = path.relative_to(repo_root)
+    except ValueError:
+        return False
+    return rel.parts[:2] == (".claude", "worktrees")
+
+
+def find_markdown_files(root: Path, repo_root: Path) -> list[Path]:
     """Walk *root* and return all .md files, skipping SKIP_DIRS."""
     results: list[Path] = []
+    if is_claude_worktree_path(root, repo_root):
+        return results
+
     for dirpath, dirnames, filenames in os.walk(root):
+        current_dir = Path(dirpath)
+        # Path of current_dir relative to the repo root, used only to spot the
+        # `.claude` directory.  When root is outside repo_root (e.g. an absolute
+        # path argument), relative_to raises ValueError; treat that as "not
+        # under repo_root" rather than crashing the walk.
+        try:
+            repo_rel_parts = current_dir.relative_to(repo_root).parts
+        except ValueError:
+            repo_rel_parts = ()
         dirnames[:] = [
             d
             for d in dirnames
             if d not in SKIP_DIRS
+            and not (d == "worktrees" and repo_rel_parts == (".claude",))
             # pi-gen stage package dirs contain bundled copies of repo files
             # whose relative links resolve against the repo root, not the
             # stage directory.  Only skip 'files/' under image/stage-*.
             and not (
                 d == "files"
-                and len(Path(dirpath).relative_to(root).parts) >= 2
-                and Path(dirpath).relative_to(root).parts[0] == "image"
-                and Path(dirpath).relative_to(root).parts[1].startswith("stage-")
+                and len(current_dir.relative_to(root).parts) >= 2
+                and current_dir.relative_to(root).parts[0] == "image"
+                and current_dir.relative_to(root).parts[1].startswith("stage-")
             )
         ]
         for fname in filenames:
             if fname.endswith(".md"):
-                results.append(Path(dirpath) / fname)
+                candidate = current_dir / fname
+                if not is_claude_worktree_path(candidate, repo_root):
+                    results.append(candidate)
     results.sort()
     return results
 
@@ -146,11 +170,11 @@ def main() -> int:
     seen: set[Path] = set()
     for p in targets:
         if p.is_file() and p.suffix == ".md":
-            if p not in seen:
+            if p not in seen and not is_claude_worktree_path(p, repo_root):
                 files.append(p)
                 seen.add(p)
         elif p.is_dir():
-            for fp in find_markdown_files(p):
+            for fp in find_markdown_files(p, repo_root):
                 if fp not in seen:
                     files.append(fp)
                     seen.add(fp)

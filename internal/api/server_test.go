@@ -430,7 +430,7 @@ func TestListEvents(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events", nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)
@@ -467,7 +467,7 @@ func TestListEvents_WithUnitsParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/events?units="+tt.units, nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/events?units="+tt.units, nil)
 			w := httptest.NewRecorder()
 
 			server.listEvents(w, req)
@@ -490,7 +490,7 @@ func TestListEvents_MethodNotAllowed(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodPost, "/events", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/events", nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)
@@ -1480,7 +1480,7 @@ func TestSendCommandHandler_WithFormValue(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodPost, "/command?command=test_cmd", nil)
+	req := httptest.NewRequest(http.MethodPost, "/admin/radar/command?command=test_cmd", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 
@@ -1714,7 +1714,7 @@ func TestListEvents_WithSiteID(t *testing.T) {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/events?site_id=%d", site.ID), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/events?site_id=%d", site.ID), nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)
@@ -1729,7 +1729,7 @@ func TestListEvents_WithTimezone(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/events?timezone=Europe/London", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?timezone=Europe/London", nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)
@@ -1744,7 +1744,7 @@ func TestListEvents_InvalidTimezone(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/events?timezone=Invalid/Zone", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?timezone=Invalid/Zone", nil)
 	w := httptest.NewRecorder()
 
 	server.listEvents(w, req)

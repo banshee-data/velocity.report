@@ -129,8 +129,8 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 **Radar API (`:8080` by default):**
 
-- `GET /events` - List radar detection events
-- `POST /command` - Send command to serial port
+- `GET /api/events` - List radar detection events
+- `POST /admin/radar/command` - Send command to serial port (mutating device control; admin namespace)
 - `GET /api/radar_stats` - Get radar statistics with grouping
 - `GET /api/config` - Get server configuration (units, timezone)
 - `POST /api/generate_report` - Generate PDF report

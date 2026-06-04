@@ -6,117 +6,127 @@
  * ========================================================================== */
 
 .site-footer {
-    border-top: 1px solid #1b2632;
-    margin-top: 96px;
-    padding: 48px 0 36px;
-    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.01));
-    font-family: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: #a7b2c0;
-    -webkit-font-smoothing: antialiased;
+  border-top: 1px solid #1b2632;
+  margin-top: 96px;
+  padding: 48px 0 36px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.01));
+  font-family:
+    "Geist",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: #a7b2c0;
+  -webkit-font-smoothing: antialiased;
 }
 .site-footer .wrap {
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: 0 28px;
-    position: relative;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 28px;
+  position: relative;
 }
 .site-footer a {
-    color: #a7b2c0;
-    text-decoration: none;
+  color: #a7b2c0;
+  text-decoration: none;
 }
 .site-footer a:hover {
-    color: #e6ebf2;
+  color: #e6ebf2;
 }
 .site-footer .brand {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    font-weight: 700;
-    font-size: 16px;
-    letter-spacing: -0.01em;
-    color: #e6ebf2;
-    margin-bottom: 6px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: #e6ebf2;
+  margin-bottom: 6px;
 }
 .site-footer .brand .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18), 0 0 16px rgba(16, 185, 129, 0.55);
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow:
+    0 0 0 3px rgba(16, 185, 129, 0.18),
+    0 0 16px rgba(16, 185, 129, 0.55);
 }
 .foot-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 36px;
-    align-items: start;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 36px;
+  align-items: start;
 }
 @media (max-width: 720px) {
-    .foot-grid {
-        grid-template-columns: 1fr 1fr;
-    }
+  .foot-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .foot-col h5 {
-    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #6b7787;
-    margin: 0 0 10px;
-    font-weight: 600;
+  font-family:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6b7787;
+  margin: 0 0 10px;
+  font-weight: 600;
 }
 .foot-col a {
-    display: block;
-    padding: 4px 0;
-    font-size: 14px;
-    color: #a7b2c0;
+  display: block;
+  padding: 4px 0;
+  font-size: 14px;
+  color: #a7b2c0;
 }
 .foot-col a:hover {
-    color: #e6ebf2;
+  color: #e6ebf2;
 }
 .foot-bottom {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: #6b7787;
-    margin-top: 36px;
-    padding-top: 18px;
-    border-top: 1px solid #1b2632;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #6b7787;
+  margin-top: 36px;
+  padding-top: 18px;
+  border-top: 1px solid #1b2632;
 }
 .foot-bottom a {
-    color: #a7b2c0;
+  color: #a7b2c0;
 }
 .foot-blurb {
-    font-size: 13.5px;
-    color: #a7b2c0;
-    margin: 10px 0 0;
-    max-width: 38ch;
-    line-height: 1.5;
+  font-size: 13.5px;
+  color: #a7b2c0;
+  margin: 10px 0 0;
+  max-width: 38ch;
+  line-height: 1.5;
 }
 .foot-icons {
-    margin-top: 12px;
-    display: flex;
-    gap: 6px;
+  margin-top: 12px;
+  display: flex;
+  gap: 6px;
 }
 .foot-icons a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px;
-    border-radius: 6px;
-    border: 1px solid #1b2632;
-    color: #a7b2c0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #1b2632;
+  color: #a7b2c0;
 }
 .foot-icons a:hover {
-    color: #e6ebf2;
-    border-color: #243140;
+  color: #e6ebf2;
+  border-color: #243140;
 }
 .site-footer .inline-link {
-    color: #34d399;
+  color: #34d399;
 }
 .site-footer .inline-link:hover {
-    color: #6ee7b7;
-    text-decoration: underline;
+  color: #6ee7b7;
+  text-decoration: underline;
 }

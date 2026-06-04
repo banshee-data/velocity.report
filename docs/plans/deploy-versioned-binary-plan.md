@@ -76,7 +76,7 @@ Operator, scripts, and systemd
                 +--> /api/version, /api/radar_stats, /api/config, /api/capabilities
                 +--> /api/sites, /api/site_config_periods, /api/timeline
                 +--> /api/generate_report, /api/reports/*, /api/db_stats
-                +--> /api/charts/{timeseries,histogram,comparison}, /api/transit_worker, /command
+                +--> /api/charts/{timeseries,histogram,comparison}, /api/transit_worker, /admin/radar/command
 ```
 
 ### Overall CLI strategy
@@ -89,7 +89,7 @@ The user guide should promote three surfaces, not one blended pile:
 | ------------------------ | -------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Binary CLI               | application and data operations              | `velocity ...`                                                                          |
 | Shell lifecycle wrappers | host service lifecycle on the Pi             | `velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, `velocity-bounce` |
-| HTTP API                 | remote inspection and application automation | `/api/...`, plus `/command`                                                             |
+| HTTP API                 | remote inspection and application automation | `/api/...`, plus `/admin/radar/command`                                                 |
 
 The binary should not duplicate the shell lifecycle wrappers, and the shell aliases should not pretend to be the application CLI.
 
@@ -141,7 +141,7 @@ These wrappers stay outside the binary because they are host-admin affordances. 
 | Site configuration      | `GET/POST /api/sites`, `GET/POST /api/site_config_periods`                                   |
 | Reports                 | `POST /api/generate_report`, `GET/DELETE /api/reports/*`                                     |
 | Charts                  | `GET/POST /api/charts/timeseries`, `GET /api/charts/histogram`, `GET /api/charts/comparison` |
-| Control                 | `POST /command`, `GET/POST /api/transit_worker`                                              |
+| Control                 | `POST /admin/radar/command`, `GET/POST /api/transit_worker`                                  |
 
 #### Not in scope for this plan
 

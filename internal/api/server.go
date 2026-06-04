@@ -17,6 +17,7 @@ import (
 
 	radar "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/db"
+	radarcmd "github.com/banshee-data/velocity.report/internal/radar"
 	"github.com/banshee-data/velocity.report/internal/security"
 	"github.com/banshee-data/velocity.report/internal/serialmux"
 )
@@ -115,8 +116,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 	// Note: pprof endpoints are provided by tailscale's tsweb via db.AttachAdminRoutes()
 	// Usage: go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
 
-	s.mux.HandleFunc("/events", s.listEvents)
-	s.mux.HandleFunc("/command", s.sendCommandHandler)
+	s.mux.HandleFunc("/admin/radar/command", s.sendCommandHandler) // mutating device control: admin namespace (per cli-restructuring plan), not /api
+	s.mux.HandleFunc("/api/commands", s.listCommandsHandler)       // OPS24x command catalogue (dashboard dropdown)
+	s.mux.HandleFunc("/api/events", s.listEvents)                  // radar detection events (DB query, not SSE); renamed from /events to sit under /api
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
 	s.mux.HandleFunc("/api/capabilities", s.showCapabilities)
@@ -152,14 +154,35 @@ func (s *Server) ServeMux() *http.ServeMux {
 
 func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	command := r.FormValue("command")
 
+	// Reject control characters before anything else. SendCommand writes the
+	// string verbatim (only appending a trailing newline), so an embedded \n or
+	// \r would smuggle multiple serial commands into a single request
+	// (e.g. "AX\nOJ"), and a null byte could truncate it. One command per
+	// request; control characters are never part of a valid OPS24x command.
+	if strings.ContainsFunc(command, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		s.writeJSONError(w, http.StatusBadRequest, "Command must not contain control characters")
+		return
+	}
+
+	// Advisory check only: the OPS24x command set is config/query-only with no
+	// firmware-flash command, so we forward whatever is asked. An unknown
+	// command is still sent, but we log a warning so a typo or undocumented
+	// command is visible. Access control is localhost binding + planned API
+	// auth, not command-string filtering. We match the two-character code so
+	// parameterised commands (e.g. "R>0.25", "C=...") are recognised rather
+	// than warned about. See internal/radar/commands.go.
+	if command != "" && !radarcmd.IsKnownCommandCode(command) {
+		log.Printf("warning: command %q is not in the known OPS24x command catalogue; forwarding anyway", command)
+	}
+
 	if err := s.currentSerialMux().SendCommand(command); err != nil {
-		http.Error(w, "Failed to send command", http.StatusInternalServerError)
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to send command")
 		return
 	}
 	if _, err := io.WriteString(w, "Command sent successfully"); err != nil {
@@ -167,7 +190,24 @@ func (s *Server) sendCommandHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// listCommandsHandler serves GET /api/commands, returning the catalogue of
+// documented OPS24x commands as JSON. It backs a dashboard command dropdown.
+// The catalogue is advisory (see sendCommandHandler): callers may still send
+// commands that are not listed here.
+func (s *Server) listCommandsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(radarcmd.KnownCommands); err != nil {
+		log.Printf("failed to encode commands response: %v", err)
+	}
+}
+
 func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
 		log.Printf("failed to encode json error response: %v", err)

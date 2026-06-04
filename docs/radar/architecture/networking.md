@@ -21,7 +21,7 @@ The server binds three distinct listener classes, each with a different trust le
 
 The radar API server. Serves the Svelte frontend and read-only data APIs.
 
-**Endpoints**: `/events`, `/api/radar_stats`, `/api/config`, `/api/sites`, `/api/timeline`, `/api/generate_report`, static assets.
+**Endpoints**: `/api/events`, `/api/radar_stats`, `/api/config`, `/api/sites`, `/api/timeline`, `/api/generate_report`, static assets.
 
 **Trust level**: LAN-accessible. Read-only data endpoints and the web UI. No destructive operations.
 
@@ -59,7 +59,7 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 │  │ Radar API    │    │ LiDAR Monitor │               │
 │  │ :8080        │    │ :8081         │               │
 │  │              │    │               │               │
-│  │ /events      │    │ /api/lidar/*  │               │
+│  │ /api/events  │    │ /api/lidar/*  │               │
 │  │ /api/radar_* │    │ /debug/lidar/*│               │
 │  │ /api/sites   │    │               │               │
 │  │ /static/*    │    │ featureGate:  │               │

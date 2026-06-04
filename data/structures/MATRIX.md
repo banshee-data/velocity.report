@@ -37,8 +37,8 @@ report pipeline is documented separately in §11 as reference inventory.
 
 | Folder                             | File                | Endpoint                             | DB  | Web | Mac |
 | ---------------------------------- | ------------------- | ------------------------------------ | --- | --- | --- |
-| [internal/api](../../internal/api) | `server.go`         | `GET /events`                        | ✅  | ✅  | -   |
-| [internal/api](../../internal/api) | `server.go`         | `POST /command`                      | -   | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go`         | `GET /api/events`                    | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go`         | `POST /admin/radar/command`          | -   | ✅  | -   |
 | [internal/api](../../internal/api) | `server_admin.go`   | `GET /api/config`                    | -   | ✅  | -   |
 | [internal/api](../../internal/api) | `server_admin.go`   | `GET /api/capabilities`              | -   | ✅  | -   |
 | [internal/api](../../internal/api) | `server_admin.go`   | `GET /api/db_stats`                  | ✅  | ✅  | -   |
