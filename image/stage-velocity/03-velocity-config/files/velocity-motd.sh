@@ -10,11 +10,30 @@
 
 DEFAULT_PASS="report"
 
-# Build metadata stamped at image creation time.
-BUILD_INFO_FILE="/etc/velocity-report-build"
-if [ -f "$BUILD_INFO_FILE" ]; then
+# Resolve version/build info from the INSTALLED BINARY so the banner stays
+# correct after `velocity-ctl upgrade` swaps it.  The /etc/velocity-report-build
+# file is only stamped at image-build time, so reading it would show the
+# original image version forever — stale the moment the device is upgraded.
+# Querying the binary makes the binary's own ldflags the single source of truth.
+# Fall back to the image stamp, then "unknown", if the binary can't be queried.
+VR_BIN="${VR_BIN:-/usr/local/bin/velocity-report}"
+VR_VERSION=""; VR_GIT_SHA=""; VR_BUILD_TIME=""
+if [ -x "$VR_BIN" ]; then
+    # `velocity-report --version` prints (internal/version.Print):
+    #   velocity-report  v<version>
+    #    git sha:  <sha>
+    #      built:  <iso8601>
+    vr_info="$("$VR_BIN" --version 2>/dev/null)"
+    if [ -n "$vr_info" ]; then
+        VR_VERSION="$(printf '%s\n' "$vr_info" | awk 'NR==1{print $2}')"
+        VR_VERSION="${VR_VERSION#v}"
+        VR_GIT_SHA="$(printf '%s\n' "$vr_info" | awk '/git sha:/{print $NF}')"
+        VR_BUILD_TIME="$(printf '%s\n' "$vr_info" | awk '/built:/{print $NF}')"
+    fi
+fi
+if [ -z "$VR_VERSION" ] && [ -f /etc/velocity-report-build ]; then
     # shellcheck source=/dev/null
-    . "$BUILD_INFO_FILE"
+    . /etc/velocity-report-build
 fi
 VR_VERSION="${VR_VERSION:-unknown}"
 VR_BUILD_TIME="${VR_BUILD_TIME:-unknown}"
@@ -65,7 +84,7 @@ warning_banner() {
  ║                                                                ║
  ╚════════════════════════════════════════════════════════════════╝
 
-  Image: v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
+  velocity-report v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
 
 EOF
 }
