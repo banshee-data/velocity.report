@@ -84,6 +84,8 @@ welcome_banner() {
 
     v${VR_VERSION}  SHA: ${VR_GIT_SHA}  Built: ${VR_BUILD_TIME}
 
+  Dashboard:  http://velocity.local
+
   Useful commands:
     velocity-status           Is the service running?
     velocity-log              Follow the live service log
