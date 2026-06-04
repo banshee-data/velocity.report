@@ -41,12 +41,12 @@ SKIP_DIRS = {
 
 
 def is_claude_worktree_path(path: Path, repo_root: Path) -> bool:
-	"""Return True when *path* is within .claude/worktrees/."""
-	try:
-		rel = path.relative_to(repo_root)
-	except ValueError:
-		return False
-	return rel.parts[:2] == (".claude", "worktrees")
+    """Return True when *path* is within .claude/worktrees/."""
+    try:
+        rel = path.relative_to(repo_root)
+    except ValueError:
+        return False
+    return rel.parts[:2] == (".claude", "worktrees")
 
 
 def find_markdown_files(root: Path, repo_root: Path) -> list[Path]:
