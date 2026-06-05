@@ -227,7 +227,7 @@ setup_go() {
     run_with_log "Downloading Go dependencies" go mod download
 
     # Verify build
-    run_with_log "Running go build smoke test" bash -c "go build -o /tmp/test-build ./cmd/radar"
+    run_with_log "Running go build smoke test" bash -c "go build -o /tmp/test-build ./cmd/velocity"
     rm -f /tmp/test-build
 
     # Install development tools

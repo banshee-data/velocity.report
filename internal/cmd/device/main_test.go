@@ -1,4 +1,4 @@
-package main
+package device
 
 import (
 	"os"
@@ -29,7 +29,7 @@ func TestRunVersion(t *testing.T) {
 	if output == "" {
 		t.Fatal("runVersion produced no output")
 	}
-	if !strings.Contains(output, "velocity-ctl") {
-		t.Errorf("expected 'velocity-ctl' in output, got: %s", output)
+	if !strings.Contains(output, "velocity") {
+		t.Errorf("expected 'velocity' in output, got: %s", output)
 	}
 }

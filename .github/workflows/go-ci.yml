@@ -74,10 +74,9 @@ jobs:
       - name: Build offline docs stub for embed
         run: ./scripts/ensure-docs-stub.sh
 
-      - name: Build binaries
+      - name: Build binary
         run: |
-          go build -tags=pcap -o velocity-report-local ./cmd/radar
-          go build -o velocity-ctl-local ./cmd/velocity-ctl
+          go build -tags=pcap -o velocity-local ./cmd/velocity
 
   test-core:
     name: "🧪 Test Core"
@@ -116,7 +115,9 @@ jobs:
             ./internal/testutil/... \
             ./internal/fsutil/... \
             ./internal/monitoring/... \
-            ./cmd/velocity-ctl/...
+            ./internal/ctl/... \
+            ./internal/cmd/... \
+            ./cmd/velocity/...
 
       - name: Upload core coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

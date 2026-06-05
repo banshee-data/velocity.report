@@ -1,4 +1,4 @@
-package main
+package tune
 
 import (
 	"encoding/csv"
@@ -15,7 +15,10 @@ import (
 	"github.com/banshee-data/velocity.report/internal/security"
 )
 
-func main() {
+// Main is the entry point for the tune/sweep applet. args is the argument
+// slice after the `sweep` namespace word (i.e. for `velocity tune sweep -pcap
+// f.pcap` it is ["-pcap", "f.pcap"]). It returns the process exit code.
+func Main(args []string) int {
 	// Per-applet flag set (not the global flag.CommandLine) so the sweep
 	// applet can co-exist with the server and device applets inside the
 	// single multi-call velocity binary.
@@ -75,7 +78,7 @@ func main() {
 	measNoiseEnd := fs.Float64("mnoise-end", 0.5, "End measurement noise (tracking sweep)")
 	measNoiseStep := fs.Float64("mnoise-step", 0.1, "Step for measurement noise (tracking sweep)")
 
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := fs.Parse(args); err != nil {
 		log.Fatalf("parsing flags: %v", err)
 	}
 
@@ -92,7 +95,7 @@ func main() {
 			*gatingStart, *gatingEnd, *gatingStep,
 			*procNoisePosStart, *procNoisePosEnd, *procNoisePosStep,
 			*measNoiseStart, *measNoiseEnd, *measNoiseStep)
-		return
+		return 0
 	}
 
 	// Start PCAP replay if requested
@@ -279,6 +282,7 @@ func main() {
 	log.Printf("\nSweep complete!")
 	log.Printf("Summary: %s", filename)
 	log.Printf("Raw data: %s", rawFilename)
+	return 0
 }
 
 // parseParamList parses a comma-separated list or generates a range using internal packages.

@@ -16,19 +16,22 @@ help:
 	@echo "Pattern: <action>-<subsystem>[-<variant>]"
 	@echo ""
 	@echo "BUILD TARGETS (Go cross-compilation):"
-	@echo "  build-radar-linux    Build for Linux ARM64 with pcap"
+	@echo "  build-velocity       Build the single multi-call velocity binary (local, pcap)"
+	@echo "  build-velocity-linux Build velocity for Linux ARM64 with pcap"
+	@echo "  build-velocity-mac   Build velocity for macOS ARM64 with pcap"
+	@echo "  build-radar-linux    (alias) Build velocity for Linux ARM64 with pcap"
 	@echo "  build-radar-linux-docker Build for Linux ARM64 with pcap inside Docker (outputs to image/velocity-binaries/)"
-	@echo "  build-radar-mac      Build for macOS ARM64 with pcap"
-	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
-	@echo "  build-radar-local    Build for local development with pcap"
-	@echo "  build-tools          Build sweep tool"
+	@echo "  build-radar-mac      (alias) Build velocity for macOS ARM64 with pcap"
+	@echo "  build-radar-mac-intel (alias) Build velocity for macOS AMD64 with pcap"
+	@echo "  build-radar-local    (alias) Build velocity for local development with pcap"
+	@echo "  build-tools          (alias) Build velocity (sweep is now 'velocity tune sweep')"
 	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
 	@echo "  release-radar-remote Build release Linux ARM64 binary and deploy it to DEPLOY_HOST (default velocity.local)"
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
 	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
-	@echo "  build-ctl            Build velocity-ctl device management binary"
-	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
+	@echo "  build-ctl            (alias) Build velocity (device tools folded in)"
+	@echo "  build-ctl-linux      (alias) Build velocity for Linux ARM64"
 	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
 	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
 	@echo "  clean-images         Remove old images, keeping only the latest build"
@@ -199,33 +202,48 @@ print-version:
 # BUILD TARGETS (Go cross-compilation)
 # =============================================================================
 
-build-radar-linux:
+# Single multi-call `velocity` binary: server (serve), device, and tune (sweep)
+# applets dispatched by argv[0]/namespace. Replaces the former separate
+# velocity-report / velocity-ctl / sweep builds. The build-radar-* / build-ctl*
+# / build-tools names below are kept as compatibility aliases so existing dev
+# workflows, docs, and CI keep working.
+build-velocity:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/radar
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity ./cmd/velocity
+
+build-velocity-linux:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+
+build-velocity-mac:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+
+build-velocity-mac-intel:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
+
+# Compatibility aliases (folded binaries → single velocity binary).
+build-radar-linux: build-velocity-linux
+build-radar-mac: build-velocity-mac
+build-radar-mac-intel: build-velocity-mac-intel
+build-ctl: build-velocity
+build-ctl-linux: build-velocity-linux
+build-tools: build-velocity
 
 .PHONY: build-radar-linux-docker
 build-radar-linux-docker:
 	@VERSION="$(VERSION)" BUILD_TIME="$(BUILD_TIME)" GIT_SHA="$(GIT_SHA)" ./image/scripts/build-image.sh --binaries-only
 	@echo "Binaries available:"; ls -l image/velocity-binaries || true
 
-build-radar-mac:
-	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
-	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/radar
-
-build-radar-mac-intel:
-	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
-	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/radar
-
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar
-
-build-tools:
-	go build -o app-sweep ./cmd/sweep
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity
 
 # Run settling-eval convergence evaluation against a PCAP file.
 # Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.
@@ -236,13 +254,6 @@ run-settling-eval: PCAP ?= $(SETTLING_EVAL_PCAP)
 run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
 run-settling-eval:
 	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
-
-# Build velocity-ctl device management binary
-build-ctl:
-	go build -ldflags "$(LDFLAGS)" -o velocity-ctl ./cmd/velocity-ctl
-
-build-ctl-linux:
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-ctl-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity-ctl
 
 .PHONY: build-embedded-assets
 build-embedded-assets:
@@ -799,7 +810,7 @@ define run_dev_go
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
 	$(call run_dev_go_kill_server); \
 	echo "Building velocity-report-local..."; \
-	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity; \
 	mkdir -p "$$piddir"; \
 	pdf_backend=$${VELOCITY_PDF_BACKEND:-both}; \
 	echo "Starting velocity-report-local (background) with DB=$$DB_PATH, PDF backend=$$pdf_backend -> $$logfile (debug -> $$debuglog)"; \
@@ -1167,21 +1178,21 @@ test-perf:
 # Apply all pending migrations
 migrate-up:
 	@echo "Applying all pending migrations..."
-	@go run ./cmd/radar migrate up
+	@go run ./cmd/velocity data migrate up
 
 # Rollback one migration
 migrate-down:
 	@echo "Rolling back one migration..."
-	@go run ./cmd/radar migrate down
+	@go run ./cmd/velocity data migrate down
 
 # Show current migration status
 migrate-status:
-	@go run ./cmd/radar migrate status
+	@go run ./cmd/velocity data migrate status
 
 # Detect schema version (for legacy databases)
 migrate-detect:
 	@echo "Detecting schema version..."
-	@go run ./cmd/radar migrate detect
+	@go run ./cmd/velocity data migrate detect
 
 # Migrate to a specific version (usage: make migrate-version VERSION=3)
 migrate-version:
@@ -1191,7 +1202,7 @@ migrate-version:
 		exit 1; \
 	fi
 	@echo "Migrating to version $(VERSION)..."
-	@go run ./cmd/radar migrate version $(VERSION)
+	@go run ./cmd/velocity data migrate version $(VERSION)
 
 # Force migration version (recovery only, usage: make migrate-force VERSION=2)
 migrate-force:
@@ -1201,7 +1212,7 @@ migrate-force:
 		exit 1; \
 	fi
 	@echo "Forcing migration version to $(VERSION)..."
-	@go run ./cmd/radar migrate force $(VERSION)
+	@go run ./cmd/velocity data migrate force $(VERSION)
 
 # Baseline database at version (usage: make migrate-baseline VERSION=6)
 migrate-baseline:
@@ -1211,7 +1222,7 @@ migrate-baseline:
 		exit 1; \
 	fi
 	@echo "Baselining database at version $(VERSION)..."
-	@go run ./cmd/radar migrate baseline $(VERSION)
+	@go run ./cmd/velocity data migrate baseline $(VERSION)
 
 # Regenerate schema.sql from latest migrations
 schema-sync:

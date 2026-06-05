@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -290,17 +290,18 @@ func tailscaleServeTarget(listen string) string {
 	return "http://127.0.0.1:" + port
 }
 
-func main() {
-	// Subcommand dispatch — check before flag.Parse() so subcommand flags
-	// don't collide with the server's global flags.
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "pdf":
-			os.Exit(runPDF(os.Args[2:], os.Stdout, os.Stderr))
-		}
+// Main is the entry point for the server (serve) applet of the multi-call
+// velocity binary. args is the argument slice after the program name (i.e.
+// os.Args[1:] for the bare `velocity-report` / `velocity serve` forms). It
+// returns the process exit code.
+func Main(args []string) int {
+	// Subcommand dispatch — check before flag parsing so subcommand flags
+	// don't collide with the server's flags.
+	if len(args) > 0 && args[0] == "pdf" {
+		return runPDF(args[1:], os.Stdout, os.Stderr)
 	}
 
-	if err := serveFlags.Parse(os.Args[1:]); err != nil {
+	if err := serveFlags.Parse(args); err != nil {
 		// flag.ExitOnError already prints usage and exits on parse errors;
 		// this guard is belt-and-suspenders for future error modes.
 		log.Fatalf("parsing flags: %v", err)
@@ -369,7 +370,7 @@ func main() {
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
 		version.Print("velocity-report")
-		os.Exit(0)
+		return 0
 	}
 
 	// Check if first argument is a subcommand
@@ -377,7 +378,7 @@ func main() {
 		subcommand := serveFlags.Arg(0)
 		if subcommand == "version" {
 			version.Print("velocity-report")
-			os.Exit(0)
+			return 0
 		}
 		if subcommand == "migrate" {
 			remainingArgs := serveFlags.Args()[1:]
@@ -391,11 +392,11 @@ func main() {
 			}
 
 			db.RunMigrateCommand(migrateArgs, migrateDBPath)
-			return
+			return 0
 		}
 		if subcommand == "transits" {
 			runTransitsCommand(serveFlags.Args()[1:])
-			return
+			return 0
 		}
 		log.Fatalf("Unknown subcommand: %s: try 'velocity-report --help' for available commands", subcommand)
 	}
@@ -415,11 +416,11 @@ func main() {
 	}
 	if !units.IsValid(*unitsFlag) {
 		log.Printf("Invalid units %q: valid options are: %s", *unitsFlag, units.GetValidUnitsString())
-		os.Exit(1)
+		return 1
 	}
 	if !units.IsTimezoneValid(*timezoneFlag) {
 		log.Printf("Invalid timezone %q: valid options are: %s", *timezoneFlag, units.GetValidTimezonesString())
-		os.Exit(1)
+		return 1
 	}
 
 	// Load tuning configuration from file.
@@ -1030,6 +1031,7 @@ func main() {
 	// Wait for all goroutines to finish
 	wg.Wait()
 	log.Printf("Graceful shutdown complete")
+	return 0
 }
 
 // runTransitsCommand handles transit-related subcommands:

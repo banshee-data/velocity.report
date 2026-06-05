@@ -1,4 +1,4 @@
-package main
+package device
 
 import "github.com/banshee-data/velocity.report/internal/ctl"
 
