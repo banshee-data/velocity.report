@@ -266,7 +266,7 @@
 						signal: tailscalePollAbort.signal
 					})
 				);
-			} catch (e) {
+			} catch {
 				if (!tailscalePolling) break; // aborted on unmount
 				// Network/daemon hiccup — back off so we don't hot-loop.
 				await new Promise((r) => setTimeout(r, 5000));
