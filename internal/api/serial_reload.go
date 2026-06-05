@@ -216,22 +216,17 @@ func (m *SerialPortManager) runEventFanout() {
 				continue
 			}
 
-			// Forward event to all subscribers
+			// Hold the read lock while forwarding so Unsubscribe cannot close a
+			// channel concurrently with this non-blocking send loop.
 			m.fanoutMu.RLock()
-			subscribers := make([]chan string, 0, len(m.subscribers))
 			for _, ch := range m.subscribers {
-				subscribers = append(subscribers, ch)
-			}
-			m.fanoutMu.RUnlock()
-
-			// Send to all subscribers without blocking
-			for _, ch := range subscribers {
 				select {
 				case ch <- payload:
 				default:
 					log.Printf("Event fanout: subscriber channel full, dropping event")
 				}
 			}
+			m.fanoutMu.RUnlock()
 		}
 	}
 }
