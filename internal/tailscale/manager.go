@@ -60,6 +60,12 @@ type LocalClient interface {
 	GetServeConfig(ctx context.Context) (*ipn.ServeConfig, error)
 	SetServeConfig(ctx context.Context, cfg *ipn.ServeConfig) error
 	StartLoginInteractive(ctx context.Context) error
+	// Start applies opts (including UpdatePrefs) and (re)starts the backend
+	// state machine as one operation — the coherent way to begin a login,
+	// the way `tailscale up` does it.  See Enable for why
+	// EditPrefs(WantRunning=true)+StartLoginInteractive is not a safe
+	// substitute on a logged-out node.
+	Start(ctx context.Context, opts ipn.Options) error
 	WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error)
 }
 
@@ -95,6 +101,9 @@ func (r *realLocalClient) SetServeConfig(ctx context.Context, cfg *ipn.ServeConf
 }
 func (r *realLocalClient) StartLoginInteractive(ctx context.Context) error {
 	return r.c.StartLoginInteractive(ctx)
+}
+func (r *realLocalClient) Start(ctx context.Context, opts ipn.Options) error {
+	return r.c.Start(ctx, opts)
 }
 func (r *realLocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error) {
 	return r.c.WatchIPNBus(ctx, mask)
@@ -641,22 +650,35 @@ func (m *Manager) Enable(ctx context.Context) error {
 	m.enableEpoch++
 	m.mu.Unlock()
 
-	// Make sure WantRunning=true so the daemon actually brings the
-	// interface up; this is the field a previous Disable cleared.  If
-	// this fails the node will sit in Stopped forever — fail loudly
-	// rather than letting the UI show "enabled" over a dead tunnel.
-	if _, err := m.lc.EditPrefs(ctx, &ipn.MaskedPrefs{
-		Prefs:          ipn.Prefs{WantRunning: true},
-		WantRunningSet: true,
-	}); err != nil {
-		return fmt.Errorf("set WantRunning=true: %w", err)
-	}
-
 	if !needsLogin {
-		// Authenticated already; daemon will reach Running on its
-		// own.  Nothing more to do.
+		// Authenticated already: just flip WantRunning=true to resume the
+		// tunnel — there is no interactive registration to race, so a plain
+		// EditPrefs is safe.  Fail loudly if it doesn't take, rather than
+		// letting the UI show "enabled" over a dead tunnel.
+		if _, err := m.lc.EditPrefs(ctx, &ipn.MaskedPrefs{
+			Prefs:          ipn.Prefs{WantRunning: true},
+			WantRunningSet: true,
+		}); err != nil {
+			return fmt.Errorf("set WantRunning=true: %w", err)
+		}
 		return nil
 	}
+
+	// Fresh node — drive prefs + login through a single Start(), the way
+	// `tailscale up` does.  Do NOT EditPrefs(WantRunning=true) first: on a
+	// logged-out node that auto-starts a login which races the
+	// StartLoginInteractive re-registration below.  tailscaled regenerates
+	// the node key mid-flight, the coordination server evicts the auth path,
+	// and the followup register returns "register request: http 410: auth
+	// path not found" ~a minute later — wedging the node in NeedsLogin with a
+	// dead login URL.  Start() applies the prefs and begins the login as one
+	// coherent operation, so the interactive login is the only registration
+	// in flight.
+	prefs, err := m.lc.GetPrefs(ctx)
+	if err != nil {
+		return fmt.Errorf("get prefs: %w", err)
+	}
+	prefs.WantRunning = true
 
 	m.mu.Lock()
 	m.loginInProg = true
@@ -664,17 +686,24 @@ func (m *Manager) Enable(ctx context.Context) error {
 	m.urlSetAt = time.Time{}
 	m.mu.Unlock()
 
-	if err := m.lc.StartLoginInteractive(ctx); err != nil {
+	clearLoginInProg := func() {
 		m.mu.Lock()
 		m.loginInProg = false
 		m.mu.Unlock()
+	}
+
+	if err := m.lc.Start(ctx, ipn.Options{UpdatePrefs: prefs}); err != nil {
+		clearLoginInProg()
+		return fmt.Errorf("start tailscale session: %w", err)
+	}
+	if err := m.lc.StartLoginInteractive(ctx); err != nil {
+		clearLoginInProg()
 		return fmt.Errorf("start login: %w", err)
 	}
 
-	// Give the bus watcher a brief window to surface the BrowseToURL
-	// before we return.  This avoids the API response saying
-	// "login_in_progress=true, login_url=" which forces the UI to do a
-	// second fetch before it can render the QR code.
+	// Give the bus watcher a brief window to surface the BrowseToURL before
+	// we return, so the API response carries the login URL and the UI can
+	// render the QR immediately rather than after a second fetch.
 	m.waitForLoginURL(ctx, 5*time.Second)
 	return nil
 }

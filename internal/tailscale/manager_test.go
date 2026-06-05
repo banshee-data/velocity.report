@@ -175,14 +175,17 @@ type fakeClient struct {
 	getServeCfg   func(ctx context.Context) (*ipn.ServeConfig, error)
 	setServeCfg   func(ctx context.Context, cfg *ipn.ServeConfig) error
 	startLogin    func(ctx context.Context) error
+	start         func(ctx context.Context, opts ipn.Options) error
 	watchBus      func(ctx context.Context) (BusWatcher, error)
 
 	editPrefsCalls    int32
 	setServeCfgCalls  int32
 	startLoginCalls   int32
+	startCalls        int32
 	watchBusCalls     int32
 	statusCalls       int32
 	editedPrefs       []*ipn.MaskedPrefs
+	startOpts         []ipn.Options
 	setServeConfigArg *ipn.ServeConfig
 }
 
@@ -241,6 +244,17 @@ func (f *fakeClient) StartLoginInteractive(ctx context.Context) error {
 	atomic.AddInt32(&f.startLoginCalls, 1)
 	if f.startLogin != nil {
 		return f.startLogin(ctx)
+	}
+	return nil
+}
+
+func (f *fakeClient) Start(ctx context.Context, opts ipn.Options) error {
+	atomic.AddInt32(&f.startCalls, 1)
+	f.mu.Lock()
+	f.startOpts = append(f.startOpts, opts)
+	f.mu.Unlock()
+	if f.start != nil {
+		return f.start(ctx, opts)
 	}
 	return nil
 }
@@ -342,6 +356,20 @@ func TestEnableNoExistingIdentityKicksLogin(t *testing.T) {
 	if got := atomic.LoadInt32(&fc.startLoginCalls); got != 1 {
 		t.Fatalf("StartLoginInteractive calls: got %d want 1", got)
 	}
+	// The fix: the needs-login path drives prefs+login through a single
+	// Start(UpdatePrefs{WantRunning:true}) rather than EditPrefs+login, which
+	// raced tailscaled's auto-login and 410'd the auth URL.
+	if got := atomic.LoadInt32(&fc.startCalls); got != 1 {
+		t.Fatalf("Start calls: got %d want 1", got)
+	}
+	fc.mu.Lock()
+	startWantRunning := len(fc.startOpts) == 1 &&
+		fc.startOpts[0].UpdatePrefs != nil &&
+		fc.startOpts[0].UpdatePrefs.WantRunning
+	fc.mu.Unlock()
+	if !startWantRunning {
+		t.Fatal("expected Start(ipn.Options{UpdatePrefs:{WantRunning:true}})")
+	}
 	st := m.Status(context.Background())
 	if st.LoginURL == "" {
 		t.Fatal("expected LoginURL to be populated after Enable")
@@ -369,6 +397,10 @@ func TestEnableExistingIdentitySkipsLogin(t *testing.T) {
 	if got := atomic.LoadInt32(&fc.editPrefsCalls); got == 0 {
 		t.Fatal("expected EditPrefs(WantRunning=true) to be called")
 	}
+	// The authenticated path resumes via EditPrefs; it must not Start()/re-login.
+	if got := atomic.LoadInt32(&fc.startCalls); got != 0 {
+		t.Fatalf("Start must not be called when already authenticated, got %d", got)
+	}
 }
 
 func TestEnableWantRunningFailureIsFatal(t *testing.T) {
@@ -384,6 +416,25 @@ func TestEnableWantRunningFailureIsFatal(t *testing.T) {
 	err := m.Enable(context.Background())
 	if err == nil {
 		t.Fatal("expected Enable to fail when EditPrefs(WantRunning) fails")
+	}
+}
+
+func TestEnableStartFailureIsFatal(t *testing.T) {
+	fc := &fakeClient{
+		statusFn: func(ctx context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{BackendState: ipn.NeedsLogin.String()}, nil
+		},
+		start: func(ctx context.Context, opts ipn.Options) error {
+			return errors.New("permission denied")
+		},
+	}
+	m := New(WithLocalClient(fc), WithSystemdActor(&fakeSystemd{}))
+	if err := m.Enable(context.Background()); err == nil {
+		t.Fatal("expected Enable to fail when Start fails")
+	}
+	// StartLoginInteractive must not run once Start has failed.
+	if got := atomic.LoadInt32(&fc.startLoginCalls); got != 0 {
+		t.Fatalf("StartLoginInteractive must not run after Start fails, got %d", got)
 	}
 }
 
