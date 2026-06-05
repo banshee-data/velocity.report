@@ -157,9 +157,9 @@ func TestConfigurePDFLaTeXFlowInvalid(t *testing.T) {
 }
 
 func TestVisitedFlags(t *testing.T) {
-	oldCommandLine := flag.CommandLine
+	oldServeFlags := serveFlags
 	defer func() {
-		flag.CommandLine = oldCommandLine
+		serveFlags = oldServeFlags
 	}()
 
 	fs := flag.NewFlagSet("visited-flags", flag.ContinueOnError)
@@ -168,7 +168,7 @@ func TestVisitedFlags(t *testing.T) {
 	if err := fs.Parse([]string{"-alpha"}); err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	flag.CommandLine = fs
+	serveFlags = fs
 
 	got := visitedFlags()
 	if !got["alpha"] {

@@ -47,22 +47,28 @@ import (
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
+// serveFlags is the per-applet flag set for the radar/server applet. It is
+// bound to a dedicated FlagSet (not the global flag.CommandLine) so the server
+// can co-exist with the other applets (device, tune) inside the single
+// multi-call velocity binary without flag-registration collisions at startup.
+var serveFlags = flag.NewFlagSet("velocity-serve", flag.ExitOnError)
+
 var (
-	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
-	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen       = flag.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
-	docsSource   = flag.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
-	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
-	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
-	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
-	disableRadar = flag.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
-	pdfLatexFlow = flag.String("pdf-latex-flow", "inherit", "PDF LaTeX flow: inherit, precompiled, or full")
-	pdfTexRoot   = flag.String("pdf-tex-root", "", "TeX root for precompiled PDF flow (sets VELOCITY_TEX_ROOT)")
-	versionFlag  = flag.Bool("version", false, "Print version information and exit")
-	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
-	configFile   = flag.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
-	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+	fixtureMode  = serveFlags.Bool("fixture", false, "Load fixture to local database")
+	debugMode    = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
+	listen       = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
+	docsSource   = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
+	port         = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
+	unitsFlag    = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPathFlag   = serveFlags.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
+	pdfLatexFlow = serveFlags.String("pdf-latex-flow", "inherit", "PDF LaTeX flow: inherit, precompiled, or full")
+	pdfTexRoot   = serveFlags.String("pdf-tex-root", "", "TeX root for precompiled PDF flow (sets VELOCITY_TEX_ROOT)")
+	versionFlag  = serveFlags.Bool("version", false, "Print version information and exit")
+	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
+	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
+	logLevel     = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
 )
 
 func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
@@ -103,30 +109,30 @@ func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, str
 
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
-	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen    = flag.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
-	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
-	lidarUDPRcvBuf = flag.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
-	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarForward   = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort   = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
-	lidarFwdAddr   = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
-	lidarFGForward = flag.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
-	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
-	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
-	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	enableLidar    = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
+	lidarListen    = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
+	lidarUDPPort   = serveFlags.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
+	lidarUDPRcvBuf = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
+	lidarNoParse   = serveFlags.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
+	lidarForward   = serveFlags.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort   = serveFlags.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
+	lidarFwdAddr   = serveFlags.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
+	lidarFGForward = serveFlags.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
+	lidarFGFwdAddr = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
+	lidarPCAPDir   = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Visualiser gRPC streaming (M2)
-	lidarForwardMode = flag.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
-	lidarGRPCListen  = flag.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
+	lidarForwardMode = serveFlags.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
+	lidarGRPCListen  = serveFlags.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
 )
 
 // Transit worker options (compute radar_data -> radar_data_transits)
 var (
-	enableTransitWorker    = flag.Bool("enable-transit-worker", true, "Enable transit worker to periodically compute transits from radar_data")
-	transitWorkerInterval  = flag.Duration("transit-worker-interval", 1*time.Hour, "Interval for transit worker (e.g., 1h)")
-	transitWorkerWindow    = flag.Duration("transit-worker-window", 65*time.Minute, "Lookback window for transit worker (should be slightly larger than interval)")
-	transitWorkerThreshold = flag.Int("transit-worker-threshold", 1, "Gap threshold in seconds for sessionizing transits")
-	transitWorkerModel     = flag.String("transit-worker-model", "hourly-cron", "Model version string for computed transits")
+	enableTransitWorker    = serveFlags.Bool("enable-transit-worker", true, "Enable transit worker to periodically compute transits from radar_data")
+	transitWorkerInterval  = serveFlags.Duration("transit-worker-interval", 1*time.Hour, "Interval for transit worker (e.g., 1h)")
+	transitWorkerWindow    = serveFlags.Duration("transit-worker-window", 65*time.Minute, "Lookback window for transit worker (should be slightly larger than interval)")
+	transitWorkerThreshold = serveFlags.Int("transit-worker-threshold", 1, "Gap threshold in seconds for sessionizing transits")
+	transitWorkerModel     = serveFlags.String("transit-worker-model", "hourly-cron", "Model version string for computed transits")
 )
 
 // Constants
@@ -228,7 +234,7 @@ func configurePDFLaTeXFlow(flow, texRootFlag string) error {
 
 func visitedFlags() map[string]bool {
 	visited := make(map[string]bool)
-	flag.Visit(func(f *flag.Flag) {
+	serveFlags.Visit(func(f *flag.Flag) {
 		visited[f.Name] = true
 	})
 	return visited
@@ -294,7 +300,11 @@ func main() {
 		}
 	}
 
-	flag.Parse()
+	if err := serveFlags.Parse(os.Args[1:]); err != nil {
+		// flag.ExitOnError already prints usage and exits on parse errors;
+		// this guard is belt-and-suspenders for future error modes.
+		log.Fatalf("parsing flags: %v", err)
+	}
 
 	// Configure logging: default to stdout; optionally tee to a log file via env.
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -363,14 +373,14 @@ func main() {
 	}
 
 	// Check if first argument is a subcommand
-	if flag.NArg() > 0 {
-		subcommand := flag.Arg(0)
+	if serveFlags.NArg() > 0 {
+		subcommand := serveFlags.Arg(0)
 		if subcommand == "version" {
 			version.Print("velocity-report")
 			os.Exit(0)
 		}
 		if subcommand == "migrate" {
-			remainingArgs := flag.Args()[1:]
+			remainingArgs := serveFlags.Args()[1:]
 			// explicitDBPath is parsed and unit-tested for completeness, but the
 			// migrate command itself now echoes the resolved absolute DB target
 			// and refuses to create a stray DB for non-bootstrap actions (see
@@ -384,7 +394,7 @@ func main() {
 			return
 		}
 		if subcommand == "transits" {
-			runTransitsCommand(flag.Args()[1:])
+			runTransitsCommand(serveFlags.Args()[1:])
 			return
 		}
 		log.Fatalf("Unknown subcommand: %s: try 'velocity-report --help' for available commands", subcommand)

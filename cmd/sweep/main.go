@@ -16,61 +16,68 @@ import (
 )
 
 func main() {
+	// Per-applet flag set (not the global flag.CommandLine) so the sweep
+	// applet can co-exist with the server and device applets inside the
+	// single multi-call velocity binary.
+	fs := flag.NewFlagSet("velocity-tune-sweep", flag.ExitOnError)
+
 	// Common flags
-	monitorURL := flag.String("monitor", "http://localhost:8081", "Base URL for lidar monitor")
-	sensorID := flag.String("sensor", "hesai-pandar40p", "Sensor ID")
-	output := flag.String("output", "", "Output CSV filename (defaults to sweep-<timestamp>.csv)")
+	monitorURL := fs.String("monitor", "http://localhost:8081", "Base URL for lidar monitor")
+	sensorID := fs.String("sensor", "hesai-pandar40p", "Sensor ID")
+	output := fs.String("output", "", "Output CSV filename (defaults to sweep-<timestamp>.csv)")
 
 	// PCAP support
-	pcapFile := flag.String("pcap", "", "PCAP file to replay (enables PCAP mode)")
-	pcapSettle := flag.Duration("pcap-settle", 20*time.Second, "Time to wait after PCAP replay before sampling")
+	pcapFile := fs.String("pcap", "", "PCAP file to replay (enables PCAP mode)")
+	pcapSettle := fs.Duration("pcap-settle", 20*time.Second, "Time to wait after PCAP replay before sampling")
 
 	// Sweep mode selection
-	sweepMode := flag.String("mode", "multi", "Sweep mode: 'multi' (all combinations), 'noise' (vary noise only), 'closeness' (vary closeness only), 'neighbour' (vary neighbour only), 'tracking' (vary tracker params)")
+	sweepMode := fs.String("mode", "multi", "Sweep mode: 'multi' (all combinations), 'noise' (vary noise only), 'closeness' (vary closeness only), 'neighbour' (vary neighbour only), 'tracking' (vary tracker params)")
 
 	// Parameter ranges for multi-sweep
-	noiseList := flag.String("noise", "", "Comma-separated noise values (e.g. 0.005,0.01,0.02) or range start:end:step")
-	closenessList := flag.String("closeness", "", "Comma-separated closeness values (e.g. 1.5,2.0,2.5) or range start:end:step")
-	neighbourList := flag.String("neighbours", "", "Comma-separated neighbour values (e.g. 0,1,2)")
+	noiseList := fs.String("noise", "", "Comma-separated noise values (e.g. 0.005,0.01,0.02) or range start:end:step")
+	closenessList := fs.String("closeness", "", "Comma-separated closeness values (e.g. 1.5,2.0,2.5) or range start:end:step")
+	neighbourList := fs.String("neighbours", "", "Comma-separated neighbour values (e.g. 0,1,2)")
 
 	// Single-variable sweep ranges (when mode != multi)
-	noiseStart := flag.Float64("noise-start", 0.005, "Start noise value for noise sweep")
-	noiseEnd := flag.Float64("noise-end", 0.03, "End noise value for noise sweep")
-	noiseStep := flag.Float64("noise-step", 0.005, "Step for noise sweep")
+	noiseStart := fs.Float64("noise-start", 0.005, "Start noise value for noise sweep")
+	noiseEnd := fs.Float64("noise-end", 0.03, "End noise value for noise sweep")
+	noiseStep := fs.Float64("noise-step", 0.005, "Step for noise sweep")
 
-	closenessStart := flag.Float64("closeness-start", 1.5, "Start closeness value for closeness sweep")
-	closenessEnd := flag.Float64("closeness-end", 3.0, "End closeness value for closeness sweep")
-	closenessStep := flag.Float64("closeness-step", 0.5, "Step for closeness sweep")
+	closenessStart := fs.Float64("closeness-start", 1.5, "Start closeness value for closeness sweep")
+	closenessEnd := fs.Float64("closeness-end", 3.0, "End closeness value for closeness sweep")
+	closenessStep := fs.Float64("closeness-step", 0.5, "Step for closeness sweep")
 
-	neighbourStart := flag.Int("neighbour-start", 0, "Start neighbour value for neighbour sweep")
-	neighbourEnd := flag.Int("neighbour-end", 3, "End neighbour value for neighbour sweep")
-	neighbourStep := flag.Int("neighbour-step", 1, "Step for neighbour sweep")
+	neighbourStart := fs.Int("neighbour-start", 0, "Start neighbour value for neighbour sweep")
+	neighbourEnd := fs.Int("neighbour-end", 3, "End neighbour value for neighbour sweep")
+	neighbourStep := fs.Int("neighbour-step", 1, "Step for neighbour sweep")
 
 	// Fixed values for single-variable sweeps
-	fixedNoise := flag.Float64("fixed-noise", 0.01, "Fixed noise value (when not sweeping noise)")
-	fixedCloseness := flag.Float64("fixed-closeness", 2.0, "Fixed closeness value (when not sweeping closeness)")
-	fixedNeighbour := flag.Int("fixed-neighbour", 1, "Fixed neighbour value (when not sweeping neighbour)")
+	fixedNoise := fs.Float64("fixed-noise", 0.01, "Fixed noise value (when not sweeping noise)")
+	fixedCloseness := fs.Float64("fixed-closeness", 2.0, "Fixed closeness value (when not sweeping closeness)")
+	fixedNeighbour := fs.Int("fixed-neighbour", 1, "Fixed neighbour value (when not sweeping neighbour)")
 
 	// Sampling configuration
-	iterations := flag.Int("iterations", 30, "Number of samples per parameter combination")
-	interval := flag.Duration("interval", 2*time.Second, "Interval between samples")
-	settleTime := flag.Duration("settle-time", 5*time.Second, "Time to wait for grid to settle after applying params")
+	iterations := fs.Int("iterations", 30, "Number of samples per parameter combination")
+	interval := fs.Duration("interval", 2*time.Second, "Interval between samples")
+	settleTime := fs.Duration("settle-time", 5*time.Second, "Time to wait for grid to settle after applying params")
 
 	// Seed control
-	seedFlag := flag.String("seed", "true", "Seed behaviour: 'true', 'false', or 'toggle' (alternates per combo)")
+	seedFlag := fs.String("seed", "true", "Seed behaviour: 'true', 'false', or 'toggle' (alternates per combo)")
 
 	// Tracking sweep parameters (mode=tracking)
-	gatingStart := flag.Float64("gating-start", 16.0, "Start gating distance squared (tracking sweep)")
-	gatingEnd := flag.Float64("gating-end", 64.0, "End gating distance squared (tracking sweep)")
-	gatingStep := flag.Float64("gating-step", 4.0, "Step for gating distance squared (tracking sweep)")
-	procNoisePosStart := flag.Float64("pnoise-pos-start", 0.05, "Start process noise position (tracking sweep)")
-	procNoisePosEnd := flag.Float64("pnoise-pos-end", 0.5, "End process noise position (tracking sweep)")
-	procNoisePosStep := flag.Float64("pnoise-pos-step", 0.05, "Step for process noise position (tracking sweep)")
-	measNoiseStart := flag.Float64("mnoise-start", 0.1, "Start measurement noise (tracking sweep)")
-	measNoiseEnd := flag.Float64("mnoise-end", 0.5, "End measurement noise (tracking sweep)")
-	measNoiseStep := flag.Float64("mnoise-step", 0.1, "Step for measurement noise (tracking sweep)")
+	gatingStart := fs.Float64("gating-start", 16.0, "Start gating distance squared (tracking sweep)")
+	gatingEnd := fs.Float64("gating-end", 64.0, "End gating distance squared (tracking sweep)")
+	gatingStep := fs.Float64("gating-step", 4.0, "Step for gating distance squared (tracking sweep)")
+	procNoisePosStart := fs.Float64("pnoise-pos-start", 0.05, "Start process noise position (tracking sweep)")
+	procNoisePosEnd := fs.Float64("pnoise-pos-end", 0.5, "End process noise position (tracking sweep)")
+	procNoisePosStep := fs.Float64("pnoise-pos-step", 0.05, "Step for process noise position (tracking sweep)")
+	measNoiseStart := fs.Float64("mnoise-start", 0.1, "Start measurement noise (tracking sweep)")
+	measNoiseEnd := fs.Float64("mnoise-end", 0.5, "End measurement noise (tracking sweep)")
+	measNoiseStep := fs.Float64("mnoise-step", 0.1, "Step for measurement noise (tracking sweep)")
 
-	flag.Parse()
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		log.Fatalf("parsing flags: %v", err)
+	}
 
 	// Create monitor client
 	httpClient := &http.Client{Timeout: 30 * time.Second}
