@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # dev-ssh-audit.sh — Remote health check for a freshly booted velocity.report Pi.
 #
-# Checks:
-#   1. SSH reachability (refreshes known_hosts if needed)
-#   2. Systemd services (velocity-report)
-#   3. HTTP service on :80 (serves 200; no nginx, no TLS termination layer)
-#   4. API endpoints (/api/capabilities, /api/sites)
-#   5. velocity-ctl version + status
-#   6. Radar data active (recent journal entries)
-#   7. Database integrity
-#   8. Disk health
-#   9. PDF generation (seeds minimal transit data, POSTs /api/generate_report)
-#  10. Cleanup seeded test data
+# Checks (numbers match the step headers printed at runtime):
+#   0. SSH reachability (refreshes known_hosts if needed)
+#   1. Systemd services (velocity-report)
+#   2. HTTP service on :80 (serves 200; no nginx, no TLS termination layer)
+#   3. API endpoints (/api/capabilities, /api/sites)
+#   4. velocity-ctl version + status
+#   5. Radar data active (recent journal entries)
+#   6. Database integrity
+#   7. Disk health
+#   8. PDF generation (seeds minimal transit data, POSTs /api/generate_report, then cleans up)
 #
 # Usage:
 #   ./scripts/dev-ssh-audit.sh
