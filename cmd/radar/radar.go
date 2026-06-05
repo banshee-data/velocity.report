@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -270,6 +271,19 @@ func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterfa
 }
 
 // Main
+// tailscaleServeTarget derives the loopback HTTP URL that `tailscale serve`
+// should proxy to from the server's --listen address, so the published HTTPS
+// endpoint always points at the port we actually serve on (:80 on the image,
+// :8080 in dev) instead of a hard-coded guess.  Falls back to the package
+// default when the address has no parseable port.
+func tailscaleServeTarget(listen string) string {
+	_, port, err := net.SplitHostPort(listen)
+	if err != nil || port == "" {
+		return tailscale.LocalServeHTTPTarget
+	}
+	return "http://127.0.0.1:" + port
+}
+
 func main() {
 	// Subcommand dispatch — check before flag.Parse() so subcommand flags
 	// don't collide with the server's global flags.
@@ -961,7 +975,7 @@ func main() {
 		// caches the IPN bus login URL, and applies the device policy
 		// (Tailscale SSH on, tailscale serve publishing the local Go
 		// server on :443 of the tailnet) once the node is up.
-		tsManager := tailscale.New()
+		tsManager := tailscale.New(tailscale.WithServeTarget(tailscaleServeTarget(*listen)))
 		tsManager.Start(ctx)
 		defer tsManager.Stop()
 		apiServer.SetTailscaleController(tsManager)

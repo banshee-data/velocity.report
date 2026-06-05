@@ -37,9 +37,12 @@ import (
 	"tailscale.com/ipn/ipnstate"
 )
 
-// LocalServeHTTPTarget is what `tailscale serve` proxies to.  The Go
-// HTTP server binds here; tailscale serve terminates TLS at the tailnet
-// edge and forwards plaintext to this address.
+// LocalServeHTTPTarget is the default URL `tailscale serve` proxies to when
+// no explicit target is configured (see WithServeTarget).  tailscale serve
+// terminates TLS at the tailnet edge and forwards plaintext here.  The
+// shipped server overrides this with the address derived from its own
+// --listen flag, so this loopback:8080 default only applies to constructions
+// that don't override it (tests, local dev).
 const LocalServeHTTPTarget = "http://127.0.0.1:8080"
 
 // loginURLMaxAge bounds how long a cached BrowseToURL is considered
@@ -149,6 +152,12 @@ type Manager struct {
 	lc      LocalClient
 	systemd SystemdActor
 
+	// serveTarget is the local HTTP URL `tailscale serve` proxies to.
+	// Defaults to LocalServeHTTPTarget; the server overrides it with the
+	// address derived from its own --listen flag (WithServeTarget) so the
+	// published HTTPS endpoint always points at the port we actually serve.
+	serveTarget string
+
 	mu          sync.RWMutex
 	browseURL   string    // most recent BrowseToURL from the IPN bus, if any
 	urlSetAt    time.Time // when browseURL was set; used for staleness eviction
@@ -196,15 +205,29 @@ func WithSystemdActor(a SystemdActor) Option {
 	return func(m *Manager) { m.systemd = a }
 }
 
+// WithServeTarget overrides the local HTTP URL that `tailscale serve`
+// proxies to (default LocalServeHTTPTarget).  The server passes the address
+// derived from its own --listen flag so the published HTTPS endpoint always
+// targets the port we actually serve on (:80 on the image, :8080 in dev),
+// rather than a hard-coded guess.  Empty input is ignored (keeps the default).
+func WithServeTarget(target string) Option {
+	return func(m *Manager) {
+		if target != "" {
+			m.serveTarget = target
+		}
+	}
+}
+
 // New constructs a Manager that talks to the default tailscaled socket
 // and shells out to sudo for systemd operations.  Options override the
 // defaults.
 func New(opts ...Option) *Manager {
 	m := &Manager{
-		lc:       &realLocalClient{c: &local.Client{}},
-		systemd:  sudoSystemdActor{},
-		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
-		statusCh: make(chan struct{}),
+		lc:          &realLocalClient{c: &local.Client{}},
+		systemd:     sudoSystemdActor{},
+		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		statusCh:    make(chan struct{}),
+		serveTarget: LocalServeHTTPTarget,
 	}
 	for _, o := range opts {
 		o(m)
@@ -473,8 +496,12 @@ func (m *Manager) enableServe(ctx context.Context) error {
 		return errMagicDNSNotReady
 	}
 
+	target := m.serveTarget
+	if target == "" {
+		target = LocalServeHTTPTarget
+	}
 	cfg.SetWebHandler(
-		&ipn.HTTPHandler{Proxy: LocalServeHTTPTarget},
+		&ipn.HTTPHandler{Proxy: target},
 		host,
 		443,
 		"/",

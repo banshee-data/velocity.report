@@ -654,6 +654,47 @@ func TestEnableServeRetriesUntilMagicDNSReady(t *testing.T) {
 	if got := atomic.LoadInt32(&fc.setServeCfgCalls); got != 1 {
 		t.Fatalf("SetServeConfig calls: got %d want 1", got)
 	}
+	// Default construction proxies to the package default.
+	if got := serveProxyTarget(fc.setServeConfigArg); got != LocalServeHTTPTarget {
+		t.Fatalf("serve proxy target = %q, want default %q", got, LocalServeHTTPTarget)
+	}
+}
+
+// serveProxyTarget extracts the single web-handler proxy URL from a serve
+// config, or "" when none is set.
+func serveProxyTarget(cfg *ipn.ServeConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	for _, web := range cfg.Web {
+		for _, h := range web.Handlers {
+			if h.Proxy != "" {
+				return h.Proxy
+			}
+		}
+	}
+	return ""
+}
+
+func TestServeTargetFollowsConfig(t *testing.T) {
+	fc := &fakeClient{
+		statusNoPeers: func(ctx context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{Self: &ipnstate.PeerStatus{DNSName: "v.tailfoo.ts.net."}}, nil
+		},
+	}
+	// The server passes the port from its --listen flag; on the image that
+	// is :80, not the :8080 default.
+	m := New(
+		WithLocalClient(fc),
+		WithSystemdActor(&fakeSystemd{}),
+		WithServeTarget("http://127.0.0.1:80"),
+	)
+	if err := m.enableServe(context.Background()); err != nil {
+		t.Fatalf("enableServe: %v", err)
+	}
+	if got := serveProxyTarget(fc.setServeConfigArg); got != "http://127.0.0.1:80" {
+		t.Fatalf("serve proxy target = %q, want http://127.0.0.1:80", got)
+	}
 }
 
 func TestWatchLoopRecoversFromWatcherDisconnect(t *testing.T) {
