@@ -262,7 +262,7 @@ build-embedded-assets:
 .PHONY: release-ensure-github-release release-build-linux-binaries release-radar-remote release-build-darwin-radar release-package-linux-radar release-build-image-from-staged-binaries release-normalize-image-artifact
 DEPLOY_HOST ?= velocity.local
 DEPLOY_USER ?= pi
-DEPLOY_LOCAL_BINARY ?= image/velocity-binaries/velocity-report
+DEPLOY_LOCAL_BINARY ?= image/velocity-binaries/velocity
 DEPLOY_TMP_DIR ?= /tmp/up
 DEPLOY_REMOTE_BIN ?= /usr/local/bin/velocity-report
 DEPLOY_REMOTE_DB_PATH ?= /var/lib/velocity-report/sensor_data.db

@@ -251,23 +251,26 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
             "$DOCKER_TOOLCHAIN_IMAGE" \
             sh -lc '
                 export PATH=/usr/local/go/bin:$PATH
-                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-report ./cmd/radar &&
-                go build -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-ctl ./cmd/velocity-ctl
+                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity ./cmd/velocity
             '
 
         cleanup_docker_build_artifacts "after build"
     fi
 
-    chmod +x "$BINARIES_DIR"/*
-    log_info "Binaries staged in $BINARIES_DIR"
+    chmod +x "$BINARIES_DIR/velocity"
+    log_info "Binary staged in $BINARIES_DIR"
 else
-    if [[ ! -f "$BINARIES_DIR/velocity-report" || ! -f "$BINARIES_DIR/velocity-ctl" ]]; then
-        log_error "--skip-binaries requires staged binaries at $BINARIES_DIR/velocity-report and velocity-ctl"
+    if [[ ! -f "$BINARIES_DIR/velocity" ]]; then
+        log_error "--skip-binaries requires the staged binary at $BINARIES_DIR/velocity"
         exit 1
     fi
-    chmod +x "$BINARIES_DIR/velocity-report" "$BINARIES_DIR/velocity-ctl"
-    log_info "Using pre-staged binaries in $BINARIES_DIR"
+    chmod +x "$BINARIES_DIR/velocity"
+    log_info "Using pre-staged binary in $BINARIES_DIR"
 fi
+
+# Record the version string so stage 01 can name the on-disk versions/<v>/ dir
+# without exec'ing the (ARM64) binary under qemu.
+printf '%s\n' "$VERSION" > "$BINARIES_DIR/VERSION"
 
 if [[ "$BINARIES_ONLY" -eq 1 ]]; then
     log_info "Binary build complete; skipping image assembly (--binaries-only)"

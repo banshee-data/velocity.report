@@ -118,19 +118,19 @@ build_darwin_radar() {
         CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
             go build -tags=pcap \
             -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${version}' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${sha}' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${stamp}'" \
-            -o "velocity-report-${version}-darwin-arm64" \
-            ./cmd/radar
+            -o "velocity-${version}-darwin-arm64" \
+            ./cmd/velocity
     )
 
-    write_github_env RADAR_PATH "velocity-report-${version}-darwin-arm64"
+    write_github_env RADAR_PATH "velocity-${version}-darwin-arm64"
 }
 
 package_linux_radar() {
     local version
     version="$(release_version)"
     mkdir -p "$REPO_ROOT/dist/linux"
-    mv "$REPO_ROOT/dist/linux/velocity-report" "$REPO_ROOT/dist/linux/velocity-report-${version}-linux-arm64"
-    write_github_env RADAR_PATH "dist/linux/velocity-report-${version}-linux-arm64"
+    mv "$REPO_ROOT/dist/linux/velocity" "$REPO_ROOT/dist/linux/velocity-${version}-linux-arm64"
+    write_github_env RADAR_PATH "dist/linux/velocity-${version}-linux-arm64"
 }
 
 build_image_from_staged_binaries() {

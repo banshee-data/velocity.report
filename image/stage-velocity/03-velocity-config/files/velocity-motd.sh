@@ -11,7 +11,7 @@
 DEFAULT_PASS="report"
 
 # Resolve version/build info from the INSTALLED BINARY so the banner stays
-# correct after `velocity-ctl upgrade` swaps it.  The /etc/velocity-report-build
+# correct after `velocity device upgrade` swaps it.  The /etc/velocity-report-build
 # file is only stamped at image-build time, so reading it would show the
 # original image version forever — stale the moment the device is upgraded.
 # Querying the binary makes the binary's own ldflags the single source of truth.
@@ -109,8 +109,8 @@ welcome_banner() {
     velocity-status           Is the service running?
     velocity-log              Follow the live service log
     velocity-bounce           Restart the service
-    velocity-report version   Version and build info
-    sudo velocity-ctl         Device management
+    velocity version          Version and build info
+    sudo velocity device      Device management (upgrade/rollback/backup)
 
   The service starts automatically at boot.
   Connect a sensor and the data starts flowing.

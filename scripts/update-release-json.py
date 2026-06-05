@@ -82,8 +82,10 @@ GITHUB_API = f"https://api.github.com/repos/{REPO}"
 # Asset-name patterns, anchored to filename (not full URL). Each platform picks
 # the first asset in a release whose name matches.
 PLATFORM_ASSET_RE: dict[str, re.Pattern[str]] = {
-    "linux_arm64": re.compile(r"^velocity-report-.+-linux-arm64$"),
-    "mac_arm64": re.compile(r"^velocity-report-.+-darwin-arm64$"),
+    # The single multi-call binary ships as velocity-<v>-<os>-arm64. The pattern
+    # also still matches legacy velocity-report-<v>-... assets for older tags.
+    "linux_arm64": re.compile(r"^velocity-.+-linux-arm64$"),
+    "mac_arm64": re.compile(r"^velocity-.+-darwin-arm64$"),
     "visualiser": re.compile(r"^VelocityVisualiser-.+\.dmg$"),
     "rpi_image": re.compile(r"^velocity-report.*\.img\.xz$"),
 }

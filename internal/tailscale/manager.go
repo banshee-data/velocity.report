@@ -115,7 +115,7 @@ func (r *realLocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchO
 // SystemdActor performs the privileged systemd lifecycle operations
 // (unmask/enable/start/stop/mask) that the velocity service user can't
 // invoke directly.  The default implementation shells out to
-// `sudo velocity-ctl tailscale ...`.
+// `sudo velocity device tailscale ...`.
 type SystemdActor interface {
 	EnableTailscaled(ctx context.Context) error
 	DisableTailscaled(ctx context.Context) error
@@ -123,16 +123,16 @@ type SystemdActor interface {
 
 // The sudoers grant for the `velocity` service user is literal:
 //
-//	/usr/local/bin/velocity-ctl tailscale enable-tailscaled
-//	/usr/local/bin/velocity-ctl tailscale disable-tailscaled
+//	/usr/local/bin/velocity device tailscale enable-tailscaled
+//	/usr/local/bin/velocity device tailscale disable-tailscaled
 //
 // We invoke each as a fixed argv slice so no string formatting,
 // concatenation, or future refactor can widen the argv surface.
 // If you add a new sudo-able subcommand, add it to /etc/sudoers.d
 // AND add a new fixed-argv method here — do not parameterise.
 var (
-	sudoEnableArgv  = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity-ctl", "tailscale", "enable-tailscaled"}
-	sudoDisableArgv = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity-ctl", "tailscale", "disable-tailscaled"}
+	sudoEnableArgv  = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity", "device", "tailscale", "enable-tailscaled"}
+	sudoDisableArgv = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity", "device", "tailscale", "disable-tailscaled"}
 )
 
 type sudoSystemdActor struct{}

@@ -24,16 +24,20 @@ mkdir -p /opt/velocity-report/config
 # because the on_chroot heredoc is single-quoted to preserve sudoers
 # backslash continuations.
 #
-# Commands granted to `pi`:
-#   getent shadow pi        — MOTD default-password check
-#   systemctl *             — shell aliases (start/stop/restart)
-#   velocity-ctl            — on-device management tool (runs as root)
-#   velocity-report migrate — database migrations invoked by velocity-ctl
+# Commands granted to `pi` (enumerated verbs, no wildcards beyond the verb):
+#   getent shadow pi          — MOTD default-password check
+#   systemctl <verb> service  — shell aliases (start/stop/restart/status)
+#   velocity device <verb>    — installed-version lifecycle (runs as root)
+#   velocity data migrate ... — operator-facing schema migrations (up/status/version)
+#   velocity-ctl *            — transitional deprecation shim; removed next release
+#
+# Argument-bearing upgrade/migration variants (device upgrade --binary,
+# data migrate down/force/...) deliberately require an interactive password.
 #
 # Commands granted to the `velocity` service user:
-#   velocity-ctl tailscale * — lets the Go server unmask/start/stop tailscaled
-#                              when the operator toggles Tailscale in the web UI.
-#                              Narrow allowlist; nothing else escalates.
+#   velocity device tailscale {enable,disable}-tailscaled — literal argv that
+#       lets the Go server unmask/start/stop tailscaled when the operator
+#       toggles Tailscale in the web UI. Nothing else escalates.
 cat > /etc/sudoers.d/020_velocity-nopasswd <<'SUDOEOF'
 pi ALL=(root) NOPASSWD: \
     /usr/bin/getent shadow pi, \
@@ -42,13 +46,19 @@ pi ALL=(root) NOPASSWD: \
     /usr/bin/systemctl restart velocity-report.service, \
     /usr/bin/systemctl status velocity-report.service, \
     /usr/bin/systemctl is-active velocity-report.service, \
-    /usr/local/bin/velocity-ctl, \
-    /usr/local/bin/velocity-ctl *, \
-    /usr/local/bin/velocity-report migrate *
+    /usr/local/bin/velocity device check, \
+    /usr/local/bin/velocity device upgrade, \
+    /usr/local/bin/velocity device upgrade --check, \
+    /usr/local/bin/velocity device rollback, \
+    /usr/local/bin/velocity device backup, \
+    /usr/local/bin/velocity data migrate up, \
+    /usr/local/bin/velocity data migrate status, \
+    /usr/local/bin/velocity data migrate version, \
+    /usr/local/bin/velocity-ctl *
 
 velocity ALL=(root) NOPASSWD: \
-    /usr/local/bin/velocity-ctl tailscale enable-tailscaled, \
-    /usr/local/bin/velocity-ctl tailscale disable-tailscaled
+    /usr/local/bin/velocity device tailscale enable-tailscaled, \
+    /usr/local/bin/velocity device tailscale disable-tailscaled
 SUDOEOF
 chmod 440 /etc/sudoers.d/020_velocity-nopasswd
 
