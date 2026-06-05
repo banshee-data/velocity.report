@@ -23,8 +23,7 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 
 	cfg := ctl.Config{
 		ReleaseMetaURL:  server.URL,
-		BinaryName:      "velocity-report",
-		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
+		InstallRoot:     filepath.Join(tmp, "opt"),
 		BackupDir:       filepath.Join(tmp, "backups"),
 		DBPath:          filepath.Join(tmp, "sensor_data.db"),
 		CurrentVersion:  "0.5.1",
@@ -143,8 +142,7 @@ func TestRunUpgradeCheckOnlyPrereleaseFlag(t *testing.T) {
 
 	cfg := ctl.Config{
 		ReleaseMetaURL:  server.URL,
-		BinaryName:      "velocity-report",
-		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
+		InstallRoot:     filepath.Join(tmp, "opt"),
 		BackupDir:       filepath.Join(tmp, "backups"),
 		DBPath:          filepath.Join(tmp, "sensor_data.db"),
 		CurrentVersion:  "0.5.1",
@@ -183,8 +181,7 @@ func TestRunUpgradeCheckOnlyIncludePrereleasesFromConfig(t *testing.T) {
 
 	cfg := ctl.Config{
 		ReleaseMetaURL:  server.URL,
-		BinaryName:      "velocity-report",
-		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
+		InstallRoot:     filepath.Join(tmp, "opt"),
 		BackupDir:       filepath.Join(tmp, "backups"),
 		DBPath:          filepath.Join(tmp, "sensor_data.db"),
 		CurrentVersion:  "0.5.1",

@@ -58,37 +58,69 @@ func channelJSON(version string) string {
 	if version == "" {
 		return `{"linux_arm64":{"version":"","url":"","sha256":""}}`
 	}
-	url := "https://example.com/v" + version + "/velocity-report-" + version + "-linux-arm64"
+	url := "https://example.com/v" + version + "/velocity-" + version + "-linux-arm64"
 	return `{"linux_arm64":{"version":"` + version + `","url":"` + url + `","sha256":""}}`
 }
 
 func testConfig(tmp string) Config {
 	return Config{
 		ReleaseMetaURL:  "",
-		BinaryName:      "velocity-report",
-		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
+		InstallRoot:     filepath.Join(tmp, "opt"),
+		BinaryName:      "velocity",
 		ServiceName:     "velocity-report.service",
 		BackupDir:       filepath.Join(tmp, "backups"),
 		DBPath:          filepath.Join(tmp, "sensor_data.db"),
+		Retain:          3,
 		RequestTimeout:  2 * time.Second,
 		DownloadTimeout: 2 * time.Second,
 		VerifyDelay:     0,
+		VerifyTimeout:   0, // skip the /api/version poll in tests
 		CurrentVersion:  "0.5.1",
 		GOOS:            "linux",
 		GOARCH:          "arm64",
 	}
 }
 
+// seedVersion stages a binary at versions/<v>/<BinaryName> with the given
+// content. It does not touch the current/previous symlinks.
+func seedVersion(t *testing.T, cfg Config, v, content string) string {
+	t.Helper()
+	vbin := filepath.Join(cfg.InstallRoot, versionsSubdir, v, cfg.BinaryName)
+	if err := os.MkdirAll(filepath.Dir(vbin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(vbin, []byte(content), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return vbin
+}
+
+// linkVersion points name (current/previous) at versions/<v>.
+func linkVersion(t *testing.T, cfg Config, name, v string) {
+	t.Helper()
+	link := filepath.Join(cfg.InstallRoot, name)
+	_ = os.Remove(link)
+	if err := os.Symlink(filepath.Join(versionsSubdir, v), link); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// currentVersion reads which version current resolves to.
+func currentVersion(t *testing.T, cfg Config) string {
+	t.Helper()
+	target, err := os.Readlink(filepath.Join(cfg.InstallRoot, currentName))
+	if err != nil {
+		t.Fatalf("reading current symlink: %v", err)
+	}
+	return filepath.Base(target)
+}
+
 func TestRunBackupCreatesSnapshot(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
-	if err := os.MkdirAll(filepath.Dir(cfg.BinaryPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(cfg.BinaryPath, []byte("binary-data"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	seedVersion(t, cfg, "0.5.1", "binary-data")
+	linkVersion(t, cfg, currentName, "0.5.1")
 	if err := os.WriteFile(cfg.DBPath, []byte("db-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +149,7 @@ func TestRunBackupCreatesSnapshot(t *testing.T) {
 
 func TestDefaultConfigAndManager(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.ServiceName == "" || cfg.BinaryPath == "" {
+	if cfg.ServiceName == "" || cfg.InstallRoot == "" {
 		t.Fatal("default config should set paths and service name")
 	}
 
@@ -135,46 +167,31 @@ func TestExecRunnerMissingCommand(t *testing.T) {
 	}
 }
 
-func TestRunRollbackNoBackups(t *testing.T) {
+func TestRunRollbackNoPrevious(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
-	if err := os.MkdirAll(cfg.BackupDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.InstallRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 	err := m.RunRollback()
-	if err == nil || !strings.Contains(err.Error(), "no backups found") {
-		t.Fatalf("expected no-backups error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no previous version") {
+		t.Fatalf("expected no-previous error, got: %v", err)
 	}
 }
 
-func TestRunRollbackUsesLatestBackup(t *testing.T) {
+func TestRunRollbackSwapsToPrevious(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 	runner := &fakeRunner{}
 
-	if err := os.MkdirAll(filepath.Dir(cfg.BinaryPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(cfg.BinaryPath, []byte("old"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	older := filepath.Join(cfg.BackupDir, "20260328-120000")
-	latest := filepath.Join(cfg.BackupDir, "20260329-120000")
-	for _, d := range []string{older, latest} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(d, cfg.BinaryName), []byte("newer"), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
+	// current -> 0.5.2 (active), previous -> 0.5.1 (rollback target).
+	seedVersion(t, cfg, "0.5.1", "old")
+	seedVersion(t, cfg, "0.5.2", "new")
+	linkVersion(t, cfg, currentName, "0.5.2")
+	linkVersion(t, cfg, previousName, "0.5.1")
 
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, runner, &out, &out)
@@ -182,12 +199,19 @@ func TestRunRollbackUsesLatestBackup(t *testing.T) {
 		t.Fatalf("RunRollback failed: %v", err)
 	}
 
-	installed, err := os.ReadFile(cfg.BinaryPath)
+	if got := currentVersion(t, cfg); got != "0.5.1" {
+		t.Fatalf("current should be 0.5.1 after rollback, got %s", got)
+	}
+	// previous now points at what current used to be.
+	prev, err := os.Readlink(filepath.Join(cfg.InstallRoot, previousName))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(installed) != "newer" {
-		t.Fatalf("binary not restored from latest backup: %q", string(installed))
+	if filepath.Base(prev) != "0.5.2" {
+		t.Fatalf("previous should be 0.5.2 after rollback, got %s", filepath.Base(prev))
+	}
+	if !strings.Contains(strings.Join(runner.calls, "\n"), "systemctl restart "+cfg.ServiceName) {
+		t.Fatalf("expected service restart, calls: %#v", runner.calls)
 	}
 }
 
@@ -303,12 +327,9 @@ func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 	cfg := testConfig(tmp)
 	runner := &fakeRunner{}
 
-	if err := os.MkdirAll(filepath.Dir(cfg.BinaryPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(cfg.BinaryPath, []byte("old-binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	// Existing active version so the swap records a previous.
+	seedVersion(t, cfg, "0.5.1", "old-binary")
+	linkVersion(t, cfg, currentName, "0.5.1")
 
 	newBinary := filepath.Join(tmp, "new-binary")
 	if err := os.WriteFile(newBinary, []byte("new-binary-data"), 0o755); err != nil {
@@ -318,12 +339,19 @@ func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, runner, &out, &out)
 	m.sleep = func(time.Duration) {}
+	m.now = func() time.Time { return time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC) }
 
 	if err := m.RunUpgrade(false, newBinary); err != nil {
 		t.Fatalf("RunUpgrade failed: %v", err)
 	}
 
-	installed, err := os.ReadFile(cfg.BinaryPath)
+	wantVersion := "local-20260329-120000"
+	if got := currentVersion(t, cfg); got != wantVersion {
+		t.Fatalf("current should be %s, got %s", wantVersion, got)
+	}
+
+	newBin := filepath.Join(cfg.InstallRoot, versionsSubdir, wantVersion, cfg.BinaryName)
+	installed, err := os.ReadFile(newBin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,18 +359,22 @@ func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 		t.Fatalf("unexpected installed binary: %q", string(installed))
 	}
 
-	if len(runner.calls) == 0 {
-		t.Fatal("expected runner calls")
+	prev, err := os.Readlink(filepath.Join(cfg.InstallRoot, previousName))
+	if err != nil {
+		t.Fatalf("previous symlink: %v", err)
+	}
+	if filepath.Base(prev) != "0.5.1" {
+		t.Fatalf("previous should be 0.5.1, got %s", filepath.Base(prev))
 	}
 
-	wantMigrationCall := cfg.BinaryPath + " --db-path " + cfg.DBPath + " migrate up"
-	for _, call := range runner.calls {
-		if call == wantMigrationCall {
-			return
-		}
+	joined := strings.Join(runner.calls, "\n")
+	wantMigrationCall := newBin + " data migrate up --db-path " + cfg.DBPath
+	if !strings.Contains(joined, wantMigrationCall) {
+		t.Fatalf("expected migration call %q, got calls: %#v", wantMigrationCall, runner.calls)
 	}
-
-	t.Fatalf("expected migration call %q, got calls: %#v", wantMigrationCall, runner.calls)
+	if !strings.Contains(joined, "systemctl restart "+cfg.ServiceName) {
+		t.Fatalf("expected service restart, got calls: %#v", runner.calls)
+	}
 }
 
 func TestRunUpgradeNoVersionInJSON(t *testing.T) {
@@ -428,7 +460,7 @@ func TestFetchLatestReleaseURLConstruction(t *testing.T) {
 	if ver != "0.5.2" {
 		t.Fatalf("unexpected version: %s", ver)
 	}
-	wantSuffix := "/v0.5.2/velocity-report-0.5.2-linux-arm64"
+	wantSuffix := "/v0.5.2/velocity-0.5.2-linux-arm64"
 	if !strings.HasSuffix(url, wantSuffix) {
 		t.Fatalf("unexpected download URL: %s", url)
 	}
@@ -576,38 +608,64 @@ func TestDownloadToTempEmptySHA(t *testing.T) {
 	}
 }
 
-func TestRestoreBackupMissingBinary(t *testing.T) {
-	tmp := t.TempDir()
-	m := NewManager(testConfig(tmp), nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	err := m.restoreBackup(filepath.Join(tmp, "backup"))
-	if err == nil || !strings.Contains(err.Error(), "backup binary not found") {
-		t.Fatalf("expected missing backup binary error, got: %v", err)
-	}
-}
-
-func TestApplyUpgradeInstallFailureTriggersRestart(t *testing.T) {
+func TestApplyVersionedUpgradeInstallFailure(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 	runner := &fakeRunner{}
 
-	if err := os.MkdirAll(filepath.Dir(cfg.BinaryPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(cfg.BinaryPath, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
+	// A non-existent source binary makes the install step fail before any
+	// activation or service action.
 	badInput := filepath.Join(tmp, "missing-new-binary")
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, runner, &out, &out)
-	err := m.applyUpgrade(badInput)
+	err := m.applyVersionedUpgrade("0.5.2", badInput)
 	if err == nil || !strings.Contains(err.Error(), "installing binary") {
 		t.Fatalf("expected install failure, got: %v", err)
 	}
 
-	joined := strings.Join(runner.calls, "\n")
-	if !strings.Contains(joined, "systemctl start "+cfg.ServiceName) {
-		t.Fatalf("expected restart attempt after failed install, calls: %s", joined)
+	if _, statErr := os.Lstat(filepath.Join(cfg.InstallRoot, currentName)); statErr == nil {
+		t.Fatal("current symlink must not exist after a failed install")
+	}
+	if joined := strings.Join(runner.calls, "\n"); strings.Contains(joined, "systemctl") {
+		t.Fatalf("expected no systemctl calls on failed install, got: %#v", runner.calls)
+	}
+}
+
+func TestPruneRetainsNewestAndProtected(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+	cfg.Retain = 3
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	for _, v := range []string{"0.5.0", "0.5.1", "0.5.2", "0.5.3", "0.5.4"} {
+		seedVersion(t, cfg, v, v)
+	}
+	// current=0.5.4, previous=0.5.3 (both protected). Retain=3 keeps one more
+	// newest non-protected (0.5.2); 0.5.1 and 0.5.0 are pruned.
+	linkVersion(t, cfg, currentName, "0.5.4")
+	linkVersion(t, cfg, previousName, "0.5.3")
+
+	if err := m.prune(); err != nil {
+		t.Fatalf("prune failed: %v", err)
+	}
+
+	got := map[string]bool{}
+	entries, _ := os.ReadDir(filepath.Join(cfg.InstallRoot, versionsSubdir))
+	for _, e := range entries {
+		got[e.Name()] = true
+	}
+	for _, keep := range []string{"0.5.4", "0.5.3", "0.5.2"} {
+		if !got[keep] {
+			t.Errorf("expected %s retained", keep)
+		}
+	}
+	for _, gone := range []string{"0.5.1", "0.5.0"} {
+		if got[gone] {
+			t.Errorf("expected %s pruned", gone)
+		}
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected exactly 3 versions retained, got %d: %v", len(got), got)
 	}
 }
 

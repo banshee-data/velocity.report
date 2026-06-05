@@ -16,17 +16,20 @@ func (cmdFakeRunner) Run(string, ...string) error { return nil }
 
 func TestRunBackupDelegatesToManager(t *testing.T) {
 	tmp := t.TempDir()
-	binaryPath := filepath.Join(tmp, "bin", "velocity-report")
-	if err := os.MkdirAll(filepath.Dir(binaryPath), 0o755); err != nil {
+	installRoot := filepath.Join(tmp, "opt")
+	verBin := filepath.Join(installRoot, "versions", "0.5.1", "velocity")
+	if err := os.MkdirAll(filepath.Dir(verBin), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(binaryPath, []byte("bin"), 0o755); err != nil {
+	if err := os.WriteFile(verBin, []byte("bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("versions/0.5.1", filepath.Join(installRoot, "current")); err != nil {
 		t.Fatal(err)
 	}
 
 	cfg := ctl.Config{
-		BinaryName:      "velocity-report",
-		BinaryPath:      binaryPath,
+		InstallRoot:     installRoot,
 		BackupDir:       filepath.Join(tmp, "backups"),
 		DBPath:          filepath.Join(tmp, "sensor_data.db"),
 		CurrentVersion:  "0.5.1",

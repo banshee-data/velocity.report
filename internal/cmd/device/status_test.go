@@ -22,8 +22,7 @@ func (r cmdFailRunner) Run(string, ...string) error {
 func TestRunStatusReturnsRunnerError(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := ctl.Config{
-		BinaryName:      "velocity-report",
-		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
+		InstallRoot:     filepath.Join(tmp, "opt"),
 		BackupDir:       filepath.Join(tmp, "backups"),
 		DBPath:          filepath.Join(tmp, "sensor_data.db"),
 		CurrentVersion:  "0.5.1",
