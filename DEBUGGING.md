@@ -768,6 +768,30 @@ ls -la /var/lib/velocity-report/backups/
 sudo velocity-ctl backup
 ```
 
+### Enabling Tailscale fails with a sudo error
+
+**What you see**: toggling Tailscale on in the web UI fails, and the journal shows:
+
+```text
+enable tailscaled: ... sudo: unable to change to root gid: Operation not permitted
+sudo: error initializing audit plugin sudoers_audit
+```
+
+**Likely cause**: the `velocity-report.service` unit has a restrictive
+`CapabilityBoundingSet=`. The bounding set applies to the service _and its children_,
+so capping it (for example to `CAP_NET_BIND_SERVICE` for the `:80` bind) strips the
+`CAP_SETUID`/`CAP_SETGID`/`CAP_AUDIT_WRITE` that `sudo` needs to become root. The
+server shells out to `sudo velocity-ctl tailscale enable-tailscaled`, which then fails.
+
+**Do this**: grant the `:80` bind with `AmbientCapabilities=CAP_NET_BIND_SERVICE` only
+— do **not** set `CapabilityBoundingSet=`. The ambient capability works with the
+default (full) bounding set, and `sudo` keeps the privileges it needs.
+
+```bash
+# Expect: AmbientCapabilities=CAP_NET_BIND_SERVICE  and NO CapabilityBoundingSet line
+systemctl cat velocity-report.service | grep -iE 'AmbientCapabilities|CapabilityBoundingSet'
+```
+
 ### First boot: no web UI or service disabled
 
 **What you see**: Pi is up and reachable but `http://velocity.local/` returns a connection
