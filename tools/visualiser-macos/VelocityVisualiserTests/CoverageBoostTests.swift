@@ -7,8 +7,6 @@
 //
 
 import Foundation
-import GRPCCore
-import GRPCNIOTransportHTTP2
 import MetalKit
 import SwiftUI
 import Testing
@@ -585,11 +583,6 @@ struct VisualiserClientDecodeTests {
 
     func testDisconnectCleansUpTasksAndClient() throws {
         let client = VisualiserClient(address: "127.0.0.1:1")
-        // Set up a real gRPC client so disconnect() exercises the cleanup path
-        let transport = try HTTP2ClientTransport.Posix(
-            target: .dns(host: "127.0.0.1", port: 1), transportSecurity: .plaintext)
-        let grpcClient = GRPCClient(transport: transport)
-        client._grpcClient.value = grpcClient
         client._isConnected.value = true
 
         client.disconnect()
