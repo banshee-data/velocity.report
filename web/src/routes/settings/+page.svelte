@@ -69,8 +69,9 @@
 	let tailscaleError = '';
 	let tailscaleQrDataUrl = '';
 	let lastQrUrl = '';
-	let tailscalePollTimer: ReturnType<typeof setInterval> | null = null;
-	let tailscalePollFastInterval = false;
+	let tailscaleVersion = 0;
+	let tailscalePolling = false;
+	let tailscalePollAbort: AbortController | null = null;
 
 	// ─── Serial port configuration (lifted to page level so the editor
 	//     can render as the right column of the vr-page split layout
@@ -233,40 +234,57 @@
 		}
 	}
 
-	async function loadTailscaleStatus() {
-		if (tailscaleLoading) return;
+	// Apply a freshly fetched status to all derived UI state.
+	function applyTailscaleStatus(next: TailscaleStatus) {
+		tailscaleStatus = next;
+		tailscaleVersion = next.version ?? 0;
+		syncTailscaleState(next);
+		updateTailscaleQr(next.login_url);
+	}
+
+	// Long-poll loop: each request is held on the server until the status
+	// version moves past what we last saw (or ~25s elapses), then we re-issue
+	// immediately. This replaces the old 2s/30s timer — the server already
+	// watches the IPN bus, so it surfaces changes the instant they happen,
+	// with ~one request per idle window instead of constant polling.
+	async function runTailscalePoll() {
+		if (tailscalePolling) return;
+		tailscalePolling = true;
+		// Prime once without waiting so the card renders immediately.
 		try {
-			const next = await getTailscaleStatus();
-			tailscaleStatus = next;
-			syncTailscaleState(next);
-			tuneTailscalePolling(next);
-			updateTailscaleQr(next.login_url);
+			applyTailscaleStatus(await getTailscaleStatus());
 		} catch (e) {
 			console.error('Could not load Tailscale status:', e);
 		}
+		while (tailscalePolling) {
+			tailscalePollAbort = new AbortController();
+			try {
+				applyTailscaleStatus(
+					await getTailscaleStatus({
+						wait: 25,
+						since: tailscaleVersion,
+						signal: tailscalePollAbort.signal
+					})
+				);
+			} catch {
+				if (!tailscalePolling) break; // aborted on unmount
+				// Network/daemon hiccup — back off so we don't hot-loop.
+				await new Promise((r) => setTimeout(r, 5000));
+			}
+		}
 	}
 
-	function tuneTailscalePolling(status: TailscaleStatus | null) {
-		const wantsFast =
-			!!status &&
-			(status.login_in_progress ||
-				!!status.login_url ||
-				status.backend_state === 'NeedsLogin' ||
-				status.backend_state === 'Starting');
-		if (wantsFast === tailscalePollFastInterval && tailscalePollTimer) return;
-		tailscalePollFastInterval = wantsFast;
-		if (tailscalePollTimer) clearInterval(tailscalePollTimer);
-		tailscalePollTimer = setInterval(loadTailscaleStatus, wantsFast ? 2000 : 30000);
+	function stopTailscalePoll() {
+		tailscalePolling = false;
+		tailscalePollAbort?.abort();
+		tailscalePollAbort = null;
 	}
 
 	async function handleTailscaleToggle(enabled: boolean) {
 		tailscaleLoading = true;
 		tailscaleError = '';
 		try {
-			tailscaleStatus = enabled ? await enableTailscale() : await disableTailscale();
-			syncTailscaleState(tailscaleStatus);
-			tuneTailscalePolling(tailscaleStatus);
-			updateTailscaleQr(tailscaleStatus.login_url);
+			applyTailscaleStatus(enabled ? await enableTailscale() : await disableTailscale());
 		} catch (e) {
 			console.error('Could not update Tailscale:', e);
 			tailscaleError = (e as Error).message || 'Could not update Tailscale.';
@@ -630,15 +648,12 @@
 	onMount(() => {
 		loadConfig();
 		loadTransitWorkerState();
-		loadTailscaleStatus();
+		runTailscalePoll();
 		loadSerialData();
 		transitWorkerRefreshTimer = setInterval(loadTransitWorkerState, 30000);
 		return () => {
 			stopTransitWorkerRefresh();
-			if (tailscalePollTimer) {
-				clearInterval(tailscalePollTimer);
-				tailscalePollTimer = null;
-			}
+			stopTailscalePoll();
 		};
 	});
 </script>

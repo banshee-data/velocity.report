@@ -175,14 +175,17 @@ type fakeClient struct {
 	getServeCfg   func(ctx context.Context) (*ipn.ServeConfig, error)
 	setServeCfg   func(ctx context.Context, cfg *ipn.ServeConfig) error
 	startLogin    func(ctx context.Context) error
+	start         func(ctx context.Context, opts ipn.Options) error
 	watchBus      func(ctx context.Context) (BusWatcher, error)
 
 	editPrefsCalls    int32
 	setServeCfgCalls  int32
 	startLoginCalls   int32
+	startCalls        int32
 	watchBusCalls     int32
 	statusCalls       int32
 	editedPrefs       []*ipn.MaskedPrefs
+	startOpts         []ipn.Options
 	setServeConfigArg *ipn.ServeConfig
 }
 
@@ -241,6 +244,17 @@ func (f *fakeClient) StartLoginInteractive(ctx context.Context) error {
 	atomic.AddInt32(&f.startLoginCalls, 1)
 	if f.startLogin != nil {
 		return f.startLogin(ctx)
+	}
+	return nil
+}
+
+func (f *fakeClient) Start(ctx context.Context, opts ipn.Options) error {
+	atomic.AddInt32(&f.startCalls, 1)
+	f.mu.Lock()
+	f.startOpts = append(f.startOpts, opts)
+	f.mu.Unlock()
+	if f.start != nil {
+		return f.start(ctx, opts)
 	}
 	return nil
 }
@@ -342,6 +356,20 @@ func TestEnableNoExistingIdentityKicksLogin(t *testing.T) {
 	if got := atomic.LoadInt32(&fc.startLoginCalls); got != 1 {
 		t.Fatalf("StartLoginInteractive calls: got %d want 1", got)
 	}
+	// The fix: the needs-login path drives prefs+login through a single
+	// Start(UpdatePrefs{WantRunning:true}) rather than EditPrefs+login, which
+	// raced tailscaled's auto-login and 410'd the auth URL.
+	if got := atomic.LoadInt32(&fc.startCalls); got != 1 {
+		t.Fatalf("Start calls: got %d want 1", got)
+	}
+	fc.mu.Lock()
+	startWantRunning := len(fc.startOpts) == 1 &&
+		fc.startOpts[0].UpdatePrefs != nil &&
+		fc.startOpts[0].UpdatePrefs.WantRunning
+	fc.mu.Unlock()
+	if !startWantRunning {
+		t.Fatal("expected Start(ipn.Options{UpdatePrefs:{WantRunning:true}})")
+	}
 	st := m.Status(context.Background())
 	if st.LoginURL == "" {
 		t.Fatal("expected LoginURL to be populated after Enable")
@@ -369,6 +397,10 @@ func TestEnableExistingIdentitySkipsLogin(t *testing.T) {
 	if got := atomic.LoadInt32(&fc.editPrefsCalls); got == 0 {
 		t.Fatal("expected EditPrefs(WantRunning=true) to be called")
 	}
+	// The authenticated path resumes via EditPrefs; it must not Start()/re-login.
+	if got := atomic.LoadInt32(&fc.startCalls); got != 0 {
+		t.Fatalf("Start must not be called when already authenticated, got %d", got)
+	}
 }
 
 func TestEnableWantRunningFailureIsFatal(t *testing.T) {
@@ -384,6 +416,76 @@ func TestEnableWantRunningFailureIsFatal(t *testing.T) {
 	err := m.Enable(context.Background())
 	if err == nil {
 		t.Fatal("expected Enable to fail when EditPrefs(WantRunning) fails")
+	}
+}
+
+func TestEnableStartFailureIsFatal(t *testing.T) {
+	fc := &fakeClient{
+		statusFn: func(ctx context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{BackendState: ipn.NeedsLogin.String()}, nil
+		},
+		start: func(ctx context.Context, opts ipn.Options) error {
+			return errors.New("permission denied")
+		},
+	}
+	m := New(WithLocalClient(fc), WithSystemdActor(&fakeSystemd{}))
+	if err := m.Enable(context.Background()); err == nil {
+		t.Fatal("expected Enable to fail when Start fails")
+	}
+	// StartLoginInteractive must not run once Start has failed.
+	if got := atomic.LoadInt32(&fc.startLoginCalls); got != 0 {
+		t.Fatalf("StartLoginInteractive must not run after Start fails, got %d", got)
+	}
+}
+
+func TestStatusVersionLongPoll(t *testing.T) {
+	bus := newFakeBusWatcher()
+	fc := &fakeClient{
+		statusFn: func(ctx context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{BackendState: ipn.NeedsLogin.String()}, nil
+		},
+		watchBus: func(ctx context.Context) (BusWatcher, error) { return bus.bind(ctx), nil },
+	}
+	m := New(WithLocalClient(fc), WithSystemdActor(&fakeSystemd{}))
+	m.Start(context.Background())
+	defer m.Stop()
+
+	base := m.Status(context.Background()).Version
+
+	// A bus event must bump the version and wake a blocked waiter.
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		url := "https://login.tailscale.com/a/x"
+		bus.emit(ipn.Notify{BrowseToURL: &url})
+	}()
+	got := m.WaitForChange(context.Background(), base, 2*time.Second)
+	if got == base {
+		t.Fatalf("WaitForChange did not observe a version bump (still %d)", got)
+	}
+	if v := m.Status(context.Background()).Version; v != got {
+		t.Fatalf("Status version %d != WaitForChange result %d", v, got)
+	}
+
+	// With the current version and no change, WaitForChange blocks until the
+	// timeout and returns the same version.
+	cur := m.Status(context.Background()).Version
+	t0 := time.Now()
+	v := m.WaitForChange(context.Background(), cur, 100*time.Millisecond)
+	if elapsed := time.Since(t0); elapsed < 50*time.Millisecond {
+		t.Fatalf("WaitForChange returned too early (%v); should wait for the timeout", elapsed)
+	}
+	if v != cur {
+		t.Fatalf("no change expected; got version %d want %d", v, cur)
+	}
+
+	// A stale `since` returns immediately with the current version.
+	t1 := time.Now()
+	v2 := m.WaitForChange(context.Background(), cur-1, 2*time.Second)
+	if time.Since(t1) > 500*time.Millisecond {
+		t.Fatal("WaitForChange should return immediately when since is stale")
+	}
+	if v2 != cur {
+		t.Fatalf("stale since: got version %d want %d", v2, cur)
 	}
 }
 
@@ -551,6 +653,47 @@ func TestEnableServeRetriesUntilMagicDNSReady(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(&fc.setServeCfgCalls); got != 1 {
 		t.Fatalf("SetServeConfig calls: got %d want 1", got)
+	}
+	// Default construction proxies to the package default.
+	if got := serveProxyTarget(fc.setServeConfigArg); got != LocalServeHTTPTarget {
+		t.Fatalf("serve proxy target = %q, want default %q", got, LocalServeHTTPTarget)
+	}
+}
+
+// serveProxyTarget extracts the single web-handler proxy URL from a serve
+// config, or "" when none is set.
+func serveProxyTarget(cfg *ipn.ServeConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	for _, web := range cfg.Web {
+		for _, h := range web.Handlers {
+			if h.Proxy != "" {
+				return h.Proxy
+			}
+		}
+	}
+	return ""
+}
+
+func TestServeTargetFollowsConfig(t *testing.T) {
+	fc := &fakeClient{
+		statusNoPeers: func(ctx context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{Self: &ipnstate.PeerStatus{DNSName: "v.tailfoo.ts.net."}}, nil
+		},
+	}
+	// The server passes the port from its --listen flag; on the image that
+	// is :80, not the :8080 default.
+	m := New(
+		WithLocalClient(fc),
+		WithSystemdActor(&fakeSystemd{}),
+		WithServeTarget("http://127.0.0.1:80"),
+	)
+	if err := m.enableServe(context.Background()); err != nil {
+		t.Fatalf("enableServe: %v", err)
+	}
+	if got := serveProxyTarget(fc.setServeConfigArg); got != "http://127.0.0.1:80" {
+		t.Fatalf("serve proxy target = %q, want http://127.0.0.1:80", got)
 	}
 }
 

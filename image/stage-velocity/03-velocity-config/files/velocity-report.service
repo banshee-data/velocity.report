@@ -7,10 +7,31 @@ User=velocity
 Group=velocity
 Type=simple
 
-# Radar is active on /dev/ttySC1 (Waveshare SC16IS752 HAT, channel B).
-# The --port default matches the binary default so it is not specified
-# explicitly here.  Override with --port if the device path differs.
-ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json
+# Bind the privileged HTTP port :80 as the non-root `velocity` user.
+# AmbientCapabilities grants CAP_NET_BIND_SERVICE to the started process so it
+# can bind :80 with no root and no setcap on the binary (survives upgrades).
+#
+# Do NOT add `CapabilityBoundingSet=CAP_NET_BIND_SERVICE` here.  The bounding
+# set applies to the service *and its children*, so capping it to a single
+# capability strips the CAP_SETUID/CAP_SETGID/CAP_AUDIT_WRITE that `sudo` needs.
+# The server shells out to `sudo velocity-ctl tailscale enable-tailscaled` for
+# the Tailscale toggle (see internal/tailscale/manager.go), and a restricted
+# bounding set breaks it with:
+#   sudo: unable to change to root gid: Operation not permitted
+#   sudo: error initializing audit plugin sudoers_audit
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# --listen :80 is passed explicitly because the binary default is
+# 127.0.0.1:8080 (loopback only) — a deliberately safe default that does not
+# expose the server on the LAN.  Production opts in to LAN access by binding
+# :80 on all interfaces here; CAP_NET_BIND_SERVICE (granted above) lets the
+# non-root `velocity` user bind the privileged port.  The result is
+# http://velocity.local; HTTPS is an opt-in via Tailscale Serve (see
+# docs/platform/operations/tailscale-serve.md).
+#
+# --port is omitted: its default /dev/ttySC1 (Waveshare SC16IS752 HAT,
+# channel B) already matches this deployment.  Override it if the path differs.
+ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json
 WorkingDirectory=/var/lib/velocity-report
 Environment="VELOCITY_PDF_BACKEND=go"
 Environment="VELOCITY_TEX_ROOT=/opt/velocity-report/texlive"

@@ -32,7 +32,7 @@ Browser ─https─> nginx:443 ─> go:8080         Browser ─http──> go:80
 ```
 
 - Go server binds `:80` directly on the Pi via `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit. No root, no `setcap` on the binary, survives upgrades. Same `velocity` system user.
-- `:8080` is removed as the production default. The `--listen` flag remains for `make dev-go`.
+- The binary's `--listen` default stays loopback `127.0.0.1:8080` — a deliberately safe default that does not expose the server on the LAN. The systemd unit passes `--listen :80` explicitly to opt in to LAN binding. The `--listen` flag also drives `make dev-go` (`:8080`).
 - `velocity.local` mDNS hostname unchanged. Local URL becomes `http://velocity.local` — portless, as desired.
 - `https://<host>.<tailnet>.ts.net` works via `tailscale serve --bg http://localhost:80`. Real Let's Encrypt cert. No warnings.
 
@@ -60,14 +60,14 @@ Don't bundle. Tailscale Serve requires the user to log into their tailnet, which
 
 ## Files to change
 
-- **Delete** [image/stage-velocity/03-velocity-config/files/velocity-nginx.conf](../../image/stage-velocity/03-velocity-config/files/velocity-nginx.conf)
-- **Delete** [image/stage-velocity/03-velocity-config/files/velocity-generate-tls.sh](../../image/stage-velocity/03-velocity-config/files/velocity-generate-tls.sh)
+- **Delete** `image/stage-velocity/03-velocity-config/files/velocity-nginx.conf`
+- **Delete** `image/stage-velocity/03-velocity-config/files/velocity-generate-tls.sh`
 - **Delete** `image/stage-velocity/03-velocity-config/files/velocity-generate-tls.service`
 - **Edit** [image/stage-velocity/03-velocity-config/00-run.sh](../../image/stage-velocity/03-velocity-config/00-run.sh) — drop nginx package install, drop `velocity-generate-tls` enable, drop `nginx` enable; remove `/var/lib/velocity-report/tls/` directory creation
-- **Edit** [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) — change `ExecStart` to listen on `:80`; add `AmbientCapabilities=CAP_NET_BIND_SERVICE` and `CapabilityBoundingSet=CAP_NET_BIND_SERVICE`; keep `User=velocity`
-- **Edit** [cmd/radar/radar.go](../../cmd/radar/radar.go) (line ~50) — change default `--listen` from `:8080` to `:80` for production builds; `make dev-go` continues to pass `--listen :8080`
+- **Edit** [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) — change `ExecStart` to listen on `:80`; add `AmbientCapabilities=CAP_NET_BIND_SERVICE`; keep `User=velocity`. _(As implemented: do **not** also set `CapabilityBoundingSet=CAP_NET_BIND_SERVICE` — it caps the bounding set for the service and its children, stripping the `CAP_SETUID`/`CAP_SETGID`/`CAP_AUDIT_WRITE` that `sudo velocity-ctl tailscale …` needs, which breaks the Tailscale toggle.)_
+- **Keep** [cmd/radar/radar.go](../../cmd/radar/radar.go) (line ~50) `--listen` default at loopback `127.0.0.1:8080` — do **not** expose the server by default. The systemd unit (above) binds `:80` explicitly; `make dev-go` continues to pass `--listen :8080`. _(As implemented: the loopback default is retained for safety rather than switched to `:80`, so production opts in to LAN binding in exactly one place — the unit.)_
 - **Edit** [public_html/src/guides/setup.md](../../public_html/src/guides/setup.md) — replace the "browser warning / install CA" section with a one-paragraph "URL is `http://velocity.local`; for HTTPS install Tailscale" block
-- **Edit** [docs/platform/operations/tls-local-certificates.md](../platform/operations/tls-local-certificates.md) — convert to a graveyard entry pointing to [tailscale-remote-access-guide.md](./tailscale-remote-access-guide.md), or delete and run `/fix-links` for inbound references
+- **Edit** [docs/platform/operations/tls-local-certificates.md](../platform/operations/tls-local-certificates.md) — convert to a graveyard entry pointing to [tailscale-serve.md](../platform/operations/tailscale-serve.md) (the HTTPS opt-in), or delete and run `/fix-links` for inbound references
 - **New** `docs/platform/operations/tailscale-serve.md` — three-command quickstart; note that this is user-driven, not bundled
 - **Edit** [image/stage-velocity/03-velocity-config/files/velocity-aliases.sh](../../image/stage-velocity/03-velocity-config/files/velocity-aliases.sh) — drop any nginx-related aliases (verify during implementation)
 - **Search-and-update** README, ARCHITECTURE, CHANGELOG references to `https://velocity.local`, port 443, nginx, the self-signed CA flow

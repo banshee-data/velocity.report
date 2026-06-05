@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 # dev-ssh-audit.sh — Remote health check for a freshly booted velocity.report Pi.
 #
-# Checks:
-#   1. SSH reachability (refreshes known_hosts if needed)
-#   2. Systemd services (velocity-report, nginx, velocity-generate-tls)
-#   3. TLS certificates present and not expiring within 30 days
-#   4. HTTP → HTTPS redirect (301)
-#   5. CA cert download
-#   6. API endpoints (/api/capabilities, /api/sites)
-#   7. velocity-ctl version + status
-#   8. Radar data active (recent journal entries)
-#   9. Database integrity
-#  10. Disk health
-#  11. PDF generation (seeds minimal transit data, POSTs /api/generate_report)
-#  12. Cleanup seeded test data
+# Checks (numbers match the step headers printed at runtime):
+#   0. SSH reachability (refreshes known_hosts if needed)
+#   1. Systemd services (velocity-report)
+#   2. HTTP service on :80 (serves 200; no nginx, no TLS termination layer)
+#   3. API endpoints (/api/capabilities, /api/sites)
+#   4. velocity-ctl version + status
+#   5. Radar data active (recent journal entries)
+#   6. Database integrity
+#   7. Disk health
+#   8. PDF generation (seeds minimal transit data, POSTs /api/generate_report, then cleans up)
 #
 # Usage:
 #   ./scripts/dev-ssh-audit.sh
@@ -93,93 +90,44 @@ fi
 
 header "1. Systemd services"
 
-for SVC in velocity-report.service nginx.service velocity-generate-tls.service; do
+for SVC in velocity-report.service; do
     STATE=$(ssh_run systemctl is-active "$SVC" 2>/dev/null || echo "inactive")
-    case "$SVC" in
-        velocity-generate-tls.service)
-            # This is a oneshot — it runs on boot then goes inactive/dead. Both are correct.
-            if [ "$STATE" = "active" ] || [ "$STATE" = "inactive" ]; then
-                pass "${SVC}: ${STATE} (expected — oneshot)"
-            else
-                fail "${SVC}: ${STATE}"
-            fi
-            ;;
-        *)
-            if [ "$STATE" = "active" ]; then
-                pass "${SVC}: active"
-            else
-                fail "${SVC}: ${STATE}"
-            fi
-            ;;
-    esac
+    if [ "$STATE" = "active" ]; then
+        pass "${SVC}: active"
+    else
+        fail "${SVC}: ${STATE}"
+    fi
 done
 
 # --------------------------------------------------------------------------- #
-#  Step 2: TLS certificates                                                    #
+#  Step 2: HTTP service on :80                                                 #
 # --------------------------------------------------------------------------- #
 
-header "2. TLS certificates"
+header "2. HTTP service on :80"
 
-CERT_CHECK=$(ssh_run bash << 'REMOTE'
-CERT=/var/lib/velocity-report/tls/server.crt
-CA=/var/lib/velocity-report/tls/ca.crt
-KEY=/var/lib/velocity-report/tls/server.key
-for f in "$CERT" "$CA" "$KEY"; do
-    [ -f "$f" ] && echo "present:$f" || echo "missing:$f"
-done
-# Days until expiry
-if [ -f "$CERT" ]; then
-    EXPIRY=$(openssl x509 -enddate -noout -in "$CERT" 2>/dev/null | cut -d= -f2)
-    EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %T %Y %Z" "$EXPIRY" +%s 2>/dev/null || echo 0)
-    NOW=$(date +%s)
-    DAYS=$(( (EXPIRY_EPOCH - NOW) / 86400 ))
-    echo "days:$DAYS"
-fi
-REMOTE
-)
-
-while IFS= read -r line; do
-    case "$line" in
-        present:*)  pass "Cert file present: ${line#present:}" ;;
-        missing:*)  fail "Cert file missing: ${line#missing:}" ;;
-        days:*)
-            DAYS="${line#days:}"
-            if [ "$DAYS" -gt 30 ]; then
-                pass "Server cert expires in ${DAYS} days"
-            else
-                warn "Server cert expires in ${DAYS} days — renew soon"
-            fi
-            ;;
-    esac
-done <<< "$CERT_CHECK"
-
-# --------------------------------------------------------------------------- #
-#  Step 3: HTTP → HTTPS redirect                                               #
-# --------------------------------------------------------------------------- #
-
-header "3. HTTP → HTTPS redirect"
-
-REDIRECT=$(ssh_run curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost/ 2>/dev/null || echo "000")
-if [ "$REDIRECT" = "301" ] || [ "$REDIRECT" = "302" ]; then
-    pass "HTTP redirect: ${REDIRECT}"
+# The Go server binds :80 directly (no nginx, no TLS). GET / 302-redirects to
+# /app/, so probe the app entry point directly for a clean 200.
+HTTP_CODE=$(ssh_run curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost/app/ 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "200" ]; then
+    pass "HTTP on :80 serves /app/ (${HTTP_CODE})"
 else
-    fail "HTTP redirect: expected 301/302, got ${REDIRECT}"
+    fail "HTTP on :80 /app/: expected 200, got ${HTTP_CODE}"
 fi
 
 # --------------------------------------------------------------------------- #
-#  Step 4: API endpoints                                                       #
+#  Step 3: API endpoints                                                       #
 # --------------------------------------------------------------------------- #
 
-header "4. API endpoints"
+header "3. API endpoints"
 
-CAPS=$(ssh_run curl -s --max-time 5 http://localhost:8080/api/capabilities 2>/dev/null || echo "")
+CAPS=$(ssh_run curl -s --max-time 5 http://localhost/api/capabilities 2>/dev/null || echo "")
 if echo "$CAPS" | grep -q '"radar"'; then
     pass "/api/capabilities responds (radar field present)"
 else
     fail "/api/capabilities: unexpected response: ${CAPS:0:100}"
 fi
 
-SITES=$(ssh_run curl -s --max-time 5 "http://localhost:8080/api/sites" 2>/dev/null || echo "")
+SITES=$(ssh_run curl -s --max-time 5 "http://localhost/api/sites" 2>/dev/null || echo "")
 if echo "$SITES" | grep -q '"id"'; then
     pass "/api/sites responds (at least one site)"
 else
@@ -187,10 +135,10 @@ else
 fi
 
 # --------------------------------------------------------------------------- #
-#  Step 5: velocity-ctl                                                        #
+#  Step 4: velocity-ctl                                                        #
 # --------------------------------------------------------------------------- #
 
-header "5. velocity-ctl"
+header "4. velocity-ctl"
 
 CTL_VER=$(ssh_run /usr/local/bin/velocity-ctl version 2>/dev/null || echo "")
 if [ -n "$CTL_VER" ]; then
@@ -207,10 +155,10 @@ else
 fi
 
 # --------------------------------------------------------------------------- #
-#  Step 6: Radar data                                                          #
+#  Step 5: Radar data                                                          #
 # --------------------------------------------------------------------------- #
 
-header "6. Radar data"
+header "5. Radar data"
 
 RADAR_LINES=$(ssh_run journalctl -u velocity-report.service --no-pager -n 500 2>/dev/null \
     | grep -c "Raw Data Line" 2>/dev/null || echo "0")
@@ -221,10 +169,10 @@ else
 fi
 
 # --------------------------------------------------------------------------- #
-#  Step 7: Database integrity                                                  #
+#  Step 6: Database integrity                                                  #
 # --------------------------------------------------------------------------- #
 
-header "7. Database"
+header "6. Database"
 
 DB_CHECK=$(ssh_run 'sqlite3 /var/lib/velocity-report/sensor_data.db "PRAGMA integrity_check;"' 2>/dev/null || echo "error")
 if [ "$DB_CHECK" = "ok" ]; then
@@ -237,10 +185,10 @@ DB_SIZE=$(ssh_run du -h /var/lib/velocity-report/sensor_data.db 2>/dev/null | aw
 pass "DB size: ${DB_SIZE}"
 
 # --------------------------------------------------------------------------- #
-#  Step 8: Disk                                                                #
+#  Step 7: Disk                                                                #
 # --------------------------------------------------------------------------- #
 
-header "8. Disk"
+header "7. Disk"
 
 DISK_INFO=$(ssh_run df -h / 2>/dev/null | tail -1 || echo "")
 DISK_PCT=$(echo "$DISK_INFO" | awk '{print $5}' | tr -d '%')
@@ -253,10 +201,10 @@ if [ -n "$DISK_PCT" ]; then
 fi
 
 # --------------------------------------------------------------------------- #
-#  Step 9: PDF generation                                                      #
+#  Step 8: PDF generation                                                      #
 # --------------------------------------------------------------------------- #
 
-header "9. PDF generation"
+header "8. PDF generation"
 
 PDF_RESULT=$(ssh_run bash << 'REMOTE'
 set -e
@@ -281,7 +229,7 @@ TODAY=$(date -u +%Y-%m-%d)
 
 HTTP=$(curl -s -o /tmp/pdf-audit-response.json \
   -w '%{http_code}' \
-  -X POST http://localhost:8080/api/generate_report \
+  -X POST http://localhost/api/generate_report \
   -H "Content-Type: application/json" \
   -d "{\"site_id\":1,\"start_date\":\"$YESTERDAY\",\"end_date\":\"$TODAY\",\"timezone\":\"UTC\",\"source\":\"radar_data_transits\",\"histogram\":true}" \
   --max-time 120 2>/dev/null || echo "000")

@@ -768,54 +768,76 @@ ls -la /var/lib/velocity-report/backups/
 sudo velocity-ctl backup
 ```
 
-### First boot: no web UI, service disabled, or TLS not ready
+### Enabling Tailscale fails with a sudo error
 
-**What you see**: Pi is up and reachable but `https://velocity.local/` returns a connection
-error, or nginx is running but serves a certificate error.
+**What you see**: toggling Tailscale on in the web UI fails, and the journal shows:
+
+```text
+enable tailscaled: ... sudo: unable to change to root gid: Operation not permitted
+sudo: error initializing audit plugin sudoers_audit
+```
+
+**Likely cause**: the `velocity-report.service` unit has a restrictive
+`CapabilityBoundingSet=`. The bounding set applies to the service _and its children_,
+so capping it (for example to `CAP_NET_BIND_SERVICE` for the `:80` bind) strips the
+`CAP_SETUID`/`CAP_SETGID`/`CAP_AUDIT_WRITE` that `sudo` needs to become root. The
+server shells out to `sudo velocity-ctl tailscale enable-tailscaled`, which then fails.
+
+**Do this**: grant the `:80` bind with `AmbientCapabilities=CAP_NET_BIND_SERVICE` only
+— do **not** set `CapabilityBoundingSet=`. The ambient capability works with the
+default (full) bounding set, and `sudo` keeps the privileges it needs.
+
+```bash
+# Expect: AmbientCapabilities=CAP_NET_BIND_SERVICE  and NO CapabilityBoundingSet line
+systemctl cat velocity-report.service | grep -iE 'AmbientCapabilities|CapabilityBoundingSet'
+```
+
+### First boot: no web UI or service disabled
+
+**What you see**: Pi is up and reachable but `http://velocity.local/` returns a connection
+error or refuses the connection.
 
 **Quick check**:
 
 ```bash
-# Confirm the two first-boot services are enabled and have run
-systemctl is-enabled velocity-report.service velocity-generate-tls.service
-systemctl status velocity-generate-tls.service
+# Confirm the service is enabled and active
+systemctl is-enabled velocity-report.service
 systemctl status velocity-report.service
 
-# Inspect TLS generation output — it is a oneshot unit that runs before nginx
-journalctl -u velocity-generate-tls.service -n 50 --no-pager
+# Confirm the server is listening on :80 (no nginx, no :443, no :8080 in production)
+ss -ltnp | grep ':80 '
 
-# Confirm the cert files landed
-ls -la /var/lib/velocity-report/tls/     # expect ca.crt, ca.key, server.crt, server.key
+# Hit the server locally
+curl -sSf http://localhost/ -o /dev/null && echo OK
 ```
 
 **Do this**:
 
 ```bash
-# Re-enable services if missing (e.g. image-build hiccup)
-sudo systemctl enable --now velocity-generate-tls.service velocity-report.service
+# Re-enable and start the service if it is not running (e.g. image-build hiccup)
+sudo systemctl enable --now velocity-report.service
 
-# The TLS script is idempotent and preserves the CA across regeneration, so operators
-# do not need to re-trust the CA in their browser after a renewal:
-sudo /usr/local/bin/velocity-generate-tls.sh
-sudo systemctl reload nginx
+# If binding :80 fails, confirm the unit grants CAP_NET_BIND_SERVICE
+systemctl cat velocity-report.service | grep -i AmbientCapabilities
+journalctl -u velocity-report.service -n 50 --no-pager
 ```
 
-### Certificate expired or about to expire
+The server binds the privileged port `:80` as the non-root `velocity` user via
+`AmbientCapabilities=CAP_NET_BIND_SERVICE` in the unit. If that line is missing or the
+capability is not granted, the bind fails with a permission error in the journal.
 
-**Likely cause**: The server certificate is issued for ~825 days and auto-renews on boot when
-within 24 hours of expiry. The CA is valid for ten years and is regenerated only if
-missing or expired. If the Pi is powered off for long periods, certs can lapse.
+### Want HTTPS instead of plain HTTP?
 
-**Do this**:
+The shipped image serves plain HTTP on the LAN. There is no bundled TLS: no certificate
+to expire and no CA to trust. For a browser-trusted HTTPS padlock, enable Tailscale Serve:
 
 ```bash
-# Inspect validity
-openssl x509 -in /var/lib/velocity-report/tls/server.crt -noout -dates
-
-# Regenerate (reuses the existing CA — browsers that already trust it keep trusting)
-sudo systemctl restart velocity-generate-tls.service
-sudo systemctl reload nginx
+sudo tailscale up
+sudo tailscale serve --bg http://localhost:80
+sudo tailscale serve status   # prints the https://<host>.<tailnet>.ts.net URL
 ```
+
+See [tailscale-serve.md](docs/platform/operations/tailscale-serve.md) for details.
 
 ---
 

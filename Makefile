@@ -294,11 +294,17 @@ release-normalize-image-artifact:
 .PHONY: build-image-deps
 build-image-deps:
 	@missing=""; \
+	need_qemu=1; \
+	case "$$(uname -m)" in \
+	    aarch64|arm*) need_qemu=0 ;; \
+	esac; \
 	for tool in docker git curl xz unzip python3 sha256sum; do \
 	    command -v $$tool >/dev/null 2>&1 || missing="$$missing $$tool"; \
 	done; \
 	command -v pnpm >/dev/null 2>&1 || command -v npm >/dev/null 2>&1 || missing="$$missing pnpm-or-npm"; \
-	command -v qemu-aarch64-static >/dev/null 2>&1 || missing="$$missing qemu-aarch64-static"; \
+	if [ "$$need_qemu" -eq 1 ]; then \
+	    command -v qemu-aarch64-static >/dev/null 2>&1 || missing="$$missing qemu-aarch64-static"; \
+	fi; \
 	if ! docker info >/dev/null 2>&1; then \
 	    echo "✗ Docker daemon not running — start Docker and retry"; \
 	    exit 1; \

@@ -460,7 +460,7 @@ fi
 # ---------------------------------------------------------------------------
 if docker inspect pigen_work &>/dev/null; then
     log_warn "Removing stale pigen_work container from previous build..."
-    docker rm -v pigen_work >/dev/null
+    docker rm -fv pigen_work >/dev/null
 fi
 
 log_info "Building Raspberry Pi image with pi-gen..."

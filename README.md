@@ -193,8 +193,8 @@ Use `--db-path` to point at an existing database elsewhere.
    │ (Radar / LiDAR)  │     │        (Go)              │     │ (sensor_data.db) │
    └──────────────────┘     └──────────────────────────┘     └──────────────────┘
                                   │              │
-                       HTTPS :443 │              │ gRPC :50051
-                    (nginx proxy) │              │
+                       HTTP :80   │              │ gRPC :50051
+                                  │              │
                    ┌──────────────┴─┐            │
                    │                │            │
                    ▼                ▼            ▼
@@ -204,7 +204,7 @@ Use `--db-path` to point at an existing database elsewhere.
         └──────────────┘ └──────────────────┘ └─────────────────────┘
 ```
 
-The web frontend and PDF pipeline connect over HTTP (:8080).
+The web frontend connects to the Go server over HTTP (port 80 on the Pi image, 8080 in local dev).
 The macOS visualiser uses gRPC (:50051) for streaming point cloud data.
 For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md).
 Sensor fusion plans live in [VISION.md](docs/VISION.md).

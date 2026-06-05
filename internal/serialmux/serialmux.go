@@ -288,7 +288,7 @@ func AttachAdminRoutes(mux *http.ServeMux, src SerialMuxInterface) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
-		w.Header().Set("X-Accel-Buffering", "no") // Disable buffering for nginx
+		w.Header().Set("X-Accel-Buffering", "no") // Hint: disable SSE buffering in any reverse proxy (e.g. a user-supplied nginx); harmless when served directly on :80
 
 		id, c := src.Subscribe()
 		defer src.Unsubscribe(id)

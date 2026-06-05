@@ -37,9 +37,12 @@ import (
 	"tailscale.com/ipn/ipnstate"
 )
 
-// LocalServeHTTPTarget is what `tailscale serve` proxies to.  The Go
-// HTTP server binds here; tailscale serve terminates TLS at the tailnet
-// edge and forwards plaintext to this address.
+// LocalServeHTTPTarget is the default URL `tailscale serve` proxies to when
+// no explicit target is configured (see WithServeTarget).  tailscale serve
+// terminates TLS at the tailnet edge and forwards plaintext here.  The
+// shipped server overrides this with the address derived from its own
+// --listen flag, so this loopback:8080 default only applies to constructions
+// that don't override it (tests, local dev).
 const LocalServeHTTPTarget = "http://127.0.0.1:8080"
 
 // loginURLMaxAge bounds how long a cached BrowseToURL is considered
@@ -60,6 +63,12 @@ type LocalClient interface {
 	GetServeConfig(ctx context.Context) (*ipn.ServeConfig, error)
 	SetServeConfig(ctx context.Context, cfg *ipn.ServeConfig) error
 	StartLoginInteractive(ctx context.Context) error
+	// Start applies opts (including UpdatePrefs) and (re)starts the backend
+	// state machine as one operation — the coherent way to begin a login,
+	// the way `tailscale up` does it.  See Enable for why
+	// EditPrefs(WantRunning=true)+StartLoginInteractive is not a safe
+	// substitute on a logged-out node.
+	Start(ctx context.Context, opts ipn.Options) error
 	WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error)
 }
 
@@ -95,6 +104,9 @@ func (r *realLocalClient) SetServeConfig(ctx context.Context, cfg *ipn.ServeConf
 }
 func (r *realLocalClient) StartLoginInteractive(ctx context.Context) error {
 	return r.c.StartLoginInteractive(ctx)
+}
+func (r *realLocalClient) Start(ctx context.Context, opts ipn.Options) error {
+	return r.c.Start(ctx, opts)
 }
 func (r *realLocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error) {
 	return r.c.WatchIPNBus(ctx, mask)
@@ -140,6 +152,12 @@ type Manager struct {
 	lc      LocalClient
 	systemd SystemdActor
 
+	// serveTarget is the local HTTP URL `tailscale serve` proxies to.
+	// Defaults to LocalServeHTTPTarget; the server overrides it with the
+	// address derived from its own --listen flag (WithServeTarget) so the
+	// published HTTPS endpoint always points at the port we actually serve.
+	serveTarget string
+
 	mu          sync.RWMutex
 	browseURL   string    // most recent BrowseToURL from the IPN bus, if any
 	urlSetAt    time.Time // when browseURL was set; used for staleness eviction
@@ -153,6 +171,13 @@ type Manager struct {
 	serveOK     bool
 	serveErr    string
 	enableEpoch uint64 // bumped by Enable; applyDevicePolicy only runs once per epoch
+
+	// statusVer increments on every change to the status the UI observes
+	// (bus state/URL events, device-policy results, Enable/Disable).
+	// statusCh is closed and replaced on each bump so long-poll waiters
+	// wake instantly instead of polling.  Both are guarded by mu.
+	statusVer uint64
+	statusCh  chan struct{}
 
 	// runCtx scopes the background bus-watcher goroutine.
 	runCtx    context.Context
@@ -180,14 +205,29 @@ func WithSystemdActor(a SystemdActor) Option {
 	return func(m *Manager) { m.systemd = a }
 }
 
+// WithServeTarget overrides the local HTTP URL that `tailscale serve`
+// proxies to (default LocalServeHTTPTarget).  The server passes the address
+// derived from its own --listen flag so the published HTTPS endpoint always
+// targets the port we actually serve on (:80 on the image, :8080 in dev),
+// rather than a hard-coded guess.  Empty input is ignored (keeps the default).
+func WithServeTarget(target string) Option {
+	return func(m *Manager) {
+		if target != "" {
+			m.serveTarget = target
+		}
+	}
+}
+
 // New constructs a Manager that talks to the default tailscaled socket
 // and shells out to sudo for systemd operations.  Options override the
 // defaults.
 func New(opts ...Option) *Manager {
 	m := &Manager{
-		lc:      &realLocalClient{c: &local.Client{}},
-		systemd: sudoSystemdActor{},
-		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		lc:          &realLocalClient{c: &local.Client{}},
+		systemd:     sudoSystemdActor{},
+		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		statusCh:    make(chan struct{}),
+		serveTarget: LocalServeHTTPTarget,
 	}
 	for _, o := range opts {
 		o(m)
@@ -308,6 +348,7 @@ func (m *Manager) consumeBus(w BusWatcher) bool {
 			m.mu.Lock()
 			m.browseURL = *n.BrowseToURL
 			m.urlSetAt = time.Now()
+			m.bumpStatusLocked()
 			m.mu.Unlock()
 		}
 
@@ -333,6 +374,7 @@ func (m *Manager) consumeBus(w BusWatcher) bool {
 			if st == ipn.NoState || st == ipn.Stopped {
 				m.loginInProg = false
 			}
+			m.bumpStatusLocked()
 			m.mu.Unlock()
 
 			if runPolicy {
@@ -383,6 +425,7 @@ func (m *Manager) applyDevicePolicy(epoch uint64) {
 	} else {
 		m.serveErr = ""
 	}
+	m.bumpStatusLocked()
 	m.mu.Unlock()
 }
 
@@ -453,8 +496,12 @@ func (m *Manager) enableServe(ctx context.Context) error {
 		return errMagicDNSNotReady
 	}
 
+	target := m.serveTarget
+	if target == "" {
+		target = LocalServeHTTPTarget
+	}
 	cfg.SetWebHandler(
-		&ipn.HTTPHandler{Proxy: LocalServeHTTPTarget},
+		&ipn.HTTPHandler{Proxy: target},
 		host,
 		443,
 		"/",
@@ -544,6 +591,10 @@ type Status struct {
 	// `tailscale serve`, or "" on success / no run yet.  The most
 	// common cause is HTTPS certs not being enabled on the tailnet.
 	ServeError string `json:"serve_error,omitempty"`
+	// Version increments whenever the observable status changes.  Clients
+	// echo it back as `?v=<version>&wait=<secs>` to long-poll for the next
+	// change instead of polling on a timer.
+	Version uint64 `json:"version"`
 }
 
 // Status returns the current state of the Tailscale integration.  Never
@@ -562,6 +613,7 @@ func (m *Manager) Status(ctx context.Context) Status {
 	sshErr := m.sshErr
 	serveOK := m.serveOK
 	serveErr := m.serveErr
+	ver := m.statusVer
 	m.mu.Unlock()
 
 	out := Status{
@@ -571,6 +623,7 @@ func (m *Manager) Status(ctx context.Context) Status {
 		SSHError:        sshErr,
 		ServePublished:  serveOK,
 		ServeError:      serveErr,
+		Version:         ver,
 	}
 
 	st, err := m.lc.Status(ctx)
@@ -608,6 +661,45 @@ func (m *Manager) Status(ctx context.Context) Status {
 	return out
 }
 
+// bumpStatusLocked signals long-poll waiters that the observable status
+// changed.  The caller must hold m.mu for writing.
+func (m *Manager) bumpStatusLocked() {
+	m.statusVer++
+	if m.statusCh != nil {
+		close(m.statusCh)
+	}
+	m.statusCh = make(chan struct{})
+}
+
+// WaitForChange blocks until the status version differs from `since`, the
+// context is cancelled, or the timeout elapses, then returns the current
+// version.  It returns immediately when the version has already moved past
+// `since`, so a client that missed a change between polls never waits on
+// stale data.  Used by the /api/tailscale/status long-poll so the UI gets
+// near-instant updates without a 2-second timer.
+func (m *Manager) WaitForChange(ctx context.Context, since uint64, timeout time.Duration) uint64 {
+	m.mu.RLock()
+	cur := m.statusVer
+	ch := m.statusCh
+	m.mu.RUnlock()
+	if cur != since {
+		return cur
+	}
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-ch:
+	case <-ctx.Done():
+	case <-timer.C:
+	}
+
+	m.mu.RLock()
+	cur = m.statusVer
+	m.mu.RUnlock()
+	return cur
+}
+
 // Enable unmasks and starts tailscaled.  If the daemon already has a
 // stored identity (i.e. the node has been enrolled before and the user
 // is just toggling Tailscale back on), this is a no-op past starting
@@ -641,40 +733,62 @@ func (m *Manager) Enable(ctx context.Context) error {
 	m.enableEpoch++
 	m.mu.Unlock()
 
-	// Make sure WantRunning=true so the daemon actually brings the
-	// interface up; this is the field a previous Disable cleared.  If
-	// this fails the node will sit in Stopped forever — fail loudly
-	// rather than letting the UI show "enabled" over a dead tunnel.
-	if _, err := m.lc.EditPrefs(ctx, &ipn.MaskedPrefs{
-		Prefs:          ipn.Prefs{WantRunning: true},
-		WantRunningSet: true,
-	}); err != nil {
-		return fmt.Errorf("set WantRunning=true: %w", err)
-	}
-
 	if !needsLogin {
-		// Authenticated already; daemon will reach Running on its
-		// own.  Nothing more to do.
+		// Authenticated already: just flip WantRunning=true to resume the
+		// tunnel — there is no interactive registration to race, so a plain
+		// EditPrefs is safe.  Fail loudly if it doesn't take, rather than
+		// letting the UI show "enabled" over a dead tunnel.
+		if _, err := m.lc.EditPrefs(ctx, &ipn.MaskedPrefs{
+			Prefs:          ipn.Prefs{WantRunning: true},
+			WantRunningSet: true,
+		}); err != nil {
+			return fmt.Errorf("set WantRunning=true: %w", err)
+		}
 		return nil
 	}
+
+	// Fresh node — drive prefs + login through a single Start(), the way
+	// `tailscale up` does.  Do NOT EditPrefs(WantRunning=true) first: on a
+	// logged-out node that auto-starts a login which races the
+	// StartLoginInteractive re-registration below.  tailscaled regenerates
+	// the node key mid-flight, the coordination server evicts the auth path,
+	// and the followup register returns "register request: http 410: auth
+	// path not found" ~a minute later — wedging the node in NeedsLogin with a
+	// dead login URL.  Start() applies the prefs and begins the login as one
+	// coherent operation, so the interactive login is the only registration
+	// in flight.
+	prefs, err := m.lc.GetPrefs(ctx)
+	if err != nil {
+		return fmt.Errorf("get prefs: %w", err)
+	}
+	prefs.WantRunning = true
 
 	m.mu.Lock()
 	m.loginInProg = true
 	m.browseURL = ""
 	m.urlSetAt = time.Time{}
+	m.bumpStatusLocked()
 	m.mu.Unlock()
 
-	if err := m.lc.StartLoginInteractive(ctx); err != nil {
+	clearLoginInProg := func() {
 		m.mu.Lock()
 		m.loginInProg = false
+		m.bumpStatusLocked()
 		m.mu.Unlock()
+	}
+
+	if err := m.lc.Start(ctx, ipn.Options{UpdatePrefs: prefs}); err != nil {
+		clearLoginInProg()
+		return fmt.Errorf("start tailscale session: %w", err)
+	}
+	if err := m.lc.StartLoginInteractive(ctx); err != nil {
+		clearLoginInProg()
 		return fmt.Errorf("start login: %w", err)
 	}
 
-	// Give the bus watcher a brief window to surface the BrowseToURL
-	// before we return.  This avoids the API response saying
-	// "login_in_progress=true, login_url=" which forces the UI to do a
-	// second fetch before it can render the QR code.
+	// Give the bus watcher a brief window to surface the BrowseToURL before
+	// we return, so the API response carries the login URL and the UI can
+	// render the QR immediately rather than after a second fetch.
 	m.waitForLoginURL(ctx, 5*time.Second)
 	return nil
 }
@@ -747,6 +861,7 @@ func (m *Manager) Disable(ctx context.Context) error {
 	m.serveOK = false
 	m.serveErr = ""
 	m.enableEpoch = 0
+	m.bumpStatusLocked()
 	m.mu.Unlock()
 
 	if err := m.systemd.DisableTailscaled(ctx); err != nil {

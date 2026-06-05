@@ -34,7 +34,6 @@ apt-mark manual \
     libpython3-stdlib python3-venv \
     python3-serial \
     python3-apt python3-debconf python-apt-common \
-    nginx nginx-common \
     curl libcurl4 \
     sqlite3 libsqlite3-0 \
     openssl libssl3 libcrypt1 \

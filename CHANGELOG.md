@@ -60,6 +60,12 @@ handling are simpler and more explicit.
   machine that wandered into production. It ships with the dedicated `velocity` service account,
   udev rules, first-boot checks, deterministic DHCP on `eth0`, build metadata in the MOTD, and
   clearer troubleshooting for real networking failures.
+- **HTTP on port 80 by default**: the device now serves plain HTTP at `http://velocity.local`,
+  with the Go server binding `:80` directly as the non-root `velocity` user via
+  `CAP_NET_BIND_SERVICE`. nginx, the first-boot self-signed local CA, and the port-443 TLS layer
+  were removed entirely — no more browser warning or CA install on first visit, and a smaller
+  image. HTTPS is now an opt-in via Tailscale Serve (browser-trusted Let's Encrypt cert on the
+  tailnet), documented as a three-command quickstart.
 - **`velocity-ctl` upgrades**: now consume per-asset metadata from `release.json`, verify
   SHA-256 hashes before install, and handle release selection with clearer rules.
 - **Versioned artefacts and release metadata**: now cover Go binaries, the macOS DMG, Raspberry

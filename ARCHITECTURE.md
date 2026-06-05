@@ -91,7 +91,7 @@ see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
 
 ```
 Radar (USB-serial) ──┐
-                     ├──► Go server (SQLite) ──► HTTP API (:8080) ────► Web frontend (Svelte)
+                     ├──► Go server (SQLite) ──► HTTP API (:80) ──────► Web frontend (Svelte)
 LiDAR (UDP/Ethernet)─┘         │                        │          └──► Go PDF pipeline (internal/report)
                                │                        └─────────────► /docs/ (offline docs)
                                ├───────────────► LiDAR HTTP (:8081)
@@ -113,7 +113,7 @@ Core runtime on Raspberry Pi:
 | LiDAR listener         | `192.168.100.151/24` | Receives LiDAR UDP packets                     |
 | LiDAR sensor source    | `192.168.100.202`    | Sensor IP sending UDP packets                  |
 | Local LAN              | via DHCP             | Serves HTTP API and gRPC to local clients      |
-| HTTP API               | `0.0.0.0:8080`       | Radar stats, config, commands, and report APIs |
+| HTTP API               | `:80`                | Radar stats, config, commands, and report APIs |
 | gRPC visualiser stream | `0.0.0.0:50051`      | `VisualiserService` frame streaming            |
 
 #### Key paths and runtime artefacts
@@ -446,7 +446,7 @@ flowchart TB
   - Radar: Serial port data (/dev/ttyUSB0, USB connection)
   - LiDAR: Network/UDP packets (Ethernet connection, verified with LidarView/CloudCompare)
 - **Output**:
-  - HTTP API (JSON over port 8080, HTTPS via nginx on port 443)
+  - HTTP API (JSON over port 80; optional HTTPS via Tailscale Serve)
   - SQLite database writes
 
 ### Go PDF report pipeline
@@ -1024,7 +1024,7 @@ evaluation.
 │  │  (Go Server Binary)                      │  │
 │  │                                          │  │
 │  │  Configuration:                          │  │
-│  │  • --listen :8080                        │  │
+│  │  • --listen :80                          │  │
 │  │  • --db-path (explicit SQLite location)  │  │
 │  │  • WorkingDirectory=/var/lib/velocity... │  │
 │  └──────────────────────────────────────────┘  │
@@ -1100,8 +1100,8 @@ Web Development:
 **Network**:
 
 - Designed for local network operation
-- Can be exposed via reverse proxy if needed
-- HTTPS support via reverse proxy (nginx, caddy)
+- Serves plain HTTP on `:80`; no bundled reverse proxy or TLS layer
+- Optional HTTPS via Tailscale Serve (operator opt-in, browser-trusted cert)
 
 **Updates**:
 
