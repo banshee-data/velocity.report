@@ -596,6 +596,10 @@ export interface TailscaleStatus {
 	ssh_error?: string;
 	serve_published: boolean;
 	serve_error?: string;
+	// Long-poll cursor: increments on every observable change. Echo it back
+	// as `?v=<version>&wait=<secs>` to wait for the next change instead of
+	// polling on a timer.
+	version?: number;
 }
 
 async function tailscaleResult(action: string, res: Response): Promise<TailscaleStatus> {
@@ -606,8 +610,21 @@ async function tailscaleResult(action: string, res: Response): Promise<Tailscale
 	return res.json();
 }
 
-export async function getTailscaleStatus(): Promise<TailscaleStatus> {
-	const res = await fetch(`${API_BASE}/tailscale/status`);
+export async function getTailscaleStatus(opts?: {
+	/** Hold the request up to this many seconds waiting for a change (long-poll). */
+	wait?: number;
+	/** Last-seen status `version`; the server returns immediately if it has moved on. */
+	since?: number;
+	/** Abort signal so the caller can cancel an in-flight long-poll. */
+	signal?: AbortSignal;
+}): Promise<TailscaleStatus> {
+	const params = new URLSearchParams();
+	if (opts?.wait && opts.wait > 0) params.set('wait', String(opts.wait));
+	if (opts?.since && opts.since > 0) params.set('v', String(opts.since));
+	const qs = params.toString();
+	const res = await fetch(`${API_BASE}/tailscale/status${qs ? `?${qs}` : ''}`, {
+		signal: opts?.signal
+	});
 	return tailscaleResult('Could not load Tailscale status', res);
 }
 

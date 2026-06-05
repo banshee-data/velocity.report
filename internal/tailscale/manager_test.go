@@ -438,6 +438,57 @@ func TestEnableStartFailureIsFatal(t *testing.T) {
 	}
 }
 
+func TestStatusVersionLongPoll(t *testing.T) {
+	bus := newFakeBusWatcher()
+	fc := &fakeClient{
+		statusFn: func(ctx context.Context) (*ipnstate.Status, error) {
+			return &ipnstate.Status{BackendState: ipn.NeedsLogin.String()}, nil
+		},
+		watchBus: func(ctx context.Context) (BusWatcher, error) { return bus.bind(ctx), nil },
+	}
+	m := New(WithLocalClient(fc), WithSystemdActor(&fakeSystemd{}))
+	m.Start(context.Background())
+	defer m.Stop()
+
+	base := m.Status(context.Background()).Version
+
+	// A bus event must bump the version and wake a blocked waiter.
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		url := "https://login.tailscale.com/a/x"
+		bus.emit(ipn.Notify{BrowseToURL: &url})
+	}()
+	got := m.WaitForChange(context.Background(), base, 2*time.Second)
+	if got == base {
+		t.Fatalf("WaitForChange did not observe a version bump (still %d)", got)
+	}
+	if v := m.Status(context.Background()).Version; v != got {
+		t.Fatalf("Status version %d != WaitForChange result %d", v, got)
+	}
+
+	// With the current version and no change, WaitForChange blocks until the
+	// timeout and returns the same version.
+	cur := m.Status(context.Background()).Version
+	t0 := time.Now()
+	v := m.WaitForChange(context.Background(), cur, 100*time.Millisecond)
+	if elapsed := time.Since(t0); elapsed < 50*time.Millisecond {
+		t.Fatalf("WaitForChange returned too early (%v); should wait for the timeout", elapsed)
+	}
+	if v != cur {
+		t.Fatalf("no change expected; got version %d want %d", v, cur)
+	}
+
+	// A stale `since` returns immediately with the current version.
+	t1 := time.Now()
+	v2 := m.WaitForChange(context.Background(), cur-1, 2*time.Second)
+	if time.Since(t1) > 500*time.Millisecond {
+		t.Fatal("WaitForChange should return immediately when since is stale")
+	}
+	if v2 != cur {
+		t.Fatalf("stale since: got version %d want %d", v2, cur)
+	}
+}
+
 func TestDisableClearsTransientStateAndStopsDaemon(t *testing.T) {
 	fc := &fakeClient{}
 	sd := &fakeSystemd{}

@@ -163,6 +163,13 @@ type Manager struct {
 	serveErr    string
 	enableEpoch uint64 // bumped by Enable; applyDevicePolicy only runs once per epoch
 
+	// statusVer increments on every change to the status the UI observes
+	// (bus state/URL events, device-policy results, Enable/Disable).
+	// statusCh is closed and replaced on each bump so long-poll waiters
+	// wake instantly instead of polling.  Both are guarded by mu.
+	statusVer uint64
+	statusCh  chan struct{}
+
 	// runCtx scopes the background bus-watcher goroutine.
 	runCtx    context.Context
 	runCancel context.CancelFunc
@@ -194,9 +201,10 @@ func WithSystemdActor(a SystemdActor) Option {
 // defaults.
 func New(opts ...Option) *Manager {
 	m := &Manager{
-		lc:      &realLocalClient{c: &local.Client{}},
-		systemd: sudoSystemdActor{},
-		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		lc:       &realLocalClient{c: &local.Client{}},
+		systemd:  sudoSystemdActor{},
+		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
+		statusCh: make(chan struct{}),
 	}
 	for _, o := range opts {
 		o(m)
@@ -317,6 +325,7 @@ func (m *Manager) consumeBus(w BusWatcher) bool {
 			m.mu.Lock()
 			m.browseURL = *n.BrowseToURL
 			m.urlSetAt = time.Now()
+			m.bumpStatusLocked()
 			m.mu.Unlock()
 		}
 
@@ -342,6 +351,7 @@ func (m *Manager) consumeBus(w BusWatcher) bool {
 			if st == ipn.NoState || st == ipn.Stopped {
 				m.loginInProg = false
 			}
+			m.bumpStatusLocked()
 			m.mu.Unlock()
 
 			if runPolicy {
@@ -392,6 +402,7 @@ func (m *Manager) applyDevicePolicy(epoch uint64) {
 	} else {
 		m.serveErr = ""
 	}
+	m.bumpStatusLocked()
 	m.mu.Unlock()
 }
 
@@ -553,6 +564,10 @@ type Status struct {
 	// `tailscale serve`, or "" on success / no run yet.  The most
 	// common cause is HTTPS certs not being enabled on the tailnet.
 	ServeError string `json:"serve_error,omitempty"`
+	// Version increments whenever the observable status changes.  Clients
+	// echo it back as `?v=<version>&wait=<secs>` to long-poll for the next
+	// change instead of polling on a timer.
+	Version uint64 `json:"version"`
 }
 
 // Status returns the current state of the Tailscale integration.  Never
@@ -571,6 +586,7 @@ func (m *Manager) Status(ctx context.Context) Status {
 	sshErr := m.sshErr
 	serveOK := m.serveOK
 	serveErr := m.serveErr
+	ver := m.statusVer
 	m.mu.Unlock()
 
 	out := Status{
@@ -580,6 +596,7 @@ func (m *Manager) Status(ctx context.Context) Status {
 		SSHError:        sshErr,
 		ServePublished:  serveOK,
 		ServeError:      serveErr,
+		Version:         ver,
 	}
 
 	st, err := m.lc.Status(ctx)
@@ -615,6 +632,45 @@ func (m *Manager) Status(ctx context.Context) Status {
 		out.LoginInProgress = false
 	}
 	return out
+}
+
+// bumpStatusLocked signals long-poll waiters that the observable status
+// changed.  The caller must hold m.mu for writing.
+func (m *Manager) bumpStatusLocked() {
+	m.statusVer++
+	if m.statusCh != nil {
+		close(m.statusCh)
+	}
+	m.statusCh = make(chan struct{})
+}
+
+// WaitForChange blocks until the status version differs from `since`, the
+// context is cancelled, or the timeout elapses, then returns the current
+// version.  It returns immediately when the version has already moved past
+// `since`, so a client that missed a change between polls never waits on
+// stale data.  Used by the /api/tailscale/status long-poll so the UI gets
+// near-instant updates without a 2-second timer.
+func (m *Manager) WaitForChange(ctx context.Context, since uint64, timeout time.Duration) uint64 {
+	m.mu.RLock()
+	cur := m.statusVer
+	ch := m.statusCh
+	m.mu.RUnlock()
+	if cur != since {
+		return cur
+	}
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-ch:
+	case <-ctx.Done():
+	case <-timer.C:
+	}
+
+	m.mu.RLock()
+	cur = m.statusVer
+	m.mu.RUnlock()
+	return cur
 }
 
 // Enable unmasks and starts tailscaled.  If the daemon already has a
@@ -684,11 +740,13 @@ func (m *Manager) Enable(ctx context.Context) error {
 	m.loginInProg = true
 	m.browseURL = ""
 	m.urlSetAt = time.Time{}
+	m.bumpStatusLocked()
 	m.mu.Unlock()
 
 	clearLoginInProg := func() {
 		m.mu.Lock()
 		m.loginInProg = false
+		m.bumpStatusLocked()
 		m.mu.Unlock()
 	}
 
@@ -776,6 +834,7 @@ func (m *Manager) Disable(ctx context.Context) error {
 	m.serveOK = false
 	m.serveErr = ""
 	m.enableEpoch = 0
+	m.bumpStatusLocked()
 	m.mu.Unlock()
 
 	if err := m.systemd.DisableTailscaled(ctx); err != nil {
