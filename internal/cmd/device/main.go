@@ -36,6 +36,7 @@ Commands:
   backup    Snapshot binary + database
   status    Show service status
   tailscale Manage tailscaled lifecycle (enable/disable)
+  install   Write an embedded deploy file (network|udev|wifi)
   version   Print version information
 
 Run 'velocity device <command> --help' for command-specific usage.`
@@ -81,6 +82,11 @@ func Main(args []string) int {
 	case "tailscale":
 		if err := runTailscale(rest); err != nil {
 			fmt.Fprintf(os.Stderr, "tailscale: %v\n", err)
+			return 1
+		}
+	case "install":
+		if err := runInstall(rest); err != nil {
+			fmt.Fprintf(os.Stderr, "install: %v\n", err)
 			return 1
 		}
 	case "version":

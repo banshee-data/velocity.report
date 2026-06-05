@@ -422,6 +422,7 @@ func buildReportConfig(
 
 const (
 	reportOutputDirEnv       = "VELOCITY_REPORT_OUTPUT_DIR"
+	deployedDataDir          = "/var/lib/velocity-report"
 	deployedReportOutputRoot = "/var/lib/velocity-report/reports"
 )
 
@@ -433,7 +434,14 @@ func getReportOutputRoot() (string, error) {
 		return reportRoot, nil
 	}
 
-	if _, err := os.Stat(deployedReportOutputRoot); err == nil {
+	// On the deployed appliance the data directory exists and is owned by the
+	// velocity service user; create the reports root under it on demand. This
+	// replaces the former image stage that pre-created the directory, so the
+	// binary owns its own first-run layout.
+	if _, err := os.Stat(deployedDataDir); err == nil {
+		if err := os.MkdirAll(deployedReportOutputRoot, 0o755); err != nil {
+			return "", fmt.Errorf("creating report output root %s: %w", deployedReportOutputRoot, err)
+		}
 		return deployedReportOutputRoot, nil
 	}
 

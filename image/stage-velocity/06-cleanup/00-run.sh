@@ -32,9 +32,7 @@ apt-mark manual \
     python3 python3-minimal python3.11 python3.11-minimal \
     libpython3.11 libpython3.11-minimal libpython3.11-stdlib \
     libpython3-stdlib python3-venv \
-    python3-serial \
     python3-apt python3-debconf python-apt-common \
-    curl libcurl4 \
     sqlite3 libsqlite3-0 \
     openssl libssl3 libcrypt1 \
     ca-certificates \
@@ -57,7 +55,7 @@ apt-mark manual \
     init initramfs-tools initramfs-tools-core \
     libglib2.0-0 \
     libxml2 libpng16-16 \
-    jq librsvg2-bin fonts-noto-color-emoji \
+    librsvg2-bin fonts-noto-color-emoji \
     console-setup keyboard-configuration xkb-data \
     parted \
     2>/dev/null || true
@@ -202,7 +200,6 @@ apt-get purge -y \
     ed \
     dc \
     dos2unix \
-    minicom lrzsz \
     pastebinit \
     fbset \
     rpi-keyboard-config rpi-keyboard-fw-update \

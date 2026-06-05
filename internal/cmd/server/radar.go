@@ -20,6 +20,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -423,14 +424,15 @@ func Main(args []string) int {
 		return 1
 	}
 
-	// Load tuning configuration from file.
-	// Deferred until after subcommand dispatch so commands like migrate/transits
-	// don't require a valid tuning config.
-	tuningCfg, err := config.LoadTuningConfig(*configFile)
+	// Load tuning configuration from file, falling back to the binary-embedded
+	// defaults when no file is present at the configured path (the shipped image
+	// carries no on-disk tuning.defaults.json). Deferred until after subcommand
+	// dispatch so commands like migrate/transits don't require a valid config.
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(*configFile, radarassets.TuningDefaults)
 	if err != nil {
-		log.Fatalf("Failed to load tuning config from %s: %v. Check file exists and TOML syntax is valid", *configFile, err)
+		log.Fatalf("Failed to load tuning config from %s: %v. Check the file exists and is valid JSON", *configFile, err)
 	}
-	log.Printf("Loaded tuning configuration from %s", *configFile)
+	log.Printf("Loaded tuning configuration (config=%s)", *configFile)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
 	if *enableLidar {
 		ensureValidLidarNetworkingFlags(

@@ -108,8 +108,10 @@ cleanup() {
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
+    rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     rm -f "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build"
+    rm -f "$IMAGE_DIR/velocity-binaries/VERSION"
 }
 
 # ---------------------------------------------------------------------------
@@ -312,10 +314,8 @@ cp "$REPO_ROOT/internal/report/tex/dependency-manifest.txt" "$TEXLIVE_DEST/"
 cp "$REPO_ROOT/internal/report/tex/velocity-report.ini" "$TEXLIVE_DEST/"
 log_info "Copied minimal TeX Live build files"
 
-CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
-mkdir -p "$CONFIG_DEST"
-cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
-log_info "Copied tuning defaults"
+# Tuning defaults now ship embedded in the velocity binary (config.TuningDefaults
+# via assets.go), so there is no tuning.defaults.json to stage on disk.
 
 # Remove legacy raw Markdown docs staging from older image builds. The offline
 # docs now ship inside the velocity-report binary and are served at /docs/.

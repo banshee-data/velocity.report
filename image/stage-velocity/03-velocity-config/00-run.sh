@@ -16,9 +16,6 @@ usermod -aG dialout velocity
 mkdir -p /var/lib/velocity-report
 chown velocity:velocity /var/lib/velocity-report
 
-# Create config directory and copy tuning defaults
-mkdir -p /opt/velocity-report/config
-
 # Grant the interactive login user passwordless sudo for service management.
 # FIRST_USER_NAME is set in image/config (default: pi).  Hardcoded here
 # because the on_chroot heredoc is single-quoted to preserve sudoers
@@ -66,9 +63,9 @@ chmod 440 /etc/sudoers.d/020_velocity-nopasswd
 usermod -aG velocity pi
 CHEOF
 
-# Install tuning defaults
-install -m 644 files/config/tuning.defaults.json \
-    "${ROOTFS_DIR}/opt/velocity-report/config/tuning.defaults.json"
+# Tuning defaults ship embedded in the velocity binary (the server falls back to
+# them when no --config file is present), so no tuning.defaults.json is staged
+# on disk. Operators can still override via the existing --config flag.
 
 # Install reference data (maths, structures, experiments)
 if [ -d files/data ]; then
@@ -93,9 +90,12 @@ on_chroot << 'CHEOF'
 systemctl enable velocity-report.service
 CHEOF
 
-# Install udev rules for USB-Serial radar devices
-install -m 644 files/99-velocity-report.rules \
-    "${ROOTFS_DIR}/etc/udev/rules.d/99-velocity-report.rules"
+# Install udev rules for USB-Serial radar devices (embedded in the binary).
+on_chroot << 'CHEOF'
+set -e
+/usr/local/bin/velocity device install udev
+test -s /etc/udev/rules.d/99-velocity-report.rules
+CHEOF
 
 # Install shell aliases for service management (velocity-log, velocity-status, etc.)
 install -m 644 files/velocity-aliases.sh \

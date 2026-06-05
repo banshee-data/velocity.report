@@ -42,6 +42,12 @@ case "$codename" in
         ;;
 esac
 
+# curl is no longer in the baseline image package set (00-install-packages);
+# install it here just for the keyring fetch. This whole stage is removed by the
+# in-binary Tailscale installer (work unit B), taking curl with it.
+apt-get update -qq
+apt-get install -y --no-install-recommends curl
+
 install -d -m 755 /usr/share/keyrings
 curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.noarmor.gpg" \
     -o /usr/share/keyrings/tailscale-archive-keyring.gpg
@@ -51,7 +57,7 @@ curl -fsSL "https://pkgs.tailscale.com/stable/debian/${codename}.tailscale-keyri
 apt-get update -qq
 apt-get install -y --no-install-recommends tailscale
 
-# Mask tailscaled so it does not start on boot.  velocity-ctl tailscale
+# Mask tailscaled so it does not start on boot.  velocity device tailscale
 # enable-tailscaled (invoked by the Go server via sudo when the operator
 # toggles Tailscale on) will unmask, enable, start, and configure the
 # socket operator so the velocity service user can drive it.
