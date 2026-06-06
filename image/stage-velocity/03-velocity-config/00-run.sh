@@ -26,7 +26,8 @@ chown velocity:velocity /var/lib/velocity-report
 #   systemctl <verb> service  — shell aliases (start/stop/restart/status)
 #   velocity device <verb>    — installed-version lifecycle (runs as root)
 #   velocity data migrate ... — operator-facing schema migrations (up/status/version)
-#   velocity-ctl *            — transitional deprecation shim; removed next release
+#   velocity-ctl <verb>       — deprecation shim; the SAME enumerated safe verbs as
+#                               `velocity device` (no wildcard), removed next release
 #
 # Argument-bearing upgrade/migration variants (device upgrade --binary,
 # data migrate down/force/...) deliberately require an interactive password.
@@ -51,7 +52,11 @@ pi ALL=(root) NOPASSWD: \
     /usr/local/bin/velocity data migrate up, \
     /usr/local/bin/velocity data migrate status, \
     /usr/local/bin/velocity data migrate version, \
-    /usr/local/bin/velocity-ctl *
+    /usr/local/bin/velocity-ctl check, \
+    /usr/local/bin/velocity-ctl upgrade, \
+    /usr/local/bin/velocity-ctl upgrade --check, \
+    /usr/local/bin/velocity-ctl rollback, \
+    /usr/local/bin/velocity-ctl backup
 
 velocity ALL=(root) NOPASSWD: \
     /usr/local/bin/velocity device tailscale enable-tailscaled, \
