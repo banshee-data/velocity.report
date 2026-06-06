@@ -59,9 +59,8 @@ sensible number for metadata nobody ships or reads at runtime.
 Human-readable, stable, linkable. No date, no SHA.
 
 ```
-velocity-report-0.5.1-linux-arm64
-velocity-report-0.5.1-darwin-arm64
-velocity-ctl-0.5.1-linux-arm64
+velocity-0.5.1-linux-arm64
+velocity-0.5.1-darwin-arm64
 velocity-report-0.5.1.img.xz
 VelocityVisualiser-0.5.1.dmg
 ```
@@ -71,8 +70,7 @@ VelocityVisualiser-0.5.1.dmg
 Date-time prefix for sortability; 7-char git SHA suffix for traceability.
 
 ```
-20260407T142345Z-velocity-report-0.5.1.pre1-linux-arm64-a1b2c3d
-20260407T142345Z-velocity-ctl-0.5.1.pre1-linux-arm64-a1b2c3d
+20260407T142345Z-velocity-0.5.1.pre1-linux-arm64-a1b2c3d
 20260407T142345Z-velocity-report-0.5.1.pre1-a1b2c3d.img.xz
 20260407T142345Z-VelocityVisualiser-0.5.1.pre1-a1b2c3d.dmg
 ```
@@ -98,24 +96,22 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 
 ### Release filenames
 
-| Asset                      | Filename                           | Checksum         |
-| -------------------------- | ---------------------------------- | ---------------- |
-| Go server (Linux ARM64)    | `velocity-report-{v}-linux-arm64`  | `.sha256`        |
-| Go server (macOS ARM64)    | `velocity-report-{v}-darwin-arm64` | `.sha256`        |
-| Go server (macOS Intel)    | `velocity-report-{v}-darwin-amd64` | `.sha256`        |
-| velocity-ctl (Linux ARM64) | `velocity-ctl-{v}-linux-arm64`     | `.sha256`        |
-| RPi image                  | `velocity-report-{v}.img.xz`       | `.img.xz.sha256` |
-| macOS visualiser DMG       | `VelocityVisualiser-{v}.dmg`       | `.dmg.sha256`    |
+| Asset                   | Filename                     | Checksum         |
+| ----------------------- | ---------------------------- | ---------------- |
+| Go binary (Linux ARM64) | `velocity-{v}-linux-arm64`   | `.sha256`        |
+| Go binary (macOS ARM64) | `velocity-{v}-darwin-arm64`  | `.sha256`        |
+| Go binary (macOS Intel) | `velocity-{v}-darwin-amd64`  | `.sha256`        |
+| RPi image               | `velocity-report-{v}.img.xz` | `.img.xz.sha256` |
+| macOS visualiser DMG    | `VelocityVisualiser-{v}.dmg` | `.dmg.sha256`    |
 
 ### Dev filenames
 
-| Asset                      | Filename                                       |
-| -------------------------- | ---------------------------------------------- |
-| Go server (Linux ARM64)    | `{dt}-velocity-report-{v}-linux-arm64-{sha7}`  |
-| Go server (macOS ARM64)    | `{dt}-velocity-report-{v}-darwin-arm64-{sha7}` |
-| velocity-ctl (Linux ARM64) | `{dt}-velocity-ctl-{v}-linux-arm64-{sha7}`     |
-| RPi image                  | `{dt}-velocity-report-{v}-{sha7}.img.xz`       |
-| macOS visualiser DMG       | `{dt}-VelocityVisualiser-{v}-{sha7}.dmg`       |
+| Asset                   | Filename                                 |
+| ----------------------- | ---------------------------------------- |
+| Go binary (Linux ARM64) | `{dt}-velocity-{v}-linux-arm64-{sha7}`   |
+| Go binary (macOS ARM64) | `{dt}-velocity-{v}-darwin-arm64-{sha7}`  |
+| RPi image               | `{dt}-velocity-report-{v}-{sha7}.img.xz` |
+| macOS visualiser DMG    | `{dt}-VelocityVisualiser-{v}-{sha7}.dmg` |
 
 Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 because they are never published.

@@ -298,18 +298,20 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 ### Complete
 
 - [x] Plan written and circulated for review.
+- [x] Work unit A: fold `velocity-ctl` and sweep into the multi-call binary, ship the `velocity-ctl` deprecation shim, and pull forward the **full** versioned dispatcher/upgrade machinery (`renameat2` swap, retention, single-artifact release.json). `velocity-update` was already removed (#290).
+- [x] Work unit D: nginx removal landed (#517).
+- [x] Work unit E (partial): `go:embed` for tuning defaults, network config, udev rules, and wpa_supplicant + `velocity device install`; dropped `python3-serial`, `minicom`, `jq`, `curl` from the apt surface; deleted the `02-velocity-python` stage. (The `velocity data sql --read-only` replacement for `sqlite3` is **not** in this branch — `sqlite3` stays for now.)
+- [x] Docs: updated distribution-packaging, rpi-imager, setup, asset-naming, COMMANDS, CLAUDE, and coding-standards to the new surface.
 
 ### Outstanding
 
-- [ ] Work unit A: fold `velocity-ctl`, sweep, and `velocity-update` into the multi-call binary (`M`)
 - [ ] Work unit B: in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` (`M`)
 - [ ] Work unit C: Typst PDF pipeline; delete `texlive-xetex` apt surface and the minimal-texlive build scripts (`L`)
 - [ ] Source archive migration: replace `report.tex` ZIP output with an editable `report.typ` archive and publish the operator migration note (`M`)
-- [ ] Work unit D: pull [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md) into v0.5.1 (`S`)
-- [ ] Work unit E: image apt-surface trim + `go:embed` for tuning defaults, network, udev, wpa_supplicant, and the `velocity data sql --read-only` replacement for `sqlite3` (`S`)
+- [ ] Work unit E (remainder): `velocity data sql --read-only` replacement for the `sqlite3` apt dependency (`S`)
 - [ ] CI: PDF parity job (xelatex vs Typst) for one release before xelatex deletion, including source-archive completeness checks (`S`)
 - [ ] CI: image stage smoke test that the bind on `:80` works in a chroot before export (`S`)
-- [ ] Docs: update [docs/platform/operations/distribution-packaging.md](../platform/operations/distribution-packaging.md), [docs/platform/operations/rpi-imager.md](../platform/operations/rpi-imager.md), [setup.md](../../public_html/src/guides/setup.md), and [tailscale-remote-access-guide.md](tailscale-remote-access-guide.md) to the new surface, including the Typst source-archive migration (`S`)
+- [ ] Docs: Typst source-archive migration note (deferred with work unit C)
 
 ### Deferred
 
