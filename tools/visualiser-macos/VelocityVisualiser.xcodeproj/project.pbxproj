@@ -458,7 +458,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.5.1-pre21;
+				MARKETING_VERSION = 0.5.1-pre22;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -490,7 +490,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.5.1-pre21;
+				MARKETING_VERSION = 0.5.1-pre22;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -516,7 +516,7 @@
 					"@loader_path/../../../VelocityVisualiser.app/Contents/MacOS",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.5.1-pre21;
+				MARKETING_VERSION = 0.5.1-pre22;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -540,7 +540,7 @@
 					"@loader_path/../../../VelocityVisualiser.app/Contents/MacOS",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.5.1-pre21;
+				MARKETING_VERSION = 0.5.1-pre22;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -557,7 +557,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.5.1-pre21;
+				MARKETING_VERSION = 0.5.1-pre22;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -575,7 +575,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.5.1-pre21;
+				MARKETING_VERSION = 0.5.1-pre22;
 				PRODUCT_BUNDLE_IDENTIFIER = report.velocity.VelocityVisualiserUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
