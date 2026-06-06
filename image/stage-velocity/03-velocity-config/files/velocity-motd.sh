@@ -38,6 +38,7 @@ fi
 VR_VERSION="${VR_VERSION:-unknown}"
 VR_BUILD_TIME="${VR_BUILD_TIME:-unknown}"
 VR_GIT_SHA="${VR_GIT_SHA:-unknown}"
+VR_GIT_SHA_SHORT="${VR_GIT_SHA:0:7}"
 
 # --- Check whether the default password is still in use ----------------------
 #
@@ -84,7 +85,7 @@ warning_banner() {
  ║                                                                ║
  ╚════════════════════════════════════════════════════════════════╝
 
-  velocity-report v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
+ v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA_SHORT}
 
 EOF
 }
@@ -101,7 +102,7 @@ welcome_banner() {
   │                                                          │
   └──────────────────────────────────────────────────────────┘
 
-    v${VR_VERSION}  SHA: ${VR_GIT_SHA}  Built: ${VR_BUILD_TIME}
+ v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA_SHORT}
 
   Dashboard:  http://velocity.local
 
