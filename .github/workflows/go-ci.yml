@@ -116,8 +116,7 @@ jobs:
             ./internal/fsutil/... \
             ./internal/monitoring/... \
             ./internal/ctl/... \
-            ./internal/cmd/... \
-            ./cmd/velocity/...
+            ./internal/cmd/device/...
 
       - name: Upload core coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -160,7 +159,10 @@ jobs:
       - name: Run LiDAR tests
         run: |
           go test -race -tags=pcap -p 2 -coverprofile=coverage-lidar.out -covermode=atomic \
-            ./internal/lidar/...
+            ./internal/lidar/... \
+            ./internal/cmd/server/... \
+            ./internal/cmd/tune/... \
+            ./cmd/velocity/...
 
       - name: Upload LiDAR coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
