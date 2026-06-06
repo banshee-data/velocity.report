@@ -2,6 +2,44 @@
 
 <!-- ignore-style-length -->
 
+## June 5, 2026 - Single `velocity` binary, versioned upgrades & nginx removal
+
+- Removed nginx and the first-boot self-signed local CA: the Go server now binds `:80` directly as the non-root `velocity` user via `CAP_NET_BIND_SERVICE`, so the first visit to `http://velocity.local` no longer involves a browser warning or a CA install. The `--listen` default stays on loopback, so production opts into LAN exposure deliberately rather than by accident (#517).
+- Folded `velocity-report`, `velocity-ctl`, and the local-only `sweep` tool into one multi-call `velocity` binary that dispatches on `argv[0]` and a `serve | device | data | report | tune` namespace tree. `velocity-report` survives as the systemd-facing alias and `velocity-ctl` as a one-release deprecation shim that warns and forwards to `velocity device …` (#519).
+- Reworked on-device upgrades into a versioned layout under `/opt/velocity-report/versions/<v>/` with `current`/`previous` symlinks and an atomic `renameat2` swap: migrations run on the new binary before the swap, the running build is verified through `GET /api/version`, three versions are retained, and rollback is now a single symlink flip rather than a copy.
+- Embedded the deployment config into the binary — tuning defaults, the LiDAR network profile, udev rules, and the Wi-Fi `wpa_supplicant` fallback now ship via `go:embed` and `velocity device install` — then trimmed `python3-serial`, `minicom`, `jq`, and `curl` from the image's apt surface and deleted the vestigial `02-velocity-python` stage.
+- Tightened the transitional `velocity-ctl` sudoers grant to enumerated safe verbs instead of a wildcard, split the pcap-pulling command packages into the libpcap CI job so `Test Core` builds without headers, shortened the git SHA in the MOTD banners, and cut `0.5.1-pre22`.
+
+## June 3, 2026 - Radar listen hardening & dependency refresh
+
+- Hardened the radar serial surface: the default `--listen` and `--lidar-listen` moved from wildcard `:PORT` to loopback `127.0.0.1:PORT`, so the API is localhost-only unless the operator opts into LAN exposure with `0.0.0.0:PORT` (#461).
+- Landed a grouped application dependency bump (#516).
+
+## June 2, 2026 - Dependency refresh
+
+- Refreshed grouped documentation and application dependencies across ecosystems in two waves (#514, #515).
+
+## June 1, 2026 - Serial configuration UI
+
+- Added the serial port configuration UI across the Go API and Svelte frontend: device discovery via the `/dev/velocity-radar` udev symlink, sensor-model selection, and a serial test/activation flow under `/api/serial/*`, and retired the legacy `velocity-update` redirect stub in the same pass (#290).
+
+## May 21, 2026 - Radiance-field scene-model review
+
+- Added a decision note reviewing radiance-field methods (NeRF, 3D Gaussian splatting, neural occupancy and SDF fields, dynamic scene fields) against the planned classical L7 plus vector-scene-map path, concluding the classical route wins on the dimensions that matter here — privacy, explainability, deterministic replay, and the Raspberry Pi compute envelope (#512).
+
+## May 17, 2026 - Homepage redesign & point cloud
+
+- Redesigned the public homepage around an instrument aesthetic with LiDAR above the fold and a live point-cloud hero, on a standalone layout that owns its own visual shell without disturbing the guides and community pages (#510).
+- Followed up with point-cloud rendering tweaks (#511).
+
+## May 11, 2026 - Release prep, InlineSvgChart fix & `.vrlog` cleanup
+
+- Prepared the 0.5.1 release docs: refreshed the changelog and versioning section, recorded the pre18 release notes, and sorted the backlog's completed entries (#504).
+- Hardened `InlineSvgChart` by replacing raw SVG injection with same-origin `<img src>` loading, added theme-aware rendering, moved the repo baseline to Node 20.19.0, and added the offline-docs CI workflow (#505).
+- Removed the legacy JSON `.vrlog` path across the Go server and the macOS visualiser: the `Track` speed-field unmarshalling fallback and the visualiser's legacy-JSON warning state are both gone (#506).
+- Added the "Butterfly Net" v2 UI design — an interactive prototype, a design plan, and public-site passthrough for the design assets — and tidied the contributing guidance alongside it (#507).
+- Fleshed out the v0.5.1 hardening and image-consolidation backlog and plans, adding the single-binary image-consolidation plan and swapping the retired `.vrlog` shim item for the serial-config-UI scope (#508).
+
 ## May 7, 2026 - Release pre18 & macOS CI fix
 
 - Cut the `0.5.1-pre18` release: refreshed download links and asset checksums in `release.json` and the Raspberry Pi Imager catalogue (#501).

@@ -66,8 +66,24 @@ handling are simpler and more explicit.
   were removed entirely — no more browser warning or CA install on first visit, and a smaller
   image. HTTPS is now an opt-in via Tailscale Serve (browser-trusted Let's Encrypt cert on the
   tailnet), documented as a three-command quickstart.
-- **`velocity-ctl` upgrades**: now consume per-asset metadata from `release.json`, verify
-  SHA-256 hashes before install, and handle release selection with clearer rules.
+- **Single `velocity` binary**: the server, device-management, and tuning tools were folded into
+  one multi-call binary that dispatches on `argv[0]` and a `serve | device | data | report | tune`
+  namespace tree. `velocity-report` survives as the systemd-facing compatibility alias; the old
+  `velocity-ctl` becomes the `velocity device …` namespace, kept for one release as a deprecation
+  shim.
+- **Versioned, atomic upgrades**: on-device updates install into
+  `/opt/velocity-report/versions/<v>/` and activate with an atomic `renameat2` symlink swap.
+  Migrations run on the new binary before the swap, the running build is verified through
+  `GET /api/version`, three versions are retained, and rollback is a single symlink flip rather
+  than a copy. Release binaries collapse to one `velocity-<version>-<os>-arm64` artefact per
+  platform.
+- **Binary-owned deployment config**: tuning defaults, the LiDAR network profile, udev rules, and
+  the Wi-Fi `wpa_supplicant` fallback now ship embedded in the binary and install via
+  `velocity device install`, so the image carries no separate copies. The runtime apt surface lost
+  `python3-serial`, `minicom`, `jq`, and `curl`, and the vestigial `02-velocity-python` stage was
+  deleted.
+- **Device upgrades** (`velocity device`, formerly `velocity-ctl`): consume per-asset metadata from
+  `release.json`, verify SHA-256 hashes before install, and apply clearer release-selection rules.
 - **Versioned artefacts and release metadata**: now cover Go binaries, the macOS DMG, Raspberry
   Pi images, homepage downloads, and the Imager catalogue.
 - **Version ownership cleanup**: routine version bumps now touch `Makefile` and the macOS Xcode
@@ -97,6 +113,11 @@ handling are simpler and more explicit.
 - **Web UI**: gained safer map-editing flows, frontend asset request handling, better dashboard
   coverage, Open Graph metadata, clearer homepage copy, and Tailscale enable/disable controls for
   opt-in `*.ts.net` access.
+- **Serial configuration UI**: a new dashboard flow discovers the radar device via the
+  `/dev/velocity-radar` udev symlink, selects the sensor model, and tests and activates the serial
+  port, backed by `/api/serial/*` endpoints.
+- **Public homepage**: redesigned around an instrument aesthetic with a live LiDAR point-cloud hero
+  on a standalone layout that owns its own visual shell.
 - **macOS visualiser and proto tooling**: got less fragile through Swift CodeQL coverage, native
   ARM Homebrew handling in proto setup, grpc-swift-protobuf updates, About-view polish, the `uuid`
   `11.1.1` fix, and macOS CI path filtering so it runs when it should.
@@ -110,8 +131,10 @@ handling are simpler and more explicit.
   targets, including proto setup, release/image builds, web-build freshness checks, and clearer
   missing-build stub pages.
 - **Security hardening**: continued across dependency refreshes, GitHub Action SHA pinning, Vite
-  path-traversal fixes, Swift CodeQL, release-asset verification, and targeted review of Trivy,
-  Axios, and OpenSSF exposure.
+  path-traversal fixes, loopback-by-default `--listen`/`--lidar-listen` addresses, same-origin SVG
+  loading in `InlineSvgChart`, a narrowed `velocity-ctl` sudoers grant (enumerated verbs, no
+  wildcard), Swift CodeQL, release-asset verification, and targeted review of Trivy, Axios, and
+  OpenSSF exposure.
 - **Build correctness**: improved with QEMU/image fixes, tag-trigger repair, corrected
   `pcap-analyse` field mapping plus focused coverage, removal of redundant workflow `chmod` steps,
   and native ARM handling in the proto toolchain.
