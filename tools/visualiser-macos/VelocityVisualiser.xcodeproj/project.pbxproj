@@ -176,12 +176,6 @@
 			);
 			name = VelocityVisualiserTests;
 			packageProductDependencies = (
-				63A5F1612F32580A00BF4EEC /* GRPCCodeGen */,
-				63A5F1632F32580A00BF4EEC /* GRPCCore */,
-				63A5F1652F32580A00BF4EEC /* GRPCInProcessTransport */,
-				63A5F1682F32587A00BF4EEC /* SwiftProtobuf */,
-				63A5F16B2F32590000BF4EEC /* GRPCNIOTransportHTTP2 */,
-				63A5F16D2F32590100BF4EEC /* GRPCProtobuf */,
 			);
 			productName = VelocityVisualiserTests;
 			productReference = 6331CDD52F31B06400A770C0 /* VelocityVisualiserTests.xctest */;
@@ -225,6 +219,7 @@
 					};
 					6331CDD42F31B06400A770C0 = {
 						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 6331CDC22F31B06200A770C0;
 					};
 					6331CDDE2F31B06400A770C0 = {
 						CreatedOnToolsVersion = 26.2;
@@ -524,6 +519,8 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser";
+				TEST_TARGET_NAME = VelocityVisualiser;
 			};
 			name = Debug;
 		};
@@ -548,6 +545,8 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser";
+				TEST_TARGET_NAME = VelocityVisualiser;
 			};
 			name = Release;
 		};

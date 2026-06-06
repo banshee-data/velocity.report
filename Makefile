@@ -1077,7 +1077,12 @@ test-mac:
 		-skip-testing:VelocityVisualiserUITests \
 		-derivedDataPath ./DerivedData \
 		-destination 'platform=macOS'
-	@cd $(MAC_DIR) && xcrun xctest ./DerivedData/Build/Products/Debug/VelocityVisualiserTests.xctest
+	@cd $(MAC_DIR) && xcodebuild test-without-building \
+		-project VelocityVisualiser.xcodeproj \
+		-scheme VelocityVisualiser \
+		-skip-testing:VelocityVisualiserUITests \
+		-derivedDataPath ./DerivedData \
+		-destination 'platform=macOS'
 
 # Run macOS visualiser tests with coverage
 # Coverage results are written to $(MAC_DIR)/coverage/
