@@ -58,8 +58,13 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({ "src/css/header.css": "css/header.css" });
   eleventyConfig.addPassthroughCopy({ "src/css/footer.css": "css/footer.css" });
   eleventyConfig.addPassthroughCopy({ "src/css/fonts.css": "css/fonts.css" });
+  // three.module.js re-exports from ./three.core.js (a sibling relative import),
+  // so both files must be vendored or the browser 404s on three.core.js.
   eleventyConfig.addPassthroughCopy({
     "node_modules/three/build/three.module.js": "vendor/three/three.module.js",
+  });
+  eleventyConfig.addPassthroughCopy({
+    "node_modules/three/build/three.core.js": "vendor/three/three.core.js",
   });
   eleventyConfig.addPassthroughCopy({
     "node_modules/@fontsource/geist/files/geist-latin-400-normal.woff2":
