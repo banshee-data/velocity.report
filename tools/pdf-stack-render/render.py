@@ -48,11 +48,11 @@ except ImportError as e:  # pragma: no cover
 # The CSS stack is widened here so the exported PNG reveals more of the
 # underlying report pages, especially the left column of page 1.
 DEFAULT_STACK = [
-    {"rotate_deg": -6.0, "offset": (0, 0), "opacity": 0.96, "tint": (215, 220, 228)},
+    {"rotate_deg": -6.0, "offset": (0, 0), "opacity": 1.0, "tint": (215, 220, 228)},
     {
         "rotate_deg": -3,
         "offset": (-700, 175),
-        "opacity": 0.98,
+        "opacity": 1.0,
         "tint": (240, 243, 248),
     },
     {"rotate_deg": 0.0, "offset": (-1400, 350), "opacity": 1.0, "tint": None},
@@ -63,6 +63,8 @@ DEFAULT_STACK = [
 # simple Z rotation and a horizontal squeeze (Y-axis foreshortening).
 DEFAULT_FINAL_ROTATE_DEG = 2.0
 DEFAULT_FINAL_X_SCALE = 0.94  # squeeze horizontally to fake the rotateY
+DEFAULT_OUTPUT_SCALE = 0.68
+DEFAULT_PNG_COLORS = 160
 
 
 def parse_args() -> argparse.Namespace:
@@ -125,6 +127,32 @@ def parse_args() -> argparse.Namespace:
         default=80,
         help="canvas margin in px around the assembled stack",
     )
+    p.add_argument(
+        "--border-width",
+        type=int,
+        default=2,
+        help="subtle page border width in px (default: 2, set 0 to disable)",
+    )
+    p.add_argument(
+        "--border-color",
+        type=int,
+        nargs=4,
+        default=(140, 150, 165, 120),
+        metavar=("R", "G", "B", "A"),
+        help="page border RGBA color (default: 140 150 165 120)",
+    )
+    p.add_argument(
+        "--output-scale",
+        type=float,
+        default=DEFAULT_OUTPUT_SCALE,
+        help="final output downscale factor for smaller PNGs (default: 0.72)",
+    )
+    p.add_argument(
+        "--png-colors",
+        type=int,
+        default=DEFAULT_PNG_COLORS,
+        help="palette color count for PNG quantization (16-256, default: 192)",
+    )
     return p.parse_args()
 
 
@@ -146,6 +174,31 @@ def round_corners(img: Image.Image, radius: int) -> Image.Image:
     new_alpha = Image.composite(new_alpha, Image.new("L", (w, h), 0), mask)
     img.putalpha(new_alpha)
     return img
+
+
+def add_page_border(
+    img: Image.Image,
+    radius: int,
+    border_width: int,
+    border_color: tuple[int, int, int, int],
+) -> Image.Image:
+    """Draw a subtle rounded border inside the page bounds."""
+    if border_width <= 0:
+        return img
+
+    img = img.convert("RGBA")
+    w, h = img.size
+    inset = max(0, border_width // 2)
+    r, g, b, a = border_color
+    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    draw.rounded_rectangle(
+        (inset, inset, w - 1 - inset, h - 1 - inset),
+        radius=max(0, radius - inset),
+        outline=(r, g, b, a),
+        width=border_width,
+    )
+    return Image.alpha_composite(img, overlay)
 
 
 def apply_tint(
@@ -210,8 +263,18 @@ def main() -> int:
         sys.stderr.write("error: pdf2image returned no pages\n")
         return 1
 
-    print(f"[2/4] applying rounded corners (r={args.corner_radius})...")
-    rounded = [round_corners(p, args.corner_radius) for p in pages]
+    print(f"[2/4] applying rounded corners (r={args.corner_radius}) and page border...")
+    border_color = tuple(max(0, min(255, c)) for c in args.border_color)
+    rounded = []
+    for p in pages:
+        page = round_corners(p, args.corner_radius)
+        page = add_page_border(
+            page,
+            radius=args.corner_radius,
+            border_width=max(0, args.border_width),
+            border_color=border_color,
+        )
+        rounded.append(page)
 
     # Map stack entries to actual pages. If the PDF has fewer pages than the
     # stack length, repeat the last page underneath.
@@ -272,8 +335,22 @@ def main() -> int:
         padded.alpha_composite(final, (margin, margin))
         final = padded
 
+    # Downscale before quantization to keep a good quality:size ratio.
+    if args.output_scale and args.output_scale != 1.0:
+        scale = max(0.1, min(1.0, args.output_scale))
+        new_w = max(1, int(final.width * scale))
+        new_h = max(1, int(final.height * scale))
+        final = final.resize((new_w, new_h), resample=Image.LANCZOS)
+
+    # Quantize to a palette while preserving transparency to reduce file size.
+    colors = max(16, min(256, args.png_colors))
+    alpha = final.getchannel("A")
+    opaque = final.convert("RGB").quantize(colors=colors, method=Image.FASTOCTREE)
+    final = opaque.convert("RGBA")
+    final.putalpha(alpha)
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    final.save(args.output, "PNG", optimize=True)
+    final.save(args.output, "PNG", optimize=True, compress_level=9)
     print(f"wrote {args.output} ({final.width}x{final.height})")
     return 0
 
