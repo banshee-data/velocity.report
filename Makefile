@@ -1315,7 +1315,7 @@ format-docs: ensure-web-cache
 	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
 	@if command -v pnpm >/dev/null 2>&1; then \
-		pnpm exec prettier --write '**/*.md'; \
+		pnpm --dir $(WEB_DIR) exec prettier --write '../**/*.md'; \
 	elif command -v npx >/dev/null 2>&1; then \
 		npx prettier --write '**/*.md'; \
 	else \
