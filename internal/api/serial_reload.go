@@ -218,15 +218,19 @@ func (m *SerialPortManager) runEventFanout() {
 
 			// Hold the read lock while forwarding so Unsubscribe cannot close a
 			// channel concurrently with this non-blocking send loop.
+			dropped := 0
 			m.fanoutMu.RLock()
 			for _, ch := range m.subscribers {
 				select {
 				case ch <- payload:
 				default:
-					log.Printf("Event fanout: subscriber channel full, dropping event")
+					dropped++
 				}
 			}
 			m.fanoutMu.RUnlock()
+			if dropped > 0 {
+				log.Printf("Event fanout: %d subscriber channel(s) full, dropping event", dropped)
+			}
 		}
 	}
 }
