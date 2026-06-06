@@ -7,9 +7,12 @@ platform-specific binaries across the velocity.report project.
 
 | Product          | Asset name           | Case rule  |
 | ---------------- | -------------------- | ---------- |
-| Server           | `velocity-report`    | kebab-case |
+| Server binary    | `velocity`           | kebab-case |
+| RPi image        | `velocity-report`    | kebab-case |
 | macOS Visualiser | `VelocityVisualiser` | PascalCase |
-| Management CLI   | `velocity-ctl`       | kebab-case |
+
+The single multi-call `velocity` binary replaced the separate `velocity-ctl`
+artefact; device management is the `velocity device …` namespace.
 
 The macOS visualiser keeps PascalCase because it is the user-facing
 application name (Finder, DMG volume, menu bar, About dialog). See
