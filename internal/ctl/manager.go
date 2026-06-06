@@ -41,7 +41,7 @@ const (
 //	<InstallRoot>/current  -> versions/<v>     active version (symlink)
 //	<InstallRoot>/previous -> versions/<old>   one-shot rollback target (symlink)
 //
-// /usr/local/bin/velocity{,-report,-ctl} are symlinks to current/<BinaryName>
+// /usr/local/bin/velocity{,-report} are symlinks to current/<BinaryName>
 // and are owned by the image stage, not this manager.
 type Config struct {
 	ReleaseMetaURL  string

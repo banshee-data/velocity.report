@@ -12,8 +12,8 @@
 // so tests can substitute a fake without standing up a real daemon, and
 // so the socket path can be overridden for non-default deployments.
 // Access from the non-root velocity service user is granted via
-// `tailscale set --operator=velocity`, which velocity-ctl invokes
-// immediately after enabling tailscaled.
+// `tailscale set --operator=velocity`, which `velocity device tailscale`
+// invokes immediately after enabling tailscaled.
 //
 // systemctl operations (unmask/enable/start/stop/mask) are not reachable
 // over the local API, so we shell out via sudo to a narrow allowlist

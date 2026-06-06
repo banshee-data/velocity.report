@@ -1,9 +1,9 @@
 // Command velocity is the single multi-call binary for velocity.report.
 //
-// It dispatches on the program name (argv[0]) for the `velocity-report` and
-// `velocity-ctl` compatibility aliases, and on the first argument for the
-// canonical `velocity <namespace> ...` surface. Each namespace mounts an
-// applet package under internal/cmd/.
+// It dispatches on the program name (argv[0]) for the `velocity-report`
+// compatibility alias, and on the first argument for the canonical
+// `velocity <namespace> ...` surface. Each namespace mounts an applet package
+// under internal/cmd/.
 package main
 
 import (
@@ -26,15 +26,14 @@ Usage:
 Namespaces:
   serve     Run the radar/LiDAR server
   device    On-device lifecycle: check, upgrade, rollback, backup, status, tailscale
-  data      Database operations: migrate, transits
+  data      Database operations: migrate, transits, sql
   report    Generate PDF reports: pdf
   tune      Parameter tuning: sweep
   version   Print version information
   help      Show this help
 
-Compatibility aliases:
+Compatibility alias:
   velocity-report   server-oriented alias (serve is the default)
-  velocity-ctl      deprecated alias for 'velocity device ...' (removed next release)
 
 Run 'velocity <namespace> --help' for namespace-specific usage.`
 
@@ -48,15 +47,7 @@ func dispatch(prog string, args []string) int {
 	// argv[0] is matched by prefix so dev and release artefact names resolve to
 	// the right alias: velocity-report-local, velocity-report-0.5.1-linux-arm64,
 	// and the /usr/local/bin/velocity-report symlink all map to the server.
-	// Order matters: velocity-ctl before velocity-report before the canonical
-	// surface (all three share the "velocity" stem).
 	switch {
-	case strings.HasPrefix(prog, "velocity-ctl"):
-		// Transitional deprecation shim into the device namespace. Removed
-		// next release once image, sudoers, MOTD, and docs all speak the
-		// new surface.
-		fmt.Fprintln(os.Stderr, "warning: 'velocity-ctl' is deprecated and will be removed next release; use 'velocity device ...' instead")
-		return device.Main(args)
 	case strings.HasPrefix(prog, "velocity-report"):
 		// Server-oriented compatibility alias. The server applet is the
 		// default and preserves its own migrate/transits/pdf/version
@@ -81,13 +72,13 @@ func dispatch(prog string, args []string) int {
 	case "device":
 		return device.Main(args[1:])
 	case "data":
-		// data migrate|transits — route by explicit subcommand into the
+		// data migrate|transits|sql — route by explicit subcommand into the
 		// server applet, which already parses these by name. Never fall
 		// through to a bare server start.
-		if len(args) >= 2 && (args[1] == "migrate" || args[1] == "transits") {
+		if len(args) >= 2 && (args[1] == "migrate" || args[1] == "transits" || args[1] == "sql") {
 			return server.Main(args[1:])
 		}
-		fmt.Fprintf(os.Stderr, "usage: velocity data <migrate|transits> ...\n")
+		fmt.Fprintf(os.Stderr, "usage: velocity data <migrate|transits|sql> ...\n")
 		return 2
 	case "report":
 		if len(args) >= 2 && args[1] == "pdf" {

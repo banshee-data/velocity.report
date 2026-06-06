@@ -69,8 +69,7 @@ handling are simpler and more explicit.
 - **Single `velocity` binary**: the server, device-management, and tuning tools were folded into
   one multi-call binary that dispatches on `argv[0]` and a `serve | device | data | report | tune`
   namespace tree. `velocity-report` survives as the systemd-facing compatibility alias; the old
-  `velocity-ctl` becomes the `velocity device …` namespace, kept for one release as a deprecation
-  shim.
+  `velocity-ctl` binary is replaced by the `velocity device …` namespace.
 - **Versioned, atomic upgrades**: on-device updates install into
   `/opt/velocity-report/versions/<v>/` and activate with an atomic `renameat2` symlink swap.
   Migrations run on the new binary before the swap, the running build is verified through
@@ -80,7 +79,8 @@ handling are simpler and more explicit.
 - **Binary-owned deployment config**: tuning defaults, the LiDAR network profile, udev rules, and
   the Wi-Fi `wpa_supplicant` fallback now ship embedded in the binary and install via
   `velocity device install`, so the image carries no separate copies. The runtime apt surface lost
-  `python3-serial`, `minicom`, `jq`, and `curl`, and the vestigial `02-velocity-python` stage was
+  `python3-serial`, `minicom`, `jq`, `curl`, and `sqlite3` — the last replaced by a read-only
+  `velocity data sql` inspection subcommand — and the vestigial `02-velocity-python` stage was
   deleted.
 - **Device upgrades** (`velocity device`, formerly `velocity-ctl`): consume per-asset metadata from
   `release.json`, verify SHA-256 hashes before install, and apply clearer release-selection rules.
@@ -132,9 +132,8 @@ handling are simpler and more explicit.
   missing-build stub pages.
 - **Security hardening**: continued across dependency refreshes, GitHub Action SHA pinning, Vite
   path-traversal fixes, loopback-by-default `--listen`/`--lidar-listen` addresses, same-origin SVG
-  loading in `InlineSvgChart`, a narrowed `velocity-ctl` sudoers grant (enumerated verbs, no
-  wildcard), Swift CodeQL, release-asset verification, and targeted review of Trivy, Axios, and
-  OpenSSF exposure.
+  loading in `InlineSvgChart`, an enumerated wildcard-free device-management sudoers surface, Swift
+  CodeQL, release-asset verification, and targeted review of Trivy, Axios, and OpenSSF exposure.
 - **Build correctness**: improved with QEMU/image fixes, tag-trigger repair, corrected
   `pcap-analyse` field mapping plus focused coverage, removal of redundant workflow `chmod` steps,
   and native ARM handling in the proto toolchain.

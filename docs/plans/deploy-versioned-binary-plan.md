@@ -1,7 +1,7 @@
 # Multi-call binary, versioned on disk, symlink-swap rollback
 
 - **Document Version:** 1.2
-- **Status:** Implemented (v0.5.1) — dispatcher (`cmd/velocity`), namespaces, versioned `/opt/velocity-report/versions/<v>/` layout with `current`/`previous` symlinks, `renameat2` atomic swap, retention pruning, `GET /api/version`, single `velocity-<v>-<os>-arm64` release artifact, and the tightened sudoers all landed. `velocity-ctl` ships as a one-release deprecation shim. Folded as work unit A of the consolidation plan.
+- **Status:** Implemented (v0.5.1) — dispatcher (`cmd/velocity`), namespaces, versioned `/opt/velocity-report/versions/<v>/` layout with `current`/`previous` symlinks, `renameat2` atomic swap, retention pruning, `GET /api/version`, single `velocity-<v>-<os>-arm64` release artifact, and the tightened sudoers all landed. The transitional `velocity-ctl` shim has since been removed (it never shipped in a release). Folded as work unit A of the consolidation plan.
 - **Target:** v0.5.1 (pulled forward from v0.6.0)
 - **Layers:** Go binaries, image build, install scripts, release pipeline, sudoers
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)

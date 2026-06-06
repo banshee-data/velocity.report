@@ -532,7 +532,7 @@ Updates download the new version into `/opt/velocity-report/versions/<v>/`, run 
 sudo velocity device upgrade --binary /path/to/velocity
 ```
 
-> The previous `velocity-ctl` command is a deprecated alias for `velocity device …` and will be removed in the next release.
+> The former `velocity-ctl` command has been removed; device management is now the `velocity device …` namespace.
 
 ---
 

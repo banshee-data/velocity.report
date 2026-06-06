@@ -1,8 +1,7 @@
 // Package device implements the `velocity device` namespace — the on-device
 // management surface for velocity.report.
 //
-// It is mounted under the multi-call velocity binary and is also reachable
-// via the transitional `velocity-ctl` compatibility shim for one release.
+// It is mounted under the multi-call velocity binary as the `device` namespace.
 // Runs as root on the Raspberry Pi. Manages upgrades, rollbacks, backups,
 // and service status for the velocity-report server.
 //

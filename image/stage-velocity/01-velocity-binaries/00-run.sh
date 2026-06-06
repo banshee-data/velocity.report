@@ -12,11 +12,9 @@
 #   /opt/velocity-report/current  -> versions/<v>   active version (symlink)
 #   /usr/local/bin/velocity        -> current/velocity   canonical entry point
 #   /usr/local/bin/velocity-report -> current/velocity   server-compat alias
-#   /usr/local/bin/velocity-ctl    -> current/velocity   deprecation shim
 #
-# velocity-report and velocity-ctl are argv[0] aliases resolved by the
-# dispatcher; velocity-ctl additionally prints a deprecation warning and is
-# removed next release. BASE_DIR is exported by pi-gen.
+# velocity-report is an argv[0] alias resolved by the dispatcher (the radar
+# server is its default). BASE_DIR is exported by pi-gen.
 
 BINARIES_DIR="${BASE_DIR}/velocity-binaries"
 VERSION="$(cat "${BINARIES_DIR}/VERSION")"
@@ -37,4 +35,3 @@ ln -sfn "versions/${VERSION}" "${ROOTFS_DIR}/opt/velocity-report/current"
 install -d -m 755 "${ROOTFS_DIR}/usr/local/bin"
 ln -sfn /opt/velocity-report/current/velocity "${ROOTFS_DIR}/usr/local/bin/velocity"
 ln -sfn /opt/velocity-report/current/velocity "${ROOTFS_DIR}/usr/local/bin/velocity-report"
-ln -sfn /opt/velocity-report/current/velocity "${ROOTFS_DIR}/usr/local/bin/velocity-ctl"

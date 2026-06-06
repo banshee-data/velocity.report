@@ -300,7 +300,8 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 - [x] Plan written and circulated for review.
 - [x] Work unit A: fold `velocity-ctl` and sweep into the multi-call binary, ship the `velocity-ctl` deprecation shim, and pull forward the **full** versioned dispatcher/upgrade machinery (`renameat2` swap, retention, single-artifact release.json). `velocity-update` was already removed (#290).
 - [x] Work unit D: nginx removal landed (#517).
-- [x] Work unit E (partial): `go:embed` for tuning defaults, network config, udev rules, and wpa_supplicant + `velocity device install`; dropped `python3-serial`, `minicom`, `jq`, `curl` from the apt surface; deleted the `02-velocity-python` stage. (The `velocity data sql --read-only` replacement for `sqlite3` is **not** in this branch — `sqlite3` stays for now.)
+- [x] Work unit E: `go:embed` for tuning defaults, network config, udev rules, and wpa_supplicant + `velocity device install`; `velocity data sql --read-only` read-only inspection subcommand replacing `sqlite3`; dropped `python3-serial`, `minicom`, `jq`, `curl`, and `sqlite3` from the apt surface; deleted the `02-velocity-python` stage.
+- [x] Removed the transitional `velocity-ctl` shim: the `/usr/local/bin/velocity-ctl` symlink (image stage 01), the `velocity-ctl` sudoers grants (stage 03), and the deprecation-warning path in `cmd/velocity/main.go`.
 - [x] Docs: updated distribution-packaging, rpi-imager, setup, asset-naming, COMMANDS, CLAUDE, and coding-standards to the new surface.
 
 ### Outstanding
@@ -308,17 +309,15 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 - [ ] Work unit B: in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` (`M`)
 - [ ] Work unit C: Typst PDF pipeline; delete `texlive-xetex` apt surface and the minimal-texlive build scripts (`L`)
 - [ ] Source archive migration: replace `report.tex` ZIP output with an editable `report.typ` archive and publish the operator migration note (`M`)
-- [ ] Work unit E (remainder): `velocity data sql --read-only` replacement for the `sqlite3` apt dependency (`S`)
 - [ ] CI: PDF parity job (xelatex vs Typst) for one release before xelatex deletion, including source-archive completeness checks (`S`)
 - [ ] CI: image stage smoke test that the bind on `:80` works in a chroot before export (`S`)
 - [ ] Docs: Typst source-archive migration note (deferred with work unit C)
 
-### Follow-on image cleanup (gated on B / C / sqlite, and the shim window)
+### Follow-on image cleanup (gated on work units B / C)
 
-Work units A + E (subset) shipped (#519) but left the apt surface and the
-`velocity-ctl` shim in a deliberately transitional state. Each item below is
-unblocked by a specific later landing and **should be done in the same change
-that lands it**, not separately:
+The `sqlite3` drop and the `velocity-ctl` shim removal have landed; the
+remaining apt-surface trims are each unblocked by a specific later landing and
+**should be done in the same change that lands it**, not separately:
 
 - [ ] **When work unit B (in-binary Tailscale installer) lands:** delete
       `image/stage-velocity/07-velocity-tailscale/` _and_ the on-demand
@@ -330,12 +329,6 @@ that lands it**, not separately:
       `fonts-noto-color-emoji` from `00-install-packages/00-packages`; delete the
       `00-install-packages/01-run.sh` minimal-TeX build stage and
       `scripts/build-minimal-texlive.sh` / `scripts/install-minimal-texlive.sh`.
-- [ ] **When work unit E remainder (`velocity data sql --read-only`) lands:**
-      drop `sqlite3` from `00-packages`.
-- [ ] **One release after #519 ships (v0.5.2):** remove the `velocity-ctl`
-      deprecation shim — the `/usr/local/bin/velocity-ctl` symlink (image stage
-      01), the transitional `velocity-ctl *` sudoers grant (stage 03), and the
-      deprecation-warning path in `cmd/velocity/main.go`.
 
 Once all four land, the `00-packages` end-state is just `libpcap0.8` +
 `raspi-config`, and the only operator-facing binary name is `velocity`

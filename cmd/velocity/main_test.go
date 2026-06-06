@@ -69,14 +69,18 @@ func TestDispatchHelpMentionsNamespaces(t *testing.T) {
 	}
 }
 
-func TestDispatchVelocityCtlDeprecationWarning(t *testing.T) {
-	// velocity-ctl with no args warns then routes to device.Main, which prints
-	// usage and returns 1.
+func TestVelocityCtlShimRemoved(t *testing.T) {
+	// The velocity-ctl alias is gone: no deprecation warning, no routing into the
+	// device namespace. A bare invocation falls through to the canonical help,
+	// and an old `velocity-ctl <verb>` is now an unknown command.
 	code, _, stderr := runDispatch(t, "velocity-ctl", nil)
-	if !strings.Contains(stderr, "deprecated") {
-		t.Errorf("expected deprecation warning on stderr, got: %q", stderr)
+	if strings.Contains(stderr, "deprecated") {
+		t.Errorf("velocity-ctl should no longer emit a deprecation warning: %q", stderr)
 	}
-	if code != 1 {
-		t.Errorf("velocity-ctl with no args = %d, want 1", code)
+	if code != 0 {
+		t.Errorf("velocity-ctl with no args = %d, want 0 (canonical help)", code)
+	}
+	if c, _, _ := runDispatch(t, "velocity-ctl", []string{"upgrade"}); c != 2 {
+		t.Errorf("velocity-ctl upgrade = %d, want 2 (unknown command)", c)
 	}
 }

@@ -16,6 +16,3 @@ libpcap0.8
 
 # RS-232 HAT support
 raspi-config
-
-# System utilities
-sqlite3

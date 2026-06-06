@@ -88,7 +88,7 @@ execution). The `upgrade` subcommand:
 6. Verifies the running version via `GET /api/version`, then prunes old versions
 
 Rollback: `sudo velocity device rollback` swaps `current` back to the previous
-version. (`velocity-ctl …` remains as a deprecated alias for one release.)
+version.
 
 Settings dashboard: displays installed version ("Check for updates" button
 planned but not yet implemented).

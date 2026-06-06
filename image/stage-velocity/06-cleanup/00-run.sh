@@ -33,7 +33,7 @@ apt-mark manual \
     libpython3.11 libpython3.11-minimal libpython3.11-stdlib \
     libpython3-stdlib python3-venv \
     python3-apt python3-debconf python-apt-common \
-    sqlite3 libsqlite3-0 \
+    libsqlite3-0 \
     openssl libssl3 libcrypt1 \
     ca-certificates \
     libpcap0.8 \

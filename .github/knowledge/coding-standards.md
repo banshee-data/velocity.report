@@ -59,12 +59,12 @@ Optional detailed explanation if needed.
 
 ## Product Names
 
-| Product            | Canonical name       | Used in                                                                                                 |
-| ------------------ | -------------------- | ------------------------------------------------------------------------------------------------------- |
-| Binary             | `velocity`           | Single multi-call binary asset; `/usr/local/bin/velocity`; `velocity <namespace> …` CLI                 |
-| Server + RPi image | `velocity-report`    | Service name, image filename, systemd unit, server-compatibility alias symlink                          |
-| Device management  | `velocity device`    | Namespace inside the `velocity` binary (was the separate `velocity-ctl` binary; now a deprecated alias) |
-| macOS visualiser   | `VelocityVisualiser` | DMG filename, app bundle, Finder, menu bar. **PascalCase is brand identity — do not lowercase**         |
+| Product            | Canonical name       | Used in                                                                                           |
+| ------------------ | -------------------- | ------------------------------------------------------------------------------------------------- |
+| Binary             | `velocity`           | Single multi-call binary asset; `/usr/local/bin/velocity`; `velocity <namespace> …` CLI           |
+| Server + RPi image | `velocity-report`    | Service name, image filename, systemd unit, server-compatibility alias symlink                    |
+| Device management  | `velocity device`    | Namespace inside the `velocity` binary (replaced the separate `velocity-ctl` binary, now removed) |
+| macOS visualiser   | `VelocityVisualiser` | DMG filename, app bundle, Finder, menu bar. **PascalCase is brand identity — do not lowercase**   |
 
 The server and CLI use lowercase-hyphenated names. The macOS app keeps PascalCase because it is the user-facing application name visible in Finder, the Dock, and the About dialog — consistency with macOS conventions takes precedence over filename uniformity.
 

@@ -8,19 +8,19 @@ import (
 	"time"
 )
 
-// runTailscale handles `velocity-ctl tailscale enable-tailscaled|disable-tailscaled`.
+// runTailscale handles `velocity device tailscale enable-tailscaled|disable-tailscaled`.
 //
 // These subcommands exist so the velocity-report server (running as the
 // non-root `velocity` user) can drive the daemon via a narrow sudoers
 // allowlist:
 //
 //	velocity ALL=(root) NOPASSWD: \
-//	    /usr/local/bin/velocity-ctl tailscale enable-tailscaled, \
-//	    /usr/local/bin/velocity-ctl tailscale disable-tailscaled
+//	    /usr/local/bin/velocity device tailscale enable-tailscaled, \
+//	    /usr/local/bin/velocity device tailscale disable-tailscaled
 //
 // The velocity-user grant is *literal* — only those two argv vectors
-// are accepted, no wildcards.  The `pi` user gets the broader
-// `velocity-ctl *` for interactive admin; the service user does not.
+// are accepted, no wildcards.  The `pi` user gets the broader enumerated
+// `velocity device` verbs for interactive admin; the service user does not.
 //
 // We deliberately do not expose `tailscale up` / `tailscale logout`
 // here — those are reachable through tailscaled's local API socket and
@@ -37,7 +37,7 @@ func runTailscale(args []string) error {
 	}
 	rest := fs.Args()
 	if len(rest) == 0 {
-		return fmt.Errorf("usage: velocity-ctl tailscale <enable-tailscaled|disable-tailscaled>")
+		return fmt.Errorf("usage: velocity device tailscale <enable-tailscaled|disable-tailscaled>")
 	}
 	switch rest[0] {
 	case "enable-tailscaled":
@@ -104,7 +104,7 @@ func disableTailscaled() error {
 		if out, err := exec.Command(step[0], step[1:]...).CombinedOutput(); err != nil {
 			// Don't abort on stop failures — the daemon may already be down.
 			// Continue so mask still happens.
-			fmt.Fprintf(os.Stderr, "velocity-ctl tailscale: %s: %v: %s\n", step[1], err, string(out))
+			fmt.Fprintf(os.Stderr, "velocity device tailscale: %s: %v: %s\n", step[1], err, string(out))
 		}
 	}
 	return nil
