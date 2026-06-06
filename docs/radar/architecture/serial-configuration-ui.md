@@ -25,7 +25,7 @@ This document began as a design proposal. Much of it has now moved into code.
 
 **Still open:**
 
-- Runtime startup in [cmd/radar/radar.go](../../../cmd/radar/radar.go) still needs to adopt DB-backed serial config as the main path
+- Runtime startup in [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go) still needs to adopt DB-backed serial config as the main path
 - Auto-detect and detect-baud endpoints are still planned, not shipped
 - The UI still needs a clear apply/reload story for live runtime changes
 - Operator documentation and real-hardware validation still need finishing
@@ -61,9 +61,9 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Current Configuration:** Hardcoded at startup via `--port` CLI flag (default: `/dev/ttySC1`)
 - **Baud Rate:** Currently hardcoded in serial port initialisation (19200 for OPS243A)
 
-**Initialisation Flow (cmd/radar/radar.go:105-118):**
+**Initialisation Flow (internal/cmd/server/radar.go:105-118):**
 
-> **Source:** [cmd/radar/radar.go](../../../cmd/radar/radar.go). Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()`; fatal on failure.
+> **Source:** [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go). Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()`; fatal on failure.
 
 **Serial Port Interface (internal/serialmux/port.go):**
 
@@ -214,7 +214,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Current Behaviour:**
 
-> **Source:** `cmd/radar/radar.go:35`. CLI flag `--port` defaults to `/dev/ttySC1`.
+> **Source:** `internal/cmd/server/radar.go:35`. CLI flag `--port` defaults to `/dev/ttySC1`.
 
 **New Behaviour:**
 
@@ -236,7 +236,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Implementation Changes:**
 
-- **File:** [cmd/radar/radar.go](../../../cmd/radar/radar.go)
+- **File:** [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
 - **Function:** New `loadSerialConfigs(db *db.DB) ([]SerialConfig, error)`
 
 > **Source:** `SerialConfig` struct, `SensorModel` struct, and `GetSensorModel()` defined in sensor model registry (see FR1). Application-side model registry eliminates the need for database migrations when adding new sensor support.
@@ -688,6 +688,6 @@ This feature now has real code behind it rather than only good intentions. It al
 
 **Next Steps:**
 
-1. Wire DB-backed startup and install the real reload manager in [cmd/radar/radar.go](../../../cmd/radar/radar.go)
+1. Wire DB-backed startup and install the real reload manager in [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
 2. Decide and ship the live apply/reload workflow in the UI
 3. Add the deferred detection helpers and publish the operator guide

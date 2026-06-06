@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, LiDAR pipeline, configuration)
-- **Target:** v0.5.2; extract before [cmd/radar/radar.go](../../cmd/radar/radar.go) grows past 1,500 LOC
+- **Target:** v0.5.2; extract before [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) grows past 1,500 LOC
 - **Companion plans:**
   [go-god-file-split-plan.md](go-god-file-split-plan.md) (Complete),
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Active)
@@ -19,7 +19,7 @@ Code locked inside `package main` cannot be unit-tested without building the ful
 binary. It cannot be reused by other binaries. It cannot be reviewed in isolation.
 Every new consumer must reimplement or duplicate.
 
-[cmd/radar/radar.go](../../cmd/radar/radar.go) is 1,194 lines. Of those, roughly 350 are business logic
+[internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) is 1,194 lines. Of those, roughly 350 are business logic
 (adapters, CLI dispatch, config resolution) rather than flag parsing and component
 wiring. If left, the file will cross 1,500 LOC by v0.6.0 as HINT and sweep features
 expand.
@@ -30,9 +30,9 @@ expand.
 
 | File                                                                                                   |       LOC | Extractable LOC | Contents                                    |
 | ------------------------------------------------------------------------------------------------------ | --------: | --------------: | ------------------------------------------- |
-| [cmd/radar/radar.go](../../cmd/radar/radar.go)                                                         |     1,194 |            ~350 | Adapters, transits CLI, TeX flow config     |
-| [cmd/radar/lidar_helpers.go](../../cmd/radar/lidar_helpers.go)                                         |       275 |            ~250 | 24 pure functions, 8 test-double interfaces |
-| [cmd/radar/capabilities.go](../../cmd/radar/capabilities.go)                                           |        75 |              75 | Thread-safe capabilities provider           |
+| [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)                                     |     1,194 |            ~350 | Adapters, transits CLI, TeX flow config     |
+| [internal/cmd/server/lidar_helpers.go](../../internal/cmd/server/lidar_helpers.go)                     |       275 |            ~250 | 24 pure functions, 8 test-double interfaces |
+| [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go)                       |        75 |              75 | Thread-safe capabilities provider           |
 | [cmd/tools/config-migrate/main.go](../../cmd/tools/config-migrate/main.go)                             |       233 |            ~180 | Legacy config struct + migration function   |
 | [cmd/tools/settling-eval/pcap.go](../../cmd/tools/settling-eval/pcap.go)                               |       182 |            ~140 | PCAP settling evaluation orchestration      |
 | [cmd/tools/backfill_ring_elevations/backfill.go](../../cmd/tools/backfill_ring_elevations/backfill.go) |        86 |             ~60 | Raw SQL backfill queries                    |
@@ -43,8 +43,8 @@ expand.
 - Flag parsing and `main()` wiring (~800 lines in `radar.go`)
 - Signal handling and graceful shutdown
 - Component construction order
-- [cmd/sweep/main.go](../../cmd/sweep/main.go) (265 lines): sweep CLI orchestration
-- [cmd/velocity-ctl/](../../cmd/velocity-ctl) (121 lines): already delegates to [internal/ctl](../../internal/ctl)
+- [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go) (265 lines): sweep CLI orchestration
+- [internal/cmd/device/](../../internal/cmd/device) (121 lines): already delegates to [internal/ctl](../../internal/ctl)
 - Small tools under 60 lines: `config-validate`, `gen-vrlog`, `vrlog-analyse`,
   `backfill_lidar_run_config`
 
@@ -83,7 +83,7 @@ whose types it already wraps.
 
 1. Move `capabilitiesProvider` struct and methods to `internal/api/capabilities.go`
 2. Export the type as `CapabilitiesProvider`
-3. Update [cmd/radar/radar.go](../../cmd/radar/radar.go) to use `api.NewCapabilitiesProvider()`
+3. Update [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to use `api.NewCapabilitiesProvider()`
 4. Add unit tests for state transitions (disabled → starting → ready → error)
 
 **Milestone:** v0.5.2
@@ -120,7 +120,7 @@ orchestration out of `package main`.
 1. Move `backgroundManagerBridge` to `internal/lidar/l9endpoints/bg_bridge.go`
 2. Move `hintSceneAdapter` and `hintLabelAdapter` to `internal/lidar/sweep/hint_adapters.go`
 3. Move `hintRunCreator` to `internal/lidar/sweep/hint_run_creator.go`
-4. Update [cmd/radar/radar.go](../../cmd/radar/radar.go) to construct the exported adapter types
+4. Update [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to construct the exported adapter types
 5. Add unit tests for the struct field mapping in each adapter
 6. Add unit test for `hintRunCreator.CreateSweepRun` parameter construction
 
@@ -136,7 +136,7 @@ owns `TransitCLI`.
 1. Create `internal/db/transit_cli_dispatch.go` with a `RunTransitsCommand` function
 2. Accept `io.Reader` and `io.Writer` for confirmation prompts (testability)
 3. Move the `analyse`/`delete`/`migrate`/`rebuild` dispatch logic
-4. Reduce [cmd/radar/radar.go](../../cmd/radar/radar.go) to a one-line call
+4. Reduce [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to a one-line call
 5. Add unit tests for each subcommand dispatch path
 6. Add unit tests for confirmation prompt handling (accept/reject/EOF)
 
@@ -151,7 +151,7 @@ into the config package.
 
 1. Move both functions to `internal/config/tex.go`
 2. Export as `ResolvePrecompiledTeXRoot` and `ConfigurePDFLaTeXFlow`
-3. Update [cmd/radar/radar.go](../../cmd/radar/radar.go) to call `config.ConfigurePDFLaTeXFlow()`
+3. Update [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to call `config.ConfigurePDFLaTeXFlow()`
 4. Add unit tests for path resolution edge cases
 
 **Milestone:** v0.5.2
@@ -235,9 +235,9 @@ into the background grid package.
 
 ### Accepted residuals (no action planned)
 
-- [ ] [cmd/radar/radar.go](../../cmd/radar/radar.go) will still be ~800 LOC after extraction: this is legitimate
+- [ ] [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) will still be ~800 LOC after extraction: this is legitimate
       `main()` wiring (flag parsing, component construction, shutdown) and does not
       warrant further splitting
-- [ ] [cmd/sweep/main.go](../../cmd/sweep/main.go) (265 LOC): CLI orchestration, not business logic
-- [ ] [cmd/velocity-ctl/upgrade.go](../../cmd/velocity-ctl/upgrade.go): `loadIncludePrereleases` (30 LOC) is borderline
+- [ ] [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go) (265 LOC): CLI orchestration, not business logic
+- [ ] [internal/cmd/device/upgrade.go](../../internal/cmd/device/upgrade.go): `loadIncludePrereleases` (30 LOC) is borderline
       but too small to justify a move

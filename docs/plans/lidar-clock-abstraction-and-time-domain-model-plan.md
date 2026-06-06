@@ -258,7 +258,7 @@ testability benefits justify the review surface.
       handling of `TimestampMode` interactions.
 - [ ] **C3.** `serialmux/serialmux.go`: radar clock sync
       (2 calls). Low priority; one-shot init.
-- [ ] **C4.** [cmd/radar/](../../cmd/radar) and [cmd/tools/](../../cmd/tools): startup/CLI
+- [ ] **C4.** [internal/cmd/server/](../../internal/cmd/server) and [cmd/tools/](../../cmd/tools): startup/CLI
       timestamps. Low testability benefit.
 - [ ] **C5.** [internal/db/](../../internal/db): DB audit timestamps. Low
       testability benefit but may be useful for deterministic

@@ -36,7 +36,7 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
 ## Design principles
 
 1. **Unified binary**: worker mode is `--worker` on the same `velocity-report`
-   binary. No separate `cmd/sweep-worker/`. Aligns with single-binary
+   binary. No separate `internal/cmd/tune-worker/`. Aligns with single-binary
    direction in distribution-packaging.
 2. **Reduced worker surface**: worker port 8082 exposes only job lifecycle
    and health endpoints. No dashboard, radar, PDF, or full LiDAR monitor.

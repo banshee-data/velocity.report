@@ -680,7 +680,7 @@ packets at recording time, which adds I/O overhead.
 **Implementation notes:**
 
 - Store in `LogHeader` under a `pcap_identity` nested object.
-- Populate during PCAP replay in [cmd/radar/radar.go](../../cmd/radar/radar.go) via the existing
+- Populate during PCAP replay in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) via the existing
   `pcap.Reader`: capture first/last packet metadata and the file hash.
 - Comparison tool (§8) can auto-verify identity match before comparing.
 

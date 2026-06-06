@@ -353,7 +353,7 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 5. **Store 7-Variable Format:**
 
-- In cmd/radar/radar.go when updating tracks
+- In internal/cmd/server/radar.go when updating tracks
 
 **updateTrackWith7Variables** algorithm:
 
@@ -434,7 +434,7 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 **Files Changed:**
 
-- [cmd/radar/radar.go](../../cmd/radar/radar.go) (load static pose at startup, populate pose_id)
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) (load static pose at startup, populate pose_id)
 - `internal/lidar/track_store.go` (add GetCurrentPoses, InsertPose if missing)
 - `internal/lidar/track_store_test.go` (test pose loading)
 

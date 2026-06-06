@@ -40,10 +40,10 @@ Go: [internal/api](../../../internal/api) (88.2%), [internal/config](../../../in
 
 ## cmd/ logic extraction strategy
 
-| Package                         | Testable LOC | Target `internal/`                          | Priority |
-| ------------------------------- | ------------ | ------------------------------------------- | -------- |
-| [cmd/radar](../../../cmd/radar) | ~200         | [internal/config](../../../internal/config) | MEDIUM   |
-| [cmd/tools](../../../cmd/tools) | ~65          | [internal/db](../../../internal/db)         | MEDIUM   |
+| Package                                             | Testable LOC | Target `internal/`                          | Priority |
+| --------------------------------------------------- | ------------ | ------------------------------------------- | -------- |
+| [internal/cmd/server](../../../internal/cmd/server) | ~200         | [internal/config](../../../internal/config) | MEDIUM   |
+| [cmd/tools](../../../cmd/tools)                     | ~65          | [internal/db](../../../internal/db)         | MEDIUM   |
 
 Extraction: Move business-logic types into `internal/`, keep only flag
 parsing and `main()` in `cmd/`. Write unit tests against extracted code.
@@ -77,5 +77,5 @@ parsing and `main()` in `cmd/`. Write unit tests against extracted code.
 1. **Phase 1 (weeks 1–2):** [internal/config](../../../internal/config) accessors + all Tier 1.
 2. **Phase 2 (weeks 2–4):** [internal/db](../../../internal/db), [internal/api](../../../internal/api), lidar
    sub-packages.
-3. **Phase 3 (weeks 4–8):** [cmd/radar](../../../cmd/radar)
+3. **Phase 3 (weeks 4–8):** [internal/cmd/server](../../../internal/cmd/server)
    extraction, macOS Swift.

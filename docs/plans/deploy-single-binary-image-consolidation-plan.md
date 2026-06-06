@@ -43,9 +43,9 @@ Stage scripts under [image/stage-velocity/](../../image/stage-velocity/):
 
 The two-binary surface:
 
-- [cmd/radar/](../../cmd/radar) — server binary, installed as `velocity-report`. Defaults to `serve`; subcommands `migrate`, `pdf`, `transits`.
-- [cmd/velocity-ctl/](../../cmd/velocity-ctl) — operator binary, installed as `velocity-ctl`. Subcommands `upgrade`, `rollback`, `backup`, `status`, `tailscale`.
-- [cmd/sweep/](../../cmd/sweep) — sweep harness, only ever built locally; not shipped to the Pi today.
+- [internal/cmd/server/](../../internal/cmd/server) — server binary, installed as `velocity-report`. Defaults to `serve`; subcommands `migrate`, `pdf`, `transits`.
+- [internal/cmd/device/](../../internal/cmd/device) — operator binary, installed as `velocity-ctl`. Subcommands `upgrade`, `rollback`, `backup`, `status`, `tailscale`.
+- [internal/cmd/tune/](../../internal/cmd/tune) — sweep harness, only ever built locally; not shipped to the Pi today.
 
 PDF pipeline:
 
@@ -101,10 +101,10 @@ This is the "submodule move" the user wants pulled forward — the same directio
 
 **Steps:**
 
-1. Move `cmd/radar/` → `cmd/velocity/`; rename the existing files to live under `internal/cmd/server/` and export `Main(args []string)`. Multi-call dispatcher in `cmd/velocity/main.go` switches on `filepath.Base(os.Args[0])` first, then `os.Args[1]`.
-2. Move `cmd/velocity-ctl/` source under `internal/cmd/device/` and wire as the `device` namespace: `velocity device check|upgrade|rollback|backup`.
-3. Ship `cmd/velocity-ctl` as a thin redirect shim for one release: when invoked, print a deprecation warning and exec the new binary with `device` prefixed. Delete the shim in v0.5.2.
-4. Move `cmd/sweep/` under `internal/cmd/tune/` and expose as `velocity tune sweep`. Operator-facing utilities in `cmd/tools/*` stay developer-only until [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md) ratifies their promotion.
+1. Move `internal/cmd/server/` → `cmd/velocity/`; rename the existing files to live under `internal/cmd/server/` and export `Main(args []string)`. Multi-call dispatcher in `cmd/velocity/main.go` switches on `filepath.Base(os.Args[0])` first, then `os.Args[1]`.
+2. Move `internal/cmd/device/` source under `internal/cmd/device/` and wire as the `device` namespace: `velocity device check|upgrade|rollback|backup`.
+3. Ship `internal/cmd/device` as a thin redirect shim for one release: when invoked, print a deprecation warning and exec the new binary with `device` prefixed. Delete the shim in v0.5.2.
+4. Move `internal/cmd/tune/` under `internal/cmd/tune/` and expose as `velocity tune sweep`. Operator-facing utilities in `cmd/tools/*` stay developer-only until [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md) ratifies their promotion.
 5. Update [image/stage-velocity/01-velocity-binaries/00-run.sh](../../image/stage-velocity/01-velocity-binaries/00-run.sh) to install one binary at `/opt/velocity-report/versions/<v>/velocity`; create `/usr/local/bin/velocity` and `/usr/local/bin/velocity-report` symlinks; delete `velocity-update`.
 6. Tighten `/etc/sudoers.d/020_velocity-nopasswd` so `pi`'s `velocity-ctl *` grant collapses to `velocity device *`; the `velocity` user's tailscale bridge becomes `velocity device tailscale {enable,disable}-tailscaled` (literal argv, no wildcards).
 
@@ -200,7 +200,7 @@ Inventory of every artifact that is not the binary itself, with effort to fold o
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
 | `velocity-ctl`                                                    | Separate binary at `/usr/local/bin/velocity-ctl`.                                        | `velocity device ...` namespace inside the multi-call binary.                                                                                               | A (`M`)         |
 | `velocity-update` redirect stub                                   | Shell script at `/usr/local/bin/velocity-update`.                                        | Deleted.                                                                                                                                                    | A (`S`)         |
-| `cmd/sweep/`                                                      | Local-dev binary; not shipped.                                                           | `velocity tune sweep`; shipped inside the binary.                                                                                                           | A (`S`)         |
+| `internal/cmd/tune/`                                              | Local-dev binary; not shipped.                                                           | `velocity tune sweep`; shipped inside the binary.                                                                                                           | A (`S`)         |
 | Tailscale apt repo + install                                      | Image-build stage.                                                                       | Static-binary installer inside `velocity device tailscale install`; helper payload owned and versioned by the main binary; deferred until operator opts in. | B (`M`)         |
 | `tailscaled` mask state                                           | Set at image-build.                                                                      | Set by the binary at install time.                                                                                                                          | B (`S`)         |
 | `texlive-xetex` + minimal TeX tree                                | 143 MB at `/opt/velocity-report/texlive/`.                                               | Deleted; Typst replaces.                                                                                                                                    | C (`L`)         |

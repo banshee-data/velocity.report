@@ -680,7 +680,7 @@ A short list of tempting but bad integrations.
   measurement.
 - **Add a `--use-radiance-field` flag to the radar binary.**
   Anything that ships on the RPi must remain auditable; the offline
-  research lane lives in `tools/`, never in `cmd/radar`.
+  research lane lives in `tools/`, never in `internal/cmd/server`.
 - **Treat radiance fields as a substitute for the planned vector
   scene map.** They aren't. The vector scene map is the canonical
   L7 storage substrate per

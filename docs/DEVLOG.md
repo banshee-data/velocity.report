@@ -259,7 +259,7 @@
 
 ## March 31, 2026 - voice quality audit & error message rewrite
 
-- Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, [cmd/radar](../cmd/radar) CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
+- Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, [internal/cmd/server](../internal/cmd/server) CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
 - Rewrote shell script messages and marked the voice audit plan complete.
 - Centralised API error handling in the web frontend for consistent error message display.
 - Fixed TLS certificate generation to persist the CA across server certificate renewals, preventing trust breakage when the server cert is regenerated.
@@ -287,7 +287,7 @@
 
 ## March 28, 2026 - RPi image: build pipeline, flash target & first-boot polish
 
-- Consolidated Go version information printing into a single function across [cmd/radar](../cmd/radar) and [cmd/velocity-ctl](../cmd/velocity-ctl).
+- Consolidated Go version information printing into a single function across [internal/cmd/server](../internal/cmd/server) and [internal/cmd/device](../internal/cmd/device).
 - Updated build process and documentation for RPi images: clarified `build-image.sh` sections and improved error handling.
 - Added timestamps to image filenames to prevent collisions during rebuilds.
 - Added installation step for `tuning.defaults.json` in the pi-gen run script so the service starts with a valid config.
@@ -333,7 +333,7 @@
 ## March 24, 2026 - config consolidation, ERD refresh & workflow docs
 
 - Consolidated LiDAR immutable/run-config plumbing across radar startup, storage, replay-case management, and backfill tooling.
-- Extracted testable helper paths in [cmd/radar](../cmd/radar) and added focused coverage for the run-config backfill tool.
+- Extracted testable helper paths in [internal/cmd/server](../internal/cmd/server) and added focused coverage for the run-config backfill tool.
 - Updated immutable run-config and replay-case operations docs, and replaced older scene-management implementation notes with the newer asset plan.
 - Switched plan-hygiene reporting to an advisory workflow in CI rather than a hard PR gate.
 - Refreshed schema visualisation tooling: added configurable SQLite ERD grouping, updated graph scripts, and regenerated `SCHEMA.svg`.
@@ -377,7 +377,7 @@
 
 ## March 20, 2026 - config refactor & migration tooling
 
-- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in [cmd/radar](../cmd/radar).
+- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in [internal/cmd/server](../internal/cmd/server).
 - Added `config-migrate` with broad coverage for moving existing configs onto the new layout.
 - Added `config-validate` to check migrated/runtime configs before deployment.
 - Expanded radar flag and config-path test coverage substantially.
@@ -1266,7 +1266,7 @@
 ## June 27, 2025 - radarObject parsing & project structure
 
 - Rebased and implemented RadarObject parsing.
-- Restructured into [cmd/radar/](../cmd/radar), `internal/*` packages.
+- Restructured into [internal/cmd/server/](../internal/cmd/server), `internal/*` packages.
 - Renamed project to velocity.report.
 - Added Apache 2.0 licence.
 - Implemented JSON parsing for radar data.

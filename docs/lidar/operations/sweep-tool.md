@@ -1,6 +1,6 @@
 # Sweep tool guide
 
-The sweep tool ([cmd/sweep](../../../cmd/sweep)) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics: allowing you to identify the settings that best suit your deployment site.
+The sweep tool ([internal/cmd/tune](../../../internal/cmd/tune)) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics: allowing you to identify the settings that best suit your deployment site.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ The sweep tool ([cmd/sweep](../../../cmd/sweep)) automates parameter optimisatio
 2. A golden PCAP file captured at the deployment site. This file should contain representative traffic (vehicles, pedestrians, cyclists) to test detection quality.
 3. The sweep binary:
    ```bash
-   go build -o sweep ./cmd/sweep
+   go build -o sweep ./internal/cmd/tune
    ```
 
 ## Concepts

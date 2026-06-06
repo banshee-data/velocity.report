@@ -24,7 +24,7 @@ It also adds a reload manager that can swap the active serial mux at runtime. Wh
 
 ## Remaining work
 
-- Wire [cmd/radar/radar.go](../../cmd/radar/radar.go) to load enabled serial configs from the database at startup, with CLI fallback preserved.
+- Wire [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to load enabled serial configs from the database at startup, with CLI fallback preserved.
 - Install the live `SerialPortManager` into the API server so saved settings can be applied to the real runtime path rather than only to tests.
 - Decide whether reload is explicit or automatic after save, then reflect that in the UI.
 - Add the deferred `auto-detect` and `detect-baud` endpoints plus the matching UI buttons if issue #290 is to be called fully complete.

@@ -6,14 +6,14 @@ This project uses a single `radar` binary which runs the radar serial monitor, H
 
 ```bash
 # Build the radar binary (includes optional LiDAR components)
-go build ./cmd/radar
+go build ./internal/cmd/server
 ```
 
 ## Build
 
 ```bash
 # Build radar
-go build ./cmd/radar
+go build ./internal/cmd/server
 
 # Build lidar (standalone)
 go build ./cmd/lidar
@@ -43,7 +43,7 @@ go build ./cmd/lidar
 
 ## Command-line flags
 
-The radar binary exposes several CLI flags (see `cmd/radar/radar.go` for exact defaults). Key options are listed below.
+The radar binary exposes several CLI flags (see `internal/cmd/server/radar.go` for exact defaults). Key options are listed below.
 
 - `--fixture` (bool): Load fixture data into the local DB instead of opening a serial port.
 - `--debug` (bool): Run in debug mode (uses a mock serial mux and enables extra debug logging).
@@ -74,9 +74,9 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-pcap-dir` (string): Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 **Sensor/network settings (config file only):** The following settings are
-configured via the [tuning config file](../../config/CONFIG.md), not CLI flags:
+configured via the [tuning config file](../../../config/CONFIG.md), not CLI flags:
 
-For the canonical port register and numeric rationale, see [MAGIC_NUMBERS.md](../../MAGIC_NUMBERS.md).
+For the canonical port register and numeric rationale, see [MAGIC_NUMBERS.md](../../../MAGIC_NUMBERS.md).
 
 - `l1.sensor`: Sensor identifier (default: `hesai-pandar40p`).
 - `l1.udp_port`: UDP port to listen for LiDAR packets (default: `2369`).

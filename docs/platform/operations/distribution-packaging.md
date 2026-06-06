@@ -42,22 +42,22 @@ It is a purpose-built on-device management tool with no SSH surface.
 
 ### Key changes
 
-| What               | Before                           | After                                               |
-| ------------------ | -------------------------------- | --------------------------------------------------- |
-| **Main binary**    | [cmd/radar/](../../../cmd/radar) | `cmd/velocity-report/`                              |
-| **Start server**   | `velocity-report`                | `velocity-report serve` (or just `velocity-report`) |
-| **PDF generation** | `PYTHONPATH=... python -m ...`   | `velocity-report pdf config.json`                   |
-| **Sweep tool**     | `./app-sweep`                    | `velocity-report-sweep`                             |
-| **Installation**   | Manual build + scp + script      | `curl install.sh \| sudo bash`                      |
-| **Releases**       | None                             | GitHub Releases with CI/CD                          |
+| What               | Before                                               | After                                               |
+| ------------------ | ---------------------------------------------------- | --------------------------------------------------- |
+| **Main binary**    | [internal/cmd/server/](../../../internal/cmd/server) | `cmd/velocity-report/`                              |
+| **Start server**   | `velocity-report`                                    | `velocity-report serve` (or just `velocity-report`) |
+| **PDF generation** | `PYTHONPATH=... python -m ...`                       | `velocity-report pdf config.json`                   |
+| **Sweep tool**     | `./app-sweep`                                        | `velocity-report-sweep`                             |
+| **Installation**   | Manual build + scp + script                          | `curl install.sh \| sudo bash`                      |
+| **Releases**       | None                                                 | GitHub Releases with CI/CD                          |
 
 ## Components inventory
 
 | Component                    | Type          | Location                                                                           | Current Distribution              |
 | ---------------------------- | ------------- | ---------------------------------------------------------------------------------- | --------------------------------- |
-| **Main Server**              | Go            | [cmd/radar/](../../../cmd/radar)                                                   | Manual build + setup script       |
+| **Main Server**              | Go            | [internal/cmd/server/](../../../internal/cmd/server)                               | Manual build + setup script       |
 | **Migrate CLI**              | Go subcommand | [internal/db/migrate_cli.go](../../../internal/db/migrate_cli.go)                  | Part of main binary               |
-| **Sweep Tool**               | Go            | [cmd/sweep/](../../../cmd/sweep)                                                   | Manual build (`make build-tools`) |
+| **Sweep Tool**               | Go            | [internal/cmd/tune/](../../../internal/cmd/tune)                                   | Manual build (`make build-tools`) |
 | **PDF Generator**            | Go            | [internal/report/](../../../internal/report)                                       | Built into main binary            |
 | **Transit Backfill**         | Go            | `cmd/transit-backfill/`                                                            | Manual `go build`                 |
 | **Ring Elevations Backfill** | Go            | [cmd/tools/backfill_ring_elevations/](../../../cmd/tools/backfill_ring_elevations) | Manual `go build`                 |
@@ -128,7 +128,7 @@ The `version` package (`internal/version/`) exports three variables: `Version` (
 
 ```
 cmd/
-  ├── velocity-report/           # Main binary (was cmd/radar)
+  ├── velocity-report/           # Main binary (was internal/cmd/server)
   │   ├── main.go               # Subcommand dispatcher
   │   ├── serve.go              # Server logic
   │   ├── pdf.go                # PDF wrapper
@@ -167,7 +167,7 @@ sudo systemctl start velocity-report
 
 ### Developers: minor
 
-- [cmd/radar/](../../../cmd/radar) moves to `cmd/velocity-report/`
+- [internal/cmd/server/](../../../internal/cmd/server) moves to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only `cmd/` structure changes)
 

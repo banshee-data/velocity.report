@@ -201,7 +201,7 @@ tooling, and deployment automation is useful.
 Read next:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): system boundaries, data flow, and deployment shape
-- [cmd/radar/README.md](cmd/radar/README.md): the main binary, runtime flags, and service model
+- [internal/cmd/server/README.md](internal/cmd/server/README.md): the main binary, runtime flags, and service model
 - [docs/radar/cli-comprehensive-guide.md](docs/radar/cli-comprehensive-guide.md):
   current CLI surface and planned consolidation
 - [internal/db/migrations/README.md](internal/db/migrations/README.md): schema workflow,

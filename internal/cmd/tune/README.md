@@ -5,7 +5,7 @@ A comprehensive parameter sweep tool that combines the functionality of `bg-swee
 ## Build
 
 ```bash
-go build -o app-sweep ./cmd/sweep
+go build -o app-sweep ./internal/cmd/tune
 # or
 make tools-local
 ```

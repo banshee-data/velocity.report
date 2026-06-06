@@ -29,13 +29,13 @@ This document covers what exists and works today.
 
 ## Current state inventory
 
-### 1. Radar binary ([cmd/radar](../../cmd/radar))
+### 1. Radar binary ([internal/cmd/server](../../internal/cmd/server))
 
 **Description:** Main production service that runs radar serial monitoring, HTTP API server, and optional lidar components.
 
 **Mode:** Long-running service
 
-**Location:** [cmd/radar](../../cmd/radar)
+**Location:** [internal/cmd/server](../../internal/cmd/server)
 
 #### Quick start examples
 
@@ -225,13 +225,13 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 ---
 
-### 2. Sweep binary ([cmd/sweep](../../cmd/sweep))
+### 2. Sweep binary ([internal/cmd/tune](../../internal/cmd/tune))
 
 **Description:** Parameter sweep utility for testing lidar background model with different configurations.
 
 **Mode:** Batch job (runs sweep, writes CSV, exits)
 
-**Location:** [cmd/sweep](../../cmd/sweep)
+**Location:** [internal/cmd/tune](../../internal/cmd/tune)
 
 #### Quick start examples
 
@@ -295,7 +295,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 ---
 
-### 3. Device management binary ([cmd/velocity-ctl](../../cmd/velocity-ctl))
+### 3. Device management binary ([internal/cmd/device](../../internal/cmd/device))
 
 > **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary.
 > See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
@@ -304,7 +304,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 **Mode:** Interactive CLI tool (subcommand-based)
 
-**Location:** [cmd/velocity-ctl](../../cmd/velocity-ctl)
+**Location:** [internal/cmd/device](../../internal/cmd/device)
 
 #### Quick start examples
 

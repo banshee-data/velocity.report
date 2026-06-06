@@ -279,7 +279,7 @@ Current pipeline (unchanged by this verdict):
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Go HTTP API (cmd/radar/radar.go)                              │
+│  Go HTTP API (internal/cmd/server/radar.go)                              │
 │    POST /api/generate_report                                    │
 │       │                                                         │
 │       └── internal/api/server_reports_generate.go              │

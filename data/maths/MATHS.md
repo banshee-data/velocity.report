@@ -293,7 +293,7 @@ rather than mathematical source).
   - `l4.dbscan_xy_v1.height_band_floor`, `height_band_ceiling`, `remove_ground`
   - Region-selection gates derived from `noise_relative`, `safety_margin_metres`, `closeness_multiplier`, and `neighbour_confirmation_count`
 - Runtime mapping:
-  - [cmd/radar/radar.go](../../cmd/radar/radar.go) → [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) → [internal/lidar/l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
+  - [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) → [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) → [internal/lidar/l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
 
 ### L4 clustering maths ([`clustering-maths.md`](clustering-maths.md))
 
@@ -325,7 +325,7 @@ rather than mathematical source).
 - Getter/source path: [internal/config/tuning.go](../../internal/config/tuning.go) (`L5Common`)
 - Runtime mapping:
   - [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go) (`TrackerConfigFromTuning`)
-  - Tracker wiring in [cmd/radar/radar.go](../../cmd/radar/radar.go)
+  - Tracker wiring in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)
 
 ### L1 sensor and data source
 
@@ -342,7 +342,7 @@ rather than mathematical source).
   - `flush_interval`
   - `background_flush`
 - Runtime mapping:
-  - Pipeline/bootstrap in [cmd/radar/radar.go](../../cmd/radar/radar.go)
+  - Pipeline/bootstrap in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)
   - Background flusher in [internal/lidar/l3grid/background_flusher.go](../../internal/lidar/l3grid/background_flusher.go)
 - Note: per-engine `enable_diagnostics` lives inside the engine block (e.g. `l3.ema_baseline_v1.enable_diagnostics`), not at the pipeline level.
 

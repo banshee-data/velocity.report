@@ -12,7 +12,7 @@ surfaces, and data model shims.
 
 ## Core vs non-core
 
-**Core:** [cmd/radar](../../../cmd/radar) binary and its API serving path, database migration/query
+**Core:** [internal/cmd/server](../../../internal/cmd/server) binary and its API serving path, database migration/query
 paths, web app on `:8080`.
 
 **Non-core/candidates:** Legacy deployment wrappers, one-off migration binaries,

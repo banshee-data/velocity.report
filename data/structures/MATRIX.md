@@ -33,7 +33,7 @@ report pipeline is documented separately in §11 as reference inventory.
 
 ## 1. HTTP API endpoints: radar / main server
 
-**Source:** [cmd/radar/radar.go](../../cmd/radar/radar.go), [internal/api/server.go](../../internal/api/server.go), [internal/api/server_admin.go](../../internal/api/server_admin.go), [internal/api/server_charts.go](../../internal/api/server_charts.go), [internal/api/server_reports.go](../../internal/api/server_reports.go), [internal/api/server_sites.go](../../internal/api/server_sites.go)
+**Source:** [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go), [internal/api/server.go](../../internal/api/server.go), [internal/api/server_admin.go](../../internal/api/server_admin.go), [internal/api/server_charts.go](../../internal/api/server_charts.go), [internal/api/server_reports.go](../../internal/api/server_reports.go), [internal/api/server_sites.go](../../internal/api/server_sites.go)
 
 | Folder                             | File                | Endpoint                             | DB  | Web | Mac |
 | ---------------------------------- | ------------------- | ------------------------------------ | --- | --- | --- |
@@ -705,9 +705,9 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 
 | Binary                      | Location                                                                                         | Consumers                                         |
 | --------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| `velocity-report`           | [cmd/radar/radar.go](../../cmd/radar/radar.go)                                                   | Full server: API, DB, serial, LiDAR pipeline      |
-| `velocity-sweep`            | [cmd/sweep/main.go](../../cmd/sweep/main.go)                                                     | LiDAR monitor, sweep engine, PCAP replay          |
-| `velocity-ctl`              | [cmd/velocity-ctl/main.go](../../cmd/velocity-ctl/main.go)                                       | Device management: upgrade, rollback, backup      |
+| `velocity-report`           | [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)                               | Full server: API, DB, serial, LiDAR pipeline      |
+| `velocity-sweep`            | [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go)                                   | LiDAR monitor, sweep engine, PCAP replay          |
+| `velocity-ctl`              | [internal/cmd/device/main.go](../../internal/cmd/device/main.go)                                 | Device management: upgrade, rollback, backup      |
 | `gen-vrlog`                 | [cmd/tools/gen-vrlog/main.go](../../cmd/tools/gen-vrlog/main.go)                                 | Synthetic VRLOG generation (no DB)                |
 | `vrlog-analyse`             | [cmd/tools/vrlog-analyse/main.go](../../cmd/tools/vrlog-analyse/main.go)                         | VRLOG file analysis and comparison                |
 | `visualiser-server`         | [cmd/tools/visualiser-server/main.go](../../cmd/tools/visualiser-server/main.go)                 | Standalone gRPC (synthetic/replay/live)           |

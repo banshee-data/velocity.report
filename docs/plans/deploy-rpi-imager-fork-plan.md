@@ -210,7 +210,7 @@ If `--check` is passed, only step 1 runs and the result is printed. If
 
 ##### Implementation scope for v0.5.1
 
-New binary at [cmd/velocity-ctl/](../../cmd/velocity-ctl) (~500 lines). This replaces `cmd/deploy/`
+New binary at [internal/cmd/device/](../../internal/cmd/device) (~500 lines). This replaces `cmd/deploy/`
 entirely: no SSH surface, no remote execution, no install/fix/config
 subcommands. Only the on-device capabilities that matter:
 
@@ -576,8 +576,8 @@ the `velocity.report` monorepo:
 | Image CI workflow       | [.github/workflows/build-image.yml](../../.github/workflows/build-image.yml)                                                                         | Triggered by monorepo releases                                     |
 | systemd service file    | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) | Canonical source                                                   |
 | udev rules              | [image/stage-velocity/03-velocity-config/files/](../../image/stage-velocity/03-velocity-config/files)                                                | Device permission rules                                            |
-| Management binary       | [cmd/velocity-ctl/](../../cmd/velocity-ctl)                                                                                                          | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
-| LiDAR network config    | [image/stage-velocity/04-velocity-lidar/files/lidar-network.conf](../../image/stage-velocity/04-velocity-lidar/files/lidar-network.conf)             | Static IP for 192.168.100.x subnet (disabled by default)           |
+| Management binary       | [internal/cmd/device/](../../internal/cmd/device)                                                                                                    | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
+| LiDAR network config    | [internal/cmd/device/files/lidar-network.conf](../../internal/cmd/device/files/lidar-network.conf)                                                   | Static IP for 192.168.100.x subnet (disabled by default)           |
 
 ---
 
@@ -622,7 +622,7 @@ the `velocity.report` monorepo:
 ## 8. Deploy tool replacement: `velocity-ctl`
 
 `cmd/deploy/` (the `velocity-deploy` binary) is **deleted in v0.5.1** and
-replaced by [cmd/velocity-ctl/](../../cmd/velocity-ctl) (the `velocity-ctl` binary). This is a clean
+replaced by [internal/cmd/device/](../../internal/cmd/device) (the `velocity-ctl` binary). This is a clean
 break, not a gradual deprecation: there are no existing image users to
 migrate, and shipping both binaries creates a limbo state where two tools
 with overlapping names do different things.

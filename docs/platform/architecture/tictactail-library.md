@@ -411,7 +411,7 @@ Applications should have very little code around TicTacTail:
 ```text
 pkg/tictactail/             # all heavy logic
 internal/lidar/vrreport/    # projector + config only
-cmd/radar/radar.go          # dispatch only
+internal/cmd/server/radar.go          # dispatch only
 ```
 
 Minimal integration creates a `tictactail.Engine` with a `Config` struct:

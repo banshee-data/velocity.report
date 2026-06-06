@@ -399,7 +399,7 @@ flowchart TB
 
 **Key Modules**:
 
-- **[cmd/radar/](cmd/radar)** - Main server entry point
+- **[internal/cmd/server/](internal/cmd/server)** - Main server entry point
   - Sensor data collection (radar/LiDAR)
   - HTTP API server
   - Background task scheduler

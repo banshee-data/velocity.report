@@ -324,7 +324,7 @@ labelling UI.
 
 - Add `hintTuner *HINTTuner` field to `WebServer`.
 - Wire dependencies (analysisRunManager, analysisRunStore, replayCaseStore,
-  groundTruthScorer) in [cmd/radar/radar.go](../../../cmd/radar/radar.go).
+  groundTruthScorer) in [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go).
 - Register routes with `mux.HandleFunc`.
 
 ### Phase 3: dashboard UI; third mode
@@ -532,7 +532,7 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] `GET /api/lidar/sweep/hint`: poll current `HINTState`
 - [x] `POST /api/lidar/sweep/hint/continue`: signal labels done (with threshold check)
 - [x] `POST /api/lidar/sweep/hint/stop`: cancel HINT run
-- [x] Wire `hintTuner` into `WebServer` and [cmd/radar/radar.go](../../../cmd/radar/radar.go)
+- [x] Wire `hintTuner` into `WebServer` and [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
 - [x] Write API handler tests
 
 ### Phase 3: dashboard UI; third mode
@@ -591,7 +591,7 @@ Update the page subtitle and add mode-specific descriptions:
 | [internal/lidar/sweep/hint_test.go](../../../internal/lidar/sweep/hint_test.go)                                                           | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
 | `internal/lidar/monitor/sweep_handlers.go`                                                                                                | **Modify** | Add 4 HINT endpoints (with continue body parsing)                        |
 | `internal/lidar/monitor/webserver.go`                                                                                                     | **Modify** | Wire `hintTuner` field + routes                                          |
-| [cmd/radar/radar.go](../../../cmd/radar/radar.go)                                                                                         | **Modify** | Create `HINTTuner`, inject dependencies                                  |
+| [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)                                                                     | **Modify** | Create `HINTTuner`, inject dependencies                                  |
 | `internal/lidar/monitor/html/sweep_dashboard.html`                                                                                        | **Modify** | Third mode button, HINT config/progress cards, notification permission   |
 | `internal/lidar/monitor/assets/sweep_dashboard.js`                                                                                        | **Modify** | `setMode` three-way, `handleStartHINT`, `pollHINTStatus`, notifications  |
 | `internal/lidar/monitor/assets/sweep_dashboard.css`                                                                                       | **Modify** | `.hint-mode`, `.hint-only`, `.auto-or-hint` classes                      |

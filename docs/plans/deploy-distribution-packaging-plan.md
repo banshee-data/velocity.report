@@ -26,9 +26,9 @@
 **Tasks:**
 
 1. **Rename and restructure main entry point**
-   - ~~Move [cmd/radar/](../../cmd/radar) → `cmd/velocity-report/`~~ → **Move to `cmd/velocity/` (busybox shape)**; relocate the existing `cmd/radar/*.go` files under `internal/cmd/radar/` and export `Main(args []string)` so the dispatcher can call them.
+   - ~~Move [internal/cmd/server/](../../internal/cmd/server) → `cmd/velocity-report/`~~ → **Move to `cmd/velocity/` (busybox shape)**; relocate the existing `internal/cmd/server/*.go` files under `internal/internal/cmd/server/` and export `Main(args []string)` so the dispatcher can call them.
    - ~~Rename `radar.go` → `main.go` with subcommand dispatcher~~ → New `cmd/velocity/main.go` switches on `filepath.Base(os.Args[0])` first, then on `os.Args[1]`.
-   - Extract server logic to ~~`serve.go`~~ `internal/cmd/radar/`
+   - Extract server logic to ~~`serve.go`~~ `internal/internal/cmd/server/`
    - Keep existing flags; the no-arg invocation still starts the server.
 
 2. **Integrate existing subcommands**
@@ -43,7 +43,7 @@
    - `velocity tune sweep` - Fold sweep into a tuning namespace instead of shipping a sibling binary
 
    ~~Note: upgrade/rollback/backup are handled by `velocity-ctl`
-   ([cmd/velocity-ctl/](../../cmd/velocity-ctl)) which ships as a separate binary. These may be
+   ([internal/cmd/device/](../../internal/cmd/device)) which ships as a separate binary. These may be
    absorbed into `velocity-report` in a future release if eliminating one
    binary is worth the mixed privilege model.~~
 
@@ -103,7 +103,7 @@
    No `serve` keyword needed; the symlink dispatches the no-arg form to the server applet.
 
 6. **Update assets.go**
-   - ~~Move [assets.go](../../assets.go) from root to `cmd/velocity-report/`~~ → Move to `internal/cmd/radar/` (or wherever the radar applet's `Main` lives). The `embed.FS` directives are unchanged; only the package and import paths shift.
+   - ~~Move [assets.go](../../assets.go) from root to `cmd/velocity-report/`~~ → Move to `internal/internal/cmd/server/` (or wherever the radar applet's `Main` lives). The `embed.FS` directives are unchanged; only the package and import paths shift.
    - Update package declaration
    - Fix import paths in server code
 
@@ -524,7 +524,7 @@
 
 **Current Setup:**
 
-/usr/local/bin/velocity-report # Old binary (cmd/radar)
+/usr/local/bin/velocity-report # Old binary (internal/cmd/server)
 /var/lib/velocity-report/sensor_data.db
 **Migration Steps:**
 
@@ -798,7 +798,7 @@ Binary outputs (after build):
 
 ~~velocity.report/
 ├── cmd/
-│ ├── velocity-report/ # Main binary (was cmd/radar)
+│ ├── velocity-report/ # Main binary (was internal/cmd/server)
 │ │ ├── main.go # Subcommand dispatcher
 │ │ ├── serve.go # Server logic
 │ │ ├── pdf.go # PDF wrapper
@@ -829,8 +829,8 @@ velocity.report/
 │   └── main.go                           # argv[0] dispatcher → serve | device | data | report | tune | version
 ├── internal/
 │ ├── cmd/
-│ │ ├── radar/   (was cmd/radar)
-│ │ ├── device/  (public namespace; may reuse cmd/velocity-ctl internals initially)
+│ │ ├── radar/   (was internal/cmd/server)
+│ │ ├── device/  (public namespace; may reuse internal/cmd/device internals initially)
 │ │ ├── data/    (migrate + backfill)
 │ │ ├── report/  (pdf)
 │ │ ├── tune/    (sweep)
@@ -1019,7 +1019,7 @@ These are the right place for service status, service start and stop, restart, a
 
 **⚠️ Minor Breaking Changes**
 
-- [cmd/radar/](../../cmd/radar) moved to `cmd/velocity-report/`
+- [internal/cmd/server/](../../internal/cmd/server) moved to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only cmd/ structure changed)
 

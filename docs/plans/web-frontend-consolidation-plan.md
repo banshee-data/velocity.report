@@ -199,9 +199,9 @@ Update the root `+layout.svelte` to fetch capabilities on load and conditionally
 - [internal/api/server.go](../../internal/api/server.go): new `CapabilitiesProvider` interface, route registration, setter
 - [internal/api/server_admin.go](../../internal/api/server_admin.go): `showCapabilities()` handler
 - [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go): handler tests (4 cases)
-- [cmd/radar/capabilities.go](../../cmd/radar/capabilities.go): `capabilitiesProvider` with mutex-protected state transitions
-- [cmd/radar/capabilities_test.go](../../cmd/radar/capabilities_test.go): provider tests (6 cases)
-- [cmd/radar/radar.go](../../cmd/radar/radar.go): wire capabilities provider into API server startup
+- [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go): `capabilitiesProvider` with mutex-protected state transitions
+- [internal/cmd/server/capabilities_test.go](../../internal/cmd/server/capabilities_test.go): provider tests (6 cases)
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): wire capabilities provider into API server startup
 - [web/src/lib/api.ts](../../web/src/lib/api.ts): `Capabilities`, `LidarCapability` types and `getCapabilities()` function
 - [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts): 3 test cases for `getCapabilities()`
 - [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts): polling store with derived `lidarEnabled`/`lidarState`
@@ -322,7 +322,7 @@ Once all HTML dashboards are migrated to Svelte, consolidate the LiDAR API endpo
 
 - [internal/api/server.go](../../internal/api/server.go): absorb LiDAR API routes
 - `internal/lidar/monitor/webserver.go`: remove HTML serving, retain API handlers
-- [cmd/radar/radar.go](../../cmd/radar/radar.go): remove 8081 HTTP server setup
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): remove 8081 HTTP server setup
 - [web/vite.config.ts](../../web/vite.config.ts): remove split proxy
 - `docs/`: update deployment and architecture docs
 
@@ -364,10 +364,10 @@ Checklist:
 
 - [x] Define the capabilities schema and state machine (disabled, starting, ready, error) and document the contract in `docs/`.
   - Schema: `Capabilities { radar: bool, lidar: { enabled, state }, lidar_sweep: bool }`; see [internal/api/server.go](../../internal/api/server.go).
-  - States: `disabled → starting → ready → error`; see [cmd/radar/capabilities.go](../../cmd/radar/capabilities.go).
+  - States: `disabled → starting → ready → error`; see [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go).
 - [x] Implement a backend LiDAR lifecycle manager that can start/stop LiDAR pipelines without interrupting radar logging/stream.
-  - `capabilitiesProvider` in [cmd/radar/capabilities.go](../../cmd/radar/capabilities.go) with mutex-protected state transitions.
-  - Wired in [cmd/radar/radar.go](../../cmd/radar/radar.go): radar server construction is decoupled from LiDAR state.
+  - `capabilitiesProvider` in [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go) with mutex-protected state transitions.
+  - Wired in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): radar server construction is decoupled from LiDAR state.
 - [x] Implement `/api/capabilities` (or extend `/api/config`) with unit tests for default values and hardware-off scenarios.
   - Handler: [internal/api/server_admin.go](../../internal/api/server_admin.go); `showCapabilities()`.
   - Tests: [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go); 4 test cases (default, ready, error, method-not-allowed).

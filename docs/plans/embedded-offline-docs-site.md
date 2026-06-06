@@ -98,7 +98,7 @@ That keeps the privacy boundary intact, preserves site-specific styling, and sto
 
 ### Where the route lives
 
-A new package `internal/docsite/` owns the embed and the HTTP handler. `cmd/radar/radar.go` mounts that handler on the existing API/frontend mux at `/docs/`.
+A new package `internal/docsite/` owns the embed and the HTTP handler. `internal/cmd/server/radar.go` mounts that handler on the existing API/frontend mux at `/docs/`.
 
 | Flag            | Default | Purpose                                       |
 | --------------- | ------- | --------------------------------------------- |
@@ -241,7 +241,7 @@ This is the **only** supported dev mode. Authors should not need to start a Go p
 `eleventy --serve` is a fast loop, not a faithful one. The following classes of bug will pass cleanly under `dev-docs-offline` and only surface in a full `make build-radar-local` or in CI. A developer working on integration plumbing must run the full build:
 
 1. **`go:embed` directive correctness.** A typo in `//go:embed all:docs_html/_site` (missing `all:`, wrong path, trailing slash mistake) compiles and runs cleanly when the embed FS is empty — Go does not error on an empty match for `embed.FS`. Eleventy serve never touches the embed. **Catch:** Milestone 1 integration tests must assert `len(fs.ReadDir(embedded, "."))) > 0` at startup.
-2. **`/docs/` route wiring.** Whether `cmd/radar/radar.go` mounts the handler on the main mux and preserves the API/frontend routes around it. Eleventy serve runs on `:8093` from Node and tells you nothing about the Go side.
+2. **`/docs/` route wiring.** Whether `internal/cmd/server/radar.go` mounts the handler on the main mux and preserves the API/frontend routes around it. Eleventy serve runs on `:8093` from Node and tells you nothing about the Go side.
 3. **Coexistence with `:8080` and `:50051`.** Route conflicts, graceful shutdown ordering on SIGTERM, and partial-failure behaviour when the disk docs source is unavailable. Eleventy is alone in its address space.
 4. **`embed.FS` vs `os.DirFS` path semantics.** `embed.FS` is rooted at the import path, uses forward slashes always, and treats the prefix differently from `os.DirFS`. A handler that works against `os.DirFS("docs_html/_site")` may serve `/index.html` from the wrong subtree when switched to `embed.FS`. The `--docs-source=disk` knob exists for runtime A/B but the default ship path is embed.
 5. **Go-side content-type defaults and 404 handling.** `http.FileServer` infers content types from extensions and returns its own 404 page. Eleventy serve uses Browsersync defaults. The two will differ on (a) `.svg` content-type, (b) directory-index behaviour for paths without trailing slash, (c) the body of a 404 response. Operator UX wants the Go behaviour validated.
@@ -278,7 +278,7 @@ The existing `build-radar-linux` etc. should call `build-docs-offline` as a prer
 
 ### Stub fallback for fresh clones
 
-`docs_html/stub-index.html` ships in-tree; `scripts/ensure-docs-stub.sh` (modelled on `ensure-web-stub.sh`) copies it to `docs_html/_site/index.html` if no build has been run. This keeps `go build ./cmd/radar` green for any developer who hasn't installed Node.
+`docs_html/stub-index.html` ships in-tree; `scripts/ensure-docs-stub.sh` (modelled on `ensure-web-stub.sh`) copies it to `docs_html/_site/index.html` if no build has been run. This keeps `go build ./internal/cmd/server` green for any developer who hasn't installed Node.
 
 ### CI gate
 
@@ -409,7 +409,7 @@ Milestone 1 comprised the original Phase 1, Phase 2, and Phase 3 work, plus the 
 
 - New package `internal/docsite/` (`docsite.go`, `docsite_test.go`).
 - Embed declared at the repo root in `assets.go`: `//go:embed all:docs_html/_site` → `var DocsSiteFiles embed.FS`. The `docsite` package consumes it via `fs.Sub(radar.DocsSiteFiles, "docs_html/_site")`.
-- New flag wired in `cmd/radar/radar.go`:
+- New flag wired in `internal/cmd/server/radar.go`:
   - `--docs-source` (`embed` default, `disk` for dev iteration)
 - The docs handler is mounted on the main HTTP mux at `/docs/`; no separate docs port is opened.
 - All Go CI jobs and Makefile test targets that compile code now run `scripts/ensure-docs-stub.sh` after `ensure-web-stub.sh`, so the embed pattern always matches at least one file (the stub on a clean tree, the real site after a build).

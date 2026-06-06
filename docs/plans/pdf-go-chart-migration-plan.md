@@ -32,7 +32,7 @@ the unified `velocity-report` binary.
 - **Phase 4a:** Implemented in `internal/api/server_reports_generate.go`. The handler now branches on `VELOCITY_PDF_BACKEND=go`, builds `report.Config`, calls `report.Generate`, validates both PDF and ZIP paths, preserves `db.SiteReport` creation, and returns the same JSON response shape as the Python path. Current tests cover Go-path selection, Python fallback, config mapping, and relative-path hardening.
 - **Phase 4b:** Implemented in `internal/api/server_charts.go` and registered in `internal/api/server.go`. Time-series, histogram, and comparison SVG handlers are present and have request/response tests.
 - **Live verification on 2026-04-21:** Against the running dev server on `http://127.0.0.1:8080`, `GET /api/charts/timeseries`, `GET /api/charts/histogram`, and `GET /api/charts/comparison` each returned `200` with `Content-Type: image/svg+xml` and an `<svg` root for site `1` over `2025-05-02` to `2025-05-30`. `POST /api/generate_report` for the same site/range returned `200` with the expected `report_id`, `pdf_path`, and `zip_path` response fields.
-- **Phase 4c:** A `velocity-report pdf` subcommand already exists in `cmd/radar/pdf.go`, and `cmd/radar/pdf_test.go` now covers flag validation, version output, config parsing, and output-dir override behaviour. This plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target, so the implementation exists but the plan and packaging details have drifted.
+- **Phase 4c:** A `velocity-report pdf` subcommand already exists in `internal/cmd/server/pdf.go`, and `internal/cmd/server/pdf_test.go` now covers flag validation, version output, config parsing, and output-dir override behaviour. This plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target, so the implementation exists but the plan and packaging details have drifted.
 - **Phase 9:** Completed on this branch. `Generate()` is now split into pipeline phases (`planRun`, `loadData`, `renderCharts`, `buildTemplateData`, `writeTex`, `compilePDF`, `packageOutput`), chart materialisation is centralised in `chartArtifact`, table styling is centralised in `withStyledTable`, archive writers share `writeEntries`, and font embedding now has a single canonical source (`internal/report/chart/assets/fonts.go`).
 - **Frontend/report parity:** The dashboard and report generator now both render preview charts through `InlineSvgChart` backed by `/api/charts/*`, and `web/src/lib/reportRequests.ts` centralises report payload construction for both surfaces. `web/src/lib/reportRequests.test.ts` covers fresh-settings parity, stale-settings fallback, and comparison payload fields.
 
@@ -129,7 +129,7 @@ This round-trip is eliminated in the new design.
 
 ### Package layout
 
-Current code note: the shipped CLI entrypoint lives in `cmd/radar/pdf.go` and the SVG HTTP handlers live in `internal/api/server_charts.go`. The tree below remains the intended D-09 end-state, not the exact current file layout.
+Current code note: the shipped CLI entrypoint lives in `internal/cmd/server/pdf.go` and the SVG HTTP handlers live in `internal/api/server_charts.go`. The tree below remains the intended D-09 end-state, not the exact current file layout.
 
 ```
 internal/report/
@@ -666,7 +666,7 @@ New file: `internal/api/server_charts.go`.
 
 > **Risk level: very low.** New binary entrypoint; zero changes to HTTP server.
 
-Current code status: implemented as `cmd/radar/pdf.go`; this plan's original target path and `build-pdf-tool` packaging step have not been reconciled.
+Current code status: implemented as `internal/cmd/server/pdf.go`; this plan's original target path and `build-pdf-tool` packaging step have not been reconciled.
 
 - [x] `velocity-report pdf --config report.json [--output ./out] [--db path/to/db.sqlite]`
 - [x] Parse config JSON into `report.Config`.
@@ -674,7 +674,7 @@ Current code status: implemented as `cmd/radar/pdf.go`; this plan's original tar
 - [x] Call `report.Generate(ctx, db, cfg)`.
 - [x] Print PDF path on success; exit `1` with error on failure.
 - [x] Reads `VELOCITY_TEX_ROOT` via the same underlying `report.Generate` environment handling.
-- [x] Plan aligned: CLI lives in `cmd/radar/pdf.go` wired from `cmd/radar/radar.go`; `cmd/velocity-report/` was never created and is not needed. No separate `build-pdf-tool` target is required.
+- [x] Plan aligned: CLI lives in `internal/cmd/server/pdf.go` wired from `internal/cmd/server/radar.go`; `cmd/velocity-report/` was never created and is not needed. No separate `build-pdf-tool` target is required.
 
 **Phase 4c acceptance:** CLI exists, is unit-tested, and plan/code drift is resolved. ✅
 
