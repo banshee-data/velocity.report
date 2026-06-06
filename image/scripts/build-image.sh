@@ -111,7 +111,6 @@ cleanup() {
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     rm -f "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build"
-    rm -f "$IMAGE_DIR/velocity-binaries/VERSION"
 }
 
 # ---------------------------------------------------------------------------
