@@ -26,6 +26,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks; foundational for all subsequent math work: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 - LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening; in progress and load-bearing for replay evaluation: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M` {math}
 - LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness landing first: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
+- Go runtime pipeline correctness Phases 1–2: fix PCAP analysis-mode default/provenance, prevent persisted analysis replay from wall-clock-throttling foreground frames into empty semantic frames, and replace VRLOG load prefix checks with symlink-safe validation; blocks trustworthy replay/HINT output: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `M`
 - Paper-implementation gap remediation P1a (Kalman fixes): K1 (full-Q process noise test), K2 (Joseph-form covariance update); both flagged as Medium-impact mathematical gaps in tracker gating accuracy: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P1b (background + tracker metrics): B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 
@@ -35,6 +36,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
+- Go runtime pipeline correctness Phases 3–4: define the magnitude-only radar raw-data/transit contract, add the transit worker regression tests, and wire current LiDAR capability lifecycle states before the #430 response-shape redesign: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
 
 ### v0.5.4 - Perception pipeline + extractor foundations (054)
 
