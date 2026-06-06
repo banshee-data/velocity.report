@@ -13,8 +13,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
-- replace xelatex with Typst; delete the 143 MB minimal TeX tree, the build-minimal-texlive scripts, and the `librsvg2-bin`/`fonts-noto-color-emoji`/`fonts-lmodern` apt deps; PDF parity job runs both pipelines for one release: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `L`
-- in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/`; image ships zero Tailscale state until operator opts in via the web UI: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `M`
+- replace xelatex with Typst; delete the 143 MB minimal TeX tree, the build-minimal-texlive scripts, the `00-install-packages/01-run.sh` TeX build stage, and the `texlive-xetex`/`texlive-latex-extra`/`fonts-lmodern`/`librsvg2-bin`/`fonts-noto-color-emoji` apt deps from `00-packages`; PDF parity job runs both pipelines for one release: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `L`
+- in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` — which also removes the on-demand `curl` install it now carries for the keyring fetch (#519 dropped `curl` from `00-packages`; this takes it out of the image entirely); image ships zero Tailscale state until operator opts in via the web UI: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `M`
+- `velocity data sql --read-only` operator inspection subcommand (read-only queries, explicit file target, row/output limits); drop the `sqlite3` apt dep from `00-packages` once it lands: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
+- (v0.5.2) remove the one-release `velocity-ctl` deprecation shim: the `/usr/local/bin/velocity-ctl` symlink (image stage 01), the transitional `velocity-ctl *` sudoers grant (stage 03), and the deprecation-warning path in `cmd/velocity/main.go`: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
 - [#503] Opt-in Tailscale ACL roles: consume Tailscale capability grants to derive admin/view access for the web UI while keeping LAN access fully privileged by default `S`
 
 ### v0.5.2 - LiDAR measurement + replay foundations (052)

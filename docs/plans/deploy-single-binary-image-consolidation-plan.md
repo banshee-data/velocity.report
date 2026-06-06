@@ -313,6 +313,34 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 - [ ] CI: image stage smoke test that the bind on `:80` works in a chroot before export (`S`)
 - [ ] Docs: Typst source-archive migration note (deferred with work unit C)
 
+### Follow-on image cleanup (gated on B / C / sqlite, and the shim window)
+
+Work units A + E (subset) shipped (#519) but left the apt surface and the
+`velocity-ctl` shim in a deliberately transitional state. Each item below is
+unblocked by a specific later landing and **should be done in the same change
+that lands it**, not separately:
+
+- [ ] **When work unit B (in-binary Tailscale installer) lands:** delete
+      `image/stage-velocity/07-velocity-tailscale/` _and_ the on-demand
+      `apt-get install … curl` it now carries. `curl` was dropped from
+      `00-packages` in #519 but stage 07 still installs it on demand for the
+      keyring fetch; deleting the stage removes `curl` from the image entirely.
+- [ ] **When work unit C (Typst) lands:** drop `texlive-xetex`,
+      `texlive-latex-extra`, `fonts-lmodern`, `librsvg2-bin`, and
+      `fonts-noto-color-emoji` from `00-install-packages/00-packages`; delete the
+      `00-install-packages/01-run.sh` minimal-TeX build stage and
+      `scripts/build-minimal-texlive.sh` / `scripts/install-minimal-texlive.sh`.
+- [ ] **When work unit E remainder (`velocity data sql --read-only`) lands:**
+      drop `sqlite3` from `00-packages`.
+- [ ] **One release after #519 ships (v0.5.2):** remove the `velocity-ctl`
+      deprecation shim — the `/usr/local/bin/velocity-ctl` symlink (image stage
+      01), the transitional `velocity-ctl *` sudoers grant (stage 03), and the
+      deprecation-warning path in `cmd/velocity/main.go`.
+
+Once all four land, the `00-packages` end-state is just `libpcap0.8` +
+`raspi-config`, and the only operator-facing binary name is `velocity`
+(`velocity-report` survives only as the systemd-facing alias).
+
 ### Deferred
 
 - [ ] CGo binding to the Typst Rust crate — explicitly rejected; build-system tax is not worth it.
