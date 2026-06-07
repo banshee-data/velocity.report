@@ -5,9 +5,7 @@ A comprehensive parameter sweep tool that combines the functionality of `bg-swee
 ## Build
 
 ```bash
-go build -o app-sweep ./internal/cmd/tune
-# or
-make tools-local
+make build-velocity
 ```
 
 ## Usage modes
@@ -17,7 +15,7 @@ make tools-local
 Test all combinations of noise, closeness, and neighbour parameters:
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=multi \
   -noise=0.005,0.01,0.02 \
   -closeness=1.5,2.0,2.5 \
@@ -30,7 +28,7 @@ Test all combinations of noise, closeness, and neighbour parameters:
 #### Noise sweep (fix closeness and neighbour)
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=noise \
   -noise-start=0.005 \
   -noise-end=0.03 \
@@ -42,7 +40,7 @@ Test all combinations of noise, closeness, and neighbour parameters:
 #### Closeness sweep (fix noise and neighbour)
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=closeness \
   -closeness-start=1.5 \
   -closeness-end=3.0 \
@@ -54,7 +52,7 @@ Test all combinations of noise, closeness, and neighbour parameters:
 #### Neighbour sweep (fix noise and closeness)
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=neighbor \
   -neighbor-start=0 \
   -neighbor-end=3 \
@@ -68,7 +66,7 @@ Test all combinations of noise, closeness, and neighbour parameters:
 Run sweeps using PCAP file replay instead of live data:
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=multi \
   -pcap=/path/to/lidar-data.pcap \
   -pcap-settle=20s \
@@ -137,13 +135,13 @@ The tool generates two CSV files:
 ### Quick multi-parameter sweep (live data)
 
 ```bash
-./app-sweep -mode=multi -noise=0.01,0.02 -closeness=2.0,2.5 -neighbors=1,2 -iterations=10
+./velocity tune sweep -mode=multi -noise=0.01,0.02 -closeness=2.0,2.5 -neighbors=1,2 -iterations=10
 ```
 
 ### Detailed noise sweep with PCAP
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=noise \
   -pcap=/Users/david/code/sensor_data/lidar/break-80k.pcapng \
   -noise-start=0.005 \
@@ -158,7 +156,7 @@ The tool generates two CSV files:
 ### Full parameter space exploration
 
 ```bash
-./app-sweep \
+./velocity tune sweep \
   -mode=multi \
   -noise=0.005,0.0075,0.01,0.015,0.02 \
   -closeness=1.5,2.0,2.5,3.0 \
@@ -176,7 +174,7 @@ The tool generates two CSV files:
 ./app-bg-sweep -start=0.01 -end=0.3 -step=0.01
 
 # New:
-./app-sweep -mode=noise -noise-start=0.01 -noise-end=0.3 -noise-step=0.01 \
+./velocity tune sweep -mode=noise -noise-start=0.01 -noise-end=0.3 -noise-step=0.01 \
   -fixed-closeness=2.0 -fixed-neighbor=1
 ```
 
@@ -188,7 +186,7 @@ The tool generates two CSV files:
   -closeness=2.0,3.0 -neighbors=1,2
 
 # New:
-./app-sweep -mode=multi \
+./velocity tune sweep -mode=multi \
   -noise=0.01,0.015,0.02 -closeness=2.0,3.0 -neighbors=1,2
 ```
 
@@ -199,7 +197,7 @@ The tool generates two CSV files:
 ./app-pcap-sweep -pcap=/path/to/file.pcap -samples=5 -settle=5s
 
 # New:
-./app-sweep -mode=multi -pcap=/path/to/file.pcap \
+./velocity tune sweep -mode=multi -pcap=/path/to/file.pcap \
   -iterations=5 -pcap-settle=5s \
   -noise=0.005,0.01,0.02 -closeness=1.5,2.0,2.5 -neighbors=0,1,2
 ```

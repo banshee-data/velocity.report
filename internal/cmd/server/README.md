@@ -1,49 +1,39 @@
-# Radar binary (single-binary model)
+# Server applet (single-binary model)
 
-This project uses a single `radar` binary which runs the radar serial monitor, HTTP API server, and (optionally) in-process LiDAR components when `--enable-lidar` is passed. All LiDAR functionality is integrated behind flags.
-
-## Build
-
-```bash
-# Build the radar binary (includes optional LiDAR components)
-go build ./internal/cmd/server
-```
+The server applet is mounted under the unified `velocity` binary. It runs the radar serial monitor, HTTP API server, and optionally in-process LiDAR components when `--enable-lidar` is passed. All LiDAR functionality is integrated behind flags.
 
 ## Build
 
 ```bash
-# Build radar
-go build ./internal/cmd/server
-
-# Build lidar (standalone)
-go build ./cmd/lidar
+# Build the unified binary
+make build-velocity
 ```
 
 ## Run
 
 ```bash
 # Run the radar server (serve DB and HTTP UI, talk to serial port):
-./radar
+./velocity serve
 
 # Run without hardware (serve DB/UI only):
-./radar --disable-radar
+./velocity serve --disable-radar
 
 # Run in debug mode with a mocked serial port (useful for development):
-./radar --debug
+./velocity serve --debug
 
 # Force precompiled PDF LaTeX flow (minimal TeX tree):
-./radar --disable-radar --pdf-latex-flow precompiled --pdf-tex-root /opt/velocity-report/texlive-minimal
+./velocity serve --disable-radar --pdf-latex-flow precompiled --pdf-tex-root /opt/velocity-report/texlive-minimal
 
 # Force full system LaTeX flow (unset VELOCITY_TEX_ROOT):
-./radar --disable-radar --pdf-latex-flow full
+./velocity serve --disable-radar --pdf-latex-flow full
 
 # Enable in-process LiDAR components (UDP listener + forwarder):
-./radar --enable-lidar --lidar-listen :8081
+./velocity serve --enable-lidar --lidar-listen :8081
 ```
 
 ## Command-line flags
 
-The radar binary exposes several CLI flags (see `internal/cmd/server/radar.go` for exact defaults). Key options are listed below.
+The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` for exact defaults). Key options are listed below.
 
 - `--fixture` (bool): Load fixture data into the local DB instead of opening a serial port.
 - `--debug` (bool): Run in debug mode (uses a mock serial mux and enables extra debug logging).
@@ -102,7 +92,7 @@ Runtime switching lets you replay captures without special startup flags:
 3. **Start the server** with LiDAR enabled (no dedicated PCAP mode required):
 
    ```bash
-   ./radar --enable-lidar --lidar-pcap-dir ../sensor_data/lidar
+   ./velocity serve --enable-lidar --lidar-pcap-dir ../sensor_data/lidar
    ```
 
 4. **Switch to PCAP** via the API:

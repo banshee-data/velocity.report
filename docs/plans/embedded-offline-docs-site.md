@@ -278,7 +278,7 @@ The existing `build-radar-linux` etc. should call `build-docs-offline` as a prer
 
 ### Stub fallback for fresh clones
 
-`docs_html/stub-index.html` ships in-tree; `scripts/ensure-docs-stub.sh` (modelled on `ensure-web-stub.sh`) copies it to `docs_html/_site/index.html` if no build has been run. This keeps `go build ./internal/cmd/server` green for any developer who hasn't installed Node.
+`docs_html/stub-index.html` ships in-tree; `scripts/ensure-docs-stub.sh` (modelled on `ensure-web-stub.sh`) copies it to `docs_html/_site/index.html` if no build has been run. This keeps `make build-velocity` / `go build ./cmd/velocity` green for any developer who hasn't installed Node.
 
 ### CI gate
 
