@@ -50,6 +50,7 @@ def test_image_binary_build_paths_use_single_velocity_artifact():
 
 def test_image_runtime_defaults_use_scoped_sudo_and_embedded_tuning_defaults():
     stage_script = (ROOT / "image" / "stage-velocity" / "03-velocity-config" / "00-run.sh").read_text()
+    cleanup_script = (ROOT / "image" / "stage-velocity" / "06-cleanup" / "00-run.sh").read_text()
     service_unit = (
         ROOT
         / "image"
@@ -61,6 +62,9 @@ def test_image_runtime_defaults_use_scoped_sudo_and_embedded_tuning_defaults():
 
     assert "rm -f /etc/sudoers.d/010_pi-nopasswd" in stage_script
     assert "/etc/sudoers.d/020_velocity-nopasswd" in stage_script
+    assert "rm -f /etc/sudoers.d/010_pi-nopasswd" in cleanup_script
+    assert "cancel-rename pi 2>/dev/null || true" in cleanup_script
+    assert "rm -f /etc/systemd/system/getty@tty1.service.d/userconf.conf" in cleanup_script
     assert "--config /opt/velocity-report/config/tuning.defaults.json" not in service_unit
     assert (
         "ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db"
