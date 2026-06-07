@@ -377,6 +377,33 @@ func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 	}
 }
 
+func TestRunUpgradeCheckOnlyWithLocalBinaryRefusesApply(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+	runner := &fakeRunner{}
+
+	seedVersion(t, cfg, "0.5.1", "old-binary")
+	linkVersion(t, cfg, currentName, "0.5.1")
+
+	newBinary := filepath.Join(tmp, "new-binary")
+	if err := os.WriteFile(newBinary, []byte("new-binary-data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	m := NewManager(cfg, nil, runner, &out, &out)
+	err := m.RunUpgrade(true, newBinary)
+	if err == nil || !strings.Contains(err.Error(), "cannot combine check-only") {
+		t.Fatalf("expected check-only/local-binary error, got: %v", err)
+	}
+	if got := currentVersion(t, cfg); got != "0.5.1" {
+		t.Fatalf("current changed despite check-only local upgrade: got %s", got)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("check-only local upgrade should not run commands, got: %#v", runner.calls)
+	}
+}
+
 func TestRunUpgradeNoVersionInJSON(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
@@ -631,6 +658,41 @@ func TestApplyVersionedUpgradeInstallFailure(t *testing.T) {
 	}
 }
 
+func TestApplyVersionedUpgradeMigrationFailureLeavesCurrentUnchanged(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+	seedVersion(t, cfg, "0.5.1", "old")
+	linkVersion(t, cfg, currentName, "0.5.1")
+
+	newBinary := filepath.Join(tmp, "new-binary")
+	if err := os.WriteFile(newBinary, []byte("new"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	newBin := filepath.Join(cfg.InstallRoot, versionsSubdir, "0.5.2", cfg.BinaryName)
+	runner := &fakeRunner{
+		fails: map[string]error{
+			newBin + " data migrate": errors.New("migration failed"),
+		},
+	}
+	var out bytes.Buffer
+	m := NewManager(cfg, nil, runner, &out, &out)
+
+	err := m.applyVersionedUpgrade("0.5.2", newBinary)
+	if err == nil || !strings.Contains(err.Error(), "current version left unchanged") {
+		t.Fatalf("expected migration failure preserving current, got: %v", err)
+	}
+	if got := currentVersion(t, cfg); got != "0.5.1" {
+		t.Fatalf("current should remain 0.5.1 after failed migration, got %s", got)
+	}
+	if _, err := os.Lstat(filepath.Join(cfg.InstallRoot, previousName)); !os.IsNotExist(err) {
+		t.Fatalf("previous symlink should not be created before activation, got err=%v", err)
+	}
+	if joined := strings.Join(runner.calls, "\n"); strings.Contains(joined, "systemctl") {
+		t.Fatalf("migration failure should not restart service, got calls: %#v", runner.calls)
+	}
+}
+
 func TestPruneRetainsNewestAndProtected(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
@@ -708,6 +770,27 @@ func TestFetchLatestReleasePrereleaseChannel(t *testing.T) {
 	}
 	if ver != "0.6.0-pre1" {
 		t.Fatalf("expected prerelease version 0.6.0-pre1, got: %s", ver)
+	}
+}
+
+func TestFetchLatestReleasePrereleaseFlagKeepsNewerStable(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(channelsJSON("0.6.0", "0.5.2-pre1")))
+	}))
+	defer server.Close()
+
+	cfg.ReleaseMetaURL = server.URL
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+	ver, _, _, err := m.fetchLatestRelease(true)
+	if err != nil {
+		t.Fatalf("fetchLatestRelease(true) failed: %v", err)
+	}
+	if ver != "0.6.0" {
+		t.Fatalf("expected newer stable version 0.6.0, got: %s", ver)
 	}
 }
 

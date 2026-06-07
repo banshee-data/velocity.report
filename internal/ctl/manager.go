@@ -227,6 +227,9 @@ func (m *Manager) RunCheck(opts UpgradeOptions) error {
 
 func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts UpgradeOptions) error {
 	if binaryFile != "" {
+		if checkOnly {
+			return fmt.Errorf("cannot combine check-only mode with a local binary upgrade")
+		}
 		return m.applyLocalBinary(binaryFile)
 	}
 
@@ -569,7 +572,7 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 	}
 	if includePrereleases {
 		pre, err := pickAsset(meta.Prerelease, m.cfg.GOOS, m.cfg.GOARCH)
-		if err == nil && pre.Version != "" {
+		if err == nil && pre.Version != "" && releaseAssetIsNewer(pre, asset) {
 			asset = pre
 		}
 	}
@@ -580,6 +583,23 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 		return "", "", "", fmt.Errorf("release %s has no download URL for %s/%s", asset.Version, m.cfg.GOOS, m.cfg.GOARCH)
 	}
 	return asset.Version, asset.URL, asset.SHA256, nil
+}
+
+func releaseAssetIsNewer(candidate, current releaseAsset) bool {
+	if current.Version == "" {
+		return true
+	}
+
+	candidateSV, candidateOK := parseSemver(candidate.Version)
+	currentSV, currentOK := parseSemver(current.Version)
+	switch {
+	case candidateOK && currentOK:
+		return compareSemver(candidateSV, currentSV) > 0
+	case candidateOK != currentOK:
+		return candidateOK
+	default:
+		return candidate.Version > current.Version
+	}
 }
 
 // pickAsset returns the asset for the caller's platform. The device manager
