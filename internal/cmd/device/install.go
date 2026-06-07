@@ -30,10 +30,22 @@ type installComponent struct {
 	mode os.FileMode
 }
 
+type componentWriter struct {
+	mkdirAll  func(string, os.FileMode) error
+	writeFile func(string, []byte, os.FileMode) error
+	chmod     func(string, os.FileMode) error
+}
+
 var installComponents = map[string]installComponent{
 	"network": {lidarNetworkConf, "/etc/network/interfaces.d/lidar", 0o644},
 	"udev":    {udevRadarRules, "/etc/udev/rules.d/99-velocity-report.rules", 0o644},
 	"wifi":    {wpaSupplicantConf, "/etc/wpa_supplicant/wpa_supplicant.conf", 0o600},
+}
+
+var defaultComponentWriter = componentWriter{
+	mkdirAll:  os.MkdirAll,
+	writeFile: os.WriteFile,
+	chmod:     os.Chmod,
 }
 
 func installUsage() string {
@@ -48,6 +60,10 @@ func installUsage() string {
 // runInstall writes an embedded deploy component to its canonical path. It is
 // idempotent: a second call rewrites the file and re-applies the mode.
 func runInstall(args []string) error {
+	return runInstallWithRoot(args, "")
+}
+
+func runInstallWithRoot(args []string, root string) error {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	handled, err := parseCommandFlags(fs, args)
 	if err != nil {
@@ -67,7 +83,7 @@ func runInstall(args []string) error {
 		return fmt.Errorf("unknown component %q: %s", name, installUsage())
 	}
 
-	if err := writeComponent(c, ""); err != nil {
+	if err := writeComponent(c, root); err != nil {
 		return err
 	}
 	fmt.Printf("installed %s -> %s\n", name, c.dest)
@@ -78,14 +94,18 @@ func runInstall(args []string) error {
 // non-empty root is used by tests). Parent directories are created and the file
 // mode is enforced even when the file already exists.
 func writeComponent(c installComponent, root string) error {
+	return writeComponentWith(c, root, defaultComponentWriter)
+}
+
+func writeComponentWith(c installComponent, root string, writer componentWriter) error {
 	dest := filepath.Join(root, c.dest)
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+	if err := writer.mkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("creating %s: %w", filepath.Dir(dest), err)
 	}
-	if err := os.WriteFile(dest, c.data, c.mode); err != nil {
+	if err := writer.writeFile(dest, c.data, c.mode); err != nil {
 		return fmt.Errorf("writing %s: %w", dest, err)
 	}
-	if err := os.Chmod(dest, c.mode); err != nil {
+	if err := writer.chmod(dest, c.mode); err != nil {
 		return fmt.Errorf("chmod %s: %w", dest, err)
 	}
 	return nil

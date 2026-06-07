@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var openReadOnlySQL = sql.Open
+
 // ErrReadOnlyRowLimit is returned by ReadOnlyQuery when output was truncated at
 // the requested row limit. It is not a failure: the rows up to the limit have
 // already been written.
@@ -29,7 +31,7 @@ var ErrReadOnlyRowLimit = errors.New("row limit reached")
 // non-fatal truncation rather than a query failure.
 func ReadOnlyQuery(dbPath, query string, limit int, out io.Writer) (int, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=query_only(1)&_pragma=busy_timeout(5000)"
-	conn, err := sql.Open("sqlite", dsn)
+	conn, err := openReadOnlySQL("sqlite", dsn)
 	if err != nil {
 		return 0, fmt.Errorf("open %s: %w", dbPath, err)
 	}
@@ -41,6 +43,17 @@ func ReadOnlyQuery(dbPath, query string, limit int, out io.Writer) (int, error) 
 	}
 	defer rows.Close()
 
+	return writeReadOnlyRows(rows, limit, out)
+}
+
+type readOnlyRows interface {
+	Columns() ([]string, error)
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}
+
+func writeReadOnlyRows(rows readOnlyRows, limit int, out io.Writer) (int, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return 0, err

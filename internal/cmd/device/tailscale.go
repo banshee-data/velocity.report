@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+type tailscaleActions struct {
+	enable  func() error
+	disable func() error
+}
+
 // runTailscale handles `velocity device tailscale enable-tailscaled|disable-tailscaled`.
 //
 // These subcommands exist so the velocity-report server (running as the
@@ -31,9 +36,20 @@ import (
 // modified PATH (sudo's secure_path notwithstanding) cannot redirect
 // us to a hostile drop-in.
 func runTailscale(args []string) error {
+	return runTailscaleWithActions(args, tailscaleActions{
+		enable:  enableTailscaled,
+		disable: disableTailscaled,
+	})
+}
+
+func runTailscaleWithActions(args []string, actions tailscaleActions) error {
 	fs := flag.NewFlagSet("tailscale", flag.ContinueOnError)
-	if err := fs.Parse(args); err != nil {
+	handled, err := parseCommandFlags(fs, args)
+	if err != nil {
 		return err
+	}
+	if handled {
+		return nil
 	}
 	rest := fs.Args()
 	if len(rest) == 0 {
@@ -41,9 +57,9 @@ func runTailscale(args []string) error {
 	}
 	switch rest[0] {
 	case "enable-tailscaled":
-		return enableTailscaled()
+		return actions.enable()
 	case "disable-tailscaled":
-		return disableTailscaled()
+		return actions.disable()
 	default:
 		return fmt.Errorf("unknown tailscale subcommand: %s", rest[0])
 	}
