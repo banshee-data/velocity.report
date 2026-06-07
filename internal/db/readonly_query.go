@@ -30,6 +30,9 @@ var ErrReadOnlyRowLimit = errors.New("row limit reached")
 // returned error is ErrReadOnlyRowLimit; callers should treat that as a
 // non-fatal truncation rather than a query failure.
 func ReadOnlyQuery(dbPath, query string, limit int, out io.Writer) (int, error) {
+	if strings.ContainsAny(dbPath, "?#") {
+		return 0, fmt.Errorf("invalid db path %q: must not contain '?' or '#'", dbPath)
+	}
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=query_only(1)&_pragma=busy_timeout(5000)"
 	conn, err := openReadOnlySQL("sqlite", dsn)
 	if err != nil {
