@@ -68,15 +68,8 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
-      - name: Build web stub for embed
-        run: ./scripts/ensure-web-stub.sh
-
-      - name: Build offline docs stub for embed
-        run: ./scripts/ensure-docs-stub.sh
-
       - name: Build binary
-        run: |
-          go build -tags=pcap -o velocity-local ./cmd/velocity
+        run: make build-velocity
 
   test-core:
     name: "🧪 Test Core"
@@ -160,6 +153,7 @@ jobs:
         run: |
           go test -race -tags=pcap -p 2 -coverprofile=coverage-lidar.out -covermode=atomic \
             ./internal/lidar/... \
+            ./internal/cmd/root/... \
             ./internal/cmd/server/... \
             ./internal/cmd/tune/... \
             ./cmd/velocity/...
