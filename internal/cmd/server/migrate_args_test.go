@@ -40,3 +40,24 @@ func TestParseMigrateCommandArgsRejectsUnknownFlags(t *testing.T) {
 		t.Fatal("expected error for unknown migrate flag")
 	}
 }
+
+func TestResolveDataCommandDBPathUsesApplianceDBForImplicitDefault(t *testing.T) {
+	got := resolveDataCommandDBPathWith(defaultRuntimeDBPath, true)
+	if got != deployedRuntimeDBPath {
+		t.Fatalf("resolveDataCommandDBPathWith(default, appliance=true) = %q, want %q", got, deployedRuntimeDBPath)
+	}
+}
+
+func TestResolveDataCommandDBPathPreservesLocalDefaultOffAppliance(t *testing.T) {
+	got := resolveDataCommandDBPathWith(defaultRuntimeDBPath, false)
+	if got != defaultRuntimeDBPath {
+		t.Fatalf("resolveDataCommandDBPathWith(default, appliance=false) = %q, want %q", got, defaultRuntimeDBPath)
+	}
+}
+
+func TestResolveDataCommandDBPathPreservesExplicitPath(t *testing.T) {
+	got := resolveDataCommandDBPathWith("/tmp/custom.db", true)
+	if got != "/tmp/custom.db" {
+		t.Fatalf("resolveDataCommandDBPathWith(explicit, appliance=true) = %q, want explicit path", got)
+	}
+}

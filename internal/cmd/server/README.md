@@ -37,7 +37,7 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
 
 - `--fixture` (bool): Load fixture data into the local DB instead of opening a serial port.
 - `--debug` (bool): Run in debug mode (uses a mock serial mux and enables extra debug logging).
-- `--db-path` (string): Path to SQLite DB file (default: `sensor_data.db`). Use this when your DB file lives outside the current working directory (for example, systemd services).
+- `--db-path` (string): Path to SQLite DB file (default: `sensor_data.db`). Use this when your DB file lives outside the current working directory (for example, systemd services). On the installed appliance, `velocity data migrate ...` and `velocity data sql ...` default to `/var/lib/velocity-report/sensor_data.db` when `--db-path` is omitted.
 - `--listen` (string): HTTP listen address for the API server (default: `127.0.0.1:8080`, loopback only — a safe default that does not expose the server). The shipped image passes `--listen :80` to bind all interfaces as the non-root `velocity` user via `CAP_NET_BIND_SERVICE`; local dev (`make dev-go`) uses `:8080`. HTTPS is an opt-in via Tailscale Serve, not a bundled reverse proxy.
 - `--port` (string): Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--debug` or `--disable-radar`.
 - `--units` (string): Display units (mps, mph, kmph). Default: `mph`.
@@ -159,7 +159,7 @@ To visualise incoming LiDAR data, forward packets to LidarView's listening port 
 
 ## Command & DB notes
 
-- The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API. You can override the DB location by passing `--db-path /path/to/your.db` when starting the binary (this is how production systemd units should point the service at `/var/lib/velocity-report/sensor_data.db`).
+- The radar binary uses a single SQLite DB file by default (`sensor_data.db`) and exposes admin routes via the HTTP API. You can override the DB location by passing `--db-path /path/to/your.db` when starting the binary (this is how production systemd units should point the service at `/var/lib/velocity-report/sensor_data.db`). On the installed appliance, the operator-facing `velocity data migrate ...` and `velocity data sql ...` commands automatically target `/var/lib/velocity-report/sensor_data.db` when `--db-path` is omitted.
 - When `--disable-radar` is set, a `DisabledSerialMux` keeps the HTTP/DB APIs available while disabling serial I/O.
 - When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and will persist background snapshots into the `lidar_bg_snapshot` table if the manager was constructed with a DB-backed `BgStore`.
 

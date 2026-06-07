@@ -46,3 +46,23 @@ def test_image_binary_build_paths_use_single_velocity_artifact():
     assert '"$BINARIES_DIR/velocity"' in build_script
     assert '"$BINARIES_DIR/velocity-report"' not in build_script
     assert '"$BINARIES_DIR/velocity-ctl"' not in build_script
+
+
+def test_image_runtime_defaults_use_scoped_sudo_and_embedded_tuning_defaults():
+    stage_script = (ROOT / "image" / "stage-velocity" / "03-velocity-config" / "00-run.sh").read_text()
+    service_unit = (
+        ROOT
+        / "image"
+        / "stage-velocity"
+        / "03-velocity-config"
+        / "files"
+        / "velocity-report.service"
+    ).read_text()
+
+    assert "rm -f /etc/sudoers.d/010_pi-nopasswd" in stage_script
+    assert "/etc/sudoers.d/020_velocity-nopasswd" in stage_script
+    assert "--config /opt/velocity-report/config/tuning.defaults.json" not in service_unit
+    assert (
+        "ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db"
+        in service_unit
+    )

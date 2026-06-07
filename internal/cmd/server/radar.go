@@ -63,13 +63,19 @@ var (
 	unitsFlag    = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
 	disableRadar = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag   = serveFlags.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
+	dbPathFlag   = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
 	pdfLatexFlow = serveFlags.String("pdf-latex-flow", "inherit", "PDF LaTeX flow: inherit, precompiled, or full")
 	pdfTexRoot   = serveFlags.String("pdf-tex-root", "", "TeX root for precompiled PDF flow (sets VELOCITY_TEX_ROOT)")
 	versionFlag  = serveFlags.Bool("version", false, "Print version information and exit")
 	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
 	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
 	logLevel     = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+)
+
+const (
+	defaultRuntimeDBPath       = "sensor_data.db"
+	deployedRuntimeDBPath      = "/var/lib/velocity-report/sensor_data.db"
+	deployedVelocityBinaryPath = "/opt/velocity-report/current/velocity"
 )
 
 func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
@@ -106,6 +112,34 @@ func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, str
 	}
 
 	return positionals, dbPath, explicitDBPath, nil
+}
+
+func resolveDataCommandDBPath(configured string) string {
+	return resolveDataCommandDBPathWith(configured, installedApplianceLayoutPresent())
+}
+
+func resolveDataCommandDBPathWith(configured string, installedAppliance bool) string {
+	trimmed := strings.TrimSpace(configured)
+	if trimmed == "" || trimmed != defaultRuntimeDBPath || !installedAppliance {
+		return trimmed
+	}
+	return deployedRuntimeDBPath
+}
+
+func installedApplianceLayoutPresent() bool {
+	if _, err := os.Stat(deployedVelocityBinaryPath); err == nil {
+		return true
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	cleanExe := filepath.Clean(exe)
+	return strings.HasPrefix(cleanExe, "/opt/velocity-report/versions/") && strings.HasSuffix(cleanExe, "/velocity")
 }
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -390,7 +424,7 @@ func Main(args []string) int {
 			// migrate command itself now echoes the resolved absolute DB target
 			// and refuses to create a stray DB for non-bootstrap actions (see
 			// db.RunMigrateCommand), so main() no longer needs it here.
-			migrateArgs, migrateDBPath, _, err := parseMigrateCommandArgs(remainingArgs, *dbPathFlag)
+			migrateArgs, migrateDBPath, _, err := parseMigrateCommandArgs(remainingArgs, resolveDataCommandDBPath(*dbPathFlag))
 			if err != nil {
 				log.Fatalf("Could not parse migrate flags: %v. Run 'velocity-report migrate help' for usage", err)
 			}

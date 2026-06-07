@@ -18,7 +18,7 @@ import (
 func runSQL(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("data sql", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	dbPath := fs.String("db-path", "sensor_data.db", "path to the SQLite database file")
+	dbPath := fs.String("db-path", resolveDataCommandDBPath(defaultRuntimeDBPath), "path to the SQLite database file")
 	readOnly := fs.Bool("read-only", true, "read-only access (enforced; the only supported mode)")
 	limit := fs.Int("limit", 100, "maximum number of rows to print (<= 0 means no limit)")
 	fs.Usage = func() {

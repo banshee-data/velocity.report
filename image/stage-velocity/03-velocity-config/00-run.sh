@@ -57,6 +57,10 @@ velocity ALL=(root) NOPASSWD: \
 SUDOEOF
 chmod 440 /etc/sudoers.d/020_velocity-nopasswd
 
+# Drop the stock pi-gen fragment that grants the login user full passwordless
+# root; the scoped allowlist above is the intended appliance sudo surface.
+rm -f /etc/sudoers.d/010_pi-nopasswd
+
 # Add login user to velocity group for read access to sensor data
 usermod -aG velocity pi
 CHEOF
