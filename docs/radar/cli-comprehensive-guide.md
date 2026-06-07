@@ -1,6 +1,6 @@
 # CLI reference guide
 
-Complete reference for the `velocity-report` and `velocity-ctl` command-line interfaces as currently implemented: all flags, subcommands, HTTP endpoints, and Makefile targets.
+Complete reference for the unified `velocity` command-line interface as currently implemented: namespaces, flags, subcommands, HTTP endpoints, and Makefile targets. `velocity` is a single multi-call binary; `velocity-report` is retained only as a server-oriented compatibility alias (it dispatches straight to the `serve` surface).
 
 For the proposed CLI restructuring plan (subcommand hierarchy, API versioning, config file support), see [cli-restructuring-plan.md](../plans/cli-restructuring-plan.md).
 
@@ -16,11 +16,21 @@ For the proposed CLI restructuring plan (subcommand hierarchy, API versioning, c
 
 ## Overview
 
-velocity.report consists of multiple CLI applications:
+velocity.report ships **one multi-call binary**, `velocity`, dispatched on `os.Args[0]` and the first argument into namespaces:
 
-- **1 main application** (`velocity-report`): production service with radar, optional LiDAR integration, HTTP API, and transit worker
-- **3 utility applications**: device management (`velocity-ctl`), parameter sweep testing (`sweep`), and elevation backfill
-- **100+ Makefile targets**: build, test, deploy, and development tasks
+| Namespace          | Purpose                                                                           | Backed by                                        |
+| ------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `velocity serve`   | Run the radar/LiDAR server (HTTP API, transit worker)                             | [internal/cmd/server](../../internal/cmd/server) |
+| `velocity device`  | On-device lifecycle: check, upgrade, rollback, backup, status, tailscale, install | [internal/cmd/device](../../internal/cmd/device) |
+| `velocity data`    | Database operations: `migrate`, `transits`, `sql`                                 | [internal/cmd/server](../../internal/cmd/server) |
+| `velocity report`  | Generate PDF reports: `pdf`                                                       | [internal/cmd/server](../../internal/cmd/server) |
+| `velocity tune`    | Parameter tuning: `sweep`                                                         | [internal/cmd/tune](../../internal/cmd/tune)     |
+| `velocity version` | Print version information                                                         | [internal/version](../../internal/version)       |
+| `velocity help`    | Top-level usage                                                                   | [internal/cmd/root](../../internal/cmd/root)     |
+
+Compatibility alias: `velocity-report [serve flags]` (and suffixed dev/release artefact names like `velocity-report-local`) routes to the server surface. The former separate binaries — `velocity-ctl`, `sweep`, and the `velocity-update` redirect stub — no longer exist; their functions are namespaces above.
+
+- **100+ Makefile targets**: build, test, and development tasks
 - **Multiple HTTP APIs**: radar API (`:8080`), LiDAR monitor (`:8081`), admin routes (`/debug/`)
 
 This document covers what exists and works today.
@@ -29,7 +39,7 @@ This document covers what exists and works today.
 
 ## Current state inventory
 
-### 1. Radar binary ([internal/cmd/server](../../internal/cmd/server))
+### 1. Server namespace — `velocity serve` ([internal/cmd/server](../../internal/cmd/server))
 
 **Description:** Main production service that runs radar serial monitoring, HTTP API server, and optional lidar components.
 
@@ -41,14 +51,18 @@ This document covers what exists and works today.
 
 ```bash
 # Production mode
-velocity-report --db-path /var/lib/velocity-report/sensor_data.db
+velocity serve --db-path /var/lib/velocity-report/sensor_data.db
 
 # Development (no hardware)
-velocity-report --disable-radar --debug
+velocity serve --disable-radar --debug
 
 # With lidar enabled
-velocity-report --enable-lidar --lidar-listen :8081
+velocity serve --enable-lidar --lidar-listen :8081
 ```
+
+> The systemd unit and the `velocity-report` compatibility alias invoke this
+> surface directly: `velocity-report --db-path …` is equivalent to
+> `velocity serve --db-path …`.
 
 #### CLI flags
 
@@ -114,16 +128,24 @@ velocity-report --enable-lidar --lidar-listen :8081
 
 Background subtraction parameters (flush interval, noise threshold, frame buffer timeout, min frame points, seed behaviour) are configured via the [tuning config file](../../config/CONFIG.md), not CLI flags.
 
-#### Subcommands
+#### Data & report subcommands
 
-- `version` - Print version information
-- `migrate <action>` - Database migration operations (delegates to internal/db)
+The server binary also backs the `data` and `report` namespaces (the dispatcher
+forwards `velocity data …` and `velocity report …` here):
+
+- `velocity data migrate <action>` - Database migration operations (delegates to internal/db)
   - Actions: `up`, `down`, `status`, `detect`, `version`, `force`, `baseline`
   - Accepts `--db-path` flag
-- `transits <action>` - Transit session management
+- `velocity data transits <action>` - Transit session management
   - `analyse` - Analyse transit sessions for a time range
   - `delete` - Delete transit sessions
   - `migrate` - Backfill transits from historical radar data
+- `velocity data sql [--db-path <file>] [--limit N] "<SQL>"` - Run a single
+  **read-only** query for operator inspection (replaces the dropped `sqlite3`
+  package). Read-only is enforced (`mode=ro`); `--read-only=false` is rejected.
+  Defaults: `--limit 100`, `--db-path` resolves the runtime database.
+- `velocity report pdf --config report.json --db sensor_data.db --output ./reports` - Generate a PDF report
+- `velocity version` - Print version information
 
 #### HTTP endpoints served
 
@@ -225,7 +247,7 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 ---
 
-### 2. Sweep binary ([internal/cmd/tune](../../internal/cmd/tune))
+### 2. Tune namespace — `velocity tune sweep` ([internal/cmd/tune](../../internal/cmd/tune))
 
 **Description:** Parameter sweep utility for testing lidar background model with different configurations.
 
@@ -237,13 +259,13 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 ```bash
 # Multi-parameter sweep
-sweep --mode multi --output results.csv
+velocity tune sweep --mode multi --output results.csv
 
 # Noise-only sweep
-sweep --mode noise --noise-start 0.005 --noise-end 0.03
+velocity tune sweep --mode noise --noise-start 0.005 --noise-end 0.03
 
 # PCAP replay mode
-sweep --pcap recording.pcap --pcap-settle 20s
+velocity tune sweep --pcap recording.pcap --pcap-settle 20s
 ```
 
 #### CLI flags
@@ -295,12 +317,13 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 ---
 
-### 3. Device management binary ([internal/cmd/device](../../internal/cmd/device))
+### 3. Device namespace — `velocity device` ([internal/cmd/device](../../internal/cmd/device))
 
-> **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary.
-> See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
+> **Note:** this namespace replaces the former standalone `velocity-ctl` binary
+> (itself the successor to the deleted `velocity-deploy`). There is no
+> `velocity-ctl` shim — invoke `velocity device …` directly.
 
-**Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status; no SSH, no remote targets.
+**Description:** On-device management for velocity.report installations. Handles upgrade checks, upgrades, rollback, backup, status, the Tailscale toggle, and writing embedded deploy files; no SSH, no remote targets. Always runs as root on-device.
 
 **Mode:** Interactive CLI tool (subcommand-based)
 
@@ -309,35 +332,42 @@ sweep --pcap recording.pcap --pcap-settle 20s
 #### Quick start examples
 
 ```bash
-# Check status
-sudo velocity-ctl status
+# Is a newer release available? (read-only, no download)
+sudo velocity device check
 
-# Upgrade to latest release
-sudo velocity-ctl upgrade
+# Upgrade to latest release (versioned install + atomic symlink swap)
+sudo velocity device upgrade
 
-# Rollback to previous version
-sudo velocity-ctl rollback
+# Rollback to the previous version (one atomic swap)
+sudo velocity device rollback
+
+# Show service status
+sudo velocity device status
 ```
 
 #### Subcommands
 
-**`upgrade`**: Download and install latest release from GitHub
+**`check`**: Report whether a newer release is available (read-only; no download). Equivalent to `upgrade --check`.
 
-**`rollback`**: Revert to previous binary version
+**`upgrade`**: Check for and apply new releases. Stages the new binary under `/opt/velocity-report/versions/<v>/`, backs up the database (consistent `VACUUM INTO` snapshot), migrates with the new binary, then swaps the `current` symlink atomically (`renameat2`) and restarts the service. Flags: `--check` (compare only), `--binary <file>` (apply a local binary for an offline upgrade).
 
-**`backup`**: Back up database and configuration
+**`rollback`**: Revert to the previous version via a single atomic symlink swap. Does **not** down-migrate the database — restore the matching backup if the current version applied a forward-incompatible migration.
 
-**`--output .`**: Output directory for backup
+**`backup`**: Snapshot binary + database. `--output <dir>` sets the backup directory.
 
-**`status`**: Show service status and version info
+**`status`**: Show service status and version info.
 
-**`version`**: Show velocity-ctl version
+**`tailscale <enable-tailscaled|disable-tailscaled>`**: Manage the `tailscaled` lifecycle. Invoked via a narrow sudoers grant by the web UI toggle, not usually by hand.
+
+**`install <network|udev|wifi>`**: Write an embedded deploy file to its canonical system path (`/etc/network/interfaces.d/lidar`, `/etc/udev/rules.d/99-velocity-report.rules`, or `/etc/wpa_supplicant/wpa_supplicant.conf`). Idempotent; used by the image build stages.
+
+**`version`**: Print version information.
 
 ---
 
 ### 4. Transit backfill (removed)
 
-> Transit backfill functionality is now part of the main binary via the `velocity-report transits migrate` subcommand. The standalone `transit-backfill` binary has been deleted.
+> Transit backfill functionality is now part of the main binary via the `velocity data transits migrate` subcommand. The standalone `transit-backfill` binary has been deleted.
 
 ---
 
@@ -368,15 +398,14 @@ backfill_ring_elevations --db sensor_data.db
 
 ### Makefile targets (101 total)
 
-**Build Targets (15):**
+**Build Targets:**
 
-- `build-radar-linux` - Cross-compile for ARM64 Linux (Raspberry Pi) with pcap
-- `build-radar-mac` - Build for macOS ARM64
-- `build-radar-mac-intel` - Build for macOS Intel
-- `build-radar-local` - Local development build with pcap
-- `build-tools` - Build utility tools
-- `build-ctl` - Build velocity-ctl binary
-- `build-ctl-linux` - Cross-compile velocity-ctl for Linux ARM64
+- `build-velocity` - Build the single multi-call `velocity` binary (→ `./velocity`)
+- `build-velocity-linux` - Cross-compile `velocity` for ARM64 Linux (Raspberry Pi)
+- `build-velocity-mac` / `build-velocity-mac-intel` - Build `velocity` for macOS ARM64 / Intel
+- `build-radar-local` - Local development build with pcap (→ `./velocity-report-local`)
+- `build-radar-linux` / `build-radar-mac` / `build-radar-mac-intel` - Compatibility aliases for the `build-velocity-*` targets
+- `build-ctl` / `build-ctl-linux` / `build-tools` - Compatibility aliases that build the same `velocity` binary (no separate `velocity-ctl`)
 - `build-web` - Build Svelte web frontend
 - `build-docs` - Build documentation site
 
@@ -418,13 +447,10 @@ backfill_ring_elevations --db sensor_data.db
 - `migrate-force` - Force migration to specific version
 - `migrate-baseline` - Set baseline for existing DB
 
-**Deployment Targets (5):**
-
-- `deploy-install` - Install on remote host
-- `deploy-upgrade` - Upgrade remote installation
-- `deploy-status` - Check remote status
-- `deploy-health` - Check remote health
-- `setup-radar` - Setup radar hardware
+> **Deployment targets removed:** `deploy-install`, `deploy-upgrade`,
+> `deploy-status`, `deploy-health`, and `setup-radar` (and the `cmd/deploy`
+> tool) were deleted in v0.5.1. On-device lifecycle is now `velocity device …`
+> (run on the Pi); there is no host-to-device push tool.
 
 **Installation Targets (4):**
 
@@ -465,11 +491,11 @@ open http://localhost:8080/app/
 # Build for Raspberry Pi
 make build-radar-linux
 
-# On the Pi: upgrade using velocity-ctl
-sudo velocity-ctl upgrade
+# On the Pi: upgrade using the device namespace
+sudo velocity device upgrade
 
 # Check status
-sudo velocity-ctl status
+sudo velocity device status
 ```
 
 #### PDF report generation
@@ -491,7 +517,7 @@ curl -X POST http://localhost:8080/api/generate_report \
 
 ```bash
 # Multi-parameter sweep
-sweep \
+velocity tune sweep \
   --mode multi \
   --noise 0.01,0.02,0.03 \
   --closeness 1.5,2.0,2.5 \
@@ -516,8 +542,8 @@ make plot-multisweep INPUT=sweep-results.csv
 
 - **Production:** Use `--db-path /var/lib/velocity-report/sensor_data.db`
 - **Development:** Default `./sensor_data.db` is fine <!-- link-ignore -->
-- **Backup:** Use `/debug/backup` endpoint or `velocity-ctl backup` command
-- **Migrations:** Always run `migrate status` before upgrading
+- **Backup:** Use `/debug/backup` endpoint or `velocity device backup` command
+- **Migrations:** Always run `velocity data migrate status` before upgrading
 
 **Port Usage:**
 

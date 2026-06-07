@@ -1,9 +1,9 @@
 # Remote host upgrade runbook
 
 This runbook upgrades an already-installed `velocity.report` host over SSH
-without using `velocity-ctl` or the removed legacy `velocity-deploy` tool.
-It is written for an interactive VS Code agent running in Ask mode on the
-target host.
+without using the on-device `velocity device upgrade` flow or the removed
+legacy `velocity-deploy` tool. It is written for an interactive VS Code agent
+running in Ask mode on the target host.
 
 ## Goal
 
@@ -453,20 +453,29 @@ Lessons learned from real upgrades:
 
 ### `migrate --db-path` flag ordering
 
-Go's `flag.FlagSet` stops parsing at the first non-flag positional argument.
-The migrate subcommand uses a secondary FlagSet, so `--db-path` must appear
-**between** `migrate` and the sub-command (`status` / `up`):
+On **v0.5.1+** binaries the migrate parser recognises `--db-path` in **any**
+position, so both of these are equivalent and correct. The canonical `data`
+namespace is shown; the `velocity-report migrate …` compatibility alias behaves
+identically:
 
 ```bash
-# Correct — flag is parsed:
-velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db up
-
-# WRONG — flag is silently ignored, falls back to ./sensor_data.db:
-velocity-report migrate up --db-path /var/lib/velocity-report/sensor_data.db
+velocity data migrate up --db-path /var/lib/velocity-report/sensor_data.db
+velocity data migrate --db-path /var/lib/velocity-report/sensor_data.db up
 ```
 
-The wrong form creates a stray database in the current working directory and
-reports migrations as up-to-date while the real database remains untouched.
+**Pre-0.5.1** binaries used a `flag.FlagSet` that stopped at the first
+positional argument, so `--db-path` had to appear **between** `migrate` and the
+sub-command. If the pre-upgrade guardrail checks are still hitting an older
+binary, keep the flag before the action:
+
+```bash
+# Pre-0.5.1 only — flag must precede the action:
+velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db up
+```
+
+On a pre-0.5.1 binary the after-action form silently falls back to
+`./sensor_data.db`, creating a stray database in the working directory while the
+real database is left untouched. v0.5.1+ removed this footgun.
 
 ### Tuning config required
 
@@ -501,8 +510,8 @@ You do NOT have direct terminal access. Your job is:
 5. Stop and ask if any guardrail condition is triggered.
 6. Read the Known Pitfalls section before generating any migrate commands.
 
-Upgrade this host to TARGET_REF=<tag-or-sha> without using velocity-ctl
-or the removed legacy velocity-deploy tool.
+Upgrade this host to TARGET_REF=<tag-or-sha> without using the on-device
+velocity device upgrade flow or the removed legacy velocity-deploy tool.
 NEW_BIN is at <path-to-binary-on-host>.
 Preserve the existing systemd service configuration unless a mismatch forces a
 decision.

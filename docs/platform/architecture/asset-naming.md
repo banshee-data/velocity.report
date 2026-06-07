@@ -113,8 +113,8 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 | RPi image               | `{dt}-velocity-report-{v}-{sha7}.img.xz` |
 | macOS visualiser DMG    | `{dt}-VelocityVisualiser-{v}-{sha7}.dmg` |
 
-Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
-because they are never published.
+The local dev build (`build-radar-local` → `velocity-report-local`) keeps a
+short name because it is never published.
 
 ## Version validity analysis
 
