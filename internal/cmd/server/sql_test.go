@@ -134,3 +134,13 @@ func TestRunSQLEmptyQuery(t *testing.T) {
 		t.Fatalf("expected exit 2 for an empty query, got %d", code)
 	}
 }
+
+func TestRunSQLFlagParseError(t *testing.T) {
+	code, _, errs := runSQLCapture([]string{"--not-a-real-flag"})
+	if code != 2 {
+		t.Fatalf("expected exit 2 for invalid flag, got %d", code)
+	}
+	if !strings.Contains(errs, "flag provided but not defined") {
+		t.Fatalf("expected flag error, got %q", errs)
+	}
+}
