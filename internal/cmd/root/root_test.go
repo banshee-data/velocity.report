@@ -1,6 +1,7 @@
 package root
 
 import (
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -20,11 +21,9 @@ func runDispatch(t *testing.T, prog string, args []string) (code int, stdout, st
 	_ = wErr.Close()
 	os.Stdout, os.Stderr = oldOut, oldErr
 
-	outBuf := make([]byte, 8192)
-	nOut, _ := rOut.Read(outBuf)
-	errBuf := make([]byte, 8192)
-	nErr, _ := rErr.Read(errBuf)
-	return code, string(outBuf[:nOut]), string(errBuf[:nErr])
+	outBuf, _ := io.ReadAll(rOut)
+	errBuf, _ := io.ReadAll(rErr)
+	return code, string(outBuf), string(errBuf)
 }
 
 func TestDispatchRouting(t *testing.T) {

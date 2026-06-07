@@ -36,7 +36,7 @@ Namespaces:
 Compatibility alias:
   velocity-report   server-oriented alias (serve is the default)
 
-Run 'velocity <namespace> --help' for namespace-specific usage.`
+Run 'velocity help' for this overview.`
 
 // Dispatch routes by program name (prog) and the remaining args. prog is
 // matched by prefix for the velocity-report compatibility alias so suffixed dev
