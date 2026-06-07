@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -686,8 +687,17 @@ func (m *Manager) createBackupTo(baseDir string) (string, error) {
 	}
 
 	if fileExists(m.cfg.DBPath) {
-		if err := copyFile(m.cfg.DBPath, filepath.Join(dest, "sensor_data.db")); err != nil {
-			return "", fmt.Errorf("backing up database: %w", err)
+		dbDst := filepath.Join(dest, "sensor_data.db")
+		// VACUUM INTO captures a consistent snapshot even of a live WAL database
+		// (the service is still running during an upgrade). A plain copy of the
+		// main .db file would be stale or torn, which matters because this backup
+		// is the rollback rescue path. Fall back to a raw copy only if the source
+		// is not a usable SQLite file (e.g. an empty fixture), and say so.
+		if err := db.BackupDatabase(m.cfg.DBPath, dbDst); err != nil {
+			fmt.Fprintf(m.err, "warning: consistent DB backup failed (%v); falling back to a raw file copy\n", err)
+			if err := copyFile(m.cfg.DBPath, dbDst); err != nil {
+				return "", fmt.Errorf("backing up database: %w", err)
+			}
 		}
 	}
 
@@ -773,6 +783,15 @@ func fileExists(path string) bool {
 
 // runMigrations runs `migrate up` using the supplied binary (the newly-staged
 // version), against the live database.
+//
+// Ownership note: the upgrade runs as root. In the normal flow the old service
+// is still running and holds the database open in WAL mode, so the -wal/-shm
+// files already exist and are owned by the `velocity` service user; root's
+// writes append to those existing files without changing ownership, so the
+// service can still write them after the restart. The only way this leaves
+// root-owned WAL files behind is if the service is not running during the
+// upgrade (no -wal to reuse) — operators should not stop the service before
+// `velocity device upgrade`.
 func (m *Manager) runMigrations(binPath string) error {
 	return m.runner.Run(binPath, "data", "migrate", "up", "--db-path", m.cfg.DBPath)
 }
