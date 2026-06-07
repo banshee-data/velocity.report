@@ -91,6 +91,7 @@ help:
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
+	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
 	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
@@ -652,6 +653,7 @@ VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PYTHON_VERSION = 3.12
 PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
+	scripts/test_changed_go_coverage.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
@@ -1009,7 +1011,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1052,6 +1054,10 @@ test-go-coverage-summary:
 	@echo "Computing Go coverage by directory..."
 	@go test -cover ./cmd/... 2>/dev/null | awk '/^ok.*coverage:/ {gsub(/%/, "", $$5); sum+=$$5; count++} END {if (count>0) printf "cmd/      coverage: %.1f%%\n", sum/count; else print "cmd/      coverage: 0.0%"}'
 	@go test -cover ./internal/... 2>/dev/null | awk '/^ok.*coverage:/ {gsub(/%/, "", $$5); sum+=$$5; count++} END {if (count>0) printf "internal/ coverage: %.1f%%\n", sum/count; else print "internal/ coverage: 0.0%"}'
+
+test-go-changed-coverage:
+	@echo "Checking branch-added internal Go file coverage..."
+	@python3 scripts/check_changed_go_coverage.py --run-go-test --threshold 98 --diff-filter=A --include-prefix internal/
 
 # Run web test suite (Jest) using pnpm inside the web directory
 test-web:
