@@ -656,6 +656,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
 	scripts/test_sqlite_erd.py \
+	scripts/test_update_packaging.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
 TEX_MINIMAL_DIR ?= build/texlive-minimal

@@ -193,25 +193,34 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         # Host toolchain — fast path for local iteration.
         # Needs aarch64-linux-gnu-gcc for pcap; falls back to non-pcap.
         # EXTRA_LDFLAGS strips debug symbols for smaller image binaries.
-        log_info "Building ARM64 Go binaries (host toolchain)..."
+        log_info "Building ARM64 Go binary (host toolchain)..."
         export EXTRA_LDFLAGS="-s -w"
-        if make build-radar-linux-pcap 2>/dev/null; then
-            log_info "Built velocity-report with pcap support"
+        if make build-velocity-linux 2>/dev/null; then
+            log_info "Built velocity with pcap support"
         else
             log_warn "pcap cross-compile unavailable; building without pcap"
-            make build-radar-linux
+            GOOS=linux GOARCH=arm64 go build \
+                -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" \
+                -o "${BUILD_TS_COMPACT}-velocity-${VERSION//-/.}-linux-arm64-${GIT_SHA:0:7}" \
+                ./cmd/velocity
         fi
-        make build-ctl-linux
         unset EXTRA_LDFLAGS
 
-        RADAR_BIN=$(ls -t "$REPO_ROOT"/*-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
-        CTL_BIN=$(ls -t "$REPO_ROOT"/*-velocity-ctl-*-linux-arm64-* 2>/dev/null | head -1)
-        if [ -z "$RADAR_BIN" ] || [ -z "$CTL_BIN" ]; then
-            log_error "Could not find timestamped binaries in $REPO_ROOT"
+        VELOCITY_BIN=""
+        for candidate in "$REPO_ROOT"/*-velocity-*-linux-arm64-*; do
+            [ -e "$candidate" ] || continue
+            case "$(basename "$candidate")" in
+                *-velocity-report-*|*-velocity-ctl-*) continue ;;
+            esac
+            if [ -z "$VELOCITY_BIN" ] || [ "$candidate" -nt "$VELOCITY_BIN" ]; then
+                VELOCITY_BIN="$candidate"
+            fi
+        done
+        if [ -z "$VELOCITY_BIN" ]; then
+            log_error "Could not find timestamped velocity binary in $REPO_ROOT"
             exit 1
         fi
-        cp -f "$RADAR_BIN" "$BINARIES_DIR/velocity-report"
-        cp -f "$CTL_BIN" "$BINARIES_DIR/velocity-ctl"
+        cp -f "$VELOCITY_BIN" "$BINARIES_DIR/velocity"
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
         # Use a slim toolchain image plus host-mounted temp caches so the large
