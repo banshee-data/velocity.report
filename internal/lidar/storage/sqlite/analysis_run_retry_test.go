@@ -110,18 +110,17 @@ func TestRetryOnBusy(t *testing.T) {
 	})
 
 	t.Run("exponential backoff timing", func(t *testing.T) {
+		oldSleep := retrySleep
+		defer func() { retrySleep = oldSleep }()
+
 		callCount := 0
 		delays := []time.Duration{}
-		lastCall := time.Now()
+		retrySleep = func(d time.Duration) {
+			delays = append(delays, d)
+		}
 
 		err := retryOnBusy(func() error {
-			now := time.Now()
-			if callCount > 0 {
-				delays = append(delays, now.Sub(lastCall))
-			}
-			lastCall = now
 			callCount++
-
 			if callCount < 3 {
 				return errors.New("database is locked (5) (SQLITE_BUSY)")
 			}
@@ -132,18 +131,14 @@ func TestRetryOnBusy(t *testing.T) {
 			t.Errorf("expected no error, got %v", err)
 		}
 
-		// Verify delays are approximately exponential (with some tolerance)
-		// Expected: 10ms, 20ms
-		if len(delays) != 2 {
-			t.Errorf("expected 2 delays, got %d", len(delays))
+		expected := []time.Duration{10 * time.Millisecond, 20 * time.Millisecond}
+		if len(delays) != len(expected) {
+			t.Fatalf("delays = %v, want %v", delays, expected)
 		}
-
-		// Allow 50% tolerance for timing variations
-		if len(delays) >= 1 && (delays[0] < 5*time.Millisecond || delays[0] > 15*time.Millisecond) {
-			t.Errorf("first delay should be ~10ms, got %v", delays[0])
-		}
-		if len(delays) >= 2 && (delays[1] < 10*time.Millisecond || delays[1] > 30*time.Millisecond) {
-			t.Errorf("second delay should be ~20ms, got %v", delays[1])
+		for i := range expected {
+			if delays[i] != expected[i] {
+				t.Errorf("delay %d = %v, want %v", i, delays[i], expected[i])
+			}
 		}
 	})
 }

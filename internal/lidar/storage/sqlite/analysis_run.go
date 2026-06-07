@@ -356,6 +356,8 @@ func isSQLiteBusy(err error) bool {
 
 // retryOnBusy retries a database operation with exponential backoff on SQLITE_BUSY errors.
 // This handles SQLite's single-writer limitation when multiple goroutines try to write.
+var retrySleep = time.Sleep
+
 func retryOnBusy(operation func() error) error {
 	const maxRetries = 5
 	const baseDelay = 10 * time.Millisecond
@@ -373,7 +375,7 @@ func retryOnBusy(operation func() error) error {
 
 		if attempt < maxRetries-1 {
 			delay := baseDelay * (1 << uint(attempt)) // Exponential backoff: 10ms, 20ms, 40ms, 80ms, 160ms
-			time.Sleep(delay)
+			retrySleep(delay)
 		}
 	}
 
