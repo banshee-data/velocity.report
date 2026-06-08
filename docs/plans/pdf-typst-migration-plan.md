@@ -1,9 +1,12 @@
 # PDF generation via Typst (go-typst)
 
-- **Status:** Draft; awaiting review before implementation
+- **Implementation status (branch `patrickod/go-typst`):** Typst is now the default production engine. `report.GeneratePDF` renders both single-period and comparison reports via Typst (`report.GenerateTypst`), the HTTP API (`/api/generate_report`) and the `velocity report pdf` CLI both call it, and the typst binary is embedded into the velocity binary via the `internal/report/typst/typstbin` package (built with `-tags typst_embed`; the Pi image build downloads + embeds the linux/arm64 binary). The legacy XeLaTeX pipeline remains reachable via `VELOCITY_PDF_ENGINE=tex` during the deprecation window. Remaining: delete the `tex/` templates and the rsvg-convert / TeX Live image dependencies once the Typst output has been signed off in production. Phases 2–4 and 7 (embedding) below are done.
+
+- **Status:** In progress; Typst wired as default, TeX removal pending sign-off
 - **Layers:** Cross-cutting (reporting infrastructure, deployment image)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
+
 - [PDF generation migration to Go](pdf-go-chart-migration-plan.md) (the active plan; this proposal supersedes the LaTeX-based phases)
 - [Pure-Go LaTeX backend (NO-GO)](pdf-pure-go-latex-plan.md) — context for why the LaTeX engine choice matters
 - [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08) — becomes obsolete if Typst is adopted
@@ -24,14 +27,14 @@ single ~30 MB static binary with built-in OpenType font handling, vs the
 
 ## TL;DR
 
-| Question                                          | Answer                                                                                                          |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Does `go-typst` embed a Go-native Typst compiler? | **No.** It shells out to the `typst` CLI (or a Docker container) over stdio.                                    |
+| Question                                          | Answer                                                                                                               |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Does `go-typst` embed a Go-native Typst compiler? | **No.** It shells out to the `typst` CLI (or a Docker container) over stdio.                                         |
 | Can it replace `xelatex` for these reports?       | **Yes** — Typst supports custom fonts (Atkinson Hyperlegible), images (PNG/SVG/PDF), tables, and two-column layouts. |
-| Does it eliminate the TeX Live dependency?        | **Yes.** Replaces TeX Live + XeLaTeX with a single ~30 MB `typst` binary.                                       |
-| Does it eliminate `rsvg-convert`?                 | **Yes** for charts: Typst has native SVG support, no rasterisation step needed.                                 |
-| Is it production-stable?                          | Typst itself is at 0.14.x, used in production by many teams; `go-typst` README warns the API "may change".      |
-| Recommended path                                  | Build a vertical-slice prototype on a feature branch, validate output parity, then commit to a phased migration. |
+| Does it eliminate the TeX Live dependency?        | **Yes.** Replaces TeX Live + XeLaTeX with a single ~30 MB `typst` binary.                                            |
+| Does it eliminate `rsvg-convert`?                 | **Yes** for charts: Typst has native SVG support, no rasterisation step needed.                                      |
+| Is it production-stable?                          | Typst itself is at 0.14.x, used in production by many teams; `go-typst` README warns the API "may change".           |
+| Recommended path                                  | Build a vertical-slice prototype on a feature branch, validate output parity, then commit to a phased migration.     |
 
 ---
 
@@ -85,11 +88,11 @@ Costs to set against this:
 
 The library exposes three "callers" implementing a `typst.Caller` interface:
 
-| Caller       | Use case                                                                  |
-| ------------ | ------------------------------------------------------------------------- |
-| `CLI`        | Invoke a `typst` binary already on the system (or at a custom path).      |
-| `Docker`     | Pull and run the official Typst Docker image automatically.               |
-| `DockerExec` | Run `typst` inside a long-lived named container.                          |
+| Caller       | Use case                                                             |
+| ------------ | -------------------------------------------------------------------- |
+| `CLI`        | Invoke a `typst` binary already on the system (or at a custom path). |
+| `Docker`     | Pull and run the official Typst Docker image automatically.          |
+| `DockerExec` | Run `typst` inside a long-lived named container.                     |
 
 Tested Typst versions: 0.12.0–0.14.2. The library has zero non-stdlib Go
 dependencies.
@@ -322,15 +325,15 @@ internal pipeline changes.
 
 ## Risk register
 
-| Risk                                          | Likelihood | Impact   | Mitigation                                                                                                |
-| --------------------------------------------- | ---------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| Typst pre-1.0 breaking changes                | Medium     | Medium   | Pin to a specific Typst version in CI and on device. `go-typst`'s tested-versions list gives clear bounds. |
-| `go-typst` API churn                          | Low        | Low      | Vendor a thin internal wrapper so we can swap backends; the API surface we use is small.                   |
-| Typst output is not pixel-identical to LaTeX  | High       | Low      | Goal is *equivalent* not identical. Visual review against a frozen reference set in CI.                   |
-| Atkinson Hyperlegible coverage of glyphs      | Low        | Low      | Same font set used today; Typst loads it directly. Validate during Phase 1 prototype.                     |
-| Map SVG renders differently in Typst          | Medium     | Low      | SVG spec coverage is broad in Typst 0.13+; validate as part of map migration phase.                       |
-| Typst binary not available on developer macOS | Low        | Low      | `make install-typst` target; documented in CONTRIBUTING.md.                                               |
-| Two-pipeline coexistence period               | Medium     | Medium   | Keep Python pipeline behind a feature flag during rollout (one release cycle), as the LaTeX plan specifies. |
+| Risk                                          | Likelihood | Impact | Mitigation                                                                                                  |
+| --------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| Typst pre-1.0 breaking changes                | Medium     | Medium | Pin to a specific Typst version in CI and on device. `go-typst`'s tested-versions list gives clear bounds.  |
+| `go-typst` API churn                          | Low        | Low    | Vendor a thin internal wrapper so we can swap backends; the API surface we use is small.                    |
+| Typst output is not pixel-identical to LaTeX  | High       | Low    | Goal is _equivalent_ not identical. Visual review against a frozen reference set in CI.                     |
+| Atkinson Hyperlegible coverage of glyphs      | Low        | Low    | Same font set used today; Typst loads it directly. Validate during Phase 1 prototype.                       |
+| Map SVG renders differently in Typst          | Medium     | Low    | SVG spec coverage is broad in Typst 0.13+; validate as part of map migration phase.                         |
+| Typst binary not available on developer macOS | Low        | Low    | `make install-typst` target; documented in CONTRIBUTING.md.                                                 |
+| Two-pipeline coexistence period               | Medium     | Medium | Keep Python pipeline behind a feature flag during rollout (one release cycle), as the LaTeX plan specifies. |
 
 ---
 

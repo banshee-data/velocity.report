@@ -1,9 +1,8 @@
 # QEMU + Headscale Tailscale Dev VM
 
-**Status:** design
-**Date:** 2026-05-15
-**Owner:** patrickod
-**Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
+- **Status:** design
+- **Owner:** patrickod
+- **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
 
 ## Why this exists
 
@@ -140,23 +139,23 @@ page. The Makefile wraps this into one command.
 
 ## Faithful vs. mocked
 
-| Component                                        | Faithful           | Mocked                                  |
-| ------------------------------------------------ | ------------------ | --------------------------------------- |
-| systemd as PID 1                                 | yes                |                                         |
-| `velocity` system user + literal-argv sudoers    | yes                |                                         |
-| `tailscaled` (upstream apt), masked-by-default   | yes                |                                         |
-| `velocity-ctl tailscale enable-tailscaled` flow  | yes                |                                         |
-| `tailscale set --operator=velocity`              | yes                |                                         |
-| `velocity-report.service` unit                   | yes                |                                         |
-| Tailscale local API socket                       | yes (real daemon)  |                                         |
-| IPN bus subscription + `BrowseToURL`             | yes (real daemon)  |                                         |
-| `WhoIs` peer resolution + cap grants             | yes (via Headscale)|                                         |
-| `tailscale serve` config on :443                 | yes                |                                         |
-| Radar serial (`/dev/ttySC1`)                     |                    | `--radar=false`                         |
-| LiDAR UDP                                        |                    | `--lidar=false`                         |
-| Kernel architecture                              |                    | amd64 host kernel, not ARM64            |
-| Pi-specific hardware (HAT, UART)                 |                    | absent; sensors flagged off             |
-| Tailscale coordination control plane             | yes (Headscale)    | (Headscale ≠ `controlplane.tailscale.com`, but the wire protocol matches) |
+| Component                                       | Faithful            | Mocked                                                                    |
+| ----------------------------------------------- | ------------------- | ------------------------------------------------------------------------- |
+| systemd as PID 1                                | yes                 |                                                                           |
+| `velocity` system user + literal-argv sudoers   | yes                 |                                                                           |
+| `tailscaled` (upstream apt), masked-by-default  | yes                 |                                                                           |
+| `velocity-ctl tailscale enable-tailscaled` flow | yes                 |                                                                           |
+| `tailscale set --operator=velocity`             | yes                 |                                                                           |
+| `velocity-report.service` unit                  | yes                 |                                                                           |
+| Tailscale local API socket                      | yes (real daemon)   |                                                                           |
+| IPN bus subscription + `BrowseToURL`            | yes (real daemon)   |                                                                           |
+| `WhoIs` peer resolution + cap grants            | yes (via Headscale) |                                                                           |
+| `tailscale serve` config on :443                | yes                 |                                                                           |
+| Radar serial (`/dev/ttySC1`)                    |                     | `--radar=false`                                                           |
+| LiDAR UDP                                       |                     | `--lidar=false`                                                           |
+| Kernel architecture                             |                     | amd64 host kernel, not ARM64                                              |
+| Pi-specific hardware (HAT, UART)                |                     | absent; sensors flagged off                                               |
+| Tailscale coordination control plane            | yes (Headscale)     | (Headscale ≠ `controlplane.tailscale.com`, but the wire protocol matches) |
 
 ## Files and layout
 
@@ -404,7 +403,7 @@ without depending on Tailscale semantics:
 2. `id velocity` exits zero inside the VM; the system user is present.
 3. `systemctl is-enabled tailscaled` returns `masked` on first boot.
 4. `sudo -n -u velocity sudo -n -l /usr/local/bin/velocity-ctl
-   tailscale enable-tailscaled` returns the literal argv (sudoers grant
+tailscale enable-tailscaled` returns the literal argv (sudoers grant
    matches argv; `-l` lists permission without executing).
 5. `curl -fsS http://localhost:8080/api/health` returns 200 after push.
 

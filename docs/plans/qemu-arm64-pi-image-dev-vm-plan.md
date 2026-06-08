@@ -1,9 +1,8 @@
 # QEMU + Headscale + pi-gen image (arm64 emulation)
 
-**Status:** design (variant of qemu-headscale-dev-vm-plan.md)
-**Date:** 2026-05-15
-**Owner:** patrickod
-**Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
+- **Status:** design (variant of qemu-headscale-dev-vm-plan.md)
+- **Owner:** patrickod
+- **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
 
 ## What this variant does differently
 
@@ -119,11 +118,13 @@ run, though obviously not simultaneously.
 ### Image provisioning
 
 **amd64 (cloud-init):**
+
 - Generic Debian cloud image (small download)
 - cloud-init paints on users, sudoers, tailscale apt repo
 - Can provision any Debian 12/13 image
 
 **arm64 (pi-gen .img):**
+
 - Actual pi-gen-built image from `./image/scripts/build-image.sh`
 - No cloud-init provisioning (already contains everything)
 - Only override needed: `/etc/default/tailscaled` login-server injection
@@ -216,7 +217,7 @@ The conversion happens once in `qemu-arm64-build`.
 The arm64 variant is considered working when:
 
 - `make qemu-arm64-build && make qemu-arm64-up && make qemu-arm64-push &&
-  curl http://localhost:8080/api/health` returns 200 from a fresh checkout.
+curl http://localhost:8080/api/health` returns 200 from a fresh checkout.
 - `make qemu-arm64-logs` shows the service running without errors.
 - Headscale peer interactions (`make qemu-peer-curl`) succeed, cap/view and
   cap/admin are enforced correctly.
@@ -283,20 +284,21 @@ injection becomes unnecessary.
 These two plans are **parallel strategies for the same goal** (a local
 Tailscale dev environment). Use them as follows:
 
-| Goal                                    | Use                    |
-| --------------------------------------- | ---------------------- |
-| Daily Tailscale development             | amd64 plan (fast)      |
-| Spot-check production image              | arm64 plan (faithful)  |
-| Verify auth middleware logic             | amd64 plan (faster)    |
-| Verify full stack before release         | arm64 plan (complete)  |
-| Test peer capability resolution quickly  | amd64 plan (iterate)   |
-| Reproduce a hard-to-debug arm64 issue    | arm64 plan (exact)     |
+| Goal                                    | Use                   |
+| --------------------------------------- | --------------------- |
+| Daily Tailscale development             | amd64 plan (fast)     |
+| Spot-check production image             | arm64 plan (faithful) |
+| Verify auth middleware logic            | amd64 plan (faster)   |
+| Verify full stack before release        | arm64 plan (complete) |
+| Test peer capability resolution quickly | amd64 plan (iterate)  |
+| Reproduce a hard-to-debug arm64 issue   | arm64 plan (exact)    |
 
 Both plans use the same **Headscale coordinator and peer containers**
 (docker-compose.yml is shared). The only difference is the VM's boot
 mechanism and disk image source.
 
 **Implementation sequencing:**
+
 1. Land the amd64 plan first (simpler, faster iteration).
 2. Land the arm64 plan after the amd64 variant is proven.
 3. Document both in the Tailscale ops guide so developers can choose.
