@@ -23,10 +23,20 @@ type OSMTileFetcher struct {
 	Client    *http.Client
 }
 
-// NewOSMTileFetcher returns a fetcher with sensible defaults.
+// NewOSMTileFetcher returns a fetcher with sensible defaults. The tile cache
+// lives under a per-user cache directory created 0700 (not world-writable
+// os.TempDir, which is vulnerable to cache-poisoning / symlink swaps). If the
+// directory cannot be created, CacheDir is left empty and on-disk caching is
+// disabled rather than silently writing to an unsafe or unexpected location.
 func NewOSMTileFetcher() *OSMTileFetcher {
-	cache := filepath.Join(os.TempDir(), "velocity-osm-tiles")
-	_ = os.MkdirAll(cache, 0o755)
+	root, err := os.UserCacheDir()
+	if err != nil || root == "" {
+		root = os.TempDir()
+	}
+	cache := filepath.Join(root, "velocity-report", "osm-tiles")
+	if mkErr := os.MkdirAll(cache, 0o700); mkErr != nil {
+		cache = "" // caching disabled; tiles fetched fresh each time
+	}
 	return &OSMTileFetcher{
 		CacheDir:  cache,
 		UserAgent: "velocity.report/1.0 (https://velocity.report)",
@@ -46,9 +56,12 @@ func latLonToTile(lat, lon float64, zoom int) (xf, yf float64) {
 // FetchTile returns a single 256x256 OSM tile, using the on-disk cache when
 // available.
 func (f *OSMTileFetcher) FetchTile(z, x, y int) (image.Image, error) {
-	cachePath := filepath.Join(f.CacheDir, fmt.Sprintf("%d_%d_%d.png", z, x, y))
-	if data, err := os.ReadFile(cachePath); err == nil {
-		return png.Decode(bytes.NewReader(data))
+	cachePath := ""
+	if f.CacheDir != "" {
+		cachePath = filepath.Join(f.CacheDir, fmt.Sprintf("%d_%d_%d.png", z, x, y))
+		if data, err := os.ReadFile(cachePath); err == nil {
+			return png.Decode(bytes.NewReader(data))
+		}
 	}
 
 	url := fmt.Sprintf("https://tile.openstreetmap.org/%d/%d/%d.png", z, x, y)
@@ -69,7 +82,9 @@ func (f *OSMTileFetcher) FetchTile(z, x, y int) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	_ = os.WriteFile(cachePath, body, 0o644)
+	if cachePath != "" {
+		_ = os.WriteFile(cachePath, body, 0o644)
+	}
 	return png.Decode(bytes.NewReader(body))
 }
 
