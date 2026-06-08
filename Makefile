@@ -54,19 +54,16 @@ help:
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python developer-tooling venv (local dev only; not used in production/RPi images)"
-	@echo "  build-texlive-minimal Build local minimal TeX tree for production mode"
-	@echo "  build-tex-fmt        Rebuild velocity-report.fmt in local minimal TeX tree"
-	@echo "  install-texlive-minimal Install local minimal TeX tree to /opt/velocity-report"
+	@echo "  install-typst        Install host Typst binary into ./bin for local report generation"
 	@echo "  install-web          Install web dependencies (shared cache via pnpm; local via npm)"
 	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
-	@echo "  dev-go               Start Go server (radar disabled, precompiled LaTeX)"
-	@echo "  dev-go-latex-full    Start Go server (radar disabled, full system LaTeX)"
-	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode, precompiled LaTeX)"
-	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward, precompiled LaTeX)"
+	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
+	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode, Typst PDF reports)"
+	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward, Typst PDF reports)"
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
@@ -231,25 +228,25 @@ print-version:
 # workflows, docs, and CI keep working.
 build-velocity:
 	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
+	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,$(TYPST_GOOS),$(TYPST_GOARCH))
 	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity ./cmd/velocity
 
 build-velocity-linux:
 	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
+	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,linux,arm64)
 	GOOS=linux GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 build-velocity-mac:
 	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
+	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,darwin,arm64)
 	GOOS=darwin GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 build-velocity-mac-intel:
 	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
+	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,darwin,amd64)
 	GOOS=darwin GOARCH=amd64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
 
@@ -268,7 +265,7 @@ build-radar-linux-docker:
 
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
-	@./scripts/ensure-docs-stub.sh
+	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,$(TYPST_GOOS),$(TYPST_GOARCH))
 	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity
 
@@ -521,6 +518,24 @@ build-docs-offline:
 	@$(MAKE) verify-docs-offline-build
 	@echo "✓ Offline docs build complete: docs_html/_site/"
 
+.PHONY: ensure-offline-docs-build
+ensure-offline-docs-build:
+	@./scripts/docs-offline-symlinks.sh create
+	@if [ ! -d docs_html/node_modules ]; then \
+		echo "Offline docs dependencies missing; running 'make install-docs-offline'..."; \
+		$(MAKE) install-docs-offline; \
+	fi
+	@if [ ! -f docs_html/_site/index.html ]; then \
+		echo "Offline docs build missing; running 'make build-docs-offline'..."; \
+		$(MAKE) build-docs-offline; \
+	elif cmp -s docs_html/_site/index.html docs_html/stub-index.html; then \
+		echo "Offline docs build is stub-only; running 'make build-docs-offline'..."; \
+		$(MAKE) build-docs-offline; \
+	elif [ docs_html/package.json -nt docs_html/_site/index.html ] || [ docs_html/.eleventy.js -nt docs_html/_site/index.html ] || [ docs_html/src/index.md -nt docs_html/_site/index.html ] || [ scripts/docs-offline-symlinks.sh -nt docs_html/_site/index.html ] || [ ! -f docs_html/_site/THIRD_PARTY_NOTICES/index.html ] || find docs_html/src docs data -type f -newer docs_html/_site/index.html -print -quit | grep -q . || find . -maxdepth 1 -name '*.md' -type f -newer docs_html/_site/index.html -print -quit | grep -q .; then \
+		echo "Offline docs build stale; running 'make build-docs-offline'..."; \
+		$(MAKE) build-docs-offline; \
+	fi
+
 .PHONY: verify-docs-offline-build
 verify-docs-offline-build:
 	@./scripts/verify-docs-offline-build.sh
@@ -693,7 +708,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal
+.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -711,33 +726,6 @@ PYTHON_TEST_PATHS = \
 	scripts/test_update_packaging.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
-TEX_MINIMAL_DIR ?= build/texlive-minimal
-
-# Build: Local minimal TeX tree
-build-texlive-minimal:
-	@echo "Building minimal TeX tree at $(TEX_MINIMAL_DIR)..."
-	@OUTPUT_DIR="$(TEX_MINIMAL_DIR)" ./scripts/build-minimal-texlive.sh
-
-# Build: Rebuild velocity-report.fmt in existing minimal tree
-build-tex-fmt:
-	@if [ ! -x "$(TEX_MINIMAL_DIR)/bin/xelatex" ]; then \
-		echo "Error: $(TEX_MINIMAL_DIR)/bin/xelatex not found."; \
-		echo "Run 'make build-texlive-minimal' first."; \
-		exit 1; \
-	fi
-	@echo "Rebuilding velocity-report.fmt in $(TEX_MINIMAL_DIR)..."
-	@OUTPUT_DIR="$(TEX_MINIMAL_DIR)" FMT_ONLY=1 ./scripts/build-minimal-texlive.sh
-
-# Install: Copy local minimal TeX tree to /opt/velocity-report
-install-texlive-minimal:
-	@if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
-		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
-		echo "Run 'make build-texlive-minimal' first."; \
-		exit 1; \
-	fi
-	@echo "Installing minimal TeX tree from $(TEX_MINIMAL_DIR) to /opt/velocity-report/texlive-minimal..."
-	@SOURCE_DIR="$(abspath $(TEX_MINIMAL_DIR))" ./scripts/install-minimal-texlive.sh
-
 install-python:
 	@echo "Setting up Python environment..."
 	@python_path=$$(command -v python$(PYTHON_VERSION) 2>/dev/null || true); \
@@ -847,7 +835,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
+.PHONY: dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -862,36 +850,13 @@ define run_dev_go
 	pidfile=$${piddir}/velocity-$${ts}.pid; \
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
 	$(call run_dev_go_kill_server); \
+	$(MAKE) ensure-offline-docs-build; \
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity; \
 	mkdir -p "$$piddir"; \
-	pdf_backend=$${VELOCITY_PDF_BACKEND:-both}; \
-	echo "Starting velocity-report-local (background) with DB=$$DB_PATH, PDF backend=$$pdf_backend -> $$logfile (debug -> $$debuglog)"; \
-	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_PDF_BACKEND="$$pdf_backend" VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
+	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
-endef
-
-define run_dev_go_require_precompiled_root
-	tex_root="$(abspath $(TEX_MINIMAL_DIR))"; \
-	if [ ! -x "$$tex_root/bin/xelatex" ]; then \
-		echo "Error: precompiled TeX flow requested but $$tex_root/bin/xelatex not found."; \
-		echo "Run 'make build-texlive-minimal' first, or use 'make dev-go-latex-full'."; \
-		exit 1; \
-	fi; \
-	if [ ! -f "$$tex_root/texmf-dist/web2c/xelatex/xelatex.fmt" ]; then \
-		echo "Error: precompiled TeX flow requested but $$tex_root/texmf-dist/web2c/xelatex/xelatex.fmt not found."; \
-		echo "Run 'make build-tex-fmt' (or rebuild via 'make build-texlive-minimal'), or use 'make dev-go-latex-full'."; \
-		exit 1; \
-	fi; \
-	for required in \
-		"$$tex_root/texmf-dist/tex/latex/xcolor/xcolor.sty" \
-		"$$tex_root/texmf-dist/tex/latex/colortbl/colortbl.sty"; do \
-		if [ ! -f "$$required" ]; then \
-			echo "Error: precompiled TeX tree is stale; missing $$required."; \
-			echo "Run 'make build-texlive-minimal' to refresh the minimal TeX packages, or use 'make dev-go-latex-full'."; \
-			exit 1; \
-		fi; \
-	done
 endef
 
 define run_dev_go_kill_server
@@ -916,9 +881,6 @@ define run_dev_go_kill_server
 	fi
 endef
 
-DEV_GO_LATEX_PRECOMPILED_FLAGS := --pdf-latex-flow=precompiled --pdf-tex-root="$(abspath $(TEX_MINIMAL_DIR))"
-DEV_GO_LATEX_FULL_FLAGS := --pdf-latex-flow=full
-
 dev-ssh:
 	@./scripts/dev-ssh.sh
 
@@ -927,27 +889,19 @@ dev-ssh-audit:
 
 dev-go:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS))
-
-dev-go-latex-full:
-	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,$(DEV_GO_LATEX_FULL_FLAGS))
+	@$(call run_dev_go,)
 
 dev-go-lidar:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
 
 dev-go-lidar-trace:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
 
 dev-go-lidar-both:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
@@ -1061,7 +1015,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1083,12 +1037,6 @@ test-python-cov: ensure-python-tools
 	@echo "Running Python script/tool tests with coverage..."
 	@$(VENV_PYTEST) --cov=scripts --cov=tools/grid-heatmap --cov-report=term-missing --cov-report=html:htmlcov-python $(PYTHON_TEST_PATHS)
 	@echo "Coverage report: htmlcov-python/index.html"
-
-# Compare Go tex output against golden files; re-run with -update flag to regenerate.
-tex-compare:
-	@echo "Checking tex golden files..."
-	@go test ./internal/report/tex/... -run 'TestRenderTeX_Golden'
-	@echo "tex golden files OK"
 
 # Run Go unit tests with coverage
 test-go-cov:
