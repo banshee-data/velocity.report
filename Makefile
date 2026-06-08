@@ -191,6 +191,21 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
 DEV_VERSION := $(subst -,.,$(VERSION))
 LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
+
+# Build tags for the velocity binary. Always pcap; add typst_embed (which bakes
+# the typst PDF engine into the binary) when TYPST_EMBED=1. Embedding requires a
+# typst binary at internal/report/typst/typstbin/dist/typst — run
+# `make install-typst-dist` first (the build-velocity-*-embed targets do this).
+VELOCITY_BUILD_TAGS := pcap
+ifeq ($(TYPST_EMBED),1)
+VELOCITY_BUILD_TAGS := pcap,typst_embed
+endif
+
+# Typst engine version and target selection for downloads.
+TYPST_VERSION ?= 0.13.1
+TYPST_DIST := internal/report/typst/typstbin/dist/typst
+TYPST_GOOS ?= $(shell go env GOOS)
+TYPST_GOARCH ?= $(shell go env GOARCH)
 WEB_DIR = web
 WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
@@ -211,22 +226,22 @@ print-version:
 build-velocity:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity ./cmd/velocity
+	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity ./cmd/velocity
 
 build-velocity-linux:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+	GOOS=linux GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 build-velocity-mac:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+	GOOS=darwin GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 build-velocity-mac-intel:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
+	GOOS=darwin GOARCH=amd64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 # Compatibility aliases (folded binaries → single velocity binary).
 build-radar-linux: build-velocity-linux
@@ -244,7 +259,33 @@ build-radar-linux-docker:
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity
+	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity
+
+# Download a typst binary into the embed dir for the selected target (default:
+# host). The next `-tags typst_embed` build bakes it into the velocity binary.
+# Override TYPST_GOOS / TYPST_GOARCH for cross-target downloads.
+.PHONY: install-typst-dist
+install-typst-dist:
+	@./scripts/download-typst.sh "$(TYPST_VERSION)" "$(TYPST_GOOS)" "$(TYPST_GOARCH)" "$(TYPST_DIST)"
+
+# Build the Linux ARM64 velocity binary with the typst engine embedded — the
+# form shipped on the Raspberry Pi image (no separate typst install on device).
+.PHONY: build-velocity-linux-embed
+build-velocity-linux-embed:
+	@$(MAKE) install-typst-dist TYPST_GOOS=linux TYPST_GOARCH=arm64
+	@$(MAKE) build-velocity-linux TYPST_EMBED=1
+build-radar-linux-embed: build-velocity-linux-embed
+
+# Developer convenience: install typst for the host platform into ./bin so the
+# report pipeline can find it (add bin/ to PATH or set VELOCITY_TYPST_PATH).
+.PHONY: install-typst
+install-typst:
+	@if [ -x bin/typst ]; then \
+		echo "bin/typst already present ($$(bin/typst --version 2>/dev/null || echo unknown)); skipping download"; \
+	else \
+		./scripts/download-typst.sh "$(TYPST_VERSION)" "$(TYPST_GOOS)" "$(TYPST_GOARCH)" "bin/typst"; \
+		echo "Installed bin/typst — add $(CURDIR)/bin to PATH or export VELOCITY_TYPST_PATH=$(CURDIR)/bin/typst"; \
+	fi
 
 # Run settling-eval convergence evaluation against a PCAP file.
 # Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.
@@ -1344,7 +1385,7 @@ format-docs: ensure-web-cache
 	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
 	@if command -v pnpm >/dev/null 2>&1; then \
-		pnpm --dir $(WEB_DIR) exec prettier --write '../**/*.md'; \
+		pnpm --dir $(WEB_DIR) exec prettier --ignore-path ../.prettierignore --write '../**/*.md'; \
 	elif command -v npx >/dev/null 2>&1; then \
 		npx prettier --write '**/*.md'; \
 	else \
