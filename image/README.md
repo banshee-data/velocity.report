@@ -155,13 +155,12 @@ sudo nmcli device connect eth0
 
 ## Image size budget (phase 1)
 
-| Component                        | Estimated Size  |
-| -------------------------------- | --------------- |
-| Raspberry Pi OS Lite (base)      | ~450 MB         |
-| TeX Live (minimal vendored tree) | ~143 MB         |
-| Go binaries (server + ctl, pcap) | ~35 MB          |
-| LiDAR + web + system config      | ~11 MB          |
-| **Total (xz compressed)**        | **~150–300 MB** |
+| Component                       | Estimated Size  |
+| ------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)     | ~450 MB         |
+| Go binaries with embedded Typst | ~65 MB          |
+| LiDAR + web + system config     | ~11 MB          |
+| **Total (xz compressed)**       | **~150–300 MB** |
 
 ## Design document
 

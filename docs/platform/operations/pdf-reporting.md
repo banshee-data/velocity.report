@@ -92,8 +92,8 @@ Implemented chart surfaces:
    percentile series.
 2. **Histogram** — single-period SVG distribution chart.
 3. **Comparison histogram** — grouped SVG comparison chart.
-4. **Site map** — SVG map with either an offline schematic background or
-   optional live OSM tile fetch for the prototype tooling.
+4. **Site map** — saved vector SVG from `site.map_svg_data`, generated in the
+   web editor only after explicit external map-request confirmation.
 
 Typst consumes these SVG artefacts directly via `#image()`, so no SVG-to-PDF
 conversion pass is needed.
@@ -112,5 +112,8 @@ conversion pass is needed.
 - `report.GeneratePDF()` is the shared entry point used by the CLI and HTTP API.
 - Report generation remains local-first: charts, data loading, and final PDF
   compilation all happen on-device or on the development host.
+- Report generation never downloads map data. OpenStreetMap tiles, Nominatim
+  lookups, and Overpass SVG generation are optional editor actions that require
+  explicit per-session confirmation before any external request is made.
 - The source ZIP is part of the public contract of the report pipeline; treat
   it as a first-class artefact, not a debug afterthought.
