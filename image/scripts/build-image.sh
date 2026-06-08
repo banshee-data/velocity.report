@@ -199,7 +199,10 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
             log_info "Built velocity with pcap support"
         else
             log_warn "pcap cross-compile unavailable; building without pcap"
-            GOOS=linux GOARCH=arm64 go build \
+            # CGO_ENABLED=0 forces a pure-Go build: the fallback exists precisely
+            # because the cross C toolchain is missing, so leaving CGO on would
+            # hit the same failure for any cgo-importing package.
+            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
                 -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" \
                 -o "${BUILD_TS_COMPACT}-velocity-${VERSION//-/.}-linux-arm64-${GIT_SHA:0:7}" \
                 ./cmd/velocity
