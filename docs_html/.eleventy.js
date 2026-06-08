@@ -360,14 +360,13 @@ module.exports = function (eleventyConfig) {
     "src/**/*.{png,jpg,jpeg,gif,svg,webp,json,yml,yaml,bib,txt,py,toml}",
   );
 
-  for (const watchTarget of [
-    "../docs",
-    "../data",
-    "../README.md",
-    "../ARCHITECTURE.md",
-    "../TENETS.md",
-    "../CLAUDE.md",
-  ]) {
+  const repoRoot = path.resolve(__dirname, "..");
+  const rootMarkdownWatchTargets = fs
+    .readdirSync(repoRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .map((entry) => `../${entry.name}`);
+
+  for (const watchTarget of ["../docs", "../data", ...rootMarkdownWatchTargets]) {
     eleventyConfig.addWatchTarget(watchTarget);
   }
 
