@@ -224,3 +224,7 @@ data/structures/SCHEMA.dot
 # =============================================================================
 internal/report/typst/typstbin/dist/typst
 internal/report/typst/typstbin/dist/typst.exe
+
+# Developer-installed typst binary (make install-typst / runtime auto-download)
+bin/typst
+bin/typst.exe
