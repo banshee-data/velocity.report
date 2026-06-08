@@ -54,8 +54,8 @@ jobs:
         with:
           name: velocity-binaries
           path: |
-            image/velocity-binaries/velocity-report
-            image/velocity-binaries/velocity-ctl
+            image/velocity-binaries/velocity
+            image/velocity-binaries/VERSION
           retention-days: 1
 
   release-linux-radar:

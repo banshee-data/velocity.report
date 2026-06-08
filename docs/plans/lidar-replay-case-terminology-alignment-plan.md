@@ -56,7 +56,7 @@ Breaking change: All consumers (Svelte, tests, integration) must update API URLs
 - [internal/lidar/sweep/auto.go](../../internal/lidar/sweep/auto.go): `SceneStoreSaver` → `ReplayCaseStoreSaver`, setter methods
 - [internal/lidar/sweep/hint_notifications.go](../../internal/lidar/sweep/hint_notifications.go): Helper functions `scenePCAPStart` → `casePCAPStart`, `scenePCAPDuration` → `casePCAPDuration`
 - Test files: `hint_test.go`, `hint_coverage_test.go`, `auto_test.go`, `auto_coverage_test.go`
-- [cmd/radar/radar.go](../../cmd/radar/radar.go): `sceneStore`, `hintSceneAdapter`, wiring logic
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): `sceneStore`, `hintSceneAdapter`, wiring logic
 
 ### Web/Svelte (outstanding: rename batch 3)
 

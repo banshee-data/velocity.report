@@ -95,7 +95,7 @@ UI placement should follow the constrained settings pattern:
 
 ## How this works with the current single-binary deployment
 
-For [cmd/radar](../../../cmd/radar) (Go monolith on Raspberry Pi):
+For [internal/cmd/server](../../../internal/cmd/server) (Go monolith on Raspberry Pi):
 
 1. Startup loads enabled `lidar_ingest_config` and resolves associated model profile.
 2. `ModelParserFactory` creates the parser for that model.

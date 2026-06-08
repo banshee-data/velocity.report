@@ -178,7 +178,7 @@ In PCAP analysis goroutine:
 - call `OnRecordingStop` **before** `CompleteRun()`
 - persist returned path with `UpdateRunVRLogPath`
 
-[cmd/radar/radar.go](../../../cmd/radar/radar.go):
+[internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go):
 
 - hold active `*recorder.Recorder`
 - start recorder under `<pcapDir>/vrlog/<runID>`
@@ -272,7 +272,7 @@ Routes:
 - `POST /api/lidar/vrlog/load` (input `run_id`, resolves stored `vrlog_path`)
 - `POST /api/lidar/vrlog/stop`
 
-[cmd/radar/radar.go](../../../cmd/radar/radar.go) wires callbacks to server/publisher.
+[internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go) wires callbacks to server/publisher.
 
 ## Phase 4: Swift app as primary labelling UI
 
@@ -371,7 +371,7 @@ Phase 0 (label contract)
 | Run persistence         | `internal/lidar/analysis_run.go`                                                                                                                                                                                                                                                                               | `vrlog_path` field + store updates                                   |
 | DB migration            | `internal/db/migrations/000023_add_vrlog_path.*.sql`                                                                                                                                                                                                                                                           | Add/drop `vrlog_path`                                                |
 | Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                                                                                                                                                                                          | recording/playback callbacks + routes + status model                 |
-| Wiring                  | [cmd/radar/radar.go](../../../cmd/radar/radar.go)                                                                                                                                                                                                                                                              | recorder lifecycle + replay callback wiring                          |
+| Wiring                  | [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)                                                                                                                                                                                                                                          | recorder lifecycle + replay callback wiring                          |
 | Swift app               | [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift) and new API client(s)                                                                                                                                                    | run browser state, replay load flow, run-track labelling integration |
 | Optional web parity     | [web/src/lib/types/lidar.ts](../../../web/src/lib/types/lidar.ts), [web/src/lib/api.ts](../../../web/src/lib/api.ts), [web/src/routes/lidar/tracks/+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte), [web/src/routes/lidar/runs/+page.svelte](../../../web/src/routes/lidar/runs/+page.svelte) | playback status sync and replay controls                             |
 

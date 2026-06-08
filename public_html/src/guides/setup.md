@@ -513,24 +513,26 @@ Do not expose this service to the public internet. The dashboard has no user aut
 
 ## Updating the software
 
-velocity.report does not auto-update itself. Updates happen when you decide. When you run `velocity-ctl upgrade --check` or `velocity-ctl upgrade`, the device contacts the release feed and downloads the selected release.
+velocity.report does not auto-update itself. Updates happen when you decide. When you run `velocity device check` or `velocity device upgrade`, the device contacts the release feed and downloads the selected release.
 
 ```bash
 # Check whether a newer version is available
-sudo velocity-ctl upgrade --check
+sudo velocity device check
 
 # Download and apply the latest release
-sudo velocity-ctl upgrade
+sudo velocity device upgrade
 
-# If something goes wrong, roll back
-sudo velocity-ctl rollback
+# If something goes wrong, roll back to the previous version
+sudo velocity device rollback
 ```
 
-Updates replace the server binary and run any database migrations. Your data and configuration are preserved. For air-gapped deployments:
+Updates download the new version into `/opt/velocity-report/versions/<v>/`, run any database migrations, then activate it with an atomic symlink swap. Your data and configuration are preserved. For air-gapped deployments:
 
 ```bash
-sudo velocity-ctl upgrade --binary /path/to/velocity-report
+sudo velocity device upgrade --binary /path/to/velocity
 ```
+
+> The former `velocity-ctl` command has been removed; device management is now the `velocity device …` namespace.
 
 ---
 
@@ -543,7 +545,7 @@ Back up before re-flashing. Your sensor data took weeks to collect; the software
 The database lives at `/var/lib/velocity-report/sensor_data.db`.
 
 ```bash
-sudo velocity-ctl backup
+sudo velocity device backup
 ```
 
 This creates a timestamped copy in `/var/lib/velocity-report/backups/`. If you are about to re-flash the SD card, copy the backup off the Pi first:
@@ -600,7 +602,7 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 - Check the enclosure monthly for condensation
 - Clean the sensor window seasonally
-- Run `sudo velocity-ctl upgrade --check` periodically
+- Run `sudo velocity device check` periodically
 
 ---
 
@@ -608,12 +610,12 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 ### What the image includes
 
-| Component              | Location                                      | Purpose                                 |
-| ---------------------- | --------------------------------------------- | --------------------------------------- |
-| velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard |
-| velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
-| Generated reports      | `/var/lib/velocity-report/reports/`           | PDF output directory                    |
-| Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
+| Component             | Location                                      | Purpose                                               |
+| --------------------- | --------------------------------------------- | ----------------------------------------------------- |
+| velocity binary       | `/usr/local/bin/velocity`                     | Single multi-call binary (server + device management) |
+| velocity-report alias | `/usr/local/bin/velocity-report`              | Compatibility symlink the systemd unit calls          |
+| Generated reports     | `/var/lib/velocity-report/reports/`           | PDF output directory                                  |
+| Systemd service       | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot                          |
 
 The Go server binds port 80 directly as the non-root `velocity` user (granted `CAP_NET_BIND_SERVICE` by the systemd unit), so there is no reverse proxy and no TLS layer to manage. HTTPS is an optional Tailscale add-on (see [Remote access with Tailscale](#remote-access-with-tailscale-optional)).
 
@@ -621,18 +623,18 @@ The image also pre-configures serial port settings, UART overlays, sensor initia
 
 ### Commands
 
-| Command                             | Purpose                                              |
-| ----------------------------------- | ---------------------------------------------------- |
-| `velocity-status`                   | `systemctl status velocity-report.service`           |
-| `velocity-log`                      | `journalctl -u velocity-report.service -f`           |
-| `velocity-bounce`                   | `sudo systemctl restart velocity-report.service`     |
-| `velocity-stop`                     | `sudo systemctl stop velocity-report.service`        |
-| `velocity-start`                    | `sudo systemctl start velocity-report.service`       |
-| `velocity-report version`           | Print the installed server version                   |
-| `sudo velocity-ctl upgrade --check` | Check whether a newer release is available           |
-| `sudo velocity-ctl upgrade`         | Download and apply the latest release                |
-| `sudo velocity-ctl rollback`        | Restore the previous version                         |
-| `sudo velocity-ctl backup`          | Create a timestamped snapshot of binary and database |
+| Command                         | Purpose                                              |
+| ------------------------------- | ---------------------------------------------------- |
+| `velocity-status`               | `systemctl status velocity-report.service`           |
+| `velocity-log`                  | `journalctl -u velocity-report.service -f`           |
+| `velocity-bounce`               | `sudo systemctl restart velocity-report.service`     |
+| `velocity-stop`                 | `sudo systemctl stop velocity-report.service`        |
+| `velocity-start`                | `sudo systemctl start velocity-report.service`       |
+| `velocity version`              | Print the installed server version                   |
+| `sudo velocity device check`    | Check whether a newer release is available           |
+| `sudo velocity device upgrade`  | Download and apply the latest release                |
+| `sudo velocity device rollback` | Restore the previous version                         |
+| `sudo velocity device backup`   | Create a timestamped snapshot of binary and database |
 
 ---
 

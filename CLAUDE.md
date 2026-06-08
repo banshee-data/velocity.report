@@ -33,14 +33,14 @@ make format-web && make lint-web && make test-web && make build-web
 ### Building
 
 ```bash
-make build-radar-local     # Go server, local dev (requires libpcap)
-make build-radar-linux     # Go server, ARM64 cross-compile (no pcap)
+make build-velocity        # Single multi-call velocity binary (server + device + tune)
+make build-radar-local     # Alias: build velocity for local dev (requires libpcap)
+make build-radar-linux     # Alias: build velocity for ARM64 cross-compile
 make build-radar-mac       # Go server, macOS ARM64 with pcap
 make build-radar-mac-intel # Go server, macOS AMD64 with pcap
 make build-web             # Svelte frontend → web/build/
 make build-docs            # Eleventy docs site → docs_html/_site/
 make build-docs-offline    # Embedded offline docs site (Eleventy)
-make build-ctl             # velocity-ctl management binary
 make build-mac             # macOS visualiser (requires Xcode)
 ```
 
@@ -83,7 +83,7 @@ make install-python   # Local dev Python tooling
 
 ```bash
 make proto-gen        # Regenerate Go + Swift protobuf stubs
-go run ./cmd/radar pdf --config report.json --db sensor_data.db --output ./reports
+go run ./cmd/velocity report pdf --config report.json --db sensor_data.db --output ./reports
 make test-go-cov      # Go tests with coverage (→ coverage.html)
 ```
 
@@ -162,7 +162,7 @@ Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit
 
 ### Go PDF report pipeline (`internal/report/`)
 
-Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Go `text/template` LaTeX assembly ([internal/report/tex](internal/report/tex)) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity-report pdf` (CLI subcommand in [cmd/radar/pdf.go](cmd/radar/pdf.go)).
+Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Go `text/template` LaTeX assembly ([internal/report/tex](internal/report/tex)) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity report pdf` (CLI subcommand in [internal/cmd/server/pdf.go](internal/cmd/server/pdf.go)).
 
 ### Python PDF generator — removed
 

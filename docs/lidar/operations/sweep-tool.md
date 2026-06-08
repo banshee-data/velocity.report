@@ -1,6 +1,6 @@
 # Sweep tool guide
 
-The sweep tool ([cmd/sweep](../../../cmd/sweep)) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics: allowing you to identify the settings that best suit your deployment site.
+The sweep tool ([internal/cmd/tune](../../../internal/cmd/tune)) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics: allowing you to identify the settings that best suit your deployment site.
 
 ## Prerequisites
 
@@ -9,9 +9,9 @@ The sweep tool ([cmd/sweep](../../../cmd/sweep)) automates parameter optimisatio
    make dev-go   # Local development server (radar disabled)
    ```
 2. A golden PCAP file captured at the deployment site. This file should contain representative traffic (vehicles, pedestrians, cyclists) to test detection quality.
-3. The sweep binary:
+3. The unified `velocity` binary:
    ```bash
-   go build -o sweep ./cmd/sweep
+   make build-velocity
    ```
 
 ## Concepts
@@ -43,7 +43,7 @@ The tracker uses a Kalman filter with Hungarian association to follow objects ac
 Sweeps all combinations of background detection parameters:
 
 ```bash
-./sweep \
+./velocity tune sweep \
   -monitor http://localhost:8081 \
   -pcap /path/to/golden.pcap \
   -mode multi \
@@ -60,19 +60,19 @@ When you want to isolate one parameter while holding the others fixed:
 
 ```bash
 # Sweep noise only
-./sweep -mode noise \
+./velocity tune sweep -mode noise \
   -noise-start 0.005 -noise-end 0.03 -noise-step 0.005 \
   -fixed-closeness 2.0 -fixed-neighbour 1 \
   -pcap /path/to/golden.pcap
 
 # Sweep closeness only
-./sweep -mode closeness \
+./velocity tune sweep -mode closeness \
   -closeness-start 1.5 -closeness-end 3.0 -closeness-step 0.25 \
   -fixed-noise 0.01 -fixed-neighbour 1 \
   -pcap /path/to/golden.pcap
 
 # Sweep neighbour only
-./sweep -mode neighbour \
+./velocity tune sweep -mode neighbour \
   -neighbour-start 0 -neighbour-end 3 -neighbour-step 1 \
   -fixed-noise 0.01 -fixed-closeness 2.0 \
   -pcap /path/to/golden.pcap
@@ -83,7 +83,7 @@ When you want to isolate one parameter while holding the others fixed:
 Sweeps tracker (Kalman filter) parameters and measures velocity-trail alignment: how well the estimated velocity vector matches the actual direction of travel:
 
 ```bash
-./sweep -mode tracking \
+./velocity tune sweep -mode tracking \
   -pcap /path/to/golden.pcap \
   -pcap-settle 25s \
   -gating-start 16 -gating-end 64 -gating-step 8 \
@@ -210,7 +210,7 @@ A typical optimisation session:
 make dev-go
 
 # 2. Run a broad multi-sweep to narrow the search space
-./sweep -mode multi \
+./velocity tune sweep -mode multi \
   -pcap data/golden-capture.pcap \
   -noise 0.005,0.01,0.015,0.02,0.025,0.03 \
   -closeness 1.5,2.0,2.5,3.0 \
@@ -222,13 +222,13 @@ make dev-go
 # and low acceptance in the 0-5 km/h noise bucket
 
 # 4. Run a fine-grained sweep around the best values
-./sweep -mode noise \
+./velocity tune sweep -mode noise \
   -noise-start 0.012 -noise-end 0.018 -noise-step 0.001 \
   -fixed-closeness 2.0 -fixed-neighbour 1 \
   -pcap data/golden-capture.pcap
 
 # 5. Run a tracking sweep to optimise tracker parameters
-./sweep -mode tracking \
+./velocity tune sweep -mode tracking \
   -pcap data/golden-capture.pcap \
   -pcap-settle 25s \
   -gating-start 20 -gating-end 50 -gating-step 5 \

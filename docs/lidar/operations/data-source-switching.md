@@ -89,7 +89,7 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
 
 **New State**: UDP listener lifecycle managed by WebServer, always starts in live mode.
 
-**File**: [cmd/radar/radar.go](../../../cmd/radar/radar.go)
+**File**: [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
 
 **Changes** (BREAKING):
 
@@ -190,7 +190,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 ### Phase 2: remove CLI flag (BREAKING)
 
-1. Remove `--lidar-pcap-mode` flag from [cmd/radar/radar.go](../../../cmd/radar/radar.go)
+1. Remove `--lidar-pcap-mode` flag from [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
 2. Remove all PCAP mode conditionals from main()
 3. WebServer always starts in live mode (UDP listener running)
 4. Update build targets and documentation
@@ -209,7 +209,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 ### Phase 4: documentation & migration guide
 
 1. Update [../architecture/lidar-sidecar-overview.md](../architecture/lidar-sidecar-overview.md) to remove PCAP mode flag
-2. Update [cmd/radar/README.md](../../../cmd/radar/README.md) with new workflow
+2. Update [internal/cmd/server/README.md](../../../internal/cmd/server/README.md) with new workflow
 3. Add migration guide for users of `--lidar-pcap-mode`
 4. Update API documentation with new endpoint
 
@@ -229,7 +229,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Modify `Start()` to initialise in live mode (start UDP listener)
    - Update status endpoint to include data_source, pcap_file, pcap_in_progress
 
-2. **[cmd/radar/radar.go](../../../cmd/radar/radar.go)** (~40 lines changed)
+2. **[internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)** (~40 lines changed)
    - **REMOVE** `lidarPCAPMode` flag declaration
    - Remove conditional UDP listener startup logic
    - Always pass UDP listener config to WebServer
@@ -250,7 +250,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 6. **Documentation Updates** (~100 lines changed)
    - [docs/lidar/architecture/lidar-sidecar-overview.md](../architecture/lidar-sidecar-overview.md) - remove PCAP mode flag references
-   - [cmd/radar/README.md](../../../cmd/radar/README.md) - update with new API workflow
+   - [internal/cmd/server/README.md](../../../internal/cmd/server/README.md) - update with new API workflow
    - [scripts/api/README.md](../../../scripts/api/README.md) - document new endpoint
    - Add migration guide for `--lidar-pcap-mode` users
 
@@ -348,7 +348,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
   - Testing: 1 hour
 
 - **Phase 2** (Remove CLI Flag): 2-3 hours
-  - Remove flag from cmd/radar: 1 hour
+  - Remove flag from internal/cmd/server: 1 hour
   - Update conditionals: 1 hour
   - Testing: 1 hour
 

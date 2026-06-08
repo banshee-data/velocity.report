@@ -72,7 +72,7 @@ The LiDAR rubric defines two runtime controls:
 - `VELOCITY_DEBUG_LOG` (env var): file path for debug output
 
 These controls should apply to the entire process, not just LiDAR packages. The
-configuration surface is set once at startup in [cmd/radar/radar.go](../../cmd/radar/radar.go) and propagated to all
+configuration surface is set once at startup in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) and propagated to all
 packages.
 
 ## Backlog items
@@ -96,7 +96,7 @@ appropriate stream.
    schema sync failures) or `Diagf` (transit worker progress, stats)
 4. **Migrate [internal/serialmux/](../../internal/serialmux)**: replace `log.Printf` calls with `Opsf` (parse
    errors, dropped data) or `Diagf` (device state changes, connection lifecycle)
-5. **Migrate [cmd/radar/](../../cmd/radar)**: replace `log.Printf`/`fmt.Printf` calls in startup code with
+5. **Migrate [internal/cmd/server/](../../internal/cmd/server)**: replace `log.Printf`/`fmt.Printf` calls in startup code with
    `Opsf` (startup failures) or `Diagf` (configuration summary, version banner)
 6. **Retire `monitoring.Logf`**: once all call sites are migrated, remove the function
    pointer and `SetLogger` API
@@ -106,15 +106,15 @@ appropriate stream.
 
 The following is an indicative audit. Exact line numbers will shift as v0.5.x changes land.
 
-| Package                       | Current pattern             | Count | Target stream  |
-| ----------------------------- | --------------------------- | ----- | -------------- |
-| `api/`                        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
-| `db/`                         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
-| `serialmux/`                  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
-| `monitoring/`                 | `Logf` (function pointer)   | 1     | : (remove)     |
-| [cmd/radar/](../../cmd/radar) | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
-| `cmd/deploy/`                 | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
-| `cmd/tools/*`                 | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
+| Package                                           | Current pattern             | Count | Target stream  |
+| ------------------------------------------------- | --------------------------- | ----- | -------------- |
+| `api/`                                            | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
+| `db/`                                             | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
+| `serialmux/`                                      | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
+| `monitoring/`                                     | `Logf` (function pointer)   | 1     | : (remove)     |
+| [internal/cmd/server/](../../internal/cmd/server) | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
+| `cmd/deploy/`                                     | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
+| `cmd/tools/*`                                     | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 
 **Estimated effort:** 3–5 days. Mechanical migration with clear routing rubric.
 
@@ -130,7 +130,7 @@ streams: LiDAR and non-LiDAR; from a single startup path.
 
 **Scope:**
 
-1. **Centralise writer setup** in [cmd/radar/radar.go](../../cmd/radar/radar.go): parse `--log-level`, open
+1. **Centralise writer setup** in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): parse `--log-level`, open
    `VELOCITY_DEBUG_LOG` if set, and call `SetLogWriters` for every package that has one
 2. **Propagate to non-LiDAR packages**: call the new shared `SetLogWriters` (or equivalent)
    for `api`, `db`, `serialmux`

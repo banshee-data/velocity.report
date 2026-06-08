@@ -45,7 +45,7 @@ The Python process made an HTTP request back to the Go server that spawned it.
 ### Current data path (Go pipeline)
 
 ```
-Web UI → POST /api/generate_report (or CLI: velocity-report pdf)
+Web UI → POST /api/generate_report (or CLI: velocity report pdf)
   → Go: internal/report/report.go → direct DB query
   → Go: chart/*.go → SVG charts → rsvg-convert → PDF charts
   → Go: tex/render.go → text/template → .tex file
@@ -168,7 +168,7 @@ Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 - **D-08 (Precompiled LaTeX):** Complementary. D-08 reduces TeX from ~800 MB
   to ~30–60 MB. This plan eliminates Python (~450 MB). Together: ~1.25 GB →
   ~30–60 MB.
-- **D-09 (Single Binary):** Enables `velocity-report pdf` without bundled
+- **D-09 (Single Binary):** Enables `velocity report pdf` without bundled
   Python.
 - **D-10 (RPi Image):** Simplifies image by removing Python from report path.
 

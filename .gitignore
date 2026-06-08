@@ -47,6 +47,12 @@ velocity-report-*
 velocity-deploy*
 /velocity-ctl*
 [0-9]*-velocity-ctl-*
+# Single multi-call binary build outputs (build-velocity*, go-ci, dev).
+/velocity
+/velocity-local
+[0-9]*-velocity-[0-9]*
+/sweep
+/app-sweep
 /visualiser-server
 /deploy
 mock_serial_port*

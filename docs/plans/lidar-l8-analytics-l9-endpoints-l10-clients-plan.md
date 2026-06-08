@@ -20,7 +20,7 @@ The dependency order is deliberate: `L8` must exist before storage and handlers 
 ## Review conclusions
 
 - The previous six-phase plan plus `Phase 4.5/5.5/6.5/7` tail was harder to schedule than to execute. The work naturally groups into three deliveries.
-- The previous draft understated the `internal/lidar/visualiser/` rename blast radius. It affects [cmd/radar](../../cmd/radar), [cmd/tools/visualiser-server](../../cmd/tools/visualiser-server), [cmd/tools/gen-vrlog](../../cmd/tools/gen-vrlog), [internal/lidar/analysis](../../internal/lidar/analysis), generated `pb` code, recorder imports, and multiple docs.
+- The previous draft understated the `internal/lidar/visualiser/` rename blast radius. It affects [internal/cmd/server](../../internal/cmd/server), [cmd/tools/visualiser-server](../../cmd/tools/visualiser-server), [cmd/tools/gen-vrlog](../../cmd/tools/gen-vrlog), [internal/lidar/analysis](../../internal/lidar/analysis), generated `pb` code, recorder imports, and multiple docs.
 - `L9` already exists in practice. The goal is to formalise and rename it, not invent it.
 - `monitor/` should not be decomposed before `L8` exists. Otherwise the same analytics logic is simply re-homed under a different package name.
 - The embedded ECharts sweep/dashboard HTML and JS are better treated as deprecated `L10` clients than as `L9` endpoint code. They need a temporary asset-only `l10clients/` home under `l9endpoints/` until frontend consolidation deletes them.
@@ -282,7 +282,7 @@ Rename:
 
 Update all code, generated bindings, and docs that reference the old path. The current blast radius includes at least:
 
-- [cmd/radar/radar.go](../../cmd/radar/radar.go)
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)
 - [cmd/tools/visualiser-server/main.go](../../cmd/tools/visualiser-server/main.go)
 - [cmd/tools/gen-vrlog/main.go](../../cmd/tools/gen-vrlog/main.go)
 - [internal/lidar/analysis/report.go](../../internal/lidar/analysis/report.go)
@@ -461,7 +461,7 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 #### L9 endpoints boundary
 
 - [x] `internal/lidar/visualiser/` renamed to [internal/lidar/l9endpoints/](../../internal/lidar/l9endpoints)
-- [x] import paths in [cmd/radar/radar.go](../../cmd/radar/radar.go) updated from `visualiser` to `l9endpoints`
+- [x] import paths in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) updated from `visualiser` to `l9endpoints`
 - [x] import paths in [cmd/tools/visualiser-server/main.go](../../cmd/tools/visualiser-server/main.go) updated from `visualiser` to `l9endpoints`
 - [x] import paths in [cmd/tools/gen-vrlog/main.go](../../cmd/tools/gen-vrlog/main.go) updated from `visualiser` to `l9endpoints`
 - [x] [internal/lidar/analysis/](../../internal/lidar/analysis) callers updated from `visualiser` to `l9endpoints`
@@ -504,8 +504,8 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `mock_background.go` moved to `server/`
 - [x] `client.go` moved to `server/` (explicit boundary deferred)
 - [x] `direct_backend.go` moved to `server/` (explicit boundary deferred)
-- [x] [cmd/radar/radar.go](../../cmd/radar/radar.go) updated to import `server` instead of `monitor`
-- [x] [cmd/sweep/main.go](../../cmd/sweep/main.go) updated to import `server` instead of `monitor`
+- [x] [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) updated to import `server` instead of `monitor`
+- [x] [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go) updated to import `server` instead of `monitor`
 - [x] `track_api.go` moved to `server/`
 - [x] `run_track_api.go` moved to `server/`
 - [x] `scene_api.go` moved to `server/`

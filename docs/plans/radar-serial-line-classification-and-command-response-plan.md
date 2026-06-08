@@ -1,7 +1,7 @@
 # Radar serial line classification and command response plan
 
 - **Status:** Draft
-- **Layers:** Go server (`internal/serialmux`, `internal/api`, radar ingest in `cmd/radar`)
+- **Layers:** Go server (`internal/serialmux`, `internal/api`, radar ingest in `internal/cmd/server`)
 - **Target:** Unscheduled. Enables the command dashboard (the `GET /api/commands` dropdown shipped on PR 461) to display the result of a query command, not just fire it.
 - **Related:** [Security surface](../../.github/knowledge/security-surface.md), `internal/radar/commands.go` (advisory command catalogue)
 - **Canonical:** none yet; this plan is the working design until a hub doc is warranted.
@@ -32,7 +32,7 @@ shared path and treats the command response as one well-behaved consumer of it.
 ## Current state
 
 Facts as of this branch (`internal/serialmux/serialmux.go`, `parse.go`,
-`handlers.go`; `internal/api/`; `cmd/radar/radar.go`).
+`handlers.go`; `internal/api/`; `internal/cmd/server/radar.go`).
 
 - **Send is fire-and-forget.** `SendCommand` (serialmux.go:141) takes `commandMu`,
   writes `command + "\n"`, returns. It never reads. The control-character reject in
@@ -46,7 +46,7 @@ Facts as of this branch (`internal/serialmux/serialmux.go`, `parse.go`,
 - **`Subscribe()` returns `(string, chan string)`** (serialmux.go:86): a raw,
   unclassified line stream.
 - **Three independent consumers of that raw stream:**
-  1. Database persistence (cmd/radar/radar.go:913): `Subscribe()` then
+  1. Database persistence (internal/cmd/server/radar.go:913): `Subscribe()` then
      `serialmux.HandleEvent` (handlers.go:75), which calls `ClassifyPayload` and
      routes to `HandleRadarObject` / `HandleRawData` / `HandleConfigResponse`.
      Config lines also merge into `currentState` (handlers.go:53).
@@ -289,7 +289,7 @@ cannot remove them.
   reply is returned as `Other` rather than `Config`.
 - **Interface change has blast radius.** Moving `Subscribe()` from `chan string` to
   `chan Line` touches `SerialMuxInterface`, `SerialPortManager`, `/debug/tail`,
-  `cmd/radar`, and several test mocks. Mechanical, but wide.
+  `internal/cmd/server`, and several test mocks. Mechanical, but wide.
 - **`commandMu` held across the window serialises commands.** A burst of `wait=true`
   calls queues behind the timeout. A tight default timeout and a hard cap keep this
   bounded.

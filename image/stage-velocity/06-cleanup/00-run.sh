@@ -32,10 +32,8 @@ apt-mark manual \
     python3 python3-minimal python3.11 python3.11-minimal \
     libpython3.11 libpython3.11-minimal libpython3.11-stdlib \
     libpython3-stdlib python3-venv \
-    python3-serial \
     python3-apt python3-debconf python-apt-common \
-    curl libcurl4 \
-    sqlite3 libsqlite3-0 \
+    libsqlite3-0 \
     openssl libssl3 libcrypt1 \
     ca-certificates \
     libpcap0.8 \
@@ -57,7 +55,7 @@ apt-mark manual \
     init initramfs-tools initramfs-tools-core \
     libglib2.0-0 \
     libxml2 libpng16-16 \
-    jq librsvg2-bin fonts-noto-color-emoji \
+    librsvg2-bin fonts-noto-color-emoji \
     console-setup keyboard-configuration xkb-data \
     parted \
     2>/dev/null || true
@@ -202,7 +200,6 @@ apt-get purge -y \
     ed \
     dc \
     dos2unix \
-    minicom lrzsz \
     pastebinit \
     fbset \
     rpi-keyboard-config rpi-keyboard-fw-update \
@@ -240,6 +237,14 @@ if [ -n "$MISSING" ]; then
     apt-get update -qq
     apt-get install -y $MISSING
 fi
+
+# userconf-pi can return as a transitive dependency of late runtime package
+# reinstalls (for example via raspi-config). Reassert the appliance hardening
+# after those reinstalls so the stock full-passwordless sudo grant and first-boot
+# rename hooks cannot leak back into the final image.
+rm -f /etc/sudoers.d/010_pi-nopasswd
+cancel-rename pi 2>/dev/null || true
+rm -f /etc/systemd/system/getty@tty1.service.d/userconf.conf
 
 apt-get clean
 # Do NOT remove /var/lib/apt/lists/ — pi-gen's export-image stage

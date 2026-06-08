@@ -53,13 +53,12 @@ Legacy aliases are kept for compatibility.
 
 ## Build targets (Go cross-compilation)
 
-- `build-radar-linux`: Build for Linux ARM64 with pcap
-- `build-radar-mac`: Build for macOS ARM64 with pcap
-- `build-radar-mac-intel`: Build for macOS AMD64 with pcap
-- `build-radar-local`: Build for local development with pcap
-- `build-tools`: Build sweep tool
-- `build-ctl`: Build velocity-ctl device management binary
-- `build-ctl-linux`: Build velocity-ctl for Linux ARM64
+- `build-velocity`: Build the single multi-call `velocity` binary (local, pcap)
+- `build-velocity-linux`: Build `velocity` for Linux ARM64 with pcap
+- `build-velocity-mac`: Build `velocity` for macOS ARM64 with pcap
+- `build-radar-linux` / `build-radar-mac` / `build-radar-mac-intel` / `build-radar-local`: compatibility aliases that build the single `velocity` binary
+- `build-tools`: alias for `build-velocity` (sweep is now `velocity tune sweep`)
+- `build-ctl` / `build-ctl-linux`: aliases for `build-velocity` (device tools folded into `velocity device`)
 - `build-web`: Build web frontend (SvelteKit)
 - `build-docs`: Build documentation site (Eleventy)
 
@@ -99,9 +98,9 @@ Legacy aliases are kept for compatibility.
 
 - `setup-radar`: Install server on this host (requires sudo, **removed**)
 - `deploy-install`: Removed: use RPi image or manual install
-- `deploy-upgrade`: Removed: use `sudo velocity-ctl upgrade`
-- `deploy-status`: Removed: use `sudo velocity-ctl status`
-- `deploy-health`: Removed: use `sudo velocity-ctl status`
+- `deploy-upgrade`: Removed: use `sudo velocity device upgrade`
+- `deploy-status`: Removed: use `sudo velocity device status`
+- `deploy-health`: Removed: use `sudo velocity device status`
 - `deploy-install-latex`: Install LaTeX on remote target (**removed**)
 - `deploy-update-deps`: Update source, LaTeX, and Python deps on remote target (**removed**)
 

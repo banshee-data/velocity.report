@@ -44,11 +44,11 @@ The image extends Raspberry Pi OS Lite (64-bit, Bookworm) with:
 
 ### Binaries
 
-| Component                            | Install Path                     |
-| ------------------------------------ | -------------------------------- |
-| `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report` |
-| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`    |
-| Web frontend                         | Embedded in Go binary            |
+| Component                             | Install Path                                                                       |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `velocity` (single multi-call binary) | `/opt/velocity-report/versions/<v>/velocity`                                       |
+| `velocity` / `velocity-report` links  | `/usr/local/bin/velocity`, `/usr/local/bin/velocity-report` (→ `current/velocity`) |
+| Web frontend                          | Embedded in Go binary                                                              |
 
 The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**;
@@ -71,22 +71,24 @@ No automatic updates: preserves privacy-first principle (zero unsolicited
 network requests). Users upgrade in-place to preserve their sensor data.
 
 ```bash
-sudo velocity-ctl upgrade              # check + download + apply latest release
-sudo velocity-ctl upgrade --check      # print version comparison only
-sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
+sudo velocity device upgrade           # check + download + apply latest release
+sudo velocity device check             # print version comparison only
+sudo velocity device upgrade --binary /f  # apply a local binary (offline upgrade)
 ```
 
-`velocity-ctl` is a purpose-built on-device management binary (no SSH, no
-remote execution). The `upgrade` subcommand:
+The `device` namespace is the on-device management surface (no SSH, no remote
+execution). The `upgrade` subcommand:
 
-1. Queries GitHub Releases API for the latest version
-2. Downloads the `velocity-report-{version}-linux-arm64` asset
+1. Queries the release feed for the latest version
+2. Downloads the `velocity-{version}-linux-arm64` asset into `versions/<v>/`
 3. Verifies SHA-256 checksum
-4. Backs up current binary and database
-5. Stops the service, installs the new binary, runs DB migrations
-6. Starts the service and verifies it is responding
+4. Backs up the database
+5. Runs DB migrations with the new binary, then activates it via an atomic
+   `current` symlink swap and restarts the service
+6. Verifies the running version via `GET /api/version`, then prunes old versions
 
-Rollback: `sudo velocity-ctl rollback` restores the most recent backup.
+Rollback: `sudo velocity device rollback` swaps `current` back to the previous
+version.
 
 Settings dashboard: displays installed version ("Check for updates" button
 planned but not yet implemented).
@@ -156,16 +158,16 @@ with a different tech stack (C++/Qt), release cadence, and contributor profile.
 
 ## What stays in the monorepo
 
-| Asset                   | Location                                                                                                                                                        | Reason                                                            |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| pi-gen stage scripts    | [image/stage-velocity/](../../../image/stage-velocity)                                                                                                          | Tightly coupled to server releases                                |
-| OS-list repository JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)                                                                                             | Updated by CI on release                                          |
-| Image CI workflow       | [.github/workflows/build-image.yml](../../../.github/workflows/build-image.yml)                                                                                 | Triggered by monorepo releases                                    |
-| systemd service         | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../../image/stage-velocity/03-velocity-config/files/velocity-report.service)         | Canonical source                                                  |
-| udev rules              | [image/stage-velocity/03-velocity-config/files/](../../../image/stage-velocity/03-velocity-config/files)                                                        | Device permissions                                                |
-| Management binary       | [cmd/velocity-ctl/](../../../cmd/velocity-ctl)                                                                                                                  | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version` |
-| Primary LAN config      | [image/stage-velocity/07-networking/files/velocity-wired-dhcp.nmconnection](../../../image/stage-velocity/07-networking/files/velocity-wired-dhcp.nmconnection) | NetworkManager DHCP on wired Ethernet                             |
-| LiDAR network config    | [image/stage-velocity/04-velocity-lidar/files/lidar-network.conf](../../../image/stage-velocity/04-velocity-lidar/files/lidar-network.conf)                     | Static IP for 192.168.100.x                                       |
+| Asset                   | Location                                                                                                                                                        | Reason                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| pi-gen stage scripts    | [image/stage-velocity/](../../../image/stage-velocity)                                                                                                          | Tightly coupled to server releases                                              |
+| OS-list repository JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)                                                                                             | Updated by CI on release                                                        |
+| Image CI workflow       | [.github/workflows/build-image.yml](../../../.github/workflows/build-image.yml)                                                                                 | Triggered by monorepo releases                                                  |
+| systemd service         | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../../image/stage-velocity/03-velocity-config/files/velocity-report.service)         | Canonical source                                                                |
+| udev rules              | [internal/cmd/device/files/99-velocity-report.rules](../../../internal/cmd/device/files/99-velocity-report.rules)                                               | Embedded; written by `velocity device install udev`                             |
+| Management surface      | [internal/cmd/device/](../../../internal/cmd/device)                                                                                                            | `velocity device upgrade`, `rollback`, `backup`, `status`, `install`, `version` |
+| Primary LAN config      | [image/stage-velocity/07-networking/files/velocity-wired-dhcp.nmconnection](../../../image/stage-velocity/07-networking/files/velocity-wired-dhcp.nmconnection) | NetworkManager DHCP on wired Ethernet                                           |
+| LiDAR network config    | [internal/cmd/device/files/lidar-network.conf](../../../internal/cmd/device/files/lidar-network.conf)                                                           | Embedded; written by `velocity device install network`                          |
 
 ## Security
 

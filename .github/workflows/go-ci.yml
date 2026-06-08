@@ -68,16 +68,8 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
-      - name: Build web stub for embed
-        run: ./scripts/ensure-web-stub.sh
-
-      - name: Build offline docs stub for embed
-        run: ./scripts/ensure-docs-stub.sh
-
-      - name: Build binaries
-        run: |
-          go build -tags=pcap -o velocity-report-local ./cmd/radar
-          go build -o velocity-ctl-local ./cmd/velocity-ctl
+      - name: Build binary
+        run: make build-velocity
 
   test-core:
     name: "🧪 Test Core"
@@ -116,7 +108,8 @@ jobs:
             ./internal/testutil/... \
             ./internal/fsutil/... \
             ./internal/monitoring/... \
-            ./cmd/velocity-ctl/...
+            ./internal/ctl/... \
+            ./internal/cmd/device/...
 
       - name: Upload core coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -159,7 +152,11 @@ jobs:
       - name: Run LiDAR tests
         run: |
           go test -race -tags=pcap -p 2 -coverprofile=coverage-lidar.out -covermode=atomic \
-            ./internal/lidar/...
+            ./internal/lidar/... \
+            ./internal/cmd/root/... \
+            ./internal/cmd/server/... \
+            ./internal/cmd/tune/... \
+            ./cmd/velocity/...
 
       - name: Upload LiDAR coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

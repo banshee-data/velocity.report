@@ -1,0 +1,275 @@
+package server
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"log"
+	"path/filepath"
+	"reflect"
+	"strings"
+
+	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/server"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+)
+
+type logfFunc func(string, ...any)
+
+type ringElevationsSetter interface {
+	SetRingElevations([]float64) error
+}
+
+type vrlogReplayController interface {
+	IsVRLogActive() bool
+	StopVRLogReplay()
+}
+
+type replayModeController interface {
+	SetVRLogMode(bool)
+	SetReplayMode(bool)
+}
+
+type pcapProgressSetter interface {
+	SetPCAPProgress(uint64, uint64)
+}
+
+type pcapTimestampsSetter interface {
+	SetPCAPTimestamps(int64, int64)
+}
+
+type recordingMetadataSink interface {
+	SetDeterministicConfig(runConfigID, paramSetID, configHash, paramsHash, schemaVersion, paramSetType, buildVersion, buildGitSHA string, executionConfig []byte)
+	SetProvenance(sourceType, pcapPath, tuningHash string, playbackRate float64)
+}
+
+type recordingSourceInfo interface {
+	CurrentSource() server.DataSource
+	CurrentPCAPFile() string
+	PCAPSpeedRatio() float64
+}
+
+type orphanedSweepRecoverer interface {
+	RecoverOrphanedSweeps() (int64, error)
+}
+
+var marshalTuningJSON = json.Marshal
+
+func isNilHelperTarget(target any) bool {
+	if target == nil {
+		return true
+	}
+	value := reflect.ValueOf(target)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func validateSupportedTuning(tuningCfg *config.TuningConfig) error {
+	if tuningCfg.L3.Engine != "ema_baseline_v1" {
+		return fmt.Errorf("unsupported l3.engine %q: this branch only implements ema_baseline_v1 at runtime", tuningCfg.L3.Engine)
+	}
+	if tuningCfg.L4.Engine != "dbscan_xy_v1" {
+		return fmt.Errorf("unsupported l4.engine %q: this branch only implements dbscan_xy_v1 at runtime", tuningCfg.L4.Engine)
+	}
+	if tuningCfg.L5.Engine != "cv_kf_v1" {
+		return fmt.Errorf("unsupported l5.engine %q: this branch only implements cv_kf_v1 at runtime", tuningCfg.L5.Engine)
+	}
+	return nil
+}
+
+func ensureSupportedTuning(tuningCfg *config.TuningConfig, fatalf logfFunc) {
+	if err := validateSupportedTuning(tuningCfg); err != nil {
+		fatalf("%v", err)
+	}
+}
+
+func validateLidarNetworkingFlags(udpPort, udpRcvBuf, forwardPort, foregroundForwardPort int) error {
+	if udpPort <= 0 || udpPort > 65535 {
+		return fmt.Errorf("invalid --lidar-udp-port=%d (must be in [1, 65535])", udpPort)
+	}
+	if udpRcvBuf <= 0 {
+		return fmt.Errorf("invalid --lidar-udp-rcv-buf=%d (must be positive)", udpRcvBuf)
+	}
+	if err := validateOptionalLidarPortFlag("--lidar-forward-port", forwardPort); err != nil {
+		return err
+	}
+	if err := validateOptionalLidarPortFlag("--lidar-foreground-forward-port", foregroundForwardPort); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateOptionalLidarPortFlag(name string, port int) error {
+	if port < 0 || port > 65535 {
+		return fmt.Errorf("invalid %s=%d (must be in [0, 65535])", name, port)
+	}
+	return nil
+}
+
+func ensureValidLidarNetworkingFlags(udpPort, udpRcvBuf, forwardPort, foregroundForwardPort int, fatalf logfFunc) {
+	if err := validateLidarNetworkingFlags(udpPort, udpRcvBuf, forwardPort, foregroundForwardPort); err != nil {
+		fatalf("%v", err)
+	}
+}
+
+func tuningHashOrWarn(tuningCfg *config.TuningConfig, warnf logfFunc) string {
+	tuningJSON, err := marshalTuningJSON(tuningCfg)
+	if err != nil {
+		warnf("Warning: unable to compute tuning config provenance hash: %v", err)
+		return ""
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(tuningJSON))
+}
+
+func mustLoadValidatedPandarConfig(
+	load func() (*parse.Pandar40PConfig, error),
+	validate func(*parse.Pandar40PConfig) error,
+	fatalf logfFunc,
+) *parse.Pandar40PConfig {
+	cfg, err := load()
+	if err != nil {
+		fatalf("Failed to load embedded lidar configuration: %v", err)
+		return nil
+	}
+	if err := validate(cfg); err != nil {
+		fatalf("Invalid embedded lidar configuration: %v", err)
+		return nil
+	}
+	return cfg
+}
+
+func ringElevationLogMessage(backgroundManager ringElevationsSetter, sensorID string, cfg *parse.Pandar40PConfig) string {
+	if err := backgroundManager.SetRingElevations(parse.ElevationsFromConfig(cfg)); err != nil {
+		return fmt.Sprintf("Failed to set ring elevations for background manager %s: %v", sensorID, err)
+	}
+	return fmt.Sprintf("BackgroundManager ring elevations set for sensor %s", sensorID)
+}
+
+func ensureValidForwardMode(mode string, fatalf logfFunc) {
+	validModes := map[string]bool{"lidarview": true, "grpc": true, "both": true}
+	if !validModes[mode] {
+		fatalf("Invalid --lidar-forward-mode: %s (must be: lidarview, grpc, or both)", mode)
+	}
+}
+
+func handlePCAPStartedVisualiser(publisher vrlogReplayController, server replayModeController, logf logfFunc) {
+	if !isNilHelperTarget(publisher) && publisher.IsVRLogActive() {
+		publisher.StopVRLogReplay()
+		logf("[Visualiser] Stopped VRLOG replay before PCAP start")
+	}
+	if !isNilHelperTarget(server) {
+		server.SetVRLogMode(false)
+		server.SetReplayMode(false)
+		server.SetReplayMode(true)
+		logf("[Visualiser] PCAP started - switched to replay mode")
+	}
+}
+
+func publishPCAPProgress(server pcapProgressSetter, current, total uint64) {
+	if !isNilHelperTarget(server) {
+		server.SetPCAPProgress(current, total)
+	}
+}
+
+func pcapProgressCallback(server pcapProgressSetter) func(uint64, uint64) {
+	return func(current, total uint64) {
+		publishPCAPProgress(server, current, total)
+	}
+}
+
+func pcapStartedCallback(publisher vrlogReplayController, server replayModeController, logf logfFunc) func() {
+	return func() {
+		handlePCAPStartedVisualiser(publisher, server, logf)
+	}
+}
+
+func pcapTimestampsCallback(server pcapTimestampsSetter) func(int64, int64) {
+	return func(startNs, endNs int64) {
+		if !isNilHelperTarget(server) {
+			server.SetPCAPTimestamps(startNs, endNs)
+		}
+	}
+}
+
+func newVRLogRecorderOrLog(
+	newRecorder func(string, string) (*recorder.Recorder, error),
+	recordPath string,
+	sensorID string,
+	logf logfFunc,
+) *recorder.Recorder {
+	rec, err := newRecorder(recordPath, sensorID)
+	if err != nil {
+		logf("[Visualiser] VRLOG recording failed: %v", err)
+		return nil
+	}
+	return rec
+}
+
+func applyRecordingMetadata(rec recordingMetadataSink, lidarDB sqlite.DBClient, lidarServer recordingSourceInfo, runID, tuningHash string, logger *log.Logger) {
+	if logger == nil {
+		logger = log.Default()
+	}
+
+	sourceType := "live"
+	pcapPath := ""
+	playbackRate := 0.0
+	if lidarServer != nil {
+		src := lidarServer.CurrentSource()
+		if src == server.DataSourcePCAP || src == server.DataSourcePCAPAnalysis {
+			sourceType = "pcap"
+			pcapPath = filepath.Base(lidarServer.CurrentPCAPFile())
+			playbackRate = lidarServer.PCAPSpeedRatio()
+		}
+	}
+
+	runStore := sqlite.NewAnalysisRunStore(lidarDB)
+	run, err := runStore.GetRun(runID)
+	if err != nil {
+		logger.Printf("[Visualiser] Warning: failed to load run metadata for %s: %v", runID, err)
+	}
+
+	effectiveTuningHash := tuningHash
+	if run != nil && strings.TrimSpace(run.RunConfigID) != "" {
+		configStore := configasset.NewStore(lidarDB)
+		runConfig, err := configStore.GetRunConfig(run.RunConfigID)
+		if err != nil {
+			logger.Printf("[Visualiser] Warning: failed to load immutable config for run %s: %v", runID, err)
+		} else {
+			rec.SetDeterministicConfig(
+				run.RunConfigID,
+				runConfig.ParamSetID,
+				runConfig.ConfigHash,
+				runConfig.ParamsHash,
+				runConfig.ParamSchemaVersion,
+				runConfig.ParamSetType,
+				runConfig.BuildVersion,
+				runConfig.BuildGitSHA,
+				runConfig.ComposedJSON,
+			)
+			if runConfig.ParamsHash != "" {
+				effectiveTuningHash = runConfig.ParamsHash
+			}
+		}
+	}
+
+	rec.SetProvenance(sourceType, pcapPath, effectiveTuningHash, playbackRate)
+}
+
+func recoverOrphanedSweepsOnStart(sweepStore orphanedSweepRecoverer, logger *log.Logger) {
+	if logger == nil {
+		logger = log.Default()
+	}
+
+	if n, err := sweepStore.RecoverOrphanedSweeps(); err != nil {
+		logger.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
+	} else if n > 0 {
+		logger.Printf("Recovered %d orphaned sweep(s) from previous run", n)
+	}
+}

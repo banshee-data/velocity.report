@@ -59,8 +59,8 @@ jobs:
         id: cli
         run: |
           echo "Checking for CLI flag changes..."
-          FLAGS_REMOVED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- cmd/radar/radar.go | grep -E '^\-.*flag\.(String|Bool|Int)' | wc -l || echo 0)
-          FLAGS_ADDED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- cmd/radar/radar.go | grep -E '^\+.*flag\.(String|Bool|Int)' | wc -l || echo 0)
+          FLAGS_REMOVED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- internal/cmd/server/radar.go | grep -E '^\-.*flag\.(String|Bool|Int)' | wc -l || echo 0)
+          FLAGS_ADDED=$(git diff ${{ steps.base.outputs.ref }}...HEAD -- internal/cmd/server/radar.go | grep -E '^\+.*flag\.(String|Bool|Int)' | wc -l || echo 0)
 
           if [ "$FLAGS_REMOVED" -gt 0 ]; then
             echo "cli_breaking=true" >> $GITHUB_OUTPUT

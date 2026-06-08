@@ -14,7 +14,7 @@ Type=simple
 # Do NOT add `CapabilityBoundingSet=CAP_NET_BIND_SERVICE` here.  The bounding
 # set applies to the service *and its children*, so capping it to a single
 # capability strips the CAP_SETUID/CAP_SETGID/CAP_AUDIT_WRITE that `sudo` needs.
-# The server shells out to `sudo velocity-ctl tailscale enable-tailscaled` for
+# The server shells out to `sudo velocity device tailscale enable-tailscaled` for
 # the Tailscale toggle (see internal/tailscale/manager.go), and a restricted
 # bounding set breaks it with:
 #   sudo: unable to change to root gid: Operation not permitted
@@ -29,9 +29,12 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 # http://velocity.local; HTTPS is an opt-in via Tailscale Serve (see
 # docs/platform/operations/tailscale-serve.md).
 #
+# --config is omitted: the shipped image relies on the binary-embedded tuning
+# defaults unless an operator provides an explicit override file.
+#
 # --port is omitted: its default /dev/ttySC1 (Waveshare SC16IS752 HAT,
 # channel B) already matches this deployment.  Override it if the path differs.
-ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json
+ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db
 WorkingDirectory=/var/lib/velocity-report
 Environment="VELOCITY_PDF_BACKEND=go"
 Environment="VELOCITY_TEX_ROOT=/opt/velocity-report/texlive"

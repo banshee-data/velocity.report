@@ -127,10 +127,10 @@ wiring (flag parsing, `main()`, output formatting).
 | Package                                                          | Testable LOC | Target `internal/` Package                                      | Extraction Scope                                                                                                                                       |
 | ---------------------------------------------------------------- | ------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `cmd/deploy`                                                     | ~2,500       | `internal/deploy` (exists)                                      | **HIGH**: `Installer`, `Upgrader`, `Rollback`, `Fixer`, `Monitor` are pure business logic. Unify the two `Executor` implementations (cmd vs internal). |
-| [cmd/radar](../../cmd/radar)                                     | ~200         | [internal/config](../../internal/config)                        | **MEDIUM**: `resolvePrecompiledTeXRoot()`, `configurePDFLaTeXFlow()`, environment-config resolution.                                                   |
+| [internal/cmd/server](../../internal/cmd/server)                 | ~200         | [internal/config](../../internal/config)                        | **MEDIUM**: `resolvePrecompiledTeXRoot()`, `configurePDFLaTeXFlow()`, environment-config resolution.                                                   |
 | [cmd/tools](../../cmd/tools) (scan_transits)                     | ~65          | [internal/db](../../internal/db)                                | **MEDIUM**: `findTransitGaps()` is pure SQL+result-processing; belongs alongside `TransitWorker`.                                                      |
 | [cmd/tools/pcap-analyse](../../cmd/tools/pcap-analyse)           | ~300         | [internal/lidar/pipeline](../../internal/lidar/pipeline)        | **LOW**: PCAP processing + ML export pipeline; tightly coupled to build tags.                                                                          |
-| [cmd/sweep](../../cmd/sweep)                                     | ~150         | (already in [internal/lidar/sweep](../../internal/lidar/sweep)) | LOW: only `toFloat64()` helper remains in cmd.                                                                                                         |
+| [internal/cmd/tune](../../internal/cmd/tune)                     | ~150         | (already in [internal/lidar/sweep](../../internal/lidar/sweep)) | LOW: only `toFloat64()` helper remains in cmd.                                                                                                         |
 | `cmd/transit-backfill`                                           | ~30          | (already delegates to [internal/db](../../internal/db))         | NONE: already a thin wrapper.                                                                                                                          |
 | [cmd/tools/gen-vrlog](../../cmd/tools/gen-vrlog)                 | ~100         | `internal/lidar/visualiser/recorder`                            | LOW: synthetic VRLog generation.                                                                                                                       |
 | [cmd/tools/visualiser-server](../../cmd/tools/visualiser-server) | ~150         | `internal/lidar/visualiser`                                     | LOW: gRPC server modes.                                                                                                                                |
@@ -143,7 +143,7 @@ wiring (flag parsing, `main()`, output formatting).
    95.5% target).
 3. The `cmd/` package itself needs only a minimal smoke test
    (`--help` exits 0, invalid flags exit non-zero).
-4. **Priority:** `cmd/deploy` → [cmd/radar](../../cmd/radar) → [cmd/tools](../../cmd/tools) (by LOC impact).
+4. **Priority:** `cmd/deploy` → [internal/cmd/server](../../internal/cmd/server) → [cmd/tools](../../cmd/tools) (by LOC impact).
 
 ### macOS Swift app
 
@@ -243,7 +243,7 @@ coverage requires a macOS runner with Metal support).
    `Executor` implementations. Write tests against extracted code (~2,500
    LOC gaining coverage under the 95.5% target).
 
-9. **[cmd/radar](../../cmd/radar) → [internal/config](../../internal/config)**: Extract `resolvePrecompiledTeXRoot`,
+9. **[internal/cmd/server](../../internal/cmd/server) → [internal/config](../../internal/config)**: Extract `resolvePrecompiledTeXRoot`,
    `configurePDFLaTeXFlow`, and environment-config helpers. Test in
    [internal/config](../../internal/config).
 

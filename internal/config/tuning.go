@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -221,6 +222,12 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
+	return ParseTuningConfig(data)
+}
+
+// ParseTuningConfig decodes and validates a tuning config from raw JSON bytes
+// (e.g. the binary-embedded defaults).
+func ParseTuningConfig(data []byte) (*TuningConfig, error) {
 	var cfg TuningConfig
 	if err := strictDecodeObject(data, &cfg, "config"); err != nil {
 		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
@@ -230,6 +237,23 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+// LoadTuningConfigOrEmbedded loads the tuning config from path when that file
+// exists, otherwise falls back to the supplied embedded defaults. This lets the
+// shipped image carry no on-disk tuning.defaults.json while still honouring an
+// explicit operator override placed at path.
+func LoadTuningConfigOrEmbedded(path string, embedded []byte) (*TuningConfig, error) {
+	if _, err := os.Stat(path); err == nil {
+		return LoadTuningConfig(path)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to stat config file %s: %w", path, err)
+	}
+
+	if len(embedded) == 0 {
+		return nil, fmt.Errorf("config file %s not found and no embedded defaults available", path)
+	}
+	return ParseTuningConfig(embedded)
 }
 
 // MustLoadDefaultConfig loads the canonical defaults file or panics.

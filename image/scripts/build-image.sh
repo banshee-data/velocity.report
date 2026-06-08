@@ -108,6 +108,7 @@ cleanup() {
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
+    rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     rm -f "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build"
 }
@@ -192,25 +193,37 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         # Host toolchain — fast path for local iteration.
         # Needs aarch64-linux-gnu-gcc for pcap; falls back to non-pcap.
         # EXTRA_LDFLAGS strips debug symbols for smaller image binaries.
-        log_info "Building ARM64 Go binaries (host toolchain)..."
+        log_info "Building ARM64 Go binary (host toolchain)..."
         export EXTRA_LDFLAGS="-s -w"
-        if make build-radar-linux-pcap 2>/dev/null; then
-            log_info "Built velocity-report with pcap support"
+        if make build-velocity-linux 2>/dev/null; then
+            log_info "Built velocity with pcap support"
         else
             log_warn "pcap cross-compile unavailable; building without pcap"
-            make build-radar-linux
+            # CGO_ENABLED=0 forces a pure-Go build: the fallback exists precisely
+            # because the cross C toolchain is missing, so leaving CGO on would
+            # hit the same failure for any cgo-importing package.
+            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+                -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" \
+                -o "${BUILD_TS_COMPACT}-velocity-${VERSION//-/.}-linux-arm64-${GIT_SHA:0:7}" \
+                ./cmd/velocity
         fi
-        make build-ctl-linux
         unset EXTRA_LDFLAGS
 
-        RADAR_BIN=$(ls -t "$REPO_ROOT"/*-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
-        CTL_BIN=$(ls -t "$REPO_ROOT"/*-velocity-ctl-*-linux-arm64-* 2>/dev/null | head -1)
-        if [ -z "$RADAR_BIN" ] || [ -z "$CTL_BIN" ]; then
-            log_error "Could not find timestamped binaries in $REPO_ROOT"
+        VELOCITY_BIN=""
+        for candidate in "$REPO_ROOT"/*-velocity-*-linux-arm64-*; do
+            [ -e "$candidate" ] || continue
+            case "$(basename "$candidate")" in
+                *-velocity-report-*|*-velocity-ctl-*) continue ;;
+            esac
+            if [ -z "$VELOCITY_BIN" ] || [ "$candidate" -nt "$VELOCITY_BIN" ]; then
+                VELOCITY_BIN="$candidate"
+            fi
+        done
+        if [ -z "$VELOCITY_BIN" ]; then
+            log_error "Could not find timestamped velocity binary in $REPO_ROOT"
             exit 1
         fi
-        cp -f "$RADAR_BIN" "$BINARIES_DIR/velocity-report"
-        cp -f "$CTL_BIN" "$BINARIES_DIR/velocity-ctl"
+        cp -f "$VELOCITY_BIN" "$BINARIES_DIR/velocity"
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
         # Use a slim toolchain image plus host-mounted temp caches so the large
@@ -251,23 +264,26 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
             "$DOCKER_TOOLCHAIN_IMAGE" \
             sh -lc '
                 export PATH=/usr/local/go/bin:$PATH
-                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-report ./cmd/radar &&
-                go build -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity-ctl ./cmd/velocity-ctl
+                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity ./cmd/velocity
             '
 
         cleanup_docker_build_artifacts "after build"
     fi
 
-    chmod +x "$BINARIES_DIR"/*
-    log_info "Binaries staged in $BINARIES_DIR"
+    chmod +x "$BINARIES_DIR/velocity"
+    log_info "Binary staged in $BINARIES_DIR"
 else
-    if [[ ! -f "$BINARIES_DIR/velocity-report" || ! -f "$BINARIES_DIR/velocity-ctl" ]]; then
-        log_error "--skip-binaries requires staged binaries at $BINARIES_DIR/velocity-report and velocity-ctl"
+    if [[ ! -f "$BINARIES_DIR/velocity" ]]; then
+        log_error "--skip-binaries requires the staged binary at $BINARIES_DIR/velocity"
         exit 1
     fi
-    chmod +x "$BINARIES_DIR/velocity-report" "$BINARIES_DIR/velocity-ctl"
-    log_info "Using pre-staged binaries in $BINARIES_DIR"
+    chmod +x "$BINARIES_DIR/velocity"
+    log_info "Using pre-staged binary in $BINARIES_DIR"
 fi
+
+# Record the version string so stage 01 can name the on-disk versions/<v>/ dir
+# without exec'ing the (ARM64) binary under qemu.
+printf '%s\n' "$VERSION" > "$BINARIES_DIR/VERSION"
 
 if [[ "$BINARIES_ONLY" -eq 1 ]]; then
     log_info "Binary build complete; skipping image assembly (--binaries-only)"
@@ -309,10 +325,8 @@ cp "$REPO_ROOT/internal/report/tex/dependency-manifest.txt" "$TEXLIVE_DEST/"
 cp "$REPO_ROOT/internal/report/tex/velocity-report.ini" "$TEXLIVE_DEST/"
 log_info "Copied minimal TeX Live build files"
 
-CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
-mkdir -p "$CONFIG_DEST"
-cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
-log_info "Copied tuning defaults"
+# Tuning defaults now ship embedded in the velocity binary (config.TuningDefaults
+# via assets.go), so there is no tuning.defaults.json to stage on disk.
 
 # Remove legacy raw Markdown docs staging from older image builds. The offline
 # docs now ship inside the velocity-report binary and are served at /docs/.

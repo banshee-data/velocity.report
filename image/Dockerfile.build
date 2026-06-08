@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
-# Dockerfile.build — Cross-compile velocity.report ARM64 binaries with pcap
+# Dockerfile.build — Cross-compile the velocity.report ARM64 binary with pcap
 #
 # This image provides a native Linux environment with libpcap-dev for
 # ARM64 cross-compilation, avoiding the need for aarch64-linux-gnu-gcc
-# on macOS. The container builds velocity-report (with pcap) and
-# velocity-ctl, then copies the binaries out.
+# on macOS. The container builds the single multi-call velocity binary, then
+# copies it out.
 #
 # Usage (called by build-image.sh, not directly):
 #   docker build -f image/Dockerfile.build -t velocity-builder .
@@ -23,6 +23,7 @@ RUN dpkg --add-architecture arm64 && \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the full source tree
+WORKDIR /build
 COPY . .
 
 # Ensure embed stubs exist for direct Dockerfile builds. The image build script
@@ -36,7 +37,7 @@ ARG VERSION=dev
 ARG GIT_SHA=unknown
 ARG BUILD_TIME=unknown
 
-# Build ARM64 binaries with pcap support
+# Build ARM64 binary with pcap support
 ENV CGO_ENABLED=1 \
     GOOS=linux \
     GOARCH=arm64 \
@@ -58,12 +59,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
         -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
         -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
         -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
-        -o /out/velocity-report ./cmd/radar && \
-    go build -ldflags "-s -w \
-        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
-        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
-        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
-        -o /out/velocity-ctl ./cmd/velocity-ctl
+        -o /out/velocity ./cmd/velocity
 
 FROM scratch AS export
 

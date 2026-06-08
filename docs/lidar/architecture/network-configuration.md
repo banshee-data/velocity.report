@@ -9,7 +9,7 @@ Architecture for interface-aware UDP binding, network diagnostics, hot-reload co
 
 ### Current state
 
-The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on [cmd/radar](../../../cmd/radar) (the unified binary that hosts both radar and LiDAR subsystems). Changing any network parameter requires a process restart.
+The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on [internal/cmd/server](../../../internal/cmd/server) (the unified binary that hosts both radar and LiDAR subsystems). Changing any network parameter requires a process restart.
 
 **Current CLI flags:**
 

@@ -11,7 +11,7 @@
 DEFAULT_PASS="report"
 
 # Resolve version/build info from the INSTALLED BINARY so the banner stays
-# correct after `velocity-ctl upgrade` swaps it.  The /etc/velocity-report-build
+# correct after `velocity device upgrade` swaps it.  The /etc/velocity-report-build
 # file is only stamped at image-build time, so reading it would show the
 # original image version forever — stale the moment the device is upgraded.
 # Querying the binary makes the binary's own ldflags the single source of truth.
@@ -38,6 +38,7 @@ fi
 VR_VERSION="${VR_VERSION:-unknown}"
 VR_BUILD_TIME="${VR_BUILD_TIME:-unknown}"
 VR_GIT_SHA="${VR_GIT_SHA:-unknown}"
+VR_GIT_SHA_SHORT="${VR_GIT_SHA:0:7}"
 
 # --- Check whether the default password is still in use ----------------------
 #
@@ -84,7 +85,7 @@ warning_banner() {
  ║                                                                ║
  ╚════════════════════════════════════════════════════════════════╝
 
-  velocity-report v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
+ v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA_SHORT}
 
 EOF
 }
@@ -101,7 +102,7 @@ welcome_banner() {
   │                                                          │
   └──────────────────────────────────────────────────────────┘
 
-    v${VR_VERSION}  SHA: ${VR_GIT_SHA}  Built: ${VR_BUILD_TIME}
+ v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA_SHORT}
 
   Dashboard:  http://velocity.local
 
@@ -109,8 +110,8 @@ welcome_banner() {
     velocity-status           Is the service running?
     velocity-log              Follow the live service log
     velocity-bounce           Restart the service
-    velocity-report version   Version and build info
-    sudo velocity-ctl         Device management
+    velocity version          Version and build info
+    sudo velocity device      Device management (upgrade/rollback/backup)
 
   The service starts automatically at boot.
   Connect a sensor and the data starts flowing.

@@ -348,7 +348,7 @@ func PrintMigrateHelp() {
 	fmt.Println("  3. velocity-report migrate up            # Apply remaining migrations")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("  --db-path <path>    Path to database file (default: sensor_data.db)")
+	fmt.Println("  --db-path <path>    Path to database file (default: sensor_data.db; installed appliance auto-uses /var/lib/velocity-report/sensor_data.db)")
 	fmt.Println()
 	fmt.Println("Further reading:")
 	fmt.Println("  - internal/db/migrations/README.md")

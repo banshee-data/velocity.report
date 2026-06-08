@@ -219,9 +219,9 @@ The branch changed `DBSCAN()` to return `([]WorldCluster, []int)` (clusters + la
 
 **Recommendation:** Add the labels return value on `main` as a separate preparatory PR since it affects tests.
 
-### 3.3 Main program integration ([cmd/radar/radar.go](../../cmd/radar/radar.go))
+### 3.3 Main program integration ([internal/cmd/server/radar.go](../../internal/cmd/server/radar.go))
 
-In [cmd/radar/radar.go](../../cmd/radar/radar.go), create `pipeline = lidar.NewTrackingPipeline(pipelineConfig)` and use `pipeline.FrameCallback()` as the callback. Pass `pipeline` to `monitor.NewWebServer` via a new `TrackingPipeline` field for dynamic algorithm selection.
+In [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go), create `pipeline = lidar.NewTrackingPipeline(pipelineConfig)` and use `pipeline.FrameCallback()` as the callback. Pass `pipeline` to `monitor.NewWebServer` via a new `TrackingPipeline` field for dynamic algorithm selection.
 
 ---
 
@@ -463,11 +463,11 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 
 ### Modified files (require conflict resolution)
 
-| File                                                   | Branch Changes                                                        | Main Changes                                                                                                                             | Conflict Risk      |
-| ------------------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `internal/lidar/tracking_pipeline.go`                  | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH**           |
-| `internal/lidar/monitor/webserver.go`                  | Add `handleAlgorithmConfig`, `trackingPipeline` field                 | Add sweep dashboard, auto-tuner, tuning config, single config refactor                                                                   | **MEDIUM**         |
-| `internal/lidar/clustering.go`                         | Return `([]WorldCluster, []int)` from `DBSCAN`                        | Unchanged signature `[]WorldCluster`                                                                                                     | **MEDIUM**         |
-| [cmd/radar/radar.go](../../cmd/radar/radar.go)         | Add `NewTrackingPipeline`, pass to webserver                          | Extensive refactoring (config loading, tuning params, dependency injection)                                                              | **MEDIUM**         |
-| [internal/db/schema.sql](../../internal/db/schema.sql) | Add algorithm tables                                                  | Schema has evolved                                                                                                                       | **LOW**            |
-| `internal/lidar/tracking_pipeline_test.go`             | New tests (149 lines)                                                 | Existing 1,248 lines of tests                                                                                                            | **LOW** (additive) |
+| File                                                               | Branch Changes                                                        | Main Changes                                                                                                                             | Conflict Risk      |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `internal/lidar/tracking_pipeline.go`                              | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH**           |
+| `internal/lidar/monitor/webserver.go`                              | Add `handleAlgorithmConfig`, `trackingPipeline` field                 | Add sweep dashboard, auto-tuner, tuning config, single config refactor                                                                   | **MEDIUM**         |
+| `internal/lidar/clustering.go`                                     | Return `([]WorldCluster, []int)` from `DBSCAN`                        | Unchanged signature `[]WorldCluster`                                                                                                     | **MEDIUM**         |
+| [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) | Add `NewTrackingPipeline`, pass to webserver                          | Extensive refactoring (config loading, tuning params, dependency injection)                                                              | **MEDIUM**         |
+| [internal/db/schema.sql](../../internal/db/schema.sql)             | Add algorithm tables                                                  | Schema has evolved                                                                                                                       | **LOW**            |
+| `internal/lidar/tracking_pipeline_test.go`                         | New tests (149 lines)                                                 | Existing 1,248 lines of tests                                                                                                            | **LOW** (additive) |

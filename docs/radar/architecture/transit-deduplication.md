@@ -55,7 +55,7 @@ Before processing transits, delete existing transits with the same `model_versio
 
 #### Phase 3: CLI commands
 
-Added `--cleanup-transits`, `--migrate-transits-from`, and `--migrate-transits-to` flags to `cmd/radar/main.go`.
+Added `--cleanup-transits`, `--migrate-transits-from`, and `--migrate-transits-to` flags to `internal/cmd/server/main.go`.
 
 #### Phase 4: overlap analysis
 

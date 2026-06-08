@@ -71,11 +71,11 @@ func TestNodeFQDN(t *testing.T) {
 func TestSudoArgvIsLiteral(t *testing.T) {
 	wantEnable := []string{
 		"/usr/bin/sudo", "-n",
-		"/usr/local/bin/velocity-ctl", "tailscale", "enable-tailscaled",
+		"/usr/local/bin/velocity", "device", "tailscale", "enable-tailscaled",
 	}
 	wantDisable := []string{
 		"/usr/bin/sudo", "-n",
-		"/usr/local/bin/velocity-ctl", "tailscale", "disable-tailscaled",
+		"/usr/local/bin/velocity", "device", "tailscale", "disable-tailscaled",
 	}
 	if !slicesEqual(sudoEnableArgv, wantEnable) {
 		t.Fatalf("sudoEnableArgv drift: got %v want %v", sudoEnableArgv, wantEnable)

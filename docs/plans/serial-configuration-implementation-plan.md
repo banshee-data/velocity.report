@@ -19,7 +19,7 @@ This work changes the centre of gravity. Serial configuration becomes database-b
 - Sensor model metadata is application-owned in [internal/api/sensor_models.go](../../internal/api/sensor_models.go).
 - The web UI ships serial configuration inside the Sensor Serial Ports section of [web/src/routes/settings/+page.svelte](../../web/src/routes/settings/+page.svelte), backed by helpers in [web/src/lib/api.ts](../../web/src/lib/api.ts).
 - The current codebase includes test coverage for DB access, API handlers, and reload behaviour in [internal/db/serial_config_test.go](../../internal/db/serial_config_test.go), [internal/api/serial_config_test.go](../../internal/api/serial_config_test.go), and [internal/api/serial_reload_test.go](../../internal/api/serial_reload_test.go).
-- The hot-reload manager exists, but startup wiring from [cmd/radar/radar.go](../../cmd/radar/radar.go) still appears to be CLI-port-first rather than DB-config-first.
+- The hot-reload manager exists, but startup wiring from [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) still appears to be CLI-port-first rather than DB-config-first.
 - Auto-detect endpoints and UI affordances described in the original design are not present in the current implementation.
 
 ## Findings
@@ -28,7 +28,7 @@ This work changes the centre of gravity. Serial configuration becomes database-b
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
 | Storage          | Schema, migration, and DB helpers are landed                                                                                                                        | Low      | Done for this release                            |
 | API core         | CRUD, model listing, device listing, test, and reload endpoints are landed                                                                                          | Low      | Done for this release                            |
-| Runtime adoption | `SerialPortManager` exists, but `cmd/radar/radar.go` is not yet using DB-backed config as the main startup path                                                     | High     | Must finish before calling the feature complete  |
+| Runtime adoption | `SerialPortManager` exists, but `internal/cmd/server/radar.go` is not yet using DB-backed config as the main startup path                                           | High     | Must finish before calling the feature complete  |
 | UX completion    | The Sensor Serial Ports section on `/settings` supports list/create/edit/delete/test, but not device auto-detect, baud-only detect, or an obvious apply/reload path | Medium   | Safe to defer some polish, not all               |
 | Documentation    | Design docs still read like a proposal and over-promise unshipped endpoints                                                                                         | Medium   | Fix now so the release notes do not lie politely |
 
@@ -37,7 +37,7 @@ This work changes the centre of gravity. Serial configuration becomes database-b
 Treat this as a completion pass, not a second design exercise.
 
 1. Keep the delivered branch scope as the baseline. The database model, API handlers, reload manager, and settings page are already the owning abstractions.
-2. Finish the runtime path at the startup boundary in [cmd/radar/radar.go](../../cmd/radar/radar.go) rather than inventing more API.
+2. Finish the runtime path at the startup boundary in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) rather than inventing more API.
 3. Make the docs separate shipped behaviour from planned behaviour. A design document is allowed to dream a little, but it should not claim to ship `POST /api/serial/auto-detect` when the code has never met it.
 4. Preserve CLI fallback until the DB-backed startup path is proven on real Pi hardware.
 
@@ -119,7 +119,7 @@ Treat this as a completion pass, not a second design exercise.
 
 ### Outstanding
 
-- [ ] Wire DB-backed serial startup and real `SerialPortManager` installation in [cmd/radar/radar.go](../../cmd/radar/radar.go) (`M` effort)
+- [ ] Wire DB-backed serial startup and real `SerialPortManager` installation in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) (`M` effort)
 - [ ] Add an explicit apply/reload path in the UI, or make save trigger the safe runtime update path (`S/M` effort)
 - [ ] Add `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`, plus UI actions that use them (`M` effort)
 - [ ] Write the operator guide and troubleshooting doc for serial configuration (`S` effort)

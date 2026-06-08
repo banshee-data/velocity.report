@@ -43,9 +43,9 @@ Stage scripts under [image/stage-velocity/](../../image/stage-velocity/):
 
 The two-binary surface:
 
-- [cmd/radar/](../../cmd/radar) — server binary, installed as `velocity-report`. Defaults to `serve`; subcommands `migrate`, `pdf`, `transits`.
-- [cmd/velocity-ctl/](../../cmd/velocity-ctl) — operator binary, installed as `velocity-ctl`. Subcommands `upgrade`, `rollback`, `backup`, `status`, `tailscale`.
-- [cmd/sweep/](../../cmd/sweep) — sweep harness, only ever built locally; not shipped to the Pi today.
+- [internal/cmd/server/](../../internal/cmd/server) — server binary, installed as `velocity-report`. Defaults to `serve`; subcommands `migrate`, `pdf`, `transits`.
+- [internal/cmd/device/](../../internal/cmd/device) — operator binary, installed as `velocity-ctl`. Subcommands `upgrade`, `rollback`, `backup`, `status`, `tailscale`.
+- [internal/cmd/tune/](../../internal/cmd/tune) — sweep harness, only ever built locally; not shipped to the Pi today.
 
 PDF pipeline:
 
@@ -101,10 +101,10 @@ This is the "submodule move" the user wants pulled forward — the same directio
 
 **Steps:**
 
-1. Move `cmd/radar/` → `cmd/velocity/`; rename the existing files to live under `internal/cmd/server/` and export `Main(args []string)`. Multi-call dispatcher in `cmd/velocity/main.go` switches on `filepath.Base(os.Args[0])` first, then `os.Args[1]`.
-2. Move `cmd/velocity-ctl/` source under `internal/cmd/device/` and wire as the `device` namespace: `velocity device check|upgrade|rollback|backup`.
-3. Ship `cmd/velocity-ctl` as a thin redirect shim for one release: when invoked, print a deprecation warning and exec the new binary with `device` prefixed. Delete the shim in v0.5.2.
-4. Move `cmd/sweep/` under `internal/cmd/tune/` and expose as `velocity tune sweep`. Operator-facing utilities in `cmd/tools/*` stay developer-only until [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md) ratifies their promotion.
+1. Move `internal/cmd/server/` → `cmd/velocity/`; rename the existing files to live under `internal/cmd/server/` and export `Main(args []string)`. Multi-call dispatcher in `cmd/velocity/main.go` switches on `filepath.Base(os.Args[0])` first, then `os.Args[1]`.
+2. Move `internal/cmd/device/` source under `internal/cmd/device/` and wire as the `device` namespace: `velocity device check|upgrade|rollback|backup`.
+3. Ship `internal/cmd/device` as a thin redirect shim for one release: when invoked, print a deprecation warning and exec the new binary with `device` prefixed. Delete the shim in v0.5.2.
+4. Move `internal/cmd/tune/` under `internal/cmd/tune/` and expose as `velocity tune sweep`. Operator-facing utilities in `cmd/tools/*` stay developer-only until [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md) ratifies their promotion.
 5. Update [image/stage-velocity/01-velocity-binaries/00-run.sh](../../image/stage-velocity/01-velocity-binaries/00-run.sh) to install one binary at `/opt/velocity-report/versions/<v>/velocity`; create `/usr/local/bin/velocity` and `/usr/local/bin/velocity-report` symlinks; delete `velocity-update`.
 6. Tighten `/etc/sudoers.d/020_velocity-nopasswd` so `pi`'s `velocity-ctl *` grant collapses to `velocity device *`; the `velocity` user's tailscale bridge becomes `velocity device tailscale {enable,disable}-tailscaled` (literal argv, no wildcards).
 
@@ -200,7 +200,7 @@ Inventory of every artifact that is not the binary itself, with effort to fold o
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
 | `velocity-ctl`                                                    | Separate binary at `/usr/local/bin/velocity-ctl`.                                        | `velocity device ...` namespace inside the multi-call binary.                                                                                               | A (`M`)         |
 | `velocity-update` redirect stub                                   | Shell script at `/usr/local/bin/velocity-update`.                                        | Deleted.                                                                                                                                                    | A (`S`)         |
-| `cmd/sweep/`                                                      | Local-dev binary; not shipped.                                                           | `velocity tune sweep`; shipped inside the binary.                                                                                                           | A (`S`)         |
+| `internal/cmd/tune/`                                              | Local-dev binary; not shipped.                                                           | `velocity tune sweep`; shipped inside the binary.                                                                                                           | A (`S`)         |
 | Tailscale apt repo + install                                      | Image-build stage.                                                                       | Static-binary installer inside `velocity device tailscale install`; helper payload owned and versioned by the main binary; deferred until operator opts in. | B (`M`)         |
 | `tailscaled` mask state                                           | Set at image-build.                                                                      | Set by the binary at install time.                                                                                                                          | B (`S`)         |
 | `texlive-xetex` + minimal TeX tree                                | 143 MB at `/opt/velocity-report/texlive/`.                                               | Deleted; Typst replaces.                                                                                                                                    | C (`L`)         |
@@ -298,18 +298,41 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 ### Complete
 
 - [x] Plan written and circulated for review.
+- [x] Work unit A: fold `velocity-ctl` and sweep into the multi-call binary, ship the `velocity-ctl` deprecation shim, and pull forward the **full** versioned dispatcher/upgrade machinery (`renameat2` swap, retention, single-artifact release.json). `velocity-update` was already removed (#290).
+- [x] Work unit D: nginx removal landed (#517).
+- [x] Work unit E: `go:embed` for tuning defaults, network config, udev rules, and wpa_supplicant + `velocity device install`; `velocity data sql --read-only` read-only inspection subcommand replacing `sqlite3`; dropped `python3-serial`, `minicom`, `jq`, `curl`, and `sqlite3` from the apt surface; deleted the `02-velocity-python` stage.
+- [x] Removed the transitional `velocity-ctl` shim: the `/usr/local/bin/velocity-ctl` symlink (image stage 01), the `velocity-ctl` sudoers grants (stage 03), and the deprecation-warning path in `cmd/velocity/main.go`.
+- [x] Docs: updated distribution-packaging, rpi-imager, setup, asset-naming, COMMANDS, CLAUDE, and coding-standards to the new surface.
 
 ### Outstanding
 
-- [ ] Work unit A: fold `velocity-ctl`, sweep, and `velocity-update` into the multi-call binary (`M`)
 - [ ] Work unit B: in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` (`M`)
 - [ ] Work unit C: Typst PDF pipeline; delete `texlive-xetex` apt surface and the minimal-texlive build scripts (`L`)
 - [ ] Source archive migration: replace `report.tex` ZIP output with an editable `report.typ` archive and publish the operator migration note (`M`)
-- [ ] Work unit D: pull [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md) into v0.5.1 (`S`)
-- [ ] Work unit E: image apt-surface trim + `go:embed` for tuning defaults, network, udev, wpa_supplicant, and the `velocity data sql --read-only` replacement for `sqlite3` (`S`)
 - [ ] CI: PDF parity job (xelatex vs Typst) for one release before xelatex deletion, including source-archive completeness checks (`S`)
 - [ ] CI: image stage smoke test that the bind on `:80` works in a chroot before export (`S`)
-- [ ] Docs: update [docs/platform/operations/distribution-packaging.md](../platform/operations/distribution-packaging.md), [docs/platform/operations/rpi-imager.md](../platform/operations/rpi-imager.md), [setup.md](../../public_html/src/guides/setup.md), and [tailscale-remote-access-guide.md](tailscale-remote-access-guide.md) to the new surface, including the Typst source-archive migration (`S`)
+- [ ] Docs: Typst source-archive migration note (deferred with work unit C)
+
+### Follow-on image cleanup (gated on work units B / C)
+
+The `sqlite3` drop and the `velocity-ctl` shim removal have landed; the
+remaining apt-surface trims are each unblocked by a specific later landing and
+**should be done in the same change that lands it**, not separately:
+
+- [ ] **When work unit B (in-binary Tailscale installer) lands:** delete
+      `image/stage-velocity/07-velocity-tailscale/` _and_ the on-demand
+      `apt-get install … curl` it now carries. `curl` was dropped from
+      `00-packages` in #519 but stage 07 still installs it on demand for the
+      keyring fetch; deleting the stage removes `curl` from the image entirely.
+- [ ] **When work unit C (Typst) lands:** drop `texlive-xetex`,
+      `texlive-latex-extra`, `fonts-lmodern`, `librsvg2-bin`, and
+      `fonts-noto-color-emoji` from `00-install-packages/00-packages`; delete the
+      `00-install-packages/01-run.sh` minimal-TeX build stage and
+      `scripts/build-minimal-texlive.sh` / `scripts/install-minimal-texlive.sh`.
+
+Once all four land, the `00-packages` end-state is just `libpcap0.8` +
+`raspi-config`, and the only operator-facing binary name is `velocity`
+(`velocity-report` survives only as the systemd-facing alias).
 
 ### Deferred
 

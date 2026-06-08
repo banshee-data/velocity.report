@@ -151,7 +151,7 @@ Problem:
 
 Opportunity:
 
-- Build a per-sensor runtime container in [cmd/radar](../../../cmd/radar) and pass explicit dependencies through constructors.
+- Build a per-sensor runtime container in [internal/cmd/server](../../../internal/cmd/server) and pass explicit dependencies through constructors.
 
 Outcome:
 
@@ -230,7 +230,7 @@ Outcome:
 6. **L1 Packets migration**: move `network/` and `parse/` into `l1packets/`: ✅
    - Moved `internal/lidar/network/` → [internal/lidar/l1packets/network/](../../../internal/lidar/l1packets/network)
    - Moved `internal/lidar/parse/` → [internal/lidar/l1packets/parse/](../../../internal/lidar/l1packets/parse)
-   - Updated all callers (cmd/radar, cmd/tools, monitor)
+   - Updated all callers (internal/cmd/server, cmd/tools, monitor)
 
 7. **Pipeline migration**: move `tracking_pipeline.go` → `pipeline/`: ✅
    - Moved orchestration logic to `pipeline/tracking_pipeline.go` (canonical)
@@ -246,7 +246,7 @@ Outcome:
 9. **Shim removal and caller update**: remove all backward-compat alias files: ✅
    - Removed 27 individual shim files from [internal/lidar/](../../../internal/lidar)
    - Updated all sub-package callers (l1packets, monitor, visualiser) to use layer imports
-   - Updated all external callers (cmd/radar, internal/db) to use layer imports
+   - Updated all external callers (internal/cmd/server, internal/db) to use layer imports
    - Remaining `lidar.` imports are only for logging (`Opsf`/`Diagf`/`Tracef`/`SetLogWriters` in debug.go)
    - `aliases.go` retained only for parent package's own integration tests
 

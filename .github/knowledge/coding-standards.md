@@ -59,11 +59,12 @@ Optional detailed explanation if needed.
 
 ## Product Names
 
-| Product               | Canonical name       | Used in                                                                                         |
-| --------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| Server + RPi image    | `velocity-report`    | Binary filenames, service name, image filenames, systemd unit                                   |
-| Device management CLI | `velocity-ctl`       | Binary filename                                                                                 |
-| macOS visualiser      | `VelocityVisualiser` | DMG filename, app bundle, Finder, menu bar. **PascalCase is brand identity — do not lowercase** |
+| Product            | Canonical name       | Used in                                                                                           |
+| ------------------ | -------------------- | ------------------------------------------------------------------------------------------------- |
+| Binary             | `velocity`           | Single multi-call binary asset; `/usr/local/bin/velocity`; `velocity <namespace> …` CLI           |
+| Server + RPi image | `velocity-report`    | Service name, image filename, systemd unit, server-compatibility alias symlink                    |
+| Device management  | `velocity device`    | Namespace inside the `velocity` binary (replaced the separate `velocity-ctl` binary, now removed) |
+| macOS visualiser   | `VelocityVisualiser` | DMG filename, app bundle, Finder, menu bar. **PascalCase is brand identity — do not lowercase**   |
 
 The server and CLI use lowercase-hyphenated names. The macOS app keeps PascalCase because it is the user-facing application name visible in Finder, the Dock, and the About dialog — consistency with macOS conventions takes precedence over filename uniformity.
 
@@ -78,7 +79,7 @@ Versions follow strict SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`). Pre-release t
 When changing functionality, update **all** relevant docs:
 
 - Main `README.md`
-- Component READMEs: `cmd/radar/README.md`, `web/README.md`
+- Component READMEs: `internal/cmd/server/README.md`, `web/README.md`
 - `ARCHITECTURE.md` for system design changes
 - `public_html/src/guides/setup.md` for user-facing setup instructions
 

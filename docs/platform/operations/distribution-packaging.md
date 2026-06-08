@@ -1,6 +1,6 @@
 # Distribution and packaging
 
-- **Status banner (2026-04):** the model described on this page, with separate `velocity-ctl`, `velocity-report-sweep`, and `velocity-report-backfill-rings` artefacts plus a `velocity-report` Cobra-style subcommand binary, is being replaced. The new direction is a single busybox-style `velocity` binary with a `velocity <namespace> ...` canonical CLI (`serve`, `device`, `data`, `report`, `tune`), `velocity-report` retained as a compatibility alias for systemd, host service lifecycle handled outside the binary by shell wrappers, and an on-disk versioned layout under `/opt/velocity-report/versions/<v>/` with a `current` symlink for atomic upgrade and rollback. Authoritative reading: [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md) and [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). This page is **not** rewritten in place; it will be replaced wholesale in the same release that ships the refactor (trigger: `cmd/velocity/main.go` lands and `make build-velocity` produces the artefact). The text below is preserved unedited so the older proposal can be read against the new one.
+- **Status banner (2026-06, landed):** the model described on this page — separate `velocity-ctl`, `velocity-report-sweep`, and `velocity-report-backfill-rings` artefacts plus a `velocity-report` Cobra-style subcommand binary — **has been replaced**. The shipped model is a single busybox-style `velocity` binary with a `velocity <namespace> ...` canonical CLI (`serve`, `device`, `data`, `report`, `tune`); `velocity-report` is retained as a compatibility alias for systemd; the former `velocity-ctl` binary has been removed in favour of the `velocity device …` namespace; host service lifecycle is handled outside the binary by shell wrappers; and the on-disk layout is versioned under `/opt/velocity-report/versions/<v>/` with a `current` symlink swapped atomically (`renameat2`) for upgrade and rollback. The release binary asset is `velocity-<v>-<os>-arm64` (the RPi image keeps `velocity-report-<v>.img.xz`). Authoritative reading: [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md), [deploy-single-binary-image-consolidation-plan.md](../../plans/deploy-single-binary-image-consolidation-plan.md), and [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). The text below is the older proposal, preserved for context; treat the plans as canonical where they differ.
 
 Legacy plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md) (annotated with strikethroughs to mark drift). Current canonical direction lives in [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md).
 
@@ -42,22 +42,22 @@ It is a purpose-built on-device management tool with no SSH surface.
 
 ### Key changes
 
-| What               | Before                           | After                                               |
-| ------------------ | -------------------------------- | --------------------------------------------------- |
-| **Main binary**    | [cmd/radar/](../../../cmd/radar) | `cmd/velocity-report/`                              |
-| **Start server**   | `velocity-report`                | `velocity-report serve` (or just `velocity-report`) |
-| **PDF generation** | `PYTHONPATH=... python -m ...`   | `velocity-report pdf config.json`                   |
-| **Sweep tool**     | `./app-sweep`                    | `velocity-report-sweep`                             |
-| **Installation**   | Manual build + scp + script      | `curl install.sh \| sudo bash`                      |
-| **Releases**       | None                             | GitHub Releases with CI/CD                          |
+| What               | Before                                               | After                                               |
+| ------------------ | ---------------------------------------------------- | --------------------------------------------------- |
+| **Main binary**    | [internal/cmd/server/](../../../internal/cmd/server) | `cmd/velocity-report/`                              |
+| **Start server**   | `velocity-report`                                    | `velocity-report serve` (or just `velocity-report`) |
+| **PDF generation** | `PYTHONPATH=... python -m ...`                       | `velocity-report pdf config.json`                   |
+| **Sweep tool**     | `./app-sweep`                                        | `velocity-report-sweep`                             |
+| **Installation**   | Manual build + scp + script                          | `curl install.sh \| sudo bash`                      |
+| **Releases**       | None                                                 | GitHub Releases with CI/CD                          |
 
 ## Components inventory
 
 | Component                    | Type          | Location                                                                           | Current Distribution              |
 | ---------------------------- | ------------- | ---------------------------------------------------------------------------------- | --------------------------------- |
-| **Main Server**              | Go            | [cmd/radar/](../../../cmd/radar)                                                   | Manual build + setup script       |
+| **Main Server**              | Go            | [internal/cmd/server/](../../../internal/cmd/server)                               | Manual build + setup script       |
 | **Migrate CLI**              | Go subcommand | [internal/db/migrate_cli.go](../../../internal/db/migrate_cli.go)                  | Part of main binary               |
-| **Sweep Tool**               | Go            | [cmd/sweep/](../../../cmd/sweep)                                                   | Manual build (`make build-tools`) |
+| **Sweep Tool**               | Go            | [internal/cmd/tune/](../../../internal/cmd/tune)                                   | Manual build (`make build-tools`) |
 | **PDF Generator**            | Go            | [internal/report/](../../../internal/report)                                       | Built into main binary            |
 | **Transit Backfill**         | Go            | `cmd/transit-backfill/`                                                            | Manual `go build`                 |
 | **Ring Elevations Backfill** | Go            | [cmd/tools/backfill_ring_elevations/](../../../cmd/tools/backfill_ring_elevations) | Manual `go build`                 |
@@ -128,7 +128,7 @@ The `version` package (`internal/version/`) exports three variables: `Version` (
 
 ```
 cmd/
-  ├── velocity-report/           # Main binary (was cmd/radar)
+  ├── velocity-report/           # Main binary (was internal/cmd/server)
   │   ├── main.go               # Subcommand dispatcher
   │   ├── serve.go              # Server logic
   │   ├── pdf.go                # PDF wrapper
@@ -167,7 +167,7 @@ sudo systemctl start velocity-report
 
 ### Developers: minor
 
-- [cmd/radar/](../../../cmd/radar) moves to `cmd/velocity-report/`
+- [internal/cmd/server/](../../../internal/cmd/server) moves to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only `cmd/` structure changes)
 

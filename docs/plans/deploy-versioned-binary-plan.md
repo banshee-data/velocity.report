@@ -1,7 +1,7 @@
 # Multi-call binary, versioned on disk, symlink-swap rollback
 
 - **Document Version:** 1.2
-- **Status:** Approved (v0.5.1 cutover; sequenced as work unit A of the consolidation plan)
+- **Status:** Implemented (v0.5.1) — dispatcher (`cmd/velocity`), namespaces, versioned `/opt/velocity-report/versions/<v>/` layout with `current`/`previous` symlinks, `renameat2` atomic swap, retention pruning, `GET /api/version`, single `velocity-<v>-<os>-arm64` release artifact, and the tightened sudoers all landed. The transitional `velocity-ctl` shim has since been removed (it never shipped in a release). Folded as work unit A of the consolidation plan.
 - **Target:** v0.5.1 (pulled forward from v0.6.0)
 - **Layers:** Go binaries, image build, install scripts, release pipeline, sudoers
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
@@ -44,7 +44,7 @@ Folding every entry point into a single busybox-style binary gives us:
 | Alias budget             | Promote `velocity`; keep `velocity-report` for compatibility; do not promote `velocity-ctl` | The image already uses shell aliases for host lifecycle. The binary should not accumulate a second alias family unless compatibility forces a temporary bridge. |
 | Host lifecycle boundary  | Keep service status, logs, start, stop, and restart outside the binary                      | These are host concerns, not application-domain namespaces. The image already wraps them cleanly with shell aliases.                                            |
 | Version visibility       | Add `GET /api/version` and keep `velocity version`                                          | The API smoke test should read the running build identity directly, without shelling into the host or guessing from a file.                                     |
-| Utility packaging        | Fold shipping utilities into namespaces                                                     | `cmd/sweep` already shares the runtime; operator-facing repair tools should live under one binary rather than spawning more release artifacts.                  |
+| Utility packaging        | Fold shipping utilities into namespaces                                                     | `internal/cmd/tune` already shares the runtime; operator-facing repair tools should live under one binary rather than spawning more release artifacts.          |
 | CLI shape                | One canonical command tree, aliases for compatibility only                                  | This is the DRY boundary: one parser per namespace, one help surface, one shipped artifact, multiple bounded compatibility forms.                               |
 
 ### System boundary diagram
@@ -116,7 +116,7 @@ The project exposes one canonical binary surface after this lands: `velocity <na
 | `data`    | `velocity data migrate <up\|down\|status\|version\|force\|baseline\|detect> [flags]` | legacy `velocity-report migrate ...`                                                   | Reuse the existing migration CLI contract from `internal/db/migrate_cli.go`; do not invent a second migration parser.                                                                                                                                         |
 | `data`    | `velocity data backfill <target> [flags]`                                            | legacy `velocity-report backfill ...`                                                  | Fold promoted operator-facing repair utilities into one namespace rather than shipping `velocity-report-backfill-*` binaries. Initial targets should cover `ring-elevations` and `lidar-run-config` if they remain operator-facing.                           |
 | `report`  | `velocity report pdf --config <file> --db <file> [--output <dir>] [--version]`       | legacy `velocity-report pdf ...`                                                       | Preserve the current PDF flags and output contract.                                                                                                                                                                                                           |
-| `tune`    | `velocity tune sweep [sweep flags]`                                                  | legacy `velocity-report sweep ...`                                                     | Fold `cmd/sweep` into the shipping binary. Preserve the current sweep flags in the first implementation: monitor, sensor, output, PCAP, mode, parameter ranges, seed, sampling, and tracking sweep flags.                                                     |
+| `tune`    | `velocity tune sweep [sweep flags]`                                                  | legacy `velocity-report sweep ...`                                                     | Fold `internal/cmd/tune` into the shipping binary. Preserve the current sweep flags in the first implementation: monitor, sensor, output, PCAP, mode, parameter ranges, seed, sampling, and tracking sweep flags.                                             |
 | `version` | `velocity version`                                                                   | `velocity-report --version`, `velocity-report -v`, transitional `velocity-ctl version` | Print the same build identity that backs `GET /api/version`: semantic version, git SHA, and build time.                                                                                                                                                       |
 | `help`    | `velocity help [namespace]`                                                          | `velocity-report help [namespace]`, transitional `velocity-ctl --help`                 | All help text should describe the same underlying command tree, with compatibility bridges called out as temporary.                                                                                                                                           |
 
@@ -283,9 +283,9 @@ Notes:
 
 ## Flag-set scoping (precondition)
 
-`cmd/radar/radar.go` currently declares dozens of package-scope flags via `flag.String/Bool/Int/Duration`, and those registrations bind to the global `flag.CommandLine`. Once `radar.Main(args []string)` is one applet of many under a single binary, the global parser can no longer be shared safely: a second applet that registers `--config` or `--db-path` collides at process startup.
+`internal/cmd/server/radar.go` currently declares dozens of package-scope flags via `flag.String/Bool/Int/Duration`, and those registrations bind to the global `flag.CommandLine`. Once `radar.Main(args []string)` is one applet of many under a single binary, the global parser can no longer be shared safely: a second applet that registers `--config` or `--db-path` collides at process startup.
 
-**Precondition for the source move.** Before `cmd/radar/*.go` relocates to `internal/cmd/radar/`, every flag in those files must be re-bound to a per-applet `*flag.FlagSet` constructed in the entry function. The mechanical rewrites:
+**Precondition for the source move.** Before `internal/cmd/server/*.go` relocates to `internal/internal/cmd/server/`, every flag in those files must be re-bound to a per-applet `*flag.FlagSet` constructed in the entry function. The mechanical rewrites:
 
 - `flag.String/Bool/Int/Duration` → method calls on a local `fs := flag.NewFlagSet("radar", flag.ExitOnError)`.
 - `flag.Visit`, `flag.NArg`, `flag.Args`, `flag.Arg(i)` → `fs.Visit`, `fs.NArg`, `fs.Args`, `fs.Arg(i)`.
@@ -294,7 +294,7 @@ Notes:
 
 This change is invisible from the outside: the same `--listen :80` and `--db-path /var/lib/velocity-report/sensor_data.db` keep working. The only behavioural shift is that the binary no longer accepts flags ahead of the applet name; `velocity --listen :80 serve` is rejected, `velocity serve --listen :80` is accepted. The `velocity-report` compatibility alias (no applet name, server is the default) continues to take the same flags it does today because the dispatcher routes `argv[0]=velocity-report` directly into the radar applet.
 
-**Sequencing.** Land this as the first commit of the source-move PR (or as a standalone prep PR). It is a mechanical refactor with full coverage already in `cmd/radar/flags_test.go` after a parallel rename of those four `flag.*` references.
+**Sequencing.** Land this as the first commit of the source-move PR (or as a standalone prep PR). It is a mechanical refactor with full coverage already in `internal/cmd/server/flags_test.go` after a parallel rename of those four `flag.*` references.
 
 ## Migrations
 
@@ -313,8 +313,8 @@ This change is invisible from the outside: the same `--listen :80` and `--db-pat
 ## Files to change
 
 - **New** `cmd/velocity/main.go` — argv[0] dispatcher
-- **Move** `cmd/radar/*.go` → `internal/cmd/radar/` (export `Main(args []string)`); mount the existing `cmd/velocity-ctl/` implementation under the public `device` namespace rather than exposing `ctl` in the user-facing CLI
-- **Move** `cmd/sweep/` → `internal/cmd/sweep/` (export `Main(args []string)`), then mount it as the `sweep` applet
+- **Move** `internal/cmd/server/*.go` → `internal/internal/cmd/server/` (export `Main(args []string)`); mount the existing `internal/cmd/device/` implementation under the public `device` namespace rather than exposing `ctl` in the user-facing CLI
+- **Move** `internal/cmd/tune/` → `internal/internal/cmd/tune/` (export `Main(args []string)`), then mount it as the `sweep` applet
 - **Promote** operator-facing backfill helpers under `cmd/tools/` into `internal/cmd/backfill/` targets such as `ring-elevations` and `lidar-run-config`, rather than shipping standalone backfill binaries
 - **Edit** `Makefile` — replace `build-radar-local`, `build-radar-linux`, `build-ctl` with a single `build-velocity` target (linux-arm64 + local variants); update CI references
 - **Edit** [internal/api/](../../internal/api) — add `GET /api/version` returning the build identity from [internal/version/version.go](../../internal/version/version.go)

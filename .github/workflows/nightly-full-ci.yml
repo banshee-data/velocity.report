@@ -46,7 +46,8 @@ jobs:
             ./internal/testutil/... \
             ./internal/fsutil/... \
             ./internal/monitoring/... \
-            ./cmd/velocity-ctl/...
+            ./internal/ctl/... \
+            ./internal/cmd/device/...
 
   go-lidar-race:
     name: "🧪 Go LiDAR (race)"
@@ -79,7 +80,10 @@ jobs:
       - name: Run LiDAR tests with race detector
         run: |
           go test -race -tags=pcap -p 2 \
-            ./internal/lidar/...
+            ./internal/lidar/... \
+            ./internal/cmd/server/... \
+            ./internal/cmd/tune/... \
+            ./cmd/velocity/...
 
   go-integration-race:
     name: "🧪 Go Integration (race)"
