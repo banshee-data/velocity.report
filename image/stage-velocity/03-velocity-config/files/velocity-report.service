@@ -36,8 +36,6 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 # channel B) already matches this deployment.  Override it if the path differs.
 ExecStart=/usr/local/bin/velocity-report --listen :80 --db-path /var/lib/velocity-report/sensor_data.db
 WorkingDirectory=/var/lib/velocity-report
-Environment="VELOCITY_PDF_BACKEND=go"
-Environment="VELOCITY_TEX_ROOT=/opt/velocity-report/texlive"
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

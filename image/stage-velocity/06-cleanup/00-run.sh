@@ -55,7 +55,6 @@ apt-mark manual \
     init initramfs-tools initramfs-tools-core \
     libglib2.0-0 \
     libxml2 libpng16-16 \
-    librsvg2-bin fonts-noto-color-emoji \
     console-setup keyboard-configuration xkb-data \
     parted \
     2>/dev/null || true
@@ -225,7 +224,7 @@ apt-get autoremove --purge -y 2>/dev/null || true
 # have been swept despite our section-0 protection.  Detect and
 # reinstall anything that went missing.  The apt lists are still
 # present so apt-get install can fetch packages.
-CRITICAL_PKGS="network-manager raspberrypi-sys-mods raspi-config librsvg2-bin fonts-noto-color-emoji"
+CRITICAL_PKGS="network-manager raspberrypi-sys-mods raspi-config"
 MISSING=""
 for pkg in $CRITICAL_PKGS; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then

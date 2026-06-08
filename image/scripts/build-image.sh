@@ -322,18 +322,6 @@ if [[ ! -d "$PIGEN_DIR" ]]; then
         https://github.com/RPi-Distro/pi-gen.git "$PIGEN_DIR"
 fi
 
-# ---------------------------------------------------------------------------
-# 6. Copy TeX Live build config into stage directory
-# ---------------------------------------------------------------------------
-# Copy minimal TeX Live build script and dependencies into the packages
-# stage so 01-run.sh can build the vendored tree inside the chroot.
-TEXLIVE_DEST="$IMAGE_DIR/stage-velocity/00-install-packages/files"
-mkdir -p "$TEXLIVE_DEST"
-cp "$REPO_ROOT/scripts/build-minimal-texlive.sh" "$TEXLIVE_DEST/"
-cp "$REPO_ROOT/internal/report/tex/dependency-manifest.txt" "$TEXLIVE_DEST/"
-cp "$REPO_ROOT/internal/report/tex/velocity-report.ini" "$TEXLIVE_DEST/"
-log_info "Copied minimal TeX Live build files"
-
 # Tuning defaults now ship embedded in the velocity binary (config.TuningDefaults
 # via assets.go), so there is no tuning.defaults.json to stage on disk.
 
