@@ -55,7 +55,7 @@
 #let apply-styles(body) = {
   set text(font: "Atkinson Hyperlegible", size: 8.7pt)
   // leading: within-paragraph line spacing; spacing: between paragraphs/blocks.
-  set par(justify: true, leading: 0.72em, spacing: 1.05em, first-line-indent: 0pt)
+  set par(justify: true, leading: 0.78em, spacing: 1.12em, first-line-indent: 0pt)
   show heading.where(level: 1): it => {
     set text(size: 13.5pt, weight: "bold")
     block(above: 0.7em, below: 0.4em, it.body)

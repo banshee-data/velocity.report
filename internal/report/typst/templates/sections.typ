@@ -290,171 +290,247 @@
   heading(level: 2)[Detailed Data Tables]
 }
 
-// ─── Table 2: Velocity Distribution ───────────────────────────────────────
-// Reference shape: Bucket | t1 Count | t1 Percent | t2 Count | t2 Percent | Delta
-#let velocity-distribution-table(data) = {
-  let units = data.period.units
-  let h1 = data.histogram.buckets
-  if h1.len() == 0 { return }
-  let h2 = if data.compare != none { data.compare.histogram.buckets } else { () }
-  // Build a label-keyed lookup for t2 buckets so unmatched labels still appear.
-  let lookup-t2 = (:)
-  if data.compare != none {
-    for b in h2 {
-      lookup-t2.insert(b.label, b)
-    }
-  }
-
-  let hdr(top, bot) = align(right)[#text(weight: "bold")[#top#linebreak()#bot]]
-  let hdr-l(top, bot) = align(left)[#text(weight: "bold")[#top#linebreak()#bot]]
-  let header = if data.compare != none {
-    (
-      hdr-l[Bucket][(#units)],
-      hdr[t1][Count],
-      hdr[t1][Percent],
-      hdr[t2][Count],
-      hdr[t2][Percent],
-      align(right)[#text(weight: "bold")[Delta]],
-    )
-  } else {
-    (
-      hdr-l[Bucket][(#units)],
-      align(right)[#text(weight: "bold")[Count]],
-      align(right)[#text(weight: "bold")[Percent]],
-    )
-  }
-
-  let cell(s) = mono-nowrap(s)
-  let pct(v) = if v == none { "" } else {
-    // Always show one decimal so "28%" → "28.0%"
-    let r = calc.round(v, digits: 1)
-    let s = str(r)
-    if not s.contains(".") { s + ".0%" } else { s + "%" }
-  }
-  let body = h1.map(b => {
-    let t2 = lookup-t2.at(b.label, default: none)
-    let t1pct = b.at("percent", default: none)
-    let t2pct = if t2 != none { t2.at("percent", default: none) } else { none }
-    if data.compare != none {
-      (
-        [#cell(b.label)],
-        [#cell(fmt-int(b.count))],
-        [#cell(pct(t1pct))],
-        [#cell(if t2 != none { fmt-int(t2.count) } else { "" })],
-        [#cell(pct(t2pct))],
-        [#cell(fmt-pct-pp(t1pct, t2pct))],
-      )
-    } else {
-      (
-        [#cell(b.label)],
-        [#cell(fmt-int(b.count))],
-        [#cell(pct(t1pct))],
-      )
-    }
-  }).flatten()
-
-  let cols = if data.compare != none {
-    (1.2fr, 1fr, 1fr, 1fr, 1fr, 1fr)
-  } else {
-    (1fr, 1fr, 1fr)
-  }
-  let aligns = if data.compare != none {
-    (left, right, right, right, right, right)
-  } else {
-    (left, right, right)
-  }
+#let render-table-part(parts, start: 0, end: none, show-caption: true) = {
+  if parts == none { return }
+  let rows = parts.rows
+  if end == none { end = rows.len() }
+  if start >= end { return }
   data-table(
-    columns: cols,
-    aligns: aligns,
-    header: header,
-    body: body,
-    caption: "Table 2: Velocity Distribution (" + units + ")",
+    columns: parts.columns,
+    aligns: parts.aligns,
+    header: parts.header,
+    body: rows.slice(start, end).flatten(),
+    caption: if show-caption { parts.caption } else { none },
   )
 }
 
+#let table-fragment-weight(rows, show-caption: true) = {
+  if rows <= 0 {
+    0
+  } else {
+    // Header/rules/caption cost enough vertical space that row count alone
+    // leaves the second column underfilled. These weights are deliberately
+    // simple and deterministic so source zips recompile identically.
+    rows + 2 + if show-caption { 2 } else { 0 }
+  }
+}
+
+#let table-part-weight(parts) = if parts == none {
+  0
+} else {
+  table-fragment-weight(parts.rows.len())
+}
+
+#let choose-granular-split(hist, daily, granular) = {
+  if granular == none {
+    0
+  } else {
+    let n = granular.rows.len()
+    if n <= 1 {
+      n
+    } else {
+      let fixed-left = table-part-weight(hist) + table-part-weight(daily)
+      let best = 1
+      let best-diff = 100000
+      for i in range(1, n) {
+        let left = fixed-left + table-fragment-weight(i, show-caption: false)
+        let right = table-fragment-weight(n - i)
+        let diff = calc.abs(left - right)
+        if diff < best-diff {
+          best = i
+          best-diff = diff
+        }
+      }
+      best
+    }
+  }
+}
+
+// ─── Table 2: Velocity Distribution ───────────────────────────────────────
+// Reference shape: Bucket | t1 Count | t1 Percent | t2 Count | t2 Percent | Delta
+#let velocity-distribution-parts(data) = {
+  let units = data.period.units
+  let h1 = data.histogram.buckets
+  if h1.len() == 0 {
+    none
+  } else {
+    let h2 = if data.compare != none { data.compare.histogram.buckets } else { () }
+    // Build a label-keyed lookup for t2 buckets so unmatched labels still appear.
+    let lookup-t2 = (:)
+    if data.compare != none {
+      for b in h2 {
+        lookup-t2.insert(b.label, b)
+      }
+    }
+
+    let hdr(top, bot) = align(right)[#text(weight: "bold")[#top#linebreak()#bot]]
+    let hdr-l(top, bot) = align(left)[#text(weight: "bold")[#top#linebreak()#bot]]
+    let header = if data.compare != none {
+      (
+        hdr-l[Bucket][(#units)],
+        hdr[t1][Count],
+        hdr[t1][Percent],
+        hdr[t2][Count],
+        hdr[t2][Percent],
+        align(right)[#text(weight: "bold")[Delta]],
+      )
+    } else {
+      (
+        hdr-l[Bucket][(#units)],
+        align(right)[#text(weight: "bold")[Count]],
+        align(right)[#text(weight: "bold")[Percent]],
+      )
+    }
+
+    let cell(s) = mono-nowrap(s)
+    let pct(v) = if v == none { "" } else {
+      // Always show one decimal so "28%" → "28.0%"
+      let r = calc.round(v, digits: 1)
+      let s = str(r)
+      if not s.contains(".") { s + ".0%" } else { s + "%" }
+    }
+    let rows = h1.map(b => {
+      let t2 = lookup-t2.at(b.label, default: none)
+      let t1pct = b.at("percent", default: none)
+      let t2pct = if t2 != none { t2.at("percent", default: none) } else { none }
+      if data.compare != none {
+        (
+          [#cell(b.label)],
+          [#cell(fmt-int(b.count))],
+          [#cell(pct(t1pct))],
+          [#cell(if t2 != none { fmt-int(t2.count) } else { "" })],
+          [#cell(pct(t2pct))],
+          [#cell(fmt-pct-pp(t1pct, t2pct))],
+        )
+      } else {
+        (
+          [#cell(b.label)],
+          [#cell(fmt-int(b.count))],
+          [#cell(pct(t1pct))],
+        )
+      }
+    })
+
+    let cols = if data.compare != none {
+      (1.2fr, 1fr, 1fr, 1fr, 1fr, 1fr)
+    } else {
+      (1fr, 1fr, 1fr)
+    }
+    let aligns = if data.compare != none {
+      (left, right, right, right, right, right)
+    } else {
+      (left, right, right)
+    }
+    (
+      columns: cols,
+      aligns: aligns,
+      header: header,
+      rows: rows,
+      caption: "Table 2: Velocity Distribution (" + units + ")",
+    )
+  }
+}
+
+#let velocity-distribution-table(data) = {
+  render-table-part(velocity-distribution-parts(data))
+}
+
 // ─── Table 3: Daily Percentile Summary (merged t1+t2) ─────────────────────
-#let daily-summary(data) = {
+#let rollup-table-parts(rows, units, first-column, caption) = {
+  let hdr(top, bot) = align(right)[#text(weight: "bold")[#top#linebreak()#bot]]
+  let header = (
+    align(left)[#text(weight: "bold")[Start#linebreak()Time]],
+    align(right)[#text(weight: "bold")[Count]],
+    hdr[p50][(#units)],
+    hdr[p85][(#units)],
+    hdr[p98][(#units)],
+    hdr[Max][(#units)],
+  )
+  let cell(s) = mono-nowrap(s)
+  let table-rows = rows.map(row => (
+    [#cell(row.at(first-column))],
+    [#cell(fmt-int(row.count))],
+    [#cell(fmt-speed-bare(row.p50))],
+    [#cell(fmt-speed-bare(row.p85))],
+    [#cell(fmt-speed-bare(row.p98))],
+    [#cell(fmt-speed-bare(row.max_speed))],
+  ))
+  (
+    columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
+    aligns: (left, right, right, right, right, right),
+    header: header,
+    rows: table-rows,
+    caption: caption,
+  )
+}
+
+#let daily-summary-parts(data) = {
   let units = data.period.units
   let merged = data.daily
   if data.compare != none {
     merged = data.daily + data.compare.daily
   }
-  if merged.len() == 0 { return }
-
-  let hdr(top, bot) = align(right)[#text(weight: "bold")[#top#linebreak()#bot]]
-  let header = (
-    align(left)[#text(weight: "bold")[Start#linebreak()Time]],
-    align(right)[#text(weight: "bold")[Count]],
-    hdr[p50][(#units)],
-    hdr[p85][(#units)],
-    hdr[p98][(#units)],
-    hdr[Max][(#units)],
-  )
-  let cell(s) = mono-nowrap(s)
-  let rows = merged.map(row => (
-    [#cell(row.date)],
-    [#cell(fmt-int(row.count))],
-    [#cell(fmt-speed-bare(row.p50))],
-    [#cell(fmt-speed-bare(row.p85))],
-    [#cell(fmt-speed-bare(row.p98))],
-    [#cell(fmt-speed-bare(row.max_speed))],
-  ))
-
-  let title = if data.compare != none {
-    "Table 3: Daily Percentile Summary (Comparison)"
+  if merged.len() == 0 {
+    none
   } else {
-    "Table 3: Daily Percentile Summary"
+    let title = if data.compare != none {
+      "Table 3: Daily Percentile Summary (Comparison)"
+    } else {
+      "Table 3: Daily Percentile Summary"
+    }
+    rollup-table-parts(merged, units, "date", title)
   }
-  data-table(
-    columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
-    aligns: (left, right, right, right, right, right),
-    header: header,
-    body: rows.flatten(),
-    caption: title,
-  )
+}
+
+#let daily-summary(data) = {
+  render-table-part(daily-summary-parts(data))
 }
 
 // ─── Table 4: Granular Percentile Breakdown (merged t1+t2) ────────────────
-#let granular-table(data) = {
+#let granular-table-parts(data) = {
   let units = data.period.units
   let merged = data.granular
   if data.compare != none {
     merged = data.granular + data.compare.granular
   }
-  if merged.len() == 0 { return }
-
-  let hdr(top, bot) = align(right)[#text(weight: "bold")[#top#linebreak()#bot]]
-  let header = (
-    align(left)[#text(weight: "bold")[Start#linebreak()Time]],
-    align(right)[#text(weight: "bold")[Count]],
-    hdr[p50][(#units)],
-    hdr[p85][(#units)],
-    hdr[p98][(#units)],
-    hdr[Max][(#units)],
-  )
-  let cell(s) = mono-nowrap(s)
-  let rows = merged.map(row => (
-    [#cell(row.bucket)],
-    [#cell(fmt-int(row.count))],
-    [#cell(fmt-speed-bare(row.p50))],
-    [#cell(fmt-speed-bare(row.p85))],
-    [#cell(fmt-speed-bare(row.p98))],
-    [#cell(fmt-speed-bare(row.max_speed))],
-  ))
-
-  // Single-period reports have no daily table, so the granular breakdown is
-  // Table 3; in comparison mode it follows the daily table as Table 4.
-  let title = if data.compare != none {
-    "Table 4: Granular Percentile Breakdown (Comparison)"
+  if merged.len() == 0 {
+    none
   } else {
-    "Table 3: Granular Percentile Breakdown"
+    // Single-period reports have no daily table, so the granular breakdown is
+    // Table 3; in comparison mode it follows the daily table as Table 4.
+    let title = if data.compare != none {
+      "Table 4: Granular Percentile Breakdown (Comparison)"
+    } else {
+      "Table 3: Granular Percentile Breakdown"
+    }
+    rollup-table-parts(merged, units, "bucket", title)
   }
-  data-table(
-    columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
-    aligns: (left, right, right, right, right, right),
-    header: header,
-    body: rows.flatten(),
-    caption: title,
+}
+
+#let granular-table(data) = {
+  render-table-part(granular-table-parts(data))
+}
+
+#let detailed-data-flow(data) = {
+  let hist = velocity-distribution-parts(data)
+  let daily = daily-summary-parts(data)
+  let granular = granular-table-parts(data)
+  let split = choose-granular-split(hist, daily, granular)
+
+  detailed-data-tables-heading()
+  grid(
+    columns: (1fr, 1fr),
+    gutter: 16pt,
+    [
+      #render-table-part(hist)
+      #render-table-part(daily)
+      #render-table-part(granular, end: split, show-caption: false)
+    ],
+    [
+      #if granular != none {
+        render-table-part(granular, start: split)
+      }
+    ],
   )
 }
 
@@ -469,16 +545,13 @@
   )
 }
 
-// wide-figure floats a full-page-width figure across both page columns. The
-// time-series charts use bottom placement so they drop into the free full-width
-// space after the tables; the map uses top placement so, on its own page, it
-// sits at the top rather than leaving a blank band above it.
-#let wide-figure(path, caption, align: bottom + center) = place(
-  align,
-  scope: "parent",
-  float: true,
-  clearance: 12pt,
-  figure(image(path, width: 100%), caption: caption, supplement: [Figure]),
+// wide-figure renders a full-width figure. The report body is single-column, so
+// the time-series charts and map simply flow full width in document order — no
+// floats or scope tricks needed to keep the charts ahead of the map.
+#let wide-figure(path, caption) = figure(
+  image(path, width: 100%),
+  caption: caption,
+  supplement: [Figure],
 )
 
 // ─── Time-series chart figures (one per period) ──────────────────────────
@@ -499,12 +572,14 @@
 }
 
 // ─── Site map figure ─────────────────────────────────────────────────────
+// A plain full-width figure, the last block in the body, so it always follows
+// the time-series charts. Returns nothing when no map was supplied.
 #let map-figure(data) = {
   let mp = data.charts.at("map", default: "")
   if mp == "" { return }
-  wide-figure(
-    mp,
-    [Site Location Map with radar location (circle) and coverage area (red triangle)],
-    align: top + center,
+  figure(
+    image(mp, width: 100%),
+    caption: [Site Location Map with radar location (circle) and coverage area (red triangle)],
+    supplement: [Figure],
   )
 }
