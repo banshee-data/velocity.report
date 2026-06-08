@@ -1071,6 +1071,53 @@
 							{/if}
 						</div>
 					</section>
+
+					<!-- Licenses — third-party components bundled in the velocity binary. -->
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Licenses
+						</h2>
+						<div class="text-surface-content/80 space-y-3 text-sm">
+							<p>
+								The velocity binary bundles the following third-party components. Full notices are
+								in
+								<code class="bg-surface-100 rounded px-1 py-0.5">THIRD_PARTY_NOTICES.md</code>.
+							</p>
+							<ul class="space-y-2">
+								<li>
+									<span class="font-semibold">Typst</span> — PDF typesetting engine (bundled
+									binary). Apache-2.0.
+									<a
+										href="https://github.com/typst/typst"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-primary-600 underline">typst/typst</a
+									>
+								</li>
+								<li>
+									<span class="font-semibold">go-typst</span> — Typst Go wrapper. MIT.
+									<a
+										href="https://github.com/Dadido3/go-typst"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-primary-600 underline">Dadido3/go-typst</a
+									>
+								</li>
+								<li>
+									<span class="font-semibold">Atkinson Hyperlegible</span> — report fonts. SIL Open
+									Font License 1.1.
+									<a
+										href="https://brailleinstitute.org/freefont"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-primary-600 underline">Braille Institute</a
+									>
+								</li>
+							</ul>
+						</div>
+					</section>
 				{/if}
 			</div>
 		</div>
