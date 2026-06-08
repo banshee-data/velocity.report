@@ -12,7 +12,12 @@
   // yellow for t1 and the p98 red for t2.
   cmp_t1:    rgb("#fbd92f"),
   cmp_t2:    rgb("#f25f5c"),
-  link:      rgb("#0a4a8a"),
+  // Links: dark green text (emerald-800) inside a faint hero-green outline
+  // (emerald-700, the app-wide --color-primary).
+  link:         rgb("#065f46"),
+  link_outline: rgb("#047857"),
+  // Zebra striping for tables (faint, ~ LaTeX black!2).
+  zebra:     luma(247),
 )
 
 #let header-block(data) = {
@@ -51,16 +56,26 @@
 // left the report in Typst's default serif at the default size and margins.
 #let apply-styles(body) = {
   set text(font: "Atkinson Hyperlegible", size: 8.7pt)
-  set par(justify: true, leading: 0.5em, first-line-indent: 0pt)
+  // leading: within-paragraph line spacing; spacing: between paragraphs/blocks.
+  // The looser inter-paragraph spacing matches the LaTeX reference's rhythm.
+  set par(justify: true, leading: 0.6em, spacing: 1.0em, first-line-indent: 0pt)
   show heading.where(level: 1): it => {
     set text(size: 13.5pt, weight: "bold")
-    block(above: 0.55em, below: 0.3em, it.body)
+    block(above: 0.7em, below: 0.4em, it.body)
   }
   show heading.where(level: 2): it => {
     set text(size: 11.5pt, weight: "bold")
-    block(above: 0.5em, below: 0.22em, it.body)
+    block(above: 0.6em, below: 0.3em, it.body)
   }
-  show link: set text(fill: palette.link)
+  // Links: dark green text inside a faint, rounded hero-green outline. Wrapping
+  // the link element (not it.body) keeps the destination clickable.
+  show link: it => box(
+    inset: (x: 1.6pt),
+    outset: (y: 1.4pt),
+    radius: 1.8pt,
+    stroke: 0.5pt + palette.link_outline.transparentize(40%),
+    text(fill: palette.link, it),
+  )
   // Bold figure/table captions (matches the LaTeX reference).
   show figure.caption: it => text(weight: "bold", size: 8.5pt)[#it.supplement~#context it.counter.display(it.numbering): #it.body]
   body

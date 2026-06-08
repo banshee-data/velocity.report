@@ -34,12 +34,15 @@
 
   #detailed-data-tables-heading()
   #velocity-distribution-table(data)
-  #daily-summary(data)
-  #granular-table(data)
 ]
 
-// Wide figures (time-series, map) flow full page width after the two-column
-// body, in order — the chart lands on the page after the tables and the map
-// follows. No forced page break, no orphaned content.
+// Long percentile tables (Daily / Granular) render full page width as balanced
+// two-column split grids — both halves fill evenly and end mid-page, leaving
+// room for the time-series chart to flow up onto the same page.
+#daily-summary(data)
+#granular-table(data)
+
+// Wide figures (time-series, map) flow full page width, in order — the chart
+// lands right after the tables and the map follows.
 #timeseries-figures(data)
 #map-figure(data)

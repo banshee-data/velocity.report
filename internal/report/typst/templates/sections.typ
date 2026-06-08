@@ -7,7 +7,6 @@
 // centered caption — matching the LaTeX reference (rowcolors black!2, full
 // linewidth, small mono). `columns` should use fr units so the table fills the
 // column/page width.
-#let zebra-fill = luma(247)
 #let data-table(columns: (), aligns: auto, header: (), body: (), caption: none) = {
   table(
     columns: columns,
@@ -15,7 +14,7 @@
     stroke: none,
     inset: (x: 3pt, y: 2.4pt),
     // y == 0 is the header row; stripe alternating body rows beneath it.
-    fill: (_, y) => if y > 0 and calc.even(y) { zebra-fill },
+    fill: (_, y) => if y > 0 and calc.even(y) { palette.zebra },
     table.header(..header),
     table.hline(stroke: 0.6pt),
     ..body,
@@ -24,6 +23,58 @@
   if caption != none {
     align(center)[#text(size: 8.5pt, weight: "bold")[#caption]]
   }
+}
+
+// split-grid-table renders a long table as two side-by-side half-tables (a
+// balanced 2-column grid spanning the full page width). Typst's #columns only
+// fills greedily — it leaves the second column empty on the final page — so for
+// the long percentile tables we split the rows ourselves. This keeps both
+// columns full and short, leaving room for the time-series chart to flow up onto
+// the same page. `rows` is an array of row tuples (each a tuple of cells).
+#let split-grid-table(columns: (), aligns: auto, header: (), rows: (), caption: none) = {
+  let n = rows.len()
+  let half = calc.ceil(n / 2)
+  let left = rows.slice(0, half)
+  let right = if half < n { rows.slice(half, n) } else { () }
+  let part(rs) = table(
+    columns: columns,
+    align: aligns,
+    stroke: none,
+    inset: (x: 3pt, y: 2.4pt),
+    fill: (_, y) => if y > 0 and calc.even(y) { palette.zebra },
+    table.header(..header),
+    table.hline(stroke: 0.6pt),
+    ..rs.flatten(),
+    table.hline(stroke: 0.6pt),
+  )
+  grid(
+    columns: (1fr, 1fr),
+    gutter: 14pt,
+    part(left),
+    if right.len() > 0 { part(right) } else { [] },
+  )
+  if caption != none {
+    align(center)[#text(size: 8.5pt, weight: "bold")[#caption]]
+  }
+}
+
+// kv-table renders a headerless two-column key/value list with the same faint
+// zebra striping as the data tables (used by Hardware Configuration and Survey
+// Parameters). `pairs` is an array of (label, value) string tuples.
+#let kv-table(pairs) = {
+  let body = pairs.map(((k, v)) => (
+    [#text(weight: "bold")[#k]],
+    [#mono(v)],
+  )).flatten()
+  table(
+    columns: (auto, 1fr),
+    align: (left, left),
+    stroke: none,
+    inset: (x: 3pt, y: 2.4pt),
+    // No header row, so stripe odd rows (first row stays white).
+    fill: (_, y) => if calc.odd(y) { palette.zebra },
+    ..body,
+  )
 }
 
 // Spanning title centered above the two-column body.
@@ -214,18 +265,7 @@
     ("Azimuth Field of View:", data.radar.azimuth_fov),
     ("Elevation Field of View:", data.radar.elevation_fov),
   )
-  let body = rows.map(((k, v)) => (
-    [#text(weight: "bold")[#k]],
-    [#mono(v)],
-  )).flatten()
-  table(
-    columns: (auto, 1fr),
-    align: (left, left),
-    stroke: none,
-    inset: (x: 0pt, y: 2pt),
-    column-gutter: 6pt,
-    ..body,
-  )
+  kv-table(rows)
 }
 
 // ─── Survey Parameters ────────────────────────────────────────────────────
@@ -272,19 +312,7 @@
       ("Cosine Error Factor:", r.cosine_error_factor),
     )
   }
-  let all-rows = rows + cmp-rows + cosine-rows
-  let body = all-rows.map(((k, v)) => (
-    [#text(weight: "bold")[#k]],
-    [#mono(v)],
-  )).flatten()
-  table(
-    columns: (auto, 1fr),
-    align: (left, left),
-    stroke: none,
-    inset: (x: 0pt, y: 2pt),
-    column-gutter: 6pt,
-    ..body,
-  )
+  kv-table(rows + cmp-rows + cosine-rows)
   let note = data.at("cosine_correction_note", default: "")
   if note != "" {
     v(0.2em)
@@ -398,25 +426,25 @@
     hdr[Max][(#units)],
   )
   let cell(s) = mono-nowrap(s)
-  let body = merged.map(row => (
+  let rows = merged.map(row => (
     [#cell(row.date)],
     [#cell(fmt-int(row.count))],
     [#cell(fmt-speed-bare(row.p50))],
     [#cell(fmt-speed-bare(row.p85))],
     [#cell(fmt-speed-bare(row.p98))],
     [#cell(fmt-speed-bare(row.max_speed))],
-  )).flatten()
+  ))
 
   let title = if data.compare != none {
     "Table 3: Daily Percentile Summary (Comparison)"
   } else {
     "Table 3: Daily Percentile Summary"
   }
-  data-table(
+  split-grid-table(
     columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
     aligns: (left, right, right, right, right, right),
     header: header,
-    body: body,
+    rows: rows,
     caption: title,
   )
 }
@@ -440,14 +468,14 @@
     hdr[Max][(#units)],
   )
   let cell(s) = mono-nowrap(s)
-  let body = merged.map(row => (
+  let rows = merged.map(row => (
     [#cell(row.bucket)],
     [#cell(fmt-int(row.count))],
     [#cell(fmt-speed-bare(row.p50))],
     [#cell(fmt-speed-bare(row.p85))],
     [#cell(fmt-speed-bare(row.p98))],
     [#cell(fmt-speed-bare(row.max_speed))],
-  )).flatten()
+  ))
 
   // Single-period reports have no daily table, so the granular breakdown is
   // Table 3; in comparison mode it follows the daily table as Table 4.
@@ -456,11 +484,11 @@
   } else {
     "Table 3: Granular Percentile Breakdown"
   }
-  data-table(
+  split-grid-table(
     columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
     aligns: (left, right, right, right, right, right),
     header: header,
-    body: body,
+    rows: rows,
     caption: title,
   )
 }

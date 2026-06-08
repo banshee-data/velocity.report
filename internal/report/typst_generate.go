@@ -302,7 +302,12 @@ func cosineFactor(angleDeg float64) float64 {
 func toTypstRows(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time.Location, daily bool) []typst.RollupRow {
 	out := make([]typst.RollupRow, 0, len(rows))
 	for _, r := range rows {
-		label := r.StartTime.In(loc).Format("1/2 15:04")
+		// Pad month/day to width 2 with a leading space so the slashes and
+		// colons line up vertically in the mono table column (e.g. " 9/ 1 00:00"
+		// aligns under "10/10 00:00"). mono-nowrap converts the spaces to
+		// non-breaking spaces, preserving the alignment.
+		t := r.StartTime.In(loc)
+		label := fmt.Sprintf("%2d/%2d %02d:%02d", int(t.Month()), t.Day(), t.Hour(), t.Minute())
 		row := typst.RollupRow{Count: int(r.Count)}
 		if daily {
 			row.Date = label
