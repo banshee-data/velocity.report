@@ -13,8 +13,6 @@ Thumbs.db
 # Build Outputs, Generated Sites & Tool Caches
 # =============================================================================
 _site/
-!docs_html/_site/
-!docs_html/_site/.embed-stub
 .build/
 /build/
 .cache/
@@ -145,8 +143,28 @@ histogram_*.png
 # =============================================================================
 # Web Frontend (SvelteKit)
 # =============================================================================
+web/.env.*
+!web/.env.example
+!web/.env.test
+web/.netlify/
+web/.output/
 web/.svelte-kit/
+web/.vercel/
+web/.wrangler/
 web/build/
+web/vite.config.js.timestamp-*
+web/vite.config.ts.timestamp-*
+
+# =============================================================================
+# Docs Site (Eleventy)
+# =============================================================================
+!docs_html/_site/
+docs_html/_site/*
+!docs_html/_site/.embed-stub
+docs_html/src/data
+docs_html/src/docs
+docs_html/src/*.md
+!docs_html/src/index.md
 
 # =============================================================================
 # Tool Outputs & Legacy Generators
@@ -157,10 +175,11 @@ tools/pdf-generator/
 # Generic tool output directories.
 tools/*/output/*
 
-# Rack drawing — build/ SVG artefacts (gitignored via build/.gitignore).
-# The output/ PNG is checked in; only the loose root-level SVGs need ignoring.
+# Rack drawing — ignore loose SVG exports and generated build artefacts,
+# but keep the directory placeholder.
 tools/rack-drawing/*.svg
 tools/rack-drawing/build/*
+!tools/rack-drawing/build/.gitkeep
 
 # =============================================================================
 # macOS Visualiser (Xcode/Swift)
