@@ -76,7 +76,7 @@ v0.8 placement (radar theme) — [speed-limit-schedules.md](radar/architecture/s
 
 ### D-17 — PDF generation migration to Go
 
-Go direct SVG charts (encoding/xml, no gonum) + Typst templates; embed Atkinson Hyperlegible font in report sources; dimensions in mm; Typst consumes SVG directly; Go chart package also serves SVG to web frontend; `grid-heatmap` migrated to Go subcommand; Python stack eliminated — [PDF reporting](platform/operations/pdf-reporting.md)
+Go direct SVG charts (encoding/xml, no plotting helper) + Typst templates; embed Atkinson Hyperlegible font in report sources; dimensions in mm; Typst consumes SVG directly; Go chart package also serves SVG to web frontend; `grid-heatmap` migrated to Go subcommand; Python stack eliminated — [PDF reporting](platform/operations/pdf-reporting.md)
 
 ### D-18 — Speed percentile aggregation semantics
 
