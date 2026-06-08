@@ -215,7 +215,7 @@ func buildCharts(f fixture, osmTiles bool) ([]report.Asset, error) {
 			Latitude:        *f.Site.Latitude,
 			Longitude:       *f.Site.Longitude,
 			MapAngleDegrees: angle,
-			OSMTiles:        true,
+			OSMTiles:        osmTiles,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("sitemap: %w", err)
