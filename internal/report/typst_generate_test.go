@@ -71,6 +71,35 @@ func readReportDataFromZip(t *testing.T, zipPath string) (typst.ReportData, map[
 	return rd, names
 }
 
+func readZipEntry(t *testing.T, zipPath, entryName string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(zipPath)
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	for _, f := range zr.File {
+		if f.Name != entryName {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", entryName, err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("read %s: %v", entryName, err)
+		}
+		return data
+	}
+	t.Fatalf("%s not found in source zip", entryName)
+	return nil
+}
+
 func baseTypstConfig(outDir string) Config {
 	return Config{
 		SiteID:         1,
@@ -97,6 +126,9 @@ func TestGenerateTypst_Single(t *testing.T) {
 	m := &mockDB{}
 
 	cfg := baseTypstConfig(outDir)
+	savedMapSVG := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><text>saved map</text></svg>`)
+	cfg.IncludeMap = true
+	cfg.MapSVG = savedMapSVG
 	res, err := GenerateTypst(context.Background(), m, cfg)
 	if err != nil {
 		t.Fatalf("GenerateTypst: %v", err)
@@ -140,6 +172,12 @@ func TestGenerateTypst_Single(t *testing.T) {
 		if _, ok := names[want]; !ok {
 			t.Errorf("source zip missing %s", want)
 		}
+	}
+	if _, ok := names["charts/map.svg"]; !ok {
+		t.Error("source zip missing charts/map.svg")
+	}
+	if got := readZipEntry(t, res.ZIPPath, "charts/map.svg"); !bytes.Equal(got, savedMapSVG) {
+		t.Errorf("charts/map.svg = %q, want exact saved map SVG", got)
 	}
 	if _, ok := names["report.tex"]; ok {
 		t.Error("typst source zip should not contain report.tex")
