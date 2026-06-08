@@ -126,18 +126,10 @@ scripts/*.cover
 web/coverage/
 
 # =============================================================================
-# Reports, LaTeX & Other Generated Artifacts
+# Reports & Other Generated Artifacts
 # =============================================================================
 *_velocity.report_*.pdf
-*_velocity.report_*.tex
 *_velocity.report_*.zip
-*.aux
-*.fdb_latexmk
-*.fls
-*.out
-*.synctex.gz
-*.toc
-*.xdv
 histogram_*.png
 
 # =============================================================================
