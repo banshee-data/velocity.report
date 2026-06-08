@@ -15,6 +15,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report/chart/assets"
 	"github.com/banshee-data/velocity.report/internal/report/typst"
 	"github.com/banshee-data/velocity.report/internal/units"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 const typstZipReadme = `# Velocity report source files
@@ -84,6 +85,10 @@ func GenerateTypst(ctx context.Context, database DB, cfg Config) (Result, error)
 	// comparison-mode primary daily roll-up, which loadData fetches only when
 	// comparing. data.primaryDaily is nil otherwise.
 	rd := buildTypstData(plan, data, data.primaryDaily, charts)
+	pdfMetadata := typst.PDFMetadata{Creator: fmt.Sprintf("velocity.report v%s", version.Version)}
+	if version.GitSHA != "" && version.GitSHA != "unknown" {
+		pdfMetadata.Keywords = append(pdfMetadata.Keywords, "git-sha:"+version.GitSHA)
+	}
 
 	var pdf bytes.Buffer
 	if err := typst.Render(&pdf, typst.Options{
@@ -91,6 +96,7 @@ func GenerateTypst(ctx context.Context, database DB, cfg Config) (Result, error)
 		Assets:            chartAssets,
 		IgnoreSystemFonts: true,
 		CreationTime:      time.Now(),
+		PDFMetadata:       pdfMetadata,
 	}); err != nil {
 		return Result{}, fmt.Errorf("typst render: %w", err)
 	}

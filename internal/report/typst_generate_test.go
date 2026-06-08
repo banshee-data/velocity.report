@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,7 +15,46 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/report/typst"
 	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
+
+func mockTypstPDFFixture() []byte {
+	xmp := `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="xmp-writer"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"><xmp:CreatorTool>Typst 0.13.1</xmp:CreatorTool></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="r"?>`
+	objects := []string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+		"3 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+		fmt.Sprintf("4 0 obj\n<< /Type /Metadata /Subtype /XML /Length %d >>\nstream\n%s\nendstream\nendobj\n", len(xmp), xmp),
+	}
+
+	var pdf bytes.Buffer
+	pdf.WriteString("%PDF-1.7\n")
+	offsets := make([]int, len(objects)+1)
+	for index, obj := range objects {
+		offsets[index+1] = pdf.Len()
+		pdf.WriteString(obj)
+	}
+	xrefStart := pdf.Len()
+	fmt.Fprintf(&pdf, "xref\n0 %d\n", len(objects)+1)
+	fmt.Fprintf(&pdf, "%010d %05d f \n", 0, 65535)
+	for index := 1; index <= len(objects); index++ {
+		fmt.Fprintf(&pdf, "%010d %05d n \n", offsets[index], 0)
+	}
+	fmt.Fprintf(&pdf, "trailer\n<< /Size %d /Root 1 0 R /Info 3 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(objects)+1, xrefStart)
+	return pdf.Bytes()
+}
+
+func setBuildMetadataForTest(t *testing.T, appVersion, gitSHA string) {
+	t.Helper()
+	oldVersion := version.Version
+	oldGitSHA := version.GitSHA
+	version.Version = appVersion
+	version.GitSHA = gitSHA
+	t.Cleanup(func() {
+		version.Version = oldVersion
+		version.GitSHA = oldGitSHA
+	})
+}
 
 // mockTypstBinary writes a fake `typst` executable that drains stdin and emits
 // a minimal PDF to stdout — exactly the stdio contract go-typst uses. It lets
@@ -23,10 +63,11 @@ func mockTypstBinary(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, "typst")
+	pdf := string(mockTypstPDFFixture())
 	body := "#!/bin/sh\n" +
-		"# Mock typst: discard the document on stdin, write a placeholder PDF.\n" +
+		"# Mock typst: discard the document on stdin, write a minimal PDF.\n" +
 		"cat > /dev/null\n" +
-		"printf '%%PDF-1.4\\n%%mock typst output\\n'\n"
+		"cat <<'EOF'\n" + pdf + "EOF\n"
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
 		t.Fatalf("write mock typst: %v", err)
 	}
@@ -121,6 +162,7 @@ func baseTypstConfig(outDir string) Config {
 }
 
 func TestGenerateTypst_Single(t *testing.T) {
+	setBuildMetadataForTest(t, "1.2.3-test", "deadbeefcafebabe")
 	t.Setenv(typstbin.EnvPath, mockTypstBinary(t))
 	outDir := t.TempDir()
 	m := &mockDB{}
@@ -140,6 +182,16 @@ func TestGenerateTypst_Single(t *testing.T) {
 	}
 	if !bytes.HasPrefix(pdfBytes, []byte("%PDF-")) {
 		t.Fatalf("output is not a PDF: %q", pdfBytes[:min(8, len(pdfBytes))])
+	}
+	for _, want := range []string{
+		"/Creator (velocity.report v1.2.3-test)",
+		"/Keywords (git-sha:deadbeefcafebabe)",
+		"<xmp:CreatorTool>velocity.report v1.2.3-test</xmp:CreatorTool>",
+		"<pdf:Keywords>git-sha:deadbeefcafebabe</pdf:Keywords>",
+	} {
+		if !bytes.Contains(pdfBytes, []byte(want)) {
+			t.Fatalf("generated pdf missing metadata %q", want)
+		}
 	}
 
 	rd, names := readReportDataFromZip(t, res.ZIPPath)

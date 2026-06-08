@@ -5,14 +5,14 @@
 
 #let data = json("/data.json")
 
-// The page is single-column. The narrative runs in an explicit two-column block
-// (so the prose wraps once, left column then right). The detailed tables and the
-// figures are full-width: each long table balances its own rows across two
-// halves, and the charts/map flow full width in document order.
+// The whole body is a two-column page: the narrative and every table flow
+// continuously through the two columns, wrapping once (column 1 → column 2 →
+// next page) so each table stays one column wide. The title, the detailed-data
+// heading, and the figures span both columns as full-width floats.
 #set page(
   paper: data.paper,
   margin: (top: 1.8cm, bottom: 1.0cm, left: 1.0cm, right: 1.0cm),
-  columns: 1,
+  columns: 2,
   header: header-block(data),
   footer: footer-block(data),
 )
@@ -20,29 +20,28 @@
 // Install document-wide text/heading/caption styling (see preamble).
 #show: apply-styles
 
-// Title spans the full page width.
-#title-block(data)
+// Title spans both columns (floats to the parent/page scope).
+#place(top + center, scope: "parent", float: true, clearance: 12pt, title-block(data))
 
-// Narrative + small key/value tables flow through two balanced-width columns,
-// wrapping once (column 1 → column 2).
-#columns(2, gutter: 14pt)[
-  #velocity-overview(data)
-  #key-metrics(data)
-  #histogram-figure(data)
-  #site-information(data)
-  #citizen-radar()
-  #aggregation-and-percentiles()
-  #hardware-configuration(data)
-  #survey-parameters(data)
-]
+#velocity-overview(data)
+#key-metrics(data)
+#histogram-figure(data)
+#site-information(data)
+#citizen-radar()
+#aggregation-and-percentiles()
+#hardware-configuration(data)
+#survey-parameters(data)
 
-// Keep detailed tables off page 1. The data flow chooses a row-count-aware
-// split so the granular breakdown continues into the second column instead of
-// leaving that side empty.
-#pagebreak()
-#detailed-data-flow(data)
+// All detailed tables flow through the same two columns, continuously, so the
+// data wraps once (column 1 → column 2) rather than each table stretching the
+// full page width. The heading floats full width above the flow.
+#detailed-data-tables-heading()
+#velocity-distribution-table(data)
+#daily-summary(data)
+#granular-table(data)
 
-// Time-series charts, then the site map — full width, in document order, so the
-// charts always come before the map.
+// Figures span both columns as bottom floats, declared in reading order:
+// time-series charts first, then the site map. Bottom floats stack in
+// declaration order, so the charts always precede the map.
 #timeseries-figures(data)
 #map-figure(data)

@@ -545,13 +545,15 @@
   )
 }
 
-// wide-figure renders a full-width figure. The report body is single-column, so
-// the time-series charts and map simply flow full width in document order — no
-// floats or scope tricks needed to keep the charts ahead of the map.
-#let wide-figure(path, caption) = figure(
-  image(path, width: 100%),
-  caption: caption,
-  supplement: [Figure],
+// wide-figure floats a full-page-width figure across both page columns (bottom
+// placement) so the charts/map drop below the two-column table flow. Bottom
+// floats stack in declaration order, so figures appear in the order emitted.
+#let wide-figure(path, caption) = place(
+  bottom + center,
+  scope: "parent",
+  float: true,
+  clearance: 12pt,
+  figure(image(path, width: 100%), caption: caption, supplement: [Figure]),
 )
 
 // ─── Time-series chart figures (one per period) ──────────────────────────
@@ -572,14 +574,14 @@
 }
 
 // ─── Site map figure ─────────────────────────────────────────────────────
-// A plain full-width figure, the last block in the body, so it always follows
-// the time-series charts. Returns nothing when no map was supplied.
+// A full-width bottom float, emitted after the time-series charts. Because
+// bottom floats are placed in declaration order, the map always follows the
+// charts. Returns nothing when no map was supplied.
 #let map-figure(data) = {
   let mp = data.charts.at("map", default: "")
   if mp == "" { return }
-  figure(
-    image(mp, width: 100%),
-    caption: [Site Location Map with radar location (circle) and coverage area (red triangle)],
-    supplement: [Figure],
+  wide-figure(
+    mp,
+    [Site Location Map with radar location (circle) and coverage area (red triangle)],
   )
 }

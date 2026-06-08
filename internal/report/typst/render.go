@@ -64,6 +64,11 @@ type Options struct {
 	// for reproducible PDF metadata.
 	CreationTime time.Time
 
+	// PDFMetadata overrides selected PDF Info/XMP fields after Typst compiles
+	// the document. Typst 0.13.x exposes document metadata, but not the PDF
+	// creator tool, so we patch the finished PDF incrementally.
+	PDFMetadata PDFMetadata
+
 	// TypstPath overrides the typst executable. When empty, the binary is
 	// resolved via typstbin (VELOCITY_TYPST_PATH → embedded → PATH → dev
 	// download).
@@ -132,8 +137,25 @@ func Render(out io.Writer, opts Options) error {
 		compileOpts.CreationTime = opts.CreationTime
 	}
 
-	if err := caller.Compile(bytes.NewReader(bootstrap), out, compileOpts); err != nil {
+	compileOut := out
+	var compiled bytes.Buffer
+	if !opts.PDFMetadata.empty() {
+		compileOut = &compiled
+	}
+
+	if err := caller.Compile(bytes.NewReader(bootstrap), compileOut, compileOpts); err != nil {
 		return fmt.Errorf("typst compile: %w", err)
+	}
+	if opts.PDFMetadata.empty() {
+		return nil
+	}
+
+	updatedPDF, err := applyPDFMetadata(compiled.Bytes(), opts.PDFMetadata)
+	if err != nil {
+		return fmt.Errorf("apply pdf metadata: %w", err)
+	}
+	if _, err := out.Write(updatedPDF); err != nil {
+		return fmt.Errorf("write pdf: %w", err)
 	}
 	return nil
 }
