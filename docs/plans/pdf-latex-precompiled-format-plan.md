@@ -210,7 +210,7 @@ manifest.
 
 **Steps**:
 
-1. Create [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh):
+1. Create `scripts/build-minimal-texlive.sh`:
    - Reads `dependency-manifest.txt`
    - Copies files from system TeX Live into a staging directory, preserving
      directory structure
@@ -220,7 +220,7 @@ manifest.
 2. Add Makefile target: `build-texlive-minimal`
 3. Measure and record size of the resulting tree
 
-**Deliverable**: [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) + `build-texlive-minimal`
+**Deliverable**: `scripts/build-minimal-texlive.sh` + `build-texlive-minimal`
 Makefile target.
 
 ### Phase 3: precompile format file
@@ -247,7 +247,7 @@ Makefile target.
    \RequirePackage{array}
    \dump
    ```
-2. Extend [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) to compile the `.ini` → `.fmt`
+2. Extend `scripts/build-minimal-texlive.sh` to compile the `.ini` → `.fmt`
 3. Place `.fmt` in `texmf-dist/web2c/xelatex/velocity-report.fmt`
 4. Validate: `xelatex -fmt=velocity-report test.tex` produces correct output
 

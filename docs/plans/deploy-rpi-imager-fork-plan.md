@@ -440,7 +440,7 @@ without changing the image build pipeline.
 
 1. ✅ **Audit template dependencies**: `dependency-manifest.txt` lists every
    `.sty`, `.cls`, font, and binary the PDF generator uses
-2. ✅ **Build a minimal TeX tree**: [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) extracts
+2. ✅ **Build a minimal TeX tree**: `scripts/build-minimal-texlive.sh` extracts
    only the required files from the full TeX Live distribution into
    `/opt/velocity-report/texlive/` (~143 MB). Pi-gen stage
    `00-install-packages/01-run.sh` runs this at image build time and purges

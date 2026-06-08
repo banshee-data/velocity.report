@@ -7,15 +7,15 @@
 ## Why this exists
 
 Work on the Tailscale integration ([internal/tailscale/](../../internal/tailscale/),
-[internal/api/auth.go](../../internal/api/auth.go),
-[cmd/velocity-ctl/tailscale.go](../../cmd/velocity-ctl/tailscale.go))
+[internal/api/server_tailscale.go](../../internal/api/server_tailscale.go),
+[internal/cmd/device/tailscale.go](../../internal/cmd/device/tailscale.go))
 currently has no good local test environment. The only options today are:
 
 1. Iterate on a real Pi connected to a real tailnet — slow, requires hardware,
    risks the operator's actual tailnet identity.
 2. Unit tests with fakes — already extensive
-   ([internal/tailscale/peercaps_test.go](../../internal/tailscale/peercaps_test.go),
-   [internal/api/auth_test.go](../../internal/api/auth_test.go)), but they
+   ([internal/tailscale/manager_test.go](../../internal/tailscale/manager_test.go),
+   [internal/cmd/device/tailscale_test.go](../../internal/cmd/device/tailscale_test.go)), but they
    cannot exercise the real systemd lifecycle, the real `tailscaled` daemon's
    IPN bus, the real `WhoIs` resolution, the real sudoers boundary, or the
    real-world failure modes of those interfaces.
@@ -97,7 +97,7 @@ The production Pi is ARM64. The dev VM is amd64 because:
 - KVM acceleration on an x86_64 Linux host makes bring-up sub-30-seconds
   vs. multi-minute boot under TCG emulation.
 - The code paths under test are arch-agnostic Go: `internal/tailscale/`,
-  `internal/api/auth.go`, and the velocity-ctl shell-out are pure userland
+  `internal/api/server_tailscale.go`, and the device command shell-out are pure userland
   with no architecture-specific call sites.
 - The userland (Debian release, systemd version, tailscale apt repo,
   sudoers behaviour) is identical across the two architectures within the
@@ -347,7 +347,7 @@ under test.
 
 A second Tailscale node is required to exercise the auth gate's
 "request from a tailnet peer" branch in
-[internal/api/auth.go](../../internal/api/auth.go). The peer is a small
+[internal/api/server_tailscale.go](../../internal/api/server_tailscale.go). The peer is a small
 Docker container running `tailscale/tailscale:latest` (the official
 upstream image) pointed at the same Headscale URL and joined with a
 distinct user. It runs in `--userspace-networking` mode with a SOCKS
@@ -395,7 +395,7 @@ make qemu-down
 ## Testing the spec itself
 
 A small set of smoke checks for "did we wire this up correctly" lives in
-[image/qemu/scripts/smoke.sh](../../image/qemu/scripts/smoke.sh) and is
+[image/qemu/scripts/smoke.sh](../../image/qemu/scripts/smoke.sh) <!-- link-ignore --> and is
 invoked as `make qemu-smoke`. It exercises the structural assumptions
 without depending on Tailscale semantics:
 
@@ -513,7 +513,7 @@ The dev VM is considered working when:
   VM is stable, writing those tests is a separate task with its own
   plan. Mentioned here only so that the surface (`qemu-push`,
   `qemu-peer-curl`) is shaped to support it later.
-- It does not modify `internal/tailscale/` or `internal/api/auth.go`.
+- It does not modify `internal/tailscale/` or `internal/api/server_tailscale.go`.
   Those packages are the system under test, not the test harness.
 
 ## Variant: arm64 emulation with pi-gen image

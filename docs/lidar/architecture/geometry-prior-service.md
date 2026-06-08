@@ -4,7 +4,7 @@
 - **Parent:** [vector-scene-map.md](./vector-scene-map.md)
 - **Layers:** L4 Perception (extends Prior Loader interface)
 
-Community-maintained supplemental geometry priors: ground surfaces, kerbs, vegetation; not well represented in OpenStreetMap. Served as static GeoJSON from a public CDN, keyed by coarsened GPS coordinates.
+Community-maintained supplemental geometry priors: ground surfaces, kerbs, vegetation; not well represented in OpenStreetMap. Served as static GeoJSON from a public CDN, keyed by coarsened GPS coordinates. Remote prior fetches are explicit opt-in and optional; local LiDAR-only operation remains the default.
 
 ---
 

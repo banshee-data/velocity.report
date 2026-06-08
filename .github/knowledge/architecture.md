@@ -34,7 +34,9 @@ Canonical reference for the velocity.report system architecture. For the full de
 - **Data:** `/var/lib/velocity-report/`
 - **Database:** `/var/lib/velocity-report/sensor_data.db`
 - **User:** `velocity:velocity`
-- **Network:** Local only — no cloud, no external transmission
+- **Network:** Local-first — no cloud transmission of measurements and no
+  analytics. Optional OSM/Overpass tile or geometry-prior requests are explicit
+  operator opt-ins and are not required for core operation.
 
 ## Data Flow
 

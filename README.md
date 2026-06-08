@@ -29,7 +29,8 @@ no individual is identified, tracked, or recorded. The data belongs to the commu
 - 📊 PDF reports: speed distributions, percentile statistics, before-and-after comparisons
 - 🔒 Privacy by architecture: the hardware cannot collect what the design never asked for
 - 📡 Radar speed measurement and LiDAR object tracking (working toward [sensor fusion](docs/plans/lidar-l7-scene-plan.md), combining both sensors)
-- 🏠 Runs locally in your neighbourhood, offline-first
+- 🏠 Runs locally in your neighbourhood, offline-first; optional map/prior
+  downloads are explicit opt-in
 - 🔒 Open source and auditable, because trust should be verifiable
 
 ```
@@ -119,7 +120,11 @@ or a specific vehicle. No licence plates. No faces. No make or model.
 Object classification tracks road user types: pedestrian, cyclist, car, bus.
 Not people. Not plates.
 
-The data stays on a local device. Reports are generated locally.
+The measurement data stays on a local device. Reports are generated locally.
+Remote map and prior requests, such as OpenStreetMap tile downloads or Overpass
+lookups, are optional operator actions and must be explicit, disableable, and
+documented. They are not telemetry and must not send PII, vehicle data, or raw
+sensor captures.
 If personal data reaches a log, a response body, or an export, that is a bug,
 [please report it.](https://github.com/banshee-data/velocity.report/issues)
 

@@ -667,7 +667,11 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 **Vision:** Import OSM polylines (kerbs, crosswalks, signs, road edges) as real-world geometric anchors for ground plane validation and refinement.
 
-**Import workflow (v1: read-only):**
+**Import workflow (v1: read-only, optional):**
+
+OSM import is explicitly opt-in. It is not part of the offline default and must
+not run unless the operator enables remote map/prior requests for the
+deployment.
 
 1. Query OSM Overpass API for road geometry within the global grid's bounding box.
 2. Parse polylines (ways) for kerb lines, crosswalks, stop lines, sign positions.

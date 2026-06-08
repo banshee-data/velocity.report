@@ -88,7 +88,10 @@ Verify these claims hold — they are the project's core promise:
 - No licence plate data collected
 - No camera/video recording
 - No PII in database
-- Data stays local
+- Measurement data stays local
+- Remote web requests are explicit opt-ins only, for example OSM/Overpass map
+  data or optional geometry priors. They must not include PII, vehicle data, or
+  raw sensor captures.
 
 Then look for what the claims don't cover:
 

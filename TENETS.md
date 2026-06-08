@@ -12,7 +12,12 @@ When tenets conflict, earlier tenets take precedence.
 ## 1. Privacy above all
 
 No cameras. No licence plates. No PII. Velocity measurements only.
-Data stays local: no cloud transmission, no external analytics, no tracking.
+Measurement data stays local: no cloud transmission of traffic observations,
+no external analytics, no tracking.
+Remote web requests are explicit, optional, and disableable. Examples include
+operator-enabled OpenStreetMap tile or Overpass downloads and opt-in geometry
+prior fetches. These requests must not send PII, vehicle data, or raw sensor
+captures, and the system must still work without them.
 User data ownership is absolute.
 If PII reaches a log, a response body, or an export, the system has failed.
 
@@ -32,6 +37,9 @@ The record governs.
 
 The system runs on a Raspberry Pi in a neighbourhood. It works without internet connectivity.
 SQLite is the single database. No clustering, no replication, no cloud dependencies.
+Network-enriched features are additive only: OSM tile download, Overpass lookup,
+and remote prior fetches are optional operator choices, not required runtime
+dependencies.
 
 ## 5. Simplicity and durability
 
