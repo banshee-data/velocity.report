@@ -181,6 +181,7 @@ func buildTypstData(plan runPlan, data loadedData, primaryDaily []db.RadarObject
 	displayUnits := cfg.Units
 
 	rd := typst.ReportData{
+		Paper: typstPaperName(plan.paper),
 		Site: typst.SiteData{
 			Location:        cfg.Location,
 			Surveyor:        cfg.Surveyor,
@@ -277,6 +278,14 @@ func buildTypstRadar(cfg Config) typst.RadarData {
 		r.CompareCosineErrorFactor = fmt.Sprintf("%.6f", cosineFactor(cfg.CompareCosineAngle))
 	}
 	return r
+}
+
+// typstPaperName maps the report paper size to the Typst paper identifier.
+func typstPaperName(p chart.PaperSize) string {
+	if p == chart.PaperLetter {
+		return "us-letter"
+	}
+	return "a4"
 }
 
 func cosineFactor(angleDeg float64) float64 {

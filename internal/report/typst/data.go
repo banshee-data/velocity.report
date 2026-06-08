@@ -15,6 +15,9 @@ package typst
 //     test with `data.compare != none` to switch between single and
 //     comparison layouts. The key is always present.
 type ReportData struct {
+	// Paper is the Typst paper name ("a4" or "us-letter"), derived from the
+	// report config's paper size so the page matches the requested format.
+	Paper                string       `json:"paper"`
 	Site                 SiteData     `json:"site"`
 	Period               PeriodData   `json:"period"`
 	Compare              *CompareData `json:"compare"`

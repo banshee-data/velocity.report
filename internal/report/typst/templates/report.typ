@@ -9,7 +9,7 @@
 // continuously through the two columns, wrapping once. The wide figures float
 // across both columns.
 #set page(
-  paper: "us-letter",
+  paper: data.paper,
   margin: (top: 1.8cm, bottom: 1.0cm, left: 1.0cm, right: 1.0cm),
   columns: 2,
   header: header-block(data),
