@@ -69,7 +69,9 @@ jobs:
         run: go mod download
 
       - name: Build binary
-        run: make build-velocity
+        # Compile check only; skip embedding the ~30 MB typst binary here (the
+        # release / image workflows build and verify the embedded form).
+        run: make build-velocity TYPST_EMBED=0
 
   test-core:
     name: "🧪 Test Core"
