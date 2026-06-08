@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -76,5 +77,21 @@ func TestBackupDatabaseNonexistentSource(t *testing.T) {
 	dir := t.TempDir()
 	if err := BackupDatabase(filepath.Join(dir, "nope.db"), filepath.Join(dir, "out.db")); err == nil {
 		t.Fatal("expected error backing up a non-existent database")
+	}
+}
+
+// TestBackupDatabaseRejectsURLDelimiters guards against DSN injection: a source
+// path with '?' or '#' must be refused before it can override the mode=ro DSN
+// parameters (mirrors ReadOnlyQuery's guard).
+func TestBackupDatabaseRejectsURLDelimiters(t *testing.T) {
+	dir := t.TempDir()
+	for _, bad := range []string{
+		filepath.Join(dir, "x.db") + "?mode=rwc",
+		filepath.Join(dir, "x.db") + "#frag",
+	} {
+		err := BackupDatabase(bad, filepath.Join(dir, "out.db"))
+		if err == nil || !strings.Contains(err.Error(), "must not contain") {
+			t.Fatalf("BackupDatabase(%q) = %v; want rejection for URL delimiter", bad, err)
+		}
 	}
 }
