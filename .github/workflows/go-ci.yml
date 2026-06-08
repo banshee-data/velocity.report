@@ -189,22 +189,6 @@ jobs:
       - name: Install system dependencies (libpcap)
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
-      - name: Install TeX Live (source for minimal tree build)
-        run: |
-          # Minimal set required by internal/report/tex/ templates:
-          #   texlive-xetex            → xelatex binary + base LaTeX
-          #   texlive-latex-recommended → fontspec, caption, fancyhdr, titlesec, ragged2e
-          #   texlive-latex-extra       → supertabular, float
-          #   texlive-fonts-recommended → Latin Modern, AMS fonts/metrics
-          sudo apt-get install -y --no-install-recommends \
-            texlive-xetex \
-            texlive-latex-recommended \
-            texlive-latex-extra \
-            texlive-fonts-recommended
-
-      - name: Build minimal TeX tree
-        run: make build-texlive-minimal
-
       - name: Setup pnpm and build web
         run: |
           corepack enable
@@ -214,8 +198,6 @@ jobs:
           pnpm run build
 
       - name: Run API tests
-        env:
-          VELOCITY_TEX_ROOT: ${{ github.workspace }}/build/texlive-minimal
         run: |
           # Keep PR latency reasonable; race coverage for API lives in nightly-full-ci.yml.
           go test -tags=pcap -coverprofile=coverage-api.out -covermode=atomic \
