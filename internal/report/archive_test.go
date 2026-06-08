@@ -107,7 +107,7 @@ func TestBuildZip_Empty(t *testing.T) {
 
 func TestAppendFilesToZip(t *testing.T) {
 	original, err := BuildZip(map[string][]byte{
-		"report.tex": []byte("go tex"),
+		"report.typ": []byte("typst source"),
 		"chart.svg":  []byte("<svg />"),
 	})
 	if err != nil {
@@ -120,8 +120,8 @@ func TestAppendFilesToZip(t *testing.T) {
 	}
 
 	if err := AppendFilesToZip(zipPath, map[string][]byte{
-		"report.tex":                   []byte("updated go tex"),
-		"comparison/python/report.tex": []byte("python tex"),
+		"report.typ":                   []byte("updated typst source"),
+		"comparison/current/data.json": []byte(`{"ok":true}`),
 	}); err != nil {
 		t.Fatalf("AppendFilesToZip error: %v", err)
 	}
@@ -151,20 +151,20 @@ func TestAppendFilesToZip(t *testing.T) {
 		got[f.Name] = buf.String()
 	}
 
-	if got["report.tex"] != "updated go tex" {
-		t.Fatalf("report.tex = %q, want %q", got["report.tex"], "updated go tex")
+	if got["report.typ"] != "updated typst source" {
+		t.Fatalf("report.typ = %q, want %q", got["report.typ"], "updated typst source")
 	}
 	if got["chart.svg"] != "<svg />" {
 		t.Fatalf("chart.svg = %q, want %q", got["chart.svg"], "<svg />")
 	}
-	if got["comparison/python/report.tex"] != "python tex" {
-		t.Fatalf("comparison/python/report.tex = %q, want %q", got["comparison/python/report.tex"], "python tex")
+	if got["comparison/current/data.json"] != `{"ok":true}` {
+		t.Fatalf("comparison/current/data.json = %q, want %q", got["comparison/current/data.json"], `{"ok":true}`)
 	}
 }
 
 func TestAppendFilesToZip_Deterministic(t *testing.T) {
 	original, err := BuildZip(map[string][]byte{
-		"report.tex": []byte("go tex"),
+		"report.typ": []byte("typst source"),
 		"chart.svg":  []byte("<svg />"),
 	})
 	if err != nil {
@@ -178,8 +178,8 @@ func TestAppendFilesToZip_Deterministic(t *testing.T) {
 			t.Fatalf("write %s: %v", path, err)
 		}
 		if err := AppendFilesToZip(path, map[string][]byte{
-			"report.tex":                   []byte("updated go tex"),
-			"comparison/python/report.tex": []byte("python tex"),
+			"report.typ":                   []byte("updated typst source"),
+			"comparison/current/data.json": []byte(`{"ok":true}`),
 		}); err != nil {
 			t.Fatalf("AppendFilesToZip(%s) error: %v", path, err)
 		}

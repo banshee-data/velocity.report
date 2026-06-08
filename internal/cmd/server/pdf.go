@@ -80,7 +80,7 @@ func runPDF(args []string, stdout, stderr io.Writer) int {
 	}
 	defer database.Close()
 
-	// Generate report (Typst by default; VELOCITY_PDF_ENGINE=tex for legacy).
+	// Generate report with the Typst pipeline.
 	ctx := context.Background()
 	result, err := report.GeneratePDF(ctx, database, cfg)
 	if err != nil {

@@ -117,8 +117,7 @@ func TestGenerateTypst_Single(t *testing.T) {
 	if rd.Overall.TotalCount == 0 {
 		t.Error("expected non-zero overall total count")
 	}
-	// Single-period reports omit the daily table (the granular breakdown is
-	// Table 3, matching the LaTeX reference); only comparison mode merges a
+	// Single-period reports omit the daily table; only comparison mode merges a
 	// daily table.
 	if len(rd.Daily) != 0 {
 		t.Errorf("single report should not populate a daily table, got %d rows", len(rd.Daily))
@@ -196,8 +195,7 @@ func TestGenerateTypst_Comparison(t *testing.T) {
 	}
 }
 
-// TestGeneratePDF_DefaultsToTypst verifies the engine dispatcher picks Typst by
-// default — the source ZIP carries report.typ (Typst), not report.tex (LaTeX).
+// TestGeneratePDF_DefaultsToTypst verifies the public entry point uses Typst.
 func TestGeneratePDF_DefaultsToTypst(t *testing.T) {
 	t.Setenv(typstbin.EnvPath, mockTypstBinary(t))
 	outDir := t.TempDir()

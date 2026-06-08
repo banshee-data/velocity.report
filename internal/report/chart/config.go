@@ -22,7 +22,7 @@ func NormalisePaperSize(s string) PaperSize {
 	}
 }
 
-// paperTextWidthMM returns the textwidth that matches preamble.tex geometry
+// paperTextWidthMM returns the report body width used by the Typst templates
 // (1.0 cm left + 1.0 cm right margins).
 func paperTextWidthMM(p PaperSize) float64 {
 	switch p {
@@ -76,7 +76,8 @@ func baseStyle() ChartStyle {
 
 // DefaultTimeSeriesStyle returns chart parameters sized to fit the textwidth
 // of the given paper size. Chart is rendered at true physical dimensions so
-// LaTeX does not need to scale it further — this keeps font sizes legible.
+// the compositor does not need to scale it further; this keeps font sizes
+// legible.
 func DefaultTimeSeriesStyle(paper PaperSize) ChartStyle {
 	s := baseStyle()
 	// Physical output: width matches textwidth; height chosen for a pleasant

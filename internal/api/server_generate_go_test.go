@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 )
 
-// TestGenerateReport_RequiresTools tests the Go PDF report pipeline.
-// It verifies the handler invokes the Go pipeline directly (no Python fallback).
-// If rsvg-convert or xelatex are not installed the test still validates the
-// error originates from the Go pipeline, not a Python exec path.
-func TestGenerateReport_RequiresTools(t *testing.T) {
+// TestGenerateReport_UsesTypst tests the Go PDF report pipeline with a mocked
+// Typst binary so no host-level PDF tooling is required.
+func TestGenerateReport_UsesTypst(t *testing.T) {
+	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
@@ -47,32 +47,24 @@ func TestGenerateReport_RequiresTools(t *testing.T) {
 
 	respBody := w.Body.String()
 
-	if w.Code == http.StatusOK {
-		// Full success — both tools are installed. Validate JSON shape.
-		var result map[string]interface{}
-		if err := json.Unmarshal([]byte(respBody), &result); err != nil {
-			t.Fatalf("failed to unmarshal success response: %v", err)
-		}
-		if result["success"] != true {
-			t.Errorf("expected success=true, got %v", result["success"])
-		}
-		if _, ok := result["report_id"]; !ok {
-			t.Error("expected report_id in response")
-		}
-		if _, ok := result["pdf_path"]; !ok {
-			t.Error("expected pdf_path in response")
-		}
-		if _, ok := result["zip_path"]; !ok {
-			t.Error("expected zip_path in response")
-		}
-		t.Log("Go backend produced full PDF successfully")
-	} else {
-		// Expected when rsvg-convert or xelatex are not installed.
-		// Verify the error originates from the Go pipeline.
-		if containsPythonMarker(respBody) {
-			t.Errorf("expected Go pipeline error, but got Python-path marker: %s", respBody)
-		}
-		t.Logf("Go backend returned expected tool-missing error (status %d): %s", w.Code, respBody)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected report generation success, got status %d: %s", w.Code, respBody)
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(respBody), &result); err != nil {
+		t.Fatalf("failed to unmarshal success response: %v", err)
+	}
+	if result["success"] != true {
+		t.Errorf("expected success=true, got %v", result["success"])
+	}
+	if _, ok := result["report_id"]; !ok {
+		t.Error("expected report_id in response")
+	}
+	if _, ok := result["pdf_path"]; !ok {
+		t.Error("expected pdf_path in response")
+	}
+	if _, ok := result["zip_path"]; !ok {
+		t.Error("expected zip_path in response")
 	}
 }
 
@@ -257,6 +249,7 @@ func TestReportCosineMetadataForRange(t *testing.T) {
 // ReportRequest fields through to the Go pipeline by confirming a request with
 // comparison params and non-default units reaches the Go pipeline without panic.
 func TestGenerateReport_ConfigMapping(t *testing.T) {
+	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
@@ -350,17 +343,14 @@ func TestBuildReportConfig_FieldMapping(t *testing.T) {
 	}
 }
 
-// TestGenerateReport_NoPythonEnvNeeded confirms that a report request proceeds
-// via the Go pipeline regardless of whether VELOCITY_PDF_BACKEND is set.
-// The response must not contain Python error markers.
-func TestGenerateReport_NoPythonEnvNeeded(t *testing.T) {
+// TestGenerateReport_UsesNativePipeline confirms that report requests proceed
+// through the native Typst pipeline without Python PDF hooks.
+func TestGenerateReport_UsesNativePipeline(t *testing.T) {
+	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
 	site := seedChartTestData(t, dbInst)
-
-	// Explicitly clear any env var that might have leaked from another test.
-	os.Unsetenv("VELOCITY_PDF_BACKEND")
 
 	reqBody := ReportRequest{
 		SiteID:         &site.ID,
@@ -384,14 +374,11 @@ func TestGenerateReport_NoPythonEnvNeeded(t *testing.T) {
 
 	respBody := w.Body.String()
 
-	// Whether success or tool-missing failure, no Python markers should appear.
 	if containsPythonMarker(respBody) {
-		t.Errorf("response contains Python marker without VELOCITY_PDF_BACKEND set: %s", respBody)
+		t.Errorf("response contains Python marker: %s", respBody)
 	}
-
-	// The result must be either HTTP 200 or a Go-pipeline error.
-	if w.Code != http.StatusOK && !isGoPipelineError(respBody) {
-		t.Errorf("unexpected non-200 response without a recognised Go-pipeline error: status=%d body=%s", w.Code, respBody)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected report generation success, got status %d: %s", w.Code, respBody)
 	}
 }
 
@@ -404,23 +391,6 @@ func containsPythonMarker(body string) bool {
 		"No module named",
 	}
 	for _, m := range pythonMarkers {
-		if bytes.Contains([]byte(body), []byte(m)) {
-			return true
-		}
-	}
-	return false
-}
-
-// isGoPipelineError checks if the error message looks like it came from the
-// Go report pipeline.
-func isGoPipelineError(body string) bool {
-	goMarkers := []string{
-		"rsvg-convert",
-		"xelatex",
-		"typst",
-		"unsupported group",
-	}
-	for _, m := range goMarkers {
 		if bytes.Contains([]byte(body), []byte(m)) {
 			return true
 		}
@@ -471,47 +441,18 @@ func TestRelativeReportPaths_RejectEscape(t *testing.T) {
 	}
 }
 
-func createMockReportTools(t *testing.T) string {
+func createMockTypstBinary(t *testing.T) string {
 	t.Helper()
 
-	binDir := t.TempDir()
-	rsvg := filepath.Join(binDir, "rsvg-convert")
-	rsvgScript := `#!/bin/sh
-output=""
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -o) output="$2"; shift 2 ;;
-        *) shift ;;
-    esac
-done
-if [ -n "$output" ]; then
-    echo "%PDF-1.4 mock" > "$output"
-fi
-`
-	if err := os.WriteFile(rsvg, []byte(rsvgScript), 0755); err != nil {
-		t.Fatalf("write mock rsvg-convert: %v", err)
+	path := filepath.Join(t.TempDir(), "typst")
+	body := "#!/bin/sh\n" +
+		"cat > /dev/null\n" +
+		"printf '%%PDF-1.4\\n%%mock typst output\\n'\n"
+	if err := os.WriteFile(path, []byte(body), 0755); err != nil {
+		t.Fatalf("write mock typst: %v", err)
 	}
 
-	xelatex := filepath.Join(binDir, "xelatex")
-	xelatexScript := `#!/bin/sh
-texfile=""
-for arg in "$@"; do
-    case "$arg" in
-        *.tex) texfile="$arg" ;;
-    esac
-done
-if [ -n "$texfile" ]; then
-    base=$(echo "$texfile" | sed 's/\.tex$//')
-    echo "%PDF-1.4 mock xelatex output" > "${base}.pdf"
-    echo "mock log" > "${base}.log"
-    echo "mock aux" > "${base}.aux"
-fi
-`
-	if err := os.WriteFile(xelatex, []byte(xelatexScript), 0755); err != nil {
-		t.Fatalf("write mock xelatex: %v", err)
-	}
-
-	return binDir
+	return path
 }
 
 // seedChartTestData is defined in server_charts_test.go and shared here.

@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -17,11 +16,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report/typst"
 	"github.com/banshee-data/velocity.report/internal/units"
 )
-
-// pdfEngineEnv selects the PDF typesetting backend. Default is Typst; set to
-// "tex" to fall back to the legacy XeLaTeX pipeline during the deprecation
-// window without rebuilding.
-const pdfEngineEnv = "VELOCITY_PDF_ENGINE"
 
 const typstZipReadme = `# Velocity report source files
 
@@ -58,14 +52,9 @@ report.typ. No LaTeX, no rsvg-convert, no system fonts required.
 https://github.com/banshee-data/velocity.report
 `
 
-// GeneratePDF produces a PDF report and source ZIP using the configured
-// typesetting engine. Typst is the default; VELOCITY_PDF_ENGINE=tex selects
-// the legacy XeLaTeX pipeline. This is the entry point the HTTP API and CLI
-// call so the engine choice lives in one place.
+// GeneratePDF produces a PDF report and source ZIP using the Typst pipeline.
+// This is the entry point the HTTP API and CLI call.
 func GeneratePDF(ctx context.Context, database DB, cfg Config) (Result, error) {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv(pdfEngineEnv)), "tex") {
-		return Generate(ctx, database, cfg)
-	}
 	return GenerateTypst(ctx, database, cfg)
 }
 
@@ -90,10 +79,10 @@ func GenerateTypst(ctx context.Context, database DB, cfg Config) (Result, error)
 		return Result{}, err
 	}
 
-	// Single-period reports show only the granular breakdown (Table 3), matching
-	// the LaTeX reference; the daily table (Table 3 in comparison mode) is
-	// populated solely from the comparison-mode primary daily roll-up, which
-	// loadData fetches only when comparing. data.primaryDaily is nil otherwise.
+	// Single-period reports show only the granular breakdown (Table 3). The
+	// daily table (Table 3 in comparison mode) is populated solely from the
+	// comparison-mode primary daily roll-up, which loadData fetches only when
+	// comparing. data.primaryDaily is nil otherwise.
 	rd := buildTypstData(plan, data, data.primaryDaily, charts)
 
 	var pdf bytes.Buffer
@@ -110,10 +99,9 @@ func GenerateTypst(ctx context.Context, database DB, cfg Config) (Result, error)
 }
 
 // renderTypstCharts renders the report's SVG charts and returns both the
-// root-relative references for the templates and the asset blobs to embed.
-// The chart selection mirrors the LaTeX pipeline: a primary time-series, an
-// optional comparison time-series, a histogram (single) or comparison chart,
-// and an optional site map.
+// root-relative references for the templates and the asset blobs to embed: a
+// primary time-series, an optional comparison time-series, a histogram (single)
+// or comparison chart, and an optional site map.
 func renderTypstCharts(plan runPlan, data loadedData) (typst.ChartRefs, []typst.Asset, error) {
 	cfg := plan.cfg
 	var refs typst.ChartRefs
@@ -266,8 +254,8 @@ func buildTypstData(plan runPlan, data loadedData, primaryDaily []db.RadarObject
 	return rd
 }
 
-// buildTypstRadar fills the hardware specs (static, matching the LaTeX
-// reference) and the per-period cosine figures as preformatted strings. An
+// buildTypstRadar fills the hardware specs and the per-period cosine figures
+// as preformatted strings. An
 // empty angle string means no correction applied and the template omits the
 // row.
 func buildTypstRadar(cfg Config) typst.RadarData {
@@ -325,10 +313,9 @@ func toTypstRows(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time
 	return out
 }
 
-// buildHistogramBuckets converts a display-unit histogram (bucket-start → count)
+// buildHistogramBuckets converts a display-unit histogram (bucket-start to count)
 // into labelled buckets with percentage shares. Buckets below the cutoff are
-// folded into a "<N" row and buckets at/above the max into an "N+" row, matching
-// the LaTeX velocity-distribution table.
+// folded into a "<N" row and buckets at/above the max into an "N+" row.
 func buildHistogramBuckets(hist map[float64]int64, bucketSz, cutoff, maxBucket float64) []typst.HistogramBucket {
 	if len(hist) == 0 {
 		return nil

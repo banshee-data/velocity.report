@@ -64,8 +64,6 @@ var (
 	timezoneFlag = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
 	disableRadar = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
 	dbPathFlag   = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
-	pdfLatexFlow = serveFlags.String("pdf-latex-flow", "inherit", "PDF LaTeX flow: inherit, precompiled, or full")
-	pdfTexRoot   = serveFlags.String("pdf-tex-root", "", "TeX root for precompiled PDF flow (sets VELOCITY_TEX_ROOT)")
 	versionFlag  = serveFlags.Bool("version", false, "Print version information and exit")
 	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
 	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
@@ -172,100 +170,6 @@ var (
 
 // Constants
 const SCHEMA_VERSION = "0.0.2"
-
-const (
-	pdfLaTeXFlowInherit     = "inherit"
-	pdfLaTeXFlowPrecompiled = "precompiled"
-	pdfLaTeXFlowFull        = "full"
-)
-
-func resolvePrecompiledTeXRoot(rawRoot string) (string, error) {
-	texRoot := strings.TrimSpace(rawRoot)
-	if texRoot == "" {
-		return "", fmt.Errorf("empty TeX root: set --pdf-tex-root or VELOCITY_TEX_ROOT")
-	}
-
-	absRoot, err := filepath.Abs(texRoot)
-	if err != nil {
-		return "", fmt.Errorf("resolve TeX root %q: %w", texRoot, err)
-	}
-
-	rootInfo, err := os.Stat(absRoot)
-	if err != nil {
-		return "", fmt.Errorf("stat TeX root %q: %w. Check path exists and is readable", absRoot, err)
-	}
-	if !rootInfo.IsDir() {
-		return "", fmt.Errorf("TeX root %q is not a directory", absRoot)
-	}
-
-	compilerPath := filepath.Join(absRoot, "bin", "xelatex")
-	compilerInfo, err := os.Stat(compilerPath)
-	if err != nil {
-		return "", fmt.Errorf("missing compiler at %q: %w. Try installing texlive-xetex", compilerPath, err)
-	}
-	if compilerInfo.IsDir() {
-		return "", fmt.Errorf("compiler path %q is a directory", compilerPath)
-	}
-	if compilerInfo.Mode()&0o111 == 0 {
-		return "", fmt.Errorf("compiler not executable at %q: try chmod +x", compilerPath)
-	}
-
-	return absRoot, nil
-}
-
-func configurePDFLaTeXFlow(flow, texRootFlag string) error {
-	normalizedFlow := strings.ToLower(strings.TrimSpace(flow))
-	if normalizedFlow == "" {
-		normalizedFlow = pdfLaTeXFlowInherit
-	}
-
-	switch normalizedFlow {
-	case pdfLaTeXFlowInherit:
-		if strings.TrimSpace(texRootFlag) == "" {
-			return nil
-		}
-		resolvedRoot, err := resolvePrecompiledTeXRoot(texRootFlag)
-		if err != nil {
-			return err
-		}
-		if err := os.Setenv("VELOCITY_TEX_ROOT", resolvedRoot); err != nil {
-			return fmt.Errorf("set VELOCITY_TEX_ROOT: %w", err)
-		}
-		log.Printf("PDF LaTeX flow: inherit (explicit VELOCITY_TEX_ROOT=%s)", resolvedRoot)
-		return nil
-	case pdfLaTeXFlowPrecompiled:
-		texRoot := strings.TrimSpace(texRootFlag)
-		if texRoot == "" {
-			texRoot = strings.TrimSpace(os.Getenv("VELOCITY_TEX_ROOT"))
-		}
-		if texRoot == "" {
-			return fmt.Errorf("--pdf-latex-flow=precompiled requires --pdf-tex-root or VELOCITY_TEX_ROOT")
-		}
-		resolvedRoot, err := resolvePrecompiledTeXRoot(texRoot)
-		if err != nil {
-			return err
-		}
-		if err := os.Setenv("VELOCITY_TEX_ROOT", resolvedRoot); err != nil {
-			return fmt.Errorf("set VELOCITY_TEX_ROOT: %w", err)
-		}
-		log.Printf("PDF LaTeX flow: precompiled (VELOCITY_TEX_ROOT=%s)", resolvedRoot)
-		return nil
-	case pdfLaTeXFlowFull:
-		if err := os.Unsetenv("VELOCITY_TEX_ROOT"); err != nil {
-			return fmt.Errorf("unset VELOCITY_TEX_ROOT: %w", err)
-		}
-		log.Printf("PDF LaTeX flow: full (system TeX)")
-		return nil
-	default:
-		return fmt.Errorf(
-			"invalid --pdf-latex-flow=%q (valid: %s, %s, %s)",
-			flow,
-			pdfLaTeXFlowInherit,
-			pdfLaTeXFlowPrecompiled,
-			pdfLaTeXFlowFull,
-		)
-	}
-}
 
 func visitedFlags() map[string]bool {
 	visited := make(map[string]bool)
@@ -437,10 +341,6 @@ func Main(args []string) int {
 			return 0
 		}
 		log.Fatalf("Unknown subcommand: %s: try 'velocity-report --help' for available commands", subcommand)
-	}
-
-	if err := configurePDFLaTeXFlow(*pdfLatexFlow, *pdfTexRoot); err != nil {
-		log.Fatalf("Could not configure PDF LaTeX flow: %v. Valid values are inherit, precompiled, or full", err)
 	}
 
 	if *listen == "" {

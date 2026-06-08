@@ -9,6 +9,28 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func TestEmpiricalQuantileSorted(t *testing.T) {
+	sorted := []float64{10, 20, 30, 40, 50}
+	tests := []struct {
+		name string
+		p    float64
+		want float64
+	}{
+		{name: "zero clamps to first", p: 0, want: 10},
+		{name: "median", p: 0.5, want: 30},
+		{name: "p85", p: 0.85, want: 50},
+		{name: "p98", p: 0.98, want: 50},
+		{name: "one clamps to last", p: 1, want: 50},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := empiricalQuantileSorted(tt.p, sorted); got != tt.want {
+				t.Fatalf("empiricalQuantileSorted(%v) = %v, want %v", tt.p, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestRadarObjectRollupRange_MinSpeed verifies that the minSpeed parameter filters
 // radar_objects correctly and that the rollup returns aggregated buckets.
 func TestRadarObjectRollupRange_MinSpeed(t *testing.T) {
