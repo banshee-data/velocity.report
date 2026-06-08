@@ -25,39 +25,6 @@
   }
 }
 
-// split-grid-table renders a long table as two side-by-side half-tables (a
-// balanced 2-column grid spanning the full page width). Typst's #columns only
-// fills greedily — it leaves the second column empty on the final page — so for
-// the long percentile tables we split the rows ourselves. This keeps both
-// columns full and short, leaving room for the time-series chart to flow up onto
-// the same page. `rows` is an array of row tuples (each a tuple of cells).
-#let split-grid-table(columns: (), aligns: auto, header: (), rows: (), caption: none) = {
-  let n = rows.len()
-  let half = calc.ceil(n / 2)
-  let left = rows.slice(0, half)
-  let right = if half < n { rows.slice(half, n) } else { () }
-  let part(rs) = table(
-    columns: columns,
-    align: aligns,
-    stroke: none,
-    inset: (x: 3pt, y: 2.4pt),
-    fill: (_, y) => if y > 0 and calc.even(y) { palette.zebra },
-    table.header(..header),
-    table.hline(stroke: 0.6pt),
-    ..rs.flatten(),
-    table.hline(stroke: 0.6pt),
-  )
-  grid(
-    columns: (1fr, 1fr),
-    gutter: 14pt,
-    part(left),
-    if right.len() > 0 { part(right) } else { [] },
-  )
-  if caption != none {
-    align(center)[#text(size: 8.5pt, weight: "bold")[#caption]]
-  }
-}
-
 // kv-table renders a headerless two-column key/value list with the same faint
 // zebra striping as the data tables (used by Hardware Configuration and Survey
 // Parameters). `pairs` is an array of (label, value) string tuples.
@@ -440,11 +407,11 @@
   } else {
     "Table 3: Daily Percentile Summary"
   }
-  split-grid-table(
+  data-table(
     columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
     aligns: (left, right, right, right, right, right),
     header: header,
-    rows: rows,
+    body: rows.flatten(),
     caption: title,
   )
 }
@@ -484,11 +451,11 @@
   } else {
     "Table 3: Granular Percentile Breakdown"
   }
-  split-grid-table(
+  data-table(
     columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
     aligns: (left, right, right, right, right, right),
     header: header,
-    rows: rows,
+    body: rows.flatten(),
     caption: title,
   )
 }
@@ -504,13 +471,17 @@
   )
 }
 
-// wide-figure renders a full-page-width figure. It is invoked after the
-// two-column body block in report.typ, so it sits in the single-column flow and
-// image(width: 100%) spans the full text width, in document order (no float).
-#let wide-figure(path, caption) = figure(
-  image(path, width: 100%),
-  caption: caption,
-  supplement: [Figure],
+// wide-figure floats a full-page-width figure across both page columns (the
+// Typst equivalent of LaTeX figure*). The time-series charts use bottom
+// placement so they drop into the free full-width space after the tables; the
+// map uses top placement so, on its own page, it sits at the top rather than
+// leaving a blank band above it.
+#let wide-figure(path, caption, align: bottom + center) = place(
+  align,
+  scope: "parent",
+  float: true,
+  clearance: 12pt,
+  figure(image(path, width: 100%), caption: caption, supplement: [Figure]),
 )
 
 // ─── Time-series chart figures (one per period) ──────────────────────────
@@ -534,5 +505,9 @@
 #let map-figure(data) = {
   let mp = data.charts.at("map", default: "")
   if mp == "" { return }
-  wide-figure(mp, [Site Location Map with radar location (circle) and coverage area (red triangle)])
+  wide-figure(
+    mp,
+    [Site Location Map with radar location (circle) and coverage area (red triangle)],
+    align: top + center,
+  )
 }

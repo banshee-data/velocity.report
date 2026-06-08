@@ -58,7 +58,7 @@
   set text(font: "Atkinson Hyperlegible", size: 8.7pt)
   // leading: within-paragraph line spacing; spacing: between paragraphs/blocks.
   // The looser inter-paragraph spacing matches the LaTeX reference's rhythm.
-  set par(justify: true, leading: 0.6em, spacing: 1.0em, first-line-indent: 0pt)
+  set par(justify: true, leading: 0.72em, spacing: 1.05em, first-line-indent: 0pt)
   show heading.where(level: 1): it => {
     set text(size: 13.5pt, weight: "bold")
     block(above: 0.7em, below: 0.4em, it.body)

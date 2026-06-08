@@ -86,6 +86,10 @@ func main() {
 	fontDir := flag.String("font-dir", "internal/report/chart/assets", "Font directory (passed to typst --font-path)")
 	typstPath := flag.String("typst", "", "Path to the typst binary (defaults to PATH lookup)")
 	ignoreSystem := flag.Bool("ignore-system-fonts", true, "Ignore host system fonts for reproducible builds")
+	// Off by default: fetching OSM tiles sends the site coordinates to
+	// tile.openstreetmap.org (off-device). Opt in explicitly when you accept
+	// that. Without it the map uses the offline schematic placeholder.
+	osmTiles := flag.Bool("osm-tiles", false, "fetch live OpenStreetMap tiles (sends site coordinates off-device to tile.openstreetmap.org)")
 	flag.Parse()
 
 	body, err := os.ReadFile(*dataPath)
@@ -101,7 +105,7 @@ func main() {
 		die("decode data: %v", err)
 	}
 
-	assets, err := buildCharts(typed)
+	assets, err := buildCharts(typed, *osmTiles)
 	if err != nil {
 		die("build charts: %v", err)
 	}
@@ -138,7 +142,7 @@ func main() {
 	fmt.Printf("wrote %s\n", *out)
 }
 
-func buildCharts(f fixture) ([]report.Asset, error) {
+func buildCharts(f fixture, osmTiles bool) ([]report.Asset, error) {
 	var assets []report.Asset
 
 	// ── Histogram (single or comparison) ────────────────────────────────

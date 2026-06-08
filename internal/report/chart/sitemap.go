@@ -11,13 +11,20 @@ import (
 // OpenStreetMap raster tiles centred on (Latitude, Longitude) and overlay
 // the radar marker + coverage triangle. Otherwise we draw a schematic
 // placeholder.
+//
+// PRIVACY: enabling OSMTiles makes outbound HTTP requests to a third-party
+// tile server (tile.openstreetmap.org), disclosing the site coordinates
+// off-device. Keep it off in local-only / privacy-sensitive code paths; the
+// schematic fallback needs no network.
 type SiteMapOptions struct {
 	Latitude          float64
 	Longitude         float64
 	MapAngleDegrees   float64 // rotation of the coverage triangle, clockwise from north
 	WidthPx, HeightPx int
-	OSMTiles          bool // when true, fetch and embed real OSM tiles
-	OSMZoom           int  // zoom level for OSM (default 17)
+	// OSMTiles fetches and embeds real OSM tiles. WARNING: this sends the
+	// site coordinates to tile.openstreetmap.org (off-device network access).
+	OSMTiles bool
+	OSMZoom  int // zoom level for OSM (default 17)
 }
 
 // RenderSiteMap returns an SVG of the survey site. When opts.OSMTiles is

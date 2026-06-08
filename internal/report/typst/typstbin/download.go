@@ -59,17 +59,17 @@ func cachedDownload() (string, error) {
 	downloadMu.Lock()
 	defer downloadMu.Unlock()
 
-	cacheRoot, err := os.UserCacheDir()
-	if err != nil || cacheRoot == "" {
-		cacheRoot = os.TempDir()
-	}
-	dir := filepath.Join(cacheRoot, "velocity-report", "typst", Version)
-	dest := filepath.Join(dir, "typst"+exeSuffix())
-	if fi, statErr := os.Stat(dest); statErr == nil && fi.Size() > 0 && fi.Mode()&0o111 != 0 {
-		return dest, nil
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	base, err := cacheDir()
+	if err != nil {
 		return "", err
+	}
+	dir := filepath.Join(base, Version)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	dest := filepath.Join(dir, "typst"+exeSuffix())
+	if usableExecutable(dest) {
+		return dest, nil
 	}
 
 	target, archive, err := typstTarget()
@@ -98,9 +98,9 @@ func cachedDownload() (string, error) {
 		return "", err
 	}
 	if err := os.Rename(binPath, dest); err != nil {
-		// Cross-device rename or a concurrent writer: fall back to a copy, and
-		// accept an already-present valid binary.
-		if fi, statErr := os.Stat(dest); statErr == nil && fi.Size() > 0 {
+		// Cross-device rename or a concurrent writer: accept an already-present
+		// valid executable, otherwise fall back to a copy.
+		if usableExecutable(dest) {
 			return dest, nil
 		}
 		if cpErr := copyExecutable(binPath, dest); cpErr != nil {

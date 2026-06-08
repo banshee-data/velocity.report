@@ -192,10 +192,12 @@ BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
 DEV_VERSION := $(subst -,.,$(VERSION))
 LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
 
-# Build tags for the velocity binary. Always pcap; add typst_embed (which bakes
-# the typst PDF engine into the binary) when TYPST_EMBED=1. Embedding requires a
-# typst binary at internal/report/typst/typstbin/dist/typst — run
-# `make install-typst-dist` first (the build-velocity-*-embed targets do this).
+# Build tags for the velocity binary. Always pcap. The typst PDF engine is
+# bundled into the binary (typst_embed) by default so distributed builds need no
+# runtime download or separate install; the build targets fetch the right typst
+# binary for the target platform first. Set TYPST_EMBED=0 for a fast, offline
+# dev build that relies on the runtime downloader / PATH instead.
+TYPST_EMBED ?= 1
 VELOCITY_BUILD_TAGS := pcap
 ifeq ($(TYPST_EMBED),1)
 VELOCITY_BUILD_TAGS := pcap,typst_embed
@@ -206,6 +208,10 @@ TYPST_VERSION ?= 0.13.1
 TYPST_DIST := internal/report/typst/typstbin/dist/typst
 TYPST_GOOS ?= $(shell go env GOOS)
 TYPST_GOARCH ?= $(shell go env GOARCH)
+
+# ensure-typst-dist: fetch the typst binary for $(1)/$(2) into the embed dir
+# when embedding is enabled (no-op otherwise). Cached per target by the script.
+ensure-typst-dist = @if [ "$(TYPST_EMBED)" = "1" ]; then ./scripts/download-typst.sh "$(TYPST_VERSION)" "$(1)" "$(2)" "$(TYPST_DIST)"; fi
 WEB_DIR = web
 WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
@@ -226,21 +232,25 @@ print-version:
 build-velocity:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
+	$(call ensure-typst-dist,$(TYPST_GOOS),$(TYPST_GOARCH))
 	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity ./cmd/velocity
 
 build-velocity-linux:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
+	$(call ensure-typst-dist,linux,arm64)
 	GOOS=linux GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 build-velocity-mac:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
+	$(call ensure-typst-dist,darwin,arm64)
 	GOOS=darwin GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 build-velocity-mac-intel:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
+	$(call ensure-typst-dist,darwin,amd64)
 	GOOS=darwin GOARCH=amd64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
 
 # Compatibility aliases (folded binaries → single velocity binary).
@@ -259,6 +269,7 @@ build-radar-linux-docker:
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
+	$(call ensure-typst-dist,$(TYPST_GOOS),$(TYPST_GOARCH))
 	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity
 
 # Download a typst binary into the embed dir for the selected target (default:
@@ -268,13 +279,11 @@ build-radar-local:
 install-typst-dist:
 	@./scripts/download-typst.sh "$(TYPST_VERSION)" "$(TYPST_GOOS)" "$(TYPST_GOARCH)" "$(TYPST_DIST)"
 
-# Build the Linux ARM64 velocity binary with the typst engine embedded — the
-# form shipped on the Raspberry Pi image (no separate typst install on device).
+# Compatibility aliases: typst is now embedded by default, so these are the same
+# as build-velocity-linux. Kept so existing docs/scripts keep working.
 .PHONY: build-velocity-linux-embed
-build-velocity-linux-embed:
-	@$(MAKE) install-typst-dist TYPST_GOOS=linux TYPST_GOARCH=arm64
-	@$(MAKE) build-velocity-linux TYPST_EMBED=1
-build-radar-linux-embed: build-velocity-linux-embed
+build-velocity-linux-embed: build-velocity-linux
+build-radar-linux-embed: build-velocity-linux
 
 # Developer convenience: install typst for the host platform into ./bin so the
 # report pipeline can find it (add bin/ to PATH or set VELOCITY_TYPST_PATH).

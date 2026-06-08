@@ -7,12 +7,12 @@
 //     `typst_embed` build tag and a platform binary was placed at
 //     dist/typst before building (see the Makefile install-typst-dist target).
 //     The embedded bytes are extracted once to a content-addressed cache file
-//     under the temp dir and reused across runs.
+//     under a per-user cache directory and reused across runs. This is the form
+//     shipped on the Raspberry Pi image and in release binaries.
 //  3. `typst` on PATH — the developer fallback.
-//
-// The embedded path is what ships on the Raspberry Pi image: the typst binary
-// travels inside the velocity binary, so no separate package install or PATH
-// entry is required on the device.
+//  4. A pinned release downloaded into the per-user cache — a development-only
+//     convenience, disabled by VELOCITY_TYPST_NO_DOWNLOAD and never reached by
+//     distributed builds (they embed the binary at step 2).
 package typstbin
 
 import (
@@ -30,16 +30,15 @@ import (
 const EnvPath = "VELOCITY_TYPST_PATH"
 
 // Resolve returns a path to a usable typst executable. The returned cleanup
-// function must always be called by the caller (it is a no-op for the env and
-// PATH cases, and removes nothing for the cached embed case since the binary
-// is intentionally retained for reuse). It is provided so callers can use a
-// uniform `defer cleanup()` regardless of how the binary was resolved.
+// function must always be called by the caller (it is currently a no-op — the
+// resolved binaries are retained in the cache for reuse — but is provided so
+// callers can use a uniform `defer cleanup()`).
 func Resolve() (path string, cleanup func(), err error) {
 	cleanup = func() {}
 
 	if p := os.Getenv(EnvPath); p != "" {
-		if _, statErr := os.Stat(p); statErr != nil {
-			return "", cleanup, fmt.Errorf("%s=%q: %w", EnvPath, p, statErr)
+		if verr := validateExecutable(p); verr != nil {
+			return "", cleanup, fmt.Errorf("%s=%q: %w", EnvPath, p, verr)
 		}
 		return p, cleanup, nil
 	}
@@ -56,10 +55,9 @@ func Resolve() (path string, cleanup func(), err error) {
 		return p, cleanup, nil
 	}
 
-	// Last resort: fetch a pinned typst release into the user cache and reuse it
-	// on subsequent runs. This makes local development "just work" without a
-	// manual install. Disable with VELOCITY_TYPST_NO_DOWNLOAD=1 (the device
-	// image embeds the binary, so it never reaches this path).
+	// Development-only last resort: fetch a pinned typst release into the
+	// per-user cache and reuse it. Distributed builds embed the binary (step 2)
+	// and never reach this. Disable with VELOCITY_TYPST_NO_DOWNLOAD=1.
 	if !downloadDisabled() {
 		if p, dlErr := cachedDownload(); dlErr == nil {
 			return p, cleanup, nil
@@ -81,21 +79,69 @@ func Embedded() bool {
 	return ok
 }
 
-// extractCached writes the embedded binary to a content-addressed file under
-// the temp dir and returns its path, reusing the file if it already exists.
-// The write is atomic (temp file + rename) so concurrent report generations
-// cannot observe a partially written executable.
-func extractCached(data []byte) (string, error) {
-	sum := sha256.Sum256(data)
-	hash := hex.EncodeToString(sum[:8])
+// validateExecutable checks that p is a regular file with the execute bit set
+// (the bit is not enforced on Windows, which has no such mode). This rejects
+// directories and non-executable files up front rather than failing opaquely
+// when the binary is later invoked.
+func validateExecutable(p string) error {
+	fi, err := os.Stat(p)
+	if err != nil {
+		return err
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("not a regular file")
+	}
+	if runtime.GOOS != "windows" && fi.Mode()&0o111 == 0 {
+		return fmt.Errorf("not executable")
+	}
+	return nil
+}
 
-	dir := filepath.Join(os.TempDir(), "velocity-typst")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+// cacheDir returns a per-user cache directory for typst binaries, created with
+// 0700 so the extracted/downloaded executable is not exposed in a
+// world-writable location (defends against symlink / path-swap attacks).
+func cacheDir() (string, error) {
+	root, err := os.UserCacheDir()
+	if err != nil || root == "" {
+		root = os.TempDir()
+	}
+	dir := filepath.Join(root, "velocity-report", "typst")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
+	return dir, nil
+}
+
+// isUsableBinary reports whether dest is a regular file of the expected size
+// with the execute bit set — used to safely reuse a cached/concurrently-written
+// binary instead of trusting size alone.
+func isUsableBinary(dest string, size int64) bool {
+	fi, err := os.Stat(dest)
+	return err == nil && fi.Mode().IsRegular() && fi.Size() == size && fi.Mode()&0o111 != 0
+}
+
+// usableExecutable is like isUsableBinary but for cases where the expected size
+// is not known ahead of time (a downloaded binary): regular, non-empty, with
+// the execute bit set.
+func usableExecutable(dest string) bool {
+	fi, err := os.Stat(dest)
+	return err == nil && fi.Mode().IsRegular() && fi.Size() > 0 && fi.Mode()&0o111 != 0
+}
+
+// extractCached writes the embedded binary to a content-addressed file in the
+// per-user cache and returns its path, reusing the file if a valid one already
+// exists. The write is atomic (temp file + rename) so concurrent report
+// generations cannot observe a partially written executable.
+func extractCached(data []byte) (string, error) {
+	dir, err := cacheDir()
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	hash := hex.EncodeToString(sum[:8])
 	dest := filepath.Join(dir, "typst-"+hash+exeSuffix())
 
-	if fi, err := os.Stat(dest); err == nil && fi.Size() == int64(len(data)) && fi.Mode()&0o111 != 0 {
+	if isUsableBinary(dest, int64(len(data))) {
 		return dest, nil
 	}
 
@@ -118,9 +164,9 @@ func extractCached(data []byte) (string, error) {
 		return "", err
 	}
 	if err := os.Rename(tmpName, dest); err != nil {
-		// A concurrent writer may have created it first; accept an existing
-		// file of the right size.
-		if fi, statErr := os.Stat(dest); statErr == nil && fi.Size() == int64(len(data)) {
+		// A concurrent writer may have created it first; accept it only if it is
+		// a valid executable of the expected size.
+		if isUsableBinary(dest, int64(len(data))) {
 			return dest, nil
 		}
 		return "", err

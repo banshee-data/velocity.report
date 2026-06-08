@@ -6,7 +6,8 @@
 // out to `typst compile`. The Atkinson Hyperlegible fonts are materialised
 // from the chart asset package so generation works from a deployed binary
 // with no source tree present. The typst executable itself is resolved via the
-// typstbin subpackage (embedded binary → env override → PATH).
+// typstbin subpackage (VELOCITY_TYPST_PATH → embedded binary → PATH → dev
+// download).
 package typst
 
 import (
@@ -64,7 +65,8 @@ type Options struct {
 	CreationTime time.Time
 
 	// TypstPath overrides the typst executable. When empty, the binary is
-	// resolved via typstbin (embedded → VELOCITY_TYPST_PATH → PATH).
+	// resolved via typstbin (VELOCITY_TYPST_PATH → embedded → PATH → dev
+	// download).
 	TypstPath string
 }
 

@@ -113,10 +113,15 @@ build_darwin_radar() {
     "$REPO_ROOT/scripts/ensure-web-stub.sh"
     "$REPO_ROOT/scripts/ensure-docs-stub.sh"
 
+    # Bundle the typst PDF engine into the distributed binary so the device needs
+    # no runtime download or separate install.
+    "$REPO_ROOT/scripts/download-typst.sh" "${TYPST_VERSION:-0.13.1}" darwin arm64 \
+        "$REPO_ROOT/internal/report/typst/typstbin/dist/typst"
+
     (
         cd "$REPO_ROOT"
         CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -tags=pcap \
+            go build -tags=pcap,typst_embed \
             -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${version}' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${sha}' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${stamp}'" \
             -o "velocity-${version}-darwin-arm64" \
             ./cmd/velocity
