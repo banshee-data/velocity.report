@@ -6,7 +6,7 @@ import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript-eslint';
 
-const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
+const gitignorePath = fileURLToPath(new URL('../.gitignore', import.meta.url));
 const commonJsDisabledRules = Object.fromEntries(
 	[...new Set(svelte.configs.recommended.flatMap((config) => Object.keys(config.rules ?? {})))].map(
 		(ruleName) => [ruleName, 'off']
@@ -14,6 +14,9 @@ const commonJsDisabledRules = Object.fromEntries(
 );
 
 export default ts.config(
+	{
+		ignores: ['.svelte-kit/**', 'build/**']
+	},
 	includeIgnoreFile(gitignorePath),
 	js.configs.recommended,
 	...ts.configs.recommended,
