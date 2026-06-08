@@ -302,5 +302,27 @@ describe('MapEditorInteractive', () => {
 			// San Francisco (~37.77°)
 			expect(calculateLngCompression(37.77)).toBeCloseTo(0.79, 2);
 		});
+
+		it('keeps the +/- Area resize at 3:2 in metres (longitude-compensated)', () => {
+			// Mirrors adjustBBoxSize: the width delta in degrees is divided by
+			// cos(lat) so the box stays 3:2 in ground metres at any latitude. The
+			// report SVG is a fixed 1200x800 canvas, so a box that is 3:2 in degrees
+			// (not metres) would be stretched horizontally when rendered.
+			const lat = 37.77;
+			const lngCompression = Math.cos((lat * Math.PI) / 180);
+			const heightDelta = 0.003;
+			const widthDelta = (heightDelta * 1.5) / lngCompression;
+
+			const metersPerDegreeLat = 111320;
+			const metersPerDegreeLng = 111320 * lngCompression;
+			const heightMeters = heightDelta * 2 * metersPerDegreeLat;
+			const widthMeters = widthDelta * 2 * metersPerDegreeLng;
+			expect(widthMeters / heightMeters).toBeCloseTo(1.5, 5);
+
+			// The previous degree-space formula (heightDelta * 1.5) was not 3:2 in
+			// metres away from the equator, which stretched the generated map.
+			const buggyWidthMeters = heightDelta * 1.5 * 2 * metersPerDegreeLng;
+			expect(buggyWidthMeters / heightMeters).not.toBeCloseTo(1.5, 2);
+		});
 	});
 });

@@ -89,6 +89,10 @@
 	let showExternalMapRequestModal = false;
 	let pendingExternalMapRequest: ExternalMapRequest | null = null;
 	let showReportMapPreview = false;
+	// Bounds the current generated preview was built for. Used to detect when the
+	// report bounds have changed since generation, which would make the preview
+	// (and the SVG that gets saved) no longer match the orange bbox rectangle.
+	let generatedBbox: { swLat: number; swLng: number; neLat: number; neLng: number } | null = null;
 
 	/** Request a mode switch. If existing map data would be lost, show confirmation. */
 	function requestModeSwitch(target: 'interactive' | 'upload') {
@@ -602,6 +606,18 @@
 		updateFOVTriangle();
 	}
 
+	// A generated preview is only valid for the bounds it was generated with.
+	// When the report bounds change afterwards (drag, resize, or a new search),
+	// flag the preview as stale so the user knows to regenerate. We never
+	// silently re-contact external services to refresh it.
+	$: reportMapStale =
+		mapJustDownloaded &&
+		generatedBbox !== null &&
+		(bboxSWLat !== generatedBbox.swLat ||
+			bboxSWLng !== generatedBbox.swLng ||
+			bboxNELat !== generatedBbox.neLat ||
+			bboxNELng !== generatedBbox.neLng);
+
 	async function searchAddress() {
 		if (!searchQuery.trim()) return;
 
@@ -678,7 +694,12 @@
 
 		const currentHeightDelta = bboxNELat && latitude ? Math.abs(bboxNELat - latitude) : 0.003;
 		const newHeightDelta = increase ? currentHeightDelta * 1.5 : currentHeightDelta / 1.5;
-		const newWidthDelta = newHeightDelta * 1.5; // Maintain 3:2 ratio
+		// Maintain a 3:2 ratio in ground metres (not degrees): longitude degrees
+		// are compressed by cos(lat), so the degree-space width must be divided by
+		// cos(lat). This matches updateBBoxAroundRadar and keeps the box 3:2 in
+		// metres so the fixed 1200×800 report canvas renders it without stretching.
+		const lngCompression = Math.cos((latitude * Math.PI) / 180);
+		const newWidthDelta = (newHeightDelta * 1.5) / lngCompression;
 
 		const bounds = L.latLngBounds(
 			[latitude - newHeightDelta, longitude - newWidthDelta],
@@ -765,6 +786,12 @@
 			});
 
 			mapSvgData = svgToBase64(svgText);
+			generatedBbox = {
+				swLat: bboxSWLat!,
+				swLng: bboxSWLng!,
+				neLat: bboxNELat!,
+				neLng: bboxNELng!
+			};
 			mapJustDownloaded = true;
 			showReportMapPreview = true;
 			activateIncludeMap();
@@ -984,7 +1011,7 @@
 					style="min-height: 400px;"
 				></div>
 
-				{#if !externalMapRequestConsent}
+				{#if !externalMapRequestConsent && !showExternalMapRequestModal}
 					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
 						<div
 							class="bg-surface-900/90 text-surface-50 pointer-events-auto max-w-md rounded border border-white/20 p-4 text-sm shadow-lg"
@@ -1121,7 +1148,12 @@
 							: 'Existing Saved Report Map (Database)'}
 					</h4>
 					<p class="text-surface-600-300-token text-xs">
-						{#if mapJustDownloaded}
+						{#if mapJustDownloaded && reportMapStale}
+							<span class="text-amber-600 dark:text-amber-400">
+								Report bounds changed since this map was generated — regenerate so the saved SVG
+								matches the orange rectangle.
+							</span>
+						{:else if mapJustDownloaded}
 							This SVG is in the editor state. Save changes to write it to
 							<code>site.map_svg_data</code>.
 						{:else}
@@ -1181,7 +1213,19 @@
 		</Notification>
 	{/if}
 
-	{#if mapJustDownloaded}
+	{#if mapJustDownloaded && reportMapStale}
+		<Notification
+			open
+			icon={mdiAlert}
+			class="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+		>
+			<span slot="title">Report bounds changed</span>
+			<span slot="description"
+				>This preview was generated for a different map area. Regenerate the report map so it
+				matches the current orange rectangle before saving.</span
+			>
+		</Notification>
+	{:else if mapJustDownloaded}
 		<Notification
 			color="success"
 			open
@@ -1202,7 +1246,7 @@
 
 {#if showExternalMapRequestModal}
 	<div
-		class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4"
+		class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4"
 		role="presentation"
 	>
 		<div
