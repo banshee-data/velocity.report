@@ -801,22 +801,18 @@ export function generateMapSvg(params: SvgParams): string {
 			if (!pos) continue;
 			poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#666666" text-anchor="middle" dominant-baseline="middle" stroke="white" stroke-width="1.5" paint-order="stroke">${escapeXml(poi.name)}</text>`;
 		} else {
-			const iconChar = poi.icon === '\u25cf' ? '' : poi.icon;
+			// POI marker: a vector dot rather than an emoji glyph. Emoji in SVG
+			// <text> rely on a colour-emoji font, which the Typst/resvg PDF
+			// renderer does not support (they render as tofu), so we draw a shape
+			// that renders identically in the browser, rsvg, and Typst. poi.icon
+			// is retained on the model for the interactive editor; it is not used
+			// for the exported SVG.
 			const fontSize = 20;
-			const iconSize = 24;
-			if (iconChar) {
-				const estWidth = iconSize + poi.name.length * fontSize * 0.55;
-				const pos = tryPlace(x, y, estWidth, fontSize * 1.2, 'start');
-				if (!pos) continue;
-				poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-size="${iconSize}" text-anchor="middle" dominant-baseline="middle">${iconChar}</text>`;
-				poiLabelPaths += `<text x="${(pos.x + iconSize * 0.7).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#734a08" dominant-baseline="middle" stroke="white" stroke-width="3" paint-order="stroke">${escapeXml(poi.name)}</text>`;
-			} else {
-				const estWidth = 8 + poi.name.length * fontSize * 0.55;
-				const pos = tryPlace(x, y, estWidth, fontSize * 1.2, 'start');
-				if (!pos) continue;
-				poiLabelPaths += `<circle cx="${pos.x.toFixed(1)}" cy="${pos.y.toFixed(1)}" r="5" fill="#734a08"/>`;
-				poiLabelPaths += `<text x="${(pos.x + 8).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#734a08" dominant-baseline="middle" stroke="white" stroke-width="3" paint-order="stroke">${escapeXml(poi.name)}</text>`;
-			}
+			const estWidth = 10 + poi.name.length * fontSize * 0.55;
+			const pos = tryPlace(x, y, estWidth, fontSize * 1.2, 'start');
+			if (!pos) continue;
+			poiLabelPaths += `<circle cx="${pos.x.toFixed(1)}" cy="${pos.y.toFixed(1)}" r="5" fill="#734a08" stroke="white" stroke-width="1.5"/>`;
+			poiLabelPaths += `<text x="${(pos.x + 9).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#734a08" dominant-baseline="middle" stroke="white" stroke-width="3" paint-order="stroke">${escapeXml(poi.name)}</text>`;
 		}
 	}
 

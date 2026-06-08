@@ -1087,13 +1087,16 @@ describe('generateMapSvg', () => {
 		expect(svg).toContain('font-size="12"');
 	});
 
-	it('renders landmark POIs with icon emoji', () => {
+	it('renders landmark POIs as a vector marker, not an emoji glyph', () => {
 		const params: SvgParams = {
 			...baseParams,
 			poiLabels: [{ name: 'School', lat: 51.505, lon: -0.1, category: 'landmark', icon: '🏫' }]
 		};
 		const svg = generateMapSvg(params);
-		expect(svg).toContain('🏫');
+		// Emoji glyphs tofu in the Typst/resvg PDF path, so the exported SVG uses
+		// a vector dot instead of the icon character.
+		expect(svg).not.toContain('🏫');
+		expect(svg).toContain('<circle');
 		expect(svg).toContain('School');
 	});
 
