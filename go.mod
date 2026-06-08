@@ -13,7 +13,6 @@ require (
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.7.1
 	golang.org/x/sys v0.45.0
-	gonum.org/v1/gonum v0.17.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.51.0
@@ -61,3 +60,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+replace gonum.org/v1/gonum => ./internal/modstubs/gonum
