@@ -1072,27 +1072,26 @@
 						</div>
 					</section>
 
-					<!-- Licences — third-party components bundled in the velocity binary. -->
-					<section class="space-y-4 lg:w-1/2">
+					<!-- Licences: third-party components bundled with the velocity binary. -->
+					<section class="mx-auto w-full max-w-[33.6em] space-y-4">
 						<div class="border-surface-content/20 bg-surface-100 space-y-4 rounded-lg border p-4">
 							<div class="space-y-1">
 								<h2 class="text-surface-content text-lg font-semibold">Licences</h2>
 								<p class="text-surface-content/70 text-sm">
-									Third-party components bundled into the distributed velocity binary.
+									Third-party components bundled with the distributed velocity binary.
 								</p>
 							</div>
 							<div class="text-surface-content/80 space-y-3 text-sm">
 								<p>
-									The velocity binary bundles the following third-party components. Full notices are
-									published in
+									For full third-party notices, see
 									<a href="/docs/THIRD_PARTY_NOTICES/" class="text-primary-600 underline"
 										>Third-party notices</a
 									>.
 								</p>
 								<ul class="space-y-2">
 									<li>
-										<span class="font-semibold">Typst</span> — PDF typesetting engine (bundled
-										binary). Apache-2.0.
+										<span class="font-semibold">Typst</span>: PDF typesetting engine, bundled as a
+										binary. Apache-2.0.
 										<a
 											href="https://github.com/typst/typst"
 											target="_blank"
@@ -1101,7 +1100,7 @@
 										>
 									</li>
 									<li>
-										<span class="font-semibold">go-typst</span> — Typst Go wrapper. MIT.
+										<span class="font-semibold">go-typst</span>: Go wrapper for Typst. MIT.
 										<a
 											href="https://github.com/Dadido3/go-typst"
 											target="_blank"
@@ -1110,8 +1109,8 @@
 										>
 									</li>
 									<li>
-										<span class="font-semibold">Atkinson Hyperlegible</span> — report fonts. SIL
-										Open Font License 1.1.
+										<span class="font-semibold">Atkinson Hyperlegible</span>: Fonts used in reports.
+										SIL Open Font License 1.1.
 										<a
 											href="https://brailleinstitute.org/freefont"
 											target="_blank"
