@@ -27,7 +27,7 @@ Render path:
 sample.json ──► typst-prototype (Go) ──► go-typst.CLI.Compile
                                           │
                                           ▼
-                                       typst (CLI, 0.14.2)
+                                       typst (CLI, 0.13.1)
                                           │  (--root <tmpdir>)
                                           ▼
                                        report.pdf  ◄── <stdin>: bootstrap
@@ -45,7 +45,7 @@ relative imports and `#image()` calls under `--root`.
 
 ```bash
 make pdf-typst-prototype
-# Output: tools/pdf-generator/output/typst-prototype.pdf
+# Output: build/report/typst-prototype.pdf
 ```
 
 Or via the test:
@@ -58,7 +58,7 @@ The test skips automatically when `typst` is not on `PATH`, so CI on hosts
 without typst will not break. To install typst locally:
 
 ```bash
-curl -sL -o /tmp/typst.tar.xz https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz
+curl -sL -o /tmp/typst.tar.xz https://github.com/typst/typst/releases/download/v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz
 tar -xJf /tmp/typst.tar.xz -C /tmp
 mv /tmp/typst-x86_64-unknown-linux-musl/typst ~/.local/bin/
 ```
@@ -141,13 +141,13 @@ same machine.
 
 ## Risks now better understood
 
-| Risk (from plan)                             | Updated assessment                                                                                               |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `go-typst` is a thin wrapper, not in-process | Confirmed. Acceptable. The wrapper adds <50 LoC of value but keeps the API stable if we want to swap backends.   |
-| Atkinson Hyperlegible coverage               | Confirmed working with the existing TTF set — no glyph fallbacks observed in body text or headings.              |
-| Two-pipeline coexistence period              | Manageable. The new code is fully isolated under `internal/report/typst/`; no Python paths touched.              |
-| Pre-1.0 Typst churn                          | 0.14.2 is current and stable. Pin via the device-image build script when adopting in Phase 7.                    |
-| PDF reproducibility (CreationDate)           | `OptionsCompile.CreationTime` exposes `--creation-timestamp`. Will use in Phase 3 for byte-deterministic output. |
+| Risk (from plan)                             | Updated assessment                                                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `go-typst` is a thin wrapper, not in-process | Confirmed. Acceptable. The wrapper adds <50 LoC of value but keeps the API stable if we want to swap backends.        |
+| Atkinson Hyperlegible coverage               | Confirmed working with the existing TTF set — no glyph fallbacks observed in body text or headings.                   |
+| Two-pipeline coexistence period              | Manageable. The new code is fully isolated under `internal/report/typst/`; no Python paths touched.                   |
+| Pre-1.0 Typst churn                          | 0.13.1 is the repo-pinned version. Upgrade deliberately and keep the Makefile, download script, and typstbin in sync. |
+| PDF reproducibility (CreationDate)           | `OptionsCompile.CreationTime` exposes `--creation-timestamp`. Will use in Phase 3 for byte-deterministic output.      |
 
 ## Recommendation: GO
 
