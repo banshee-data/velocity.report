@@ -6,8 +6,8 @@ velocity.report for Raspberry Pi 4/400/5.
 ## Phase 1: working image (v0.5.1)
 
 Builds a single pcap-enabled Go binary with the Typst PDF engine embedded.
-The image does not install TeX Live, LaTeX fonts, or SVG-to-PDF conversion
-packages for report generation.
+The image does not install legacy report compiler packages or SVG-to-PDF
+conversion packages for report generation.
 
 ### What the image contains
 

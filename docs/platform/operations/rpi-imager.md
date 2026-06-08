@@ -7,10 +7,10 @@ The Raspberry Pi image pipeline produces a ready-to-flash SD card image, removin
 ## Problem
 
 Deploying velocity.report on a Raspberry Pi requires a multi-step manual
-process: flashing Raspberry Pi OS, SSHing in, installing Go binaries, installing
-LaTeX dependencies, configuring RS-232 HAT drivers, and enabling systemd
-services. This is a barrier for neighbourhood change-makers who are not
-comfortable with Linux system administration.
+process: flashing Raspberry Pi OS, SSHing in, installing Go binaries,
+configuring RS-232 HAT drivers, and enabling systemd services. This is a
+barrier for neighbourhood change-makers who are not comfortable with Linux
+system administration.
 
 ## Two-Tier solution
 
@@ -28,8 +28,8 @@ PDF generation, and web dashboard.
 ┌─────────────────────────────────────────────────────────────┐
 │                   CI Pipeline (GitHub Actions)              │
 │  ┌───────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │ pi-gen /      │    │ Go cross-    │    │ LaTeX deps   │  │
-│  │ rpi-image-gen │◄───│ compile      │◄───│              │  │
+│  │ pi-gen /      │    │ Go cross-    │    │ Typst engine │  │
+│  │ rpi-image-gen │◄───│ compile      │◄───│ embedded     │  │
 │  └──────┬────────┘    └──────────────┘    └──────────────┘  │
 │         ▼                                                   │
 │  ┌──────────────┐    ┌───────────────────────────────────┐  │
@@ -101,7 +101,7 @@ Design detail: [deploy-rpi-imager-fork-plan.md § 4.2.2a](../../plans/deploy-rpi
 pi-gen/
 ├── stage0–2/                       # Upstream (untouched)
 ├── stage-velocity/                 # Custom stage
-│   ├── 00-packages                 # APT (texlive, libpcap-dev, etc.)
+│   ├── 00-packages                 # APT (libpcap, platform packages)
 │   ├── 01-velocity-binaries/       # Go binaries + update script
 │   ├── 02-velocity-config/         # User, service, serial, udev
 │   ├── 04-velocity-lidar/          # LiDAR network (disabled)
@@ -116,25 +116,20 @@ stabilise.
 
 ## Image size budget
 
-| Component                                    | Estimated Size  |
-| -------------------------------------------- | --------------- |
-| Raspberry Pi OS Lite (base)                  | ~450 MB         |
-| TeX Live (before reduction)                  | ~800 MB         |
-| Go binaries (server + deploy, pcap)          | ~35 MB          |
-| LiDAR + web + system config                  | ~11 MB          |
-| **Total (compressed, before TeX reduction)** | **~400–700 MB** |
-| **Target (after TeX reduction)**             | **~150–300 MB** |
+| Component                            | Estimated Size  |
+| ------------------------------------ | --------------- |
+| Raspberry Pi OS Lite (base)          | ~450 MB         |
+| Go binary with embedded Typst engine | ~65 MB          |
+| LiDAR + web + system config          | ~11 MB          |
+| **Target compressed image**          | **~150–300 MB** |
 
-### LaTeX size reduction (chosen: pre-compiled templates)
+### Report compiler footprint
 
-Full `texlive-xetex` adds ~800 MB. The chosen approach (D-08, Option B)
-ships only pre-compiled `.fmt` files, specific fonts used by report
-templates, and a minimal XeTeX binary. No package manager, no `tlmgr`, no
-network fetches. Savings: ~750 MB.
-
-Steps: audit template deps → build minimal TeX tree in
-`/opt/velocity-report/texlive-minimal/` → pre-compile formats → replace
-APT packages → validate output byte-for-byte → measure sizes.
+The image relies on the Typst engine embedded in the Go binary. There is no
+separate report compiler tree, package-manager report dependency set, or
+image-build compiler extraction step. Report-generation image savings are
+captured directly by keeping those packages and stage scripts out of
+`image/stage-velocity/`.
 
 ## Image flashing: phased approach
 

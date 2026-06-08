@@ -20,7 +20,7 @@ See [TENETS.md](../TENETS.md) for the full project constitution. The short versi
 | Component        | Language          | Location                  |
 | ---------------- | ----------------- | ------------------------- |
 | Server           | Go                | `cmd/`, `internal/`       |
-| PDF reports      | Go + XeLaTeX      | `internal/report/`        |
+| PDF reports      | Go + Typst        | `internal/report/`        |
 | Web frontend     | Svelte/TypeScript | `web/`                    |
 | macOS visualiser | Swift/Metal       | `tools/visualiser-macos/` |
 | Database         | SQLite            | local file                |

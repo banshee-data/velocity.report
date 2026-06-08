@@ -39,6 +39,6 @@ All technical agents should be alert to:
 - Input validation on system boundaries (API, serial, UDP, config files)
 - No PII in logs, responses, or exports
 - Path traversal in file operations
-- LaTeX injection in PDF generation
+- Typst/template-data injection in PDF generation
 
 For deeper security review, consult [security-surface.md](security-surface.md) and [security-checklist.md](security-checklist.md), or escalate to Malory.

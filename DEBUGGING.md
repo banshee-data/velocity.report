@@ -55,7 +55,7 @@ ls -l /dev/ttySC* /dev/ttyUSB* 2>/dev/null || echo "No serial devices found"
 | Symptom                | Likely Cause            | Quick Fix                                                    |
 | ---------------------- | ----------------------- | ------------------------------------------------------------ |
 | No data appearing      | Radar not connected     | Check `/dev/ttySC1` (Pi HAT) or `/dev/ttyUSB0`, verify power |
-| PDF generation fails   | Missing LaTeX           | Install XeLaTeX: `sudo apt-get install texlive-xetex`        |
+| PDF generation fails   | Missing Typst compiler  | Run `make install-typst` or set `VELOCITY_TYPST_PATH`        |
 | Web frontend blank     | Build not generated     | Run `cd web && pnpm run build`                               |
 | API returns 500 errors | Database corruption     | Check database with `PRAGMA integrity_check`                 |
 | High CPU usage         | Background worker stuck | Restart Go server                                            |
@@ -988,8 +988,8 @@ go tool pprof heap.prof
 # Check API response time
 time curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&compute_histogram=true"
 
-# Check LaTeX compilation time
-time xelatex test.tex
+# Check Typst compilation time
+time typst compile report.typ report.pdf
 ```
 
 **Do this**:
@@ -998,7 +998,7 @@ time xelatex test.tex
 - Disable histogram if not needed
 - Use faster time grouping (24h instead of 15m)
 - Generate charts at lower DPI
-- Use faster LaTeX engine or fewer fonts
+- Check whether Typst is resolving from the embedded binary or a slow external path
 
 ---
 
@@ -1157,18 +1157,18 @@ Generated Swift files are placed in: `tools/visualiser-macos/VelocityVisualiser/
 
 ## Common error messages reference
 
-| Error Message                             | Component     | Solution                              |
-| ----------------------------------------- | ------------- | ------------------------------------- |
-| `bind: address already in use`            | Go Server     | Kill process on port 8080             |
-| `database is locked`                      | Database      | Check for stale processes with `lsof` |
-| `xelatex: command not found`              | PDF Generator | Install texlive-xetex                 |
-| `ModuleNotFoundError`                     | PDF Generator | Activate venv, install requirements   |
-| `cosine_error_angle is required`          | PDF Generator | Add field to config                   |
-| `Failed to fetch`                         | Web Frontend  | Check API server is running           |
-| `no such file or directory: /dev/ttyUSB0` | Go Server     | Check radar connection                |
-| `no LiDAR packets received`               | Go Server     | Verify LiDAR network config           |
-| `PRAGMA integrity_check: failed`          | Database      | Restore from backup                   |
-| `403 Forbidden`                           | Web Server    | Check file permissions                |
+| Error Message                             | Component     | Solution                                              |
+| ----------------------------------------- | ------------- | ----------------------------------------------------- |
+| `bind: address already in use`            | Go Server     | Kill process on port 8080                             |
+| `database is locked`                      | Database      | Check for stale processes with `lsof`                 |
+| `typst: command not found`                | PDF Generator | Run `make install-typst` or set `VELOCITY_TYPST_PATH` |
+| `ModuleNotFoundError`                     | PDF Generator | Activate venv, install requirements                   |
+| `cosine_error_angle is required`          | PDF Generator | Add field to config                                   |
+| `Failed to fetch`                         | Web Frontend  | Check API server is running                           |
+| `no such file or directory: /dev/ttyUSB0` | Go Server     | Check radar connection                                |
+| `no LiDAR packets received`               | Go Server     | Verify LiDAR network config                           |
+| `PRAGMA integrity_check: failed`          | Database      | Restore from backup                                   |
+| `403 Forbidden`                           | Web Server    | Check file permissions                                |
 
 ---
 

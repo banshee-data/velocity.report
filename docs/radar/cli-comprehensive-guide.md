@@ -98,11 +98,6 @@ velocity serve --enable-lidar --lidar-listen :8081
 [tuning config file](../../config/CONFIG.md) (`l1.sensor`, `l1.udp_port`,
 `l1.forward_port`, `l1.foreground_forward_port`), not CLI flags.
 
-**PDF Report Flags:**
-
-- `--pdf-latex-flow` - Use LaTeX flow for PDF generation
-- `--pdf-tex-root` - TeX installation root directory
-
 **Logging Flags:**
 
 - `--log-level ops` - Log level (`ops`, `diag`, `trace`)

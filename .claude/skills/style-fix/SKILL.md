@@ -87,7 +87,7 @@ Length is a report-only check. Do not auto-split files inside this skill.
 
 Report fenced blocks in docs that use languages banned by STYLE.md, such as
 `go`, `sql`, `json`, `yaml`, `typescript`, `swift`, `python`, `html`, `css`,
-`latex`, or `makefile`.
+`typst`, or `makefile`.
 
 This skill may rewrite a small block into prose only when the replacement is
 obvious and local. If the block carries real design content, report it for

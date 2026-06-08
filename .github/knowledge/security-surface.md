@@ -47,7 +47,7 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 - Path traversal (especially in PDF output paths)
 - Symlink attacks
 - Permission escalation
-- Temp file leaks (LaTeX intermediate files)
+- Temp file leaks (report source bundles and generated PDFs)
 
 ## Dependencies
 
@@ -103,7 +103,7 @@ Then look for what the claims don't cover:
 
 High-risk areas:
 
-- LaTeX injection in PDF generation
+- Typst template/data injection in PDF generation
 - Shell commands in scripts
 - Deserialisation
 - Template injection

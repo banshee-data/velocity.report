@@ -159,7 +159,7 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 | Component            | What it does                                                                                                                                                      |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API -> [cmd/](cmd/), [internal/](internal/)                                   |
-| **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + XeLaTeX -> [internal/report/](internal/report/)               |
+| **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + Typst -> [internal/report/](internal/report/)                 |
 | **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript -> [web/](web/README.md)                                                   |
 | **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon -> [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
 
@@ -200,7 +200,7 @@ Use `--db-path` to point at an existing database elsewhere.
                    ▼                ▼            ▼
         ┌──────────────┐ ┌──────────────────┐ ┌─────────────────────┐
         │ Web Frontend │ │   PDF reports    │ │  VelocityVisualiser │
-        │   (Svelte)   │ │ (Go + XeLaTeX)   │ │ (macOS/Metal, gRPC) │
+        │   (Svelte)   │ │  (Go + Typst)    │ │ (macOS/Metal, gRPC) │
         └──────────────┘ └──────────────────┘ └─────────────────────┘
 ```
 

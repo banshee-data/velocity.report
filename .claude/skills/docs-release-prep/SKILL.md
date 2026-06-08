@@ -44,7 +44,7 @@ compilable languages. See STYLE.md § Documentation Structure for the full
 banned/allowed lists. The short version:
 
 **Banned:** Go, SQL, Protocol Buffers, TypeScript, Swift, Python, JSON,
-JSONC, YAML, TOML, XML, CSV, HTML, CSS, LaTeX, Makefile, Dockerfile.
+JSONC, YAML, TOML, XML, CSV, HTML, CSS, Typst, Makefile, Dockerfile.
 
 **Allowed:** `bash`/`sh` (operational commands), `mermaid` (diagrams),
 `text` (ASCII art, directory trees).

@@ -96,7 +96,7 @@ NEVER APPROVE CODE THAT LEAKS PII. this is the one thing that cannot be walked b
 
 high-risk areas:
 
-- latex injection in pdf generation
+- typst/template-data injection in pdf generation
 - shell commands in scripts
 - deserialisation
 - template injection

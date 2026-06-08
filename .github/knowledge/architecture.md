@@ -15,16 +15,16 @@ Canonical reference for the velocity.report system architecture. For the full de
 
 ## Technology Stack
 
-| Layer      | Technology                    | Notes                             |
-| ---------- | ----------------------------- | --------------------------------- |
-| Server     | Go 1.25+                      | stdlib `net/http`, `database/sql` |
-| Database   | SQLite 3.51.2 (modernc.org)   | Pure-Go driver, WAL mode          |
-| Reports    | Go, `text/template`, XeLaTeX  | Direct DB query, SVG charts       |
-| Frontend   | Svelte 5, TypeScript, Vite 7+ | pnpm, ESLint                      |
-| Visualiser | Swift 5.9+, SwiftUI, Metal    | macOS 14+, grpc-swift             |
-| Streaming  | gRPC + protobuf               | Port 50051, server-streaming      |
-| Docs site  | Eleventy                      | `public_html/`                    |
-| Build      | Make                          | 101+ documented targets           |
+| Layer      | Technology                    | Notes                                        |
+| ---------- | ----------------------------- | -------------------------------------------- |
+| Server     | Go 1.25+                      | stdlib `net/http`, `database/sql`            |
+| Database   | SQLite 3.51.2 (modernc.org)   | Pure-Go driver, WAL mode                     |
+| Reports    | Go, Typst                     | Direct DB query, SVG charts, Typst templates |
+| Frontend   | Svelte 5, TypeScript, Vite 7+ | pnpm, ESLint                                 |
+| Visualiser | Swift 5.9+, SwiftUI, Metal    | macOS 14+, grpc-swift                        |
+| Streaming  | gRPC + protobuf               | Port 50051, server-streaming                 |
+| Docs site  | Eleventy                      | `public_html/`                               |
+| Build      | Make                          | 101+ documented targets                      |
 
 ## Deployment Target
 
