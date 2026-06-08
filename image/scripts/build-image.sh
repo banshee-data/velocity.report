@@ -189,20 +189,29 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
 
     cd "$REPO_ROOT"
 
+    # Embed the typst PDF engine (linux/arm64) into the velocity binary so the
+    # device needs no separate typst install. Downloaded into the gitignored
+    # embed dir; the builds below add the typst_embed tag to bake it in.
+    log_info "Downloading typst engine for embedding (linux/arm64)..."
+    "$REPO_ROOT/scripts/download-typst.sh" "${TYPST_VERSION:-0.13.1}" linux arm64 \
+        "$REPO_ROOT/internal/report/typst/typstbin/dist/typst"
+
     if [[ "$HOST_BUILD" -eq 1 ]]; then
         # Host toolchain — fast path for local iteration.
         # Needs aarch64-linux-gnu-gcc for pcap; falls back to non-pcap.
         # EXTRA_LDFLAGS strips debug symbols for smaller image binaries.
-        log_info "Building ARM64 Go binary (host toolchain)..."
+        log_info "Building ARM64 Go binary (host toolchain, typst embedded)..."
         export EXTRA_LDFLAGS="-s -w"
-        if make build-velocity-linux 2>/dev/null; then
+        if make build-velocity-linux TYPST_EMBED=1 2>/dev/null; then
             log_info "Built velocity with pcap support"
         else
             log_warn "pcap cross-compile unavailable; building without pcap"
             # CGO_ENABLED=0 forces a pure-Go build: the fallback exists precisely
             # because the cross C toolchain is missing, so leaving CGO on would
-            # hit the same failure for any cgo-importing package.
+            # hit the same failure for any cgo-importing package. typst stays
+            # embedded via the typst_embed tag.
             CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+                -tags=typst_embed \
                 -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" \
                 -o "${BUILD_TS_COMPACT}-velocity-${VERSION//-/.}-linux-arm64-${GIT_SHA:0:7}" \
                 ./cmd/velocity
@@ -264,7 +273,7 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
             "$DOCKER_TOOLCHAIN_IMAGE" \
             sh -lc '
                 export PATH=/usr/local/go/bin:$PATH
-                go build -tags=pcap -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity ./cmd/velocity
+                go build -tags=pcap,typst_embed -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity ./cmd/velocity
             '
 
         cleanup_docker_build_artifacts "after build"
