@@ -473,9 +473,10 @@ binary, keep the flag before the action:
 velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db up
 ```
 
-On a pre-0.5.1 binary the after-action form silently falls back to
-`./sensor_data.db`, creating a stray database in the working directory while the
-real database is left untouched. v0.5.1+ removed this footgun.
+On a pre-0.5.1 binary the after-action form silently creates a stray
+`./sensor_data.db` <!-- link-ignore --> in the working directory and reports
+migrations as up-to-date while the real database is left untouched. v0.5.1+
+removed this footgun.
 
 ### Tuning config required
 
