@@ -1,54 +1,45 @@
 // report.typ — main entry, mirrors the LaTeX reference layout.
 
-#import "/preamble.typ": setup, header-block, footer-block
+#import "/preamble.typ": apply-styles, header-block, footer-block
 #import "/sections.typ": *
 
 #let data = json("/data.json")
 
-#setup(data)
-
-// Bold figure captions (matches the LaTeX reference's `\textbf{Figure N: ...}`).
-#show figure.caption: it => text(weight: "bold")[#it.supplement~#context it.counter.display(it.numbering): #it.body]
-
-// Two-column body for pages 1 and 2 (reference style). `set page` clears
-// unspecified fields, so re-pass header/footer to keep them on every page.
+// Page geometry matches the LaTeX reference (geometry: top=1.8cm, bottom=1.0cm,
+// left=1.0cm, right=1.0cm). Columns are applied to the body via an explicit
+// #columns block (not set page columns) so the wide figures after the block
+// render full page width, in document order, with no floats.
 #set page(
   paper: "us-letter",
-  columns: 2,
+  margin: (top: 1.8cm, bottom: 1.0cm, left: 1.0cm, right: 1.0cm),
   header: header-block(data),
   footer: footer-block(data),
 )
 
-// Title spans both columns by floating to the parent scope.
-#place(top + center, scope: "parent", float: true, clearance: 14pt, title-block(data))
+// Install document-wide text/heading/caption styling (see preamble).
+#show: apply-styles
 
-#velocity-overview(data)
-#key-metrics(data)
-#histogram-figure(data)
-#site-information(data)
-#citizen-radar()
-#aggregation-and-percentiles()
-#hardware-configuration(data)
+// Spanning title above the two-column body.
+#title-block(data)
 
-#colbreak(weak: true)
+#columns(2, gutter: 14pt)[
+  #velocity-overview(data)
+  #key-metrics(data)
+  #histogram-figure(data)
+  #site-information(data)
+  #citizen-radar()
+  #aggregation-and-percentiles()
+  #hardware-configuration(data)
+  #survey-parameters(data)
 
-#survey-parameters(data)
+  #detailed-data-tables-heading()
+  #velocity-distribution-table(data)
+  #daily-summary(data)
+  #granular-table(data)
+]
 
-#detailed-data-tables-heading()
-#velocity-distribution-table(data)
-#daily-summary(data)
-#granular-table(data)
-
-// Trailing pages: drop back to single column for the full-width charts.
-#pagebreak()
-#set page(
-  paper: "us-letter",
-  columns: 1,
-  header: header-block(data),
-  footer: footer-block(data),
-)
-
+// Wide figures (time-series, map) flow full page width after the two-column
+// body, in order — the chart lands on the page after the tables and the map
+// follows. No forced page break, no orphaned content.
 #timeseries-figures(data)
-
-#pagebreak()
 #map-figure(data)

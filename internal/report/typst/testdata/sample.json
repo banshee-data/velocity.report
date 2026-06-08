@@ -78,10 +78,10 @@
     "max_speed": 53.52
   },
   "radar": {
-    "cosine_error_angle": 21.0,
-    "cosine_error_factor": 1.071145,
-    "compare_cosine_error_angle": 21.0,
-    "compare_cosine_error_factor": 1.071145,
+    "cosine_error_angle": "21.0",
+    "cosine_error_factor": "1.071145",
+    "compare_cosine_error_angle": "21.0",
+    "compare_cosine_error_factor": "1.071145",
     "sensor_model": "OmniPreSense OPS243-A",
     "firmware_version": "v1.2.3",
     "transmit_frequency": "24.125 GHz",

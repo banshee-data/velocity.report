@@ -417,6 +417,7 @@ func isGoPipelineError(body string) bool {
 	goMarkers := []string{
 		"rsvg-convert",
 		"xelatex",
+		"typst",
 		"unsupported group",
 	}
 	for _, m := range goMarkers {

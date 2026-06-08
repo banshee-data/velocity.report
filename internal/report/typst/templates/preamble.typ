@@ -24,7 +24,7 @@
     [#emph(data.site.location)],
   )
   v(-0.45em)
-  line(length: 100%, stroke: 0.5pt + palette.rule)
+  line(length: 100%, stroke: 0.8pt + palette.rule)
 }
 
 #let footer-block(data) = {
@@ -33,7 +33,7 @@
   } else {
     [#data.period.start_date to #data.period.end_date]
   }
-  line(length: 100%, stroke: 0.5pt + palette.rule)
+  line(length: 100%, stroke: 0.8pt + palette.rule)
   v(-0.4em)
   set text(size: 8pt)
   grid(
@@ -44,24 +44,26 @@
   )
 }
 
-#let setup(data) = {
-  set page(
-    paper: "us-letter",
-    margin: (top: 1.6cm, bottom: 1.4cm, left: 1.7cm, right: 1.7cm),
-    header: header-block(data),
-    footer: footer-block(data),
-  )
-  set text(font: "Atkinson Hyperlegible", size: 9.6pt)
-  set par(justify: true, leading: 0.55em, first-line-indent: 0pt)
+// apply-styles installs the document-wide text, paragraph, heading, link, and
+// caption rules. It MUST be invoked at the top level of report.typ via
+// `#show: apply-styles` (a show-everything rule) — set/show rules placed inside
+// an ordinary function do not propagate to the document body, which previously
+// left the report in Typst's default serif at the default size and margins.
+#let apply-styles(body) = {
+  set text(font: "Atkinson Hyperlegible", size: 8.7pt)
+  set par(justify: true, leading: 0.5em, first-line-indent: 0pt)
   show heading.where(level: 1): it => {
-    set text(size: 13pt, weight: "bold")
-    block(above: 0.6em, below: 0.35em, it.body)
+    set text(size: 13.5pt, weight: "bold")
+    block(above: 0.55em, below: 0.3em, it.body)
   }
   show heading.where(level: 2): it => {
-    set text(size: 11pt, weight: "bold")
-    block(above: 0.6em, below: 0.25em, it.body)
+    set text(size: 11.5pt, weight: "bold")
+    block(above: 0.5em, below: 0.22em, it.body)
   }
   show link: set text(fill: palette.link)
+  // Bold figure/table captions (matches the LaTeX reference).
+  show figure.caption: it => text(weight: "bold", size: 8.5pt)[#it.supplement~#context it.counter.display(it.numbering): #it.body]
+  body
 }
 
 // Mono "code-style" face for tabular data, like the reference's \AtkinsonMono.

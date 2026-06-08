@@ -80,9 +80,9 @@ func runPDF(args []string, stdout, stderr io.Writer) int {
 	}
 	defer database.Close()
 
-	// Generate report.
+	// Generate report (Typst by default; VELOCITY_PDF_ENGINE=tex for legacy).
 	ctx := context.Background()
-	result, err := report.Generate(ctx, database, cfg)
+	result, err := report.GeneratePDF(ctx, database, cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: report generation failed: %v\n", err)
 		return 1

@@ -1,9 +1,12 @@
-// Package typst is the Phase 0 prototype that renders velocity reports
-// through the Typst typesetter via the github.com/Dadido3/go-typst wrapper.
+// Package typst renders velocity reports through the Typst typesetter via the
+// github.com/Dadido3/go-typst wrapper.
 //
-// The package is deliberately minimal: it embeds the .typ templates and the
-// Atkinson Hyperlegible fonts, materialises them into a temporary working
-// directory along with the caller's data, and shells out to `typst compile`.
+// The package embeds the .typ templates, materialises them along with the
+// caller's data and chart SVGs into a temporary working directory, and shells
+// out to `typst compile`. The Atkinson Hyperlegible fonts are materialised
+// from the chart asset package so generation works from a deployed binary
+// with no source tree present. The typst executable itself is resolved via the
+// typstbin subpackage (embedded binary → env override → PATH).
 package typst
 
 import (
@@ -15,8 +18,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	gotypst "github.com/Dadido3/go-typst"
+	"github.com/banshee-data/velocity.report/internal/report/chart/assets"
+	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 )
 
 //go:embed templates
@@ -33,7 +39,8 @@ type Asset struct {
 // Options controls a single Render call.
 type Options struct {
 	// Data is the structured payload exposed to the template as `data` after
-	// being marshalled to data.json in the working directory.
+	// being marshalled to data.json in the working directory. Normally a
+	// ReportData value.
 	Data any
 
 	// Assets are extra files (SVG charts, etc.) to materialise alongside the
@@ -41,23 +48,29 @@ type Options struct {
 	// working directory is Asset.Name.
 	Assets []Asset
 
-	// FontDir is a directory of .ttf/.otf files passed to typst via
-	// --font-path. If empty, typst will fall back to system + embedded fonts.
+	// FontDir is an additional directory of .ttf/.otf files passed to typst via
+	// --font-path. The embedded Atkinson Hyperlegible fonts are always made
+	// available regardless of this value; FontDir is only needed for extra
+	// faces during development.
 	FontDir string
 
 	// IgnoreSystemFonts, when true, instructs typst to ignore the host's
-	// system fonts and use only FontDir + embedded fonts. Recommended for
-	// reproducible builds.
+	// system fonts and use only the embedded fonts (+ FontDir). Recommended
+	// for reproducible builds.
 	IgnoreSystemFonts bool
 
+	// CreationTime, when non-zero, is passed to typst as --creation-timestamp
+	// for reproducible PDF metadata.
+	CreationTime time.Time
+
 	// TypstPath overrides the typst executable. When empty, the binary is
-	// looked up on PATH.
+	// resolved via typstbin (embedded → VELOCITY_TYPST_PATH → PATH).
 	TypstPath string
 }
 
 // Render compiles the embedded templates against opts.Data and writes the
-// resulting PDF to out. The working directory used for compilation is
-// removed before Render returns.
+// resulting PDF to out. The working directory used for compilation is removed
+// before Render returns.
 func Render(out io.Writer, opts Options) error {
 	workDir, err := os.MkdirTemp("", "velocity-report-typst-*")
 	if err != nil {
@@ -71,6 +84,10 @@ func Render(out io.Writer, opts Options) error {
 	if err := writeData(workDir, opts.Data); err != nil {
 		return err
 	}
+	fontDir, err := materialiseFonts(workDir)
+	if err != nil {
+		return err
+	}
 	for _, asset := range opts.Assets {
 		dest := filepath.Join(workDir, asset.Name)
 		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
@@ -81,10 +98,16 @@ func Render(out io.Writer, opts Options) error {
 		}
 	}
 
-	caller := gotypst.CLI{}
-	if opts.TypstPath != "" {
-		caller.ExecutablePath = opts.TypstPath
+	execPath := opts.TypstPath
+	if execPath == "" {
+		resolved, cleanup, rerr := typstbin.Resolve()
+		if rerr != nil {
+			return fmt.Errorf("resolve typst binary: %w", rerr)
+		}
+		defer cleanup()
+		execPath = resolved
 	}
+	caller := gotypst.CLI{ExecutablePath: execPath}
 
 	// Bootstrap: typst reads the document from stdin, which has no implicit
 	// path, so relative imports inside the entry file fail. We address this
@@ -93,19 +116,55 @@ func Render(out io.Writer, opts Options) error {
 	// workDir/report.typ).
 	bootstrap := []byte(`#include "/report.typ"`)
 
+	fontPaths := []string{fontDir}
+	if opts.FontDir != "" {
+		fontPaths = append(fontPaths, opts.FontDir)
+	}
 	compileOpts := &gotypst.OptionsCompile{
 		Root:              workDir,
 		Format:            gotypst.OutputFormatPDF,
 		IgnoreSystemFonts: opts.IgnoreSystemFonts,
+		FontPaths:         fontPaths,
 	}
-	if opts.FontDir != "" {
-		compileOpts.FontPaths = []string{opts.FontDir}
+	if !opts.CreationTime.IsZero() {
+		compileOpts.CreationTime = opts.CreationTime
 	}
 
 	if err := caller.Compile(bytes.NewReader(bootstrap), out, compileOpts); err != nil {
 		return fmt.Errorf("typst compile: %w", err)
 	}
 	return nil
+}
+
+// Sources returns the embedded .typ template files keyed by their base name
+// (report.typ, preamble.typ, sections.typ). It is used to assemble the
+// recompilable source ZIP that ships alongside each generated PDF.
+func Sources() (map[string][]byte, error) {
+	out := map[string][]byte{}
+	err := fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		body, rerr := templatesFS.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		out[filepath.Base(path)] = body
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read templates: %w", err)
+	}
+	return out, nil
+}
+
+// MarshalData renders opts.Data the same way Render writes data.json, so the
+// source ZIP and the compiled document agree byte-for-byte.
+func MarshalData(data any) ([]byte, error) {
+	return json.MarshalIndent(data, "", "  ")
 }
 
 // materialiseTemplates copies the embedded templates/ tree into workDir at
@@ -134,8 +193,23 @@ func materialiseTemplates(workDir string) error {
 	})
 }
 
+// materialiseFonts writes the embedded Atkinson Hyperlegible fonts into
+// workDir/fonts and returns that directory for use as a typst --font-path.
+func materialiseFonts(workDir string) (string, error) {
+	fontDir := filepath.Join(workDir, "fonts")
+	if err := os.MkdirAll(fontDir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir fonts: %w", err)
+	}
+	for name, data := range assets.AllFonts() {
+		if err := os.WriteFile(filepath.Join(fontDir, name), data, 0o644); err != nil {
+			return "", fmt.Errorf("write font %s: %w", name, err)
+		}
+	}
+	return fontDir, nil
+}
+
 func writeData(workDir string, data any) error {
-	body, err := json.MarshalIndent(data, "", "  ")
+	body, err := MarshalData(data)
 	if err != nil {
 		return fmt.Errorf("marshal report data: %w", err)
 	}

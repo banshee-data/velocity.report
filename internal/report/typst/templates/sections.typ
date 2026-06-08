@@ -2,6 +2,30 @@
 
 #import "/preamble.typ": palette, fmt-speed, fmt-speed-bare, fmt-int, fmt-pct, fmt-pct-pp, mono, mono-nowrap
 
+// Shared styled data table: fills the container width, faint zebra striping on
+// alternating body rows, a rule under the header and at the bottom, and a bold
+// centered caption — matching the LaTeX reference (rowcolors black!2, full
+// linewidth, small mono). `columns` should use fr units so the table fills the
+// column/page width.
+#let zebra-fill = luma(247)
+#let data-table(columns: (), aligns: auto, header: (), body: (), caption: none) = {
+  table(
+    columns: columns,
+    align: aligns,
+    stroke: none,
+    inset: (x: 3pt, y: 2.4pt),
+    // y == 0 is the header row; stripe alternating body rows beneath it.
+    fill: (_, y) => if y > 0 and calc.even(y) { zebra-fill },
+    table.header(..header),
+    table.hline(stroke: 0.6pt),
+    ..body,
+    table.hline(stroke: 0.6pt),
+  )
+  if caption != none {
+    align(center)[#text(size: 8.5pt, weight: "bold")[#caption]]
+  }
+}
+
 // Spanning title centered above the two-column body.
 #let title-block(data) = {
   align(center)[
@@ -30,7 +54,8 @@
   } else {
     (
       [#text(weight: "bold")[Site:] #data.site.location],
-      [#text(weight: "bold")[Period:] #mono(data.period.start_date) to #mono(data.period.end_date) (#fmt-int(data.overall.total_count) vehicles)],
+      [#text(weight: "bold")[Period:] #mono(data.period.start_date) to #mono(data.period.end_date)],
+      [#text(weight: "bold")[Total vehicle count:] #fmt-int(data.overall.total_count)],
     )
   }
   list(spacing: 0.35em, indent: 0.6em, ..entries)
@@ -43,68 +68,53 @@
   let units = data.period.units
   heading(level: 2)[Key Metrics]
 
-  let header-cells = if data.compare != none {
-    (
-      [#text(weight: "bold")[Metric]],
-      [#text(weight: "bold")[Period t1]],
-      [#text(weight: "bold")[Period t2]],
-      [#text(weight: "bold")[Change]],
-    )
-  } else {
-    (
-      [#text(weight: "bold")[Metric]],
-      [#text(weight: "bold")[Value]],
-    )
-  }
-
   // mono-nowrap binds multi-word cells ("p50 Velocity") into one line.
   let cell(s) = mono-nowrap(s)
-  let mk-row(label, t1, t2, delta) = if data.compare != none {
-    ([#cell(label)], [#cell(t1)], [#cell(t2)], [#cell(delta)])
-  } else {
-    ([#cell(label)], [#cell(t1)])
-  }
-
   let t1 = data.overall
   let t2 = if data.compare != none { data.compare.overall } else { none }
-  let rows = (
-    mk-row("p50 Velocity",
-           fmt-speed(t1.p50, units),
-           if t2 != none { fmt-speed(t2.p50, units) } else { "" },
-           if t2 != none { fmt-pct(t1.p50, t2.p50) } else { "" }),
-    mk-row("p85 Velocity",
-           fmt-speed(t1.p85, units),
-           if t2 != none { fmt-speed(t2.p85, units) } else { "" },
-           if t2 != none { fmt-pct(t1.p85, t2.p85) } else { "" }),
-    mk-row("p98 Velocity",
-           fmt-speed(t1.p98, units),
-           if t2 != none { fmt-speed(t2.p98, units) } else { "" },
-           if t2 != none { fmt-pct(t1.p98, t2.p98) } else { "" }),
-    mk-row("Max Velocity",
-           fmt-speed(t1.max_speed, units),
-           if t2 != none { fmt-speed(t2.max_speed, units) } else { "" },
-           if t2 != none { fmt-pct(t1.max_speed, t2.max_speed) } else { "" }),
-  )
-  // Vehicle Count row: no Δ to avoid misleading comparison across unequal periods.
-  let count-row = if data.compare != none {
-    ([#cell("Vehicle Count")], [#cell(fmt-int(t1.total_count))], [#cell(fmt-int(t2.total_count))], [])
-  } else {
-    none
-  }
 
-  let cols = if data.compare != none { (auto, auto, auto, auto) } else { (auto, auto) }
-  table(
-    columns: cols,
-    align: if data.compare != none { (left, right, right, right) } else { (left, right) },
-    stroke: none,
-    inset: (x: 4pt, y: 2pt),
-    table.header(..header-cells),
-    table.hline(stroke: 0.6pt),
-    ..rows.flatten(),
-    ..if count-row != none { count-row } else { () },
-    table.hline(stroke: 0.6pt),
-  )
-  align(center)[#text(size: 8.5pt, weight: "bold")[Table 1: Key Metrics]]
+  if data.compare != none {
+    let header = (
+      [#text(weight: "bold")[Metric]],
+      align(right)[#text(weight: "bold")[Period t1]],
+      align(right)[#text(weight: "bold")[Period t2]],
+      align(right)[#text(weight: "bold")[Change]],
+    )
+    let mk(label, a, b) = (
+      [#cell(label)], [#cell(fmt-speed(a, units))], [#cell(fmt-speed(b, units))], [#cell(fmt-pct(a, b))],
+    )
+    let body = (
+      mk("p50 Velocity", t1.p50, t2.p50),
+      mk("p85 Velocity", t1.p85, t2.p85),
+      mk("p98 Velocity", t1.p98, t2.p98),
+      mk("Max Velocity", t1.max_speed, t2.max_speed),
+      // Vehicle Count: no Δ to avoid misleading comparison across unequal periods.
+      ([#cell("Vehicle Count")], [#cell(fmt-int(t1.total_count))], [#cell(fmt-int(t2.total_count))], []),
+    ).flatten()
+    data-table(
+      columns: (1.4fr, 1fr, 1fr, 1fr),
+      aligns: (left, right, right, right),
+      header: header,
+      body: body,
+      caption: "Table 1: Key Metrics",
+    )
+  } else {
+    let header = ([#text(weight: "bold")[Metric]], align(right)[#text(weight: "bold")[Value]])
+    let mk(label, v) = ([#cell(label)], [#cell(fmt-speed(v, units))])
+    let body = (
+      mk("p50 Velocity", t1.p50),
+      mk("p85 Velocity", t1.p85),
+      mk("p98 Velocity", t1.p98),
+      mk("Max Velocity", t1.max_speed),
+    ).flatten()
+    data-table(
+      columns: (1fr, auto),
+      aligns: (left, right),
+      header: header,
+      body: body,
+      caption: "Table 1: Key Metrics",
+    )
+  }
 }
 
 // ─── Site Information ─────────────────────────────────────────────────────
@@ -191,7 +201,13 @@
   heading(level: 2)[Hardware Configuration]
   let rows = (
     ("Radar Sensor:",          data.radar.sensor_model),
-    ("Firmware version:",      data.radar.firmware_version),
+  )
+  // Firmware is optional; omit the row entirely when unknown (matches the
+  // hardware table's behaviour when no firmware version was recorded).
+  if data.radar.at("firmware_version", default: "") != "" {
+    rows.push(("Firmware version:", data.radar.firmware_version))
+  }
+  rows += (
     ("Transmit Frequency:",    data.radar.transmit_frequency),
     ("Sample Rate:",           data.radar.sample_rate),
     ("Velocity Resolution:",   data.radar.velocity_resolution),
@@ -233,17 +249,27 @@
       ("End time (t2):",          cmp.end_iso),
     )
   } else { () }
-  let cosine-rows = if cmp != none {
-    (
-      ("Cosine Error Angle (t1):",   str(r.cosine_error_angle) + "°"),
-      ("Cosine Error Factor (t1):",  str(r.cosine_error_factor)),
-      ("Cosine Error Angle (t2):",   str(r.compare_cosine_error_angle) + "°"),
-      ("Cosine Error Factor (t2):",  str(r.compare_cosine_error_factor)),
-    )
-  } else {
-    (
-      ("Cosine Error Angle:",   str(r.cosine_error_angle) + "°"),
-      ("Cosine Error Factor:",  str(r.cosine_error_factor)),
+  // Cosine figures arrive as preformatted strings; an empty string means no
+  // angle correction applied, so the rows are omitted (matching the LaTeX
+  // pipeline, which only prints cosine rows when an angle is present).
+  let cosine-rows = ()
+  if cmp != none {
+    if r.at("cosine_error_angle", default: "") != "" {
+      cosine-rows += (
+        ("Cosine Error Angle (t1):",  r.cosine_error_angle + "°"),
+        ("Cosine Error Factor (t1):", r.cosine_error_factor),
+      )
+    }
+    if r.at("compare_cosine_error_angle", default: "") != "" {
+      cosine-rows += (
+        ("Cosine Error Angle (t2):",  r.compare_cosine_error_angle + "°"),
+        ("Cosine Error Factor (t2):", r.compare_cosine_error_factor),
+      )
+    }
+  } else if r.at("cosine_error_angle", default: "") != "" {
+    cosine-rows += (
+      ("Cosine Error Angle:",  r.cosine_error_angle + "°"),
+      ("Cosine Error Factor:", r.cosine_error_factor),
     )
   }
   let all-rows = rows + cmp-rows + cosine-rows
@@ -276,6 +302,7 @@
 #let velocity-distribution-table(data) = {
   let units = data.period.units
   let h1 = data.histogram.buckets
+  if h1.len() == 0 { return }
   let h2 = if data.compare != none { data.compare.histogram.buckets } else { () }
   // Build a label-keyed lookup for t2 buckets so unmatched labels still appear.
   let lookup-t2 = (:)
@@ -334,26 +361,22 @@
   }).flatten()
 
   let cols = if data.compare != none {
-    (40pt, 1fr, 1fr, 1fr, 1fr, 1fr)
+    (1.2fr, 1fr, 1fr, 1fr, 1fr, 1fr)
   } else {
-    (40pt, 1fr, 1fr)
+    (1fr, 1fr, 1fr)
   }
   let aligns = if data.compare != none {
     (left, right, right, right, right, right)
   } else {
     (left, right, right)
   }
-  table(
+  data-table(
     columns: cols,
-    align: aligns,
-    stroke: none,
-    inset: (x: 3pt, y: 2pt),
-    table.header(..header),
-    table.hline(stroke: 0.6pt),
-    ..body,
-    table.hline(stroke: 0.6pt),
+    aligns: aligns,
+    header: header,
+    body: body,
+    caption: "Table 2: Velocity Distribution (" + units + ")",
   )
-  align(center)[#text(size: 8.5pt, weight: "bold")[Table 2: Velocity Distribution (#units)]]
 }
 
 // ─── Table 3: Daily Percentile Summary (merged t1+t2) ─────────────────────
@@ -384,22 +407,18 @@
     [#cell(fmt-speed-bare(row.max_speed))],
   )).flatten()
 
-  table(
-    columns: (52pt, 32pt, 1fr, 1fr, 1fr, 1fr),
-    align: (left, right, right, right, right, right),
-    stroke: none,
-    inset: (x: 3pt, y: 2pt),
-    table.header(..header),
-    table.hline(stroke: 0.6pt),
-    ..body,
-    table.hline(stroke: 0.6pt),
-  )
   let title = if data.compare != none {
     "Table 3: Daily Percentile Summary (Comparison)"
   } else {
     "Table 3: Daily Percentile Summary"
   }
-  align(center)[#text(size: 8.5pt, weight: "bold")[#title]]
+  data-table(
+    columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
+    aligns: (left, right, right, right, right, right),
+    header: header,
+    body: body,
+    caption: title,
+  )
 }
 
 // ─── Table 4: Granular Percentile Breakdown (merged t1+t2) ────────────────
@@ -430,22 +449,20 @@
     [#cell(fmt-speed-bare(row.max_speed))],
   )).flatten()
 
-  table(
-    columns: (52pt, 32pt, 1fr, 1fr, 1fr, 1fr),
-    align: (left, right, right, right, right, right),
-    stroke: none,
-    inset: (x: 3pt, y: 2pt),
-    table.header(..header),
-    table.hline(stroke: 0.6pt),
-    ..body,
-    table.hline(stroke: 0.6pt),
-  )
+  // Single-period reports have no daily table, so the granular breakdown is
+  // Table 3; in comparison mode it follows the daily table as Table 4.
   let title = if data.compare != none {
     "Table 4: Granular Percentile Breakdown (Comparison)"
   } else {
-    "Table 4: Granular Percentile Breakdown"
+    "Table 3: Granular Percentile Breakdown"
   }
-  align(center)[#text(size: 8.5pt, weight: "bold")[#title]]
+  data-table(
+    columns: (auto, auto, 1fr, 1fr, 1fr, 1fr),
+    aligns: (left, right, right, right, right, right),
+    header: header,
+    body: body,
+    caption: title,
+  )
 }
 
 // ─── Comparison histogram figure (column-width when present) ─────────────
@@ -459,8 +476,16 @@
   )
 }
 
+// wide-figure renders a full-page-width figure. It is invoked after the
+// two-column body block in report.typ, so it sits in the single-column flow and
+// image(width: 100%) spans the full text width, in document order (no float).
+#let wide-figure(path, caption) = figure(
+  image(path, width: 100%),
+  caption: caption,
+  supplement: [Figure],
+)
+
 // ─── Time-series chart figures (one per period) ──────────────────────────
-// Each figure uses #place(scope: "parent") so the chart spans both columns.
 #let timeseries-figures(data) = {
   let ts1 = data.charts.at("timeseries", default: "")
   let ts2 = data.charts.at("timeseries_compare", default: "")
@@ -470,19 +495,10 @@
     [Velocity over time (#data.period.start_date to #data.period.end_date)]
   }
   if ts1 != "" {
-    figure(
-      image(ts1, width: 100%),
-      caption: pri-cap,
-      supplement: [Figure],
-    )
+    wide-figure(ts1, pri-cap)
   }
   if ts2 != "" and data.compare != none {
-    v(1em)
-    figure(
-      image(ts2, width: 100%),
-      caption: [Velocity over time (t2: #data.compare.start_date to #data.compare.end_date)],
-      supplement: [Figure],
-    )
+    wide-figure(ts2, [Velocity over time (t2: #data.compare.start_date to #data.compare.end_date)])
   }
 }
 
@@ -490,9 +506,5 @@
 #let map-figure(data) = {
   let mp = data.charts.at("map", default: "")
   if mp == "" { return }
-  figure(
-    image(mp, width: 100%),
-    caption: [Site Location Map with radar location (circle) and coverage area (red triangle)],
-    supplement: [Figure],
-  )
+  wide-figure(mp, [Site Location Map with radar location (circle) and coverage area (red triangle)])
 }
