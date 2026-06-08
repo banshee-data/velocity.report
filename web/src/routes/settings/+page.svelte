@@ -1082,8 +1082,10 @@
 						<div class="text-surface-content/80 space-y-3 text-sm">
 							<p>
 								The velocity binary bundles the following third-party components. Full notices are
-								in
-								<code class="bg-surface-100 rounded px-1 py-0.5">THIRD_PARTY_NOTICES.md</code>.
+								published in
+								<a href="/docs/THIRD_PARTY_NOTICES/" class="text-primary-600 underline"
+									>Third-party notices</a
+								>.
 							</p>
 							<ul class="space-y-2">
 								<li>
