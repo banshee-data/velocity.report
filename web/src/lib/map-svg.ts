@@ -398,6 +398,101 @@ export function getPoiIcon(tags: Record<string, string>): string {
 	return POI_ICON_MAP[tagVal] || '\u25cf';
 }
 
+// Vector POI pictographs. Emoji glyphs in SVG <text> require a colour-emoji
+// font, which the Typst/resvg PDF renderer does not support (they render as
+// tofu). We therefore draw a small vector pictograph per category, picked from
+// the POI's emoji. Paths are authored in a 24\u00d724 grid and scaled at render time.
+const POI_MARKER_COLORS: Record<string, string> = {
+	water: '#2563eb',
+	tree: '#15803d',
+	worship: '#7c3aed',
+	school: '#b45309',
+	medical: '#dc2626',
+	food: '#ea580c',
+	shop: '#0891b2',
+	transport: '#475569',
+	dot: '#734a08'
+};
+
+const POI_GLYPHS: Record<string, string> = {
+	water: '<path d="M12 3.5C12 3.5 5.5 11 5.5 15.2a6.5 6.5 0 0 0 13 0C18.5 11 12 3.5 12 3.5Z"/>',
+	tree: '<circle cx="12" cy="9.5" r="6.5"/><rect x="10.8" y="14" width="2.4" height="7"/>',
+	worship: '<path d="M6 21V11l6-4 6 4v10Z"/><path d="M11 2h2v2.2h2.2v2H13V21h-2V8.2H8.8v-2H11Z"/>',
+	school:
+		'<path d="M12 4 23 9 12 14 1 9Z"/><path d="M5 11.2V16c0 1.7 3.1 3 7 3s7-1.3 7-3v-4.8l-7 3.2Z"/>',
+	medical: '<path d="M9.6 3h4.8v6.6H21v4.8h-6.6V21H9.6v-6.6H3V9.6h6.6Z"/>',
+	food: '<path d="M5 8h11v3.5a5.5 5.5 0 0 1-11 0Z"/><path d="M16 9h2.2a2.3 2.3 0 0 1 0 4.6H16" fill="none" stroke-width="1.6"/><rect x="5" y="19.4" width="11" height="1.8"/>',
+	shop: '<path d="M5.5 8h13l-1.1 13H6.6Z"/><path d="M9 8V6.6a3 3 0 0 1 6 0V8h-1.8V6.6a1.2 1.2 0 0 0-2.4 0V8Z"/>',
+	transport:
+		'<rect x="4.5" y="4.5" width="15" height="12.5" rx="2"/><rect x="6.5" y="7" width="11" height="4.2" fill="#ffffff"/><circle cx="8.5" cy="18.4" r="1.7"/><circle cx="15.5" cy="18.4" r="1.7"/>',
+	dot: '<path d="M12 2.5c-3.9 0-7 3-7 6.8 0 4.9 7 12.2 7 12.2s7-7.3 7-12.2c0-3.8-3.1-6.8-7-6.8Z"/><circle cx="12" cy="9.2" r="2.6" fill="#ffffff"/>'
+};
+
+export function poiGlyphKind(icon: string): string {
+	if (icon === '\ud83d\udca7') return 'water';
+	if (['\ud83c\udf33', '\ud83c\udf32', '\ud83c\udf3f', '\ud83d\udedd'].includes(icon))
+		return 'tree';
+	if (icon === '\u26ea') return 'worship';
+	if (['\ud83c\udfeb', '\ud83d\udc92', '\ud83c\udf93'].includes(icon)) return 'school';
+	if (['\ud83c\udfe5', '\ud83e\uddb7', '\ud83d\udc8a', '\ud83d\udc3e'].includes(icon))
+		return 'medical';
+	if (
+		['\ud83c\udf7d\ufe0f', '\u2615', '\ud83c\udf54', '\ud83c\udf7a', '\ud83c\udf66'].includes(icon)
+	)
+		return 'food';
+	if (
+		[
+			'\ud83d\ude8f',
+			'\ud83d\ude89',
+			'\ud83d\ude8a',
+			'\ud83d\ude95',
+			'\ud83d\udeb2',
+			'\ud83c\udd7f\ufe0f',
+			'\u26fd',
+			'\ud83d\udd0c',
+			'\ud83d\udebf'
+		].includes(icon)
+	)
+		return 'transport';
+	if (
+		[
+			'\ud83d\uded2',
+			'\ud83c\udfea',
+			'\ud83e\udd56',
+			'\ud83e\udd69',
+			'\ud83e\udd6c',
+			'\ud83d\udc54',
+			'\u2702\ufe0f',
+			'\ud83d\udc85',
+			'\ud83d\udcd6',
+			'\ud83d\udd27',
+			'\ud83d\ude97',
+			'\ud83e\uddea',
+			'\ud83d\udcf1',
+			'\ud83d\udc90',
+			'\ud83e\uddfa',
+			'\ud83d\udc53',
+			'\ud83d\udc5f',
+			'\u270f\ufe0f',
+			'\ud83e\uddf8'
+		].includes(icon)
+	)
+		return 'shop';
+	return 'dot';
+}
+
+// poiMarkerSvg returns a vector pictograph marker centred at (x, y), with a
+// white halo (paint-order stroke) so it stays legible over the map tiles.
+export function poiMarkerSvg(x: number, y: number, icon: string, size = 18): string {
+	const kind = poiGlyphKind(icon);
+	const color = POI_MARKER_COLORS[kind] ?? POI_MARKER_COLORS.dot;
+	const glyph = POI_GLYPHS[kind] ?? POI_GLYPHS.dot;
+	const s = size / 24;
+	const tx = (x - size / 2).toFixed(2);
+	const ty = (y - size / 2).toFixed(2);
+	return `<g class="poi-marker" transform="translate(${tx} ${ty}) scale(${s.toFixed(3)})" fill="${color}" stroke="#ffffff" stroke-width="2.4" stroke-linejoin="round" paint-order="stroke">${glyph}</g>`;
+}
+
 export function getPathMidpoint(
 	nodes: LatLon[],
 	latToY: (lat: number) => number,
@@ -801,18 +896,18 @@ export function generateMapSvg(params: SvgParams): string {
 			if (!pos) continue;
 			poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#666666" text-anchor="middle" dominant-baseline="middle" stroke="white" stroke-width="1.5" paint-order="stroke">${escapeXml(poi.name)}</text>`;
 		} else {
-			// POI marker: a vector dot rather than an emoji glyph. Emoji in SVG
-			// <text> rely on a colour-emoji font, which the Typst/resvg PDF
-			// renderer does not support (they render as tofu), so we draw a shape
-			// that renders identically in the browser, rsvg, and Typst. poi.icon
-			// is retained on the model for the interactive editor; it is not used
-			// for the exported SVG.
+			// POI marker: a vector pictograph chosen by category, not an emoji
+			// glyph. Emoji in SVG <text> rely on a colour-emoji font, which the
+			// Typst/resvg PDF renderer does not support (they render as tofu), so
+			// we draw shapes that render identically in the browser, rsvg, and
+			// Typst.
 			const fontSize = 20;
-			const estWidth = 10 + poi.name.length * fontSize * 0.55;
+			const markerSize = 18;
+			const estWidth = markerSize + 4 + poi.name.length * fontSize * 0.55;
 			const pos = tryPlace(x, y, estWidth, fontSize * 1.2, 'start');
 			if (!pos) continue;
-			poiLabelPaths += `<circle cx="${pos.x.toFixed(1)}" cy="${pos.y.toFixed(1)}" r="5" fill="#734a08" stroke="white" stroke-width="1.5"/>`;
-			poiLabelPaths += `<text x="${(pos.x + 9).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#734a08" dominant-baseline="middle" stroke="white" stroke-width="3" paint-order="stroke">${escapeXml(poi.name)}</text>`;
+			poiLabelPaths += poiMarkerSvg(pos.x, pos.y, poi.icon, markerSize);
+			poiLabelPaths += `<text x="${(pos.x + markerSize / 2 + 3).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#374151" dominant-baseline="middle" stroke="white" stroke-width="3" paint-order="stroke">${escapeXml(poi.name)}</text>`;
 		}
 	}
 
