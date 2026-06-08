@@ -1,5 +1,4 @@
 // preamble.typ — page setup, fonts, palette, formatting helpers.
-// Targets visual parity with the LaTeX-rendered reference report.
 
 #let palette = (
   p50:       rgb("#fbd92f"),
@@ -8,15 +7,14 @@
   max:       rgb("#2d1e2f"),
   count_bar: rgb("#a89c95"),
   rule:      rgb("#000000"),
-  // Comparison-histogram bar colours — the LaTeX reference uses the p50
-  // yellow for t1 and the p98 red for t2.
+  // Comparison-histogram bar colours: p50 yellow for t1 and p98 red for t2.
   cmp_t1:    rgb("#fbd92f"),
   cmp_t2:    rgb("#f25f5c"),
   // Links: dark green text (emerald-800) inside a faint hero-green outline
   // (emerald-700, the app-wide --color-primary).
   link:         rgb("#065f46"),
   link_outline: rgb("#047857"),
-  // Zebra striping for tables (faint, ~ LaTeX black!2).
+  // Faint zebra striping for tables.
   zebra:     luma(247),
 )
 
@@ -57,7 +55,6 @@
 #let apply-styles(body) = {
   set text(font: "Atkinson Hyperlegible", size: 8.7pt)
   // leading: within-paragraph line spacing; spacing: between paragraphs/blocks.
-  // The looser inter-paragraph spacing matches the LaTeX reference's rhythm.
   set par(justify: true, leading: 0.72em, spacing: 1.05em, first-line-indent: 0pt)
   show heading.where(level: 1): it => {
     set text(size: 13.5pt, weight: "bold")
@@ -76,7 +73,7 @@
     stroke: 0.5pt + palette.link_outline.transparentize(40%),
     text(fill: palette.link, it),
   )
-  // Bold figure/table captions (matches the LaTeX reference).
+  // Bold figure/table captions.
   show figure.caption: it => text(weight: "bold", size: 8.5pt)[#it.supplement~#context it.counter.display(it.numbering): #it.body]
   body
 }

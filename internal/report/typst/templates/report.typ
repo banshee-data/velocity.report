@@ -1,14 +1,13 @@
-// report.typ — main entry, mirrors the LaTeX reference layout.
+// report.typ — main entry for the velocity report layout.
 
 #import "/preamble.typ": apply-styles, header-block, footer-block
 #import "/sections.typ": *
 
 #let data = json("/data.json")
 
-// Page geometry matches the LaTeX reference (geometry: top=1.8cm, bottom=1.0cm,
-// left=1.0cm, right=1.0cm). The whole body is a two-column page (LaTeX multicol
-// equivalent): narrative and every table flow continuously through the two
-// columns, wrapping once. The wide figures float across both columns.
+// The whole body is a two-column page: narrative and every table flow
+// continuously through the two columns, wrapping once. The wide figures float
+// across both columns.
 #set page(
   paper: "us-letter",
   margin: (top: 1.8cm, bottom: 1.0cm, left: 1.0cm, right: 1.0cm),
@@ -40,7 +39,7 @@
 #daily-summary(data)
 #granular-table(data)
 
-// Wide figures float full width across both columns (LaTeX figure* equivalent),
-// dropping into the free space after the tables or onto the next page.
+// Wide figures float full width across both columns, dropping into the free
+// space after the tables or onto the next page.
 #timeseries-figures(data)
 #map-figure(data)

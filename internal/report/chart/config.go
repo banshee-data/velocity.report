@@ -109,9 +109,9 @@ func DefaultHistogramStyle(paper PaperSize) ChartStyle {
 }
 
 // DefaultComparisonHistogramStyle returns parameters for the grouped
-// comparison histogram. It is rendered full-width in the overview section
-// (scaled by LaTeX to \linewidth), so it is taller than the single histogram
-// to accommodate the x-axis label and legend box without crowding.
+// comparison histogram. It is rendered full-width in the overview section, so
+// it is taller than the single histogram to accommodate the x-axis label and
+// legend box without crowding.
 func DefaultComparisonHistogramStyle(paper PaperSize) ChartStyle {
 	s := DefaultHistogramStyle(paper)
 	s.HeightMM = s.WidthMM * 0.70

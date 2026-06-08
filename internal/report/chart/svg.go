@@ -24,8 +24,8 @@ type SVGCanvas struct {
 }
 
 // NewCanvas creates an SVG canvas sized from millimetre dimensions.
-// Both a physical width/height (in mm) and a pixel viewBox are emitted so
-// rasterisers and LaTeX preserve the intended print size.
+// Both a physical width/height (in mm) and a pixel viewBox are emitted so the
+// intended print size is preserved.
 func NewCanvas(widthMM, heightMM float64) *SVGCanvas {
 	wPx := widthMM * pxPerMM
 	hPx := heightMM * pxPerMM

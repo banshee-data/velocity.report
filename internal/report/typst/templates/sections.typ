@@ -4,8 +4,7 @@
 
 // Shared styled data table: fills the container width, faint zebra striping on
 // alternating body rows, a rule under the header and at the bottom, and a bold
-// centered caption — matching the LaTeX reference (rowcolors black!2, full
-// linewidth, small mono). `columns` should use fr units so the table fills the
+// centered caption. `columns` should use fr units so the table fills the
 // column/page width.
 #let data-table(columns: (), aligns: auto, header: (), body: (), caption: none) = {
   table(
@@ -257,8 +256,7 @@
     )
   } else { () }
   // Cosine figures arrive as preformatted strings; an empty string means no
-  // angle correction applied, so the rows are omitted (matching the LaTeX
-  // pipeline, which only prints cosine rows when an angle is present).
+  // angle correction was applied, so the rows are omitted.
   let cosine-rows = ()
   if cmp != none {
     if r.at("cosine_error_angle", default: "") != "" {
@@ -471,11 +469,10 @@
   )
 }
 
-// wide-figure floats a full-page-width figure across both page columns (the
-// Typst equivalent of LaTeX figure*). The time-series charts use bottom
-// placement so they drop into the free full-width space after the tables; the
-// map uses top placement so, on its own page, it sits at the top rather than
-// leaving a blank band above it.
+// wide-figure floats a full-page-width figure across both page columns. The
+// time-series charts use bottom placement so they drop into the free full-width
+// space after the tables; the map uses top placement so, on its own page, it
+// sits at the top rather than leaving a blank band above it.
 #let wide-figure(path, caption, align: bottom + center) = place(
   align,
   scope: "parent",

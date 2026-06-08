@@ -39,7 +39,7 @@ typst compile --font-path fonts report.typ
 ` + "```" + `
 
 Typst reads the data from data.json and the charts from charts/ relative to
-report.typ. No LaTeX, no rsvg-convert, no system fonts required.
+report.typ. The bundled source includes the fonts needed to recompile.
 
 ## Editing
 
@@ -61,8 +61,8 @@ func GeneratePDF(ctx context.Context, database DB, cfg Config) (Result, error) {
 // GenerateTypst produces a PDF report and recompilable Typst source ZIP. It
 // supports both single-period and comparison reports, selected by whether
 // cfg.CompareStart is set. Charts are rendered to SVG and embedded directly by
-// Typst (no rsvg-convert / PDF rasterisation step), and the typst executable
-// is resolved via the embedded binary, VELOCITY_TYPST_PATH, or PATH.
+// Typst, and the typst executable is resolved via the embedded binary,
+// VELOCITY_TYPST_PATH, or PATH.
 func GenerateTypst(ctx context.Context, database DB, cfg Config) (Result, error) {
 	plan, err := planRun(cfg)
 	if err != nil {
