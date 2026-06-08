@@ -1,8 +1,8 @@
 # PDF generation via Typst (go-typst)
 
-- **Implementation status (branch `patrickod/go-typst`):** Typst is now the default production engine. `report.GeneratePDF` renders both single-period and comparison reports via Typst (`report.GenerateTypst`), the HTTP API (`/api/generate_report`) and the `velocity report pdf` CLI both call it, and the typst binary is embedded into the velocity binary via the `internal/report/typst/typstbin` package (built with `-tags typst_embed`; the Pi image build downloads + embeds the linux/arm64 binary). The legacy XeLaTeX pipeline remains reachable via `VELOCITY_PDF_ENGINE=tex` during the deprecation window. Remaining: delete the `tex/` templates and the rsvg-convert / TeX Live image dependencies once the Typst output has been signed off in production. Phases 2–4 and 7 (embedding) below are done.
+- **Implementation status (branch `patrickod/go-typst`):** Typst is now the only production report engine. `report.GeneratePDF` renders both single-period and comparison reports via Typst (`report.GenerateTypst`), the HTTP API (`/api/generate_report`) and the `velocity report pdf` CLI both call it, and the typst binary is embedded into the velocity binary via the `internal/report/typst/typstbin` package (built with `-tags typst_embed`; the Pi image build downloads + embeds the linux/arm64 binary). The legacy engine path, templates, image packages, and runtime selectors have been removed.
 
-- **Status:** In progress; Typst wired as default, TeX removal pending sign-off
+- **Status:** Complete on this branch; Typst-only
 - **Layers:** Cross-cutting (reporting infrastructure, deployment image)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -393,9 +393,8 @@ valid PDF, byte-deterministic given fixed inputs.
 
 ### Phase 4: API and CLI integration; `S`
 
-Identical to [Phase 4 of the LaTeX plan](pdf-go-chart-migration-plan.md#phase-4-api-and-cli-integration-s).
-Behind a feature flag (`pdf.engine = "typst" | "python"`) for one release
-cycle.
+API and CLI integration now call Typst directly. There is no report-engine
+feature flag or coexistence mode on this branch.
 
 ### Phase 5: Python deprecation and cleanup; `S`
 

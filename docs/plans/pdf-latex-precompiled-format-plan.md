@@ -88,22 +88,22 @@ _where_ the TeX engine and support files come from.
 
 ### Mode detection
 
-A single environment variable controls which mode is active:
+A single environment variable controlled which mode was active:
 
 ```
-VELOCITY_TEX_ROOT=/opt/velocity-report/texlive-minimal
+FORMER_TEX_ROOT=/opt/velocity-report/texlive-minimal
 ```
 
-| `VELOCITY_TEX_ROOT`       | Behaviour                                  |
+| Former TeX root setting   | Behaviour                                  |
 | ------------------------- | ------------------------------------------ |
 | **unset / empty**         | Development mode: use system `xelatex`     |
 | **set to directory path** | Production mode: use vendored minimal tree |
 
-When `VELOCITY_TEX_ROOT` is set, the pdf-generator:
+When the former TeX root setting is set, the pdf-generator:
 
-1. Prepends `$VELOCITY_TEX_ROOT/bin` to `PATH` (custom xelatex binary)
-2. Sets `TEXMFHOME=$VELOCITY_TEX_ROOT/texmf`
-3. Sets `TEXMFDIST=$VELOCITY_TEX_ROOT/texmf-dist`
+1. Prepends the configured `bin` directory to `PATH` (custom xelatex binary)
+2. Sets `TEXMFHOME` under the configured tree
+3. Sets `TEXMFDIST` under the configured tree
 4. Optionally uses the precompiled format:
    `xelatex -fmt=velocity-report` (loads packages from `.fmt` instead of `.sty`)
 
@@ -274,7 +274,7 @@ Create `tools/pdf-generator/pdf_generator/core/tex_environment.py` with a `TexEn
 
 **`resolve_tex_environment()` logic:**
 
-1. Read `VELOCITY_TEX_ROOT` from environment.
+1. Read the former TeX root setting from environment.
 2. If unset or empty → development mode: return `compiler="xelatex"`, no extra env vars.
 3. If set → production mode: resolve `bin/xelatex` under the TeX root, set `TEXMFHOME`, `TEXMFDIST`, `TEXMFVAR`, prepend `bin/` to `PATH`.
 4. Check for `texmf-dist/web2c/xelatex/velocity-report.fmt`; if present, set `fmt_name="velocity-report"` and add the format directory to `TEXFORMATS`.
@@ -315,7 +315,7 @@ The fallback chain becomes:
 Update `_check_latex()` to handle both modes:
 
 - **Development mode**: existing behaviour (check `shutil.which("xelatex")`)
-- **Production mode**: validate that `VELOCITY_TEX_ROOT` exists, the binary is
+- **Production mode**: validate that the former TeX root setting exists, the binary is
   present and executable, and the `.fmt` file (if expected) is present
 
 Add a new check: `_check_tex_environment()` that reports which mode is active
@@ -344,7 +344,7 @@ and whether the minimal tree is healthy.
 #### 6.1 Unit tests
 
 - `test_tex_environment.py`: test `resolve_tex_environment()` with and without
-  `VELOCITY_TEX_ROOT`
+  the former TeX root setting
 - `test_dependency_checker.py`: test production-mode LaTeX checks
 - `test_document_builder.py`: test `skip_preloaded` flag
 
@@ -375,7 +375,7 @@ Update the pi-gen stage (out of scope for this PR, documented for completeness):
 1. Remove `texlive-xetex`, `texlive-fonts-recommended`, `texlive-latex-extra`
    from APT install list
 2. Copy minimal tree to `/opt/velocity-report/texlive-minimal/`
-3. Set `VELOCITY_TEX_ROOT` in the systemd service environment file
+3. Set the former TeX root setting in the systemd service environment file
 4. Validate PDF generation during image build
 
 ## Risks & mitigations
@@ -394,7 +394,7 @@ If user feedback indicates demand for custom LaTeX templates, the minimal tree
 can be upgraded to a TinyTeX-based installation without changing the Python code:
 
 1. Install TinyTeX at `/opt/velocity-report/texlive-minimal/`
-2. Keep `VELOCITY_TEX_ROOT` pointing at the same directory
+2. Keep the former TeX root setting pointing at the same directory
 3. Users can run `tlmgr install <package>` to add packages
 4. The precompiled `.fmt` continues to work for built-in reports
 
@@ -425,7 +425,7 @@ the tree is hand-curated or TinyTeX-managed.
    _Recommendation_: Use the `TEXFORMATS` environment variable approach; it
    requires no PyLaTeX changes and the engine picks up the format by matching
    the format name to the engine name. Alternatively, a thin wrapper script at
-   `$VELOCITY_TEX_ROOT/bin/xelatex` that passes `-fmt=velocity-report` to the
+   the configured `bin/xelatex` wrapper that passes `-fmt=velocity-report` to the
    real binary keeps everything transparent.
 
 4. **`geometry` package**: PyLaTeX adds `geometry` implicitly via

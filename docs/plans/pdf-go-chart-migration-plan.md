@@ -1,16 +1,17 @@
 # PDF generation migration to Go
 
-- **Status:** Phases 1–5 are complete. The Python exec path is fully removed; `tools/pdf-generator/` is retained for reference and marked deprecated (removal in v0.6). Phase 8: 8.1 golden tests and `tex-compare` implemented; 8.9 `FirmwareVersion` implemented. Remaining open: 8.11 single-survey drift (deferred — no Python single-survey .tex available). Phases 6 (map overlay) and 7 (grid-heatmap) are deferred to later branches.
+- **Status:** Historical implementation record. The Go-side chart and data-loading migration described here landed, but the XeTeX end-state described below is superseded on this branch by the Typst pipeline. Use [pdf-typst-migration-plan.md](pdf-typst-migration-plan.md) and [pdf-reporting.md](../platform/operations/pdf-reporting.md) for the current runtime behaviour.
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
 
-- [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08)
+- [Typst migration plan](pdf-typst-migration-plan.md)
+- [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (historical)
 - [Distribution packaging plan](deploy-distribution-packaging-plan.md) (D-09)
 - [RPi imager plan](deploy-rpi-imager-fork-plan.md) (D-10)
 - [Platform simplification plan](platform-simplification-and-deprecation-plan.md)
 
-**Goal:** Replace the Python PDF-generation stack (matplotlib, PyLaTeX, numpy,
+**Original goal:** Replace the Python PDF-generation stack (matplotlib, PyLaTeX, numpy,
 pandas, seaborn: 45 transitive packages) with native Go SVG charting and Go
 `text/template`-based LaTeX assembly, retaining XeTeX for typesetting and
 producing SVG charts equivalent to the current matplotlib output. The same Go
@@ -29,7 +30,7 @@ the unified `velocity-report` binary.
 ## Implementation status snapshot
 
 - **Phases 1–3:** Landed in PR #455 and remain green.
-- **Phase 4a:** Implemented in `internal/api/server_reports_generate.go`. The handler now branches on `VELOCITY_PDF_BACKEND=go`, builds `report.Config`, calls `report.Generate`, validates both PDF and ZIP paths, preserves `db.SiteReport` creation, and returns the same JSON response shape as the Python path. Current tests cover Go-path selection, Python fallback, config mapping, and relative-path hardening.
+- **Phase 4a:** Implemented in `internal/api/server_reports_generate.go`. The handler used a temporary Go-backend gate during the migration, built `report.Config`, called `report.Generate`, validated both PDF and ZIP paths, preserved `db.SiteReport` creation, and returned the same JSON response shape as the Python path. On this branch, the temporary gate is gone and report generation is Typst-only.
 - **Phase 4b:** Implemented in `internal/api/server_charts.go` and registered in `internal/api/server.go`. Time-series, histogram, and comparison SVG handlers are present and have request/response tests.
 - **Live verification on 2026-04-21:** Against the running dev server on `http://127.0.0.1:8080`, `GET /api/charts/timeseries`, `GET /api/charts/histogram`, and `GET /api/charts/comparison` each returned `200` with `Content-Type: image/svg+xml` and an `<svg` root for site `1` over `2025-05-02` to `2025-05-30`. `POST /api/generate_report` for the same site/range returned `200` with the expected `report_id`, `pdf_path`, and `zip_path` response fields.
 - **Phase 4c:** A `velocity-report pdf` subcommand already exists in `internal/cmd/server/pdf.go`, and `internal/cmd/server/pdf_test.go` now covers flag validation, version output, config parsing, and output-dir override behaviour. This plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target, so the implementation exists but the plan and packaging details have drifted.
@@ -593,7 +594,7 @@ All templates use `<<` / `>>` delimiters throughout.
 
   **E — xelatex compilation**
   - [x] `runXeLatex(ctx context.Context, texPath string, envOverrides map[string]string) error`:
-    - Detect `VELOCITY_TEX_ROOT` env var; if set, use vendored compiler path and build env vars
+    - Detect the former vendored-compiler env var; if set, use vendored compiler path and build env vars
       (matching `tex_environment.py` logic for `TEXMFHOME`, `TEXMFDIST`, `TEXMFVAR`,
       `TEXMFCNF`, `TEXINPUTS`, `PATH`, optionally `TEXFORMATS`).
     - Run xelatex twice (two-pass for cross-refs and fancyhdr).
@@ -626,7 +627,7 @@ Manual end-to-end: call `Generate()` with a real DB and real tools; open resulti
 
 > **Risk level: low-medium.** Python remains default. Go path enabled by env var.
 
-- [x] In `internal/api/server_reports_generate.go`: check `os.Getenv("VELOCITY_PDF_BACKEND") == "go"`.
+- [x] In `internal/api/server_reports_generate.go`: route through the temporary Go-backend selection path used during the migration.
 - [x] When flag set: build `report.Config` from already-resolved `ReportRequest` + site fields.
 - [x] Call `report.Generate(ctx, s.db, cfg)`.
 - [x] Map `report.Result` → same JSON response shape and filename convention as Python path.
@@ -673,7 +674,7 @@ Current code status: implemented as `internal/cmd/server/pdf.go`; this plan's or
 - [x] Open DB directly (no HTTP server needed).
 - [x] Call `report.Generate(ctx, db, cfg)`.
 - [x] Print PDF path on success; exit `1` with error on failure.
-- [x] Reads `VELOCITY_TEX_ROOT` via the same underlying `report.Generate` environment handling.
+- [x] Reads the former vendored-compiler env var via the same underlying `report.Generate` environment handling.
 - [x] Plan aligned: CLI lives in `internal/cmd/server/pdf.go` wired from `internal/cmd/server/radar.go`; `cmd/velocity-report/` was never created and is not needed. No separate `build-pdf-tool` target is required.
 
 **Phase 4c acceptance:** CLI exists, is unit-tested, and plan/code drift is resolved. ✅
@@ -687,7 +688,7 @@ Current code status: implemented as `internal/cmd/server/pdf.go`; this plan's or
 - [x] Remove `python3`, `python3-pip`, `python3-venv` from `image/stage-velocity/00-install-packages/00-packages`. Retain `python3-serial` (RS-232 HAT, unrelated to PDF).
 - [x] Gut `image/stage-velocity/02-velocity-python/00-run.sh` to only create the report output directory.
 - [x] Remove PDF generator copy block from `image/scripts/build-image.sh`.
-- [x] Remove `PDF_GENERATOR_DIR` / `PDF_GENERATOR_PYTHON` env vars from systemd service; add `VELOCITY_PDF_BACKEND=go`.
+- [x] Remove `PDF_GENERATOR_DIR` / `PDF_GENERATOR_PYTHON` env vars from systemd service; add the temporary Go-backend selector used during the migration.
 - [x] Delete `.github/workflows/python-ci.yml`. <!-- link-ignore -->
 - [x] Remove `test-python`, `format-python`, `lint-python` from Makefile aggregate targets; mark `install-python` deprecated.
 - [x] Update `ARCHITECTURE.md`: component table, performance section, L10 layer, and inter-service diagram updated to reflect Go pipeline.

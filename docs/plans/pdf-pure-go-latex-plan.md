@@ -266,8 +266,8 @@ TeX size and deployment complexity) are:
   - The current PDF flow continues to shell out via
     `internal/api/server_reports_generate.go` into the Python generator, which
     then invokes `xelatex`.
-  - The `VELOCITY_TEX_ROOT` env contract continues to be the integration
-    point for vendored TeX.
+  - The vendored-TeX environment contract continues to be the integration
+    point for that historical path.
   - No Go report-pipeline migration code is introduced as a result of this
     study.
 
@@ -287,7 +287,7 @@ Current pipeline (unchanged by this verdict):
 │                   tools/pdf-generator/pdf_generator/           │
 │                     ├── build charts + render .tex             │
 │                     └── exec xelatex                           │
-│                           ↓ via VELOCITY_TEX_ROOT              │
+│                           ↓ via vendored-TeX env               │
 │                           vendored TeX tree                    │
 │                           ↓                                    │
 │                        report.pdf                              │
@@ -332,7 +332,7 @@ For the accepted plan (continue with xelatex, lean on D-08):
 
 | Component                                     | How it fails                                   | Recovery                                                                                          |
 | --------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `xelatex` missing on host                     | Build/runtime error; pipeline aborts           | `VELOCITY_TEX_ROOT` points at vendored tree; image install pre-flight check.                      |
+| `xelatex` missing on host                     | Build/runtime error; pipeline aborts           | The former vendored-TeX env points at vendored tree; image install pre-flight check.              |
 | Font missing under vendored tree              | XeTeX falls back to default; visual regression | Detect via current PDF generator/package-parity checks; add a golden-PDF CI check as future work. |
 | Vendored tree size regresses past D-08 budget | Image bloat                                    | D-08 acceptance test enforces upper bound.                                                        |
 
