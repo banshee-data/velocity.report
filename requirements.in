@@ -14,9 +14,6 @@ pillow>=12.2.0  # CVE-2026-25990 fix
 requests>=2.34.2  # CVE-2026-25645 fix
 urllib3>=2.7.0    # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixes
 
-# LaTeX/PDF generation
-PyLaTeX
-
 # SVG engineering drawing (used by tools/rack-drawing/)
 drawsvg
 

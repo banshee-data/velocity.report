@@ -44,8 +44,6 @@ numpy==2.4.6
     #   pandas
     #   scipy
     #   seaborn
-ordered-set==4.1.0
-    # via pylatex
 packaging==25.0
     # via
     #   black
@@ -69,8 +67,6 @@ pluggy==1.6.0
     #   pytest-cov
 pygments==2.20.0
     # via pytest
-pylatex==1.4.2
-    # via -r requirements.in
 pyparsing==3.2.5
     # via matplotlib
 pytest==9.0.3
