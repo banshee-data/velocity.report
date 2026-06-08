@@ -7,10 +7,10 @@ import (
 	"math"
 )
 
-// SiteMapOptions controls the site-map. When OSMTiles is true we fetch real
-// OpenStreetMap raster tiles centred on (Latitude, Longitude) and overlay
-// the radar marker + coverage triangle. Otherwise we draw a schematic
-// placeholder.
+// SiteMapOptions controls the site-map. When OSMTiles is explicitly enabled,
+// we fetch real OpenStreetMap raster tiles centred on (Latitude, Longitude)
+// and overlay the radar marker + coverage triangle. Otherwise we draw a
+// schematic placeholder.
 //
 // PRIVACY: enabling OSMTiles makes outbound HTTP requests to a third-party
 // tile server (tile.openstreetmap.org), disclosing the site coordinates
@@ -21,8 +21,8 @@ type SiteMapOptions struct {
 	Longitude         float64
 	MapAngleDegrees   float64 // rotation of the coverage triangle, clockwise from north
 	WidthPx, HeightPx int
-	// OSMTiles fetches and embeds real OSM tiles. WARNING: this sends the
-	// site coordinates to tile.openstreetmap.org (off-device network access).
+	// OSMTiles fetches and embeds real OSM tiles. This is opt-in because it
+	// sends the site coordinates to tile.openstreetmap.org (off-device network access).
 	OSMTiles bool
 	OSMZoom  int // zoom level for OSM (default 17)
 }
