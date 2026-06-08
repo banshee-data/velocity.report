@@ -17,6 +17,81 @@ interface RenderResult {
 	unmount: () => void;
 }
 
+type ExternalAction = 'search' | 'generate-map';
+
+function matchesText(element: Element, text: string | RegExp): boolean {
+	const content = element.textContent || '';
+	return typeof text === 'string' ? content.includes(text) : text.test(content);
+}
+
+function findDeepestTextMatch(text: string | RegExp): HTMLElement | null {
+	const elements = Array.from(document.querySelectorAll('*'));
+	return (
+		(elements.find((el) => {
+			if (!matchesText(el, text)) return false;
+			return !Array.from(el.children).some((child) => matchesText(child, text));
+		}) as HTMLElement | undefined) || null
+	);
+}
+
+function appendExternalRequestModal(pendingAction: ExternalAction) {
+	document.body.dataset.pendingExternalMapAction = pendingAction;
+	if (document.querySelector('[data-action="allow-external-map-request"]')) return;
+
+	const modal = document.createElement('div');
+	modal.setAttribute('role', 'alertdialog');
+	modal.innerHTML = `
+		<h2>Allow External Map Request?</h2>
+		<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
+		<p>Site coordinates or searched address text may be sent externally.</p>
+		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+		<button data-action="cancel-external-map-request">Cancel</button>
+		<button data-action="allow-external-map-request">Allow This Session</button>
+	`;
+	document.body.appendChild(modal);
+}
+
+async function performExternalAction(action: ExternalAction, element: HTMLElement) {
+	const container = element.closest('div') || document.body;
+	if (action === 'search') {
+		if (typeof global.fetch === 'function') {
+			await global.fetch('https://nominatim.openstreetmap.org/search?format=json&q=test&limit=5');
+		}
+		return;
+	}
+
+	const hasBbox = element.getAttribute('data-has-bbox') === 'true';
+	if (!hasBbox) {
+		const errorDiv = document.createElement('div');
+		errorDiv.textContent = 'Please set bounding box coordinates first';
+		container.appendChild(errorDiv);
+		return;
+	}
+
+	if (typeof global.fetch === 'function') {
+		try {
+			const response = await global.fetch('/api/map/overpass', {
+				method: 'POST',
+				body: JSON.stringify({ query: 'data=test' }),
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (!(response as Response).ok) {
+				const status = (response as Response).status;
+				const errorDiv = document.createElement('div');
+				errorDiv.textContent = `Overpass API error: ${status}`;
+				container.appendChild(errorDiv);
+			}
+		} catch (e) {
+			const errorDiv = document.createElement('div');
+			errorDiv.textContent = 'Failed to generate report map';
+			container.appendChild(errorDiv);
+		}
+	}
+}
+
 export function render(
 	Component: typeof SvelteComponent,
 	options: RenderOptions = {}
@@ -52,6 +127,10 @@ export function render(
 		container.innerHTML = `
 			<div>
 				<h2>Map Configuration</h2>
+				<h3>Address Search</h3>
+				<label for="address-search">Address</label>
+				<input id="address-search" value="" />
+				<button data-action="search">Search</button>
 				<div>
 					<label for="latitude">Latitude</label>
 					<input id="latitude" type="number" value="${options.props.latitude || 0}" />
@@ -64,7 +143,12 @@ export function render(
 				<h3>Map Bounding Box</h3>
 				<p>Drag the red dot at the triangle tip to adjust radar angle.</p>
 				<button>Set Default</button>
-				<button data-has-bbox="${hasBbox}">Download Map SVG</button>
+				<button data-action="generate-map" data-has-bbox="${hasBbox}" ${hasBbox ? '' : 'disabled'}>Generate Report Map SVG</button>
+				${
+					options.props.mapSvgData
+						? '<h4>Report Map Preview</h4><img alt="Generated report map SVG" src="data:image/svg+xml;base64,test" />'
+						: ''
+				}
 				${invalidBbox ? '<div>Invalid bounding box</div>' : ''}
 			</div>
 		`;
@@ -89,11 +173,7 @@ export function render(
 export const screen = {
 	getByText: (text: string | RegExp) => {
 		const selector = typeof text === 'string' ? text : text.source;
-		const elements = Array.from(document.querySelectorAll('*'));
-		const element = elements.find((el) => {
-			const content = el.textContent || '';
-			return typeof text === 'string' ? content.includes(text) : text.test(content);
-		});
+		const element = findDeepestTextMatch(text);
 		if (!element) {
 			throw new Error(`Unable to find element with text: ${selector}`);
 		}
@@ -130,49 +210,30 @@ export const fireEvent = {
 		const event = new MouseEvent('click', { bubbles: true, cancelable: true });
 		element.dispatchEvent(event);
 
-		// Trigger mock behavior for Download Map SVG button
-		if (element.textContent?.includes('Download Map SVG')) {
-			// Check if we have bbox coordinates
-			const container = element.closest('div') || document.body;
-			const hasBbox = element.getAttribute('data-has-bbox') === 'true';
-
-			if (!hasBbox) {
-				// No bbox - show error
-				const errorDiv = document.createElement('div');
-				errorDiv.textContent = 'Please set bounding box coordinates first';
-				container.appendChild(errorDiv);
+		const action = element.getAttribute('data-action') as ExternalAction | string | null;
+		if (action === 'cancel-external-map-request') {
+			document.body.dataset.pendingExternalMapAction = '';
+			element.closest('[role="alertdialog"]')?.remove();
+			return true;
+		}
+		if (action === 'allow-external-map-request') {
+			document.body.dataset.externalMapConsent = 'true';
+			const pending = document.body.dataset.pendingExternalMapAction as ExternalAction | undefined;
+			document.body.dataset.pendingExternalMapAction = '';
+			element.closest('[role="alertdialog"]')?.remove();
+			if (pending) {
+				const trigger = document.querySelector(`[data-action="${pending}"]`) as HTMLElement | null;
+				await performExternalAction(pending, trigger || element);
+			}
+			return true;
+		}
+		if (action === 'search' || action === 'generate-map') {
+			if (element.hasAttribute('disabled')) return true;
+			if (document.body.dataset.externalMapConsent !== 'true') {
+				appendExternalRequestModal(action);
 				return true;
 			}
-
-			// Simulate the fetch call using Overpass API
-			const overpassUrl = 'https://overpass-api.de/api/interpreter';
-
-			// Actually call fetch so tests can verify it was called
-			if (typeof global.fetch === 'function') {
-				try {
-					const response = await global.fetch(overpassUrl, {
-						method: 'POST',
-						body: 'data=test',
-						headers: {
-							'Content-Type': 'application/x-www-form-urlencoded'
-						}
-					});
-
-					// Check if fetch failed (status not ok)
-					if (!(response as Response).ok) {
-						// Add error message to DOM
-						const status = (response as Response).status;
-						const errorDiv = document.createElement('div');
-						errorDiv.textContent = `Overpass API error: ${status}`;
-						container.appendChild(errorDiv);
-					}
-				} catch (e) {
-					// Fetch error - add error message to DOM
-					const errorDiv = document.createElement('div');
-					errorDiv.textContent = 'Failed to download map';
-					container.appendChild(errorDiv);
-				}
-			}
+			await performExternalAction(action, element);
 		}
 		return true;
 	},
@@ -208,6 +269,8 @@ export const waitFor = async (callback: () => void | Promise<void>, options?: an
 // Mock cleanup
 export const cleanup = () => {
 	document.body.innerHTML = '';
+	delete document.body.dataset.externalMapConsent;
+	delete document.body.dataset.pendingExternalMapAction;
 };
 
 // Mock act

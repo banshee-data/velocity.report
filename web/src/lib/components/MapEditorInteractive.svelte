@@ -8,6 +8,7 @@
 		svgToBase64
 	} from '$lib/map-svg';
 	import { fetchOverpassQuery } from '$lib/api';
+	import 'leaflet/dist/leaflet.css';
 	import {
 		mdiAlert,
 		mdiCheckCircle,
@@ -17,7 +18,7 @@
 		mdiDownload,
 		mdiMagnify
 	} from '@mdi/js';
-	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
+	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle, TileLayer } from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		Button,
@@ -49,6 +50,7 @@
 	let map: LeafletMap | null = null;
 	let radarMarker: Marker | null = null;
 	let bboxRect: Rectangle | null = null;
+	let osmTileLayer: TileLayer | null = null;
 	let fovPolygon: L.Polygon | null = null;
 	let fovTipMarker: Marker | null = null;
 	let mapContainer: HTMLElement;
@@ -63,6 +65,7 @@
 	let downloading = false;
 	let downloadStep = ''; // e.g. '1/2 Roads…', '2/2 Detail…'
 	let error = '';
+	let detailWarning = '';
 	let selectedMirror = '';
 	let abortController: AbortController | null = null;
 	let L: typeof import('leaflet') | null = null;
@@ -77,6 +80,11 @@
 
 	// Confirmation modal state for replacing an uploaded SVG
 	let showReplaceMapModal = false;
+
+	type ExternalMapRequest = 'address-search' | 'report-map-svg';
+	let externalMapRequestConsent = false;
+	let showExternalMapRequestModal = false;
+	let pendingExternalMapRequest: ExternalMapRequest | null = null;
 
 	/** Request a mode switch. If existing map data would be lost, show confirmation. */
 	function requestModeSwitch(target: 'interactive' | 'upload') {
@@ -120,6 +128,47 @@
 	// upload control signals intent to include a map.
 	function activateIncludeMap() {
 		if (!includeMap) includeMap = true;
+	}
+
+	function requestExternalMapRequest(request: ExternalMapRequest) {
+		if (externalMapRequestConsent) {
+			void runExternalMapRequest(request);
+			return;
+		}
+
+		pendingExternalMapRequest = request;
+		showExternalMapRequestModal = true;
+	}
+
+	async function runExternalMapRequest(request: ExternalMapRequest) {
+		addOsmTileLayer();
+		if (request === 'address-search') {
+			await searchAddress();
+		} else {
+			await downloadMapSVG();
+		}
+	}
+
+	function confirmExternalMapRequest() {
+		const request = pendingExternalMapRequest;
+		externalMapRequestConsent = true;
+		showExternalMapRequestModal = false;
+		pendingExternalMapRequest = null;
+		if (request) void runExternalMapRequest(request);
+	}
+
+	function cancelExternalMapRequest() {
+		showExternalMapRequestModal = false;
+		pendingExternalMapRequest = null;
+	}
+
+	function requestAddressSearch() {
+		if (!searchQuery.trim()) return;
+		requestExternalMapRequest('address-search');
+	}
+
+	function requestReportMapSvg() {
+		requestExternalMapRequest('report-map-svg');
 	}
 
 	// Custom SVG upload — restore mode when a custom SVG is stored without geographic bounds.
@@ -257,12 +306,6 @@
 		// Dynamically import Leaflet to avoid SSR issues
 		L = await import('leaflet');
 
-		// Import Leaflet CSS
-		const link = document.createElement('link');
-		link.rel = 'stylesheet';
-		link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-		document.head.appendChild(link);
-
 		initializeMap();
 	});
 
@@ -286,11 +329,7 @@
 			zoomControl: true
 		});
 
-		// Add OpenStreetMap tiles
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			attribution: '© OpenStreetMap contributors',
-			maxZoom: 19
-		}).addTo(map);
+		if (externalMapRequestConsent) addOsmTileLayer();
 
 		// Create custom icon for radar marker
 		const radarIcon = L.icon({
@@ -339,6 +378,15 @@
 
 		// Initialize FOV triangle if angle is set
 		updateFOVTriangle();
+	}
+
+	function addOsmTileLayer() {
+		if (!L || !map || osmTileLayer) return;
+
+		osmTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '© OpenStreetMap contributors',
+			maxZoom: 19
+		}).addTo(map);
 	}
 
 	function updateFOVTriangle() {
@@ -657,6 +705,7 @@
 
 		downloading = true;
 		error = '';
+		detailWarning = '';
 		abortController = new AbortController();
 		const { signal } = abortController;
 
@@ -665,24 +714,26 @@
 
 			const { essentialQuery, enrichmentQuery } = buildOverpassQueries(bbox);
 
-			console.log('Fetching essential map data (roads + buildings)...');
-			downloadStep = '1 🛣️ Roads…';
+			console.log('Fetching essential map data (roads, buildings, addresses, transit)...');
+			downloadStep = '1 Essential...';
 			const essentialData = await fetchOverpassData(essentialQuery, signal);
 
 			// Enrichment is best-effort: failures produce a sparser but still useful map.
 			let enrichmentData: { elements: Array<Record<string, unknown>> } = { elements: [] };
 			try {
-				console.log('Fetching enrichment data (landuse, water, railways)...');
-				downloadStep = '2 ⛰️ Detail…';
+				console.log('Fetching enrichment data (cartographic detail)...');
+				downloadStep = '2 Detail...';
 				enrichmentData = await fetchOverpassData(enrichmentQuery, signal);
 			} catch (enrichErr) {
 				console.warn(
-					'Enrichment query failed — proceeding with roads and buildings only.',
+					'Enrichment query failed; proceeding with essential map data only.',
 					enrichErr
 				);
+				detailWarning =
+					'Detail map data was unavailable; generated the report map from essential features.';
 			}
 
-			downloadStep = '3 ⚙️ Render…';
+			downloadStep = '3 Render...';
 
 			const allElements = [...essentialData.elements, ...enrichmentData.elements];
 			const nodeLookup = buildNodeLookup(allElements);
@@ -705,7 +756,6 @@
 
 			mapSvgData = svgToBase64(svgText);
 			mapJustDownloaded = true;
-			error = '';
 			activateIncludeMap();
 		} catch (e) {
 			if (e instanceof DOMException && e.name === 'AbortError') {
@@ -729,7 +779,7 @@
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
-			searchAddress();
+			requestAddressSearch();
 		}
 	}
 </script>
@@ -881,7 +931,7 @@
 						on:keydown={handleKeydown}
 					/>
 				</div>
-				<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
+				<Button on:click={requestAddressSearch} disabled={searching || !searchQuery.trim()}>
 					{searching ? 'Searching...' : 'Search'}
 				</Button>
 			</div>
@@ -921,6 +971,12 @@
 				class="h-96 w-full rounded border border-gray-300"
 				style="min-height: 400px;"
 			></div>
+
+			{#if !externalMapRequestConsent}
+				<p class="text-surface-600-300-token text-xs">
+					Base map tiles load only after external map requests are allowed for this editor session.
+				</p>
+			{/if}
 
 			<p class="text-surface-600-300-token text-xs">
 				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
@@ -969,10 +1025,10 @@
 	{/if}
 
 	{#if !useCustomSvg}
-		<!-- Download SVG -->
+		<!-- Generate report SVG -->
 		<div class="space-y-2">
 			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h4 class="font-medium">Download Map for Reports</h4>
+				<h4 class="font-medium">Report Map SVG</h4>
 				<div class="flex flex-wrap items-center gap-3">
 					<div class="flex items-center gap-1.5">
 						<SelectField
@@ -1005,18 +1061,35 @@
 						</Button>
 					{:else}
 						<Button
-							on:click={downloadMapSVG}
+							on:click={requestReportMapSvg}
 							disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng}
 							icon={mdiDownload}
 							variant="fill"
 							color="primary"
 							size="sm"
 						>
-							Download Map SVG
+							Generate Report Map SVG
 						</Button>
 					{/if}
 				</div>
 			</div>
+		</div>
+	{/if}
+
+	{#if !useCustomSvg && mapSvgData}
+		<div class="space-y-3">
+			<h4 class="font-medium">Report Map Preview</h4>
+			<div class="overflow-hidden rounded border border-gray-300 bg-white p-2">
+				<img
+					src="data:image/svg+xml;base64,{mapSvgData}"
+					alt="Generated report map SVG"
+					class="h-auto max-h-[500px] w-full object-contain"
+					draggable="false"
+				/>
+			</div>
+			<p class="text-surface-600-300-token text-xs">
+				This saved SVG is embedded unchanged in generated PDF reports.
+			</p>
 		</div>
 	{/if}
 
@@ -1036,6 +1109,17 @@
 		</Notification>
 	{/if}
 
+	{#if detailWarning}
+		<Notification
+			open
+			icon={mdiAlert}
+			class="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+		>
+			<span slot="title">Map detail warning</span>
+			<span slot="description">{detailWarning}</span>
+		</Notification>
+	{/if}
+
 	{#if mapJustDownloaded}
 		<Notification
 			color="success"
@@ -1049,11 +1133,46 @@
 		>
 			<span slot="title">Map Ready</span>
 			<span slot="description"
-				>The map is ready. Click <strong>Save Changes</strong> to keep it.</span
+				>The Report Map Preview is ready. Click <strong>Save Changes</strong> to keep it.</span
 			>
 		</Notification>
 	{/if}
 </div>
+
+<Dialog
+	bind:open={showExternalMapRequestModal}
+	on:close={cancelExternalMapRequest}
+	aria-modal="true"
+	role="alertdialog"
+	classes={{ dialog: 'max-w-md' }}
+>
+	<div slot="title" class="flex items-center justify-between">
+		<span>Allow External Map Request?</span>
+		<button
+			class="text-surface-500 hover:text-surface-700 -mt-1 -mr-2 p-1"
+			on:click={cancelExternalMapRequest}
+			aria-label="Close"
+		>
+			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+		</button>
+	</div>
+
+	<div class="space-y-3 px-6 pb-2">
+		<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
+		<p>Site coordinates or searched address text may be sent externally.</p>
+		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+		<p class="text-surface-content/60 text-sm">
+			Report generation remains offline and uses only the saved SVG map data.
+		</p>
+	</div>
+
+	<div slot="actions">
+		<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
+		<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
+			Allow This Session
+		</Button>
+	</div>
+</Dialog>
 
 <!-- Confirmation modal: warn before discarding existing map data -->
 <Dialog

@@ -209,6 +209,14 @@ describe('getPoiIcon', () => {
 		expect(getPoiIcon({ railway: 'station' })).toBe('🚉');
 	});
 
+	it('returns crossing emoji for highway=crossing', () => {
+		expect(getPoiIcon({ highway: 'crossing' })).toBe('🚸');
+	});
+
+	it('returns entrance marker for entrance=yes', () => {
+		expect(getPoiIcon({ entrance: 'yes' })).toBe('↪');
+	});
+
 	it('returns shop icon for shop=supermarket', () => {
 		expect(getPoiIcon({ shop: 'supermarket' })).toBe('🛒');
 	});
@@ -243,6 +251,7 @@ describe('getPoiIcon', () => {
 			'natural',
 			'highway',
 			'railway',
+			'entrance',
 			'tourism',
 			'sport'
 		];
@@ -475,7 +484,23 @@ describe('buildOverpassQueries', () => {
 	it('essential query includes building and highway', () => {
 		const { essentialQuery } = buildOverpassQueries(bbox);
 		expect(essentialQuery).toContain('"building"');
+		expect(essentialQuery).toContain('"building:part"');
 		expect(essentialQuery).toContain('"highway"');
+	});
+
+	it('essential query includes required report-map feature classes', () => {
+		const { essentialQuery } = buildOverpassQueries(bbox);
+		for (const fragment of [
+			'"amenity"="school"',
+			'"leisure"~"^(park|garden|playground|pitch)$"',
+			'"natural"="water"',
+			'"railway"~"^(rail|light_rail|tram)$"',
+			'"place"',
+			'"addr:housenumber"',
+			'"highway"="bus_stop"'
+		]) {
+			expect(essentialQuery).toContain(fragment);
+		}
 	});
 
 	it('enrichment query includes landuse, water, railway, name', () => {
@@ -484,6 +509,23 @@ describe('buildOverpassQueries', () => {
 		expect(enrichmentQuery).toContain('"water"');
 		expect(enrichmentQuery).toContain('"railway"');
 		expect(enrichmentQuery).toContain('"name"');
+	});
+
+	it('enrichment query includes required cartographic detail classes', () => {
+		const { enrichmentQuery } = buildOverpassQueries(bbox);
+		for (const fragment of [
+			'"landuse"',
+			'"amenity"',
+			'"shop"',
+			'"tourism"',
+			'"leisure"',
+			'"natural"~"^(tree|water|spring|peak)$"',
+			'"highway"~"^(crossing|traffic_signals)$"',
+			'"entrance"',
+			'"boundary"~"^(administrative|protected_area|national_park)$"'
+		]) {
+			expect(enrichmentQuery).toContain(fragment);
+		}
 	});
 
 	it('sets 30s timeout', () => {
@@ -588,6 +630,14 @@ describe('categoriseElements', () => {
 		const result = categoriseElements(elements, nodes);
 		expect(result.buildings).toHaveLength(1);
 		expect(result.buildings[0].nodes).toHaveLength(4);
+		expect(result.buildings[0].part).toBe(false);
+	});
+
+	it('categorises building parts separately from whole buildings', () => {
+		const elements = [{ type: 'way', nodes: [1, 2, 3, 4], tags: { 'building:part': 'yes' } }];
+		const result = categoriseElements(elements, nodes);
+		expect(result.buildings).toHaveLength(1);
+		expect(result.buildings[0].part).toBe(true);
 	});
 
 	it('categorises railways', () => {
@@ -616,6 +666,16 @@ describe('categoriseElements', () => {
 		const result = categoriseElements(elements, nodes);
 		expect(result.landuse).toHaveLength(1);
 		expect(result.landuse[0].type).toBe('grass');
+	});
+
+	it('categorises boundaries', () => {
+		const elements = [
+			{ type: 'way', nodes: [1, 2, 3], tags: { boundary: 'administrative', name: 'District' } }
+		];
+		const result = categoriseElements(elements, nodes);
+		expect(result.boundaries).toHaveLength(1);
+		expect(result.boundaries[0].type).toBe('administrative');
+		expect(result.boundaries[0].name).toBe('District');
 	});
 
 	it('categorises leisure areas as landuse', () => {
@@ -698,6 +758,17 @@ describe('categoriseElements', () => {
 		expect(result.poiLabels[0].name).toBe('42');
 	});
 
+	it('extracts unnamed bus stops, crossings, and entrances as POI markers', () => {
+		const elements = [
+			{ type: 'node', id: 10, lat: 51.5, lon: -0.1, tags: { highway: 'bus_stop' } },
+			{ type: 'node', id: 11, lat: 51.501, lon: -0.1, tags: { highway: 'crossing' } },
+			{ type: 'node', id: 12, lat: 51.501, lon: -0.099, tags: { entrance: 'yes' } }
+		];
+		const result = categoriseElements(elements, nodes);
+		expect(result.poiLabels.map((p) => p.icon)).toEqual(['🚏', '🚸', '↪']);
+		expect(result.poiLabels.every((p) => p.category === 'landmark')).toBe(true);
+	});
+
 	it('classifies housenumber with amenity as landmark', () => {
 		const elements = [
 			{
@@ -775,6 +846,14 @@ describe('categoriseElements', () => {
 		expect(result.railways).toHaveLength(1);
 		expect(result.roads).toHaveLength(0);
 	});
+
+	it('still captures unnamed POI-like way centroids', () => {
+		const elements = [{ type: 'way', nodes: [1, 2, 3, 4], tags: { amenity: 'parking' } }];
+		const result = categoriseElements(elements, nodes);
+		expect(result.poiLabels).toHaveLength(1);
+		expect(result.poiLabels[0].name).toBe('');
+		expect(result.poiLabels[0].icon).toBe('🅿️');
+	});
 });
 
 // ── ROAD_ORDER constant ──────────────────────────────────────────────────────
@@ -822,6 +901,7 @@ describe('generateMapSvg', () => {
 		water: [],
 		roads: [],
 		railways: [],
+		boundaries: [],
 		poiLabels: [],
 		bboxNELat: 51.51,
 		bboxNELng: -0.09,
@@ -879,6 +959,26 @@ describe('generateMapSvg', () => {
 		const svg = generateMapSvg(params);
 		expect(svg).toContain('fill="#d9d0c9"');
 		expect(svg).toContain('stroke="#bbb5b0"');
+	});
+
+	it('renders building parts with distinct styling', () => {
+		const params: SvgParams = {
+			...baseParams,
+			buildings: [
+				{
+					part: true,
+					nodes: [
+						{ lat: 51.505, lon: -0.1 },
+						{ lat: 51.506, lon: -0.1 },
+						{ lat: 51.506, lon: -0.099 },
+						{ lat: 51.505, lon: -0.099 }
+					]
+				}
+			]
+		};
+		const svg = generateMapSvg(params);
+		expect(svg).toContain('fill="#cfc5bd"');
+		expect(svg).toContain('stroke="#aaa19a"');
 	});
 
 	it('renders landuse areas', () => {
@@ -1068,6 +1168,44 @@ describe('generateMapSvg', () => {
 		expect(svg).toContain('stroke-dasharray="8,8"'); // rail dashes
 	});
 
+	it('renders boundary paths after roads and before railways', () => {
+		const params: SvgParams = {
+			...baseParams,
+			roads: [
+				{
+					highway: 'primary',
+					nodes: [
+						{ lat: 51.505, lon: -0.1 },
+						{ lat: 51.506, lon: -0.099 }
+					]
+				}
+			],
+			railways: [
+				{
+					type: 'rail',
+					nodes: [
+						{ lat: 51.505, lon: -0.1 },
+						{ lat: 51.506, lon: -0.099 }
+					]
+				}
+			],
+			boundaries: [
+				{
+					type: 'administrative',
+					nodes: [
+						{ lat: 51.505, lon: -0.1 },
+						{ lat: 51.506, lon: -0.099 }
+					]
+				}
+			]
+		};
+		const svg = generateMapSvg(params);
+		expect(svg).toContain('stroke="#9ca3af"');
+		expect(svg).toContain('stroke-dasharray="6,4"');
+		expect(svg.indexOf('<!-- Roads -->')).toBeLessThan(svg.indexOf('<!-- Boundaries -->'));
+		expect(svg.indexOf('<!-- Boundaries -->')).toBeLessThan(svg.indexOf('<!-- Railways -->'));
+	});
+
 	it('renders place name POIs in italic', () => {
 		const params: SvgParams = {
 			...baseParams,
@@ -1084,7 +1222,7 @@ describe('generateMapSvg', () => {
 			poiLabels: [{ name: '42', lat: 51.505, lon: -0.1, category: 'address', icon: '\u25cf' }]
 		};
 		const svg = generateMapSvg(params);
-		expect(svg).toContain('font-size="12"');
+		expect(svg).toMatch(/font-size="1[0-2]\.\d"/);
 	});
 
 	it('renders landmark POIs as a vector pictograph, not an emoji glyph', () => {
@@ -1108,6 +1246,49 @@ describe('generateMapSvg', () => {
 		const svg = generateMapSvg(params);
 		expect(svg).toContain('poi-marker');
 		expect(svg).toContain('Mystery');
+	});
+
+	it('renders unnamed detail POI markers without adding blank text labels', () => {
+		const params: SvgParams = {
+			...baseParams,
+			poiLabels: [{ name: '', lat: 51.505, lon: -0.1, category: 'landmark', icon: '🚸' }]
+		};
+		const svg = generateMapSvg(params);
+		expect(svg).toContain('poi-marker');
+		expect(svg).not.toContain('> </text>');
+	});
+
+	it('hides residential labels and address labels at compact map scales', () => {
+		const params: SvgParams = {
+			...baseParams,
+			bboxNELat: 51.7,
+			bboxNELng: -0.08,
+			bboxSWLat: 51.5,
+			bboxSWLng: -0.3,
+			roads: [
+				{
+					highway: 'residential',
+					name: 'Compact Residential',
+					nodes: [
+						{ lat: 51.505, lon: -0.1 },
+						{ lat: 51.505, lon: -0.099 }
+					]
+				},
+				{
+					highway: 'primary',
+					name: 'Compact Primary',
+					nodes: [
+						{ lat: 51.506, lon: -0.1 },
+						{ lat: 51.506, lon: -0.099 }
+					]
+				}
+			],
+			poiLabels: [{ name: '42', lat: 51.505, lon: -0.1, category: 'address', icon: '\u25cf' }]
+		};
+		const svg = generateMapSvg(params);
+		expect(svg).not.toContain('Compact Residential');
+		expect(svg).toContain('Compact Primary');
+		expect(svg).not.toContain('>42<');
 	});
 
 	it('skips POIs outside visible area', () => {

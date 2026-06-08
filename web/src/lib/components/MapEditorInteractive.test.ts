@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import MapEditorInteractive from './MapEditorInteractive.svelte';
 
 describe('MapEditorInteractive', () => {
@@ -8,6 +8,10 @@ describe('MapEditorInteractive', () => {
 
 	beforeEach(() => {
 		jest.resetAllMocks();
+	});
+
+	afterEach(() => {
+		cleanup();
 	});
 
 	it('should render map editor component', () => {
@@ -45,7 +49,7 @@ describe('MapEditorInteractive', () => {
 		// Component should initialise with San Francisco defaults (37.7749, -122.4194)
 	});
 
-	it('should have download button for SVG map', async () => {
+	it('should have generate button for the report SVG map', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -59,11 +63,11 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const downloadButton = screen.getByText(/Download Map SVG/i);
-		expect(downloadButton).toBeInTheDocument();
+		const generateButton = screen.getByText(/Generate Report Map SVG/i);
+		expect(generateButton).toBeInTheDocument();
 	});
 
-	it('should have download button even without bounding box', async () => {
+	it('should disable report SVG generation without a bounding box', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -77,30 +81,95 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const downloadButton = screen.getByText(/Download Map SVG/i);
-		expect(downloadButton).toBeInTheDocument();
+		const generateButton = screen.getByText(/Generate Report Map SVG/i);
+		expect(generateButton).toBeDisabled();
 	});
 
-	it('should show error when downloading without bounding box', async () => {
+	it('should require explicit consent before generating a report map SVG', async () => {
+		(global.fetch as jest.Mock).mockResolvedValue({
+			ok: true,
+			json: async () => ({ elements: [] })
+		});
+
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
 				longitude: -0.1278,
 				radarAngle: 45,
-				bboxNELat: null,
-				bboxNELng: null,
-				bboxSWLat: null,
-				bboxSWLng: null,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
 				mapSvgData: null
 			}
 		});
 
-		const downloadButton = screen.getByText(/Download Map SVG/i);
-		await fireEvent.click(downloadButton);
+		const generateButton = screen.getByText(/Generate Report Map SVG/i);
+		await fireEvent.click(generateButton);
+
+		expect(screen.getByText(/Allow External Map Request/i)).toBeInTheDocument();
+		expect(screen.getByText(/OpenStreetMap, Nominatim, or Overpass/i)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Radar observations, vehicle data, reports, and raw sensor data/i)
+		).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByText(/Allow This Session/i));
 
 		await waitFor(() => {
-			expect(screen.getByText(/Please set bounding box coordinates first/i)).toBeInTheDocument();
+			expect(global.fetch).toHaveBeenCalledTimes(1);
 		});
+	});
+
+	it('should require explicit consent before address search', async () => {
+		(global.fetch as jest.Mock).mockResolvedValue({
+			ok: true,
+			json: async () => []
+		});
+
+		render(MapEditorInteractive, {
+			props: {
+				latitude: 51.5074,
+				longitude: -0.1278,
+				radarAngle: 45,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
+				mapSvgData: null
+			}
+		});
+
+		await fireEvent.change(screen.getByLabelText(/Address/i), {
+			target: { value: 'Clarendon Avenue' }
+		});
+		await fireEvent.click(screen.getByText(/^Search$/i));
+
+		expect(screen.getByText(/Allow External Map Request/i)).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByText(/Allow This Session/i));
+
+		await waitFor(() => {
+			expect(global.fetch).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it('should display saved generated SVG as the report map preview', () => {
+		render(MapEditorInteractive, {
+			props: {
+				latitude: 51.5074,
+				longitude: -0.1278,
+				radarAngle: 45,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
+				mapSvgData: 'PHN2Zy8+'
+			}
+		});
+
+		expect(screen.getByText(/Report Map Preview/i)).toBeInTheDocument();
 	});
 
 	it('should display help text about dragging FOV marker', () => {

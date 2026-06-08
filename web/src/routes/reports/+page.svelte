@@ -492,7 +492,7 @@
 										</p>
 									{/if}
 									<p class="text-surface-600-300-token text-xs">
-										The ZIP file contains LaTeX source files and chart SVG assets for custom
+										The ZIP file contains Typst source files and chart SVG assets for custom
 										editing.
 									</p>
 								</div>

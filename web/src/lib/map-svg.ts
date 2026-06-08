@@ -30,6 +30,7 @@ export interface LatLon {
 
 export interface Building {
 	nodes: LatLon[];
+	part?: boolean;
 }
 
 export interface LanduseArea {
@@ -55,6 +56,12 @@ export interface Railway {
 	nodes: LatLon[];
 }
 
+export interface Boundary {
+	type: string;
+	name?: string;
+	nodes: LatLon[];
+}
+
 export type PoiCategory = 'place' | 'address' | 'landmark';
 
 export interface PoiLabel {
@@ -71,6 +78,7 @@ export interface CategorisedElements {
 	water: WaterFeature[];
 	roads: Road[];
 	railways: Railway[];
+	boundaries: Boundary[];
 	poiLabels: PoiLabel[];
 }
 
@@ -80,6 +88,7 @@ export interface SvgParams {
 	water: WaterFeature[];
 	roads: Road[];
 	railways: Railway[];
+	boundaries: Boundary[];
 	poiLabels: PoiLabel[];
 	bboxNELat: number;
 	bboxNELng: number;
@@ -146,6 +155,8 @@ export const POI_ICON_MAP: Record<string, string> = {
 	station: '🚉',
 	halt: '🚉',
 	tram_stop: '🚊',
+	crossing: '🚸',
+	traffic_signals: '🚦',
 	taxi: '🚕',
 	bicycle_parking: '🚲',
 	bicycle_rental: '🚲',
@@ -231,6 +242,7 @@ export const POI_ICON_MAP: Record<string, string> = {
 	waste_basket: '🗑️',
 	drinking_water: '🚰',
 	fountain: '⛲',
+	entrance: '↪',
 	clock: '🕐',
 	telephone: '📞',
 	vending_machine: '🎰',
@@ -392,6 +404,7 @@ export function getPoiIcon(tags: Record<string, string>): string {
 		tags.natural ||
 		tags.highway ||
 		tags.railway ||
+		(tags.entrance ? 'entrance' : '') ||
 		tags.tourism ||
 		tags.sport ||
 		'';
@@ -443,6 +456,8 @@ export function poiGlyphKind(icon: string): string {
 	if (
 		[
 			'\ud83d\ude8f',
+			'\ud83d\udeb8',
+			'\ud83d\udea6',
 			'\ud83d\ude89',
 			'\ud83d\ude8a',
 			'\ud83d\ude95',
@@ -598,7 +613,17 @@ export function buildOverpassQueries(bbox: string): {
 				[out:json][timeout:30];
 				(
 					way["building"](${bbox});
+					way["building:part"](${bbox});
 					way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|unclassified|living_street|service|pedestrian|footway|cycleway|path|track)$"](${bbox});
+					way["amenity"="school"](${bbox});
+					way["leisure"~"^(park|garden|playground|pitch)$"](${bbox});
+					way["natural"="water"](${bbox});
+					way["water"](${bbox});
+					way["railway"~"^(rail|light_rail|tram)$"](${bbox});
+					node["place"](${bbox});
+					node["addr:housenumber"](${bbox});
+					way["addr:housenumber"](${bbox});
+					node["highway"="bus_stop"](${bbox});
 				);
 				out body;
 				>;
@@ -609,11 +634,23 @@ export function buildOverpassQueries(bbox: string): {
 				[out:json][timeout:30];
 				(
 					way["landuse"](${bbox});
-					way["leisure"~"^(park|garden|playground|pitch|common)$"](${bbox});
+					way["leisure"](${bbox});
 					way["natural"~"^(wood|scrub|water|wetland|grassland|heath)$"](${bbox});
 					way["water"](${bbox});
 					way["waterway"~"^(river|stream|canal)$"](${bbox});
 					way["railway"~"^(rail|light_rail|tram)$"](${bbox});
+					way["boundary"~"^(administrative|protected_area|national_park)$"](${bbox});
+					node["amenity"](${bbox});
+					way["amenity"](${bbox});
+					node["shop"](${bbox});
+					way["shop"](${bbox});
+					node["tourism"](${bbox});
+					way["tourism"](${bbox});
+					node["leisure"](${bbox});
+					node["natural"~"^(tree|water|spring|peak)$"](${bbox});
+					node["highway"~"^(crossing|traffic_signals)$"](${bbox});
+					node["entrance"](${bbox});
+					node["barrier"](${bbox});
 					nwr["name"](${bbox});
 				);
 				out body;
@@ -661,8 +698,61 @@ export function categoriseElements(
 	const water: WaterFeature[] = [];
 	const roads: Road[] = [];
 	const railways: Railway[] = [];
+	const boundaries: Boundary[] = [];
 	const poiLabels: PoiLabel[] = [];
 	const seenPoi = new Set<string>();
+
+	function isRoadFeature(tags: Record<string, string>): boolean {
+		return !!tags.highway && ROAD_HIGHWAY_TYPES.has(tags.highway);
+	}
+
+	function centroid(coords: LatLon[]): LatLon | null {
+		if (coords.length === 0) return null;
+		return {
+			lat: coords.reduce((s, n) => s + n.lat, 0) / coords.length,
+			lon: coords.reduce((s, n) => s + n.lon, 0) / coords.length
+		};
+	}
+
+	function poiCategory(tags: Record<string, string>): PoiCategory {
+		if (tags.place) return 'place';
+		if (tags['addr:housenumber'] && !tags.amenity && !tags.shop) return 'address';
+		return 'landmark';
+	}
+
+	function isPointOfInterest(tags: Record<string, string>): boolean {
+		return !!(
+			tags.place ||
+			tags['addr:housenumber'] ||
+			tags.amenity ||
+			tags.shop ||
+			tags.tourism ||
+			tags.leisure ||
+			tags.natural ||
+			tags.railway ||
+			tags.entrance ||
+			tags.barrier ||
+			tags.highway === 'bus_stop' ||
+			tags.highway === 'crossing' ||
+			tags.highway === 'traffic_signals'
+		);
+	}
+
+	function addPoi(
+		name: string,
+		lat: number,
+		lon: number,
+		category: PoiCategory,
+		icon: string,
+		allowUnnamed = false
+	) {
+		const label = name.trim();
+		if (!label && !allowUnnamed) return;
+		const key = `${category}|${label}|${lat.toFixed(5)}|${lon.toFixed(5)}|${icon}`;
+		if (seenPoi.has(key)) return;
+		seenPoi.add(key);
+		poiLabels.push({ name: label, lat, lon, category, icon });
+	}
 
 	for (const element of allElements) {
 		const tags = (element.tags || {}) as Record<string, string>;
@@ -670,7 +760,7 @@ export function categoriseElements(
 		// --- Collect all named features as labels ---
 		const name = tags.name || tags['addr:housenumber'];
 		if (name) {
-			if (tags.highway && ROAD_HIGHWAY_TYPES.has(tags.highway)) {
+			if (isRoadFeature(tags)) {
 				// Roads are labelled by the street name renderer — skip
 			} else {
 				let lat: number | undefined;
@@ -689,18 +779,17 @@ export function categoriseElements(
 				}
 
 				if (lat !== undefined && lon !== undefined) {
-					const key = `${name}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
-					if (!seenPoi.has(key)) {
-						seenPoi.add(key);
-						const category: PoiCategory = tags.place
-							? 'place'
-							: tags['addr:housenumber'] && !tags.amenity && !tags.shop
-								? 'address'
-								: 'landmark';
-						const icon = getPoiIcon(tags);
-						poiLabels.push({ name, lat, lon, category, icon });
-					}
+					addPoi(name, lat, lon, poiCategory(tags), getPoiIcon(tags));
 				}
+			}
+		}
+
+		if (element.type === 'node' && isPointOfInterest(tags)) {
+			const lat = element.lat as number | undefined;
+			const lon = element.lon as number | undefined;
+			if (lat !== undefined && lon !== undefined) {
+				const label = tags.name || tags['addr:housenumber'] || '';
+				addPoi(label, lat, lon, poiCategory(tags), getPoiIcon(tags), true);
 			}
 		}
 
@@ -713,10 +802,16 @@ export function categoriseElements(
 
 		if (!wayNodes || wayNodes.length < 2) continue;
 
+		if (tags.boundary) {
+			boundaries.push({ type: tags.boundary, name: tags.name, nodes: wayNodes });
+		}
+
 		if (tags.railway) {
 			railways.push({ type: tags.railway, nodes: wayNodes });
+		} else if (tags['building:part']) {
+			buildings.push({ nodes: wayNodes, part: true });
 		} else if (tags.building) {
-			buildings.push({ nodes: wayNodes });
+			buildings.push({ nodes: wayNodes, part: false });
 		} else if (tags.natural === 'water' || tags.water) {
 			water.push({ isLine: false, nodes: wayNodes });
 		} else if (tags.waterway) {
@@ -733,9 +828,14 @@ export function categoriseElements(
 				nodes: wayNodes
 			});
 		}
+
+		if (!name && isPointOfInterest(tags)) {
+			const c = centroid(wayNodes);
+			if (c) addPoi('', c.lat, c.lon, poiCategory(tags), getPoiIcon(tags), true);
+		}
 	}
 
-	return { buildings, landuse, water, roads, railways, poiLabels };
+	return { buildings, landuse, water, roads, railways, boundaries, poiLabels };
 }
 
 // ── SVG rendering ────────────────────────────────────────────────────────────
@@ -752,6 +852,15 @@ export function generateMapSvg(params: SvgParams): string {
 		svgWidth,
 		svgHeight
 	);
+
+	const compact = metersPerPixel > 1.2;
+	const medium = metersPerPixel > 0.65 && metersPerPixel <= 1.2;
+	const strokeScale = compact ? 0.78 : medium ? 0.92 : 1.12;
+	const labelScale = compact ? 0.72 : medium ? 0.88 : 1;
+	const showAddressLabels = !compact;
+	const showUnnamedPoiMarkers = !compact;
+	const scaleStroke = (width: number) => Math.max(width * strokeScale, width > 0 ? 0.8 : 0);
+	const scaleFont = (size: number) => Math.max(size * labelScale, 8);
 
 	// Landuse polygons
 	let landusePaths = '';
@@ -773,7 +882,9 @@ export function generateMapSvg(params: SvgParams): string {
 	// Buildings
 	let buildingPaths = '';
 	for (const bldg of params.buildings) {
-		buildingPaths += `<path d="${toPolygonPath(bldg.nodes, lngToX, latToY)}" fill="#d9d0c9" stroke="#bbb5b0" stroke-width="0.6"/>`;
+		const fill = bldg.part ? '#cfc5bd' : '#d9d0c9';
+		const stroke = bldg.part ? '#aaa19a' : '#bbb5b0';
+		buildingPaths += `<path d="${toPolygonPath(bldg.nodes, lngToX, latToY)}" fill="${fill}" stroke="${stroke}" stroke-width="${scaleStroke(0.6).toFixed(2)}"/>`;
 	}
 
 	// Sort roads
@@ -789,9 +900,9 @@ export function generateMapSvg(params: SvgParams): string {
 
 		if (style.casing > 0) {
 			const casingColor = way.bridge ? '#000000' : '#666666';
-			roadPaths += `<path d="${pathData}" stroke="${casingColor}" stroke-width="${style.casing}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+			roadPaths += `<path d="${pathData}" stroke="${casingColor}" stroke-width="${scaleStroke(style.casing).toFixed(2)}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 		}
-		let roadAttrs = `stroke="${style.color}" stroke-width="${style.width}" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+		let roadAttrs = `stroke="${style.color}" stroke-width="${scaleStroke(style.width).toFixed(2)}" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
 		if (style.dash) {
 			roadAttrs += ` stroke-dasharray="${style.dash}"`;
 		}
@@ -801,12 +912,19 @@ export function generateMapSvg(params: SvgParams): string {
 		roadPaths += `<path d="${pathData}" ${roadAttrs}/>`;
 	}
 
+	let boundaryPaths = '';
+	for (const boundary of params.boundaries) {
+		const pathData = toLinePath(boundary.nodes, lngToX, latToY);
+		boundaryPaths += `<path d="${pathData}" stroke="#9ca3af" stroke-width="${scaleStroke(1.2).toFixed(2)}" fill="none" stroke-dasharray="6,4" stroke-linecap="round"/>`;
+	}
+
 	// Street name labels
 	const labelledNames = new Set<string>();
 	let labels = '';
 	for (const way of sortedRoads) {
 		if (!way.name || labelledNames.has(way.name)) continue;
 		if (!LABEL_ROADS.includes(way.highway)) continue;
+		if (compact && ['residential', 'unclassified'].includes(way.highway)) continue;
 
 		const midpoint = getPathMidpoint(way.nodes, latToY, lngToX);
 		if (!midpoint) continue;
@@ -818,17 +936,17 @@ export function generateMapSvg(params: SvgParams): string {
 		)
 			continue;
 
-		const fontSize = getLabelFontSize(way.highway);
+		const fontSize = scaleFont(getLabelFontSize(way.highway));
 		labelledNames.add(way.name);
-		labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="4" paint-order="stroke">${escapeXml(way.name)}</text>`;
+		labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize.toFixed(1)}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="${Math.max(2.5, 4 * labelScale).toFixed(1)}" paint-order="stroke">${escapeXml(way.name)}</text>`;
 	}
 
 	// Railway paths
 	let railwayPaths = '';
 	for (const rail of params.railways) {
 		const pathData = toLinePath(rail.nodes, lngToX, latToY);
-		railwayPaths += `<path d="${pathData}" stroke="#999999" stroke-width="4" fill="none" stroke-linecap="butt"/>`;
-		railwayPaths += `<path d="${pathData}" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="butt" stroke-dasharray="8,8"/>`;
+		railwayPaths += `<path d="${pathData}" stroke="#999999" stroke-width="${scaleStroke(4).toFixed(2)}" fill="none" stroke-linecap="butt"/>`;
+		railwayPaths += `<path d="${pathData}" stroke="#ffffff" stroke-width="${scaleStroke(2).toFixed(2)}" fill="none" stroke-linecap="butt" stroke-dasharray="8,8"/>`;
 	}
 
 	// POI/place labels with collision avoidance
@@ -878,36 +996,43 @@ export function generateMapSvg(params: SvgParams): string {
 
 	let poiLabelPaths = '';
 	for (const poi of params.poiLabels) {
+		const hasName = poi.name.trim().length > 0;
+		if (poi.category === 'address' && (!hasName || !showAddressLabels)) continue;
+		if (!hasName && !showUnnamedPoiMarkers) continue;
+
 		const x = lngToX(poi.lon);
 		const y = latToY(poi.lat);
 
 		if (x < 20 || x > svgWidth - 20 || y < 20 || y > svgHeight - 20) continue;
 
 		if (poi.category === 'place') {
-			const fontSize = 28;
+			if (!hasName) continue;
+			const fontSize = scaleFont(28);
 			const estWidth = poi.name.length * fontSize * 0.55;
 			const pos = tryPlace(x, y, estWidth, fontSize * 1.2);
 			if (!pos) continue;
-			poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" font-style="italic" fill="#444444" text-anchor="middle" dominant-baseline="middle" stroke="white" stroke-width="4" paint-order="stroke">${escapeXml(poi.name)}</text>`;
+			poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize.toFixed(1)}" font-style="italic" fill="#444444" text-anchor="middle" dominant-baseline="middle" stroke="white" stroke-width="${Math.max(2.5, 4 * labelScale).toFixed(1)}" paint-order="stroke">${escapeXml(poi.name)}</text>`;
 		} else if (poi.category === 'address') {
-			const fontSize = 12;
+			const fontSize = scaleFont(12);
 			const estWidth = poi.name.length * fontSize * 0.55;
 			const pos = tryPlace(x, y, estWidth, fontSize * 1.2);
 			if (!pos) continue;
-			poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#666666" text-anchor="middle" dominant-baseline="middle" stroke="white" stroke-width="1.5" paint-order="stroke">${escapeXml(poi.name)}</text>`;
+			poiLabelPaths += `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize.toFixed(1)}" fill="#666666" text-anchor="middle" dominant-baseline="middle" stroke="white" stroke-width="1.5" paint-order="stroke">${escapeXml(poi.name)}</text>`;
 		} else {
 			// POI marker: a vector pictograph chosen by category, not an emoji
 			// glyph. Emoji in SVG <text> rely on a colour-emoji font, which the
 			// Typst/resvg PDF renderer does not support (they render as tofu), so
 			// we draw shapes that render identically in the browser, rsvg, and
 			// Typst.
-			const fontSize = 20;
-			const markerSize = 18;
-			const estWidth = markerSize + 4 + poi.name.length * fontSize * 0.55;
+			const fontSize = scaleFont(20);
+			const markerSize = Math.max(12, 18 * labelScale);
+			const estWidth = markerSize + (hasName ? 4 + poi.name.length * fontSize * 0.55 : 0);
 			const pos = tryPlace(x, y, estWidth, fontSize * 1.2, 'start');
 			if (!pos) continue;
 			poiLabelPaths += poiMarkerSvg(pos.x, pos.y, poi.icon, markerSize);
-			poiLabelPaths += `<text x="${(pos.x + markerSize / 2 + 3).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#374151" dominant-baseline="middle" stroke="white" stroke-width="3" paint-order="stroke">${escapeXml(poi.name)}</text>`;
+			if (hasName) {
+				poiLabelPaths += `<text x="${(pos.x + markerSize / 2 + 3).toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize.toFixed(1)}" fill="#374151" dominant-baseline="middle" stroke="white" stroke-width="${Math.max(2, 3 * labelScale).toFixed(1)}" paint-order="stroke">${escapeXml(poi.name)}</text>`;
+			}
 		}
 	}
 
@@ -944,6 +1069,8 @@ export function generateMapSvg(params: SvgParams): string {
 	${buildingPaths}
 	<!-- Roads -->
 	${roadPaths}
+	<!-- Boundaries -->
+	${boundaryPaths}
 	<!-- Railways -->
 	${railwayPaths}
 	<!-- Street names -->
