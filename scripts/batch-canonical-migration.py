@@ -94,7 +94,6 @@ MAPPING = {
     "platform-data-science-metrics-first-plan": "docs/platform/operations/data-science-methodology.md",
     "tooling-python-venv-consolidation-plan": "docs/platform/operations/python-venv.md",
     "pdf-go-chart-migration-plan": "docs/platform/operations/pdf-reporting.md",
-    "pdf-latex-precompiled-format-plan": "docs/platform/operations/pdf-reporting.md",
     "agent-claude-preparedness-review-plan": "docs/platform/operations/agent-preparedness.md",
     "platform-simplification-and-deprecation-plan": "docs/platform/operations/simplification-deprecation.md",
 }
