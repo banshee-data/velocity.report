@@ -1134,7 +1134,7 @@
 			     settings page entirely, keeps the footer Save button on-screen).
 			     From sm: up it reverts to an in-flow 400px side panel. -->
 			<aside
-				class="border-surface-content/10 bg-surface-100 fixed inset-0 z-50 flex w-full flex-none flex-col overflow-y-auto border-l sm:static sm:inset-auto sm:z-auto sm:w-100"
+				class="border-surface-content/10 bg-surface-100 fixed inset-0 z-50 flex w-full flex-none flex-col overflow-y-auto border-l sm:static sm:inset-auto sm:z-auto sm:w-[400px]"
 				aria-label="Serial port editor"
 			>
 				<header class="border-surface-content/10 flex items-center justify-between border-b p-4">
