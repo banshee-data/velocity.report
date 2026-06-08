@@ -1559,11 +1559,12 @@ lint-web:
 .PHONY: pdf-typst-prototype
 
 pdf-typst-prototype:
-	@command -v typst >/dev/null 2>&1 || { \
-		echo "Error: typst binary not found on PATH."; \
+	@if [ -z "$${VELOCITY_TYPST_PATH:-}" ] && ! command -v typst >/dev/null 2>&1; then \
+		echo "Error: typst binary not found."; \
 		echo "Install: https://github.com/typst/typst/releases (any 0.13+ release)"; \
+		echo "Or set VELOCITY_TYPST_PATH=/absolute/path/to/typst"; \
 		exit 1; \
-	}
+	fi
 	@mkdir -p build/report
 	go run ./internal/report/typst/cmd/typst-prototype \
 		-data internal/report/typst/testdata/sample.json \
