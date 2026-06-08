@@ -16,7 +16,10 @@
 		mdiCrosshairsGps,
 		mdiDelete,
 		mdiDownload,
-		mdiMagnify
+		mdiEye,
+		mdiEyeOff,
+		mdiMagnify,
+		mdiMap
 	} from '@mdi/js';
 	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle, TileLayer } from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
@@ -81,10 +84,11 @@
 	// Confirmation modal state for replacing an uploaded SVG
 	let showReplaceMapModal = false;
 
-	type ExternalMapRequest = 'address-search' | 'report-map-svg';
+	type ExternalMapRequest = 'map-tiles' | 'address-search' | 'report-map-svg';
 	let externalMapRequestConsent = false;
 	let showExternalMapRequestModal = false;
 	let pendingExternalMapRequest: ExternalMapRequest | null = null;
+	let showReportMapPreview = false;
 
 	/** Request a mode switch. If existing map data would be lost, show confirmation. */
 	function requestModeSwitch(target: 'interactive' | 'upload') {
@@ -142,6 +146,7 @@
 
 	async function runExternalMapRequest(request: ExternalMapRequest) {
 		addOsmTileLayer();
+		if (request === 'map-tiles') return;
 		if (request === 'address-search') {
 			await searchAddress();
 		} else {
@@ -169,6 +174,10 @@
 
 	function requestReportMapSvg() {
 		requestExternalMapRequest('report-map-svg');
+	}
+
+	function requestMapTiles() {
+		requestExternalMapRequest('map-tiles');
 	}
 
 	// Custom SVG upload — restore mode when a custom SVG is stored without geographic bounds.
@@ -267,6 +276,7 @@
 			useCustomSvg = true;
 			error = '';
 			mapJustDownloaded = true;
+			showReportMapPreview = true;
 			// Clear geographic bounds — custom SVGs have no bbox.
 			// This ensures the page correctly restores custom SVG mode on reload.
 			bboxNELat = null;
@@ -756,6 +766,7 @@
 
 			mapSvgData = svgToBase64(svgText);
 			mapJustDownloaded = true;
+			showReportMapPreview = true;
 			activateIncludeMap();
 		} catch (e) {
 			if (e instanceof DOMException && e.name === 'AbortError') {
@@ -966,15 +977,39 @@
 				</div>
 			</div>
 
-			<div
-				bind:this={mapContainer}
-				class="h-96 w-full rounded border border-gray-300"
-				style="min-height: 400px;"
-			></div>
+			<div class="relative">
+				<div
+					bind:this={mapContainer}
+					class="h-96 w-full rounded border border-gray-300"
+					style="min-height: 400px;"
+				></div>
+
+				{#if !externalMapRequestConsent}
+					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+						<div
+							class="bg-surface-900/90 text-surface-50 pointer-events-auto max-w-md rounded border border-white/20 p-4 text-sm shadow-lg"
+						>
+							<div class="mb-2 flex items-center gap-2 font-semibold">
+								<svg class="h-5 w-5" viewBox="0 0 24 24">
+									<path fill="currentColor" d={mdiMap} />
+								</svg>
+								Map Tiles Not Loaded
+							</div>
+							<p class="mb-3 text-white/80">
+								Load OpenStreetMap tiles for this editor session to see the same base-map context
+								used for positioning. This sends site coordinates to external tile servers.
+							</p>
+							<Button size="sm" variant="fill" color="primary" on:click={requestMapTiles}>
+								Load Map Tiles
+							</Button>
+						</div>
+					</div>
+				{/if}
+			</div>
 
 			{#if !externalMapRequestConsent}
 				<p class="text-surface-600-300-token text-xs">
-					Base map tiles load only after external map requests are allowed for this editor session.
+					Base map tiles are optional and load only after explicit approval for this editor session.
 				</p>
 			{/if}
 
@@ -1078,18 +1113,44 @@
 
 	{#if !useCustomSvg && mapSvgData}
 		<div class="space-y-3">
-			<h4 class="font-medium">Report Map Preview</h4>
-			<div class="overflow-hidden rounded border border-gray-300 bg-white p-2">
-				<img
-					src="data:image/svg+xml;base64,{mapSvgData}"
-					alt="Generated report map SVG"
-					class="h-auto max-h-[500px] w-full object-contain"
-					draggable="false"
-				/>
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<div>
+					<h4 class="font-medium">
+						{mapJustDownloaded
+							? 'Generated Report Map Preview'
+							: 'Existing Saved Report Map (Database)'}
+					</h4>
+					<p class="text-surface-600-300-token text-xs">
+						{#if mapJustDownloaded}
+							This SVG is in the editor state. Save changes to write it to
+							<code>site.map_svg_data</code>.
+						{:else}
+							This is the current <code>site.map_svg_data</code> value loaded from the database. PDF reports
+							embed this saved SVG until you generate and save a replacement.
+						{/if}
+					</p>
+				</div>
+				<Button
+					size="sm"
+					variant="outline"
+					icon={showReportMapPreview ? mdiEyeOff : mdiEye}
+					on:click={() => (showReportMapPreview = !showReportMapPreview)}
+				>
+					{showReportMapPreview ? 'Hide Preview' : 'Show Preview'}
+				</Button>
 			</div>
-			<p class="text-surface-600-300-token text-xs">
-				This saved SVG is embedded unchanged in generated PDF reports.
-			</p>
+			{#if showReportMapPreview}
+				<div class="overflow-hidden rounded border border-gray-300 bg-white p-2">
+					<img
+						src="data:image/svg+xml;base64,{mapSvgData}"
+						alt={mapJustDownloaded
+							? 'Generated report map SVG'
+							: 'Existing saved report map SVG from database'}
+						class="h-auto max-h-[500px] w-full object-contain"
+						draggable="false"
+					/>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -1139,40 +1200,48 @@
 	{/if}
 </div>
 
-<Dialog
-	bind:open={showExternalMapRequestModal}
-	on:close={cancelExternalMapRequest}
-	aria-modal="true"
-	role="alertdialog"
-	classes={{ dialog: 'max-w-md' }}
->
-	<div slot="title" class="flex items-center justify-between">
-		<span>Allow External Map Request?</span>
-		<button
-			class="text-surface-500 hover:text-surface-700 -mt-1 -mr-2 p-1"
-			on:click={cancelExternalMapRequest}
-			aria-label="Close"
+{#if showExternalMapRequestModal}
+	<div
+		class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4"
+		role="presentation"
+	>
+		<div
+			class="bg-surface-50 text-surface-950 dark:bg-surface-900 dark:text-surface-50 w-full max-w-md rounded border border-black/10 p-6 shadow-2xl dark:border-white/10"
+			role="alertdialog"
+			aria-modal="true"
+			aria-labelledby="external-map-request-title"
 		>
-			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
-		</button>
-	</div>
+			<div class="mb-4 flex items-center justify-between gap-3">
+				<h3 id="external-map-request-title" class="text-lg font-semibold">
+					Allow External Map Request?
+				</h3>
+				<button
+					class="text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 -mt-1 -mr-2 p-1"
+					on:click={cancelExternalMapRequest}
+					aria-label="Close"
+				>
+					<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+				</button>
+			</div>
 
-	<div class="space-y-3 px-6 pb-2">
-		<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
-		<p>Site coordinates or searched address text may be sent externally.</p>
-		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
-		<p class="text-surface-content/60 text-sm">
-			Report generation remains offline and uses only the saved SVG map data.
-		</p>
-	</div>
+			<div class="space-y-3 text-sm">
+				<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
+				<p>Site coordinates or searched address text may be sent externally.</p>
+				<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+				<p class="text-surface-600-300-token">
+					Report generation remains offline and uses only the saved SVG map data.
+				</p>
+			</div>
 
-	<div slot="actions">
-		<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
-		<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
-			Allow This Session
-		</Button>
+			<div class="mt-6 flex justify-end gap-2">
+				<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
+				<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
+					Allow This Session
+				</Button>
+			</div>
+		</div>
 	</div>
-</Dialog>
+{/if}
 
 <!-- Confirmation modal: warn before discarding existing map data -->
 <Dialog

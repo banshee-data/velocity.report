@@ -121,6 +121,32 @@ describe('MapEditorInteractive', () => {
 		});
 	});
 
+	it('should require explicit consent before loading OSM map tiles', async () => {
+		render(MapEditorInteractive, {
+			props: {
+				latitude: 51.5074,
+				longitude: -0.1278,
+				radarAngle: 45,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
+				mapSvgData: null
+			}
+		});
+
+		await fireEvent.click(screen.getByText(/Load Map Tiles/i));
+
+		expect(screen.getByText(/Allow External Map Request/i)).toBeInTheDocument();
+		expect(screen.getByText(/Site coordinates or searched address text/i)).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByText(/Allow This Session/i));
+
+		expect(screen.getByText(/Map tiles loaded/i)).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+	});
+
 	it('should require explicit consent before address search', async () => {
 		(global.fetch as jest.Mock).mockResolvedValue({
 			ok: true,
@@ -155,7 +181,7 @@ describe('MapEditorInteractive', () => {
 		});
 	});
 
-	it('should display saved generated SVG as the report map preview', () => {
+	it('should label saved SVG as database state and hide the preview by default', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -169,7 +195,14 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		expect(screen.getByText(/Report Map Preview/i)).toBeInTheDocument();
+		expect(screen.getByText(/Existing Saved Report Map \(Database\)/i)).toBeInTheDocument();
+		expect(screen.getByText(/site.map_svg_data/i)).toBeInTheDocument();
+		const preview = document.querySelector('[data-report-map-preview]') as HTMLElement;
+		expect(preview).not.toBeVisible();
+
+		await fireEvent.click(screen.getByText(/Show Preview/i));
+
+		expect(preview).toBeVisible();
 	});
 
 	it('should display help text about dragging FOV marker', () => {

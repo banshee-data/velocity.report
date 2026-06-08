@@ -17,7 +17,7 @@ interface RenderResult {
 	unmount: () => void;
 }
 
-type ExternalAction = 'search' | 'generate-map';
+type ExternalAction = 'load-tiles' | 'search' | 'generate-map';
 
 function matchesText(element: Element, text: string | RegExp): boolean {
 	const content = element.textContent || '';
@@ -53,6 +53,14 @@ function appendExternalRequestModal(pendingAction: ExternalAction) {
 
 async function performExternalAction(action: ExternalAction, element: HTMLElement) {
 	const container = element.closest('div') || document.body;
+	if (action === 'load-tiles') {
+		const mapStatus = document.querySelector('[data-map-status]');
+		if (mapStatus) {
+			mapStatus.textContent = 'Map tiles loaded';
+		}
+		return;
+	}
+
 	if (action === 'search') {
 		if (typeof global.fetch === 'function') {
 			await global.fetch('https://nominatim.openstreetmap.org/search?format=json&q=test&limit=5');
@@ -141,12 +149,15 @@ export function render(
 				</div>
 				<h3>Radar Location</h3>
 				<h3>Map Bounding Box</h3>
+				<h3>Interactive Map</h3>
+				<div data-map-status>Map Tiles Not Loaded</div>
+				<button data-action="load-tiles">Load Map Tiles</button>
 				<p>Drag the red dot at the triangle tip to adjust radar angle.</p>
 				<button>Set Default</button>
 				<button data-action="generate-map" data-has-bbox="${hasBbox}" ${hasBbox ? '' : 'disabled'}>Generate Report Map SVG</button>
 				${
 					options.props.mapSvgData
-						? '<h4>Report Map Preview</h4><img alt="Generated report map SVG" src="data:image/svg+xml;base64,test" />'
+						? '<h4>Existing Saved Report Map (Database)</h4><p>This is the current site.map_svg_data value loaded from the database.</p><button data-action="toggle-report-map-preview">Show Preview</button><div data-report-map-preview hidden><img alt="Existing saved report map SVG from database" src="data:image/svg+xml;base64,test" /></div>'
 						: ''
 				}
 				${invalidBbox ? '<div>Invalid bounding box</div>' : ''}
@@ -227,7 +238,15 @@ export const fireEvent = {
 			}
 			return true;
 		}
-		if (action === 'search' || action === 'generate-map') {
+		if (action === 'toggle-report-map-preview') {
+			const preview = document.querySelector('[data-report-map-preview]') as HTMLElement | null;
+			if (preview) {
+				preview.hidden = !preview.hidden;
+				element.textContent = preview.hidden ? 'Show Preview' : 'Hide Preview';
+			}
+			return true;
+		}
+		if (action === 'load-tiles' || action === 'search' || action === 'generate-map') {
 			if (element.hasAttribute('disabled')) return true;
 			if (document.body.dataset.externalMapConsent !== 'true') {
 				appendExternalRequestModal(action);
