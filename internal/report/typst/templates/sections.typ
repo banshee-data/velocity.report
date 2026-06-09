@@ -552,7 +552,7 @@
   bottom + center,
   scope: "parent",
   float: true,
-  clearance: 12pt,
+  clearance: 6pt,
   figure(image(path, width: 100%), caption: caption, supplement: [Figure]),
 )
 
