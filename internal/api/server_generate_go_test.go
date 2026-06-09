@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +20,7 @@ import (
 // Typst binary so no host-level PDF tooling is required.
 func TestGenerateReport_UsesTypst(t *testing.T) {
 	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
+	t.Setenv(reportOutputDirEnv, t.TempDir())
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
@@ -66,6 +68,7 @@ func TestGenerateReport_UsesTypst(t *testing.T) {
 	if _, ok := result["zip_path"]; !ok {
 		t.Error("expected zip_path in response")
 	}
+	assertGeneratedPDFMetadata(t, result)
 }
 
 // TestGenerateReport_InvalidTimezoneReturns400 verifies that validation
@@ -347,6 +350,7 @@ func TestBuildReportConfig_FieldMapping(t *testing.T) {
 // through the native Typst pipeline without Python PDF hooks.
 func TestGenerateReport_UsesNativePipeline(t *testing.T) {
 	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
+	t.Setenv(reportOutputDirEnv, t.TempDir())
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
@@ -380,6 +384,12 @@ func TestGenerateReport_UsesNativePipeline(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected report generation success, got status %d: %s", w.Code, respBody)
 	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(respBody), &result); err != nil {
+		t.Fatalf("failed to unmarshal success response: %v", err)
+	}
+	assertGeneratedPDFMetadata(t, result)
 }
 
 // containsPythonMarker checks if the response body contains markers that
@@ -444,15 +454,71 @@ func TestRelativeReportPaths_RejectEscape(t *testing.T) {
 func createMockTypstBinary(t *testing.T) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "typst")
+	dir := t.TempDir()
+	pdfPath := filepath.Join(dir, "mock.pdf")
+	if err := os.WriteFile(pdfPath, minimalMockPDF(), 0o644); err != nil {
+		t.Fatalf("write mock pdf: %v", err)
+	}
+
+	path := filepath.Join(dir, "typst")
 	body := "#!/bin/sh\n" +
 		"cat > /dev/null\n" +
-		"printf '%%PDF-1.4\\n%%mock typst output\\n'\n"
-	if err := os.WriteFile(path, []byte(body), 0755); err != nil {
+		"cat " + shellSingleQuote(pdfPath) + "\n"
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 		t.Fatalf("write mock typst: %v", err)
 	}
 
 	return path
+}
+
+func minimalMockPDF() []byte {
+	objects := []string{
+		"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+		"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+	}
+
+	var pdf bytes.Buffer
+	pdf.WriteString("%PDF-1.4\n")
+	offsets := make([]int, len(objects)+1)
+	for index, obj := range objects {
+		offsets[index+1] = pdf.Len()
+		pdf.WriteString(obj)
+	}
+	xrefStart := pdf.Len()
+	fmt.Fprintf(&pdf, "xref\n0 %d\n", len(objects)+1)
+	fmt.Fprintf(&pdf, "%010d %05d f \n", 0, 65535)
+	for index := 1; index <= len(objects); index++ {
+		fmt.Fprintf(&pdf, "%010d %05d n \n", offsets[index], 0)
+	}
+	fmt.Fprintf(&pdf, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(objects)+1, xrefStart)
+	return pdf.Bytes()
+}
+
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+func assertGeneratedPDFMetadata(t *testing.T, result map[string]interface{}) {
+	t.Helper()
+
+	pdfPath, ok := result["pdf_path"].(string)
+	if !ok || pdfPath == "" {
+		t.Fatalf("expected string pdf_path in response, got %v", result["pdf_path"])
+	}
+	pdf, err := os.ReadFile(filepath.Join(os.Getenv(reportOutputDirEnv), pdfPath))
+	if err != nil {
+		t.Fatalf("read generated pdf: %v", err)
+	}
+	for _, want := range []string{
+		"%PDF-1.4",
+		"/Creator (velocity.report",
+		"/Prev ",
+		"startxref",
+	} {
+		if !bytes.Contains(pdf, []byte(want)) {
+			t.Fatalf("generated pdf missing %q", want)
+		}
+	}
 }
 
 // seedChartTestData is defined in server_charts_test.go and shared here.
