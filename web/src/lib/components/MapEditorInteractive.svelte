@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { svgToBase64 } from '$lib/map-svg';
+	import { svgToBase64 } from '$lib/svg';
 	import 'leaflet/dist/leaflet.css';
 	import {
 		mdiAlert,
