@@ -54,6 +54,8 @@
 	let L: typeof import('leaflet') | null = null;
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
+	let osmTilesLoaded = false;
+	let reportMapOverlaysVisible = false;
 
 	const fovWidthDegrees = 20;
 	const fovDistanceMeters = 100;
@@ -75,6 +77,8 @@
 	// report bounds have changed since generation, which would make the preview
 	// (and the SVG that gets saved) no longer match the orange bbox rectangle.
 	let generatedBbox: { swLat: number; swLng: number; neLat: number; neLng: number } | null = null;
+
+	$: reportMapOverlaysVisible = externalMapRequestConsent && osmTilesLoaded;
 
 	/** Request a mode switch. If existing map data would be lost, show confirmation. */
 	function requestModeSwitch(target: 'interactive' | 'upload') {
@@ -338,7 +342,8 @@
 		// Add radar marker
 		radarMarker = L.marker([centerLat, centerLng], {
 			icon: radarIcon,
-			draggable: true
+			draggable: true,
+			opacity: reportMapOverlaysVisible ? 1 : 0
 		}).addTo(map);
 
 		// Initialize coordinates if not set
@@ -366,8 +371,7 @@
 			updateBBoxAroundRadar();
 		}
 
-		// Initialize FOV overlay only after tile consent.
-		updateFOVTriangle(externalMapRequestConsent);
+		syncReportMapOverlays(reportMapOverlaysVisible);
 	}
 
 	function addOsmTileLayer() {
@@ -376,13 +380,19 @@
 		// caller invokes this — the gate lives here so no path can leak a fetch.
 		if (!L || !map || osmTileLayer || !externalMapRequestConsent) return;
 
-		osmTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		const layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '© OpenStreetMap contributors',
 			maxZoom: 19
-		}).addTo(map);
+		});
+		layer.on('load', () => {
+			osmTilesLoaded = true;
+			syncReportMapOverlays(true);
+		});
+		osmTileLayer = layer.addTo(map);
 	}
 
 	$: if (map && externalMapRequestConsent) addOsmTileLayer();
+	$: if (map) syncReportMapOverlays(reportMapOverlaysVisible);
 
 	function calculateFOVGeometry(lat: number, lng: number, angle: number) {
 		const metersPerDegreeLat = 111320;
@@ -511,15 +521,27 @@
 		});
 	}
 
-	function addBoundingBox(bounds: LatLngBounds) {
-		if (!L || !map) return;
+	function updateBoundingBoxCoordinates(bounds: LatLngBounds) {
+		const sw = bounds.getSouthWest();
+		const ne = bounds.getNorthEast();
+		bboxSWLat = sw.lat;
+		bboxSWLng = sw.lng;
+		bboxNELat = ne.lat;
+		bboxNELng = ne.lng;
+	}
 
-		// Remove existing rectangle
+	function removeBoundingBoxRect() {
+		if (!L || !map) return;
 		if (bboxRect) {
 			map.removeLayer(bboxRect);
+			bboxRect = null;
 		}
+	}
 
-		// Create draggable rectangle
+	function renderBoundingBoxRect(bounds: LatLngBounds) {
+		if (!L || !map) return;
+
+		removeBoundingBoxRect();
 		bboxRect = L.rectangle(bounds, {
 			color: '#f59e0b',
 			weight: 2,
@@ -532,14 +554,34 @@
 			// Enable manual editing by allowing corner dragging
 			// This is a simplified version - full edit mode would need a library like Leaflet.draw
 		});
+	}
 
-		// Update coordinates from bounds
-		const sw = bounds.getSouthWest();
-		const ne = bounds.getNorthEast();
-		bboxSWLat = sw.lat;
-		bboxSWLng = sw.lng;
-		bboxNELat = ne.lat;
-		bboxNELng = ne.lng;
+	function syncBoundingBoxVisibility(showBounds: boolean) {
+		if (!L || !map) return;
+		if (!showBounds) {
+			removeBoundingBoxRect();
+			return;
+		}
+
+		if (bboxNELat === null || bboxNELng === null || bboxSWLat === null || bboxSWLng === null) {
+			return;
+		}
+		renderBoundingBoxRect(L.latLngBounds([bboxSWLat, bboxSWLng], [bboxNELat, bboxNELng]));
+	}
+
+	function syncReportMapOverlays(showOverlays: boolean) {
+		if (radarMarker) radarMarker.setOpacity(showOverlays ? 1 : 0);
+		syncBoundingBoxVisibility(showOverlays);
+		updateFOVTriangle(showOverlays);
+	}
+
+	function addBoundingBox(bounds: LatLngBounds) {
+		updateBoundingBoxCoordinates(bounds);
+		if (reportMapOverlaysVisible) {
+			renderBoundingBoxRect(bounds);
+		} else {
+			removeBoundingBoxRect();
+		}
 	}
 
 	function updateBBoxAroundRadar(maintainSize: boolean = false) {
@@ -579,7 +621,7 @@
 
 	// Update FOV triangle when radar position or tile consent changes (not during drag).
 	$: if (map && latitude !== null && longitude !== null && !isDraggingFovTip) {
-		updateFOVTriangle(externalMapRequestConsent);
+		updateFOVTriangle(reportMapOverlaysVisible);
 	}
 
 	// A generated preview is only valid for the bounds it was generated with.
@@ -948,7 +990,7 @@
 					style="min-height: 400px;"
 				></div>
 
-				{#if !externalMapRequestConsent && !showExternalMapRequestModal}
+				{#if !reportMapOverlaysVisible && !showExternalMapRequestModal}
 					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
 						<div
 							class="bg-surface-100 text-surface-content border-surface-content/20 pointer-events-auto max-w-md rounded border p-4 text-sm shadow-lg"
@@ -957,15 +999,23 @@
 								<svg class="h-5 w-5" viewBox="0 0 24 24">
 									<path fill="currentColor" d={mdiMap} />
 								</svg>
-								Map Tiles Not Loaded
+								{externalMapRequestConsent ? 'Loading Map Tiles' : 'Map Tiles Not Loaded'}
 							</div>
 							<p class="text-surface-content/70 mb-3">
-								Load OpenStreetMap tiles for this editor session to position the radar and build the
-								report map snapshot. This sends the map area to external tile servers.
+								{#if externalMapRequestConsent}
+									Waiting for OpenStreetMap tiles before showing the report area and radar controls.
+								{:else}
+									Load OpenStreetMap tiles for this editor session to position the radar and build
+									the report map snapshot. This sends the map area to external tile servers.
+								{/if}
 							</p>
-							<Button size="sm" variant="fill" color="primary" on:click={requestMapTiles}>
-								Load Map Tiles
-							</Button>
+							{#if externalMapRequestConsent}
+								<ProgressCircle size={18} width={2} indeterminate />
+							{:else}
+								<Button size="sm" variant="fill" color="primary" on:click={requestMapTiles}>
+									Load Map Tiles
+								</Button>
+							{/if}
 						</div>
 					</div>
 				{/if}
@@ -977,10 +1027,17 @@
 				</p>
 			{/if}
 
-			<p class="text-surface-600-300-token text-xs">
-				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
-				radar angle. The orange rectangle shows the map area for reports.
-			</p>
+			{#if reportMapOverlaysVisible}
+				<p class="text-surface-600-300-token text-xs">
+					Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
+					radar angle. The orange rectangle shows the map area for reports.
+				</p>
+			{:else}
+				<p class="text-surface-600-300-token text-xs">
+					Load map tiles to show the report area and radar controls. Use Upload for a no-network map
+					workflow.
+				</p>
+			{/if}
 		</div>
 
 		<!-- Coordinate Display (Read-only) -->
