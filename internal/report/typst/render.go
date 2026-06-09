@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	gotypst "github.com/Dadido3/go-typst"
@@ -97,6 +98,13 @@ func Render(out io.Writer, opts Options) error {
 	}
 	for _, asset := range opts.Assets {
 		dest := filepath.Join(workDir, asset.Name)
+		// Enforce the documented relative-path contract: an asset name must stay
+		// within workDir. filepath.Join cleans the path, so an absolute name or
+		// `..` traversal would resolve outside workDir — reject it so misuse
+		// fails fast rather than writing to an arbitrary location.
+		if dest != workDir && !strings.HasPrefix(dest, workDir+string(os.PathSeparator)) {
+			return fmt.Errorf("asset name %q escapes work dir", asset.Name)
+		}
 		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(dest), err)
 		}
