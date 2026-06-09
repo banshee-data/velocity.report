@@ -1,7 +1,7 @@
 # Typst prototype vs reference PDF — remaining differences
 
 Reference: <https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf>
-Current output: `build/report/typst-prototype.pdf`
+Current output: generated via `report.GenerateTypst` (`POST /api/generate_report` or `velocity report pdf`).
 
 ## Page 1 (two-column body)
 

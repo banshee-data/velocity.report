@@ -10,21 +10,20 @@ A self-contained Typst-based prototype that produces a 3-page PDF report
 from a bundled sample fixture, exercising every structural element the
 migration will need:
 
-| Component                         | Path                                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Page setup, fonts, header, footer | [internal/report/typst/templates/preamble.typ](../../internal/report/typst/templates/preamble.typ)           |
-| Section builders                  | [internal/report/typst/templates/sections.typ](../../internal/report/typst/templates/sections.typ)           |
-| Entry point + columns layout      | [internal/report/typst/templates/report.typ](../../internal/report/typst/templates/report.typ)               |
-| Sample fixture                    | [internal/report/typst/testdata/sample.json](../../internal/report/typst/testdata/sample.json)               |
-| Go renderer (go-typst wrapper)    | [internal/report/typst/render.go](../../internal/report/typst/render.go)                                     |
-| End-to-end smoke test             | [internal/report/typst/render_test.go](../../internal/report/typst/render_test.go)                           |
-| Phase 0 driver CLI                | [internal/report/typst/cmd/typst-prototype/main.go](../../internal/report/typst/cmd/typst-prototype/main.go) |
-| Makefile target                   | `make pdf-typst-prototype`                                                                                   |
+| Component                         | Path                                                                                                                                                                                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Page setup, fonts, header, footer | [internal/report/typst/templates/preamble.typ](../../internal/report/typst/templates/preamble.typ)                                                                                                                                               |
+| Section builders                  | [internal/report/typst/templates/sections.typ](../../internal/report/typst/templates/sections.typ)                                                                                                                                               |
+| Entry point + columns layout      | [internal/report/typst/templates/report.typ](../../internal/report/typst/templates/report.typ)                                                                                                                                                   |
+| Sample fixture                    | [internal/report/typst/testdata/sample.json](../../internal/report/typst/testdata/sample.json)                                                                                                                                                   |
+| Go renderer (go-typst wrapper)    | [internal/report/typst/render.go](../../internal/report/typst/render.go)                                                                                                                                                                         |
+| End-to-end smoke test             | [internal/report/typst/render_test.go](../../internal/report/typst/render_test.go)                                                                                                                                                               |
+| Phase 0 driver CLI (removed)      | The `typst-prototype` CLI and the `make pdf-typst-prototype` target were removed after the pipeline graduated; rendering now goes through `report.GenerateTypst` ([internal/report/typst_generate.go](../../internal/report/typst_generate.go)). |
 
 Render path:
 
 ```
-sample.json ──► typst-prototype (Go) ──► go-typst.CLI.Compile
+sample.json ──► report.GenerateTypst (Go) ──► go-typst.CLI.Compile
                                           │
                                           ▼
                                        typst (CLI, 0.13.1)
@@ -43,12 +42,8 @@ relative imports and `#image()` calls under `--root`.
 
 ## Reproduction
 
-```bash
-make pdf-typst-prototype
-# Output: build/report/typst-prototype.pdf
-```
-
-Or via the test:
+The Phase 0 `make pdf-typst-prototype` driver has been removed; render the
+sample fixture through the renderer's end-to-end test instead:
 
 ```bash
 go test ./internal/report/typst/...
