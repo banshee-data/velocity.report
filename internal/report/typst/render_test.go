@@ -285,11 +285,13 @@ func TestRenderResolveAndMetadataErrors(t *testing.T) {
 	if typstbin.Embedded() {
 		t.Skip("embedded typst build cannot exercise the missing-binary path")
 	}
+	origPath := os.Getenv("PATH")
 	t.Setenv(typstbin.EnvNoDownload, "1")
 	t.Setenv("PATH", t.TempDir())
 	if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil || !bytes.Contains([]byte(err.Error()), []byte("resolve typst binary")) {
 		t.Fatalf("Render resolve error = %v, want resolve typst binary", err)
 	}
+	t.Setenv("PATH", origPath)
 
 	withMockTypstResolver(t, testMetadataFixturePDF(), 0)
 	if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err != nil {
