@@ -97,6 +97,10 @@ handling are simpler and more explicit.
 - **Go report pipeline**: is now plainly the production PDF path. The old Python PDF generator was
   removed from current docs, CI, settings, scripts, and operational expectations instead of being
   treated as if it might still be coming back.
+- **Typst report engine**: the PDF pipeline moved off LaTeX and `xelatex` onto Typst as the default
+  typesetting engine, with the Typst binary downloaded, cached, and embedded directly in the
+  `velocity` binary so report generation no longer needs a system TeX install. The old LaTeX
+  template tree and the minimal-TeX-Live build and install scripts were removed.
 - **Report output**: improved across the board with DST-safe date ranges, sparse-gap handling,
   unit and source validation, key-metrics tables, p98/max reference lines, clearer legends and
   captions, US Letter defaults, Atkinson Hyperlegible Mono table typography, flow-table handling,
@@ -132,8 +136,9 @@ handling are simpler and more explicit.
   missing-build stub pages.
 - **Security hardening**: continued across dependency refreshes, GitHub Action SHA pinning, Vite
   path-traversal fixes, loopback-by-default `--listen`/`--lidar-listen` addresses, same-origin SVG
-  loading in `InlineSvgChart`, an enumerated wildcard-free device-management sudoers surface, Swift
-  CodeQL, release-asset verification, and targeted review of Trivy, Axios, and OpenSSF exposure.
+  loading in `InlineSvgChart`, offline-by-default report site maps with opt-in OpenStreetMap tiles,
+  an enumerated wildcard-free device-management sudoers surface, Swift CodeQL, release-asset
+  verification, and targeted review of Trivy, Axios, and OpenSSF exposure.
 - **Build correctness**: improved with QEMU/image fixes, tag-trigger repair, corrected
   `pcap-analyse` field mapping plus focused coverage, removal of redundant workflow `chmod` steps,
   and native ARM handling in the proto toolchain.
@@ -142,8 +147,9 @@ handling are simpler and more explicit.
 
 - **Setup and release guidance**: now matches the Tailscale-first HTTPS path, browser-native trust
   exceptions, current packaging model, and current release metadata flow.
-- **Small but consequential repairs**: include homepage layout fixes, cleaner docs-site tables,
-  corrected pinout diagrams, and better image-networking behaviour.
+- **Small but consequential repairs**: include homepage layout fixes, a live point-cloud hero that
+  now loads its bundled `three.js` core, a race fix in the radar serial event-fanout, cleaner
+  docs-site tables, corrected pinout diagrams, and better image-networking behaviour.
 
 ## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 

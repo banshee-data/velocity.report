@@ -47,6 +47,17 @@ DOCKER_GO_MOD_CACHE_DIR=""
 DOCKER_GO_BUILD_CACHE_DIR=""
 DOCKER_GO_TMP_DIR=""
 
+remove_docker_temp_cache_dir() {
+    local path="${1:-}"
+
+    if [[ -z "$path" || ! -e "$path" ]]; then
+        return
+    fi
+
+    chmod -R u+w "$path"
+    rm -rf "$path"
+}
+
 cleanup_docker_build_artifacts() {
     local phase="${1:-cleanup}"
 
@@ -79,17 +90,17 @@ cleanup_docker_build_artifacts() {
     # themselves when they want it.
 
     if [[ -n "$DOCKER_GO_MOD_CACHE_DIR" ]]; then
-        rm -rf "$DOCKER_GO_MOD_CACHE_DIR"
+        remove_docker_temp_cache_dir "$DOCKER_GO_MOD_CACHE_DIR"
         DOCKER_GO_MOD_CACHE_DIR=""
     fi
 
     if [[ -n "$DOCKER_GO_BUILD_CACHE_DIR" ]]; then
-        rm -rf "$DOCKER_GO_BUILD_CACHE_DIR"
+        remove_docker_temp_cache_dir "$DOCKER_GO_BUILD_CACHE_DIR"
         DOCKER_GO_BUILD_CACHE_DIR=""
     fi
 
     if [[ -n "$DOCKER_GO_TMP_DIR" ]]; then
-        rm -rf "$DOCKER_GO_TMP_DIR"
+        remove_docker_temp_cache_dir "$DOCKER_GO_TMP_DIR"
         DOCKER_GO_TMP_DIR=""
     fi
 }
