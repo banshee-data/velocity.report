@@ -1,7 +1,6 @@
 package typstbin
 
 import (
-	"archive/zip"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,9 +48,9 @@ func typstTargetFor(goos, goarch string) (target, archive string, err error) {
 		return "aarch64-apple-darwin", "tar.xz", nil
 	case "darwin/amd64":
 		return "x86_64-apple-darwin", "tar.xz", nil
-	case "windows/amd64":
-		return "x86_64-pc-windows-msvc", "zip", nil
 	default:
+		// TODO(windows): re-enable Windows downloads once install paths
+		// consistently write typst.exe for PATH/PATHEXT discovery.
 		return "", "", fmt.Errorf("no typst release for %s/%s", goos, goarch)
 	}
 }
@@ -83,7 +82,7 @@ func cachedDownload() (string, error) {
 	url := fmt.Sprintf("https://github.com/typst/typst/releases/download/v%s/typst-%s.%s", Version, target, archive)
 	fmt.Fprintf(os.Stderr, "velocity-report: typst not found; downloading %s\n", url)
 
-	tmp, err := os.MkdirTemp(dir, "dl-*")
+	tmp, err := osMkdirTemp(dir, "dl-*")
 	if err != nil {
 		return "", err
 	}
@@ -136,42 +135,16 @@ func httpDownload(url, dest string) error {
 
 // extractTypst pulls the typst executable out of the downloaded archive into
 // dir and returns its path. tar.xz archives are unpacked via the system tar
-// (which handles xz on macOS/Linux); zip archives use archive/zip.
+// which handles xz on macOS/Linux.
 func extractTypst(archivePath, archive, target, dir string) (string, error) {
-	if archive == "zip" {
-		dest := filepath.Join(dir, "typst.exe")
-		return dest, extractZipEntry(archivePath, "typst-"+target+"/typst.exe", dest)
+	if archive != "tar.xz" {
+		return "", fmt.Errorf("unsupported typst archive %q", archive)
 	}
 	cmd := exec.Command("tar", "-xJf", archivePath, "-C", dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("tar -xJf failed (is `tar` with xz support installed?): %w: %s", err, out)
 	}
 	return filepath.Join(dir, "typst-"+target, "typst"), nil
-}
-
-func extractZipEntry(zipPath, inner, dest string) error {
-	zr, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err
-	}
-	defer zr.Close()
-	for _, f := range zr.File {
-		if f.Name == inner || filepath.Base(f.Name) == filepath.Base(inner) {
-			rc, err := f.Open()
-			if err != nil {
-				return err
-			}
-			defer rc.Close()
-			out, err := os.Create(dest)
-			if err != nil {
-				return err
-			}
-			defer out.Close()
-			_, err = io.Copy(out, rc)
-			return err
-		}
-	}
-	return fmt.Errorf("typst.exe not found in %s", zipPath)
 }
 
 func copyExecutable(src, dst string) error {
