@@ -101,8 +101,8 @@ Legacy aliases are kept for compatibility.
 - `deploy-upgrade`: Removed: use `sudo velocity device upgrade`
 - `deploy-status`: Removed: use `sudo velocity device status`
 - `deploy-health`: Removed: use `sudo velocity device status`
-- `deploy-install-latex`: Install LaTeX on remote target (**removed**)
-- `deploy-update-deps`: Update source, LaTeX, and Python deps on remote target (**removed**)
+- `deploy-install-report-deps`: Install legacy report dependencies on remote target (**removed**)
+- `deploy-update-deps`: Update source and runtime deps on remote target (**removed**)
 
 ## Formatting targets
 

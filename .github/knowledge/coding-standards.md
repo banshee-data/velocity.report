@@ -28,7 +28,7 @@ Optional detailed explanation if needed.
 | `[sh]`   | Shell scripts (Makefile, bash utilities)                      |
 | `[sql]`  | Database schema or SQL migrations                             |
 | `[fs]`   | Filesystem operations (moving files, directory structure)     |
-| `[tex]`  | LaTeX/template changes                                        |
+| `[typ]`  | Typst report template changes                                 |
 | `[ci]`   | CI/CD configuration (GitHub Actions)                          |
 | `[make]` | Makefile changes                                              |
 | `[git]`  | Git configuration or hooks                                    |

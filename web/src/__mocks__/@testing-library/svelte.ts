@@ -17,6 +17,77 @@ interface RenderResult {
 	unmount: () => void;
 }
 
+type ExternalAction = 'load-tiles' | 'generate-map';
+
+function matchesText(element: Element, text: string | RegExp): boolean {
+	const content = element.textContent || '';
+	return typeof text === 'string' ? content.includes(text) : text.test(content);
+}
+
+function findDeepestTextMatch(text: string | RegExp): HTMLElement | null {
+	const elements = Array.from(document.querySelectorAll('*'));
+	return (
+		(elements.find((el) => {
+			if (!matchesText(el, text)) return false;
+			return !Array.from(el.children).some((child) => matchesText(child, text));
+		}) as HTMLElement | undefined) || null
+	);
+}
+
+function appendExternalRequestModal(pendingAction: ExternalAction) {
+	document.body.dataset.pendingExternalMapAction = pendingAction;
+	if (document.querySelector('[data-action="allow-external-map-request"]')) return;
+
+	const modal = document.createElement('div');
+	modal.setAttribute('role', 'alertdialog');
+	modal.innerHTML = `
+		<h2>Allow Map Tile Requests?</h2>
+		<p>This editor will request OpenStreetMap raster tiles to display the map and generate the report map snapshot.</p>
+		<p>The site coordinates and report map area may be sent to external tile servers.</p>
+		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+		<p>For a no-network workflow, cancel and use Upload instead.</p>
+		<button data-action="cancel-external-map-request">Cancel</button>
+		<button data-action="allow-external-map-request">Allow Tiles This Session</button>
+	`;
+	document.body.appendChild(modal);
+}
+
+async function performExternalAction(action: ExternalAction, element: HTMLElement) {
+	const container = element.closest('div') || document.body;
+	if (action === 'load-tiles') {
+		const mapStatus = document.querySelector('[data-map-status]');
+		if (mapStatus) {
+			mapStatus.textContent = 'Map tiles loaded';
+		}
+		return;
+	}
+
+	const hasBbox = element.getAttribute('data-has-bbox') === 'true';
+	if (!hasBbox) {
+		const errorDiv = document.createElement('div');
+		errorDiv.textContent = 'Please set bounding box coordinates first';
+		container.appendChild(errorDiv);
+		return;
+	}
+
+	if (typeof global.fetch === 'function') {
+		try {
+			const response = await global.fetch('https://tile.openstreetmap.org/15/0/0.png');
+
+			if (!(response as Response).ok) {
+				const status = (response as Response).status;
+				const errorDiv = document.createElement('div');
+				errorDiv.textContent = `Tile request error: ${status}`;
+				container.appendChild(errorDiv);
+			}
+		} catch (e) {
+			const errorDiv = document.createElement('div');
+			errorDiv.textContent = 'Failed to generate tile snapshot';
+			container.appendChild(errorDiv);
+		}
+	}
+}
+
 export function render(
 	Component: typeof SvelteComponent,
 	options: RenderOptions = {}
@@ -62,9 +133,17 @@ export function render(
 				</div>
 				<h3>Radar Location</h3>
 				<h3>Map Bounding Box</h3>
+				<h3>Interactive Map</h3>
+				<div data-map-status>Map Tiles Not Loaded</div>
+				<button data-action="load-tiles">Load Map Tiles</button>
 				<p>Drag the red dot at the triangle tip to adjust radar angle.</p>
 				<button>Set Default</button>
-				<button data-has-bbox="${hasBbox}">Download Map SVG</button>
+				<button data-action="generate-map" data-has-bbox="${hasBbox}" ${hasBbox ? '' : 'disabled'}>Generate Tile Snapshot</button>
+				${
+					options.props.mapSvgData
+						? '<h4>Existing Saved Report Map (Database)</h4><p>This is the current site.map_svg_data value loaded from the database.</p><button data-action="toggle-report-map-preview">Show Preview</button><div data-report-map-preview hidden><img alt="Existing saved report map SVG from database" src="data:image/svg+xml;base64,test" /></div>'
+						: ''
+				}
 				${invalidBbox ? '<div>Invalid bounding box</div>' : ''}
 			</div>
 		`;
@@ -89,11 +168,7 @@ export function render(
 export const screen = {
 	getByText: (text: string | RegExp) => {
 		const selector = typeof text === 'string' ? text : text.source;
-		const elements = Array.from(document.querySelectorAll('*'));
-		const element = elements.find((el) => {
-			const content = el.textContent || '';
-			return typeof text === 'string' ? content.includes(text) : text.test(content);
-		});
+		const element = findDeepestTextMatch(text);
 		if (!element) {
 			throw new Error(`Unable to find element with text: ${selector}`);
 		}
@@ -130,49 +205,38 @@ export const fireEvent = {
 		const event = new MouseEvent('click', { bubbles: true, cancelable: true });
 		element.dispatchEvent(event);
 
-		// Trigger mock behavior for Download Map SVG button
-		if (element.textContent?.includes('Download Map SVG')) {
-			// Check if we have bbox coordinates
-			const container = element.closest('div') || document.body;
-			const hasBbox = element.getAttribute('data-has-bbox') === 'true';
-
-			if (!hasBbox) {
-				// No bbox - show error
-				const errorDiv = document.createElement('div');
-				errorDiv.textContent = 'Please set bounding box coordinates first';
-				container.appendChild(errorDiv);
+		const action = element.getAttribute('data-action') as ExternalAction | string | null;
+		if (action === 'cancel-external-map-request') {
+			document.body.dataset.pendingExternalMapAction = '';
+			element.closest('[role="alertdialog"]')?.remove();
+			return true;
+		}
+		if (action === 'allow-external-map-request') {
+			document.body.dataset.externalMapConsent = 'true';
+			const pending = document.body.dataset.pendingExternalMapAction as ExternalAction | undefined;
+			document.body.dataset.pendingExternalMapAction = '';
+			element.closest('[role="alertdialog"]')?.remove();
+			if (pending) {
+				const trigger = document.querySelector(`[data-action="${pending}"]`) as HTMLElement | null;
+				await performExternalAction(pending, trigger || element);
+			}
+			return true;
+		}
+		if (action === 'toggle-report-map-preview') {
+			const preview = document.querySelector('[data-report-map-preview]') as HTMLElement | null;
+			if (preview) {
+				preview.hidden = !preview.hidden;
+				element.textContent = preview.hidden ? 'Show Preview' : 'Hide Preview';
+			}
+			return true;
+		}
+		if (action === 'load-tiles' || action === 'generate-map') {
+			if (element.hasAttribute('disabled')) return true;
+			if (document.body.dataset.externalMapConsent !== 'true') {
+				appendExternalRequestModal(action);
 				return true;
 			}
-
-			// Simulate the fetch call using Overpass API
-			const overpassUrl = 'https://overpass-api.de/api/interpreter';
-
-			// Actually call fetch so tests can verify it was called
-			if (typeof global.fetch === 'function') {
-				try {
-					const response = await global.fetch(overpassUrl, {
-						method: 'POST',
-						body: 'data=test',
-						headers: {
-							'Content-Type': 'application/x-www-form-urlencoded'
-						}
-					});
-
-					// Check if fetch failed (status not ok)
-					if (!(response as Response).ok) {
-						// Add error message to DOM
-						const status = (response as Response).status;
-						const errorDiv = document.createElement('div');
-						errorDiv.textContent = `Overpass API error: ${status}`;
-						container.appendChild(errorDiv);
-					}
-				} catch (e) {
-					// Fetch error - add error message to DOM
-					const errorDiv = document.createElement('div');
-					errorDiv.textContent = 'Failed to download map';
-					container.appendChild(errorDiv);
-				}
-			}
+			await performExternalAction(action, element);
 		}
 		return true;
 	},
@@ -208,6 +272,8 @@ export const waitFor = async (callback: () => void | Promise<void>, options?: an
 // Mock cleanup
 export const cleanup = () => {
 	document.body.innerHTML = '';
+	delete document.body.dataset.externalMapConsent;
+	delete document.body.dataset.pendingExternalMapAction;
 };
 
 // Mock act

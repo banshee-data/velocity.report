@@ -1,183 +1,137 @@
-# PDF reporting: Go pipeline (complete)
+# PDF reporting: Go + Typst pipeline
 
-Completed plan: [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
+Current plan lineage:
 
-PDF report generation migrated from the Python stack to native Go in v0.5, eliminating the Python runtime dependency and enabling the single-binary deployment goal.
+- [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
+  moved report data loading and chart generation into Go.
+- [pdf-typst-migration-plan.md](../../plans/pdf-typst-migration-plan.md)
+  replaced the old typesetting layer with Typst.
 
-## Problem
+PDF report generation now runs as a Go-orchestrated Typst pipeline. The system
+queries SQLite directly, renders charts as SVG, materialises Typst templates
+plus JSON data into a temporary work directory, and invokes `typst compile` to
+produce the final PDF.
 
-The Python PDF stack adds ~45 packages, a virtual-environment lifecycle, and
-a separate runtime to every deployment. It is the only reason Raspberry Pi
-images ship Python, and it complicates the single-binary goal (D-09).
+## Problem solved
 
-## Solution
+The historical report stack had two separate migration steps:
 
-Generate SVG charts in Go, emit `.tex` files from Go `text/template`, and
-invoke `xelatex` to produce the final PDF. No Python required.
+1. Remove the Python PDF generator and keep report generation inside the Go
+   server.
+2. Remove the former external typesetting layer and its SVG-to-PDF conversion step.
 
-### Key changes
+The current Typst path completes both goals: no Python runtime, no external
+typesetting tree, no SVG-to-PDF converter, and no separate report service.
 
-| Component           | Before (Python)                         | After (Go)                                                               |
-| ------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
-| **Charts**          | matplotlib + seaborn → PDF figures      | Direct SVG generation (`internal/report/chart`) → PDF via `rsvg-convert` |
-| **Doc assembly**    | PyLaTeX `Document` builder              | Go `text/template` → `.tex` file                                         |
-| **PDF compilation** | PyLaTeX shells out to `xelatex`         | Go `os/exec` shells out to `xelatex` (unchanged)                         |
-| **Config**          | JSON → Python dataclasses               | JSON → Go structs (ReportRequest already exists)                         |
-| **Data source**     | HTTP GET `/api/radar_stats` from Python | Direct DB query from same Go process                                     |
-| **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)                                    |
-| **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                                          |
-
-## Architecture
-
-### Before (Python — removed in v0.5)
-
-```
-Web UI → POST /api/generate_report → Go writes config.json
-  → exec.Command("python", "-m", "pdf_generator.cli.main")
-  → Python: api_client.py → GET /api/radar_stats (HTTP to self)
-  → Python: chart_builder.py → matplotlib figures (PDF)
-  → Python: document_builder.py → PyLaTeX Document
-  → PyLaTeX writes .tex, shells out to xelatex → .pdf
-```
-
-The Python process made an HTTP request back to the Go server that spawned it.
-
-### Current data path (Go pipeline)
+## Current pipeline
 
 ```
 Web UI → POST /api/generate_report (or CLI: velocity report pdf)
-  → Go: internal/report/report.go → direct DB query
-  → Go: chart/*.go → SVG charts → rsvg-convert → PDF charts
-  → Go: tex/render.go → text/template → .tex file
-  → Go: os/exec → xelatex → .pdf
+  → Go: internal/report/typst_generate.go → direct DB query
+  → Go: internal/report/chart/*.go → SVG charts
+  → Go: internal/report/typst/*.go → data.json + fonts + templates
+  → Go: os/exec → typst compile → .pdf
+  → Go: packageTypstOutput() → .zip archive (.typ + SVG + fonts + PDF)
 ```
 
-Generated report artifacts are stored under
-`VELOCITY_REPORT_OUTPUT_DIR` when set. Deployed images default to
-`/var/lib/velocity-report/reports`; local development defaults to
-`.tmp/reports` at the repository root.
+Generated report artefacts are stored under `VELOCITY_REPORT_OUTPUT_DIR` when
+set. Deployed images default to `/var/lib/velocity-report/reports`; local
+development defaults to `.tmp/reports` at the repository root.
 
-## Package layout
+## Key packages
 
 ```
 internal/report/
-├── report.go           # Generate(ctx, db, cfg) → (ReportResult, error)
-├── config.go           # ReportConfig, ChartStyle, FontConfig, LayoutConfig
-├── chart/
-│   ├── timeseries.go   # Dual-axis percentile + count SVG
-│   ├── histogram.go    # Velocity distribution SVG
-│   ├── comparison.go   # Side-by-side comparison SVG
-│   ├── palette.go      # Colour constants (matching web palette)
-│   └── svg.go          # Low-level SVG element helpers
-├── tex/
-│   ├── render.go       # Template executor
-│   ├── helpers.go      # EscapeTeX(), FormatTable(), FormatNumber()
-│   └── templates/      # Embedded via go:embed
-│       ├── preamble.tex
-│       ├── report.tex
-│       ├── overview.tex, site_info.tex, chart_section.tex
-│       ├── statistics.tex, science.tex
-└── archive.go          # .zip packaging
+├── typst_generate.go        # GeneratePDF()/GenerateTypst() orchestration
+├── typst_generate_test.go   # End-to-end tests for Typst output + archive
+├── chart/                   # SVG chart + site-map renderers
+│   ├── timeseries.go
+│   ├── histogram.go
+│   ├── sitemap.go
+│   ├── osmtiles.go
+│   └── palette.go
+├── typst/
+│   ├── data.go              # ReportData JSON contract
+│   ├── render.go            # typst compile wrapper
+│   ├── templates/           # Embedded `.typ` templates
+│   ├── testdata/            # Sample fixture
+│   └── typstbin/            # Typst binary resolution / embedding
+└── archive.go               # Shared packaging helpers
 ```
 
-## Charts (implemented)
+## Report artefacts
 
-### 1. Time-Series chart (dual-axis percentile + count) ✅
+The pipeline produces:
 
-Direct SVG generation via `internal/report/chart/timeseries.go`. Dual Y-axes (speed left, count right), day-boundary line breaks, low-sample shading, polyline per-day segments. No gonum dependency.
+- A PDF report compiled by Typst.
+- A ZIP archive containing the recompilable Typst source bundle:
+  `report.typ`, `preamble.typ`, `sections.typ`, `data.json`, `charts/*.svg`,
+  and bundled report fonts.
 
-### 2. Histogram (single period) ✅
+That archive is intended for traceability and reproducibility: a reviewer can
+re-run `typst compile --font-path fonts report.typ` on the extracted bundle and
+obtain the same report content without the server present.
 
-Direct SVG bar chart via `internal/report/chart/histogram.go`. Steelblue bars (α=0.7), speed bucket labels ("20–25", "70+").
+## Runtime dependencies
 
-### 3. Comparison histogram ✅
+The only external report compiler dependency is `typst`.
 
-Grouped bars (primary vs comparison, normalised to percentage) via `internal/report/chart/histogram.go` (`RenderComparison`).
+- Distributed builds embed the Typst binary into the `velocity` executable.
+- Development builds can resolve Typst via `PATH`, or use the development-only
+  downloader when Typst is not already installed.
+- A development-only downloader can fetch the pinned Typst version into a
+  per-user cache when neither embedded nor local binaries are available.
 
-### 4. Map overlay (deferred — Phase 6)
+The Atkinson Hyperlegible font family is embedded and materialised at render
+time so report generation does not depend on host-installed fonts.
 
-SVG marker injection (radar-coverage triangles into site map SVGs) planned via Go `encoding/xml`. Same `rsvg-convert` pipeline for SVG→PDF.
+## Test coverage expectations
 
-## SVG-to-PDF strategy (chosen: rsvg-convert)
+Report tests should exercise the same boundaries as production report
+generation:
 
-XeTeX's `\includegraphics` does not natively handle SVG. Use `rsvg-convert`
-(from `librsvg`, ~2 MB) as a lightweight converter:
+- API integration tests for `/api/generate_report` use the native Typst path and
+  assert that the generated PDF is a structurally valid PDF after metadata
+  stamping. A mock `typst` binary must emit a minimal valid PDF with `xref`,
+  `trailer`, `/Root`, and `startxref`, not just a `%PDF` header.
+- Template render tests should cover optional data surfaces. Missing or empty
+  chart data, including histogram buckets, must omit the affected report section
+  cleanly rather than failing inside Typst.
+- The Go CI integration surface is `go test -tags=pcap ./internal/api/...`; this
+  must remain a probing end-to-end check of request validation, report
+  generation, PDF post-processing, and report record creation.
 
-The conversion is performed by calling `rsvg-convert -f pdf -o chart.pdf chart.svg`.
+## Charts and figures
 
-- Already available on most Linux distributions (`librsvg2-bin`)
-- ~2 MB installed (vs ~300 MB for inkscape)
-- Already used as fallback in current Python `map_utils.py`
-- SVG artefact preserved for `.zip` archive and web frontend reuse
+Implemented chart surfaces:
 
-Fallback: gonum/plot `vgpdf` for direct PDF output (skips SVG artefact).
+1. **Time-series chart** — SVG with dual axes, low-sample shading, and
+   percentile series.
+2. **Histogram** — single-period SVG distribution chart.
+3. **Comparison histogram** — grouped SVG comparison chart.
+4. **Site map** — saved vector SVG from `site.map_svg_data`, generated in the
+   web editor only after explicit external map-request confirmation.
 
-## LaTeX template design
+Typst consumes these SVG artefacts directly via `#image()`, so no SVG-to-PDF
+conversion pass is needed.
 
-Replace PyLaTeX's programmatic construction with Go `text/template` files
-embedded via `go:embed`. Use custom delimiters `<<` and `>>` (via
-`template.Delims`) to avoid clashing with LaTeX `{`/`}`.
+## Relationship to earlier plans
 
-### Template data structure
+- **Python PDF generator**: removed. The old Python stack is historical only.
+- **Precompiled external typesetter bundles**: superseded for the report path
+  by Typst. Those plans remain historical context rather than the active
+  runtime.
+- **Single-binary deployment**: strengthened. The report engine can now ship
+  inside the `velocity` binary with no separate typesetting tree.
 
-| Field              | Type          | Purpose                             |
-| ------------------ | ------------- | ----------------------------------- |
-| `Location`         | `string`      | Site name                           |
-| `Surveyor`         | `string`      | Surveyor name                       |
-| `Contact`          | `string`      | Contact information                 |
-| `Description`      | `string`      | Site description                    |
-| `SpeedLimit`       | `int`         | Posted speed limit                  |
-| `StartDate`        | `string`      | Report period start                 |
-| `EndDate`          | `string`      | Report period end                   |
-| `Timezone`         | `string`      | Display timezone                    |
-| `Units`            | `string`      | Speed units                         |
-| `P50`, `P85`, etc. | `string`      | Formatted speed percentiles and max |
-| `TotalCount`       | `int`         | Total vehicle count                 |
-| `HoursCount`       | `int`         | Number of hours with data           |
-| `TimeSeriesChart`  | `string`      | Relative path to time-series chart  |
-| `HistogramChart`   | `string`      | Relative path to histogram chart    |
-| `CompareChart`     | `string`      | Optional comparison chart path      |
-| `MapChart`         | `string`      | Optional map chart path             |
-| `FontDir`          | `string`      | Font directory path                 |
-| `HourlyTable`      | `[]HourlyRow` | Hourly breakdown rows               |
-| `DailyTable`       | `[]DailyRow`  | Daily breakdown rows                |
-| `CosineAngle`      | `float64`     | Angle correction value              |
-| `CosineFactor`     | `float64`     | Cosine correction factor            |
-| `ModelVersion`     | `string`      | Software version                    |
+## Operational notes
 
-### Advantages over PyLaTeX
-
-- Templates are plain `.tex` files, editable by anyone who knows LaTeX
-- `go:embed` at compile time: zero disk I/O at runtime
-- Deterministic output: byte-for-byte comparison in tests
-- Go `text/template` is widely understood
-
-## Colour palette (shared with web)
-
-| Colour Name | Hex       | Usage           |
-| ----------- | --------- | --------------- |
-| `vrP50`     | `#fbd92f` | 50th percentile |
-| `vrP85`     | `#f7b32b` | 85th percentile |
-| `vrP98`     | `#f25f5c` | 98th percentile |
-| `vrMax`     | `#2d1e2f` | Maximum speed   |
-
-Font: Atkinson Hyperlegible (XeTeX `fontspec`).
-
-## Relationship to other decisions
-
-- **D-08 (Precompiled LaTeX):** Complementary. D-08 reduces TeX from ~800 MB
-  to ~30–60 MB. This plan eliminates Python (~450 MB). Together: ~1.25 GB →
-  ~30–60 MB.
-- **D-09 (Single Binary):** Enables `velocity report pdf` without bundled
-  Python.
-- **D-10 (RPi Image):** Simplifies image by removing Python from report path.
-
-## Risks
-
-| Risk                              | Mitigation                                                           |
-| --------------------------------- | -------------------------------------------------------------------- |
-| gonum/plot dual-axis limitation   | Fall back to direct SVG via `encoding/xml`; prototype in Phase 1     |
-| SVG→PDF fidelity via rsvg-convert | Use `--dpi 150`; test with Atkinson Hyperlegible embedded in SVG     |
-| Chart visual parity               | Side-by-side comparison; accept minor styling diffs if data accurate |
-| rsvg-convert not available        | Detect at startup; fall back to gonum `vgpdf` direct PDF output      |
-| `text/template` delimiter clashes | Custom delimiters `<<`/`>>` via `template.Delims()`                  |
+- `report.GeneratePDF()` is the shared entry point used by the CLI and HTTP API.
+- Report generation remains local-first: charts, data loading, and final PDF
+  compilation all happen on-device or on the development host.
+- Report generation never downloads map data. The web editor can optionally
+  request OpenStreetMap tiles after explicit per-session confirmation and saves
+  that tile snapshot into `site.map_svg_data`; users who do not want the app to
+  make external map requests should use the SVG upload path.
+- The source ZIP is part of the public contract of the report pipeline; treat
+  it as a first-class artefact, not a debug afterthought.

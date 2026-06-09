@@ -145,10 +145,6 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/serial/test", s.handleSerialTest)
 	s.mux.HandleFunc("/api/serial/devices", s.handleSerialDevices)
 	s.mux.HandleFunc("/api/serial/reload", s.handleSerialReload)
-
-	// Map data proxy — fetches Overpass (OSM) data server-side so the browser
-	// isn't blocked by the mirrors' User-Agent filtering and missing CORS.
-	s.mux.HandleFunc("/api/map/overpass", s.handleMapOverpass)
 	return s.mux
 }
 

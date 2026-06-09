@@ -608,12 +608,12 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 This is a subsystem reference only. The trace matrix does not treat the Go
 report pipeline as a DB/Web/Mac consumer surface.
 
-| Package                                              | File            | Role                                             |
-| ---------------------------------------------------- | --------------- | ------------------------------------------------ |
-| [internal/report](../../internal/report)             | `report.go`     | Direct DB query → `Generate(ctx, db, cfg)`       |
-| [internal/report/chart](../../internal/report/chart) | `timeseries.go` | Speed percentile + count time-series SVG         |
-| [internal/report/chart](../../internal/report/chart) | `histogram.go`  | Speed distribution histogram SVG                 |
-| [internal/report/tex](../../internal/report/tex)     | `render.go`     | Go `text/template` → `.tex` → `xelatex` → `.pdf` |
+| Package                                              | File                | Role                                          |
+| ---------------------------------------------------- | ------------------- | --------------------------------------------- |
+| [internal/report](../../internal/report)             | `typst_generate.go` | Direct DB query → `GeneratePDF(ctx, db, cfg)` |
+| [internal/report/chart](../../internal/report/chart) | `timeseries.go`     | Speed percentile + count time-series SVG      |
+| [internal/report/chart](../../internal/report/chart) | `histogram.go`      | Speed distribution histogram SVG              |
+| [internal/report/typst](../../internal/report/typst) | `render.go`         | Typst templates + JSON data → `.pdf`          |
 
 ---
 
@@ -717,7 +717,6 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 | `backfill_lidar_run_config` | [cmd/tools/backfill_lidar_run_config/main.go](../../cmd/tools/backfill_lidar_run_config/main.go) | Backfill run config JSON onto historic LiDAR runs |
 | `config-migrate`            | [cmd/tools/config-migrate/main.go](../../cmd/tools/config-migrate/main.go)                       | Migrate runtime config layouts                    |
 | `config-validate`           | [cmd/tools/config-validate/main.go](../../cmd/tools/config-validate/main.go)                     | Validate runtime config files                     |
-| `render-sample-tex`         | [cmd/tools/render-sample-tex/main.go](../../cmd/tools/render-sample-tex/main.go)                 | Render sample TeX from the Go report pipeline     |
 
 **Notes:** Only `velocity-report` writes to the production SQLite
 database. The sweep and eval tools operate on temporary/in-memory

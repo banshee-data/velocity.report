@@ -2,19 +2,18 @@ package l9endpoints
 
 import (
 	"fmt"
+	"html"
 	"image/color"
 	"math"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/vg"
 )
 
 // GridPlotter records grid cell states over time for visualization.
@@ -309,7 +308,7 @@ func (gp *GridPlotter) SampleWithPoints(mgr *l3grid.BackgroundManager, points []
 	}
 }
 
-// GeneratePlots creates PNG files for each ring, showing BG and FG values over time.
+// GeneratePlots creates SVG files for each ring, showing BG and FG values over time.
 // Returns the number of plots generated and any error.
 func (gp *GridPlotter) GeneratePlots() (int, error) {
 	gp.mu.Lock()
@@ -355,30 +354,6 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 		return nil
 	}
 
-	// Create plot for background average
-	pBg := plot.New()
-	pBg.Title.Text = fmt.Sprintf("Ring %d - Background Average (EMA)", ring)
-	pBg.X.Label.Text = "Frame"
-	pBg.Y.Label.Text = "Distance (m)"
-
-	// Create plot for locked baseline
-	pLocked := plot.New()
-	pLocked.Title.Text = fmt.Sprintf("Ring %d - Locked Baseline", ring)
-	pLocked.X.Label.Text = "Frame"
-	pLocked.Y.Label.Text = "Distance (m)"
-
-	// Create plot for observation distance (foreground points)
-	pObs := plot.New()
-	pObs.Title.Text = fmt.Sprintf("Ring %d - Observation Distance", ring)
-	pObs.X.Label.Text = "Frame"
-	pObs.Y.Label.Text = "Distance (m)"
-
-	// Create plot for recent foreground count
-	pFg := plot.New()
-	pFg.Title.Text = fmt.Sprintf("Ring %d - Recent Foreground Count", ring)
-	pFg.X.Label.Text = "Frame"
-	pFg.Y.Label.Text = "RecFg Count"
-
 	// Get grid resolution for azimuth labels
 	mgr := l3grid.GetBackgroundManager(gp.sensorID)
 	azBinRes := 0.2 // default
@@ -396,6 +371,11 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 	// Color palette
 	colors := generateColors(len(sortedAzBins))
 
+	var bgSeries []gridSeries
+	var lockedSeries []gridSeries
+	var obsSeries []gridSeries
+	var fgSeries []gridSeries
+
 	for i, azBin := range sortedAzBins {
 		samples := azBins[azBin]
 		if len(samples) == 0 {
@@ -407,122 +387,186 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 			return samples[a].FrameIdx < samples[b].FrameIdx
 		})
 
-		// Create XY data, skipping initial zero values for BG to show more range
-		bgPts := make(plotter.XYs, 0, len(samples))
-		lockedPts := make(plotter.XYs, 0, len(samples))
-		obsPts := make(plotter.XYs, 0, len(samples))
-		fgPts := make(plotter.XYs, 0, len(samples))
+		bgPts := make([]gridPoint, 0, len(samples))
+		lockedPts := make([]gridPoint, 0, len(samples))
+		obsPts := make([]gridPoint, 0, len(samples))
+		fgPts := make([]gridPoint, 0, len(samples))
 		for _, s := range samples {
 			// Skip initial zeros for BG average (uninitialized cells)
 			if s.BgAverage > 0 {
-				bgPts = append(bgPts, plotter.XY{X: float64(s.FrameIdx), Y: s.BgAverage})
+				bgPts = append(bgPts, gridPoint{X: float64(s.FrameIdx), Y: s.BgAverage})
 			}
 			// Only include locked baseline when established (non-zero)
 			if s.LockedBaseline > 0 {
-				lockedPts = append(lockedPts, plotter.XY{X: float64(s.FrameIdx), Y: s.LockedBaseline})
+				lockedPts = append(lockedPts, gridPoint{X: float64(s.FrameIdx), Y: s.LockedBaseline})
 			}
 			// Only include observation distance when non-zero (point was observed)
 			if s.ObsDist > 0 {
-				obsPts = append(obsPts, plotter.XY{X: float64(s.FrameIdx), Y: s.ObsDist})
+				obsPts = append(obsPts, gridPoint{X: float64(s.FrameIdx), Y: s.ObsDist})
 			}
 			// Always include RecFg count
-			fgPts = append(fgPts, plotter.XY{X: float64(s.FrameIdx), Y: float64(s.RecFg)})
+			fgPts = append(fgPts, gridPoint{X: float64(s.FrameIdx), Y: float64(s.RecFg)})
 		}
 
-		azLabel := fmt.Sprintf("%.1f°", float64(azBin)*azBinRes)
+		azLabel := fmt.Sprintf("%.1f deg", float64(azBin)*azBinRes)
 
-		// Add BG line if we have data
 		if len(bgPts) > 0 {
-			bgLine, err := plotter.NewLine(bgPts)
-			if err != nil {
-				return err
-			}
-			bgLine.Color = colors[i]
-			bgLine.Width = vg.Points(1)
-			pBg.Add(bgLine)
-			pBg.Legend.Add(azLabel, bgLine)
+			bgSeries = append(bgSeries, gridSeries{Label: azLabel, Color: colors[i], Points: bgPts})
 		}
-
-		// Add locked baseline line if we have data
 		if len(lockedPts) > 0 {
-			lockedLine, err := plotter.NewLine(lockedPts)
-			if err != nil {
-				return err
-			}
-			lockedLine.Color = colors[i]
-			lockedLine.Width = vg.Points(1)
-			pLocked.Add(lockedLine)
-			pLocked.Legend.Add(azLabel, lockedLine)
+			lockedSeries = append(lockedSeries, gridSeries{Label: azLabel, Color: colors[i], Points: lockedPts})
 		}
-
-		// Add observation distance line if we have data
 		if len(obsPts) > 0 {
-			obsLine, err := plotter.NewLine(obsPts)
-			if err != nil {
-				return err
-			}
-			obsLine.Color = colors[i]
-			obsLine.Width = vg.Points(1)
-			pObs.Add(obsLine)
-			pObs.Legend.Add(azLabel, obsLine)
+			obsSeries = append(obsSeries, gridSeries{Label: azLabel, Color: colors[i], Points: obsPts})
 		}
-
-		// Add FG line
 		if len(fgPts) > 0 {
-			fgLine, err := plotter.NewLine(fgPts)
-			if err != nil {
-				return err
-			}
-			fgLine.Color = colors[i]
-			fgLine.Width = vg.Points(1)
-			pFg.Add(fgLine)
-			pFg.Legend.Add(azLabel, fgLine)
+			fgSeries = append(fgSeries, gridSeries{Label: azLabel, Color: colors[i], Points: fgPts})
 		}
 	}
 
-	// Configure legends
-	pBg.Legend.Top = true
-	pBg.Legend.Left = false
-	pBg.Legend.XOffs = -10
-	pBg.Legend.YOffs = -10
-
-	pLocked.Legend.Top = true
-	pLocked.Legend.Left = false
-	pLocked.Legend.XOffs = -10
-	pLocked.Legend.YOffs = -10
-
-	pObs.Legend.Top = true
-	pObs.Legend.Left = false
-	pObs.Legend.XOffs = -10
-	pObs.Legend.YOffs = -10
-
-	pFg.Legend.Top = true
-	pFg.Legend.Left = false
-	pFg.Legend.XOffs = -10
-	pFg.Legend.YOffs = -10
-
-	// Save plots
-	bgFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_bg_avg.png", ring))
-	if err := pBg.Save(14*vg.Inch, 6*vg.Inch, bgFile); err != nil {
+	bgFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_bg_avg.svg", ring))
+	if err := writeGridSVG(bgFile, fmt.Sprintf("Ring %d - Background Average (EMA)", ring), "Distance (m)", bgSeries); err != nil {
 		return fmt.Errorf("save bg plot: %w", err)
 	}
 
-	lockedFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_locked.png", ring))
-	if err := pLocked.Save(14*vg.Inch, 6*vg.Inch, lockedFile); err != nil {
+	lockedFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_locked.svg", ring))
+	if err := writeGridSVG(lockedFile, fmt.Sprintf("Ring %d - Locked Baseline", ring), "Distance (m)", lockedSeries); err != nil {
 		return fmt.Errorf("save locked baseline plot: %w", err)
 	}
 
-	obsFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_obs_dist.png", ring))
-	if err := pObs.Save(14*vg.Inch, 6*vg.Inch, obsFile); err != nil {
+	obsFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_obs_dist.svg", ring))
+	if err := writeGridSVG(obsFile, fmt.Sprintf("Ring %d - Observation Distance", ring), "Distance (m)", obsSeries); err != nil {
 		return fmt.Errorf("save obs plot: %w", err)
 	}
 
-	fgFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_recfg.png", ring))
-	if err := pFg.Save(14*vg.Inch, 6*vg.Inch, fgFile); err != nil {
+	fgFile := filepath.Join(gp.outputDir, fmt.Sprintf("ring_%02d_recfg.svg", ring))
+	if err := writeGridSVG(fgFile, fmt.Sprintf("Ring %d - Recent Foreground Count", ring), "RecFg Count", fgSeries); err != nil {
 		return fmt.Errorf("save fg plot: %w", err)
 	}
 
 	return nil
+}
+
+type gridPoint struct {
+	X float64
+	Y float64
+}
+
+type gridSeries struct {
+	Label  string
+	Color  color.Color
+	Points []gridPoint
+}
+
+func writeGridSVG(path, title, yLabel string, series []gridSeries) error {
+	const (
+		width  = 1400.0
+		height = 600.0
+		left   = 72.0
+		right  = 220.0
+		top    = 56.0
+		bottom = 64.0
+	)
+
+	xMin, xMax, yMin, yMax := gridBounds(series)
+	if xMax <= xMin {
+		xMax = xMin + 1
+	}
+	if yMax <= yMin {
+		yMax = yMin + 1
+	}
+	yPad := (yMax - yMin) * 0.08
+	if yPad == 0 {
+		yPad = 1
+	}
+	yMin -= yPad
+	yMax += yPad
+
+	plotW := width - left - right
+	plotH := height - top - bottom
+	xScale := func(x float64) float64 {
+		return left + ((x - xMin) / (xMax - xMin) * plotW)
+	}
+	yScale := func(y float64) float64 {
+		return top + plotH - ((y - yMin) / (yMax - yMin) * plotH)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" width="%.0f" height="%.0f" viewBox="0 0 %.0f %.0f">`, width, height, width, height)
+	b.WriteString(`<rect width="100%" height="100%" fill="#ffffff"/>`)
+	fmt.Fprintf(&b, `<text x="%.0f" y="28" font-family="sans-serif" font-size="20" font-weight="700">%s</text>`, left, html.EscapeString(title))
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#555">Frame</text>`, left+plotW/2-20, height-18)
+	fmt.Fprintf(&b, `<text x="18" y="%.0f" font-family="sans-serif" font-size="12" fill="#555" transform="rotate(-90 18 %.0f)">%s</text>`, top+plotH/2+40, top+plotH/2+40, html.EscapeString(yLabel))
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="#fbfbfb" stroke="#d9d9d9"/>`, left, top, plotW, plotH)
+
+	for i := 0; i <= 5; i++ {
+		x := left + float64(i)*plotW/5
+		y := top + float64(i)*plotH/5
+		fmt.Fprintf(&b, `<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="#eeeeee"/>`, x, top, x, top+plotH)
+		fmt.Fprintf(&b, `<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="#eeeeee"/>`, left, y, left+plotW, y)
+		xVal := xMin + float64(i)*(xMax-xMin)/5
+		yVal := yMax - float64(i)*(yMax-yMin)/5
+		fmt.Fprintf(&b, `<text x="%.2f" y="%.2f" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#555">%.0f</text>`, x, top+plotH+18, xVal)
+		fmt.Fprintf(&b, `<text x="%.2f" y="%.2f" text-anchor="end" font-family="sans-serif" font-size="11" fill="#555">%.2f</text>`, left-8, y+4, yVal)
+	}
+
+	for _, s := range series {
+		if len(s.Points) == 0 {
+			continue
+		}
+		colour := svgColor(s.Color)
+		b.WriteString(`<polyline fill="none" stroke="`)
+		b.WriteString(colour)
+		b.WriteString(`" stroke-width="1.5" points="`)
+		for _, p := range s.Points {
+			fmt.Fprintf(&b, "%.2f,%.2f ", xScale(p.X), yScale(p.Y))
+		}
+		b.WriteString(`"/>`)
+	}
+
+	legendX := left + plotW + 24
+	legendY := top + 18
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="13" font-weight="700">Azimuth</text>`, legendX, legendY-16)
+	for i, s := range series {
+		if i >= 24 {
+			fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="11" fill="#555">+%d more</text>`, legendX, legendY+float64(i)*18, len(series)-i)
+			break
+		}
+		y := legendY + float64(i)*18
+		colour := svgColor(s.Color)
+		fmt.Fprintf(&b, `<line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="%s" stroke-width="2"/>`, legendX, y, legendX+18, y, colour)
+		fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="11" fill="#333">%s</text>`, legendX+24, y+4, html.EscapeString(s.Label))
+	}
+
+	b.WriteString(`</svg>`)
+	return os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+func gridBounds(series []gridSeries) (xMin, xMax, yMin, yMax float64) {
+	xMin = math.Inf(1)
+	yMin = math.Inf(1)
+	xMax = math.Inf(-1)
+	yMax = math.Inf(-1)
+	for _, s := range series {
+		for _, p := range s.Points {
+			if math.IsNaN(p.X) || math.IsNaN(p.Y) {
+				continue
+			}
+			xMin = math.Min(xMin, p.X)
+			xMax = math.Max(xMax, p.X)
+			yMin = math.Min(yMin, p.Y)
+			yMax = math.Max(yMax, p.Y)
+		}
+	}
+	if math.IsInf(xMin, 0) {
+		return 0, 1, 0, 1
+	}
+	return xMin, xMax, yMin, yMax
+}
+
+func svgColor(c color.Color) string {
+	r, g, b, _ := c.RGBA()
+	return fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
 }
 
 // generateColors creates a palette of distinct colors for azimuth lines
@@ -627,6 +671,3 @@ func MakePlotOutputDir(baseDir, pcapFile string) string {
 	}
 	return filepath.Join(baseDir, "live_"+ts)
 }
-
-// Convenience function to suppress unused import warnings
-var _ = math.Abs

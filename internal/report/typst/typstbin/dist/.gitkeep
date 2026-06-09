@@ -1,0 +1,6 @@
+# This directory holds the platform-specific `typst` binary embedded into the
+# velocity binary when building with `-tags typst_embed`.
+#
+# `make install-typst-dist` downloads the binary for the target GOOS/GOARCH to
+# `dist/typst` here. The binary itself is gitignored (see .gitignore); only
+# this placeholder is tracked so the directory exists for the download step.

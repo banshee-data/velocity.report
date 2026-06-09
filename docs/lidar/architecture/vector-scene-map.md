@@ -495,7 +495,9 @@ Query at LOD 3: Returns ~500 polygons (surveyed benchmarks, precise corners).
 
 ### 8.3 Global-to-Local mapping
 
-When loading a global (Tier 2) vector scene map at session startup:
+When loading a global (Tier 2) vector scene map at session startup, remote map
+requests are optional and operator-enabled. If disabled, the local scene map is
+seeded only from local/community files and live observations.
 
 1. If GPS is available and OSM priors are enabled, fetch/cache **OSM Simple 3D Buildings (S3DB)** data for the sensor coverage area (building outlines, `building:part=*`, optional `type=building` relations).
 2. Convert S3DB objects into LOD 0–1 **structure priors** (footprints, height extents, optional roof metadata) with source provenance (`osm_way`, `osm_relation`, timestamp, tag confidence).

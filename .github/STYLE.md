@@ -82,7 +82,7 @@ belong in a design document. Replace it with prose, a field table, or a file ref
 - Protocol Buffers / gRPC definitions
 - TypeScript, Svelte, Swift, Python
 - JSON, JSONC, YAML, TOML, XML, CSV
-- HTML, CSS, LaTeX
+- HTML, CSS, Typst
 - Makefile targets (use prose or a target table)
 - Dockerfile
 

@@ -39,7 +39,7 @@ see [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md).
 The core product is radar-based speed measurement:
 a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data,
 and produces professional reports ready for a city engineer's desk or a planning committee hearing.
-PDF generation runs through the native Go + XeLaTeX pipeline. No cameras,
+PDF generation runs through the native Go + Typst pipeline. No cameras,
 no licence plates, no personally identifiable information: by architecture, not by policy.
 
 The LiDAR pipeline extends the picture.
@@ -58,7 +58,7 @@ Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 | Component            | Language            | Purpose                                                            |
 | -------------------- | ------------------- | ------------------------------------------------------------------ |
 | **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
-| **PDF reports**      | Go + XeLaTeX        | Professional speed reports with charts, statistics, and formatting |
+| **PDF reports**      | Go + Typst          | Professional speed reports with charts, statistics, and formatting |
 | **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
 | **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
 
@@ -374,7 +374,7 @@ flowchart TB
   3D visualisation. L9a (Radar REST APIs) serves L10a (Go PDF pipeline) and
   L10b (Svelte clients).
 - **L10 clients.** All four L10 nodes are implemented applications:
-  L10a is the Go PDF pipeline (`internal/report/` — native SVG charts, `text/template` LaTeX, xelatex),
+  L10a is the Go PDF pipeline (`internal/report/` — native SVG charts, Typst templates, `typst` compilation),
   L10b is a Svelte 5 web app,
   L10c is a native macOS Metal visualiser with gRPC streaming, and L10d
   is a legacy Go-embedded HTML dashboard marked deprecated (⛔).
@@ -458,11 +458,11 @@ Invoked via `POST /api/generate_report` or `velocity-report pdf --config cfg.jso
 
 **Key Packages**:
 
-- **`internal/report/`** — `Generate()` orchestrator: DB queries, chart rendering, TeX assembly, xelatex compilation
+- **`internal/report/`** — `GeneratePDF()` / `GenerateTypst()` orchestration: DB queries, chart rendering, Typst data assembly, packaging
 - **`internal/report/chart/`** — Direct SVG generation for time-series, histogram, and comparison charts
-- **`internal/report/tex/`** — `text/template`-based LaTeX assembly with embedded `.tex` templates
+- **`internal/report/typst/`** — embedded Typst templates, JSON data contract, renderer, and Typst binary resolution
 
-**Runtime**: In-process within the Go server; no subprocess or Python interpreter
+**Runtime**: In-process within the Go server for data loading and chart generation; shells out to the `typst` CLI for final PDF compilation.
 
 **Communication**:
 
@@ -471,8 +471,7 @@ Invoked via `POST /api/generate_report` or `velocity-report pdf --config cfg.jso
 
 **Dependencies** (external binaries):
 
-- `xelatex` — TeX compilation (vendored minimal TeX Live tree in `/opt/velocity-report/texlive`)
-- `rsvg-convert` — SVG → PDF conversion for chart figures (`librsvg2-bin`)
+- `typst` — PDF compilation (embedded in distributed builds, or resolved via `VELOCITY_TYPST_PATH` / `PATH` in development)
 
 ### Web frontend
 
@@ -715,11 +714,11 @@ Three Transit Sources:
 
 ```
 1. User → POST /api/generate_report (or: velocity-report pdf config.json)
-2. Go server → internal/report/report.go → Direct SQLite query
-3. internal/report/chart/*.go → SVG charts → rsvg-convert → PDF charts
-4. internal/report/tex/render.go → text/template → .tex file
-5. os/exec → xelatex → .pdf output
-6. archive/zip → .zip archive (tex + SVGs + PDF)
+2. Go server → internal/report/typst_generate.go → direct SQLite query
+3. internal/report/chart/*.go → SVG charts
+4. internal/report/typst/*.go + templates/*.typ → materialise `data.json`, charts, fonts, and `.typ` sources
+5. os/exec → typst compile → .pdf output
+6. archive/zip → .zip archive (`.typ` + SVGs + fonts + PDF)
 ```
 
 ### Web visualisation
@@ -1113,20 +1112,20 @@ Web Development:
 
 ### What ships today
 
-| Capability                        | Status       | Component    |
-| --------------------------------- | ------------ | ------------ |
-| Radar vehicle detection (OPS243A) | Production   | Go server    |
-| Real-time speed dashboard         | Production   | Svelte web   |
-| Professional PDF reports          | Production   | Go + XeLaTeX |
-| Comparison reports (before/after) | Production   | Go + XeLaTeX |
-| Site configuration (SCD Type 6)   | Production   | Go + SQLite  |
-| LiDAR background subtraction      | Experimental | Go server    |
-| LiDAR foreground tracking         | Experimental | Go server    |
-| Adaptive region segmentation      | Experimental | Go server    |
-| Parameter sweep / auto-tune       | Experimental | Go server    |
-| PCAP analysis mode                | Experimental | Go server    |
-| macOS 3D visualiser (Metal)       | Experimental | Swift app    |
-| Track labelling + VRLOG replay    | Experimental | Swift + Go   |
+| Capability                        | Status       | Component   |
+| --------------------------------- | ------------ | ----------- |
+| Radar vehicle detection (OPS243A) | Production   | Go server   |
+| Real-time speed dashboard         | Production   | Svelte web  |
+| Professional PDF reports          | Production   | Go + Typst  |
+| Comparison reports (before/after) | Production   | Go + Typst  |
+| Site configuration (SCD Type 6)   | Production   | Go + SQLite |
+| LiDAR background subtraction      | Experimental | Go server   |
+| LiDAR foreground tracking         | Experimental | Go server   |
+| Adaptive region segmentation      | Experimental | Go server   |
+| Parameter sweep / auto-tune       | Experimental | Go server   |
+| PCAP analysis mode                | Experimental | Go server   |
+| macOS 3D visualiser (Metal)       | Experimental | Swift app   |
+| Track labelling + VRLOG replay    | Experimental | Swift + Go  |
 
 ### LiDAR pipeline layers
 
@@ -1177,8 +1176,8 @@ Canonical layer reference:
 
 - **Execution Time**:
   - DB queries + SVG chart rendering: <2 seconds
-  - XeLaTeX compilation (two passes): 3-8 seconds (depends on table size)
-  - Total end-to-end: 5-10 seconds
+  - Typst compilation: typically sub-second to low-single-digit seconds (depends on table size and host)
+  - Total end-to-end: typically low-single-digit seconds
 - **Memory**: ~30MB peak (no Python interpreter or matplotlib overhead)
 - **Disk**: ~1MB per PDF, ~5MB temp files during generation
 

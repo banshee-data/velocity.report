@@ -5,9 +5,9 @@ velocity.report for Raspberry Pi 4/400/5.
 
 ## Phase 1: working image (v0.5.1)
 
-Installs `texlive-xetex` APT packages at build time, extracts a minimal
-TeX Live tree (~143 MB) containing only the files the PDF generator needs,
-then purges the APT packages (~1 GB saved).
+Builds a single pcap-enabled Go binary with the Typst PDF engine embedded.
+The image does not install legacy report compiler packages or SVG-to-PDF
+conversion packages for report generation.
 
 ### What the image contains
 
@@ -55,9 +55,8 @@ image/
 ├── scripts/
 │   └── build-image.sh              # Local build helper
 └── stage-velocity/                 # pi-gen custom stage
-    ├── 00-install-packages/        # APT packages + minimal TeX tree build
-    │   ├── 00-packages             # APT package list (texlive-xetex, fonts, etc.)
-    │   └── 01-run.sh               # Builds minimal TeX tree, purges APT texlive
+    ├── 00-install-packages/        # Runtime APT package list
+    │   └── 00-packages             # libpcap + device support packages
     ├── 01-velocity-binaries/       # Go binaries
     │   ├── 00-run.sh
     ├── 02-velocity-python/         # Report output directory and velocity user
@@ -156,13 +155,12 @@ sudo nmcli device connect eth0
 
 ## Image size budget (phase 1)
 
-| Component                        | Estimated Size  |
-| -------------------------------- | --------------- |
-| Raspberry Pi OS Lite (base)      | ~450 MB         |
-| TeX Live (minimal vendored tree) | ~143 MB         |
-| Go binaries (server + ctl, pcap) | ~35 MB          |
-| LiDAR + web + system config      | ~11 MB          |
-| **Total (xz compressed)**        | **~150–300 MB** |
+| Component                       | Estimated Size  |
+| ------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)     | ~450 MB         |
+| Go binaries with embedded Typst | ~65 MB          |
+| LiDAR + web + system config     | ~11 MB          |
+| **Total (xz compressed)**       | **~150–300 MB** |
 
 ## Design document
 

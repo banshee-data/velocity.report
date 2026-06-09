@@ -48,7 +48,7 @@ Check in priority order:
 
 1. **Input validation**: are all external inputs validated? (radar JSON, LiDAR UDP, API request bodies, config files)
 2. **Privacy leaks**: could PII reach a log, response body, or export? Flag CRITICAL if yes.
-3. **Injection vectors**: SQL, command, path traversal, LaTeX injection
+3. **Injection vectors**: SQL, command, path traversal, Typst/template-data injection
 4. **Auth & access**: are new API routes authenticated? Can unauthenticated users reach sensor data?
 5. **Error messages**: do error messages leak internal state or sensitive data?
 6. **Dependencies**: are new dependencies introduced? Any known CVEs?

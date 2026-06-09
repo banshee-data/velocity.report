@@ -630,7 +630,7 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
 _REPORT_PIPELINE_SURFACES: list[tuple[str, str]] = [
     (
         "internal/report/report.go",
-        "Direct DB query -> Generate(ctx, db, cfg)",
+        "Direct DB query -> GeneratePDF(ctx, db, cfg)",
     ),
     (
         "internal/report/chart/timeseries.go",
@@ -641,8 +641,8 @@ _REPORT_PIPELINE_SURFACES: list[tuple[str, str]] = [
         "Speed distribution histogram SVG",
     ),
     (
-        "internal/report/tex/render.go",
-        "Go text/template -> .tex -> xelatex -> .pdf",
+        "internal/report/typst/render.go",
+        "Typst templates -> typst compile -> .pdf",
     ),
 ]
 

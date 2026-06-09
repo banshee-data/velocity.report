@@ -112,7 +112,8 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 #### C. consolidation candidates (medium priority)
 
-- PDF flow flags (`--pdf-latex-flow`, `--pdf-tex-root`) should be assessed for simplification into a single operator-facing mode selector.
+- Legacy PDF flow flags should be removed rather than consolidated into a
+  continuing operator-facing mode selector.
 - Transit worker tuning flags can remain but should be grouped and documented as advanced/runtime tuning.
 
 ## Consolidation options (metrics, stats, frontend)

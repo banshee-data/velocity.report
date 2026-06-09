@@ -299,7 +299,7 @@ func (s *Server) generateReportGo(
 	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
 	cfg.OutputDir = filepath.Join(reportRoot, "output", runID)
 
-	result, err := report.Generate(r.Context(), s.db, cfg)
+	result, err := report.GeneratePDF(r.Context(), s.db, cfg)
 	if err != nil {
 		log.Printf("Go PDF generation failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")

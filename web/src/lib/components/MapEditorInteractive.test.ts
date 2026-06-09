@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import MapEditorInteractive from './MapEditorInteractive.svelte';
 
 describe('MapEditorInteractive', () => {
@@ -8,6 +8,10 @@ describe('MapEditorInteractive', () => {
 
 	beforeEach(() => {
 		jest.resetAllMocks();
+	});
+
+	afterEach(() => {
+		cleanup();
 	});
 
 	it('should render map editor component', () => {
@@ -45,7 +49,7 @@ describe('MapEditorInteractive', () => {
 		// Component should initialise with San Francisco defaults (37.7749, -122.4194)
 	});
 
-	it('should have download button for SVG map', async () => {
+	it('should have generate button for the tile report map snapshot', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -59,11 +63,11 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const downloadButton = screen.getByText(/Download Map SVG/i);
-		expect(downloadButton).toBeInTheDocument();
+		const generateButton = screen.getByText(/Generate Tile Snapshot/i);
+		expect(generateButton).toBeInTheDocument();
 	});
 
-	it('should have download button even without bounding box', async () => {
+	it('should disable tile snapshot generation without a bounding box', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -77,30 +81,114 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const downloadButton = screen.getByText(/Download Map SVG/i);
-		expect(downloadButton).toBeInTheDocument();
+		const generateButton = screen.getByText(/Generate Tile Snapshot/i);
+		expect(generateButton).toBeDisabled();
 	});
 
-	it('should show error when downloading without bounding box', async () => {
+	it('should require explicit consent before generating a tile report map snapshot', async () => {
+		(global.fetch as jest.Mock).mockResolvedValue({
+			ok: true,
+			blob: async () => new Blob()
+		});
+
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
 				longitude: -0.1278,
 				radarAngle: 45,
-				bboxNELat: null,
-				bboxNELng: null,
-				bboxSWLat: null,
-				bboxSWLng: null,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
 				mapSvgData: null
 			}
 		});
 
-		const downloadButton = screen.getByText(/Download Map SVG/i);
-		await fireEvent.click(downloadButton);
+		const generateButton = screen.getByText(/Generate Tile Snapshot/i);
+		await fireEvent.click(generateButton);
+
+		expect(screen.getByText(/Allow Map Tile Requests/i)).toBeInTheDocument();
+		expect(screen.getByText(/OpenStreetMap raster tiles/i)).toBeInTheDocument();
+		expect(screen.getByText(/Upload instead/i)).toBeInTheDocument();
+		expect(
+			screen.getByText(/Radar observations, vehicle data, reports, and raw sensor data/i)
+		).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByText(/Allow Tiles This Session/i));
 
 		await waitFor(() => {
-			expect(screen.getByText(/Please set bounding box coordinates first/i)).toBeInTheDocument();
+			expect(global.fetch).toHaveBeenCalledTimes(1);
 		});
+	});
+
+	it('should require explicit consent before loading OSM map tiles', async () => {
+		render(MapEditorInteractive, {
+			props: {
+				latitude: 51.5074,
+				longitude: -0.1278,
+				radarAngle: 45,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
+				mapSvgData: null
+			}
+		});
+
+		await fireEvent.click(screen.getByText(/Load Map Tiles/i));
+
+		expect(screen.getByText(/Allow Map Tile Requests/i)).toBeInTheDocument();
+		expect(screen.getByText(/external tile servers/i)).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByText(/Allow Tiles This Session/i));
+
+		expect(screen.getByText(/Map tiles loaded/i)).toBeInTheDocument();
+		expect(global.fetch).not.toHaveBeenCalled();
+	});
+
+	it('should not expose geocoder or alternate map-source controls in the tile-only editor', () => {
+		render(MapEditorInteractive, {
+			props: {
+				latitude: 51.5074,
+				longitude: -0.1278,
+				radarAngle: 45,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
+				mapSvgData: null
+			}
+		});
+
+		expect(screen.queryByText(/^Search$/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Map style/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Mirror/i)).not.toBeInTheDocument();
+	});
+
+	it('should label saved SVG as database state and hide the preview by default', async () => {
+		render(MapEditorInteractive, {
+			props: {
+				latitude: 51.5074,
+				longitude: -0.1278,
+				radarAngle: 45,
+				bboxNELat: 51.5124,
+				bboxNELng: -0.1228,
+				bboxSWLat: 51.5024,
+				bboxSWLng: -0.1328,
+				mapSvgData: 'PHN2Zy8+'
+			}
+		});
+
+		expect(screen.getByText(/Existing Saved Report Map \(Database\)/i)).toBeInTheDocument();
+		expect(screen.getByText(/site.map_svg_data/i)).toBeInTheDocument();
+		const preview = document.querySelector('[data-report-map-preview]') as HTMLElement;
+		expect(preview).not.toBeVisible();
+
+		await fireEvent.click(screen.getByText(/Show Preview/i));
+
+		expect(preview).toBeVisible();
 	});
 
 	it('should display help text about dragging FOV marker', () => {
@@ -199,6 +287,28 @@ describe('MapEditorInteractive', () => {
 
 			// San Francisco (~37.77°)
 			expect(calculateLngCompression(37.77)).toBeCloseTo(0.79, 2);
+		});
+
+		it('keeps the +/- Area resize at 3:2 in metres (longitude-compensated)', () => {
+			// Mirrors adjustBBoxSize: the width delta in degrees is divided by
+			// cos(lat) so the box stays 3:2 in ground metres at any latitude. The
+			// report SVG is a fixed 1200x800 canvas, so a box that is 3:2 in degrees
+			// (not metres) would be stretched horizontally when rendered.
+			const lat = 37.77;
+			const lngCompression = Math.cos((lat * Math.PI) / 180);
+			const heightDelta = 0.003;
+			const widthDelta = (heightDelta * 1.5) / lngCompression;
+
+			const metersPerDegreeLat = 111320;
+			const metersPerDegreeLng = 111320 * lngCompression;
+			const heightMeters = heightDelta * 2 * metersPerDegreeLat;
+			const widthMeters = widthDelta * 2 * metersPerDegreeLng;
+			expect(widthMeters / heightMeters).toBeCloseTo(1.5, 5);
+
+			// The previous degree-space formula (heightDelta * 1.5) was not 3:2 in
+			// metres away from the equator, which stretched the generated map.
+			const buggyWidthMeters = heightDelta * 1.5 * 2 * metersPerDegreeLng;
+			expect(buggyWidthMeters / heightMeters).not.toBeCloseTo(1.5, 2);
 		});
 	});
 });

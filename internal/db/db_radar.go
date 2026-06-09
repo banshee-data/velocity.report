@@ -8,8 +8,6 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
-
-	"gonum.org/v1/gonum/stat"
 )
 
 func (db *DB) RecordRadarObject(rawRadarJSON string) error {
@@ -423,9 +421,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			copy(sorted, speeds)
 			sort.Float64s(sorted)
 
-			agg.P50Speed = stat.Quantile(0.5, stat.Empirical, sorted, nil)
-			agg.P85Speed = stat.Quantile(0.85, stat.Empirical, sorted, nil)
-			agg.P98Speed = stat.Quantile(0.98, stat.Empirical, sorted, nil)
+			agg.P50Speed = empiricalQuantileSorted(0.5, sorted)
+			agg.P85Speed = empiricalQuantileSorted(0.85, sorted)
+			agg.P98Speed = empiricalQuantileSorted(0.98, sorted)
 		} else {
 			agg.MaxSpeed = 0
 			agg.Count = 0
@@ -463,6 +461,20 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		Histogram:    histogram,
 		MinSpeedUsed: actualMinSpeed,
 	}, nil
+}
+
+func empiricalQuantileSorted(p float64, sorted []float64) float64 {
+	if len(sorted) == 0 {
+		return math.NaN()
+	}
+	idx := int(math.Ceil(p*float64(len(sorted)))) - 1
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(sorted) {
+		idx = len(sorted) - 1
+	}
+	return sorted[idx]
 }
 
 func (db *DB) RecordRawData(rawDataJSON string) error {

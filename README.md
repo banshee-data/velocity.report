@@ -29,7 +29,8 @@ no individual is identified, tracked, or recorded. The data belongs to the commu
 - 📊 PDF reports: speed distributions, percentile statistics, before-and-after comparisons
 - 🔒 Privacy by architecture: the hardware cannot collect what the design never asked for
 - 📡 Radar speed measurement and LiDAR object tracking (working toward [sensor fusion](docs/plans/lidar-l7-scene-plan.md), combining both sensors)
-- 🏠 Runs locally in your neighbourhood, offline-first
+- 🏠 Runs locally in your neighbourhood, offline-first; optional map/prior
+  downloads are explicit opt-in
 - 🔒 Open source and auditable, because trust should be verifiable
 
 ```
@@ -119,7 +120,11 @@ or a specific vehicle. No licence plates. No faces. No make or model.
 Object classification tracks road user types: pedestrian, cyclist, car, bus.
 Not people. Not plates.
 
-The data stays on a local device. Reports are generated locally.
+The measurement data stays on a local device. Reports are generated locally.
+Remote map and prior requests, such as OpenStreetMap tile downloads or Overpass
+lookups, are optional operator actions and must be explicit, disableable, and
+documented. They are not telemetry and must not send PII, vehicle data, or raw
+sensor captures.
 If personal data reaches a log, a response body, or an export, that is a bug,
 [please report it.](https://github.com/banshee-data/velocity.report/issues)
 
@@ -159,7 +164,7 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 | Component            | What it does                                                                                                                                                      |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API -> [cmd/](cmd/), [internal/](internal/)                                   |
-| **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + XeLaTeX -> [internal/report/](internal/report/)               |
+| **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + Typst -> [internal/report/](internal/report/)                 |
 | **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript -> [web/](web/README.md)                                                   |
 | **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon -> [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
 
@@ -200,7 +205,7 @@ Use `--db-path` to point at an existing database elsewhere.
                    ▼                ▼            ▼
         ┌──────────────┐ ┌──────────────────┐ ┌─────────────────────┐
         │ Web Frontend │ │   PDF reports    │ │  VelocityVisualiser │
-        │   (Svelte)   │ │ (Go + XeLaTeX)   │ │ (macOS/Metal, gRPC) │
+        │   (Svelte)   │ │  (Go + Typst)    │ │ (macOS/Metal, gRPC) │
         └──────────────┘ └──────────────────┘ └─────────────────────┘
 ```
 

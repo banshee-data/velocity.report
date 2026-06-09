@@ -113,7 +113,6 @@
 	let lastGeneratedReportId: number | null = null;
 	let reportMetadata: SiteReport | null = null;
 
-	$: hasReportFeedback = Boolean(reportMessage) || lastGeneratedReportId !== null;
 	$: reportMessageTone =
 		lastGeneratedReportId !== null
 			? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
@@ -444,60 +443,10 @@
 						{error}
 					</div>
 				{:else}
-					{#if hasReportFeedback}
-						<section class="space-y-4">
-							<h2
-								class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
-							>
-								Last Report
-							</h2>
-							{#if reportMessage}
-								<div
-									role={lastGeneratedReportId !== null ? 'status' : 'alert'}
-									aria-live="polite"
-									class={`rounded border p-3 ${reportMessageTone}`}
-								>
-									{reportMessage}
-								</div>
-							{/if}
-
-							{#if lastGeneratedReportId !== null}
-								<div class="space-y-3" role="region" aria-label="Report download options">
-									{#if reportMetadata}
-										<div class="flex gap-2">
-											<!-- eslint-disable svelte/no-navigation-without-resolve -->
-											<a
-												href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
-												class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
-												download
-												aria-label="Download PDF report"
-											>
-												📄 Download PDF
-											</a>
-											{#if reportMetadata.zip_filename}
-												<!-- eslint-disable svelte/no-navigation-without-resolve -->
-												<a
-													href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
-													class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
-													download
-													aria-label="Download source files as ZIP archive"
-												>
-													📦 Download Sources (ZIP)
-												</a>
-											{/if}
-										</div>
-									{:else}
-										<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
-											Loading download links...
-										</p>
-									{/if}
-									<p class="text-surface-600-300-token text-xs">
-										The ZIP file contains LaTeX source files and chart SVG assets for custom
-										editing.
-									</p>
-								</div>
-							{/if}
-						</section>
+					{#if reportMessage && lastGeneratedReportId === null}
+						<div role="alert" aria-live="polite" class={`rounded border p-3 ${reportMessageTone}`}>
+							{reportMessage}
+						</div>
 					{/if}
 
 					<section class="space-y-4">
@@ -623,6 +572,52 @@
 									Reports use {$displayUnits} units and {$displayTimezone} timezone settings.
 								</p>
 							</div>
+
+							{#if lastGeneratedReportId !== null}
+								<div class="space-y-3" role="region" aria-label="Report download options">
+									{#if reportMessage}
+										<div
+											role="status"
+											aria-live="polite"
+											class={`rounded border p-3 ${reportMessageTone}`}
+										>
+											{reportMessage}
+										</div>
+									{/if}
+									{#if reportMetadata}
+										<div class="flex gap-2">
+											<!-- eslint-disable svelte/no-navigation-without-resolve -->
+											<a
+												href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.filename}`}
+												class="bg-secondary-500 hover:bg-secondary-600 inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors"
+												download
+												aria-label="Download PDF report"
+											>
+												📄 Download PDF
+											</a>
+											{#if reportMetadata.zip_filename}
+												<!-- eslint-disable svelte/no-navigation-without-resolve -->
+												<a
+													href={`/api/reports/${lastGeneratedReportId}/download/${reportMetadata.zip_filename}`}
+													class="border-secondary-500 text-secondary-500 hover:bg-secondary-50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:text-white"
+													download
+													aria-label="Download source files as ZIP archive"
+												>
+													📦 Download Sources (ZIP)
+												</a>
+											{/if}
+										</div>
+									{:else}
+										<p class="text-surface-600-300-token text-sm" role="status" aria-live="polite">
+											Loading download links...
+										</p>
+									{/if}
+									<p class="text-surface-600-300-token text-xs">
+										The ZIP file contains Typst source files and chart SVG assets for custom
+										editing.
+									</p>
+								</div>
+							{/if}
 						</div>
 					</section>
 

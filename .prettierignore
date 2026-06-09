@@ -1,6 +1,10 @@
 # Prettier ignore file for velocity.report
 
+# Agent/worktree metadata
+.claude/
+
 # Build artifacts
+.build/
 tools/visualiser-macos/build/
 tools/visualiser-macos/DerivedData/
 build/

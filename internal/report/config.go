@@ -47,7 +47,7 @@ type Config struct {
 	IncludeMap bool
 	MapSVG     []byte
 
-	// PaperSize selects physical chart dimensions and LaTeX paper
+	// PaperSize selects physical chart dimensions and report paper
 	// ("letter" or "a4"). Empty defaults to "letter".
 	PaperSize string
 

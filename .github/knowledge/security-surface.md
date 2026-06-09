@@ -47,7 +47,7 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 - Path traversal (especially in PDF output paths)
 - Symlink attacks
 - Permission escalation
-- Temp file leaks (LaTeX intermediate files)
+- Temp file leaks (report source bundles and generated PDFs)
 
 ## Dependencies
 
@@ -88,7 +88,10 @@ Verify these claims hold — they are the project's core promise:
 - No licence plate data collected
 - No camera/video recording
 - No PII in database
-- Data stays local
+- Measurement data stays local
+- Remote web requests are explicit opt-ins only, for example OSM/Overpass map
+  data or optional geometry priors. They must not include PII, vehicle data, or
+  raw sensor captures.
 
 Then look for what the claims don't cover:
 
@@ -103,7 +106,7 @@ Then look for what the claims don't cover:
 
 High-risk areas:
 
-- LaTeX injection in PDF generation
+- Typst template/data injection in PDF generation
 - Shell commands in scripts
 - Deserialisation
 - Template injection

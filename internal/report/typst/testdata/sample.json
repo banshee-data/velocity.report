@@ -1,0 +1,144 @@
+{
+  "paper": "us-letter",
+  "site": {
+    "location": "Clarendon Avenue, San Francisco",
+    "surveyor": "Banshee, INC.",
+    "contact": "david@banshee-data.com",
+    "speed_limit": 25,
+    "site_description": "Surveys were conducted from the southbound parking lane outside 500 Clarendon Avenue, directly in front of an elementary school. The observed southbound travel lane is on a downhill grade, which may influence vehicle speeds and braking behavior. Data was collected from the same fixed instrument location on all survey days to ensure consistency.",
+    "speed_limit_note": "The posted speed limit at this location is 35 mph, reduced to 25 mph during times when school children are present.",
+    "latitude": 37.7563,
+    "longitude": -122.4537,
+    "map_angle": 32.0
+  },
+  "period": {
+    "start_date": "2025-06-02",
+    "end_date": "2025-06-04",
+    "start_iso": "2025-06-02T00:00:00-07:00",
+    "end_iso": "2025-06-04T23:59:59-07:00",
+    "timezone": "America/Los_Angeles",
+    "group": "1h",
+    "units": "mph",
+    "min_speed_str": "5.0 mph"
+  },
+  "compare": {
+    "start_date": "2026-01-15",
+    "end_date": "2026-01-19",
+    "start_iso": "2026-01-15T00:00:00-08:00",
+    "end_iso": "2026-01-19T23:59:59-08:00",
+    "overall": {
+      "total_count": 2455,
+      "p50": 33.02,
+      "p85": 38.70,
+      "p98": 44.21,
+      "max_speed": 53.82
+    },
+    "daily": [
+      { "date": "1/15 00:00", "count":  987, "p50": 32.13, "p85": 38.10, "p98": 44.21, "max_speed": 51.49 },
+      { "date": "1/16 00:00", "count":  716, "p50": 31.84, "p85": 37.52, "p98": 43.20, "max_speed": 53.82 },
+      { "date": "1/19 00:00", "count":  752, "p50": 35.05, "p85": 39.85, "p98": 44.50, "max_speed": 49.17 }
+    ],
+    "granular": [
+      { "bucket": "1/15 10:00", "count": 107, "p50": 33.31, "p85": 37.38, "p98": 44.78, "max_speed": 46.82 },
+      { "bucket": "1/15 11:00", "count": 149, "p50": 34.02, "p85": 40.13, "p98": 45.96, "max_speed": 47.56 },
+      { "bucket": "1/15 12:00", "count": 158, "p50": 34.17, "p85": 38.10, "p98": 43.63, "max_speed": 48.86 },
+      { "bucket": "1/15 13:00", "count": 180, "p50": 32.13, "p85": 37.67, "p98": 44.21, "max_speed": 45.81 },
+      { "bucket": "1/15 14:00", "count": 206, "p50": 29.66, "p85": 35.20, "p98": 40.57, "max_speed": 46.53 },
+      { "bucket": "1/15 15:00", "count": 187, "p50": 30.98, "p85": 37.81, "p98": 45.53, "max_speed": 51.49 },
+      { "bucket": "1/16 12:00", "count": 121, "p50": 33.45, "p85": 38.70, "p98": 44.21, "max_speed": 53.82 },
+      { "bucket": "1/16 13:00", "count": 127, "p50": 33.74, "p85": 38.39, "p98": 43.20, "max_speed": 47.56 },
+      { "bucket": "1/16 14:00", "count": 173, "p50": 32.73, "p85": 38.24, "p98": 44.64, "max_speed": 50.17 },
+      { "bucket": "1/16 15:00", "count": 213, "p50": 29.95, "p85": 35.05, "p98": 40.71, "max_speed": 43.06 },
+      { "bucket": "1/16 16:00", "count":  82, "p50": 31.99, "p85": 36.49, "p98": 42.03, "max_speed": 42.91 },
+      { "bucket": "1/19 11:00", "count": 113, "p50": 34.77, "p85": 38.70, "p98": 44.21, "max_speed": 44.64 },
+      { "bucket": "1/19 12:00", "count": 163, "p50": 35.77, "p85": 40.42, "p98": 44.21, "max_speed": 47.13 },
+      { "bucket": "1/19 13:00", "count": 163, "p50": 34.48, "p85": 38.84, "p98": 43.92, "max_speed": 46.53 },
+      { "bucket": "1/19 14:00", "count": 191, "p50": 35.34, "p85": 41.31, "p98": 45.96, "max_speed": 49.17 },
+      { "bucket": "1/19 15:00", "count": 122, "p50": 33.59, "p85": 38.84, "p98": 43.78, "max_speed": 47.85 }
+    ],
+    "histogram": {
+      "buckets": [
+        { "label": "5-10",   "count":  60, "percent":  2.4 },
+        { "label": "10-15",  "count":  58, "percent":  2.4 },
+        { "label": "15-20",  "count":  70, "percent":  2.9 },
+        { "label": "20-25",  "count": 169, "percent":  6.9 },
+        { "label": "25-30",  "count": 432, "percent": 17.6 },
+        { "label": "30-35",  "count": 762, "percent": 31.0 },
+        { "label": "35-40",  "count": 668, "percent": 27.2 },
+        { "label": "40-45",  "count": 203, "percent":  8.3 },
+        { "label": "45-50",  "count":  30, "percent":  1.2 },
+        { "label": "50+",    "count":   3, "percent":  0.1 }
+      ]
+    }
+  },
+  "overall": {
+    "total_count": 3460,
+    "p50": 30.54,
+    "p85": 36.94,
+    "p98": 43.05,
+    "max_speed": 53.52
+  },
+  "radar": {
+    "cosine_error_angle": "21.0",
+    "cosine_error_factor": "1.071145",
+    "compare_cosine_error_angle": "21.0",
+    "compare_cosine_error_factor": "1.071145",
+    "sensor_model": "OmniPreSense OPS243-A",
+    "firmware_version": "v1.2.3",
+    "transmit_frequency": "24.125 GHz",
+    "sample_rate": "20 kSPS",
+    "velocity_resolution": "0.272 mph",
+    "azimuth_fov": "20°",
+    "elevation_fov": "24°"
+  },
+  "histogram": {
+    "buckets": [
+      { "label": "5-10",  "count":  66, "percent":  1.9 },
+      { "label": "10-15", "count": 238, "percent":  6.9 },
+      { "label": "15-20", "count": 294, "percent":  8.5 },
+      { "label": "20-25", "count": 337, "percent":  9.7 },
+      { "label": "25-30", "count": 716, "percent": 20.7 },
+      { "label": "30-35", "count": 970, "percent": 28.0 },
+      { "label": "35-40", "count": 629, "percent": 18.2 },
+      { "label": "40-45", "count": 183, "percent":  5.3 },
+      { "label": "45-50", "count":  24, "percent":  0.7 },
+      { "label": "50+",   "count":   3, "percent":  0.1 }
+    ],
+    "units": "mph"
+  },
+  "daily": [
+    { "date": "6/2 00:00", "count":  889, "p50": 30.54, "p85": 37.23, "p98": 43.92, "max_speed": 51.19 },
+    { "date": "6/3 00:00", "count": 1311, "p50": 30.54, "p85": 36.36, "p98": 41.60, "max_speed": 53.52 },
+    { "date": "6/4 00:00", "count": 1260, "p50": 30.54, "p85": 37.23, "p98": 42.76, "max_speed": 53.52 }
+  ],
+  "granular": [
+    { "bucket": "6/2 08:00", "count": 109, "p50": 23.43, "p85": 35.72, "p98": 43.78, "max_speed": 46.47 },
+    { "bucket": "6/2 09:00", "count": 152, "p50": 30.54, "p85": 37.52, "p98": 42.47, "max_speed": 46.83 },
+    { "bucket": "6/2 10:00", "count": 162, "p50": 34.32, "p85": 40.14, "p98": 45.96, "max_speed": 51.19 },
+    { "bucket": "6/2 11:00", "count": 140, "p50": 32.87, "p85": 37.81, "p98": 44.21, "max_speed": 46.25 },
+    { "bucket": "6/2 12:00", "count": 179, "p50": 30.83, "p85": 36.36, "p98": 43.34, "max_speed": 44.21 },
+    { "bucket": "6/2 13:00", "count": 147, "p50": 25.02, "p85": 32.87, "p98": 40.72, "max_speed": 48.29 },
+    { "bucket": "6/3 09:00", "count":  73, "p50": 27.92, "p85": 35.20, "p98": 40.72, "max_speed": 40.72 },
+    { "bucket": "6/3 10:00", "count": 190, "p50": 28.80, "p85": 35.20, "p98": 43.63, "max_speed": 48.87 },
+    { "bucket": "6/3 11:00", "count": 181, "p50": 28.80, "p85": 35.49, "p98": 41.30, "max_speed": 53.52 },
+    { "bucket": "6/3 12:00", "count": 188, "p50": 32.58, "p85": 36.94, "p98": 41.60, "max_speed": 43.92 },
+    { "bucket": "6/3 13:00", "count": 145, "p50": 32.00, "p85": 38.69, "p98": 42.47, "max_speed": 44.21 },
+    { "bucket": "6/3 14:00", "count": 186, "p50": 30.83, "p85": 36.94, "p98": 43.34, "max_speed": 47.12 },
+    { "bucket": "6/3 15:00", "count": 215, "p50": 29.38, "p85": 34.91, "p98": 39.85, "max_speed": 45.67 },
+    { "bucket": "6/3 16:00", "count": 133, "p50": 31.41, "p85": 37.52, "p98": 41.60, "max_speed": 45.38 },
+    { "bucket": "6/4 09:00", "count": 254, "p50": 21.52, "p85": 31.71, "p98": 36.36, "max_speed": 40.72 },
+    { "bucket": "6/4 10:00", "count": 140, "p50": 31.12, "p85": 37.23, "p98": 42.76, "max_speed": 46.54 },
+    { "bucket": "6/4 11:00", "count": 149, "p50": 33.74, "p85": 38.69, "p98": 45.67, "max_speed": 47.41 },
+    { "bucket": "6/4 12:00", "count": 141, "p50": 33.16, "p85": 39.56, "p98": 45.67, "max_speed": 47.12 },
+    { "bucket": "6/4 13:00", "count": 170, "p50": 32.29, "p85": 38.11, "p98": 42.76, "max_speed": 45.67 },
+    { "bucket": "6/4 14:00", "count": 198, "p50": 28.22, "p85": 34.61, "p98": 41.30, "max_speed": 42.18 },
+    { "bucket": "6/4 15:00", "count": 208, "p50": 32.58, "p85": 38.69, "p98": 43.63, "max_speed": 53.52 }
+  ],
+  "cosine_correction_note": "Note: speeds have been corrected to account for sensor angle.",
+  "charts": {
+    "timeseries": "",
+    "timeseries_compare": "",
+    "histogram": "",
+    "map": ""
+  }
+}

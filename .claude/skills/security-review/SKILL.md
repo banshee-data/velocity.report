@@ -53,7 +53,7 @@ For each area, check:
   - No PII in database
   - Data stays local
   - Then look for what the claims don't cover: timing-based vehicle re-identification, metadata leakage (sensor location in exports), PII in debug logs or error messages, data correlation with external sources.
-- **Code execution vectors**: LaTeX injection in PDF generation, shell commands in scripts, deserialisation, template injection, local privilege escalation via systemd misconfig, suid binaries, file permission gaps.
+- **Code execution vectors**: Typst/template-data injection in PDF generation, shell commands in scripts, deserialisation, template injection, local privilege escalation via systemd misconfig, suid binaries, file permission gaps.
 - **Denial of service**: API request flooding, large payloads, database disk exhaustion, memory exhaustion via sensor data streams, CPU-heavy queries, crash paths via malformed sensor data, invalid queries, null derefs, uncaught panics.
 
 ### 3. Identify fuzz targets

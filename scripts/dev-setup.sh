@@ -284,21 +284,16 @@ setup_python() {
         run_with_log "Installing python requirements" pip install -r requirements.txt
     fi
 
-    # Check LaTeX installation
-    print_step "Checking LaTeX installation"
-    if command_exists xelatex; then
-        print_success "XeLaTeX installed: $(xelatex --version | head -n1)"
+    # Check Typst installation
+    print_step "Checking Typst installation"
+    if command_exists typst; then
+        print_success "Typst installed: $(typst --version | head -n1)"
     else
-        print_warning "XeLaTeX not found - required for PDF generation"
+        print_warning "Typst not found on PATH - run 'make install-typst' for local PDF generation"
         echo ""
         echo "Install with:"
-        if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
-            echo "  sudo apt-get install texlive-xetex texlive-fonts-extra"
-        elif [[ "$OS" == "macos" ]]; then
-            echo "  brew install --cask mactex"
-            echo "  # Or for minimal install:"
-            echo "  brew install basictex"
-        fi
+        echo "  make install-typst"
+        echo "  # or install Typst from https://github.com/typst/typst/releases"
     fi
 
     deactivate
@@ -439,9 +434,8 @@ print_next_steps() {
     echo "  # Auto-formats code on every commit (recommended for regular contributors)"
     echo ""
 
-    if ! command_exists xelatex; then
-        echo -e "${YELLOW}Note:${NC} XeLaTeX is not installed — PDF generation will not be available."
-        echo "See the setup output above for installation instructions."
+    if ! command_exists typst; then
+        echo -e "${YELLOW}Note:${NC} Typst is not installed on PATH. Run 'make install-typst' for local PDF generation."
         echo ""
     fi
 

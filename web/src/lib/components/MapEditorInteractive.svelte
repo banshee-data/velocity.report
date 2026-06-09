@@ -1,13 +1,6 @@
 <script lang="ts">
-	import {
-		buildNodeLookup,
-		buildOverpassQueries,
-		categoriseElements,
-		generateMapSvg,
-		OVERPASS_MIRRORS,
-		svgToBase64
-	} from '$lib/map-svg';
-	import { fetchOverpassQuery } from '$lib/api';
+	import { svgToBase64 } from '$lib/svg';
+	import 'leaflet/dist/leaflet.css';
 	import {
 		mdiAlert,
 		mdiCheckCircle,
@@ -15,9 +8,11 @@
 		mdiCrosshairsGps,
 		mdiDelete,
 		mdiDownload,
-		mdiMagnify
+		mdiEye,
+		mdiEyeOff,
+		mdiMap
 	} from '@mdi/js';
-	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
+	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle, TileLayer } from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		Button,
@@ -25,7 +20,6 @@
 		Notification,
 		NumberStepper,
 		ProgressCircle,
-		SelectField,
 		Switch,
 		TextField,
 		ToggleGroup,
@@ -49,26 +43,22 @@
 	let map: LeafletMap | null = null;
 	let radarMarker: Marker | null = null;
 	let bboxRect: Rectangle | null = null;
+	let osmTileLayer: TileLayer | null = null;
 	let fovPolygon: L.Polygon | null = null;
 	let fovTipMarker: Marker | null = null;
 	let mapContainer: HTMLElement;
-	let searchQuery = '';
-	let searchResults: Array<{
-		display_name: string;
-		lat: string;
-		lon: string;
-		place_id?: number | string;
-	}> = [];
-	let searching = false;
 	let downloading = false;
 	let downloadStep = ''; // e.g. '1/2 Roads…', '2/2 Detail…'
 	let error = '';
-	let selectedMirror = '';
 	let abortController: AbortController | null = null;
 	let L: typeof import('leaflet') | null = null;
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
-	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
+	let osmTilesLoaded = false;
+	let reportMapOverlaysVisible = false;
+
+	const fovWidthDegrees = 20;
+	const fovDistanceMeters = 100;
 
 	// Confirmation modal state for mode switching
 	let showDeleteMapModal = false;
@@ -77,6 +67,18 @@
 
 	// Confirmation modal state for replacing an uploaded SVG
 	let showReplaceMapModal = false;
+
+	type ExternalMapRequest = 'map-tiles' | 'report-map-svg';
+	let externalMapRequestConsent = false;
+	let showExternalMapRequestModal = false;
+	let pendingExternalMapRequest: ExternalMapRequest | null = null;
+	let showReportMapPreview = false;
+	// Bounds the current generated preview was built for. Used to detect when the
+	// report bounds have changed since generation, which would make the preview
+	// (and the SVG that gets saved) no longer match the orange bbox rectangle.
+	let generatedBbox: { swLat: number; swLng: number; neLat: number; neLng: number } | null = null;
+
+	$: reportMapOverlaysVisible = externalMapRequestConsent && osmTilesLoaded;
 
 	/** Request a mode switch. If existing map data would be lost, show confirmation. */
 	function requestModeSwitch(target: 'interactive' | 'upload') {
@@ -120,6 +122,46 @@
 	// upload control signals intent to include a map.
 	function activateIncludeMap() {
 		if (!includeMap) includeMap = true;
+	}
+
+	function requestExternalMapRequest(request: ExternalMapRequest) {
+		if (externalMapRequestConsent) {
+			void runExternalMapRequest(request);
+			return;
+		}
+
+		pendingExternalMapRequest = request;
+		showExternalMapRequestModal = true;
+	}
+
+	async function runExternalMapRequest(request: ExternalMapRequest) {
+		// Each branch performs exactly one external action, only after consent.
+		if (request === 'map-tiles') {
+			addOsmTileLayer();
+			return;
+		}
+		await downloadTileMapSVG();
+	}
+
+	function confirmExternalMapRequest() {
+		const request = pendingExternalMapRequest;
+		externalMapRequestConsent = true;
+		showExternalMapRequestModal = false;
+		pendingExternalMapRequest = null;
+		if (request) void runExternalMapRequest(request);
+	}
+
+	function cancelExternalMapRequest() {
+		showExternalMapRequestModal = false;
+		pendingExternalMapRequest = null;
+	}
+
+	function requestReportMapSvg() {
+		requestExternalMapRequest('report-map-svg');
+	}
+
+	function requestMapTiles() {
+		requestExternalMapRequest('map-tiles');
 	}
 
 	// Custom SVG upload — restore mode when a custom SVG is stored without geographic bounds.
@@ -218,6 +260,7 @@
 			useCustomSvg = true;
 			error = '';
 			mapJustDownloaded = true;
+			showReportMapPreview = true;
 			// Clear geographic bounds — custom SVGs have no bbox.
 			// This ensures the page correctly restores custom SVG mode on reload.
 			bboxNELat = null;
@@ -257,12 +300,6 @@
 		// Dynamically import Leaflet to avoid SSR issues
 		L = await import('leaflet');
 
-		// Import Leaflet CSS
-		const link = document.createElement('link');
-		link.rel = 'stylesheet';
-		link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-		document.head.appendChild(link);
-
 		initializeMap();
 	});
 
@@ -286,11 +323,7 @@
 			zoomControl: true
 		});
 
-		// Add OpenStreetMap tiles
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			attribution: '© OpenStreetMap contributors',
-			maxZoom: 19
-		}).addTo(map);
+		// OSM tiles are added only after explicit per-session consent.
 
 		// Create custom icon for radar marker
 		const radarIcon = L.icon({
@@ -309,7 +342,8 @@
 		// Add radar marker
 		radarMarker = L.marker([centerLat, centerLng], {
 			icon: radarIcon,
-			draggable: true
+			draggable: true,
+			opacity: reportMapOverlaysVisible ? 1 : 0
 		}).addTo(map);
 
 		// Initialize coordinates if not set
@@ -337,11 +371,58 @@
 			updateBBoxAroundRadar();
 		}
 
-		// Initialize FOV triangle if angle is set
-		updateFOVTriangle();
+		syncReportMapOverlays(reportMapOverlaysVisible);
 	}
 
-	function updateFOVTriangle() {
+	function addOsmTileLayer() {
+		// Hard privacy gate: OSM tiles are an external fetch. Never load them
+		// without this-session consent (granted via the modal), regardless of which
+		// caller invokes this — the gate lives here so no path can leak a fetch.
+		if (!L || !map || osmTileLayer || !externalMapRequestConsent) return;
+
+		const layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '© OpenStreetMap contributors',
+			maxZoom: 19
+		});
+		layer.on('load', () => {
+			osmTilesLoaded = true;
+			syncReportMapOverlays(true);
+		});
+		osmTileLayer = layer.addTo(map);
+	}
+
+	$: if (map && externalMapRequestConsent) addOsmTileLayer();
+	$: if (map) syncReportMapOverlays(reportMapOverlaysVisible);
+
+	function calculateFOVGeometry(lat: number, lng: number, angle: number) {
+		const metersPerDegreeLat = 111320;
+		const metersPerDegreeLng = 111320 * Math.cos((lat * Math.PI) / 180);
+		const fovDistanceLat = fovDistanceMeters / metersPerDegreeLat;
+		const fovDistanceLng = fovDistanceMeters / metersPerDegreeLng;
+		const bearingRad = (angle * Math.PI) / 180;
+		const leftBearingRad = ((angle - fovWidthDegrees / 2) * Math.PI) / 180;
+		const rightBearingRad = ((angle + fovWidthDegrees / 2) * Math.PI) / 180;
+
+		return {
+			origin: { lat, lng },
+			tip: {
+				lat: lat + Math.cos(bearingRad) * fovDistanceLat,
+				lng: lng + Math.sin(bearingRad) * fovDistanceLng
+			},
+			left: {
+				lat: lat + Math.cos(leftBearingRad) * fovDistanceLat,
+				lng: lng + Math.sin(leftBearingRad) * fovDistanceLng
+			},
+			right: {
+				lat: lat + Math.cos(rightBearingRad) * fovDistanceLat,
+				lng: lng + Math.sin(rightBearingRad) * fovDistanceLng
+			},
+			fovDistanceLat,
+			fovDistanceLng
+		};
+	}
+
+	function updateFOVTriangle(showFOV: boolean = externalMapRequestConsent) {
 		if (!L || !map || latitude === null || longitude === null) return;
 
 		// Remove existing FOV polygon and marker
@@ -355,43 +436,17 @@
 		}
 
 		// Only draw if angle is set
-		if (radarAngle === null) return;
-
-		// FOV parameters
-		const fovWidthDegrees = 20; // Field of view width in degrees
-		const fovDistanceMeters = 100; // Distance in meters
-
-		// Convert 100m to degrees (approximate: 1 degree lat ≈ 111km)
-		const metersPerDegreeLat = 111320;
-		const metersPerDegreeLng = 111320 * Math.cos((latitude * Math.PI) / 180);
-		const fovDistanceLat = fovDistanceMeters / metersPerDegreeLat;
-		const fovDistanceLng = fovDistanceMeters / metersPerDegreeLng;
-
-		// Radar angle: 0 = North, 90 = East, 180 = South, 270 = West
-		// Map bearing is the same convention
-		const bearingDegrees = radarAngle;
-		const bearingRad = (bearingDegrees * Math.PI) / 180;
-		const leftBearingRad = ((bearingDegrees - fovWidthDegrees / 2) * Math.PI) / 180;
-		const rightBearingRad = ((bearingDegrees + fovWidthDegrees / 2) * Math.PI) / 180;
-
-		// Calculate center tip point
-		const tipLat = latitude + Math.cos(bearingRad) * fovDistanceLat;
-		const tipLng = longitude + Math.sin(bearingRad) * fovDistanceLng;
-
-		// Calculate left and right edge points at 100m distance
-		const leftLat = latitude + Math.cos(leftBearingRad) * fovDistanceLat;
-		const leftLng = longitude + Math.sin(leftBearingRad) * fovDistanceLng;
-		const rightLat = latitude + Math.cos(rightBearingRad) * fovDistanceLat;
-		const rightLng = longitude + Math.sin(rightBearingRad) * fovDistanceLng;
+		if (!showFOV || radarAngle === null) return;
+		const fov = calculateFOVGeometry(latitude, longitude, radarAngle);
 
 		// Validate all coordinates
 		if (
-			isNaN(leftLat) ||
-			isNaN(leftLng) ||
-			isNaN(rightLat) ||
-			isNaN(rightLng) ||
-			isNaN(tipLat) ||
-			isNaN(tipLng)
+			isNaN(fov.left.lat) ||
+			isNaN(fov.left.lng) ||
+			isNaN(fov.right.lat) ||
+			isNaN(fov.right.lng) ||
+			isNaN(fov.tip.lat) ||
+			isNaN(fov.tip.lng)
 		) {
 			console.error('Invalid FOV coordinates calculated');
 			return;
@@ -401,8 +456,8 @@
 		fovPolygon = L.polygon(
 			[
 				[latitude, longitude], // Radar position (origin)
-				[leftLat, leftLng], // Left edge at 100m
-				[rightLat, rightLng] // Right edge at 100m
+				[fov.left.lat, fov.left.lng], // Left edge at 100m
+				[fov.right.lat, fov.right.lng] // Right edge at 100m
 			],
 			{
 				color: '#ef4444',
@@ -420,7 +475,7 @@
 			className: ''
 		});
 
-		fovTipMarker = L.marker([tipLat, tipLng], {
+		fovTipMarker = L.marker([fov.tip.lat, fov.tip.lng], {
 			icon: tipIcon,
 			draggable: true,
 			zIndexOffset: 1000
@@ -449,20 +504,13 @@
 			localAngle = Math.round(angle);
 			radarAngle = localAngle;
 
-			// Update just the polygon shape without recreating marker
-			const newLeftBearingRad = ((localAngle - fovWidthDegrees / 2) * Math.PI) / 180;
-			const newRightBearingRad = ((localAngle + fovWidthDegrees / 2) * Math.PI) / 180;
-
-			const newLeftLat = latitude + Math.cos(newLeftBearingRad) * fovDistanceLat;
-			const newLeftLng = longitude + Math.sin(newLeftBearingRad) * fovDistanceLng;
-			const newRightLat = latitude + Math.cos(newRightBearingRad) * fovDistanceLat;
-			const newRightLng = longitude + Math.sin(newRightBearingRad) * fovDistanceLng;
+			const draggedFOV = calculateFOVGeometry(latitude, longitude, localAngle);
 
 			// Update polygon coordinates
 			fovPolygon.setLatLngs([
 				[latitude, longitude],
-				[newLeftLat, newLeftLng],
-				[newRightLat, newRightLng]
+				[draggedFOV.left.lat, draggedFOV.left.lng],
+				[draggedFOV.right.lat, draggedFOV.right.lng]
 			]);
 		});
 
@@ -473,15 +521,27 @@
 		});
 	}
 
-	function addBoundingBox(bounds: LatLngBounds) {
-		if (!L || !map) return;
+	function updateBoundingBoxCoordinates(bounds: LatLngBounds) {
+		const sw = bounds.getSouthWest();
+		const ne = bounds.getNorthEast();
+		bboxSWLat = sw.lat;
+		bboxSWLng = sw.lng;
+		bboxNELat = ne.lat;
+		bboxNELng = ne.lng;
+	}
 
-		// Remove existing rectangle
+	function removeBoundingBoxRect() {
+		if (!L || !map) return;
 		if (bboxRect) {
 			map.removeLayer(bboxRect);
+			bboxRect = null;
 		}
+	}
 
-		// Create draggable rectangle
+	function renderBoundingBoxRect(bounds: LatLngBounds) {
+		if (!L || !map) return;
+
+		removeBoundingBoxRect();
 		bboxRect = L.rectangle(bounds, {
 			color: '#f59e0b',
 			weight: 2,
@@ -494,14 +554,34 @@
 			// Enable manual editing by allowing corner dragging
 			// This is a simplified version - full edit mode would need a library like Leaflet.draw
 		});
+	}
 
-		// Update coordinates from bounds
-		const sw = bounds.getSouthWest();
-		const ne = bounds.getNorthEast();
-		bboxSWLat = sw.lat;
-		bboxSWLng = sw.lng;
-		bboxNELat = ne.lat;
-		bboxNELng = ne.lng;
+	function syncBoundingBoxVisibility(showBounds: boolean) {
+		if (!L || !map) return;
+		if (!showBounds) {
+			removeBoundingBoxRect();
+			return;
+		}
+
+		if (bboxNELat === null || bboxNELng === null || bboxSWLat === null || bboxSWLng === null) {
+			return;
+		}
+		renderBoundingBoxRect(L.latLngBounds([bboxSWLat, bboxSWLng], [bboxNELat, bboxNELng]));
+	}
+
+	function syncReportMapOverlays(showOverlays: boolean) {
+		if (radarMarker) radarMarker.setOpacity(showOverlays ? 1 : 0);
+		syncBoundingBoxVisibility(showOverlays);
+		updateFOVTriangle(showOverlays);
+	}
+
+	function addBoundingBox(bounds: LatLngBounds) {
+		updateBoundingBoxCoordinates(bounds);
+		if (reportMapOverlaysVisible) {
+			renderBoundingBoxRect(bounds);
+		} else {
+			removeBoundingBoxRect();
+		}
 	}
 
 	function updateBBoxAroundRadar(maintainSize: boolean = false) {
@@ -539,88 +619,34 @@
 		map.setView([latitude, longitude], 15);
 	}
 
-	// Update FOV triangle when radar position changes (not during drag)
+	// Update FOV triangle when radar position or tile consent changes (not during drag).
 	$: if (map && latitude !== null && longitude !== null && !isDraggingFovTip) {
-		updateFOVTriangle();
+		updateFOVTriangle(reportMapOverlaysVisible);
 	}
 
-	async function searchAddress() {
-		if (!searchQuery.trim()) return;
-
-		searching = true;
-		error = '';
-		searchResults = [];
-
-		try {
-			// Nominatim Usage Policy: max 1 request per second
-			const now = Date.now();
-			const timeSinceLastSearch = now - lastSearchTime;
-			if (timeSinceLastSearch < 1000) {
-				// Wait to comply with rate limit
-				await new Promise((resolve) => setTimeout(resolve, 1000 - timeSinceLastSearch));
-			}
-			lastSearchTime = Date.now();
-
-			// Use Nominatim (OpenStreetMap geocoding service)
-			const response = await fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
-				{
-					headers: {
-						'User-Agent': 'velocity.report-map-editor'
-					}
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error('Could not search for that address.');
-			}
-
-			searchResults = await response.json();
-
-			if (searchResults.length === 0) {
-				error = 'No results found. Try a different search query.';
-			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not search for that address.';
-			console.error('Address search error:', e);
-		} finally {
-			searching = false;
-		}
-	}
-
-	function selectLocation(result: { lat: string; lon: string; display_name: string }) {
-		const lat = parseFloat(result.lat);
-		const lng = parseFloat(result.lon);
-
-		latitude = lat;
-		longitude = lng;
-
-		searchResults = [];
-		searchQuery = '';
-
-		if (map && radarMarker && L) {
-			// Invalidate first — clearing searchResults above changes layout, so
-			// Leaflet needs to recalculate its container size before panning.
-			map.invalidateSize();
-			radarMarker.setLatLng([lat, lng]);
-			map.setView([lat, lng], 15);
-			// Only update bbox if it doesn't exist yet
-			if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
-				updateBBoxAroundRadar(false);
-			} else {
-				updateBBoxAroundRadar(true); // Maintain size when moving to searched location
-			}
-		}
-
-		activateIncludeMap();
-	}
+	// A generated preview is only valid for the bounds it was generated with.
+	// When the report bounds change afterwards (drag, resize, or a new search),
+	// flag the preview as stale so the user knows to regenerate. We never
+	// silently re-contact external services to refresh it.
+	$: reportMapStale =
+		mapJustDownloaded &&
+		generatedBbox !== null &&
+		(bboxSWLat !== generatedBbox.swLat ||
+			bboxSWLng !== generatedBbox.swLng ||
+			bboxNELat !== generatedBbox.neLat ||
+			bboxNELng !== generatedBbox.neLng);
 
 	function adjustBBoxSize(increase: boolean) {
 		if (!L || !latitude || !longitude) return;
 
 		const currentHeightDelta = bboxNELat && latitude ? Math.abs(bboxNELat - latitude) : 0.003;
 		const newHeightDelta = increase ? currentHeightDelta * 1.5 : currentHeightDelta / 1.5;
-		const newWidthDelta = newHeightDelta * 1.5; // Maintain 3:2 ratio
+		// Maintain a 3:2 ratio in ground metres (not degrees): longitude degrees
+		// are compressed by cos(lat), so the degree-space width must be divided by
+		// cos(lat). This matches updateBBoxAroundRadar and keeps the box 3:2 in
+		// metres so the fixed 1200×800 report canvas renders it without stretching.
+		const lngCompression = Math.cos((latitude * Math.PI) / 180);
+		const newWidthDelta = (newHeightDelta * 1.5) / lngCompression;
 
 		const bounds = L.latLngBounds(
 			[latitude - newHeightDelta, longitude - newWidthDelta],
@@ -629,27 +655,14 @@
 		addBoundingBox(bounds);
 	}
 
-	// Last mirror that successfully returned data.
-	let activeMirrorId = '';
-
-	// Fetch Overpass data via the velocity.report backend proxy.
-	//
-	// The browser cannot call the public Overpass mirrors directly: they reject
-	// generic browser User-Agents with 406/403 (anti-scraping) and send no CORS
-	// headers, and `fetch` is forbidden from overriding the User-Agent. The Go
-	// server (`POST /api/map/overpass`) proxies the query with a descriptive
-	// User-Agent and handles mirror fallback server-side, returning the first
-	// mirror's JSON. `selectedMirror` is forwarded as a preferred-mirror hint.
-	async function fetchOverpassData(
-		query: string,
-		signal?: AbortSignal
-	): Promise<{ elements: Array<Record<string, unknown>> }> {
-		const result = await fetchOverpassQuery(query, selectedMirror, signal);
-		activeMirrorId = result.servedBy;
-		return { elements: result.elements };
-	}
-
-	async function downloadMapSVG() {
+	// Tiles style: stitch the OSM raster tiles covering the report bbox into a
+	// single PNG and wrap it in an SVG, so the saved artifact (and the PDF) match
+	// the OSM-tile base shown in the editor. Done entirely client-side — the PDF
+	// just embeds the saved SVG, so no server renderer is involved. Tiles are
+	// fetched with CORS so the canvas stays untainted and exportable.
+	async function downloadTileMapSVG() {
+		// Defensive privacy gate: tile fetches are external.
+		if (!externalMapRequestConsent) return;
 		if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
 			error = 'Please set bounding box coordinates first';
 			return;
@@ -661,58 +674,97 @@
 		const { signal } = abortController;
 
 		try {
-			const bbox = `${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng}`;
+			downloadStep = 'Tiles...';
+			const tileSize = 256;
+			const spanLng = bboxNELng - bboxSWLng;
+			// Pick a zoom so the report area is ~1200px wide (matches the vector
+			// canvas), clamped to OSM's max zoom.
+			let zoom = Math.round(Math.log2((1200 * 360) / (tileSize * spanLng)));
+			zoom = Math.max(1, Math.min(19, zoom));
 
-			const { essentialQuery, enrichmentQuery } = buildOverpassQueries(bbox);
+			const lon2tile = (lon: number) => ((lon + 180) / 360) * 2 ** zoom;
+			const lat2tile = (lat: number) => {
+				const r = (lat * Math.PI) / 180;
+				return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** zoom;
+			};
+			const xMinF = lon2tile(bboxSWLng);
+			const xMaxF = lon2tile(bboxNELng);
+			const yMinF = lat2tile(bboxNELat); // north edge → smaller y
+			const yMaxF = lat2tile(bboxSWLat);
+			const xMin = Math.floor(xMinF);
+			const xMax = Math.floor(xMaxF);
+			const yMin = Math.floor(yMinF);
+			const yMax = Math.floor(yMaxF);
 
-			console.log('Fetching essential map data (roads + buildings)...');
-			downloadStep = '1 🛣️ Roads…';
-			const essentialData = await fetchOverpassData(essentialQuery, signal);
+			const full = document.createElement('canvas');
+			full.width = (xMax - xMin + 1) * tileSize;
+			full.height = (yMax - yMin + 1) * tileSize;
+			const fctx = full.getContext('2d');
+			if (!fctx) throw new Error('Canvas 2D is not available');
 
-			// Enrichment is best-effort: failures produce a sparser but still useful map.
-			let enrichmentData: { elements: Array<Record<string, unknown>> } = { elements: [] };
-			try {
-				console.log('Fetching enrichment data (landuse, water, railways)...');
-				downloadStep = '2 ⛰️ Detail…';
-				enrichmentData = await fetchOverpassData(enrichmentQuery, signal);
-			} catch (enrichErr) {
-				console.warn(
-					'Enrichment query failed — proceeding with roads and buildings only.',
-					enrichErr
-				);
+			// Fetch tiles via CORS, decode, and draw. fetch() supports the abort
+			// signal, and a CORS-clean blob keeps the canvas exportable.
+			const jobs: Promise<void>[] = [];
+			for (let x = xMin; x <= xMax; x++) {
+				for (let y = yMin; y <= yMax; y++) {
+					const tx = x;
+					const ty = y;
+					jobs.push(
+						(async () => {
+							const resp = await fetch(`https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`, {
+								signal
+							});
+							if (!resp.ok) throw new Error(`Tile ${zoom}/${tx}/${ty}: HTTP ${resp.status}`);
+							const bmp = await createImageBitmap(await resp.blob());
+							fctx.drawImage(bmp, (tx - xMin) * tileSize, (ty - yMin) * tileSize);
+							bmp.close();
+						})()
+					);
+				}
 			}
+			await Promise.all(jobs);
 
-			downloadStep = '3 ⚙️ Render…';
-
-			const allElements = [...essentialData.elements, ...enrichmentData.elements];
-			const nodeLookup = buildNodeLookup(allElements);
-			const categorised = categoriseElements(allElements, nodeLookup);
-
-			console.log(
-				`Found: ${categorised.roads.length} roads, ${categorised.buildings.length} buildings, ${categorised.landuse.length} landuse, ${categorised.water.length} water, ${categorised.railways.length} railways, ${categorised.poiLabels.length} POIs`
-			);
-
-			const svgText = generateMapSvg({
-				...categorised,
-				bboxNELat: bboxNELat!,
-				bboxNELng: bboxNELng!,
-				bboxSWLat: bboxSWLat!,
-				bboxSWLng: bboxSWLng!,
-				latitude,
-				longitude,
-				radarAngle
+			// Crop the stitched grid to exactly the report bbox.
+			const cropX = (xMinF - xMin) * tileSize;
+			const cropY = (yMinF - yMin) * tileSize;
+			const cropW = Math.max(1, Math.round((xMaxF - xMinF) * tileSize));
+			const cropH = Math.max(1, Math.round((yMaxF - yMinF) * tileSize));
+			const out = document.createElement('canvas');
+			out.width = cropW;
+			out.height = cropH;
+			const octx = out.getContext('2d');
+			if (!octx) throw new Error('Canvas 2D is not available');
+			octx.drawImage(full, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+			drawSnapshotRadarOverlay(octx, {
+				lonToX: (lon: number) => (lon2tile(lon) - xMinF) * tileSize,
+				latToY: (lat: number) => (lat2tile(lat) - yMinF) * tileSize,
+				width: cropW
 			});
 
-			mapSvgData = svgToBase64(svgText);
+			const png = out.toDataURL('image/png');
+			const svg =
+				`<svg xmlns="http://www.w3.org/2000/svg" width="${cropW}" height="${cropH}" viewBox="0 0 ${cropW} ${cropH}">` +
+				`<image href="${png}" width="${cropW}" height="${cropH}"/>` +
+				`<rect x="${cropW - 232}" y="${cropH - 18}" width="228" height="14" fill="#ffffff" fill-opacity="0.75"/>` +
+				`<text x="${cropW - 6}" y="${cropH - 7}" font-family="Arial, sans-serif" font-size="10" fill="#333333" text-anchor="end">© OpenStreetMap contributors</text>` +
+				`</svg>`;
+
+			mapSvgData = svgToBase64(svg);
+			generatedBbox = {
+				swLat: bboxSWLat!,
+				swLng: bboxSWLng!,
+				neLat: bboxNELat!,
+				neLng: bboxNELng!
+			};
 			mapJustDownloaded = true;
-			error = '';
+			showReportMapPreview = true;
 			activateIncludeMap();
 		} catch (e) {
 			if (e instanceof DOMException && e.name === 'AbortError') {
-				console.log('Download cancelled by user.');
+				console.log('Tile download cancelled by user.');
 			} else {
-				error = e instanceof Error ? e.message : 'Could not download the map.';
-				console.error('Map download error:', e);
+				error = e instanceof Error ? e.message : 'Could not build the tile map.';
+				console.error('Tile map error:', e);
 			}
 		} finally {
 			downloading = false;
@@ -721,15 +773,66 @@
 		}
 	}
 
+	function drawSnapshotRadarOverlay(
+		ctx: CanvasRenderingContext2D,
+		project: { lonToX: (lon: number) => number; latToY: (lat: number) => number; width: number }
+	) {
+		if (latitude === null || longitude === null || radarAngle === null) return;
+
+		const fov = calculateFOVGeometry(latitude, longitude, radarAngle);
+		const origin = { x: project.lonToX(fov.origin.lng), y: project.latToY(fov.origin.lat) };
+		const left = { x: project.lonToX(fov.left.lng), y: project.latToY(fov.left.lat) };
+		const right = { x: project.lonToX(fov.right.lng), y: project.latToY(fov.right.lat) };
+		const tip = { x: project.lonToX(fov.tip.lng), y: project.latToY(fov.tip.lat) };
+		const lineWidth = Math.max(2, project.width / 500);
+		const tipRadius = Math.max(5, project.width / 190);
+		const radarRadius = Math.max(12, project.width / 70);
+
+		ctx.save();
+		ctx.lineJoin = 'round';
+		ctx.lineCap = 'round';
+
+		ctx.beginPath();
+		ctx.moveTo(origin.x, origin.y);
+		ctx.lineTo(left.x, left.y);
+		ctx.lineTo(right.x, right.y);
+		ctx.closePath();
+		ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+		ctx.strokeStyle = '#ef4444';
+		ctx.lineWidth = lineWidth;
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.arc(tip.x, tip.y, tipRadius, 0, Math.PI * 2);
+		ctx.fillStyle = '#ef4444';
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = Math.max(2, lineWidth);
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.arc(origin.x, origin.y, radarRadius, 0, Math.PI * 2);
+		ctx.fillStyle = '#3b82f6';
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = Math.max(3, lineWidth * 1.5);
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.moveTo(origin.x, origin.y - radarRadius + 3);
+		ctx.lineTo(origin.x, origin.y);
+		ctx.lineTo(origin.x + radarRadius - 3, origin.y);
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = Math.max(2, lineWidth);
+		ctx.stroke();
+
+		ctx.restore();
+	}
+
 	function cancelDownload() {
 		if (abortController) {
 			abortController.abort();
-		}
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			searchAddress();
 		}
 	}
 </script>
@@ -737,7 +840,8 @@
 <div class="space-y-6">
 	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<p class="text-surface-600-300-token text-sm">
-			Search for an address, or upload your own SVG map, then visually adjust the radar position.
+			Load OpenStreetMap tiles for this editor session, or upload your own SVG map for a no-network
+			workflow, then visually adjust the radar position.
 		</p>
 		<!-- On mobile the Interactive/Upload toggle stacks above the Include
 		     toggle; from sm: up they share a single row. -->
@@ -863,43 +967,6 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Address Search -->
-		<div class="space-y-2">
-			<h4 class="flex items-center gap-2 font-medium">
-				<span class="text-primary-500">
-					<svg class="h-5 w-5" viewBox="0 0 24 24">
-						<path fill="currentColor" d={mdiMagnify} />
-					</svg>
-				</span>
-				Address Search
-			</h4>
-			<div class="flex gap-2">
-				<div class="flex-1">
-					<TextField
-						bind:value={searchQuery}
-						placeholder="Enter address or location..."
-						on:keydown={handleKeydown}
-					/>
-				</div>
-				<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
-					{searching ? 'Searching...' : 'Search'}
-				</Button>
-			</div>
-
-			{#if searchResults.length > 0}
-				<div class="bg-surface-100 border-surface-content/10 mt-2 rounded border">
-					{#each searchResults as result (result.place_id)}
-						<button
-							class="text-surface-content hover:bg-surface-content/5 border-surface-content/10 block w-full border-b px-4 py-2 text-left text-sm last:border-b-0"
-							on:click={() => selectLocation(result)}
-						>
-							{result.display_name}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
 		<!-- Interactive Map -->
 		<div class="space-y-2">
 			<div class="flex items-center justify-between">
@@ -916,16 +983,61 @@
 				</div>
 			</div>
 
-			<div
-				bind:this={mapContainer}
-				class="h-96 w-full rounded border border-gray-300"
-				style="min-height: 400px;"
-			></div>
+			<div class="relative">
+				<div
+					bind:this={mapContainer}
+					class="h-96 w-full rounded border border-gray-300"
+					style="min-height: 400px;"
+				></div>
 
-			<p class="text-surface-600-300-token text-xs">
-				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
-				radar angle. The orange rectangle shows the map area for reports.
-			</p>
+				{#if !reportMapOverlaysVisible && !showExternalMapRequestModal}
+					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+						<div
+							class="bg-surface-100 text-surface-content border-surface-content/20 pointer-events-auto max-w-md rounded border p-4 text-sm shadow-lg"
+						>
+							<div class="mb-2 flex items-center gap-2 font-semibold">
+								<svg class="h-5 w-5" viewBox="0 0 24 24">
+									<path fill="currentColor" d={mdiMap} />
+								</svg>
+								{externalMapRequestConsent ? 'Loading Map Tiles' : 'Map Tiles Not Loaded'}
+							</div>
+							<p class="text-surface-content/70 mb-3">
+								{#if externalMapRequestConsent}
+									Waiting for OpenStreetMap tiles before showing the report area and radar controls.
+								{:else}
+									Load OpenStreetMap tiles for this editor session to position the radar and build
+									the report map snapshot. This sends the map area to external tile servers.
+								{/if}
+							</p>
+							{#if externalMapRequestConsent}
+								<ProgressCircle size={18} width={2} indeterminate />
+							{:else}
+								<Button size="sm" variant="fill" color="primary" on:click={requestMapTiles}>
+									Load Map Tiles
+								</Button>
+							{/if}
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			{#if !externalMapRequestConsent}
+				<p class="text-surface-600-300-token text-xs">
+					Tile requests are optional. Use Upload if this app should not make external map requests.
+				</p>
+			{/if}
+
+			{#if reportMapOverlaysVisible}
+				<p class="text-surface-600-300-token text-xs">
+					Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
+					radar angle. The orange rectangle shows the map area for reports.
+				</p>
+			{:else}
+				<p class="text-surface-600-300-token text-xs">
+					Load map tiles to show the report area and radar controls. Use Upload for a no-network map
+					workflow.
+				</p>
+			{/if}
 		</div>
 
 		<!-- Coordinate Display (Read-only) -->
@@ -969,32 +1081,11 @@
 	{/if}
 
 	{#if !useCustomSvg}
-		<!-- Download SVG -->
+		<!-- Generate report SVG -->
 		<div class="space-y-2">
 			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h4 class="font-medium">Download Map for Reports</h4>
+				<h4 class="font-medium">Report Map Snapshot</h4>
 				<div class="flex flex-wrap items-center gap-3">
-					<div class="flex items-center gap-1.5">
-						<SelectField
-							bind:value={selectedMirror}
-							options={[
-								{ value: '', label: '🌐 Auto' },
-								...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
-							]}
-							clearable={false}
-							classes={{ root: 'w-36' }}
-							dense
-							placeholder="Mirror"
-						/>
-						{#if activeMirrorId}
-							{@const active = OVERPASS_MIRRORS.find((m) => m.id === activeMirrorId)}
-							{#if active}
-								<span class="text-surface-500-400-token text-xs" title="Last successful mirror"
-									>→ {active.flag}</span
-								>
-							{/if}
-						{/if}
-					</div>
 					{#if downloading}
 						<span class="text-primary-500 flex items-center gap-1.5 text-sm">
 							{downloadStep}
@@ -1005,18 +1096,70 @@
 						</Button>
 					{:else}
 						<Button
-							on:click={downloadMapSVG}
+							on:click={requestReportMapSvg}
 							disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng}
 							icon={mdiDownload}
 							variant="fill"
 							color="primary"
 							size="sm"
 						>
-							Download Map SVG
+							Generate Tile Snapshot
 						</Button>
 					{/if}
 				</div>
 			</div>
+			<p class="text-surface-content/60 text-xs">
+				Generates a snapshot of the OpenStreetMap tiles covering the orange report area and saves it
+				as the report map. Use Upload if this app should not make external map requests.
+			</p>
+		</div>
+	{/if}
+
+	{#if !useCustomSvg && mapSvgData}
+		<div class="space-y-3">
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<div>
+					<h4 class="font-medium">
+						{mapJustDownloaded
+							? 'Generated Report Map Preview'
+							: 'Existing Saved Report Map (Database)'}
+					</h4>
+					<p class="text-surface-600-300-token text-xs">
+						{#if mapJustDownloaded && reportMapStale}
+							<span class="text-amber-600 dark:text-amber-400">
+								Report bounds changed since this map was generated — regenerate so the saved SVG
+								matches the orange rectangle.
+							</span>
+						{:else if mapJustDownloaded}
+							This SVG is in the editor state. Save changes to write it to
+							<code>site.map_svg_data</code>.
+						{:else}
+							This is the current <code>site.map_svg_data</code> value loaded from the database. PDF reports
+							embed this saved SVG until you generate and save a replacement.
+						{/if}
+					</p>
+				</div>
+				<Button
+					size="sm"
+					variant="outline"
+					icon={showReportMapPreview ? mdiEyeOff : mdiEye}
+					on:click={() => (showReportMapPreview = !showReportMapPreview)}
+				>
+					{showReportMapPreview ? 'Hide Preview' : 'Show Preview'}
+				</Button>
+			</div>
+			{#if showReportMapPreview}
+				<div class="overflow-hidden rounded border border-gray-300 bg-white p-2">
+					<img
+						src="data:image/svg+xml;base64,{mapSvgData}"
+						alt={mapJustDownloaded
+							? 'Generated report map SVG'
+							: 'Existing saved report map SVG from database'}
+						class="h-auto max-h-[500px] w-full object-contain"
+						draggable="false"
+					/>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -1036,7 +1179,19 @@
 		</Notification>
 	{/if}
 
-	{#if mapJustDownloaded}
+	{#if mapJustDownloaded && reportMapStale}
+		<Notification
+			open
+			icon={mdiAlert}
+			class="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+		>
+			<span slot="title">Report bounds changed</span>
+			<span slot="description"
+				>This preview was generated for a different map area. Regenerate the report map so it
+				matches the current orange rectangle before saving.</span
+			>
+		</Notification>
+	{:else if mapJustDownloaded}
 		<Notification
 			color="success"
 			open
@@ -1049,11 +1204,53 @@
 		>
 			<span slot="title">Map Ready</span>
 			<span slot="description"
-				>The map is ready. Click <strong>Save Changes</strong> to keep it.</span
+				>The Report Map Preview is ready. Click <strong>Save Changes</strong> to keep it.</span
 			>
 		</Notification>
 	{/if}
 </div>
+
+{#if showExternalMapRequestModal}
+	<div
+		class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-4"
+		role="presentation"
+	>
+		<div
+			class="w-full max-w-md rounded border border-neutral-700 bg-neutral-950 p-6 text-white shadow-2xl"
+			role="alertdialog"
+			aria-modal="true"
+			aria-labelledby="map-tile-request-title"
+		>
+			<div class="mb-4 flex items-center justify-between gap-3">
+				<h3 id="map-tile-request-title" class="text-lg font-semibold">Allow Map Tile Requests?</h3>
+				<button
+					class="-mt-1 -mr-2 p-1 text-neutral-300 hover:text-white"
+					on:click={cancelExternalMapRequest}
+					aria-label="Close"
+				>
+					<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+				</button>
+			</div>
+
+			<div class="space-y-3 text-sm text-neutral-100">
+				<p>
+					This editor will request OpenStreetMap raster tiles to display the map and generate the
+					report map snapshot.
+				</p>
+				<p>The site coordinates and report map area may be sent to external tile servers.</p>
+				<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+				<p class="text-neutral-300">For a no-network workflow, cancel and use Upload instead.</p>
+			</div>
+
+			<div class="mt-6 flex justify-end gap-2">
+				<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
+				<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
+					Allow Tiles This Session
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- Confirmation modal: warn before discarding existing map data -->
 <Dialog

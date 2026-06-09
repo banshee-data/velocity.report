@@ -70,8 +70,7 @@ Enforced by [scripts/check-single-sqlite-driver.sh](../../../scripts/check-singl
 | `github.com/stretchr/testify`          | Test-only        | Assertion helpers           |
 | `github.com/tailscale/tailsql`         | Production/debug | Admin SQL surface           |
 | `go.bug.st/serial`                     | Production       | Physical serial-port access |
-| `gonum.org/v1/gonum`                   | Production       | Statistics helpers          |
-| `gonum.org/v1/plot`                    | Production       | Plot generation             |
+| `golang.org/x/sys`                     | Production       | Platform syscalls           |
 | `google.golang.org/grpc`               | Production       | Visualiser streaming        |
 | `google.golang.org/protobuf`           | Production       | Generated protobuf types    |
 | `modernc.org/sqlite`                   | Production+tests | Canonical SQLite driver     |

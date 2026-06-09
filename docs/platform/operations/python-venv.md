@@ -102,4 +102,4 @@ Key dependency groups:
 
 ## Removed pdf-generator
 
-`tools/pdf-generator/` was the Python PDF pipeline, superseded by Go in v0.5 and deleted from the repository in v0.6. The Go pipeline (`internal/report/`) is the sole PDF generation path. `requirements.txt` may still list PyLaTeX/reportlab as historical artefacts; they are unused.
+`tools/pdf-generator/` was the Python PDF pipeline, superseded by Go in v0.5 and deleted from the repository in v0.6. The Go + Typst pipeline (`internal/report/`) is the sole PDF generation path, and the Python requirements no longer carry PDF generation dependencies.

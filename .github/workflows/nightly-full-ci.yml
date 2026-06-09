@@ -108,17 +108,6 @@ jobs:
       - name: Install system dependencies (libpcap)
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
-      - name: Install TeX Live
-        run: |
-          sudo apt-get install -y --no-install-recommends \
-            texlive-xetex \
-            texlive-latex-recommended \
-            texlive-latex-extra \
-            texlive-fonts-recommended
-
-      - name: Build minimal TeX tree
-        run: make build-texlive-minimal
-
       - name: Setup pnpm and build web
         run: |
           corepack enable
@@ -128,8 +117,6 @@ jobs:
           pnpm run build
 
       - name: Run API integration tests with race detector
-        env:
-          VELOCITY_TEX_ROOT: ${{ github.workspace }}/build/texlive-minimal
         run: |
           go test -race -tags=pcap ./internal/api/...
 

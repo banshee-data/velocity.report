@@ -1,77 +1,80 @@
 # =============================================================================
-# OS & Editor
+# OS, Editor & Local Environment
 # =============================================================================
+.claude/worktrees/
 .DS_Store
-Thumbs.db
 .env
 *.swp
 *.swo
 *~
-.claude/worktrees/
+Thumbs.db
 
 # =============================================================================
-# Build Outputs & Caches
+# Build Outputs, Generated Sites & Tool Caches
 # =============================================================================
 _site/
-!docs_html/_site/
-!docs_html/_site/.embed-stub
-public_html/dist/
 .build/
 /build/
 .cache/
 .gocache/
 .gomodcache/
-.tox/
-static/
-node_modules/
-package-lock.json
 .tmp/
+public_html/dist/
+static/
 
 # =============================================================================
-# Local/Archived Data
+# JavaScript Dependencies
 # =============================================================================
+node_modules/
+package-lock.json
+
+# =============================================================================
+# Local Archives, Logs & Captured Data
+# =============================================================================
+*.csv
+*.log
+*.vrlog
 archive/
 backup/
 logs/
 
 # =============================================================================
-# Go Binaries & Build Artifacts
+# Go Binaries, Tools & Test Outputs
 # =============================================================================
+*.test
+/app-sweep
 app-*
 /backfill_ring_elevations
+/deploy
 /gen-vrlog
-/settling-eval
+mock_serial_port*
+/pcap-analyse
+/radar
 /replay-server
-velocity-report-*
-[0-9]*-velocity-report-*
-velocity-deploy*
-/velocity-ctl*
-[0-9]*-velocity-ctl-*
+/settling-eval
+/sweep
+/visualiser-server
+
 # Single multi-call binary build outputs (build-velocity*, go-ci, dev).
 /velocity
+/velocity-ctl*
 /velocity-local
 [0-9]*-velocity-[0-9]*
-/sweep
-/app-sweep
-/visualiser-server
-/deploy
-mock_serial_port*
-/radar
-/pcap-analyse
+[0-9]*-velocity-ctl-*
+[0-9]*-velocity-report-*
+velocity-deploy*
+velocity-report-*
 
 # =============================================================================
 # Pi Image Build (pi-gen)
 # =============================================================================
-image/.pi-gen/
-image/velocity-binaries/
-image/stage-velocity/00-install-packages/files/
-image/stage-velocity/03-velocity-config/files/*
 *.img
 *.img.xz
 *.img.xz.sha256
-
-# Legacy local leftovers from the removed Python PDF generator.
-tools/pdf-generator/
+image/.pi-gen/
+image/stage-velocity/00-install-packages/files/
+image/stage-velocity/03-velocity-config/files/*
+image/velocity-binaries/
 
 # =============================================================================
 # Database Files
@@ -79,91 +82,104 @@ tools/pdf-generator/
 *.db
 *.db-shm
 *.db-wal
-sensor_data.*
 internal/db/schema.sql.bak
-
-# =============================================================================
-# Log & Data Files
-# =============================================================================
-*.csv
-*.log
+sensor_data.*
 
 # =============================================================================
 # Python
 # =============================================================================
 # Virtual environments
 .venv/
-venv/
-env/
 ENV/
+env/
+venv/
 
 # Byte-compiled / cached
-__pycache__/
-**/__pycache__/
-*.py[cod]
-*$py.class
-*.so
 .Python
+**/__pycache__/
+__pycache__/
+*.py[cod]
+*.so
+*$py.class
 
 # Package metadata (egg-info directories)
-*.egg-info/
 *.egg
+*.egg-info/
 .eggs/
 
-# Testing
+# Python tooling
 .pytest_cache/
-.coverage
-htmlcov/
-htmlcov-python/
+.tox/
 
 # =============================================================================
 # Coverage Reports
 # =============================================================================
+.coverage
+*.profraw
 coverage.out
 coverage*.out
 coverage.html
 coverage/
+htmlcov/
+htmlcov-python/
+scripts/*.cover
 web/coverage/
 
 # =============================================================================
-# Test Artifacts
+# Reports & Other Generated Artifacts
 # =============================================================================
 *_velocity.report_*.pdf
 *_velocity.report_*.zip
-*_velocity.report_*.tex
 histogram_*.png
-*.aux
-*.fdb_latexmk
-*.fls
-*.out
-*.synctex.gz
-*.toc
-*.xdv
-
-# Rack drawing — build/ SVG artefacts (gitignored via build/.gitignore)
-# The output/ PNG is checked in; only the loose root-level SVGs need ignoring.
-tools/rack-drawing/*.svg
-tools/rack-drawing/build/*
-
 
 # =============================================================================
 # Web Frontend (SvelteKit)
 # =============================================================================
+web/.env.*
+!web/.env.example
+!web/.env.test
+web/.netlify/
+web/.output/
 web/.svelte-kit/
+web/.vercel/
+web/.wrangler/
+web/build/
+web/vite.config.js.timestamp-*
+web/vite.config.ts.timestamp-*
 
 # =============================================================================
-# PDF Generator
+# Docs Site (Eleventy)
 # =============================================================================
+!docs_html/_site/
+docs_html/_site/*
+!docs_html/_site/.embed-stub
+docs_html/src/data
+docs_html/src/docs
+docs_html/src/*.md
+!docs_html/src/index.md
+
+# =============================================================================
+# Tool Outputs & Legacy Generators
+# =============================================================================
+# Legacy local leftovers from the removed Python PDF generator.
+tools/pdf-generator/
+
+# Generic tool output directories.
 tools/*/output/*
+
+# Rack drawing — ignore loose SVG exports and generated build artefacts,
+# but keep the directory placeholder.
+tools/rack-drawing/*.svg
+tools/rack-drawing/build/*
+!tools/rack-drawing/build/.gitkeep
 
 # =============================================================================
 # macOS Visualiser (Xcode/Swift)
 # =============================================================================
 # Build artifacts
+tools/visualiser-macos/.build/
 tools/visualiser-macos/build/
 tools/visualiser-macos/DerivedData/
-tools/visualiser-macos/.build/
-*.profraw
 
 # Test results
 tools/visualiser-macos/TestResults*
@@ -172,8 +188,8 @@ tools/visualiser-macos/TestResults*
 tools/visualiser-macos/**/xcuserdata/
 
 # Swift Package Manager
-tools/visualiser-macos/Packages/
 tools/visualiser-macos/.swiftpm/
+tools/visualiser-macos/Packages/
 
 # Generated protobuf files (regenerate with: make proto-gen-swift)
 tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift
@@ -183,23 +199,24 @@ tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift.disabled
 # in so the file exists, but the real output must not pollute commits
 tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 
-# DMG release artefacts (regenerate with: make dmg-mac)
-tools/visualiser-macos/build/*.dmg
-
-*.vrlog
-
-
 # =============================================================================
-# Data Directories
+# Data & Analysis Directories
 # =============================================================================
-data/**/*.db
-data/**/*.sqlite
 data/**/*.csv
+data/**/*.db
 data/**/*.json
+data/**/*.sqlite
 data/**/results/*
-data/structures/SCHEMA.dot
 data/maths/papers/*.pdf
 data/maths/papers/download-status.md
-*.test
-scripts/*.cover
-web/build/
+data/structures/SCHEMA.dot
+
+# =============================================================================
+# Embedded Typst Binary
+# =============================================================================
+internal/report/typst/typstbin/dist/typst
+internal/report/typst/typstbin/dist/typst.exe
+
+# Developer-installed typst binary (make install-typst / runtime auto-download)
+bin/typst
+bin/typst.exe

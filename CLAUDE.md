@@ -50,7 +50,6 @@ If `make build-radar-local` fails due to missing pcap: `brew install libpcap` (m
 
 ```bash
 make dev-go              # Go server with radar disabled (localhost:8080)
-make dev-go-latex-full   # Go server with full system LaTeX
 make dev-go-lidar        # Go server with LiDAR enabled (gRPC mode)
 make dev-go-lidar-both   # Go server with LiDAR + 2370 foreground forward
 make dev-web             # Vite dev server (localhost:5173)
@@ -162,7 +161,7 @@ Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit
 
 ### Go PDF report pipeline (`internal/report/`)
 
-Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Go `text/template` LaTeX assembly ([internal/report/tex](internal/report/tex)) → xelatex compilation. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity report pdf` (CLI subcommand in [internal/cmd/server/pdf.go](internal/cmd/server/pdf.go)).
+Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](internal/report/chart)) → Typst data/templates ([internal/report/typst](internal/report/typst)) → `typst compile`. No Python or HTTP round-trip. Entry points: `POST /api/generate_report` (HTTP handler) and `velocity report pdf` (CLI subcommand in [internal/cmd/server/pdf.go](internal/cmd/server/pdf.go)).
 
 ### Python PDF generator — removed
 

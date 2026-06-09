@@ -13,7 +13,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
-- replace xelatex with Typst; delete the 143 MB minimal TeX tree, the build-minimal-texlive scripts, the `00-install-packages/01-run.sh` TeX build stage, and the `texlive-xetex`/`texlive-latex-extra`/`fonts-lmodern`/`librsvg2-bin`/`fonts-noto-color-emoji` apt deps from `00-packages`; PDF parity job runs both pipelines for one release: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `L`
 - in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` — which also removes the on-demand `curl` install it now carries for the keyring fetch (#519 dropped `curl` from `00-packages`; this takes it out of the image entirely); image ships zero Tailscale state until operator opts in via the web UI: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `M`
 - [#503] Opt-in Tailscale ACL roles: consume Tailscale capability grants to derive admin/view access for the web UI while keeping LAN access fully privileged by default `S`
 
@@ -95,7 +94,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
-- Update v0.6.0 deployment planning/docs to record that the former RPi image Phase 2 LaTeX `.fmt` precompile work is superseded by the v0.5.2 Typst cutover (work unit C), since the xelatex format-precompile problem disappears once Typst replaces xelatex: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 
@@ -198,6 +196,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## Complete
 
+- Typst report cutover: report builds now use the Go + Typst path only; the old report compiler tree, image stage, package deps, scripts, targets, flags, and parity window are removed: [design doc](plans/deploy-single-binary-image-consolidation-plan.md)
 - [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
@@ -281,7 +280,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#447] Agent knowledge architecture (all phases): [../TENETS.md](../TENETS.md), [.github/knowledge/](../.github/knowledge) shared modules, condensed Copilot agent files, [CLAUDE.md](../CLAUDE.md), [.claude/agents/](../.claude/agents) (7 Claude-native personas), [.claude/skills/](../.claude/skills) (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
 - [#449] Error surface voice audit: rewrite ~250 user-facing error and status messages across Go, Python, TypeScript, and shell to use consistent, human voice; string-content-only changes: [design doc](plans/error-surface-voice-audit-plan.md) `M`
 - [#455] (#410) `velocity-report` unified binary scaffold + `pdf` subcommand wiring: `internal/cmd/server/radar.go` dispatches `version`, `migrate`, `transits`, and `pdf` subcommands; `internal/cmd/server/pdf.go` is the canonical PDF entrypoint; rest of `radar`/`lidar` already live inside the main binary: [design doc](plans/deploy-distribution-packaging-plan.md)
-- [#455] PDF generation migration to Go: replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
+- [#455] PDF generation migration to Go: replaced the Python report stack with Go SVG charts, Typst templates, and in-process report orchestration: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - [#457] Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 - [#459] Documentation and data DRY audit (Groups 1–4): 14 gate violations fixed, 14 plans graduated to symlinks, visualiser-app subdirectory consolidated, PCAP ops docs unified, tailscale guide relocated, playback-speed doc moved, config cross-references added, warmup-trails-fix resolved, architecture review artefacts classified, 58 docs given narrative openings, link checker symlink resolution fixed, dead link checks moved to nightly CI, image build includes docs site: [design doc](plans/docs-data-dry-audit-plan.md)
 - [#461] localhost listen defaults: default the main and LiDAR HTTP listeners to `127.0.0.1` (operators opt into LAN exposure with `0.0.0.0:PORT`) with aligned docs/tests. The `/command` allowlist became an advisory catalogue after confirming the OPS24x API command set is non-destructive (no firmware-flash command): unknown commands are forwarded with a warning rather than rejected, and the catalogue is served at `GET /api/commands` for a future dashboard dropdown. Access control, not command filtering, is the mitigation `S`

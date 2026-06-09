@@ -265,8 +265,8 @@ the whole thing works for people who use screen readers.
 ### Report generation & data export
 
 Producing professional PDF speed reports suitable for submitting to a local authority, and
-providing data export (CSV, GeoJSON) for external analysis. This spans the Python and matplotlib
-chart pipeline, LaTeX templating, and query-scoped report generation. The report is often the first
+providing data export (CSV, GeoJSON) for external analysis. This spans the Go chart pipeline,
+Typst templating, and query-scoped report generation. The report is often the first
 thing a council officer reads, so it needs to look like it was made on purpose.
 
 ### Deployment, packaging & platform

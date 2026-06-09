@@ -9,7 +9,7 @@ See [TENETS.md](../TENETS.md) for the full project constitution. The short versi
 1. **Privacy above all** — no cameras, no licence plates, no PII, local-only data
 2. **Protect the vulnerable** — safety for people who walk, cycle, and play
 3. **Evidence over opinion** — measured data, not anecdote
-4. **Local-first** — Raspberry Pi, SQLite, offline-capable
+4. **Local-first** — Raspberry Pi, SQLite, offline-capable; optional remote map/prior fetches must be explicit opt-in
 5. **Simplicity and durability** — smallest change that solves the problem
 6. **DRY** — every fact has one canonical source
 
@@ -20,7 +20,7 @@ See [TENETS.md](../TENETS.md) for the full project constitution. The short versi
 | Component        | Language          | Location                  |
 | ---------------- | ----------------- | ------------------------- |
 | Server           | Go                | `cmd/`, `internal/`       |
-| PDF reports      | Go + XeLaTeX      | `internal/report/`        |
+| PDF reports      | Go + Typst        | `internal/report/`        |
 | Web frontend     | Svelte/TypeScript | `web/`                    |
 | macOS visualiser | Swift/Metal       | `tools/visualiser-macos/` |
 | Database         | SQLite            | local file                |

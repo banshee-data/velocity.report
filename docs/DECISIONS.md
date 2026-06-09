@@ -38,17 +38,17 @@ Skip; P1 supersedes — [OBB heading review](../data/maths/proposals/20260222-ob
 
 Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-labelling-auto-aware-tuning-plan.md)
 
-### D-08 — LaTeX footprint reduction
+### D-08 — Report footprint reduction
 
-Vendored minimal TeX tree shipped in v0.5.1 (~143 MB, ~1 GB saved). Precompiled `.fmt` remains planned — [precompiled LaTeX plan](plans/pdf-latex-precompiled-format-plan.md), [RPi imager §4.6](plans/deploy-rpi-imager-fork-plan.md)
+The report compiler footprint is removed from the Raspberry Pi image by using the embedded Typst engine in the Go binary. No separate report compiler tree ships in the image — [PDF reporting](platform/operations/pdf-reporting.md), [RPi imager](platform/operations/rpi-imager.md)
 
 ### D-09 — Single binary architecture
 
-Single binary with subcommands — [distribution packaging plan](plans/deploy-distribution-packaging-plan.md)
+Single binary with subcommands and embedded report compiler assets — [distribution packaging plan](plans/deploy-distribution-packaging-plan.md)
 
 ### D-10 — RPi image tier strategy
 
-pi-gen + precompiled `.fmt`, single tier; `.tex` source in `.zip` — [RPi imager plan](plans/deploy-rpi-imager-fork-plan.md)
+pi-gen single tier; Typst source bundle in report `.zip` — [RPi imager plan](plans/deploy-rpi-imager-fork-plan.md)
 
 ### D-11 — ECharts → LayerChart migration
 
@@ -76,7 +76,7 @@ v0.8 placement (radar theme) — [speed-limit-schedules.md](radar/architecture/s
 
 ### D-17 — PDF generation migration to Go
 
-Go direct SVG charts (encoding/xml, no gonum) + `text/template` LaTeX; embed Atkinson Hyperlegible font in SVGs; dimensions in mm; `rsvg-convert` for SVG→PDF; Go chart package also serves SVG to web frontend; `grid-heatmap` migrated to Go subcommand; Python stack eliminated — [PDF Go chart migration plan](plans/pdf-go-chart-migration-plan.md)
+Go direct SVG charts (encoding/xml, no plotting helper) + Typst templates; embed Atkinson Hyperlegible font in report sources; dimensions in mm; Typst consumes SVG directly; Go chart package also serves SVG to web frontend; `grid-heatmap` migrated to Go subcommand; Python stack eliminated — [PDF reporting](platform/operations/pdf-reporting.md)
 
 ### D-18 — Speed percentile aggregation semantics
 

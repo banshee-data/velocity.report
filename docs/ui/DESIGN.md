@@ -40,8 +40,8 @@ PDF is a surface, not a rendering engine. The mechanism that produces the charts
 Chart rendering is converging on a single SVG-first pipeline:
 
 - **Web:** LayerChart/d3-scale components producing inline SVG in Svelte
-- **PDF (current):** Go native SVG generation (`internal/report/chart/`) → `rsvg-convert` → PDF figures via `text/template` LaTeX, shipped in v0.5
-- **PDF (removed):** Python matplotlib + PyLaTeX pipeline, superseded by Go pipeline in v0.5; directory deleted from repository
+- **PDF (current):** Go native SVG generation (`internal/report/chart/`) → Typst templates (`internal/report/typst/`) → PDF via `typst`
+- **PDF (removed):** Python matplotlib report pipeline, superseded by Go + Typst pipeline; directory deleted from repository
 
 The Python matplotlib stack has been replaced by the Go pipeline (v0.5). New chart work should not add matplotlib dependencies.
 
@@ -208,28 +208,28 @@ The macOS visualiser follows native platform conventions:
 
 ### 7.1 Rendering engines (current → target)
 
-| Surface | Current renderer                          | Target renderer                              | Status          |
-| ------- | ----------------------------------------- | -------------------------------------------- | --------------- |
-| Web     | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)             | Stable          |
-| PDF     | Python matplotlib (removed in v0.5)       | Go native SVG → `rsvg-convert` → PDF figures | Complete (v0.5) |
-| macOS   | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D  | Stable          |
+| Surface | Current renderer                          | Target renderer                             | Status   |
+| ------- | ----------------------------------------- | ------------------------------------------- | -------- |
+| Web     | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)            | Stable   |
+| PDF     | Python matplotlib (removed in v0.5)       | Go native SVG → Typst → PDF                 | Complete |
+| macOS   | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D | Stable   |
 
-The Go PDF pipeline ([internal/report/](../../internal/report/)) replaced the Python matplotlib stack in v0.5. The completed migration plan: [pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md).
+The current Go PDF pipeline ([internal/report/](../../internal/report/)) renders charts as SVG and embeds them directly into Typst output. The current migration/design record is [pdf-typst-migration-plan.md](../plans/pdf-typst-migration-plan.md).
 
 ### 7.2 SVG as the shared intermediate format
 
-Both the web frontend and the future Go PDF pipeline render charts as SVG. This shared format is the key to consistent output:
+Both the web frontend and the current Go PDF pipeline render charts as SVG. This shared format is the key to consistent output:
 
 - **Pixel-perfect control:** SVG elements are positioned in code with explicit coordinates, stroke widths, font sizes, and viewBox dimensions. There is no renderer-dependent layout negotiation.
 - **Testable:** SVG output can be parsed, diffed, and snapshot-tested as structured XML.
 - **Debuggable:** SVG files open in any browser for visual inspection.
-- **Dual use:** The same SVG can be displayed inline on the web and converted to PDF via `rsvg-convert` for print.
+- **Dual use:** The same SVG can be displayed inline on the web and embedded directly by Typst for print output.
 
 ### 7.3 Shared chart abstractions
 
 To keep charts visually consistent across web and PDF, the following properties must be governed by shared constants or equivalent configuration, not left to renderer defaults.
 
-| Property                   | What it controls                                                            | Web source                                 | Go PDF source (planned)                     |
+| Property                   | What it controls                                                            | Web source                                 | Go PDF source (Typst pipeline)              |
 | -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
 | **Palette**                | Metric-to-colour mapping                                                    | [palette.ts](../../web/src/lib/palette.ts) | `chart/palette.go`                          |
 | **Legend order**           | Series stacking and legend sequence                                         | `palette.ts` (`LEGEND_ORDER`)              | `chart/palette.go`                          |
@@ -274,5 +274,5 @@ A UI/chart PR is complete only if:
 - It preserves percentile colour mapping and legend order for percentile charts.
 - It keeps tick density readable and non-overlapping.
 - It includes explicit loading/empty/error states for charts.
-- It does not add new matplotlib dependencies (Python PDF stack is deprecated; see §7.1).
+- It does not add new matplotlib dependencies (the Python PDF stack is removed; see §7.1).
 - It documents any intentional divergence from this contract.
