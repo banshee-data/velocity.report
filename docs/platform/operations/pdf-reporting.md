@@ -77,7 +77,8 @@ obtain the same report content without the server present.
 The only external report compiler dependency is `typst`.
 
 - Distributed builds embed the Typst binary into the `velocity` executable.
-- Development builds can resolve Typst via `VELOCITY_TYPST_PATH` or `PATH`.
+- Development builds can resolve Typst via `PATH`, or use the development-only
+  downloader when Typst is not already installed.
 - A development-only downloader can fetch the pinned Typst version into a
   per-user cache when neither embedded nor local binaries are available.
 
