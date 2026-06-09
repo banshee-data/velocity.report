@@ -2,6 +2,7 @@ package typst
 
 import (
 	"bytes"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,16 +25,35 @@ func mockTypstCLI(t *testing.T, pdf []byte, exitCode int) string {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, "typst")
-	body := "#!/bin/sh\ncat > /dev/null\n"
+	body := "#!/bin/sh\n"
 	if exitCode != 0 {
 		body += fmt.Sprintf("exit %d\n", exitCode)
 	} else {
-		body += "cat <<'EOF'\n" + string(pdf) + "EOF\n"
+		body += "printf '%s' '" + string(pdf) + "'\n"
 	}
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
 		t.Fatalf("write mock typst: %v", err)
 	}
 	return script
+}
+
+func withMockTypstOnPath(t *testing.T, pdf []byte, exitCode int) string {
+	t.Helper()
+	script := mockTypstCLI(t, pdf, exitCode)
+	t.Setenv(typstbin.EnvNoDownload, "1")
+	t.Setenv("PATH", filepath.Dir(script)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return script
+}
+
+func requireTypstForSmokeTest(t *testing.T) {
+	t.Helper()
+	t.Setenv(typstbin.EnvNoDownload, "1")
+	if typstbin.Embedded() {
+		return
+	}
+	if _, err := exec.LookPath("typst"); err != nil {
+		t.Skip("typst not embedded or on PATH; run make install-typst and add bin/ to PATH")
+	}
 }
 
 func testMetadataFixturePDF() []byte {
@@ -85,6 +105,7 @@ func TestApplyPDFMetadata(t *testing.T) {
 }
 
 func TestRenderWithMockTypstAndMetadata(t *testing.T) {
+	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
 	var out bytes.Buffer
 	err := Render(&out, Options{
 		Data:              map[string]any{"ok": true},
@@ -93,7 +114,6 @@ func TestRenderWithMockTypstAndMetadata(t *testing.T) {
 		IgnoreSystemFonts: true,
 		CreationTime:      time.Unix(123, 0),
 		PDFMetadata:       PDFMetadata{Creator: "velocity.report v1.2.3", Keywords: []string{"git-sha:abc123"}},
-		TypstPath:         mockTypstCLI(t, testMetadataFixturePDF(), 0),
 	})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
@@ -111,10 +131,10 @@ func TestRenderWithMockTypstAndMetadata(t *testing.T) {
 
 func TestRenderWithoutMetadataUsesRawTypstOutput(t *testing.T) {
 	rawPDF := testMetadataFixturePDF()
+	withMockTypstOnPath(t, rawPDF, 0)
 	var out bytes.Buffer
 	err := Render(&out, Options{
-		Data:      map[string]any{"ok": true},
-		TypstPath: mockTypstCLI(t, rawPDF, 0),
+		Data: map[string]any{"ok": true},
 	})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
@@ -132,17 +152,17 @@ func TestRenderRejectsEscapingAssetPathsAndPropagatesErrors(t *testing.T) {
 		t.Fatalf("Render asset escape error = %v, want escapes work dir", err)
 	}
 
+	withMockTypstOnPath(t, nil, 2)
 	err := Render(&bytes.Buffer{}, Options{
-		Data:      map[string]any{"ok": true},
-		TypstPath: mockTypstCLI(t, nil, 2),
+		Data: map[string]any{"ok": true},
 	})
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("typst compile")) {
 		t.Fatalf("Render compile error = %v, want typst compile", err)
 	}
 
+	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
 	err = Render(failingWriter{}, Options{
 		Data:        map[string]any{"ok": true},
-		TypstPath:   mockTypstCLI(t, testMetadataFixturePDF(), 0),
 		PDFMetadata: PDFMetadata{Creator: "velocity.report v1.2.3"},
 	})
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("write pdf")) {
@@ -229,18 +249,49 @@ func TestRenderHelperFilesystemErrors(t *testing.T) {
 }
 
 func TestRenderResolveAndMetadataErrors(t *testing.T) {
-	t.Setenv(typstbin.EnvPath, filepath.Join(t.TempDir(), "missing-typst"))
+	if typstbin.Embedded() {
+		t.Skip("embedded typst build cannot exercise the missing-binary path")
+	}
+	t.Setenv(typstbin.EnvNoDownload, "1")
+	t.Setenv("PATH", t.TempDir())
 	if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil || !bytes.Contains([]byte(err.Error()), []byte("resolve typst binary")) {
 		t.Fatalf("Render resolve error = %v, want resolve typst binary", err)
 	}
 
+	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
+	if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err != nil {
+		t.Fatalf("Render with typst resolved from PATH: %v", err)
+	}
+
+	withMockTypstOnPath(t, []byte("%PDF-1.7\nnot-a-real-pdf\n"), 0)
 	err := Render(&bytes.Buffer{}, Options{
 		Data:        map[string]any{"ok": true},
-		TypstPath:   mockTypstCLI(t, []byte("%PDF-1.7\nnot-a-real-pdf\n"), 0),
 		PDFMetadata: PDFMetadata{Creator: "velocity.report v1.2.3"},
 	})
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("apply pdf metadata")) {
 		t.Fatalf("Render metadata error = %v, want apply pdf metadata", err)
+	}
+
+	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
+	err = Render(&bytes.Buffer{}, Options{
+		Data:   map[string]any{"ok": true},
+		Assets: []Asset{{Name: ".", Data: []byte("x")}},
+	})
+	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("write asset")) {
+		t.Fatalf("Render asset write error = %v, want write asset", err)
+	}
+}
+
+func TestSourcesAndTemplateErrors(t *testing.T) {
+	oldTemplates := templatesFS
+	templatesFS = embed.FS{}
+	t.Cleanup(func() { templatesFS = oldTemplates })
+
+	if _, err := Sources(); err == nil {
+		t.Fatal("Sources should fail when the embedded template tree is unavailable")
+	}
+	if err := materialiseTemplates(t.TempDir()); err == nil {
+		t.Fatal("materialiseTemplates should fail when the embedded template tree is unavailable")
 	}
 }
 
@@ -265,9 +316,7 @@ func TestParsePDFTrailerReferencesAndID(t *testing.T) {
 // valid multi-page PDF. The test is skipped when the typst binary is not
 // available, since CI on the Pi image will not always have it.
 func TestRenderSampleFixture(t *testing.T) {
-	if _, err := exec.LookPath("typst"); err != nil {
-		t.Skip("typst not on PATH; install via Phase 7 packaging or the make install-typst target")
-	}
+	requireTypstForSmokeTest(t)
 
 	body, err := os.ReadFile(filepath.Join("testdata", "sample.json"))
 	if err != nil {
@@ -301,9 +350,7 @@ func TestRenderSampleFixture(t *testing.T) {
 }
 
 func TestRenderSampleFixtureWithoutHistogramBuckets(t *testing.T) {
-	if _, err := exec.LookPath("typst"); err != nil {
-		t.Skip("typst not on PATH; install via Phase 7 packaging or the make install-typst target")
-	}
+	requireTypstForSmokeTest(t)
 
 	body, err := os.ReadFile(filepath.Join("testdata", "sample.json"))
 	if err != nil {

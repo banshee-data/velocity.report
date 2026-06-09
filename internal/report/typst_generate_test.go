@@ -67,9 +67,8 @@ func mockTypstBinary(t *testing.T) string {
 	script := filepath.Join(dir, "typst")
 	pdf := string(mockTypstPDFFixture())
 	body := "#!/bin/sh\n" +
-		"# Mock typst: discard the document on stdin, write a minimal PDF.\n" +
-		"cat > /dev/null\n" +
-		"cat <<'EOF'\n" + pdf + "EOF\n"
+		"# Mock typst: write a minimal PDF using shell builtins only.\n" +
+		"printf '%s' '" + pdf + "'\n"
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
 		t.Fatalf("write mock typst: %v", err)
 	}

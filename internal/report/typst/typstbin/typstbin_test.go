@@ -1,11 +1,8 @@
 package typstbin
 
 import (
-	"archive/zip"
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -298,7 +295,7 @@ func TestDownloadHelpers(t *testing.T) {
 		{"linux", "amd64", "x86_64-unknown-linux-musl", "tar.xz", false},
 		{"darwin", "arm64", "aarch64-apple-darwin", "tar.xz", false},
 		{"darwin", "amd64", "x86_64-apple-darwin", "tar.xz", false},
-		{"windows", "amd64", "x86_64-pc-windows-msvc", "zip", false},
+		{"windows", "amd64", "", "", true},
 		{"plan9", "arm", "", "", true},
 	} {
 		t.Run(tc.goos+"/"+tc.goarch, func(t *testing.T) {
@@ -341,20 +338,6 @@ func TestHTTPDownloadAndArchiveHelpers(t *testing.T) {
 		t.Fatal("httpDownload should fail on non-200 status")
 	}
 
-	zipPath := filepath.Join(t.TempDir(), "typst.zip")
-	inner := "typst-target/typst.exe"
-	writeZipFile(t, zipPath, inner, []byte("zip-binary"))
-	destExe := filepath.Join(t.TempDir(), "typst.exe")
-	if err := extractZipEntry(zipPath, inner, destExe); err != nil {
-		t.Fatalf("extractZipEntry: %v", err)
-	}
-	if got, err := os.ReadFile(destExe); err != nil || string(got) != "zip-binary" {
-		t.Fatalf("extractZipEntry output = %q, err=%v", got, err)
-	}
-	if err := extractZipEntry(zipPath, "missing.exe", filepath.Join(t.TempDir(), "missing.exe")); err == nil {
-		t.Fatal("extractZipEntry should fail when the entry is missing")
-	}
-
 	copySrc := filepath.Join(t.TempDir(), "src")
 	copyDst := filepath.Join(t.TempDir(), "dst")
 	writeTestExecutable(t, copySrc, []byte("copy-me"), 0o755)
@@ -367,16 +350,8 @@ func TestHTTPDownloadAndArchiveHelpers(t *testing.T) {
 }
 
 func TestExtractTypst(t *testing.T) {
-	target := "x86_64-pc-windows-msvc"
-	zipPath := filepath.Join(t.TempDir(), "typst.zip")
-	writeZipFile(t, zipPath, "typst-"+target+"/typst.exe", []byte("zip-typst"))
-	zipDestDir := t.TempDir()
-	zipDest, err := extractTypst(zipPath, "zip", target, zipDestDir)
-	if err != nil {
-		t.Fatalf("extractTypst zip: %v", err)
-	}
-	if got, err := os.ReadFile(zipDest); err != nil || string(got) != "zip-typst" {
-		t.Fatalf("extractTypst zip output = %q, err=%v", got, err)
+	if _, err := extractTypst(filepath.Join(t.TempDir(), "typst.zip"), "zip", "x86_64-pc-windows-msvc", t.TempDir()); err == nil {
+		t.Fatal("extractTypst should reject unsupported archive types")
 	}
 
 	tarTarget := "aarch64-apple-darwin"
@@ -519,31 +494,6 @@ func TestCachedDownload(t *testing.T) {
 	}
 	if data, err := os.ReadFile(got); err != nil || string(data) != "copy-fallback" {
 		t.Fatalf("cachedDownload copy fallback output = %q, err=%v", data, err)
-	}
-}
-
-func writeZipFile(t *testing.T, zipPath, inner string, body []byte) {
-	t.Helper()
-	file, err := os.Create(zipPath)
-	if err != nil {
-		t.Fatalf("create zip: %v", err)
-	}
-	zw := zip.NewWriter(file)
-	w, err := zw.Create(inner)
-	if err != nil {
-		file.Close()
-		t.Fatalf("create zip entry: %v", err)
-	}
-	if _, err := io.Copy(w, bytes.NewReader(body)); err != nil {
-		file.Close()
-		t.Fatalf("write zip entry: %v", err)
-	}
-	if err := zw.Close(); err != nil {
-		file.Close()
-		t.Fatalf("close zip writer: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close zip file: %v", err)
 	}
 }
 

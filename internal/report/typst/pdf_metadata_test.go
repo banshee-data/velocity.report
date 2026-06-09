@@ -133,6 +133,22 @@ func TestApplyPDFMetadataReportsMissingReferencedObjects(t *testing.T) {
 	if _, err := applyPDFMetadata(metadataMissing, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "metadata object 4 missing") {
 		t.Fatalf("missing metadata error = %v, want metadata object missing", err)
 	}
+
+	for _, tc := range []struct {
+		name string
+		pdf  []byte
+	}{
+		{name: "missing startxref", pdf: []byte("%PDF-1.7\n")},
+		{name: "bad startxref", pdf: []byte("startxref\nabc\n")},
+		{name: "missing trailer", pdf: []byte("startxref\n0\n")},
+		{name: "unsupported xref stream", pdf: []byte("startxref\n0\nstream")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := applyPDFMetadata(tc.pdf, PDFMetadata{Creator: "x"}); err == nil {
+				t.Fatalf("applyPDFMetadata should fail for %s", tc.name)
+			}
+		})
+	}
 }
 
 func TestPDFMetadataParsersAndObjectReaders(t *testing.T) {
@@ -152,6 +168,9 @@ func TestPDFMetadataParsersAndObjectReaders(t *testing.T) {
 	if _, err := parseLastTrailerDict([]byte("trailer\nstartxref\n0\n")); err == nil {
 		t.Fatal("parseLastTrailerDict should fail when the trailer dictionary is missing")
 	}
+	if _, err := parseLastTrailerDict([]byte("trailer\n<<\nstartxref\n0\n")); err == nil {
+		t.Fatal("parseLastTrailerDict should fail when the trailer dictionary is unterminated")
+	}
 
 	if _, err := parsePDFTrailer([]byte("<< /Root 1 0 R >>")); err == nil {
 		t.Fatal("parsePDFTrailer should fail without Size")
@@ -163,11 +182,26 @@ func TestPDFMetadataParsersAndObjectReaders(t *testing.T) {
 	if _, err := parseXRefTable([]byte("stream"), 0); err == nil || !strings.Contains(err.Error(), "xref stream") {
 		t.Fatalf("parseXRefTable unsupported error = %v", err)
 	}
+	if _, err := parseXRefTable([]byte("xref"), 999); err == nil {
+		t.Fatal("parseXRefTable should fail for an out-of-range xref offset")
+	}
+	if _, err := parseXRefTable([]byte("xref\n0 1\n"), 0); err == nil {
+		t.Fatal("parseXRefTable should fail on an unterminated xref table")
+	}
+	if _, err := parseXRefTable([]byte("xref\nnope 1\ntrailer\n<<>>"), 0); err == nil {
+		t.Fatal("parseXRefTable should fail on a non-integer subsection object number")
+	}
+	if _, err := parseXRefTable([]byte("xref\n0 nope\ntrailer\n<<>>"), 0); err == nil {
+		t.Fatal("parseXRefTable should fail on a non-integer subsection count")
+	}
 	if _, err := parseXRefTable([]byte("xref\nnope\ntrailer\n<<>>"), 0); err == nil {
 		t.Fatal("parseXRefTable should fail on a malformed subsection header")
 	}
 	if _, err := parseXRefTable([]byte("xref\n0 1\nnope\ntrailer\n<<>>"), 0); err == nil {
 		t.Fatal("parseXRefTable should fail on a malformed entry")
+	}
+	if _, err := parseXRefTable([]byte("xref\n0 1\nnotanumber 00000 n \ntrailer\n<<>>"), 0); err == nil {
+		t.Fatal("parseXRefTable should fail on a non-integer xref offset")
 	}
 
 	if _, err := readPDFObject([]byte(""), 1); err == nil {
@@ -180,6 +214,15 @@ func TestPDFMetadataParsersAndObjectReaders(t *testing.T) {
 	if _, err := extractPDFDict([]byte("1 0 obj\n")); err == nil {
 		t.Fatal("extractPDFDict should fail without a dictionary")
 	}
+	if _, err := extractPDFDict([]byte("1 0 obj\n<<\nendobj")); err == nil {
+		t.Fatal("extractPDFDict should fail without a closing >>")
+	}
+	if _, _, err := extractPDFStreamObject([]byte("stream\nbody\nendstream")); err == nil {
+		t.Fatal("extractPDFStreamObject should fail without a dictionary")
+	}
+	if _, _, err := extractPDFStreamObject([]byte("<<\nstream\nbody\nendstream")); err == nil {
+		t.Fatal("extractPDFStreamObject should fail without a closing dictionary")
+	}
 	if _, _, err := extractPDFStreamObject([]byte("<<>>")); err == nil {
 		t.Fatal("extractPDFStreamObject should fail without a stream")
 	}
@@ -189,28 +232,28 @@ func TestPDFMetadataParsersAndObjectReaders(t *testing.T) {
 }
 
 func TestPDFMetadataValueAndMutationHelpers(t *testing.T) {
-	ref, ok, err := parseIndirectRef([]byte("<< /Info 3 0 R >>"), "Info")
-	if err != nil || !ok || ref != (pdfRef{number: 3, generation: 0}) {
-		t.Fatalf("parseIndirectRef = %+v, ok=%v, err=%v", ref, ok, err)
+	ref, ok := parseIndirectRef([]byte("<< /Info 3 0 R >>"), "Info")
+	if !ok || ref != (pdfRef{number: 3, generation: 0}) {
+		t.Fatalf("parseIndirectRef = %+v, ok=%v", ref, ok)
 	}
-	if _, ok, err := parseIndirectRef([]byte("<<>>"), "Info"); err != nil || ok {
-		t.Fatalf("parseIndirectRef missing = ok:%v err:%v, want false nil", ok, err)
-	}
-
-	value, ok, err := parsePDFInt([]byte("<< /Size 17 >>"), "Size")
-	if err != nil || !ok || value != 17 {
-		t.Fatalf("parsePDFInt = %d, ok=%v, err=%v", value, ok, err)
-	}
-	if _, ok, err := parsePDFInt([]byte("<<>>"), "Size"); err != nil || ok {
-		t.Fatalf("parsePDFInt missing = ok:%v err:%v, want false nil", ok, err)
+	if _, ok := parseIndirectRef([]byte("<<>>"), "Info"); ok {
+		t.Fatalf("parseIndirectRef missing = ok:%v, want false", ok)
 	}
 
-	raw, ok, err := parsePDFRawValue([]byte("<< /ID [<abc> <def>] >>"), "ID", `\[[^\]]+\]`)
-	if err != nil || !ok || raw != "[<abc> <def>]" {
-		t.Fatalf("parsePDFRawValue = %q, ok=%v, err=%v", raw, ok, err)
+	value, ok := parsePDFInt([]byte("<< /Size 17 >>"), "Size")
+	if !ok || value != 17 {
+		t.Fatalf("parsePDFInt = %d, ok=%v", value, ok)
 	}
-	if _, ok, err := parsePDFRawValue([]byte("<<>>"), "ID", `\[[^\]]+\]`); err != nil || ok {
-		t.Fatalf("parsePDFRawValue missing = ok:%v err:%v, want false nil", ok, err)
+	if _, ok := parsePDFInt([]byte("<<>>"), "Size"); ok {
+		t.Fatalf("parsePDFInt missing = ok:%v, want false", ok)
+	}
+
+	raw, ok := parsePDFRawValue([]byte("<< /ID [<abc> <def>] >>"), "ID", `\[[^\]]+\]`)
+	if !ok || raw != "[<abc> <def>]" {
+		t.Fatalf("parsePDFRawValue = %q, ok=%v", raw, ok)
+	}
+	if _, ok := parsePDFRawValue([]byte("<<>>"), "ID", `\[[^\]]+\]`); ok {
+		t.Fatalf("parsePDFRawValue missing = ok:%v, want false", ok)
 	}
 
 	if got := replaceOrAddPDFString([]byte("<< /Creator (Typst 0.13.1) >>"), "Creator", "velocity.report v1.2.3"); !bytes.Contains(got, []byte("/Creator (velocity.report v1.2.3)")) {
@@ -245,12 +288,18 @@ func TestPDFMetadataValueAndMutationHelpers(t *testing.T) {
 	if got := escapePDFString("(a)\\\n\r\t"); got != `\(a\)\\\n\r\t` {
 		t.Fatalf("escapePDFString = %q", got)
 	}
-	if got, err := escapeXMLText(`5 < 6 & 7`); err != nil || got != "5 &lt; 6 &amp; 7" {
-		t.Fatalf("escapeXMLText = %q, err=%v", got, err)
+	if got := escapeXMLText(`5 < 6 & 7`); got != "5 &lt; 6 &amp; 7" {
+		t.Fatalf("escapeXMLText = %q", got)
 	}
 
 	if skipPDFWhitespace([]byte(" \t\n\r\f\000abc"), 0) != 6 {
 		t.Fatal("skipPDFWhitespace returned the wrong index")
+	}
+	if skipPDFWhitespace([]byte("abc"), 0) != 0 {
+		t.Fatal("skipPDFWhitespace should leave a non-whitespace prefix untouched")
+	}
+	if skipPDFWhitespace([]byte(" \t"), 0) != 2 {
+		t.Fatal("skipPDFWhitespace should advance to the end of an all-whitespace buffer")
 	}
 	line, next, err := readPDFLine([]byte("abc\r\ndef"), 0)
 	if err != nil || string(line) != "abc" || next != 5 {
