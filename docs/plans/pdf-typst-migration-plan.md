@@ -38,13 +38,13 @@ place to understand what was decided and what landed.
 - [x] Keep `/api/generate_report` and `velocity report pdf` on the same public
       surface while swapping the internal typesetting engine.
 - [x] Introduce a dedicated Typst renderer in
-      [internal/report/typst/](/Users/david/code/velocity.report/internal/report/typst)
+      [internal/report/typst/](../../internal/report/typst)
       with embedded templates, structured data marshalling, and test fixtures.
 - [x] Implement Typst templates for the report layout in
-      [report.typ](/Users/david/code/velocity.report/internal/report/typst/templates/report.typ),
-      [preamble.typ](/Users/david/code/velocity.report/internal/report/typst/templates/preamble.typ),
+      [report.typ](../../internal/report/typst/templates/report.typ),
+      [preamble.typ](../../internal/report/typst/templates/preamble.typ),
       and
-      [sections.typ](/Users/david/code/velocity.report/internal/report/typst/templates/sections.typ).
+      [sections.typ](../../internal/report/typst/templates/sections.typ).
 - [x] Render both single-period and comparison reports through the Typst path.
 - [x] Keep charts as SVG and hand them directly to Typst with no
       SVG-to-PDF conversion pass.
@@ -56,7 +56,7 @@ place to understand what was decided and what landed.
 - [x] Embed the Atkinson Hyperlegible report fonts into the runtime and source
       ZIP so report generation does not depend on host-installed fonts.
 - [x] Add Typst binary resolution and embedding support under
-      [internal/report/typst/typstbin/](/Users/david/code/velocity.report/internal/report/typst/typstbin).
+      [internal/report/typst/typstbin/](../../internal/report/typst/typstbin).
 - [x] Make embedded Typst the default deployment model via `typst_embed` build
       tags and the image/release build scripts.
 - [x] Keep `PATH` and the development-only downloader as local-development
@@ -123,18 +123,18 @@ place to understand what was decided and what landed.
 The branch-level code and packaging diff shows these concrete outcomes:
 
 - Typst runtime and template code under
-  [internal/report/typst/](/Users/david/code/velocity.report/internal/report/typst)
+  [internal/report/typst/](../../internal/report/typst)
 - Typst report orchestration under
-  [internal/report/typst_generate.go](/Users/david/code/velocity.report/internal/report/typst_generate.go)
+  [internal/report/typst_generate.go](../../internal/report/typst_generate.go)
 - API report generation wired through the Typst path in
-  [internal/api/server_reports_generate.go](/Users/david/code/velocity.report/internal/api/server_reports_generate.go)
+  [internal/api/server_reports_generate.go](../../internal/api/server_reports_generate.go)
 - Typst binary embedding/download support in
-  [Makefile](/Users/david/code/velocity.report/Makefile),
-  [scripts/download-typst.sh](/Users/david/code/velocity.report/scripts/download-typst.sh),
+  [Makefile](../../Makefile),
+  [scripts/download-typst.sh](../../scripts/download-typst.sh),
   and
-  [image/scripts/build-image.sh](/Users/david/code/velocity.report/image/scripts/build-image.sh)
+  [image/scripts/build-image.sh](../../image/scripts/build-image.sh)
 - Image package changes in
-  [image/stage-velocity/00-install-packages/00-packages](/Users/david/code/velocity.report/image/stage-velocity/00-install-packages/00-packages)
+  [image/stage-velocity/00-install-packages/00-packages](../../image/stage-velocity/00-install-packages/00-packages)
   and related stage scripts
 - Updated operational and design docs in
   [pdf-reporting.md](../platform/operations/pdf-reporting.md),
