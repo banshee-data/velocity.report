@@ -6,8 +6,7 @@
 // out to `typst compile`. The Atkinson Hyperlegible fonts are materialised
 // from the chart asset package so generation works from a deployed binary
 // with no source tree present. The typst executable itself is resolved via the
-// typstbin subpackage (VELOCITY_TYPST_PATH → embedded binary → PATH → dev
-// download).
+// typstbin subpackage (embedded binary → PATH → dev download).
 package typst
 
 import (
@@ -29,6 +28,21 @@ import (
 
 //go:embed templates
 var templatesFS embed.FS
+
+type templateSourceFS interface {
+	fs.FS
+	fs.ReadFileFS
+}
+
+var (
+	renderTemplatesFS  = templateSourceFS(templatesFS)
+	renderResolveTypst = typstbin.Resolve
+	renderMkdirTemp    = os.MkdirTemp
+	renderRemoveAll    = os.RemoveAll
+	renderMkdirAll     = os.MkdirAll
+	renderWriteFile    = os.WriteFile
+	renderAllFonts     = assets.AllFonts
+)
 
 // Asset is a binary blob (chart SVG, map SVG, etc.) that the report embeds
 // via #image(). The Name is used as the relative path inside the working
@@ -69,22 +83,17 @@ type Options struct {
 	// the document. Typst 0.13.x exposes document metadata, but not the PDF
 	// creator tool, so we patch the finished PDF incrementally.
 	PDFMetadata PDFMetadata
-
-	// TypstPath overrides the typst executable. When empty, the binary is
-	// resolved via typstbin (VELOCITY_TYPST_PATH → embedded → PATH → dev
-	// download).
-	TypstPath string
 }
 
 // Render compiles the embedded templates against opts.Data and writes the
 // resulting PDF to out. The working directory used for compilation is removed
 // before Render returns.
 func Render(out io.Writer, opts Options) error {
-	workDir, err := os.MkdirTemp("", "velocity-report-typst-*")
+	workDir, err := renderMkdirTemp("", "velocity-report-typst-*")
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(workDir)
+	defer renderRemoveAll(workDir)
 
 	if err := materialiseTemplates(workDir); err != nil {
 		return err
@@ -105,23 +114,19 @@ func Render(out io.Writer, opts Options) error {
 		if dest != workDir && !strings.HasPrefix(dest, workDir+string(os.PathSeparator)) {
 			return fmt.Errorf("asset name %q escapes work dir", asset.Name)
 		}
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		if err := renderMkdirAll(filepath.Dir(dest), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(dest), err)
 		}
-		if err := os.WriteFile(dest, asset.Data, 0o644); err != nil {
+		if err := renderWriteFile(dest, asset.Data, 0o644); err != nil {
 			return fmt.Errorf("write asset %s: %w", asset.Name, err)
 		}
 	}
 
-	execPath := opts.TypstPath
-	if execPath == "" {
-		resolved, cleanup, rerr := typstbin.Resolve()
-		if rerr != nil {
-			return fmt.Errorf("resolve typst binary: %w", rerr)
-		}
-		defer cleanup()
-		execPath = resolved
+	execPath, cleanup, rerr := renderResolveTypst()
+	if rerr != nil {
+		return fmt.Errorf("resolve typst binary: %w", rerr)
 	}
+	defer cleanup()
 	caller := gotypst.CLI{ExecutablePath: execPath}
 
 	// Bootstrap: typst reads the document from stdin, which has no implicit
@@ -173,14 +178,14 @@ func Render(out io.Writer, opts Options) error {
 // recompilable source ZIP that ships alongside each generated PDF.
 func Sources() (map[string][]byte, error) {
 	out := map[string][]byte{}
-	err := fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(renderTemplatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		body, rerr := templatesFS.ReadFile(path)
+		body, rerr := renderTemplatesFS.ReadFile(path)
 		if rerr != nil {
 			return rerr
 		}
@@ -202,26 +207,23 @@ func MarshalData(data any) ([]byte, error) {
 // materialiseTemplates copies the embedded templates/ tree into workDir at
 // the top level (so report.typ ends up at workDir/report.typ).
 func materialiseTemplates(workDir string) error {
-	return fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
+	return fs.WalkDir(renderTemplatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		rel, err := filepath.Rel("templates", path)
-		if err != nil {
-			return err
-		}
+		rel := strings.TrimPrefix(path, "templates/")
 		dest := filepath.Join(workDir, rel)
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		if err := renderMkdirAll(filepath.Dir(dest), 0o755); err != nil {
 			return err
 		}
-		body, err := templatesFS.ReadFile(path)
+		body, err := renderTemplatesFS.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(dest, body, 0o644)
+		return renderWriteFile(dest, body, 0o644)
 	})
 }
 
@@ -229,11 +231,11 @@ func materialiseTemplates(workDir string) error {
 // workDir/fonts and returns that directory for use as a typst --font-path.
 func materialiseFonts(workDir string) (string, error) {
 	fontDir := filepath.Join(workDir, "fonts")
-	if err := os.MkdirAll(fontDir, 0o755); err != nil {
+	if err := renderMkdirAll(fontDir, 0o755); err != nil {
 		return "", fmt.Errorf("mkdir fonts: %w", err)
 	}
-	for name, data := range assets.AllFonts() {
-		if err := os.WriteFile(filepath.Join(fontDir, name), data, 0o644); err != nil {
+	for name, data := range renderAllFonts() {
+		if err := renderWriteFile(filepath.Join(fontDir, name), data, 0o644); err != nil {
 			return "", fmt.Errorf("write font %s: %w", name, err)
 		}
 	}
@@ -245,5 +247,5 @@ func writeData(workDir string, data any) error {
 	if err != nil {
 		return fmt.Errorf("marshal report data: %w", err)
 	}
-	return os.WriteFile(filepath.Join(workDir, "data.json"), body, 0o644)
+	return renderWriteFile(filepath.Join(workDir, "data.json"), body, 0o644)
 }

@@ -62,8 +62,8 @@ func GeneratePDF(ctx context.Context, database DB, cfg Config) (Result, error) {
 // GenerateTypst produces a PDF report and recompilable Typst source ZIP. It
 // supports both single-period and comparison reports, selected by whether
 // cfg.CompareStart is set. Charts are rendered to SVG and embedded directly by
-// Typst, and the typst executable is resolved via the embedded binary,
-// VELOCITY_TYPST_PATH, or PATH.
+// Typst, and the typst executable is resolved via the embedded binary, PATH, or
+// the development downloader.
 func GenerateTypst(ctx context.Context, database DB, cfg Config) (Result, error) {
 	plan, err := planRun(cfg)
 	if err != nil {

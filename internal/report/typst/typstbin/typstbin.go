@@ -2,17 +2,16 @@
 //
 // Resolution order:
 //
-//  1. VELOCITY_TYPST_PATH — an explicit executable path (ops / test override).
-//  2. An embedded binary — present only when the program was built with the
+//  1. An embedded binary — present only when the program was built with the
 //     `typst_embed` build tag and a platform binary was placed at
 //     dist/typst before building (see the Makefile install-typst-dist target).
 //     The embedded bytes are extracted once to a content-addressed cache file
 //     under a per-user cache directory and reused across runs. This is the form
 //     shipped on the Raspberry Pi image and in release binaries.
-//  3. `typst` on PATH — the developer fallback.
-//  4. A pinned release downloaded into the per-user cache — a development-only
+//  2. `typst` on PATH — the developer fallback.
+//  3. A pinned release downloaded into the per-user cache — a development-only
 //     convenience, disabled by VELOCITY_TYPST_NO_DOWNLOAD and never reached by
-//     distributed builds (they embed the binary at step 2).
+//     distributed builds (they embed the binary at step 1).
 package typstbin
 
 import (
@@ -25,22 +24,12 @@ import (
 	"runtime"
 )
 
-// EnvPath is the environment variable that overrides typst resolution.
-const EnvPath = "VELOCITY_TYPST_PATH"
-
 // Resolve returns a path to a usable typst executable. The returned cleanup
 // function must always be called by the caller (it is currently a no-op — the
 // resolved binaries are retained in the cache for reuse — but is provided so
 // callers can use a uniform `defer cleanup()`).
 func Resolve() (path string, cleanup func(), err error) {
 	cleanup = func() {}
-
-	if p := osGetenv(EnvPath); p != "" {
-		if verr := validateExecutable(p); verr != nil {
-			return "", cleanup, fmt.Errorf("%s=%q: %w", EnvPath, p, verr)
-		}
-		return p, cleanup, nil
-	}
 
 	if data, ok := embeddedTypstFunc(); ok {
 		p, exErr := extractCached(data)
@@ -55,45 +44,27 @@ func Resolve() (path string, cleanup func(), err error) {
 	}
 
 	// Development-only last resort: fetch a pinned typst release into the
-	// per-user cache and reuse it. Distributed builds embed the binary (step 2)
+	// per-user cache and reuse it. Distributed builds embed the binary (step 1)
 	// and never reach this. Disable with VELOCITY_TYPST_NO_DOWNLOAD=1.
 	if !downloadDisabled() {
 		if p, dlErr := cachedDownloadFunc(); dlErr == nil {
 			return p, cleanup, nil
 		} else {
 			return "", cleanup, fmt.Errorf(
-				"typst not found and auto-download failed (%w); build with -tags typst_embed, set %s, or install typst on PATH",
-				dlErr, EnvPath)
+				"typst not found and auto-download failed (%w); build with -tags typst_embed or install typst on PATH",
+				dlErr)
 		}
 	}
 
 	return "", cleanup, errors.New(
 		"typst executable not found: build with -tags typst_embed (after make install-typst-dist), " +
-			"set " + EnvPath + ", or install typst on PATH")
+			"or install typst on PATH")
 }
 
 // Embedded reports whether a typst binary was compiled into this build.
 func Embedded() bool {
 	_, ok := embeddedTypstFunc()
 	return ok
-}
-
-// validateExecutable checks that p is a regular file with the execute bit set
-// (the bit is not enforced on Windows, which has no such mode). This rejects
-// directories and non-executable files up front rather than failing opaquely
-// when the binary is later invoked.
-func validateExecutable(p string) error {
-	fi, err := osStat(p)
-	if err != nil {
-		return err
-	}
-	if !fi.Mode().IsRegular() {
-		return fmt.Errorf("not a regular file")
-	}
-	if !isExecutableMode(runtime.GOOS, fi.Mode()) {
-		return fmt.Errorf("not executable")
-	}
-	return nil
 }
 
 // cacheDir returns a per-user cache directory for typst binaries, created with
@@ -154,7 +125,7 @@ func extractCached(data []byte) (string, error) {
 		return dest, nil
 	}
 
-	tmp, err := osCreateTemp(dir, "typst-*.tmp")
+	tmp, err := createTempExec(dir, "typst-*.tmp")
 	if err != nil {
 		return "", err
 	}

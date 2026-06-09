@@ -5,6 +5,13 @@ import (
 	"os/exec"
 )
 
+type tempExecutable interface {
+	Name() string
+	Write([]byte) (int, error)
+	Chmod(os.FileMode) error
+	Close() error
+}
+
 var (
 	osGetenv       = os.Getenv
 	osStat         = os.Stat
@@ -15,6 +22,7 @@ var (
 	osCreateTemp   = os.CreateTemp
 	osRename       = os.Rename
 	osChmod        = os.Chmod
+	createTempExec = func(dir, pattern string) (tempExecutable, error) { return osCreateTemp(dir, pattern) }
 
 	cacheDirFunc       = cacheDir
 	typstTargetFunc    = typstTarget

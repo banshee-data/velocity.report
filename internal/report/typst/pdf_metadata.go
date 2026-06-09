@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+var pdfIndirectRefPattern = regexp.MustCompile(`(\d+)\s+(\d+)\s+R`)
+
 // PDFMetadata describes the extra PDF metadata velocity.report wants to stamp
 // onto Typst-generated reports.
 type PDFMetadata struct {
@@ -92,10 +94,7 @@ func applyPDFMetadata(pdf []byte, meta PDFMetadata) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	metadataRef, ok, err := parseIndirectRef(rootDict, "Metadata")
-	if err != nil {
-		return nil, err
-	}
+	metadataRef, ok := parseIndirectRef(rootDict, "Metadata")
 	if ok {
 		metadataOffset, found := xrefOffsets[metadataRef.number]
 		if !found {
@@ -253,28 +252,16 @@ func parseLastTrailerDict(pdf []byte) ([]byte, error) {
 }
 
 func parsePDFTrailer(dict []byte) (pdfTrailer, error) {
-	size, ok, err := parsePDFInt(dict, "Size")
-	if err != nil {
-		return pdfTrailer{}, err
-	}
+	size, ok := parsePDFInt(dict, "Size")
 	if !ok {
 		return pdfTrailer{}, fmt.Errorf("pdf trailer missing Size")
 	}
-	root, ok, err := parseIndirectRef(dict, "Root")
-	if err != nil {
-		return pdfTrailer{}, err
-	}
+	root, ok := parseIndirectRef(dict, "Root")
 	if !ok {
 		return pdfTrailer{}, fmt.Errorf("pdf trailer missing Root")
 	}
-	info, hasInfo, err := parseIndirectRef(dict, "Info")
-	if err != nil {
-		return pdfTrailer{}, err
-	}
-	id, _, err := parsePDFRawValue(dict, "ID", `\[[^\]]+\]`)
-	if err != nil {
-		return pdfTrailer{}, err
-	}
+	info, hasInfo := parseIndirectRef(dict, "Info")
+	id, _ := parsePDFRawValue(dict, "ID", `\[[^\]]+\]`)
 
 	trailer := pdfTrailer{size: size, root: root, id: id}
 	if hasInfo {
@@ -396,49 +383,33 @@ func extractPDFStreamObject(obj []byte) ([]byte, []byte, error) {
 	return obj[dictStart:dictEnd], stream, nil
 }
 
-func parseIndirectRef(dict []byte, key string) (pdfRef, bool, error) {
-	value, ok, err := parsePDFRawValue(dict, key, `(\d+)\s+(\d+)\s+R`)
-	if err != nil || !ok {
-		return pdfRef{}, ok, err
+func parseIndirectRef(dict []byte, key string) (pdfRef, bool) {
+	value, ok := parsePDFRawValue(dict, key, `(\d+)\s+(\d+)\s+R`)
+	if !ok {
+		return pdfRef{}, false
 	}
-	re := regexp.MustCompile(`(\d+)\s+(\d+)\s+R`)
-	match := re.FindStringSubmatch(value)
-	if len(match) != 3 {
-		return pdfRef{}, false, fmt.Errorf("malformed pdf reference for %s", key)
-	}
-	number, err := strconv.Atoi(match[1])
-	if err != nil {
-		return pdfRef{}, false, fmt.Errorf("parse %s object number: %w", key, err)
-	}
-	generation, err := strconv.Atoi(match[2])
-	if err != nil {
-		return pdfRef{}, false, fmt.Errorf("parse %s generation: %w", key, err)
-	}
-	return pdfRef{number: number, generation: generation}, true, nil
+	match := pdfIndirectRefPattern.FindStringSubmatch(value)
+	number, _ := strconv.Atoi(match[1])
+	generation, _ := strconv.Atoi(match[2])
+	return pdfRef{number: number, generation: generation}, true
 }
 
-func parsePDFInt(dict []byte, key string) (int, bool, error) {
-	value, ok, err := parsePDFRawValue(dict, key, `(\d+)`)
-	if err != nil || !ok {
-		return 0, ok, err
+func parsePDFInt(dict []byte, key string) (int, bool) {
+	value, ok := parsePDFRawValue(dict, key, `(\d+)`)
+	if !ok {
+		return 0, false
 	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return 0, false, fmt.Errorf("parse %s: %w", key, err)
-	}
-	return parsed, true, nil
+	parsed, _ := strconv.Atoi(value)
+	return parsed, true
 }
 
-func parsePDFRawValue(dict []byte, key, pattern string) (string, bool, error) {
+func parsePDFRawValue(dict []byte, key, pattern string) (string, bool) {
 	re := regexp.MustCompile(`/` + regexp.QuoteMeta(key) + `\s+(` + pattern + `)`)
 	match := re.FindSubmatch(dict)
 	if len(match) == 0 {
-		return "", false, nil
+		return "", false
 	}
-	if len(match) < 2 {
-		return "", false, fmt.Errorf("malformed pdf value for %s", key)
-	}
-	return string(match[1]), true, nil
+	return string(match[1]), true
 }
 
 func replaceOrAddPDFString(dict []byte, key, value string) []byte {
@@ -475,10 +446,7 @@ func insertIntoPDFDict(dict, entry []byte) []byte {
 }
 
 func replaceOrAddXMLTag(doc []byte, tag, value string) ([]byte, error) {
-	escaped, err := escapeXMLText(value)
-	if err != nil {
-		return nil, err
-	}
+	escaped := escapeXMLText(value)
 	replacement := []byte(fmt.Sprintf("<%s>%s</%s>", tag, escaped, tag))
 	re := regexp.MustCompile(`(?s)<` + regexp.QuoteMeta(tag) + `>.*?</` + regexp.QuoteMeta(tag) + `>`)
 	if re.Match(doc) {
@@ -515,12 +483,10 @@ func escapePDFString(value string) string {
 	return out.String()
 }
 
-func escapeXMLText(value string) (string, error) {
+func escapeXMLText(value string) string {
 	var out bytes.Buffer
-	if err := xml.EscapeText(&out, []byte(value)); err != nil {
-		return "", err
-	}
-	return out.String(), nil
+	_ = xml.EscapeText(&out, []byte(value))
+	return out.String()
 }
 
 func skipPDFWhitespace(pdf []byte, index int) int {
