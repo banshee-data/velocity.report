@@ -2,13 +2,53 @@
 
 <!-- ignore-style-length -->
 
-## June 5, 2026 - Single `velocity` binary, versioned upgrades & nginx removal
+## June 9, 2026 - Typst map editor, typstbin hardening & cleanup
 
-- Removed nginx and the first-boot self-signed local CA: the Go server now binds `:80` directly as the non-root `velocity` user via `CAP_NET_BIND_SERVICE`, so the first visit to `http://velocity.local` no longer involves a browser warning or a CA install. The `--listen` default stays on loopback, so production opts into LAN exposure deliberately rather than by accident (#517).
+- Built the report map-editor integration: an SVG overlay with style selection, FOV-triangle overlay rendering, tile snapshots loaded only with user consent, and report-overlay visibility plus stale-preview detection (#522).
+- Replaced server-side OSM rendering with the consent-gated client editor: removed the dead Overpass module, the unused `/api/map/overpass` proxy, and the server-side OSM site-map renderer with its Phase 0 typst-prototype driver (#522).
+- Hardened `typstbin` with a private cache-dir fallback, Windows exec-bit handling, and rejection of asset names that escape the work directory, then refactored the package and added comprehensive rendering and binary-resolution tests (#522).
+- Improved Typst report layout: histogram bucket handling, figure clearance and placement, and a surveyor/contact line that renders only when present (#522).
+- Added PDF-metadata support with trailer-parsing tests for Typst-generated reports, and consolidated the PDF migration docs and plan links (#522).
+- Encapsulated the Docker temp-cache removal in a dedicated build-script function and added a test covering the Docker Go cache cleanup.
+
+## June 8, 2026 - Typst PDF engine & TeX Live removal
+
+- Implemented Typst PDF generation end to end: a renderer, data preparation, `.typ` templates, and source packaging, making Typst the default report engine in place of LaTeX (#522).
+- Added the Typst binary toolchain: `scripts/download-typst.sh` fetches per-target release binaries, and the engine embeds into the `velocity` binary by default, skipped in CI for build speed (#522).
+- Removed the legacy TeX stack: the `internal/report/tex` templates and scripts, `pylatex`, the minimal-TeX-Live image stage and CI steps, the VSCode LaTeX config, and the now-unused `gonum` dependency (#522).
+- Made OpenStreetMap tiles opt-in for the report site map, defaulting to the offline schematic, hardened the tile cache directory, and replaced emoji POI glyphs with vector pictographs for PDF compatibility (#522).
+- Added a third-party licences section to the settings page and drove the Typst report paper size from config (#522).
+- Closed out the upgrade mechanism: validated the `BackupDatabase` source path against DSN injection, enforced a pure-Go ARM64 build when pcap support is unavailable, and clarified how a pre-0.5.1 binary handles a stray database (#519).
+
+## June 7, 2026 - Versioned upgrade mechanism & appliance hardening
+
+- Implemented the on-device upgrade mechanism: local-binary upgrade checks, release-asset handling, a consistent database backup before each upgrade, and a `retrySleep` seam to make the upgrade retry path testable, with tests for the update-release-JSON module and binary build paths (#519).
+- Streamlined command routing and the install function for the unified binary, and added comprehensive tests for the `device` commands and SQL handling (#519).
+- Updated the build scripts and Dockerfile for ARM64 binary compilation and added a coverage check for branch-added internal Go files (#519).
+- Hardened the appliance runtime defaults, reasserted them after a cleanup pass, and aligned the CLI and operations docs with the unified `velocity` binary (#519).
+
+## June 6, 2026 - Serial race, homepage hero & build fixes
+
+- Fixed a data race in the radar serial event fanout: `runEventFanout` now holds the read lock across the non-blocking subscriber sends, so an `Unsubscribe` close can no longer race a send on a closed channel (caught by `-race` in `TestSerialPortManager_EventFanout_FullChannel`) (#518).
+- Fixed the public homepage hero by vendoring `three.core.js` alongside `three.module.js`: three 0.184.0 re-exports from the sibling core file, so the browser 404'd on it and the point-cloud scene never initialised (#521).
+- Shrank the homepage `stack.png` from ~3.4 MB to ~1 MB and extended the `pdf-stack-render` tool with page-border options and output scaling (#521).
+- Repaired the GitHub Pages docs deploy by switching it to the repo's `setup-node-pnpm` composite, which installs the pinned `pnpm@10.18.2` instead of a too-new pnpm that needs `node:sqlite` on Node 20.19.0 (#518).
+- Hosted the macOS visualiser unit-test bundle in the app so its proto symbols resolve at link time, and switched `test-mac` to `xcodebuild test-without-building` (#518).
+- Added a Go runtime pipeline correctness plan (`docs/plans/go-runtime-pipeline-correctness-plan.md`) and logged it in the backlog (#520).
+
+## June 5, 2026 - Single `velocity` binary, versioned upgrades & Tailscale fixes
+
+- Hardened the path after the TLS layer came out: dropped a `CapabilityBoundingSet` that broke `sudo` and Tailscale, drove Tailscale enrolment through `Start` rather than `EditPrefs`, long-polled `/api/tailscale/status`, pointed `tailscale serve` at the actual `--listen` port, and fixed the image build's `qemu-aarch64-static` architecture check and a stale `pigen_work` container left from cleanup (#517).
 - Folded `velocity-report`, `velocity-ctl`, and the local-only `sweep` tool into one multi-call `velocity` binary that dispatches on `argv[0]` and a `serve | device | data | report | tune` namespace tree. `velocity-report` survives as the systemd-facing alias and `velocity-ctl` as a one-release deprecation shim that warns and forwards to `velocity device …` (#519).
 - Reworked on-device upgrades into a versioned layout under `/opt/velocity-report/versions/<v>/` with `current`/`previous` symlinks and an atomic `renameat2` swap: migrations run on the new binary before the swap, the running build is verified through `GET /api/version`, three versions are retained, and rollback is now a single symlink flip rather than a copy.
 - Embedded the deployment config into the binary — tuning defaults, the LiDAR network profile, udev rules, and the Wi-Fi `wpa_supplicant` fallback now ship via `go:embed` and `velocity device install` — then trimmed `python3-serial`, `minicom`, `jq`, and `curl` from the image's apt surface and deleted the vestigial `02-velocity-python` stage.
 - Tightened the transitional `velocity-ctl` sudoers grant to enumerated safe verbs instead of a wildcard, split the pcap-pulling command packages into the libpcap CI job so `Test Core` builds without headers, shortened the git SHA in the MOTD banners, and cut `0.5.1-pre22`.
+
+## June 4, 2026 - nginx & self-signed TLS removal
+
+- Dropped nginx and the first-boot self-signed local CA, serving plain HTTP on `:80`: the Go server now binds `:80` directly as the non-root `velocity` user via `CAP_NET_BIND_SERVICE`, so the first visit to `http://velocity.local` no longer involves a browser warning or a CA install, and the `--listen` default stays on loopback so production opts into LAN exposure deliberately (#517).
+- Documented the HTTP-on-`:80` model, the nginx and TLS removal, and the opt-in Tailscale Serve path for browser-trusted HTTPS on the tailnet (#517).
+- Taught the MOTD banner to read version and build metadata from the installed binary rather than baking it in at image build, pointed `dev-ssh-audit` at `/app/` instead of the `/` route that 302-redirects, and fixed dead documentation links (#517).
 
 ## June 3, 2026 - Radar listen hardening & dependency refresh
 
