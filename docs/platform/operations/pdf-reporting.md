@@ -84,6 +84,22 @@ The only external report compiler dependency is `typst`.
 The Atkinson Hyperlegible font family is embedded and materialised at render
 time so report generation does not depend on host-installed fonts.
 
+## Test coverage expectations
+
+Report tests should exercise the same boundaries as production report
+generation:
+
+- API integration tests for `/api/generate_report` use the native Typst path and
+  assert that the generated PDF is a structurally valid PDF after metadata
+  stamping. A mock `typst` binary must emit a minimal valid PDF with `xref`,
+  `trailer`, `/Root`, and `startxref`, not just a `%PDF` header.
+- Template render tests should cover optional data surfaces. Missing or empty
+  chart data, including histogram buckets, must omit the affected report section
+  cleanly rather than failing inside Typst.
+- The Go CI integration surface is `go test -tags=pcap ./internal/api/...`; this
+  must remain a probing end-to-end check of request validation, report
+  generation, PDF post-processing, and report record creation.
+
 ## Charts and figures
 
 Implemented chart surfaces:
