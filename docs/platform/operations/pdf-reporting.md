@@ -118,11 +118,31 @@ conversion pass is needed.
 ## Relationship to earlier plans
 
 - **Python PDF generator**: removed. The old Python stack is historical only.
-- **Precompiled external typesetter bundles**: superseded for the report path
-  by Typst. Those plans remain historical context rather than the active
-  runtime.
 - **Single-binary deployment**: strengthened. The report engine can now ship
   inside the `velocity` binary with no separate typesetting tree.
+
+### Rejected and superseded alternatives
+
+The Typst pipeline replaced a sequence of LaTeX-era investigations. They are
+recorded here so the underlying questions do not have to be re-asked; the full
+analyses live in git history under `docs/plans/`.
+
+- **Pure-Go LaTeX engine (`star-tex`)** — investigated and **rejected (NO-GO,
+  2026-04)**. `star-tex.org/x/tex` is a faithful pure-Go translation of Knuth's
+  plain TeX (TeX78/82): it is not LaTeX2e, not XeTeX, and ships none of the
+  `fontspec`/`graphicx`/`hyperref` infrastructure the report templates required.
+  The load-bearing blocker was `fontspec` + the Atkinson Hyperlegible font,
+  which needs engine-level XeTeX/LuaTeX primitives `star-tex` does not implement
+  and is not architected to add; the upstream is also pre-1.0 with the GitHub
+  mirror archived. A real port was estimated as a multi-year effort comparable
+  to XeTeX itself. The Typst cutover later removed the external typesetter
+  entirely, mooting the question.
+- **Precompiled minimal TeX tree (`.fmt`, D-08)** — planned to shrink the
+  ~800 MB vendored `texlive-xetex` install to ~30–60 MB while keeping `xelatex`,
+  then **cancelled**: the Typst cutover deleted the TeX tree, the
+  `build-minimal-texlive` scripts, and the `librsvg`/font apt dependencies in
+  one move, so the `.fmt` optimisation had no surface left to apply to. The
+  package-dependency audit it produced informed the Typst port.
 
 ## Operational notes
 

@@ -196,7 +196,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## Complete
 
-- Typst report cutover: report builds now use the Go + Typst path only; the old report compiler tree, image stage, package deps, scripts, targets, flags, and parity window are removed: [design doc](plans/deploy-single-binary-image-consolidation-plan.md)
 - [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
@@ -298,3 +297,4 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#519] image apt-surface trim; `go:embed` for tuning defaults, network config, udev rules, and wpa_supplicant fallback; delete `python3-serial`, `minicom`, `jq`, `curl`, and the `02-velocity-python` stage: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
 - [#519] `velocity data sql --read-only` read-only SQLite inspection subcommand (explicit `--db-path`, `--limit` cap, TSV output); dropped the `sqlite3` apt dep from `00-packages`: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
 - [#519] removed the transitional `velocity-ctl` shim: the `/usr/local/bin/velocity-ctl` symlink (image stage 01), the `velocity-ctl` sudoers grants (stage 03), and the deprecation-warning path in `cmd/velocity/main.go`: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
+- [#522] Typst report cutover: report builds now use the Go + Typst path only; the old report compiler tree, image stage, package deps, scripts, targets, flags, and parity window are removed: [design doc](plans/deploy-single-binary-image-consolidation-plan.md)

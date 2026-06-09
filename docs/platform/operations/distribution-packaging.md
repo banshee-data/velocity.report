@@ -1,10 +1,57 @@
 # Distribution and packaging
 
-- **Status banner (2026-06, landed):** the model described on this page — separate `velocity-ctl`, `velocity-report-sweep`, and `velocity-report-backfill-rings` artefacts plus a `velocity-report` Cobra-style subcommand binary — **has been replaced**. The shipped model is a single busybox-style `velocity` binary with a `velocity <namespace> ...` canonical CLI (`serve`, `device`, `data`, `report`, `tune`); `velocity-report` is retained as a compatibility alias for systemd; the former `velocity-ctl` binary has been removed in favour of the `velocity device …` namespace; host service lifecycle is handled outside the binary by shell wrappers; and the on-disk layout is versioned under `/opt/velocity-report/versions/<v>/` with a `current` symlink swapped atomically (`renameat2`) for upgrade and rollback. The release binary asset is `velocity-<v>-<os>-arm64` (the RPi image keeps `velocity-report-<v>.img.xz`). Authoritative reading: [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md), [deploy-single-binary-image-consolidation-plan.md](../../plans/deploy-single-binary-image-consolidation-plan.md), and [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md). The text below is the older proposal, preserved for context; treat the plans as canonical where they differ.
+- **Status:** The shipped v0.5.1 model is described below and is canonical. The
+  original D-09 subcommand proposal is retained as historical context further
+  down. In-flight packaging work continues in
+  [deploy-single-binary-image-consolidation-plan.md](../../plans/deploy-single-binary-image-consolidation-plan.md)
+  and [deploy-nginx-removal-plan.md](../../plans/deploy-nginx-removal-plan.md).
 
-Legacy plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md) (annotated with strikethroughs to mark drift). Current canonical direction lives in [deploy-versioned-binary-plan.md](../../plans/deploy-versioned-binary-plan.md).
+Distribution and packaging strategy for velocity.report: ship one signed binary
+with a consistent release process and atomic, reversible on-disk upgrades.
 
-Distribution and packaging strategy for velocity.report: consolidate scattered tools into a single-binary subcommand model with a consistent release process.
+## Shipped model (v0.5.1)
+
+velocity.report ships a single busybox-style `velocity` binary. `argv[0]`
+selects behaviour for compatibility, but the canonical command surface is
+`velocity <namespace> ...`:
+
+| Namespace         | Purpose                                         |
+| ----------------- | ----------------------------------------------- |
+| `serve` (default) | Start the HTTP/gRPC server                      |
+| `device`          | On-device version lifecycle (upgrade, rollback) |
+| `data`            | Database and data utilities                     |
+| `report`          | PDF report generation                           |
+| `tune`            | Parameter sweep / tuning tools                  |
+
+- **Compatibility aliases:** `velocity-report` is retained as a server-oriented
+  alias because systemd units and operator habits depend on it. The former
+  `velocity-ctl` binary has been removed in favour of the `velocity device …`
+  namespace.
+- **Host lifecycle stays outside the binary:** `velocity-status`,
+  `velocity-log`, `velocity-start`, `velocity-stop`, and `velocity-bounce`
+  remain shell wrappers around `systemctl`/`journalctl` (in
+  `/etc/profile.d/velocity-aliases.sh`) — host concerns, not application
+  namespaces.
+- **Versioned on-disk layout:** installs live under
+  `/opt/velocity-report/versions/<v>/` with `current` and `previous` symlinks,
+  and `/usr/local/bin/velocity` as the canonical entry point. Upgrade and
+  rollback are a single atomic `renameat2(2)` symlink swap; the installer keeps
+  the last three versions and prunes the rest. Updates never write to
+  `/usr/local/bin/`.
+- **Build identity:** `GET /api/version` exposes the running build; `velocity
+version` reports the same from the CLI.
+- **Release artefacts:** the binary asset is `velocity-<v>-<os>-arm64`; the
+  Raspberry Pi image is `velocity-report-<v>.img.xz`. A tightened sudoers policy
+  scopes what the service account may invoke.
+
+This model landed in v0.5.1, replacing the multi-binary D-09 proposal below.
+
+## Historical proposal (D-09 subcommand model, superseded)
+
+The sections below are the original D-09 proposal — a `velocity-report` binary
+with subcommands plus separate `velocity-report-sweep` and `velocity-ctl`
+artefacts, installed flat under `/usr/local/bin/`. They are **superseded** by
+the shipped model above and retained for context only.
 
 ## Problem
 

@@ -1,6 +1,6 @@
 # CLI restructuring plan
 
-- **Status:** Superseded — the v0.5.1 consolidation plan owns the public CLI surface
+- **Status:** Complete (superseded) — the v0.5.1 consolidation plan owns the public CLI surface; the current implemented reference is [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md).
 - **Canonical:** [cli-comprehensive-guide.md](../radar/cli-comprehensive-guide.md)
 - **Parent plan:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — work unit A folds `velocity-ctl`, `sweep`, and the redirect stub into the multi-call `velocity` binary
 - **Superseded by:** [deploy-versioned-binary-plan.md](./deploy-versioned-binary-plan.md) (namespace tree), [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) (v0.5.1 sequencing)

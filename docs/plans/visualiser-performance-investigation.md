@@ -1,7 +1,10 @@
 # LiDAR Visualiser Performance Investigation
 
-- **Status:** Substantially Complete — M3.5 split streaming implemented, frame rate throttle added. Minor gaps: CLI flag for background interval uses default only; bandwidth reduction not formally tested (claimed ~96% in code)
+- **Status:** Complete — M3.5 split streaming and the pipeline frame-rate throttle shipped, resolving the SLOW SEND / frame-drop / FPS-collapse problem this investigation diagnosed. Two minor, non-blocking follow-ups remain (see § M3.5 Tasks): the background snapshot interval uses the 30s default with no dedicated `--vis-background-interval` CLI flag, and the ~96% bandwidth reduction is asserted in code comments but not formally benchmarked.
 - **Scope:** Static LiDAR deployments only (no SLAM/mobile use cases)
+- **Canonical:** [performance-investigation.md](../ui/visualiser/performance-investigation.md)
+
+- **Graduation note:** `docs/ui/visualiser/performance-investigation.md` currently exists as a reverse symlink pointing back to this plan — the graduation was done backwards. The follow-up graduation PR must invert it: promote this content to the real hub doc at that path and replace this plan file with a forward symlink to it. Deferred from this prep PR per the two-PR rule.
 
 ## Problem Summary
 

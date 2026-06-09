@@ -1,13 +1,10 @@
 # PDF generation via Typst
 
-- **Status:** Complete on this branch
-- **Branch:** `patrickod/go-typst`
+- **Status:** Complete — shipped in #522 (`[go] migrate LaTeX -> go-typst`).
 - **Layers:** Reporting, packaging, image build
-- **Supersedes on this branch:** `pdf-typst-phase-0-results.md`,
-  `pdf-typst-parity-todo.md`
-- **Canonical runtime docs:**
-  [pdf-reporting.md](../platform/operations/pdf-reporting.md),
-  [PDF_REPORT_DESIGN.md](../ui/PDF_REPORT_DESIGN.md)
+- **Supersedes:** `pdf-typst-phase-0-results.md`, `pdf-typst-parity-todo.md`
+- **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
+- **Related runtime docs:** [PDF_REPORT_DESIGN.md](../ui/PDF_REPORT_DESIGN.md)
 
 ## Summary
 
