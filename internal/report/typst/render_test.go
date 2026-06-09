@@ -3,12 +3,38 @@ package typst
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 )
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func mockTypstCLI(t *testing.T, pdf []byte, exitCode int) string {
+	t.Helper()
+	dir := t.TempDir()
+	script := filepath.Join(dir, "typst")
+	body := "#!/bin/sh\ncat > /dev/null\n"
+	if exitCode != 0 {
+		body += fmt.Sprintf("exit %d\n", exitCode)
+	} else {
+		body += "cat <<'EOF'\n" + string(pdf) + "EOF\n"
+	}
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatalf("write mock typst: %v", err)
+	}
+	return script
+}
 
 func testMetadataFixturePDF() []byte {
 	xmp := `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="xmp-writer"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"><xmp:CreatorTool>Typst 0.13.1</xmp:CreatorTool></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="r"?>`
@@ -55,6 +81,166 @@ func TestApplyPDFMetadata(t *testing.T) {
 		if !bytes.Contains(pdf, []byte(want)) {
 			t.Fatalf("updated pdf missing %q", want)
 		}
+	}
+}
+
+func TestRenderWithMockTypstAndMetadata(t *testing.T) {
+	var out bytes.Buffer
+	err := Render(&out, Options{
+		Data:              map[string]any{"ok": true},
+		Assets:            []Asset{{Name: "charts/test.svg", Data: []byte("<svg/>")}},
+		FontDir:           t.TempDir(),
+		IgnoreSystemFonts: true,
+		CreationTime:      time.Unix(123, 0),
+		PDFMetadata:       PDFMetadata{Creator: "velocity.report v1.2.3", Keywords: []string{"git-sha:abc123"}},
+		TypstPath:         mockTypstCLI(t, testMetadataFixturePDF(), 0),
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		"/Creator (velocity.report v1.2.3)",
+		"/Keywords (git-sha:abc123)",
+		"<xmp:CreatorTool>velocity.report v1.2.3</xmp:CreatorTool>",
+	} {
+		if !bytes.Contains(out.Bytes(), []byte(want)) {
+			t.Fatalf("rendered PDF missing %q", want)
+		}
+	}
+}
+
+func TestRenderWithoutMetadataUsesRawTypstOutput(t *testing.T) {
+	rawPDF := testMetadataFixturePDF()
+	var out bytes.Buffer
+	err := Render(&out, Options{
+		Data:      map[string]any{"ok": true},
+		TypstPath: mockTypstCLI(t, rawPDF, 0),
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !bytes.Equal(out.Bytes(), rawPDF) {
+		t.Fatal("Render should pass through Typst output unchanged when no PDF metadata override is requested")
+	}
+}
+
+func TestRenderRejectsEscapingAssetPathsAndPropagatesErrors(t *testing.T) {
+	if err := Render(&bytes.Buffer{}, Options{
+		Data:   map[string]any{"ok": true},
+		Assets: []Asset{{Name: "../escape.svg", Data: []byte("<svg/>")}},
+	}); err == nil || !bytes.Contains([]byte(err.Error()), []byte("escapes work dir")) {
+		t.Fatalf("Render asset escape error = %v, want escapes work dir", err)
+	}
+
+	err := Render(&bytes.Buffer{}, Options{
+		Data:      map[string]any{"ok": true},
+		TypstPath: mockTypstCLI(t, nil, 2),
+	})
+	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("typst compile")) {
+		t.Fatalf("Render compile error = %v, want typst compile", err)
+	}
+
+	err = Render(failingWriter{}, Options{
+		Data:        map[string]any{"ok": true},
+		TypstPath:   mockTypstCLI(t, testMetadataFixturePDF(), 0),
+		PDFMetadata: PDFMetadata{Creator: "velocity.report v1.2.3"},
+	})
+	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("write pdf")) {
+		t.Fatalf("Render write error = %v, want write pdf", err)
+	}
+}
+
+func TestSourcesAndMarshalData(t *testing.T) {
+	sources, err := Sources()
+	if err != nil {
+		t.Fatalf("Sources: %v", err)
+	}
+	for _, want := range []string{"report.typ", "preamble.typ", "sections.typ"} {
+		if _, ok := sources[want]; !ok {
+			t.Fatalf("Sources missing %s", want)
+		}
+	}
+	jsonBody, err := MarshalData(map[string]any{"creator": "velocity.report"})
+	if err != nil {
+		t.Fatalf("MarshalData: %v", err)
+	}
+	if !bytes.Contains(jsonBody, []byte(`"creator": "velocity.report"`)) {
+		t.Fatalf("MarshalData = %s", jsonBody)
+	}
+}
+
+func TestRenderHelperFilesystemErrors(t *testing.T) {
+	templatesDir := t.TempDir()
+	if err := materialiseTemplates(templatesDir); err != nil {
+		t.Fatalf("materialiseTemplates: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(templatesDir, "report.typ")); err != nil {
+		t.Fatalf("materialised report.typ missing: %v", err)
+	}
+
+	blockedTemplates := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blockedTemplates, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write blocked template path: %v", err)
+	}
+	if err := materialiseTemplates(blockedTemplates); err == nil {
+		t.Fatal("materialiseTemplates should fail when the target root is a file")
+	}
+
+	fontsDir := t.TempDir()
+	fontRoot, err := materialiseFonts(fontsDir)
+	if err != nil {
+		t.Fatalf("materialiseFonts: %v", err)
+	}
+	entries, err := os.ReadDir(fontRoot)
+	if err != nil {
+		t.Fatalf("read materialised fonts: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("materialiseFonts should write bundled fonts")
+	}
+
+	blockedFonts := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blockedFonts, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write blocked font path: %v", err)
+	}
+	if _, err := materialiseFonts(blockedFonts); err == nil {
+		t.Fatal("materialiseFonts should fail when the target root is a file")
+	}
+
+	dataDir := t.TempDir()
+	if err := writeData(dataDir, map[string]any{"ok": true}); err != nil {
+		t.Fatalf("writeData: %v", err)
+	}
+	if body, err := os.ReadFile(filepath.Join(dataDir, "data.json")); err != nil || !bytes.Contains(body, []byte(`"ok": true`)) {
+		t.Fatalf("writeData body = %q, err=%v", body, err)
+	}
+
+	if err := writeData(t.TempDir(), map[string]any{"bad": make(chan int)}); err == nil {
+		t.Fatal("writeData should fail on unmarshalable data")
+	}
+
+	blockedData := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blockedData, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write blocked data path: %v", err)
+	}
+	if err := writeData(blockedData, map[string]any{"ok": true}); err == nil {
+		t.Fatal("writeData should fail when the target root is a file")
+	}
+}
+
+func TestRenderResolveAndMetadataErrors(t *testing.T) {
+	t.Setenv(typstbin.EnvPath, filepath.Join(t.TempDir(), "missing-typst"))
+	if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil || !bytes.Contains([]byte(err.Error()), []byte("resolve typst binary")) {
+		t.Fatalf("Render resolve error = %v, want resolve typst binary", err)
+	}
+
+	err := Render(&bytes.Buffer{}, Options{
+		Data:        map[string]any{"ok": true},
+		TypstPath:   mockTypstCLI(t, []byte("%PDF-1.7\nnot-a-real-pdf\n"), 0),
+		PDFMetadata: PDFMetadata{Creator: "velocity.report v1.2.3"},
+	})
+	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("apply pdf metadata")) {
+		t.Fatalf("Render metadata error = %v, want apply pdf metadata", err)
 	}
 }
 

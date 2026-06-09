@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/report/chart"
 	"github.com/banshee-data/velocity.report/internal/report/typst"
 	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -360,5 +362,78 @@ func TestToTypstRows_ZeroCountNilPercentiles(t *testing.T) {
 	// Row with samples must carry converted percentile values.
 	if out[1].P50 == nil {
 		t.Error("non-zero row should have a P50 value")
+	}
+}
+
+func TestBuildTypstRadarAndHelpers(t *testing.T) {
+	radar := buildTypstRadar(Config{FirmwareVersion: "1.2.3", CosineAngle: 21.0, CompareCosineAngle: 18.5})
+	if radar.FirmwareVersion != "1.2.3" {
+		t.Fatalf("firmware version = %q, want 1.2.3", radar.FirmwareVersion)
+	}
+	if radar.CosineErrorAngle == "" || radar.CompareCosineErrorAngle == "" {
+		t.Fatal("cosine fields should be populated when angles are provided")
+	}
+
+	plain := buildTypstRadar(Config{})
+	if plain.CosineErrorAngle != "" || plain.CompareCosineErrorAngle != "" {
+		t.Fatal("cosine fields should be empty when no angles are provided")
+	}
+
+	if got := typstPaperName(chart.PaperLetter); got != "us-letter" {
+		t.Fatalf("typstPaperName(letter) = %q, want us-letter", got)
+	}
+	if got := typstPaperName(chart.PaperA4); got != "a4" {
+		t.Fatalf("typstPaperName(a4) = %q, want a4", got)
+	}
+	if ptrOrNil(math.NaN()) != nil {
+		t.Fatal("ptrOrNil should return nil for NaN")
+	}
+	if ptrOrNil(math.Inf(1)) != nil {
+		t.Fatal("ptrOrNil should return nil for infinity")
+	}
+	if got := ptrOrNil(12.5); got == nil || *got != 12.5 {
+		t.Fatalf("ptrOrNil(12.5) = %v, want 12.5", got)
+	}
+	if cosineFactor(0) != 1 {
+		t.Fatalf("cosineFactor(0) = %v, want 1", cosineFactor(0))
+	}
+}
+
+func TestBuildTypstZipFilesAndPackageTypstOutput(t *testing.T) {
+	rd := typst.ReportData{Paper: "a4"}
+	assets := []typst.Asset{{Name: "charts/test.svg", Data: []byte("<svg/>")}}
+
+	files, err := buildTypstZipFiles(rd, assets)
+	if err != nil {
+		t.Fatalf("buildTypstZipFiles: %v", err)
+	}
+	for _, want := range []string{"report.typ", "preamble.typ", "sections.typ", "data.json", "README.md", "charts/test.svg"} {
+		if _, ok := files[want]; !ok {
+			t.Fatalf("buildTypstZipFiles missing %s", want)
+		}
+	}
+	hasFont := false
+	for name := range files {
+		if filepath.Dir(name) == "fonts" {
+			hasFont = true
+			break
+		}
+	}
+	if !hasFont {
+		t.Fatal("buildTypstZipFiles should include bundled fonts")
+	}
+
+	res, err := packageTypstOutput(Config{Location: "Clarendon Avenue", EndDate: "2025-06-04"}, rd, assets, []byte("%PDF-1.7\n"))
+	if err != nil {
+		t.Fatalf("packageTypstOutput: %v", err)
+	}
+	if _, err := os.Stat(res.PDFPath); err != nil {
+		t.Fatalf("output PDF missing: %v", err)
+	}
+	if _, err := os.Stat(res.ZIPPath); err != nil {
+		t.Fatalf("output ZIP missing: %v", err)
+	}
+	if _, names := readReportDataFromZip(t, res.ZIPPath); len(names) == 0 {
+		t.Fatal("packaged ZIP should contain source files")
 	}
 }
