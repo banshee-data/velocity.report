@@ -10,7 +10,7 @@ Canonical tenets: [TENETS.md](TENETS.md). Full architecture: [ARCHITECTURE.md](A
 
 ## Commands
 
-The Makefile is the canonical entry point. Run `make help` for all 100+ targets.
+The Makefile is the canonical entry point. Run `make help` for all targets.
 
 ### Quality gate (every commit must pass)
 
@@ -155,7 +155,7 @@ Mathematical references for each layer: `data/maths/`.
 
 ### Database (`internal/db/`)
 
-SQLite via `modernc.org/sqlite` (pure-Go, bundles SQLite 3.51.2). JSON-first schema: raw sensor events stored as JSON with generated columns for indexed fields. WAL mode enabled.
+SQLite via `modernc.org/sqlite` (pure-Go; bundled SQLite version pinned in `go.mod`). JSON-first schema: raw sensor events stored as JSON with generated columns for indexed fields. WAL mode enabled.
 
 Key tables: `radar_data`, `radar_objects`, `radar_data_transits`, `radar_transit_links`, `lidar_bg_snapshot`, `site`, `site_config_periods`. Migrations: `internal/db/migrations/`. Use `DROP COLUMN` directly in new migrations (SQLite 3.35+).
 
@@ -181,7 +181,7 @@ Swift/SwiftUI/Metal app (macOS 14+, M1+). gRPC client streaming `FrameBundle` pr
 
 ## Agents
 
-Seven named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
+The named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
 
 | Agent      | Domain                                    | Class     | File                                                 |
 | ---------- | ----------------------------------------- | --------- | ---------------------------------------------------- |

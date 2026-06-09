@@ -7,11 +7,11 @@ Layered knowledge architecture that supplies velocity.report's AI agents with pr
 
 ## Problem
 
-velocity.report uses seven named AI agents. The system previously suffered from three structural problems:
+velocity.report uses several named AI agents. The system previously suffered from three structural problems:
 
-1. **Massive duplication**: 4,723 lines across 7 agent files with ~50% duplicated content. Privacy principles, build commands, SQLite facts, and Python venv details appeared in multiple files.
+1. **Massive duplication**: thousands of lines across the agent files, roughly half of it duplicated. Privacy principles, build commands, SQLite facts, and Python venv details appeared in multiple files.
 2. **Tool lock-in**: all knowledge was in Copilot-specific formats. Adding Claude Code meant duplicating everything or restructuring.
-3. **Scaling problem**: expanding from 7 to 10–15 agents with each agent carrying its own copy of project knowledge would mean maintaining 15+ copies of the same facts.
+3. **Scaling problem**: growing the agent roster with each agent carrying its own copy of project knowledge would mean maintaining many copies of the same facts.
 
 All three problems are resolved. The architecture is now live across both Copilot and Claude Code.
 

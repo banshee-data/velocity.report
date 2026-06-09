@@ -2,7 +2,7 @@
 
 Incremental, API-first implementation with explicit milestones and acceptance criteria.
 
-**Current Status** (February 2026):
+**Status** (February 2026):
 
 - ✅ **M0: Schema + Synthetic**; Complete
 - ✅ **M1: Recorder/Replayer**; Complete

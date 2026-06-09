@@ -11,23 +11,22 @@ Raise every `internal/`, web, and macOS package/module/file to
 tracked separately as `go-cli`). Testable business logic in `cmd/` must
 be extracted into `internal/`.
 
-## Current state
+## Measuring current coverage
 
-| Component            | Overall | Above target | Below target |
-| -------------------- | ------- | ------------ | ------------ |
-| Go `internal/`       | 90.3%   | 7 packages   | 18 packages  |
-| Go `cmd/` (excluded) | 18.6%   | 0            | 8            |
-| Web (statements)     | 96.0%   | 9 of 11      | 2            |
-| macOS Swift          | ~85%    | -            | -            |
+Point-in-time coverage numbers are not recorded here — they drift with every
+commit. Derive them on demand:
+
+- **Go:** `make test-go-cov` (writes `coverage.html`; `cmd/` is excluded).
+- **Web:** `pnpm --dir web test -- --coverage`.
+- **macOS:** XCTest with `.xcresult` coverage export.
 
 ## Tiered approach
 
 ### Tier 1: quick wins (< 2% gap)
 
-Go: `serialmux` (94.9%), `lidar` root (94.4%), `l5tracks` (94.1%),
-`httputil` (93.9%), `deploy` (93.4%).
+Go: `serialmux`, `lidar` root, `l5tracks`, `httputil`, `deploy`.
 
-Web: `sweep_dashboard.js` (95.1%), `api.ts` (94.8%).
+Web: `sweep_dashboard.js`, `api.ts`.
 
 ### Tier 2: moderate work (2–5% gap)
 
@@ -36,7 +35,7 @@ Go: `l3grid`, `l6objects`, `storage/sqlite`, `visualiser`, `sweep`,
 
 ### Tier 3: significant effort (> 5% gap)
 
-Go: [internal/api](../../../internal/api) (88.2%), [internal/config](../../../internal/config) (74.7%; 40+ `Get*` at 0%).
+Go: [internal/api](../../../internal/api), [internal/config](../../../internal/config) (large block of untested `Get*` accessors).
 
 ## cmd/ logic extraction strategy
 

@@ -14,7 +14,7 @@ Non-test imports of `database/sql` are restricted to [internal/db/](../../../int
 
 ## Single SQLite driver policy
 
-The project uses `modernc.org/sqlite` exclusively (v1.44.3, SQLite 3.51.2). The duplicate
+The project uses `modernc.org/sqlite` exclusively (pure-Go; version pinned in `go.mod`). The duplicate
 `github.com/mattn/go-sqlite3` dependency has been removed.
 
 Enforced by [scripts/check-single-sqlite-driver.sh](../../../scripts/check-single-sqlite-driver.sh) in `make lint-go`. The driver name is

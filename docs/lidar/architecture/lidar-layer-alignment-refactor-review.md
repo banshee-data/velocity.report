@@ -296,7 +296,7 @@ Outcome:
 | **monitor**        | 10,040       | 23,646     | webserver.go (2,746)       | ✅ Split done: datasource and playback handlers extracted   |
 | **visualiser**     | 3,286        | 7,319      | adapter.go (790)           | Clean; gRPC server, publisher, adapter                      |
 
-**Total**: 35,767 source lines, 63,310 test lines across 12 packages (incl. visualiser).
+**Total** (at review time): 35,767 source lines, 63,310 test lines across 12 packages (incl. visualiser).
 
 ### Balance assessment (post-split)
 

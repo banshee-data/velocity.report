@@ -18,7 +18,7 @@ velocity.report uses seven specialised agent personas. Each brings a distinct di
 
 Agent personas are paired across both platforms: `.github/agents/` (Copilot) and `.claude/agents/` (Claude Code). Run `make check-agent-drift` to verify alignment.
 
-**Workflow skills** live in `.claude/skills/` (13 skills) and are invoked as slash commands in Claude Code. Copilot prompts (`.github/prompts/`, 2 prompts) cover a smaller set because Copilot prompts cannot run terminal commands or orchestrate multi-step workflows. This asymmetry is intentional: skills that require tool access (`ship-change`, `release-prep`, `security-review`, etc.) have no Copilot equivalent. Prompts that are purely advisory (`svelte-ux-review`) may exist only in Copilot.
+**Workflow skills** live in `.claude/skills/` and are invoked as slash commands in Claude Code. Copilot prompts (`.github/prompts/`) cover a smaller set because Copilot prompts cannot run terminal commands or orchestrate multi-step workflows. This asymmetry is intentional: skills that require tool access (`ship-change`, `release-prep`, `security-review`, etc.) have no Copilot equivalent. Prompts that are purely advisory (`svelte-ux-review`) may exist only in Copilot.
 
 ## Attribution
 

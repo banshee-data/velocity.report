@@ -519,9 +519,9 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Documentation**: Added to [velocity-visualiser-implementation.md §7.4](./implementation.md#74-decimation-edge-cases).
 
-### 8.5 Go 1.21+ dependency
+### 8.5 Go `max()` builtin
 
-**Note**: The code uses the built-in `max()` function introduced in Go 1.21. This is compatible with the project's Go 1.21+ requirement (see `go.mod`). No action needed, but noted for reference.
+**Note**: The code uses the built-in `max()` function (introduced in Go 1.21). This is compatible with the project's Go version requirement (see `go.mod`). No action needed, but noted for reference.
 
 ### 8.6 PCAP catch-up burst processing (partially addressed)
 

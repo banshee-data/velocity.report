@@ -463,7 +463,7 @@ Essential SQLite PRAGMAs (journal_mode, busy_timeout, etc.) are applied in Go co
 
 ### 8. Use DROP COLUMN directly
 
-As of `modernc.org/sqlite v1.44.3`, the bundled SQLite engine (v3.51.2) supports `ALTER TABLE DROP COLUMN` (available since SQLite 3.35.0). New migrations that need to remove columns should use this directly:
+The bundled SQLite engine supports `ALTER TABLE DROP COLUMN` (available since SQLite 3.35.0). New migrations that need to remove columns should use this directly:
 
 ```sql
 -- ✓ Preferred (new migrations)
@@ -657,7 +657,7 @@ If a migration causes issues:
 velocity.report uses [golang-migrate](https://github.com/golang-migrate/migrate) for database migrations. Key components:
 
 - **Migration files:** SQL files embedded in binary via Go's `embed.FS`
-- **Driver:** `modernc.org/sqlite v1.44.3` (pure-Go, no CGO); bundles SQLite 3.51.2, which supports `ALTER TABLE DROP COLUMN`
+- **Driver:** `modernc.org/sqlite` (pure-Go, no CGO); the bundled SQLite supports `ALTER TABLE DROP COLUMN`
 - **Tracking:** `schema_migrations` table stores version and dirty state
 - **Commands:** Exposed via `velocity-report migrate` CLI
 
