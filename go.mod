@@ -12,10 +12,10 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.7.1
-	golang.org/x/sys v0.45.0
+	golang.org/x/sys v0.46.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.51.0
+	modernc.org/sqlite v1.52.0
 	tailscale.com v1.101.0-pre
 )
 
