@@ -2,8 +2,6 @@
 
 Complete reference for the unified `velocity` command-line interface as currently implemented: namespaces, flags, subcommands, HTTP endpoints, and Makefile targets. `velocity` is a single multi-call binary; `velocity-report` is retained only as a server-oriented compatibility alias (it dispatches straight to the `serve` surface).
 
-For the proposed CLI restructuring plan (subcommand hierarchy, API versioning, config file support), see [cli-restructuring-plan.md](../plans/cli-restructuring-plan.md).
-
 ---
 
 ## Table of contents

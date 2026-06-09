@@ -1,11 +1,8 @@
 # PDF reporting: Go + Typst pipeline
 
-Current plan lineage:
-
-- [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
-  moved report data loading and chart generation into Go.
-- [pdf-typst-migration-plan.md](../../plans/pdf-typst-migration-plan.md)
-  replaced the old typesetting layer with Typst.
+This pipeline arrived in two migrations: report data loading and chart
+generation moved into Go, then the external typesetting layer was replaced
+with Typst.
 
 PDF report generation now runs as a Go-orchestrated Typst pipeline. The system
 queries SQLite directly, renders charts as SVG, materialises Typst templates
