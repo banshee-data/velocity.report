@@ -1,13 +1,5 @@
 <script lang="ts">
-	import {
-		buildNodeLookup,
-		buildOverpassQueries,
-		categoriseElements,
-		generateMapSvg,
-		OVERPASS_MIRRORS,
-		svgToBase64
-	} from '$lib/map-svg';
-	import { fetchOverpassQuery } from '$lib/api';
+	import { svgToBase64 } from '$lib/map-svg';
 	import 'leaflet/dist/leaflet.css';
 	import {
 		mdiAlert,
@@ -18,17 +10,9 @@
 		mdiDownload,
 		mdiEye,
 		mdiEyeOff,
-		mdiMagnify,
 		mdiMap
 	} from '@mdi/js';
-	import type {
-		ImageOverlay,
-		LatLngBounds,
-		Map as LeafletMap,
-		Marker,
-		Rectangle,
-		TileLayer
-	} from 'leaflet';
+	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle, TileLayer } from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		Button,
@@ -36,7 +20,6 @@
 		Notification,
 		NumberStepper,
 		ProgressCircle,
-		SelectField,
 		Switch,
 		TextField,
 		ToggleGroup,
@@ -61,33 +44,15 @@
 	let radarMarker: Marker | null = null;
 	let bboxRect: Rectangle | null = null;
 	let osmTileLayer: TileLayer | null = null;
-	// Report map style. 'overpass' (default) renders the generated vector SVG —
-	// the exact artifact saved to site.map_svg_data and embedded in the PDF — both
-	// as the in-map preview and as the saved output, so the editor is WYSIWYG.
-	// 'tiles' uses the OSM raster base instead. The two never mix (showing tiles
-	// while saving an Overpass SVG is the styling mismatch we're avoiding).
-	let reportMapStyle: 'overpass' | 'tiles' = 'overpass';
-	let svgOverlayLayer: ImageOverlay | null = null;
 	let fovPolygon: L.Polygon | null = null;
 	let fovTipMarker: Marker | null = null;
 	let mapContainer: HTMLElement;
-	let searchQuery = '';
-	let searchResults: Array<{
-		display_name: string;
-		lat: string;
-		lon: string;
-		place_id?: number | string;
-	}> = [];
-	let searching = false;
 	let downloading = false;
 	let downloadStep = ''; // e.g. '1/2 Roads…', '2/2 Detail…'
 	let error = '';
-	let detailWarning = '';
-	let selectedMirror = '';
 	let abortController: AbortController | null = null;
 	let L: typeof import('leaflet') | null = null;
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
-	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
 
 	// Confirmation modal state for mode switching
@@ -98,7 +63,7 @@
 	// Confirmation modal state for replacing an uploaded SVG
 	let showReplaceMapModal = false;
 
-	type ExternalMapRequest = 'map-tiles' | 'address-search' | 'report-map-svg';
+	type ExternalMapRequest = 'map-tiles' | 'report-map-svg';
 	let externalMapRequestConsent = false;
 	let showExternalMapRequestModal = false;
 	let pendingExternalMapRequest: ExternalMapRequest | null = null;
@@ -168,16 +133,7 @@
 			addOsmTileLayer();
 			return;
 		}
-		if (request === 'address-search') {
-			await searchAddress();
-			return;
-		}
-		// report-map-svg: build the artifact for the chosen style.
-		if (reportMapStyle === 'tiles') {
-			await downloadTileMapSVG();
-		} else {
-			await downloadMapSVG();
-		}
+		await downloadTileMapSVG();
 	}
 
 	function confirmExternalMapRequest() {
@@ -191,11 +147,6 @@
 	function cancelExternalMapRequest() {
 		showExternalMapRequestModal = false;
 		pendingExternalMapRequest = null;
-	}
-
-	function requestAddressSearch() {
-		if (!searchQuery.trim()) return;
-		requestExternalMapRequest('address-search');
 	}
 
 	function requestReportMapSvg() {
@@ -365,8 +316,7 @@
 			zoomControl: true
 		});
 
-		// Base layer (tiles vs Overpass vector overlay) is managed reactively by
-		// refreshMapLayers once `map` is set, gated on style + consent.
+		// OSM tiles are added only after explicit per-session consent.
 
 		// Create custom icon for radar marker
 		const radarIcon = L.icon({
@@ -429,76 +379,7 @@
 		}).addTo(map);
 	}
 
-	function removeOsmTileLayer() {
-		if (map && osmTileLayer) {
-			map.removeLayer(osmTileLayer);
-			osmTileLayer = null;
-		}
-	}
-
-	// Keep the map's base layer in sync with the chosen style — tiles and the
-	// Overpass vector overlay are mutually exclusive so the editor never shows one
-	// style while the report saves the other:
-	//   • 'overpass' → the local generated/saved vector SVG, pinned to the report
-	//     bbox (no network fetch); OSM tiles are removed.
-	//   • 'tiles'    → OSM raster tiles (only after consent); the vector overlay is
-	//     removed.
-	// The vector overlay uses already-loaded data, so it is safe pre-consent; tiles
-	// are gated inside addOsmTileLayer.
-	function refreshMapLayers(
-		style: 'overpass' | 'tiles',
-		svgData: string | null,
-		neLat: number | null,
-		neLng: number | null,
-		swLat: number | null,
-		swLng: number | null,
-		consent: boolean
-	) {
-		if (!L || !map) return;
-
-		// Tiles only in tiles mode (and only with consent — enforced in the helper).
-		if (style === 'tiles' && consent) {
-			addOsmTileLayer();
-		} else {
-			removeOsmTileLayer();
-		}
-
-		// Overpass vector overlay only in overpass mode.
-		if (svgOverlayLayer) {
-			map.removeLayer(svgOverlayLayer);
-			svgOverlayLayer = null;
-		}
-		const haveVector =
-			!useCustomSvg &&
-			svgData !== null &&
-			neLat !== null &&
-			neLng !== null &&
-			swLat !== null &&
-			swLng !== null;
-		if (style === 'overpass' && haveVector) {
-			const bounds = L.latLngBounds([swLat!, swLng!], [neLat!, neLng!]);
-			svgOverlayLayer = L.imageOverlay(`data:image/svg+xml;base64,${svgData}`, bounds, {
-				opacity: 1,
-				interactive: false
-			}).addTo(map);
-			// Keep the framing rectangle and FOV visible above the overlay.
-			if (bboxRect) bboxRect.bringToFront();
-			if (fovPolygon) fovPolygon.bringToFront();
-		}
-	}
-
-	// Reactively keep the base layer in sync with style, the generated SVG, the
-	// bounds, and consent (passed as args so Svelte tracks them).
-	$: if (map)
-		refreshMapLayers(
-			reportMapStyle,
-			mapSvgData,
-			bboxNELat,
-			bboxNELng,
-			bboxSWLat,
-			bboxSWLng,
-			externalMapRequestConsent
-		);
+	$: if (map && externalMapRequestConsent) addOsmTileLayer();
 
 	function updateFOVTriangle() {
 		if (!L || !map || latitude === null || longitude === null) return;
@@ -715,79 +596,6 @@
 			bboxNELat !== generatedBbox.neLat ||
 			bboxNELng !== generatedBbox.neLng);
 
-	async function searchAddress() {
-		// Defensive privacy gate: Nominatim is an external service.
-		if (!externalMapRequestConsent) return;
-		if (!searchQuery.trim()) return;
-
-		searching = true;
-		error = '';
-		searchResults = [];
-
-		try {
-			// Nominatim Usage Policy: max 1 request per second
-			const now = Date.now();
-			const timeSinceLastSearch = now - lastSearchTime;
-			if (timeSinceLastSearch < 1000) {
-				// Wait to comply with rate limit
-				await new Promise((resolve) => setTimeout(resolve, 1000 - timeSinceLastSearch));
-			}
-			lastSearchTime = Date.now();
-
-			// Use Nominatim (OpenStreetMap geocoding service)
-			const response = await fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
-				{
-					headers: {
-						'User-Agent': 'velocity.report-map-editor'
-					}
-				}
-			);
-
-			if (!response.ok) {
-				throw new Error('Could not search for that address.');
-			}
-
-			searchResults = await response.json();
-
-			if (searchResults.length === 0) {
-				error = 'No results found. Try a different search query.';
-			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not search for that address.';
-			console.error('Address search error:', e);
-		} finally {
-			searching = false;
-		}
-	}
-
-	function selectLocation(result: { lat: string; lon: string; display_name: string }) {
-		const lat = parseFloat(result.lat);
-		const lng = parseFloat(result.lon);
-
-		latitude = lat;
-		longitude = lng;
-
-		searchResults = [];
-		searchQuery = '';
-
-		if (map && radarMarker && L) {
-			// Invalidate first — clearing searchResults above changes layout, so
-			// Leaflet needs to recalculate its container size before panning.
-			map.invalidateSize();
-			radarMarker.setLatLng([lat, lng]);
-			map.setView([lat, lng], 15);
-			// Only update bbox if it doesn't exist yet
-			if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
-				updateBBoxAroundRadar(false);
-			} else {
-				updateBBoxAroundRadar(true); // Maintain size when moving to searched location
-			}
-		}
-
-		activateIncludeMap();
-	}
-
 	function adjustBBoxSize(increase: boolean) {
 		if (!L || !latitude || !longitude) return;
 
@@ -807,110 +615,6 @@
 		addBoundingBox(bounds);
 	}
 
-	// Last mirror that successfully returned data.
-	let activeMirrorId = '';
-
-	// Fetch Overpass data via the velocity.report backend proxy.
-	//
-	// The browser cannot call the public Overpass mirrors directly: they reject
-	// generic browser User-Agents with 406/403 (anti-scraping) and send no CORS
-	// headers, and `fetch` is forbidden from overriding the User-Agent. The Go
-	// server (`POST /api/map/overpass`) proxies the query with a descriptive
-	// User-Agent and handles mirror fallback server-side, returning the first
-	// mirror's JSON. `selectedMirror` is forwarded as a preferred-mirror hint.
-	async function fetchOverpassData(
-		query: string,
-		signal?: AbortSignal
-	): Promise<{ elements: Array<Record<string, unknown>> }> {
-		const result = await fetchOverpassQuery(query, selectedMirror, signal);
-		activeMirrorId = result.servedBy;
-		return { elements: result.elements };
-	}
-
-	async function downloadMapSVG() {
-		// Defensive privacy gate: this performs an Overpass fetch, so never run it
-		// without this-session consent even if a caller forgets to gate.
-		if (!externalMapRequestConsent) return;
-		if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
-			error = 'Please set bounding box coordinates first';
-			return;
-		}
-
-		downloading = true;
-		error = '';
-		detailWarning = '';
-		abortController = new AbortController();
-		const { signal } = abortController;
-
-		try {
-			const bbox = `${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng}`;
-
-			const { essentialQuery, enrichmentQuery } = buildOverpassQueries(bbox);
-
-			console.log('Fetching essential map data (roads, buildings, addresses, transit)...');
-			downloadStep = '1 Essential...';
-			const essentialData = await fetchOverpassData(essentialQuery, signal);
-
-			// Enrichment is best-effort: failures produce a sparser but still useful map.
-			let enrichmentData: { elements: Array<Record<string, unknown>> } = { elements: [] };
-			try {
-				console.log('Fetching enrichment data (cartographic detail)...');
-				downloadStep = '2 Detail...';
-				enrichmentData = await fetchOverpassData(enrichmentQuery, signal);
-			} catch (enrichErr) {
-				console.warn(
-					'Enrichment query failed; proceeding with essential map data only.',
-					enrichErr
-				);
-				detailWarning =
-					'Detail map data was unavailable; generated the report map from essential features.';
-			}
-
-			downloadStep = '3 Render...';
-
-			const allElements = [...essentialData.elements, ...enrichmentData.elements];
-			const nodeLookup = buildNodeLookup(allElements);
-			const categorised = categoriseElements(allElements, nodeLookup);
-
-			console.log(
-				`Found: ${categorised.roads.length} roads, ${categorised.buildings.length} buildings, ${categorised.landuse.length} landuse, ${categorised.water.length} water, ${categorised.railways.length} railways, ${categorised.poiLabels.length} POIs`
-			);
-
-			const svgText = generateMapSvg({
-				...categorised,
-				bboxNELat: bboxNELat!,
-				bboxNELng: bboxNELng!,
-				bboxSWLat: bboxSWLat!,
-				bboxSWLng: bboxSWLng!,
-				latitude,
-				longitude,
-				radarAngle
-			});
-
-			mapSvgData = svgToBase64(svgText);
-			generatedBbox = {
-				swLat: bboxSWLat!,
-				swLng: bboxSWLng!,
-				neLat: bboxNELat!,
-				neLng: bboxNELng!
-			};
-			mapJustDownloaded = true;
-			showReportMapPreview = true;
-			activateIncludeMap();
-		} catch (e) {
-			if (e instanceof DOMException && e.name === 'AbortError') {
-				console.log('Download cancelled by user.');
-			} else {
-				error = e instanceof Error ? e.message : 'Could not download the map.';
-				console.error('Map download error:', e);
-			}
-		} finally {
-			downloading = false;
-			downloadStep = '';
-			abortController = null;
-		}
-	}
-
 	// Tiles style: stitch the OSM raster tiles covering the report bbox into a
 	// single PNG and wrap it in an SVG, so the saved artifact (and the PDF) match
 	// the OSM-tile base shown in the editor. Done entirely client-side — the PDF
@@ -926,7 +630,6 @@
 
 		downloading = true;
 		error = '';
-		detailWarning = '';
 		abortController = new AbortController();
 		const { signal } = abortController;
 
@@ -1030,18 +733,13 @@
 			abortController.abort();
 		}
 	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			requestAddressSearch();
-		}
-	}
 </script>
 
 <div class="space-y-6">
 	<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 		<p class="text-surface-600-300-token text-sm">
-			Search for an address, or upload your own SVG map, then visually adjust the radar position.
+			Load OpenStreetMap tiles for this editor session, or upload your own SVG map for a no-network
+			workflow, then visually adjust the radar position.
 		</p>
 		<!-- On mobile the Interactive/Upload toggle stacks above the Include
 		     toggle; from sm: up they share a single row. -->
@@ -1167,43 +865,6 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Address Search -->
-		<div class="space-y-2">
-			<h4 class="flex items-center gap-2 font-medium">
-				<span class="text-primary-500">
-					<svg class="h-5 w-5" viewBox="0 0 24 24">
-						<path fill="currentColor" d={mdiMagnify} />
-					</svg>
-				</span>
-				Address Search
-			</h4>
-			<div class="flex gap-2">
-				<div class="flex-1">
-					<TextField
-						bind:value={searchQuery}
-						placeholder="Enter address or location..."
-						on:keydown={handleKeydown}
-					/>
-				</div>
-				<Button on:click={requestAddressSearch} disabled={searching || !searchQuery.trim()}>
-					{searching ? 'Searching...' : 'Search'}
-				</Button>
-			</div>
-
-			{#if searchResults.length > 0}
-				<div class="bg-surface-100 border-surface-content/10 mt-2 rounded border">
-					{#each searchResults as result (result.place_id)}
-						<button
-							class="text-surface-content hover:bg-surface-content/5 border-surface-content/10 block w-full border-b px-4 py-2 text-left text-sm last:border-b-0"
-							on:click={() => selectLocation(result)}
-						>
-							{result.display_name}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
-
 		<!-- Interactive Map -->
 		<div class="space-y-2">
 			<div class="flex items-center justify-between">
@@ -1227,7 +888,7 @@
 					style="min-height: 400px;"
 				></div>
 
-				{#if reportMapStyle === 'tiles' && !externalMapRequestConsent && !showExternalMapRequestModal}
+				{#if !externalMapRequestConsent && !showExternalMapRequestModal}
 					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
 						<div
 							class="bg-surface-100 text-surface-content border-surface-content/20 pointer-events-auto max-w-md rounded border p-4 text-sm shadow-lg"
@@ -1239,8 +900,8 @@
 								Map Tiles Not Loaded
 							</div>
 							<p class="text-surface-content/70 mb-3">
-								Load OpenStreetMap tiles for this editor session to see the same base-map context
-								used for positioning. This sends site coordinates to external tile servers.
+								Load OpenStreetMap tiles for this editor session to position the radar and build the
+								report map snapshot. This sends the map area to external tile servers.
 							</p>
 							<Button size="sm" variant="fill" color="primary" on:click={requestMapTiles}>
 								Load Map Tiles
@@ -1250,9 +911,9 @@
 				{/if}
 			</div>
 
-			{#if reportMapStyle === 'tiles' && !externalMapRequestConsent}
+			{#if !externalMapRequestConsent}
 				<p class="text-surface-600-300-token text-xs">
-					Base map tiles are optional and load only after explicit approval for this editor session.
+					Tile requests are optional. Use Upload if this app should not make external map requests.
 				</p>
 			{/if}
 
@@ -1306,41 +967,8 @@
 		<!-- Generate report SVG -->
 		<div class="space-y-2">
 			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h4 class="font-medium">Report Map SVG</h4>
+				<h4 class="font-medium">Report Map Snapshot</h4>
 				<div class="flex flex-wrap items-center gap-3">
-					<SelectField
-						bind:value={reportMapStyle}
-						options={[
-							{ value: 'overpass', label: 'Overpass (vector)' },
-							{ value: 'tiles', label: 'OSM tiles' }
-						]}
-						clearable={false}
-						classes={{ root: 'w-40' }}
-						dense
-						label="Map style"
-						labelPlacement="left"
-					/>
-					<div class="flex items-center gap-1.5" class:hidden={reportMapStyle === 'tiles'}>
-						<SelectField
-							bind:value={selectedMirror}
-							options={[
-								{ value: '', label: '🌐 Auto' },
-								...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
-							]}
-							clearable={false}
-							classes={{ root: 'w-36' }}
-							dense
-							placeholder="Mirror"
-						/>
-						{#if activeMirrorId}
-							{@const active = OVERPASS_MIRRORS.find((m) => m.id === activeMirrorId)}
-							{#if active}
-								<span class="text-surface-500-400-token text-xs" title="Last successful mirror"
-									>→ {active.flag}</span
-								>
-							{/if}
-						{/if}
-					</div>
 					{#if downloading}
 						<span class="text-primary-500 flex items-center gap-1.5 text-sm">
 							{downloadStep}
@@ -1358,19 +986,14 @@
 							color="primary"
 							size="sm"
 						>
-							Generate Report Map SVG
+							Generate Tile Snapshot
 						</Button>
 					{/if}
 				</div>
 			</div>
 			<p class="text-surface-content/60 text-xs">
-				{#if reportMapStyle === 'tiles'}
-					Generates a snapshot of the OpenStreetMap tiles covering the report area and saves it as
-					the report map — matching the tiles shown above.
-				{:else}
-					Generates a vector map from OpenStreetMap data and renders it here exactly as it will
-					appear in the PDF.
-				{/if}
+				Generates a snapshot of the OpenStreetMap tiles covering the orange report area and saves it
+				as the report map. Use Upload if this app should not make external map requests.
 			</p>
 		</div>
 	{/if}
@@ -1439,17 +1062,6 @@
 		</Notification>
 	{/if}
 
-	{#if detailWarning}
-		<Notification
-			open
-			icon={mdiAlert}
-			class="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
-		>
-			<span slot="title">Map detail warning</span>
-			<span slot="description">{detailWarning}</span>
-		</Notification>
-	{/if}
-
 	{#if mapJustDownloaded && reportMapStale}
 		<Notification
 			open
@@ -1481,43 +1093,47 @@
 	{/if}
 </div>
 
-<!-- Per-session consent before any external (OpenStreetMap/Nominatim/Overpass)
-	request. Uses the svelte-ux Dialog so it gets the themed opaque panel,
-	backdrop, and centering rather than hand-rolled classes. -->
-<Dialog
-	bind:open={showExternalMapRequestModal}
-	on:close={cancelExternalMapRequest}
-	aria-modal="true"
-	role="alertdialog"
-	classes={{ dialog: 'max-w-md' }}
->
-	<div slot="title" class="flex items-center justify-between">
-		<span>Allow External Map Request?</span>
-		<button
-			class="text-surface-content/60 hover:text-surface-content -mt-1 -mr-2 p-1"
-			on:click={cancelExternalMapRequest}
-			aria-label="Close"
+{#if showExternalMapRequestModal}
+	<div
+		class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-4"
+		role="presentation"
+	>
+		<div
+			class="w-full max-w-md rounded border border-neutral-700 bg-neutral-950 p-6 text-white shadow-2xl"
+			role="alertdialog"
+			aria-modal="true"
+			aria-labelledby="map-tile-request-title"
 		>
-			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
-		</button>
-	</div>
+			<div class="mb-4 flex items-center justify-between gap-3">
+				<h3 id="map-tile-request-title" class="text-lg font-semibold">Allow Map Tile Requests?</h3>
+				<button
+					class="-mt-1 -mr-2 p-1 text-neutral-300 hover:text-white"
+					on:click={cancelExternalMapRequest}
+					aria-label="Close"
+				>
+					<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+				</button>
+			</div>
 
-	<div class="space-y-3 px-6 pb-2 text-sm">
-		<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
-		<p>Site coordinates or searched address text may be sent externally.</p>
-		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
-		<p class="text-surface-content/60">
-			Report generation remains offline and uses only the saved SVG map data.
-		</p>
-	</div>
+			<div class="space-y-3 text-sm text-neutral-100">
+				<p>
+					This editor will request OpenStreetMap raster tiles to display the map and generate the
+					report map snapshot.
+				</p>
+				<p>The site coordinates and report map area may be sent to external tile servers.</p>
+				<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+				<p class="text-neutral-300">For a no-network workflow, cancel and use Upload instead.</p>
+			</div>
 
-	<div slot="actions">
-		<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
-		<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
-			Allow This Session
-		</Button>
+			<div class="mt-6 flex justify-end gap-2">
+				<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
+				<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
+					Allow Tiles This Session
+				</Button>
+			</div>
+		</div>
 	</div>
-</Dialog>
+{/if}
 
 <!-- Confirmation modal: warn before discarding existing map data -->
 <Dialog

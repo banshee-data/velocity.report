@@ -49,7 +49,7 @@ describe('MapEditorInteractive', () => {
 		// Component should initialise with San Francisco defaults (37.7749, -122.4194)
 	});
 
-	it('should have generate button for the report SVG map', async () => {
+	it('should have generate button for the tile report map snapshot', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -63,11 +63,11 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const generateButton = screen.getByText(/Generate Report Map SVG/i);
+		const generateButton = screen.getByText(/Generate Tile Snapshot/i);
 		expect(generateButton).toBeInTheDocument();
 	});
 
-	it('should disable report SVG generation without a bounding box', async () => {
+	it('should disable tile snapshot generation without a bounding box', async () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -81,14 +81,14 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const generateButton = screen.getByText(/Generate Report Map SVG/i);
+		const generateButton = screen.getByText(/Generate Tile Snapshot/i);
 		expect(generateButton).toBeDisabled();
 	});
 
-	it('should require explicit consent before generating a report map SVG', async () => {
+	it('should require explicit consent before generating a tile report map snapshot', async () => {
 		(global.fetch as jest.Mock).mockResolvedValue({
 			ok: true,
-			json: async () => ({ elements: [] })
+			blob: async () => new Blob()
 		});
 
 		render(MapEditorInteractive, {
@@ -104,17 +104,18 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		const generateButton = screen.getByText(/Generate Report Map SVG/i);
+		const generateButton = screen.getByText(/Generate Tile Snapshot/i);
 		await fireEvent.click(generateButton);
 
-		expect(screen.getByText(/Allow External Map Request/i)).toBeInTheDocument();
-		expect(screen.getByText(/OpenStreetMap, Nominatim, or Overpass/i)).toBeInTheDocument();
+		expect(screen.getByText(/Allow Map Tile Requests/i)).toBeInTheDocument();
+		expect(screen.getByText(/OpenStreetMap raster tiles/i)).toBeInTheDocument();
+		expect(screen.getByText(/Upload instead/i)).toBeInTheDocument();
 		expect(
 			screen.getByText(/Radar observations, vehicle data, reports, and raw sensor data/i)
 		).toBeInTheDocument();
 		expect(global.fetch).not.toHaveBeenCalled();
 
-		await fireEvent.click(screen.getByText(/Allow This Session/i));
+		await fireEvent.click(screen.getByText(/Allow Tiles This Session/i));
 
 		await waitFor(() => {
 			expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -137,22 +138,17 @@ describe('MapEditorInteractive', () => {
 
 		await fireEvent.click(screen.getByText(/Load Map Tiles/i));
 
-		expect(screen.getByText(/Allow External Map Request/i)).toBeInTheDocument();
-		expect(screen.getByText(/Site coordinates or searched address text/i)).toBeInTheDocument();
+		expect(screen.getByText(/Allow Map Tile Requests/i)).toBeInTheDocument();
+		expect(screen.getByText(/external tile servers/i)).toBeInTheDocument();
 		expect(global.fetch).not.toHaveBeenCalled();
 
-		await fireEvent.click(screen.getByText(/Allow This Session/i));
+		await fireEvent.click(screen.getByText(/Allow Tiles This Session/i));
 
 		expect(screen.getByText(/Map tiles loaded/i)).toBeInTheDocument();
 		expect(global.fetch).not.toHaveBeenCalled();
 	});
 
-	it('should require explicit consent before address search', async () => {
-		(global.fetch as jest.Mock).mockResolvedValue({
-			ok: true,
-			json: async () => []
-		});
-
+	it('should not expose geocoder or alternate map-source controls in the tile-only editor', () => {
 		render(MapEditorInteractive, {
 			props: {
 				latitude: 51.5074,
@@ -166,19 +162,9 @@ describe('MapEditorInteractive', () => {
 			}
 		});
 
-		await fireEvent.change(screen.getByLabelText(/Address/i), {
-			target: { value: 'Clarendon Avenue' }
-		});
-		await fireEvent.click(screen.getByText(/^Search$/i));
-
-		expect(screen.getByText(/Allow External Map Request/i)).toBeInTheDocument();
-		expect(global.fetch).not.toHaveBeenCalled();
-
-		await fireEvent.click(screen.getByText(/Allow This Session/i));
-
-		await waitFor(() => {
-			expect(global.fetch).toHaveBeenCalledTimes(1);
-		});
+		expect(screen.queryByText(/^Search$/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Map style/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Mirror/i)).not.toBeInTheDocument();
 	});
 
 	it('should label saved SVG as database state and hide the preview by default', async () => {

@@ -17,7 +17,7 @@ interface RenderResult {
 	unmount: () => void;
 }
 
-type ExternalAction = 'load-tiles' | 'search' | 'generate-map';
+type ExternalAction = 'load-tiles' | 'generate-map';
 
 function matchesText(element: Element, text: string | RegExp): boolean {
 	const content = element.textContent || '';
@@ -41,12 +41,13 @@ function appendExternalRequestModal(pendingAction: ExternalAction) {
 	const modal = document.createElement('div');
 	modal.setAttribute('role', 'alertdialog');
 	modal.innerHTML = `
-		<h2>Allow External Map Request?</h2>
-		<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
-		<p>Site coordinates or searched address text may be sent externally.</p>
+		<h2>Allow Map Tile Requests?</h2>
+		<p>This editor will request OpenStreetMap raster tiles to display the map and generate the report map snapshot.</p>
+		<p>The site coordinates and report map area may be sent to external tile servers.</p>
 		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+		<p>For a no-network workflow, cancel and use Upload instead.</p>
 		<button data-action="cancel-external-map-request">Cancel</button>
-		<button data-action="allow-external-map-request">Allow This Session</button>
+		<button data-action="allow-external-map-request">Allow Tiles This Session</button>
 	`;
 	document.body.appendChild(modal);
 }
@@ -61,13 +62,6 @@ async function performExternalAction(action: ExternalAction, element: HTMLElemen
 		return;
 	}
 
-	if (action === 'search') {
-		if (typeof global.fetch === 'function') {
-			await global.fetch('https://nominatim.openstreetmap.org/search?format=json&q=test&limit=5');
-		}
-		return;
-	}
-
 	const hasBbox = element.getAttribute('data-has-bbox') === 'true';
 	if (!hasBbox) {
 		const errorDiv = document.createElement('div');
@@ -78,23 +72,17 @@ async function performExternalAction(action: ExternalAction, element: HTMLElemen
 
 	if (typeof global.fetch === 'function') {
 		try {
-			const response = await global.fetch('/api/map/overpass', {
-				method: 'POST',
-				body: JSON.stringify({ query: 'data=test' }),
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
+			const response = await global.fetch('https://tile.openstreetmap.org/15/0/0.png');
 
 			if (!(response as Response).ok) {
 				const status = (response as Response).status;
 				const errorDiv = document.createElement('div');
-				errorDiv.textContent = `Overpass API error: ${status}`;
+				errorDiv.textContent = `Tile request error: ${status}`;
 				container.appendChild(errorDiv);
 			}
 		} catch (e) {
 			const errorDiv = document.createElement('div');
-			errorDiv.textContent = 'Failed to generate report map';
+			errorDiv.textContent = 'Failed to generate tile snapshot';
 			container.appendChild(errorDiv);
 		}
 	}
@@ -135,10 +123,6 @@ export function render(
 		container.innerHTML = `
 			<div>
 				<h2>Map Configuration</h2>
-				<h3>Address Search</h3>
-				<label for="address-search">Address</label>
-				<input id="address-search" value="" />
-				<button data-action="search">Search</button>
 				<div>
 					<label for="latitude">Latitude</label>
 					<input id="latitude" type="number" value="${options.props.latitude || 0}" />
@@ -154,7 +138,7 @@ export function render(
 				<button data-action="load-tiles">Load Map Tiles</button>
 				<p>Drag the red dot at the triangle tip to adjust radar angle.</p>
 				<button>Set Default</button>
-				<button data-action="generate-map" data-has-bbox="${hasBbox}" ${hasBbox ? '' : 'disabled'}>Generate Report Map SVG</button>
+				<button data-action="generate-map" data-has-bbox="${hasBbox}" ${hasBbox ? '' : 'disabled'}>Generate Tile Snapshot</button>
 				${
 					options.props.mapSvgData
 						? '<h4>Existing Saved Report Map (Database)</h4><p>This is the current site.map_svg_data value loaded from the database.</p><button data-action="toggle-report-map-preview">Show Preview</button><div data-report-map-preview hidden><img alt="Existing saved report map SVG from database" src="data:image/svg+xml;base64,test" /></div>'
@@ -246,7 +230,7 @@ export const fireEvent = {
 			}
 			return true;
 		}
-		if (action === 'load-tiles' || action === 'search' || action === 'generate-map') {
+		if (action === 'load-tiles' || action === 'generate-map') {
 			if (element.hasAttribute('disabled')) return true;
 			if (document.body.dataset.externalMapConsent !== 'true') {
 				appendExternalRequestModal(action);
