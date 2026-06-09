@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Historical implementation record. The Go-side chart and data-loading migration described here landed, but the XeTeX end-state described below is superseded on this branch by the Typst pipeline. Use [pdf-typst-migration-plan.md](pdf-typst-migration-plan.md) and [pdf-reporting.md](../platform/operations/pdf-reporting.md) for the current runtime behaviour.
+- **Status:** Complete (historical implementation record). The Go-side chart and data-loading migration described here landed, but the XeTeX end-state described below is superseded by the Typst pipeline. Use [pdf-typst-migration-plan.md](pdf-typst-migration-plan.md) and [pdf-reporting.md](../platform/operations/pdf-reporting.md) for the current runtime behaviour.
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)

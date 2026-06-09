@@ -1,6 +1,6 @@
 # Precompiled LaTeX format plan
 
-- **Status:** Cancelled — superseded wholesale by the Typst cutover
+- **Status:** Complete (Cancelled) — superseded wholesale by the Typst cutover. Rationale captured in [pdf-reporting.md § Rejected and superseded alternatives](../platform/operations/pdf-reporting.md#rejected-and-superseded-alternatives).
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Parent:** [RPi Imager Fork Design § 4.6 Option B](deploy-rpi-imager-fork-plan.md)
 - **Superseded by:** [deploy-single-binary-image-consolidation-plan.md](deploy-single-binary-image-consolidation-plan.md) § Work unit C

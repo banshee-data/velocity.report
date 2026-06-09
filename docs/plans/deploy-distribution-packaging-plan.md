@@ -1,7 +1,7 @@
 # velocity.report distribution and packaging plan
 
 - **Document Version:** 1.2
-- **Status:** Historical context only — superseded by the consolidation plan
+- **Status:** Complete (historical) — superseded by the consolidation plan; shipped model documented in [distribution-packaging.md](../platform/operations/distribution-packaging.md).
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 - **Parent plan:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — the v0.5.1 consolidation plan now owns the public packaging surface

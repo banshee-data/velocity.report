@@ -1,6 +1,6 @@
 # Pure-Go LaTeX backend for PDF reports
 
-- **Status:** Accepted (NO-GO)
+- **Status:** Complete — investigation closed; decision Accepted (NO-GO). Verdict and rationale captured in [pdf-reporting.md § Rejected and superseded alternatives](../platform/operations/pdf-reporting.md#rejected-and-superseded-alternatives).
 - **Layers:** Cross-cutting (reporting infrastructure, deployment image)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
