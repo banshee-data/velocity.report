@@ -332,10 +332,14 @@
       let fixed-left = table-part-weight(hist) + table-part-weight(daily)
       let best = 1
       let best-diff = 100000
+      // Bias continuation rows into the right column. The left column already
+      // carries the velocity distribution and daily summary, so a strictly even
+      // split can leave the second column ending too high above Figure 2.
+      let right-bias = 3
       for i in range(1, n) {
         let left = fixed-left + table-fragment-weight(i, show-caption: false)
         let right = table-fragment-weight(n - i)
-        let diff = calc.abs(left - right)
+        let diff = calc.abs((left + right-bias) - right)
         if diff < best-diff {
           best = i
           best-diff = diff
@@ -545,16 +549,13 @@
   )
 }
 
-// wide-figure floats a full-page-width figure across both page columns (bottom
-// placement) so the charts/map drop below the two-column table flow. Bottom
-// floats stack in declaration order, so figures appear in the order emitted.
-#let wide-figure(path, caption) = place(
-  bottom + center,
-  scope: "parent",
-  float: true,
-  clearance: 6pt,
-  figure(image(path, width: 100%), caption: caption, supplement: [Figure]),
-)
+// wide-figure is emitted after the detailed table block on a one-column page.
+// Keeping it in normal flow lets the map sit directly below the chart when it
+// fits, or at the top of the next page when it does not.
+#let wide-figure(path, caption) = {
+  v(0.45em)
+  figure(image(path, width: 100%), caption: caption, supplement: [Figure])
+}
 
 // ─── Time-series chart figures (one per period) ──────────────────────────
 #let timeseries-figures(data) = {

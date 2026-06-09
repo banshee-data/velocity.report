@@ -5,10 +5,9 @@
 
 #let data = json("/data.json")
 
-// The whole body is a two-column page: the narrative and every table flow
-// continuously through the two columns, wrapping once (column 1 → column 2 →
-// next page) so each table stays one column wide. The title, the detailed-data
-// heading, and the figures span both columns as full-width floats.
+// Page 1 uses a two-column narrative. The detailed tables start after an
+// explicit page break and switch to a full-width page with their own manual
+// two-column table flow, followed by figures in normal document flow.
 #set page(
   paper: data.paper,
   margin: (top: 1.8cm, bottom: 1.0cm, left: 1.0cm, right: 1.0cm),
@@ -32,16 +31,13 @@
 #hardware-configuration(data)
 #survey-parameters(data)
 
-// All detailed tables flow through the same two columns, continuously, so the
-// data wraps once (column 1 → column 2) rather than each table stretching the
-// full page width. The heading floats full width above the flow.
-#detailed-data-tables-heading()
-#velocity-distribution-table(data)
-#daily-summary(data)
-#granular-table(data)
+#pagebreak()
+#set page(columns: 1)
 
-// Figures span both columns as bottom floats, declared in reading order:
-// time-series charts first, then the site map. Bottom floats stack in
-// declaration order, so the charts always precede the map.
+#detailed-data-flow(data)
+
+// Figures follow the table block in source order. If the chart and map fit
+// together they sit together; otherwise the map naturally moves to the top of
+// the next page instead of being pinned to the bottom.
 #timeseries-figures(data)
 #map-figure(data)
