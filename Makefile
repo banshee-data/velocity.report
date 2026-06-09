@@ -193,7 +193,7 @@ LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal
 # bundled into the binary (typst_embed) by default so distributed builds need no
 # runtime download or separate install; the build targets fetch the right typst
 # binary for the target platform first. Set TYPST_EMBED=0 for a fast, offline
-# dev build that relies on the runtime downloader / PATH instead.
+# dev build that relies on PATH / the runtime downloader instead.
 TYPST_EMBED ?= 1
 VELOCITY_BUILD_TAGS := pcap
 ifeq ($(TYPST_EMBED),1)
@@ -283,14 +283,14 @@ build-velocity-linux-embed: build-velocity-linux
 build-radar-linux-embed: build-velocity-linux
 
 # Developer convenience: install typst for the host platform into ./bin so the
-# report pipeline can find it (add bin/ to PATH or set VELOCITY_TYPST_PATH).
+# report pipeline can find it (add bin/ to PATH).
 .PHONY: install-typst
 install-typst:
 	@if [ -x bin/typst ]; then \
 		echo "bin/typst already present ($$(bin/typst --version 2>/dev/null || echo unknown)); skipping download"; \
 	else \
 		./scripts/download-typst.sh "$(TYPST_VERSION)" "$(TYPST_GOOS)" "$(TYPST_GOARCH)" "bin/typst"; \
-		echo "Installed bin/typst — add $(CURDIR)/bin to PATH or export VELOCITY_TYPST_PATH=$(CURDIR)/bin/typst"; \
+		echo "Installed bin/typst — add $(CURDIR)/bin to PATH"; \
 	fi
 
 # Run settling-eval convergence evaluation against a PCAP file.
