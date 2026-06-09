@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 )
@@ -36,14 +35,14 @@ const EnvPath = "VELOCITY_TYPST_PATH"
 func Resolve() (path string, cleanup func(), err error) {
 	cleanup = func() {}
 
-	if p := os.Getenv(EnvPath); p != "" {
+	if p := osGetenv(EnvPath); p != "" {
 		if verr := validateExecutable(p); verr != nil {
 			return "", cleanup, fmt.Errorf("%s=%q: %w", EnvPath, p, verr)
 		}
 		return p, cleanup, nil
 	}
 
-	if data, ok := embeddedTypst(); ok {
+	if data, ok := embeddedTypstFunc(); ok {
 		p, exErr := extractCached(data)
 		if exErr != nil {
 			return "", cleanup, fmt.Errorf("extract embedded typst: %w", exErr)
@@ -51,7 +50,7 @@ func Resolve() (path string, cleanup func(), err error) {
 		return p, cleanup, nil
 	}
 
-	if p, lookErr := exec.LookPath("typst"); lookErr == nil {
+	if p, lookErr := execLookPath("typst"); lookErr == nil {
 		return p, cleanup, nil
 	}
 
@@ -59,7 +58,7 @@ func Resolve() (path string, cleanup func(), err error) {
 	// per-user cache and reuse it. Distributed builds embed the binary (step 2)
 	// and never reach this. Disable with VELOCITY_TYPST_NO_DOWNLOAD=1.
 	if !downloadDisabled() {
-		if p, dlErr := cachedDownload(); dlErr == nil {
+		if p, dlErr := cachedDownloadFunc(); dlErr == nil {
 			return p, cleanup, nil
 		} else {
 			return "", cleanup, fmt.Errorf(
@@ -75,7 +74,7 @@ func Resolve() (path string, cleanup func(), err error) {
 
 // Embedded reports whether a typst binary was compiled into this build.
 func Embedded() bool {
-	_, ok := embeddedTypst()
+	_, ok := embeddedTypstFunc()
 	return ok
 }
 
@@ -84,14 +83,14 @@ func Embedded() bool {
 // directories and non-executable files up front rather than failing opaquely
 // when the binary is later invoked.
 func validateExecutable(p string) error {
-	fi, err := os.Stat(p)
+	fi, err := osStat(p)
 	if err != nil {
 		return err
 	}
 	if !fi.Mode().IsRegular() {
 		return fmt.Errorf("not a regular file")
 	}
-	if runtime.GOOS != "windows" && fi.Mode()&0o111 == 0 {
+	if !isExecutableMode(runtime.GOOS, fi.Mode()) {
 		return fmt.Errorf("not executable")
 	}
 	return nil
@@ -101,16 +100,16 @@ func validateExecutable(p string) error {
 // 0700 so the extracted/downloaded executable is not exposed in a
 // world-writable location (defends against symlink / path-swap attacks).
 func cacheDir() (string, error) {
-	root, err := os.UserCacheDir()
+	root, err := osUserCacheDir()
 	if err != nil || root == "" {
 		// No per-user cache dir available: fall back to a private, randomly
 		// named 0700 temp dir rather than a predictable os.TempDir path, which
 		// would reintroduce the symlink / path-swap exposure this helper exists
 		// to avoid.
-		return os.MkdirTemp("", "velocity-report-typst-")
+		return osMkdirTemp("", "velocity-report-typst-")
 	}
 	dir := filepath.Join(root, "velocity-report", "typst")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := osMkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -120,25 +119,22 @@ func cacheDir() (string, error) {
 // with the execute bit set — used to safely reuse a cached/concurrently-written
 // binary instead of trusting size alone.
 func isUsableBinary(dest string, size int64) bool {
-	fi, err := os.Stat(dest)
+	fi, err := osStat(dest)
 	if err != nil || !fi.Mode().IsRegular() || fi.Size() != size {
 		return false
 	}
-	// Windows does not represent the execute bit via mode bits (matches the
-	// guard in validateExecutable), so only require it off-Windows.
-	return runtime.GOOS == "windows" || fi.Mode()&0o111 != 0
+	return isExecutableMode(runtime.GOOS, fi.Mode())
 }
 
 // usableExecutable is like isUsableBinary but for cases where the expected size
 // is not known ahead of time (a downloaded binary): regular, non-empty, with
 // the execute bit set.
 func usableExecutable(dest string) bool {
-	fi, err := os.Stat(dest)
+	fi, err := osStat(dest)
 	if err != nil || !fi.Mode().IsRegular() || fi.Size() == 0 {
 		return false
 	}
-	// See isUsableBinary: skip the execute-bit check on Windows.
-	return runtime.GOOS == "windows" || fi.Mode()&0o111 != 0
+	return isExecutableMode(runtime.GOOS, fi.Mode())
 }
 
 // extractCached writes the embedded binary to a content-addressed file in the
@@ -146,7 +142,7 @@ func usableExecutable(dest string) bool {
 // exists. The write is atomic (temp file + rename) so concurrent report
 // generations cannot observe a partially written executable.
 func extractCached(data []byte) (string, error) {
-	dir, err := cacheDir()
+	dir, err := cacheDirFunc()
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +154,7 @@ func extractCached(data []byte) (string, error) {
 		return dest, nil
 	}
 
-	tmp, err := os.CreateTemp(dir, "typst-*.tmp")
+	tmp, err := osCreateTemp(dir, "typst-*.tmp")
 	if err != nil {
 		return "", err
 	}
@@ -176,7 +172,7 @@ func extractCached(data []byte) (string, error) {
 	if err := tmp.Close(); err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmpName, dest); err != nil {
+	if err := osRename(tmpName, dest); err != nil {
 		// A concurrent writer may have created it first; accept it only if it is
 		// a valid executable of the expected size.
 		if isUsableBinary(dest, int64(len(data))) {
@@ -188,8 +184,5 @@ func extractCached(data []byte) (string, error) {
 }
 
 func exeSuffix() string {
-	if runtime.GOOS == "windows" {
-		return ".exe"
-	}
-	return ""
+	return exeSuffixFor(runtime.GOOS)
 }

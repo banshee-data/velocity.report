@@ -26,7 +26,7 @@ const EnvNoDownload = "VELOCITY_TYPST_NO_DOWNLOAD"
 var downloadMu sync.Mutex
 
 func downloadDisabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(EnvNoDownload))) {
+	switch strings.ToLower(strings.TrimSpace(osGetenv(EnvNoDownload))) {
 	case "1", "true", "yes", "on":
 		return true
 	}
@@ -36,7 +36,11 @@ func downloadDisabled() bool {
 // typstTarget maps the Go runtime to the typst release asset triple and its
 // archive extension.
 func typstTarget() (target, archive string, err error) {
-	switch runtime.GOOS + "/" + runtime.GOARCH {
+	return typstTargetFor(runtime.GOOS, runtime.GOARCH)
+}
+
+func typstTargetFor(goos, goarch string) (target, archive string, err error) {
+	switch goos + "/" + goarch {
 	case "linux/arm64":
 		return "aarch64-unknown-linux-musl", "tar.xz", nil
 	case "linux/amd64":
@@ -48,7 +52,7 @@ func typstTarget() (target, archive string, err error) {
 	case "windows/amd64":
 		return "x86_64-pc-windows-msvc", "zip", nil
 	default:
-		return "", "", fmt.Errorf("no typst release for %s/%s", runtime.GOOS, runtime.GOARCH)
+		return "", "", fmt.Errorf("no typst release for %s/%s", goos, goarch)
 	}
 }
 
@@ -59,12 +63,12 @@ func cachedDownload() (string, error) {
 	downloadMu.Lock()
 	defer downloadMu.Unlock()
 
-	base, err := cacheDir()
+	base, err := cacheDirFunc()
 	if err != nil {
 		return "", err
 	}
 	dir := filepath.Join(base, Version)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := osMkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
 	dest := filepath.Join(dir, "typst"+exeSuffix())
@@ -72,7 +76,7 @@ func cachedDownload() (string, error) {
 		return dest, nil
 	}
 
-	target, archive, err := typstTarget()
+	target, archive, err := typstTargetFunc()
 	if err != nil {
 		return "", err
 	}
@@ -86,24 +90,24 @@ func cachedDownload() (string, error) {
 	defer os.RemoveAll(tmp)
 
 	archivePath := filepath.Join(tmp, "typst."+archive)
-	if err := httpDownload(url, archivePath); err != nil {
+	if err := httpDownloadFunc(url, archivePath); err != nil {
 		return "", fmt.Errorf("download typst: %w", err)
 	}
 
-	binPath, err := extractTypst(archivePath, archive, target, tmp)
+	binPath, err := extractTypstFunc(archivePath, archive, target, tmp)
 	if err != nil {
 		return "", err
 	}
-	if err := os.Chmod(binPath, 0o755); err != nil {
+	if err := osChmod(binPath, 0o755); err != nil {
 		return "", err
 	}
-	if err := os.Rename(binPath, dest); err != nil {
+	if err := osRename(binPath, dest); err != nil {
 		// Cross-device rename or a concurrent writer: accept an already-present
 		// valid executable, otherwise fall back to a copy.
 		if usableExecutable(dest) {
 			return dest, nil
 		}
-		if cpErr := copyExecutable(binPath, dest); cpErr != nil {
+		if cpErr := copyExecutableFunc(binPath, dest); cpErr != nil {
 			return "", cpErr
 		}
 	}
