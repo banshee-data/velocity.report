@@ -43,16 +43,23 @@
   )
 }
 
-// Spanning title centered above the two-column body.
+// Spanning title centered above the two-column body. The surveyor/contact line
+// (and its bullet separator) render only when the corresponding fields are
+// present, so an empty surveyor or contact never leaves a dangling label or "•".
 #let title-block(data) = {
+  let surveyor = data.site.at("surveyor", default: "")
+  let contact = data.site.at("contact", default: "")
   align(center)[
-    #text(size: 22pt, weight: "bold")[#data.site.location] \
-    #v(-0.05cm)
-    #text(size: 11pt)[
-      Surveyor: #emph(data.site.surveyor)
-      #h(0.5em) • #h(0.5em)
-      Contact: #link("mailto:" + data.site.contact)[#data.site.contact]
-    ]
+    #text(size: 22pt, weight: "bold")[#data.site.location]
+    #if surveyor != "" or contact != "" {
+      linebreak()
+      v(-0.05cm)
+      text(size: 11pt)[
+        #if surveyor != "" [Surveyor: #emph(surveyor)]
+        #if surveyor != "" and contact != "" [#h(0.5em) • #h(0.5em)]
+        #if contact != "" [Contact: #link("mailto:" + contact)[#contact]]
+      ]
+    }
   ]
   v(0.3em)
 }
