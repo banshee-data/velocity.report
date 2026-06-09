@@ -21,7 +21,14 @@
 		mdiMagnify,
 		mdiMap
 	} from '@mdi/js';
-	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle, TileLayer } from 'leaflet';
+	import type {
+		ImageOverlay,
+		LatLngBounds,
+		Map as LeafletMap,
+		Marker,
+		Rectangle,
+		TileLayer
+	} from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		Button,
@@ -54,6 +61,13 @@
 	let radarMarker: Marker | null = null;
 	let bboxRect: Rectangle | null = null;
 	let osmTileLayer: TileLayer | null = null;
+	// Report map style. 'overpass' (default) renders the generated vector SVG —
+	// the exact artifact saved to site.map_svg_data and embedded in the PDF — both
+	// as the in-map preview and as the saved output, so the editor is WYSIWYG.
+	// 'tiles' uses the OSM raster base instead. The two never mix (showing tiles
+	// while saving an Overpass SVG is the styling mismatch we're avoiding).
+	let reportMapStyle: 'overpass' | 'tiles' = 'overpass';
+	let svgOverlayLayer: ImageOverlay | null = null;
 	let fovPolygon: L.Polygon | null = null;
 	let fovTipMarker: Marker | null = null;
 	let mapContainer: HTMLElement;
@@ -149,10 +163,18 @@
 	}
 
 	async function runExternalMapRequest(request: ExternalMapRequest) {
-		addOsmTileLayer();
-		if (request === 'map-tiles') return;
+		// Each branch performs exactly one external action, only after consent.
+		if (request === 'map-tiles') {
+			addOsmTileLayer();
+			return;
+		}
 		if (request === 'address-search') {
 			await searchAddress();
+			return;
+		}
+		// report-map-svg: build the artifact for the chosen style.
+		if (reportMapStyle === 'tiles') {
+			await downloadTileMapSVG();
 		} else {
 			await downloadMapSVG();
 		}
@@ -343,7 +365,8 @@
 			zoomControl: true
 		});
 
-		if (externalMapRequestConsent) addOsmTileLayer();
+		// Base layer (tiles vs Overpass vector overlay) is managed reactively by
+		// refreshMapLayers once `map` is set, gated on style + consent.
 
 		// Create custom icon for radar marker
 		const radarIcon = L.icon({
@@ -395,13 +418,87 @@
 	}
 
 	function addOsmTileLayer() {
-		if (!L || !map || osmTileLayer) return;
+		// Hard privacy gate: OSM tiles are an external fetch. Never load them
+		// without this-session consent (granted via the modal), regardless of which
+		// caller invokes this — the gate lives here so no path can leak a fetch.
+		if (!L || !map || osmTileLayer || !externalMapRequestConsent) return;
 
 		osmTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '© OpenStreetMap contributors',
 			maxZoom: 19
 		}).addTo(map);
 	}
+
+	function removeOsmTileLayer() {
+		if (map && osmTileLayer) {
+			map.removeLayer(osmTileLayer);
+			osmTileLayer = null;
+		}
+	}
+
+	// Keep the map's base layer in sync with the chosen style — tiles and the
+	// Overpass vector overlay are mutually exclusive so the editor never shows one
+	// style while the report saves the other:
+	//   • 'overpass' → the local generated/saved vector SVG, pinned to the report
+	//     bbox (no network fetch); OSM tiles are removed.
+	//   • 'tiles'    → OSM raster tiles (only after consent); the vector overlay is
+	//     removed.
+	// The vector overlay uses already-loaded data, so it is safe pre-consent; tiles
+	// are gated inside addOsmTileLayer.
+	function refreshMapLayers(
+		style: 'overpass' | 'tiles',
+		svgData: string | null,
+		neLat: number | null,
+		neLng: number | null,
+		swLat: number | null,
+		swLng: number | null,
+		consent: boolean
+	) {
+		if (!L || !map) return;
+
+		// Tiles only in tiles mode (and only with consent — enforced in the helper).
+		if (style === 'tiles' && consent) {
+			addOsmTileLayer();
+		} else {
+			removeOsmTileLayer();
+		}
+
+		// Overpass vector overlay only in overpass mode.
+		if (svgOverlayLayer) {
+			map.removeLayer(svgOverlayLayer);
+			svgOverlayLayer = null;
+		}
+		const haveVector =
+			!useCustomSvg &&
+			svgData !== null &&
+			neLat !== null &&
+			neLng !== null &&
+			swLat !== null &&
+			swLng !== null;
+		if (style === 'overpass' && haveVector) {
+			const bounds = L.latLngBounds([swLat!, swLng!], [neLat!, neLng!]);
+			svgOverlayLayer = L.imageOverlay(`data:image/svg+xml;base64,${svgData}`, bounds, {
+				opacity: 1,
+				interactive: false
+			}).addTo(map);
+			// Keep the framing rectangle and FOV visible above the overlay.
+			if (bboxRect) bboxRect.bringToFront();
+			if (fovPolygon) fovPolygon.bringToFront();
+		}
+	}
+
+	// Reactively keep the base layer in sync with style, the generated SVG, the
+	// bounds, and consent (passed as args so Svelte tracks them).
+	$: if (map)
+		refreshMapLayers(
+			reportMapStyle,
+			mapSvgData,
+			bboxNELat,
+			bboxNELng,
+			bboxSWLat,
+			bboxSWLng,
+			externalMapRequestConsent
+		);
 
 	function updateFOVTriangle() {
 		if (!L || !map || latitude === null || longitude === null) return;
@@ -619,6 +716,8 @@
 			bboxNELng !== generatedBbox.neLng);
 
 	async function searchAddress() {
+		// Defensive privacy gate: Nominatim is an external service.
+		if (!externalMapRequestConsent) return;
 		if (!searchQuery.trim()) return;
 
 		searching = true;
@@ -729,6 +828,9 @@
 	}
 
 	async function downloadMapSVG() {
+		// Defensive privacy gate: this performs an Overpass fetch, so never run it
+		// without this-session consent even if a caller forgets to gate.
+		if (!externalMapRequestConsent) return;
 		if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
 			error = 'Please set bounding box coordinates first';
 			return;
@@ -801,6 +903,120 @@
 			} else {
 				error = e instanceof Error ? e.message : 'Could not download the map.';
 				console.error('Map download error:', e);
+			}
+		} finally {
+			downloading = false;
+			downloadStep = '';
+			abortController = null;
+		}
+	}
+
+	// Tiles style: stitch the OSM raster tiles covering the report bbox into a
+	// single PNG and wrap it in an SVG, so the saved artifact (and the PDF) match
+	// the OSM-tile base shown in the editor. Done entirely client-side — the PDF
+	// just embeds the saved SVG, so no server renderer is involved. Tiles are
+	// fetched with CORS so the canvas stays untainted and exportable.
+	async function downloadTileMapSVG() {
+		// Defensive privacy gate: tile fetches are external.
+		if (!externalMapRequestConsent) return;
+		if (!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng) {
+			error = 'Please set bounding box coordinates first';
+			return;
+		}
+
+		downloading = true;
+		error = '';
+		detailWarning = '';
+		abortController = new AbortController();
+		const { signal } = abortController;
+
+		try {
+			downloadStep = 'Tiles...';
+			const tileSize = 256;
+			const spanLng = bboxNELng - bboxSWLng;
+			// Pick a zoom so the report area is ~1200px wide (matches the vector
+			// canvas), clamped to OSM's max zoom.
+			let zoom = Math.round(Math.log2((1200 * 360) / (tileSize * spanLng)));
+			zoom = Math.max(1, Math.min(19, zoom));
+
+			const lon2tile = (lon: number) => ((lon + 180) / 360) * 2 ** zoom;
+			const lat2tile = (lat: number) => {
+				const r = (lat * Math.PI) / 180;
+				return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** zoom;
+			};
+			const xMinF = lon2tile(bboxSWLng);
+			const xMaxF = lon2tile(bboxNELng);
+			const yMinF = lat2tile(bboxNELat); // north edge → smaller y
+			const yMaxF = lat2tile(bboxSWLat);
+			const xMin = Math.floor(xMinF);
+			const xMax = Math.floor(xMaxF);
+			const yMin = Math.floor(yMinF);
+			const yMax = Math.floor(yMaxF);
+
+			const full = document.createElement('canvas');
+			full.width = (xMax - xMin + 1) * tileSize;
+			full.height = (yMax - yMin + 1) * tileSize;
+			const fctx = full.getContext('2d');
+			if (!fctx) throw new Error('Canvas 2D is not available');
+
+			// Fetch tiles via CORS, decode, and draw. fetch() supports the abort
+			// signal, and a CORS-clean blob keeps the canvas exportable.
+			const jobs: Promise<void>[] = [];
+			for (let x = xMin; x <= xMax; x++) {
+				for (let y = yMin; y <= yMax; y++) {
+					const tx = x;
+					const ty = y;
+					jobs.push(
+						(async () => {
+							const resp = await fetch(`https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`, {
+								signal
+							});
+							if (!resp.ok) throw new Error(`Tile ${zoom}/${tx}/${ty}: HTTP ${resp.status}`);
+							const bmp = await createImageBitmap(await resp.blob());
+							fctx.drawImage(bmp, (tx - xMin) * tileSize, (ty - yMin) * tileSize);
+							bmp.close();
+						})()
+					);
+				}
+			}
+			await Promise.all(jobs);
+
+			// Crop the stitched grid to exactly the report bbox.
+			const cropX = (xMinF - xMin) * tileSize;
+			const cropY = (yMinF - yMin) * tileSize;
+			const cropW = Math.max(1, Math.round((xMaxF - xMinF) * tileSize));
+			const cropH = Math.max(1, Math.round((yMaxF - yMinF) * tileSize));
+			const out = document.createElement('canvas');
+			out.width = cropW;
+			out.height = cropH;
+			const octx = out.getContext('2d');
+			if (!octx) throw new Error('Canvas 2D is not available');
+			octx.drawImage(full, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+			const png = out.toDataURL('image/png');
+			const svg =
+				`<svg xmlns="http://www.w3.org/2000/svg" width="${cropW}" height="${cropH}" viewBox="0 0 ${cropW} ${cropH}">` +
+				`<image href="${png}" width="${cropW}" height="${cropH}"/>` +
+				`<rect x="${cropW - 232}" y="${cropH - 18}" width="228" height="14" fill="#ffffff" fill-opacity="0.75"/>` +
+				`<text x="${cropW - 6}" y="${cropH - 7}" font-family="Arial, sans-serif" font-size="10" fill="#333333" text-anchor="end">© OpenStreetMap contributors</text>` +
+				`</svg>`;
+
+			mapSvgData = svgToBase64(svg);
+			generatedBbox = {
+				swLat: bboxSWLat!,
+				swLng: bboxSWLng!,
+				neLat: bboxNELat!,
+				neLng: bboxNELng!
+			};
+			mapJustDownloaded = true;
+			showReportMapPreview = true;
+			activateIncludeMap();
+		} catch (e) {
+			if (e instanceof DOMException && e.name === 'AbortError') {
+				console.log('Tile download cancelled by user.');
+			} else {
+				error = e instanceof Error ? e.message : 'Could not build the tile map.';
+				console.error('Tile map error:', e);
 			}
 		} finally {
 			downloading = false;
@@ -1011,10 +1227,10 @@
 					style="min-height: 400px;"
 				></div>
 
-				{#if !externalMapRequestConsent && !showExternalMapRequestModal}
+				{#if reportMapStyle === 'tiles' && !externalMapRequestConsent && !showExternalMapRequestModal}
 					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
 						<div
-							class="bg-surface-900/90 text-surface-50 pointer-events-auto max-w-md rounded border border-white/20 p-4 text-sm shadow-lg"
+							class="bg-surface-100 text-surface-content border-surface-content/20 pointer-events-auto max-w-md rounded border p-4 text-sm shadow-lg"
 						>
 							<div class="mb-2 flex items-center gap-2 font-semibold">
 								<svg class="h-5 w-5" viewBox="0 0 24 24">
@@ -1022,7 +1238,7 @@
 								</svg>
 								Map Tiles Not Loaded
 							</div>
-							<p class="mb-3 text-white/80">
+							<p class="text-surface-content/70 mb-3">
 								Load OpenStreetMap tiles for this editor session to see the same base-map context
 								used for positioning. This sends site coordinates to external tile servers.
 							</p>
@@ -1034,7 +1250,7 @@
 				{/if}
 			</div>
 
-			{#if !externalMapRequestConsent}
+			{#if reportMapStyle === 'tiles' && !externalMapRequestConsent}
 				<p class="text-surface-600-300-token text-xs">
 					Base map tiles are optional and load only after explicit approval for this editor session.
 				</p>
@@ -1092,7 +1308,19 @@
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<h4 class="font-medium">Report Map SVG</h4>
 				<div class="flex flex-wrap items-center gap-3">
-					<div class="flex items-center gap-1.5">
+					<SelectField
+						bind:value={reportMapStyle}
+						options={[
+							{ value: 'overpass', label: 'Overpass (vector)' },
+							{ value: 'tiles', label: 'OSM tiles' }
+						]}
+						clearable={false}
+						classes={{ root: 'w-40' }}
+						dense
+						label="Map style"
+						labelPlacement="left"
+					/>
+					<div class="flex items-center gap-1.5" class:hidden={reportMapStyle === 'tiles'}>
 						<SelectField
 							bind:value={selectedMirror}
 							options={[
@@ -1135,6 +1363,15 @@
 					{/if}
 				</div>
 			</div>
+			<p class="text-surface-content/60 text-xs">
+				{#if reportMapStyle === 'tiles'}
+					Generates a snapshot of the OpenStreetMap tiles covering the report area and saves it as
+					the report map — matching the tiles shown above.
+				{:else}
+					Generates a vector map from OpenStreetMap data and renders it here exactly as it will
+					appear in the PDF.
+				{/if}
+			</p>
 		</div>
 	{/if}
 
@@ -1244,48 +1481,43 @@
 	{/if}
 </div>
 
-{#if showExternalMapRequestModal}
-	<div
-		class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4"
-		role="presentation"
-	>
-		<div
-			class="bg-surface-50 text-surface-950 dark:bg-surface-900 dark:text-surface-50 w-full max-w-md rounded border border-black/10 p-6 shadow-2xl dark:border-white/10"
-			role="alertdialog"
-			aria-modal="true"
-			aria-labelledby="external-map-request-title"
+<!-- Per-session consent before any external (OpenStreetMap/Nominatim/Overpass)
+	request. Uses the svelte-ux Dialog so it gets the themed opaque panel,
+	backdrop, and centering rather than hand-rolled classes. -->
+<Dialog
+	bind:open={showExternalMapRequestModal}
+	on:close={cancelExternalMapRequest}
+	aria-modal="true"
+	role="alertdialog"
+	classes={{ dialog: 'max-w-md' }}
+>
+	<div slot="title" class="flex items-center justify-between">
+		<span>Allow External Map Request?</span>
+		<button
+			class="text-surface-content/60 hover:text-surface-content -mt-1 -mr-2 p-1"
+			on:click={cancelExternalMapRequest}
+			aria-label="Close"
 		>
-			<div class="mb-4 flex items-center justify-between gap-3">
-				<h3 id="external-map-request-title" class="text-lg font-semibold">
-					Allow External Map Request?
-				</h3>
-				<button
-					class="text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 -mt-1 -mr-2 p-1"
-					on:click={cancelExternalMapRequest}
-					aria-label="Close"
-				>
-					<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
-				</button>
-			</div>
-
-			<div class="space-y-3 text-sm">
-				<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
-				<p>Site coordinates or searched address text may be sent externally.</p>
-				<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
-				<p class="text-surface-600-300-token">
-					Report generation remains offline and uses only the saved SVG map data.
-				</p>
-			</div>
-
-			<div class="mt-6 flex justify-end gap-2">
-				<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
-				<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
-					Allow This Session
-				</Button>
-			</div>
-		</div>
+			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+		</button>
 	</div>
-{/if}
+
+	<div class="space-y-3 px-6 pb-2 text-sm">
+		<p>This action can contact external OpenStreetMap, Nominatim, or Overpass services.</p>
+		<p>Site coordinates or searched address text may be sent externally.</p>
+		<p>Radar observations, vehicle data, reports, and raw sensor data are not sent.</p>
+		<p class="text-surface-content/60">
+			Report generation remains offline and uses only the saved SVG map data.
+		</p>
+	</div>
+
+	<div slot="actions">
+		<Button on:click={cancelExternalMapRequest} variant="outline">Cancel</Button>
+		<Button on:click={confirmExternalMapRequest} variant="fill" color="primary">
+			Allow This Session
+		</Button>
+	</div>
+</Dialog>
 
 <!-- Confirmation modal: warn before discarding existing map data -->
 <Dialog
