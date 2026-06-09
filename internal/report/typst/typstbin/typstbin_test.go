@@ -61,36 +61,6 @@ func writeTestExecutable(t *testing.T, path string, body []byte, mode os.FileMod
 	}
 }
 
-func TestResolveFromEnvPath(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "typst")
-	writeTestExecutable(t, path, []byte("#!/bin/sh\nexit 0\n"), 0o755)
-	t.Setenv(EnvPath, path)
-
-	got, cleanup, err := Resolve()
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	cleanup()
-	if got != path {
-		t.Fatalf("Resolve path = %q, want %q", got, path)
-	}
-}
-
-func TestResolveFromEnvPathErrors(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv(EnvPath, dir)
-	if _, _, err := Resolve(); err == nil || !strings.Contains(err.Error(), "not a regular file") {
-		t.Fatalf("Resolve directory error = %v, want not a regular file", err)
-	}
-
-	path := filepath.Join(t.TempDir(), "typst")
-	writeTestExecutable(t, path, []byte("x"), 0o644)
-	t.Setenv(EnvPath, path)
-	if _, _, err := Resolve(); err == nil || !strings.Contains(err.Error(), "not executable") {
-		t.Fatalf("Resolve non-executable error = %v, want not executable", err)
-	}
-}
-
 func TestResolveEmbeddedPath(t *testing.T) {
 	restoreTypstbinDeps(t)
 	cacheRoot := t.TempDir()
@@ -165,19 +135,6 @@ func TestEmbeddedAndExecutableHelpers(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "typst")
 	writeTestExecutable(t, path, []byte("#!/bin/sh\nexit 0\n"), 0o755)
-	if err := validateExecutable(path); err != nil {
-		t.Fatalf("validateExecutable: %v", err)
-	}
-	if err := validateExecutable(filepath.Dir(path)); err == nil || !strings.Contains(err.Error(), "not a regular file") {
-		t.Fatalf("validateExecutable directory error = %v, want not a regular file", err)
-	}
-
-	noExec := filepath.Join(t.TempDir(), "noexec")
-	writeTestExecutable(t, noExec, []byte("x"), 0o644)
-	if err := validateExecutable(noExec); err == nil || !strings.Contains(err.Error(), "not executable") {
-		t.Fatalf("validateExecutable non-executable error = %v, want not executable", err)
-	}
-
 	if exeSuffixFor("windows") != ".exe" || exeSuffixFor("darwin") != "" {
 		t.Fatal("exeSuffixFor returned unexpected values")
 	}

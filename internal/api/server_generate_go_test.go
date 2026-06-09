@@ -13,13 +13,12 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 )
 
 // TestGenerateReport_UsesTypst tests the Go PDF report pipeline with a mocked
 // Typst binary so no host-level PDF tooling is required.
 func TestGenerateReport_UsesTypst(t *testing.T) {
-	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
+	useMockTypstBinary(t)
 	t.Setenv(reportOutputDirEnv, t.TempDir())
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
@@ -252,7 +251,7 @@ func TestReportCosineMetadataForRange(t *testing.T) {
 // ReportRequest fields through to the Go pipeline by confirming a request with
 // comparison params and non-default units reaches the Go pipeline without panic.
 func TestGenerateReport_ConfigMapping(t *testing.T) {
-	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
+	useMockTypstBinary(t)
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
@@ -349,7 +348,7 @@ func TestBuildReportConfig_FieldMapping(t *testing.T) {
 // TestGenerateReport_UsesNativePipeline confirms that report requests proceed
 // through the native Typst pipeline without Python PDF hooks.
 func TestGenerateReport_UsesNativePipeline(t *testing.T) {
-	t.Setenv(typstbin.EnvPath, createMockTypstBinary(t))
+	useMockTypstBinary(t)
 	t.Setenv(reportOutputDirEnv, t.TempDir())
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
@@ -469,6 +468,12 @@ func createMockTypstBinary(t *testing.T) string {
 	}
 
 	return path
+}
+
+func useMockTypstBinary(t *testing.T) {
+	t.Helper()
+	path := createMockTypstBinary(t)
+	t.Setenv("PATH", filepath.Dir(path)+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
 func minimalMockPDF() []byte {

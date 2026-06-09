@@ -139,8 +139,11 @@ func TestApplyPDFMetadataReportsMissingReferencedObjects(t *testing.T) {
 		pdf  []byte
 	}{
 		{name: "missing startxref", pdf: []byte("%PDF-1.7\n")},
+		{name: "missing startxref value", pdf: []byte("startxref")},
 		{name: "bad startxref", pdf: []byte("startxref\nabc\n")},
 		{name: "missing trailer", pdf: []byte("startxref\n0\n")},
+		{name: "bad trailer dictionary", pdf: buildTestPDF([]string{"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n", "2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n"}, "<< /Info 3 0 R >>")},
+		{name: "bad xref", pdf: []byte("%PDF-1.7\nxref\n0 1\nnope\ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n9\n%%EOF\n")},
 		{name: "unsupported xref stream", pdf: []byte("startxref\n0\nstream")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -148,6 +151,82 @@ func TestApplyPDFMetadataReportsMissingReferencedObjects(t *testing.T) {
 				t.Fatalf("applyPDFMetadata should fail for %s", tc.name)
 			}
 		})
+	}
+}
+
+func TestApplyPDFMetadataPropagatesObjectReadAndUpdateErrors(t *testing.T) {
+	infoReadFailure := buildTestPDF(
+		[]string{
+			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"3 0 obj\n<< /Creator (Typst 0.13.1) >>\n",
+		},
+		"<< /Size 4 /Root 1 0 R /Info 3 0 R >>",
+	)
+	if _, err := applyPDFMetadata(infoReadFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "missing endobj") {
+		t.Fatalf("info read error = %v, want missing endobj", err)
+	}
+
+	infoUpdateFailure := buildTestPDF(
+		[]string{
+			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"3 0 obj\nno-dict\nendobj\n",
+		},
+		"<< /Size 4 /Root 1 0 R /Info 3 0 R >>",
+	)
+	if _, err := applyPDFMetadata(infoUpdateFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "dictionary start") {
+		t.Fatalf("info update error = %v, want dictionary start", err)
+	}
+
+	rootReadFailure := buildTestPDF(
+		[]string{
+			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\n",
+			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"3 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+		},
+		"<< /Size 4 /Root 1 0 R /Info 3 0 R >>",
+	)
+	if _, err := applyPDFMetadata(rootReadFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "missing endobj") {
+		t.Fatalf("root read error = %v, want missing endobj", err)
+	}
+
+	rootDictFailure := buildTestPDF(
+		[]string{
+			"1 0 obj\nno-dict\nendobj\n",
+			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"3 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+		},
+		"<< /Size 4 /Root 1 0 R /Info 3 0 R >>",
+	)
+	if _, err := applyPDFMetadata(rootDictFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "dictionary start") {
+		t.Fatalf("root dict error = %v, want dictionary start", err)
+	}
+
+	metadataReadFailure := buildTestPDF(
+		[]string{
+			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>\nendobj\n",
+			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"3 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+			"4 0 obj\n<< /Type /Metadata /Subtype /XML /Length 6 >>\nstream\n<xml/>\n",
+		},
+		"<< /Size 5 /Root 1 0 R /Info 3 0 R >>",
+	)
+	if _, err := applyPDFMetadata(metadataReadFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "missing endobj") {
+		t.Fatalf("metadata read error = %v, want missing endobj", err)
+	}
+
+	metadataUpdateFailure := buildTestPDF(
+		[]string{
+			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>\nendobj\n",
+			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"3 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+			"4 0 obj\n<< /Type /Metadata /Subtype /XML /Length 6 >>\nstream\n<xml/>\nendstream\nendobj\n",
+		},
+		"<< /Size 5 /Root 1 0 R /Info 3 0 R >>",
+	)
+	if _, err := applyPDFMetadata(metadataUpdateFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "rdf:Description") {
+		t.Fatalf("metadata update error = %v, want rdf:Description", err)
 	}
 }
 
@@ -353,5 +432,15 @@ func TestUpdateInfoAndMetadataObjects(t *testing.T) {
 	badMetadata := []byte("4 0 obj\n<< /Type /Metadata /Subtype /XML /Length 6 >>\nstream\n<xml/>\nendstream\nendobj")
 	if _, err := updateMetadataObject(badMetadata, pdfRef{number: 4, generation: 0}, PDFMetadata{Keywords: []string{"x"}}); err == nil {
 		t.Fatal("updateMetadataObject should fail when rdf:Description is missing")
+	}
+
+	withCRLF := []byte("4 0 obj\n<< /Type /Metadata /Subtype /XML /Length 8 >>\nstream\r\n<body/>\nendstream\nendobj")
+	if _, _, err := extractPDFStreamObject(withCRLF); err != nil {
+		t.Fatalf("extractPDFStreamObject with CRLF: %v", err)
+	}
+
+	updated := appendIncrementalUpdate([]byte("%PDF-1.7\n"), pdfTrailer{size: 6, root: pdfRef{number: 1, generation: 0}, id: "[<abc> <def>]"}, 12, &pdfRef{number: 5, generation: 0}, map[int][]byte{5: buildIndirectObject(pdfRef{number: 5, generation: 0}, []byte("<<>>"))})
+	if !bytes.Contains(updated, []byte("/ID [<abc> <def>]")) {
+		t.Fatalf("appendIncrementalUpdate missing trailer ID: %q", updated)
 	}
 }

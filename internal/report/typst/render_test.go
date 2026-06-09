@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
@@ -19,6 +22,34 @@ type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) {
 	return 0, errors.New("write failed")
+}
+
+type failingReadFS struct {
+	fs.FS
+}
+
+func (f failingReadFS) ReadFile(string) ([]byte, error) {
+	return nil, errors.New("read failed")
+}
+
+func restoreRenderDeps(t *testing.T) {
+	t.Helper()
+	oldTemplatesFS := renderTemplatesFS
+	oldResolve := renderResolveTypst
+	oldMkdirTemp := renderMkdirTemp
+	oldRemoveAll := renderRemoveAll
+	oldMkdirAll := renderMkdirAll
+	oldWriteFile := renderWriteFile
+	oldAllFonts := renderAllFonts
+	t.Cleanup(func() {
+		renderTemplatesFS = oldTemplatesFS
+		renderResolveTypst = oldResolve
+		renderMkdirTemp = oldMkdirTemp
+		renderRemoveAll = oldRemoveAll
+		renderMkdirAll = oldMkdirAll
+		renderWriteFile = oldWriteFile
+		renderAllFonts = oldAllFonts
+	})
 }
 
 func mockTypstCLI(t *testing.T, pdf []byte, exitCode int) string {
@@ -283,9 +314,11 @@ func TestRenderResolveAndMetadataErrors(t *testing.T) {
 }
 
 func TestSourcesAndTemplateErrors(t *testing.T) {
+	restoreRenderDeps(t)
 	oldTemplates := templatesFS
 	templatesFS = embed.FS{}
 	t.Cleanup(func() { templatesFS = oldTemplates })
+	renderTemplatesFS = templatesFS
 
 	if _, err := Sources(); err == nil {
 		t.Fatal("Sources should fail when the embedded template tree is unavailable")
@@ -293,6 +326,82 @@ func TestSourcesAndTemplateErrors(t *testing.T) {
 	if err := materialiseTemplates(t.TempDir()); err == nil {
 		t.Fatal("materialiseTemplates should fail when the embedded template tree is unavailable")
 	}
+
+	restoreRenderDeps(t)
+	renderTemplatesFS = failingReadFS{FS: fstest.MapFS{"templates/report.typ": {Data: []byte("x")}}}
+	if _, err := Sources(); err == nil {
+		t.Fatal("Sources should fail when template reads fail")
+	}
+	if err := materialiseTemplates(t.TempDir()); err == nil {
+		t.Fatal("materialiseTemplates should fail when template reads fail")
+	}
+}
+
+func TestRenderSeammedSetupErrors(t *testing.T) {
+	t.Run("mkdir temp", func(t *testing.T) {
+		restoreRenderDeps(t)
+		renderMkdirTemp = func(string, string) (string, error) { return "", errors.New("mkdir temp failed") }
+		if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil || !strings.Contains(err.Error(), "create temp dir") {
+			t.Fatalf("Render mkdir temp error = %v, want create temp dir", err)
+		}
+	})
+
+	t.Run("write data", func(t *testing.T) {
+		restoreRenderDeps(t)
+		renderResolveTypst = func() (string, func(), error) {
+			return mockTypstCLI(t, testMetadataFixturePDF(), 0), func() {}, nil
+		}
+		renderWriteFile = func(name string, data []byte, perm os.FileMode) error {
+			if strings.HasSuffix(name, "data.json") {
+				return errors.New("write data failed")
+			}
+			return os.WriteFile(name, data, perm)
+		}
+		if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil || !strings.Contains(err.Error(), "write data failed") {
+			t.Fatalf("Render writeData error = %v, want write data failed", err)
+		}
+	})
+
+	t.Run("materialise templates", func(t *testing.T) {
+		restoreRenderDeps(t)
+		renderTemplatesFS = embed.FS{}
+		if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil {
+			t.Fatal("Render should fail when template materialisation fails")
+		}
+	})
+
+	t.Run("write font", func(t *testing.T) {
+		restoreRenderDeps(t)
+		renderResolveTypst = func() (string, func(), error) {
+			return mockTypstCLI(t, testMetadataFixturePDF(), 0), func() {}, nil
+		}
+		renderAllFonts = func() map[string][]byte { return map[string][]byte{"bad-font.ttf": []byte("x")} }
+		renderWriteFile = func(name string, data []byte, perm os.FileMode) error {
+			if strings.HasSuffix(name, "bad-font.ttf") {
+				return errors.New("write font failed")
+			}
+			return os.WriteFile(name, data, perm)
+		}
+		if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err == nil || !strings.Contains(err.Error(), "write font bad-font.ttf") {
+			t.Fatalf("Render font write error = %v, want write font bad-font.ttf", err)
+		}
+	})
+
+	t.Run("asset mkdir", func(t *testing.T) {
+		restoreRenderDeps(t)
+		renderResolveTypst = func() (string, func(), error) {
+			return mockTypstCLI(t, testMetadataFixturePDF(), 0), func() {}, nil
+		}
+		renderMkdirAll = func(path string, perm os.FileMode) error {
+			if strings.Contains(path, string(filepath.Separator)+"charts") {
+				return errors.New("mkdir assets failed")
+			}
+			return os.MkdirAll(path, perm)
+		}
+		if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}, Assets: []Asset{{Name: "charts/test.svg", Data: []byte("<svg/>")}}}); err == nil || !strings.Contains(err.Error(), "mkdir ") {
+			t.Fatalf("Render asset mkdir error = %v, want mkdir failure", err)
+		}
+	})
 }
 
 func TestParsePDFTrailerReferencesAndID(t *testing.T) {

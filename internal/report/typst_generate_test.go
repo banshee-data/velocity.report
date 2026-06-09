@@ -16,7 +16,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/report/chart"
 	"github.com/banshee-data/velocity.report/internal/report/typst"
-	"github.com/banshee-data/velocity.report/internal/report/typst/typstbin"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -73,6 +72,12 @@ func mockTypstBinary(t *testing.T) string {
 		t.Fatalf("write mock typst: %v", err)
 	}
 	return script
+}
+
+func useMockTypstBinary(t *testing.T) {
+	t.Helper()
+	path := mockTypstBinary(t)
+	t.Setenv("PATH", filepath.Dir(path)+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
 // readReportDataFromZip extracts and decodes data.json from a generated source
@@ -164,7 +169,7 @@ func baseTypstConfig(outDir string) Config {
 
 func TestGenerateTypst_Single(t *testing.T) {
 	setBuildMetadataForTest(t, "1.2.3-test", "deadbeefcafebabe")
-	t.Setenv(typstbin.EnvPath, mockTypstBinary(t))
+	useMockTypstBinary(t)
 	outDir := t.TempDir()
 	m := &mockDB{}
 
@@ -248,7 +253,7 @@ func TestGenerateTypst_Single(t *testing.T) {
 }
 
 func TestGenerateTypst_Comparison(t *testing.T) {
-	t.Setenv(typstbin.EnvPath, mockTypstBinary(t))
+	useMockTypstBinary(t)
 	outDir := t.TempDir()
 	m := &mockDB{}
 
@@ -288,7 +293,7 @@ func TestGenerateTypst_Comparison(t *testing.T) {
 
 // TestGeneratePDF_DefaultsToTypst verifies the public entry point uses Typst.
 func TestGeneratePDF_DefaultsToTypst(t *testing.T) {
-	t.Setenv(typstbin.EnvPath, mockTypstBinary(t))
+	useMockTypstBinary(t)
 	outDir := t.TempDir()
 	m := &mockDB{}
 
