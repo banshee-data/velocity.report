@@ -55,6 +55,9 @@
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
 
+	const fovWidthDegrees = 20;
+	const fovDistanceMeters = 100;
+
 	// Confirmation modal state for mode switching
 	let showDeleteMapModal = false;
 	let pendingModeSwitch: 'interactive' | 'upload' | null = null;
@@ -363,8 +366,8 @@
 			updateBBoxAroundRadar();
 		}
 
-		// Initialize FOV triangle if angle is set
-		updateFOVTriangle();
+		// Initialize FOV overlay only after tile consent.
+		updateFOVTriangle(externalMapRequestConsent);
 	}
 
 	function addOsmTileLayer() {
@@ -381,7 +384,35 @@
 
 	$: if (map && externalMapRequestConsent) addOsmTileLayer();
 
-	function updateFOVTriangle() {
+	function calculateFOVGeometry(lat: number, lng: number, angle: number) {
+		const metersPerDegreeLat = 111320;
+		const metersPerDegreeLng = 111320 * Math.cos((lat * Math.PI) / 180);
+		const fovDistanceLat = fovDistanceMeters / metersPerDegreeLat;
+		const fovDistanceLng = fovDistanceMeters / metersPerDegreeLng;
+		const bearingRad = (angle * Math.PI) / 180;
+		const leftBearingRad = ((angle - fovWidthDegrees / 2) * Math.PI) / 180;
+		const rightBearingRad = ((angle + fovWidthDegrees / 2) * Math.PI) / 180;
+
+		return {
+			origin: { lat, lng },
+			tip: {
+				lat: lat + Math.cos(bearingRad) * fovDistanceLat,
+				lng: lng + Math.sin(bearingRad) * fovDistanceLng
+			},
+			left: {
+				lat: lat + Math.cos(leftBearingRad) * fovDistanceLat,
+				lng: lng + Math.sin(leftBearingRad) * fovDistanceLng
+			},
+			right: {
+				lat: lat + Math.cos(rightBearingRad) * fovDistanceLat,
+				lng: lng + Math.sin(rightBearingRad) * fovDistanceLng
+			},
+			fovDistanceLat,
+			fovDistanceLng
+		};
+	}
+
+	function updateFOVTriangle(showFOV: boolean = externalMapRequestConsent) {
 		if (!L || !map || latitude === null || longitude === null) return;
 
 		// Remove existing FOV polygon and marker
@@ -395,43 +426,17 @@
 		}
 
 		// Only draw if angle is set
-		if (radarAngle === null) return;
-
-		// FOV parameters
-		const fovWidthDegrees = 20; // Field of view width in degrees
-		const fovDistanceMeters = 100; // Distance in meters
-
-		// Convert 100m to degrees (approximate: 1 degree lat ≈ 111km)
-		const metersPerDegreeLat = 111320;
-		const metersPerDegreeLng = 111320 * Math.cos((latitude * Math.PI) / 180);
-		const fovDistanceLat = fovDistanceMeters / metersPerDegreeLat;
-		const fovDistanceLng = fovDistanceMeters / metersPerDegreeLng;
-
-		// Radar angle: 0 = North, 90 = East, 180 = South, 270 = West
-		// Map bearing is the same convention
-		const bearingDegrees = radarAngle;
-		const bearingRad = (bearingDegrees * Math.PI) / 180;
-		const leftBearingRad = ((bearingDegrees - fovWidthDegrees / 2) * Math.PI) / 180;
-		const rightBearingRad = ((bearingDegrees + fovWidthDegrees / 2) * Math.PI) / 180;
-
-		// Calculate center tip point
-		const tipLat = latitude + Math.cos(bearingRad) * fovDistanceLat;
-		const tipLng = longitude + Math.sin(bearingRad) * fovDistanceLng;
-
-		// Calculate left and right edge points at 100m distance
-		const leftLat = latitude + Math.cos(leftBearingRad) * fovDistanceLat;
-		const leftLng = longitude + Math.sin(leftBearingRad) * fovDistanceLng;
-		const rightLat = latitude + Math.cos(rightBearingRad) * fovDistanceLat;
-		const rightLng = longitude + Math.sin(rightBearingRad) * fovDistanceLng;
+		if (!showFOV || radarAngle === null) return;
+		const fov = calculateFOVGeometry(latitude, longitude, radarAngle);
 
 		// Validate all coordinates
 		if (
-			isNaN(leftLat) ||
-			isNaN(leftLng) ||
-			isNaN(rightLat) ||
-			isNaN(rightLng) ||
-			isNaN(tipLat) ||
-			isNaN(tipLng)
+			isNaN(fov.left.lat) ||
+			isNaN(fov.left.lng) ||
+			isNaN(fov.right.lat) ||
+			isNaN(fov.right.lng) ||
+			isNaN(fov.tip.lat) ||
+			isNaN(fov.tip.lng)
 		) {
 			console.error('Invalid FOV coordinates calculated');
 			return;
@@ -441,8 +446,8 @@
 		fovPolygon = L.polygon(
 			[
 				[latitude, longitude], // Radar position (origin)
-				[leftLat, leftLng], // Left edge at 100m
-				[rightLat, rightLng] // Right edge at 100m
+				[fov.left.lat, fov.left.lng], // Left edge at 100m
+				[fov.right.lat, fov.right.lng] // Right edge at 100m
 			],
 			{
 				color: '#ef4444',
@@ -460,7 +465,7 @@
 			className: ''
 		});
 
-		fovTipMarker = L.marker([tipLat, tipLng], {
+		fovTipMarker = L.marker([fov.tip.lat, fov.tip.lng], {
 			icon: tipIcon,
 			draggable: true,
 			zIndexOffset: 1000
@@ -489,20 +494,13 @@
 			localAngle = Math.round(angle);
 			radarAngle = localAngle;
 
-			// Update just the polygon shape without recreating marker
-			const newLeftBearingRad = ((localAngle - fovWidthDegrees / 2) * Math.PI) / 180;
-			const newRightBearingRad = ((localAngle + fovWidthDegrees / 2) * Math.PI) / 180;
-
-			const newLeftLat = latitude + Math.cos(newLeftBearingRad) * fovDistanceLat;
-			const newLeftLng = longitude + Math.sin(newLeftBearingRad) * fovDistanceLng;
-			const newRightLat = latitude + Math.cos(newRightBearingRad) * fovDistanceLat;
-			const newRightLng = longitude + Math.sin(newRightBearingRad) * fovDistanceLng;
+			const draggedFOV = calculateFOVGeometry(latitude, longitude, localAngle);
 
 			// Update polygon coordinates
 			fovPolygon.setLatLngs([
 				[latitude, longitude],
-				[newLeftLat, newLeftLng],
-				[newRightLat, newRightLng]
+				[draggedFOV.left.lat, draggedFOV.left.lng],
+				[draggedFOV.right.lat, draggedFOV.right.lng]
 			]);
 		});
 
@@ -579,9 +577,9 @@
 		map.setView([latitude, longitude], 15);
 	}
 
-	// Update FOV triangle when radar position changes (not during drag)
+	// Update FOV triangle when radar position or tile consent changes (not during drag).
 	$: if (map && latitude !== null && longitude !== null && !isDraggingFovTip) {
-		updateFOVTriangle();
+		updateFOVTriangle(externalMapRequestConsent);
 	}
 
 	// A generated preview is only valid for the bounds it was generated with.
@@ -695,6 +693,11 @@
 			const octx = out.getContext('2d');
 			if (!octx) throw new Error('Canvas 2D is not available');
 			octx.drawImage(full, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+			drawSnapshotRadarOverlay(octx, {
+				lonToX: (lon: number) => (lon2tile(lon) - xMinF) * tileSize,
+				latToY: (lat: number) => (lat2tile(lat) - yMinF) * tileSize,
+				width: cropW
+			});
 
 			const png = out.toDataURL('image/png');
 			const svg =
@@ -726,6 +729,63 @@
 			downloadStep = '';
 			abortController = null;
 		}
+	}
+
+	function drawSnapshotRadarOverlay(
+		ctx: CanvasRenderingContext2D,
+		project: { lonToX: (lon: number) => number; latToY: (lat: number) => number; width: number }
+	) {
+		if (latitude === null || longitude === null || radarAngle === null) return;
+
+		const fov = calculateFOVGeometry(latitude, longitude, radarAngle);
+		const origin = { x: project.lonToX(fov.origin.lng), y: project.latToY(fov.origin.lat) };
+		const left = { x: project.lonToX(fov.left.lng), y: project.latToY(fov.left.lat) };
+		const right = { x: project.lonToX(fov.right.lng), y: project.latToY(fov.right.lat) };
+		const tip = { x: project.lonToX(fov.tip.lng), y: project.latToY(fov.tip.lat) };
+		const lineWidth = Math.max(2, project.width / 500);
+		const tipRadius = Math.max(5, project.width / 190);
+		const radarRadius = Math.max(12, project.width / 70);
+
+		ctx.save();
+		ctx.lineJoin = 'round';
+		ctx.lineCap = 'round';
+
+		ctx.beginPath();
+		ctx.moveTo(origin.x, origin.y);
+		ctx.lineTo(left.x, left.y);
+		ctx.lineTo(right.x, right.y);
+		ctx.closePath();
+		ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+		ctx.strokeStyle = '#ef4444';
+		ctx.lineWidth = lineWidth;
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.arc(tip.x, tip.y, tipRadius, 0, Math.PI * 2);
+		ctx.fillStyle = '#ef4444';
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = Math.max(2, lineWidth);
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.arc(origin.x, origin.y, radarRadius, 0, Math.PI * 2);
+		ctx.fillStyle = '#3b82f6';
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = Math.max(3, lineWidth * 1.5);
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.moveTo(origin.x, origin.y - radarRadius + 3);
+		ctx.lineTo(origin.x, origin.y);
+		ctx.lineTo(origin.x + radarRadius - 3, origin.y);
+		ctx.strokeStyle = '#ffffff';
+		ctx.lineWidth = Math.max(2, lineWidth);
+		ctx.stroke();
+
+		ctx.restore();
 	}
 
 	function cancelDownload() {
