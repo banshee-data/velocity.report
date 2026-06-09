@@ -65,7 +65,7 @@ For full build setup, dev servers, and testing: see [knowledge/build-and-test.md
 
 **Note:** `.venv/` is for local developer tooling and scripts. It is not included in deployed production binaries or Raspberry Pi images.
 
-**SQLite:** `modernc.org/sqlite v1.44.3` (SQLite 3.51.2). Use `DROP COLUMN` directly in new migrations.
+**SQLite:** `modernc.org/sqlite` (pure-Go; version pinned in `go.mod`). Use `DROP COLUMN` directly in new migrations.
 
 **Documentation:** When changing functionality, update README.md, component READMEs, ARCHITECTURE.md, and public_html/src/guides/setup.md as relevant.
 

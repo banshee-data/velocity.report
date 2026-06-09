@@ -1,6 +1,6 @@
 # Tracking upgrades
 
-- **Status:** 6 of 9 upgrades implemented (February 2026)
+- **Status:** Per-upgrade status in the table below.
 
 Implementation status of planned tracking pipeline improvements, from ground removal and OBB estimation through to future ML feature extraction.
 

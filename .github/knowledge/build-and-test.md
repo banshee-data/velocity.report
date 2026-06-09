@@ -71,12 +71,12 @@ make build-web           # Verify production build
 
 Target naming: `<action>-<subsystem>[-<variant>]`
 
-- 101+ documented targets available
+- Targets are self-documenting via `##` help comments
 - Cross-compilation for ARM64 (Raspberry Pi 4)
 - Run `make help` for the full list
 
 ## SQLite
 
-Driver: `modernc.org/sqlite v1.44.3` (pure-Go, bundles SQLite 3.51.2).
+Driver: `modernc.org/sqlite` (pure-Go; exact version pinned in `go.mod`).
 
 `ALTER TABLE ... DROP COLUMN` is fully supported (SQLite 3.35.0+). New migrations should use `DROP COLUMN` directly instead of the legacy table-recreation workaround. Older migrations (000014–000019) still use the workaround and are left as-is.
