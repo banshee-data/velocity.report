@@ -15,41 +15,48 @@ import (
 
 func restoreTypstbinDeps(t *testing.T) {
 	t.Helper()
-	oldGetenv := osGetenv
-	oldStat := osStat
-	oldLookPath := execLookPath
-	oldUserCacheDir := osUserCacheDir
-	oldMkdirAll := osMkdirAll
-	oldMkdirTemp := osMkdirTemp
-	oldCreateTemp := osCreateTemp
-	oldRename := osRename
-	oldChmod := osChmod
-	oldCacheDir := cacheDirFunc
-	oldTypstTarget := typstTargetFunc
-	oldHTTPDownload := httpDownloadFunc
-	oldExtractTypst := extractTypstFunc
-	oldCopyExecutable := copyExecutableFunc
-	oldEmbeddedTypst := embeddedTypstFunc
-	oldCachedDownload := cachedDownloadFunc
-	t.Cleanup(func() {
-		osGetenv = oldGetenv
-		osStat = oldStat
-		execLookPath = oldLookPath
-		osUserCacheDir = oldUserCacheDir
-		osMkdirAll = oldMkdirAll
-		osMkdirTemp = oldMkdirTemp
-		osCreateTemp = oldCreateTemp
-		osRename = oldRename
-		osChmod = oldChmod
-		cacheDirFunc = oldCacheDir
-		typstTargetFunc = oldTypstTarget
-		httpDownloadFunc = oldHTTPDownload
-		extractTypstFunc = oldExtractTypst
-		copyExecutableFunc = oldCopyExecutable
-		embeddedTypstFunc = oldEmbeddedTypst
-		cachedDownloadFunc = oldCachedDownload
-	})
+	reset := func() {
+		osGetenv = os.Getenv
+		osStat = os.Stat
+		execLookPath = exec.LookPath
+		osUserCacheDir = os.UserCacheDir
+		osMkdirAll = os.MkdirAll
+		osMkdirTemp = os.MkdirTemp
+		osCreateTemp = os.CreateTemp
+		osRename = os.Rename
+		osChmod = os.Chmod
+		createTempExec = func(dir, pattern string) (tempExecutable, error) { return osCreateTemp(dir, pattern) }
+		cacheDirFunc = cacheDir
+		typstTargetFunc = typstTarget
+		httpDownloadFunc = httpDownload
+		extractTypstFunc = extractTypst
+		copyExecutableFunc = copyExecutable
+		embeddedTypstFunc = embeddedTypst
+		cachedDownloadFunc = cachedDownload
+	}
+	reset()
+	t.Cleanup(reset)
 }
+
+type fakeTempExecutable struct {
+	name     string
+	writeErr error
+	chmodErr error
+	closeErr error
+}
+
+func (f *fakeTempExecutable) Name() string { return f.name }
+
+func (f *fakeTempExecutable) Write(p []byte) (int, error) {
+	if f.writeErr != nil {
+		return 0, f.writeErr
+	}
+	return len(p), nil
+}
+
+func (f *fakeTempExecutable) Chmod(os.FileMode) error { return f.chmodErr }
+
+func (f *fakeTempExecutable) Close() error { return f.closeErr }
 
 func writeTestExecutable(t *testing.T, path string, body []byte, mode os.FileMode) {
 	t.Helper()
@@ -78,6 +85,15 @@ func TestResolveEmbeddedPath(t *testing.T) {
 	}
 	if string(data) != "embedded-binary" {
 		t.Fatalf("embedded output = %q, want embedded-binary", data)
+	}
+}
+
+func TestResolveEmbeddedExtractFailure(t *testing.T) {
+	restoreTypstbinDeps(t)
+	embeddedTypstFunc = func() ([]byte, bool) { return []byte("embedded-binary"), true }
+	cacheDirFunc = func() (string, error) { return "", errors.New("cache dir failed") }
+	if _, _, err := Resolve(); err == nil || !strings.Contains(err.Error(), "extract embedded typst") {
+		t.Fatalf("Resolve embedded extract error = %v, want extract embedded typst", err)
 	}
 }
 
@@ -185,6 +201,13 @@ func TestCacheDirAndExtractCached(t *testing.T) {
 
 	restoreTypstbinDeps(t)
 	osUserCacheDir = func() (string, error) { return cacheRoot, nil }
+	osMkdirAll = func(string, os.FileMode) error { return errors.New("mkdir all failed") }
+	if _, err := cacheDir(); err == nil || !strings.Contains(err.Error(), "mkdir all failed") {
+		t.Fatalf("cacheDir mkdir error = %v, want mkdir all failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	osUserCacheDir = func() (string, error) { return cacheRoot, nil }
 	data := []byte("embedded-binary")
 	first, err := extractCached(data)
 	if err != nil {
@@ -217,6 +240,50 @@ func TestCacheDirAndExtractCached(t *testing.T) {
 	osRename = func(string, string) error { return errors.New("rename failed") }
 	if _, err := extractCached([]byte("rename-error")); err == nil || !strings.Contains(err.Error(), "rename failed") {
 		t.Fatalf("extractCached rename error = %v, want rename failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheDirFunc = func() (string, error) { return "", errors.New("cache dir failed") }
+	if _, err := extractCached([]byte("x")); err == nil || !strings.Contains(err.Error(), "cache dir failed") {
+		t.Fatalf("extractCached cache dir error = %v, want cache dir failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheRoot = t.TempDir()
+	osUserCacheDir = func() (string, error) { return cacheRoot, nil }
+	createTempExec = func(string, string) (tempExecutable, error) { return nil, errors.New("create temp failed") }
+	if _, err := extractCached([]byte("x")); err == nil || !strings.Contains(err.Error(), "create temp failed") {
+		t.Fatalf("extractCached create temp error = %v, want create temp failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheRoot = t.TempDir()
+	osUserCacheDir = func() (string, error) { return cacheRoot, nil }
+	createTempExec = func(string, string) (tempExecutable, error) {
+		return &fakeTempExecutable{name: filepath.Join(cacheRoot, "write-fail"), writeErr: errors.New("write failed")}, nil
+	}
+	if _, err := extractCached([]byte("x")); err == nil || !strings.Contains(err.Error(), "write failed") {
+		t.Fatalf("extractCached write error = %v, want write failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheRoot = t.TempDir()
+	osUserCacheDir = func() (string, error) { return cacheRoot, nil }
+	createTempExec = func(string, string) (tempExecutable, error) {
+		return &fakeTempExecutable{name: filepath.Join(cacheRoot, "chmod-fail"), chmodErr: errors.New("chmod failed")}, nil
+	}
+	if _, err := extractCached(nil); err == nil || !strings.Contains(err.Error(), "chmod failed") {
+		t.Fatalf("extractCached chmod error = %v, want chmod failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheRoot = t.TempDir()
+	osUserCacheDir = func() (string, error) { return cacheRoot, nil }
+	createTempExec = func(string, string) (tempExecutable, error) {
+		return &fakeTempExecutable{name: filepath.Join(cacheRoot, "close-fail"), closeErr: errors.New("close failed")}, nil
+	}
+	if _, err := extractCached(nil); err == nil || !strings.Contains(err.Error(), "close failed") {
+		t.Fatalf("extractCached close error = %v, want close failed", err)
 	}
 }
 
@@ -293,6 +360,12 @@ func TestHTTPDownloadAndArchiveHelpers(t *testing.T) {
 	defer serverFail.Close()
 	if err := httpDownload(serverFail.URL, filepath.Join(t.TempDir(), "fail.bin")); err == nil {
 		t.Fatal("httpDownload should fail on non-200 status")
+	}
+	if err := httpDownload("://bad-url", filepath.Join(t.TempDir(), "bad.bin")); err == nil {
+		t.Fatal("httpDownload should fail on an invalid URL")
+	}
+	if err := httpDownload(server.URL, filepath.Join(t.TempDir(), "missing", "payload.bin")); err == nil {
+		t.Fatal("httpDownload should fail when the destination directory does not exist")
 	}
 
 	copySrc := filepath.Join(t.TempDir(), "src")
@@ -451,6 +524,67 @@ func TestCachedDownload(t *testing.T) {
 	}
 	if data, err := os.ReadFile(got); err != nil || string(data) != "copy-fallback" {
 		t.Fatalf("cachedDownload copy fallback output = %q, err=%v", data, err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheDirFunc = func() (string, error) { return "", errors.New("cache dir failed") }
+	if _, err := cachedDownload(); err == nil || !strings.Contains(err.Error(), "cache dir failed") {
+		t.Fatalf("cachedDownload cache dir error = %v, want cache dir failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheDirFunc = func() (string, error) { return t.TempDir(), nil }
+	osMkdirAll = func(string, os.FileMode) error { return errors.New("mkdir version failed") }
+	if _, err := cachedDownload(); err == nil || !strings.Contains(err.Error(), "mkdir version failed") {
+		t.Fatalf("cachedDownload mkdir error = %v, want mkdir version failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheDirFunc = func() (string, error) { return t.TempDir(), nil }
+	typstTargetFunc = func() (string, string, error) { return "test-target", "tar.xz", nil }
+	osMkdirTemp = func(string, string) (string, error) { return "", errors.New("mkdir temp failed") }
+	if _, err := cachedDownload(); err == nil || !strings.Contains(err.Error(), "mkdir temp failed") {
+		t.Fatalf("cachedDownload temp dir error = %v, want mkdir temp failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheDirFunc = func() (string, error) { return t.TempDir(), nil }
+	typstTargetFunc = func() (string, string, error) { return "test-target", "tar.xz", nil }
+	httpDownloadFunc = func(string, string) error { return nil }
+	extractTypstFunc = func(string, string, string, string) (string, error) {
+		bin := filepath.Join(t.TempDir(), "bin")
+		writeTestExecutable(t, bin, []byte("chmod-fail"), 0o755)
+		return bin, nil
+	}
+	osChmod = func(string, os.FileMode) error { return errors.New("chmod failed") }
+	if _, err := cachedDownload(); err == nil || !strings.Contains(err.Error(), "chmod failed") {
+		t.Fatalf("cachedDownload chmod error = %v, want chmod failed", err)
+	}
+
+	restoreTypstbinDeps(t)
+	cacheDirFunc = func() (string, error) { return t.TempDir(), nil }
+	typstTargetFunc = func() (string, string, error) { return "test-target", "tar.xz", nil }
+	httpDownloadFunc = func(string, string) error { return nil }
+	extractTypstFunc = func(string, string, string, string) (string, error) {
+		bin := filepath.Join(t.TempDir(), "bin")
+		writeTestExecutable(t, bin, []byte("copy-error"), 0o755)
+		return bin, nil
+	}
+	osRename = func(string, string) error { return errors.New("rename failed") }
+	copyExecutableFunc = func(string, string) error { return errors.New("copy failed") }
+	if _, err := cachedDownload(); err == nil || !strings.Contains(err.Error(), "copy failed") {
+		t.Fatalf("cachedDownload copy error = %v, want copy failed", err)
+	}
+}
+
+func TestCopyExecutableErrors(t *testing.T) {
+	if err := copyExecutable(filepath.Join(t.TempDir(), "missing"), filepath.Join(t.TempDir(), "dst")); err == nil {
+		t.Fatal("copyExecutable should fail when the source file is missing")
+	}
+	src := filepath.Join(t.TempDir(), "src")
+	writeTestExecutable(t, src, []byte("copy-me"), 0o755)
+	if err := copyExecutable(src, filepath.Join(t.TempDir(), "missing", "dst")); err == nil {
+		t.Fatal("copyExecutable should fail when the destination directory is missing")
 	}
 }
 

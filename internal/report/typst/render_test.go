@@ -56,11 +56,11 @@ func mockTypstCLI(t *testing.T, pdf []byte, exitCode int) string {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, "typst")
-	body := "#!/bin/sh\n"
+	body := "#!/bin/sh\ncat > /dev/null\n"
 	if exitCode != 0 {
 		body += fmt.Sprintf("exit %d\n", exitCode)
 	} else {
-		body += "printf '%s' '" + string(pdf) + "'\n"
+		body += "cat <<'EOF'\n" + string(pdf) + "EOF\n"
 	}
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
 		t.Fatalf("write mock typst: %v", err)
@@ -68,11 +68,13 @@ func mockTypstCLI(t *testing.T, pdf []byte, exitCode int) string {
 	return script
 }
 
-func withMockTypstOnPath(t *testing.T, pdf []byte, exitCode int) string {
+func withMockTypstResolver(t *testing.T, pdf []byte, exitCode int) string {
 	t.Helper()
+	restoreRenderDeps(t)
 	script := mockTypstCLI(t, pdf, exitCode)
-	t.Setenv(typstbin.EnvNoDownload, "1")
-	t.Setenv("PATH", filepath.Dir(script)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	renderResolveTypst = func() (string, func(), error) {
+		return script, func() {}, nil
+	}
 	return script
 }
 
@@ -136,7 +138,7 @@ func TestApplyPDFMetadata(t *testing.T) {
 }
 
 func TestRenderWithMockTypstAndMetadata(t *testing.T) {
-	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
+	withMockTypstResolver(t, testMetadataFixturePDF(), 0)
 	var out bytes.Buffer
 	err := Render(&out, Options{
 		Data:              map[string]any{"ok": true},
@@ -162,7 +164,7 @@ func TestRenderWithMockTypstAndMetadata(t *testing.T) {
 
 func TestRenderWithoutMetadataUsesRawTypstOutput(t *testing.T) {
 	rawPDF := testMetadataFixturePDF()
-	withMockTypstOnPath(t, rawPDF, 0)
+	withMockTypstResolver(t, rawPDF, 0)
 	var out bytes.Buffer
 	err := Render(&out, Options{
 		Data: map[string]any{"ok": true},
@@ -183,7 +185,7 @@ func TestRenderRejectsEscapingAssetPathsAndPropagatesErrors(t *testing.T) {
 		t.Fatalf("Render asset escape error = %v, want escapes work dir", err)
 	}
 
-	withMockTypstOnPath(t, nil, 2)
+	withMockTypstResolver(t, nil, 2)
 	err := Render(&bytes.Buffer{}, Options{
 		Data: map[string]any{"ok": true},
 	})
@@ -191,7 +193,7 @@ func TestRenderRejectsEscapingAssetPathsAndPropagatesErrors(t *testing.T) {
 		t.Fatalf("Render compile error = %v, want typst compile", err)
 	}
 
-	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
+	withMockTypstResolver(t, testMetadataFixturePDF(), 0)
 	err = Render(failingWriter{}, Options{
 		Data:        map[string]any{"ok": true},
 		PDFMetadata: PDFMetadata{Creator: "velocity.report v1.2.3"},
@@ -289,12 +291,12 @@ func TestRenderResolveAndMetadataErrors(t *testing.T) {
 		t.Fatalf("Render resolve error = %v, want resolve typst binary", err)
 	}
 
-	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
+	withMockTypstResolver(t, testMetadataFixturePDF(), 0)
 	if err := Render(&bytes.Buffer{}, Options{Data: map[string]any{"ok": true}}); err != nil {
 		t.Fatalf("Render with typst resolved from PATH: %v", err)
 	}
 
-	withMockTypstOnPath(t, []byte("%PDF-1.7\nnot-a-real-pdf\n"), 0)
+	withMockTypstResolver(t, []byte("%PDF-1.7\nnot-a-real-pdf\n"), 0)
 	err := Render(&bytes.Buffer{}, Options{
 		Data:        map[string]any{"ok": true},
 		PDFMetadata: PDFMetadata{Creator: "velocity.report v1.2.3"},
@@ -303,7 +305,7 @@ func TestRenderResolveAndMetadataErrors(t *testing.T) {
 		t.Fatalf("Render metadata error = %v, want apply pdf metadata", err)
 	}
 
-	withMockTypstOnPath(t, testMetadataFixturePDF(), 0)
+	withMockTypstResolver(t, testMetadataFixturePDF(), 0)
 	err = Render(&bytes.Buffer{}, Options{
 		Data:   map[string]any{"ok": true},
 		Assets: []Asset{{Name: ".", Data: []byte("x")}},

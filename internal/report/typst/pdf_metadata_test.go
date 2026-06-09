@@ -181,11 +181,11 @@ func TestApplyPDFMetadataPropagatesObjectReadAndUpdateErrors(t *testing.T) {
 
 	rootReadFailure := buildTestPDF(
 		[]string{
-			"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\n",
-			"2 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
-			"3 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+			"1 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n",
+			"2 0 obj\n<< /Creator (Typst 0.13.1) >>\nendobj\n",
+			"3 0 obj\n<< /Type /Catalog /Pages 1 0 R >>\n",
 		},
-		"<< /Size 4 /Root 1 0 R /Info 3 0 R >>",
+		"<< /Size 4 /Root 3 0 R /Info 2 0 R >>",
 	)
 	if _, err := applyPDFMetadata(rootReadFailure, PDFMetadata{Creator: "x"}); err == nil || !strings.Contains(err.Error(), "missing endobj") {
 		t.Fatalf("root read error = %v, want missing endobj", err)
