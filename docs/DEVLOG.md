@@ -27,8 +27,10 @@
 - Updated the build scripts and Dockerfile for ARM64 binary compilation and added a coverage check for branch-added internal Go files (#519).
 - Hardened the appliance runtime defaults, reasserted them after a cleanup pass, and aligned the CLI and operations docs with the unified `velocity` binary (#519).
 
-## June 6, 2026 - Serial race, homepage hero & build fixes
+## June 6, 2026 - Single-binary close-out, serial race & homepage hero
 
+- Enumerated the `velocity-ctl` sudoers grant to safe verbs instead of a wildcard, split the pcap-pulling command packages into the libpcap CI job so `Test Core` builds without headers, shortened the git SHA in the MOTD banners, and repointed moved-command docs plus asset-naming to the unified `velocity` (#519).
+- Closed out the single-binary transition: removed the transitional `velocity-ctl` shim (leaving `velocity-report` as the systemd alias) and added a read-only `velocity data sql` inspection subcommand in its place, keeping the `VERSION` marker for the binaries-only handoff (#519).
 - Fixed a data race in the radar serial event fanout: `runEventFanout` now holds the read lock across the non-blocking subscriber sends, so an `Unsubscribe` close can no longer race a send on a closed channel (caught by `-race` in `TestSerialPortManager_EventFanout_FullChannel`) (#518).
 - Fixed the public homepage hero by vendoring `three.core.js` alongside `three.module.js`: three 0.184.0 re-exports from the sibling core file, so the browser 404'd on it and the point-cloud scene never initialised (#521).
 - Shrank the homepage `stack.png` from ~3.4 MB to ~1 MB and extended the `pdf-stack-render` tool with page-border options and output scaling (#521).
@@ -39,10 +41,9 @@
 ## June 5, 2026 - Single `velocity` binary, versioned upgrades & Tailscale fixes
 
 - Hardened the path after the TLS layer came out: dropped a `CapabilityBoundingSet` that broke `sudo` and Tailscale, drove Tailscale enrolment through `Start` rather than `EditPrefs`, long-polled `/api/tailscale/status`, pointed `tailscale serve` at the actual `--listen` port, and fixed the image build's `qemu-aarch64-static` architecture check and a stale `pigen_work` container left from cleanup (#517).
-- Folded `velocity-report`, `velocity-ctl`, and the local-only `sweep` tool into one multi-call `velocity` binary that dispatches on `argv[0]` and a `serve | device | data | report | tune` namespace tree. `velocity-report` survives as the systemd-facing alias and `velocity-ctl` as a one-release deprecation shim that warns and forwards to `velocity device …` (#519).
+- Folded `velocity-report`, `velocity-ctl`, and the local-only `sweep` tool into one multi-call `velocity` binary that dispatches on `argv[0]` and a `serve | device | data | report | tune` namespace tree. `velocity-report` survives as the systemd-facing alias, and `velocity-ctl` was kept as a transitional shim forwarding to `velocity device …` (#519).
 - Reworked on-device upgrades into a versioned layout under `/opt/velocity-report/versions/<v>/` with `current`/`previous` symlinks and an atomic `renameat2` swap: migrations run on the new binary before the swap, the running build is verified through `GET /api/version`, three versions are retained, and rollback is now a single symlink flip rather than a copy.
 - Embedded the deployment config into the binary — tuning defaults, the LiDAR network profile, udev rules, and the Wi-Fi `wpa_supplicant` fallback now ship via `go:embed` and `velocity device install` — then trimmed `python3-serial`, `minicom`, `jq`, and `curl` from the image's apt surface and deleted the vestigial `02-velocity-python` stage.
-- Tightened the transitional `velocity-ctl` sudoers grant to enumerated safe verbs instead of a wildcard, split the pcap-pulling command packages into the libpcap CI job so `Test Core` builds without headers, shortened the git SHA in the MOTD banners, and cut `0.5.1-pre22`.
 
 ## June 4, 2026 - nginx & self-signed TLS removal
 
