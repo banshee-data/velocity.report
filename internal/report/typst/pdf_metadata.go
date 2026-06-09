@@ -430,7 +430,7 @@ func parsePDFInt(dict []byte, key string) (int, bool, error) {
 }
 
 func parsePDFRawValue(dict []byte, key, pattern string) (string, bool, error) {
-	re := regexp.MustCompile(`/` + regexp.QuoteMeta(key) + `\s+` + pattern)
+	re := regexp.MustCompile(`/` + regexp.QuoteMeta(key) + `\s+(` + pattern + `)`)
 	match := re.FindSubmatch(dict)
 	if len(match) == 0 {
 		return "", false, nil

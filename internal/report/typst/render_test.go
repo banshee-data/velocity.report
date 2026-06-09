@@ -58,6 +58,22 @@ func TestApplyPDFMetadata(t *testing.T) {
 	}
 }
 
+func TestParsePDFTrailerReferencesAndID(t *testing.T) {
+	trailer, err := parsePDFTrailer([]byte("<< /Size 5 /Root 1 0 R /Info 3 0 R /ID [<abc> <def>] >>"))
+	if err != nil {
+		t.Fatalf("parsePDFTrailer: %v", err)
+	}
+	if trailer.root != (pdfRef{number: 1, generation: 0}) {
+		t.Fatalf("root = %+v, want 1 0 R", trailer.root)
+	}
+	if trailer.info == nil || *trailer.info != (pdfRef{number: 3, generation: 0}) {
+		t.Fatalf("info = %+v, want 3 0 R", trailer.info)
+	}
+	if trailer.id != "[<abc> <def>]" {
+		t.Fatalf("id = %q, want [<abc> <def>]", trailer.id)
+	}
+}
+
 // TestRenderSampleFixture is the Phase 0 smoke test: it asserts that the
 // embedded templates compile against the bundled sample fixture and yield a
 // valid multi-page PDF. The test is skipped when the typst binary is not
