@@ -103,7 +103,11 @@ func validateExecutable(p string) error {
 func cacheDir() (string, error) {
 	root, err := os.UserCacheDir()
 	if err != nil || root == "" {
-		root = os.TempDir()
+		// No per-user cache dir available: fall back to a private, randomly
+		// named 0700 temp dir rather than a predictable os.TempDir path, which
+		// would reintroduce the symlink / path-swap exposure this helper exists
+		// to avoid.
+		return os.MkdirTemp("", "velocity-report-typst-")
 	}
 	dir := filepath.Join(root, "velocity-report", "typst")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -117,7 +121,12 @@ func cacheDir() (string, error) {
 // binary instead of trusting size alone.
 func isUsableBinary(dest string, size int64) bool {
 	fi, err := os.Stat(dest)
-	return err == nil && fi.Mode().IsRegular() && fi.Size() == size && fi.Mode()&0o111 != 0
+	if err != nil || !fi.Mode().IsRegular() || fi.Size() != size {
+		return false
+	}
+	// Windows does not represent the execute bit via mode bits (matches the
+	// guard in validateExecutable), so only require it off-Windows.
+	return runtime.GOOS == "windows" || fi.Mode()&0o111 != 0
 }
 
 // usableExecutable is like isUsableBinary but for cases where the expected size
@@ -125,7 +134,11 @@ func isUsableBinary(dest string, size int64) bool {
 // the execute bit set.
 func usableExecutable(dest string) bool {
 	fi, err := os.Stat(dest)
-	return err == nil && fi.Mode().IsRegular() && fi.Size() > 0 && fi.Mode()&0o111 != 0
+	if err != nil || !fi.Mode().IsRegular() || fi.Size() == 0 {
+		return false
+	}
+	// See isUsableBinary: skip the execute-bit check on Windows.
+	return runtime.GOOS == "windows" || fi.Mode()&0o111 != 0
 }
 
 // extractCached writes the embedded binary to a content-addressed file in the
