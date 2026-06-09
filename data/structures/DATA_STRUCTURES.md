@@ -18,10 +18,10 @@ point to the authoritative source files.
 
 ### SQLite database
 
-| Definition     | File                                                       | Description                                |
-| -------------- | ---------------------------------------------------------- | ------------------------------------------ |
-| Current schema | [`internal/db/schema.sql`](../../internal/db/schema.sql)   | 18 tables: radar, LiDAR, labelling, sweeps |
-| Migrations     | [`internal/db/migrations/`](../../internal/db/migrations/) | Incremental schema evolution               |
+| Definition     | File                                                       | Description                               |
+| -------------- | ---------------------------------------------------------- | ----------------------------------------- |
+| Current schema | [`internal/db/schema.sql`](../../internal/db/schema.sql)   | Radar, LiDAR, labelling, and sweep tables |
+| Migrations     | [`internal/db/migrations/`](../../internal/db/migrations/) | Incremental schema evolution              |
 
 ### Configuration
 
@@ -63,7 +63,7 @@ Contributions welcome.
       (sweep-overnight, velocity-jitter, quality-tuning).
       Source: [`config/sweep-*.json`](../../config/)
 
-- [ ] **SQLite schema reference**: table-by-table documentation of all 18 tables,
+- [ ] **SQLite schema reference**: table-by-table documentation of every table,
       column semantics, computed columns, triggers, and index rationale.
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
 

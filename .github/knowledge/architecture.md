@@ -17,7 +17,7 @@ Canonical reference for the velocity.report system architecture. For the full de
 
 | Layer      | Technology                    | Notes                                        |
 | ---------- | ----------------------------- | -------------------------------------------- |
-| Server     | Go 1.25+                      | stdlib `net/http`, `database/sql`            |
+| Server     | Go 1.26+                      | stdlib `net/http`, `database/sql`            |
 | Database   | SQLite 3.51.2 (modernc.org)   | Pure-Go driver, WAL mode                     |
 | Reports    | Go, Typst                     | Direct DB query, SVG charts, Typst templates |
 | Frontend   | Svelte 5, TypeScript, Vite 7+ | pnpm, ESLint                                 |

@@ -181,7 +181,7 @@ Swift/SwiftUI/Metal app (macOS 14+, M1+). gRPC client streaming `FrameBundle` pr
 
 ## Agents
 
-Seven named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
+The named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
 
 | Agent      | Domain                                    | Class     | File                                                 |
 | ---------- | ----------------------------------------- | --------- | ---------------------------------------------------- |
