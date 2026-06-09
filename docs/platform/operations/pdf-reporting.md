@@ -112,8 +112,9 @@ conversion pass is needed.
 - `report.GeneratePDF()` is the shared entry point used by the CLI and HTTP API.
 - Report generation remains local-first: charts, data loading, and final PDF
   compilation all happen on-device or on the development host.
-- Report generation never downloads map data. OpenStreetMap tiles, Nominatim
-  lookups, and Overpass SVG generation are optional editor actions that require
-  explicit per-session confirmation before any external request is made.
+- Report generation never downloads map data. The web editor can optionally
+  request OpenStreetMap tiles after explicit per-session confirmation and saves
+  that tile snapshot into `site.map_svg_data`; users who do not want the app to
+  make external map requests should use the SVG upload path.
 - The source ZIP is part of the public contract of the report pipeline; treat
   it as a first-class artefact, not a debug afterthought.
