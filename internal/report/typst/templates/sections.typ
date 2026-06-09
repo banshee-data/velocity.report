@@ -361,11 +361,17 @@
 // Reference shape: Bucket | t1 Count | t1 Percent | t2 Count | t2 Percent | Delta
 #let velocity-distribution-parts(data) = {
   let units = data.period.units
-  let h1 = data.histogram.buckets
+  let hist = data.at("histogram", default: none)
+  let h1-raw = if hist == none { none } else { hist.at("buckets", default: none) }
+  let h1 = if h1-raw == none { () } else { h1-raw }
   if h1.len() == 0 {
     none
   } else {
-    let h2 = if data.compare != none { data.compare.histogram.buckets } else { () }
+    let h2 = if data.compare != none {
+      let compare-hist = data.compare.at("histogram", default: none)
+      let h2-raw = if compare-hist == none { none } else { compare-hist.at("buckets", default: none) }
+      if h2-raw == none { () } else { h2-raw }
+    } else { () }
     // Build a label-keyed lookup for t2 buckets so unmatched labels still appear.
     let lookup-t2 = (:)
     if data.compare != none {
