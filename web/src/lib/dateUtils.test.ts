@@ -76,14 +76,12 @@ describe('tomorrowLocal', () => {
 	});
 
 	it('uses the current moment when called without arguments', () => {
-		const before = Date.now();
-		const result = tomorrowLocal();
-		const after = Date.now();
-		const dayMs = 24 * 60 * 60 * 1000;
-		// result.getTime() should be roughly 24h ahead of "now". Allow the
-		// 1-second slop between `before` and `after`.
-		expect(result.getTime()).toBeGreaterThanOrEqual(before + dayMs - 1000);
-		expect(result.getTime()).toBeLessThanOrEqual(after + dayMs + 1000);
+		// Assert the resulting calendar date, not a ~24h delta: a local day is
+		// 23h or 25h across a DST transition, which made the delta assertion
+		// timezone/date-dependent and potentially flaky.
+		const now = new Date();
+		const expected = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+		expect(isoDate(tomorrowLocal())).toBe(isoDate(expected));
 	});
 });
 
