@@ -131,7 +131,7 @@ describe('api', () => {
 				json: async () => serverResponse
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.metrics).toHaveLength(1);
 			expect(result.metrics[0]).toEqual({
@@ -179,7 +179,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [] })
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -191,7 +191,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [], histogram: null })
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -203,7 +203,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [], histogram: false })
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -215,7 +215,7 @@ describe('api', () => {
 				json: async () => ({ metrics: null })
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -227,7 +227,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [], histogram: undefined })
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -242,7 +242,7 @@ describe('api', () => {
 				})
 			});
 
-			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
+			const result = await getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC');
 
 			expect(result.cosineCorrection).toEqual({ angles: [1, 2], applied: true });
 		});
@@ -253,7 +253,9 @@ describe('api', () => {
 				status: 503
 			});
 
-			await expect(getRadarStats('2024-01-01', '2024-01-02', 'UTC')).rejects.toThrow(
+			await expect(
+				getRadarStats('2024-01-01T00:00:00Z', '2024-01-02T23:59:59Z', 'UTC')
+			).rejects.toThrow(
 				'Could not load radar stats (HTTP 503 — server error, check the service is running)'
 			);
 		});
