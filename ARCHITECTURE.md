@@ -651,6 +651,16 @@ changes over time. Key aspects:
 - **Retroactive corrections**: Changing a period's angle automatically affects all reports querying that time range.
 - **Comparison report accuracy**: When comparing periods with different configurations, each period's data is corrected independently.
 
+**Dates and timezones**:
+
+All timestamps are stored as **Unix epoch seconds in UTC** (`write_timestamp`,
+`*_unix` columns) — timezone-agnostic by definition, so the schema needs no
+timezone column and range queries are plain integer comparisons. Timezone is an
+edge concern: query APIs take ISO 8601 instants, report generation takes
+`YYYY-MM-DD`, and `tz` is display-only. The full contract for the database, the
+HTTP API, and the frontend is the canonical
+[dates and timezones design](docs/radar/architecture/dates-and-timezones.md).
+
 **Migrations**: Located in `/internal/db/migrations/`, managed by Go server
 
 **Access Patterns**:
@@ -818,8 +828,12 @@ Synthetic Mode (Testing):
 
 **Endpoints**:
 
+Date inputs follow the [dates and timezones design](docs/radar/architecture/dates-and-timezones.md):
+query endpoints take ISO 8601 instants and treat `tz` as display-only.
+
 ```
-GET /api/radar_stats?start=<unix>&end=<unix>&group=<15m|1h|24h>&source=<radar_objects|radar_data_transits>
+GET /api/radar_stats?start=<ISO8601>&end=<ISO8601>&tz=<IANA>&group=<15m|1h|24h>&source=<radar_objects|radar_data_transits>
+# start/end are ISO 8601 instants (e.g. 2026-06-09T00:00:00-07:00); tz is a display-only hint for axis/labels
 Response: {
   "metrics": [
     {

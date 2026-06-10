@@ -302,11 +302,14 @@ sqlite3 sensor_data.db "SELECT MIN(timestamp), MAX(timestamp), COUNT(*) FROM rad
 # Check if radar_data_transits table has data
 sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data_transits;"
 
-# Test API with broader date range
-curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=all&source=radar_objects"
+# Test API for a specific day in Pacific time (start/end are ISO 8601 instants)
+curl "http://localhost:8080/api/radar_stats?start=2025-01-01T00:00:00-08:00&end=2025-01-01T23:59:59-08:00&tz=America/Los_Angeles&group=1h"
 
-# Check timezone conversion
-curl "http://localhost:8080/api/radar_stats?start=1717200000&end=1717300000&group=1h&timezone=UTC"
+# Same day in UTC to confirm the boundaries
+curl "http://localhost:8080/api/radar_stats?start=2025-01-01T00:00:00Z&end=2025-01-01T23:59:59Z&tz=UTC&group=1h"
+
+# Show everything: use a wide instant range (tz is only a display hint)
+curl "http://localhost:8080/api/radar_stats?start=2000-01-01T00:00:00Z&end=2099-12-31T23:59:59Z&tz=UTC&group=all&source=radar_objects"
 ```
 
 ---
@@ -402,7 +405,11 @@ curl http://localhost:8080/api/config
 
 // 2. Data format mismatch
 // Check API response format matches chart expectations
-console.log(await fetch("/api/radar_stats?start=0&end=9999999999&group=1h").then((r) => r.json()));
+console.log(
+  await fetch(
+    "/api/radar_stats?start=2000-01-01T00:00:00Z&end=2099-12-31T23:59:59Z&tz=UTC&group=1h",
+  ).then((r) => r.json()),
+);
 
 // 3. Async data not loading
 // Ensure component waits for data before rendering
@@ -986,7 +993,7 @@ go tool pprof heap.prof
 
 ```bash
 # Check API response time
-time curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&compute_histogram=true"
+time curl "http://localhost:8080/api/radar_stats?start=2000-01-01T00:00:00Z&end=2099-12-31T23:59:59Z&tz=UTC&group=1h&compute_histogram=true"
 
 # Check Typst compilation time
 time typst compile report.typ report.pdf
