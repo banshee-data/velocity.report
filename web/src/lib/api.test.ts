@@ -5,7 +5,9 @@ import {
 	createSite,
 	deleteReport,
 	deleteSite,
+	disableTailscale,
 	downloadReport,
+	enableTailscale,
 	generateReport,
 	getActiveTracks,
 	getBackgroundGrid,
@@ -18,6 +20,7 @@ import {
 	getReportsForSite,
 	getSite,
 	getSites,
+	getTailscaleStatus,
 	getTimeline,
 	getTrackById,
 	getTrackHistory,
@@ -128,7 +131,7 @@ describe('api', () => {
 				json: async () => serverResponse
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.metrics).toHaveLength(1);
 			expect(result.metrics[0]).toEqual({
@@ -150,21 +153,22 @@ describe('api', () => {
 			});
 
 			await getRadarStats(
-				1704067200,
-				1704153600,
+				'2024-01-01T00:00:00Z',
+				'2024-01-02T23:59:59Z',
+				'America/New_York',
 				'1h',
 				'mph',
-				'America/New_York',
 				'radar_data',
 				42
 			);
 
 			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
-			expect(callUrl).toContain('start=1704067200');
-			expect(callUrl).toContain('end=1704153600');
+			// start/end are ISO 8601 instants; ':' encodes to %3A in the query string
+			expect(callUrl).toContain('start=2024-01-01T00%3A00%3A00Z');
+			expect(callUrl).toContain('end=2024-01-02T23%3A59%3A59Z');
 			expect(callUrl).toContain('group=1h');
 			expect(callUrl).toContain('units=mph');
-			expect(callUrl).toContain('timezone=America%2FNew_York');
+			expect(callUrl).toContain('tz=America%2FNew_York');
 			expect(callUrl).toContain('source=radar_data');
 			expect(callUrl).toContain('site_id=42');
 		});
@@ -175,7 +179,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [] })
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -187,7 +191,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [], histogram: null })
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -199,7 +203,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [], histogram: false })
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -211,7 +215,7 @@ describe('api', () => {
 				json: async () => ({ metrics: null })
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -223,7 +227,7 @@ describe('api', () => {
 				json: async () => ({ metrics: [], histogram: undefined })
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.metrics).toEqual([]);
 			expect(result.histogram).toBeUndefined();
@@ -238,7 +242,7 @@ describe('api', () => {
 				})
 			});
 
-			const result = await getRadarStats(1704067200, 1704153600);
+			const result = await getRadarStats('2024-01-01', '2024-01-02', 'UTC');
 
 			expect(result.cosineCorrection).toEqual({ angles: [1, 2], applied: true });
 		});
@@ -249,7 +253,7 @@ describe('api', () => {
 				status: 503
 			});
 
-			await expect(getRadarStats(1704067200, 1704153600)).rejects.toThrow(
+			await expect(getRadarStats('2024-01-01', '2024-01-02', 'UTC')).rejects.toThrow(
 				'Could not load radar stats (HTTP 503 — server error, check the service is running)'
 			);
 		});
@@ -3236,6 +3240,78 @@ describe('api', () => {
 						auto_correct_baud: false
 					})
 				).rejects.toThrow('Failed to test serial port: Bad request');
+			});
+		});
+
+		describe('tailscale', () => {
+			it('getTailscaleStatus returns status and builds long-poll query', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ state: 'ready', version: 7 })
+				});
+
+				const status = await getTailscaleStatus({ wait: 30, since: 5 });
+
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toContain('/api/tailscale/status');
+				expect(callUrl).toContain('wait=30');
+				expect(callUrl).toContain('v=5');
+				expect(status.state).toBe('ready');
+			});
+
+			it('getTailscaleStatus omits the query string when no options are given', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ state: 'disabled' })
+				});
+
+				await getTailscaleStatus();
+
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toMatch(/\/api\/tailscale\/status$/);
+			});
+
+			it('enableTailscale POSTs and returns status', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ state: 'starting' })
+				});
+
+				const status = await enableTailscale();
+				expect(status.state).toBe('starting');
+				expect((global.fetch as jest.Mock).mock.calls[0][1]).toEqual({ method: 'POST' });
+			});
+
+			it('disableTailscale POSTs and returns status', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ state: 'disabled' })
+				});
+
+				const status = await disableTailscale();
+				expect(status.state).toBe('disabled');
+			});
+
+			it('surfaces the server error message on failure', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					json: async () => ({ error: 'tailscaled not running' })
+				});
+
+				await expect(enableTailscale()).rejects.toThrow('tailscaled not running');
+			});
+
+			it('falls back to an HTTP status message when the error body has no JSON', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 503,
+					json: async () => {
+						throw new Error('not json');
+					}
+				});
+
+				await expect(getTailscaleStatus()).rejects.toThrow('HTTP 503');
 			});
 		});
 	});

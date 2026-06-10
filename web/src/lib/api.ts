@@ -151,22 +151,25 @@ export async function getEvents(units?: string, timezone?: string): Promise<Even
 	return res.json();
 }
 
-// getRadarStats now requires start and end (unix seconds), and optional group, units, timezone
+// getRadarStats takes start/end as ISO 8601 instants (e.g.
+// 2026-06-09T00:00:00-07:00) — the single date contract shared with
+// /api/charts/*, so the same window is queried for the Vehicle Count card and
+// the chart. `tz` is a display-only hint for response/axis formatting.
 export async function getRadarStats(
-	start: number,
-	end: number,
+	start: string,
+	end: string,
+	tz: string,
 	group?: string,
 	units?: string,
-	timezone?: string,
 	source?: string,
 	siteId?: number | null
 ): Promise<RadarStatsResponse> {
 	const url = new URL(`${API_BASE}/radar_stats`, window.location.origin);
-	url.searchParams.append('start', start.toString());
-	url.searchParams.append('end', end.toString());
+	url.searchParams.append('start', start);
+	url.searchParams.append('end', end);
+	url.searchParams.append('tz', tz);
 	if (group) url.searchParams.append('group', group);
 	if (units) url.searchParams.append('units', units);
-	if (timezone) url.searchParams.append('timezone', timezone);
 	if (source) url.searchParams.append('source', source);
 	if (siteId != null) url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);

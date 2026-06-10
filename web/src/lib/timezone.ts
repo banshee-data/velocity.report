@@ -74,7 +74,34 @@ export function setStoredTimezone(timezone: Timezone): void {
 
 export function getDisplayTimezone(defaultTimezone: string): Timezone {
 	const stored = getStoredTimezone();
-	return stored || (defaultTimezone as Timezone);
+	if (stored) return stored;
+	if (defaultTimezone && defaultTimezone !== 'UTC') return defaultTimezone as Timezone;
+
+	// Server default is UTC and the user has no stored preference: prefer the
+	// browser's IANA zone when it is in our allowlist. This makes the date
+	// picker, Vehicle Count card, and chart agree on "today" for first-time
+	// visitors whose data crosses the UTC day boundary in their local evening.
+	const browser = browserTimezone();
+	if (browser && AVAILABLE_TIMEZONES.some((t) => t.value === browser)) {
+		return browser as Timezone;
+	}
+	return (defaultTimezone || 'UTC') as Timezone;
+}
+
+function browserTimezone(): string | null {
+	// Skip the Intl probe in SSR / non-browser environments. Otherwise Node's
+	// Intl resolves to the server's process TZ, which is almost never what
+	// the eventual browser client will see. We probe `globalThis.window`
+	// instead of `typeof window` because jsdom-based tests can drop the
+	// window global without the `typeof` keyword reporting it as undefined.
+	const g = typeof globalThis !== 'undefined' ? (globalThis as { window?: unknown }) : null;
+	if (!g || g.window === undefined) return null;
+	if (typeof Intl === 'undefined' || typeof Intl.DateTimeFormat !== 'function') return null;
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+	} catch {
+		return null;
+	}
 }
 
 export function getTimezoneLabel(timezone: Timezone): string {
