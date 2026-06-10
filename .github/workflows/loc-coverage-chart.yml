@@ -57,21 +57,21 @@ jobs:
       - name: Stage coverage files
         if: github.event_name == 'workflow_run'
         run: |
-          mkdir -p web/coverage tools/visualiser-macos
+          mkdir -p coverage tools/visualiser-macos
           # download-artifact preserves each artifact's original upload path
           # under artifacts/<artifact-name>/ (e.g. the web LCOV lands at
-          # artifacts/coverage-web/web/coverage/lcov.info), so locate each file
-          # by name and copy it to the canonical path the Make target expects.
+          # artifacts/coverage-web/coverage/lcov.info), so locate each file by
+          # name and copy it to the canonical path the Make target expects.
           go_cov=$(find artifacts -type f -name coverage.out | head -n1 || true)
           web_cov=$(find artifacts -type f -name lcov.info | head -n1 || true)
           mac_cov=$(find artifacts -type f -name coverage.info | head -n1 || true)
           if [ -n "$go_cov" ]; then cp "$go_cov" coverage.out; \
             else echo "no go coverage artifact found"; fi
-          if [ -n "$web_cov" ]; then cp "$web_cov" web/coverage/lcov.info; \
+          if [ -n "$web_cov" ]; then cp "$web_cov" coverage/lcov.info; \
             else echo "no web coverage artifact found"; fi
           if [ -n "$mac_cov" ]; then cp "$mac_cov" tools/visualiser-macos/coverage.info; \
             else echo "no mac coverage artifact found"; fi
-          ls -la coverage.out web/coverage/lcov.info \
+          ls -la coverage.out coverage/lcov.info \
                  tools/visualiser-macos/coverage.info 2>/dev/null || true
 
       - name: Generate chart

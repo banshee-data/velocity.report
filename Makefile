@@ -1162,9 +1162,11 @@ coverage: test-go-cov test-web-cov test-mac-cov
 	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
 
 # Render the LOC + coverage chart SVG into dist/loc-coverage.svg.
-# Reads coverage.out, $(WEB_DIR)/coverage/lcov.info, and
-# $(MAC_DIR)/coverage.info if present; any missing file degrades that bucket
-# to un-hatched with a stderr warning. Used by .github/workflows/loc-coverage-chart.yml.
+# Reads coverage.out, coverage/lcov.info, and $(MAC_DIR)/coverage.info if
+# present; any missing file degrades that bucket to un-hatched with a stderr
+# warning. The web LCOV lives at coverage/lcov.info because jest's rootDir is
+# the repo root (web/jest.config.js), so `make test-web-cov` writes there, not
+# under web/. Used by .github/workflows/loc-coverage-chart.yml.
 loc-coverage-chart:
 	@command -v cloc >/dev/null 2>&1 || { \
 	  echo "cloc not found. Install with: brew install cloc / apt-get install cloc"; \
@@ -1172,7 +1174,7 @@ loc-coverage-chart:
 	@mkdir -p dist
 	@python3 scripts/loc-coverage-chart.py \
 	  --go-coverage coverage.out \
-	  --web-coverage $(WEB_DIR)/coverage/lcov.info \
+	  --web-coverage coverage/lcov.info \
 	  --mac-coverage $(MAC_DIR)/coverage.info \
 	  --output dist/loc-coverage.svg
 	@echo "Wrote dist/loc-coverage.svg"
