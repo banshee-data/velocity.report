@@ -25,8 +25,9 @@ src=$(cd "$(dirname "$src")" && pwd)/$(basename "$src")
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-# Stash any local changes so checkout is clean (CI working tree has the
-# generated SVG, build artefacts, etc.).
+# Operate on the stats branch in a throwaway worktree rather than switching
+# branches here: the CI working tree is dirty (generated SVG, build artefacts,
+# coverage files) and we must not disturb it.
 work_tree=$(mktemp -d)
 trap 'rm -rf "$work_tree"' EXIT
 
@@ -49,6 +50,9 @@ if git -C "$work_tree" diff --cached --quiet; then
 fi
 
 git -C "$work_tree" commit -m "stats: refresh loc-coverage chart"
-git -C "$work_tree" push origin stats
+# --force-with-lease: stats carries only this generated asset, so we rebuild
+# it from origin/stats each run and overwrite. The lease aborts if the remote
+# moved since our fetch rather than clobbering an unexpected push.
+git -C "$work_tree" push --force-with-lease origin stats
 git worktree remove --force "$work_tree"
 echo "stats: pushed updated loc-coverage.svg"
