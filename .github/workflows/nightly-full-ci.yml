@@ -145,18 +145,10 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
-      - name: Build web stub for embed
-        run: ./scripts/ensure-web-stub.sh
-
-      - name: Build offline docs stub for embed
-        run: ./scripts/ensure-docs-stub.sh
-
       - name: Run Go tests with coverage
-        run: |
-          go test -tags=pcap -coverprofile=coverage.out -covermode=atomic \
-            $(go list ./... | grep -v '/internal/api')
-          # API tests need the minimal TeX tree which is heavy to set up here;
-          # the integration job in go-ci.yml already publishes API coverage.
+        # Canonical target owns the pcap tag, the internal/api exclusion, and
+        # the web/docs embed stubs, so the same command runs locally.
+        run: make test-go-cov-pcap
 
       - name: Upload Go coverage artifact
         if: always()

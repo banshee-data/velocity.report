@@ -87,6 +87,7 @@ help:
 	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
+	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
 	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
@@ -1016,7 +1017,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1047,6 +1048,17 @@ test-go-cov:
 	@env -u GOROOT go test ./... -coverprofile=coverage.out -covermode=atomic
 	@env -u GOROOT go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
+
+# Go coverage profile used by the nightly LOC + coverage chart. Builds with
+# the pcap tag and excludes internal/api (whose tests need the heavy TeX tree;
+# go-ci.yml's integration job publishes API coverage separately). Emits a raw
+# coverage.out profile only — no HTML. Runnable locally for CI parity.
+test-go-cov-pcap:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@echo "Running Go tests with coverage (pcap tag, excluding internal/api)..."
+	@env -u GOROOT go test -tags=pcap -coverprofile=coverage.out -covermode=atomic \
+		$$(go list ./... | grep -v '/internal/api')
 
 # Show coverage summary for cmd/ and internal/ packages
 test-go-coverage-summary:
