@@ -722,6 +722,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_list_matrix_fields.py \
+	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
 	scripts/test_sqlite_erd.py \
