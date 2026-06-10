@@ -30,6 +30,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # For workflow_run, github.sha points at the default branch tip, not
+          # the commit that produced the coverage artifacts. Pin to the
+          # triggering run's head_sha so the rendering script and the coverage
+          # data describe the same commit. workflow_dispatch falls back to the
+          # selected ref (the checkout default).
+          ref: >-
+            ${{ github.event_name == 'workflow_run'
+                && github.event.workflow_run.head_sha
+                || github.ref }}
 
       - name: Install cloc
         run: sudo apt-get update && sudo apt-get install -y cloc
@@ -48,26 +58,26 @@ jobs:
         if: github.event_name == 'workflow_run'
         run: |
           mkdir -p web/coverage tools/visualiser-macos
-          if [ -f artifacts/coverage-go/coverage.out ]; then
-            cp artifacts/coverage-go/coverage.out coverage.out
-          fi
-          if [ -f artifacts/coverage-web/lcov.info ]; then
-            cp artifacts/coverage-web/lcov.info web/coverage/lcov.info
-          fi
-          if [ -f artifacts/coverage-mac/coverage.info ]; then
-            cp artifacts/coverage-mac/coverage.info tools/visualiser-macos/coverage.info
-          fi
+          # download-artifact preserves each artifact's original upload path
+          # under artifacts/<artifact-name>/ (e.g. the web LCOV lands at
+          # artifacts/coverage-web/web/coverage/lcov.info), so locate each file
+          # by name and copy it to the canonical path the Make target expects.
+          go_cov=$(find artifacts -type f -name coverage.out | head -n1 || true)
+          web_cov=$(find artifacts -type f -name lcov.info | head -n1 || true)
+          mac_cov=$(find artifacts -type f -name coverage.info | head -n1 || true)
+          if [ -n "$go_cov" ]; then cp "$go_cov" coverage.out; \
+            else echo "no go coverage artifact found"; fi
+          if [ -n "$web_cov" ]; then cp "$web_cov" web/coverage/lcov.info; \
+            else echo "no web coverage artifact found"; fi
+          if [ -n "$mac_cov" ]; then cp "$mac_cov" tools/visualiser-macos/coverage.info; \
+            else echo "no mac coverage artifact found"; fi
           ls -la coverage.out web/coverage/lcov.info \
                  tools/visualiser-macos/coverage.info 2>/dev/null || true
 
       - name: Generate chart
-        run: |
-          mkdir -p dist
-          python3 scripts/loc-coverage-chart.py \
-            --go-coverage coverage.out \
-            --web-coverage web/coverage/lcov.info \
-            --mac-coverage tools/visualiser-macos/coverage.info \
-            --output dist/loc-coverage.svg
+        # Delegates to the canonical Make target so CI and local runs share one
+        # code path (paths/defaults owned by the Makefile).
+        run: make loc-coverage-chart
 
       - name: Upload generated chart as workflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
