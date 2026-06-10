@@ -29,6 +29,36 @@ def test_release_asset_patterns_accept_single_binary_and_legacy_names():
     assert mac.match("velocity-0.5.1-pre22-darwin-arm64")
     assert linux.match("velocity-report-0.5.0-linux-arm64")
     assert mac.match("velocity-report-0.5.0-darwin-arm64")
+    assert linux.match("velocity-report-linux-arm64")
+    assert linux.match("velocity-report-linux-arm64_0.5.0")
+    assert mac.match("velocity-report-mac-arm64")
+    assert mac.match("velocity-report-mac-arm64_0.5.0")
+
+
+def test_pick_release_accepts_v050_stable_asset_name_variant():
+    mod = load_update_release_json_module()
+
+    releases = [
+        {
+            "tag_name": "v0.5.0",
+            "draft": False,
+            "prerelease": False,
+            "assets": [{"name": "velocity-report-linux-arm64_0.5.0"}],
+        },
+        {
+            "tag_name": "v0.4.0",
+            "draft": False,
+            "prerelease": False,
+            "assets": [{"name": "velocity-report-linux-arm64"}],
+        },
+    ]
+
+    release, asset = mod.pick_release(
+        releases, "stable", mod.PLATFORM_ASSET_RE["linux_arm64"]
+    )
+
+    assert release["tag_name"] == "v0.5.0"
+    assert asset["name"] == "velocity-report-linux-arm64_0.5.0"
 
 
 def test_image_binary_build_paths_use_single_velocity_artifact():

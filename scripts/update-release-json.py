@@ -79,13 +79,26 @@ PRETTIER_BIN = REPO_ROOT / "web" / "node_modules" / ".bin" / "prettier"
 
 GITHUB_API = f"https://api.github.com/repos/{REPO}"
 
-# Asset-name patterns, anchored to filename (not full URL). Each platform picks
-# the first asset in a release whose name matches.
+# Asset-name patterns, anchored to filename (not full URL). Release asset names
+# have drifted across tags: some put the version before the OS suffix, some use
+# an underscore suffix after the arch, and macOS has shipped as both
+# darwin-arm64 and mac-arm64.
+# TODO: Drop the legacy v0.5.0-era binary name variants once v0.5.1 has landed
+# and this updater no longer needs to look back across both naming schemes.
+ASSET_VERSION_FRAGMENT = r"[0-9][0-9A-Za-z.\-]*"
+
+
+def build_binary_asset_pattern(*os_names: str) -> re.Pattern[str]:
+    os_fragment = "|".join(re.escape(name) for name in os_names)
+    return re.compile(
+        rf"^velocity(?:-report)?(?:-{ASSET_VERSION_FRAGMENT})?-(?:{os_fragment})-arm64(?:_{ASSET_VERSION_FRAGMENT})?$"
+    )
+
+
+# Each platform picks the first asset in a release whose name matches.
 PLATFORM_ASSET_RE: dict[str, re.Pattern[str]] = {
-    # The single multi-call binary ships as velocity-<v>-<os>-arm64. The pattern
-    # also still matches legacy velocity-report-<v>-... assets for older tags.
-    "linux_arm64": re.compile(r"^velocity-.+-linux-arm64$"),
-    "mac_arm64": re.compile(r"^velocity-.+-darwin-arm64$"),
+    "linux_arm64": build_binary_asset_pattern("linux"),
+    "mac_arm64": build_binary_asset_pattern("darwin", "mac"),
     "visualiser": re.compile(r"^VelocityVisualiser-.+\.dmg$"),
     "rpi_image": re.compile(r"^velocity-report.*\.img\.xz$"),
 }
