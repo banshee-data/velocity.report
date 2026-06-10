@@ -43,11 +43,11 @@ LANGUAGE_TO_BUCKET = {
 
 # Colours sampled from the attached mock.
 COLOURS = {
-    "js":       "#ff4fb8",
-    "go":       "#7fdc2a",
-    "mac":      "#e7b27a",
+    "js": "#ff4fb8",
+    "go": "#7fdc2a",
+    "mac": "#e7b27a",
     "markdown": "#5aa6e8",
-    "scripts":  "#b4b85a",
+    "scripts": "#b4b85a",
 }
 HATCH_COLOUR = "#d72638"
 OUTLINE = "#000000"
@@ -140,8 +140,10 @@ def run_cloc(repo_root: Path) -> dict[str, int]:
 def parse_go_coverage(path: Path) -> tuple[int, int]:
     """Return (lines_hit, lines_found) approximated from Go statement counts."""
     if not path.exists():
-        print(f"warning: {path} not found; go bucket will render un-hatched.",
-              file=sys.stderr)
+        print(
+            f"warning: {path} not found; go bucket will render un-hatched.",
+            file=sys.stderr,
+        )
         return (0, 0)
     hit = found = 0
     with path.open() as fh:
@@ -165,8 +167,10 @@ def parse_go_coverage(path: Path) -> tuple[int, int]:
 def parse_lcov(path: Path, label: str) -> tuple[int, int]:
     """Return (lines_hit, lines_found) from a standard LCOV file."""
     if not path.exists():
-        print(f"warning: {path} not found; {label} bucket will render un-hatched.",
-              file=sys.stderr)
+        print(
+            f"warning: {path} not found; {label} bucket will render un-hatched.",
+            file=sys.stderr,
+        )
         return (0, 0)
     hit = found = 0
     with path.open() as fh:
@@ -213,9 +217,7 @@ CHART_Y = 40
 CHART_W = 576
 BAR_H = 44
 BAR_GAP = 12
-LABEL_FONT = (
-    "'Atkinson Hyperlegible', 'Helvetica Neue', Arial, sans-serif"
-)
+LABEL_FONT = "'Atkinson Hyperlegible', 'Helvetica Neue', Arial, sans-serif"
 
 
 def fmt_pct(numerator: int, denominator: int) -> str:
@@ -228,9 +230,16 @@ def label_for(bucket: str, loc: int, total: int) -> str:
     return f"{bucket} ({fmt_pct(loc, total)})"
 
 
-def svg_text(x: float, y: float, text: str, *,
-             anchor: str = "start", weight: str = "600",
-             size: int = 14, fill: str = TEXT) -> str:
+def svg_text(
+    x: float,
+    y: float,
+    text: str,
+    *,
+    anchor: str = "start",
+    weight: str = "600",
+    size: int = 14,
+    fill: str = TEXT,
+) -> str:
     return (
         f'<text x="{x:.1f}" y="{y:.1f}" '
         f'font-family="{LABEL_FONT}" font-size="{size}" font-weight="{weight}" '
@@ -238,17 +247,30 @@ def svg_text(x: float, y: float, text: str, *,
     )
 
 
-def svg_rect(x: float, y: float, w: float, h: float, fill: str,
-             stroke: str = OUTLINE, stroke_width: float = 2.0) -> str:
+def svg_rect(
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    fill: str,
+    stroke: str = OUTLINE,
+    stroke_width: float = 2.0,
+) -> str:
     return (
         f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
         f'fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}"/>'
     )
 
 
-def emit_segment(x: float, y: float, w: float, h: float,
-                 fill: str, hatch_id: str | None,
-                 covered_fraction: float) -> str:
+def emit_segment(
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    fill: str,
+    hatch_id: str | None,
+    covered_fraction: float,
+) -> str:
     """Solid covered region on the left, hatched uncovered on the right."""
     parts: list[str] = []
     if hatch_id is None or covered_fraction >= 1.0:
@@ -294,21 +316,25 @@ def render(buckets: dict[str, BucketStats]) -> str:
     )
     # Hatch pattern (diagonal red lines on white).
     parts.append(
-        '<defs>'
+        "<defs>"
         '<pattern id="hatch" patternUnits="userSpaceOnUse" '
         'width="8" height="8" patternTransform="rotate(45)">'
         '<rect width="8" height="8" fill="#ffffff"/>'
         f'<line x1="0" y1="0" x2="0" y2="8" stroke="{HATCH_COLOUR}" '
         'stroke-width="3"/>'
-        '</pattern>'
-        '</defs>'
+        "</pattern>"
+        "</defs>"
     )
     # Title + caption.
-    parts.append(svg_text(
-        CHART_X, 22,
-        "Lines of code · test coverage shown as hatched (uncovered)",
-        size=14, weight="700",
-    ))
+    parts.append(
+        svg_text(
+            CHART_X,
+            22,
+            "Lines of code · test coverage shown as hatched (uncovered)",
+            size=14,
+            weight="700",
+        )
+    )
 
     # Top bar: js | go | mac.
     cursor_x = CHART_X
@@ -318,65 +344,114 @@ def render(buckets: dict[str, BucketStats]) -> str:
         if b.code_loc == 0:
             continue
         seg_w = to_width(b.code_loc)
-        parts.append(emit_segment(
-            cursor_x, top_y, seg_w, BAR_H,
-            COLOURS[bucket],
-            "hatch" if b.has_coverage else None,
-            b.covered_fraction if b.has_coverage else 1.0,
-        ))
+        parts.append(
+            emit_segment(
+                cursor_x,
+                top_y,
+                seg_w,
+                BAR_H,
+                COLOURS[bucket],
+                "hatch" if b.has_coverage else None,
+                b.covered_fraction if b.has_coverage else 1.0,
+            )
+        )
         # Label: inside if there is room, else above.
         text = label_for(bucket, b.code_loc, total_loc)
         if seg_w >= 60:
-            parts.append(svg_text(
-                cursor_x + seg_w / 2, top_y + BAR_H / 2 + 5,
-                text, anchor="middle", size=14,
-            ))
+            parts.append(
+                svg_text(
+                    cursor_x + seg_w / 2,
+                    top_y + BAR_H / 2 + 5,
+                    text,
+                    anchor="middle",
+                    size=14,
+                )
+            )
         else:
-            parts.append(svg_text(
-                cursor_x + seg_w / 2, top_y - 4,
-                text, anchor="middle", size=12,
-            ))
+            parts.append(
+                svg_text(
+                    cursor_x + seg_w / 2,
+                    top_y - 4,
+                    text,
+                    anchor="middle",
+                    size=12,
+                )
+            )
         cursor_x += seg_w
 
     # Middle bar: markdown.
     mid_y = top_y + BAR_H + BAR_GAP
     md = buckets["markdown"]
     md_w = to_width(md.code_loc)
-    parts.append(emit_segment(
-        CHART_X, mid_y, md_w, BAR_H,
-        COLOURS["markdown"], None, 1.0,
-    ))
+    parts.append(
+        emit_segment(
+            CHART_X,
+            mid_y,
+            md_w,
+            BAR_H,
+            COLOURS["markdown"],
+            None,
+            1.0,
+        )
+    )
     md_label = label_for("markdown", md.code_loc, total_loc)
     if md_w >= 100:
-        parts.append(svg_text(
-            CHART_X + md_w / 2, mid_y + BAR_H / 2 + 5,
-            md_label, anchor="middle", size=14,
-        ))
+        parts.append(
+            svg_text(
+                CHART_X + md_w / 2,
+                mid_y + BAR_H / 2 + 5,
+                md_label,
+                anchor="middle",
+                size=14,
+            )
+        )
     else:
-        parts.append(svg_text(
-            CHART_X + md_w + 8, mid_y + BAR_H / 2 + 5,
-            md_label, anchor="start", size=14,
-        ))
+        parts.append(
+            svg_text(
+                CHART_X + md_w + 8,
+                mid_y + BAR_H / 2 + 5,
+                md_label,
+                anchor="start",
+                size=14,
+            )
+        )
 
     # Bottom bar: scripts.
     bot_y = mid_y + BAR_H + BAR_GAP
     sc = buckets["scripts"]
     sc_w = to_width(sc.code_loc)
-    parts.append(emit_segment(
-        CHART_X, bot_y, sc_w, BAR_H,
-        COLOURS["scripts"], None, 1.0,
-    ))
+    parts.append(
+        emit_segment(
+            CHART_X,
+            bot_y,
+            sc_w,
+            BAR_H,
+            COLOURS["scripts"],
+            None,
+            1.0,
+        )
+    )
     sc_label = label_for("scripts", sc.code_loc, total_loc)
     if sc_w >= 90:
-        parts.append(svg_text(
-            CHART_X + sc_w / 2, bot_y + BAR_H / 2 + 5,
-            sc_label, anchor="middle", size=14,
-        ))
+        parts.append(
+            svg_text(
+                CHART_X + sc_w / 2,
+                bot_y + BAR_H / 2 + 5,
+                sc_label,
+                anchor="middle",
+                size=14,
+            )
+        )
     else:
-        parts.append(svg_text(
-            CHART_X + sc_w + 8, bot_y + BAR_H / 2 + 5,
-            sc_label, anchor="start", size=14,
-        ))
+        parts.append(
+            svg_text(
+                CHART_X + sc_w + 8,
+                bot_y + BAR_H / 2 + 5,
+                sc_label,
+                anchor="start",
+                size=14,
+            )
+        )
 
     # Footer: totals so the chart is auditable on its own.
     coded_cov_hit = sum(buckets[k].cov_hit for k in CODED_BUCKETS)
@@ -397,10 +472,12 @@ def render(buckets: dict[str, BucketStats]) -> str:
 def main(argv: Iterable[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--go-coverage", type=Path, default=Path("coverage.out"))
-    p.add_argument("--web-coverage", type=Path,
-                   default=Path("web/coverage/lcov.info"))
-    p.add_argument("--mac-coverage", type=Path,
-                   default=Path("tools/visualiser-macos/coverage.info"))
+    p.add_argument("--web-coverage", type=Path, default=Path("web/coverage/lcov.info"))
+    p.add_argument(
+        "--mac-coverage",
+        type=Path,
+        default=Path("tools/visualiser-macos/coverage.info"),
+    )
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--repo-root", type=Path, default=Path("."))
     args = p.parse_args(list(argv) if argv is not None else None)
