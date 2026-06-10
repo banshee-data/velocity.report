@@ -1687,7 +1687,7 @@ func TestShowRadarObjectStats_DBError(t *testing.T) {
 	fname := t.Name() + ".db"
 	dbInst.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=2024-01-01T00:00:00Z&end=2024-01-02T23:59:59Z&tz=UTC", nil)
 	w := httptest.NewRecorder()
 	server.showRadarObjectStats(w, req)
 
@@ -1703,7 +1703,7 @@ func TestShowRadarObjectStats_InvalidMinSpeed(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000&min_speed=abc", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=2024-01-01T00:00:00Z&end=2024-01-02T23:59:59Z&tz=UTC&min_speed=abc", nil)
 	w := httptest.NewRecorder()
 	server.showRadarObjectStats(w, req)
 
@@ -1717,7 +1717,7 @@ func TestShowRadarObjectStats_BadHistBucketSize(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000&hist_bucket_size=abc", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=2024-01-01T00:00:00Z&end=2024-01-02T23:59:59Z&tz=UTC&hist_bucket_size=abc", nil)
 	w := httptest.NewRecorder()
 	server.showRadarObjectStats(w, req)
 
@@ -1731,7 +1731,7 @@ func TestShowRadarObjectStats_BadHistMax(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000&hist_max=abc", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=2024-01-01T00:00:00Z&end=2024-01-02T23:59:59Z&tz=UTC&hist_max=abc", nil)
 	w := httptest.NewRecorder()
 	server.showRadarObjectStats(w, req)
 

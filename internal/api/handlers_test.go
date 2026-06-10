@@ -1005,8 +1005,8 @@ func TestShowRadarObjectStats_ValidSources(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	sources := []string{"radar_objects", "radar_data_transits"}
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 
 	for _, source := range sources {
 		t.Run(source, func(t *testing.T) {
@@ -1028,8 +1028,8 @@ func TestShowRadarObjectStats_InvalidHistogramParams(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 
 	tests := []struct {
 		name  string

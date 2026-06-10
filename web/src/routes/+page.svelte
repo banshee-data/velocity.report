@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { isoDate } from '$lib/dateUtils';
+	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '$lib/dateUtils';
 	import { buildReportRequest, resolveDashboardReportFilters } from '$lib/reportRequests';
 	import {
 		isDateRangeStale,
@@ -43,11 +43,15 @@
 	let selectedSiteId: number | null = null;
 	let siteOptions: Array<{ value: number; label: string }> = [];
 
-	// default DateRangeField to the last 14 days (inclusive)
+	// Default DateRangeField to "last 14 days inclusive" but extend the end-of-
+	// range to "tomorrow local" so data captured this evening (which is stored
+	// against the next UTC day) is always inside the queried window, regardless
+	// of the user's selected display timezone.
 	const today = new Date();
 	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
-	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
-	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
+	fromDefault.setDate(today.getDate() - 13);
+	const toDefault = tomorrowLocal(today);
+	let dateRange = { from: fromDefault, to: toDefault, periodType: PeriodType.Day };
 	let group: string = '4h';
 	let selectedSource: string = 'radar_objects';
 	let statsRequestSerial = 0;
@@ -84,8 +88,8 @@
 		selectedSiteId != null && dateRange.from && dateRange.to
 			? buildTimeSeriesChartPath({
 					siteId: selectedSiteId,
-					startDate: isoDate(dateRange.from),
-					endDate: isoDate(dateRange.to),
+					startDate: isoStartOfDay(dateRange.from, $displayTimezone),
+					endDate: isoEndOfDay(dateRange.to, $displayTimezone),
 					group,
 					units: $displayUnits,
 					timezone: $displayTimezone,
@@ -236,14 +240,14 @@
 			return;
 		}
 
-		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
-		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
+		const start = isoStartOfDay(dateRange.from, $displayTimezone);
+		const end = isoEndOfDay(dateRange.to, $displayTimezone);
 		const statsResp = await getRadarStats(
-			startUnix,
-			endUnix,
+			start,
+			end,
+			$displayTimezone,
 			group,
 			units,
-			$displayTimezone,
 			selectedSource,
 			selectedSiteId
 		);
@@ -256,11 +260,11 @@
 
 		if (includeAggregate) {
 			const aggregateResp = await getRadarStats(
-				startUnix,
-				endUnix,
+				start,
+				end,
+				$displayTimezone,
 				'all',
 				units,
-				$displayTimezone,
 				selectedSource,
 				selectedSiteId
 			);

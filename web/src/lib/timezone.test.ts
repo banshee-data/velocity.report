@@ -78,21 +78,82 @@ describe('timezone', () => {
 	});
 
 	describe('getDisplayTimezone', () => {
-		it('should return stored timezone when available', () => {
-			window.localStorage.setItem('velocity-report-timezone', 'Asia/Seoul');
-			expect(getDisplayTimezone('UTC')).toBe('Asia/Seoul');
+		const realIntl = global.Intl;
+
+		function mockBrowserTimezone(tz: string | null) {
+			global.Intl = {
+				...realIntl,
+				DateTimeFormat: function () {
+					return {
+						resolvedOptions: () => ({ timeZone: tz })
+					};
+				}
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any;
+		}
+
+		afterEach(() => {
+			global.Intl = realIntl;
 		});
 
-		it('should return default timezone (UTC) when no timezone is stored', () => {
+		it('returns stored timezone when available, regardless of server default', () => {
+			window.localStorage.setItem('velocity-report-timezone', 'Asia/Seoul');
+			mockBrowserTimezone('America/Los_Angeles');
+			expect(getDisplayTimezone('UTC')).toBe('Asia/Seoul');
+			expect(getDisplayTimezone('America/New_York')).toBe('Asia/Seoul');
+		});
+
+		it('prefers a non-UTC server default over the browser zone', () => {
+			mockBrowserTimezone('America/Los_Angeles');
+			expect(getDisplayTimezone('America/New_York')).toBe('America/New_York');
+		});
+
+		it('falls back to the browser zone when server default is UTC and browser is in allowlist', () => {
+			mockBrowserTimezone('America/Los_Angeles');
+			expect(getDisplayTimezone('UTC')).toBe('America/Los_Angeles');
+		});
+
+		it('returns UTC when server default is UTC and the browser zone is not in our allowlist', () => {
+			mockBrowserTimezone('America/Boise');
 			expect(getDisplayTimezone('UTC')).toBe('UTC');
 		});
 
-		it('should return default timezone when window is undefined (SSR)', () => {
+		it('returns UTC when resolving the browser zone throws', () => {
+			// Intl.DateTimeFormat().resolvedOptions() blowing up must not crash
+			// getDisplayTimezone — it falls back to the server default.
+			global.Intl = {
+				...realIntl,
+				DateTimeFormat: function () {
+					return {
+						resolvedOptions: () => {
+							throw new Error('Intl unavailable');
+						}
+					};
+				}
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any;
+			expect(getDisplayTimezone('UTC')).toBe('UTC');
+		});
+
+		it('returns UTC when server default is UTC and Intl is unavailable', () => {
+			mockBrowserTimezone(null);
+			expect(getDisplayTimezone('UTC')).toBe('UTC');
+		});
+
+		it('falls back to the default timezone when window is undefined (SSR)', () => {
+			// In SSR, getStoredTimezone() returns null (no localStorage) and the
+			// browser-zone probe is skipped (no globalThis.window). The function
+			// must then return the server default.
 			const originalWindow = global.window;
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			delete (global as any).window;
-			expect(getDisplayTimezone('UTC')).toBe('UTC');
-			global.window = originalWindow;
+			mockBrowserTimezone(null);
+			try {
+				expect(getDisplayTimezone('UTC')).toBe('UTC');
+				expect(getDisplayTimezone('America/New_York')).toBe('America/New_York');
+			} finally {
+				global.window = originalWindow;
+			}
 		});
 	});
 

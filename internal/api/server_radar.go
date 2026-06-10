@@ -52,9 +52,11 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	q := r.URL.Query()
+
 	// Check for units override in query parameter
 	displayUnits := s.units // default to CLI-set units
-	if u := r.URL.Query().Get("units"); u != "" {
+	if u := q.Get("units"); u != "" {
 		if units.IsValid(u) {
 			displayUnits = u
 		} else {
@@ -63,35 +65,17 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check for timezone override in query parameter
-	displayTimezone := s.timezone // default to CLI-set timezone
-	if tz := r.URL.Query().Get("timezone"); tz != "" {
-		if units.IsTimezoneValid(tz) {
-			displayTimezone = tz
-		} else {
-			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'timezone' parameter. Must be one of: %s", units.GetValidTimezonesString()))
-			return
-		}
-	}
-
-	// Check for optional start/end/group parameters for time range + grouping
-	// start and end are expected as unix timestamps (seconds). group is a
-	// human-friendly code that maps to seconds (see supportedGroups below).
-	startStr := r.URL.Query().Get("start")
-	endStr := r.URL.Query().Get("end")
-	groupStr := r.URL.Query().Get("group")
-
-	// All three params are required for range-grouped query
-	if startStr == "" || endStr == "" {
-		s.writeJSONError(w, http.StatusBadRequest, "'start' and 'end' must be provided for radar stats queries")
+	// Parse start/end as ISO 8601 instants (the single API date contract) and
+	// resolve the display-timezone location used to format StartTime in the
+	// response, so callers see times in their selected zone.
+	startUnix, endUnix, loc, dateErr := parseDateRange(q, s.timezone)
+	if dateErr != nil {
+		s.writeJSONError(w, http.StatusBadRequest, dateErr.Error())
 		return
 	}
-	startUnix, err1 := strconv.ParseInt(startStr, 10, 64)
-	endUnix, err2 := strconv.ParseInt(endStr, 10, 64)
-	if err1 != nil || err2 != nil || startUnix <= 0 || endUnix <= 0 {
-		s.writeJSONError(w, http.StatusBadRequest, "Invalid 'start' or 'end' parameter; must be unix timestamps in seconds")
-		return
-	}
+	displayTimezone := loc.String()
+
+	groupStr := q.Get("group")
 
 	// If group is not provided, default to the smallest group (15m)
 	groupSeconds := supportedGroups["15m"]
@@ -107,7 +91,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	// parse optional min_speed query parameter (in display units)
 	// if provided, convert to mps before passing to DB
 	minSpeedMPS := 0.0 // default: let DB use its internal default when 0
-	if minSpeedStr := r.URL.Query().Get("min_speed"); minSpeedStr != "" {
+	if minSpeedStr := q.Get("min_speed"); minSpeedStr != "" {
 		// parse as float in displayUnits
 		if minSpeedValue, err := strconv.ParseFloat(minSpeedStr, 64); err == nil {
 			minSpeedMPS = units.ConvertToMPS(minSpeedValue, displayUnits)
@@ -119,7 +103,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 
 	// parse optional data source parameter (radar_objects or radar_data_transits)
 	// default to radar_objects when empty
-	dataSource := r.URL.Query().Get("source")
+	dataSource := q.Get("source")
 	if dataSource == "" {
 		dataSource = "radar_objects"
 	} else if dataSource != "radar_objects" && dataSource != "radar_data_transits" {
@@ -129,7 +113,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 
 	modelVersion := ""
 	if dataSource == "radar_data_transits" {
-		modelVersion = r.URL.Query().Get("model_version")
+		modelVersion = q.Get("model_version")
 		if modelVersion == "" {
 			modelVersion = "hourly-cron"
 		}
@@ -137,11 +121,11 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 
 	// Optional histogram computation parameters
 	computeHist := false
-	if ch := r.URL.Query().Get("compute_histogram"); ch != "" {
+	if ch := q.Get("compute_histogram"); ch != "" {
 		computeHist = (ch == "1" || strings.ToLower(ch) == "true")
 	}
 	histBucketSize := 0.0
-	if hbs := r.URL.Query().Get("hist_bucket_size"); hbs != "" {
+	if hbs := q.Get("hist_bucket_size"); hbs != "" {
 		if v, err := strconv.ParseFloat(hbs, 64); err == nil {
 			histBucketSize = v
 		} else {
@@ -150,7 +134,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	histMax := 0.0
-	if hm := r.URL.Query().Get("hist_max"); hm != "" {
+	if hm := q.Get("hist_max"); hm != "" {
 		if v, err := strconv.ParseFloat(hm, 64); err == nil {
 			histMax = v
 		} else {
@@ -170,7 +154,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	siteID := 0
-	if siteIDStr := r.URL.Query().Get("site_id"); siteIDStr != "" {
+	if siteIDStr := q.Get("site_id"); siteIDStr != "" {
 		parsedSiteID, err := strconv.Atoi(siteIDStr)
 		if err != nil || parsedSiteID <= 0 {
 			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'site_id' parameter; must be a positive integer")
@@ -182,7 +166,7 @@ func (s *Server) showRadarObjectStats(w http.ResponseWriter, r *http.Request) {
 	// Optional boundary hour filtering threshold
 	// If set, filters out first/last hours of each day with fewer than this many data points
 	boundaryThreshold := 0
-	if btStr := r.URL.Query().Get("boundary_threshold"); btStr != "" {
+	if btStr := q.Get("boundary_threshold"); btStr != "" {
 		parsedBT, err := strconv.Atoi(btStr)
 		if err != nil || parsedBT < 0 {
 			s.writeJSONError(w, http.StatusBadRequest, "Invalid 'boundary_threshold' parameter; must be a non-negative integer")

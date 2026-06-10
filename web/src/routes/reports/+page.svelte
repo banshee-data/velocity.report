@@ -14,7 +14,7 @@
 	} from '$lib/api';
 	import InlineSvgChart from '$lib/components/charts/InlineSvgChart.svelte';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
-	import { isoDate } from '$lib/dateUtils';
+	import { isoDate, isoEndOfDay, isoStartOfDay, tomorrowLocal } from '$lib/dateUtils';
 	import { buildReportRequest, DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE } from '$lib/reportRequests';
 	import {
 		areStoredReportSettingsFresh,
@@ -39,11 +39,15 @@
 	let siteOptions: Array<{ value: number; label: string }> = [];
 	let selectedSite: Site | null = null;
 
-	// default DateRangeField to the last 14 days (inclusive)
+	// Default DateRangeField to "last 14 days inclusive" but extend the end-of-
+	// range to "tomorrow local" so data captured this evening (which is stored
+	// against the next UTC day) is always inside the queried window, regardless
+	// of the user's selected display timezone.
 	const today = new Date();
 	const fromDefault = new Date(today); // eslint-disable-line svelte/prefer-svelte-reactivity
-	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
-	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
+	fromDefault.setDate(today.getDate() - 13);
+	const toDefault = tomorrowLocal(today);
+	let dateRange = { from: fromDefault, to: toDefault, periodType: PeriodType.Day };
 
 	// Compare default mirrors primary shifted one year back — that's the
 	// year-over-year case that 95% of users actually want, and it keeps
@@ -58,7 +62,7 @@
 	}
 	let compareRange = {
 		from: shiftOneYearBack(fromDefault),
-		to: shiftOneYearBack(today),
+		to: shiftOneYearBack(toDefault),
 		periodType: PeriodType.Day
 	};
 	// Tracks whether the user has explicitly edited the compare range.
@@ -142,8 +146,8 @@
 		selectedSiteId != null && dateRange.from && dateRange.to
 			? buildTimeSeriesChartPath({
 					siteId: selectedSiteId,
-					startDate: isoDate(dateRange.from),
-					endDate: isoDate(dateRange.to),
+					startDate: isoStartOfDay(dateRange.from, $displayTimezone),
+					endDate: isoEndOfDay(dateRange.to, $displayTimezone),
 					group,
 					units: $displayUnits,
 					timezone: $displayTimezone,
@@ -159,8 +163,8 @@
 		selectedSiteId != null && dateRange.from && dateRange.to
 			? buildHistogramChartPath({
 					siteId: selectedSiteId,
-					startDate: isoDate(dateRange.from),
-					endDate: isoDate(dateRange.to),
+					startDate: isoStartOfDay(dateRange.from, $displayTimezone),
+					endDate: isoEndOfDay(dateRange.to, $displayTimezone),
 					units: $displayUnits,
 					timezone: $displayTimezone,
 					source: selectedSource,
@@ -181,10 +185,10 @@
 		compareRange.to
 			? buildComparisonChartPath({
 					siteId: selectedSiteId,
-					startDate: isoDate(dateRange.from),
-					endDate: isoDate(dateRange.to),
-					compareStartDate: isoDate(compareRange.from),
-					compareEndDate: isoDate(compareRange.to),
+					startDate: isoStartOfDay(dateRange.from, $displayTimezone),
+					endDate: isoEndOfDay(dateRange.to, $displayTimezone),
+					compareStartDate: isoStartOfDay(compareRange.from, $displayTimezone),
+					compareEndDate: isoEndOfDay(compareRange.to, $displayTimezone),
 					units: $displayUnits,
 					timezone: $displayTimezone,
 					source: selectedSource,

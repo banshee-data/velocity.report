@@ -73,15 +73,10 @@ func reportDateUnixRange(startDate, endDate, timezone string) (int64, int64, err
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid timezone %q: %w", timezone, err)
 	}
-	startTime, err := time.ParseInLocation("2006-01-02", startDate, loc)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid start date %q: %w", startDate, err)
-	}
-	endTime, err := time.ParseInLocation("2006-01-02", endDate, loc)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid end date %q: %w", endDate, err)
-	}
-	return startTime.Unix(), inclusiveLocalDateEnd(endTime).Unix(), nil
+	// Route through the shared calendar-day parser so report generation uses
+	// the same YYYY-MM-DD + inclusive-end semantics as the chart and stats
+	// endpoints. The report body keeps its own `timezone` field name.
+	return parseLocalDateRange(startDate, endDate, loc)
 }
 
 func reportCosineMetadataForRange(periods []db.SiteConfigPeriod, startUnix, endUnix int64) reportCosineMetadata {

@@ -929,8 +929,8 @@ func TestShowRadarObjectStats_WithSiteID(t *testing.T) {
 		t.Fatalf("Failed to create period: %v", err)
 	}
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	req := httptest.NewRequest(http.MethodGet,
 		fmt.Sprintf("/api/radar_stats?start=%s&end=%s&site_id=%d", start, end, site.ID), nil)
 	w := httptest.NewRecorder()
@@ -947,8 +947,8 @@ func TestShowRadarObjectStats_InvalidSiteID(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 
 	tests := []struct {
 		name   string
@@ -979,8 +979,8 @@ func TestShowRadarObjectStats_BoundaryThreshold(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 
 	tests := []struct {
 		name       string
@@ -1013,8 +1013,8 @@ func TestShowRadarObjectStats_ModelVersion(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 
 	// Test with radar_data_transits source and model_version
 	req := httptest.NewRequest(http.MethodGet,

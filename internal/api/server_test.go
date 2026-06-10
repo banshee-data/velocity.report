@@ -506,8 +506,8 @@ func TestShowRadarObjectStats(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	// Create a query with a valid time range
-	start := "1697318400"
-	end := "1697404800" // 24 hours later
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?start="+start+"&end="+end+"&group=1h", nil)
 	w := httptest.NewRecorder()
 
@@ -527,8 +527,8 @@ func TestShowRadarObjectStats_MissingParams(t *testing.T) {
 		name  string
 		query string
 	}{
-		{"missing start", "end=1697318400&group=1h"},
-		{"missing end", "start=1697318400&group=1h"},
+		{"missing start", "end=2023-10-15T00:00:00Z&group=1h"},
+		{"missing end", "start=2023-10-15T00:00:00Z&group=1h"},
 		{"missing both", "group=1h"},
 	}
 
@@ -555,13 +555,13 @@ func TestShowRadarObjectStats_InvalidParams(t *testing.T) {
 		name  string
 		query string
 	}{
-		{"invalid start", "start=invalid&end=1697318400&group=1h"},
-		{"invalid end", "start=1697318400&end=invalid&group=1h"},
-		{"invalid group", "start=1697318400&end=1697318400&group=invalid"},
-		{"invalid units", "start=1697318400&end=1697318400&units=invalid"},
-		{"invalid timezone", "start=1697318400&end=1697318400&timezone=Invalid/Zone"},
-		{"invalid min_speed", "start=1697318400&end=1697318400&min_speed=invalid"},
-		{"invalid source", "start=1697318400&end=1697318400&source=invalid_source"},
+		{"invalid start", "start=invalid&end=2023-10-15T00:00:00Z&group=1h"},
+		{"invalid end", "start=2023-10-15T00:00:00Z&end=invalid&group=1h"},
+		{"invalid group", "start=2023-10-15T00:00:00Z&end=2023-10-15T00:00:00Z&group=invalid"},
+		{"invalid units", "start=2023-10-15T00:00:00Z&end=2023-10-15T00:00:00Z&units=invalid"},
+		{"invalid tz", "start=2023-10-15T00:00:00Z&end=2023-10-15T00:00:00Z&tz=Invalid/Zone"},
+		{"invalid min_speed", "start=2023-10-15T00:00:00Z&end=2023-10-15T00:00:00Z&min_speed=invalid"},
+		{"invalid source", "start=2023-10-15T00:00:00Z&end=2023-10-15T00:00:00Z&source=invalid_source"},
 	}
 
 	for _, tt := range tests {
@@ -583,8 +583,8 @@ func TestShowRadarObjectStats_WithHistogram(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800" // 24 hours later
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	query := fmt.Sprintf("start=%s&end=%s&compute_histogram=true&hist_bucket_size=5&hist_max=100", start, end)
 	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+query, nil)
 	w := httptest.NewRecorder()
@@ -1599,8 +1599,8 @@ func TestShowRadarObjectStats_WithSource(t *testing.T) {
 		{"radar_data_transits source", "radar_data_transits", true},
 	}
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1621,8 +1621,8 @@ func TestShowRadarObjectStats_InvalidSiteIDParam(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&site_id=invalid", start, end), nil)
 	w := httptest.NewRecorder()
 
@@ -1638,8 +1638,8 @@ func TestShowRadarObjectStats_WithBoundaryThreshold(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&boundary_threshold=10", start, end), nil)
 	w := httptest.NewRecorder()
 
@@ -1655,8 +1655,8 @@ func TestShowRadarObjectStats_InvalidBoundaryThreshold(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/radar_stats?start=%s&end=%s&boundary_threshold=invalid", start, end), nil)
 	w := httptest.NewRecorder()
 
@@ -1672,8 +1672,8 @@ func TestShowRadarObjectStats_InvalidHistBucketSize(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	query := fmt.Sprintf("start=%s&end=%s&compute_histogram=true&hist_bucket_size=invalid", start, end)
 	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+query, nil)
 	w := httptest.NewRecorder()
@@ -1690,8 +1690,8 @@ func TestShowRadarObjectStats_InvalidHistMax(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	start := "1697318400"
-	end := "1697404800"
+	start := "2023-10-15T00:00:00Z"
+	end := "2023-10-16T23:59:59Z"
 	query := fmt.Sprintf("start=%s&end=%s&compute_histogram=true&hist_max=invalid", start, end)
 	req := httptest.NewRequest(http.MethodGet, "/api/radar_stats?"+query, nil)
 	w := httptest.NewRecorder()

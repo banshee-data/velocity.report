@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -162,30 +163,29 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 
-	siteID, startUnix, endUnix, displayUnits, loc, ok := s.parseChartParams(w, q)
+	siteID, startUnix, endUnix, displayUnits, _, ok := s.parseChartParams(w, q)
 	if !ok {
 		return
 	}
 	paper := parsePaperSize(q)
 
-	// Parse comparison dates.
+	// Parse comparison window (ISO 8601 instants, like start/end).
 	compareStart := q.Get("compare_start")
 	compareEnd := q.Get("compare_end")
 	if compareStart == "" || compareEnd == "" {
 		s.writeJSONError(w, http.StatusBadRequest, "'compare_start' and 'compare_end' are required")
 		return
 	}
-	cStartTime, err := time.ParseInLocation("2006-01-02", compareStart, loc)
+	compareStartUnix, err := parseInstant("compare_start", compareStart)
 	if err != nil {
-		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'compare_start': %v", err))
+		s.writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	cEndTime, err := time.ParseInLocation("2006-01-02", compareEnd, loc)
+	compareEndUnix, err := parseInstant("compare_end", compareEnd)
 	if err != nil {
-		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'compare_end': %v", err))
+		s.writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	cEndTime = inclusiveLocalDateEnd(cEndTime)
 
 	bucketSize, histMax := parseHistogramParams(q, displayUnits)
 	bucketSizeMPS := units.ConvertToMPS(bucketSize, displayUnits)
@@ -222,7 +222,7 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	compareResult, err := s.db.RadarObjectRollupRange(
-		cStartTime.Unix(), cEndTime.Unix(), 0, minSpeedMPS,
+		compareStartUnix, compareEndUnix, 0, minSpeedMPS,
 		compareSource, modelVersion,
 		bucketSizeMPS, histMaxMPS,
 		siteID, boundaryThreshold,
@@ -315,40 +315,12 @@ func (s *Server) parseChartParams(w http.ResponseWriter, q url.Values) (siteID i
 	}
 	siteID = parsed
 
-	// start / end dates
-	startStr := q.Get("start")
-	endStr := q.Get("end")
-	if startStr == "" || endStr == "" {
-		s.writeJSONError(w, http.StatusBadRequest, "'start' and 'end' date parameters are required (YYYY-MM-DD)")
-		return
-	}
-
-	// timezone
-	tz := q.Get("tz")
-	if tz == "" {
-		tz = s.timezone
-	}
-	loc, err = time.LoadLocation(tz)
+	// start / end / tz
+	startUnix, endUnix, loc, err = parseDateRange(q, s.timezone)
 	if err != nil {
-		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'tz' parameter: %v", err))
+		s.writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	startTime, err := time.ParseInLocation("2006-01-02", startStr, loc)
-	if err != nil {
-		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'start' date: %v", err))
-		return
-	}
-	endTime, err := time.ParseInLocation("2006-01-02", endStr, loc)
-	if err != nil {
-		s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid 'end' date: %v", err))
-		return
-	}
-	// End date is inclusive: advance to end-of-day.
-	endTime = inclusiveLocalDateEnd(endTime)
-
-	startUnix = startTime.Unix()
-	endUnix = endTime.Unix()
 
 	// units
 	displayUnits = q.Get("units")
@@ -362,6 +334,78 @@ func (s *Server) parseChartParams(w http.ResponseWriter, q url.Values) (siteID i
 
 	ok = true
 	return
+}
+
+// parseDateRange reads start/end/tz from query params and returns the unix
+// range plus the resolved display-timezone location.
+//
+// `start` and `end` are ISO 8601 / RFC3339 instants (e.g.
+// 2026-06-09T00:00:00-07:00) that fully specify the query window — the server
+// performs no calendar-day interpretation, so callers control the exact
+// boundaries. `tz` is a display-only hint used to label chart axes and format
+// response timestamps; it does not affect which rows are queried.
+func parseDateRange(q url.Values, defaultTz string) (startUnix, endUnix int64, loc *time.Location, err error) {
+	startStr := q.Get("start")
+	endStr := q.Get("end")
+	if startStr == "" || endStr == "" {
+		return 0, 0, nil, errors.New("'start' and 'end' parameters are required (ISO 8601, e.g. 2026-06-09T00:00:00Z)")
+	}
+	startUnix, err = parseInstant("start", startStr)
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	endUnix, err = parseInstant("end", endStr)
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	loc, err = resolveTimezone(q.Get("tz"), defaultTz)
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	return startUnix, endUnix, loc, nil
+}
+
+// parseInstant parses an ISO 8601 / RFC3339 datetime string (with offset) into
+// unix seconds. The field name is used only for the error message.
+func parseInstant(field, value string) (int64, error) {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid '%s'; expected an ISO 8601 datetime with offset (e.g. 2026-06-09T00:00:00Z): %v", field, err)
+	}
+	return t.Unix(), nil
+}
+
+// resolveTimezone loads the IANA timezone `tz`, falling back to `fallback` and
+// then UTC when empty. Used to resolve the display timezone for chart axes and
+// response formatting.
+func resolveTimezone(tz, fallback string) (*time.Location, error) {
+	if tz == "" {
+		tz = fallback
+	}
+	if tz == "" {
+		tz = "UTC"
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'tz' parameter: %v", err)
+	}
+	return loc, nil
+}
+
+// parseLocalDateRange parses two YYYY-MM-DD calendar dates in loc and returns the
+// inclusive unix-second range [start 00:00:00, end 23:59:59] in that zone. The
+// report-generation path still takes calendar dates (stored, shown in the PDF,
+// and embedded in filenames), so it interprets them here.
+func parseLocalDateRange(startStr, endStr string, loc *time.Location) (startUnix, endUnix int64, err error) {
+	startTime, err := time.ParseInLocation("2006-01-02", startStr, loc)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid 'start' date: %v", err)
+	}
+	endTime, err := time.ParseInLocation("2006-01-02", endStr, loc)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid 'end' date: %v", err)
+	}
+	return startTime.Unix(), inclusiveLocalDateEnd(endTime).Unix(), nil
 }
 
 func inclusiveLocalDateEnd(day time.Time) time.Time {

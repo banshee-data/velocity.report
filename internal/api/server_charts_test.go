@@ -115,7 +115,7 @@ func TestChartEndpoints_TimeSeries(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph&group=1h", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph&group=1h", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -157,7 +157,7 @@ func TestChartEndpoints_TimeSeries_LetterPaperSize(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph&group=1h&paper_size=letter", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph&group=1h&paper_size=letter", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -193,9 +193,9 @@ func TestChartEndpoints_TimeSeries_MissingParams(t *testing.T) {
 		name string
 		url  string
 	}{
-		{"missing site_id", "/api/charts/timeseries?start=2024-12-03&end=2024-12-03"},
-		{"missing start", "/api/charts/timeseries?site_id=1&end=2024-12-03"},
-		{"missing end", "/api/charts/timeseries?site_id=1&start=2024-12-03"},
+		{"missing site_id", "/api/charts/timeseries?start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z"},
+		{"missing start", "/api/charts/timeseries?site_id=1&end=2024-12-03T23:59:59Z"},
+		{"missing end", "/api/charts/timeseries?site_id=1&start=2024-12-03T00:00:00Z"},
 	}
 
 	for _, tt := range tests {
@@ -217,7 +217,7 @@ func TestChartEndpoints_Histogram(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph&bucket_size=5&max=70", site.ID)
+	url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph&bucket_size=5&max=70", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -242,7 +242,7 @@ func TestChartEndpoints_Comparison(t *testing.T) {
 	site := seedChartTestData(t, dbInst)
 
 	url := fmt.Sprintf(
-		"/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&compare_start=2024-12-03&compare_end=2024-12-03&tz=UTC&units=mph&bucket_size=5&max=70",
+		"/api/charts/comparison?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&compare_start=2024-12-03T00:00:00Z&compare_end=2024-12-03T23:59:59Z&tz=UTC&units=mph&bucket_size=5&max=70",
 		site.ID,
 	)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
@@ -268,7 +268,7 @@ func TestChartEndpoints_Comparison_MissingCompareParams(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&tz=UTC&units=mph", site.ID)
+	url := fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -285,7 +285,7 @@ func TestChartEndpoints_InvalidGroup(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&group=invalid", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&group=invalid", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -302,7 +302,7 @@ func TestChartEndpoints_InvalidUnits(t *testing.T) {
 
 	site := seedChartTestData(t, dbInst)
 
-	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&units=furlongs", site.ID)
+	url := fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&units=furlongs", site.ID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	w := httptest.NewRecorder()
 
@@ -320,10 +320,10 @@ func TestChartEndpoints_InvalidSource(t *testing.T) {
 	site := seedChartTestData(t, dbInst)
 
 	endpoints := []string{
-		fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03&end=2024-12-03&source=bad_source", site.ID),
-		fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03&end=2024-12-03&source=bad_source", site.ID),
-		fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&compare_start=2024-11-01&compare_end=2024-11-30&source=bad_source", site.ID),
-		fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03&end=2024-12-03&compare_start=2024-11-01&compare_end=2024-11-30&compare_source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/timeseries?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&compare_start=2024-11-01T00:00:00Z&compare_end=2024-11-30T23:59:59Z&source=bad_source", site.ID),
+		fmt.Sprintf("/api/charts/comparison?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&compare_start=2024-11-01T00:00:00Z&compare_end=2024-11-30T23:59:59Z&compare_source=bad_source", site.ID),
 	}
 	for _, u := range endpoints {
 		req := httptest.NewRequest(http.MethodGet, u, nil)
