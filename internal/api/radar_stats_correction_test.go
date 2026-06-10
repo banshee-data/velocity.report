@@ -41,13 +41,17 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
 	}
 
-	// Capture timestamp once for consistency
-	now := time.Now().Unix()
+	// Seed a single object at a fixed instant on a known calendar day. The
+	// rollup filters on write_timestamp, so we insert it explicitly (rather
+	// than via RecordRadarObject, which stamps insert-time) and then query that
+	// whole day in UTC; noon falls inside the inclusive [00:00:00, 23:59:59]
+	// window.
+	seed := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC).Unix()
 	event := map[string]interface{}{
 		"site_id":         site.ID,
 		"classifier":      "all",
-		"start_time":      float64(now),
-		"end_time":        float64(now + 1),
+		"start_time":      float64(seed),
+		"end_time":        float64(seed + 1),
 		"delta_time_msec": 100,
 		"max_speed_mps":   10.0,
 		"min_speed_mps":   10.0,
@@ -59,17 +63,16 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		"length_m":        1.0,
 	}
 	eventJSON, _ := json.Marshal(event)
-	if err := dbInst.RecordRadarObject(string(eventJSON)); err != nil {
-		t.Fatalf("RecordRadarObject failed: %v", err)
+	if _, err := dbInst.Exec(
+		`INSERT INTO radar_objects (raw_event, write_timestamp) VALUES (?, ?)`,
+		string(eventJSON), float64(seed),
+	); err != nil {
+		t.Fatalf("failed to insert radar object: %v", err)
 	}
 
-	startValue := now - 5
-	endValue := now + 5
-	start := strconv.FormatInt(startValue, 10)
-	end := strconv.FormatInt(endValue, 10)
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/radar_stats?start="+start+"&end="+end+"&group=all&units=mps&site_id="+strconv.Itoa(site.ID),
+		"/api/radar_stats?start=2024-06-15T00:00:00Z&end=2024-06-15T23:59:59Z&tz=UTC&group=all&units=mps&site_id="+strconv.Itoa(site.ID),
 		nil,
 	)
 	w := httptest.NewRecorder()
