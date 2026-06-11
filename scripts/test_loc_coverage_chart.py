@@ -101,12 +101,19 @@ def test_render_emits_svg_with_pattern_and_categories():
     assert svg.startswith("<svg")
     assert svg.rstrip().endswith("</svg>")
     assert 'id="hatch"' in svg
+    # Coded buckets have <100% coverage here, so the hatch overlay is applied.
+    assert "url(#hatch)" in svg
     # Each named bucket should produce a label.
     for label in ("js (", "go (", "mac (", "markdown (", "scripts ("):
         assert label in svg
-    # Totals footer present and human-readable.
-    assert "LOC total" in svg
-    assert "line coverage on coded" in svg
+    # Colour-scheme-aware styling, and at least one off-bar label using it.
+    assert "prefers-color-scheme" in svg
+    assert 'class="lbl"' in svg
+    # The title and totals footer are intentionally not rendered in the image
+    # (the caption lives in the README instead). Both used a middot; the only
+    # remaining "Lines of code" string is the aria-label, which has none.
+    assert "LOC total" not in svg
+    assert "·" not in svg
 
 
 def test_render_omits_zero_loc_segments():
