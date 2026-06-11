@@ -318,7 +318,8 @@ def render(buckets: dict[str, BucketStats]) -> str:
         "<style>"
         f".lbl{{fill:{TEXT_LIGHT}}}.edge{{stroke:{EDGE_LIGHT}}}"
         "@media (prefers-color-scheme:dark){"
-        f".lbl{{fill:{TEXT_DARK}}}.edge{{stroke:{EDGE_DARK}}}}}"
+        f".lbl{{fill:{TEXT_DARK}}}.edge{{stroke:{EDGE_DARK}}}"
+        "}"
         "</style>"
         # Diagonal red hatch on a transparent background, painted over the
         # bucket colour to mark the uncovered fraction.
