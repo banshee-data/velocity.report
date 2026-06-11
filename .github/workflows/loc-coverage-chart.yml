@@ -1,0 +1,98 @@
+name: 📊 LOC Coverage Chart
+
+# Runs after the nightly full CI succeeds on `main` and refreshes the
+# `loc-coverage.svg` asset on the orphan `stats` branch. The README embeds
+# that file via raw.githubusercontent.
+
+on:
+  workflow_run:
+    workflows: ["🌙 Nightly Full CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # required to push to the `stats` branch
+
+jobs:
+  build-chart:
+    name: "📊 Build LOC + coverage chart"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only run if dispatched manually or the triggering nightly succeeded.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # For workflow_run, github.sha points at the default branch tip, not
+          # the commit that produced the coverage artifacts. Pin to the
+          # triggering run's head_sha so the rendering script and the coverage
+          # data describe the same commit. workflow_dispatch falls back to the
+          # selected ref (the checkout default).
+          ref: >-
+            ${{ github.event_name == 'workflow_run'
+                && github.event.workflow_run.head_sha
+                || github.ref }}
+
+      - name: Install cloc
+        run: sudo apt-get update && sudo apt-get install -y cloc
+
+      - name: Download coverage artifacts from triggering run
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          pattern: coverage-*
+          path: artifacts/
+          merge-multiple: false
+
+      - name: Stage coverage files
+        if: github.event_name == 'workflow_run'
+        run: |
+          mkdir -p coverage tools/visualiser-macos
+          # download-artifact preserves each artifact's original upload path
+          # under artifacts/<artifact-name>/ (e.g. the web LCOV lands at
+          # artifacts/coverage-web/coverage/lcov.info), so locate each file by
+          # name and copy it to the canonical path the Make target expects.
+          go_cov=$(find artifacts -type f -name coverage.out | head -n1 || true)
+          web_cov=$(find artifacts -type f -name lcov.info | head -n1 || true)
+          mac_cov=$(find artifacts -type f -name coverage.info | head -n1 || true)
+          if [ -n "$go_cov" ]; then cp "$go_cov" coverage.out; \
+            else echo "no go coverage artifact found"; fi
+          if [ -n "$web_cov" ]; then cp "$web_cov" coverage/lcov.info; \
+            else echo "no web coverage artifact found"; fi
+          if [ -n "$mac_cov" ]; then cp "$mac_cov" tools/visualiser-macos/coverage.info; \
+            else echo "no mac coverage artifact found"; fi
+          ls -la coverage.out coverage/lcov.info \
+                 tools/visualiser-macos/coverage.info 2>/dev/null || true
+
+      - name: Generate chart
+        # Delegates to the canonical Make target so CI and local runs share one
+        # code path (paths/defaults owned by the Makefile).
+        run: make loc-coverage-chart
+
+      - name: Upload generated chart as workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: loc-coverage-chart
+          path: dist/loc-coverage.svg
+          retention-days: 30
+
+      - name: Publish to stats branch
+        # Only publish on main: keeps the stats branch tied to canonical
+        # history. Manual dispatches against feature branches produce the
+        # SVG as an artifact above but do not push.
+        if: >-
+          (github.event_name == 'workflow_run' &&
+           github.event.workflow_run.head_branch == 'main') ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.ref == 'refs/heads/main')
+        run: scripts/publish-stats-branch.sh dist/loc-coverage.svg

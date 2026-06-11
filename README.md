@@ -15,6 +15,8 @@
 
 </div>
 
+![Lines of code and test coverage](https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg)
+
 Street-level speed measurement for neighbourhood change-makers, researchers,
 and anyone who needs evidence instead of guesswork about what traffic does.
 Radar and LiDAR sensors measure speeds and movement: no cameras, no licence plates,

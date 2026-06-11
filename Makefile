@@ -87,6 +87,7 @@ help:
 	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
+	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
 	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
@@ -96,6 +97,7 @@ help:
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
+	@echo "  loc-coverage-chart   Render LOC + coverage SVG to dist/loc-coverage.svg"
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
@@ -720,6 +722,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_list_matrix_fields.py \
+	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
 	scripts/test_sqlite_erd.py \
@@ -1015,7 +1018,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-coverage-summary test-go-changed-coverage test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1046,6 +1049,17 @@ test-go-cov:
 	@env -u GOROOT go test ./... -coverprofile=coverage.out -covermode=atomic
 	@env -u GOROOT go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
+
+# Go coverage profile used by the nightly LOC + coverage chart. Builds with
+# the pcap tag and excludes internal/api (whose tests need the heavy TeX tree;
+# go-ci.yml's integration job publishes API coverage separately). Emits a raw
+# coverage.out profile only — no HTML. Runnable locally for CI parity.
+test-go-cov-pcap:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@echo "Running Go tests with coverage (pcap tag, excluding internal/api)..."
+	@env -u GOROOT go test -tags=pcap -coverprofile=coverage.out -covermode=atomic \
+		$$(go list ./... | grep -v '/internal/api')
 
 # Show coverage summary for cmd/ and internal/ packages
 test-go-coverage-summary:
@@ -1146,6 +1160,24 @@ coverage: test-go-cov test-web-cov test-mac-cov
 	@echo "  - Go:     coverage.html"
 	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
 	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
+
+# Render the LOC + coverage chart SVG into dist/loc-coverage.svg.
+# Reads coverage.out, coverage/lcov.info, and $(MAC_DIR)/coverage.info if
+# present; any missing file degrades that bucket to un-hatched with a stderr
+# warning. The web LCOV lives at coverage/lcov.info because jest's rootDir is
+# the repo root (web/jest.config.js), so `make test-web-cov` writes there, not
+# under web/. Used by .github/workflows/loc-coverage-chart.yml.
+loc-coverage-chart:
+	@command -v cloc >/dev/null 2>&1 || { \
+	  echo "cloc not found. Install with: brew install cloc / apt-get install cloc"; \
+	  exit 1; }
+	@mkdir -p dist
+	@python3 scripts/loc-coverage-chart.py \
+	  --go-coverage coverage.out \
+	  --web-coverage coverage/lcov.info \
+	  --mac-coverage $(MAC_DIR)/coverage.info \
+	  --output dist/loc-coverage.svg
+	@echo "Wrote dist/loc-coverage.svg"
 
 # Run performance regression test
 test-perf:
