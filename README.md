@@ -15,7 +15,9 @@
 
 </div>
 
-![Lines of code and test coverage](https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg)
+**Lines of code · test coverage shown as hatched (uncovered)**
+
+<img alt="Lines of code by language, with test coverage shown as hatched uncovered regions" src="https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg" width="440">
 
 Street-level speed measurement for neighbourhood change-makers, researchers,
 and anyone who needs evidence instead of guesswork about what traffic does.
