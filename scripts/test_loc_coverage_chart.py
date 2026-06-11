@@ -103,9 +103,12 @@ def test_render_emits_svg_with_pattern_and_categories():
     assert 'id="hatch"' in svg
     # Coded buckets have <100% coverage here, so the hatch overlay is applied.
     assert "url(#hatch)" in svg
-    # Each named bucket should produce a label.
-    for label in ("js (", "go (", "mac (", "markdown (", "scripts ("):
-        assert label in svg
+    # Each named bucket should produce a bare label (no percentages), and
+    # "markdown" renders under its display name "docs".
+    for name in ("js", "go", "mac", "docs", "scripts"):
+        assert f">{name}</text>" in svg
+    assert ">markdown</text>" not in svg
+    assert "%" not in svg
     # Colour-scheme-aware styling, and at least one off-bar label using it.
     assert "prefers-color-scheme" in svg
     assert 'class="lbl"' in svg
@@ -126,9 +129,9 @@ def test_render_omits_zero_loc_segments():
         "scripts": mod.BucketStats(code_loc=10),
     }
     svg = mod.render(buckets)
-    assert "js (" not in svg
-    assert "mac (" not in svg
-    assert "go (" in svg
+    assert ">js</text>" not in svg
+    assert ">mac</text>" not in svg
+    assert ">go</text>" in svg
 
 
 def test_render_is_deterministic():

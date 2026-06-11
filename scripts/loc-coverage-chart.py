@@ -217,23 +217,27 @@ def build_buckets(
 
 
 VIEWBOX_W = 540
-VIEWBOX_H = 114
+VIEWBOX_H = 78
 CHART_X = 8
 CHART_W = 440
 BAR_H = 26
 BAR_GAP = 8
-TOP_PAD = 15  # headroom for the labels that ride above the top bar
+TOP_PAD = 12  # headroom above the first row
 LABEL_FONT = "'Atkinson Hyperlegible', 'Helvetica Neue', Arial, sans-serif"
 
 
-def fmt_pct(numerator: int, denominator: int) -> str:
-    if denominator <= 0:
-        return "0%"
-    return f"{round(100 * numerator / denominator)}%"
+# Display label per bucket; only "markdown" differs from its key.
+DISPLAY_NAME = {"markdown": "docs"}
 
 
-def label_for(bucket: str, loc: int, total: int) -> str:
-    return f"{bucket} ({fmt_pct(loc, total)})"
+def label_for(bucket: str) -> str:
+    return DISPLAY_NAME.get(bucket, bucket)
+
+
+def fits_inside(text: str, seg_w: float, size: int) -> bool:
+    # Rough advance-width estimate for the label font — good enough to choose
+    # between an in-bar label and an off-bar one.
+    return seg_w >= len(text) * size * 0.6 + 4
 
 
 def svg_text(
@@ -296,14 +300,8 @@ def render(buckets: dict[str, BucketStats]) -> str:
     if total_loc == 0:
         sys.exit("No LOC counted; refusing to render an empty chart.")
 
-    coded_loc = sum(buckets[k].code_loc for k in CODED_BUCKETS)
-
     def to_width(loc: int) -> float:
         return CHART_W * (loc / total_loc) if total_loc else 0.0
-
-    # coded_loc is retained for callers/tests that reason about the split;
-    # it is no longer rendered as a footer.
-    _ = coded_loc
 
     in_y = BAR_H / 2 + 4  # baseline offset to vertically centre an in-bar label
 
@@ -332,71 +330,63 @@ def render(buckets: dict[str, BucketStats]) -> str:
         "</defs>"
     )
 
-    # Top bar: js | go | mac, stacked; labels sit inside wide segments,
-    # otherwise above the bar (where they ride the page background).
-    cursor_x = CHART_X
-    top_y = TOP_PAD
-    for bucket in CODED_BUCKETS:
-        b = buckets[bucket]
-        if b.code_loc == 0:
-            continue
-        seg_w = to_width(b.code_loc)
-        parts.append(
-            emit_segment(
-                cursor_x,
-                top_y,
-                seg_w,
-                BAR_H,
-                COLOURS[bucket],
-                "hatch" if b.has_coverage else None,
-                b.covered_fraction if b.has_coverage else 1.0,
-            )
-        )
-        text = label_for(bucket, b.code_loc, total_loc)
-        if seg_w >= 56:
+    # Two stacked rows: coded languages (js | go | mac, with the coverage
+    # hatch) on top, then docs | scripts. A label sits inside its segment when
+    # it fits; the rightmost segment that doesn't fit is labelled beside the
+    # bar; any other too-narrow segment is labelled just above it. Off-bar
+    # labels use the colour-scheme-aware .lbl class.
+    rows = ((CODED_BUCKETS, True), (("markdown", "scripts"), False))
+    y = TOP_PAD
+    for row_buckets, hatched in rows:
+        present = [bk for bk in row_buckets if buckets[bk].code_loc > 0]
+        last = present[-1] if present else None
+        cursor_x = CHART_X
+        for bucket in row_buckets:
+            b = buckets[bucket]
+            if b.code_loc == 0:
+                continue
+            seg_w = to_width(b.code_loc)
+            use_hatch = hatched and b.has_coverage
             parts.append(
-                svg_text(cursor_x + seg_w / 2, top_y + in_y, text, anchor="middle")
-            )
-        else:
-            parts.append(
-                svg_text(
-                    cursor_x + seg_w / 2,
-                    top_y - 4,
-                    text,
-                    anchor="middle",
-                    size=11,
-                    cls="lbl",
+                emit_segment(
+                    cursor_x,
+                    y,
+                    seg_w,
+                    BAR_H,
+                    COLOURS[bucket],
+                    "hatch" if use_hatch else None,
+                    b.covered_fraction if use_hatch else 1.0,
                 )
             )
-        cursor_x += seg_w
-
-    # Middle and bottom single bars: markdown, then scripts.
-    for bucket, inside_min, row in (
-        ("markdown", 110, top_y + BAR_H + BAR_GAP),
-        ("scripts", 90, top_y + 2 * (BAR_H + BAR_GAP)),
-    ):
-        b = buckets[bucket]
-        seg_w = to_width(b.code_loc)
-        parts.append(
-            emit_segment(CHART_X, row, seg_w, BAR_H, COLOURS[bucket], None, 1.0)
-        )
-        text = label_for(bucket, b.code_loc, total_loc)
-        if seg_w >= inside_min:
-            parts.append(
-                svg_text(CHART_X + seg_w / 2, row + in_y, text, anchor="middle")
-            )
-        else:
-            # Beside the bar, on the page background → colour-scheme aware.
-            parts.append(
-                svg_text(
-                    CHART_X + seg_w + 8,
-                    row + in_y,
-                    text,
-                    anchor="start",
-                    size=11,
-                    cls="lbl",
+            name = label_for(bucket)
+            if fits_inside(name, seg_w, 12):
+                parts.append(
+                    svg_text(cursor_x + seg_w / 2, y + in_y, name, anchor="middle")
                 )
-            )
+            elif bucket == last:
+                parts.append(
+                    svg_text(
+                        cursor_x + seg_w + 8,
+                        y + in_y,
+                        name,
+                        anchor="start",
+                        size=11,
+                        cls="lbl",
+                    )
+                )
+            else:
+                parts.append(
+                    svg_text(
+                        cursor_x + seg_w / 2,
+                        y - 4,
+                        name,
+                        anchor="middle",
+                        size=11,
+                        cls="lbl",
+                    )
+                )
+            cursor_x += seg_w
+        y += BAR_H + BAR_GAP
 
     parts.append("</svg>")
     return "".join(parts) + "\n"
