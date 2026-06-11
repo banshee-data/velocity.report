@@ -50,8 +50,14 @@ COLOURS = {
     "scripts": "#b4b85a",
 }
 HATCH_COLOUR = "#d72638"
-OUTLINE = "#000000"
+# In-bar labels sit on bright fills and stay dark in both colour schemes.
 TEXT = "#111111"
+# Off-bar labels and bar outlines sit on the page background, so they flip
+# with the colour scheme via the .lbl / .edge classes in the embedded <style>.
+TEXT_LIGHT = "#111111"
+TEXT_DARK = "#e8e8e8"
+EDGE_LIGHT = "#111111"
+EDGE_DARK = "#d0d0d0"
 
 EXCLUDE_DIRS = (
     "web/build",
@@ -210,24 +216,28 @@ def build_buckets(
 # --- SVG rendering ----------------------------------------------------------
 
 
-VIEWBOX_W = 600
-VIEWBOX_H = 240
-CHART_X = 12
-CHART_Y = 40
-CHART_W = 576
-BAR_H = 44
-BAR_GAP = 12
+VIEWBOX_W = 540
+VIEWBOX_H = 78
+CHART_X = 8
+CHART_W = 440
+BAR_H = 26
+BAR_GAP = 8
+TOP_PAD = 12  # headroom above the first row
 LABEL_FONT = "'Atkinson Hyperlegible', 'Helvetica Neue', Arial, sans-serif"
 
 
-def fmt_pct(numerator: int, denominator: int) -> str:
-    if denominator <= 0:
-        return "0%"
-    return f"{round(100 * numerator / denominator)}%"
+# Display label per bucket; only "markdown" differs from its key.
+DISPLAY_NAME = {"markdown": "docs"}
 
 
-def label_for(bucket: str, loc: int, total: int) -> str:
-    return f"{bucket} ({fmt_pct(loc, total)})"
+def label_for(bucket: str) -> str:
+    return DISPLAY_NAME.get(bucket, bucket)
+
+
+def fits_inside(text: str, seg_w: float, size: int) -> bool:
+    # Rough advance-width estimate for the label font — good enough to choose
+    # between an in-bar label and an off-bar one.
+    return seg_w >= len(text) * size * 0.6 + 4
 
 
 def svg_text(
@@ -236,29 +246,19 @@ def svg_text(
     text: str,
     *,
     anchor: str = "start",
-    weight: str = "600",
-    size: int = 14,
+    weight: str = "700",
+    size: int = 12,
     fill: str = TEXT,
+    cls: str | None = None,
 ) -> str:
+    # cls (e.g. "lbl") drives the fill from the embedded <style> so the label
+    # flips with the colour scheme; a bare fill is used for in-bar labels that
+    # must stay dark on their bright fill in both modes.
+    paint = f' class="{cls}"' if cls else f' fill="{fill}"'
     return (
         f'<text x="{x:.1f}" y="{y:.1f}" '
-        f'font-family="{LABEL_FONT}" font-size="{size}" font-weight="{weight}" '
-        f'fill="{fill}" text-anchor="{anchor}">{text}</text>'
-    )
-
-
-def svg_rect(
-    x: float,
-    y: float,
-    w: float,
-    h: float,
-    fill: str,
-    stroke: str = OUTLINE,
-    stroke_width: float = 2.0,
-) -> str:
-    return (
-        f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
-        f'fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}"/>'
+        f'font-family="{LABEL_FONT}" font-size="{size}" font-weight="{weight}"'
+        f'{paint} text-anchor="{anchor}">{text}</text>'
     )
 
 
@@ -271,29 +271,26 @@ def emit_segment(
     hatch_id: str | None,
     covered_fraction: float,
 ) -> str:
-    """Solid covered region on the left, hatched uncovered on the right."""
-    parts: list[str] = []
-    if hatch_id is None or covered_fraction >= 1.0:
-        parts.append(svg_rect(x, y, w, h, fill))
-        return "".join(parts)
-    covered_w = w * covered_fraction
-    uncovered_w = w - covered_w
-    # Inset hatched fill so the outline doesn't double-stroke the seam.
-    if covered_w > 0:
-        parts.append(
-            f'<rect x="{x:.2f}" y="{y:.2f}" width="{covered_w:.2f}" '
-            f'height="{h:.2f}" fill="{fill}" stroke="none"/>'
-        )
-    if uncovered_w > 0:
-        parts.append(
-            f'<rect x="{x + covered_w:.2f}" y="{y:.2f}" '
-            f'width="{uncovered_w:.2f}" height="{h:.2f}" '
-            f'fill="url(#{hatch_id})" stroke="none"/>'
-        )
-    # Outline goes on top so the seam reads as a single bordered block.
+    """Solid bar in the bucket colour; red diagonal hatch over the uncovered
+    fraction; a single colour-scheme-aware outline on top."""
+    parts: list[str] = [
+        f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+        f'fill="{fill}" stroke="none"/>'
+    ]
+    if hatch_id is not None and covered_fraction < 1.0:
+        covered_w = w * covered_fraction
+        uncovered_w = w - covered_w
+        if uncovered_w > 0:
+            # Transparent-background pattern, so the hatch reads as red lines
+            # over the bucket colour in either colour scheme.
+            parts.append(
+                f'<rect x="{x + covered_w:.2f}" y="{y:.2f}" '
+                f'width="{uncovered_w:.2f}" height="{h:.2f}" '
+                f'fill="url(#{hatch_id})" stroke="none"/>'
+            )
     parts.append(
         f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
-        f'fill="none" stroke="{OUTLINE}" stroke-width="2"/>'
+        f'fill="none" class="edge" stroke-width="2"/>'
     )
     return "".join(parts)
 
@@ -303,167 +300,94 @@ def render(buckets: dict[str, BucketStats]) -> str:
     if total_loc == 0:
         sys.exit("No LOC counted; refusing to render an empty chart.")
 
-    coded_loc = sum(buckets[k].code_loc for k in CODED_BUCKETS)
-
     def to_width(loc: int) -> float:
         return CHART_W * (loc / total_loc) if total_loc else 0.0
+
+    in_y = BAR_H / 2 + 4  # baseline offset to vertically centre an in-bar label
 
     parts: list[str] = []
     parts.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {VIEWBOX_W} {VIEWBOX_H}" '
-        f'role="img" aria-label="Lines of code by language with test coverage">'
+        f'width="{VIEWBOX_W}" height="{VIEWBOX_H}" '
+        f'role="img" aria-label="Lines of code by language with test '
+        f'coverage shown as hatched uncovered regions">'
     )
-    # Hatch pattern (diagonal red lines on white).
     parts.append(
         "<defs>"
+        "<style>"
+        f".lbl{{fill:{TEXT_LIGHT}}}.edge{{stroke:{EDGE_LIGHT}}}"
+        "@media (prefers-color-scheme:dark){"
+        f".lbl{{fill:{TEXT_DARK}}}.edge{{stroke:{EDGE_DARK}}}"
+        "}"
+        "</style>"
+        # Diagonal red hatch on a transparent background, painted over the
+        # bucket colour to mark the uncovered fraction.
         '<pattern id="hatch" patternUnits="userSpaceOnUse" '
-        'width="8" height="8" patternTransform="rotate(45)">'
-        '<rect width="8" height="8" fill="#ffffff"/>'
-        f'<line x1="0" y1="0" x2="0" y2="8" stroke="{HATCH_COLOUR}" '
-        'stroke-width="3"/>'
+        'width="7" height="7" patternTransform="rotate(45)">'
+        f'<line x1="0" y1="0" x2="0" y2="7" stroke="{HATCH_COLOUR}" '
+        'stroke-width="2.5"/>'
         "</pattern>"
         "</defs>"
     )
-    # Title + caption.
-    parts.append(
-        svg_text(
-            CHART_X,
-            22,
-            "Lines of code · test coverage shown as hatched (uncovered)",
-            size=14,
-            weight="700",
-        )
-    )
 
-    # Top bar: js | go | mac.
-    cursor_x = CHART_X
-    top_y = CHART_Y
-    for bucket in CODED_BUCKETS:
-        b = buckets[bucket]
-        if b.code_loc == 0:
-            continue
-        seg_w = to_width(b.code_loc)
-        parts.append(
-            emit_segment(
-                cursor_x,
-                top_y,
-                seg_w,
-                BAR_H,
-                COLOURS[bucket],
-                "hatch" if b.has_coverage else None,
-                b.covered_fraction if b.has_coverage else 1.0,
-            )
-        )
-        # Label: inside if there is room, else above.
-        text = label_for(bucket, b.code_loc, total_loc)
-        if seg_w >= 60:
+    # Two stacked rows: coded languages (js | go | mac, with the coverage
+    # hatch) on top, then docs | scripts. A label sits inside its segment when
+    # it fits; the rightmost segment that doesn't fit is labelled beside the
+    # bar; any other too-narrow segment is labelled just above it. Off-bar
+    # labels use the colour-scheme-aware .lbl class.
+    rows = ((CODED_BUCKETS, True), (("markdown", "scripts"), False))
+    y = TOP_PAD
+    for row_buckets, hatched in rows:
+        present = [bk for bk in row_buckets if buckets[bk].code_loc > 0]
+        last = present[-1] if present else None
+        cursor_x = CHART_X
+        for bucket in row_buckets:
+            b = buckets[bucket]
+            if b.code_loc == 0:
+                continue
+            seg_w = to_width(b.code_loc)
+            use_hatch = hatched and b.has_coverage
             parts.append(
-                svg_text(
-                    cursor_x + seg_w / 2,
-                    top_y + BAR_H / 2 + 5,
-                    text,
-                    anchor="middle",
-                    size=14,
+                emit_segment(
+                    cursor_x,
+                    y,
+                    seg_w,
+                    BAR_H,
+                    COLOURS[bucket],
+                    "hatch" if use_hatch else None,
+                    b.covered_fraction if use_hatch else 1.0,
                 )
             )
-        else:
-            parts.append(
-                svg_text(
-                    cursor_x + seg_w / 2,
-                    top_y - 4,
-                    text,
-                    anchor="middle",
-                    size=12,
+            name = label_for(bucket)
+            if fits_inside(name, seg_w, 12):
+                parts.append(
+                    svg_text(cursor_x + seg_w / 2, y + in_y, name, anchor="middle")
                 )
-            )
-        cursor_x += seg_w
-
-    # Middle bar: markdown.
-    mid_y = top_y + BAR_H + BAR_GAP
-    md = buckets["markdown"]
-    md_w = to_width(md.code_loc)
-    parts.append(
-        emit_segment(
-            CHART_X,
-            mid_y,
-            md_w,
-            BAR_H,
-            COLOURS["markdown"],
-            None,
-            1.0,
-        )
-    )
-    md_label = label_for("markdown", md.code_loc, total_loc)
-    if md_w >= 100:
-        parts.append(
-            svg_text(
-                CHART_X + md_w / 2,
-                mid_y + BAR_H / 2 + 5,
-                md_label,
-                anchor="middle",
-                size=14,
-            )
-        )
-    else:
-        parts.append(
-            svg_text(
-                CHART_X + md_w + 8,
-                mid_y + BAR_H / 2 + 5,
-                md_label,
-                anchor="start",
-                size=14,
-            )
-        )
-
-    # Bottom bar: scripts.
-    bot_y = mid_y + BAR_H + BAR_GAP
-    sc = buckets["scripts"]
-    sc_w = to_width(sc.code_loc)
-    parts.append(
-        emit_segment(
-            CHART_X,
-            bot_y,
-            sc_w,
-            BAR_H,
-            COLOURS["scripts"],
-            None,
-            1.0,
-        )
-    )
-    sc_label = label_for("scripts", sc.code_loc, total_loc)
-    if sc_w >= 90:
-        parts.append(
-            svg_text(
-                CHART_X + sc_w / 2,
-                bot_y + BAR_H / 2 + 5,
-                sc_label,
-                anchor="middle",
-                size=14,
-            )
-        )
-    else:
-        parts.append(
-            svg_text(
-                CHART_X + sc_w + 8,
-                bot_y + BAR_H / 2 + 5,
-                sc_label,
-                anchor="start",
-                size=14,
-            )
-        )
-
-    # Footer: totals so the chart is auditable on its own.
-    coded_cov_hit = sum(buckets[k].cov_hit for k in CODED_BUCKETS)
-    coded_cov_found = sum(buckets[k].cov_found for k in CODED_BUCKETS)
-    coverage_pct = fmt_pct(coded_cov_hit, coded_cov_found)
-    footer_y = bot_y + BAR_H + 22
-    footer = (
-        f"{total_loc:,} LOC total · "
-        f"{coded_loc:,} coded ({fmt_pct(coded_loc, total_loc)}) · "
-        f"line coverage on coded: {coverage_pct}"
-    )
-    parts.append(svg_text(CHART_X, footer_y, footer, size=12, weight="500"))
+            elif bucket == last:
+                parts.append(
+                    svg_text(
+                        cursor_x + seg_w + 8,
+                        y + in_y,
+                        name,
+                        anchor="start",
+                        size=11,
+                        cls="lbl",
+                    )
+                )
+            else:
+                parts.append(
+                    svg_text(
+                        cursor_x + seg_w / 2,
+                        y - 4,
+                        name,
+                        anchor="middle",
+                        size=11,
+                        cls="lbl",
+                    )
+                )
+            cursor_x += seg_w
+        y += BAR_H + BAR_GAP
 
     parts.append("</svg>")
     return "".join(parts) + "\n"
