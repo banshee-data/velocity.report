@@ -30,7 +30,7 @@ iniconfig==2.1.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
-matplotlib==3.10.9
+matplotlib==3.11.0
     # via
     #   -r requirements.in
     #   seaborn
@@ -69,7 +69,7 @@ pygments==2.20.0
     # via pytest
 pyparsing==3.2.5
     # via matplotlib
-pytest==9.0.3
+pytest==9.1.0
     # via
     #   -r requirements.in
     #   pytest-cov
@@ -91,7 +91,7 @@ requests==2.34.2
     #   responses
 responses==0.26.1
     # via -r requirements.in
-ruff==0.15.16
+ruff==0.15.17
     # via -r requirements.in
 scipy==1.17.1
     # via -r requirements.in
