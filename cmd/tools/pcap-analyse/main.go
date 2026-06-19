@@ -35,6 +35,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/pcapsplit"
 	_ "modernc.org/sqlite"
 )
 
@@ -64,6 +65,7 @@ type Config struct {
 	FrameRate      float64 // Expected frame rate in Hz
 	Stats          bool    // Display concise capture statistics only
 	Stats10s       bool    // Display per-10s frame rate buckets (filterable)
+	Motion         bool    // Report a motion/static timeline for the capture
 
 	// Benchmark settings
 	Benchmark           bool
@@ -164,6 +166,9 @@ type CaptureStats struct {
 	ForegroundPct     float64           `json:"foreground_pct"`
 	AvgPointsPerFrame float64           `json:"avg_points_per_frame"`
 	FrameRate10s      []FrameRateBucket `json:"frame_rate_10s,omitempty"`
+
+	// MotionTimeline is populated only when -motion is set.
+	MotionTimeline []pcapsplit.MotionPeriod `json:"motion_timeline,omitempty"`
 }
 
 // FrameRateBucket holds frame-rate metrics for a 10-second window.
@@ -340,6 +345,7 @@ func parseFlags() Config {
 	flag.Float64Var(&config.FrameRate, "fps", 10.0, "Expected frame rate in Hz")
 	flag.BoolVar(&config.Stats, "stats", false, "Display concise capture statistics (frame rate, RPM, duration)")
 	flag.BoolVar(&config.Stats10s, "stats-10s", false, "Display per-10s frame rate buckets (grep-friendly)")
+	flag.BoolVar(&config.Motion, "motion", false, "Report a motion/static timeline (sensor movement vs. stable periods)")
 
 	// Benchmark flags (short and long forms bind to same variable for convenience)
 	flag.BoolVar(&config.Benchmark, "benchmark", false, "Enable performance measurement mode")
@@ -456,6 +462,9 @@ type analysisFrameBuilder struct {
 	// Per-frame PCAP timestamps (always populated, used by -stats-10s)
 	frameTimestamps []time.Time
 
+	// Per-frame raw motion samples (populated only when -motion is set)
+	motionSamples []pcapsplit.FrameSample
+
 	// Database connection for background/region persistence
 	dbConn *db.DB
 }
@@ -568,6 +577,16 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 
 	// Record the PCAP-time of this frame for per-bucket stats
 	fb.frameTimestamps = append(fb.frameTimestamps, fb.frameStartTime)
+
+	// Record a raw motion sample BEFORE the foregroundCount==0 early-return
+	// below: static frames have near-zero foreground and are exactly the ones
+	// the timeline must capture. Hysteresis is applied later in getCaptureStats.
+	if fb.config.Motion {
+		fb.motionSamples = append(fb.motionSamples, pcapsplit.FrameSample{
+			T:      fb.frameStartTime,
+			Moving: fb.bgManager.CheckForSensorMovement(mask),
+		})
+	}
 
 	if foregroundCount == 0 {
 		if fb.benchmarkMode {
@@ -782,6 +801,12 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 		stats.FrameRate10s = buckets
 	}
 
+	// Motion timeline: collapse raw per-frame samples into sustained
+	// motion/static periods with hysteresis (only when -motion was requested).
+	if fb.config.Motion && len(fb.motionSamples) > 0 {
+		stats.MotionTimeline = pcapsplit.BuildTimeline(fb.motionSamples, pcapsplit.DefaultTimelineConfig())
+	}
+
 	return stats
 }
 
@@ -801,6 +826,7 @@ func printCaptureStats(stats CaptureStats) {
 	}
 	fmt.Println()
 	fmt.Printf("  Tracks:      %d confirmed\n", stats.ConfirmedTracks)
+	printMotionTimeline(stats.MotionTimeline)
 }
 
 // printStats10s prints one line per 10-second bucket in a grep-friendly format.
@@ -812,6 +838,24 @@ func printStats10s(stats CaptureStats) {
 		sec := int(b.OffsetSecs) % 60
 		fmt.Printf("[%s] (%03d:%02d) frame_rate: %.1f Hz\n", base, min, sec, b.Hz)
 	}
+}
+
+// printMotionTimeline renders the motion/static timeline produced by -motion.
+func printMotionTimeline(periods []pcapsplit.MotionPeriod) {
+	if len(periods) == 0 {
+		return
+	}
+	fmt.Println("\nMotion Timeline:")
+	for _, p := range periods {
+		fmt.Printf("  [%7.1fs – %7.1fs]  %-7s (%s)\n",
+			p.StartSecs, p.EndSecs, p.Type, formatMinSec(p.DurationSecs))
+	}
+}
+
+// formatMinSec formats a duration in seconds as "Nm SSs".
+func formatMinSec(secs float64) string {
+	total := int(secs + 0.5)
+	return fmt.Sprintf("%dm %02ds", total/60, total%60)
 }
 
 // getBenchmarkData returns the collected benchmark timing data.
@@ -1172,6 +1216,9 @@ func printSummary(result *AnalysisResult) {
 	fmt.Println()
 	if result.TrainingFrames > 0 {
 		fmt.Printf("Training frames exported: %d\n", result.TrainingFrames)
+	}
+	if result.CaptureStats != nil {
+		printMotionTimeline(result.CaptureStats.MotionTimeline)
 	}
 	fmt.Println("=============================================")
 }
