@@ -30,10 +30,8 @@ iniconfig==2.1.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
-matplotlib==3.10.9
-    # via
-    #   -r requirements.in
-    #   seaborn
+matplotlib==3.11.0
+    # via -r requirements.in
 mypy-extensions==1.1.0
     # via black
 numpy==2.4.6
@@ -42,17 +40,13 @@ numpy==2.4.6
     #   contourpy
     #   matplotlib
     #   pandas
-    #   scipy
-    #   seaborn
 packaging==25.0
     # via
     #   black
     #   matplotlib
     #   pytest
 pandas==3.0.3
-    # via
-    #   -r requirements.in
-    #   seaborn
+    # via -r requirements.in
 pathspec==1.0.4
     # via black
 pillow==12.2.0
@@ -69,7 +63,7 @@ pygments==2.20.0
     # via pytest
 pyparsing==3.2.5
     # via matplotlib
-pytest==9.0.3
+pytest==9.1.0
     # via
     #   -r requirements.in
     #   pytest-cov
@@ -82,20 +76,10 @@ python-dateutil==2.9.0.post0
 pytokens==0.4.1
     # via black
 pyyaml==6.0.3
-    # via
-    #   -r requirements.in
-    #   responses
+    # via -r requirements.in
 requests==2.34.2
-    # via
-    #   -r requirements.in
-    #   responses
-responses==0.26.1
     # via -r requirements.in
-ruff==0.15.16
-    # via -r requirements.in
-scipy==1.17.1
-    # via -r requirements.in
-seaborn==0.13.2
+ruff==0.15.17
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
@@ -103,4 +87,3 @@ urllib3==2.7.0
     # via
     #   -r requirements.in
     #   requests
-    #   responses

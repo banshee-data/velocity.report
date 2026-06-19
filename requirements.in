@@ -6,8 +6,6 @@
 pandas
 matplotlib
 numpy<2.5.0  # Pin to avoid yanked 2.4.0
-seaborn
-scipy
 pillow>=12.2.0  # CVE-2026-25990 fix
 
 # HTTP + utilities used by various scripts
@@ -23,7 +21,6 @@ pyyaml
 # Testing
 pytest
 pytest-cov
-responses
 
 # Development tools (formatting/linting)
 black>=26.5.1  # CVE-2026-32274 fix

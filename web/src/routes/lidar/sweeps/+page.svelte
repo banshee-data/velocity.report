@@ -327,8 +327,7 @@
 					bind:value={pasteJSON}
 					rows="6"
 					class="bg-surface-200 border-surface-content/20 w-full rounded border p-2 font-mono text-xs"
-					placeholder={'{"foreground_dbscan_eps": 0.3, "measurement_noise": 0.9}'}
-				></textarea>
+					placeholder={'{"foreground_dbscan_eps": 0.3, "measurement_noise": 0.9}'}></textarea>
 				{#if pasteError}
 					<p class="mt-1 text-xs text-red-500">{pasteError}</p>
 				{/if}
