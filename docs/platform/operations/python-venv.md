@@ -36,7 +36,7 @@ Everything else uses the single shared virtual environment at `.venv/` in the pr
 | `tools/connector-pinouts/`                | Connector pinout documentation SVGs                                      |
 | `tools/_render/svg_to_png.py`             | SVG rasterisation helper                                                 |
 | `tools/guide-overlays/`                   | Sensor positioning overlay drawings                                      |
-| `data/explore/`                           | Research data analysis (matplotlib, scipy, pandas)                       |
+| `data/explore/`                           | Research data analysis (matplotlib, pandas)                              |
 | `build123d` (via `make install-diagrams`) | 3D CAD rendering for hardware docs                                       |
 
 ## Setup
@@ -95,8 +95,8 @@ velocity.report/
 
 Key dependency groups:
 
-- **Data analysis:** pandas, numpy, scipy
-- **Visualisation:** matplotlib, seaborn
+- **Data analysis:** pandas, numpy
+- **Visualisation:** matplotlib
 - **Testing:** pytest, pytest-cov
 - **Formatting:** black, ruff
 
