@@ -50,6 +50,7 @@ app-*
 /gen-vrlog
 mock_serial_port*
 /pcap-analyse
+/pcap-split
 /radar
 /replay-server
 /settling-eval

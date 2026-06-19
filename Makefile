@@ -30,6 +30,8 @@ help:
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
 	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
+	@echo "  build-pcap-split     Build the pcap-split motion/static segmentation tool"
+	@echo "  run-pcap-split       Split a PCAP into motion/static segments (PCAP=path)"
 	@echo "  build-ctl            (alias) Build velocity (device tools folded in)"
 	@echo "  build-ctl-linux      (alias) Build velocity for Linux ARM64"
 	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
@@ -304,6 +306,19 @@ run-settling-eval: PCAP ?= $(SETTLING_EVAL_PCAP)
 run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
 run-settling-eval:
 	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
+
+# Build the pcap-split tool (requires libpcap; built with the pcap tag).
+.PHONY: build-pcap-split
+build-pcap-split:
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o pcap-split ./cmd/tools/pcap-split
+
+# Segment a PCAP into motion/static files.
+# Usage: make run-pcap-split PCAP=capture.pcapng [OUTPUT=./segments] [PORT=2369]
+run-pcap-split: PCAP ?= $(SETTLING_EVAL_PCAP)
+run-pcap-split: PORT ?= $(SETTLING_EVAL_PORT)
+run-pcap-split: OUTPUT ?= ./segments
+run-pcap-split:
+	go run -tags=pcap ./cmd/tools/pcap-split --pcap $(PCAP) --port $(PORT) --output $(OUTPUT) --export-json --export-metrics
 
 .PHONY: build-embedded-assets
 build-embedded-assets:
