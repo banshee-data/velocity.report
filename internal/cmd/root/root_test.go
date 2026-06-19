@@ -61,7 +61,7 @@ func TestDispatchRouting(t *testing.T) {
 
 func TestDispatchHelpMentionsNamespaces(t *testing.T) {
 	_, stdout, _ := runDispatch(t, "velocity", nil)
-	for _, ns := range []string{"serve", "device", "data", "report", "tune", "version"} {
+	for _, ns := range []string{"serve", "device", "lidar", "data", "report", "tune", "version"} {
 		if !strings.Contains(stdout, ns) {
 			t.Errorf("top-level help missing namespace %q\nhelp:\n%s", ns, stdout)
 		}
@@ -69,10 +69,11 @@ func TestDispatchHelpMentionsNamespaces(t *testing.T) {
 }
 
 func TestDispatchRoutesNamespacesToApplets(t *testing.T) {
-	oldServer, oldDevice, oldTune := serverMain, deviceMain, tuneMain
+	oldServer, oldDevice, oldLidar, oldTune := serverMain, deviceMain, lidarMain, tuneMain
 	defer func() {
 		serverMain = oldServer
 		deviceMain = oldDevice
+		lidarMain = oldLidar
 		tuneMain = oldTune
 	}()
 
@@ -101,6 +102,13 @@ func TestDispatchRoutesNamespacesToApplets(t *testing.T) {
 		}{"tune", append([]string(nil), args...)})
 		return 12
 	}
+	lidarMain = func(args []string) int {
+		calls = append(calls, struct {
+			name string
+			args []string
+		}{"lidar", append([]string(nil), args...)})
+		return 13
+	}
 
 	cases := []struct {
 		args     []string
@@ -115,6 +123,7 @@ func TestDispatchRoutesNamespacesToApplets(t *testing.T) {
 		{[]string{"data", "sql", "SELECT 1"}, 10, "server", []string{"sql", "SELECT 1"}},
 		{[]string{"report", "pdf", "--version"}, 10, "server", []string{"pdf", "--version"}},
 		{[]string{"tune", "sweep", "--dry-run"}, 12, "tune", []string{"--dry-run"}},
+		{[]string{"lidar", "pcap-analyse", "-pcap", "x.pcap"}, 13, "lidar", []string{"pcap-analyse", "-pcap", "x.pcap"}},
 	}
 
 	for i, tc := range cases {

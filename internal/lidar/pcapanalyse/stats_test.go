@@ -1,7 +1,7 @@
 //go:build pcap
 // +build pcap
 
-package main
+package pcapanalyse
 
 import (
 	"math"
