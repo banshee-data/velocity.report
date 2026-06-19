@@ -22,7 +22,6 @@
     "@tailwindcss/cli": "^4.3.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/typography": "^0.5.19",
-    "autoprefixer": "^10.5.0",
     "cheerio": "^1.2.0",
     "markdown-it": "^14.2.0",
     "markdown-it-anchor": "^9.2.0",
