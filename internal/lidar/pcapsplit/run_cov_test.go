@@ -72,6 +72,41 @@ func TestRun_Integration(t *testing.T) {
 	}
 }
 
+func TestRun_DryRunExportsMetadataWithoutPCAPs(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultSplitConfig()
+	cfg.PCAPFile = truncatedCapture(t, 3000)
+	cfg.OutputDir = dir
+	cfg.UDPPort = 2369
+	cfg.ExportJSON = true
+	cfg.ExportMetrics = true
+	cfg.DryRun = true
+
+	old := os.Stdout
+	devnull, _ := os.Open(os.DevNull)
+	os.Stdout = devnull
+	err := Run(cfg)
+	os.Stdout = old
+	_ = devnull.Close()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for _, f := range []string{"summary.txt", "segments.json", "frame_metrics.csv"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			t.Errorf("missing %s: %v", f, err)
+		}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".pcap" {
+			t.Errorf("dry run wrote a PCAP: %s", entry.Name())
+		}
+	}
+}
+
 func TestRun_OutputDirError(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "afile")
 	_ = os.WriteFile(f, []byte("x"), 0o644)

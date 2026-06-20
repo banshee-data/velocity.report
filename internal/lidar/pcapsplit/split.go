@@ -33,6 +33,7 @@ type SplitConfig struct {
 	UDPPort          int     `json:"udp_port"`
 	ExportMetrics    bool    `json:"-"`
 	ExportJSON       bool    `json:"-"`
+	DryRun           bool    `json:"-"`
 	Verbose          bool    `json:"-"`
 }
 
@@ -71,10 +72,13 @@ type FrameMetrics struct {
 	T                  time.Time `json:"timestamp"`
 	TotalPoints        int       `json:"total_points"`
 	ForegroundPoints   int       `json:"foreground_points"`
+	ForegroundFraction float64   `json:"foreground_fraction"`
 	NonzeroCells       int       `json:"nonzero_cells"`
 	SettledCells       int       `json:"settled_cells"`
 	PercentSettled     float64   `json:"percent_settled"`
 	DeviationFromNoise float64   `json:"deviation_from_noise"`
+	WithinNoiseBounds  bool      `json:"within_noise_bounds"`
+	Stable             bool      `json:"stable"`
 	Moving             bool      `json:"moving"`
 	State              string    `json:"state"`
 }

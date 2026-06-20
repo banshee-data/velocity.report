@@ -9,18 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-)
-
-// gridRings and gridAzBins are the fixed Pandar40P background-grid dimensions,
-// matching settling-eval and the rest of the pipeline.
-const (
-	gridRings  = 40
-	gridAzBins = 1800
 )
 
 // Analysis is the result of the read/classify pass over a PCAP. Frames are the
@@ -39,11 +30,6 @@ type Analysis struct {
 // timeline and segment writing are separate steps. This is pass 1 of the
 // two-pass split (pass 2 is WriteSegments).
 func Analyse(cfg SplitConfig) (*Analysis, error) {
-	params, err := backgroundParams()
-	if err != nil {
-		return nil, err
-	}
-
 	parserCfg, err := parse.LoadPandar40PConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
@@ -51,18 +37,14 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	parser := parse.NewPandar40PParser(*parserCfg)
 	elevations := parse.ElevationsFromConfig(parserCfg)
 
-	bgMgr := l3grid.NewBackgroundManagerDI(cfg.SensorID, gridRings, gridAzBins, params, nil)
-	if bgMgr == nil {
-		return nil, fmt.Errorf("failed to create BackgroundManager")
+	classifierCfg := DefaultMotionClassifierConfig()
+	classifierCfg.SettledThreshold = cfg.SettledThreshold
+	classifier, err := NewMotionClassifier(cfg.SensorID, cfg.PCAPFile, classifierCfg)
+	if err != nil {
+		return nil, err
 	}
-	if err := bgMgr.SetRingElevations(elevations); err != nil {
+	if err := classifier.SetRingElevations(elevations); err != nil {
 		return nil, fmt.Errorf("set ring elevations: %w", err)
-	}
-	bgMgr.SetSourcePath(cfg.PCAPFile)
-
-	settledThreshold := cfg.SettledThreshold
-	if settledThreshold == 0 {
-		settledThreshold = DefaultSettledThreshold
 	}
 
 	var (
@@ -76,8 +58,8 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		if frame == nil || len(frame.PolarPoints) == 0 {
 			return
 		}
-		mask, err := bgMgr.ProcessFramePolarWithMask(frame.PolarPoints)
-		if err != nil || mask == nil {
+		evidence, err := classifier.Observe(frame.StartTimestamp, frame.PolarPoints)
+		if err != nil {
 			if err != nil {
 				mu.Lock()
 				if firstErr == nil {
@@ -87,30 +69,22 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 			}
 			return
 		}
-		fg := 0
-		for _, isFg := range mask {
-			if isFg {
-				fg++
-			}
-		}
-		moving := bgMgr.CheckForSensorMovement(mask)
-		fsm := bgMgr.GetFrameSettlingMetrics(settledThreshold)
-		dev := bgMgr.GetNoiseBoundsDeviation()
-		t := frame.StartTimestamp
-
 		mu.Lock()
 		frames = append(frames, FrameMetrics{
 			FrameID:            len(frames),
-			T:                  t,
-			TotalPoints:        len(frame.PolarPoints),
-			ForegroundPoints:   fg,
-			NonzeroCells:       fsm.NonzeroCells,
-			SettledCells:       fsm.SettledCells,
-			PercentSettled:     fsm.PercentSettled,
-			DeviationFromNoise: dev,
-			Moving:             moving,
+			T:                  evidence.T,
+			TotalPoints:        evidence.TotalPoints,
+			ForegroundPoints:   evidence.ForegroundPoints,
+			ForegroundFraction: evidence.ForegroundFraction,
+			NonzeroCells:       evidence.NonzeroCells,
+			SettledCells:       evidence.SettledCells,
+			PercentSettled:     evidence.PercentSettled,
+			DeviationFromNoise: evidence.DeviationFromNoise,
+			WithinNoiseBounds:  evidence.WithinNoiseBounds,
+			Stable:             evidence.Stable,
+			Moving:             evidence.Moving,
 		})
-		samples = append(samples, FrameSample{T: t, Moving: moving})
+		samples = append(samples, FrameSample{T: evidence.T, Moving: evidence.Moving})
 		mu.Unlock()
 	}
 
@@ -119,6 +93,9 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		FrameCallback:   frameCallback,
 		FrameChCapacity: 32,
 	})
+	// Analysis must not drop completed rotations when the callback is slower
+	// than PCAP decoding; Close flushes the final partial/buffered frames.
+	fb.SetBlockOnFrameChannel(true)
 	closed := false
 	defer func() {
 		if !closed {
@@ -155,21 +132,6 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		a.LastTime = samples[len(samples)-1].T
 	}
 	return a, nil
-}
-
-// backgroundParams builds settling-friendly background parameters from the
-// default tuning config, mirroring settling-eval: warmup gating is disabled so
-// the model can settle from frame 0 during offline replay.
-func backgroundParams() (l3grid.BackgroundParams, error) {
-	tuningCfg := config.MustLoadDefaultConfig()
-	bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
-	bgConfig.WarmupMinFrames = 0
-	bgConfig.WarmupDuration = 0
-	bgConfig.SettlingPeriod = 24 * time.Hour
-	if err := bgConfig.Validate(); err != nil {
-		return l3grid.BackgroundParams{}, fmt.Errorf("invalid background config: %w", err)
-	}
-	return bgConfig.ToBackgroundParams(), nil
 }
 
 // countingStats is a minimal network.PacketStatsInterface that counts packets.

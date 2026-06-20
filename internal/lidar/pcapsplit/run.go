@@ -34,12 +34,15 @@ func Run(cfg SplitConfig) error {
 	segments := BuildSegments(periods, cfg.OutputPrefix)
 	AssignFrameStates(analysis.Frames, segments)
 
-	// Pass 2: write segment files (fills in PacketCount).
-	if cfg.Verbose {
-		log.Printf("pass 2: writing %d segment(s) ...", len(segments))
-	}
-	if err := WriteSegments(cfg, segments); err != nil {
-		return err
+	// Pass 2: write segment files (fills in PacketCount), unless this is a
+	// non-destructive preview used to calibrate real captures.
+	if !cfg.DryRun {
+		if cfg.Verbose {
+			log.Printf("pass 2: writing %d segment(s) ...", len(segments))
+		}
+		if err := WriteSegments(cfg, segments); err != nil {
+			return err
+		}
 	}
 
 	report := Report{
