@@ -4,9 +4,11 @@
 package pcapanalyse
 
 import (
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/gopacket"
@@ -59,20 +61,52 @@ func testCapture(t *testing.T, maxPackets int) string {
 	return dst
 }
 
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	defer func() {
+		os.Stdout = old
+		log.SetOutput(os.Stderr)
+	}()
+
+	fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
 // captureOutput redirects stdout while fn runs (Run and the print helpers are
 // chatty) and restores the log destination afterwards (Run mutates it globally
 // in stats/benchmark mode).
 func captureOutput(t *testing.T, fn func()) {
 	t.Helper()
-	old := os.Stdout
-	devnull, _ := os.Open(os.DevNull)
-	os.Stdout = devnull
-	defer func() {
-		os.Stdout = old
-		_ = devnull.Close()
-		log.SetOutput(os.Stderr)
-	}()
-	fn()
+	_ = captureStdout(t, func() {
+		devnull, err := os.Open(os.DevNull)
+		if err != nil {
+			t.Fatal(err)
+		}
+		old := os.Stdout
+		os.Stdout = devnull
+		defer func() {
+			os.Stdout = old
+			_ = devnull.Close()
+		}()
+		fn()
+	})
 }
 
 func baseConfig(t *testing.T, pcapFile string) Config {
@@ -116,6 +150,31 @@ func TestRun_StatsModes(t *testing.T) {
 		if code != 0 {
 			t.Errorf("Run %s = %d, want 0", mode, code)
 		}
+	}
+}
+
+func TestRun_MotionModePrintsTimelineAndSkipsExports(t *testing.T) {
+	cfg := baseConfig(t, testCapture(t, 1500))
+	cfg.Motion = true
+	cfg.ExportJSON = true
+	cfg.ExportCSV = true
+
+	var code int
+	out := captureStdout(t, func() { code = Run(cfg) })
+	if code != 0 {
+		t.Fatalf("Run motion mode = %d, want 0", code)
+	}
+	if !strings.Contains(out, "Motion Timeline:") {
+		t.Fatalf("motion output missing timeline, got %q", out)
+	}
+	if !strings.Contains(out, filepath.Base(cfg.PCAPFile)) {
+		t.Fatalf("motion output missing file summary, got %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "trunc_analysis.json")); !os.IsNotExist(err) {
+		t.Fatalf("motion mode should not export JSON, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "trunc_tracks.csv")); !os.IsNotExist(err) {
+		t.Fatalf("motion mode should not export CSV, stat err=%v", err)
 	}
 }
 

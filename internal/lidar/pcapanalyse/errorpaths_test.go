@@ -5,12 +5,43 @@ package pcapanalyse
 
 import (
 	"encoding/json"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	defer func() {
+		os.Stderr = old
+		log.SetOutput(os.Stderr)
+	}()
+
+	fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
 
 // fileAsDir returns a path whose parent component is a regular file, so any
 // MkdirAll / Create / open beneath it fails — a portable way to exercise I/O
@@ -55,6 +86,23 @@ func TestNewAnalysisFrameBuilder_BadDB(t *testing.T) {
 func TestRun_OutputDirError(t *testing.T) {
 	if code := Run(Config{PCAPFile: "x", OutputDir: fileAsDir(t)}); code != 1 {
 		t.Errorf("Run with bad output dir = %d, want 1", code)
+	}
+}
+
+func TestRun_StatsModeSurfacesAnalysisErrors(t *testing.T) {
+	pcapDir := t.TempDir()
+	var code int
+	stderr := captureStderr(t, func() {
+		code = Run(Config{PCAPFile: pcapDir, Stats: true})
+	})
+	if code != 1 {
+		t.Fatalf("Run stats mode on unreadable pcap source = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "Analysis failed:") {
+		t.Fatalf("stderr missing analysis failure, got %q", stderr)
+	}
+	if !strings.Contains(stderr, pcapDir) {
+		t.Fatalf("stderr missing source path, got %q", stderr)
 	}
 }
 

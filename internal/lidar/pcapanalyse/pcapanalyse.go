@@ -277,8 +277,9 @@ func Run(config Config) int {
 		log.SetOutput(io.Discard) // Suppress all logging to avoid measurement interference
 	}
 
-	// In stats mode, suppress logging and disable exports
-	if config.Stats || config.Stats10s {
+	// In report-only modes, suppress logging and disable exports.
+	// Keep benchmark mode separate so -motion can still emit benchmark JSON.
+	if config.Stats || config.Stats10s || (config.Motion && !config.Benchmark) {
 		config.Verbose = false
 		config.ExportCSV = false
 		config.ExportJSON = false
@@ -297,7 +298,7 @@ func Run(config Config) int {
 		result, err = analyzePCAP(config)
 	}
 	if err != nil {
-		log.Printf("Analysis failed: %v", err)
+		fmt.Fprintf(os.Stderr, "Analysis failed: %v\n", err)
 		return 1
 	}
 
@@ -313,6 +314,15 @@ func Run(config Config) int {
 	if config.Stats10s {
 		if result.CaptureStats != nil {
 			printStats10s(*result.CaptureStats)
+		}
+		return 0
+	}
+
+	// Motion-only mode: print the concise capture summary plus the motion/static
+	// timeline and exit without exporting artefacts.
+	if config.Motion && !config.Benchmark {
+		if result.CaptureStats != nil {
+			printCaptureStats(*result.CaptureStats)
 		}
 		return 0
 	}
