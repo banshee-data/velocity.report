@@ -12,21 +12,25 @@ import (
 func TestDefaultMotionClassifierConfig(t *testing.T) {
 	cfg := DefaultMotionClassifierConfig()
 	if cfg.SettledThreshold != DefaultSettledThreshold ||
-		cfg.MovementForegroundThreshold != 0.20 || cfg.NoiseBoundsThreshold != 2 {
+		cfg.MovementForegroundThreshold != 0.20 || cfg.MovementDeviationThreshold != 1.5 ||
+		cfg.NoiseBoundsThreshold != 2 {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
 }
 
-func TestClassifyMovingUsesThreshold(t *testing.T) {
-	cfg := DefaultMotionClassifierConfig() // movement threshold 0.20
-	if classifyMoving(cfg, 0.19) {
-		t.Error("foreground 0.19 should be static (below threshold)")
+func TestClassifyMovingUsesEitherSignal(t *testing.T) {
+	cfg := DefaultMotionClassifierConfig() // foreground 0.20, deviation 1.5
+	// Neither signal: static.
+	if classifyMoving(cfg, 0.19, 1.4) {
+		t.Error("foreground 0.19 + deviation 1.4 should be static")
 	}
-	if !classifyMoving(cfg, 0.20) {
-		t.Error("foreground 0.20 should be motion (at threshold)")
+	// Foreground signal (motion onset).
+	if !classifyMoving(cfg, 0.20, 0.5) {
+		t.Error("foreground 0.20 should be motion")
 	}
-	if !classifyMoving(cfg, 0.55) {
-		t.Error("foreground 0.55 should be motion")
+	// Deviation signal (sustained motion, foreground collapsed).
+	if !classifyMoving(cfg, 0.02, 1.5) {
+		t.Error("deviation 1.5 should be motion even with low foreground")
 	}
 }
 
@@ -39,6 +43,7 @@ func TestNewMotionClassifierValidation(t *testing.T) {
 	for _, mutate := range []func(*MotionClassifierConfig){
 		func(c *MotionClassifierConfig) { c.MovementForegroundThreshold = 0 },
 		func(c *MotionClassifierConfig) { c.MovementForegroundThreshold = 1 },
+		func(c *MotionClassifierConfig) { c.MovementDeviationThreshold = 0 },
 		func(c *MotionClassifierConfig) { c.NoiseBoundsThreshold = 0 },
 	} {
 		bad := cfg
@@ -77,11 +82,13 @@ func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
 	if !evidence.T.Equal(t0) || evidence.TotalPoints != 1 {
 		t.Fatalf("unexpected initial evidence: %+v", evidence)
 	}
-	// The motion decision follows the foreground fraction against the movement
-	// threshold, and Stable is always its inverse.
-	wantMoving := evidence.ForegroundFraction >= DefaultMotionClassifierConfig().MovementForegroundThreshold
+	// The motion decision follows the foreground/deviation signals against their
+	// thresholds, and Stable is always its inverse.
+	dcfg := DefaultMotionClassifierConfig()
+	wantMoving := evidence.ForegroundFraction >= dcfg.MovementForegroundThreshold ||
+		evidence.DeviationFromNoise >= dcfg.MovementDeviationThreshold
 	if evidence.Moving != wantMoving || evidence.Stable == evidence.Moving {
-		t.Fatalf("decision inconsistent with foreground fraction: %+v", evidence)
+		t.Fatalf("decision inconsistent with motion signals: %+v", evidence)
 	}
 }
 

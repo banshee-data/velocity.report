@@ -26,16 +26,23 @@ func TestSoma2MixedMotion(t *testing.T) {
 		t.Fatal(err)
 	}
 	periods := BuildTimeline(analysis.Samples, cfg.TimelineConfig())
-	var static, motion bool
+	var staticSecs, motionSecs float64
 	for _, period := range periods {
 		switch period.Type {
 		case StaticLabel:
-			static = true
+			staticSecs += period.DurationSecs
 		case MotionLabel:
-			motion = true
+			motionSecs += period.DurationSecs
 		}
 	}
-	if !static || !motion {
+	if staticSecs == 0 || motionSecs == 0 {
 		t.Fatalf("soma2 must contain both static and motion periods, got %+v", periods)
+	}
+	// soma2 is parked for ~70 s then drives for the remaining ~21 min, so motion
+	// must dominate. Regression guard: a foreground-only classifier mislabelled
+	// the long drive as static once the per-cell range spread saturated and the
+	// foreground gate widened — leaving only a brief motion blip near the start.
+	if motionSecs < staticSecs {
+		t.Errorf("expected motion to dominate; static=%.0fs motion=%.0fs", staticSecs, motionSecs)
 	}
 }
