@@ -255,3 +255,25 @@ func TestAnalyze_CaptureStatsAndDuration(t *testing.T) {
 		t.Errorf("benchmark duration not aligned: %.4f vs capture %.4f", r2.DurationSecs, r2.CaptureStats.DurationSecs)
 	}
 }
+
+// TestRun_MotionWithBenchmarkStillExports locks in the carve-out: -motion with
+// -benchmark is NOT report-only — it still writes the analysis and benchmark
+// JSON (only -motion without -benchmark suppresses exports).
+func TestRun_MotionWithBenchmarkStillExports(t *testing.T) {
+	cfg := baseConfig(t, testCapture(t, 1200))
+	cfg.Motion = true
+	cfg.Benchmark = true
+	cfg.Quiet = true
+	cfg.ExportJSON = true
+	var code int
+	captureOutput(t, func() { code = Run(cfg) })
+	if code != 0 {
+		t.Fatalf("motion+benchmark = %d, want 0", code)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "trunc_analysis.json")); err != nil {
+		t.Errorf("motion+benchmark should export analysis JSON: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "trunc_benchmark.json")); err != nil {
+		t.Errorf("motion+benchmark should write benchmark JSON: %v", err)
+	}
+}
