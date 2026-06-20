@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -87,6 +88,43 @@ func TestGetCaptureStats_Synthetic(t *testing.T) {
 	}
 	if len(stats.MotionTimeline) == 0 {
 		t.Error("expected motion timeline")
+	}
+}
+
+func TestAttachMotionTimelineMatchesPCAPSplit(t *testing.T) {
+	pcapFile := testCapture(t, 1500)
+	config := baseConfig(t, pcapFile)
+	result := &AnalysisResult{CaptureStats: &CaptureStats{File: pcapFile}}
+	if err := attachMotionTimeline(config, result); err != nil {
+		t.Fatal(err)
+	}
+
+	splitCfg := pcapsplit.DefaultSplitConfig()
+	splitCfg.PCAPFile = pcapFile
+	splitCfg.SensorID = config.SensorID
+	splitCfg.UDPPort = config.UDPPort
+	analysis, err := pcapsplit.Analyse(splitCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := pcapsplit.BuildTimeline(analysis.Samples, splitCfg.TimelineConfig())
+	if !reflect.DeepEqual(result.CaptureStats.MotionTimeline, want) {
+		t.Fatalf("preview timeline differs from splitter\n got: %#v\nwant: %#v", result.CaptureStats.MotionTimeline, want)
+	}
+}
+
+func TestAttachMotionTimelineRejectsMissingStats(t *testing.T) {
+	if err := attachMotionTimeline(Config{}, nil); err == nil {
+		t.Fatal("expected nil result to fail")
+	}
+	if err := attachMotionTimeline(Config{}, &AnalysisResult{}); err == nil {
+		t.Fatal("expected missing capture stats to fail")
+	}
+	if err := attachMotionTimeline(
+		Config{PCAPFile: filepath.Join(t.TempDir(), "missing.pcap"), SensorID: "hesai-pandar40p", UDPPort: testPCAPPort},
+		&AnalysisResult{CaptureStats: &CaptureStats{}},
+	); err == nil {
+		t.Fatal("expected unreadable PCAP to fail")
 	}
 }
 

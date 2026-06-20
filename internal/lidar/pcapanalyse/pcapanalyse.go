@@ -307,6 +307,12 @@ func Run(config Config) int {
 		fmt.Fprintf(os.Stderr, "Analysis failed: %v\n", err)
 		return 1
 	}
+	if config.Motion {
+		if err := attachMotionTimeline(config, result); err != nil {
+			fmt.Fprintf(os.Stderr, "Motion analysis failed: %v\n", err)
+			return 1
+		}
+	}
 
 	// Write the motion/static timeline to a JSON file when requested.
 	if config.MotionJSONPath != "" && result.CaptureStats != nil {
@@ -358,6 +364,26 @@ func Run(config Config) int {
 	}
 
 	return 0
+}
+
+// attachMotionTimeline runs the same physical-frame classifier and timeline
+// configuration as pcap-split. The tracking frame builder is intentionally not
+// reused: it can emit sub-rotation frames, while motion detection must operate
+// on complete sensor rotations to keep its full-grid metrics bounded.
+func attachMotionTimeline(config Config, result *AnalysisResult) error {
+	if result == nil || result.CaptureStats == nil {
+		return fmt.Errorf("capture statistics are unavailable")
+	}
+	splitCfg := pcapsplit.DefaultSplitConfig()
+	splitCfg.PCAPFile = config.PCAPFile
+	splitCfg.SensorID = config.SensorID
+	splitCfg.UDPPort = config.UDPPort
+	analysis, err := pcapsplit.Analyse(splitCfg)
+	if err != nil {
+		return err
+	}
+	result.CaptureStats.MotionTimeline = pcapsplit.BuildTimeline(analysis.Samples, splitCfg.TimelineConfig())
+	return nil
 }
 
 // analysisStats implements network.PacketStatsInterface for tracking analysis statistics.
@@ -462,7 +488,6 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 	if dbConn != nil {
 		store = dbConn
 	}
-
 	fb := &analysisFrameBuilder{
 		points:          make([]l2frames.PointPolar, 0, 50000),
 		bgManager:       createBackgroundManager(config.SensorID, store),
@@ -552,16 +577,6 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 
 	// Record the PCAP-time of this frame for per-bucket stats
 	fb.frameTimestamps = append(fb.frameTimestamps, fb.frameStartTime)
-
-	// Record a raw motion sample BEFORE the foregroundCount==0 early-return
-	// below: static frames have near-zero foreground and are exactly the ones
-	// the timeline must capture. Hysteresis is applied later in getCaptureStats.
-	if fb.config.Motion {
-		fb.motionSamples = append(fb.motionSamples, pcapsplit.FrameSample{
-			T:      fb.frameStartTime,
-			Moving: fb.bgManager.CheckForSensorMovement(mask),
-		})
-	}
 
 	if foregroundCount == 0 {
 		if fb.benchmarkMode {
