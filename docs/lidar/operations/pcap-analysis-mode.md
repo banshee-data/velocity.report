@@ -207,7 +207,7 @@ Plans: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md), [pcap-mot
 
 Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
 
-**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is now a thin shim over the same engine). To preview the motion/static timeline without splitting, use `velocity lidar pcap-analyse --pcap capture.pcapng --motion --stats`; add `--motion-json timeline.json` to write the timeline to a file. When `--port` is omitted the sensor's UDP port is auto-detected from the capture.
+**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is now a thin shim over the same engine). To preview the motion/static timeline without splitting, use `velocity lidar pcap-analyse --pcap capture.pcapng --motion --stats`; add `--motion-json timeline.json` to write the timeline to a file. `pcap-split --dry-run --export-json` runs the identical physical-frame classifier without writing PCAP files. When `--port` is omitted the sensor's UDP port is auto-detected from the capture.
 
 ### Problem
 
@@ -249,6 +249,11 @@ All four criteria must hold to classify a frame as stable:
 2. Settled cells > 70% (`TimesSeenCount` >= threshold)
 3. Noise deviation < 2.0 sigma
 4. Within expected variance bounds
+
+The classifier advances warmup and frozen-cell state from PCAP timestamps, not
+wall-clock replay time. Consequently, `pcap-analyse --motion` and
+`pcap-split` use the same timeline and remain deterministic when replay speed
+changes.
 
 **State machine:**
 
