@@ -15,26 +15,30 @@ const (
 	gridAzBins = 1800
 )
 
-// MotionClassifierConfig controls the per-frame stable-scene decision before
+// MotionClassifierConfig controls the per-frame motion decision before
 // timeline hysteresis is applied.
 type MotionClassifierConfig struct {
-	SettledThreshold      uint32
-	MaxForegroundFraction float64
-	MinSettledFraction    float64
-	MaxNoiseDeviation     float64
-	NoiseBoundsThreshold  float64
+	// SettledThreshold is the per-cell observation count above which a grid cell
+	// is reported as "settled". It feeds the reported evidence only.
+	SettledThreshold uint32
+	// MovementForegroundThreshold is the foreground fraction at or above which a
+	// frame is classified as sensor motion. A driving platform shifts the whole
+	// scene so foreground spikes well past this; a parked sensor stays below it
+	// even while its background settles or while traffic crosses the scene.
+	MovementForegroundThreshold float64
+	// NoiseBoundsThreshold parameterises the reported WithinNoiseBounds metric.
+	NoiseBoundsThreshold float64
 }
 
-// DefaultMotionClassifierConfig matches the PCAP split design's stable-scene
-// rule. The classifier deliberately disables wall-clock warmup and consumes
+// DefaultMotionClassifierConfig classifies motion by sensor ego-motion: the
+// movement threshold matches the background model's SensorMovementForegroundThreshold
+// default. The classifier deliberately disables wall-clock warmup and consumes
 // capture timestamps so replay speed cannot change its result.
 func DefaultMotionClassifierConfig() MotionClassifierConfig {
 	return MotionClassifierConfig{
-		SettledThreshold:      DefaultSettledThreshold,
-		MaxForegroundFraction: 0.05,
-		MinSettledFraction:    0.70,
-		MaxNoiseDeviation:     2.0,
-		NoiseBoundsThreshold:  2.0,
+		SettledThreshold:            DefaultSettledThreshold,
+		MovementForegroundThreshold: 0.20,
+		NoiseBoundsThreshold:        2.0,
 	}
 }
 
@@ -80,9 +84,8 @@ func NewMotionClassifier(sensorID, sourcePath string, cfg MotionClassifierConfig
 	if cfg.SettledThreshold == 0 {
 		cfg.SettledThreshold = DefaultSettledThreshold
 	}
-	if cfg.MaxForegroundFraction <= 0 || cfg.MaxForegroundFraction >= 1 ||
-		cfg.MinSettledFraction <= 0 || cfg.MinSettledFraction > 1 ||
-		cfg.MaxNoiseDeviation <= 0 || cfg.NoiseBoundsThreshold <= 0 {
+	if cfg.MovementForegroundThreshold <= 0 || cfg.MovementForegroundThreshold >= 1 ||
+		cfg.NoiseBoundsThreshold <= 0 {
 		return nil, fmt.Errorf("invalid motion classifier thresholds")
 	}
 
@@ -118,7 +121,12 @@ func (c *MotionClassifier) Observe(t time.Time, points []l3grid.PointPolar) (Mot
 		fraction = float64(fg) / float64(len(mask))
 	}
 	metrics, deviation, withinBounds := c.settlingEvidence(t)
-	stable := isStable(c.cfg, fraction, metrics.PercentSettled, deviation, withinBounds)
+	// Motion is sensor ego-motion: when the platform drives, the whole scene
+	// shifts frame-to-frame and foreground spikes past the movement threshold.
+	// Settled-cell % and noise bounds are recorded as evidence but must not gate
+	// the decision, or a capture that begins parked has its cold-start period
+	// (high foreground while the background settles) mislabelled as motion.
+	moving := classifyMoving(c.cfg, fraction)
 
 	return MotionEvidence{
 		T:                  t,
@@ -130,8 +138,8 @@ func (c *MotionClassifier) Observe(t time.Time, points []l3grid.PointPolar) (Mot
 		PercentSettled:     metrics.PercentSettled,
 		DeviationFromNoise: deviation,
 		WithinNoiseBounds:  withinBounds,
-		Stable:             stable,
-		Moving:             !stable,
+		Stable:             !moving,
+		Moving:             moving,
 	}, nil
 }
 
@@ -145,11 +153,10 @@ func (c *MotionClassifier) settlingEvidence(t time.Time) (l3grid.FrameSettlingMe
 	return c.metrics, c.noiseDeviation, c.withinNoiseBound
 }
 
-func isStable(cfg MotionClassifierConfig, foregroundFraction, settledFraction, noiseDeviation float64, withinNoiseBounds bool) bool {
-	return foregroundFraction < cfg.MaxForegroundFraction &&
-		settledFraction >= cfg.MinSettledFraction &&
-		noiseDeviation < cfg.MaxNoiseDeviation &&
-		withinNoiseBounds
+// classifyMoving reports sensor ego-motion when the per-frame foreground
+// fraction reaches the movement threshold.
+func classifyMoving(cfg MotionClassifierConfig, foregroundFraction float64) bool {
+	return foregroundFraction >= cfg.MovementForegroundThreshold
 }
 
 func motionBackgroundParams() l3grid.BackgroundParams {

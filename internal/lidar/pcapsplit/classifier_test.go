@@ -11,9 +11,22 @@ import (
 
 func TestDefaultMotionClassifierConfig(t *testing.T) {
 	cfg := DefaultMotionClassifierConfig()
-	if cfg.SettledThreshold != DefaultSettledThreshold || cfg.MaxForegroundFraction != 0.05 ||
-		cfg.MinSettledFraction != 0.70 || cfg.MaxNoiseDeviation != 2 || cfg.NoiseBoundsThreshold != 2 {
+	if cfg.SettledThreshold != DefaultSettledThreshold ||
+		cfg.MovementForegroundThreshold != 0.20 || cfg.NoiseBoundsThreshold != 2 {
 		t.Fatalf("unexpected defaults: %+v", cfg)
+	}
+}
+
+func TestClassifyMovingUsesThreshold(t *testing.T) {
+	cfg := DefaultMotionClassifierConfig() // movement threshold 0.20
+	if classifyMoving(cfg, 0.19) {
+		t.Error("foreground 0.19 should be static (below threshold)")
+	}
+	if !classifyMoving(cfg, 0.20) {
+		t.Error("foreground 0.20 should be motion (at threshold)")
+	}
+	if !classifyMoving(cfg, 0.55) {
+		t.Error("foreground 0.55 should be motion")
 	}
 }
 
@@ -24,11 +37,8 @@ func TestNewMotionClassifierValidation(t *testing.T) {
 	}
 
 	for _, mutate := range []func(*MotionClassifierConfig){
-		func(c *MotionClassifierConfig) { c.MaxForegroundFraction = 0 },
-		func(c *MotionClassifierConfig) { c.MaxForegroundFraction = 1 },
-		func(c *MotionClassifierConfig) { c.MinSettledFraction = 0 },
-		func(c *MotionClassifierConfig) { c.MinSettledFraction = 1.1 },
-		func(c *MotionClassifierConfig) { c.MaxNoiseDeviation = 0 },
+		func(c *MotionClassifierConfig) { c.MovementForegroundThreshold = 0 },
+		func(c *MotionClassifierConfig) { c.MovementForegroundThreshold = 1 },
 		func(c *MotionClassifierConfig) { c.NoiseBoundsThreshold = 0 },
 	} {
 		bad := cfg
@@ -64,8 +74,14 @@ func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !evidence.T.Equal(t0) || evidence.TotalPoints != 1 || !evidence.Moving || evidence.Stable {
+	if !evidence.T.Equal(t0) || evidence.TotalPoints != 1 {
 		t.Fatalf("unexpected initial evidence: %+v", evidence)
+	}
+	// The motion decision follows the foreground fraction against the movement
+	// threshold, and Stable is always its inverse.
+	wantMoving := evidence.ForegroundFraction >= DefaultMotionClassifierConfig().MovementForegroundThreshold
+	if evidence.Moving != wantMoving || evidence.Stable == evidence.Moving {
+		t.Fatalf("decision inconsistent with foreground fraction: %+v", evidence)
 	}
 }
 
@@ -91,7 +107,9 @@ func TestMotionClassifierObserveEmptyFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if evidence.TotalPoints != 0 || evidence.ForegroundFraction != 0 || evidence.Stable || !evidence.Moving {
+	// An empty frame has zero foreground, so it is classified static (a frame
+	// with no points cannot exhibit sensor motion).
+	if evidence.TotalPoints != 0 || evidence.ForegroundFraction != 0 || !evidence.Stable || evidence.Moving {
 		t.Fatalf("unexpected empty-frame evidence: %+v", evidence)
 	}
 }
@@ -126,28 +144,5 @@ func TestMotionClassifierCachesGridEvidenceForOneCaptureSecond(t *testing.T) {
 	}
 	if !classifier.metricsAt.Equal(t0.Add(500 * time.Millisecond)) {
 		t.Fatalf("out-of-order capture time did not refresh metrics at %v", classifier.metricsAt)
-	}
-}
-
-func TestIsStableRequiresEverySignal(t *testing.T) {
-	cfg := DefaultMotionClassifierConfig()
-	if !isStable(cfg, 0.01, 0.71, 1.9, true) {
-		t.Fatal("expected all-good evidence to be stable")
-	}
-	for _, tc := range []struct {
-		name                       string
-		foreground, settled, noise float64
-		withinBounds               bool
-	}{
-		{"foreground", 0.05, 0.71, 1.9, true},
-		{"unsettled", 0.01, 0.69, 1.9, true},
-		{"noise", 0.01, 0.71, 2, true},
-		{"out of bounds", 0.01, 0.71, 1.9, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if isStable(cfg, tc.foreground, tc.settled, tc.noise, tc.withinBounds) {
-				t.Fatal("expected unstable evidence")
-			}
-		})
 	}
 }
