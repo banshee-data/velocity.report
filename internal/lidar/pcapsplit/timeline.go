@@ -46,13 +46,17 @@ type FrameSample struct {
 }
 
 // MotionPeriod is a contiguous run of frames sharing one classification.
-// StartSecs/EndSecs are relative to the first sample; StartTime/EndTime carry
-// the absolute capture times so a splitter can map periods back to packets.
+// StartSecs/EndSecs are relative to the first sample; StartFrame/EndFrame are
+// 0-based frame indices; StartTime/EndTime carry the absolute capture times so a
+// splitter can map periods back to packets. For inner periods EndFrame/EndTime
+// equal the next period's start; for the final period they are the last frame.
 type MotionPeriod struct {
 	Type         string    `json:"type"` // MotionLabel or StaticLabel
 	StartSecs    float64   `json:"start_secs"`
 	EndSecs      float64   `json:"end_secs"`
 	DurationSecs float64   `json:"duration_secs"`
+	StartFrame   int       `json:"start_frame"`
+	EndFrame     int       `json:"end_frame"`
 	StartTime    time.Time `json:"start_time"`
 	EndTime      time.Time `json:"end_time"`
 }
@@ -100,16 +104,18 @@ func BuildTimeline(samples []FrameSample, cfg TimelineConfig) []MotionPeriod {
 
 	type transition struct {
 		t      time.Time
+		frame  int
 		moving bool
 	}
 
 	state := samples[0].Moving
-	transitions := []transition{{t: samples[0].T, moving: state}}
+	transitions := []transition{{t: samples[0].T, frame: 0, moving: state}}
 
 	var pendingSince time.Time
+	var pendingFrame int
 	pending := false
 
-	for _, s := range samples {
+	for i, s := range samples {
 		if s.Moving == state {
 			// Signal agrees with the current state: any in-progress
 			// contradiction was transient, so reset the candidate timer.
@@ -120,6 +126,7 @@ func BuildTimeline(samples []FrameSample, cfg TimelineConfig) []MotionPeriod {
 		if !pending {
 			pending = true
 			pendingSince = s.T
+			pendingFrame = i
 		}
 
 		// The threshold depends on the direction of the pending change.
@@ -130,19 +137,22 @@ func BuildTimeline(samples []FrameSample, cfg TimelineConfig) []MotionPeriod {
 
 		if s.T.Sub(pendingSince) >= threshold {
 			state = !state
-			transitions = append(transitions, transition{t: pendingSince, moving: state})
+			transitions = append(transitions, transition{t: pendingSince, frame: pendingFrame, moving: state})
 			pending = false
 		}
 	}
 
 	t0 := samples[0].T
 	end := samples[len(samples)-1].T
+	lastFrame := len(samples) - 1
 
 	periods := make([]MotionPeriod, 0, len(transitions))
 	for i, tr := range transitions {
 		segEnd := end
+		segEndFrame := lastFrame
 		if i+1 < len(transitions) {
 			segEnd = transitions[i+1].t
+			segEndFrame = transitions[i+1].frame
 		}
 		startSecs := tr.t.Sub(t0).Seconds()
 		endSecs := segEnd.Sub(t0).Seconds()
@@ -151,6 +161,8 @@ func BuildTimeline(samples []FrameSample, cfg TimelineConfig) []MotionPeriod {
 			StartSecs:    startSecs,
 			EndSecs:      endSecs,
 			DurationSecs: endSecs - startSecs,
+			StartFrame:   tr.frame,
+			EndFrame:     segEndFrame,
 			StartTime:    tr.t,
 			EndTime:      segEnd,
 		})

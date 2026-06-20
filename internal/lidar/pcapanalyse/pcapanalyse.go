@@ -68,6 +68,7 @@ type Config struct {
 	Stats10s       bool    // Display per-10s frame rate buckets (filterable)
 	Motion         bool    // Report a motion/static timeline for the capture
 	MotionJSONPath string  // Write the motion/static timeline to this JSON file (implies Motion)
+	TimelineUnits  string  // Motion timeline boundary columns: frames (default), seconds, timestamp
 	ProgressSecs   float64 // Seconds between progress updates during the PCAP read (0 = off)
 
 	// Benchmark settings
@@ -326,7 +327,7 @@ func Run(config Config) int {
 	// Stats mode: print concise capture metrics and exit
 	if config.Stats {
 		if result.CaptureStats != nil {
-			printCaptureStats(*result.CaptureStats)
+			printCaptureStats(*result.CaptureStats, config.TimelineUnits)
 		}
 		return 0
 	}
@@ -343,14 +344,14 @@ func Run(config Config) int {
 	// timeline and exit without exporting artefacts.
 	if config.Motion && !config.Benchmark {
 		if result.CaptureStats != nil {
-			printCaptureStats(*result.CaptureStats)
+			printCaptureStats(*result.CaptureStats, config.TimelineUnits)
 		}
 		return 0
 	}
 
 	// Print summary (unless in quiet mode)
 	if !config.Quiet {
-		printSummary(result)
+		printSummary(result, config.TimelineUnits)
 	}
 
 	// Export results
@@ -825,7 +826,7 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 }
 
 // printCaptureStats prints a concise one-file summary to stdout.
-func printCaptureStats(stats CaptureStats) {
+func printCaptureStats(stats CaptureStats, units string) {
 	fmt.Printf("\n── %s ──\n", filepath.Base(stats.File))
 	fmt.Printf("  Duration:    %.1fs (%.1f min)\n", stats.DurationSecs, stats.DurationSecs/60)
 	fmt.Printf("  Frames:      %d\n", stats.TotalFrames)
@@ -840,7 +841,7 @@ func printCaptureStats(stats CaptureStats) {
 	}
 	fmt.Println()
 	fmt.Printf("  Tracks:      %d confirmed\n", stats.ConfirmedTracks)
-	printMotionTimeline(stats.MotionTimeline)
+	printMotionTimeline(stats.MotionTimeline, units)
 }
 
 // printStats10s prints one line per 10-second bucket in a grep-friendly format.
@@ -855,15 +856,27 @@ func printStats10s(stats CaptureStats) {
 }
 
 // printMotionTimeline renders the motion/static timeline produced by -motion.
-func printMotionTimeline(periods []pcapsplit.MotionPeriod) {
+// units selects the boundary columns: "frames" (default), "seconds" (offset
+// from the first frame), or "timestamp" (absolute capture time).
+func printMotionTimeline(periods []pcapsplit.MotionPeriod, units string) {
 	if len(periods) == 0 {
 		return
 	}
 	fmt.Println("\nMotion Timeline:")
 	var staticSecs, motionSecs float64
 	for _, p := range periods {
-		fmt.Printf("  [%7.1fs – %7.1fs]  %-7s (%s)\n",
-			p.StartSecs, p.EndSecs, p.Type, formatMinSec(p.DurationSecs))
+		switch units {
+		case "seconds":
+			fmt.Printf("  [%8.1fs – %8.1fs]  %-7s (%s)\n",
+				p.StartSecs, p.EndSecs, p.Type, formatMinSec(p.DurationSecs))
+		case "timestamp":
+			fmt.Printf("  [%s – %s]  %-7s (%s)\n",
+				p.StartTime.Format("15:04:05.000"), p.EndTime.Format("15:04:05.000"),
+				p.Type, formatMinSec(p.DurationSecs))
+		default: // frames
+			fmt.Printf("  [frame %7d – %7d]  %-7s (%d frames)\n",
+				p.StartFrame, p.EndFrame, p.Type, p.EndFrame-p.StartFrame)
+		}
 		switch p.Type {
 		case pcapsplit.StaticLabel:
 			staticSecs += p.DurationSecs
@@ -1249,7 +1262,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 	}
 }
 
-func printSummary(result *AnalysisResult) {
+func printSummary(result *AnalysisResult, units string) {
 	fmt.Println("\n========== PCAP Analysis Summary ==========")
 	fmt.Printf("File: %s\n", result.PCAPFile)
 	fmt.Printf("Duration: %.1f seconds (%.1f minutes)\n", result.DurationSecs, result.DurationSecs/60)
@@ -1279,7 +1292,7 @@ func printSummary(result *AnalysisResult) {
 		fmt.Printf("Training frames exported: %d\n", result.TrainingFrames)
 	}
 	if result.CaptureStats != nil {
-		printMotionTimeline(result.CaptureStats.MotionTimeline)
+		printMotionTimeline(result.CaptureStats.MotionTimeline, units)
 	}
 	fmt.Println("=============================================")
 }

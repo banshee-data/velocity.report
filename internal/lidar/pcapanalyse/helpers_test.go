@@ -145,10 +145,10 @@ func sampleResult() *AnalysisResult {
 func TestPrintFunctions(t *testing.T) {
 	r := sampleResult()
 	captureOutput(t, func() {
-		printSummary(r)
-		printCaptureStats(*r.CaptureStats)
+		printSummary(r, "seconds")
+		printCaptureStats(*r.CaptureStats, "frames")
 		printStats10s(CaptureStats{File: "x", FrameRate10s: []FrameRateBucket{{OffsetSecs: 0, Frames: 10, Hz: 10}}})
-		printMotionTimeline(r.CaptureStats.MotionTimeline)
+		printMotionTimeline(r.CaptureStats.MotionTimeline, "timestamp")
 	})
 	if formatMinSec(125) != "2m 05s" {
 		t.Errorf("formatMinSec(125) = %q", formatMinSec(125))

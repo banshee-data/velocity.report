@@ -39,6 +39,7 @@ func AnalyseMain(args []string) int {
 	fs.BoolVar(&cfg.Stats10s, "stats-10s", false, "Display per-10s frame rate buckets (grep-friendly)")
 	fs.BoolVar(&cfg.Motion, "motion", false, "Report a motion/static timeline (sensor movement vs. stable periods)")
 	fs.StringVar(&cfg.MotionJSONPath, "motion-json", "", "Write the motion/static timeline to this JSON file (implies -motion)")
+	fs.StringVar(&cfg.TimelineUnits, "timeline-units", "frames", "Motion timeline columns: frames, seconds, or timestamp")
 	fs.Float64Var(&cfg.ProgressSecs, "progress", 20, "Seconds between progress updates during the PCAP read (0 = off)")
 
 	// Benchmark flags (short and long forms bind to the same variable).

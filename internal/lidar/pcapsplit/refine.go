@@ -52,6 +52,7 @@ func coalesce(periods []MotionPeriod, t0 time.Time) []MotionPeriod {
 	for _, p := range periods[1:] {
 		if p.Type == cur.Type {
 			cur.EndTime = p.EndTime
+			cur.EndFrame = p.EndFrame
 			continue
 		}
 		out = append(out, finalisePeriod(cur, t0))
@@ -71,6 +72,7 @@ func mergeShort(periods []MotionPeriod, minSec float64, t0 time.Time) []MotionPe
 		if p.DurationSecs < minSec && len(out) > 0 {
 			last := &out[len(out)-1]
 			last.EndTime = p.EndTime
+			last.EndFrame = p.EndFrame
 			*last = finalisePeriod(*last, t0)
 			continue
 		}
@@ -78,6 +80,7 @@ func mergeShort(periods []MotionPeriod, minSec float64, t0 time.Time) []MotionPe
 	}
 	if len(out) > 1 && out[0].DurationSecs < minSec {
 		out[1].StartTime = out[0].StartTime
+		out[1].StartFrame = out[0].StartFrame
 		out[1] = finalisePeriod(out[1], t0)
 		out = out[1:]
 	}

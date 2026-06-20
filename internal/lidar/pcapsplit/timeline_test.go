@@ -121,6 +121,27 @@ func TestBuildTimeline_SustainedStopFlips(t *testing.T) {
 	}
 }
 
+func TestBuildTimeline_FrameIndices(t *testing.T) {
+	// 40 s static (frames 0-399), then sustained motion from frame 400.
+	periods := BuildTimeline(makeSamples(seg{40, false}, seg{90, true}), DefaultTimelineConfig())
+	if len(periods) != 2 {
+		t.Fatalf("expected 2 periods, got %+v", periods)
+	}
+	if periods[0].Type != StaticLabel || periods[0].StartFrame != 0 || periods[0].EndFrame != 400 {
+		t.Errorf("static frames=[%d,%d], want [0,400]", periods[0].StartFrame, periods[0].EndFrame)
+	}
+	if periods[1].Type != MotionLabel || periods[1].StartFrame != 400 {
+		t.Errorf("motion StartFrame=%d, want 400", periods[1].StartFrame)
+	}
+	// The final period ends on the last sample index; inner boundaries are shared.
+	if periods[1].EndFrame != (40+90)*10-1 {
+		t.Errorf("motion EndFrame=%d, want %d", periods[1].EndFrame, (40+90)*10-1)
+	}
+	if periods[0].EndFrame != periods[1].StartFrame {
+		t.Errorf("frame boundary not shared: %d vs %d", periods[0].EndFrame, periods[1].StartFrame)
+	}
+}
+
 func TestBuildTimeline_MotionStaticMotion(t *testing.T) {
 	periods := BuildTimeline(
 		makeSamples(seg{40, true}, seg{90, false}, seg{40, true}),

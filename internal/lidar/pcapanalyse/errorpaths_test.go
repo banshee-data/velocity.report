@@ -148,7 +148,7 @@ func TestPrintComparisonSummary_NoChanges(t *testing.T) {
 func TestPrintSummary_WithTraining(t *testing.T) {
 	r := sampleResult()
 	r.TrainingFrames = 3
-	captureOutput(t, func() { printSummary(r) })
+	captureOutput(t, func() { printSummary(r, "frames") })
 }
 
 func TestCollectTrackResults_SpeedSamples(t *testing.T) {
