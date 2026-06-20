@@ -207,7 +207,7 @@ Plans: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md), [pcap-mot
 
 Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
 
-**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is now a thin shim over the same engine). To preview the motion/static timeline without splitting, use `velocity lidar pcap-analyse --pcap capture.pcapng --motion --stats`; add `--motion-json timeline.json` to write the timeline to a file. `pcap-split --dry-run --export-json` runs the identical physical-frame classifier without writing PCAP files. When `--port` is omitted the sensor's UDP port is auto-detected from the capture. Long reads print a progress line (percentage, packets, points, rate) to stderr every 20 s by default; tune or silence it with `--progress N` (0 disables).
+**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is now a thin shim over the same engine). To preview the motion/static timeline without splitting, use `velocity lidar pcap-analyse --pcap capture.pcapng --motion --stats`; add `--motion-json timeline.json` to write the timeline to a file. `pcap-split --dry-run --export-json` runs the identical physical-frame classifier without writing PCAP files. When `--port` is omitted the sensor's UDP port is auto-detected from the capture. The timeline lists each period by frame index by default; pass `--timeline-units seconds` or `--timeline-units timestamp` for offset seconds or absolute capture time (these diverge when a capture has recording gaps). Long reads print a progress line (percentage, packets, points, rate) to stderr every 20 s by default; tune or silence it with `--progress N` (0 disables).
 
 ### Problem
 
@@ -243,15 +243,23 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 ### Stability detection
 
-Motion is classified per frame by **sensor ego-motion**: when the platform
-drives, the whole scene shifts frame-to-frame and the foreground fraction
-spikes past the movement threshold (default 0.20, matching the background
-model's `SensorMovementForegroundThreshold`). A parked sensor stays below it —
-even while its background model is still settling at the start of a capture,
-and even when traffic crosses an otherwise static scene. Settled-cell %, noise
-deviation, and noise-bounds are recorded as per-frame evidence (and exported in
-`frame_metrics.csv`) but do not gate the decision: gating on them mislabels the
-cold-start period of a capture that begins parked as motion.
+Motion is classified per frame by **sensor ego-motion**, from either of two
+signals:
+
+- **Foreground fraction ≥ 0.20** (`SensorMovementForegroundThreshold`) catches
+  the _onset_ of motion: when the platform first moves, the scene shifts and
+  foreground spikes.
+- **Noise deviation ≥ 1.5** (mean `RangeSpreadMeters` over the noise floor)
+  catches _sustained_ motion: as the platform keeps driving, every cell's range
+  churns, so the per-cell spread balloons, the foreground gate widens, and
+  foreground collapses — but the deviation stays high. Foreground alone goes
+  blind to long drives once the spread saturates; the deviation does not.
+
+A parked sensor stays below both thresholds — even while its background model is
+still settling at the start of a capture, and even when traffic crosses an
+otherwise static scene. Settled-cell % and noise-bounds are recorded as per-frame
+evidence (and exported in `frame_metrics.csv`) but do not gate the decision:
+gating on them mislabels the cold-start period of a capture that begins parked.
 
 The classifier advances warmup and frozen-cell state from PCAP timestamps, not
 wall-clock replay time. Consequently, `pcap-analyse --motion` and
