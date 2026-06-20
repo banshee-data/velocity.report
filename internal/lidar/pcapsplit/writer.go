@@ -94,6 +94,11 @@ type segWriter struct {
 }
 
 func newSegWriter(dir, name string, snaplen uint32, lt layers.LinkType) (*segWriter, error) {
+	// Reject anything that isn't a bare filename so a crafted --prefix (e.g.
+	// "../") cannot write outside the output directory.
+	if name != filepath.Base(name) {
+		return nil, fmt.Errorf("unsafe segment filename %q", name)
+	}
 	f, err := os.Create(filepath.Join(dir, name))
 	if err != nil {
 		return nil, fmt.Errorf("create segment file %s: %w", name, err)

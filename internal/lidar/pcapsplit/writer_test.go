@@ -139,3 +139,16 @@ func TestWriteSegments_Empty(t *testing.T) {
 		t.Errorf("empty segments should be a no-op, got %v", err)
 	}
 }
+
+func TestNewSegWriter_RejectsUnsafeNames(t *testing.T) {
+	for _, name := range []string{"../escape.pcap", "sub/seg.pcap", "/abs.pcap"} {
+		if _, err := newSegWriter(t.TempDir(), name, 65536, layers.LinkTypeEthernet); err == nil {
+			t.Errorf("newSegWriter(%q): expected rejection (path traversal)", name)
+		}
+	}
+	w, err := newSegWriter(t.TempDir(), "out-static-0.pcap", 65536, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("bare filename rejected: %v", err)
+	}
+	_ = w.close()
+}

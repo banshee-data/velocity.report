@@ -4,10 +4,10 @@
 //
 // The package is consumed in two places:
 //
-//   - cmd/tools/pcap-analyse (the --motion flag) reports the timeline for an
-//     existing capture without writing any files.
-//   - cmd/tools/pcap-split (planned) reuses the same classification to cut a
-//     capture into per-segment PCAP files.
+//   - the --motion flag of pcap-analyse (velocity lidar pcap-analyse) reports
+//     the timeline for an existing capture without writing any files.
+//   - pcap-split (velocity lidar pcap-split) reuses the same classification to
+//     cut a capture into per-segment PCAP files.
 //
 // Only the pure classification logic lives in this file; it has no libpcap
 // dependency and is exercised by the default `go test ./...` suite. The PCAP

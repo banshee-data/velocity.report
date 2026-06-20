@@ -66,9 +66,10 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	}
 
 	var (
-		mu      sync.Mutex
-		frames  []FrameMetrics
-		samples []FrameSample
+		mu       sync.Mutex
+		frames   []FrameMetrics
+		samples  []FrameSample
+		firstErr error
 	)
 
 	frameCallback := func(frame *l2frames.LiDARFrame) {
@@ -77,6 +78,13 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		}
 		mask, err := bgMgr.ProcessFramePolarWithMask(frame.PolarPoints)
 		if err != nil || mask == nil {
+			if err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+			}
 			return
 		}
 		fg := 0
@@ -133,6 +141,9 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 
 	mu.Lock()
 	defer mu.Unlock()
+	if firstErr != nil {
+		return nil, fmt.Errorf("frame processing failed: %w", firstErr)
+	}
 	a := &Analysis{
 		Frames:       frames,
 		Samples:      samples,
