@@ -47,8 +47,12 @@ func truncatedCapture(t *testing.T, maxPackets int) string {
 func quiet(t *testing.T, fn func() int) int {
 	t.Helper()
 	old := os.Stdout
-	os.Stdout, _ = os.Open(os.DevNull)
-	defer func() { os.Stdout = old }()
+	devnull, _ := os.Open(os.DevNull)
+	os.Stdout = devnull
+	defer func() {
+		os.Stdout = old
+		_ = devnull.Close()
+	}()
 	return fn()
 }
 

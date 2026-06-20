@@ -12,8 +12,12 @@ import (
 // returns a non-zero code. Runs in the default (tag-free) test suite.
 func TestStubMain(t *testing.T) {
 	oldErr := os.Stderr
-	os.Stderr, _ = os.Open(os.DevNull)
-	defer func() { os.Stderr = oldErr }()
+	devnull, _ := os.Open(os.DevNull)
+	os.Stderr = devnull
+	defer func() {
+		os.Stderr = oldErr
+		_ = devnull.Close()
+	}()
 
 	if code := Main([]string{"pcap-analyse"}); code != 1 {
 		t.Errorf("stub Main = %d, want 1", code)

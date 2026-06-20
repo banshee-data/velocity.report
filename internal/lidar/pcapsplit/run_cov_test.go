@@ -57,9 +57,11 @@ func TestRun_Integration(t *testing.T) {
 	cfg.Verbose = true
 
 	old := os.Stdout
-	os.Stdout, _ = os.Open(os.DevNull)
+	devnull, _ := os.Open(os.DevNull)
+	os.Stdout = devnull
 	err := Run(cfg)
 	os.Stdout = old
+	_ = devnull.Close()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
