@@ -1301,9 +1301,9 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 	runID := fmt.Sprintf("pcap-%d", time.Now().UnixNano())
 	_, err = database.Exec(`
 		INSERT INTO lidar_run_records
-		(run_id, created_at, source_type, source_path, sensor_id, params_json,
+		(run_id, created_at, source_type, source_path, sensor_id,
 		 duration_secs, total_frames, total_tracks, confirmed_tracks, status)
-		VALUES (?, ?, 'pcap', ?, 'hesai-pandar40p', '{}', ?, ?, ?, ?, 'completed')`,
+		VALUES (?, ?, 'pcap', ?, 'hesai-pandar40p', ?, ?, ?, ?, 'completed')`,
 		runID,
 		time.Now().UnixNano(),
 		result.PCAPFile,
@@ -1361,22 +1361,13 @@ func computeFrameTimeStats(frameTimes []float64) FrameTimeStats {
 	}
 	avg := sum / float64(len(sorted))
 
-	// Compute percentiles using floor-based indexing (consistent with l6objects.ComputeSpeedPercentiles)
+	// Compute percentiles using floor-based indexing (consistent with
+	// l6objects.ComputeSpeedPercentiles). For n >= 1, int(n*0.99) < n, so the
+	// indices are always in range.
 	n := len(sorted)
 	p50Idx := int(float64(n) * 0.50)
 	p95Idx := int(float64(n) * 0.95)
 	p99Idx := int(float64(n) * 0.99)
-
-	// Clamp indices
-	if p50Idx >= n {
-		p50Idx = n - 1
-	}
-	if p95Idx >= n {
-		p95Idx = n - 1
-	}
-	if p99Idx >= n {
-		p99Idx = n - 1
-	}
 
 	return FrameTimeStats{
 		MinMs:   minVal,
