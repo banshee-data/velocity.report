@@ -433,7 +433,7 @@ func (s *analysisStats) getStats() (packets, points int, duration time.Duration)
 type analysisFrameBuilder struct {
 	mu             sync.Mutex
 	points         []l2frames.PointPolar
-	lastAzimuth    float64
+	lastRawAzimuth float64 // raw block azimuth (deg) of the previous point; -1 until first point
 	frameStartTime time.Time
 	frameCount     int
 	motorSpeed     uint16
@@ -490,6 +490,7 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 	}
 	fb := &analysisFrameBuilder{
 		points:          make([]l2frames.PointPolar, 0, 50000),
+		lastRawAzimuth:  -1,
 		bgManager:       createBackgroundManager(config.SensorID, store),
 		tracker:         l5tracks.NewTracker(l5tracks.DefaultTrackerConfig()),
 		classifier:      l6objects.NewTrackClassifier(),
@@ -521,10 +522,15 @@ func (fb *analysisFrameBuilder) AddPointsPolar(points []l2frames.PointPolar) {
 		fb.frameStartTime = pktTime
 	}
 
-	// Detect frame completion (360° rotation)
+	// Detect frame completion (360° rotation) on the RAW block azimuth, which
+	// increases monotonically through a rotation. The per-point corrected
+	// Azimuth swings by ±~5° (per-laser azimuth offsets), so near the 0/360 wrap
+	// it crosses the 270->90 test many times and shatters each rotation into
+	// hundreds of sub-frames. RawBlockAzimuth is in centi-degrees (0–35999).
 	for _, p := range points {
+		rawAz := float64(p.RawBlockAzimuth) / 100.0
 		// Check for azimuth wrap (new frame)
-		if fb.lastAzimuth > 270 && p.Azimuth < 90 {
+		if fb.lastRawAzimuth >= 0 && fb.lastRawAzimuth > 270 && rawAz < 90 {
 			// Frame complete - process it
 			if len(fb.points) > 0 {
 				fb.processCurrentFrame()
@@ -537,7 +543,7 @@ func (fb *analysisFrameBuilder) AddPointsPolar(points []l2frames.PointPolar) {
 		}
 
 		fb.points = append(fb.points, p)
-		fb.lastAzimuth = p.Azimuth
+		fb.lastRawAzimuth = rawAz
 	}
 }
 
@@ -836,9 +842,21 @@ func printMotionTimeline(periods []pcapsplit.MotionPeriod) {
 		return
 	}
 	fmt.Println("\nMotion Timeline:")
+	var staticSecs, motionSecs float64
 	for _, p := range periods {
 		fmt.Printf("  [%7.1fs – %7.1fs]  %-7s (%s)\n",
 			p.StartSecs, p.EndSecs, p.Type, formatMinSec(p.DurationSecs))
+		switch p.Type {
+		case pcapsplit.StaticLabel:
+			staticSecs += p.DurationSecs
+		case pcapsplit.MotionLabel:
+			motionSecs += p.DurationSecs
+		}
+	}
+	if total := staticSecs + motionSecs; total > 0 {
+		fmt.Printf("  ── %.0f%% static, %.0f%% motion (%s static, %s motion)\n",
+			100*staticSecs/total, 100*motionSecs/total,
+			formatMinSec(staticSecs), formatMinSec(motionSecs))
 	}
 }
 

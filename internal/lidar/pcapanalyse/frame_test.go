@@ -100,12 +100,14 @@ func TestAddPointsPolar_FrameWrapAndFinalise(t *testing.T) {
 	fb := newAnalysisFrameBuilder(Config{SensorID: "s"}, r)
 	ts := time.Now().UnixNano()
 	fb.AddPointsPolar(nil) // empty -> early return
+	// Frame-wrap detection keys on RawBlockAzimuth (centi-degrees), which real
+	// captures always carry; the per-point Azimuth is the corrected angle.
 	var sweep []l2frames.PointPolar
 	for az := 0; az < 360; az += 4 {
-		sweep = append(sweep, l2frames.PointPolar{Channel: az % 40, Azimuth: float64(az), Distance: 5, Timestamp: ts})
+		sweep = append(sweep, l2frames.PointPolar{Channel: az % 40, Azimuth: float64(az), RawBlockAzimuth: uint16(az * 100), Distance: 5, Timestamp: ts})
 	}
 	fb.AddPointsPolar(sweep)
-	fb.AddPointsPolar([]l2frames.PointPolar{{Channel: 0, Azimuth: 5, Distance: 5, Timestamp: ts}})
+	fb.AddPointsPolar([]l2frames.PointPolar{{Channel: 0, Azimuth: 5, RawBlockAzimuth: 500, Distance: 5, Timestamp: ts}})
 	fb.finalise()
 	if fb.frameCount == 0 {
 		t.Error("expected at least one completed frame")
