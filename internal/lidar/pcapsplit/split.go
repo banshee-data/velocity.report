@@ -35,6 +35,7 @@ type SplitConfig struct {
 	ExportJSON       bool    `json:"-"`
 	DryRun           bool    `json:"-"`
 	Verbose          bool    `json:"-"`
+	ProgressSecs     float64 `json:"-"` // Seconds between progress updates during the read (0 = off)
 }
 
 // DefaultSplitConfig returns a config with the standard defaults. Port 2369

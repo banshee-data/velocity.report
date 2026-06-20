@@ -6,6 +6,7 @@ package pcapsplit
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -104,9 +105,10 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	}()
 
 	stats := &countingStats{}
+	reader := wrapProgress(cfg, stats, "scan")
 	if err := network.ReadPCAPFile(
 		context.Background(), cfg.PCAPFile, cfg.UDPPort,
-		parser, fb, stats, nil,
+		parser, fb, reader, nil,
 		0, -1, 0, 0, nil,
 	); err != nil {
 		return nil, fmt.Errorf("pcap replay: %w", err)
@@ -132,6 +134,21 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		a.LastTime = samples[len(samples)-1].T
 	}
 	return a, nil
+}
+
+// wrapProgress decorates inner with a periodic progress reporter when
+// cfg.ProgressSecs > 0; otherwise it returns inner unchanged. The reporter
+// forwards every call, so inner still accumulates.
+func wrapProgress(cfg SplitConfig, inner network.PacketStatsInterface, label string) network.PacketStatsInterface {
+	if cfg.ProgressSecs <= 0 {
+		return inner
+	}
+	var size int64
+	if fi, err := os.Stat(cfg.PCAPFile); err == nil {
+		size = fi.Size()
+	}
+	interval := time.Duration(cfg.ProgressSecs * float64(time.Second))
+	return network.NewProgressStats(inner, size, interval, label, os.Stderr)
 }
 
 // countingStats is a minimal network.PacketStatsInterface that counts packets.

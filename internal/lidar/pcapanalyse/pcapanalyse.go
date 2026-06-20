@@ -68,6 +68,7 @@ type Config struct {
 	Stats10s       bool    // Display per-10s frame rate buckets (filterable)
 	Motion         bool    // Report a motion/static timeline for the capture
 	MotionJSONPath string  // Write the motion/static timeline to this JSON file (implies Motion)
+	ProgressSecs   float64 // Seconds between progress updates during the PCAP read (0 = off)
 
 	// Benchmark settings
 	Benchmark           bool
@@ -378,12 +379,29 @@ func attachMotionTimeline(config Config, result *AnalysisResult) error {
 	splitCfg.PCAPFile = config.PCAPFile
 	splitCfg.SensorID = config.SensorID
 	splitCfg.UDPPort = config.UDPPort
+	splitCfg.ProgressSecs = config.ProgressSecs
 	analysis, err := pcapsplit.Analyse(splitCfg)
 	if err != nil {
 		return err
 	}
 	result.CaptureStats.MotionTimeline = pcapsplit.BuildTimeline(analysis.Samples, splitCfg.TimelineConfig())
 	return nil
+}
+
+// wrapProgress decorates inner with a periodic progress reporter when
+// config.ProgressSecs > 0. The label distinguishes the analysis pass from the
+// separate motion-timeline scan. inner still accumulates (the reporter forwards
+// every call), so callers keep reading the underlying stats afterwards.
+func wrapProgress(config Config, inner network.PacketStatsInterface, label string) network.PacketStatsInterface {
+	if config.ProgressSecs <= 0 {
+		return inner
+	}
+	var size int64
+	if fi, err := os.Stat(config.PCAPFile); err == nil {
+		size = fi.Size()
+	}
+	interval := time.Duration(config.ProgressSecs * float64(time.Second))
+	return network.NewProgressStats(inner, size, interval, label, os.Stderr)
 }
 
 // analysisStats implements network.PacketStatsInterface for tracking analysis statistics.
@@ -976,7 +994,8 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	// Use shared PCAP reading infrastructure from internal/lidar/network
 	// No forwarder needed for offline analysis
 	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1, 0, 0, nil); err != nil {
+	reader := wrapProgress(config, stats, "analyse")
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, reader, nil, 0, -1, 0, 0, nil); err != nil {
 		return nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 
@@ -1060,7 +1079,8 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 
 	// Use shared PCAP reading infrastructure from internal/lidar/network
 	ctx := context.Background()
-	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, stats, nil, 0, -1, 0, 0, nil); err != nil {
+	reader := wrapProgress(config, stats, "analyse")
+	if err := network.ReadPCAPFile(ctx, config.PCAPFile, config.UDPPort, parser, frameBuilder, reader, nil, 0, -1, 0, 0, nil); err != nil {
 		return nil, nil, fmt.Errorf("failed to read PCAP: %w", err)
 	}
 

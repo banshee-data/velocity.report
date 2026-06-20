@@ -33,6 +33,7 @@ func SplitMain(args []string) int {
 	fs.BoolVar(&cfg.ExportMetrics, "export-metrics", false, "Write per-frame metrics to frame_metrics.csv")
 	fs.BoolVar(&cfg.ExportJSON, "export-json", false, "Write segment metadata to segments.json")
 	fs.BoolVar(&cfg.DryRun, "dry-run", false, "Analyse and report segments without writing PCAP files")
+	fs.Float64Var(&cfg.ProgressSecs, "progress", 20, "Seconds between progress updates during the PCAP read (0 = off)")
 	fs.BoolVar(&cfg.Verbose, "verbose", false, "Verbose logging")
 
 	fs.Usage = func() {
