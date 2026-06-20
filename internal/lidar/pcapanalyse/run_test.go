@@ -164,3 +164,35 @@ func TestRun_Errors(t *testing.T) {
 		t.Errorf("Run nonexistent = %d, want 1", code)
 	}
 }
+
+// TestAnalyze_CaptureStatsAndDuration guards two regressions: benchmark mode
+// must populate CaptureStats (otherwise -stats/-stats-10s/-motion print nothing
+// under -benchmark), and the headline DurationSecs must be the capture span,
+// not the wall-clock processing time.
+func TestAnalyze_CaptureStatsAndDuration(t *testing.T) {
+	pcapFile := testCapture(t, 1200)
+
+	r1, err := analyzePCAP(baseConfig(t, pcapFile))
+	if err != nil {
+		t.Fatalf("analyzePCAP: %v", err)
+	}
+	if r1.CaptureStats == nil {
+		t.Fatal("analyzePCAP: CaptureStats must be populated")
+	}
+	if r1.DurationSecs != r1.CaptureStats.DurationSecs {
+		t.Errorf("analyzePCAP duration not aligned: %.4f vs capture %.4f", r1.DurationSecs, r1.CaptureStats.DurationSecs)
+	}
+
+	cfg := baseConfig(t, pcapFile)
+	cfg.Benchmark = true
+	r2, _, err := analyzePCAPWithBenchmark(cfg)
+	if err != nil {
+		t.Fatalf("analyzePCAPWithBenchmark: %v", err)
+	}
+	if r2.CaptureStats == nil {
+		t.Fatal("benchmark mode must populate CaptureStats (regression: -stats/-motion broke under -benchmark)")
+	}
+	if r2.DurationSecs != r2.CaptureStats.DurationSecs {
+		t.Errorf("benchmark duration not aligned: %.4f vs capture %.4f", r2.DurationSecs, r2.CaptureStats.DurationSecs)
+	}
+}

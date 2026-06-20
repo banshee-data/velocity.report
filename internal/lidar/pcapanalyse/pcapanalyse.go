@@ -943,9 +943,13 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 		}
 	}
 
-	// Collect capture stats (always, used by -stats mode and JSON export)
+	// Collect capture stats (always, used by -stats mode and JSON export) and
+	// align the headline duration with the capture span — getCaptureStats derives
+	// it from frame timestamps — rather than the wall-clock processing time.
 	cs := frameBuilder.getCaptureStats(result)
 	result.CaptureStats = &cs
+	result.DurationSecs = cs.DurationSecs
+	result.Duration = time.Duration(cs.DurationSecs * float64(time.Second))
 
 	return result, nil
 }
@@ -1057,6 +1061,14 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 			log.Printf("[WARN] Failed to close database connection: %v", err)
 		}
 	}
+
+	// Collect capture stats so -stats/-stats-10s/-motion work under -benchmark
+	// (Run only prints them when CaptureStats != nil), and align the headline
+	// duration with the capture span.
+	cs := frameBuilder.getCaptureStats(result)
+	result.CaptureStats = &cs
+	result.DurationSecs = cs.DurationSecs
+	result.Duration = time.Duration(cs.DurationSecs * float64(time.Second))
 
 	return result, metrics, nil
 }
