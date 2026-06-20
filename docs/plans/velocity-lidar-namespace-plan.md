@@ -1,9 +1,11 @@
 # velocity lidar namespace — fold pcap-analyse into the bundled binary
 
-- **Status:** Proposed
+- **Status:** Implemented
 - **Layers:** CLI Tools, L1–L6 (pcap-analyse pipeline)
-- **Scope:** add a `lidar` namespace to the single `velocity` binary and expose `pcap-analyse` as `velocity lidar pcap-analyse`, sharing one analysis implementation between the namespace applet and the standalone tool
-- **Related:** [internal/cmd/root/root.go](../../internal/cmd/root/root.go), [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go), [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go)
+- **Scope:** add a `lidar` namespace to the single `velocity` binary exposing `pcap-analyse`, `pcap-split`, and `settling-eval` as `velocity lidar <command>`, each sharing one implementation between the namespace applet and the standalone tool
+- **Related:** [internal/cmd/lidar/](../../internal/cmd/lidar/), [internal/cmd/root/root.go](../../internal/cmd/root/root.go), [internal/cmd/tune/sweep.go](../../internal/cmd/tune/sweep.go)
+
+> **Implemented.** All three LiDAR PCAP tools are folded into the `velocity lidar` namespace: `velocity lidar pcap-analyse`, `velocity lidar pcap-split`, and `velocity lidar settling-eval`. Each engine lives in an importable package (`internal/lidar/pcapanalyse`, `internal/lidar/pcapsplit`, `internal/lidar/settlingeval`); the `internal/cmd/lidar` applets parse flags and call the engine; the original `cmd/tools/*` binaries are now thin wrappers over the same applets, so existing Makefile targets and CI are unchanged. A `//go:build !pcap` stub keeps the default toolchain building. The sections below describe the original pcap-analyse design; pcap-split and settling-eval followed the same pattern.
 
 ## 1. Problem
 

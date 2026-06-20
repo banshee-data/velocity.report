@@ -201,13 +201,13 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 ---
 
-## PCAP split tool (planned)
+## PCAP split tool
 
-Active plan: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md)
+Plans: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md), [pcap-motion-detection-and-split-plan.md](../../plans/pcap-motion-detection-and-split-plan.md)
 
 Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
 
-**Status:** Not yet implemented. Design complete.
+**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is now a thin shim over the same engine). To preview the motion/static timeline without splitting, use `velocity lidar pcap-analyse --pcap capture.pcapng --motion --stats`.
 
 ### Problem
 
@@ -233,12 +233,13 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 **Key packages:**
 
-| Package           | Location                               | Role                                                     |
-| ----------------- | -------------------------------------- | -------------------------------------------------------- |
-| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing: reads PCAP, filters UDP, parses packets        |
-| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New**: implements `FrameBuilder`, drives state machine |
-| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New**: buffers packets, writes segment PCAPs           |
-| CLI               | `cmd/tools/pcap-split/main.go`         | **New**: flag parsing, orchestration, summary output     |
+| Package           | Location                                   | Role                                                            |
+| ----------------- | ------------------------------------------ | --------------------------------------------------------------- |
+| PCAP reader       | `internal/lidar/l1packets/network/pcap.go` | Reads PCAP, filters UDP, parses packets                         |
+| Settling analyser | `internal/lidar/pcapsplit/analyse.go`      | Pass 1: classifies each frame motion/static via BackgroundMgr   |
+| Segment writer    | `internal/lidar/pcapsplit/writer.go`       | Pass 2: copies packets into per-segment PCAPs by timestamp      |
+| Orchestration     | `internal/lidar/pcapsplit/run.go`          | Two-pass `Run`; shared by the applet and the standalone wrapper |
+| CLI               | `internal/cmd/lidar/split.go`              | Flag parsing → `pcapsplit.Run`; `cmd/tools/pcap-split` wraps it |
 
 ### Stability detection
 
