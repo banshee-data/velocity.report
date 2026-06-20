@@ -40,6 +40,15 @@ func (fb *FrameBuilder) Close() {
 		fb.mu.Unlock()
 		return
 	}
+	// Flush the final partial rotation and every buffered completed rotation
+	// before closing closeCh. Offline PCAP readers commonly finish before the
+	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
+	// appear to contain no data at all.
+	fb.finalizeCurrentFrame()
+	for frameID, frame := range fb.frameBuffer {
+		delete(fb.frameBuffer, frameID)
+		fb.finalizeFrame(frame, "close")
+	}
 	fb.closed = true
 	if fb.cleanupTimer != nil {
 		fb.cleanupTimer.Stop()
