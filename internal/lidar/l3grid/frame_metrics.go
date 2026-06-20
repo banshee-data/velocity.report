@@ -32,6 +32,13 @@ const defaultNoiseRelativeFraction = 0.05
 // "settled". It is read-only and safe to call concurrently with frame
 // processing; the counts mirror those exposed by GridStatus and GetGridHeatmap.
 func (bm *BackgroundManager) GetFrameSettlingMetrics(settledThreshold uint32) FrameSettlingMetrics {
+	return bm.GetFrameSettlingMetricsAt(settledThreshold, time.Now())
+}
+
+// GetFrameSettlingMetricsAt returns settling metrics relative to an
+// observation timestamp. Offline replay must provide PCAP time so frozen-cell
+// accounting agrees with ProcessFramePolarWithMaskAt.
+func (bm *BackgroundManager) GetFrameSettlingMetricsAt(settledThreshold uint32, now time.Time) FrameSettlingMetrics {
 	if bm == nil || bm.Grid == nil {
 		return FrameSettlingMetrics{}
 	}
@@ -40,7 +47,10 @@ func (bm *BackgroundManager) GetFrameSettlingMetrics(settledThreshold uint32) Fr
 	defer g.mu.RUnlock()
 
 	total := len(g.Cells)
-	nowNanos := time.Now().UnixNano()
+	if now.IsZero() {
+		now = time.Now()
+	}
+	nowNanos := now.UnixNano()
 
 	var nonzero, settled, frozen int
 	for i := range g.Cells {

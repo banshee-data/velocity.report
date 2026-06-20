@@ -43,6 +43,14 @@ const (
 // Unlike ProcessFramePolar which aggregates points per cell, this operates per-point
 // for finer-grained foreground detection suitable for downstream clustering.
 func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (foregroundMask []bool, err error) {
+	return bm.ProcessFramePolarWithMaskAt(points, time.Now())
+}
+
+// ProcessFramePolarWithMaskAt classifies points at the supplied observation
+// time. Live callers should use ProcessFramePolarWithMask; offline replay must
+// pass the PCAP timestamp so warmup and freeze durations advance in capture
+// time rather than CPU time.
+func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, now time.Time) (foregroundMask []bool, err error) {
 	if bm == nil || bm.Grid == nil {
 		return nil, nil
 	}
@@ -74,7 +82,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	// Read diagnostics flag once per frame (atomic — no lock needed).
 	enableDiag := bm.enableDiagnostics.Load()
 
-	now := time.Now()
+	if now.IsZero() {
+		now = time.Now()
+	}
 	nowNanos := now.UnixNano()
 
 	// Pre-read parameters outside lock to minimize lock duration
