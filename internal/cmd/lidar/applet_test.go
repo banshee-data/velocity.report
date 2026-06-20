@@ -66,14 +66,26 @@ func TestMain_RoutesPcapAnalyse(t *testing.T) {
 	}
 }
 
-func TestMain_RoutesPcapSplit(t *testing.T) {
+func TestMain_RoutesPcapSplitDryRun(t *testing.T) {
 	pcapFile := truncatedCapture(t, 1000)
 	dir := t.TempDir()
 	code := quiet(t, func() int {
-		return Main([]string{"pcap-split", "--pcap", pcapFile, "--port", "2369", "--output", dir})
+		return Main([]string{"pcap-split", "--pcap", pcapFile, "--port", "2369", "--output", dir, "--dry-run", "--export-json"})
 	})
 	if code != 0 {
 		t.Errorf("pcap-split = %d, want 0", code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "segments.json")); err != nil {
+		t.Errorf("dry-run metadata: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".pcap" {
+			t.Errorf("dry run wrote a PCAP: %s", entry.Name())
+		}
 	}
 }
 
