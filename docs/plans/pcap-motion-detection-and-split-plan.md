@@ -42,7 +42,7 @@ Add a `--motion` flag to pcap-analyse that:
 - Runs `CheckForSensorMovement()` on every processed frame
 - Computes per-frame settling metrics (settled cell %, foreground %, noise deviation)
 - Classifies each frame as `motion` or `static` using the state machine from the pcap-split design doc
-- Emits a motion timeline in the summary output and optionally in `--json` / `--csv` exports
+- Emits a motion timeline as a report-only mode: `--motion` (without `--benchmark`) prints the concise capture summary plus the timeline and skips JSON/CSV/training exports, like `--stats` (combine with `--benchmark` to keep the analysis and benchmark JSON)
 - Adds a `motion_periods` section to `CaptureStats`:
 
 ```
