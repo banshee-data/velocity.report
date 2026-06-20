@@ -23,7 +23,7 @@ func SettlingEvalMain(args []string) int {
 	output := fs.String("output", "", "output JSON path (default: stdout)")
 	sensor := fs.String("sensor", "pcap-eval", "sensor ID")
 	tuningFile := fs.String("tuning", "", "tuning config JSON path (default: config/tuning.defaults.json)")
-	udpPort := fs.Int("port", 2368, "UDP port filter for PCAP packets")
+	udpPort := fs.Int("port", 0, "UDP port filter for PCAP packets (0 = auto-detect from the capture)")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: velocity lidar settling-eval [flags] <pcap-file>\n\n")
@@ -44,8 +44,12 @@ func SettlingEvalMain(args []string) int {
 		return 2
 	}
 	pcapFile := fs.Arg(0)
+	port := resolveUDPPort(*udpPort, pcapFile)
+	if port < 0 {
+		return 1
+	}
 
-	report, err := settlingeval.Run(pcapFile, *tuningFile, *sensor, *udpPort)
+	report, err := settlingeval.Run(pcapFile, *tuningFile, *sensor, port)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "settling-eval: %v\n", err)
 		return 1

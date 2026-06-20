@@ -29,7 +29,7 @@ func SplitMain(args []string) int {
 	fs.Float64Var(&cfg.MinSegmentSec, "min-segment-sec", cfg.MinSegmentSec, "Merge segments shorter than this into a neighbour (0 = off)")
 	settled := fs.Uint("settled-threshold", uint(cfg.SettledThreshold), "Settled cell count threshold (TimesSeenCount)")
 	fs.StringVar(&cfg.SensorID, "sensor-id", cfg.SensorID, "Sensor identifier")
-	fs.IntVar(&cfg.UDPPort, "port", cfg.UDPPort, "UDP port for LiDAR data")
+	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	fs.BoolVar(&cfg.ExportMetrics, "export-metrics", false, "Write per-frame metrics to frame_metrics.csv")
 	fs.BoolVar(&cfg.ExportJSON, "export-json", false, "Write segment metadata to segments.json")
 	fs.BoolVar(&cfg.Verbose, "verbose", false, "Verbose logging")
@@ -59,6 +59,10 @@ func SplitMain(args []string) int {
 		fmt.Fprintln(os.Stderr, "error: --pcap is required")
 		fs.Usage()
 		return 2
+	}
+	cfg.UDPPort = resolveUDPPort(cfg.UDPPort, cfg.PCAPFile)
+	if cfg.UDPPort < 0 {
+		return 1
 	}
 	if err := pcapsplit.Run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "pcap-split: %v\n", err)

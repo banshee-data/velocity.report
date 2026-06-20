@@ -28,7 +28,7 @@ func AnalyseMain(args []string) int {
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Path to PCAP file (required)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for results")
 	fs.StringVar(&cfg.SensorID, "sensor-id", "hesai-pandar40p", "Sensor ID")
-	fs.IntVar(&cfg.UDPPort, "port", 2369, "UDP port for LIDAR data")
+	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	fs.StringVar(&cfg.DBPath, "db", "", "SQLite database path (optional, for persistence)")
 	fs.BoolVar(&cfg.ExportCSV, "csv", true, "Export tracks to CSV")
 	fs.BoolVar(&cfg.ExportJSON, "json", true, "Export full results to JSON")
@@ -67,6 +67,11 @@ func AnalyseMain(args []string) int {
 			return 0
 		}
 		return 2
+	}
+
+	cfg.UDPPort = resolveUDPPort(cfg.UDPPort, cfg.PCAPFile)
+	if cfg.UDPPort < 0 {
+		return 1
 	}
 
 	return pcapanalyse.Run(cfg)
