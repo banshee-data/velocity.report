@@ -1,4 +1,8 @@
-package main
+// Package settlingeval evaluates LiDAR background-grid settling convergence by
+// replaying a captured PCAP offline through a local BackgroundManager at full
+// speed. It backs both the standalone settling-eval tool and the
+// `velocity lidar settling-eval` subcommand.
+package settlingeval
 
 import (
 	"context"
@@ -14,9 +18,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
-// runPCAPEval replays a PCAP file offline through a local BackgroundManager
-// and evaluates settling convergence on every frame. No server is required.
-func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingReport, error) {
+// Run replays a PCAP file offline through a local BackgroundManager and
+// evaluates settling convergence on every frame. No server is required.
+func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingReport, error) {
 	start := time.Now()
 
 	// --- Load tuning configuration ---

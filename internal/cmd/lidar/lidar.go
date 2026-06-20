@@ -18,7 +18,9 @@ Usage:
   velocity lidar <command> [flags]
 
 Commands:
-  pcap-analyse   Analyse a PCAP through the L1–L6 pipeline (stats, motion, benchmark)
+  pcap-analyse    Analyse a PCAP through the L1–L6 pipeline (stats, motion, benchmark)
+  pcap-split      Segment a PCAP into non-overlapping motion and static periods
+  settling-eval   Evaluate background settling convergence; recommend warmup frames
 
 Run 'velocity lidar <command> -h' for command flags.`
 
@@ -33,6 +35,10 @@ func Main(args []string) int {
 	switch args[0] {
 	case "pcap-analyse":
 		return AnalyseMain(args[1:])
+	case "pcap-split":
+		return SplitMain(args[1:])
+	case "settling-eval":
+		return SettlingEvalMain(args[1:])
 	case "help", "-h", "--help":
 		fmt.Println(namespaceUsage)
 		return 0

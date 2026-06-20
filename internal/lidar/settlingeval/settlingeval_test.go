@@ -1,4 +1,4 @@
-package main
+package settlingeval
 
 import (
 	"testing"
@@ -17,8 +17,8 @@ func TestBackgroundConfigFromTuningConfig(t *testing.T) {
 	}
 }
 
-func TestRunPCAPEvalUsesTuningConfigBeforeReplayFailure(t *testing.T) {
-	_, err := runPCAPEval("/nonexistent.pcap", "", "test-sensor", 2369)
+func TestRunUsesTuningConfigBeforeReplayFailure(t *testing.T) {
+	_, err := Run("/nonexistent.pcap", "", "test-sensor", 2369)
 	if err == nil {
 		t.Fatal("expected replay error for nonexistent PCAP")
 	}

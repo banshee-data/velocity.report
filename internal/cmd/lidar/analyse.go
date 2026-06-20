@@ -23,7 +23,7 @@ func AnalyseMain(args []string) int {
 
 	// Per-applet flag set (not the global flag.CommandLine) so this composes
 	// with the other velocity namespaces in the single multi-call binary.
-	fs := flag.NewFlagSet("velocity-lidar-pcap-analyse", flag.ExitOnError)
+	fs := flag.NewFlagSet("velocity-lidar-pcap-analyse", flag.ContinueOnError)
 
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Path to PCAP file (required)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for results")
@@ -62,8 +62,10 @@ func AnalyseMain(args []string) int {
 		fmt.Fprintf(os.Stderr, "  velocity lidar pcap-analyse -pcap capture.pcapng -benchmark -compare-baseline base.json\n")
 	}
 
-	// flag.ExitOnError makes Parse exit on error; the guard is a safety net.
 	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
 		return 2
 	}
 
