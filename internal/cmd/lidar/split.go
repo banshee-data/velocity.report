@@ -6,6 +6,7 @@ package lidar
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/pcapsplit"
@@ -46,6 +47,10 @@ func SplitMain(args []string) int {
 		if err == flag.ErrHelp {
 			return 0
 		}
+		return 2
+	}
+	if uint64(*settled) > math.MaxUint32 {
+		fmt.Fprintf(os.Stderr, "error: --settled-threshold %d exceeds the maximum (%d)\n", *settled, uint32(math.MaxUint32))
 		return 2
 	}
 	cfg.SettledThreshold = uint32(*settled)

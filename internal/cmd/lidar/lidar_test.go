@@ -4,7 +4,6 @@
 package lidar
 
 import (
-	"io"
 	"os"
 	"testing"
 )
@@ -19,7 +18,6 @@ func runMain(t *testing.T, args []string) int {
 		os.Stdout, os.Stderr = oldOut, oldErr
 		_ = devnull.Close()
 	}()
-	_ = io.Discard
 	return Main(args)
 }
 
