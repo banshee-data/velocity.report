@@ -38,6 +38,7 @@ func AnalyseMain(args []string) int {
 	fs.BoolVar(&cfg.Stats, "stats", false, "Display concise capture statistics (frame rate, RPM, duration)")
 	fs.BoolVar(&cfg.Stats10s, "stats-10s", false, "Display per-10s frame rate buckets (grep-friendly)")
 	fs.BoolVar(&cfg.Motion, "motion", false, "Report a motion/static timeline (sensor movement vs. stable periods)")
+	fs.StringVar(&cfg.MotionJSONPath, "motion-json", "", "Write the motion/static timeline to this JSON file (implies -motion)")
 
 	// Benchmark flags (short and long forms bind to the same variable).
 	fs.BoolVar(&cfg.Benchmark, "benchmark", false, "Enable performance measurement mode")

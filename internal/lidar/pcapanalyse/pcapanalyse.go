@@ -67,6 +67,7 @@ type Config struct {
 	Stats          bool    // Display concise capture statistics only
 	Stats10s       bool    // Display per-10s frame rate buckets (filterable)
 	Motion         bool    // Report a motion/static timeline for the capture
+	MotionJSONPath string  // Write the motion/static timeline to this JSON file (implies Motion)
 
 	// Benchmark settings
 	Benchmark           bool
@@ -271,6 +272,11 @@ func Run(config Config) int {
 		}
 	}
 
+	// --motion-json needs the per-frame motion samples, so it implies --motion.
+	if config.MotionJSONPath != "" {
+		config.Motion = true
+	}
+
 	// In benchmark mode with quiet flag, suppress verbose output
 	if config.Benchmark && config.Quiet {
 		config.Verbose = false
@@ -300,6 +306,14 @@ func Run(config Config) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Analysis failed: %v\n", err)
 		return 1
+	}
+
+	// Write the motion/static timeline to a JSON file when requested.
+	if config.MotionJSONPath != "" && result.CaptureStats != nil {
+		if err := writeMotionTimelineJSON(config.MotionJSONPath, result); err != nil {
+			fmt.Fprintf(os.Stderr, "write motion JSON: %v\n", err)
+			return 1
+		}
 	}
 
 	// Stats mode: print concise capture metrics and exit
@@ -817,6 +831,27 @@ func printMotionTimeline(periods []pcapsplit.MotionPeriod) {
 func formatMinSec(secs float64) string {
 	total := int(secs + 0.5)
 	return fmt.Sprintf("%dm %02ds", total/60, total%60)
+}
+
+// motionTimelineReport is the JSON document written by --motion-json.
+type motionTimelineReport struct {
+	File           string                   `json:"file"`
+	DurationSecs   float64                  `json:"duration_secs"`
+	MotionTimeline []pcapsplit.MotionPeriod `json:"motion_timeline"`
+}
+
+// writeMotionTimelineJSON writes the motion/static timeline to path.
+func writeMotionTimelineJSON(path string, result *AnalysisResult) error {
+	rep := motionTimelineReport{
+		File:           filepath.Base(result.PCAPFile),
+		DurationSecs:   result.DurationSecs,
+		MotionTimeline: result.CaptureStats.MotionTimeline,
+	}
+	data, err := json.MarshalIndent(rep, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }
 
 // getBenchmarkData returns the collected benchmark timing data.
