@@ -2,6 +2,7 @@ package l2frames
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -43,10 +44,27 @@ func (fb *FrameBuilder) Close() {
 	// Flush the final partial rotation and every buffered completed rotation
 	// before closing closeCh. Offline PCAP readers commonly finish before the
 	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
-	// appear to contain no data at all.
-	fb.finalizeCurrentFrame()
+	// appear to contain no data at all. Map iteration is unordered, so finish
+	// frames oldest-first to preserve capture ordering for callback consumers.
+	frames := make([]*LiDARFrame, 0, len(fb.frameBuffer)+1)
+	if fb.currentFrame != nil {
+		if fb.currentFrame.PointCount >= fb.minFramePoints {
+			frame := fb.currentFrame
+			fb.currentFrame = nil
+			fb.calculateFrameCompleteness(frame)
+			frames = append(frames, frame)
+		} else {
+			fb.currentFrame = nil
+		}
+	}
 	for frameID, frame := range fb.frameBuffer {
 		delete(fb.frameBuffer, frameID)
+		frames = append(frames, frame)
+	}
+	sort.Slice(frames, func(i, j int) bool {
+		return frames[i].StartTimestamp.Before(frames[j].StartTimestamp)
+	})
+	for _, frame := range frames {
 		fb.finalizeFrame(frame, "close")
 	}
 	fb.closed = true
