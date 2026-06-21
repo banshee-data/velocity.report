@@ -9,6 +9,8 @@ import (
 	"math"
 	"os"
 
+	radarassets "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/pcapsplit"
 )
 
@@ -20,6 +22,7 @@ func SplitMain(args []string) int {
 	cfg := pcapsplit.DefaultSplitConfig()
 
 	fs := flag.NewFlagSet("velocity-lidar-pcap-split", flag.ContinueOnError)
+	configPath := fs.String("config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Input PCAP/PCAPNG file (required)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for segments and metadata")
 	fs.StringVar(&cfg.OutputPrefix, "prefix", cfg.OutputPrefix, "Output filename prefix")
@@ -27,8 +30,8 @@ func SplitMain(args []string) int {
 	fs.Float64Var(&cfg.MotionTriggerSec, "motion-trigger-sec", cfg.MotionTriggerSec, "Sustained motion (s) required to declare motion")
 	fs.Float64Var(&cfg.MaxMotionGapSec, "max-motion-gap-sec", cfg.MaxMotionGapSec, "Bridge static gaps shorter than this into motion (0 = off)")
 	fs.Float64Var(&cfg.MinSegmentSec, "min-segment-sec", cfg.MinSegmentSec, "Merge segments shorter than this into a neighbour (0 = off)")
-	settled := fs.Uint("settled-threshold", uint(cfg.SettledThreshold), "Settled cell count threshold (TimesSeenCount)")
-	fs.StringVar(&cfg.SensorID, "sensor-id", cfg.SensorID, "Sensor identifier")
+	settled := fs.Uint("settled-threshold", 0, "Override the config's settled cell count threshold (0 = use config)")
+	fs.StringVar(&cfg.SensorID, "sensor-id", "", "Sensor identifier (default: from config l1.sensor)")
 	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	fs.BoolVar(&cfg.ExportMetrics, "export-metrics", false, "Write per-frame metrics to frame_metrics.csv")
 	fs.BoolVar(&cfg.ExportJSON, "export-json", false, "Write segment metadata to segments.json")
@@ -51,11 +54,23 @@ func SplitMain(args []string) int {
 		}
 		return 2
 	}
-	if uint64(*settled) > math.MaxUint32 {
-		fmt.Fprintf(os.Stderr, "error: --settled-threshold %d exceeds the maximum (%d)\n", *settled, uint32(math.MaxUint32))
-		return 2
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(*configPath, radarassets.TuningDefaults)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load tuning config %s: %v\n", *configPath, err)
+		return 1
 	}
-	cfg.SettledThreshold = uint32(*settled)
+	cfg.Tuning = tuningCfg
+	if cfg.SensorID == "" {
+		cfg.SensorID = tuningCfg.GetSensor()
+	}
+	cfg.SettledThreshold = uint32(tuningCfg.GetSettledThreshold())
+	if *settled != 0 {
+		if uint64(*settled) > math.MaxUint32 {
+			fmt.Fprintf(os.Stderr, "error: --settled-threshold %d exceeds the maximum (%d)\n", *settled, uint32(math.MaxUint32))
+			return 2
+		}
+		cfg.SettledThreshold = uint32(*settled)
+	}
 
 	if cfg.PCAPFile == "" {
 		fmt.Fprintln(os.Stderr, "error: --pcap is required")

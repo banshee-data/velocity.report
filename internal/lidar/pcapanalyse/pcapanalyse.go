@@ -388,6 +388,7 @@ func attachMotionTimeline(config Config, result *AnalysisResult) error {
 	splitCfg.SensorID = config.SensorID
 	splitCfg.UDPPort = config.UDPPort
 	splitCfg.ProgressSecs = config.ProgressSecs
+	splitCfg.Tuning = config.Tuning
 	analysis, err := pcapsplit.Analyse(splitCfg)
 	if err != nil {
 		return err

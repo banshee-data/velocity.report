@@ -25,25 +25,16 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 	start := time.Now()
 
 	// --- Load tuning configuration ---
-	var tuningCfg *config.TuningConfig
-	var err error
-	if tuningFile != "" {
-		tuningCfg, err = config.LoadTuningConfig(tuningFile)
-		if err != nil {
-			return nil, fmt.Errorf("load tuning config %s: %w", tuningFile, err)
-		}
-		log.Printf("loaded tuning config from %s", tuningFile)
-	} else {
-		// Load defaults from disk if present, else the embedded copy.
-		// MustLoadDefaultConfig panics when the file is absent (e.g. on the Pi
-		// images, which embed it, or any non-repo-root working dir).
-		tuningCfg, err = config.LoadTuningConfigOrEmbedded(config.DefaultConfigPath, radarassets.TuningDefaults)
-		if err != nil {
-			return nil, fmt.Errorf("load default tuning config: %w", err)
-		}
+	// Load tuning from the path if present, else the binary-embedded defaults,
+	// exactly as the live pipeline and the other pcap-* tools do.
+	if tuningFile == "" {
 		tuningFile = config.DefaultConfigPath
-		log.Printf("using default tuning config")
 	}
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(tuningFile, radarassets.TuningDefaults)
+	if err != nil {
+		return nil, fmt.Errorf("load tuning config %s: %w", tuningFile, err)
+	}
+	log.Printf("loaded tuning config (config=%s)", tuningFile)
 
 	bgConfig := backgroundConfigFromTuningConfig(tuningCfg)
 	// For offline evaluation disable warmup gating so we can observe the

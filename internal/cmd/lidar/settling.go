@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/settlingeval"
 )
@@ -22,7 +23,9 @@ func SettlingEvalMain(args []string) int {
 	fs := flag.NewFlagSet("velocity-lidar-settling-eval", flag.ContinueOnError)
 	output := fs.String("output", "", "output JSON path (default: stdout)")
 	sensor := fs.String("sensor", "pcap-eval", "sensor ID")
-	tuningFile := fs.String("tuning", "", "tuning config JSON path (default: config/tuning.defaults.json)")
+	var configPath string
+	fs.StringVar(&configPath, "config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
+	fs.StringVar(&configPath, "tuning", config.DefaultConfigPath, "deprecated alias for -config")
 	udpPort := fs.Int("port", 0, "UDP port filter for PCAP packets (0 = auto-detect from the capture)")
 
 	fs.Usage = func() {
@@ -49,7 +52,7 @@ func SettlingEvalMain(args []string) int {
 		return 1
 	}
 
-	report, err := settlingeval.Run(pcapFile, *tuningFile, *sensor, port)
+	report, err := settlingeval.Run(pcapFile, configPath, *sensor, port)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "settling-eval: %v\n", err)
 		return 1

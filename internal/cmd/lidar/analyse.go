@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 
+	radarassets "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/pcapanalyse"
 )
 
@@ -25,9 +27,10 @@ func AnalyseMain(args []string) int {
 	// with the other velocity namespaces in the single multi-call binary.
 	fs := flag.NewFlagSet("velocity-lidar-pcap-analyse", flag.ContinueOnError)
 
+	configPath := fs.String("config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Path to PCAP file (required)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for results")
-	fs.StringVar(&cfg.SensorID, "sensor-id", "hesai-pandar40p", "Sensor ID")
+	fs.StringVar(&cfg.SensorID, "sensor-id", "", "Sensor ID (default: from config l1.sensor)")
 	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	fs.StringVar(&cfg.DBPath, "db", "", "SQLite database path (optional, for persistence)")
 	fs.BoolVar(&cfg.ExportCSV, "csv", true, "Export tracks to CSV")
@@ -70,6 +73,16 @@ func AnalyseMain(args []string) int {
 			return 0
 		}
 		return 2
+	}
+
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(*configPath, radarassets.TuningDefaults)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "load tuning config %s: %v\n", *configPath, err)
+		return 1
+	}
+	cfg.Tuning = tuningCfg
+	if cfg.SensorID == "" {
+		cfg.SensorID = tuningCfg.GetSensor()
 	}
 
 	cfg.UDPPort = resolveUDPPort(cfg.UDPPort, cfg.PCAPFile)
