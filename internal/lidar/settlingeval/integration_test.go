@@ -26,10 +26,15 @@ func truncatedCapture(t *testing.T, maxPackets int) string {
 	defer h.Close()
 	_ = h.SetBPFFilter("udp port 2369")
 	dst := filepath.Join(t.TempDir(), "trunc.pcap")
-	f, _ := os.Create(dst)
+	f, err := os.Create(dst)
+	if err != nil {
+		t.Fatalf("create %s: %v", dst, err)
+	}
 	defer f.Close()
 	w := pcapgo.NewWriterNanos(f)
-	_ = w.WriteFileHeader(65536, h.LinkType())
+	if err := w.WriteFileHeader(65536, h.LinkType()); err != nil {
+		t.Fatalf("write pcap header: %v", err)
+	}
 	n := 0
 	for p := range gopacket.NewPacketSource(h, h.LinkType()).Packets() {
 		if n >= maxPackets {
