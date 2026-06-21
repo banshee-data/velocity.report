@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
@@ -96,7 +97,10 @@ func NewMotionClassifier(sensorID, sourcePath string, cfg MotionClassifierConfig
 		return nil, fmt.Errorf("invalid motion classifier thresholds")
 	}
 
-	params := motionBackgroundParams()
+	params, err := motionBackgroundParams()
+	if err != nil {
+		return nil, err
+	}
 	bg := l3grid.NewBackgroundManagerDI(sensorID, gridRings, gridAzBins, params, nil)
 	bg.SetSourcePath(sourcePath)
 	return &MotionClassifier{bg: bg, cfg: cfg}, nil
@@ -169,8 +173,14 @@ func classifyMoving(cfg MotionClassifierConfig, foregroundFraction, deviation fl
 		deviation >= cfg.MovementDeviationThreshold
 }
 
-func motionBackgroundParams() l3grid.BackgroundParams {
-	tuningCfg := config.MustLoadDefaultConfig()
+func motionBackgroundParams() (l3grid.BackgroundParams, error) {
+	// Load tuning from disk if present, else fall back to the embedded defaults.
+	// MustLoadDefaultConfig panics when the file is absent — e.g. on the Pi images
+	// (which embed it rather than staging it) or any non-repo-root working dir.
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(config.DefaultConfigPath, radarassets.TuningDefaults)
+	if err != nil {
+		return l3grid.BackgroundParams{}, fmt.Errorf("load tuning config: %w", err)
+	}
 	bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
 	// Offline classification has no wall clock: capture timestamps supplied to
 	// Observe advance freeze state, and warmup is represented by the explicit
@@ -179,5 +189,5 @@ func motionBackgroundParams() l3grid.BackgroundParams {
 	bgConfig.WarmupDuration = 0
 	bgConfig.SettlingPeriod = 24 * time.Hour
 	// The config loader validates the selected active engine before returning it.
-	return bgConfig.ToBackgroundParams()
+	return bgConfig.ToBackgroundParams(), nil
 }

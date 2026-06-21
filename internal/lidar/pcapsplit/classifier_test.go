@@ -54,6 +54,20 @@ func TestNewMotionClassifierValidation(t *testing.T) {
 	}
 }
 
+func TestNewMotionClassifierFallsBackToEmbeddedConfig(t *testing.T) {
+	// Running from a directory without config/tuning.defaults.json must not
+	// panic (as MustLoadDefaultConfig would): the classifier loads the embedded
+	// defaults instead. This mirrors the Pi images, which embed the file.
+	t.Chdir(t.TempDir())
+	c, err := NewMotionClassifier("sensor", "capture.pcapng", DefaultMotionClassifierConfig())
+	if err != nil {
+		t.Fatalf("NewMotionClassifier without an on-disk tuning config: %v", err)
+	}
+	if c == nil || c.bg == nil {
+		t.Fatal("expected an initialised classifier from embedded defaults")
+	}
+}
+
 func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
 	classifierCfg := DefaultMotionClassifierConfig()
 	classifierCfg.SettledThreshold = 0 // zero selects the default threshold.

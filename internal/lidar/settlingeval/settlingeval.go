@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
@@ -33,8 +34,14 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 		}
 		log.Printf("loaded tuning config from %s", tuningFile)
 	} else {
-		tuningCfg = config.MustLoadDefaultConfig()
-		tuningFile = "config/tuning.defaults.json"
+		// Load defaults from disk if present, else the embedded copy.
+		// MustLoadDefaultConfig panics when the file is absent (e.g. on the Pi
+		// images, which embed it, or any non-repo-root working dir).
+		tuningCfg, err = config.LoadTuningConfigOrEmbedded(config.DefaultConfigPath, radarassets.TuningDefaults)
+		if err != nil {
+			return nil, fmt.Errorf("load default tuning config: %w", err)
+		}
+		tuningFile = config.DefaultConfigPath
 		log.Printf("using default tuning config")
 	}
 
