@@ -35,22 +35,13 @@ func TestClassifyMovingUsesEitherSignal(t *testing.T) {
 }
 
 func TestNewMotionClassifierValidation(t *testing.T) {
-	cfg := DefaultMotionClassifierConfig()
-	if _, err := NewMotionClassifier("", "capture.pcapng", cfg); err == nil {
+	if _, err := NewMotionClassifier("", "capture.pcapng", nil); err == nil {
 		t.Fatal("expected empty sensor ID to fail")
 	}
-
-	for _, mutate := range []func(*MotionClassifierConfig){
-		func(c *MotionClassifierConfig) { c.MovementForegroundThreshold = 0 },
-		func(c *MotionClassifierConfig) { c.MovementForegroundThreshold = 1 },
-		func(c *MotionClassifierConfig) { c.MovementDeviationThreshold = 0 },
-		func(c *MotionClassifierConfig) { c.NoiseBoundsThreshold = 0 },
-	} {
-		bad := cfg
-		mutate(&bad)
-		if _, err := NewMotionClassifier("sensor", "capture.pcapng", bad); err == nil {
-			t.Errorf("expected invalid config %+v to fail", bad)
-		}
+	// A nil tuning falls back to the validated embedded defaults. (Threshold
+	// validation now lives in config.Validate, covered by the config package.)
+	if _, err := NewMotionClassifier("sensor", "capture.pcapng", nil); err != nil {
+		t.Fatalf("nil tuning should use embedded defaults: %v", err)
 	}
 }
 
@@ -59,7 +50,7 @@ func TestNewMotionClassifierFallsBackToEmbeddedConfig(t *testing.T) {
 	// panic (as MustLoadDefaultConfig would): the classifier loads the embedded
 	// defaults instead. This mirrors the Pi images, which embed the file.
 	t.Chdir(t.TempDir())
-	c, err := NewMotionClassifier("sensor", "capture.pcapng", DefaultMotionClassifierConfig())
+	c, err := NewMotionClassifier("sensor", "capture.pcapng", nil)
 	if err != nil {
 		t.Fatalf("NewMotionClassifier without an on-disk tuning config: %v", err)
 	}
@@ -69,9 +60,7 @@ func TestNewMotionClassifierFallsBackToEmbeddedConfig(t *testing.T) {
 }
 
 func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
-	classifierCfg := DefaultMotionClassifierConfig()
-	classifierCfg.SettledThreshold = 0 // zero selects the default threshold.
-	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", classifierCfg)
+	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +109,7 @@ func TestMotionClassifierNilGuards(t *testing.T) {
 }
 
 func TestMotionClassifierObserveEmptyFrame(t *testing.T) {
-	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", DefaultMotionClassifierConfig())
+	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +125,7 @@ func TestMotionClassifierObserveEmptyFrame(t *testing.T) {
 }
 
 func TestMotionClassifierCachesGridEvidenceForOneCaptureSecond(t *testing.T) {
-	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", DefaultMotionClassifierConfig())
+	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

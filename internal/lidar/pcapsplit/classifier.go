@@ -37,17 +37,38 @@ type MotionClassifierConfig struct {
 	NoiseBoundsThreshold float64
 }
 
-// DefaultMotionClassifierConfig classifies motion by sensor ego-motion, via the
-// foreground fraction (onset) or the noise deviation (sustained drives). The
-// classifier deliberately disables wall-clock warmup and consumes capture
-// timestamps so replay speed cannot change its result.
+// DefaultMotionClassifierConfig derives the classifier thresholds from the
+// embedded tuning defaults, so they match the live pipeline's tuning.
 func DefaultMotionClassifierConfig() MotionClassifierConfig {
+	return MotionClassifierConfigFromTuning(tuningOrEmbedded(nil))
+}
+
+// MotionClassifierConfigFromTuning reads the classifier thresholds from the
+// active L3 tuning. Motion is classified by sensor ego-motion, via the
+// foreground fraction (onset) or the noise deviation (sustained drives); the
+// classifier consumes capture timestamps so replay speed cannot change it.
+func MotionClassifierConfigFromTuning(t *config.TuningConfig) MotionClassifierConfig {
+	l3 := t.L3.ActiveCommon()
 	return MotionClassifierConfig{
-		SettledThreshold:            DefaultSettledThreshold,
-		MovementForegroundThreshold: 0.20,
-		MovementDeviationThreshold:  1.5,
-		NoiseBoundsThreshold:        2.0,
+		SettledThreshold:            uint32(l3.SettledThreshold),
+		MovementForegroundThreshold: l3.SensorMovementForegroundThreshold,
+		MovementDeviationThreshold:  l3.MovementDeviationThreshold,
+		NoiseBoundsThreshold:        l3.NoiseBoundsThreshold,
 	}
+}
+
+// tuningOrEmbedded returns t when non-nil, else the tuning loaded from the
+// default path falling back to the binary-embedded defaults. The embedded copy
+// is validated at build time, so a load failure is a build invariant.
+func tuningOrEmbedded(t *config.TuningConfig) *config.TuningConfig {
+	if t != nil {
+		return t
+	}
+	cfg, err := config.LoadTuningConfigOrEmbedded(config.DefaultConfigPath, radarassets.TuningDefaults)
+	if err != nil {
+		panic(fmt.Sprintf("pcapsplit: load embedded tuning: %v", err))
+	}
+	return cfg
 }
 
 // MotionEvidence is the complete per-frame decision record. Moving is the raw
@@ -82,26 +103,21 @@ type MotionClassifier struct {
 	withinNoiseBound bool
 }
 
-// NewMotionClassifier builds a replay-specific background model from the
-// active default tuning. It must not share the tracking pipeline's historical
-// hard-coded parameters or wall-clock warmup behaviour.
-func NewMotionClassifier(sensorID, sourcePath string, cfg MotionClassifierConfig) (*MotionClassifier, error) {
+// NewMotionClassifier builds a replay-specific background model and thresholds
+// from the given tuning (nil = embedded defaults), the same tuning the live
+// pipeline uses. Warmup gating is disabled for offline replay so the model
+// settles from frame 0; the thresholds come straight from the L3 config.
+func NewMotionClassifier(sensorID, sourcePath string, tuningCfg *config.TuningConfig) (*MotionClassifier, error) {
 	if sensorID == "" {
 		return nil, fmt.Errorf("sensor ID is required")
 	}
+	tuningCfg = tuningOrEmbedded(tuningCfg)
+	cfg := MotionClassifierConfigFromTuning(tuningCfg)
 	if cfg.SettledThreshold == 0 {
 		cfg.SettledThreshold = DefaultSettledThreshold
 	}
-	if cfg.MovementForegroundThreshold <= 0 || cfg.MovementForegroundThreshold >= 1 ||
-		cfg.MovementDeviationThreshold <= 0 || cfg.NoiseBoundsThreshold <= 0 {
-		return nil, fmt.Errorf("invalid motion classifier thresholds")
-	}
 
-	params, err := motionBackgroundParams()
-	if err != nil {
-		return nil, err
-	}
-	bg := l3grid.NewBackgroundManagerDI(sensorID, gridRings, gridAzBins, params, nil)
+	bg := l3grid.NewBackgroundManagerDI(sensorID, gridRings, gridAzBins, motionBackgroundParams(tuningCfg), nil)
 	bg.SetSourcePath(sourcePath)
 	return &MotionClassifier{bg: bg, cfg: cfg}, nil
 }
@@ -173,21 +189,14 @@ func classifyMoving(cfg MotionClassifierConfig, foregroundFraction, deviation fl
 		deviation >= cfg.MovementDeviationThreshold
 }
 
-func motionBackgroundParams() (l3grid.BackgroundParams, error) {
-	// Load tuning from disk if present, else fall back to the embedded defaults.
-	// MustLoadDefaultConfig panics when the file is absent — e.g. on the Pi images
-	// (which embed it rather than staging it) or any non-repo-root working dir.
-	tuningCfg, err := config.LoadTuningConfigOrEmbedded(config.DefaultConfigPath, radarassets.TuningDefaults)
-	if err != nil {
-		return l3grid.BackgroundParams{}, fmt.Errorf("load tuning config: %w", err)
-	}
+// motionBackgroundParams builds the offline background-model params from the
+// tuning, applying the one intentional offline-replay divergence from live:
+// warmup gating is disabled (and the settling period stretched) so the model
+// settles from frame 0 on a fixed capture. Everything else matches live.
+func motionBackgroundParams(tuningCfg *config.TuningConfig) l3grid.BackgroundParams {
 	bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
-	// Offline classification has no wall clock: capture timestamps supplied to
-	// Observe advance freeze state, and warmup is represented by the explicit
-	// stable-scene rule plus the timeline's 60-second hysteresis.
 	bgConfig.WarmupMinFrames = 0
 	bgConfig.WarmupDuration = 0
 	bgConfig.SettlingPeriod = 24 * time.Hour
-	// The config loader validates the selected active engine before returning it.
-	return bgConfig.ToBackgroundParams(), nil
+	return bgConfig.ToBackgroundParams()
 }

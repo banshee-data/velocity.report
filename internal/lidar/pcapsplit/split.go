@@ -3,6 +3,8 @@ package pcapsplit
 import (
 	"fmt"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // Default split parameters.
@@ -36,6 +38,11 @@ type SplitConfig struct {
 	DryRun           bool    `json:"-"`
 	Verbose          bool    `json:"-"`
 	ProgressSecs     float64 `json:"-"` // Seconds between progress updates during the read (0 = off)
+
+	// Tuning is the loaded tuning config (from -config); nil falls back to the
+	// embedded defaults. The classifier's background model and thresholds come
+	// from it so segmentation matches the live pipeline.
+	Tuning *config.TuningConfig `json:"-"`
 }
 
 // DefaultSplitConfig returns a config with the standard defaults. Port 2369

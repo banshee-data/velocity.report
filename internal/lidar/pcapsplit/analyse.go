@@ -38,9 +38,13 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	parser := parse.NewPandar40PParser(*parserCfg)
 	elevations := parse.ElevationsFromConfig(parserCfg)
 
-	classifierCfg := DefaultMotionClassifierConfig()
-	classifierCfg.SettledThreshold = cfg.SettledThreshold
-	classifier, err := NewMotionClassifier(cfg.SensorID, cfg.PCAPFile, classifierCfg)
+	// Resolve the tuning once (nil = embedded defaults). The -settled-threshold
+	// flag, when set, overrides the config value for this run.
+	tuningCfg := tuningOrEmbedded(cfg.Tuning)
+	if cfg.SettledThreshold != 0 {
+		tuningCfg.L3.ActiveCommon().SettledThreshold = int(cfg.SettledThreshold)
+	}
+	classifier, err := NewMotionClassifier(cfg.SensorID, cfg.PCAPFile, tuningCfg)
 	if err != nil {
 		return nil, err
 	}
