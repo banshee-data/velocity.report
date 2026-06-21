@@ -61,13 +61,11 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		}
 		evidence, err := classifier.Observe(frame.StartTimestamp, frame.PolarPoints)
 		if err != nil {
-			if err != nil {
-				mu.Lock()
-				if firstErr == nil {
-					firstErr = err
-				}
-				mu.Unlock()
+			mu.Lock()
+			if firstErr == nil {
+				firstErr = err
 			}
+			mu.Unlock()
 			return
 		}
 		mu.Lock()
