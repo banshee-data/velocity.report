@@ -44,7 +44,7 @@ func TestNewAnalysisFrameBuilder_WithAndWithoutDB(t *testing.T) {
 	} else {
 		_ = fbDB.dbConn.Close()
 	}
-	if got := createBackgroundManager("s", nil); got == nil {
+	if got := createBackgroundManager("s", nil, nil); got == nil {
 		t.Error("createBackgroundManager returned nil")
 	}
 }

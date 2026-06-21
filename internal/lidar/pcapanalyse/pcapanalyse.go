@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	radarassets "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
@@ -70,6 +72,11 @@ type Config struct {
 	MotionJSONPath string  // Write the motion/static timeline to this JSON file (implies Motion)
 	TimelineUnits  string  // Motion timeline boundary columns: frames (default), seconds, timestamp
 	ProgressSecs   float64 // Seconds between progress updates during the PCAP read (0 = off)
+
+	// Tuning is the loaded tuning config (from -config); nil falls back to the
+	// embedded defaults. The background model is built from it so offline
+	// analysis matches the live pipeline.
+	Tuning *config.TuningConfig
 
 	// Benchmark settings
 	Benchmark           bool
@@ -510,7 +517,7 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 	fb := &analysisFrameBuilder{
 		points:          make([]l2frames.PointPolar, 0, 50000),
 		lastRawAzimuth:  -1,
-		bgManager:       createBackgroundManager(config.SensorID, store),
+		bgManager:       createBackgroundManager(config.SensorID, store, config.Tuning),
 		tracker:         l5tracks.NewTracker(l5tracks.DefaultTrackerConfig()),
 		classifier:      l6objects.NewTrackClassifier(),
 		config:          config,
@@ -1184,25 +1191,28 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 	return result, metrics, nil
 }
 
-func createBackgroundManager(sensorID string, store l3grid.BgStore) *l3grid.BackgroundManager {
-	// Use NewBackgroundManager to ensure proper initialization including
-	// region persistence/restoration when a store is provided.
-	params := l3grid.BackgroundParams{
-		BackgroundUpdateFraction:       0.02,
-		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMetres:             0.5,
-		NeighbourConfirmationCount:     3,
-		NoiseRelativeFraction:          0.315,
-		SeedFromFirstObservation:       true, // Important for PCAP replay
-		FreezeDurationNanos:            int64(5 * time.Second),
-		// Enable region identification for PCAP analysis
-		WarmupMinFrames:     100,
-		WarmupDurationNanos: int64(30 * time.Second),
-	}
+func createBackgroundManager(sensorID string, store l3grid.BgStore, tuningCfg *config.TuningConfig) *l3grid.BackgroundManager {
+	// Build the background model from the tuning config exactly as the live
+	// server does (internal/cmd/server/radar.go), so offline analysis runs the
+	// same algorithm and tuning as live observation. NewBackgroundManager wires
+	// up persistence when store is non-nil (region restoration across runs).
+	tuningCfg = tuningOrEmbedded(tuningCfg)
+	bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
+	return l3grid.NewBackgroundManager(sensorID, 40, 1800, bgConfig.ToBackgroundParams(), store)
+}
 
-	// NewBackgroundManager will wire up persistence if store is non-nil,
-	// enabling region restoration on subsequent PCAP runs from same location.
-	return l3grid.NewBackgroundManager(sensorID, 40, 1800, params, store)
+// tuningOrEmbedded returns t when non-nil, else the tuning loaded from the
+// default path falling back to the binary-embedded defaults. The embedded copy
+// is validated at build time, so a load failure is a build invariant.
+func tuningOrEmbedded(t *config.TuningConfig) *config.TuningConfig {
+	if t != nil {
+		return t
+	}
+	cfg, err := config.LoadTuningConfigOrEmbedded(config.DefaultConfigPath, radarassets.TuningDefaults)
+	if err != nil {
+		panic(fmt.Sprintf("pcapanalyse: load embedded tuning: %v", err))
+	}
+	return cfg
 }
 
 func computeClassStats(tracks []*TrackExport) map[string]ClassStats {
