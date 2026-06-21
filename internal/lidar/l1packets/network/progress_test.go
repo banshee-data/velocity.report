@@ -25,12 +25,13 @@ func TestProgressStatsDisabledReturnsInner(t *testing.T) {
 func TestProgressStatsForwardsAndReports(t *testing.T) {
 	inner := &recordStats{}
 	var buf bytes.Buffer
-	// A 1ns interval makes the first packet (after any elapsed time) report.
+	// A 1ns interval makes the next ObserveProgress report.
 	p := NewProgressStats(inner, 1000, time.Nanosecond, "scan", &buf)
-	time.Sleep(time.Millisecond)
 	p.AddPacket(500)
 	p.AddPoints(40)
 	p.AddDropped()
+	time.Sleep(time.Millisecond)
+	p.(ProgressObserver).ObserveProgress(time.Unix(1000, 0), 600)
 
 	if inner.packets != 1 || inner.points != 40 || inner.dropped != 1 {
 		t.Fatalf("inner stats not forwarded: %+v", inner)
@@ -42,13 +43,38 @@ func TestProgressStatsForwardsAndReports(t *testing.T) {
 	if !strings.Contains(out, "~50.0%") { // 500 payload bytes of a 1000-byte file
 		t.Errorf("expected ~50%% with fileSize 1000: %q", out)
 	}
+	if !strings.Contains(out, "600 rpm") {
+		t.Errorf("expected rpm in line: %q", out)
+	}
+}
+
+func TestProgressStatsReportsPointsPerFrame(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewProgressStats(&recordStats{}, 1000, time.Nanosecond, "scan", &buf).(*ProgressStats)
+	t0 := time.Unix(1000, 0)
+	p.AddPacket(100)
+	p.ObserveProgress(t0, 600) // seed the capture baseline (and an empty first report)
+	buf.Reset()
+
+	// 600 rpm over 10 s of capture is 100 frames; add 7,000,000 points.
+	for range 100 {
+		p.AddPoints(70_000)
+	}
+	time.Sleep(time.Millisecond)
+	p.ObserveProgress(t0.Add(10*time.Second), 600)
+
+	out := buf.String()
+	if !strings.Contains(out, "70000 pts/frame") {
+		t.Errorf("expected 70000 pts/frame (7M pts / 100 frames): %q", out)
+	}
 }
 
 func TestProgressStatsNoPercentWithoutSize(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewProgressStats(&recordStats{}, 0 /* unknown size */, time.Nanosecond, "scan", &buf)
-	time.Sleep(time.Millisecond)
 	p.AddPacket(500)
+	time.Sleep(time.Millisecond)
+	p.(ProgressObserver).ObserveProgress(time.Unix(1000, 0), 600)
 	if strings.Contains(buf.String(), "%") {
 		t.Errorf("fileSize 0 should suppress the percentage: %q", buf.String())
 	}

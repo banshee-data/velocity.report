@@ -24,8 +24,22 @@ type ProgressStats struct {
 	payloadBytes int64
 	packets      int64
 	points       int64
+	rpm          uint16    // most recent motor speed (revolutions per minute)
+	captureNow   time.Time // capture time of the most recent packet
 	start        time.Time
 	lastReport   time.Time
+	// Snapshots taken at the last printed report, for per-interval rates.
+	captureAtReport time.Time
+	pointsAtReport  int64
+	haveCapture     bool
+}
+
+// ProgressObserver is an optional richer hook a PacketStatsInterface may
+// implement to receive each packet's capture time and motor speed, so progress
+// output can report RPM and points-per-frame. ReadPCAPFile calls it per packet
+// when the stats sink implements it.
+type ProgressObserver interface {
+	ObserveProgress(captureTime time.Time, motorRPM uint16)
 }
 
 // NewProgressStats wraps inner so a progress line is emitted to out at most once
@@ -48,8 +62,9 @@ func NewProgressStats(inner PacketStatsInterface, fileSize int64, interval time.
 	}
 }
 
-// AddPacket records a packet's payload size, prints a progress line when the
-// interval has elapsed, and forwards to the inner stats.
+// AddPacket records a packet's payload size and forwards to the inner stats.
+// The progress line is emitted from ObserveProgress, which also carries the
+// capture time and motor speed.
 func (p *ProgressStats) AddPacket(bytes int) {
 	if p.inner != nil {
 		p.inner.AddPacket(bytes)
@@ -57,10 +72,29 @@ func (p *ProgressStats) AddPacket(bytes int) {
 	p.mu.Lock()
 	p.payloadBytes += int64(bytes)
 	p.packets++
+	p.mu.Unlock()
+}
+
+// ObserveProgress records the packet's capture time and motor speed, and emits a
+// progress line when the wall-clock interval has elapsed. Points-per-frame is
+// computed over the interval from the capture-time span and the motor speed
+// (frames = capture-seconds * RPM / 60).
+func (p *ProgressStats) ObserveProgress(captureTime time.Time, motorRPM uint16) {
+	p.mu.Lock()
+	if motorRPM > 0 {
+		p.rpm = motorRPM
+	}
+	p.captureNow = captureTime
+	if !p.haveCapture {
+		p.captureAtReport = captureTime
+		p.haveCapture = true
+	}
 	var line string
 	if time.Since(p.lastReport) >= p.interval {
 		p.lastReport = time.Now()
 		line = p.formatLocked()
+		p.captureAtReport = captureTime
+		p.pointsAtReport = p.points
 	}
 	p.mu.Unlock()
 	if line != "" && p.out != nil {
@@ -107,8 +141,19 @@ func (p *ProgressStats) formatLocked() string {
 		}
 		pct = fmt.Sprintf("~%4.1f%% | ", frac)
 	}
-	return fmt.Sprintf("[%s] %s%s packets | %s points | %s elapsed | %.0f pkt/s",
-		p.label, pct, commaInt(p.packets), compactInt(p.points), mmss(elapsed), rate)
+	// RPM and points-per-frame for the interval since the last report. Frames are
+	// estimated from the capture-time span and motor speed, so this needs RPM.
+	rpmStr, ppfStr := "- rpm", "- pts/frame"
+	if p.rpm > 0 {
+		rpmStr = fmt.Sprintf("%d rpm", p.rpm)
+		if captureSecs := p.captureNow.Sub(p.captureAtReport).Seconds(); captureSecs > 0 {
+			if frames := captureSecs * float64(p.rpm) / 60.0; frames >= 1 {
+				ppfStr = fmt.Sprintf("%.0f pts/frame", float64(p.points-p.pointsAtReport)/frames)
+			}
+		}
+	}
+	return fmt.Sprintf("[%s] %s%s packets | %s points | %s | %s | %s elapsed | %.0f pkt/s",
+		p.label, pct, commaInt(p.packets), compactInt(p.points), rpmStr, ppfStr, mmss(elapsed), rate)
 }
 
 // commaInt formats an integer with thousands separators (1234567 -> "1,234,567").
