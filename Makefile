@@ -241,18 +241,27 @@ build-velocity-linux:
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,linux,arm64)
 	GOOS=linux GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+	@rm -f velocity-report-linux-arm64
+	@ln -snf $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) velocity-linux-arm64
+	@echo "Latest Linux build: velocity-linux-arm64 -> $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT)"
 
 build-velocity-mac:
 	@./scripts/ensure-web-stub.sh
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,darwin,arm64)
 	GOOS=darwin GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+	@rm -f velocity-report-mac-arm64
+	@ln -snf $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) velocity-mac-arm64
+	@echo "Latest macOS ARM64 build: velocity-mac-arm64 -> $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT)"
 
 build-velocity-mac-intel:
 	@./scripts/ensure-web-stub.sh
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,darwin,amd64)
 	GOOS=darwin GOARCH=amd64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
+	@rm -f velocity-report-mac-amd64
+	@ln -snf $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) velocity-mac-amd64
+	@echo "Latest macOS AMD64 build: velocity-mac-amd64 -> $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT)"
 
 # Compatibility aliases (folded binaries → single velocity binary).
 build-radar-linux: build-velocity-linux
