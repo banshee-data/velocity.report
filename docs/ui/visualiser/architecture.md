@@ -493,7 +493,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: Pool slices are allocated but never returned; effectively defeats pooling benefit.
 
-**Deferred Solution**: Reference counting (see [velocity-visualiser-implementation.md §7.2](./implementation.md#72-pointcloudframe-memory-pool-release-strategy)).
+**Deferred Solution**: Reference counting (see [velocity-visualiser-implementation.md §7.2](./implementation.md#72-pointcloudframe-memory-pool-release-strategy-)).
 
 ### 8.2 Swift buffer allocation per frame
 
@@ -501,7 +501,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: At 10-20 fps, this creates ~5 MB/s allocation pressure, increasing GC load.
 
-**Deferred Solution**: Buffer pooling or pre-allocation (see [velocity-visualiser-implementation.md §7.1](./implementation.md#71-swift-buffer-pooling)).
+**Deferred Solution**: Buffer pooling or pre-allocation (see [velocity-visualiser-implementation.md §7.1](./implementation.md#71-swift-buffer-pooling-)).
 
 ### 8.3 Frame skipping lacks cooldown
 
@@ -509,7 +509,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: Client may experience jittery frame delivery after recovering from backpressure.
 
-**Deferred Solution**: Add cooldown counter (see [velocity-visualiser-implementation.md §7.3](./implementation.md#73-frame-skipping-cooldown)).
+**Deferred Solution**: Add cooldown counter (see [velocity-visualiser-implementation.md §7.3](./implementation.md#73-frame-skipping-cooldown-)).
 
 ### 8.4 Decimation ratio edge cases
 

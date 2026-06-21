@@ -188,7 +188,7 @@ architecture question is L5 vs L6 vs L7.
      Kalman-only baseline
   3. Latency and implementation complexity impact for each option
 - **Reference:**
-  [lidar-l7-scene-plan.md § Radar-LiDAR fusion](../docs/plans/lidar-l7-scene-plan.md#radar-lidar-fusion-open-l5-vs-l7-decision-l4-ruled-out)
+  [lidar-l7-scene-plan.md § Radar-LiDAR fusion](../docs/plans/lidar-l7-scene-plan.md#radar-lidar-fusion-open-l5-vs-l6-vs-l7-decision-l4-ruled-out)
 
 ### Q11. how should conflicting multi-sensor observations be resolved?
 

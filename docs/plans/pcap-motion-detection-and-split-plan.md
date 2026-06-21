@@ -69,7 +69,7 @@ These are read-only accessors over existing grid data. No state changes, no new 
 
 **Phase 3: pcap-split Tool** (`M`)
 
-Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool-planned):
+Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool):
 
 - `internal/lidar/pcapsplit/analyser.go`: settling analyser implementing `FrameBuilder`, state machine, metric tracking
 - `internal/lidar/pcapsplit/writer.go`: segment PCAP writer with sequential naming and packet buffering

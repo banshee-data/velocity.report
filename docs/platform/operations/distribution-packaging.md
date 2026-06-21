@@ -84,7 +84,7 @@ velocity-report-backfill-rings         # Developer tool
 ```
 
 `velocity-ctl` replaces the deleted `velocity-deploy` binary (see
-[deploy-rpi-imager-fork-plan.md § 8](../../plans/deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl)).
+[deploy-rpi-imager-fork-plan.md § 8](../../plans/deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl)).
 It is a purpose-built on-device management tool with no SSH surface.
 
 ### Key changes
