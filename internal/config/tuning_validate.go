@@ -181,6 +181,15 @@ func (c *L3Common) Validate() error {
 	if c.SensorMovementForegroundThreshold < 0 || c.SensorMovementForegroundThreshold > 1 {
 		return fmt.Errorf("sensor_movement_foreground_threshold must be in [0, 1], got %f", c.SensorMovementForegroundThreshold)
 	}
+	if c.MovementDeviationThreshold <= 0 {
+		return fmt.Errorf("movement_deviation_threshold must be positive, got %f", c.MovementDeviationThreshold)
+	}
+	if c.NoiseBoundsThreshold <= 0 {
+		return fmt.Errorf("noise_bounds_threshold must be positive, got %f", c.NoiseBoundsThreshold)
+	}
+	if c.SettledThreshold <= 0 {
+		return fmt.Errorf("settled_threshold must be positive, got %d", c.SettledThreshold)
+	}
 	if c.BackgroundDriftThresholdMetres < 0 {
 		return fmt.Errorf("background_drift_threshold_metres must be non-negative, got %f", c.BackgroundDriftThresholdMetres)
 	}
