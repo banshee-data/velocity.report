@@ -3,6 +3,7 @@ package pcapsplit
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -31,6 +32,16 @@ func TestExportFuncs_Success(t *testing.T) {
 		if _, e := os.Stat(filepath.Join(dir, f)); e != nil {
 			t.Errorf("missing %s: %v", f, e)
 		}
+	}
+}
+
+func TestFormatSummaryLabelsSettlingDuration(t *testing.T) {
+	summary := FormatSummary(sampleReport())
+	if !strings.Contains(summary, "Settling Duration:") {
+		t.Fatalf("summary has no settling duration label: %s", summary)
+	}
+	if strings.Contains(summary, "Settling Threshold:") {
+		t.Fatalf("summary retains misleading threshold label: %s", summary)
 	}
 }
 

@@ -95,7 +95,7 @@ func FormatSummary(r Report) string {
 	fmt.Fprintf(&b, "Total Duration:  %s\n", minSec(r.TotalDurationSec))
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "Configuration:")
-	fmt.Fprintf(&b, "  Settling Threshold: %.0fs\n", r.Config.SettlingSec)
+	fmt.Fprintf(&b, "  Settling Duration:  %.0fs\n", r.Config.SettlingSec)
 	fmt.Fprintf(&b, "  Motion Trigger:     %.0fs\n", r.Config.MotionTriggerSec)
 	fmt.Fprintf(&b, "  Settled Cell Count: %d\n", r.Config.SettledThreshold)
 	fmt.Fprintln(&b)
