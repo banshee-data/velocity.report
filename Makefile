@@ -314,7 +314,7 @@ SETTLING_EVAL_PORT ?= 2369
 run-settling-eval: PCAP ?= $(SETTLING_EVAL_PCAP)
 run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
 run-settling-eval:
-	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
+	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--config $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
 
 # Build the pcap-split tool (requires libpcap; built with the pcap tag).
 .PHONY: build-pcap-split
