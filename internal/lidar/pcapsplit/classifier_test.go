@@ -78,21 +78,21 @@ func TestMotionClassifierPreservesTuningAndUsesCommonEvaluator(t *testing.T) {
 	tuning := config.MustLoadDefaultConfig()
 	original := tuning.L3.EmaBaselineV1.LockedBaselineThreshold
 	tuning.L3.EmaBaselineV1.SensorMovementForegroundThreshold = 0.6
-	tuning.L3.EmaBaselineV1.SensorMovementDeviationThreshold = 99
+	tuning.L3.EmaBaselineV1.SensorMovementDriftRatioThreshold = 0.5
 
 	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", tuning)
 	if err != nil {
 		t.Fatal(err)
 	}
 	params := classifier.bg.GetParams()
-	if params.SensorMovementForegroundThreshold != 0.6 || params.SensorMovementDeviationThreshold != 99 {
+	if params.SensorMovementForegroundThreshold != 0.6 || params.SensorMovementDriftRatioThreshold != 0.5 {
 		t.Fatalf("shared evaluator params = %+v", params)
 	}
 	if tuning.L3.EmaBaselineV1.LockedBaselineThreshold != original {
 		t.Fatal("classifier mutated caller-owned tuning")
 	}
 	if classifier.bg.EvaluateSensorMotion([]bool{true, false}).Moving {
-		t.Fatal("custom foreground/deviation thresholds were not applied")
+		t.Fatal("custom foreground/drift thresholds were not applied")
 	}
 }
 

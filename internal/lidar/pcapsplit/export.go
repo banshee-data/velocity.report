@@ -27,7 +27,7 @@ func WriteSegmentsJSON(path string, r Report) error {
 var frameMetricsHeader = []string{
 	"frame_id", "timestamp", "total_points", "foreground_points",
 	"nonzero_cells", "settled_cells", "percent_settled",
-	"deviation_from_noise", "moving", "state",
+	"drift_ratio", "moving", "state",
 }
 
 // WriteFrameMetricsCSV writes per-frame metrics to path.
@@ -53,7 +53,7 @@ func WriteFrameMetricsCSV(path string, frames []FrameMetrics) error {
 			strconv.Itoa(fm.NonzeroCells),
 			strconv.Itoa(fm.SettledCells),
 			strconv.FormatFloat(fm.PercentSettled, 'f', 4, 64),
-			strconv.FormatFloat(fm.DeviationFromNoise, 'f', 3, 64),
+			strconv.FormatFloat(fm.DriftRatio, 'f', 3, 64),
 			strconv.FormatBool(fm.Moving),
 			fm.State,
 		}

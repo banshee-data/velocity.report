@@ -79,7 +79,7 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 			NonzeroCells:       evidence.NonzeroCells,
 			SettledCells:       evidence.SettledCells,
 			PercentSettled:     evidence.PercentSettled,
-			DeviationFromNoise: evidence.DeviationFromNoise,
+			DriftRatio:         evidence.DriftRatio,
 			Stable:             evidence.Stable,
 			Moving:             evidence.Moving,
 		})

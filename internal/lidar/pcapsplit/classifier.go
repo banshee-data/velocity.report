@@ -40,7 +40,7 @@ type MotionEvidence struct {
 	NonzeroCells       int
 	SettledCells       int
 	PercentSettled     float64
-	DeviationFromNoise float64
+	DriftRatio         float64
 	Stable             bool
 	Moving             bool
 }
@@ -107,7 +107,7 @@ func (c *MotionClassifier) Observe(t time.Time, points []l3grid.PointPolar) (Mot
 		NonzeroCells:       metrics.NonzeroCells,
 		SettledCells:       metrics.SettledCells,
 		PercentSettled:     metrics.PercentSettled,
-		DeviationFromNoise: motion.NoiseDeviation,
+		DriftRatio:         motion.DriftRatio,
 		Stable:             !motion.Moving,
 		Moving:             motion.Moving,
 	}, nil

@@ -38,7 +38,7 @@ type BackgroundConfig struct {
 	LockedBaselineThreshold           uint32  // Min count before locking baseline (default: 50)
 	LockedBaselineMultiplier          float32 // Spread multiplier for locked baseline (default: 4.0)
 	SensorMovementForegroundThreshold float32 // Fraction of foreground points that indicates sensor movement
-	SensorMovementDeviationThreshold  float32 // Spread/noise ratio that indicates sustained sensor movement
+	SensorMovementDriftRatioThreshold float32 // Fraction of settled cells drifting that indicates sustained sensor movement (driving)
 	BackgroundDriftThresholdMetres    float32 // Drift distance threshold for locked baseline checks
 	BackgroundDriftRatioThreshold     float32 // Fraction of settled cells that must drift to trigger reset
 	SettlingMinCoverage               float32 // Minimum coverage for settling convergence
@@ -106,7 +106,7 @@ func backgroundConfigFromCommon(l3cfg *config.L3Common, l4cfg *config.L4Common) 
 		LockedBaselineThreshold:           uint32(l3cfg.LockedBaselineThreshold),
 		LockedBaselineMultiplier:          float32(l3cfg.LockedBaselineMultiplier),
 		SensorMovementForegroundThreshold: float32(l3cfg.SensorMovementForegroundThreshold),
-		SensorMovementDeviationThreshold:  float32(l3cfg.SensorMovementDeviationThreshold),
+		SensorMovementDriftRatioThreshold: float32(l3cfg.SensorMovementDriftRatioThreshold),
 		BackgroundDriftThresholdMetres:    float32(l3cfg.BackgroundDriftThresholdMetres),
 		BackgroundDriftRatioThreshold:     float32(l3cfg.BackgroundDriftRatioThreshold),
 		SettlingMinCoverage:               float32(l3cfg.SettlingMinCoverage),
@@ -213,7 +213,7 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 		LockedBaselineThreshold:           c.LockedBaselineThreshold,
 		LockedBaselineMultiplier:          c.LockedBaselineMultiplier,
 		SensorMovementForegroundThreshold: c.SensorMovementForegroundThreshold,
-		SensorMovementDeviationThreshold:  c.SensorMovementDeviationThreshold,
+		SensorMovementDriftRatioThreshold: c.SensorMovementDriftRatioThreshold,
 		BackgroundDriftThresholdMetres:    c.BackgroundDriftThresholdMetres,
 		BackgroundDriftRatioThreshold:     c.BackgroundDriftRatioThreshold,
 		SettlingMinCoverage:               c.SettlingMinCoverage,

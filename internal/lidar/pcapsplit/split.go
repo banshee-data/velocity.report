@@ -79,7 +79,7 @@ type FrameMetrics struct {
 	NonzeroCells       int       `json:"nonzero_cells"`
 	SettledCells       int       `json:"settled_cells"`
 	PercentSettled     float64   `json:"percent_settled"`
-	DeviationFromNoise float64   `json:"deviation_from_noise"`
+	DriftRatio         float64   `json:"drift_ratio"`
 	Stable             bool      `json:"stable"`
 	Moving             bool      `json:"moving"`
 	State              string    `json:"state"`

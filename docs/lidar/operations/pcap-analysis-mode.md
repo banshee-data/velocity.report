@@ -250,15 +250,26 @@ signals:
   the _onset_ of motion: when the platform first moves, the scene shifts and
   foreground spikes.
 
-- **Noise deviation ≥ 1.5** (`SensorMovementDeviationThreshold`, mean
-  `RangeSpreadMeters` over the noise floor)
-  catches _sustained_ motion: as the platform keeps driving, every cell's range
-  churns, so the per-cell spread balloons, the foreground gate widens, and
-  foreground collapses — but the deviation stays high. Foreground alone goes
-  blind to long drives once the spread saturates; the deviation does not.
+- **Background-drift ratio ≥ 0.35** (`SensorMovementDriftRatioThreshold`) catches
+  _sustained_ motion. The drift ratio is the fraction of settled cells whose
+  range has shifted past `background_drift_threshold_metres` (0.5 m) from its
+  locked baseline. Driving shifts most of the grid at once, so the ratio climbs
+  to 0.4–1.0 and stays there; a parked sensor only shifts the few cells that
+  passing traffic crosses, so it stays near 0.1. Foreground alone goes blind to
+  long drives once the per-cell spread saturates and the gate widens; the drift
+  ratio does not.
+
+Drift ratio is the discriminator because it keys on **ego-motion** (most of the
+grid moving at once), not **scene activity**. The earlier sustained-motion
+signal — mean per-cell range spread over the noise floor — conflated the two: a
+busy parked scene inflates per-cell spread exactly as driving does, so a sensor
+parked in heavy traffic was mislabelled as moving for its entire stay. Drift
+ratio separates them cleanly: on real captures a busy parked scene stays at
+≤ ~0.23 while driving sits at ≥ ~0.43, so the 0.35 threshold has margin on both
+sides.
 
 A parked sensor stays below both thresholds — even while its background model is
-still settling at the start of a capture, and even when traffic crosses an
+still settling at the start of a capture, and even when heavy traffic crosses an
 otherwise static scene. Settled-cell % is exported as diagnostic evidence but
 does not gate the decision. It uses the shared `locked_baseline_threshold`.
 
@@ -314,11 +325,11 @@ segments/
 
 The shared L3 background manager provides these read-only motion inputs:
 
-| Method                                      | Purpose                                            |
-| ------------------------------------------- | -------------------------------------------------- |
-| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts       |
-| `GetNoiseBoundsDeviation()`                 | Mean range-spread/noise ratio for sustained motion |
-| `EvaluateSensorMotion(mask)`                | Shared foreground/deviation motion decision        |
+| Method                                      | Purpose                                              |
+| ------------------------------------------- | ---------------------------------------------------- |
+| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts         |
+| `CheckBackgroundDrift()`                    | Drift metrics; the ratio is the sustained-motion cue |
+| `EvaluateSensorMotion(mask)`                | Shared foreground/drift-ratio motion decision        |
 
 ### Phased delivery
 

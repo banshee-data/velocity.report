@@ -12,19 +12,23 @@ import (
 // M3.5: Split Streaming Support
 // =============================================================================
 
-const defaultSensorMovementDeviationThreshold = 1.5
+const defaultSensorMovementDriftRatioThreshold = 0.35
 
 // SensorMotionEvidence is the raw, per-frame evidence used to classify sensor
 // ego-motion. Timeline hysteresis belongs to callers such as pcap-split.
 type SensorMotionEvidence struct {
 	ForegroundFraction float64
-	NoiseDeviation     float64
+	DriftRatio         float64
 	Moving             bool
 }
 
 // EvaluateSensorMotion applies the shared L3 sensor-motion classifier. A
-// foreground spike detects motion onset; noise deviation keeps the detector
-// sensitive after the adaptive foreground gate has widened during a long drive.
+// foreground spike detects an abrupt scene change; background-drift ratio — the
+// fraction of settled cells whose range has shifted from its locked baseline —
+// is the robust sustained-motion signal: driving shifts most of the grid, while
+// a parked sensor (even one watching heavy traffic) shifts only the cells the
+// traffic crosses. Scene-activity signals like foreground fraction or noise
+// deviation conflate a busy parked scene with driving; drift ratio does not.
 func (bm *BackgroundManager) EvaluateSensorMotion(mask []bool) SensorMotionEvidence {
 	if bm == nil || bm.Grid == nil || len(mask) == 0 {
 		return SensorMotionEvidence{}
@@ -38,23 +42,26 @@ func (bm *BackgroundManager) EvaluateSensorMotion(mask []bool) SensorMotionEvide
 	}
 
 	foregroundThreshold := 0.20
-	deviationThreshold := defaultSensorMovementDeviationThreshold
+	driftRatioThreshold := defaultSensorMovementDriftRatioThreshold
 	g := bm.Grid
 	g.mu.RLock()
 	if v := float64(g.Params.SensorMovementForegroundThreshold); v > 0 {
 		foregroundThreshold = v
 	}
-	if v := float64(g.Params.SensorMovementDeviationThreshold); v > 0 {
-		deviationThreshold = v
+	if v := float64(g.Params.SensorMovementDriftRatioThreshold); v > 0 {
+		driftRatioThreshold = v
 	}
 	g.mu.RUnlock()
 
+	// CheckBackgroundDrift takes its own RLock, so it must be called after the
+	// threshold read above has released the lock (RWMutex RLock is not reentrant).
+	_, drift := bm.CheckBackgroundDrift()
 	evidence := SensorMotionEvidence{
 		ForegroundFraction: float64(foregroundCount) / float64(len(mask)),
-		NoiseDeviation:     bm.GetNoiseBoundsDeviation(),
+		DriftRatio:         drift.DriftRatio,
 	}
 	evidence.Moving = evidence.ForegroundFraction >= foregroundThreshold ||
-		evidence.NoiseDeviation >= deviationThreshold
+		evidence.DriftRatio >= driftRatioThreshold
 	return evidence
 }
 

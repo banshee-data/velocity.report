@@ -357,15 +357,15 @@ output/
 JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `total_frames`, `config`, `settling_duration_sec`, `min_segment_sec`, `max_motion_gap_sec`, `segments`, `type`, `id`, `filename`, `start_time`, `end_time`.
 **Frame Metrics CSV** (`frame_metrics.csv`):
 
-| frame_id | timestamp                | pcap_offset | total_points | foreground_points | nonzero_cells | settled_cells | percent_settled | deviation_from_noise | state    |
-| -------- | ------------------------ | ----------- | ------------ | ----------------- | ------------- | ------------- | --------------- | -------------------- | -------- |
-| 0        | 2025-01-15T10:30:00.000Z | 0           | 40000        | 8000              | 12000         | 0             | 0.00            | 5.2                  | motion   |
-| 1        | 2025-01-15T10:30:00.100Z | 100000      | 40000        | 7500              | 12500         | 100           | 0.14            | 4.8                  | motion   |
-| ...      |                          |             |              |                   |               |               |                 |                      |          |
-| 195      | 2025-01-15T10:33:15.000Z | 19500000    | 40000        | 2000              | 60000         | 40000         | 55.56           | 1.2                  | motion   |
-| 196      | 2025-01-15T10:33:15.100Z | 19600000    | 40000        | 1500              | 62000         | 45000         | 62.50           | 0.8                  | settling |
-| ...      |                          |             |              |                   |               |               |                 |                      |          |
-| 256      | 2025-01-15T10:34:15.000Z | 25600000    | 40000        | 500               | 65000         | 58000         | 80.56           | 0.3                  | static   |
+| frame_id | timestamp                | pcap_offset | total_points | foreground_points | nonzero_cells | settled_cells | percent_settled | drift_ratio | state    |
+| -------- | ------------------------ | ----------- | ------------ | ----------------- | ------------- | ------------- | --------------- | ----------- | -------- |
+| 0        | 2025-01-15T10:30:00.000Z | 0           | 40000        | 8000              | 12000         | 0             | 0.00            | 0.82        | motion   |
+| 1        | 2025-01-15T10:30:00.100Z | 100000      | 40000        | 7500              | 12500         | 100           | 0.14            | 0.61        | motion   |
+| ...      |                          |             |              |                   |               |               |                 |             |          |
+| 195      | 2025-01-15T10:33:15.000Z | 19500000    | 40000        | 2000              | 60000         | 40000         | 55.56           | 1.2         | motion   |
+| 196      | 2025-01-15T10:33:15.100Z | 19600000    | 40000        | 1500              | 62000         | 45000         | 62.50           | 0.8         | settling |
+| ...      |                          |             |              |                   |               |               |                 |             |          |
+| 256      | 2025-01-15T10:34:15.000Z | 25600000    | 40000        | 500               | 65000         | 58000         | 80.56           | 0.3         | static   |
 
 **Summary Report** (`summary.txt`):
 

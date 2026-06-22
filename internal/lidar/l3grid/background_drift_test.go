@@ -43,17 +43,20 @@ func TestCheckForSensorMovement_DefaultThreshold(t *testing.T) {
 	}
 }
 
-func TestEvaluateSensorMotionUsesForegroundAndDeviation(t *testing.T) {
+func TestEvaluateSensorMotionUsesForegroundAndDrift(t *testing.T) {
 	g := makeTestGrid(1, 4)
 	g.Params.SensorMovementForegroundThreshold = 0.5
-	g.Params.SensorMovementDeviationThreshold = 1.5
+	g.Params.SensorMovementDriftRatioThreshold = 0.35
+	g.Params.LockedBaselineThreshold = 5
+	g.Params.BackgroundDriftThresholdMetres = 0.5
+	g.Params.BackgroundDriftRatioThreshold = 0.10
 	for i := range g.Cells {
 		g.Cells[i].TimesSeenCount = 10
-		g.Cells[i].AverageRangeMeters = 10
-		g.Cells[i].RangeSpreadMeters = 0.1 // 0.1 / (0.01*10 + 0.01) < 1.5
+		g.Cells[i].LockedBaseline = 10
+		g.Cells[i].AverageRangeMeters = 10 // settled on baseline, no drift
 	}
 
-	// Neither signal fires.
+	// Neither signal fires: foreground below 0.5, background sitting on baseline.
 	evidence := g.Manager.EvaluateSensorMotion([]bool{true, false, false, false})
 	if evidence.Moving || evidence.ForegroundFraction != 0.25 {
 		t.Fatalf("unexpected static evidence: %+v", evidence)
@@ -65,13 +68,15 @@ func TestEvaluateSensorMotionUsesForegroundAndDeviation(t *testing.T) {
 		t.Fatalf("foreground signal should detect motion: %+v", evidence)
 	}
 
-	// Deviation alone catches sustained motion after foreground has collapsed.
+	// Drift alone catches sustained motion after the foreground spike has
+	// collapsed: every settled cell's range has shifted well past the drift
+	// threshold, so the drift ratio (1.0) clears 0.35.
 	for i := range g.Cells {
-		g.Cells[i].RangeSpreadMeters = 1
+		g.Cells[i].AverageRangeMeters = 12 // drift = 2.0 m > 0.5 m
 	}
 	evidence = g.Manager.EvaluateSensorMotion([]bool{false, false, false, false})
-	if !evidence.Moving || evidence.NoiseDeviation < 1.5 {
-		t.Fatalf("deviation signal should detect motion: %+v", evidence)
+	if !evidence.Moving || evidence.DriftRatio < 0.35 {
+		t.Fatalf("drift signal should detect motion: %+v", evidence)
 	}
 }
 

@@ -9,7 +9,9 @@ import (
 )
 
 // TestSoma2MixedMotion is an opt-in hardware-capture regression test. soma2
-// begins parked and contains sustained sensor motion from roughly frame 800.
+// begins parked (~69 s) then drives for the remaining ~21 min. The drive onset
+// lands at frame ~422 because the capture's frame index is not a uniform 10 Hz
+// clock: a sparse/assembly-delayed region early on maps t≈69 s to frame ~422.
 // It is intentionally external to the repository because the source capture
 // is several gigabytes.
 func TestSoma2MixedMotion(t *testing.T) {
@@ -45,10 +47,12 @@ func TestSoma2MixedMotion(t *testing.T) {
 	if motionSecs < staticSecs {
 		t.Errorf("expected motion to dominate; static=%.0fs motion=%.0fs", staticSecs, motionSecs)
 	}
-	// The first raw motion sample should appear near the known frame-800 onset.
-	// Allow a broad window for capture-frame assembly and the 5-second timeline
-	// trigger, but reject foreground-only regressions that detect only a late
-	// transient.
+	// The first raw motion sample marks the drive onset at t≈69 s (frame ~422):
+	// the foreground spike catches the first driving frame, then the background
+	// drift ratio climbs past 0.35 and holds for the whole drive. The window
+	// rejects both parked-period false positives (too early) and the
+	// foreground-only regression that only fired ~40 s late once per-cell spread
+	// saturated (too late, near frame 800).
 	firstMotion := -1
 	for i, sample := range analysis.Samples {
 		if sample.Moving {
@@ -56,7 +60,7 @@ func TestSoma2MixedMotion(t *testing.T) {
 			break
 		}
 	}
-	if firstMotion < 650 || firstMotion > 1000 {
-		t.Errorf("first motion frame=%d, want roughly 800", firstMotion)
+	if firstMotion < 400 || firstMotion > 520 {
+		t.Errorf("first motion frame=%d, want roughly 422 (drive onset t≈69s)", firstMotion)
 	}
 }
