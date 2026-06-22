@@ -30,16 +30,48 @@ func TestCheckForSensorMovement_DefaultThreshold(t *testing.T) {
 	g := makeTestGrid(1, 4)
 	g.Params.SensorMovementForegroundThreshold = 0
 
-	// 1/5 = 0.20 → NOT above threshold (must exceed, not equal)
+	// 1/5 = 0.20 → at the shared threshold.
 	mask := []bool{true, false, false, false, false}
-	if g.Manager.CheckForSensorMovement(mask) {
-		t.Error("expected false when ratio equals default threshold")
+	if !g.Manager.CheckForSensorMovement(mask) {
+		t.Error("expected true when ratio equals default threshold")
 	}
 
 	// 2/5 = 0.40 → above 0.20
 	mask = []bool{true, true, false, false, false}
 	if !g.Manager.CheckForSensorMovement(mask) {
 		t.Error("expected true when ratio exceeds default threshold")
+	}
+}
+
+func TestEvaluateSensorMotionUsesForegroundAndDeviation(t *testing.T) {
+	g := makeTestGrid(1, 4)
+	g.Params.SensorMovementForegroundThreshold = 0.5
+	g.Params.SensorMovementDeviationThreshold = 1.5
+	for i := range g.Cells {
+		g.Cells[i].TimesSeenCount = 10
+		g.Cells[i].AverageRangeMeters = 10
+		g.Cells[i].RangeSpreadMeters = 0.1 // 0.1 / (0.01*10 + 0.01) < 1.5
+	}
+
+	// Neither signal fires.
+	evidence := g.Manager.EvaluateSensorMotion([]bool{true, false, false, false})
+	if evidence.Moving || evidence.ForegroundFraction != 0.25 {
+		t.Fatalf("unexpected static evidence: %+v", evidence)
+	}
+
+	// Foreground alone catches motion onset.
+	evidence = g.Manager.EvaluateSensorMotion([]bool{true, true, false, false})
+	if !evidence.Moving {
+		t.Fatalf("foreground signal should detect motion: %+v", evidence)
+	}
+
+	// Deviation alone catches sustained motion after foreground has collapsed.
+	for i := range g.Cells {
+		g.Cells[i].RangeSpreadMeters = 1
+	}
+	evidence = g.Manager.EvaluateSensorMotion([]bool{false, false, false, false})
+	if !evidence.Moving || evidence.NoiseDeviation < 1.5 {
+		t.Fatalf("deviation signal should detect motion: %+v", evidence)
 	}
 }
 

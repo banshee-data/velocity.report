@@ -354,7 +354,7 @@ output/
 └── summary.txt # Human-readable summary
 **Segment Metadata JSON** (`segments.json`):
 
-JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `total_frames`, `config`, `settling_duration_sec`, `min_segment_sec`, `max_motion_gap_sec`, `settled_threshold`, `segments`, `type`, `id`, `filename`, `start_time`, `end_time`.
+JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `total_frames`, `config`, `settling_duration_sec`, `min_segment_sec`, `max_motion_gap_sec`, `segments`, `type`, `id`, `filename`, `start_time`, `end_time`.
 **Frame Metrics CSV** (`frame_metrics.csv`):
 
 | frame_id | timestamp                | pcap_offset | total_points | foreground_points | nonzero_cells | settled_cells | percent_settled | deviation_from_noise | state    |
@@ -440,12 +440,8 @@ From `BackgroundManager`:
 
 **GetNoiseBoundsDeviation** algorithm:
 
-- Deviation in units of expected noise (sigma-like metric)
-  **3. Within Bounds Check** (add to `BackgroundManager`):
-
-- IsWithinNoiseBounds returns true if most cells are within expected noise envelope
-
-**IsWithinNoiseBounds** algorithm:
+- Deviation in units of expected noise (sigma-like metric), used by the shared
+  L3 sensor-motion evaluator alongside the foreground fraction.
 
 ### Data structures
 
@@ -453,21 +449,21 @@ From `BackgroundManager`:
 
 **SplitConfig** fields:
 
-| Field                | Type               | Description                  |
-| -------------------- | ------------------ | ---------------------------- |
-| PCAPFile             | `string`           | Input/Output                 |
-| OutputDir            | `string`           |                              |
-| OutputPrefix         | `string`           |                              |
-| SettlingDurationSec  | `float64`          | Default: 60.0                |
-| MinSegmentSec        | `float64`          | Default: 5.0                 |
-| MaxMotionGapSec      | `float64`          | Default: 30.0                |
-| SettledCellThreshold | `uint32`           | Default: 50 (TimesSeenCount) |
-| BackgroundParams     | `BackgroundParams` | Background Parameters        |
-| SensorID             | `string`           | Sensor Configuration         |
-| UDPPort              | `int`              |                              |
-| ExportMetrics        | `bool`             | Export Options               |
-| ExportJSON           | `bool`             |                              |
-| Verbose              | `bool`             |                              |
+| Field                   | Type               | Description                       |
+| ----------------------- | ------------------ | --------------------------------- |
+| PCAPFile                | `string`           | Input/Output                      |
+| OutputDir               | `string`           |                                   |
+| OutputPrefix            | `string`           |                                   |
+| SettlingDurationSec     | `float64`          | Default: 60.0                     |
+| MinSegmentSec           | `float64`          | Default: 5.0                      |
+| MaxMotionGapSec         | `float64`          | Default: 30.0                     |
+| LockedBaselineThreshold | `uint32`           | Shared L3 config (TimesSeenCount) |
+| BackgroundParams        | `BackgroundParams` | Background Parameters             |
+| SensorID                | `string`           | Sensor Configuration              |
+| UDPPort                 | `int`              |                                   |
+| ExportMetrics           | `bool`             | Export Options                    |
+| ExportJSON              | `bool`             |                                   |
+| Verbose                 | `bool`             |                                   |
 
 #### State machine
 
@@ -634,7 +630,6 @@ From `BackgroundManager`:
 
 - Implement `GetFrameSettlingMetrics(settledThreshold uint32)`
 - Implement `GetNoiseBoundsDeviation()`
-- Implement `IsWithinNoiseBounds(threshold float64)`
 - Add unit tests for new methods
 
 **1.3 Basic State Machine**

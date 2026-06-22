@@ -66,9 +66,7 @@ type L3Common struct {
 	LockedBaselineThreshold           int     `json:"locked_baseline_threshold"`
 	LockedBaselineMultiplier          float64 `json:"locked_baseline_multiplier"`
 	SensorMovementForegroundThreshold float64 `json:"sensor_movement_foreground_threshold"`
-	MovementDeviationThreshold        float64 `json:"movement_deviation_threshold"`
-	NoiseBoundsThreshold              float64 `json:"noise_bounds_threshold"`
-	SettledThreshold                  int     `json:"settled_threshold"`
+	SensorMovementDeviationThreshold  float64 `json:"sensor_movement_deviation_threshold"`
 	BackgroundDriftThresholdMetres    float64 `json:"background_drift_threshold_metres"`
 	BackgroundDriftRatioThreshold     float64 `json:"background_drift_ratio_threshold"`
 	SettlingMinCoverage               float64 `json:"settling_min_coverage"`

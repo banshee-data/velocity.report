@@ -254,19 +254,10 @@ func (c *TuningConfig) GetSensorMovementForegroundThreshold() float64 {
 	return c.L3.ActiveCommon().SensorMovementForegroundThreshold
 }
 
-// GetMovementDeviationThreshold returns the active L3 sustained-motion deviation threshold.
-func (c *TuningConfig) GetMovementDeviationThreshold() float64 {
-	return c.L3.ActiveCommon().MovementDeviationThreshold
-}
-
-// GetNoiseBoundsThreshold returns the active L3 noise-bounds threshold.
-func (c *TuningConfig) GetNoiseBoundsThreshold() float64 {
-	return c.L3.ActiveCommon().NoiseBoundsThreshold
-}
-
-// GetSettledThreshold returns the active L3 settled-cell observation count.
-func (c *TuningConfig) GetSettledThreshold() int {
-	return c.L3.ActiveCommon().SettledThreshold
+// GetSensorMovementDeviationThreshold returns the active L3 sustained-motion
+// spread/noise threshold.
+func (c *TuningConfig) GetSensorMovementDeviationThreshold() float64 {
+	return c.L3.ActiveCommon().SensorMovementDeviationThreshold
 }
 
 // GetBackgroundDriftThresholdMetres returns the active L3 drift distance threshold.

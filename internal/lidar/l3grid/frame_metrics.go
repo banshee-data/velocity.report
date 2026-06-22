@@ -19,10 +19,6 @@ type FrameSettlingMetrics struct {
 	BackgroundCount int64   `json:"background_count"` // cumulative, from last ProcessFramePolar
 }
 
-// noiseBoundsMajority is the fraction of observed cells that must fall within
-// the expected noise envelope for IsWithinNoiseBounds to return true.
-const noiseBoundsMajority = 0.9
-
 // defaultNoiseRelativeFraction keeps the expected-noise floor non-degenerate
 // when Params.NoiseRelativeFraction is unset.
 const defaultNoiseRelativeFraction = 0.05
@@ -128,35 +124,4 @@ func (bm *BackgroundManager) GetNoiseBoundsDeviation() float64 {
 		return 0
 	}
 	return sum / float64(observed)
-}
-
-// IsWithinNoiseBounds reports whether most observed cells have a range spread
-// within `threshold` times their expected noise floor. "Most" means at least
-// noiseBoundsMajority of observed cells. A grid with no observed cells is
-// reported as within bounds. Like GetNoiseBoundsDeviation, this is a proxy over
-// the EMA spread, not a true variance bound.
-func (bm *BackgroundManager) IsWithinNoiseBounds(threshold float64) bool {
-	if bm == nil || bm.Grid == nil {
-		return true
-	}
-	g := bm.Grid
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	var within, observed int
-	for i := range g.Cells {
-		c := &g.Cells[i]
-		if c.TimesSeenCount == 0 {
-			continue
-		}
-		observed++
-		expected := g.expectedNoiseFloor(float64(c.AverageRangeMeters))
-		if float64(c.RangeSpreadMeters) <= threshold*expected {
-			within++
-		}
-	}
-	if observed == 0 {
-		return true
-	}
-	return float64(within) >= noiseBoundsMajority*float64(observed)
 }

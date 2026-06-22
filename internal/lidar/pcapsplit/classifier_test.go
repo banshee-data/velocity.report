@@ -9,31 +9,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
-func TestDefaultMotionClassifierConfig(t *testing.T) {
-	cfg := DefaultMotionClassifierConfig()
-	if cfg.SettledThreshold != DefaultSettledThreshold ||
-		cfg.MovementForegroundThreshold != 0.20 || cfg.MovementDeviationThreshold != 1.5 ||
-		cfg.NoiseBoundsThreshold != 2 {
-		t.Fatalf("unexpected defaults: %+v", cfg)
-	}
-}
-
-func TestClassifyMovingUsesEitherSignal(t *testing.T) {
-	cfg := DefaultMotionClassifierConfig() // foreground 0.20, deviation 1.5
-	// Neither signal: static.
-	if classifyMoving(cfg, 0.19, 1.4) {
-		t.Error("foreground 0.19 + deviation 1.4 should be static")
-	}
-	// Foreground signal (motion onset).
-	if !classifyMoving(cfg, 0.20, 0.5) {
-		t.Error("foreground 0.20 should be motion")
-	}
-	// Deviation signal (sustained motion, foreground collapsed).
-	if !classifyMoving(cfg, 0.02, 1.5) {
-		t.Error("deviation 1.5 should be motion even with low foreground")
-	}
-}
-
 func TestNewMotionClassifierValidation(t *testing.T) {
 	if _, err := NewMotionClassifier("", "capture.pcapng", nil); err == nil {
 		t.Fatal("expected empty sensor ID to fail")
@@ -72,8 +47,15 @@ func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
 	if math.Abs(float64(params.NoiseRelativeFraction)-active.NoiseRelative) > 1e-6 {
 		t.Fatalf("noise relative=%f, want active tuning=%f", params.NoiseRelativeFraction, active.NoiseRelative)
 	}
-	if params.WarmupDurationNanos != 0 || params.WarmupMinFrames != 0 {
-		t.Fatalf("offline classifier must disable wall-clock warmup: %+v", params)
+	if params.WarmupDurationNanos != active.WarmupDurationNanos || params.WarmupMinFrames != active.WarmupMinFrames {
+		t.Fatalf("offline classifier changed live warmup tuning: %+v", params)
+	}
+	if !classifier.bg.IsReplayMode() {
+		t.Fatal("offline classifier must enable replay mode")
+	}
+	wantParams := l3grid.BackgroundConfigFromActiveTuning(config.MustLoadDefaultConfig()).ToBackgroundParams()
+	if params != wantParams {
+		t.Fatalf("offline params differ from live tuning\n got: %+v\nwant: %+v", params, wantParams)
 	}
 
 	t0 := time.Unix(1_000, 0)
@@ -85,13 +67,32 @@ func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
 	if !evidence.T.Equal(t0) || evidence.TotalPoints != 1 {
 		t.Fatalf("unexpected initial evidence: %+v", evidence)
 	}
-	// The motion decision follows the foreground/deviation signals against their
-	// thresholds, and Stable is always its inverse.
-	dcfg := DefaultMotionClassifierConfig()
-	wantMoving := evidence.ForegroundFraction >= dcfg.MovementForegroundThreshold ||
-		evidence.DeviationFromNoise >= dcfg.MovementDeviationThreshold
-	if evidence.Moving != wantMoving || evidence.Stable == evidence.Moving {
+	// The motion decision is supplied by the shared L3 evaluator, and Stable is
+	// always its inverse.
+	if evidence.Stable == evidence.Moving {
 		t.Fatalf("decision inconsistent with motion signals: %+v", evidence)
+	}
+}
+
+func TestMotionClassifierPreservesTuningAndUsesCommonEvaluator(t *testing.T) {
+	tuning := config.MustLoadDefaultConfig()
+	original := tuning.L3.EmaBaselineV1.LockedBaselineThreshold
+	tuning.L3.EmaBaselineV1.SensorMovementForegroundThreshold = 0.6
+	tuning.L3.EmaBaselineV1.SensorMovementDeviationThreshold = 99
+
+	classifier, err := NewMotionClassifier("sensor", "capture.pcapng", tuning)
+	if err != nil {
+		t.Fatal(err)
+	}
+	params := classifier.bg.GetParams()
+	if params.SensorMovementForegroundThreshold != 0.6 || params.SensorMovementDeviationThreshold != 99 {
+		t.Fatalf("shared evaluator params = %+v", params)
+	}
+	if tuning.L3.EmaBaselineV1.LockedBaselineThreshold != original {
+		t.Fatal("classifier mutated caller-owned tuning")
+	}
+	if classifier.bg.EvaluateSensorMotion([]bool{true, false}).Moving {
+		t.Fatal("custom foreground/deviation thresholds were not applied")
 	}
 }
 

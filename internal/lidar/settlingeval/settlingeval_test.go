@@ -6,6 +6,19 @@ import (
 	"github.com/banshee-data/velocity.report/internal/config"
 )
 
+func TestSettlingThresholdsFromTuning(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	cfg.L3.EmaBaselineV1.SettlingMinCoverage = 0.7
+	cfg.L3.EmaBaselineV1.SettlingMaxSpreadDelta = 0.02
+	cfg.L3.EmaBaselineV1.SettlingMinRegionStability = 0.8
+	cfg.L3.EmaBaselineV1.SettlingMinConfidence = 4
+
+	got := settlingThresholdsFromTuning(cfg)
+	if got.MinCoverage != 0.7 || got.MaxSpreadDelta != 0.02 || got.MinRegionStability != 0.8 || got.MinConfidence != 4 {
+		t.Fatalf("thresholds = %+v", got)
+	}
+}
+
 func TestBackgroundConfigFromTuningConfig(t *testing.T) {
 	cfg := config.MustLoadDefaultConfig()
 	bg := backgroundConfigFromTuningConfig(cfg)

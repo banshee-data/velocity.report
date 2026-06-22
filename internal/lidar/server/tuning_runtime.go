@@ -118,6 +118,7 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			l3.LockedBaselineThreshold = int(params.LockedBaselineThreshold)
 			l3.LockedBaselineMultiplier = roundTo6(float64(params.LockedBaselineMultiplier))
 			l3.SensorMovementForegroundThreshold = roundTo6(float64(params.SensorMovementForegroundThreshold))
+			l3.SensorMovementDeviationThreshold = roundTo6(float64(params.SensorMovementDeviationThreshold))
 			l3.BackgroundDriftThresholdMetres = roundTo6(float64(params.BackgroundDriftThresholdMetres))
 			l3.BackgroundDriftRatioThreshold = roundTo6(float64(params.BackgroundDriftRatioThreshold))
 			l3.SettlingMinCoverage = roundTo6(float64(params.SettlingMinCoverage))
@@ -392,6 +393,8 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 			params.LockedBaselineMultiplier = float32(l3.LockedBaselineMultiplier)
 		case "l3.ema_baseline_v1.sensor_movement_foreground_threshold":
 			params.SensorMovementForegroundThreshold = float32(l3.SensorMovementForegroundThreshold)
+		case "l3.ema_baseline_v1.sensor_movement_deviation_threshold":
+			params.SensorMovementDeviationThreshold = float32(l3.SensorMovementDeviationThreshold)
 		case "l3.ema_baseline_v1.background_drift_threshold_metres":
 			params.BackgroundDriftThresholdMetres = float32(l3.BackgroundDriftThresholdMetres)
 		case "l3.ema_baseline_v1.background_drift_ratio_threshold":

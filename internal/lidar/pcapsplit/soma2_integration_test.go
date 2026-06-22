@@ -45,4 +45,18 @@ func TestSoma2MixedMotion(t *testing.T) {
 	if motionSecs < staticSecs {
 		t.Errorf("expected motion to dominate; static=%.0fs motion=%.0fs", staticSecs, motionSecs)
 	}
+	// The first raw motion sample should appear near the known frame-800 onset.
+	// Allow a broad window for capture-frame assembly and the 5-second timeline
+	// trigger, but reject foreground-only regressions that detect only a late
+	// transient.
+	firstMotion := -1
+	for i, sample := range analysis.Samples {
+		if sample.Moving {
+			firstMotion = i
+			break
+		}
+	}
+	if firstMotion < 650 || firstMotion > 1000 {
+		t.Errorf("first motion frame=%d, want roughly 800", firstMotion)
+	}
 }

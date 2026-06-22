@@ -38,6 +38,7 @@ type BackgroundConfig struct {
 	LockedBaselineThreshold           uint32  // Min count before locking baseline (default: 50)
 	LockedBaselineMultiplier          float32 // Spread multiplier for locked baseline (default: 4.0)
 	SensorMovementForegroundThreshold float32 // Fraction of foreground points that indicates sensor movement
+	SensorMovementDeviationThreshold  float32 // Spread/noise ratio that indicates sustained sensor movement
 	BackgroundDriftThresholdMetres    float32 // Drift distance threshold for locked baseline checks
 	BackgroundDriftRatioThreshold     float32 // Fraction of settled cells that must drift to trigger reset
 	SettlingMinCoverage               float32 // Minimum coverage for settling convergence
@@ -57,13 +58,31 @@ type BackgroundConfig struct {
 // that have already validated config availability.
 func DefaultBackgroundConfig() *BackgroundConfig {
 	cfg := config.MustLoadDefaultConfig()
-	return BackgroundConfigFromTuning(cfg.L3.EmaBaselineV1, cfg.L4.DbscanXyV1)
+	return BackgroundConfigFromActiveTuning(cfg)
 }
 
 // BackgroundConfigFromTuning builds a BackgroundConfig from the active L3 and
 // L4 engine blocks. Callers are expected to pass the validated selected engine
 // structs for the current pipeline on this branch.
 func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4DbscanXyV1) *BackgroundConfig {
+	if l3cfg == nil || l4cfg == nil {
+		return &BackgroundConfig{}
+	}
+	return backgroundConfigFromCommon(&l3cfg.L3Common, &l4cfg.L4Common)
+}
+
+// BackgroundConfigFromActiveTuning builds a BackgroundConfig from the selected
+// L3 and L4 engine blocks. It is the common construction path for live and
+// offline tooling, so changing the active engine cannot silently select a
+// different background-model configuration for PCAP replay.
+func BackgroundConfigFromActiveTuning(tuningCfg *config.TuningConfig) *BackgroundConfig {
+	if tuningCfg == nil {
+		return &BackgroundConfig{}
+	}
+	return backgroundConfigFromCommon(tuningCfg.L3.ActiveCommon(), tuningCfg.L4.ActiveCommon())
+}
+
+func backgroundConfigFromCommon(l3cfg *config.L3Common, l4cfg *config.L4Common) *BackgroundConfig {
 	if l3cfg == nil || l4cfg == nil {
 		return &BackgroundConfig{}
 	}
@@ -87,6 +106,7 @@ func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4D
 		LockedBaselineThreshold:           uint32(l3cfg.LockedBaselineThreshold),
 		LockedBaselineMultiplier:          float32(l3cfg.LockedBaselineMultiplier),
 		SensorMovementForegroundThreshold: float32(l3cfg.SensorMovementForegroundThreshold),
+		SensorMovementDeviationThreshold:  float32(l3cfg.SensorMovementDeviationThreshold),
 		BackgroundDriftThresholdMetres:    float32(l3cfg.BackgroundDriftThresholdMetres),
 		BackgroundDriftRatioThreshold:     float32(l3cfg.BackgroundDriftRatioThreshold),
 		SettlingMinCoverage:               float32(l3cfg.SettlingMinCoverage),
@@ -193,6 +213,7 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 		LockedBaselineThreshold:           c.LockedBaselineThreshold,
 		LockedBaselineMultiplier:          c.LockedBaselineMultiplier,
 		SensorMovementForegroundThreshold: c.SensorMovementForegroundThreshold,
+		SensorMovementDeviationThreshold:  c.SensorMovementDeviationThreshold,
 		BackgroundDriftThresholdMetres:    c.BackgroundDriftThresholdMetres,
 		BackgroundDriftRatioThreshold:     c.BackgroundDriftRatioThreshold,
 		SettlingMinCoverage:               c.SettlingMinCoverage,

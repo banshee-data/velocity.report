@@ -78,6 +78,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	params.LockedBaselineThreshold = 6
 	params.LockedBaselineMultiplier = 7
 	params.SensorMovementForegroundThreshold = 0.4
+	params.SensorMovementDeviationThreshold = 1.4
 	params.BackgroundDriftThresholdMetres = 0.5
 	params.BackgroundDriftRatioThreshold = 0.6
 	params.SettlingMinCoverage = 0.7
@@ -139,6 +140,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		t.Fatalf("runtime L1 unexpectedly exposed process-level networking fields: %s", l1JSON)
 	}
 	if !approxEqualFloat64(runtimeCfg.L3.EmaBaselineV1.NoiseRelative, 0.12) ||
+		!approxEqualFloat64(runtimeCfg.L3.EmaBaselineV1.SensorMovementDeviationThreshold, 1.4) ||
 		runtimeCfg.L3.EmaBaselineV1.EnableDiagnostics != true ||
 		runtimeCfg.L4.DbscanXyV1.ForegroundMaxInputPoints != 9000 {
 		t.Fatalf("unexpected L3/L4 runtime sync: %+v %+v", runtimeCfg.L3.EmaBaselineV1, runtimeCfg.L4.DbscanXyV1)
@@ -338,6 +340,7 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 		"l3.ema_baseline_v1.locked_baseline_threshold":            5,
 		"l3.ema_baseline_v1.locked_baseline_multiplier":           6.0,
 		"l3.ema_baseline_v1.sensor_movement_foreground_threshold": 0.3,
+		"l3.ema_baseline_v1.sensor_movement_deviation_threshold":  1.3,
 		"l3.ema_baseline_v1.background_drift_threshold_metres":    0.4,
 		"l3.ema_baseline_v1.background_drift_ratio_threshold":     0.2,
 		"l3.ema_baseline_v1.settling_min_coverage":                0.8,
@@ -354,6 +357,9 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	}
 	if got := bm.GetParams().NoiseRelativeFraction; got != 0.2 {
 		t.Fatalf("background manager noise_relative = %v, want 0.2", got)
+	}
+	if got := bm.GetParams().SensorMovementDeviationThreshold; got != 1.3 {
+		t.Fatalf("background manager sensor_movement_deviation_threshold = %v, want 1.3", got)
 	}
 	if got := bm.GetParams().ForegroundMaxInputPoints; got != 5000 {
 		t.Fatalf("background manager foreground_max_input_points = %d, want 5000", got)

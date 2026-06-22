@@ -69,7 +69,7 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 	bgMgr.SetSourcePath(pcapFile)
 
 	// --- Convergence tracking state ---
-	thresholds := l3grid.DefaultSettlingThresholds()
+	thresholds := settlingThresholdsFromTuning(tuningCfg)
 	var (
 		mu               sync.Mutex
 		history          []l3grid.SettlingMetrics
@@ -179,6 +179,15 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 	}, nil
 }
 
+func settlingThresholdsFromTuning(tuningCfg *config.TuningConfig) l3grid.SettlingThresholds {
+	return l3grid.SettlingThresholds{
+		MinCoverage:        tuningCfg.GetSettlingMinCoverage(),
+		MaxSpreadDelta:     tuningCfg.GetSettlingMaxSpreadDelta(),
+		MinRegionStability: tuningCfg.GetSettlingMinRegionStability(),
+		MinConfidence:      tuningCfg.GetSettlingMinConfidence(),
+	}
+}
+
 func backgroundConfigFromTuningConfig(tuningCfg *config.TuningConfig) *l3grid.BackgroundConfig {
-	return l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
+	return l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 }

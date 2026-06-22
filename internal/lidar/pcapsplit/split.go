@@ -9,9 +9,6 @@ import (
 
 // Default split parameters.
 const (
-	// DefaultSettledThreshold is the minimum TimesSeenCount for a grid cell to
-	// be considered settled when computing per-frame metrics.
-	DefaultSettledThreshold uint32 = 50
 	// DefaultMaxMotionGapSec bridges short stops (e.g. intersection waits)
 	// adjacent to motion into the motion segment.
 	DefaultMaxMotionGapSec = 30.0
@@ -30,7 +27,6 @@ type SplitConfig struct {
 	MotionTriggerSec float64 `json:"motion_trigger_sec"`
 	MaxMotionGapSec  float64 `json:"max_motion_gap_sec"`
 	MinSegmentSec    float64 `json:"min_segment_sec"`
-	SettledThreshold uint32  `json:"settled_threshold"`
 	SensorID         string  `json:"sensor_id"`
 	UDPPort          int     `json:"udp_port"`
 	ExportMetrics    bool    `json:"-"`
@@ -55,7 +51,6 @@ func DefaultSplitConfig() SplitConfig {
 		MotionTriggerSec: DefaultMotionTriggerSec,
 		MaxMotionGapSec:  DefaultMaxMotionGapSec,
 		MinSegmentSec:    DefaultMinSegmentSec,
-		SettledThreshold: DefaultSettledThreshold,
 		SensorID:         "hesai-pandar40p",
 		UDPPort:          2369,
 	}
@@ -85,7 +80,6 @@ type FrameMetrics struct {
 	SettledCells       int       `json:"settled_cells"`
 	PercentSettled     float64   `json:"percent_settled"`
 	DeviationFromNoise float64   `json:"deviation_from_noise"`
-	WithinNoiseBounds  bool      `json:"within_noise_bounds"`
 	Stable             bool      `json:"stable"`
 	Moving             bool      `json:"moving"`
 	State              string    `json:"state"`

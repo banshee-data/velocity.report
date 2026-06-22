@@ -86,23 +86,19 @@ func TestNoiseBounds_CleanVsNoisy(t *testing.T) {
 	dev := bm.GetNoiseBoundsDeviation()
 	assert.Greater(t, dev, 0.0)
 	assert.Less(t, dev, 1.0, "clean spread should sit below the expected floor")
-	assert.True(t, bm.IsWithinNoiseBounds(2.0))
 
 	// Make every cell very noisy (spread 1.0 m >> floor 0.11 m).
 	for i := range g.Cells {
 		g.Cells[i].RangeSpreadMeters = 1.0
 	}
 	assert.Greater(t, bm.GetNoiseBoundsDeviation(), 1.0)
-	assert.False(t, bm.IsWithinNoiseBounds(2.0))
 }
 
 func TestNoiseBounds_NilAndEmpty(t *testing.T) {
 	t.Parallel()
 	var bm *BackgroundManager
 	assert.Equal(t, 0.0, bm.GetNoiseBoundsDeviation())
-	assert.True(t, bm.IsWithinNoiseBounds(2.0), "nil manager is vacuously within bounds")
 
 	g := makeTestGrid(2, 4) // no observed cells
 	assert.Equal(t, 0.0, g.Manager.GetNoiseBoundsDeviation())
-	assert.True(t, g.Manager.IsWithinNoiseBounds(2.0))
 }

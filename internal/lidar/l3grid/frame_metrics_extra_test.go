@@ -16,7 +16,4 @@ func TestExpectedNoiseFloor_DefaultFraction(t *testing.T) {
 	if dev := g.Manager.GetNoiseBoundsDeviation(); dev <= 0 {
 		t.Errorf("deviation = %v, want > 0", dev)
 	}
-	if !g.Manager.IsWithinNoiseBounds(5.0) {
-		t.Error("expected within bounds with default fraction")
-	}
 }

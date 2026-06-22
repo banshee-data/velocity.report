@@ -1198,7 +1198,7 @@ func createBackgroundManager(sensorID string, store l3grid.BgStore, tuningCfg *c
 	// same algorithm and tuning as live observation. NewBackgroundManager wires
 	// up persistence when store is non-nil (region restoration across runs).
 	tuningCfg = tuningOrEmbedded(tuningCfg)
-	bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
+	bgConfig := l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 	return l3grid.NewBackgroundManager(sensorID, 40, 1800, bgConfig.ToBackgroundParams(), store)
 }
 

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 func TestDefaultBackgroundConfig(t *testing.T) {
@@ -341,6 +343,19 @@ func TestBackgroundConfigFromTuning_NilBlocks(t *testing.T) {
 	}
 	if *cfg != (BackgroundConfig{}) {
 		t.Fatalf("expected zero-value background config, got %+v", *cfg)
+	}
+}
+
+func TestBackgroundConfigFromActiveTuningUsesSelectedEngine(t *testing.T) {
+	tuning := config.MustLoadDefaultConfig()
+	common := tuning.L3.EmaBaselineV1.L3Common
+	common.SensorMovementDeviationThreshold = 2.5
+	tuning.L3.Engine = "ema_track_assist_v2"
+	tuning.L3.EmaTrackAssistV2 = &config.L3EmaTrackAssistV2{L3Common: common}
+
+	got := BackgroundConfigFromActiveTuning(tuning)
+	if got.SensorMovementDeviationThreshold != 2.5 {
+		t.Fatalf("active L3 deviation threshold = %v, want 2.5", got.SensorMovementDeviationThreshold)
 	}
 }
 

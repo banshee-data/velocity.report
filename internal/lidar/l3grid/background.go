@@ -63,6 +63,10 @@ type BackgroundParams struct {
 	// SensorMovementForegroundThreshold is the fraction of points that must be
 	// classified as foreground to trigger sensor movement detection. Default: 0.20 (20%).
 	SensorMovementForegroundThreshold float32
+	// SensorMovementDeviationThreshold is the mean range-spread/noise-floor ratio
+	// that indicates sustained sensor motion after foreground classification has
+	// adapted to the new scene. Default: 1.5.
+	SensorMovementDeviationThreshold float32
 	// BackgroundDriftThresholdMetres is the drift distance in metres that indicates
 	// a cell has drifted significantly. Default: 0.5m.
 	BackgroundDriftThresholdMetres float32

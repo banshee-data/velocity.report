@@ -249,7 +249,9 @@ signals:
 - **Foreground fraction ≥ 0.20** (`SensorMovementForegroundThreshold`) catches
   the _onset_ of motion: when the platform first moves, the scene shifts and
   foreground spikes.
-- **Noise deviation ≥ 1.5** (mean `RangeSpreadMeters` over the noise floor)
+
+- **Noise deviation ≥ 1.5** (`SensorMovementDeviationThreshold`, mean
+  `RangeSpreadMeters` over the noise floor)
   catches _sustained_ motion: as the platform keeps driving, every cell's range
   churns, so the per-cell spread balloons, the foreground gate widens, and
   foreground collapses — but the deviation stays high. Foreground alone goes
@@ -257,14 +259,14 @@ signals:
 
 A parked sensor stays below both thresholds — even while its background model is
 still settling at the start of a capture, and even when traffic crosses an
-otherwise static scene. Settled-cell % and noise-bounds are recorded as per-frame
-evidence (and exported in `frame_metrics.csv`) but do not gate the decision:
-gating on them mislabels the cold-start period of a capture that begins parked.
+otherwise static scene. Settled-cell % is exported as diagnostic evidence but
+does not gate the decision. It uses the shared `locked_baseline_threshold`.
 
 The classifier advances warmup and frozen-cell state from PCAP timestamps, not
-wall-clock replay time. Consequently, `pcap-analyse --motion` and
-`pcap-split` use the same timeline and remain deterministic when replay speed
-changes.
+wall-clock replay time. Replay mode exposes foreground during warmup but does
+not change any L3 tuning value; consequently `pcap-analyse --motion` and
+`pcap-split` use the same model parameters as live observation and remain
+deterministic when replay speed changes.
 
 **State machine:**
 
@@ -308,15 +310,15 @@ segments/
 └── summary.txt
 ```
 
-### Required API extensions
+### Motion classifier API
 
-Three new read-only accessors on `BackgroundManager` (designed, not yet implemented):
+The shared L3 background manager provides these read-only motion inputs:
 
-| Method                                      | Purpose                                          |
-| ------------------------------------------- | ------------------------------------------------ |
-| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts     |
-| `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope |
-| `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance      |
+| Method                                      | Purpose                                            |
+| ------------------------------------------- | -------------------------------------------------- |
+| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts       |
+| `GetNoiseBoundsDeviation()`                 | Mean range-spread/noise ratio for sustained motion |
+| `EvaluateSensorMotion(mask)`                | Shared foreground/deviation motion decision        |
 
 ### Phased delivery
 

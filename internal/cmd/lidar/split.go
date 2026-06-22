@@ -6,7 +6,6 @@ package lidar
 import (
 	"flag"
 	"fmt"
-	"math"
 	"os"
 
 	radarassets "github.com/banshee-data/velocity.report"
@@ -30,7 +29,6 @@ func SplitMain(args []string) int {
 	fs.Float64Var(&cfg.MotionTriggerSec, "motion-trigger-sec", cfg.MotionTriggerSec, "Sustained motion (s) required to declare motion")
 	fs.Float64Var(&cfg.MaxMotionGapSec, "max-motion-gap-sec", cfg.MaxMotionGapSec, "Bridge static gaps shorter than this into motion (0 = off)")
 	fs.Float64Var(&cfg.MinSegmentSec, "min-segment-sec", cfg.MinSegmentSec, "Merge segments shorter than this into a neighbour (0 = off)")
-	settled := fs.Uint("settled-threshold", 0, "Override the config's settled cell count threshold (0 = use config)")
 	fs.StringVar(&cfg.SensorID, "sensor-id", "", "Sensor identifier (default: from config l1.sensor)")
 	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	fs.BoolVar(&cfg.ExportMetrics, "export-metrics", false, "Write per-frame metrics to frame_metrics.csv")
@@ -63,15 +61,6 @@ func SplitMain(args []string) int {
 	if cfg.SensorID == "" {
 		cfg.SensorID = tuningCfg.GetSensor()
 	}
-	cfg.SettledThreshold = uint32(tuningCfg.GetSettledThreshold())
-	if *settled != 0 {
-		if uint64(*settled) > math.MaxUint32 {
-			fmt.Fprintf(os.Stderr, "error: --settled-threshold %d exceeds the maximum (%d)\n", *settled, uint32(math.MaxUint32))
-			return 2
-		}
-		cfg.SettledThreshold = uint32(*settled)
-	}
-
 	if cfg.PCAPFile == "" {
 		fmt.Fprintln(os.Stderr, "error: --pcap is required")
 		fs.Usage()

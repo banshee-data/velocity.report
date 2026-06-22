@@ -12,32 +12,56 @@ import (
 // M3.5: Split Streaming Support
 // =============================================================================
 
-// CheckForSensorMovement detects if the sensor has moved based on foreground ratio.
-// Returns true if a high percentage of points are classified as foreground for
-// multiple consecutive frames, suggesting the background model is stale.
-func (bm *BackgroundManager) CheckForSensorMovement(mask []bool) bool {
-	if bm == nil || len(mask) == 0 {
-		return false
+const defaultSensorMovementDeviationThreshold = 1.5
+
+// SensorMotionEvidence is the raw, per-frame evidence used to classify sensor
+// ego-motion. Timeline hysteresis belongs to callers such as pcap-split.
+type SensorMotionEvidence struct {
+	ForegroundFraction float64
+	NoiseDeviation     float64
+	Moving             bool
+}
+
+// EvaluateSensorMotion applies the shared L3 sensor-motion classifier. A
+// foreground spike detects motion onset; noise deviation keeps the detector
+// sensitive after the adaptive foreground gate has widened during a long drive.
+func (bm *BackgroundManager) EvaluateSensorMotion(mask []bool) SensorMotionEvidence {
+	if bm == nil || bm.Grid == nil || len(mask) == 0 {
+		return SensorMotionEvidence{}
 	}
 
 	foregroundCount := 0
-	for _, isFg := range mask {
-		if isFg {
+	for _, isForeground := range mask {
+		if isForeground {
 			foregroundCount++
 		}
 	}
 
-	foregroundRatio := float64(foregroundCount) / float64(len(mask))
-
-	// Get threshold from params, default to 20%
-	movementThreshold := float64(bm.Grid.Params.SensorMovementForegroundThreshold)
-	if movementThreshold == 0 {
-		movementThreshold = 0.20
+	foregroundThreshold := 0.20
+	deviationThreshold := defaultSensorMovementDeviationThreshold
+	g := bm.Grid
+	g.mu.RLock()
+	if v := float64(g.Params.SensorMovementForegroundThreshold); v > 0 {
+		foregroundThreshold = v
 	}
+	if v := float64(g.Params.SensorMovementDeviationThreshold); v > 0 {
+		deviationThreshold = v
+	}
+	g.mu.RUnlock()
 
-	// For proper detection, we'd want to track a streak counter
-	// For now, just return true if ratio is high (caller should implement streak logic)
-	return foregroundRatio > movementThreshold
+	evidence := SensorMotionEvidence{
+		ForegroundFraction: float64(foregroundCount) / float64(len(mask)),
+		NoiseDeviation:     bm.GetNoiseBoundsDeviation(),
+	}
+	evidence.Moving = evidence.ForegroundFraction >= foregroundThreshold ||
+		evidence.NoiseDeviation >= deviationThreshold
+	return evidence
+}
+
+// CheckForSensorMovement reports the shared raw motion decision. Callers that
+// require consecutive-frame handling must apply their own hysteresis.
+func (bm *BackgroundManager) CheckForSensorMovement(mask []bool) bool {
+	return bm.EvaluateSensorMotion(mask).Moving
 }
 
 // DriftMetrics contains metrics about background drift.

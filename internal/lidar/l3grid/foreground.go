@@ -470,8 +470,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		}
 	}
 
-	// Suppress foreground output during warmup while still allowing background seeding.
-	if warmupActive {
+	// Live observation suppresses foreground during warmup while still allowing
+	// background seeding. Offline replay keeps the same model tuning but exposes
+	// foreground from frame zero so a capture that begins moving can be classified.
+	if warmupActive && !bm.IsReplayMode() {
 		suppressedFg := foregroundCount
 		for i := range foregroundMask {
 			foregroundMask[i] = false
