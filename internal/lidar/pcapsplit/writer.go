@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -54,6 +56,8 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 		}
 	}()
 
+	prog := newWriteProgress(cfg)
+
 	source := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range source.Packets() {
 		data := packet.Data()
@@ -66,6 +70,13 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 		ci.CaptureLength = len(data)
 		if ci.Length == 0 {
 			ci.Length = len(data)
+		}
+
+		// Pass 2 progress, paced the same way as the scan pass. The writer copies
+		// packets without decoding them, so RPM/points-per-frame stay blank.
+		if prog != nil {
+			prog.AddPacket(len(data))
+			prog.ObserveProgress(ci.Timestamp, 0)
 		}
 
 		idx := segmentIndexForTime(segs, ci.Timestamp)
@@ -114,4 +125,22 @@ func newSegWriter(dir, name string, snaplen uint32, lt layers.LinkType) (*segWri
 
 func (s *segWriter) close() error {
 	return s.f.Close()
+}
+
+// newWriteProgress builds the pass-2 progress reporter, or nil when progress is
+// disabled (cfg.ProgressSecs <= 0). It mirrors wrapProgress (used by the scan
+// pass) but drives a bare *network.ProgressStats directly, because the write
+// loop reads packets through gopacket rather than network.ReadPCAPFile. There is
+// no inner sink: WriteSegments tracks its own per-segment packet counts.
+func newWriteProgress(cfg SplitConfig) *network.ProgressStats {
+	if cfg.ProgressSecs <= 0 {
+		return nil
+	}
+	var size int64
+	if fi, err := os.Stat(cfg.PCAPFile); err == nil {
+		size = fi.Size()
+	}
+	interval := time.Duration(cfg.ProgressSecs * float64(time.Second))
+	p, _ := network.NewProgressStats(nil, size, interval, "write", os.Stderr).(*network.ProgressStats)
+	return p
 }

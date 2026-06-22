@@ -241,6 +241,16 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 | Orchestration     | `internal/lidar/pcapsplit/run.go`          | Two-pass `Run`; shared by the applet and the standalone wrapper |
 | CLI               | `internal/cmd/lidar/split.go`              | Flag parsing → `pcapsplit.Run`; `cmd/tools/pcap-split` wraps it |
 
+### Progress reporting
+
+Both passes report progress to stderr, paced by `--progress` (default 20 s; 0
+disables): a `[scan]` line during pass-1 classification (with RPM and
+points-per-frame, since it decodes every frame) and a `[write]` line during
+pass-2 segment writing (RPM and points-per-frame stay blank — the writer copies
+packets without decoding them). This mirrors `pcap-analyse`, which prints an
+`[analyse]` tracking pass and a `[scan]` motion pass: `pcap-split` is not missing
+a pass, it simply ran its writer silently before.
+
 ### Stability detection
 
 Motion is classified per frame by **sensor ego-motion**, from either of two
