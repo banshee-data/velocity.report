@@ -49,11 +49,11 @@ Automated PCAP segmentation tool that:
 [Depart] → Drive 3min → [Stop A: 5min] → Drive 2min → [Stop B: 8min] → [Return]
 **Expected Output**:
 
-out-motion-0.pcap # Depart → Stop A (3 min)
-out-static-0.pcap # Stop A parking (5 min)
-out-motion-1.pcap # Stop A → Stop B, including 30s intersection wait (2 min)
-out-static-1.pcap # Stop B parking (8 min)
-out-motion-2.pcap # Return journey (variable)
+soma2-motion-0.pcap # Depart → Stop A (3 min)
+soma2-static-0.pcap # Stop A parking (5 min)
+soma2-motion-1.pcap # Stop A → Stop B, including 30s intersection wait (2 min)
+soma2-static-1.pcap # Stop B parking (8 min)
+soma2-motion-2.pcap # Return journey (variable)
 **Key Requirements**:
 
 - Keep 30-second intersection pauses within motion segments
@@ -67,9 +67,9 @@ out-motion-2.pcap # Return journey (variable)
 [Static: 4 hours] → [Car moves: 30s] → [Static: 4 hours]
 **Expected Output**:
 
-out-static-0.pcap # 4 hours stable
-out-motion-0.pcap # 30s movement
-out-static-1.pcap # 4 hours stable
+overnight-static-0.pcap # 4 hours stable
+overnight-motion-0.pcap # 30s movement
+overnight-static-1.pcap # 4 hours stable
 
 ### Tertiary use case: data quality assessment
 
@@ -117,7 +117,7 @@ Analysts can then:
 - Split input PCAP at detected transition points
 - Output separate files for each motion/static segment
 - Preserve packet integrity (no truncated frames)
-- Sequential numbering: `out-static-0.pcap`, `out-motion-0.pcap`, `out-static-1.pcap`, ...
+- Sequential numbering: `<input-stem>-static-0.pcap`, `<input-stem>-motion-0.pcap`, `<input-stem>-static-1.pcap`, ...
 
 **FR5: Timestamp Alignment**
 
@@ -326,7 +326,7 @@ Stability criteria (all must be true):
 - `Options:`
 - `--pcap FILE             Input PCAP file (required)`
 - `--output DIR            Output directory (default: current dir)`
-- `--prefix NAME           Output filename prefix (default: "out")`
+- `--prefix NAME           Output filename prefix (default: input file stem)`
 - `--settling-sec N        Settling duration threshold in seconds (default: 60)`
 - `--min-segment-sec N     Minimum segment duration in seconds (default: 5)`
 - `--max-motion-gap-sec N  Maximum motion gap to bridge in seconds (default: 30)`
@@ -345,10 +345,10 @@ Stability criteria (all must be true):
   **Output Files**:
 
 output/
-├── out-motion-0.pcap # First motion segment
-├── out-static-0.pcap # First static segment
-├── out-motion-1.pcap # Second motion segment
-├── out-static-1.pcap # Second static segment
+├── capture-motion-0.pcap # First motion segment
+├── capture-static-0.pcap # First static segment
+├── capture-motion-1.pcap # Second motion segment
+├── capture-static-1.pcap # Second static segment
 ├── segments.json # Segment metadata (--export-json)
 ├── frame_metrics.csv # Per-frame metrics (--export-metrics)
 └── summary.txt # Human-readable summary
@@ -394,11 +394,11 @@ Detailed Breakdown:
 [4] motion 10:41:17 → 10:44:02 (2m 45s) 16,530 packets
 
 Output Files:
-out-motion-0.pcap (19.5 MB)
-out-static-0.pcap (30.0 MB)
-out-motion-1.pcap (13.5 MB)
-out-static-1.pcap (4.7 MB)
-out-motion-2.pcap (16.5 MB)
+capture-motion-0.pcap (19.5 MB)
+capture-static-0.pcap (30.0 MB)
+capture-motion-1.pcap (13.5 MB)
+capture-static-1.pcap (4.7 MB)
+capture-motion-2.pcap (16.5 MB)
 
 Metrics Export:
 segments.json (segment metadata)

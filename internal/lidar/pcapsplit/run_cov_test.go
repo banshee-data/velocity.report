@@ -6,6 +6,7 @@ package pcapsplit
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/gopacket"
@@ -76,6 +77,20 @@ func TestRun_Integration(t *testing.T) {
 		if _, e := os.Stat(filepath.Join(dir, f)); e != nil {
 			t.Errorf("missing %s: %v", f, e)
 		}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawDerivedPrefix bool
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "trunc-") && filepath.Ext(entry.Name()) == ".pcap" {
+			sawDerivedPrefix = true
+			break
+		}
+	}
+	if !sawDerivedPrefix {
+		t.Fatalf("expected derived prefix output files starting with trunc- in %s", dir)
 	}
 }
 

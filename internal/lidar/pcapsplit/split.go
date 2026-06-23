@@ -2,6 +2,8 @@ package pcapsplit
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
@@ -50,7 +52,6 @@ type SplitConfig struct {
 func DefaultSplitConfig() SplitConfig {
 	return SplitConfig{
 		OutputDir:        ".",
-		OutputPrefix:     "out",
 		SettlingSec:      DefaultSettlingSec,
 		MotionTriggerSec: DefaultMotionTriggerSec,
 		MaxMotionGapSec:  DefaultMaxMotionGapSec,
@@ -58,6 +59,27 @@ func DefaultSplitConfig() SplitConfig {
 		SensorID:         "hesai-pandar40p",
 		UDPPort:          2369,
 	}
+}
+
+// EffectiveOutputPrefix returns the configured output prefix when set; when it
+// is empty it derives the prefix from the input PCAP filename stem.
+func (c SplitConfig) EffectiveOutputPrefix() string {
+	if c.OutputPrefix != "" {
+		return c.OutputPrefix
+	}
+	return deriveOutputPrefix(c.PCAPFile)
+}
+
+func deriveOutputPrefix(pcapFile string) string {
+	base := filepath.Base(pcapFile)
+	if base == "" || base == "." || base == string(filepath.Separator) {
+		return "out"
+	}
+	stem := strings.TrimSuffix(base, filepath.Ext(base))
+	if stem == "" {
+		return "out"
+	}
+	return stem
 }
 
 // TimelineConfig returns the hysteresis and refinement thresholds derived from
@@ -106,8 +128,8 @@ type Segment struct {
 }
 
 // BuildSegments turns timeline periods into named output segments with
-// sequential per-type IDs: <prefix>-<type>-<n>.pcap (e.g. out-motion-0.pcap,
-// out-static-0.pcap, out-motion-1.pcap, ...).
+// sequential per-type IDs: <prefix>-<type>-<n>.pcap (e.g.
+// soma2-motion-0.pcap, soma2-static-0.pcap, soma2-motion-1.pcap, ...).
 func BuildSegments(periods []MotionPeriod, prefix string) []Segment {
 	if prefix == "" {
 		prefix = "out"

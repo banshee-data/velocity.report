@@ -18,6 +18,7 @@ func Run(cfg SplitConfig) error {
 	if err := os.MkdirAll(cfg.OutputDir, 0o755); err != nil {
 		return fmt.Errorf("create output dir: %w", err)
 	}
+	cfg.OutputPrefix = cfg.EffectiveOutputPrefix()
 
 	start := time.Now()
 

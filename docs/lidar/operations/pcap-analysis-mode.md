@@ -302,7 +302,7 @@ pcap-split [options]
 Options:
   --pcap FILE             Input PCAP file (required)
   --output DIR            Output directory (default: current dir)
-  --prefix NAME           Output filename prefix (default: "out")
+  --prefix NAME           Output filename prefix (default: input file stem)
   --settling-sec N        Settling duration threshold (default: 60)
   --min-segment-sec N     Minimum segment duration (default: 5)
   --max-motion-gap-sec N  Maximum motion gap to bridge (default: 30)
@@ -321,11 +321,11 @@ Output:
 
 ```
 segments/
-├── out-motion-0.pcap
-├── out-static-0.pcap
-├── out-motion-1.pcap
-├── out-static-1.pcap
-├── out-motion-2.pcap
+├── capture-motion-0.pcap
+├── capture-static-0.pcap
+├── capture-motion-1.pcap
+├── capture-static-1.pcap
+├── capture-motion-2.pcap
 ├── segments.json
 └── summary.txt
 ```

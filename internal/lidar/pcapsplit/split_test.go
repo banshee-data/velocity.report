@@ -42,6 +42,18 @@ func TestBuildSegments_DefaultPrefix(t *testing.T) {
 	}
 }
 
+func TestSplitConfigEffectiveOutputPrefix(t *testing.T) {
+	cfg := DefaultSplitConfig()
+	cfg.PCAPFile = "/tmp/soma2.pcapng"
+	if got := cfg.EffectiveOutputPrefix(); got != "soma2" {
+		t.Fatalf("EffectiveOutputPrefix() = %q, want soma2", got)
+	}
+	cfg.OutputPrefix = "manual"
+	if got := cfg.EffectiveOutputPrefix(); got != "manual" {
+		t.Fatalf("explicit EffectiveOutputPrefix() = %q, want manual", got)
+	}
+}
+
 func TestSegmentIndexForTime(t *testing.T) {
 	segs := BuildSegments(periodsFixture(), "out")
 	base := segs[0].StartTime
