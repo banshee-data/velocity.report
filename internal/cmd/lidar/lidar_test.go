@@ -39,10 +39,10 @@ func TestMain_UnknownCommand(t *testing.T) {
 	}
 }
 
-// TestMain_PcapAnalyseRouting confirms the namespace reaches the analyse engine:
-// with no -pcap flag the engine reports the missing file and returns 1.
-func TestMain_PcapAnalyseRouting(t *testing.T) {
-	if code := runMain(t, []string{"pcap-analyse"}); code != 1 {
-		t.Errorf("Main(pcap-analyse) with no -pcap = %d, want 1", code)
+// TestMain_PcapSplitRouting confirms the namespace reaches the split engine:
+// with no --pcap flag the engine reports the missing file and returns 2.
+func TestMain_PcapSplitRouting(t *testing.T) {
+	if code := runMain(t, []string{"pcap-split"}); code != 2 {
+		t.Errorf("Main(pcap-split) with no --pcap = %d, want 2", code)
 	}
 }

@@ -2,12 +2,10 @@
 // captures. Its core is a tag-free timeline builder that collapses per-frame
 // motion samples into sustained motion and static periods using hysteresis.
 //
-// The package is consumed in two places:
-//
-//   - the --motion flag of pcap-analyse (velocity lidar pcap-analyse) reports
-//     the timeline for an existing capture without writing any files.
-//   - pcap-split (velocity lidar pcap-split) reuses the same classification to
-//     cut a capture into per-segment PCAP files.
+// The package backs `velocity lidar pcap-split`, which reuses the same
+// classification both to report the motion/static timeline for a capture
+// (its --dry-run / --motion-json scan view) and to cut the capture into
+// per-segment PCAP files.
 //
 // Only the pure classification logic lives in this file; it has no libpcap
 // dependency and is exercised by the default `go test ./...` suite. The PCAP
@@ -80,7 +78,8 @@ type TimelineConfig struct {
 }
 
 // DefaultTimelineConfig returns the standard hysteresis thresholds with
-// post-processing disabled (the raw-hysteresis view used by pcap-analyse).
+// post-processing (gap-bridging and min-segment merging) disabled — the
+// raw-hysteresis view.
 func DefaultTimelineConfig() TimelineConfig {
 	return TimelineConfig{
 		SettlingSec:      DefaultSettlingSec,

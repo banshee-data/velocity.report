@@ -123,7 +123,7 @@ func TestDispatchRoutesNamespacesToApplets(t *testing.T) {
 		{[]string{"data", "sql", "SELECT 1"}, 10, "server", []string{"sql", "SELECT 1"}},
 		{[]string{"report", "pdf", "--version"}, 10, "server", []string{"pdf", "--version"}},
 		{[]string{"tune", "sweep", "--dry-run"}, 12, "tune", []string{"--dry-run"}},
-		{[]string{"lidar", "pcap-analyse", "-pcap", "x.pcap"}, 13, "lidar", []string{"pcap-analyse", "-pcap", "x.pcap"}},
+		{[]string{"lidar", "pcap-split", "-pcap", "x.pcap"}, 13, "lidar", []string{"pcap-split", "-pcap", "x.pcap"}},
 	}
 
 	for i, tc := range cases {

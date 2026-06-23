@@ -29,7 +29,7 @@ Usage:
 Namespaces:
   serve     Run the radar/LiDAR server
   device    On-device lifecycle: check, upgrade, rollback, backup, status, tailscale
-  lidar     LiDAR capture diagnostics: pcap-analyse, pcap-split, settling-eval
+  lidar     LiDAR capture diagnostics: pcap-split, settling-eval
   data      Database operations: migrate, transits, sql
   report    Generate PDF reports: pdf
   tune      Parameter tuning: sweep

@@ -10,10 +10,10 @@ import "testing"
 func TestMain_AutoDetectsPort(t *testing.T) {
 	pcapFile := truncatedCapture(t, 1000)
 	code := silence(t, func() int {
-		return Main([]string{"pcap-analyse", "-pcap", pcapFile, "-stats", "-csv=false", "-json=false"})
+		return Main([]string{"pcap-split", "--pcap", pcapFile, "--dry-run", "--output", t.TempDir(), "--progress", "0"})
 	})
 	if code != 0 {
-		t.Errorf("pcap-analyse without --port = %d, want 0 (should auto-detect 2369)", code)
+		t.Errorf("pcap-split without --port = %d, want 0 (should auto-detect 2369)", code)
 	}
 }
 

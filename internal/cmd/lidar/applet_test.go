@@ -63,16 +63,6 @@ func quiet(t *testing.T, fn func() int) int {
 	return fn()
 }
 
-func TestMain_RoutesPcapAnalyse(t *testing.T) {
-	pcapFile := truncatedCapture(t, 1000)
-	code := quiet(t, func() int {
-		return Main([]string{"pcap-analyse", "-pcap", pcapFile, "-port", "2369", "-stats", "-csv=false", "-json=false"})
-	})
-	if code != 0 {
-		t.Errorf("pcap-analyse = %d, want 0", code)
-	}
-}
-
 func TestMain_RoutesPcapSplitDryRun(t *testing.T) {
 	pcapFile := truncatedCapture(t, 1000)
 	dir := t.TempDir()

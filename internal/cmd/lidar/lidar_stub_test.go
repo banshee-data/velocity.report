@@ -19,7 +19,7 @@ func TestStubMain(t *testing.T) {
 		_ = devnull.Close()
 	}()
 
-	if code := Main([]string{"pcap-analyse"}); code != 1 {
+	if code := Main([]string{"pcap-split"}); code != 1 {
 		t.Errorf("stub Main = %d, want 1", code)
 	}
 }

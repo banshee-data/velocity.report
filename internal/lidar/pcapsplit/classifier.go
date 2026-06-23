@@ -45,9 +45,10 @@ type MotionEvidence struct {
 	Moving             bool
 }
 
-// MotionClassifier owns the offline background model used by both
-// pcap-analyse --motion and pcap-split. Keeping it here prevents their preview
-// and written segments from drifting apart as tuning changes.
+// MotionClassifier owns the offline background model used by pcap-split for both
+// its motion/static timeline and the segments it writes. Keeping it here prevents
+// the previewed timeline and the written segments from drifting apart as tuning
+// changes.
 type MotionClassifier struct {
 	bg *l3grid.BackgroundManager
 

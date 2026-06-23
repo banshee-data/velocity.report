@@ -24,7 +24,7 @@ func silence(t *testing.T, fn func() int) int {
 
 func TestApplets_Help(t *testing.T) {
 	for _, args := range [][]string{
-		{"pcap-analyse", "-h"}, {"pcap-split", "-h"}, {"settling-eval", "-h"},
+		{"pcap-split", "-h"}, {"settling-eval", "-h"},
 	} {
 		if code := silence(t, func() int { return Main(args) }); code != 0 {
 			t.Errorf("Main(%v) = %d, want 0", args, code)
@@ -34,7 +34,7 @@ func TestApplets_Help(t *testing.T) {
 
 func TestApplets_BadFlag(t *testing.T) {
 	for _, args := range [][]string{
-		{"pcap-analyse", "-nope"}, {"pcap-split", "-nope"}, {"settling-eval", "-nope"},
+		{"pcap-split", "-nope"}, {"settling-eval", "-nope"},
 	} {
 		if code := silence(t, func() int { return Main(args) }); code != 2 {
 			t.Errorf("Main(%v) = %d, want 2", args, code)
