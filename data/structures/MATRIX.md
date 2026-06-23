@@ -712,7 +712,7 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 | `vrlog-analyse`             | [cmd/tools/vrlog-analyse/main.go](../../cmd/tools/vrlog-analyse/main.go)                         | VRLOG file analysis and comparison                |
 | `visualiser-server`         | [cmd/tools/visualiser-server/main.go](../../cmd/tools/visualiser-server/main.go)                 | Standalone gRPC (synthetic/replay/live)           |
 | `settling-eval`             | [cmd/tools/settling-eval/main.go](../../cmd/tools/settling-eval/main.go)                         | Background grid settling evaluation               |
-| `pcap-analyse`              | [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go)                           | PCAP file analysis                                |
+| `pcap-analyse`              | [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go)         | PCAP file analysis                                |
 | `backfill_ring_elevations`  | [cmd/tools/backfill_ring_elevations/main.go](../../cmd/tools/backfill_ring_elevations/main.go)   | Backfill ring elevation data                      |
 | `backfill_lidar_run_config` | [cmd/tools/backfill_lidar_run_config/main.go](../../cmd/tools/backfill_lidar_run_config/main.go) | Backfill run config JSON onto historic LiDAR runs |
 | `config-migrate`            | [cmd/tools/config-migrate/main.go](../../cmd/tools/config-migrate/main.go)                       | Migrate runtime config layouts                    |

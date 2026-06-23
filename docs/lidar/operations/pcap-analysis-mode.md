@@ -207,7 +207,7 @@ Plans: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md), [pcap-mot
 
 Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
 
-**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is now a thin shim over the same engine). To preview the motion/static timeline without splitting, use `velocity lidar pcap-analyse --pcap capture.pcapng --motion --stats`; add `--motion-json timeline.json` to write the timeline to a file. `pcap-split --dry-run --export-json` runs the identical physical-frame classifier without writing PCAP files. All three offline tools (`pcap-analyse`, `pcap-split`, `settling-eval`) take `--config <tuning.json>` and load it via the same disk-or-embedded fallback as the live server, so offline analysis runs the **same algorithms and tuning as live observation** (the background model, motion thresholds, and sensor id all come from the tuning config; `settling-eval`'s old `--tuning` is a deprecated alias). When `--port` is omitted the sensor's UDP port is auto-detected from the capture. The timeline lists each period by frame index by default; pass `--timeline-units seconds` or `--timeline-units timestamp` for offset seconds or absolute capture time (these diverge when a capture has recording gaps). Long reads print a progress line (percentage, packets, points, RPM, points-per-frame for the interval, and rate) to stderr every 10 s by default; tune or silence it with `--progress N` (0 disables).
+**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is a thin shim over the same engine). `pcap-split` is the single offline tool for **scan, motion stats, and splits**: its summary reports capture health (duration, frame rate from motor RPM, RPM range, points/frame, foreground %) alongside the motion/static segments. To preview the stats and timeline without writing any PCAP files, add `--dry-run`; `--stats-10s` appends per-10-second frame-rate buckets and `--motion-json timeline.json` writes the motion/static timeline to a file. Both offline tools (`pcap-split`, `settling-eval`) take `--config <tuning.json>` and load it via the same disk-or-embedded fallback as the live server, so offline analysis runs the **same algorithms and tuning as live observation** (the background model, motion thresholds, and sensor id all come from the tuning config; `settling-eval`'s old `--tuning` is a deprecated alias). When `--port` is omitted the sensor's UDP port is auto-detected from the capture. The detailed breakdown lists each segment by offset seconds by default; pass `--timeline-units frames` or `--timeline-units timestamp` for frame indices or absolute capture time (these diverge when a capture has recording gaps). Long reads print a progress line (percentage, packets, points, RPM, points-per-frame for the interval, and rate) to stderr every 20 s by default; tune or silence it with `--progress N` (0 disables). Pipeline performance regression testing lives in a separate dev/CI tool, `lidar-bench` (see [performance-regression-testing.md](performance-regression-testing.md)).
 
 ### Problem
 
@@ -243,13 +243,12 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 ### Progress reporting
 
-Both passes report progress to stderr, paced by `--progress` (default 20 s; 0
-disables): a `[scan]` line during pass-1 classification (with RPM and
-points-per-frame, since it decodes every frame) and a `[write]` line during
-pass-2 segment writing (RPM and points-per-frame stay blank — the writer copies
-packets without decoding them). This mirrors `pcap-analyse`, which prints an
-`[analyse]` tracking pass and a `[scan]` motion pass: `pcap-split` is not missing
-a pass, it simply ran its writer silently before.
+`pcap-split` runs two passes, and each reports progress to stderr paced by
+`--progress` (default 20 s; 0 disables): a `[scan]` line during pass-1
+classification (with RPM and points-per-frame, since it decodes every frame) and
+a `[write]` line during pass-2 segment writing (RPM and points-per-frame stay
+blank — the writer copies packets without decoding them). A `--dry-run` performs
+only the scan pass.
 
 ### Stability detection
 
@@ -285,9 +284,9 @@ does not gate the decision. It uses the shared `locked_baseline_threshold`.
 
 The classifier advances warmup and frozen-cell state from PCAP timestamps, not
 wall-clock replay time. Replay mode exposes foreground during warmup but does
-not change any L3 tuning value; consequently `pcap-analyse --motion` and
-`pcap-split` use the same model parameters as live observation and remain
-deterministic when replay speed changes.
+not change any L3 tuning value; consequently `pcap-split` uses the same model
+parameters as live observation and remains deterministic when replay speed
+changes.
 
 **State machine:**
 
@@ -340,11 +339,3 @@ The shared L3 background manager provides these read-only motion inputs:
 | `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts         |
 | `CheckBackgroundDrift()`                    | Drift metrics; the ratio is the sustained-motion cue |
 | `EvaluateSensorMotion(mask)`                | Shared foreground/drift-ratio motion decision        |
-
-### Phased delivery
-
-| Phase | Scope                                                                | Size | Prerequisite      |
-| ----- | -------------------------------------------------------------------- | ---- | ----------------- |
-| 1     | `--motion` flag in `pcap-analyse`: motion timeline in summary output | S    | None              |
-| 2     | `BackgroundManager` API extensions: three new read-only accessors    | S    | Phase 1 validated |
-| 3     | Full `pcap-split` tool: analyser, writer, CLI, metadata export       | M    | Phase 2           |

@@ -27,7 +27,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | Rule-Based Classifier | [internal/lidar/l6objects/classification.go](../../../internal/lidar/l6objects/classification.go)       | ✅ Complete |
 | Track Store           | [internal/lidar/storage/sqlite/track_store.go](../../../internal/lidar/storage/sqlite/track_store.go)   | ✅ Complete |
 | REST API              | `internal/lidar/monitor/track_api.go`                                                                   | ✅ Complete |
-| PCAP Analyse Tool     | [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go)                               | ✅ Complete |
+| PCAP Analyse Tool     | [internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go)             | ✅ Complete |
 | Research Data Export  | [internal/lidar/adapters/training_data.go](../../../internal/lidar/adapters/training_data.go)           | ✅ Complete |
 | Analysis Run Store    | [internal/lidar/storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go) | ✅ Complete |
 | Sweep Runner          | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)                               | ✅ Complete |

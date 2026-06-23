@@ -1,10 +1,10 @@
 # Performance regression testing
 
-Performance benchmarking mode in the `pcap-analyze` tool, used to detect processing speed regressions in the LiDAR pipeline before they reach production.
+The `lidar-bench` tool measures the LiDAR L1–L6 tracking pipeline over a PCAP to detect processing-speed regressions before they reach production. It is the end-to-end perf gate run by `make test-perf` and nightly CI.
 
 ## Overview
 
-The `pcap-analyze` tool includes a performance benchmarking mode to detect regressions when modifying the LIDAR processing pipeline. This ensures that algorithm improvements, new features, or refactoring don't inadvertently degrade processing speed.
+`lidar-bench` times the full pipeline (foreground extraction → DBSCAN clustering → Kalman tracking → classification) and compares the result against a committed baseline, so algorithm improvements, new features, or refactoring don't inadvertently degrade processing speed. It is a dev/CI tool, separate from the operational `velocity lidar pcap-split` (scan, motion stats, splits).
 
 **Why performance testing matters:**
 
@@ -19,17 +19,17 @@ The `pcap-analyze` tool includes a performance benchmarking mode to detect regre
 
 ```bash
 # Build the tool (requires libpcap)
-go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
+go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
 # Run benchmark on a gold standard PCAP file
-./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -benchmark-output baseline.json -quiet
+./lidar-bench -pcap data/gold-standard.pcapng -benchmark-output baseline.json -quiet
 ```
 
 ### Compare against baseline
 
 ```bash
 # Run benchmark and compare against baseline
-./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -compare-baseline baseline.json -quiet
+./lidar-bench -pcap data/gold-standard.pcapng -compare-baseline baseline.json -quiet
 
 # Exit code 1 if regression detected
 echo "Exit code: $?"
@@ -37,40 +37,31 @@ echo "Exit code: $?"
 
 ## CLI reference
 
-### Benchmark flags
+`lidar-bench` always benchmarks; there is no mode flag to enable. Most runs go
+through `make test-perf`, which builds the tool and compares against the
+committed baseline.
 
-| Flag                    | Alias    | Default                 | Description                                 |
-| ----------------------- | -------- | ----------------------- | ------------------------------------------- |
-| `-benchmark`            | `-bench` | `false`                 | Enable performance measurement mode         |
-| `-benchmark-output`     | -        | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
-| `-quiet`                | `-q`     | `false`                 | Suppress output to reduce measurement noise |
-| `-compare-baseline`     | -        | -                       | Compare against a baseline benchmark file   |
-| `-regression-threshold` | -        | `0.10` (10%)            | Threshold for flagging regressions          |
-
-### Standard flags (also available in benchmark mode)
-
-| Flag         | Default           | Description                  |
-| ------------ | ----------------- | ---------------------------- |
-| `-pcap`      | (required)        | Path to PCAP file            |
-| `-output`    | `.`               | Output directory for results |
-| `-sensor-id` | `hesai-pandar40p` | Sensor ID for configuration  |
-| `-port`      | `2369`            | UDP port for LIDAR data      |
-| `-fps`       | `10.0`            | Expected frame rate in Hz    |
+| Flag                    | Alias | Default                 | Description                                 |
+| ----------------------- | ----- | ----------------------- | ------------------------------------------- |
+| `-pcap`                 | -     | (required)              | Path to PCAP file                           |
+| `-benchmark-output`     | -     | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
+| `-compare-baseline`     | -     | -                       | Compare against a baseline benchmark file   |
+| `-regression-threshold` | -     | `0.10` (10%)            | Threshold for flagging regressions          |
+| `-quiet`                | `-q`  | `false`                 | Suppress output to reduce measurement noise |
+| `-config`               | -     | `config/tuning…json`    | Tuning config (falls back to embedded)      |
+| `-sensor-id`            | -     | from `l1.sensor`        | Sensor ID                                   |
+| `-port`                 | -     | `0` (auto-detect)       | UDP port for LiDAR data                     |
+| `-output`               | -     | `.`                     | Output directory for benchmark JSON         |
+| `-progress`             | -     | `10`                    | Seconds between progress updates (0 = off)  |
 
 ### Example commands
 
 ```bash
-# Basic benchmark with verbose output
-./pcap-analyze -pcap capture.pcapng -benchmark
+# Write a fresh baseline
+./lidar-bench -pcap capture.pcapng -benchmark-output perf/baseline.json -quiet
 
-# Quiet benchmark with custom output path
-./pcap-analyze -pcap capture.pcapng -benchmark -quiet -benchmark-output perf/baseline.json
-
-# Compare with stricter threshold (5% instead of 10%)
-./pcap-analyze -pcap capture.pcapng -benchmark -compare-baseline baseline.json -regression-threshold 0.05
-
-# Short form aliases
-./pcap-analyze -pcap capture.pcapng -bench -q -benchmark-output perf.json
+# Compare with a stricter threshold (5% instead of 10%)
+./lidar-bench -pcap capture.pcapng -compare-baseline baseline.json -regression-threshold 0.05
 ```
 
 ## Workflow examples
@@ -84,8 +75,8 @@ Establish a baseline on the main branch before making changes:
 git checkout main
 
 # Build and run baseline benchmark
-go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
-./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -benchmark-output baseline.json -quiet
+go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
+./lidar-bench -pcap data/gold-standard.pcapng -benchmark-output baseline.json -quiet
 
 # Commit baseline for CI use
 git add baseline.json
@@ -98,10 +89,10 @@ After making algorithm changes, compare against the baseline:
 
 ```bash
 # Build with your changes
-go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
+go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
 # Compare against baseline (exits with code 1 on regression)
-./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -compare-baseline baseline.json -quiet
+./lidar-bench -pcap data/gold-standard.pcapng -compare-baseline baseline.json -quiet
 ```
 
 ### Interpreting results
@@ -176,10 +167,10 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 
 ### GitHub actions example
 
-A GitHub Actions workflow triggers on pull requests that modify `internal/lidar/**` or `cmd/tools/pcap-analyze/**`. The job runs on `ubuntu-latest` with Go 1.22 and `libpcap-dev` installed. Steps:
+A GitHub Actions workflow triggers on pull requests that modify `internal/lidar/**` or `cmd/tools/lidar-bench/**`. The job runs on `ubuntu-latest` with Go 1.22 and `libpcap-dev` installed. Steps:
 
 1. Check out the repository.
-2. Build `pcap-analyze` with the `pcap` build tag.
+2. Build `lidar-bench` with the `pcap` build tag.
 3. Download the gold standard PCAP file from shared storage (`$PCAP_STORAGE_URL`).
 4. Run the performance benchmark with `-compare-baseline` pointing at the committed baseline JSON; the step fails on regression.
 5. Upload the benchmark results JSON as a build artifact (always, regardless of pass/fail).
@@ -294,10 +285,10 @@ sudo apt-get install libpcap-dev
 
 # macOS
 brew install libpcap
-
-# Build without pcap support (for non-benchmark use)
-go build -o pcap-analyze ./cmd/tools/pcap-analyze
 ```
+
+`lidar-bench` always requires the `pcap` build tag; build it with
+`go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench`.
 
 **Baseline comparison fails with "file not found"**
 
@@ -308,7 +299,7 @@ Ensure the baseline file path is correct relative to the working directory:
 ls -la baseline.json
 
 # Use absolute path if needed
-./pcap-analyze -pcap data/test.pcapng -compare-baseline /full/path/to/baseline.json
+./lidar-bench -pcap data/test.pcapng -compare-baseline /full/path/to/baseline.json
 ```
 
 **Inconsistent benchmark results**
@@ -323,7 +314,7 @@ Reduce noise by:
 ```bash
 # Run 3 iterations and compare
 for i in 1 2 3; do
-  ./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -quiet \
+  ./lidar-bench -pcap data/gold-standard.pcapng -quiet \
     -benchmark-output "run-$i.json"
 done
 ```
@@ -338,7 +329,7 @@ If hardware or environment changes cause expected differences:
 
 ```bash
 # Create new baseline after environment change
-./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -quiet \
+./lidar-bench -pcap data/gold-standard.pcapng -quiet \
   -benchmark-output baseline.json
 
 # Add note about environment change
@@ -350,7 +341,7 @@ echo "Baseline updated for Go 1.22 and new CI runner" >> baselines/CHANGELOG.md
 When using `-quiet`, comparison results are still printed. Check stderr:
 
 ```bash
-./pcap-analyze -pcap data/test.pcapng -benchmark -compare-baseline baseline.json -quiet 2>&1
+./lidar-bench -pcap data/test.pcapng -compare-baseline baseline.json -quiet 2>&1
 ```
 
 ### Debugging performance issues
@@ -360,8 +351,8 @@ When using `-quiet`, comparison results are still printed. Check stderr:
 The `p99_ms` metric highlights worst-case performance. If p99 is much higher than avg:
 
 ```bash
-# Run without quiet to see per-frame stats
-./pcap-analyze -pcap data/problem.pcapng -benchmark -v
+# Run without -quiet to print the full benchmark summary
+./lidar-bench -pcap data/problem.pcapng
 ```
 
 **Memory investigation:**
@@ -370,7 +361,7 @@ High `total_alloc_bytes` or many GC cycles suggest allocation pressure:
 
 ```bash
 # Run with memory profiling
-GODEBUG=gctrace=1 ./pcap-analyze -pcap data/test.pcapng -benchmark 2>&1 | grep gc
+GODEBUG=gctrace=1 ./lidar-bench -pcap data/test.pcapng 2>&1 | grep gc
 ```
 
 **Pipeline stage profiling:**
@@ -379,13 +370,13 @@ If a specific stage regresses, use Go's built-in profiling:
 
 ```bash
 # CPU profile
-go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
-./pcap-analyze -pcap data/test.pcapng -benchmark -quiet &
+go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
+./lidar-bench -pcap data/test.pcapng -quiet &
 go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 ```
 
 ## See also
 
-- [PCAP Analysis Mode](pcap-analysis-mode.md): Using pcap-analyse for track extraction
+- [PCAP Analysis Mode](pcap-analysis-mode.md): scan, motion stats, and splits via `pcap-split`
 - [LiDAR Architecture](../architecture/LIDAR_ARCHITECTURE.md): Pipeline architecture
 - [Foreground Tracking Plan](../architecture/foreground-tracking.md): Algorithm details

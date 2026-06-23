@@ -67,9 +67,9 @@ Extend `lidar_bg_snapshot` table or create a new table for region metadata:
 
    > **Source:** Same file. `BgStore` interface adds `InsertRegionSnapshot()` and `GetLatestRegionSnapshot()` alongside the existing `InsertBgSnapshot()`.
 
-4. **PCAP Analysis Integration** ([cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go)):
+4. **PCAP Analysis Integration** ([internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go)):
 
-   > **Source:** [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go). When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()`; foreground detection begins immediately without settling.
+   > **Source:** [internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go). When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()`; foreground detection begins immediately without settling.
 
 #### Scene similarity detection (optional enhancement)
 
@@ -314,7 +314,7 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 - `internal/lidar/background.go`: `BackgroundManager`, `BackgroundGrid`, `RegionManager`
 - `internal/lidar/config.go`: `BackgroundConfig`, settling parameters
 - [internal/db/db.go](../../../internal/db/db.go): `GetLatestBgSnapshot`, `InsertBgSnapshot`
-- [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go): PCAP analysis tool
+- [internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go): PCAP analysis tool
 
 ## Appendix: current settling parameters
 

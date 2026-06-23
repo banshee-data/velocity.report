@@ -611,7 +611,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 - Relies on incremental algorithms and median-based outlier filtering.
 - Faster but less robust to transient occlusions.
 
-**Recommendation:** Support both modes. PCAP analysis tool ([cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go)) should use multi-pass for maximum accuracy; live streaming uses single-pass incremental algorithms.
+**Recommendation:** Support both modes. PCAP analysis tool ([internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go)) should use multi-pass for maximum accuracy; live streaming uses single-pass incremental algorithms.
 
 ### GPS geo-referencing integration (additive only)
 
@@ -699,7 +699,7 @@ deployment.
 - **Background Grid Standards**: [docs/lidar/architecture/lidar-background-grid-standards.md](lidar-background-grid-standards.md) (VTK/PCD export standards, ROS interop)
 - **L3 Background Grid**: [internal/lidar/l3grid/background.go](../../../internal/lidar/l3grid/background.go) (EMA updates, freeze mechanism, settlement detection)
 - **L4 HeightBandFilter**: [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go) (current Z-band filtering, replacement target)
-- **PCAP Analysis Tool**: [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go) (multi-pass pipeline, export formats)
+- **PCAP Analysis Tool**: [internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go) (multi-pass pipeline, export formats)
 
 ### External standards
 

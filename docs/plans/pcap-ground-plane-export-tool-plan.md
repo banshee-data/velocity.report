@@ -1,7 +1,7 @@
 # Ground plane export for pcap-analyse tool
 
 - **Status:** Planning
-- **Target:** [cmd/tools/pcap-analyse](../../cmd/tools/pcap-analyse)
+- **Target:** [internal/lidar/lidarbench](../../internal/lidar/lidarbench)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 - **Related:**
 
@@ -25,7 +25,7 @@ The ground plane extraction reuses the existing L1→L2→L3 background grid pip
 
 ## Background
 
-The current `pcap-analyse` tool ([cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go), ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
+The current `pcap-analyse` tool ([internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go), ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
 
 - CSV tracks (vehicle trajectories)
 - JSON results (detection summary)
@@ -45,7 +45,7 @@ GPS support exists but is unused:
 
 ## New CLI flags
 
-Add the following flags to [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
+Add the following flags to [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go):
 
 ### Ground plane extraction
 
@@ -392,7 +392,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 
 ### Integration tests
 
-- **PCAP Processing**: `cmd/tools/pcap-analyse/ground_plane_test.go`
+- **PCAP Processing**: `internal/lidar/lidarbench/ground_plane_test.go`
   - Use existing test PCAP files (e.g., `data/test-captures/*.pcap`)
   - Validate ground plane extraction produces expected tile count
   - Validate export files are created with correct names

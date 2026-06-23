@@ -102,7 +102,7 @@ Proposed additions to `DebugOverlaySet` (all optional, populated only when debug
 
 ### B.1 new metrics in pcap-analyse
 
-Extend `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go) with `ClusteringMetrics`:
+Extend `PerformanceMetrics` in [internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go) with `ClusteringMetrics`:
 
 - Per-frame distributions (percentiles): foreground points, filtered points, cluster count, points-per-cluster, cluster area
 - DBSCAN-specific: call count, total/avg/p95/p99 time, subsample count and rate

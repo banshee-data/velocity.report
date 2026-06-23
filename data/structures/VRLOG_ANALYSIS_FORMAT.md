@@ -533,7 +533,7 @@ vrlog-analyse report sample.vrlog --compact
 | [`adapters.EvaluateGroundTruth`](../../internal/lidar/adapters/ground_truth.go) | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
 | [`recorder.Replayer`](../../internal/lidar/l9endpoints/recorder/recorder.go)    | Read `.vrlog` frames sequentially               | Direct call                          |
 | [`visualiser.FrameBundle`](../../internal/lidar/l9endpoints/model.go)           | Canonical frame model with Track, Cluster data  | Direct consumption                   |
-| [`pcap-analyse`](../../cmd/tools/pcap-analyse/main.go)                          | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
+| [`pcap-analyse`](../../internal/lidar/lidarbench/lidarbench.go)                 | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
 
 ### What vrlog-analyse adds beyond pcap-analyse
 
