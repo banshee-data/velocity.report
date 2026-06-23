@@ -1,6 +1,6 @@
 # PCAP motion detection and scene split plan
 
-- **Status:** Implemented (all three phases shipped; folded into `velocity lidar`)
+- **Status:** Complete (all three phases shipped; folded into `velocity lidar`)
 - **Layers:** L1 Packets, L3 Grid, CLI Tools
 - **Scope:** add a `--motion` analysis mode to pcap-analyse and implement the pcap-split tool from existing design, shipping movement detection as a two-phase capability
 - **Related:** [pcap-split design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool), [velocity lidar namespace](velocity-lidar-namespace-plan.md), [settling time optimisation](../lidar/operations/settling-time-optimisation.md)

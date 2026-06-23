@@ -1,6 +1,6 @@
 # PCAP split tool design document
 
-- **Status:** Implemented (`velocity lidar pcap-split`; engine in `internal/lidar/pcapsplit`)
+- **Status:** Complete (`velocity lidar pcap-split`; engine in `internal/lidar/pcapsplit`)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
 ## Executive summary
