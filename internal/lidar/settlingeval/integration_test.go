@@ -24,7 +24,9 @@ func truncatedCapture(t *testing.T, maxPackets int) string {
 		t.Skipf("open: %v", err)
 	}
 	defer h.Close()
-	_ = h.SetBPFFilter("udp port 2369")
+	if err := h.SetBPFFilter("udp port 2369"); err != nil {
+		t.Skipf("bpf: %v", err)
+	}
 	dst := filepath.Join(t.TempDir(), "trunc.pcap")
 	f, err := os.Create(dst)
 	if err != nil {
@@ -40,7 +42,9 @@ func truncatedCapture(t *testing.T, maxPackets int) string {
 		if n >= maxPackets {
 			break
 		}
-		_ = w.WritePacket(p.Metadata().CaptureInfo, p.Data())
+		if err := w.WritePacket(p.Metadata().CaptureInfo, p.Data()); err != nil {
+			t.Fatalf("write packet: %v", err)
+		}
 		n++
 	}
 	if n == 0 {
