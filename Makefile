@@ -1221,18 +1221,18 @@ test-perf:
 	else \
 		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
 	fi; \
-	echo "Building pcap-analyse..."; \
-	go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse; \
+	echo "Building lidar-bench..."; \
+	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
 	EXIT_CODE=0; \
 	if [ ! -f "$$BASELINE_FILE" ]; then \
 		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
-		./pcap-analyse -pcap "$$PCAP_FILE" -benchmark -benchmark-output "$$BASELINE_FILE"; \
+		./lidar-bench -pcap "$$PCAP_FILE" -benchmark-output "$$BASELINE_FILE"; \
 		echo "Created baseline: $$BASELINE_FILE"; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./pcap-analyse -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
+		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
 	fi; \
-	rm -f pcap-analyse *_analysis.json *_benchmark.json; \
+	rm -f lidar-bench *_benchmark.json; \
 	exit $$EXIT_CODE
 
 # =============================================================================

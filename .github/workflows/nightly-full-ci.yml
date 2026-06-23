@@ -444,8 +444,8 @@ jobs:
       - name: Install libpcap
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
-      - name: Build pcap-analyse
-        run: go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse
+      - name: Build lidar-bench
+        run: go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
       - name: Run performance benchmark
         run: make test-perf
