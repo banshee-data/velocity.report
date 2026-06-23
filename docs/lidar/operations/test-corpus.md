@@ -52,14 +52,14 @@ Per PCAP, create a labelled reference analysis run: ≥ 20 vehicle tracks, ≥ 5
 
 ## Schedule
 
-| Phase | Work                                     | Depends on               |
-| ----- | ---------------------------------------- | ------------------------ |
-| 1     | Identify and confirm 4 new capture sites | Site access              |
-| 2     | Capture PCAPs 2–5 with P40 sensor        | Phase 1 + hardware       |
-| 3     | Label ≥ 20 tracks per PCAP               | Phase 2 + labelling UI   |
-| 4     | Create baselines for each PCAP           | Phase 3 + `pcap-analyse` |
-| 5     | Integrate into CI nightly run            | Phase 4                  |
-| 6     | Run parameter sweeps across full corpus  | Phase 5                  |
+| Phase | Work                                     | Depends on              |
+| ----- | ---------------------------------------- | ----------------------- |
+| 1     | Identify and confirm 4 new capture sites | Site access             |
+| 2     | Capture PCAPs 2–5 with P40 sensor        | Phase 1 + hardware      |
+| 3     | Label ≥ 20 tracks per PCAP               | Phase 2 + labelling UI  |
+| 4     | Create baselines for each PCAP           | Phase 3 + `lidar-bench` |
+| 5     | Integrate into CI nightly run            | Phase 4                 |
+| 6     | Run parameter sweeps across full corpus  | Phase 5                 |
 
 ## Non-Goals
 

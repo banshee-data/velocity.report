@@ -138,7 +138,7 @@ Implement both options in phases:
 
 1. Add `RestoreFromSnapshot()` to `BackgroundManager`
 2. Implement grid cell deserialisation from `BgSnapshot.GridBlob`
-3. Add `--restore-background` flag to `pcap-analyse`
+3. Add `--restore-background` flag to `settling-eval`
 4. Mark `SettlingComplete = true` when restoring a valid snapshot
 
 **Outcome**: Immediate settling skip for sensors with existing snapshots.
@@ -241,10 +241,10 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 
 ## API changes
 
-### New CLI flags for `pcap-analyse`
+### New CLI flags for `settling-eval`
 
 ```bash
-pcap-analyse --pcap file.pcap \
+settling-eval --pcap file.pcap \
     --restore-background         # Restore from latest database snapshot
     --restore-background-id 123  # Restore from specific snapshot ID
     --save-background            # Save final state to database (existing)

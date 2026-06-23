@@ -138,7 +138,7 @@ Key areas covered:
 - **A.1** Per-frame pipeline stage timing (`FrameStageTiming`)
 - **A.2** Per-track association diagnostics (Mahalanobis distance, innovation residuals, area ratio)
 - **A.4** Cluster quality metrics (`PointDensity`, `RangeMean`, `DBSCANNeighboursVisited`)
-- **B.1–B.5** pcap-analyse benchmark harness with clustering-specific metrics and CI regression gates
+- **B.1–B.5** lidar-bench benchmark harness with clustering-specific metrics and CI regression gates
 - **C.1–C.3** Raspberry Pi performance levers and frame budget
 
 ## 10. References

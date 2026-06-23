@@ -58,7 +58,7 @@ Downstream: `idx_lidar_tracks_quality` index becomes useful for filtering high-q
 
 Per the speed percentile alignment plan, percentiles are reserved for grouped/report aggregates only. Per-track percentile columns are the wrong abstraction. Migration 000030 drops `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` from `lidar_tracks` and `lidar_run_tracks`, and renames `peak_speed_mps` → `max_speed_mps` on both tables.
 
-Go struct renames already done (`TrackedObject.MaxSpeedMps`, proto `max_speed_mps`). Remaining: write and apply migration, update SQL strings, update test fixtures, switch `pcap-analyse` to p98 high-end aggregate.
+Go struct renames already done (`TrackedObject.MaxSpeedMps`, proto `max_speed_mps`). Remaining: write and apply migration, update SQL strings, update test fixtures. (The p98 high-end aggregate applies in the offline track-export, which is parked — see [lidar-offline-analysis-tooling-plan.md](../../plans/lidar-offline-analysis-tooling-plan.md).)
 
 ### Phase 8: cleanup scaffolding structs
 
