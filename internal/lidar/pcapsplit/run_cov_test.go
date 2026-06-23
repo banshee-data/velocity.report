@@ -73,7 +73,7 @@ func TestRun_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	for _, f := range []string{"summary.txt", "segments.json", "frame_metrics.csv"} {
+	for _, f := range []string{"trunc-summary.txt", "segments.json", "frame_metrics.csv"} {
 		if _, e := os.Stat(filepath.Join(dir, f)); e != nil {
 			t.Errorf("missing %s: %v", f, e)
 		}
@@ -113,7 +113,7 @@ func TestRun_DryRunExportsMetadataWithoutPCAPs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	for _, f := range []string{"summary.txt", "segments.json", "frame_metrics.csv"} {
+	for _, f := range []string{"trunc-summary.txt", "segments.json", "frame_metrics.csv"} {
 		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
 			t.Errorf("missing %s: %v", f, err)
 		}

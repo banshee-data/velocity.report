@@ -58,7 +58,7 @@ func Run(cfg SplitConfig) error {
 	}
 
 	// Always write a human-readable summary; print it too.
-	if err := WriteSummary(cfg.MetadataPath("summary.txt"), report); err != nil {
+	if err := WriteSummary(cfg.SummaryPath(), report); err != nil {
 		return err
 	}
 	fmt.Print(FormatSummary(report))

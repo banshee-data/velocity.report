@@ -136,3 +136,12 @@ func minSec(secs float64) string {
 func (c SplitConfig) MetadataPath(name string) string {
 	return filepath.Join(c.OutputDir, name)
 }
+
+// SummaryPath returns the human-readable summary filename. When OutputPrefix is
+// resolved, the summary follows the same prefix as the segment files.
+func (c SplitConfig) SummaryPath() string {
+	if c.OutputPrefix == "" {
+		return c.MetadataPath("summary.txt")
+	}
+	return c.MetadataPath(c.OutputPrefix + "-summary.txt")
+}

@@ -66,6 +66,10 @@ func TestMetadataPathAndTimelineConfig(t *testing.T) {
 	if got := cfg.MetadataPath("x.json"); got != filepath.Join("/tmp/out", "x.json") {
 		t.Errorf("MetadataPath = %q", got)
 	}
+	cfg.OutputPrefix = "soma2"
+	if got := cfg.SummaryPath(); got != filepath.Join("/tmp/out", "soma2-summary.txt") {
+		t.Errorf("SummaryPath = %q", got)
+	}
 	tc := cfg.TimelineConfig()
 	if tc.SettlingSec != cfg.SettlingSec || tc.MotionTriggerSec != cfg.MotionTriggerSec ||
 		tc.MaxMotionGapSec != cfg.MaxMotionGapSec || tc.MinSegmentSec != cfg.MinSegmentSec {

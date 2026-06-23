@@ -327,7 +327,7 @@ segments/
 ├── capture-static-1.pcap
 ├── capture-motion-2.pcap
 ├── segments.json
-└── summary.txt
+└── capture-summary.txt
 ```
 
 ### Motion classifier API

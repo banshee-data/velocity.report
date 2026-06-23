@@ -351,7 +351,7 @@ output/
 ├── capture-static-1.pcap # Second static segment
 ├── segments.json # Segment metadata (--export-json)
 ├── frame_metrics.csv # Per-frame metrics (--export-metrics)
-└── summary.txt # Human-readable summary
+└── capture-summary.txt # Human-readable summary
 **Segment Metadata JSON** (`segments.json`):
 
 JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `total_frames`, `config`, `settling_duration_sec`, `min_segment_sec`, `max_motion_gap_sec`, `segments`, `type`, `id`, `filename`, `start_time`, `end_time`.
@@ -367,7 +367,7 @@ JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `t
 | ...      |                          |             |              |                   |               |               |                 |             |          |
 | 256      | 2025-01-15T10:34:15.000Z | 25600000    | 40000        | 500               | 65000         | 58000         | 80.56           | 0.3         | static   |
 
-**Summary Report** (`summary.txt`):
+**Summary Report** (`<prefix>-summary.txt`):
 
 # PCAP Split Analysis Summary
 
