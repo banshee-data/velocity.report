@@ -464,4 +464,4 @@ jobs:
           name: nightly-benchmark-results
           path: |
             *_benchmark.json
-            internal/lidar/perf/baseline/*.json
+            internal/lidar/perf/baseline/baseline-*-ci.json

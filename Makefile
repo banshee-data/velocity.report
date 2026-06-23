@@ -1234,7 +1234,8 @@ test-perf:
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
 		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
 	fi; \
-	rm -f lidar-bench *_benchmark.json; \
+	rm -f lidar-bench; \
+	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
 
 # =============================================================================
