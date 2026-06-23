@@ -93,6 +93,9 @@ func FormatSummary(r Report) string {
 	fmt.Fprintf(&b, "Total Packets:   %d\n", r.TotalPackets)
 	fmt.Fprintf(&b, "Total Frames:    %d\n", r.TotalFrames)
 	fmt.Fprintf(&b, "Total Duration:  %s\n", minSec(r.TotalDurationSec))
+	if r.Capture.TotalFrames > 0 {
+		fmt.Fprint(&b, r.Capture.captureBlock())
+	}
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "Configuration:")
 	fmt.Fprintf(&b, "  Settling Duration:  %.0fs\n", r.Config.SettlingSec)
@@ -103,10 +106,24 @@ func FormatSummary(r Report) string {
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "Detailed Breakdown:")
 	for i, s := range r.Segments {
-		fmt.Fprintf(&b, "  [%d] %-7s %8.1fs → %8.1fs  (%s)  %d packets  %s\n",
-			i, s.Type, s.StartSecs, s.EndSecs, minSec(s.DurationSecs), s.PacketCount, s.Filename)
+		fmt.Fprintf(&b, "  [%d] %-7s %s  (%s)  %d packets  %s\n",
+			i, s.Type, segmentBounds(s, r.Config.TimelineUnits), minSec(s.DurationSecs), s.PacketCount, s.Filename)
 	}
 	return b.String()
+}
+
+// segmentBounds renders a segment's start→end columns in the requested units:
+// "frames", "timestamp", or "seconds" (the default).
+func segmentBounds(s Segment, units string) string {
+	switch units {
+	case "frames":
+		return fmt.Sprintf("frame %7d → %7d", s.StartFrame, s.EndFrame)
+	case "timestamp":
+		return fmt.Sprintf("%s → %s",
+			s.StartTime.Format("15:04:05.000"), s.EndTime.Format("15:04:05.000"))
+	default: // seconds
+		return fmt.Sprintf("%8.1fs → %8.1fs", s.StartSecs, s.EndSecs)
+	}
 }
 
 // minSec formats a duration in seconds as "Nm SSs".

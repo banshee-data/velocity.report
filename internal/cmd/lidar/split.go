@@ -35,6 +35,9 @@ func SplitMain(args []string) int {
 	fs.BoolVar(&cfg.ExportJSON, "export-json", false, "Write segment metadata to segments.json")
 	fs.BoolVar(&cfg.DryRun, "dry-run", false, "Analyse and report segments without writing PCAP files")
 	fs.Float64Var(&cfg.ProgressSecs, "progress", 20, "Seconds between progress updates during the PCAP read (0 = off)")
+	fs.BoolVar(&cfg.Stats10s, "stats-10s", false, "Print per-10s frame-rate buckets (grep-friendly)")
+	fs.StringVar(&cfg.TimelineUnits, "timeline-units", "seconds", "Breakdown time columns: seconds, frames, or timestamp")
+	fs.StringVar(&cfg.MotionJSONPath, "motion-json", "", "Write the motion/static timeline to this JSON file")
 	fs.BoolVar(&cfg.Verbose, "verbose", false, "Verbose logging")
 
 	fs.Usage = func() {

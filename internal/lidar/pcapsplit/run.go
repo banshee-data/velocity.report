@@ -52,6 +52,7 @@ func Run(cfg SplitConfig) error {
 		TotalFrames:      analysis.TotalFrames,
 		TotalDurationSec: analysis.LastTime.Sub(analysis.FirstTime).Seconds(),
 		Config:           cfg,
+		Capture:          analysis.Capture,
 		Segments:         segments,
 	}
 
@@ -60,6 +61,18 @@ func Run(cfg SplitConfig) error {
 		return err
 	}
 	fmt.Print(FormatSummary(report))
+
+	// Optional per-10s frame-rate buckets (the scan-health detail view).
+	if cfg.Stats10s {
+		fmt.Print(FormatStats10s(analysis.Capture))
+	}
+	// Optional motion/static timeline JSON (the periods, independent of the
+	// written segment files).
+	if cfg.MotionJSONPath != "" {
+		if err := WriteMotionTimelineJSON(cfg.MotionJSONPath, cfg.PCAPFile, report.TotalDurationSec, periods); err != nil {
+			return fmt.Errorf("write motion json: %w", err)
+		}
+	}
 
 	if cfg.ExportJSON {
 		if err := WriteSegmentsJSON(cfg.MetadataPath("segments.json"), report); err != nil {

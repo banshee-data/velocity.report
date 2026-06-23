@@ -16,7 +16,8 @@ import (
 )
 
 // Analysis is the result of the read/classify pass over a PCAP. Frames are the
-// per-frame records for CSV export; Samples feed BuildTimeline.
+// per-frame records for CSV export; Samples feed BuildTimeline; Capture is the
+// scan-level health summary (frame rate, RPM, per-10s buckets).
 type Analysis struct {
 	Frames       []FrameMetrics
 	Samples      []FrameSample
@@ -24,6 +25,7 @@ type Analysis struct {
 	TotalFrames  int
 	FirstTime    time.Time
 	LastTime     time.Time
+	Capture      CaptureStats
 }
 
 // Analyse replays the PCAP through a BackgroundManager and records, per frame,
@@ -104,9 +106,12 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 
 	stats := &countingStats{}
 	reader := wrapProgress(cfg, stats, "scan")
+	// Wrap the frame builder so the scan pass captures motor RPM (reported per
+	// packet via SetMotorSpeed); point assembly still flows to the real builder.
+	sb := &statsBuilder{inner: fb}
 	if err := network.ReadPCAPFile(
 		context.Background(), cfg.PCAPFile, cfg.UDPPort,
-		parser, fb, reader, nil,
+		parser, sb, reader, nil,
 		0, -1, 0, 0, nil,
 	); err != nil {
 		return nil, fmt.Errorf("pcap replay: %w", err)
@@ -131,6 +136,14 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 		a.FirstTime = samples[0].T
 		a.LastTime = samples[len(samples)-1].T
 	}
+	frameTimes := make([]time.Time, len(frames))
+	var totalPoints, foregroundPoints int
+	for i, f := range frames {
+		frameTimes[i] = f.T
+		totalPoints += f.TotalPoints
+		foregroundPoints += f.ForegroundPoints
+	}
+	a.Capture = computeCaptureStats(cfg.PCAPFile, frameTimes, stats.count(), totalPoints, foregroundPoints, sb.snapshot())
 	return a, nil
 }
 
@@ -167,4 +180,30 @@ func (s *countingStats) count() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.packets
+}
+
+// statsBuilder wraps the frame builder to capture motor RPM, which the network
+// layer reports per packet via SetMotorSpeed. Point assembly passes straight
+// through; only RPM is recorded, for the capture-stats summary.
+type statsBuilder struct {
+	inner network.FrameBuilder
+	mu    sync.Mutex
+	rpm   rpmAccumulator
+}
+
+func (b *statsBuilder) AddPointsPolar(points []l2frames.PointPolar) {
+	b.inner.AddPointsPolar(points)
+}
+
+func (b *statsBuilder) SetMotorSpeed(rpm uint16) {
+	b.inner.SetMotorSpeed(rpm)
+	b.mu.Lock()
+	b.rpm.observe(rpm)
+	b.mu.Unlock()
+}
+
+func (b *statsBuilder) snapshot() rpmAccumulator {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.rpm
 }

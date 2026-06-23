@@ -34,6 +34,9 @@ type SplitConfig struct {
 	DryRun           bool    `json:"-"`
 	Verbose          bool    `json:"-"`
 	ProgressSecs     float64 `json:"-"` // Seconds between progress updates during the read (0 = off)
+	Stats10s         bool    `json:"-"` // Print per-10s frame-rate buckets
+	TimelineUnits    string  `json:"-"` // Breakdown time columns: seconds (default), frames, timestamp
+	MotionJSONPath   string  `json:"-"` // Write the motion/static timeline to this JSON path
 
 	// Tuning is the loaded tuning config (from -config); nil falls back to the
 	// embedded defaults. The classifier's background model and thresholds come
@@ -42,7 +45,8 @@ type SplitConfig struct {
 }
 
 // DefaultSplitConfig returns a config with the standard defaults. Port 2369
-// matches the project's capture conventions (pcap-analyse / settling-eval).
+// matches the project's capture conventions (settling-eval and the live
+// capture pipeline).
 func DefaultSplitConfig() SplitConfig {
 	return SplitConfig{
 		OutputDir:        ".",
@@ -94,6 +98,8 @@ type Segment struct {
 	StartSecs    float64   `json:"start_secs"`
 	EndSecs      float64   `json:"end_secs"`
 	DurationSecs float64   `json:"duration_secs"`
+	StartFrame   int       `json:"start_frame"`
+	EndFrame     int       `json:"end_frame"`
 	StartTime    time.Time `json:"start_time"`
 	EndTime      time.Time `json:"end_time"`
 	PacketCount  int       `json:"packet_count"`
@@ -118,6 +124,8 @@ func BuildSegments(periods []MotionPeriod, prefix string) []Segment {
 			StartSecs:    p.StartSecs,
 			EndSecs:      p.EndSecs,
 			DurationSecs: p.DurationSecs,
+			StartFrame:   p.StartFrame,
+			EndFrame:     p.EndFrame,
 			StartTime:    p.StartTime,
 			EndTime:      p.EndTime,
 		})
@@ -155,11 +163,12 @@ func AssignFrameStates(frames []FrameMetrics, segs []Segment) {
 
 // Report is the top-level result bundle for metadata export and the summary.
 type Report struct {
-	InputFile        string      `json:"input_file"`
-	ProcessingTimeMs int64       `json:"processing_time_ms"`
-	TotalPackets     int         `json:"total_packets"`
-	TotalFrames      int         `json:"total_frames"`
-	TotalDurationSec float64     `json:"total_duration_sec"`
-	Config           SplitConfig `json:"config"`
-	Segments         []Segment   `json:"segments"`
+	InputFile        string       `json:"input_file"`
+	ProcessingTimeMs int64        `json:"processing_time_ms"`
+	TotalPackets     int          `json:"total_packets"`
+	TotalFrames      int          `json:"total_frames"`
+	TotalDurationSec float64      `json:"total_duration_sec"`
+	Config           SplitConfig  `json:"config"`
+	Capture          CaptureStats `json:"capture"`
+	Segments         []Segment    `json:"segments"`
 }
