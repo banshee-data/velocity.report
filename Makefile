@@ -1204,9 +1204,12 @@ loc-coverage-chart:
 	@echo "Wrote dist/loc-coverage.svg"
 
 # Run performance regression test
+PERF_REGRESSION_THRESHOLD ?= 0.30
+
 test-perf:
 	@NAME="$${NAME:-kirk0}"; \
 	BASE_NAME="$${NAME%.*}"; \
+	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
 	echo "Target: $$BASE_NAME"; \
 	if [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcapng" ]; then \
 		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcapng"; \
@@ -1232,7 +1235,7 @@ test-perf:
 		echo "Created baseline: $$BASELINE_FILE"; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
+		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -regression-threshold "$(PERF_REGRESSION_THRESHOLD)" -quiet || EXIT_CODE=$$?; \
 	fi; \
 	rm -f lidar-bench; \
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
