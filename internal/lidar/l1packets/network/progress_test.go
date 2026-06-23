@@ -80,6 +80,27 @@ func TestProgressStatsNoPercentWithoutSize(t *testing.T) {
 	}
 }
 
+func TestPacketOnlyProgressStatsSuppressesPointAndRPMColumns(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewPacketOnlyProgressStats(&recordStats{}, 1000, time.Nanosecond, "write", &buf)
+	p.AddPacket(500)
+	time.Sleep(time.Millisecond)
+	p.(ProgressObserver).ObserveProgress(time.Unix(1000, 0), 0)
+
+	out := buf.String()
+	if !strings.Contains(out, "[write]") || !strings.Contains(out, "packets") {
+		t.Fatalf("missing packet-only progress line: %q", out)
+	}
+	for _, forbidden := range []string{"points", "rpm", "pts/frame"} {
+		if strings.Contains(out, forbidden) {
+			t.Fatalf("packet-only progress line should omit %q: %q", forbidden, out)
+		}
+	}
+	if !strings.Contains(out, "elapsed") || !strings.Contains(out, "pkt/s") {
+		t.Fatalf("packet-only line missing elapsed/rate columns: %q", out)
+	}
+}
+
 func TestProgressFormatHelpers(t *testing.T) {
 	if got := commaInt(1234567); got != "1,234,567" {
 		t.Errorf("commaInt = %q", got)

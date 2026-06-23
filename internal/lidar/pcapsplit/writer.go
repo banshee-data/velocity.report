@@ -73,7 +73,7 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 		}
 
 		// Pass 2 progress, paced the same way as the scan pass. The writer copies
-		// packets without decoding them, so RPM/points-per-frame stay blank.
+		// packets without decoding them, so only packet-oriented columns are shown.
 		if prog != nil {
 			prog.AddPacket(len(data))
 			prog.ObserveProgress(ci.Timestamp, 0)
@@ -131,7 +131,8 @@ func (s *segWriter) close() error {
 // disabled (cfg.ProgressSecs <= 0). It mirrors wrapProgress (used by the scan
 // pass) but drives a bare *network.ProgressStats directly, because the write
 // loop reads packets through gopacket rather than network.ReadPCAPFile. There is
-// no inner sink: WriteSegments tracks its own per-segment packet counts.
+// no inner sink: WriteSegments tracks its own per-segment packet counts, and the
+// write phase omits points/RPM columns because it never decodes those values.
 func newWriteProgress(cfg SplitConfig) *network.ProgressStats {
 	if cfg.ProgressSecs <= 0 {
 		return nil
@@ -141,6 +142,6 @@ func newWriteProgress(cfg SplitConfig) *network.ProgressStats {
 		size = fi.Size()
 	}
 	interval := time.Duration(cfg.ProgressSecs * float64(time.Second))
-	p, _ := network.NewProgressStats(nil, size, interval, "write", os.Stderr).(*network.ProgressStats)
+	p, _ := network.NewPacketOnlyProgressStats(nil, size, interval, "write", os.Stderr).(*network.ProgressStats)
 	return p
 }

@@ -14,11 +14,12 @@ import (
 // that needs no up-front packet count, which on a multi-GB file would itself
 // take over a minute.
 type ProgressStats struct {
-	inner    PacketStatsInterface
-	fileSize int64
-	interval time.Duration
-	label    string
-	out      io.Writer
+	inner      PacketStatsInterface
+	fileSize   int64
+	interval   time.Duration
+	label      string
+	out        io.Writer
+	packetOnly bool
 
 	mu           sync.Mutex
 	payloadBytes int64
@@ -60,6 +61,19 @@ func NewProgressStats(inner PacketStatsInterface, fileSize int64, interval time.
 		start:      now,
 		lastReport: now,
 	}
+}
+
+// NewPacketOnlyProgressStats mirrors NewProgressStats but suppresses the
+// points/RPM/points-per-frame columns. This is used by pass-2 writers that
+// stream packets without decoding per-frame sensor details.
+func NewPacketOnlyProgressStats(inner PacketStatsInterface, fileSize int64, interval time.Duration, label string, out io.Writer) PacketStatsInterface {
+	wrapped := NewProgressStats(inner, fileSize, interval, label, out)
+	p, ok := wrapped.(*ProgressStats)
+	if !ok {
+		return wrapped
+	}
+	p.packetOnly = true
+	return p
 }
 
 // AddPacket records a packet's payload size and forwards to the inner stats.
@@ -140,6 +154,10 @@ func (p *ProgressStats) formatLocked() string {
 			frac = 100
 		}
 		pct = fmt.Sprintf("~%4.1f%% | ", frac)
+	}
+	if p.packetOnly {
+		return fmt.Sprintf("[%s] %s%s packets | %s elapsed | %.0f pkt/s",
+			p.label, pct, commaInt(p.packets), mmss(elapsed), rate)
 	}
 	// RPM and points-per-frame for the interval since the last report. Frames are
 	// estimated from the capture-time span and motor speed, so this needs RPM.
