@@ -455,7 +455,6 @@ jobs:
 
       - name: Run performance benchmark
         run: make test-perf
-        continue-on-error: true
 
       - name: Upload benchmark results
         if: always()
