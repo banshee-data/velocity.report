@@ -1221,6 +1221,8 @@ test-perf:
 	else \
 		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
 	fi; \
+	./scripts/ensure-web-stub.sh; \
+	./scripts/ensure-docs-stub.sh; \
 	echo "Building lidar-bench..."; \
 	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
 	EXIT_CODE=0; \
