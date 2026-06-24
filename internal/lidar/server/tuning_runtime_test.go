@@ -78,6 +78,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	params.LockedBaselineThreshold = 6
 	params.LockedBaselineMultiplier = 7
 	params.SensorMovementForegroundThreshold = 0.4
+	params.SensorMovementDriftRatioThreshold = 0.55
 	params.BackgroundDriftThresholdMetres = 0.5
 	params.BackgroundDriftRatioThreshold = 0.6
 	params.SettlingMinCoverage = 0.7
@@ -139,6 +140,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		t.Fatalf("runtime L1 unexpectedly exposed process-level networking fields: %s", l1JSON)
 	}
 	if !approxEqualFloat64(runtimeCfg.L3.EmaBaselineV1.NoiseRelative, 0.12) ||
+		!approxEqualFloat64(runtimeCfg.L3.EmaBaselineV1.SensorMovementDriftRatioThreshold, 0.55) ||
 		runtimeCfg.L3.EmaBaselineV1.EnableDiagnostics != true ||
 		runtimeCfg.L4.DbscanXyV1.ForegroundMaxInputPoints != 9000 {
 		t.Fatalf("unexpected L3/L4 runtime sync: %+v %+v", runtimeCfg.L3.EmaBaselineV1, runtimeCfg.L4.DbscanXyV1)
@@ -327,33 +329,37 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	ws.storeTuningConfig(cfg)
 
 	patch := map[string]interface{}{
-		"l3.ema_baseline_v1.noise_relative":                       0.2,
-		"l3.ema_baseline_v1.freeze_duration":                      "4s",
-		"l3.ema_baseline_v1.freeze_threshold_multiplier":          4.0,
-		"l3.ema_baseline_v1.settling_period":                      "6m",
-		"l3.ema_baseline_v1.snapshot_interval":                    "30m",
-		"l3.ema_baseline_v1.change_threshold_snapshot":            22,
-		"l3.ema_baseline_v1.reacquisition_boost_multiplier":       3.0,
-		"l3.ema_baseline_v1.min_confidence_floor":                 4,
-		"l3.ema_baseline_v1.locked_baseline_threshold":            5,
-		"l3.ema_baseline_v1.locked_baseline_multiplier":           6.0,
-		"l3.ema_baseline_v1.sensor_movement_foreground_threshold": 0.3,
-		"l3.ema_baseline_v1.background_drift_threshold_metres":    0.4,
-		"l3.ema_baseline_v1.background_drift_ratio_threshold":     0.2,
-		"l3.ema_baseline_v1.settling_min_coverage":                0.8,
-		"l3.ema_baseline_v1.settling_max_spread_delta":            0.01,
-		"l3.ema_baseline_v1.settling_min_region_stability":        0.9,
-		"l3.ema_baseline_v1.settling_min_confidence":              2.0,
-		"l4.dbscan_xy_v1.foreground_max_input_points":             5000,
-		"l5.cv_kf_v1.min_observations_for_classification":         10,
-		"l5.cv_kf_v1.deleted_track_grace_period":                  "3s",
-		"l5.cv_kf_v1.max_tracks":                                  55,
+		"l3.ema_baseline_v1.noise_relative":                        0.2,
+		"l3.ema_baseline_v1.freeze_duration":                       "4s",
+		"l3.ema_baseline_v1.freeze_threshold_multiplier":           4.0,
+		"l3.ema_baseline_v1.settling_period":                       "6m",
+		"l3.ema_baseline_v1.snapshot_interval":                     "30m",
+		"l3.ema_baseline_v1.change_threshold_snapshot":             22,
+		"l3.ema_baseline_v1.reacquisition_boost_multiplier":        3.0,
+		"l3.ema_baseline_v1.min_confidence_floor":                  4,
+		"l3.ema_baseline_v1.locked_baseline_threshold":             5,
+		"l3.ema_baseline_v1.locked_baseline_multiplier":            6.0,
+		"l3.ema_baseline_v1.sensor_movement_foreground_threshold":  0.3,
+		"l3.ema_baseline_v1.sensor_movement_drift_ratio_threshold": 0.5,
+		"l3.ema_baseline_v1.background_drift_threshold_metres":     0.4,
+		"l3.ema_baseline_v1.background_drift_ratio_threshold":      0.2,
+		"l3.ema_baseline_v1.settling_min_coverage":                 0.8,
+		"l3.ema_baseline_v1.settling_max_spread_delta":             0.01,
+		"l3.ema_baseline_v1.settling_min_region_stability":         0.9,
+		"l3.ema_baseline_v1.settling_min_confidence":               2.0,
+		"l4.dbscan_xy_v1.foreground_max_input_points":              5000,
+		"l5.cv_kf_v1.min_observations_for_classification":          10,
+		"l5.cv_kf_v1.deleted_track_grace_period":                   "3s",
+		"l5.cv_kf_v1.max_tracks":                                   55,
 	}
 	if err := applyRuntimeTuningPatch(ws, bm, patch); err != nil {
 		t.Fatalf("applyRuntimeTuningPatch returned error: %v", err)
 	}
 	if got := bm.GetParams().NoiseRelativeFraction; got != 0.2 {
 		t.Fatalf("background manager noise_relative = %v, want 0.2", got)
+	}
+	if got := bm.GetParams().SensorMovementDriftRatioThreshold; got != 0.5 {
+		t.Fatalf("background manager sensor_movement_drift_ratio_threshold = %v, want 0.5", got)
 	}
 	if got := bm.GetParams().ForegroundMaxInputPoints; got != 5000 {
 		t.Fatalf("background manager foreground_max_input_points = %d, want 5000", got)

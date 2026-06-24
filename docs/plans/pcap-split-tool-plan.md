@@ -1,6 +1,6 @@
 # PCAP split tool design document
 
-- **Status:** Proposed
+- **Status:** Complete (`velocity lidar pcap-split`; engine in `internal/lidar/pcapsplit`)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
 ## Executive summary
@@ -49,11 +49,11 @@ Automated PCAP segmentation tool that:
 [Depart] → Drive 3min → [Stop A: 5min] → Drive 2min → [Stop B: 8min] → [Return]
 **Expected Output**:
 
-out-motion-0.pcap # Depart → Stop A (3 min)
-out-static-0.pcap # Stop A parking (5 min)
-out-motion-1.pcap # Stop A → Stop B, including 30s intersection wait (2 min)
-out-static-1.pcap # Stop B parking (8 min)
-out-motion-2.pcap # Return journey (variable)
+soma2-motion-0.pcap # Depart → Stop A (3 min)
+soma2-static-0.pcap # Stop A parking (5 min)
+soma2-motion-1.pcap # Stop A → Stop B, including 30s intersection wait (2 min)
+soma2-static-1.pcap # Stop B parking (8 min)
+soma2-motion-2.pcap # Return journey (variable)
 **Key Requirements**:
 
 - Keep 30-second intersection pauses within motion segments
@@ -67,9 +67,9 @@ out-motion-2.pcap # Return journey (variable)
 [Static: 4 hours] → [Car moves: 30s] → [Static: 4 hours]
 **Expected Output**:
 
-out-static-0.pcap # 4 hours stable
-out-motion-0.pcap # 30s movement
-out-static-1.pcap # 4 hours stable
+overnight-static-0.pcap # 4 hours stable
+overnight-motion-0.pcap # 30s movement
+overnight-static-1.pcap # 4 hours stable
 
 ### Tertiary use case: data quality assessment
 
@@ -117,7 +117,7 @@ Analysts can then:
 - Split input PCAP at detected transition points
 - Output separate files for each motion/static segment
 - Preserve packet integrity (no truncated frames)
-- Sequential numbering: `out-static-0.pcap`, `out-motion-0.pcap`, `out-static-1.pcap`, ...
+- Sequential numbering: `<input-stem>-static-0.pcap`, `<input-stem>-motion-0.pcap`, `<input-stem>-static-1.pcap`, ...
 
 **FR5: Timestamp Alignment**
 
@@ -326,7 +326,7 @@ Stability criteria (all must be true):
 - `Options:`
 - `--pcap FILE             Input PCAP file (required)`
 - `--output DIR            Output directory (default: current dir)`
-- `--prefix NAME           Output filename prefix (default: "out")`
+- `--prefix NAME           Output filename prefix (default: input file stem)`
 - `--settling-sec N        Settling duration threshold in seconds (default: 60)`
 - `--min-segment-sec N     Minimum segment duration in seconds (default: 5)`
 - `--max-motion-gap-sec N  Maximum motion gap to bridge in seconds (default: 30)`
@@ -345,29 +345,29 @@ Stability criteria (all must be true):
   **Output Files**:
 
 output/
-├── out-motion-0.pcap # First motion segment
-├── out-static-0.pcap # First static segment
-├── out-motion-1.pcap # Second motion segment
-├── out-static-1.pcap # Second static segment
+├── capture-motion-0.pcap # First motion segment
+├── capture-static-0.pcap # First static segment
+├── capture-motion-1.pcap # Second motion segment
+├── capture-static-1.pcap # Second static segment
 ├── segments.json # Segment metadata (--export-json)
 ├── frame_metrics.csv # Per-frame metrics (--export-metrics)
-└── summary.txt # Human-readable summary
+└── capture-summary.txt # Human-readable summary
 **Segment Metadata JSON** (`segments.json`):
 
-JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `total_frames`, `config`, `settling_duration_sec`, `min_segment_sec`, `max_motion_gap_sec`, `settled_threshold`, `segments`, `type`, `id`, `filename`, `start_time`, `end_time`.
+JSON object with fields: `input_file`, `processing_time_ms`, `total_packets`, `total_frames`, `config`, `settling_duration_sec`, `min_segment_sec`, `max_motion_gap_sec`, `segments`, `type`, `id`, `filename`, `start_time`, `end_time`.
 **Frame Metrics CSV** (`frame_metrics.csv`):
 
-| frame_id | timestamp                | pcap_offset | total_points | foreground_points | nonzero_cells | settled_cells | percent_settled | deviation_from_noise | state    |
-| -------- | ------------------------ | ----------- | ------------ | ----------------- | ------------- | ------------- | --------------- | -------------------- | -------- |
-| 0        | 2025-01-15T10:30:00.000Z | 0           | 40000        | 8000              | 12000         | 0             | 0.00            | 5.2                  | motion   |
-| 1        | 2025-01-15T10:30:00.100Z | 100000      | 40000        | 7500              | 12500         | 100           | 0.14            | 4.8                  | motion   |
-| ...      |                          |             |              |                   |               |               |                 |                      |          |
-| 195      | 2025-01-15T10:33:15.000Z | 19500000    | 40000        | 2000              | 60000         | 40000         | 55.56           | 1.2                  | motion   |
-| 196      | 2025-01-15T10:33:15.100Z | 19600000    | 40000        | 1500              | 62000         | 45000         | 62.50           | 0.8                  | settling |
-| ...      |                          |             |              |                   |               |               |                 |                      |          |
-| 256      | 2025-01-15T10:34:15.000Z | 25600000    | 40000        | 500               | 65000         | 58000         | 80.56           | 0.3                  | static   |
+| frame_id | timestamp                | pcap_offset | total_points | foreground_points | nonzero_cells | settled_cells | percent_settled | drift_ratio | state    |
+| -------- | ------------------------ | ----------- | ------------ | ----------------- | ------------- | ------------- | --------------- | ----------- | -------- |
+| 0        | 2025-01-15T10:30:00.000Z | 0           | 40000        | 8000              | 12000         | 0             | 0.00            | 0.82        | motion   |
+| 1        | 2025-01-15T10:30:00.100Z | 100000      | 40000        | 7500              | 12500         | 100           | 0.14            | 0.61        | motion   |
+| ...      |                          |             |              |                   |               |               |                 |             |          |
+| 195      | 2025-01-15T10:33:15.000Z | 19500000    | 40000        | 2000              | 60000         | 40000         | 55.56           | 1.2         | motion   |
+| 196      | 2025-01-15T10:33:15.100Z | 19600000    | 40000        | 1500              | 62000         | 45000         | 62.50           | 0.8         | settling |
+| ...      |                          |             |              |                   |               |               |                 |             |          |
+| 256      | 2025-01-15T10:34:15.000Z | 25600000    | 40000        | 500               | 65000         | 58000         | 80.56           | 0.3         | static   |
 
-**Summary Report** (`summary.txt`):
+**Summary Report** (`<prefix>-summary.txt`):
 
 # PCAP Split Analysis Summary
 
@@ -394,11 +394,11 @@ Detailed Breakdown:
 [4] motion 10:41:17 → 10:44:02 (2m 45s) 16,530 packets
 
 Output Files:
-out-motion-0.pcap (19.5 MB)
-out-static-0.pcap (30.0 MB)
-out-motion-1.pcap (13.5 MB)
-out-static-1.pcap (4.7 MB)
-out-motion-2.pcap (16.5 MB)
+capture-motion-0.pcap (19.5 MB)
+capture-static-0.pcap (30.0 MB)
+capture-motion-1.pcap (13.5 MB)
+capture-static-1.pcap (4.7 MB)
+capture-motion-2.pcap (16.5 MB)
 
 Metrics Export:
 segments.json (segment metadata)
@@ -440,12 +440,8 @@ From `BackgroundManager`:
 
 **GetNoiseBoundsDeviation** algorithm:
 
-- Deviation in units of expected noise (sigma-like metric)
-  **3. Within Bounds Check** (add to `BackgroundManager`):
-
-- IsWithinNoiseBounds returns true if most cells are within expected noise envelope
-
-**IsWithinNoiseBounds** algorithm:
+- Deviation in units of expected noise (sigma-like metric), used by the shared
+  L3 sensor-motion evaluator alongside the foreground fraction.
 
 ### Data structures
 
@@ -453,21 +449,21 @@ From `BackgroundManager`:
 
 **SplitConfig** fields:
 
-| Field                | Type               | Description                  |
-| -------------------- | ------------------ | ---------------------------- |
-| PCAPFile             | `string`           | Input/Output                 |
-| OutputDir            | `string`           |                              |
-| OutputPrefix         | `string`           |                              |
-| SettlingDurationSec  | `float64`          | Default: 60.0                |
-| MinSegmentSec        | `float64`          | Default: 5.0                 |
-| MaxMotionGapSec      | `float64`          | Default: 30.0                |
-| SettledCellThreshold | `uint32`           | Default: 50 (TimesSeenCount) |
-| BackgroundParams     | `BackgroundParams` | Background Parameters        |
-| SensorID             | `string`           | Sensor Configuration         |
-| UDPPort              | `int`              |                              |
-| ExportMetrics        | `bool`             | Export Options               |
-| ExportJSON           | `bool`             |                              |
-| Verbose              | `bool`             |                              |
+| Field                   | Type               | Description                       |
+| ----------------------- | ------------------ | --------------------------------- |
+| PCAPFile                | `string`           | Input/Output                      |
+| OutputDir               | `string`           |                                   |
+| OutputPrefix            | `string`           |                                   |
+| SettlingDurationSec     | `float64`          | Default: 60.0                     |
+| MinSegmentSec           | `float64`          | Default: 5.0                      |
+| MaxMotionGapSec         | `float64`          | Default: 30.0                     |
+| LockedBaselineThreshold | `uint32`           | Shared L3 config (TimesSeenCount) |
+| BackgroundParams        | `BackgroundParams` | Background Parameters             |
+| SensorID                | `string`           | Sensor Configuration              |
+| UDPPort                 | `int`              |                                   |
+| ExportMetrics           | `bool`             | Export Options                    |
+| ExportJSON              | `bool`             |                                   |
+| Verbose                 | `bool`             |                                   |
 
 #### State machine
 
@@ -634,7 +630,6 @@ From `BackgroundManager`:
 
 - Implement `GetFrameSettlingMetrics(settledThreshold uint32)`
 - Implement `GetNoiseBoundsDeviation()`
-- Implement `IsWithinNoiseBounds(threshold float64)`
 - Add unit tests for new methods
 
 **1.3 Basic State Machine**

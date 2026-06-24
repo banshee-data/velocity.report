@@ -50,6 +50,7 @@ app-*
 /gen-vrlog
 mock_serial_port*
 /pcap-analyse
+/pcap-split
 /radar
 /replay-server
 /settling-eval
@@ -58,6 +59,9 @@ mock_serial_port*
 
 # Single multi-call binary build outputs (build-velocity*, go-ci, dev).
 /velocity
+/velocity-linux-arm64
+/velocity-mac-arm64
+/velocity-mac-amd64
 /velocity-ctl*
 /velocity-local
 [0-9]*-velocity-[0-9]*

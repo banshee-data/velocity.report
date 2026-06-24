@@ -57,7 +57,7 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 
 ## Proposed end state
 
-> Architecture diagram and key decisions: see [web-frontend-consolidation.md § Proposed End State](../ui/web-frontend-consolidation.md#proposed-end-state).
+> Architecture diagram and key decisions: see [web-frontend-consolidation.md § Proposed End State](../ui/web-frontend-consolidation.md#end-state).
 
 ## Options evaluated
 

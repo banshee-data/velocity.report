@@ -150,8 +150,8 @@ type sceneBuilder struct {
 
 	// scan-boundary detection. We bin by timestamp rather than azimuth wrap
 	// because multi-return / multi-channel sensors interleave azimuths within
-	// a packet and over-count wraps by ~10x (cmd/tools/pcap-analyse has the
-	// same caveat documented inline).
+	// a packet and over-count wraps by ~10x (the lidarbench frame builder uses
+	// raw-block-azimuth wrapping to avoid this; see internal/lidar/lidarbench).
 	scanDurationNS int64
 	scanIdx        int
 	scanStartNS    int64

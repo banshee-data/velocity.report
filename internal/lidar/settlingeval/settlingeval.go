@@ -1,4 +1,8 @@
-package main
+// Package settlingeval evaluates LiDAR background-grid settling convergence by
+// replaying a captured PCAP offline through a local BackgroundManager at full
+// speed. It backs both the standalone settling-eval tool and the
+// `velocity lidar settling-eval` subcommand.
+package settlingeval
 
 import (
 	"context"
@@ -7,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
@@ -14,25 +19,22 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
-// runPCAPEval replays a PCAP file offline through a local BackgroundManager
-// and evaluates settling convergence on every frame. No server is required.
-func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingReport, error) {
+// Run replays a PCAP file offline through a local BackgroundManager and
+// evaluates settling convergence on every frame. No server is required.
+func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingReport, error) {
 	start := time.Now()
 
 	// --- Load tuning configuration ---
-	var tuningCfg *config.TuningConfig
-	var err error
-	if tuningFile != "" {
-		tuningCfg, err = config.LoadTuningConfig(tuningFile)
-		if err != nil {
-			return nil, fmt.Errorf("load tuning config %s: %w", tuningFile, err)
-		}
-		log.Printf("loaded tuning config from %s", tuningFile)
-	} else {
-		tuningCfg = config.MustLoadDefaultConfig()
-		tuningFile = "config/tuning.defaults.json"
-		log.Printf("using default tuning config")
+	// Load tuning from the path if present, else the binary-embedded defaults,
+	// exactly as the live pipeline and the other pcap-* tools do.
+	if tuningFile == "" {
+		tuningFile = config.DefaultConfigPath
 	}
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(tuningFile, radarassets.TuningDefaults)
+	if err != nil {
+		return nil, fmt.Errorf("load tuning config %s: %w", tuningFile, err)
+	}
+	log.Printf("loaded tuning config (config=%s)", tuningFile)
 
 	bgConfig := backgroundConfigFromTuningConfig(tuningCfg)
 	// For offline evaluation disable warmup gating so we can observe the
@@ -67,7 +69,7 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.Se
 	bgMgr.SetSourcePath(pcapFile)
 
 	// --- Convergence tracking state ---
-	thresholds := l3grid.DefaultSettlingThresholds()
+	thresholds := settlingThresholdsFromTuning(tuningCfg)
 	var (
 		mu               sync.Mutex
 		history          []l3grid.SettlingMetrics
@@ -177,6 +179,15 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.Se
 	}, nil
 }
 
+func settlingThresholdsFromTuning(tuningCfg *config.TuningConfig) l3grid.SettlingThresholds {
+	return l3grid.SettlingThresholds{
+		MinCoverage:        tuningCfg.GetSettlingMinCoverage(),
+		MaxSpreadDelta:     tuningCfg.GetSettlingMaxSpreadDelta(),
+		MinRegionStability: tuningCfg.GetSettlingMinRegionStability(),
+		MinConfidence:      tuningCfg.GetSettlingMinConfidence(),
+	}
+}
+
 func backgroundConfigFromTuningConfig(tuningCfg *config.TuningConfig) *l3grid.BackgroundConfig {
-	return l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
+	return l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 }

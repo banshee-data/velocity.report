@@ -177,6 +177,16 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				}
 			}
 
+			// Feed the optional progress reporter this packet's capture time and
+			// motor speed so it can report RPM and points-per-frame.
+			if obs, ok := stats.(ProgressObserver); ok {
+				var rpm uint16
+				if parser != nil {
+					rpm = parser.GetLastMotorSpeed()
+				}
+				obs.ObserveProgress(captureTime, rpm)
+			}
+
 			// Log progress periodically
 			if packetCount%10000 == 0 {
 				elapsed := time.Since(startTime)

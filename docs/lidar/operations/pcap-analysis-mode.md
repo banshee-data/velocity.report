@@ -201,13 +201,13 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 ---
 
-## PCAP split tool (planned)
+## PCAP split tool
 
-Active plan: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md)
+Plans: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md), [pcap-motion-detection-and-split-plan.md](../../plans/pcap-motion-detection-and-split-plan.md)
 
 Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
 
-**Status:** Not yet implemented. Design complete.
+**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is a thin shim over the same engine). `pcap-split` is the single offline tool for **scan, motion stats, and splits**: its summary reports capture health (duration, frame rate from motor RPM, RPM range, points/frame, foreground %) alongside the motion/static segments. To preview the stats and timeline without writing any PCAP files, add `--dry-run`; `--stats-10s` appends per-10-second frame-rate buckets and `--motion-json timeline.json` writes the motion/static timeline to a file. Both offline tools (`pcap-split`, `settling-eval`) take `--config <tuning.json>` and load it via the same disk-or-embedded fallback as the live server, so offline analysis runs the **same algorithms and tuning as live observation** (the background model, motion thresholds, and sensor id all come from the tuning config; `settling-eval`'s old `--tuning` is a deprecated alias). When `--port` is omitted the sensor's UDP port is auto-detected from the capture. The detailed breakdown lists each segment by offset seconds by default; pass `--timeline-units frames` or `--timeline-units timestamp` for frame indices or absolute capture time (these diverge when a capture has recording gaps). Long reads print progress lines to stderr every 20 s by default; the scan pass reports percentage, packets, points, RPM, points-per-frame, elapsed time, and rate, while the write pass reports only percentage, packets, elapsed time, and rate. Tune or silence both with `--progress N` (0 disables). Pipeline performance regression testing lives in a separate dev/CI tool, `lidar-bench` (see [performance-regression-testing.md](performance-regression-testing.md)).
 
 ### Problem
 
@@ -233,21 +233,61 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 **Key packages:**
 
-| Package           | Location                               | Role                                                     |
-| ----------------- | -------------------------------------- | -------------------------------------------------------- |
-| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing: reads PCAP, filters UDP, parses packets        |
-| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New**: implements `FrameBuilder`, drives state machine |
-| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New**: buffers packets, writes segment PCAPs           |
-| CLI               | `cmd/tools/pcap-split/main.go`         | **New**: flag parsing, orchestration, summary output     |
+| Package           | Location                                   | Role                                                            |
+| ----------------- | ------------------------------------------ | --------------------------------------------------------------- |
+| PCAP reader       | `internal/lidar/l1packets/network/pcap.go` | Reads PCAP, filters UDP, parses packets                         |
+| Settling analyser | `internal/lidar/pcapsplit/analyse.go`      | Pass 1: classifies each frame motion/static via BackgroundMgr   |
+| Segment writer    | `internal/lidar/pcapsplit/writer.go`       | Pass 2: copies packets into per-segment PCAPs by timestamp      |
+| Orchestration     | `internal/lidar/pcapsplit/run.go`          | Two-pass `Run`; shared by the applet and the standalone wrapper |
+| CLI               | `internal/cmd/lidar/split.go`              | Flag parsing → `pcapsplit.Run`; `cmd/tools/pcap-split` wraps it |
+
+### Progress reporting
+
+`pcap-split` runs two passes, and each reports progress to stderr paced by
+`--progress` (default 20 s; 0 disables): a `[scan]` line during pass-1
+classification (with RPM and points-per-frame, since it decodes every frame) and
+a `[write]` line during pass-2 segment writing that shows only percentage,
+packet count, elapsed time, and packet rate — the writer copies packets without
+decoding per-frame points or motor speed. A `--dry-run` performs
+only the scan pass.
 
 ### Stability detection
 
-All four criteria must hold to classify a frame as stable:
+Motion is classified per frame by **sensor ego-motion**, from either of two
+signals:
 
-1. Foreground activity < 5% of total points
-2. Settled cells > 70% (`TimesSeenCount` >= threshold)
-3. Noise deviation < 2.0 sigma
-4. Within expected variance bounds
+- **Foreground fraction ≥ 0.20** (`SensorMovementForegroundThreshold`) catches
+  the _onset_ of motion: when the platform first moves, the scene shifts and
+  foreground spikes.
+
+- **Background-drift ratio ≥ 0.35** (`SensorMovementDriftRatioThreshold`) catches
+  _sustained_ motion. The drift ratio is the fraction of settled cells whose
+  range has shifted past `background_drift_threshold_metres` (0.5 m) from its
+  locked baseline. Driving shifts most of the grid at once, so the ratio climbs
+  to 0.4–1.0 and stays there; a parked sensor only shifts the few cells that
+  passing traffic crosses, so it stays near 0.1. Foreground alone goes blind to
+  long drives once the per-cell spread saturates and the gate widens; the drift
+  ratio does not.
+
+Drift ratio is the discriminator because it keys on **ego-motion** (most of the
+grid moving at once), not **scene activity**. The earlier sustained-motion
+signal — mean per-cell range spread over the noise floor — conflated the two: a
+busy parked scene inflates per-cell spread exactly as driving does, so a sensor
+parked in heavy traffic was mislabelled as moving for its entire stay. Drift
+ratio separates them cleanly: on real captures a busy parked scene stays at
+≤ ~0.23 while driving sits at ≥ ~0.43, so the 0.35 threshold has margin on both
+sides.
+
+A parked sensor stays below both thresholds — even while its background model is
+still settling at the start of a capture, and even when heavy traffic crosses an
+otherwise static scene. Settled-cell % is exported as diagnostic evidence but
+does not gate the decision. It uses the shared `locked_baseline_threshold`.
+
+The classifier advances warmup and frozen-cell state from PCAP timestamps, not
+wall-clock replay time. Replay mode exposes foreground during warmup but does
+not change any L3 tuning value; consequently `pcap-split` uses the same model
+parameters as live observation and remains deterministic when replay speed
+changes.
 
 **State machine:**
 
@@ -263,12 +303,13 @@ pcap-split [options]
 Options:
   --pcap FILE             Input PCAP file (required)
   --output DIR            Output directory (default: current dir)
-  --prefix NAME           Output filename prefix (default: "out")
+  --prefix NAME           Output filename prefix (default: input file stem)
   --settling-sec N        Settling duration threshold (default: 60)
   --min-segment-sec N     Minimum segment duration (default: 5)
   --max-motion-gap-sec N  Maximum motion gap to bridge (default: 30)
   --export-metrics        Export per-frame metrics CSV
   --export-json           Export segment metadata JSON
+  --progress N            Seconds between progress updates on stderr (default: 20; 0 = off)
 ```
 
 Example:
@@ -281,29 +322,21 @@ Output:
 
 ```
 segments/
-├── out-motion-0.pcap
-├── out-static-0.pcap
-├── out-motion-1.pcap
-├── out-static-1.pcap
-├── out-motion-2.pcap
+├── capture-motion-0.pcap
+├── capture-static-0.pcap
+├── capture-motion-1.pcap
+├── capture-static-1.pcap
+├── capture-motion-2.pcap
 ├── segments.json
-└── summary.txt
+└── capture-summary.txt
 ```
 
-### Required API extensions
+### Motion classifier API
 
-Three new read-only accessors on `BackgroundManager` (designed, not yet implemented):
+The shared L3 background manager provides these read-only motion inputs:
 
-| Method                                      | Purpose                                          |
-| ------------------------------------------- | ------------------------------------------------ |
-| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts     |
-| `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope |
-| `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance      |
-
-### Phased delivery
-
-| Phase | Scope                                                                | Size | Prerequisite      |
-| ----- | -------------------------------------------------------------------- | ---- | ----------------- |
-| 1     | `--motion` flag in `pcap-analyse`: motion timeline in summary output | S    | None              |
-| 2     | `BackgroundManager` API extensions: three new read-only accessors    | S    | Phase 1 validated |
-| 3     | Full `pcap-split` tool: analyser, writer, CLI, metadata export       | M    | Phase 2           |
+| Method                                      | Purpose                                              |
+| ------------------------------------------- | ---------------------------------------------------- |
+| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts         |
+| `CheckBackgroundDrift()`                    | Drift metrics; the ratio is the sustained-motion cue |
+| `EvaluateSensorMotion(mask)`                | Shared foreground/drift-ratio motion decision        |

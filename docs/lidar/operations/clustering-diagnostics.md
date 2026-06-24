@@ -14,7 +14,7 @@ Two classes of problem lack tooling:
 
 1. **Trail glitches**: tracks that repeatedly exhibit heading flips, speed jitter, merge/split artefacts, or dropout gaps. The pipeline currently logs aggregate counts (`N confirmed tracks active`) but nothing about _which_ cluster was associated, how many points it had, what the innovation residual was, or whether the cluster was subsampled.
 
-2. **Performance blind spot**: the `pcap-analyse -benchmark` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). Stepping from Mac M1 to Raspberry Pi 4 requires fine-grained levers for trading detection quality against latency, plus CI regression gates.
+2. **Performance blind spot**: the `lidar-bench` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). Stepping from Mac M1 to Raspberry Pi 4 requires fine-grained levers for trading detection quality against latency, plus CI regression gates.
 
 ## Part a: per-track / per-frame observability
 
@@ -100,9 +100,9 @@ Proposed additions to `DebugOverlaySet` (all optional, populated only when debug
 
 ## Part b: clustering performance benchmark harness
 
-### B.1 new metrics in pcap-analyse
+### B.1 new metrics in lidar-bench
 
-Extend `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go) with `ClusteringMetrics`:
+Extend `PerformanceMetrics` in [internal/lidar/lidarbench/lidarbench.go](../../../internal/lidar/lidarbench/lidarbench.go) with `ClusteringMetrics`:
 
 - Per-frame distributions (percentiles): foreground points, filtered points, cluster count, points-per-cluster, cluster area
 - DBSCAN-specific: call count, total/avg/p95/p99 time, subsample count and rate

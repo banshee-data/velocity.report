@@ -79,7 +79,7 @@ Rationale: useful for development, but not required as first-class public workfl
 
 - Replaced by [internal/cmd/device/](../../internal/cmd/device): purpose-built on-device management binary.
 - Reduction: one binary + 3,678 LOC + SSH surface + associated Make targets + duplicated deployment docs.
-- See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl).
+- See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl).
 
 #### B. `cmd/transit-backfill` (high priority): ✅ complete
 
@@ -145,7 +145,7 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 ## Migration guidance: deploy tool → velocity-ctl
 
-The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`) are **deleted in v0.5.1**. The replacement is `velocity-ctl` ([design doc](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl)).
+The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`) are **deleted in v0.5.1**. The replacement is `velocity-ctl` ([design doc](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl)).
 
 ### Current workflow (deleted in v0.5.1)
 
@@ -239,13 +239,13 @@ sub-plan:
 - **What:** The proposed branch-local percentile-style track speed additions are not the direction to ship. Percentiles are reserved for grouped/report aggregates only. The stable track speed contract remains `avg_speed_mps` (field 24) plus the raw maximum, which should be renamed from `peak_speed_mps` (field 25 today) to `max_speed_mps` before merge if the contract is still unshipped.
 - **Impact:** gRPC and REST clients should not adopt branch-local percentile-labelled track speed fields as a stable contract. Existing aggregate/report percentile work is unaffected.
 - **Migration:** Treat `avg_speed_mps` and the raw maximum (`max_speed_mps` after rename; `peak_speed_mps` only as a temporary branch-local name) as the only stable per-track speed summary fields for now. The branch-local percentile-style additions should be backed out before merge.
-- **Design docs:** [speed-percentile-aggregation-alignment-plan.md](speed-percentile-aggregation-alignment-plan.md), [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--track-speed-contract-reset)
+- **Design docs:** [speed-percentile-aggregation-alignment-plan.md](speed-percentile-aggregation-alignment-plan.md), [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal overview](v050-backward-compatibility-shim-removal-plan.md)
 
 ### 2. Deployment surface replaced
 
 - **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets are **deleted** in v0.5.1. Replaced by `velocity-ctl` ([internal/cmd/device/](../../internal/cmd/device)).
 - **Impact:** `velocity-deploy` binary no longer exists. `velocity-update` wrapper script no longer exists. Users run `sudo velocity-ctl upgrade` instead.
-- **Migration:** See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl) for the replacement.
+- **Migration:** See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl) for the replacement.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.
 
 ### 3. `cmd/transit-backfill` soft-deprecated
@@ -258,25 +258,25 @@ sub-plan:
 
 - **What:** `v0.5.0` is still intended to remove legacy sweep request fields (`noise_values`, `closeness_values`, `neighbour_values`, per-variable range fields, fixed-value fields) and legacy result fields (`noise`, `closeness`, `neighbour` at top level of `ComboResult`). The `computeCombinations()` legacy code path should be deleted as part of that cleanup.
 - **Impact:** Once this lands, any client sending sweep requests in the old per-variable format will receive errors. Sweep results will no longer include top-level `noise`/`closeness`/`neighbour` keys.
-- **Migration:** For sweep requests, use the `params: []SweepParam` request shape; for sweep results, use the `param_values` map on `ComboResult`. See [shim removal §2](v050-backward-compatibility-shim-removal-plan.md#2-go-server--sweep-legacy-request-format).
+- **Migration:** For sweep requests, use the `params: []SweepParam` request shape; for sweep results, use the `param_values` map on `ComboResult`. See the [shim removal overview](v050-backward-compatibility-shim-removal-plan.md).
 
 ### 5. Report download: query-parameter endpoint removed
 
 - **What:** The legacy `/api/reports/{id}/download?file_type=pdf` endpoint is removed.
 - **Impact:** Callers using the query-parameter format will receive 404s.
-- **Migration:** Use the path-based format: `/api/reports/{id}/download/{filename}.pdf`. See [shim removal §3](v050-backward-compatibility-shim-removal-plan.md#3-go-server--legacy-download-endpoint-format).
+- **Migration:** Use the path-based format: `/api/reports/{id}/download/{filename}.pdf`. See the [shim removal overview](v050-backward-compatibility-shim-removal-plan.md).
 
 ### 6. Stats API: bare-array response format removed
 
 - **What:** The stats API (`/api/radar/stats`) no longer returns a bare JSON array. It always returns `{ "metrics": [...], "histogram": {...} }`.
 - **Impact:** Any consumer expecting a bare `[...]` array will break. The Python PDF generator legacy format branch is also removed.
-- **Migration:** Parse the response as an object with a `metrics` key. See [shim removal §9, §13](v050-backward-compatibility-shim-removal-plan.md#9-python--legacy-api-response-format-handling).
+- **Migration:** Parse the response as an object with a `metrics` key. See the [shim removal overview](v050-backward-compatibility-shim-removal-plan.md).
 
 ### 7. Sweep handler: malformed JSON now returns 400
 
 - **What:** The sweep handler previously silently ignored malformed JSON request bodies. It now returns `400 Bad Request`.
 - **Impact:** Callers sending invalid JSON will receive errors instead of silent acceptance.
-- **Migration:** Ensure sweep requests are valid JSON. See [shim removal §4](v050-backward-compatibility-shim-removal-plan.md#4-go-server--lenient-json-parsing-in-sweep-handler).
+- **Migration:** Ensure sweep requests are valid JSON. See the [shim removal overview](v050-backward-compatibility-shim-removal-plan.md).
 
 ### Unchanged in v0.5.0
 

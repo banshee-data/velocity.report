@@ -212,7 +212,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 **Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
 
-See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-investigation--key-results) for the investigation summary.
+See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-investigation-key-results) for the investigation summary.
 
 **Implementation Notes**:
 

@@ -34,7 +34,7 @@ expand.
 | [internal/cmd/server/lidar_helpers.go](../../internal/cmd/server/lidar_helpers.go)                     |       275 |            ~250 | 24 pure functions, 8 test-double interfaces |
 | [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go)                       |        75 |              75 | Thread-safe capabilities provider           |
 | [cmd/tools/config-migrate/main.go](../../cmd/tools/config-migrate/main.go)                             |       233 |            ~180 | Legacy config struct + migration function   |
-| [cmd/tools/settling-eval/pcap.go](../../cmd/tools/settling-eval/pcap.go)                               |       182 |            ~140 | PCAP settling evaluation orchestration      |
+| [internal/lidar/settlingeval/settlingeval.go](../../internal/lidar/settlingeval/settlingeval.go)       |       182 |            ~140 | PCAP settling evaluation (extracted)        |
 | [cmd/tools/backfill_ring_elevations/backfill.go](../../cmd/tools/backfill_ring_elevations/backfill.go) |        86 |             ~60 | Raw SQL backfill queries                    |
 | **Total**                                                                                              | **2,045** |      **~1,055** |                                             |
 
@@ -192,7 +192,7 @@ into the background grid package.
 
 1. Move `backgroundConfigFromTuningConfig` to [internal/config/](../../internal/config) (config adapter)
 2. Move `runPCAPEval` to `internal/lidar/l3grid/eval.go`
-3. Reduce [cmd/tools/settling-eval/pcap.go](../../cmd/tools/settling-eval/pcap.go) to flag parsing + one call
+3. Reduce [cmd/tools/settling-eval/main.go](../../cmd/tools/settling-eval/main.go) to flag parsing + one call (done; engine in [internal/lidar/settlingeval](../../internal/lidar/settlingeval))
 4. Add unit test for the config adapter function
 
 **Milestone:** v0.5.2

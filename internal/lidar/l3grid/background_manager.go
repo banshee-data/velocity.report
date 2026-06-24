@@ -34,6 +34,10 @@ type BackgroundManager struct {
 	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics.
 	// Accessed atomically to allow concurrent ProcessFramePolar invocations.
 	frameProcessCount int64
+	// replayMode disables foreground-output suppression during warmup. It leaves
+	// the background model parameters unchanged, allowing offline tools to use
+	// the same tuning as live while still detecting a capture that starts moving.
+	replayMode atomic.Bool
 
 	// maskBuf is a reusable buffer for ProcessFramePolarWithMask to avoid
 	// allocating a new []bool (69k elements, ~69 KB) every frame.
@@ -69,6 +73,19 @@ func (bm *BackgroundManager) SetParams(p BackgroundParams) error {
 	g.Params = p
 	g.mu.Unlock()
 	return nil
+}
+
+// SetReplayMode toggles offline replay behaviour. Replay mode only prevents
+// warmup from suppressing foreground output; it does not alter L3 tuning.
+func (bm *BackgroundManager) SetReplayMode(enabled bool) {
+	if bm != nil {
+		bm.replayMode.Store(enabled)
+	}
+}
+
+// IsReplayMode reports whether foreground warmup suppression is disabled.
+func (bm *BackgroundManager) IsReplayMode() bool {
+	return bm != nil && bm.replayMode.Load()
 }
 
 // SetNoiseRelativeFraction safely updates the NoiseRelativeFraction parameter.

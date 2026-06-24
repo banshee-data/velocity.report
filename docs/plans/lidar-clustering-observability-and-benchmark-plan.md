@@ -150,9 +150,9 @@ This keeps the VRLOG self-contained: when replaying a recording, all diagnostic 
 
 ### B.1 new metrics in `pcap-analyse`
 
-Extend `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
+Extend `PerformanceMetrics` in [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go):
 
-**`ClusteringMetrics` struct** — extends `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
+**`ClusteringMetrics` struct** — extends `PerformanceMetrics` in [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go):
 
 | Field                   | Type              | JSON key                   | Notes                                         |
 | ----------------------- | ----------------- | -------------------------- | --------------------------------------------- |
@@ -344,7 +344,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 4. Add comparison logic with per-metric thresholds.
 5. Update `baseline-kirk0.json` and `baseline-kirk0-ci.json`.
 
-**Files:** [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go), `internal/lidar/perf/baseline/*.json`
+**Files:** [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go), `internal/lidar/perf/baseline/*.json`
 
 ### Phase 3: per-track association logging (low risk)
 

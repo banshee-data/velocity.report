@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre25
+VERSION := 0.5.1-pre26
 
 # =============================================================================
 # HELP TARGET (default)
@@ -30,6 +30,8 @@ help:
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
 	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
+	@echo "  build-pcap-split     Build the pcap-split motion/static segmentation tool"
+	@echo "  run-pcap-split       Split a PCAP into motion/static segments (PCAP=path)"
 	@echo "  build-ctl            (alias) Build velocity (device tools folded in)"
 	@echo "  build-ctl-linux      (alias) Build velocity for Linux ARM64"
 	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
@@ -239,18 +241,27 @@ build-velocity-linux:
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,linux,arm64)
 	GOOS=linux GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+	@rm -f velocity-report-linux-arm64
+	@ln -snf $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) velocity-linux-arm64
+	@echo "Latest Linux build: velocity-linux-arm64 -> $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT)"
 
 build-velocity-mac:
 	@./scripts/ensure-web-stub.sh
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,darwin,arm64)
 	GOOS=darwin GOARCH=arm64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/velocity
+	@rm -f velocity-report-mac-arm64
+	@ln -snf $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) velocity-mac-arm64
+	@echo "Latest macOS ARM64 build: velocity-mac-arm64 -> $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT)"
 
 build-velocity-mac-intel:
 	@./scripts/ensure-web-stub.sh
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,darwin,amd64)
 	GOOS=darwin GOARCH=amd64 go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/velocity
+	@rm -f velocity-report-mac-amd64
+	@ln -snf $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) velocity-mac-amd64
+	@echo "Latest macOS AMD64 build: velocity-mac-amd64 -> $(BUILD_TS_COMPACT)-velocity-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT)"
 
 # Compatibility aliases (folded binaries → single velocity binary).
 build-radar-linux: build-velocity-linux
@@ -303,7 +314,20 @@ SETTLING_EVAL_PORT ?= 2369
 run-settling-eval: PCAP ?= $(SETTLING_EVAL_PCAP)
 run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
 run-settling-eval:
-	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
+	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--config $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
+
+# Build the pcap-split tool (requires libpcap; built with the pcap tag).
+.PHONY: build-pcap-split
+build-pcap-split:
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o pcap-split ./cmd/tools/pcap-split
+
+# Segment a PCAP into motion/static files.
+# Usage: make run-pcap-split PCAP=capture.pcapng [OUTPUT=./segments] [PORT=2369]
+run-pcap-split: PCAP ?= $(SETTLING_EVAL_PCAP)
+run-pcap-split: PORT ?= $(SETTLING_EVAL_PORT)
+run-pcap-split: OUTPUT ?= ./segments
+run-pcap-split:
+	go run -tags=pcap ./cmd/tools/pcap-split --pcap $(PCAP) --port $(PORT) --output $(OUTPUT) --export-json --export-metrics
 
 .PHONY: build-embedded-assets
 build-embedded-assets:
@@ -1180,9 +1204,12 @@ loc-coverage-chart:
 	@echo "Wrote dist/loc-coverage.svg"
 
 # Run performance regression test
+PERF_REGRESSION_THRESHOLD ?= 0.30
+
 test-perf:
 	@NAME="$${NAME:-kirk0}"; \
 	BASE_NAME="$${NAME%.*}"; \
+	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
 	echo "Target: $$BASE_NAME"; \
 	if [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcapng" ]; then \
 		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcapng"; \
@@ -1197,18 +1224,21 @@ test-perf:
 	else \
 		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
 	fi; \
-	echo "Building pcap-analyse..."; \
-	go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse; \
+	./scripts/ensure-web-stub.sh; \
+	./scripts/ensure-docs-stub.sh; \
+	echo "Building lidar-bench..."; \
+	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
 	EXIT_CODE=0; \
 	if [ ! -f "$$BASELINE_FILE" ]; then \
 		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
-		./pcap-analyse -pcap "$$PCAP_FILE" -benchmark -benchmark-output "$$BASELINE_FILE"; \
+		./lidar-bench -pcap "$$PCAP_FILE" -benchmark-output "$$BASELINE_FILE"; \
 		echo "Created baseline: $$BASELINE_FILE"; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./pcap-analyse -pcap "$$PCAP_FILE" -benchmark -compare-baseline "$$BASELINE_FILE" -quiet || EXIT_CODE=$$?; \
+		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -regression-threshold "$(PERF_REGRESSION_THRESHOLD)" -quiet || EXIT_CODE=$$?; \
 	fi; \
-	rm -f pcap-analyse *_analysis.json *_benchmark.json; \
+	rm -f lidar-bench; \
+	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
 
 # =============================================================================

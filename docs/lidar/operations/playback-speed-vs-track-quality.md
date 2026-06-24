@@ -219,7 +219,11 @@ Use **`scaled`** with ratios:
 
 ### Comparing quality across speeds
 
-The `pcap-analyse` tool can run the same PCAP at different speeds and compare:
+Comparing track quality across replay speeds needs the offline track-analysis
+export (per-track count, speed percentiles, miss ratio), which is currently
+parked — see
+[lidar-offline-analysis-tooling-plan.md](../../plans/lidar-offline-analysis-tooling-plan.md).
+The metrics to compare are:
 
 - Track count and track duration distribution
 - Speed P50/P85 per track

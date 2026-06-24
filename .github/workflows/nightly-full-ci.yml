@@ -444,12 +444,17 @@ jobs:
       - name: Install libpcap
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
-      - name: Build pcap-analyse
-        run: go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Build offline docs stub for embed
+        run: ./scripts/ensure-docs-stub.sh
+
+      - name: Build lidar-bench
+        run: go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
       - name: Run performance benchmark
         run: make test-perf
-        continue-on-error: true
 
       - name: Upload benchmark results
         if: always()
@@ -458,4 +463,4 @@ jobs:
           name: nightly-benchmark-results
           path: |
             *_benchmark.json
-            internal/lidar/perf/baseline/*.json
+            internal/lidar/perf/baseline/baseline-*-ci.json

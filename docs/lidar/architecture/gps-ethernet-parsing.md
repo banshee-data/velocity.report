@@ -679,7 +679,7 @@ All GPS work is **additive** and should not modify any existing LiDAR-only code 
 2. Create `GPSReceiver` for UDP ingestion (`internal/gps/receiver.go`)
 3. Extend L1 packet pipeline with **optional** GPS correlation ([internal/lidar/l1packets/](../../../internal/lidar/l1packets))
 4. Add GPS schema to SQLite database ([internal/db/migrations/](../../../internal/db/migrations))
-5. Implement PCAP replay with GPS extraction ([cmd/tools/pcap-analyse/](../../../cmd/tools/pcap-analyse))
+5. Implement PCAP replay with GPS extraction ([internal/lidar/lidarbench/](../../../internal/lidar/lidarbench))
 6. Document user-facing GPS configuration (`docs/src/guides/gps-setup.md`)
 
 **Design invariant:** Every feature must have a clean no-GPS fallback. If GPS is absent, disabled, or failing, the system operates identically to today's LiDAR-only pipeline.

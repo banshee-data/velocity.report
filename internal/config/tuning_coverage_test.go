@@ -377,6 +377,7 @@ func TestCommonAndVariantValidateErrors(t *testing.T) {
 		{"locked threshold", func(cfg *L3Common) { cfg.LockedBaselineThreshold = -1 }, "locked_baseline_threshold must be non-negative"},
 		{"locked multiplier", func(cfg *L3Common) { cfg.LockedBaselineMultiplier = -1 }, "locked_baseline_multiplier must be non-negative"},
 		{"movement threshold", func(cfg *L3Common) { cfg.SensorMovementForegroundThreshold = 2 }, "sensor_movement_foreground_threshold must be in [0, 1]"},
+		{"movement drift ratio", func(cfg *L3Common) { cfg.SensorMovementDriftRatioThreshold = 0 }, "sensor_movement_drift_ratio_threshold must be in (0, 1]"},
 		{"drift metres", func(cfg *L3Common) { cfg.BackgroundDriftThresholdMetres = -1 }, "background_drift_threshold_metres must be non-negative"},
 		{"drift ratio", func(cfg *L3Common) { cfg.BackgroundDriftRatioThreshold = 2 }, "background_drift_ratio_threshold must be in [0, 1]"},
 		{"settling coverage", func(cfg *L3Common) { cfg.SettlingMinCoverage = 2 }, "settling_min_coverage must be in [0, 1]"},
@@ -648,7 +649,7 @@ func TestStrictEngineUnmarshalAndHelpers(t *testing.T) {
 	t.Parallel()
 
 	t.Run("l3 baseline", func(t *testing.T) {
-		raw := []byte(`{"engine":"ema_baseline_v1","ema_baseline_v1":{"background_update_fraction":0.02,"closeness_multiplier":3,"safety_margin_metres":0.15,"noise_relative":0.02,"neighbour_confirmation_count":3,"seed_from_first":true,"warmup_duration_nanos":30000000000,"warmup_min_frames":100,"post_settle_update_fraction":0,"enable_diagnostics":false,"freeze_duration":"5s","freeze_threshold_multiplier":3,"settling_period":"5m","snapshot_interval":"2h","change_threshold_snapshot":100,"reacquisition_boost_multiplier":5,"min_confidence_floor":3,"locked_baseline_threshold":50,"locked_baseline_multiplier":4,"sensor_movement_foreground_threshold":0.2,"background_drift_threshold_metres":0.5,"background_drift_ratio_threshold":0.1,"settling_min_coverage":0.8,"settling_max_spread_delta":0.001,"settling_min_region_stability":0.95,"settling_min_confidence":10}}`)
+		raw := []byte(`{"engine":"ema_baseline_v1","ema_baseline_v1":{"background_update_fraction":0.02,"closeness_multiplier":3,"safety_margin_metres":0.15,"noise_relative":0.02,"neighbour_confirmation_count":3,"seed_from_first":true,"warmup_duration_nanos":30000000000,"warmup_min_frames":100,"post_settle_update_fraction":0,"enable_diagnostics":false,"freeze_duration":"5s","freeze_threshold_multiplier":3,"settling_period":"5m","snapshot_interval":"2h","change_threshold_snapshot":100,"reacquisition_boost_multiplier":5,"min_confidence_floor":3,"locked_baseline_threshold":50,"locked_baseline_multiplier":4,"sensor_movement_foreground_threshold":0.2,"sensor_movement_drift_ratio_threshold":0.35,"background_drift_threshold_metres":0.5,"background_drift_ratio_threshold":0.1,"settling_min_coverage":0.8,"settling_max_spread_delta":0.001,"settling_min_region_stability":0.95,"settling_min_confidence":10}}`)
 		var cfg L3Config
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			t.Fatalf("unmarshal l3 baseline: %v", err)
@@ -659,7 +660,7 @@ func TestStrictEngineUnmarshalAndHelpers(t *testing.T) {
 	})
 
 	t.Run("l3 track assist", func(t *testing.T) {
-		raw := []byte(`{"engine":"ema_track_assist_v2","ema_track_assist_v2":{"background_update_fraction":0.02,"closeness_multiplier":3,"safety_margin_metres":0.15,"noise_relative":0.02,"neighbour_confirmation_count":3,"seed_from_first":true,"warmup_duration_nanos":30000000000,"warmup_min_frames":100,"post_settle_update_fraction":0,"enable_diagnostics":false,"freeze_duration":"5s","freeze_threshold_multiplier":3,"settling_period":"5m","snapshot_interval":"2h","change_threshold_snapshot":100,"reacquisition_boost_multiplier":5,"min_confidence_floor":3,"locked_baseline_threshold":50,"locked_baseline_multiplier":4,"sensor_movement_foreground_threshold":0.2,"background_drift_threshold_metres":0.5,"background_drift_ratio_threshold":0.1,"settling_min_coverage":0.8,"settling_max_spread_delta":0.001,"settling_min_region_stability":0.95,"settling_min_confidence":10,"promotion_near_gate_low":0.1,"promotion_near_gate_high":0.2,"promotion_threshold":0.3}}`)
+		raw := []byte(`{"engine":"ema_track_assist_v2","ema_track_assist_v2":{"background_update_fraction":0.02,"closeness_multiplier":3,"safety_margin_metres":0.15,"noise_relative":0.02,"neighbour_confirmation_count":3,"seed_from_first":true,"warmup_duration_nanos":30000000000,"warmup_min_frames":100,"post_settle_update_fraction":0,"enable_diagnostics":false,"freeze_duration":"5s","freeze_threshold_multiplier":3,"settling_period":"5m","snapshot_interval":"2h","change_threshold_snapshot":100,"reacquisition_boost_multiplier":5,"min_confidence_floor":3,"locked_baseline_threshold":50,"locked_baseline_multiplier":4,"sensor_movement_foreground_threshold":0.2,"sensor_movement_drift_ratio_threshold":0.35,"background_drift_threshold_metres":0.5,"background_drift_ratio_threshold":0.1,"settling_min_coverage":0.8,"settling_max_spread_delta":0.001,"settling_min_region_stability":0.95,"settling_min_confidence":10,"promotion_near_gate_low":0.1,"promotion_near_gate_high":0.2,"promotion_threshold":0.3}}`)
 		var cfg L3Config
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			t.Fatalf("unmarshal l3 track assist: %v", err)
@@ -764,7 +765,7 @@ func TestDecodeAndReflectionHelpers(t *testing.T) {
 	t.Run("decodeSelectedEngineBlock", func(t *testing.T) {
 		raw := map[string]json.RawMessage{
 			"engine":          json.RawMessage(`"ema_baseline_v1"`),
-			"ema_baseline_v1": json.RawMessage(`{"background_update_fraction":0.02,"closeness_multiplier":3,"safety_margin_metres":0.15,"noise_relative":0.02,"neighbour_confirmation_count":3,"seed_from_first":true,"warmup_duration_nanos":30000000000,"warmup_min_frames":100,"post_settle_update_fraction":0,"enable_diagnostics":false,"freeze_duration":"5s","freeze_threshold_multiplier":3,"settling_period":"5m","snapshot_interval":"2h","change_threshold_snapshot":100,"reacquisition_boost_multiplier":5,"min_confidence_floor":3,"locked_baseline_threshold":50,"locked_baseline_multiplier":4,"sensor_movement_foreground_threshold":0.2,"background_drift_threshold_metres":0.5,"background_drift_ratio_threshold":0.1,"settling_min_coverage":0.8,"settling_max_spread_delta":0.001,"settling_min_region_stability":0.95,"settling_min_confidence":10}`),
+			"ema_baseline_v1": json.RawMessage(`{"background_update_fraction":0.02,"closeness_multiplier":3,"safety_margin_metres":0.15,"noise_relative":0.02,"neighbour_confirmation_count":3,"seed_from_first":true,"warmup_duration_nanos":30000000000,"warmup_min_frames":100,"post_settle_update_fraction":0,"enable_diagnostics":false,"freeze_duration":"5s","freeze_threshold_multiplier":3,"settling_period":"5m","snapshot_interval":"2h","change_threshold_snapshot":100,"reacquisition_boost_multiplier":5,"min_confidence_floor":3,"locked_baseline_threshold":50,"locked_baseline_multiplier":4,"sensor_movement_foreground_threshold":0.2,"sensor_movement_drift_ratio_threshold":0.35,"background_drift_threshold_metres":0.5,"background_drift_ratio_threshold":0.1,"settling_min_coverage":0.8,"settling_max_spread_delta":0.001,"settling_min_region_stability":0.95,"settling_min_confidence":10}`),
 		}
 		block, err := decodeSelectedEngineBlock[L3EmaBaselineV1](raw, "l3", "ema_baseline_v1")
 		if err != nil || block == nil {
@@ -867,6 +868,7 @@ func TestTuningConfigGettersAndActiveConfig(t *testing.T) {
 		cfg.GetLockedBaselineThreshold() != cfg.L3.EmaBaselineV1.LockedBaselineThreshold ||
 		cfg.GetLockedBaselineMultiplier() != cfg.L3.EmaBaselineV1.LockedBaselineMultiplier ||
 		cfg.GetSensorMovementForegroundThreshold() != cfg.L3.EmaBaselineV1.SensorMovementForegroundThreshold ||
+		cfg.GetSensorMovementDriftRatioThreshold() != cfg.L3.EmaBaselineV1.SensorMovementDriftRatioThreshold ||
 		cfg.GetBackgroundDriftThresholdMetres() != cfg.L3.EmaBaselineV1.BackgroundDriftThresholdMetres ||
 		cfg.GetBackgroundDriftRatioThreshold() != cfg.L3.EmaBaselineV1.BackgroundDriftRatioThreshold ||
 		cfg.GetSettlingMinCoverage() != cfg.L3.EmaBaselineV1.SettlingMinCoverage ||

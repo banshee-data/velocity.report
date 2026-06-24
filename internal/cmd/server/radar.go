@@ -462,7 +462,7 @@ func Main(args []string) int {
 
 		// Create BackgroundManager from TuningConfig. All tunable parameters
 		// come exclusively from the config file (single source of truth).
-		bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
+		bgConfig := l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 
 		backgroundManager := l3grid.NewBackgroundManager(lidarSensorID, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {

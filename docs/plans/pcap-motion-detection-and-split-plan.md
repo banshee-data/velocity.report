@@ -1,9 +1,9 @@
 # PCAP motion detection and scene split plan
 
-- **Status:** Proposed
+- **Status:** Complete (all three phases shipped; folded into `velocity lidar`)
 - **Layers:** L1 Packets, L3 Grid, CLI Tools
 - **Scope:** add a `--motion` analysis mode to pcap-analyse and implement the pcap-split tool from existing design, shipping movement detection as a two-phase capability
-- **Related:** [pcap-split design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool-planned), [settling time optimisation](../lidar/operations/settling-time-optimisation.md), [adaptive region parameters](../lidar/operations/adaptive-region-parameters.md)
+- **Related:** [pcap-split design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool), [velocity lidar namespace](velocity-lidar-namespace-plan.md), [settling time optimisation](../lidar/operations/settling-time-optimisation.md)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
 ## 1. Problem
@@ -14,12 +14,12 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 | Capability                  | Location                                                                                         | Status                                                            |
 | --------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `CheckForSensorMovement()`  | [internal/lidar/l3grid/background_drift.go](../../internal/lidar/l3grid/background_drift.go)     | Implemented: foreground-ratio spike detector (>20% threshold)     |
+| `EvaluateSensorMotion()`    | [internal/lidar/l3grid/background_drift.go](../../internal/lidar/l3grid/background_drift.go)     | Implemented: shared foreground/deviation detector                 |
 | `IsSettlingComplete()`      | [internal/lidar/l3grid/background_manager.go](../../internal/lidar/l3grid/background_manager.go) | Implemented: settling convergence check                           |
 | `GetGridStatus()`           | [internal/lidar/l3grid/background_manager.go](../../internal/lidar/l3grid/background_manager.go) | Implemented: total/frozen/times-seen cell stats                   |
 | Region classification       | [internal/lidar/l3grid/background_region.go](../../internal/lidar/l3grid/background_region.go)   | Implemented: stable/variable/volatile regions after settling      |
 | Scene hash matching         | [internal/lidar/l3grid/background.go](../../internal/lidar/l3grid/background.go)                 | Implemented: SHA256 hash for location fingerprinting              |
-| pcap-analyse L1–L6 pipeline | [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go)                           | Implemented: full pipeline with stats, benchmark, CSV/JSON export |
+| pcap-analyse L1–L6 pipeline | [internal/lidar/lidarbench/lidarbench.go](../../internal/lidar/lidarbench/lidarbench.go)         | Implemented: full pipeline with stats, benchmark, CSV/JSON export |
 | pcap-split reference design | [docs/lidar/operations/pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)         | Design section in the PCAP analysis mode hub doc                  |
 
 ### Gap analysis
@@ -27,7 +27,8 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 The pcap-split design doc is comprehensive and sound. The primary gaps before shipping are:
 
 1. **No per-frame settling metrics API**: `BackgroundManager` exposes settling completion and grid status but not the per-frame `FrameSettlingMetrics` struct the analyser needs (settled cell count, percent settled, noise deviation). These metrics exist internally but are not surfaced.
-2. **No noise bounds deviation API**: the design calls for `GetNoiseBoundsDeviation()` and `IsWithinNoiseBounds()`; neither exists.
+2. **No shared sustained-motion detector**: resolved by the L3
+   `EvaluateSensorMotion()` foreground/deviation evaluator.
 3. **No PCAP writer**: the project reads PCAPs (via gopacket) but never writes them. A new `SegmentWriter` with proper PCAP header handling is needed.
 4. **pcap-analyse has no motion awareness**: it processes every frame identically regardless of sensor movement. Adding a `--motion` flag that tags frames and reports static/motion periods is a lightweight prerequisite that validates the detection algorithm before building the full splitter.
 
@@ -42,7 +43,7 @@ Add a `--motion` flag to pcap-analyse that:
 - Runs `CheckForSensorMovement()` on every processed frame
 - Computes per-frame settling metrics (settled cell %, foreground %, noise deviation)
 - Classifies each frame as `motion` or `static` using the state machine from the pcap-split design doc
-- Emits a motion timeline in the summary output and optionally in `--json` / `--csv` exports
+- Emits a motion timeline as a report-only mode: `--motion` (without `--benchmark`) prints the concise capture summary plus the timeline and skips JSON/CSV/training exports, like `--stats` (combine with `--benchmark` to keep the analysis and benchmark JSON)
 - Adds a `motion_periods` section to `CaptureStats`:
 
 ```
@@ -57,19 +58,18 @@ This is safe to ship without the splitter: it gives operators immediate visibili
 
 **Phase 2: BackgroundManager API Extensions** (`S`)
 
-Expose the three new APIs the settling analyser requires:
+Expose the two read-only APIs the settling analyser requires:
 
 | Method                                      | Purpose                                                      |
 | ------------------------------------------- | ------------------------------------------------------------ |
 | `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts and percentages |
 | `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope             |
-| `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance                  |
 
 These are read-only accessors over existing grid data. No state changes, no new storage.
 
 **Phase 3: pcap-split Tool** (`M`)
 
-Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool-planned):
+Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool):
 
 - `internal/lidar/pcapsplit/analyser.go`: settling analyser implementing `FrameBuilder`, state machine, metric tracking
 - `internal/lidar/pcapsplit/writer.go`: segment PCAP writer with sequential naming and packet buffering
@@ -99,7 +99,6 @@ Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/
               │           BackgroundManager Extensions              │
               │  • GetFrameSettlingMetrics(threshold)               │
               │  • GetNoiseBoundsDeviation()                        │
-              │  • IsWithinNoiseBounds(threshold)                   │
               └─────────────────────────────────────────────────────┘
 ```
 

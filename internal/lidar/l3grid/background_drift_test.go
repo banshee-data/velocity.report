@@ -30,16 +30,53 @@ func TestCheckForSensorMovement_DefaultThreshold(t *testing.T) {
 	g := makeTestGrid(1, 4)
 	g.Params.SensorMovementForegroundThreshold = 0
 
-	// 1/5 = 0.20 → NOT above threshold (must exceed, not equal)
+	// 1/5 = 0.20 → at the shared threshold.
 	mask := []bool{true, false, false, false, false}
-	if g.Manager.CheckForSensorMovement(mask) {
-		t.Error("expected false when ratio equals default threshold")
+	if !g.Manager.CheckForSensorMovement(mask) {
+		t.Error("expected true when ratio equals default threshold")
 	}
 
 	// 2/5 = 0.40 → above 0.20
 	mask = []bool{true, true, false, false, false}
 	if !g.Manager.CheckForSensorMovement(mask) {
 		t.Error("expected true when ratio exceeds default threshold")
+	}
+}
+
+func TestEvaluateSensorMotionUsesForegroundAndDrift(t *testing.T) {
+	g := makeTestGrid(1, 4)
+	g.Params.SensorMovementForegroundThreshold = 0.5
+	g.Params.SensorMovementDriftRatioThreshold = 0.35
+	g.Params.LockedBaselineThreshold = 5
+	g.Params.BackgroundDriftThresholdMetres = 0.5
+	g.Params.BackgroundDriftRatioThreshold = 0.10
+	for i := range g.Cells {
+		g.Cells[i].TimesSeenCount = 10
+		g.Cells[i].LockedBaseline = 10
+		g.Cells[i].AverageRangeMeters = 10 // settled on baseline, no drift
+	}
+
+	// Neither signal fires: foreground below 0.5, background sitting on baseline.
+	evidence := g.Manager.EvaluateSensorMotion([]bool{true, false, false, false})
+	if evidence.Moving || evidence.ForegroundFraction != 0.25 {
+		t.Fatalf("unexpected static evidence: %+v", evidence)
+	}
+
+	// Foreground alone catches motion onset.
+	evidence = g.Manager.EvaluateSensorMotion([]bool{true, true, false, false})
+	if !evidence.Moving {
+		t.Fatalf("foreground signal should detect motion: %+v", evidence)
+	}
+
+	// Drift alone catches sustained motion after the foreground spike has
+	// collapsed: every settled cell's range has shifted well past the drift
+	// threshold, so the drift ratio (1.0) clears 0.35.
+	for i := range g.Cells {
+		g.Cells[i].AverageRangeMeters = 12 // drift = 2.0 m > 0.5 m
+	}
+	evidence = g.Manager.EvaluateSensorMotion([]bool{false, false, false, false})
+	if !evidence.Moving || evidence.DriftRatio < 0.35 {
+		t.Fatalf("drift signal should detect motion: %+v", evidence)
 	}
 }
 

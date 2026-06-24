@@ -364,6 +364,7 @@ func sampleValidConfig() *TuningConfig {
 					LockedBaselineThreshold:           50,
 					LockedBaselineMultiplier:          4.0,
 					SensorMovementForegroundThreshold: 0.2,
+					SensorMovementDriftRatioThreshold: 0.35,
 					BackgroundDriftThresholdMetres:    0.5,
 					BackgroundDriftRatioThreshold:     0.1,
 					SettlingMinCoverage:               0.8,

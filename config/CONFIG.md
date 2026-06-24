@@ -80,6 +80,7 @@ parity between them.
       "locked_baseline_threshold": 50,
       "locked_baseline_multiplier": 4,
       "sensor_movement_foreground_threshold": 0.2,
+      "sensor_movement_drift_ratio_threshold": 0.35,
       "background_drift_threshold_metres": 0.5,
       "background_drift_ratio_threshold": 0.1,
       "settling_min_coverage": 0.8,
@@ -208,35 +209,36 @@ Schema sources: [tuning.defaults.json](tuning.defaults.json),
 Maths: [background-grid-settling-maths.md](../data/maths/background-grid-settling-maths.md),
 [20260219-unify-l3-l4-settling.md](../data/maths/proposals/20260219-unify-l3-l4-settling.md)
 
-| Path                                                      | Type    | Primary consumer                                                               | Notes                                           |
-| --------------------------------------------------------- | ------- | ------------------------------------------------------------------------------ | ----------------------------------------------- |
-| `l3.engine`                                               | string  | [(\*L3Config).ActiveCommon](../internal/config/tuning_accessors.go)            | Active L3 engine.                               |
-| `l3.ema_baseline_v1.background_update_fraction`           | float64 | [GetBackgroundUpdateFraction](../internal/config/tuning_accessors.go)          | Background EMA alpha.                           |
-| `l3.ema_baseline_v1.closeness_multiplier`                 | float64 | [GetClosenessMultiplier](../internal/config/tuning_accessors.go)               | Background acceptance multiplier.               |
-| `l3.ema_baseline_v1.safety_margin_metres`                 | float64 | [GetSafetyMarginMetres](../internal/config/tuning_accessors.go)                | Additive safety margin.                         |
-| `l3.ema_baseline_v1.noise_relative`                       | float64 | [GetNoiseRelative](../internal/config/tuning_accessors.go)                     | Range-relative noise model.                     |
-| `l3.ema_baseline_v1.neighbour_confirmation_count`         | int     | [GetNeighbourConfirmationCount](../internal/config/tuning_accessors.go)        | Spatial confirmation threshold.                 |
-| `l3.ema_baseline_v1.seed_from_first`                      | bool    | [GetSeedFromFirst](../internal/config/tuning_accessors.go)                     | Seed cells from first observation.              |
-| `l3.ema_baseline_v1.warmup_duration_nanos`                | int64   | [GetWarmupDurationNanos](../internal/config/tuning_accessors.go)               | Warmup duration.                                |
-| `l3.ema_baseline_v1.warmup_min_frames`                    | int     | [GetWarmupMinFrames](../internal/config/tuning_accessors.go)                   | Minimum warmup frames.                          |
-| `l3.ema_baseline_v1.post_settle_update_fraction`          | float64 | [GetPostSettleUpdateFraction](../internal/config/tuning_accessors.go)          | Background alpha after settling.                |
-| `l3.ema_baseline_v1.enable_diagnostics`                   | bool    | [GetEnableDiagnostics](../internal/config/tuning_accessors.go)                 | Verbose background diagnostics.                 |
-| `l3.ema_baseline_v1.freeze_duration`                      | string  | [GetFreezeDuration](../internal/config/tuning_accessors.go)                    | Freeze duration after foreground.               |
-| `l3.ema_baseline_v1.freeze_threshold_multiplier`          | float64 | [GetFreezeThresholdMultiplier](../internal/config/tuning_accessors.go)         | Freeze trigger multiplier.                      |
-| `l3.ema_baseline_v1.settling_period`                      | string  | [GetSettlingPeriod](../internal/config/tuning_accessors.go)                    | Settling period before persistence.             |
-| `l3.ema_baseline_v1.snapshot_interval`                    | string  | [GetSnapshotInterval](../internal/config/tuning_accessors.go)                  | Snapshot cadence.                               |
-| `l3.ema_baseline_v1.change_threshold_snapshot`            | int     | [GetChangeThresholdSnapshot](../internal/config/tuning_accessors.go)           | Minimum changed cells before snapshot.          |
-| `l3.ema_baseline_v1.reacquisition_boost_multiplier`       | float64 | [GetReacquisitionBoostMultiplier](../internal/config/tuning_accessors.go)      | Fast background reacquisition multiplier.       |
-| `l3.ema_baseline_v1.min_confidence_floor`                 | int     | [GetMinConfidenceFloor](../internal/config/tuning_accessors.go)                | Minimum confidence preserved during foreground. |
-| `l3.ema_baseline_v1.locked_baseline_threshold`            | int     | [GetLockedBaselineThreshold](../internal/config/tuning_accessors.go)           | Observation count needed before baseline lock.  |
-| `l3.ema_baseline_v1.locked_baseline_multiplier`           | float64 | [GetLockedBaselineMultiplier](../internal/config/tuning_accessors.go)          | Locked-baseline spread multiplier.              |
-| `l3.ema_baseline_v1.sensor_movement_foreground_threshold` | float64 | [GetSensorMovementForegroundThreshold](../internal/config/tuning_accessors.go) | Sensor movement detection ratio.                |
-| `l3.ema_baseline_v1.background_drift_threshold_metres`    | float64 | [GetBackgroundDriftThresholdMetres](../internal/config/tuning_accessors.go)    | Drift distance threshold.                       |
-| `l3.ema_baseline_v1.background_drift_ratio_threshold`     | float64 | [GetBackgroundDriftRatioThreshold](../internal/config/tuning_accessors.go)     | Drift ratio threshold.                          |
-| `l3.ema_baseline_v1.settling_min_coverage`                | float64 | [GetSettlingMinCoverage](../internal/config/tuning_accessors.go)               | Minimum coverage for convergence.               |
-| `l3.ema_baseline_v1.settling_max_spread_delta`            | float64 | [GetSettlingMaxSpreadDelta](../internal/config/tuning_accessors.go)            | Maximum spread delta for convergence.           |
-| `l3.ema_baseline_v1.settling_min_region_stability`        | float64 | [GetSettlingMinRegionStability](../internal/config/tuning_accessors.go)        | Minimum region stability for convergence.       |
-| `l3.ema_baseline_v1.settling_min_confidence`              | float64 | [GetSettlingMinConfidence](../internal/config/tuning_accessors.go)             | Minimum confidence for convergence.             |
+| Path                                                       | Type    | Primary consumer                                                               | Notes                                                                          |
+| ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `l3.engine`                                                | string  | [(\*L3Config).ActiveCommon](../internal/config/tuning_accessors.go)            | Active L3 engine.                                                              |
+| `l3.ema_baseline_v1.background_update_fraction`            | float64 | [GetBackgroundUpdateFraction](../internal/config/tuning_accessors.go)          | Background EMA alpha.                                                          |
+| `l3.ema_baseline_v1.closeness_multiplier`                  | float64 | [GetClosenessMultiplier](../internal/config/tuning_accessors.go)               | Background acceptance multiplier.                                              |
+| `l3.ema_baseline_v1.safety_margin_metres`                  | float64 | [GetSafetyMarginMetres](../internal/config/tuning_accessors.go)                | Additive safety margin.                                                        |
+| `l3.ema_baseline_v1.noise_relative`                        | float64 | [GetNoiseRelative](../internal/config/tuning_accessors.go)                     | Range-relative noise model.                                                    |
+| `l3.ema_baseline_v1.neighbour_confirmation_count`          | int     | [GetNeighbourConfirmationCount](../internal/config/tuning_accessors.go)        | Spatial confirmation threshold.                                                |
+| `l3.ema_baseline_v1.seed_from_first`                       | bool    | [GetSeedFromFirst](../internal/config/tuning_accessors.go)                     | Seed cells from first observation.                                             |
+| `l3.ema_baseline_v1.warmup_duration_nanos`                 | int64   | [GetWarmupDurationNanos](../internal/config/tuning_accessors.go)               | Warmup duration.                                                               |
+| `l3.ema_baseline_v1.warmup_min_frames`                     | int     | [GetWarmupMinFrames](../internal/config/tuning_accessors.go)                   | Minimum warmup frames.                                                         |
+| `l3.ema_baseline_v1.post_settle_update_fraction`           | float64 | [GetPostSettleUpdateFraction](../internal/config/tuning_accessors.go)          | Background alpha after settling.                                               |
+| `l3.ema_baseline_v1.enable_diagnostics`                    | bool    | [GetEnableDiagnostics](../internal/config/tuning_accessors.go)                 | Verbose background diagnostics.                                                |
+| `l3.ema_baseline_v1.freeze_duration`                       | string  | [GetFreezeDuration](../internal/config/tuning_accessors.go)                    | Freeze duration after foreground.                                              |
+| `l3.ema_baseline_v1.freeze_threshold_multiplier`           | float64 | [GetFreezeThresholdMultiplier](../internal/config/tuning_accessors.go)         | Freeze trigger multiplier.                                                     |
+| `l3.ema_baseline_v1.settling_period`                       | string  | [GetSettlingPeriod](../internal/config/tuning_accessors.go)                    | Settling period before persistence.                                            |
+| `l3.ema_baseline_v1.snapshot_interval`                     | string  | [GetSnapshotInterval](../internal/config/tuning_accessors.go)                  | Snapshot cadence.                                                              |
+| `l3.ema_baseline_v1.change_threshold_snapshot`             | int     | [GetChangeThresholdSnapshot](../internal/config/tuning_accessors.go)           | Minimum changed cells before snapshot.                                         |
+| `l3.ema_baseline_v1.reacquisition_boost_multiplier`        | float64 | [GetReacquisitionBoostMultiplier](../internal/config/tuning_accessors.go)      | Fast background reacquisition multiplier.                                      |
+| `l3.ema_baseline_v1.min_confidence_floor`                  | int     | [GetMinConfidenceFloor](../internal/config/tuning_accessors.go)                | Minimum confidence preserved during foreground.                                |
+| `l3.ema_baseline_v1.locked_baseline_threshold`             | int     | [GetLockedBaselineThreshold](../internal/config/tuning_accessors.go)           | Observation count needed before baseline lock.                                 |
+| `l3.ema_baseline_v1.locked_baseline_multiplier`            | float64 | [GetLockedBaselineMultiplier](../internal/config/tuning_accessors.go)          | Locked-baseline spread multiplier.                                             |
+| `l3.ema_baseline_v1.sensor_movement_foreground_threshold`  | float64 | [GetSensorMovementForegroundThreshold](../internal/config/tuning_accessors.go) | Sensor movement detection ratio.                                               |
+| `l3.ema_baseline_v1.sensor_movement_drift_ratio_threshold` | float64 | [GetSensorMovementDriftRatioThreshold](../internal/config/tuning_accessors.go) | Sustained-motion drift ratio: fraction of settled cells shifted from baseline. |
+| `l3.ema_baseline_v1.background_drift_threshold_metres`     | float64 | [GetBackgroundDriftThresholdMetres](../internal/config/tuning_accessors.go)    | Drift distance threshold.                                                      |
+| `l3.ema_baseline_v1.background_drift_ratio_threshold`      | float64 | [GetBackgroundDriftRatioThreshold](../internal/config/tuning_accessors.go)     | Drift ratio threshold.                                                         |
+| `l3.ema_baseline_v1.settling_min_coverage`                 | float64 | [GetSettlingMinCoverage](../internal/config/tuning_accessors.go)               | Minimum coverage for convergence.                                              |
+| `l3.ema_baseline_v1.settling_max_spread_delta`             | float64 | [GetSettlingMaxSpreadDelta](../internal/config/tuning_accessors.go)            | Maximum spread delta for convergence.                                          |
+| `l3.ema_baseline_v1.settling_min_region_stability`         | float64 | [GetSettlingMinRegionStability](../internal/config/tuning_accessors.go)        | Minimum region stability for convergence.                                      |
+| `l3.ema_baseline_v1.settling_min_confidence`               | float64 | [GetSettlingMinConfidence](../internal/config/tuning_accessors.go)             | Minimum confidence for convergence.                                            |
 
 ### L4
 

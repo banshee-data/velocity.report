@@ -254,6 +254,12 @@ func (c *TuningConfig) GetSensorMovementForegroundThreshold() float64 {
 	return c.L3.ActiveCommon().SensorMovementForegroundThreshold
 }
 
+// GetSensorMovementDriftRatioThreshold returns the active L3 sustained-motion
+// background-drift ratio threshold.
+func (c *TuningConfig) GetSensorMovementDriftRatioThreshold() float64 {
+	return c.L3.ActiveCommon().SensorMovementDriftRatioThreshold
+}
+
 // GetBackgroundDriftThresholdMetres returns the active L3 drift distance threshold.
 func (c *TuningConfig) GetBackgroundDriftThresholdMetres() float64 {
 	return c.L3.ActiveCommon().BackgroundDriftThresholdMetres

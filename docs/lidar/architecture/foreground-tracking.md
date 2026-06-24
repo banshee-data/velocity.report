@@ -142,7 +142,7 @@ packets with incorrect azimuth values. Fixed by rewriting
 with sensitivity scaling in `ProcessFramePolarWithMask()` (4× → 1× over 100
 observations); (2) `recFg` accumulation during freeze, fixed by not
 incrementing during freeze and resetting to 0 on thaw. See
-[DEBUGGING.md §Known Fixed Issues](../../../DEBUGGING.md#lidar-background-grid--warmup-trails-fixed-january-2026).
+[DEBUGGING.md §Known Fixed Issues](../../../DEBUGGING.md#lidar-background-grid-warmup-trails-fixed-january-2026).
 
 **Real-time parameter tuning.** POST to `/api/lidar/params` with JSON body;
 changes apply immediately without restart.
