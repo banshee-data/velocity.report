@@ -65,6 +65,9 @@ func BenchMain(args []string) int {
 		fs.Usage()
 		return 2
 	}
+	if cfg.Quiet {
+		cfg.ProgressSecs = 0
+	}
 	cfg.UDPPort = resolveUDPPort(cfg.UDPPort, cfg.PCAPFile)
 	if cfg.UDPPort < 0 {
 		return 1
