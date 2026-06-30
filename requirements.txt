@@ -34,7 +34,7 @@ matplotlib==3.11.0
     # via -r requirements.in
 mypy-extensions==1.1.0
     # via black
-numpy==2.4.6
+numpy==2.5.0
     # via
     #   -r requirements.in
     #   contourpy
@@ -63,7 +63,7 @@ pygments==2.20.0
     # via pytest
 pyparsing==3.2.5
     # via matplotlib
-pytest==9.1.0
+pytest==9.1.1
     # via
     #   -r requirements.in
     #   pytest-cov
@@ -79,7 +79,7 @@ pyyaml==6.0.3
     # via -r requirements.in
 requests==2.34.2
     # via -r requirements.in
-ruff==0.15.17
+ruff==0.15.20
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
