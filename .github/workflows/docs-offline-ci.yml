@@ -33,7 +33,7 @@ jobs:
       - name: Setup Node.js with pnpm
         uses: ./.github/actions/setup-node-pnpm
         with:
-          node-version: "20.19.0"
+          node-version: "22"
           working-directory: docs_html
 
       - name: Build offline docs site

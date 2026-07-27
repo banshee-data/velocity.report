@@ -9,7 +9,7 @@
     "clean": "rm -rf _site"
   },
   "engines": {
-    "node": ">=20.19.0",
+    "node": ">=22",
     "pnpm": ">=10.0.0"
   },
   "license": "CC-BY-4.0",
