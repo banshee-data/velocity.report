@@ -44,24 +44,12 @@ and emits a `comparison.json` to stdout (or a specified path).
   "generated_at": "2026-03-09T21:19:03Z", // ISO 8601
   "source": "sample.vrlog", // basename of the .vrlog directory
 
-  "recording": {
-    /* §2 */
-  },
-  "frame_summary": {
-    /* §3 */
-  },
-  "track_summary": {
-    /* §4 */
-  },
-  "tracks": [
-    /* §5 */
-  ],
-  "speed_histogram": {
-    /* §6 */
-  },
-  "classification_distribution": {
-    /* §7 */
-  },
+  "recording": {/* §2 */},
+  "frame_summary": {/* §3 */},
+  "track_summary": {/* §4 */},
+  "tracks": [/* §5 */],
+  "speed_histogram": {/* §6 */},
+  "classification_distribution": {/* §7 */},
 }
 ```
 
@@ -404,18 +392,10 @@ When `vrlog-analyse compare a.vrlog b.vrlog` is invoked, the tool reads both
   "run_a": "analysis-run.vrlog",
   "run_b": "realtime-run.vrlog",
 
-  "frame_overlap": {
-    /* §8.2 */
-  },
-  "track_matching": {
-    /* §8.3 */
-  },
-  "speed_delta": {
-    /* §8.4 */
-  },
-  "quality_delta": {
-    /* §8.5 */
-  },
+  "frame_overlap": {/* §8.2 */},
+  "track_matching": {/* §8.3 */},
+  "speed_delta": {/* §8.4 */},
+  "quality_delta": {/* §8.5 */},
 }
 ```
 
