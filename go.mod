@@ -13,9 +13,9 @@ require (
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.8.0
 	golang.org/x/sys v0.47.0
-	google.golang.org/grpc v1.82.1
+	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.54.0
+	modernc.org/sqlite v1.55.0
 	tailscale.com v1.103.0-pre
 )
 
@@ -54,7 +54,7 @@ require (
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
