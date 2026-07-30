@@ -21,14 +21,7 @@ export interface Track {
 	heading_rad: number;
 	/** Classified object type (optional, includes display-only reserved classes) */
 	object_class?:
-		| 'pedestrian'
-		| 'car'
-		| 'truck'
-		| 'bus'
-		| 'cyclist'
-		| 'motorcyclist'
-		| 'bird'
-		| 'dynamic';
+		'pedestrian' | 'car' | 'truck' | 'bus' | 'cyclist' | 'motorcyclist' | 'bird' | 'dynamic';
 	/** Confidence in object classification (0-1, optional) */
 	object_confidence?: number;
 	/** Number of observations for this track */
@@ -252,13 +245,7 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
  * v0.5.0 ships 7 classes — truck and motorcyclist are reserved for future use.
  */
 export type DetectionLabel =
-	| 'car'
-	| 'bus'
-	| 'pedestrian'
-	| 'cyclist'
-	| 'bird'
-	| 'dynamic'
-	| 'noise';
+	'car' | 'bus' | 'pedestrian' | 'cyclist' | 'bird' | 'dynamic' | 'noise';
 
 /** Quality flags for track attributes (multi-select: properties of the track) */
 export type QualityLabel =
@@ -422,12 +409,7 @@ export interface SweepRecord {
  */
 export interface HINTState {
 	status:
-		| 'idle'
-		| 'running_reference'
-		| 'awaiting_labels'
-		| 'running_sweep'
-		| 'completed'
-		| 'failed';
+		'idle' | 'running_reference' | 'awaiting_labels' | 'running_sweep' | 'completed' | 'failed';
 	mode: string;
 	current_round: number;
 	total_rounds: number;
