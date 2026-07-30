@@ -29,16 +29,6 @@
     "postcss": "^8.5.18",
     "tailwindcss": "^4.3.2"
   },
-  "pnpm": {
-    "overrides": {
-      "liquidjs@<=10.25.4": "10.25.5",
-      "minimatch@<3.1.5": "3.1.5",
-      "picomatch@<2.3.2": "2.3.2"
-    },
-    "onlyBuiltDependencies": [
-      "@parcel/watcher"
-    ]
-  },
   "dependencies": {
     "@fontsource/eb-garamond": "^5.2.7",
     "@fontsource/geist": "^5.2.9",

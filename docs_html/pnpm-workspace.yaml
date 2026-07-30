@@ -1,0 +1,4 @@
+# pnpm 11 no longer reads the "pnpm" field from package.json.
+overrides:
+  dompurify: ^3.4.11
+  uuid: ^11.1.1
