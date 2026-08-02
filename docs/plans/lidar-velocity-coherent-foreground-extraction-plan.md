@@ -5,7 +5,7 @@
 - **Plan Version:** 2.0
 - **Canonical:** [velocity-foreground-extraction.md](../lidar/architecture/velocity-foreground-extraction.md)
 
-- **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); the active clustering is DBSCAN in [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go). No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications; see [Implementation Notes](#implementation-notes-january-2026) for detail.
+- **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); the active clustering is DBSCAN in [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go). No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications, preserved out-of-tree at tag `archive/vc-prototype-391`; see [Implementation Notes](#implementation-notes-january-2026) for detail.
   > The mathematical model and parameter tradeoffs are also documented in:
   > [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 
@@ -769,6 +769,29 @@ Where:
 
 ## Implementation notes (January 2026)
 
+### Prototype source (archived)
+
+The prototype described in this section was written against the pre-L1–L9 flat `internal/lidar/`
+layout and was never merged. The layered refactor removed every file it touched, so it cannot be
+rebased. The source is preserved at the tag `archive/vc-prototype-391`
+(`1b80907`, formerly PR #391); the companion extractor-selection work is at
+`archive/algo-selection-390` (`87a9fe6`, formerly PR #390).
+
+Read a single file without checking anything out:
+
+```bash
+git show archive/vc-prototype-391:internal/lidar/velocity_coherent_tracker.go
+```
+
+Or open the whole prototype for reference:
+
+```bash
+git checkout -b vc-prototype-review archive/vc-prototype-391
+```
+
+Treat it as a reference implementation, not a starting point: any re-implementation targets the
+current layered packages (`l3grid`, `l4perception`, `l5tracks`), not the paths below.
+
 ### Simplifications applied vs. original design
 
 The prototype implementation applies practical simplifications for the traffic monitoring use case:
@@ -785,14 +808,21 @@ The prototype implementation applies practical simplifications for the traffic m
 
 ### Key implementation files (prototype)
 
-| Phase       | Design Section | Implementation File                                |
-| ----------- | -------------- | -------------------------------------------------- |
-| Phase 1     | §8 above       | `velocity_estimation.go`                           |
-| Phase 2     | §9 above       | `velocity_coherent_clustering.go`                  |
-| Phase 3     | §10 above      | `velocity_coherent_tracking.go`                    |
-| Phase 4     | §11 above      | `velocity_coherent_tracking.go`                    |
-| Phase 5     | §12 above      | `velocity_coherent_merging.go`                     |
-| Integration | §13–14 above   | `dual_pipeline.go`, `velocity_coherent_tracker.go` |
+Paths are relative to `internal/lidar/` at tag `archive/vc-prototype-391`. None of these files exist
+on `main`; see [Prototype source (archived)](#prototype-source-archived) for how to read them.
+
+| Phase       | Design Section | Implementation File               | Lines      | Tests      |
+| ----------- | -------------- | --------------------------------- | ---------- | ---------- |
+| Phase 1     | §8 above       | `velocity_estimation.go`          | 383        | 272        |
+| Phase 2     | §9 above       | `velocity_coherent_clustering.go` | 404        | 223        |
+| Phase 3     | §10 above      | `velocity_coherent_tracking.go`   | 385        | 315        |
+| Phase 4     | §11 above      | `velocity_coherent_tracking.go`   | (as above) | (as above) |
+| Phase 5     | §12 above      | `velocity_coherent_merging.go`    | 390        | 360        |
+| Integration | §13–14 above   | `dual_pipeline.go`                | 374        | 270        |
+| Integration | §13–14 above   | `velocity_coherent_tracker.go`    | 557        | 206        |
+| Storage     | §14 above      | `vc_track_store.go`               | 324        | 315        |
+
+Roughly 2,800 lines of implementation and 1,960 lines of tests.
 
 ### What was NOT implemented (deferred)
 
