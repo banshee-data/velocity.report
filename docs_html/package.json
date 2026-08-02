@@ -16,9 +16,9 @@
   "devDependencies": {
     "@11ty/eleventy": "^3.1.6",
     "cheerio": "1.2.0",
-    "katex": "^0.17.0",
-    "markdown-it": "^14.2.0",
-    "markdown-it-anchor": "^9.2.0",
+    "katex": "^0.18.1",
+    "markdown-it": "^14.3.0",
+    "markdown-it-anchor": "^9.2.1",
     "markdown-it-texmath": "^1.0.0",
     "mermaid": "11.16.0"
   }
