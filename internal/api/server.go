@@ -54,7 +54,7 @@ type TransitController interface {
 // one of these.
 type SensorStatus struct {
 	Enabled bool   `json:"enabled"`
-	Status  string `json:"status"` // "disabled", "starting", "receiving", "stale", "error"
+	Status  string `json:"status"` // "disabled", "starting", "ready", "receiving", "stale", "error"
 }
 
 // LidarSensorStatus extends SensorStatus with lidar-specific fields.

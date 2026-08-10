@@ -96,7 +96,7 @@ export interface RadarStatsResponse {
 // Per-sensor health snapshot included in the capabilities response.
 export interface SensorStatus {
 	enabled: boolean;
-	status: 'disabled' | 'starting' | 'receiving' | 'stale' | 'error';
+	status: 'disabled' | 'starting' | 'ready' | 'receiving' | 'stale' | 'error';
 }
 
 // LiDAR-specific sensor status with sweep capability.

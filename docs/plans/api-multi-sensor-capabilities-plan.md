@@ -2,7 +2,7 @@
 
 - **Status:** Complete
 - **Layers:** API, Frontend, cmd/radar
-- **Canonical:** `internal/api/server.go`, `cmd/radar/capabilities.go`
+- **Canonical:** `internal/api/server.go`, `internal/cmd/server/capabilities.go`
 
 Redesign `/api/capabilities` to support multiple named sensors per class,
 future-proofing for deployments with more than one radar or LiDAR unit.
@@ -33,8 +33,7 @@ access stays light: `$.lidar.hesai.enabled`.
   "radar": {
     "default": {
       "enabled": true,
-      "status": "receiving",
-      "last_reading_at": "2026-03-24T06:45:12Z"
+      "status": "receiving"
     }
   },
   "lidar": {}
@@ -48,20 +47,17 @@ access stays light: `$.lidar.hesai.enabled`.
   "radar": {
     "ops243_front": {
       "enabled": true,
-      "status": "receiving",
-      "last_reading_at": "2026-03-24T06:45:12Z"
+      "status": "receiving"
     },
     "ops243_rear": {
       "enabled": true,
-      "status": "stale",
-      "last_reading_at": "2026-03-23T02:11:44Z"
+      "status": "stale"
     }
   },
   "lidar": {
     "hesai": {
       "enabled": true,
-      "status": "receiving",
-      "last_reading_at": "2026-03-24T07:38:59Z",
+      "status": "ready",
       "sweep": true
     }
   }
@@ -70,29 +66,28 @@ access stays light: `$.lidar.hesai.enabled`.
 
 ### Why named objects over lists
 
-| Concern | Named objects | Lists |
-|---------|--------------|-------|
-| Lookup by identity | `caps.radar["ops243_front"]` — O(1), stable key | Must scan by name field |
-| Diffing across polls | Keys are stable — trivial Svelte keying | Index shifts on removal |
-| Go type | `map[string]SensorStatus` — idiomatic | `[]SensorStatus` + Name field |
-| Uniqueness | Structural — keys unique by definition | Must validate no duplicates |
-| Ordering | Maps unordered (UI sorts by name) | Ordered but meaningless |
+| Concern              | Named objects                                   | Lists                         |
+| -------------------- | ----------------------------------------------- | ----------------------------- |
+| Lookup by identity   | `caps.radar["ops243_front"]` — O(1), stable key | Must scan by name field       |
+| Diffing across polls | Keys are stable — trivial Svelte keying         | Index shifts on removal       |
+| Go type              | `map[string]SensorStatus` — idiomatic           | `[]SensorStatus` + Name field |
+| Uniqueness           | Structural — keys unique by definition          | Must validate no duplicates   |
+| Ordering             | Maps unordered (UI sorts by name)               | Ordered but meaningless       |
 
 Named objects win on every axis relevant here.
 
 ### Field definitions
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `enabled` | `bool` | Sensor channel was activated at startup |
-| `status` | `string` | Runtime state: `disabled`, `starting`, `receiving`, `stale`, `error` |
-| `last_reading_at` | `string \| null` | ISO 8601 timestamp of last data received; `null` = never |
-| `sweep` | `bool` | (lidar only) Sweep/auto-tuner operational |
+| Field     | Type     | Description                                                                   |
+| --------- | -------- | ----------------------------------------------------------------------------- |
+| `enabled` | `bool`   | Sensor channel was activated at startup                                       |
+| `status`  | `string` | Runtime state: `disabled`, `starting`, `ready`, `receiving`, `stale`, `error` |
+| `sweep`   | `bool`   | (lidar only) Sweep/auto-tuner operational                                     |
 
 ### State machine
 
 ```
-disabled → starting → receiving ⇄ stale
+disabled → starting → ready → receiving ⇄ stale
                   ↘ error
 ```
 
@@ -107,9 +102,8 @@ entry is treated the same as a disabled or unconfigured sensor.
 ```go
 // SensorStatus is the per-sensor health snapshot.
 type SensorStatus struct {
-    Enabled       bool    `json:"enabled"`
-    Status        string  `json:"status"`
-    LastReadingAt *string `json:"last_reading_at"`
+    Enabled bool   `json:"enabled"`
+    Status  string `json:"status"`
 }
 
 // LidarSensorStatus extends SensorStatus with lidar-specific fields.
@@ -131,18 +125,17 @@ type Capabilities struct {
 
 ```typescript
 interface SensorStatus {
-    enabled: boolean;
-    status: 'disabled' | 'starting' | 'receiving' | 'stale' | 'error';
-    last_reading_at: string | null;
+  enabled: boolean;
+  status: "disabled" | "starting" | "ready" | "receiving" | "stale" | "error";
 }
 
 interface LidarSensorStatus extends SensorStatus {
-    sweep: boolean;
+  sweep: boolean;
 }
 
 interface Capabilities {
-    radar: Record<string, SensorStatus>;
-    lidar: Record<string, LidarSensorStatus>;
+  radar: Record<string, SensorStatus>;
+  lidar: Record<string, LidarSensorStatus>;
 }
 ```
 
@@ -150,18 +143,18 @@ interface Capabilities {
 
 ```typescript
 const anyLidarEnabled = derived(capabilities, ($c) =>
-    Object.values($c.lidar).some(s => s.enabled)
+  Object.values($c.lidar).some((s) => s.enabled),
 );
 ```
 
 ## 5. Migration Path
 
-| Old field | New location |
-|-----------|-------------|
-| `radar: true` | `radar.default.enabled = true` |
+| Old field       | New location                           |
+| --------------- | -------------------------------------- |
+| `radar: true`   | `radar.default.enabled = true`         |
 | `lidar.enabled` | `lidar.default.enabled` (or empty map) |
-| `lidar.state` | `lidar.default.status` |
-| `lidar_sweep` | `lidar.default.sweep` |
+| `lidar.state`   | `lidar.default.status`                 |
+| `lidar_sweep`   | `lidar.default.sweep`                  |
 
 Frontend ships embedded in the binary — both sides change atomically. No
 backwards-compatibility shim needed.
@@ -198,10 +191,10 @@ Each class gets its own extended status type if it has class-specific fields.
 - [x] Replace `Capabilities`, `LidarCapability` structs in `internal/api/server.go`
       with new `SensorStatus`, `LidarSensorStatus`, `Capabilities` types
 - [x] Update `showCapabilities` default in `internal/api/server_admin.go`
-- [x] Rewrite `capabilitiesProvider` in `cmd/radar/capabilities.go` to populate
+- [x] Rewrite `capabilitiesProvider` in `internal/cmd/server/capabilities.go` to populate
       `map[string]SensorStatus` / `map[string]LidarSensorStatus`
 - [x] Update `internal/api/capabilities_test.go`
-- [x] Update `cmd/radar/capabilities_test.go`
+- [x] Update `internal/cmd/server/capabilities_test.go`
 
 ### Frontend (Svelte/TypeScript)
 
