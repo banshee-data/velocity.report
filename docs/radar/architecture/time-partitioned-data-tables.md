@@ -680,11 +680,12 @@ Disable partitioning: `velocity-report --disable-partitioning`. Union views rema
 - ⚠️ Rotation process adds overhead (once per month)
 
 **Benchmark (Raspberry Pi 4):**
+
 | Database Size | INSERT/sec (Current) | INSERT/sec (Partitioned) |
-|---------------|---------------------|-------------------------|
-| 1GB | 1000 | 1000 |
-| 10GB | 800 | 1000 |
-| 30GB | 500 | 1000 |
+| ------------- | -------------------- | ------------------------ |
+| 1GB           | 1000                 | 1000                     |
+| 10GB          | 800                  | 1000                     |
+| 30GB          | 500                  | 1000                     |
 
 **Conclusion:** Partitioning maintains consistent write performance.
 
