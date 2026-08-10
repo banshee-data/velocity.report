@@ -587,6 +587,7 @@ VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVi
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/$(BUILD_TS_COMPACT)-VelocityVisualiser-$(DEV_VERSION)-$(GIT_SHA_SHORT).dmg
 VISUALISER_DMG_RELEASE = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg
+VISUALISER_NOTARY_DMG ?= $(VISUALISER_DMG_RELEASE)
 
 .PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release sign-mac notarise-mac verify-mac release-mac
 
@@ -681,21 +682,21 @@ sign-mac:
 	@scripts/codesign-notarise.sh sign "$(VISUALISER_APP)"
 
 notarise-mac:
-	@if [ ! -f "$(VISUALISER_DMG)" ]; then \
-		echo "Error: DMG not found at $(VISUALISER_DMG). Run 'make dmg-mac' first."; \
+	@if [ ! -f "$(VISUALISER_NOTARY_DMG)" ]; then \
+		echo "Error: DMG not found at $(VISUALISER_NOTARY_DMG). Run 'make dmg-mac-release' first."; \
 		exit 1; \
 	fi
-	@scripts/codesign-notarise.sh notarise "$(VISUALISER_DMG)"
+	@scripts/codesign-notarise.sh notarise "$(VISUALISER_NOTARY_DMG)"
 
 verify-mac:
-	@scripts/codesign-notarise.sh verify "$(VISUALISER_APP)" "$(VISUALISER_DMG)"
+	@scripts/codesign-notarise.sh verify "$(VISUALISER_APP)" "$(VISUALISER_NOTARY_DMG)"
 
 release-mac:
 	@$(MAKE) build-mac
 	@$(MAKE) sign-mac
 	@$(MAKE) dmg-mac-release
-	@$(MAKE) notarise-mac DMG_SUFFIX=
-	@$(MAKE) verify-mac DMG_SUFFIX=
+	@$(MAKE) notarise-mac
+	@$(MAKE) verify-mac
 	@echo "✓ Release complete: $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg"
 
 # =============================================================================

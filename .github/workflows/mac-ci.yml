@@ -182,13 +182,17 @@ jobs:
           NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
           NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
-        run: make notarise-mac DMG_SUFFIX=
+        run: |
+          NOTARY_KEY_FILE=$(mktemp /tmp/AuthKey.XXXXXX.p8)
+          trap 'rm -f "$NOTARY_KEY_FILE"' EXIT
+          printf '%s' "$NOTARY_KEY" > "$NOTARY_KEY_FILE"
+          NOTARY_KEY="$NOTARY_KEY_FILE" make notarise-mac
 
       - name: Verify signatures
         if: secrets.MACOS_CERTIFICATE != ''
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-        run: make verify-mac DMG_SUFFIX=
+        run: make verify-mac
 
       - name: Upload DMG artefact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

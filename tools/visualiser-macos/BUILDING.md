@@ -137,8 +137,8 @@ Individual steps can also be run separately:
 make build-mac          # Build the .app
 make sign-mac           # Codesign with Developer ID (Hardened Runtime)
 make dmg-mac-release    # Package into DMG
-make notarise-mac DMG_SUFFIX=   # Submit, wait, staple
-make verify-mac   DMG_SUFFIX=   # codesign + spctl + stapler checks
+make notarise-mac       # Submit release DMG, wait, staple
+make verify-mac         # codesign + spctl + stapler checks
 ```
 
 ### One-Time Local Setup
@@ -167,13 +167,14 @@ make verify-mac   DMG_SUFFIX=   # codesign + spctl + stapler checks
 
 ### Configuration
 
-| Variable            | Default                    | Description                              |
-| ------------------- | -------------------------- | ---------------------------------------- |
-| `CODESIGN_IDENTITY` | `Developer ID Application` | Codesign identity name                   |
-| `NOTARY_PROFILE`    | `velocity-report`          | Keychain profile for `notarytool`        |
-| `NOTARY_KEY`        | _(unset)_                  | Path to App Store Connect API key (.p8)  |
-| `NOTARY_KEY_ID`     | _(unset)_                  | API key ID (used with `NOTARY_KEY`)      |
-| `NOTARY_ISSUER`     | _(unset)_                  | API issuer UUID (used with `NOTARY_KEY`) |
+| Variable                | Default                    | Description                              |
+| ----------------------- | -------------------------- | ---------------------------------------- |
+| `CODESIGN_IDENTITY`     | `Developer ID Application` | Codesign identity name                   |
+| `NOTARY_PROFILE`        | `velocity-report`          | Keychain profile for `notarytool`        |
+| `NOTARY_KEY`            | _(unset)_                  | Path to App Store Connect API key (.p8)  |
+| `NOTARY_KEY_ID`         | _(unset)_                  | API key ID (used with `NOTARY_KEY`)      |
+| `NOTARY_ISSUER`         | _(unset)_                  | API issuer UUID (used with `NOTARY_KEY`) |
+| `VISUALISER_NOTARY_DMG` | release DMG path           | DMG path for notarise/verify targets     |
 
 ### CI Secrets
 
