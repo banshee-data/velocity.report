@@ -39,8 +39,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Classification corpus contract (classifier plan Phase 2): Go training-export path over `TrackFeatures`, a versioned labelled-corpus artefact with provenance, a frozen kirk0 baseline, and a scorecard regression test; pulls the export endpoint forward from the v0.8.0 unpopulated-data item: [design doc](plans/lidar-ml-classifier-training-plan.md) `M`
 - Shape descriptors Phases 2–3: 3D eigenvalue features (linearity, planarity, sphericity, anisotropy, omnivariance, eigenentropy), vertical mass profile, ground footprint, and return character computed in L4 as an additive stage; `shape_features_json` persistence with per-track aggregates including cross-observation variance; the existing PCA is 2D and retains neither eigenvalue, so no shape description exists today: [design doc](plans/lidar-shape-descriptors-plan.md) `M` {math}
-- [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
-- Go runtime pipeline correctness Phases 3–4: define the magnitude-only radar raw-data/transit contract, add the transit worker regression tests, and wire current LiDAR capability lifecycle states before the #430 response-shape redesign: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
+- Capabilities lifecycle follow-through: the #547 response-shape redesign now returns named `radar`/`lidar` maps and gates web LiDAR navigation, but production still only wires LiDAR as `starting` when `--enable-lidar` is active. Wire `SetLidarReady`/`SetLidarError` from real LiDAR startup outcomes and add hardware smoke validation notes: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
+- Go runtime pipeline correctness Phase 3: define the magnitude-only radar raw-data/transit contract and add the transit worker regression tests: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
 
 ### v0.5.4 - Perception pipeline + extractor foundations (054)
 
@@ -203,6 +203,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## Complete
 
+- [#547] Capabilities API multi-sensor response shape: replaced the legacy flat `/api/capabilities` payload with named `radar`/`lidar` maps, added non-null empty-map semantics, updated Go handler/provider tests, updated TypeScript API/store tests, and gated Svelte LiDAR navigation from the capability map. This supersedes the unmerged #430 response-shape PR; LiDAR ready/error lifecycle wiring remains tracked above. [design doc](plans/api-multi-sensor-capabilities-plan.md) `S`
 - [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)

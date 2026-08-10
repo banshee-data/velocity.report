@@ -13,14 +13,14 @@ These are not broad style or package cleanup items. They affect measurement prov
 
 ## Cleanup consolidation evaluation
 
-| Backlog scope                                                                                        | Decision                                                                                 | Reason                                                                                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Access-control and localhost listener hardening in v0.5.1                                            | Keep as existing backlog work; reference as a boundary condition.                        | Listener defaults and access policy are release-hardening work. This plan only owns the local replay file-safety fix where pipeline handlers currently bypass shared validation.          |
-| Clock abstraction, replay/performance measurement, and LiDAR foundations in v0.5.2                   | Keep companion plans; absorb the replay correctness invariant here.                      | Clock injection, perf harnesses, and foundations are broader than this plan. This plan owns the invariant that persisted analysis output cannot be semantically throttled by wall time.   |
-| Metric registry and unpopulated data remediation in v0.5.3                                           | Keep companion plans; reference output/provenance dependencies.                          | Registry and unpopulated-column work define metric naming and data completeness. This plan ensures analysis runs and transit tables are trustworthy inputs to that work.                  |
-| Capabilities API redesign in v0.5.3                                                                  | Split: current lifecycle correctness here, response-shape redesign remains #430.         | The existing API is already wrong because it never leaves `starting`. The larger named-object response and frontend smart polling can land later without inheriting stale state behavior. |
-| Go structural hygiene, SQL-boundary cleanup, silent error-drop cleanup, and cmd extraction in v0.5.6 | Keep structural cleanup plans; fold behavior regressions here.                           | Moving SQL or cmd ownership before pinning behavior risks preserving bugs. This plan adds regression tests and contracts; v0.5.6 moves the corrected code to better boundaries.           |
-| Background grid display, VRLOG seek index, and replay UX/stability in v0.5.7                         | Keep UX/stability plans; fold only VRLOG load safety and replay semantic integrity here. | Background rendering, seek indexing, and macOS replay UX are user-facing follow-through. This plan handles server-side correctness gates that those surfaces depend on.                   |
+| Backlog scope                                                                                        | Decision                                                                                 | Reason                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Access-control and localhost listener hardening in v0.5.1                                            | Keep as existing backlog work; reference as a boundary condition.                        | Listener defaults and access policy are release-hardening work. This plan only owns the local replay file-safety fix where pipeline handlers currently bypass shared validation.                             |
+| Clock abstraction, replay/performance measurement, and LiDAR foundations in v0.5.2                   | Keep companion plans; absorb the replay correctness invariant here.                      | Clock injection, perf harnesses, and foundations are broader than this plan. This plan owns the invariant that persisted analysis output cannot be semantically throttled by wall time.                      |
+| Metric registry and unpopulated data remediation in v0.5.3                                           | Keep companion plans; reference output/provenance dependencies.                          | Registry and unpopulated-column work define metric naming and data completeness. This plan ensures analysis runs and transit tables are trustworthy inputs to that work.                                     |
+| Capabilities API redesign in v0.5.3                                                                  | Response-shape redesign delivered by #547; lifecycle correctness stays here.             | `/api/capabilities` now returns named `radar`/`lidar` maps and the web store/nav consume them. The remaining runtime bug is that production LiDAR still never advances beyond `starting` or reports `error`. |
+| Go structural hygiene, SQL-boundary cleanup, silent error-drop cleanup, and cmd extraction in v0.5.6 | Keep structural cleanup plans; fold behavior regressions here.                           | Moving SQL or cmd ownership before pinning behavior risks preserving bugs. This plan adds regression tests and contracts; v0.5.6 moves the corrected code to better boundaries.                              |
+| Background grid display, VRLOG seek index, and replay UX/stability in v0.5.7                         | Keep UX/stability plans; fold only VRLOG load safety and replay semantic integrity here. | Background rendering, seek indexing, and macOS replay UX are user-facing follow-through. This plan handles server-side correctness gates that those surfaces depend on.                                      |
 
 ## Consolidation Options
 
@@ -56,13 +56,13 @@ Merge clock abstraction, performance harness, foundations fix-it, metrics regist
 
 ## Current State
 
-| Area                         | Current state                                                                                                                                                                                                 | Severity | Release view                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------- |
-| PCAP analysis default        | `handlePCAPStart` initializes analysis mode to true, then JSON/form parsing overwrites omitted values to false. Legacy sweep/client paths still send only `pcap_file`.                                        | Critical | v0.5.2 hotfix before relying on replay/HINT output          |
-| Analysis replay throttling   | The tracking pipeline uses wall-clock `MaxFrameRate` throttling and publishes empty frames for throttled foreground frames. Blocking PCAP frame delivery only preserves cardinality, not semantic processing. | Critical | v0.5.2, coordinated with clock abstraction                  |
-| VRLOG load path validation   | `handleVRLogLoad` uses string-prefix validation even though `internal/security.ValidatePathWithinDirectory` already handles symlink escape.                                                                   | High     | v0.5.2 local replay safety                                  |
-| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                             | High     | v0.5.3 data-contract cleanup                                |
-| LiDAR capability lifecycle   | `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not.                                                                                                                   | High     | v0.5.3 current API fix; #430 can later reshape the response |
+| Area                         | Current state                                                                                                                                                                                                   | Severity | Release view                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| PCAP analysis default        | `handlePCAPStart` initializes analysis mode to true, then JSON/form parsing overwrites omitted values to false. Legacy sweep/client paths still send only `pcap_file`.                                          | Critical | v0.5.2 hotfix before relying on replay/HINT output        |
+| Analysis replay throttling   | The tracking pipeline uses wall-clock `MaxFrameRate` throttling and publishes empty frames for throttled foreground frames. Blocking PCAP frame delivery only preserves cardinality, not semantic processing.   | Critical | v0.5.2, coordinated with clock abstraction                |
+| VRLOG load path validation   | `handleVRLogLoad` uses string-prefix validation even though `internal/security.ValidatePathWithinDirectory` already handles symlink escape.                                                                     | High     | v0.5.2 local replay safety                                |
+| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                               | High     | v0.5.3 data-contract cleanup                              |
+| LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal. | High     | v0.5.3 lifecycle follow-through after #547 response shape |
 
 ## Design Approach
 
@@ -155,16 +155,25 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 ### Phase 4: current capability lifecycle
 
-**Summary:** Make the existing `/api/capabilities` state truthful before the broader #430 response redesign.
+**Summary:** Make the current `/api/capabilities` state truthful now that #547 has shipped the named-map response shape.
 
 **State:** Scheduled.
+
+**Current shipped baseline:** `/api/capabilities` returns non-null named maps:
+`radar.default` is reported as enabled/`receiving`, LiDAR is omitted as `{}` when
+disabled, and LiDAR is reported as `lidar.default.status = "starting"` when
+`--enable-lidar` constructs the LiDAR server. The endpoint does not detect radar
+disconnect/reconnect.
 
 **Steps:**
 
 1. Wire LiDAR startup success to `SetLidarReady(true)` once the server and sweep routes are usable.
 2. Wire startup/listener failure paths to `SetLidarError`.
 3. Add tests for enabled-ready, enabled-error, and disabled states.
-4. Keep the change minimal so #430 can later restructure the payload without inheriting stale state behavior.
+4. Add hardware smoke guidance for release candidates: radar-only should return
+   `lidar: {}` and hide LiDAR nav; `--enable-lidar` should add `lidar.default`
+   and show LiDAR nav; radar disconnect/reconnect should not be treated as
+   supported lifecycle validation until radar hot-plug state exists.
 
 **Milestone:** v0.5.3.
 
@@ -214,7 +223,8 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 - Phase 1 should land before side-by-side replay evaluation or HINT scoring is treated as trustworthy.
 - Phase 1 and the clock-abstraction plan touch the same throttle boundary; behavior should be pinned with tests before clock injection broadens the surface.
-- Phase 4 overlaps with #430 only at the capability API surface. The current lifecycle fix should not wait for the response-shape redesign.
+- Phase 4 builds on #547's named-map capability API. It owns runtime truth for
+  LiDAR ready/error transitions, not another response-shape redesign.
 - Phase 5 does not need a new backlog item because existing v0.5.3 metric and data-completeness plans already own the broader output surfaces.
 - Phase 6 does not need a new backlog item because existing v0.5.6 cleanup work already owns the package and cmd-boundary changes.
 - Phase 7 does not need a new backlog item because existing v0.5.7 replay UX/stability work already owns visual replay follow-through.

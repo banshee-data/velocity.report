@@ -7,7 +7,28 @@
 Redesign `/api/capabilities` to support multiple named sensors per class,
 future-proofing for deployments with more than one radar or LiDAR unit.
 
-## 1. Current Format
+## 1. Implementation Status
+
+PR #547 ships the response-shape redesign and web navigation gating. The
+current production contract is:
+
+- `/api/capabilities` returns top-level `radar` and `lidar` named maps.
+- `radar` and `lidar` are always JSON objects; nil provider maps are normalised
+  to `{}` rather than `null`.
+- Radar is reported as the built-in `"default"` sensor with status
+  `"receiving"`. The endpoint does not detect radar hot-plug state.
+- When LiDAR is disabled, `lidar` is `{}` and the Svelte sidebar hides LiDAR
+  routes.
+- When LiDAR is enabled, production currently adds `lidar.default` with status
+  `"starting"`. The provider methods and tests cover ready/error/disabled
+  states, but wiring real LiDAR startup success to `SetLidarReady` and startup
+  failure to `SetLidarError` remains follow-up work in
+  [go-runtime-pipeline-correctness-plan.md](go-runtime-pipeline-correctness-plan.md).
+- The web store starts a retry timer immediately, retries startup failures, stops
+  polling after a successful radar-only response, and keeps polling when any
+  LiDAR sensor is present.
+
+## 2. Legacy Format
 
 ```json
 {
@@ -20,7 +41,7 @@ future-proofing for deployments with more than one radar or LiDAR unit.
 Flat structure — one boolean for radar, one object for LiDAR. No room for a
 second sensor of either class without a breaking change.
 
-## 2. Target Format
+## 3. Current Format
 
 Two top-level keys — `radar` and `lidar` — each a **named object**
 (keys are stable, human-assigned sensor names). No `_sensors` suffix so path
@@ -86,6 +107,10 @@ Named objects win on every axis relevant here.
 
 ### State machine
 
+This is the contract vocabulary for per-sensor state. PR #547 preserves the
+state names but only wires the production LiDAR path as far as `starting`; ready
+and error transitions are still scheduled lifecycle work.
+
 ```
 disabled → starting → ready → receiving ⇄ stale
                   ↘ error
@@ -97,7 +122,7 @@ disabled → starting → ready → receiving ⇄ stale
 sensor class. Providers may omit disabled sensors from the map, so a missing
 entry is treated the same as a disabled or unconfigured sensor.
 
-## 3. Go Types
+## 4. Go Types
 
 ```go
 // SensorStatus is the per-sensor health snapshot.
@@ -123,7 +148,7 @@ Non-nil empty `map[string]T` values marshal to `{}`. The handler normalises
 provider nil maps to empty maps before encoding, so the public contract never
 emits `null` for `radar` or `lidar`.
 
-## 4. Frontend Types
+## 5. Frontend Types
 
 ```typescript
 interface SensorStatus {
@@ -149,7 +174,7 @@ const anyLidarEnabled = derived(capabilities, ($c) =>
 );
 ```
 
-## 5. Migration Path
+## 6. Migration Path
 
 | Old field       | New location                           |
 | --------------- | -------------------------------------- |
@@ -161,7 +186,7 @@ const anyLidarEnabled = derived(capabilities, ($c) =>
 Frontend ships embedded in the binary — both sides change atomically. No
 backwards-compatibility shim needed.
 
-## 6. Sensor naming
+## 7. Sensor naming
 
 Keys are stable, human-assigned identifiers. Today the single radar/lidar uses
 `"default"`. Multi-sensor deployments use descriptive names:
@@ -175,7 +200,7 @@ validate uniqueness before constructing the capabilities maps. The response
 shape already enforces unique keys structurally, but named-sensor input parsing
 and duplicate-name validation are not implemented in this PR.
 
-## 7. Future extensibility
+## 8. Future extensibility
 
 A third sensor class (thermal, ultrasonic) is just another top-level key:
 
@@ -189,7 +214,7 @@ A third sensor class (thermal, ultrasonic) is just another top-level key:
 
 Each class gets its own extended status type if it has class-specific fields.
 
-## 8. Implementation Checklist
+## 9. Implementation Checklist
 
 ### Backend (Go)
 
@@ -212,6 +237,14 @@ Each class gets its own extended status type if it has class-specific fields.
 
 ### Validation
 
-- [x] `make lint-go && make test-go`
-- [x] `make lint-web && make test-web`
-- [x] `make build-web`
+- [x] `go test ./internal/api ./internal/cmd/server`
+- [x] `pnpm --dir=web exec jest src/lib/api.test.ts src/lib/stores/capabilities.test.ts --runInBand`
+- [x] `pnpm --dir=web run lint`
+- [x] `pnpm --dir=web run build`
+- [x] `python3 scripts/check-relative-links.py`
+- [x] `python3 scripts/check-backtick-paths.py`
+- [ ] Hardware smoke on current release candidate: verify radar-only returns
+      `lidar: {}` and hides LiDAR navigation; verify `--enable-lidar` adds
+      `lidar.default` and shows LiDAR navigation. Do not treat radar
+      disconnect/reconnect as a validation target for this PR because radar
+      hot-plug state is not implemented.

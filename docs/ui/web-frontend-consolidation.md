@@ -14,8 +14,9 @@ Three distinct web surfaces serve LiDAR functionality:
    parameter sweep/auto-tune, background regions.
 3. **macOS Metal visualiser** (gRPC 50051): live 3D point cloud rendering.
 
-Pain points: LiDAR nav visible in radar-only deploys, split ports, two
-charting stacks (ECharts + LayerChart), fragmented user experience.
+Pain points: split ports, two charting stacks (ECharts + LayerChart),
+fragmented user experience, and direct LiDAR routes that still need explicit
+disabled-state handling. Sidebar LiDAR navigation is now capability-gated.
 
 ## Decision: option b; one Svelte app with conditional LiDAR sections ✅
 
@@ -28,20 +29,21 @@ matrix covering effort, risk, complexity, usability, and maintenance.
 - **Go-embedded HTML dashboards retired**: sweep, regions, status migrated.
 - **macOS visualiser retained**: unchanged for 3D rendering + debugging.
 - **Port 8081 retired**: LiDAR API endpoints consolidated under 8080.
-- **LiDAR navigation hidden** when `--enable-lidar` is off.
+- **LiDAR navigation hidden** when `--enable-lidar` is off. PR #547 ships this
+  sidebar gating; route-level disabled states remain follow-up.
 
 ## Migration plan
 
-| Phase | Scope                              | Effort     | Charting Rewrite |
-| ----- | ---------------------------------- | ---------- | ---------------- |
-| 0     | Capabilities API + conditional nav | 2–4 days   | None             |
-| 1     | Status page migration              | 2–3 days   | None             |
-| 2     | Regions dashboard migration        | 2–3 days   | None (Canvas 2D) |
-| 3     | Sweep dashboard migration          | 2–3 weeks  | 8 chart types    |
-| 4     | Debug dashboard retirement         | 1 day      | None             |
-| 5     | Retire port 8081                   | 3–5 days   | None             |
-| 6     | Go embed cleanup                   | 1 day      | None             |
-| Total |                                    | ~5–6 weeks |                  |
+| Phase | Scope                              | Effort          | Charting Rewrite |
+| ----- | ---------------------------------- | --------------- | ---------------- |
+| 0     | Capabilities API + conditional nav | Mostly complete | None             |
+| 1     | Status page migration              | 2–3 days        | None             |
+| 2     | Regions dashboard migration        | 2–3 days        | None (Canvas 2D) |
+| 3     | Sweep dashboard migration          | 2–3 weeks       | 8 chart types    |
+| 4     | Debug dashboard retirement         | 1 day           | None             |
+| 5     | Retire port 8081                   | 3–5 days        | None             |
+| 6     | Go embed cleanup                   | 1 day           | None             |
+| Total |                                    | ~5–6 weeks      |                  |
 
 Phase 3 (sweep dashboard) dominates: 8 ECharts chart types must be
 rewritten to LayerChart/d3-scale.
@@ -51,11 +53,23 @@ rewritten to LayerChart/d3-scale.
 `/api/capabilities` reports runtime sensor state as a JSON object with two
 top-level named maps: `radar: Record<string, SensorStatus>` and
 `lidar: Record<string, LidarSensorStatus>`. A radar-only deployment returns
-`radar.default.enabled = true` and `lidar: {}`; LiDAR deployments include one
-or more named LiDAR entries with `enabled`, `status`, and `sweep`.
+`radar.default.enabled = true` and `lidar: {}`; LiDAR-enabled deployments
+currently include `lidar.default` with status `starting`.
 
-LiDAR navigation hidden when disabled. All `/api/lidar/*` endpoints
-return "LiDAR disabled" without initialising hardware.
+Current shipped behavior:
+
+- Svelte sidebar LiDAR navigation is hidden when the LiDAR map is empty.
+- The web store retries startup fetch failures, stops polling after successful
+  radar-only responses, and keeps polling when LiDAR is present.
+- `radar.default` is a static built-in capability; radar disconnect/reconnect is
+  not detected.
+
+Remaining Phase 0 work:
+
+- Wire real LiDAR startup success/failure into `SetLidarReady`/`SetLidarError`.
+- Make direct `/app/lidar/*` route access show a disabled state.
+- Ensure all `/api/lidar/*` endpoints return "LiDAR disabled" without
+  initialising hardware when LiDAR is off.
 
 ### Phase 3: sweep dashboard (critical path)
 
