@@ -235,6 +235,17 @@ source=Notarized Developer ID
 ✓ All verification checks passed
 ```
 
+To validate a downloaded CI or release DMG without rebuilding locally:
+
+```bash
+make verify-mac-dmg DMG=/path/to/VelocityVisualiser-<VERSION>.dmg
+```
+
+This mounts the DMG read-only, validates the stapled notarisation ticket,
+prints the embedded app's signing authority and Team ID, verifies the app
+signature, and runs Gatekeeper assessment. For non-standard bundles, pass
+`DMG_APP_NAME=<Name>.app`.
+
 ### Configuration
 
 | Variable                     | Default                    | Description                                    |
@@ -246,6 +257,8 @@ source=Notarized Developer ID
 | `NOTARY_KEY_ID`              | _(unset)_                  | API key ID (used with `NOTARY_KEY`)            |
 | `NOTARY_ISSUER`              | _(unset)_                  | API issuer UUID (used with `NOTARY_KEY`)       |
 | `VISUALISER_NOTARY_DMG`      | release DMG path           | DMG path for notarise/verify targets           |
+| `DMG`                        | release DMG path           | Downloaded DMG path for `verify-mac-dmg`       |
+| `DMG_APP_NAME`               | `VelocityVisualiser.app`   | App bundle name inside downloaded DMGs         |
 | `DMG_LAYOUT`                 | `1`                        | Set to `0` to skip Finder layout               |
 | `DMG_LAYOUT_TIMEOUT_SECONDS` | `30`                       | Finder layout timeout before packaging goes on |
 
