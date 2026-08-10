@@ -1,6 +1,6 @@
 # OBB heading stability review
 
-- **Status:** Implemented; Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, G applied. Fix D config-only. Fixes E/F skipped; superseded by geometry-coherent tracking (D-04).
+- **Status:** Implemented for the current guard stack; Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, and G are applied. Fix D remains config-only and unlanded in the shipped defaults (`0.25`); `0.15` / `0.10` are replay-validation candidates. Fixes E/F remain diagnostic follow-ups and should not revive proto, macOS visualiser, or L9 endpoint code before geometry-coherent tracking (D-04).
 - **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
 - **Related:**
 
@@ -41,7 +41,7 @@ either direction along the principal axis, producing heading values that differ
 by π between frames for the same physical object. The result is a raw heading
 that may flip by 180° whenever the point distribution shifts slightly.
 
-The tracker (`l5tracks/tracking.go:1001–1024`) disambiguates using velocity:
+The tracker update path (`l5tracks/tracking_update.go`) disambiguates using velocity:
 
 ```text
 if speed > 0.5 m/s:
@@ -70,7 +70,7 @@ When the principal axis rotates by 90°, two things happen simultaneously:
    vice versa, because length is always defined as extent along the principal
    eigenvector.
 
-The aspect-ratio lock guard (`tracking.go:981–996`) exists to suppress heading
+The aspect-ratio lock guard (`l5tracks/tracking_update.go`) exists to suppress heading
 updates when the cluster is near-square:
 
 ```text
@@ -84,8 +84,8 @@ square that PCA can still swap axes between frames when a few points shift.
 ### 2.3 Dimension averaging without heading-locked axes
 
 `BoundingBoxLengthAvg` and `BoundingBoxWidthAvg` are running averages
-computed from per-frame OBB dimensions (`tracking.go:886–890`). Each frame,
-the track’s average length and width are updated incrementally:
+computed from per-frame OBB dimensions in `l5tracks/tracking_update.go`. Each
+frame, the track’s average length and width are updated incrementally:
 `avg = ((n-1)*avg + cluster_dimension) / n`.
 
 Because `cluster.BoundingBoxLength` is the OBB extent along the **current
@@ -100,7 +100,7 @@ each other (both approach the mean of the true length and true width). For a
 
 ### 2.4 Renderer dimension-heading mismatch
 
-The macOS renderer (`MetalRenderer.swift:460–512`) builds track box transforms
+The macOS renderer (`MetalRenderer.swift`) builds track box transforms
 using:
 
 - **Dimensions:** `bboxLength` × `bboxWidth` × `bboxHeight`
@@ -117,14 +117,14 @@ Result: the heading rotates but the box dimensions are averaged from mixed
 orientations, producing visible spinning as the heading changes but the box
 shape stays roughly square.
 
-The web renderer (`MapPane.svelte:582–601`) has a partial fix: it uses
+The web renderer (`MapPane.svelte`) has a partial fix: it uses
 **per-frame** OBB dimensions (`bbox.length` / `bbox.width`) rather than
 averaged dimensions, but still applies the smoothed OBB heading. This is
 better, but the per-frame dimensions still swap when PCA axes swap (§2.2).
 
 ### 2.5 Why unassociated (DBSCAN) cluster boxes are not visible
 
-The adapter (`adapter.go:212–259`) intentionally skips clusters that have been
+The L9 endpoint adapter (`l9endpoints/adapter.go`) intentionally skips clusters that have been
 associated with a track: if the cluster index has a non-empty association, the
 adapter continues to the next cluster (rendering it via the track instead).
 
@@ -145,13 +145,13 @@ renders all cluster boxes (ignoring association) would be valuable.
 | ----------------------------- | ------------------------------------------------------------------- | ------------------------------------------------- |
 | `l4perception/obb.go:103`     | `heading = atan2(evY, evX)`: raw PCA heading has 180° ambiguity     | Mitigated by velocity/displacement disambiguation |
 | `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis: swaps when axis flips | Handled by 90° jump rejection (Guard 3)           |
-| `l5tracks/tracking.go`        | Velocity disambiguation only when speed > 0.5 m/s                   | Displacement fallback added (Fix C)               |
-| `l5tracks/tracking.go`        | Aspect-ratio lock threshold 0.25 may be too loose                   | Open (Fix D)                                      |
-| `l5tracks/tracking.go`        | 90° heading jumps from PCA axis swaps                               | **Fixed:** Guard 3 rejects 60°–120° jumps         |
-| `l5tracks/tracking.go`        | No heading-source diagnostic data                                   | **Fixed:** HeadingSource enum added (Fix G)       |
-| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                 | **Fixed:** per-frame cluster dims used (Fix B)    |
-| `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                 | Comment updated; Fix E pending                    |
-| `adapter.go`                  | Associated clusters not rendered (hinders debugging)                | Open (Fix F)                                      |
+| `l5tracks/tracking_update.go` | Velocity disambiguation only when speed > 0.5 m/s                   | Displacement fallback added (Fix C)               |
+| `l5tracks/tracking_update.go` | Aspect-ratio lock threshold 0.25 may be too loose                   | Open (Fix D): validate 0.15 / 0.10 on replay data |
+| `l5tracks/tracking_update.go` | 90° heading jumps from PCA axis swaps                               | **Fixed:** Guard 3 rejects 60°–120° jumps         |
+| `l5tracks/tracking_config.go` | Heading-source enum for diagnostic data                             | **Fixed:** `HeadingSource` enum added (Fix G)     |
+| `l5tracks/tracking_update.go` | Dimension averaging not axis-locked                                 | **Fixed:** per-frame cluster dims used (Fix B)    |
+| `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                 | Renderer now uses per-frame dimensions            |
+| `l9endpoints/adapter.go`      | Associated clusters not rendered (hinders debugging)                | Open (Fix F); keep debug-only if revived          |
 
 ---
 
@@ -210,12 +210,13 @@ contaminating foreground clusters), which would reduce PCA noise.
 **Problem:** Cannot determine which component is responsible for heading
 drift without additional diagnostic tooling.
 
-**Fix:** Added `HeadingSource` enum tracking through the full stack:
+**Fix:** Added `HeadingSource` enum tracking through the runtime data path:
 tracker → adapter → model → proto → gRPC → macOS renderer → web API.
 Values: `PCA` (0), `velocity` (1), `displacement` (2), `locked` (3).
 
-macOS visualiser gains `showHeadingSource` toggle that colours confirmed
-track boxes by heading source instead of lifecycle state:
+The macOS renderer has `showHeadingSource` colouring support for confirmed
+track boxes, but there is no current user-facing AppState/ContentView toggle
+wired to that renderer flag:
 
 - **Blue**: velocity-disambiguated (healthy)
 - **Yellow**: raw PCA (no disambiguation available)
@@ -315,7 +316,8 @@ OBBs regardless of association status. This would show:
 - Cyan boxes for all DBSCAN clusters
 - Green/yellow boxes for tracks (overlapping associated clusters)
 
-**Implementation:** The adapter already has `adaptClusters` (adapter.go:261–288)
+**Implementation:** The adapter already has `adaptClusters` in
+`internal/lidar/l9endpoints/adapter.go`
 which converts all clusters without filtering. Wire this to a debug flag.
 
 **Impact:** Enables visual debugging of OBB stability at the DBSCAN level,
@@ -340,8 +342,12 @@ before tracking smoothing is applied.
 6. **Fix E** (renderer consistency): synchronise both renderers.
 7. **Fix F** (debug cluster rendering): optional, for ongoing tuning.
 
-Guard 3, fixes B, C, and G are implemented.
-Fix D is config-only. Fixes E and F are skipped: superseded by geometry-coherent tracking (D-04).
+Guard 3 and fixes B, C, and G are implemented.
+Fix D remains config-only, but the shipped default is still `0.25`; do not
+change it until replay validation supports a stricter threshold such as `0.15`
+or `0.10`. Fixes E and F are not revived here: keep them as diagnostic notes
+unless a separate implementation explicitly needs renderer parity or raw
+cluster OBB inspection before geometry-coherent tracking (D-04).
 
 ---
 
@@ -361,13 +367,17 @@ Fix D is config-only. Fixes E and F are skipped: superseded by geometry-coherent
 - Run existing `.vrlog` captures through the pipeline with and without fixes.
 - Measure heading jitter RMS (already tracked in
   `HeadingJitterSumSq`/`HeadingJitterCount`).
+- Record per-track `heading_source` and compare `obb_aspect_ratio_lock_threshold`
+  values (`0.25`, `0.15`, `0.10`) on the same replay pack before changing the
+  default.
 - Use heading-source debug rendering (Fix G) to identify which tracks have
   unstable heading sources.
 
 ### 7.3 Visual inspection
 
-- Enable `showHeadingSource` in macOS visualiser to see heading-source
-  colour coding (blue/yellow/orange/grey) on track boxes.
+- Use the macOS renderer's `showHeadingSource` support, or add a small UI toggle
+  for it, to see heading-source colour coding (blue/yellow/orange/grey) on
+  track boxes.
 - With Fix F enabled, compare raw DBSCAN OBBs against smoothed track OBBs
   in the macOS visualiser.
 - Confirm that cyan (cluster) boxes spin but green/yellow (track) boxes do
@@ -391,9 +401,9 @@ The tracker already computes:
 
 ## 9. Open questions
 
-1. What is the optimal aspect-ratio lock threshold (Fix D)? The current 0.25
-   is likely too loose; 0.15 is proposed but should be validated against replay
-   data across multiple sites.
+1. What is the optimal aspect-ratio lock threshold (Fix D)? The current shipped
+   default remains `0.25`; compare `0.25`, `0.15`, and `0.10` against replay
+   data across multiple sites before landing a stricter default.
 
 2. Should the velocity-coherent extraction proposal (20260220) subsume Fix C?
    If per-point velocity vectors become available, they provide a stronger

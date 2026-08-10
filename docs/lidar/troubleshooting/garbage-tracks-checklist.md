@@ -12,14 +12,17 @@ It combines the original review and checklist into one maintained source.
 - Canonical reference files:
   - [tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go)
   - [tracking.go](../../../internal/lidar/l5tracks/tracking.go)
+  - [tracking_association.go](../../../internal/lidar/l5tracks/tracking_association.go)
+  - [tracking_update.go](../../../internal/lidar/l5tracks/tracking_update.go)
   - [ground.go](../../../internal/lidar/l4perception/ground.go)
-  - [transform.go](../../../internal/lidar/l4perception/cluster.go)
+  - [cluster.go](../../../internal/lidar/l4perception/cluster.go)
   - [obb.go](../../../internal/lidar/l4perception/obb.go)
-  - [clustering.go](../../../internal/lidar/l4perception/cluster.go)
   - [track_store.go](../../../internal/lidar/storage/sqlite/track_store.go)
   - [frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go)
   - [adapter.go](../../../internal/lidar/l9endpoints/adapter.go)
   - [track_api.go](../../../internal/lidar/server/track_api.go)
+  - [track_api_format.go](../../../internal/lidar/server/track_api_format.go)
+  - [lidar.ts](../../../web/src/lib/types/lidar.ts)
   - [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
   - [api.ts](../../../web/src/lib/api.ts)
 
@@ -70,11 +73,11 @@ It combines the original review and checklist into one maintained source.
 #### 8.4 OBB heading jitter in macOS view (PCA instability) ✅ done
 
 - **Severity:** Medium; macOS visualiser only; **Fixed**
-- **Implemented behaviour:** Three guards added to `update()` in tracking.go:
+- **Implemented behaviour:** Three guards added to `update()` in tracking_update.go:
   1. **Min-points threshold:** clusters with fewer than `MinPointsForPCA` (4) points skip heading update, retaining the previous smoothed heading.
-  2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (0.25), the heading is locked because the principal axis is ambiguous.
+  2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (currently `0.25`), the heading is locked because the principal axis is ambiguous. `0.15` and `0.10` are validation candidates, not shipped defaults.
   3. **Reduced smoothing α:** `OBBHeadingSmoothingAlpha` lowered from 0.15 to 0.08 for heavier EMA smoothing.
-     Per-frame OBB dimensions are always updated regardless of heading lock.
+     When the heading is locked, length and width are held to preserve axis consistency while height still updates.
 
 ### R1: next high-impact items
 
@@ -91,12 +94,12 @@ It combines the original review and checklist into one maintained source.
 #### 2.4 NaN/Inf guards after Kalman predict/update ✅ done
 
 - **Severity:** Medium; **Fixed**
-- **Implemented behaviour:** `isFiniteState()` helper checks X, Y, VX, VY and covariance diagonal for NaN/Inf. Called at the end of both `predict()` and `update()` in tracking.go. If any value is non-finite, the state is reset to defaults and the track is marked `TrackDeleted` to prevent corruption from propagating.
+- **Implemented behaviour:** `isFiniteState()` helper checks X, Y, VX, VY and covariance diagonal for NaN/Inf. Called at the end of `predict()` in `tracking_association.go` and `update()` in `tracking_update.go`. If any value is non-finite, the state is reset to defaults and the track is marked `TrackDeleted` to prevent corruption from propagating.
 
 #### 2.3 Velocity clamp on Kalman state ✅ done
 
 - **Severity:** Medium; **Fixed**
-- **Implemented behaviour:** `clampVelocity()` helper scales VX/VY proportionally so speed magnitude never exceeds `MaxReasonableSpeedMps` (30 m/s ≈ 108 km/h). Called at the end of both `predict()` and `update()` in tracking.go. This prevents teleport-like extrapolation from noisy Kalman updates.
+- **Implemented behaviour:** `clampVelocity()` helper scales VX/VY proportionally so speed magnitude never exceeds `MaxReasonableSpeedMps` (30 m/s ≈ 108 km/h). Called at the end of `predict()` in `tracking_association.go` and `update()` in `tracking_update.go`. This prevents teleport-like extrapolation from noisy Kalman updates.
 
 ### R2: medium-term hardening
 

@@ -262,31 +262,31 @@ Maths: [clustering-maths.md](../data/maths/clustering-maths.md),
 
 Maths: [tracking-maths.md](../data/maths/tracking-maths.md)
 
-| Path                                              | Type    | Primary consumer                                                              | Notes                                       |
-| ------------------------------------------------- | ------- | ----------------------------------------------------------------------------- | ------------------------------------------- |
-| `l5.engine`                                       | string  | [(\*L5Config).ActiveCommon](../internal/config/tuning_accessors.go)           | Active L5 engine.                           |
-| `l5.cv_kf_v1.gating_distance_squared`             | float64 | [GetGatingDistanceSquared](../internal/config/tuning_accessors.go)            | Mahalanobis association gate.               |
-| `l5.cv_kf_v1.process_noise_pos`                   | float64 | [GetProcessNoisePos](../internal/config/tuning_accessors.go)                  | Position process noise.                     |
-| `l5.cv_kf_v1.process_noise_vel`                   | float64 | [GetProcessNoiseVel](../internal/config/tuning_accessors.go)                  | Velocity process noise.                     |
-| `l5.cv_kf_v1.measurement_noise`                   | float64 | [GetMeasurementNoise](../internal/config/tuning_accessors.go)                 | Measurement noise.                          |
-| `l5.cv_kf_v1.occlusion_cov_inflation`             | float64 | [GetOcclusionCovInflation](../internal/config/tuning_accessors.go)            | Coast-mode covariance inflation.            |
-| `l5.cv_kf_v1.hits_to_confirm`                     | int     | [GetHitsToConfirm](../internal/config/tuning_accessors.go)                    | Hits required for confirmation.             |
-| `l5.cv_kf_v1.max_misses`                          | int     | [GetMaxMisses](../internal/config/tuning_accessors.go)                        | Tentative-track miss budget.                |
-| `l5.cv_kf_v1.max_misses_confirmed`                | int     | [GetMaxMissesConfirmed](../internal/config/tuning_accessors.go)               | Confirmed-track miss budget.                |
-| `l5.cv_kf_v1.max_tracks`                          | int     | [GetMaxTracks](../internal/config/tuning_accessors.go)                        | Tracker capacity, validated in `[1,1000]`.  |
-| `l5.cv_kf_v1.max_reasonable_speed_mps`            | float64 | [GetMaxReasonableSpeedMps](../internal/config/tuning_accessors.go)            | Speed sanity limit.                         |
-| `l5.cv_kf_v1.max_position_jump_metres`            | float64 | [GetMaxPositionJumpMetres](../internal/config/tuning_accessors.go)            | Max plausible position jump.                |
-| `l5.cv_kf_v1.max_predict_dt`                      | float64 | [GetMaxPredictDt](../internal/config/tuning_accessors.go)                     | Maximum prediction horizon.                 |
-| `l5.cv_kf_v1.max_covariance_diag`                 | float64 | [GetMaxCovarianceDiag](../internal/config/tuning_accessors.go)                | Covariance clamp.                           |
-| `l5.cv_kf_v1.min_points_for_pca`                  | int     | [GetMinPointsForPCA](../internal/config/tuning_accessors.go)                  | Minimum points for OBB PCA.                 |
-| `l5.cv_kf_v1.obb_heading_smoothing_alpha`         | float64 | [GetOBBHeadingSmoothingAlpha](../internal/config/tuning_accessors.go)         | Heading smoothing factor.                   |
-| `l5.cv_kf_v1.obb_aspect_ratio_lock_threshold`     | float64 | [GetOBBAspectRatioLockThreshold](../internal/config/tuning_accessors.go)      | Heading lock threshold.                     |
-| `l5.cv_kf_v1.max_track_history_length`            | int     | [GetMaxTrackHistoryLength](../internal/config/tuning_accessors.go)            | Track history capacity.                     |
-| `l5.cv_kf_v1.max_speed_history_length`            | int     | [GetMaxSpeedHistoryLength](../internal/config/tuning_accessors.go)            | Speed history capacity.                     |
-| `l5.cv_kf_v1.merge_size_ratio`                    | float64 | [GetMergeSizeRatio](../internal/config/tuning_accessors.go)                   | Merge heuristic ratio.                      |
-| `l5.cv_kf_v1.split_size_ratio`                    | float64 | [GetSplitSizeRatio](../internal/config/tuning_accessors.go)                   | Split heuristic ratio.                      |
-| `l5.cv_kf_v1.deleted_track_grace_period`          | string  | [GetDeletedTrackGracePeriod](../internal/config/tuning_accessors.go)          | Deleted-track reuse window.                 |
-| `l5.cv_kf_v1.min_observations_for_classification` | int     | [GetMinObservationsForClassification](../internal/config/tuning_accessors.go) | Minimum observations before classification. |
+| Path                                              | Type    | Primary consumer                                                              | Notes                                                                                        |
+| ------------------------------------------------- | ------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `l5.engine`                                       | string  | [(\*L5Config).ActiveCommon](../internal/config/tuning_accessors.go)           | Active L5 engine.                                                                            |
+| `l5.cv_kf_v1.gating_distance_squared`             | float64 | [GetGatingDistanceSquared](../internal/config/tuning_accessors.go)            | Mahalanobis association gate.                                                                |
+| `l5.cv_kf_v1.process_noise_pos`                   | float64 | [GetProcessNoisePos](../internal/config/tuning_accessors.go)                  | Position process noise.                                                                      |
+| `l5.cv_kf_v1.process_noise_vel`                   | float64 | [GetProcessNoiseVel](../internal/config/tuning_accessors.go)                  | Velocity process noise.                                                                      |
+| `l5.cv_kf_v1.measurement_noise`                   | float64 | [GetMeasurementNoise](../internal/config/tuning_accessors.go)                 | Measurement noise.                                                                           |
+| `l5.cv_kf_v1.occlusion_cov_inflation`             | float64 | [GetOcclusionCovInflation](../internal/config/tuning_accessors.go)            | Coast-mode covariance inflation.                                                             |
+| `l5.cv_kf_v1.hits_to_confirm`                     | int     | [GetHitsToConfirm](../internal/config/tuning_accessors.go)                    | Hits required for confirmation.                                                              |
+| `l5.cv_kf_v1.max_misses`                          | int     | [GetMaxMisses](../internal/config/tuning_accessors.go)                        | Tentative-track miss budget.                                                                 |
+| `l5.cv_kf_v1.max_misses_confirmed`                | int     | [GetMaxMissesConfirmed](../internal/config/tuning_accessors.go)               | Confirmed-track miss budget.                                                                 |
+| `l5.cv_kf_v1.max_tracks`                          | int     | [GetMaxTracks](../internal/config/tuning_accessors.go)                        | Tracker capacity, validated in `[1,1000]`.                                                   |
+| `l5.cv_kf_v1.max_reasonable_speed_mps`            | float64 | [GetMaxReasonableSpeedMps](../internal/config/tuning_accessors.go)            | Speed sanity limit.                                                                          |
+| `l5.cv_kf_v1.max_position_jump_metres`            | float64 | [GetMaxPositionJumpMetres](../internal/config/tuning_accessors.go)            | Max plausible position jump.                                                                 |
+| `l5.cv_kf_v1.max_predict_dt`                      | float64 | [GetMaxPredictDt](../internal/config/tuning_accessors.go)                     | Maximum prediction horizon.                                                                  |
+| `l5.cv_kf_v1.max_covariance_diag`                 | float64 | [GetMaxCovarianceDiag](../internal/config/tuning_accessors.go)                | Covariance clamp.                                                                            |
+| `l5.cv_kf_v1.min_points_for_pca`                  | int     | [GetMinPointsForPCA](../internal/config/tuning_accessors.go)                  | Minimum points for OBB PCA.                                                                  |
+| `l5.cv_kf_v1.obb_heading_smoothing_alpha`         | float64 | [GetOBBHeadingSmoothingAlpha](../internal/config/tuning_accessors.go)         | Heading smoothing factor.                                                                    |
+| `l5.cv_kf_v1.obb_aspect_ratio_lock_threshold`     | float64 | [GetOBBAspectRatioLockThreshold](../internal/config/tuning_accessors.go)      | Heading lock threshold; default `0.25`, with `0.15` / `0.10` reserved for replay validation. |
+| `l5.cv_kf_v1.max_track_history_length`            | int     | [GetMaxTrackHistoryLength](../internal/config/tuning_accessors.go)            | Track history capacity.                                                                      |
+| `l5.cv_kf_v1.max_speed_history_length`            | int     | [GetMaxSpeedHistoryLength](../internal/config/tuning_accessors.go)            | Speed history capacity.                                                                      |
+| `l5.cv_kf_v1.merge_size_ratio`                    | float64 | [GetMergeSizeRatio](../internal/config/tuning_accessors.go)                   | Merge heuristic ratio.                                                                       |
+| `l5.cv_kf_v1.split_size_ratio`                    | float64 | [GetSplitSizeRatio](../internal/config/tuning_accessors.go)                   | Split heuristic ratio.                                                                       |
+| `l5.cv_kf_v1.deleted_track_grace_period`          | string  | [GetDeletedTrackGracePeriod](../internal/config/tuning_accessors.go)          | Deleted-track reuse window.                                                                  |
+| `l5.cv_kf_v1.min_observations_for_classification` | int     | [GetMinObservationsForClassification](../internal/config/tuning_accessors.go) | Minimum observations before classification.                                                  |
 
 ### Pipeline
 

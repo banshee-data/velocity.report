@@ -99,8 +99,10 @@ The production pipeline uses four math-heavy layers:
 - [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md): **Partially Implemented**.
   Root cause analysis of spinning bounding boxes:
   PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches.
-  Guard 3 (90° jump rejection), fixes B, C, G applied;
-  remaining fixes superseded by geometry-coherent model.
+  Guard 3 (90° jump rejection) plus fixes B, C, and G are applied.
+  Fix D remains a config-only threshold validation item: current defaults still use `0.25`,
+  with `0.15` / `0.10` kept as replay candidates. Fixes E/F remain optional diagnostic
+  work and should not expand the guard stack before geometry-coherent tracking.
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md):
   Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood
   test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
@@ -151,10 +153,9 @@ heading prior when velocity data is available.
 boxes that spin, change shape, or fail to capture all cluster points). No
 upstream changes required.
 
-**Remaining OBB review work subsumed:** Fixes D (threshold tuning), E (renderer
-consistency), and F (debug cluster rendering) from the
-[OBB heading stability review](proposals/20260222-obb-heading-stability-review.md)
-become unnecessary once the geometry-coherent model replaces the guards.
+**Guard-stack note:** Geometry-coherent tracking still supersedes the current
+OBB guard stack. Pre-P1 work should stay limited to threshold validation,
+telemetry, and debug-only inspection rather than adding new public guard surfaces.
 
 ### P2: velocity-coherent foreground extraction
 
@@ -235,12 +236,15 @@ structure to build a redundant anchor set.
 ### Maintenance: OBB heading stability review (remaining items)
 
 **Source:** [obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
-**Status:** Guard 3, fixes B, C, G **implemented**. Fix D (config-only), E, F not started.
+**Status:** Guard 3 and fixes B, C, G **implemented**. Fix D is config-only but
+not landed in the shipped defaults; Fixes E/F are diagnostic follow-ups, not
+guard-stack expansion work.
 
-Fix D (tighten aspect-ratio lock threshold) is a low-risk config change that
-can be applied any time. Fixes E and F provide incremental improvement but
-are **superseded by P1**: once the geometry-coherent model lands, the guards
-they improve will be removed.
+Keep the default `obb_aspect_ratio_lock_threshold` at `0.25` until a fixed
+replay pack supports a stricter value. Compare `0.25`, `0.15`, and `0.10`
+using heading jitter, fragmentation, empty-box ratio, and labelled composite
+score where labels exist. Use heading-source rendering / `heading_source` API
+data to baseline the current guard stack before replacing it with P1.
 
 ## Config mapping
 
@@ -324,7 +328,7 @@ rather than mathematical source).
 - Future engine `imm_cv_ca_rts_eval_v2` extends `imm_cv_ca_v2` with: `rts_smoothing_window`.
 - Getter/source path: [internal/config/tuning.go](../../internal/config/tuning.go) (`L5Common`)
 - Runtime mapping:
-  - [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go) (`TrackerConfigFromTuning`)
+  - [internal/lidar/l5tracks/tracking_config.go](../../internal/lidar/l5tracks/tracking_config.go) (`TrackerConfigFromTuning`)
   - Tracker wiring in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)
 
 ### L1 sensor and data source

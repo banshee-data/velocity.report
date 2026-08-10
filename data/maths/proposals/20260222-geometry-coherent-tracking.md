@@ -11,7 +11,7 @@
 
 ## 1. Problem statement
 
-The current LiDAR tracking system computes oriented bounding boxes (OBB) from Principal Component Analysis (PCA) on each frame's cluster points independently (`l4perception/obb.go`). To address instability, four guards are applied at the tracker level (`l5tracks/tracking.go`):
+The current LiDAR tracking system computes oriented bounding boxes (OBB) from Principal Component Analysis (PCA) on each frame's cluster points independently (`l4perception/obb.go`). To address instability, four guards are applied in the tracker update path (`l5tracks/tracking_update.go`):
 
 1. **Guard 1:** Minimum point count threshold
 2. **Guard 2:** Aspect-ratio lock threshold
@@ -327,12 +327,12 @@ L5 Tracking (proposed changes)
 
 The geometry-coherent model **replaces four existing guard mechanisms**:
 
-| Current Guard                            | Replacement                                       | Lines in tracking.go |
-| ---------------------------------------- | ------------------------------------------------- | -------------------- |
-| **Guard 2:** Aspect-ratio lock threshold | Subsumed by axis selection + shape classification | ~950-980             |
-| **Guard 3:** 90° jump rejection          | Subsumed by axis selection (lower residual wins)  | ~1000-1020           |
-| Dimension sync logic                     | Unified in ema_update()                           | ~1124-1141           |
-| HeadingSource enum complexity            | Simplified: aligned / swapped / rejected / motion | Various              |
+| Current Guard                            | Replacement                                       | Current location              |
+| ---------------------------------------- | ------------------------------------------------- | ----------------------------- |
+| **Guard 2:** Aspect-ratio lock threshold | Subsumed by axis selection + shape classification | `l5tracks/tracking_update.go` |
+| **Guard 3:** 90° jump rejection          | Subsumed by axis selection (lower residual wins)  | `l5tracks/tracking_update.go` |
+| Dimension sync logic                     | Unified in ema_update()                           | `l5tracks/tracking_update.go` |
+| HeadingSource enum complexity            | Simplified: aligned / swapped / rejected / motion | `l5tracks/tracking_config.go` |
 
 **Guard 1** (minimum point count) **remains** as a data-quality gate: it prevents OBB estimation when insufficient points are available.
 
@@ -444,19 +444,19 @@ Parameters should be validated and tuned through:
 
 ## 8. Implementation estimate
 
-| Component                              | Effort           | Files                                      |
-| -------------------------------------- | ---------------- | ------------------------------------------ |
-| Track geometry state struct            | **S** (half day) | `l5tracks/tracking.go`                     |
-| Axis selection + outlier gate          | **M** (1 day)    | `l5tracks/tracking.go`                     |
-| EMA update with shape classification   | **M** (1 day)    | `l5tracks/tracking.go`                     |
-| Heading-motion coupling (§3)           | **M** (1 day)    | `l5tracks/tracking.go`                     |
-| Uncertainty shrinkage logic            | **S** (half day) | `l5tracks/tracking.go`                     |
-| Configuration parameters               | **S** (half day) | `config/tuning.go`, `l5tracks/tracking.go` |
-| Remove replaced guards                 | **S** (half day) | `l5tracks/tracking.go`                     |
-| Unit tests (axis selection, residuals) | **M** (1 day)    | `l5tracks/tracking_test.go`                |
-| Integration tests (track stability)    | **M** (1 day)    | `l5tracks/tracking_coverage_test.go`       |
-| Documentation and logging              | **S** (half day) | Various                                    |
-| **Total**                              | **L (6-7 days)** |                                            |
+| Component                              | Effort           | Files                                                      |
+| -------------------------------------- | ---------------- | ---------------------------------------------------------- |
+| Track geometry state struct            | **S** (half day) | `l5tracks/tracking.go`                                     |
+| Axis selection + outlier gate          | **M** (1 day)    | `l5tracks/tracking_update.go`                              |
+| EMA update with shape classification   | **M** (1 day)    | `l5tracks/tracking_update.go`                              |
+| Heading-motion coupling (§3)           | **M** (1 day)    | `l5tracks/tracking_update.go`                              |
+| Uncertainty shrinkage logic            | **S** (half day) | `l5tracks/tracking_update.go`                              |
+| Configuration parameters               | **S** (half day) | `internal/config/tuning.go`, `l5tracks/tracking_config.go` |
+| Remove replaced guards                 | **S** (half day) | `l5tracks/tracking_update.go`                              |
+| Unit tests (axis selection, residuals) | **M** (1 day)    | `l5tracks/tracking_test.go`                                |
+| Integration tests (track stability)    | **M** (1 day)    | `l5tracks/tracking_coverage_test.go`                       |
+| Documentation and logging              | **S** (half day) | Various                                                    |
+| **Total**                              | **L (6-7 days)** |                                                            |
 
 ### 8.1 Dependencies
 
@@ -499,8 +499,17 @@ Parameters should be validated and tuned through:
 **Phase 1:** Implement core geometry state + axis selection
 
 - Replaces Guards 2 & 3
-- Can run in parallel with current system for A/B testing
-- Measure dimension stability, heading drift, flip frequency
+- Run behind `TrackerInterface` for A/B testing; keep geometry parameters in an
+  internal config struct and do not add a public runtime engine selector before
+  `v0.5.0`.
+- Baseline the current tracker first using `HeadingJitterDeg`,
+  per-track `heading_source`, aspect-ratio-lock cases, and replay-derived
+  fragmentation / empty-box ratios.
+- Promote only if the fixed replay pack shows equal-or-lower heading jitter on
+  target near-square / slow-motion scenarios, no more than 5% regression in
+  fragmentation, empty-box ratio, or unbounded-point ratio, no material speed
+  correlation regression, and equal-or-better labelled composite score where
+  reference labels exist.
 
 **Phase 2:** Add shape classification
 
@@ -618,12 +627,18 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 ### 11.3 Internal references
 
 - `l4perception/obb.go`: Current PCA-based OBB estimation
-- `l5tracks/tracking.go`: Current guard mechanisms (lines 950-1141)
-- `l5tracks/kalman.go`: Existing Kalman filter for position/velocity
+- `l5tracks/tracking_update.go`: Current OBB guard mechanisms and update-time
+  heading/dimension logic
+- `l5tracks/tracking.go`: Existing track state, lifecycle, and Kalman-driven
+  association orchestration
+- `l5tracks/tracking_association.go`: Existing prediction, finite-state guard,
+  velocity clamp, and association helpers
 - [OBB heading stability review](20260222-obb-heading-stability-review.md): Current guard analysis
 - [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md): Future enhancement
 
 ---
 
 **Proposal Status:** Awaiting review and experimental validation.
-**Next Steps:** Implement Phase 1 (core geometry state + axis selection) for A/B testing against current system.
+**Next Steps:** Implement Phase 1 (core geometry state + axis selection) behind
+`TrackerInterface` for A/B testing against the current system, and do not
+switch the default tracker until the replay gate above passes.

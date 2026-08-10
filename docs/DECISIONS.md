@@ -32,7 +32,9 @@ P1 → P2 → P4 → P3 confirmed — [MATHS.md](../data/maths/MATHS.md)
 
 ### D-06 — OBB heading fixes D/E/F
 
-Skip; P1 supersedes — [OBB heading review](../data/maths/proposals/20260222-obb-heading-stability-review.md)
+Keep as guard-stack maintenance only: validate Fix D thresholds before changing
+the shipped `0.25` default, leave Fixes E/F as debug-only follow-ups, and let
+P1 supersede further guard expansion — [OBB heading review](../data/maths/proposals/20260222-obb-heading-stability-review.md)
 
 ### D-07 — Track labelling UI (Phase 9)
 
