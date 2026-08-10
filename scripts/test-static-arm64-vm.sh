@@ -127,11 +127,6 @@ if [[ "$ready" != 1 ]]; then
     exit 1
 fi
 
-# SSH can become reachable before cloud-init has finished regenerating host
-# state. Waiting here prevents a transient disconnect between the readiness
-# probe and the first SCP on slower shared CI runners.
-retry_transport "${SSH[@]}" 'cloud-init status --wait >/dev/null'
-
 retry_transport "${SCP[@]}" "$BIN" root@127.0.0.1:/tmp/velocity-candidate
 retry_transport "${SCP[@]}" "$REPO_ROOT/image/stage-velocity/03-velocity-config/files/velocity-report.service" \
     root@127.0.0.1:/tmp/velocity-report.service
