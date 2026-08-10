@@ -3,7 +3,7 @@
 - **Status:** Draft
 - **Layers:** L6 Objects, L8 Analytics, sweep/evaluation platform
 - **Target:** v0.5.2-v2.0; the measurement harness lands with the 052 maths run, the corpus contract with 053 data contracts, and candidate models stay parked at v2.0 until the scorecard exists.
-- **Companion plans:** [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-track-labelling-auto-aware-tuning-plan.md](lidar-track-labelling-auto-aware-tuning-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)
+- **Companion plans:** [lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md), [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-track-labelling-auto-aware-tuning-plan.md](lidar-track-labelling-auto-aware-tuning-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)
 - **Canonical:** [data/maths/classification-maths.md](../../data/maths/classification-maths.md) (single source of truth)
 - **Related:** [ML solver expansion](../lidar/architecture/ml-solver-expansion.md) (the optimisation platform this work reuses; **not** canonical for classification)
 
@@ -97,6 +97,15 @@ open policy question with a number rather than an argument.
 | 3    | Decision tree, depth ≤ 4, emitted as Go   | Yes        | Ships as generated readable source, not weights |
 | X    | Gradient-boosted trees or small MLP       | **Never**  | Research-only headroom probe                    |
 
+Tiers 1–3 operate on the feature vector, whatever it contains. Their ceiling is
+therefore set by feature quality, not by tier: the bbox-and-speed features
+available today cannot separate truck from long car at any threshold, because the
+distinction is where mass sits rather than how large the extents are. The
+geometric descriptors specified in
+[lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md) are what raise
+that ceiling, and the two currently-disabled classes are the first test of whether
+they do.
+
 Tier X is run offline, never wired to the pipeline, and never promoted. Its only
 output is a number: the accuracy gap between the best transparent candidate and
 an unconstrained one. If Tier 3 lands close to Tier X, the explainability rule is
@@ -158,17 +167,50 @@ artefact.
 
 ### Phase 3: transparent candidate ladder
 
-**Summary:** Fit Tiers 1-3 and benchmark them against the baseline.
+**Summary:** Fit Tiers 1-3 against the frozen corpus and benchmark them on the
+Phase 1 scorecard.
 
-**Steps:**
+Fitting is offline analysis work and belongs in the analysis lane rather than the
+runtime. It sits in `data/explore/classification/`, alongside the existing
+exploration directories, as plain modules carrying `# %%` cell markers so they run
+interactively in an editor without introducing a notebook format to the repository.
+Diffs stay readable, `black` and `ruff` apply through the existing pre-commit hook,
+and the modules import cleanly under pytest.
 
-1. Fit data-derived threshold tables; compare against hand-set constants.
-2. Fit logistic regression over the documented feature set; persist coefficients
-   as the model artefact.
-3. Fit a depth-limited decision tree; emit it as generated Go source so review
-   and diff apply to the decision path itself.
-4. Re-evaluate truck and motorcyclist as live classes once per-class recall on
-   the frozen corpus supports it.
+No new dependencies. `requirements.in` already pins numpy, pandas and matplotlib.
+Estimator libraries are deliberately excluded: the fitting routines are small
+enough to write out in full, and writing them out is what keeps the decision path
+auditable end to end. New test modules are added to `PYTHON_TEST_PATHS` in the
+Makefile and to the pytest list in `tox.ini`.
+
+**Input contract.** The Phase 2 export supplies one row per labelled track: the
+feature vector named by `SortedFeatureNames`, the descriptor set from
+[lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md) with its
+validity flags, point count and range band, the assigned label with its provenance,
+and the run and schema versions the row was produced under.
+
+**Work items.** Each carries a deliverable and an acceptance condition.
+
+| #   | Work item                  | Deliverable                                                                                                                               | Acceptance                                                                                           |
+| --- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | Lane setup                 | Directory, module layout, test wiring into `PYTHON_TEST_PATHS` and `tox.ini`                                                              | `make test-python` and `make lint-python` pass with the new modules present                          |
+| 2   | Corpus loader              | Loader returning a feature frame and label vector; validity flags respected; range band retained                                          | Round-trips a small committed CSV fixture with no database present                                   |
+| 3   | Feature survey             | Per-class distribution plots for every feature and descriptor; per-feature separability ranking, stratified by range band                 | Ranking identifies which descriptors earn a place and which do not, with the range band they hold in |
+| 4   | Tier 1 threshold tables    | Cuts fitted from labels, in the shape of the existing cascade; side-by-side comparison against the current hand-set constants             | Scorecard reported against the rule baseline on the same corpus                                      |
+| 5   | Tier 2 logistic regression | Multinomial logistic regression with the gradient and the descent loop written out rather than called; coefficients as the model artefact | Converges; coefficients readable per class per feature                                               |
+| 6   | Gradient verification      | Finite-difference check of the analytic gradient                                                                                          | Analytic and numerical gradients agree to ~1e-6 relative, as a pytest case                           |
+| 7   | Training instrumentation   | Loss curve and per-epoch metrics; run manifest per fit                                                                                    | Manifest carries corpus hash, feature list, hyperparameters, and final scorecard                     |
+| 8   | Tier 3 decision tree       | Depth-limited tree, emitted as generated Go source                                                                                        | Generated source compiles, is reviewable as ordinary code, and reproduces the fitted tree's output   |
+| 9   | Class reactivation         | Truck and motorcyclist re-evaluated as live classes                                                                                       | Per-class recall on the frozen corpus supports reactivation; proto values already allocated          |
+
+**Cross-check.** Any tier fitted here must reproduce the same macro-F1 the Go
+scorecard reports for the rule baseline on the same corpus. Agreement proves the
+two implementations share a metric definition; disagreement is a defect in one of
+them and blocks the tier.
+
+**Run manifests** mirror the `SchemaVersion` and `ObjectiveVersion` fields the sweep
+platform already stamps, so offline fits and in-tree sweeps stay comparable without
+a separate experiment-tracking service.
 
 **Milestone:** v2.0
 
@@ -198,6 +240,11 @@ artefact.
 - Labelling throughput from the
   [track labelling plan](lidar-track-labelling-auto-aware-tuning-plan.md)
   Phases 1-5, which are complete.
+- Descriptor availability from
+  [lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md) gates the
+  descriptor half of Phase 3's input contract. Phases 1-2 here do not depend on it:
+  the scorecard needs labels and predictions, and the export can ship the existing
+  feature set first and gain descriptor columns when they land.
 
 ## Risks
 
@@ -208,6 +255,8 @@ artefact.
 | Tier X result is used to argue for deployment                  | Low        | High   | Tier X is non-deployable by plan; promotion gate unchanged                          |
 | Class-set drift between classifier output and label vocabulary | Medium     | Medium | Scorecard fixes the class set explicitly; reuses the display/selectable label split |
 | Adding the interface invites premature model wiring            | Low        | Medium | Rule cascade stays the default and the fallback; no config switch until Phase 3     |
+| Tiers plateau because features, not tiers, are the ceiling     | High       | Medium | Phase 3.3 ranks separability before fitting; descriptors tracked in the shape plan  |
+| Fitted tier and Go scorecard disagree on the metric            | Medium     | High   | Macro-F1 cross-check against the rule baseline blocks the tier until they agree     |
 
 ## Checklist
 
@@ -226,8 +275,15 @@ artefact.
 - [ ] Phase 2: Go training-export path over `TrackFeatures` (`M`)
 - [ ] Phase 2: corpus artefact format and frozen kirk0 baseline (`M`)
 - [ ] Phase 2: baseline scorecard regression test (`S`)
-- [ ] Phase 3: Tiers 1-3 fitted and benchmarked (`L`)
-- [ ] Phase 3: truck and motorcyclist re-evaluation (`S`)
+- [ ] Phase 3.1: analysis lane setup and test wiring (`S`)
+- [ ] Phase 3.2: corpus loader with fixture round-trip test (`S`)
+- [ ] Phase 3.3: feature and descriptor separability survey by range band (`M`)
+- [ ] Phase 3.4: Tier 1 threshold tables fitted and benchmarked (`M`)
+- [ ] Phase 3.5: Tier 2 logistic regression, gradient and descent written out (`M`)
+- [ ] Phase 3.6: finite-difference gradient verification test (`S`)
+- [ ] Phase 3.7: training instrumentation and run manifests (`S`)
+- [ ] Phase 3.8: Tier 3 depth-limited tree with Go source emission (`M`)
+- [ ] Phase 3.9: truck and motorcyclist re-evaluation (`S`)
 - [ ] Phase 4: headroom probe and published gap figure (`M`)
 
 ### Deferred
