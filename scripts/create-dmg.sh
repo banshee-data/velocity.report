@@ -106,17 +106,37 @@ rm -rf "$mount_point/.fseventsd"
 # Give Finder time to index the newly mounted volume.
 sleep 2
 
-# Apply Finder view settings via AppleScript.
-# Window: 400 × 400, icon view, 72 px icons, no toolbar/sidebar.
-# Row 1 (y=70): app icon at left (x=100), Applications alias at right (x=300).
-# Row 2 (y=230): Getting Started guide centred (x=200).
+# Apply Finder view settings via AppleScript. Finder automation can block on
+# hosts without interactive Finder access, so keep layout best-effort and
+# timeout-bounded rather than hanging release packaging.
 extra_args=()
 for name in "${extra_names[@]+"${extra_names[@]}"}"; do
   extra_args+=("$name")
 done
 
-osascript "$SCRIPT_DIR/dmg-layout.applescript" \
-  "$VOLUME_NAME" "$APP_NAME" ${extra_args[@]+"${extra_args[@]}"}
+layout_timeout_seconds="${DMG_LAYOUT_TIMEOUT_SECONDS:-30}"
+if [ "${DMG_LAYOUT:-1}" = "0" ]; then
+  echo "Skipping Finder layout (DMG_LAYOUT=0)." >&2
+else
+  osascript "$SCRIPT_DIR/dmg-layout.applescript" \
+    "$VOLUME_NAME" "$APP_NAME" "${extra_args[@]}" &
+  layout_pid=$!
+  layout_elapsed=0
+  while kill -0 "$layout_pid" 2>/dev/null; do
+    if [ "$layout_elapsed" -ge "$layout_timeout_seconds" ]; then
+      echo "Warning: Finder layout did not finish within ${layout_timeout_seconds}s; continuing without custom layout." >&2
+      kill "$layout_pid" 2>/dev/null || true
+      wait "$layout_pid" 2>/dev/null || true
+      layout_pid=""
+      break
+    fi
+    sleep 1
+    layout_elapsed=$((layout_elapsed + 1))
+  done
+  if [ -n "${layout_pid:-}" ] && ! wait "$layout_pid"; then
+    echo "Warning: Finder layout failed; continuing without custom layout." >&2
+  fi
+fi
 
 # Ensure .DS_Store is flushed.
 sync
@@ -124,7 +144,7 @@ sync
 # Remove macOS metadata right before detach so there is no time to recreate it.
 rm -rf "$mount_point/.fseventsd" "$mount_point/.Trashes"
 
-hdiutil detach "$device"
+hdiutil detach "$device" -force
 device=""
 
 # ── 4. Convert to compressed read-only DMG ───────────────────────────────────

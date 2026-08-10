@@ -46,6 +46,45 @@ version` reports the same from the CLI.
 
 This model landed in v0.5.1, replacing the multi-binary D-09 proposal below.
 
+## macOS visualiser DMG distribution
+
+VelocityVisualiser is distributed separately from the appliance image as a
+Mac-native DMG named `VelocityVisualiser-<v>.dmg`. The app bundle inside the
+DMG is signed with a `Developer ID Application` certificate, submitted to
+Apple notarisation, and stapled before publication.
+
+The proved local release sequence is:
+
+```bash
+make build-mac
+make sign-mac CODESIGN_IDENTITY=<Developer ID Application SHA1>
+make dmg-mac-release
+make notarise-mac
+make verify-mac
+```
+
+`make release-mac` runs the same sequence end to end. The release DMG target
+packages an existing app bundle when present, so the Developer ID signature is
+not invalidated by a rebuild after signing.
+
+Local credentials stay in the macOS keychain:
+
+- Developer ID Application certificate and private key: login or System
+  keychain, visible through `security find-identity -v -p codesigning`.
+- Notarisation credentials: `notarytool` keychain profile
+  `velocity-report`, checked with `xcrun notarytool history`.
+
+CI credentials stay in GitHub repository Actions secrets:
+
+- `MACOS_CERTIFICATE`: base64-encoded Developer ID `.p12`.
+- `MACOS_CERTIFICATE_PASSWORD`: password for that `.p12`.
+- `NOTARY_KEY`: App Store Connect API-key `.p8` contents.
+- `NOTARY_KEY_ID`: App Store Connect API-key identifier.
+- `NOTARY_ISSUER`: App Store Connect issuer UUID.
+
+Do not commit certificates, private keys, app-specific passwords, App Store
+Connect keys, or generated temporary keychains.
+
 ## Historical proposal (D-09 subcommand model, superseded)
 
 The sections below are the original D-09 proposal — a `velocity-report` binary

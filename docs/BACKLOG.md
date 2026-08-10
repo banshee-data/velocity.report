@@ -98,7 +98,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
-- [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
+- [#425] macOS app release signing: local Developer ID signing,
+  notarisation, stapling, and `make verify-mac` path complete; remaining
+  release-gate work is GitHub Actions secret population and tagged-release
+  smoke validation for packaged artifacts. `S`
 
 ### v0.6.1 - macOS local server (061)
 

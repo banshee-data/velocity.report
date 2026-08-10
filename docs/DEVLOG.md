@@ -2,6 +2,23 @@
 
 <!-- ignore-style-length -->
 
+## August 10, 2026 - macOS Developer ID signing and notarisation
+
+- Completed the first local VelocityVisualiser Developer ID release-signing
+  run: verified a usable `Developer ID Application` identity, signed the app
+  with hardened runtime and timestamping, packaged `VelocityVisualiser-0.5.1-pre26.dmg`,
+  submitted it through the `velocity-report` `notarytool` keychain profile,
+  stapled the accepted ticket, and passed `make verify-mac`.
+- Fixed the DMG packaging hang by making Finder layout automation
+  timeout-bounded and best-effort, with `DMG_LAYOUT=0` and
+  `DMG_LAYOUT_TIMEOUT_SECONDS` overrides for local or CI packaging.
+- Corrected the release packaging target so `make release-mac` packages the
+  signed app instead of rebuilding after signing, and updated the release docs
+  with the local keychain, notarytool, and GitHub Actions secret boundaries.
+- Made unsigned CI DMG outputs explicit: manual or tag runs without the full
+  release secret set now upload `UNSIGNED`-labelled DMG files and artifacts,
+  while partially configured signing secrets fail the workflow early.
+
 ## June 9, 2026 - Typst map editor, typstbin hardening & cleanup
 
 - Built the report map-editor integration: an SVG overlay with style selection, FOV-triangle overlay rendering, tile snapshots loaded only with user consent, and report-overlay visibility plus stale-preview detection (#522).

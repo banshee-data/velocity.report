@@ -14,9 +14,9 @@ This is a SwiftUI application that connects to the Go LiDAR pipeline via gRPC an
 
 ## Requirements
 
-- macOS 14.0+ (Sonoma)
+- macOS 15.0+ (Sequoia)
 - Apple Silicon (M1/M2/M3) or Intel with Metal support
-- Xcode 15.0+
+- Xcode 16.0+
 
 ## Building
 
@@ -29,8 +29,8 @@ For detailed build instructions and troubleshooting, see [BUILDING.md](BUILDING.
 
 ### Prerequisites
 
-- macOS 14.0+ (Sonoma)
-- Xcode 15.0+
+- macOS 15.0+ (Sequoia)
+- Xcode 16.0+
 
 ## Usage
 
@@ -65,6 +65,36 @@ open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 1. Click on a track in the 3D view to select it
 2. Use the Label panel (press L) to assign a class
 3. Export labels via File → Export Labels (⌘E)
+
+## Release Distribution
+
+VelocityVisualiser GitHub releases ship as a signed and notarised DMG:
+
+```bash
+make release-mac
+```
+
+Local release signing requires a `Developer ID Application` identity with its
+private key in Keychain, plus a `notarytool` credential profile named
+`velocity-report` or App Store Connect API-key environment variables. The
+successful local release path is:
+
+```bash
+security find-identity -v -p codesigning
+xcrun notarytool history --keychain-profile velocity-report \
+  --keychain ~/Library/Keychains/login.keychain-db
+make build-mac
+make sign-mac CODESIGN_IDENTITY=<Developer ID Application SHA1>
+make dmg-mac-release
+make notarise-mac
+make verify-mac
+```
+
+Store certificates, private keys, app-specific passwords, and App Store
+Connect API keys only in Keychain, local environment variables, or GitHub
+Actions repository secrets. Do not commit credential material to this repo.
+Detailed setup and CI secret names are in the
+[build guide](BUILDING.md#signing-notarisation-and-distribution).
 
 ## Keyboard shortcuts
 
