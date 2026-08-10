@@ -70,7 +70,7 @@ It combines the original review and checklist into one maintained source.
 #### 8.4 OBB heading jitter in macOS view (PCA instability) ✅ done
 
 - **Severity:** Medium; macOS visualiser only; **Fixed**
-- **Implemented behaviour:** Three guards added to `update()` in tracking.go:
+- **Implemented behaviour:** Three guards added to `update()` in tracking_update.go:
   1. **Min-points threshold:** clusters with fewer than `MinPointsForPCA` (4) points skip heading update, retaining the previous smoothed heading.
   2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (currently `0.25`), the heading is locked because the principal axis is ambiguous. `0.15` and `0.10` are validation candidates, not shipped defaults.
   3. **Reduced smoothing α:** `OBBHeadingSmoothingAlpha` lowered from 0.15 to 0.08 for heavier EMA smoothing.
