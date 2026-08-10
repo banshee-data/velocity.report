@@ -5,11 +5,13 @@
 #   scripts/codesign-notarise.sh sign     <app-path>
 #   scripts/codesign-notarise.sh notarise <dmg-path>
 #   scripts/codesign-notarise.sh verify   <app-path> [dmg-path]
+#   scripts/codesign-notarise.sh verify-dmg <dmg-path> [app-name]
 #
 # Subcommands:
 #   sign      Codesign the .app with Developer ID (Hardened Runtime + timestamp).
 #   notarise  Submit the DMG for notarisation, wait, then staple the ticket.
 #   verify    Run codesign, spctl, and stapler validation checks.
+#   verify-dmg Mount a DMG and verify its embedded .app and stapled ticket.
 #
 # Environment / Make variables:
 #   CODESIGN_IDENTITY   Developer ID Application identity (default: "Developer ID Application").
@@ -168,17 +170,74 @@ cmd_verify() {
   ok "All verification checks passed"
 }
 
+# ── verify-dmg <dmg-path> [app-name] ────────────────────────────────────────
+
+cmd_verify_dmg() {
+  local dmg="${1:?usage: codesign-notarise.sh verify-dmg <dmg-path> [app-name]}"
+  local app_name="${2:-VelocityVisualiser.app}"
+  [ -f "$dmg" ] || die "DMG not found: $dmg"
+  require_macos
+
+  local mount
+  mount=$(mktemp -d "${TMPDIR:-/tmp}/velocity-dmg.XXXXXX")
+  local attached=0
+  cleanup_mount() {
+    if [ "$attached" -eq 1 ]; then
+      hdiutil detach "$mount" >/dev/null 2>&1 || true
+      attached=0
+    fi
+    rmdir "$mount" >/dev/null 2>&1 || true
+  }
+  trap cleanup_mount EXIT
+
+  step "Staple validation: $dmg"
+  xcrun stapler validate "$dmg"
+  ok "Staple valid"
+
+  step "Disk image integrity: $dmg"
+  hdiutil verify "$dmg"
+  ok "DMG integrity passed"
+
+  step "Mounting DMG read-only"
+  hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount" >/dev/null
+  attached=1
+  ok "Mounted: $mount"
+
+  local app="$mount/$app_name"
+  if [ ! -d "$app" ]; then
+    app=$(find "$mount" -maxdepth 2 -name '*.app' -type d -print -quit)
+  fi
+  [ -n "$app" ] && [ -d "$app" ] || die "No .app bundle found in DMG: $dmg"
+
+  step "Signing identity: $app"
+  codesign -dv --verbose=4 "$app" 2>&1 \
+    | egrep 'Authority=|TeamIdentifier=|Timestamp=|Runtime Version=|Identifier=|Format=' || true
+
+  step "Verifying app signature: $app"
+  codesign --verify --deep --strict --verbose=2 "$app"
+  ok "codesign passed"
+
+  step "Gatekeeper assessment: $app"
+  spctl --assess --type execute --verbose=4 "$app"
+  ok "spctl passed"
+
+  ok "Downloaded DMG verification checks passed"
+  cleanup_mount
+  trap - EXIT
+}
+
 # ── Dispatch ─────────────────────────────────────────────────────────────────
 
 subcmd="${1:-}"
 shift || true
 
 case "$subcmd" in
-  sign)     cmd_sign "$@" ;;
-  notarise) cmd_notarise "$@" ;;
-  verify)   cmd_verify "$@" ;;
+  sign)       cmd_sign "$@" ;;
+  notarise)   cmd_notarise "$@" ;;
+  verify)     cmd_verify "$@" ;;
+  verify-dmg) cmd_verify_dmg "$@" ;;
   *)
-    echo "Usage: codesign-notarise.sh {sign|notarise|verify} <args...>" >&2
+    echo "Usage: codesign-notarise.sh {sign|notarise|verify|verify-dmg} <args...>" >&2
     exit 1
     ;;
 esac

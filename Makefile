@@ -48,6 +48,7 @@ help:
 	@echo "  sign-mac             Codesign .app with Developer ID (Hardened Runtime)"
 	@echo "  notarise-mac         Notarise DMG and staple ticket"
 	@echo "  verify-mac           Verify codesign, Gatekeeper, and staple"
+	@echo "  verify-mac-dmg       Verify downloaded DMG (DMG=/path/to/file.dmg)"
 	@echo "  release-mac          Full release: build, sign, DMG, notarise, verify"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
@@ -588,8 +589,10 @@ VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/$(BUILD_TS_COMPACT)-VelocityVisualiser-$(DEV_VERSION)-$(GIT_SHA_SHORT).dmg
 VISUALISER_DMG_RELEASE = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg
 VISUALISER_NOTARY_DMG ?= $(VISUALISER_DMG_RELEASE)
+DMG ?= $(VISUALISER_NOTARY_DMG)
+DMG_APP_NAME ?= VelocityVisualiser.app
 
-.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release sign-mac notarise-mac verify-mac release-mac
+.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release sign-mac notarise-mac verify-mac verify-mac-dmg release-mac
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -692,6 +695,9 @@ notarise-mac:
 
 verify-mac:
 	@scripts/codesign-notarise.sh verify "$(VISUALISER_APP)" "$(VISUALISER_NOTARY_DMG)"
+
+verify-mac-dmg:
+	@scripts/codesign-notarise.sh verify-dmg "$(DMG)" "$(DMG_APP_NAME)"
 
 release-mac:
 	@$(MAKE) build-mac
