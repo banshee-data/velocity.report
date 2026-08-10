@@ -17,7 +17,7 @@
 #   IMAGE_TAG       Docker image tag; default: velocity-report-static-build
 #   ALLOW_DIRTY     1 to permit building from a dirty tree (binary will
 #                   stamp "<sha>-dirty"); default: refuse
-#   VERSION/GIT_SHA/BUILD_TIME  override version stamping
+#   VERSION/GIT_SHA/BUILD_TIME/TYPST_VERSION  override version stamping
 #     (defaults: VERSION from Makefile, GIT_SHA from `git rev-parse HEAD`,
 #      BUILD_TIME from the HEAD commit's committer date in UTC ISO 8601 —
 #      identical source produces identical binaries).
@@ -79,6 +79,11 @@ if [[ -z "$GO_VERSION" ]]; then
     echo "error: failed to parse Go version from go.mod" >&2
     exit 1
 fi
+TYPST_VERSION=${TYPST_VERSION:-$(awk -F'?=' '/^TYPST_VERSION[[:space:]]*\?=/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' Makefile)}
+if [[ -z "$TYPST_VERSION" ]]; then
+    echo "error: failed to parse TYPST_VERSION from Makefile" >&2
+    exit 1
+fi
 
 # Pre-build embed stubs on the host so they get copied into the image.
 "$REPO_ROOT/scripts/ensure-web-stub.sh"
@@ -89,6 +94,7 @@ echo "    VERSION:    $VERSION"
 echo "    GIT_SHA:    $GIT_SHA_SHORT$([ "$DIRTY" = "1" ] && echo "  (DIRTY)")"
 echo "    BUILD_TIME: $BUILD_TIME  (HEAD commit timestamp)"
 echo "    GO_VERSION: $GO_VERSION  (from go.mod)"
+echo "    TYPST:      $TYPST_VERSION (embedded per target architecture)"
 echo "    EXTRACT:    $EXTRACT_ARCHES"
 
 # Build the image, exporting binaries directly to OUT_DIR via BuildKit's
@@ -108,7 +114,8 @@ DOCKER_BUILDKIT=1 docker build \
     --build-arg GIT_SHA="$GIT_SHA" \
     --build-arg GIT_SHA_SHORT="$GIT_SHA_SHORT" \
     --build-arg BUILD_TIME="$BUILD_TIME" \
-    --build-arg ARCHES="amd64 arm64" \
+    --build-arg TYPST_VERSION="$TYPST_VERSION" \
+    --build-arg ARCHES="$EXTRACT_ARCHES" \
     --tag "$IMAGE_TAG" \
     .
 

@@ -42,13 +42,27 @@ IMAGE="debian:bookworm-slim"
 
 echo "==> smoke-testing $BIN ($arch) in $IMAGE ($platform)"
 
+self_check_args=(-self-check)
+host_arch="$(uname -m)"
+case "$host_arch/$arch" in
+    x86_64/amd64|amd64/amd64|aarch64/arm64|arm64/arm64)
+        self_check_args+=(-self-check-live-capture=lo)
+        ;;
+    *)
+        echo "    live capture deferred: qemu-user does not emulate SIOCETHTOOL; run the ARM64 system-VM gate"
+        ;;
+esac
+
 # --network=host is intentional: the DNS-external check needs access to
 # the host's resolv.conf for the warning-vs-failure to be meaningful.
-# --read-only on the bind-mount: the binary should not need to write to
-# the image to pass self-check.
+# A read-only root filesystem catches undeclared runtime writes. The embedded
+# Typst extractor gets only an explicit ephemeral cache.
 docker run --rm \
     --platform "$platform" \
     --network host \
+    --read-only \
+    --tmpfs /tmp:rw,nosuid,nodev,exec \
+    -e XDG_CACHE_HOME=/tmp/cache \
     -v "$ABS_BIN:/velocity-report:ro" \
     "$IMAGE" \
-    /velocity-report -self-check
+    /velocity-report "${self_check_args[@]}"

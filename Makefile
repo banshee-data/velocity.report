@@ -322,7 +322,7 @@ install-typst:
 #
 # BUILD_TIME defaults to the HEAD commit's committer date (UTC), so the
 # same source produces the same binary regardless of when you build.
-.PHONY: build-radar-static build-radar-static-amd64 build-radar-static-arm64
+.PHONY: build-radar-static build-radar-static-amd64 build-radar-static-arm64 test-radar-static-arm64-vm test-radar-static-golden-pcap
 # BUILD_TIME is intentionally not forwarded — the script defaults it to
 # the HEAD commit's committer date so the same source produces the same
 # binary. Override by exporting BUILD_TIME in the environment.
@@ -334,6 +334,16 @@ build-radar-static-amd64:
 
 build-radar-static-arm64:
 	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=arm64 ./scripts/build-radar-static.sh
+
+test-radar-static-arm64-vm:
+	@bin=$$(find build/static -maxdepth 1 -type f -name 'velocity-report-*-linux-arm64-*-static' -print | head -n1); \
+	[ -n "$$bin" ] || { echo "no ARM64 static binary found; run make build-radar-static-arm64" >&2; exit 1; }; \
+	./scripts/test-static-arm64-vm.sh "$$bin"
+
+test-radar-static-golden-pcap:
+	@bin=$$(find build/static -maxdepth 1 -type f -name 'velocity-report-*-linux-amd64-*-static' -print | head -n1); \
+	[ -n "$$bin" ] || { echo "no AMD64 static binary found; run make build-radar-static-amd64" >&2; exit 1; }; \
+	./scripts/test-static-golden-pcap.sh "$$bin"
 
 # Run settling-eval convergence evaluation against a PCAP file.
 # Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.

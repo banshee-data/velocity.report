@@ -55,20 +55,21 @@ import (
 var serveFlags = flag.NewFlagSet("velocity-serve", flag.ExitOnError)
 
 var (
-	fixtureMode  = serveFlags.Bool("fixture", false, "Load fixture to local database")
-	debugMode    = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen       = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
-	docsSource   = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
-	port         = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
-	unitsFlag    = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
-	timezoneFlag = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
-	disableRadar = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
-	dbPathFlag   = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
-	versionFlag  = serveFlags.Bool("version", false, "Print version information and exit")
-	versionShort = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
-	configFile   = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
-	logLevel     = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
-	selfCheck    = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
+	fixtureMode   = serveFlags.Bool("fixture", false, "Load fixture to local database")
+	debugMode     = serveFlags.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
+	listen        = serveFlags.String("listen", "127.0.0.1:8080", "Listen address (use 0.0.0.0:8080 for all IPv4 interfaces, or [::]:8080 for IPv4+IPv6)")
+	docsSource    = serveFlags.String("docs-source", docsite.SourceEmbed, "Offline docs source for /docs/: embed or disk")
+	port          = serveFlags.String("port", "/dev/ttySC1", "Serial port to use")
+	unitsFlag     = serveFlags.String("units", "mph", "Speed units for display (mps, mph, kmph)")
+	timezoneFlag  = serveFlags.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
+	disableRadar  = serveFlags.Bool("disable-radar", false, "Disable radar serial port (serve DB only)")
+	dbPathFlag    = serveFlags.String("db-path", defaultRuntimeDBPath, "path to sqlite DB file (defaults to sensor_data.db)")
+	versionFlag   = serveFlags.Bool("version", false, "Print version information and exit")
+	versionShort  = serveFlags.Bool("v", false, "Print version information and exit (shorthand)")
+	configFile    = serveFlags.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
+	logLevel      = serveFlags.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
+	selfCheck     = serveFlags.Bool("self-check", false, "Run static-build self-check (DNS, UDP, libpcap) and exit non-zero on any failure")
+	selfCheckLive = serveFlags.String("self-check-live-capture", "", "Also capture a generated UDP packet on this interface (for release validation)")
 )
 
 const (
@@ -354,7 +355,7 @@ func Main(args []string) int {
 	// current runtime. Used by the static-build smoke test to catch
 	// musl/libc-static failure modes before shipping.
 	if *selfCheck {
-		return runSelfCheck(os.Stdout)
+		return runSelfCheck(os.Stdout, *selfCheckLive)
 	}
 
 	// Check if first argument is a subcommand

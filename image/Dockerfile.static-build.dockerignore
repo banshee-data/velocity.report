@@ -39,6 +39,7 @@ docs_html/_site/data/maths/papers/*.pdf
 # Stubs invoked from inside the image when web/docs assets are absent.
 !scripts/ensure-web-stub.sh
 !scripts/ensure-docs-stub.sh
+!scripts/download-typst.sh
 
 # In-tree libpcap toolchain + source submodule.
 !third_party/libpcap/

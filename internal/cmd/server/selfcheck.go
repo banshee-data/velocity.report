@@ -21,7 +21,7 @@ import (
 // real target. Best-effort checks that depend on network connectivity
 // (external DNS) report failures as warnings, not errors, so the check
 // is usable in offline CI runners.
-func runSelfCheck(out io.Writer) int {
+func runSelfCheck(out io.Writer, liveInterface string) int {
 	r := &selfCheckReport{out: out}
 
 	fmt.Fprintf(out, "velocity-report self-check\n")
@@ -33,6 +33,10 @@ func runSelfCheck(out io.Writer) int {
 	r.run("udp-bind", true, checkUDPBind)
 	r.run("tcp-bind", true, checkTCPBind)
 	selfCheckLibpcap(r)
+	if liveInterface != "" {
+		selfCheckLiveCapture(r, liveInterface)
+	}
+	selfCheckTypst(r)
 
 	fmt.Fprintf(out, "\nresult: %d ok, %d failed (%d warnings)\n", r.passed, r.failed, r.warned)
 	if r.failed > 0 {

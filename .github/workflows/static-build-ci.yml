@@ -18,7 +18,7 @@ on:
       - "internal/**"
       - "image/Dockerfile.static-build*"
       - "scripts/build-radar-static.sh"
-      - "scripts/smoke-test-static.sh"
+      - "scripts/*static*.sh"
       - "third_party/libpcap-static/**"
       - ".gitmodules"
       - "go.mod"
@@ -39,6 +39,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          lfs: true
 
       # qemu/binfmt registration so we can run arm64 binaries in the
       # smoke-test step on this amd64 runner.
@@ -53,15 +54,45 @@ jobs:
       - name: Build static binaries (amd64 + arm64)
         run: make build-radar-static
 
+      - name: Verify static ELF and embedded release features
+        run: |
+          for bin in build/static/velocity-report-*-static; do
+            file "$bin" | grep -q 'statically linked'
+            if readelf -d "$bin" 2>&1 | grep -q '(NEEDED)'; then
+              echo "unexpected dynamic dependency in $bin" >&2
+              readelf -d "$bin" >&2
+              exit 1
+            fi
+          done
+
       - name: Smoke-test amd64 binary
         run: |
           bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
           ./scripts/smoke-test-static.sh "$bin"
 
+      - name: Validate canonical LiDAR capture with release binary
+        run: |
+          bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
+          ./scripts/test-static-golden-pcap.sh "$bin"
+
       - name: Smoke-test arm64 binary (under qemu)
         run: |
           bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
           ./scripts/smoke-test-static.sh "$bin"
+
+      - name: Install full-system ARM64 test dependencies
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm qemu-efi-aarch64 genisoimage
+
+      - name: Test ARM64 binary under an ARM64 kernel
+        run: |
+          bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
+          ./scripts/test-static-arm64-vm.sh "$bin"
+
+      - name: Verify reproducible static artifacts
+        run: |
+          sha256sum build/static/velocity-report-*-static > /tmp/velocity-static.sha256
+          make build-radar-static
+          sha256sum -c /tmp/velocity-static.sha256
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4

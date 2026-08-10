@@ -154,19 +154,23 @@ func TestNewDBWithMigrationCheck_OutOfDateDatabase(t *testing.T) {
 		t.Fatalf("Failed to get migrations FS: %v", err)
 	}
 
-	// Create database and apply only first migration
-	db := setupEmptyTestDB(t)
-	dbPath := t.Name() + "_migrations.db"
+	// Create the database at its final path and apply only the first migration.
+	// Moving only the main file of a WAL-mode SQLite database is unsafe: schema
+	// changes may still live in the companion WAL, making the destination look
+	// like a fresh database and invalidating what this test is meant to prove.
+	rawDB, err := sql.Open("sqlite", fname)
+	if err != nil {
+		t.Fatalf("failed to open test DB: %v", err)
+	}
+	db := &DB{rawDB}
 
 	err = db.MigrateTo(migrationsFS, 1)
 	if err != nil {
 		t.Fatalf("MigrateTo(1) failed: %v", err)
 	}
-	db.Close()
-
-	// Copy to test location
-	srcPath := dbPath
-	os.Rename(srcPath, fname)
+	if err := db.Close(); err != nil {
+		t.Fatalf("failed to close test DB: %v", err)
+	}
 
 	// NewDBWithMigrationCheck should detect out-of-date database and error
 	_, err = NewDBWithMigrationCheck(fname, true)

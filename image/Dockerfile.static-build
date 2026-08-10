@@ -76,6 +76,7 @@ ARG DEV_VERSION=dev
 ARG GIT_SHA=unknown
 ARG GIT_SHA_SHORT=unknown
 ARG BUILD_TIME=unknown
+ARG TYPST_VERSION=0.13.1
 
 COPY . /src
 RUN ./scripts/ensure-web-stub.sh && ./scripts/ensure-docs-stub.sh
@@ -93,6 +94,9 @@ RUN set -eux; \
             *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
         esac; \
         pcap_dir="/src/third_party/libpcap-static/out/$arch"; \
+        TYPST_CACHE_DIR=/tmp/velocity-typst-cache \
+            ./scripts/download-typst.sh "$TYPST_VERSION" linux "$arch" \
+            /src/internal/report/typst/typstbin/dist/typst; \
         out="/out/velocity-report-${DEV_VERSION}-linux-${arch}-${GIT_SHA_SHORT}-static"; \
         echo "==> building $out (zig target $zig_target)"; \
         GOOS=linux GOARCH="$arch" CGO_ENABLED=1 \
@@ -102,7 +106,7 @@ RUN set -eux; \
             CGO_LDFLAGS="-L$pcap_dir/lib" \
             CGO_LDFLAGS_ALLOW='-static' \
             go build \
-                -tags=pcap \
+                -tags=pcap,typst_embed \
                 -trimpath \
                 -buildvcs=false \
                 -ldflags "-s -w -buildid= -extldflags=-static -X '${VPKG}.Version=${VERSION}' -X '${VPKG}.GitSHA=${GIT_SHA}' -X '${VPKG}.BuildTime=${BUILD_TIME}'" \
