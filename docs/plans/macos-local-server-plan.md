@@ -292,7 +292,7 @@ embedded binary version on launch by running `velocity-report-server --version`
 15. Clicking the Dock icon or re-launching restores normal window behaviour.
 
 **macOS version requirement:** macOS 13+ (Ventura) for `SMAppService`.
-Current app minimum is macOS 14: compatible.
+Current app minimum is macOS 15: compatible.
 
 ### Phase 5: server manager integration (`S`)
 

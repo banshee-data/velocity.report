@@ -84,6 +84,12 @@ Legacy aliases are kept for compatibility.
 - `dev-mac`: Kill, build, and run macOS visualiser
 - `test-mac`: Run macOS visualiser tests (XCTest)
 - `format-mac`: Format macOS Swift code (swift-format)
+- `dmg-mac`: Build if needed and create a timestamped development DMG
+- `dmg-mac-release`: Build if needed and create `VelocityVisualiser-<VERSION>.dmg`
+- `sign-mac`: Sign the built app with Developer ID Application
+- `notarise-mac`: Submit the release DMG to Apple, wait, then staple the ticket
+- `verify-mac`: Verify Developer ID signature, Gatekeeper assessment, and staple
+- `release-mac`: Build, sign, package, notarise, and verify the release DMG
 
 ## Protobuf code generation
 
