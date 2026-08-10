@@ -48,7 +48,11 @@ rewritten to LayerChart/d3-scale.
 
 ### Phase 0: capabilities API
 
-`/api/capabilities` reports runtime sensor state as a JSON object with two top-level keys: `radar` (boolean) and `lidar` (object with `enabled` boolean and `state` string, e.g. `"disabled"`).
+`/api/capabilities` reports runtime sensor state as a JSON object with two
+top-level named maps: `radar: Record<string, SensorStatus>` and
+`lidar: Record<string, LidarSensorStatus>`. A radar-only deployment returns
+`radar.default.enabled = true` and `lidar: {}`; LiDAR deployments include one
+or more named LiDAR entries with `enabled`, `status`, and `sweep`.
 
 LiDAR navigation hidden when disabled. All `/api/lidar/*` endpoints
 return "LiDAR disabled" without initialising hardware.

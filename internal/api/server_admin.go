@@ -83,6 +83,12 @@ func (s *Server) showCapabilities(w http.ResponseWriter, r *http.Request) {
 	if s.capabilitiesProvider != nil {
 		caps = s.capabilitiesProvider.Capabilities()
 	}
+	if caps.Radar == nil {
+		caps.Radar = map[string]SensorStatus{}
+	}
+	if caps.Lidar == nil {
+		caps.Lidar = map[string]LidarSensorStatus{}
+	}
 
 	if err := json.NewEncoder(w).Encode(caps); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to write capabilities")

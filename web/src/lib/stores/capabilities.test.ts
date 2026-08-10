@@ -278,13 +278,26 @@ describe('capabilities store', () => {
 			warnSpy.mockRestore();
 		});
 
-		it('should NOT start timer when initial fetch fails', async () => {
-			(getCapabilities as jest.Mock).mockRejectedValueOnce(new Error('down'));
+		it('should keep retry timer when initial fetch fails', async () => {
+			(getCapabilities as jest.Mock)
+				.mockRejectedValueOnce(new Error('down'))
+				.mockResolvedValueOnce(RADAR_ONLY);
 			const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
 			startCapabilitiesPolling();
 			await jest.advanceTimersByTimeAsync(0);
 
+			expect(isPolling()).toBe(true);
+			expect(getCapabilities).toHaveBeenCalledTimes(1);
+			expect(get(capabilities)).toEqual({
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {}
+			});
+
+			await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+
+			expect(getCapabilities).toHaveBeenCalledTimes(2);
+			expect(get(capabilities)).toEqual(RADAR_ONLY);
 			expect(isPolling()).toBe(false);
 			warnSpy.mockRestore();
 		});

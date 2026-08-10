@@ -183,14 +183,20 @@ Add a `/api/capabilities` endpoint (or extend `/api/config`) that reports which 
 
 **Capabilities response shape:**
 
-| Field           | Type      | Example      | Purpose                                                  |
-| --------------- | --------- | ------------ | -------------------------------------------------------- |
-| `radar`         | `boolean` | `true`       | Radar sensor active                                      |
-| `lidar.enabled` | `boolean` | `false`      | LiDAR pipeline enabled                                   |
-| `lidar.state`   | `string`  | `"disabled"` | Runtime state (`disabled`, `starting`, `ready`, `error`) |
-| `lidar_sweep`   | `boolean` | `false`      | Sweep subsystem available                                |
+| Field                   | Type    | Example       | Purpose                                                                        |
+| ----------------------- | ------- | ------------- | ------------------------------------------------------------------------------ |
+| `radar`                 | object  | `{...}`       | Named radar sensor map keyed by stable sensor name                             |
+| `radar.default.enabled` | boolean | `true`        | Built-in radar sensor active                                                   |
+| `radar.default.status`  | string  | `"receiving"` | Runtime state (`disabled`, `starting`, `ready`, `receiving`, `stale`, `error`) |
+| `lidar`                 | object  | `{}`          | Named LiDAR sensor map; empty when no LiDAR sensor is configured or active     |
+| `lidar.default.enabled` | boolean | `true`        | Built-in LiDAR sensor active when present                                      |
+| `lidar.default.status`  | string  | `"ready"`     | LiDAR runtime state                                                            |
+| `lidar.default.sweep`   | boolean | `false`       | Sweep subsystem available                                                      |
 
-Capabilities must reflect runtime transitions (disabled, starting, ready, error) so LiDAR can be enabled or disabled without restarting the radar process. A backend lifecycle manager should own start/stop of LiDAR pipelines and must not interrupt radar logging or streaming.
+Capabilities must reflect runtime transitions (`disabled`, `starting`, `ready`,
+`receiving`, `stale`, `error`) so LiDAR can be enabled or disabled without
+restarting the radar process. A backend lifecycle manager should own start/stop
+of LiDAR pipelines and must not interrupt radar logging or streaming.
 
 Update the root `+layout.svelte` to fetch capabilities on load and conditionally render LiDAR navigation items. Add periodic refresh (or SSE) so the UI updates when LiDAR comes online. When `lidar` is disabled, the sidebar shows only radar routes and all `/api/lidar/*` endpoints return a clear "LiDAR disabled" response without initialising hardware.
 
@@ -202,8 +208,8 @@ Update the root `+layout.svelte` to fetch capabilities on load and conditionally
 - [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go): `capabilitiesProvider` with mutex-protected state transitions
 - [internal/cmd/server/capabilities_test.go](../../internal/cmd/server/capabilities_test.go): provider tests (6 cases)
 - [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): wire capabilities provider into API server startup
-- [web/src/lib/api.ts](../../web/src/lib/api.ts): `Capabilities`, `LidarCapability` types and `getCapabilities()` function
-- [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts): 3 test cases for `getCapabilities()`
+- [web/src/lib/api.ts](../../web/src/lib/api.ts): `Capabilities`, `SensorStatus`, `LidarSensorStatus` types and `getCapabilities()` function
+- [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts): test cases for `getCapabilities()`
 - [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts): polling store with derived `lidarEnabled`/`lidarState`
 - [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts): 8 test cases for store
 - [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte): conditional LiDAR nav rendering, polling lifecycle
@@ -362,25 +368,25 @@ Expected timeline: 2–4 days.
 
 Checklist:
 
-- [x] Define the capabilities schema and state machine (disabled, starting, ready, error) and document the contract in `docs/`.
-  - Schema: `Capabilities { radar: bool, lidar: { enabled, state }, lidar_sweep: bool }`; see [internal/api/server.go](../../internal/api/server.go).
-  - States: `disabled → starting → ready → error`; see [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go).
+- [x] Define the capabilities schema and state machine (`disabled`, `starting`, `ready`, `receiving`, `stale`, `error`) and document the contract in `docs/`.
+  - Schema: `Capabilities { radar: Record<string, SensorStatus>, lidar: Record<string, LidarSensorStatus> }`; see [internal/api/server.go](../../internal/api/server.go).
+  - Current provider emits the built-in `"default"` radar key and either a `"default"` LiDAR key or an empty LiDAR map; see [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go).
 - [x] Implement a backend LiDAR lifecycle manager that can start/stop LiDAR pipelines without interrupting radar logging/stream.
   - `capabilitiesProvider` in [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go) with mutex-protected state transitions.
   - Wired in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): radar server construction is decoupled from LiDAR state.
 - [x] Implement `/api/capabilities` (or extend `/api/config`) with unit tests for default values and hardware-off scenarios.
   - Handler: [internal/api/server_admin.go](../../internal/api/server_admin.go); `showCapabilities()`.
-  - Tests: [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go); 4 test cases (default, ready, error, method-not-allowed).
+  - Tests: [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go); covers default, ready, error, method-not-allowed, empty-map, nil-map, and multi-sensor responses.
 - [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initialising hardware).
 - [x] Add `getCapabilities()` to [web/src/lib/api.ts](../../web/src/lib/api.ts).
   - Function: `getCapabilities()`; see [web/src/lib/api.ts](../../web/src/lib/api.ts).
-  - Tests: 3 test cases in [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts) (ready, disabled, error).
+  - Tests in [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts) cover named-map response parsing and error handling.
 - [x] Update [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte) to gate LiDAR nav items based on capabilities.
-  - LiDAR nav items wrapped in `{#if $capabilities.lidar.enabled}`.
+  - LiDAR nav items are gated by `Object.values($capabilities.lidar).some(s => s.enabled)`.
 - [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
 - [x] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
-  - Store: [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts); polls every 30 s with `startCapabilitiesPolling()`.
-  - Tests: 8 test cases in [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts).
+  - Store: [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts); retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR sensors are present.
+  - Tests in [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts) cover derived stores, radar-only/no-sensor cases, LiDAR polling, startup retry, and lifecycle idempotency.
 - [ ] Add route-level lazy loading for LiDAR routes to minimise radar-only initial load.
 - [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
 - [ ] Add tests that hot-enable/disable LiDAR does not interrupt radar logging.

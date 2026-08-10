@@ -2,7 +2,7 @@
 
 - **Status:** Complete
 - **Layers:** API, Frontend, cmd/radar
-- **Canonical:** `internal/api/server.go`, `internal/cmd/server/capabilities.go`
+- **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
 
 Redesign `/api/capabilities` to support multiple named sensors per class,
 future-proofing for deployments with more than one radar or LiDAR unit.
@@ -119,7 +119,9 @@ type Capabilities struct {
 }
 ```
 
-`map[string]T` marshals to `{}` when empty — clean, no `null` vs `[]` ambiguity.
+Non-nil empty `map[string]T` values marshal to `{}`. The handler normalises
+provider nil maps to empty maps before encoding, so the public contract never
+emits `null` for `radar` or `lidar`.
 
 ## 4. Frontend Types
 
@@ -167,8 +169,11 @@ Keys are stable, human-assigned identifiers. Today the single radar/lidar uses
 - `"ops243_front"`, `"ops243_rear"` — by model and position
 - `"hesai"`, `"hesai_kerb"` — by model and role
 
-Names come from CLI flags or config at startup. The server rejects duplicate
-names.
+Current runtime providers emit the single built-in sensor key `"default"`.
+Future multi-sensor CLI/config work should assign these names at startup and
+validate uniqueness before constructing the capabilities maps. The response
+shape already enforces unique keys structurally, but named-sensor input parsing
+and duplicate-name validation are not implemented in this PR.
 
 ## 7. Future extensibility
 

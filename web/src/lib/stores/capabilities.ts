@@ -5,10 +5,12 @@
 //
 // Polling strategy:
 //   • An initial fetch always fires on startCapabilitiesPolling().
-//   • A 30 s interval timer is only started when the response contains
-//     at least one LiDAR sensor — LiDAR state transitions at runtime
-//     (starting → ready → error) and need periodic updates.
-//   • Radar-only deployments get a single static fetch; no timer.
+//   • A 30 s interval timer is started immediately so startup races
+//     retry until the endpoint responds.
+//   • After a successful fetch, radar-only deployments stop the timer.
+//     Responses with at least one LiDAR sensor keep polling because
+//     LiDAR state transitions at runtime (starting → ready → error)
+//     need periodic updates.
 //   • On fetch error the timer state is preserved so transient network
 //     blips don't disrupt an already-running poll cycle.
 
@@ -71,7 +73,7 @@ function clearPollTimer(): void {
 }
 
 /** Fetch capabilities once and update the store.
- *  After a successful fetch, starts or stops the poll timer based on
+ *  After a successful fetch, keeps or stops the poll timer based on
  *  whether LiDAR hardware is present. On error the timer state is
  *  left unchanged so transient failures don't break an active cycle. */
 async function refresh(): Promise<void> {
@@ -99,12 +101,13 @@ async function refresh(): Promise<void> {
  * Start capabilities monitoring. Safe to call multiple times —
  * subsequent calls are no-ops while monitoring is active.
  *
- * Performs an immediate fetch; a periodic poll timer is only started
- * if the response contains LiDAR hardware.
+ * Starts a periodic retry timer immediately, then performs an immediate
+ * fetch. A successful radar-only response stops the timer.
  */
 export function startCapabilitiesPolling(): void {
 	if (pollingActive) return;
 	pollingActive = true;
+	ensurePollTimer();
 	refresh();
 }
 

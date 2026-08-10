@@ -214,6 +214,37 @@ func TestShowCapabilities_EmptyMaps(t *testing.T) {
 	}
 }
 
+// TestShowCapabilities_NilMaps verifies that provider nil maps are normalised
+// to {} before encoding so the public contract never emits null maps.
+func TestShowCapabilities_NilMaps(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	server.SetCapabilitiesProvider(&mockCapabilitiesProvider{
+		caps: Capabilities{},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/capabilities", nil)
+	w := httptest.NewRecorder()
+
+	server.showCapabilities(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("Failed to decode raw response: %v", err)
+	}
+	if string(raw["radar"]) != "{}" {
+		t.Errorf("Expected radar to be {}, got %s", raw["radar"])
+	}
+	if string(raw["lidar"]) != "{}" {
+		t.Errorf("Expected lidar to be {}, got %s", raw["lidar"])
+	}
+}
+
 // TestShowCapabilities_MultiSensor verifies the handler round-trips
 // multiple named sensors per class correctly.
 func TestShowCapabilities_MultiSensor(t *testing.T) {
