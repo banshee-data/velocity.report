@@ -119,10 +119,41 @@ jobs:
     needs: setup
     env:
       HAS_MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE != '' && 'true' || 'false' }}
+      HAS_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD != '' && 'true' || 'false' }}
       HAS_NOTARY_KEY: ${{ secrets.NOTARY_KEY != '' && 'true' || 'false' }}
+      HAS_NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID != '' && 'true' || 'false' }}
+      HAS_NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER != '' && 'true' || 'false' }}
+      HAS_RELEASE_SIGNING: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_CERTIFICATE_PASSWORD != '' && secrets.NOTARY_KEY != '' && secrets.NOTARY_KEY_ID != '' && secrets.NOTARY_ISSUER != '' && 'true' || 'false' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate release signing mode
+        run: |
+          set -eu
+          configured=0
+          for flag in \
+            "$HAS_MACOS_CERTIFICATE" \
+            "$HAS_MACOS_CERTIFICATE_PASSWORD" \
+            "$HAS_NOTARY_KEY" \
+            "$HAS_NOTARY_KEY_ID" \
+            "$HAS_NOTARY_ISSUER"; do
+            if [ "$flag" = "true" ]; then
+              configured=$((configured + 1))
+            fi
+          done
+
+          if [ "$configured" -ne 0 ] && [ "$HAS_RELEASE_SIGNING" != "true" ]; then
+            echo "::error title=Incomplete macOS release signing secrets::Configure all five macOS release secrets, or remove them all to produce an unsigned DMG."
+            exit 1
+          fi
+
+          if [ "$HAS_RELEASE_SIGNING" = "true" ]; then
+            echo "DMG signing mode: Developer ID signed and notarised"
+          else
+            echo "::warning title=Unsigned macOS DMG::No complete macOS release signing secret set is configured. The uploaded DMG filename and artifact name will include UNSIGNED."
+            echo "DMG signing mode: unsigned"
+          fi
 
       - name: Download generated protos
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -138,7 +169,7 @@ jobs:
             > tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 
       - name: Import Developer ID certificate
-        if: env.HAS_MACOS_CERTIFICATE == 'true'
+        if: env.HAS_RELEASE_SIGNING == 'true'
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -171,14 +202,34 @@ jobs:
             build
 
       - name: Codesign app
-        if: env.HAS_MACOS_CERTIFICATE == 'true'
+        if: env.HAS_RELEASE_SIGNING == 'true'
         run: make sign-mac
 
       - name: Create versioned DMG
         run: make dmg-mac-release
 
+      - name: Mark unsigned DMG
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        run: |
+          set -eu
+          renamed=0
+          for dmg in tools/visualiser-macos/build/VelocityVisualiser-*.dmg; do
+            [ -e "$dmg" ] || continue
+            case "$dmg" in
+              *-UNSIGNED.dmg) continue ;;
+            esac
+            unsigned="${dmg%.dmg}-UNSIGNED.dmg"
+            mv "$dmg" "$unsigned"
+            echo "Unsigned DMG: $unsigned"
+            renamed=$((renamed + 1))
+          done
+          if [ "$renamed" -ne 1 ]; then
+            echo "::error title=Unsigned DMG naming failed::Expected to rename one release DMG, renamed $renamed."
+            exit 1
+          fi
+
       - name: Notarise and staple DMG
-        if: env.HAS_NOTARY_KEY == 'true'
+        if: env.HAS_RELEASE_SIGNING == 'true'
         env:
           NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
@@ -190,12 +241,21 @@ jobs:
           NOTARY_KEY="$NOTARY_KEY_FILE" make notarise-mac
 
       - name: Verify signatures
-        if: env.HAS_MACOS_CERTIFICATE == 'true'
+        if: env.HAS_RELEASE_SIGNING == 'true'
         run: make verify-mac
 
-      - name: Upload DMG artefact
+      - name: Upload signed DMG artefact
+        if: env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: VelocityVisualiser-dmg
           path: tools/visualiser-macos/build/*VelocityVisualiser-*.dmg
+          retention-days: 90
+
+      - name: Upload unsigned DMG artefact
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: VelocityVisualiser-dmg-UNSIGNED
+          path: tools/visualiser-macos/build/*VelocityVisualiser-*-UNSIGNED.dmg
           retention-days: 90
