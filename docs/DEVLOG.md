@@ -15,6 +15,9 @@
 - Corrected the release packaging target so `make release-mac` packages the
   signed app instead of rebuilding after signing, and updated the release docs
   with the local keychain, notarytool, and GitHub Actions secret boundaries.
+- Made unsigned CI DMG outputs explicit: manual or tag runs without the full
+  release secret set now upload `UNSIGNED`-labelled DMG files and artifacts,
+  while partially configured signing secrets fail the workflow early.
 
 ## June 9, 2026 - Typst map editor, typstbin hardening & cleanup
 

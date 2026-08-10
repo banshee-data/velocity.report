@@ -254,18 +254,25 @@ source=Notarized Developer ID
 When configured, the `🍎 macOS CI` workflow signs and notarises
 automatically on tagged releases. Required GitHub Actions secrets:
 
-| Secret                       | Description                                     |
-| ---------------------------- | ----------------------------------------------- |
-| `MACOS_CERTIFICATE`          | Base64-encoded Developer ID `.p12` certificate  |
-| `MACOS_CERTIFICATE_PASSWORD` | Password for the `.p12` file                    |
-| `NOTARY_KEY`                 | Contents of the App Store Connect API key (.p8) |
-| `NOTARY_KEY_ID`              | API key ID                                      |
-| `NOTARY_ISSUER`              | API issuer UUID                                 |
+| Secret                       | Source                                                                | GitHub destination            |
+| ---------------------------- | --------------------------------------------------------------------- | ----------------------------- |
+| `MACOS_CERTIFICATE`          | Base64 export of a Developer ID Application `.p12` certificate bundle | Repository **Actions** secret |
+| `MACOS_CERTIFICATE_PASSWORD` | Password chosen when exporting the `.p12` from Keychain Access        | Repository **Actions** secret |
+| `NOTARY_KEY`                 | Contents of the App Store Connect API key file, `AuthKey_<KEY_ID>.p8` | Repository **Actions** secret |
+| `NOTARY_KEY_ID`              | App Store Connect API key ID shown beside the downloaded `.p8` key    | Repository **Actions** secret |
+| `NOTARY_ISSUER`              | App Store Connect issuer ID for the API key                           | Repository **Actions** secret |
 
-If the secrets are not set, CI still produces an unsigned DMG artefact.
-Populate these only in GitHub repository **Settings → Secrets and variables →
-Actions**. Do not put their values in workflow YAML, local docs, issue
-comments, or chat.
+The CI release job has two valid modes:
+
+- With all five secrets configured, it signs the app with Developer ID,
+  notarises the DMG, staples the ticket, verifies signatures, and uploads
+  `VelocityVisualiser-dmg`.
+- With none of the five secrets configured, it still produces a packaging
+  smoke-test DMG, but renames the file and artifact with `UNSIGNED`.
+
+Partial configuration is treated as an error. Populate these only in GitHub
+repository **Settings → Secrets and variables → Actions**. Do not put their
+values in workflow YAML, local docs, issue comments, or chat.
 
 ### Common Failure Modes
 
