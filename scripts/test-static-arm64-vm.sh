@@ -71,7 +71,7 @@ genisoimage -quiet -output "$RUN_DIR/seed.iso" -volid cidata -joliet -rock \
 qemu-img create -q -f qcow2 -F qcow2 -b "$BASE_IMAGE" "$RUN_DIR/root.qcow2" 8G
 QEMU_LOG="$RUN_DIR/qemu.log"
 qemu-system-aarch64 \
-    -machine virt,accel=tcg -cpu max -smp 4 -m 2048 \
+    -machine virt,accel=tcg -cpu max -smp 2 -m 1536 \
     -bios "$EFI_FIRMWARE" \
     -drive if=virtio,format=qcow2,file="$RUN_DIR/root.qcow2" \
     -drive if=virtio,format=raw,readonly=on,file="$RUN_DIR/seed.iso" \
@@ -80,13 +80,32 @@ qemu-system-aarch64 \
     -nographic -monitor none >"$QEMU_LOG" 2>&1 &
 QEMU_PID=$!
 cleanup() {
+	status=$?
+	if [[ "$status" -ne 0 ]]; then
+		echo "ARM64 VM validation failed; QEMU log follows" >&2
+		tail -200 "$QEMU_LOG" >&2 || true
+	fi
     kill "$QEMU_PID" 2>/dev/null || true
     wait "$QEMU_PID" 2>/dev/null || true
+	return "$status"
 }
 trap cleanup EXIT
 
-SSH=(ssh -i "$SSH_KEY" -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1)
-SCP=(scp -i "$SSH_KEY" -P 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+SSH=(ssh -i "$SSH_KEY" -p 2222 -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@127.0.0.1)
+SCP=(scp -i "$SSH_KEY" -P 2222 -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+retry_transport() {
+    local attempt
+    for attempt in $(seq 1 12); do
+        if "$@"; then return 0; fi
+        if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+            echo "QEMU exited while waiting for guest transport" >&2
+            return 1
+        fi
+        echo "guest transport attempt $attempt failed; retrying" >&2
+        sleep 2
+    done
+    return 1
+}
 wait_api() {
     for _ in $(seq 1 90); do
         if curl -fsS http://127.0.0.1:18082/api/version >/dev/null 2>&1; then return 0; fi
@@ -108,11 +127,16 @@ if [[ "$ready" != 1 ]]; then
     exit 1
 fi
 
-"${SCP[@]}" "$BIN" root@127.0.0.1:/tmp/velocity-candidate
-"${SCP[@]}" "$REPO_ROOT/image/stage-velocity/03-velocity-config/files/velocity-report.service" \
+# SSH can become reachable before cloud-init has finished regenerating host
+# state. Waiting here prevents a transient disconnect between the readiness
+# probe and the first SCP on slower shared CI runners.
+retry_transport "${SSH[@]}" 'cloud-init status --wait >/dev/null'
+
+retry_transport "${SCP[@]}" "$BIN" root@127.0.0.1:/tmp/velocity-candidate
+retry_transport "${SCP[@]}" "$REPO_ROOT/image/stage-velocity/03-velocity-config/files/velocity-report.service" \
     root@127.0.0.1:/tmp/velocity-report.service
 
-"${SSH[@]}" 'set -eu
+retry_transport "${SSH[@]}" 'set -eu
 id velocity >/dev/null 2>&1 || useradd --system --home /var/lib/velocity-report --shell /usr/sbin/nologin velocity
 install -d -o velocity -g velocity /var/lib/velocity-report /var/lib/velocity-report/backups
 base_version=$(/tmp/velocity-candidate version | awk "/^velocity/{sub(/^v/, \"\", \$2); print \$2; exit}")
