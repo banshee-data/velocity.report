@@ -68,10 +68,19 @@ deterministic subsample per cluster, with the cap exposed as a tuning key under 
 active L4 engine block so it can be raised for offline analysis and lowered for
 constrained deployment.
 
-Determinism matters more than sample size. Replay must reproduce descriptors
-exactly, so subsampling reuses the seeded approach already applied to
-`MaxInputPoints` in `l4perception/cluster.go` rather than introducing a second
-sampling policy.
+Determinism matters more than sample size: replay must reproduce descriptors
+exactly. The existing `uniformSubsample` in `l4perception/cluster.go` **cannot be
+reused** for this. It seeds from `time.Now().UnixNano()` mixed with a monotonic
+counter, deliberately, so that "consecutive calls within the same nanosecond still
+produce distinct subsamples". Retention therefore needs a content-derived seed —
+frame id, cluster id and sensor id hashed together — so the same input reproduces
+the same sample on every replay.
+
+That choice exposes a pre-existing problem rather than creating one: the same
+non-deterministic subsample already runs ahead of DBSCAN whenever a frame exceeds
+`foreground_max_input_points` (default 8000), which makes clustering itself
+irreproducible on busy frames. Recorded as a separate item below; this plan must
+not inherit the behaviour.
 
 ### Descriptors in SQLite, points in VRLOG
 
@@ -162,7 +171,8 @@ Three consequences, all binding:
 1. Add a `max_sample_points` tuning key to the active L4 engine block; wire it
    through `l4perception` config loading alongside the existing DBSCAN parameters.
 2. Populate `WorldCluster.SamplePoints` in `computeClusterMetrics`, applying the cap
-   with the same seeded subsample policy used for `MaxInputPoints`.
+   using a content-derived seed (frame, cluster and sensor id), **not** the
+   time-seeded `uniformSubsample` already in the file.
 3. Populate `Cluster.SamplePoints` in `l9endpoints/adapter.go` (`adaptClusters` and
    `adaptUnassociatedClusters`) so VRLOG recordings carry cluster-tagged points.
 4. Call `ExtractClusterFeatures` from the live path so `IntensityStd` and
@@ -251,7 +261,8 @@ Three consequences, all binding:
 ### Outstanding
 
 - [ ] Phase 1: `max_sample_points` tuning key and config wiring (`S`)
-- [ ] Phase 1: populate `WorldCluster.SamplePoints` with seeded capped subsample (`M`)
+- [ ] Phase 1: populate `WorldCluster.SamplePoints` with a capped, content-seeded subsample (`M`)
+- [ ] Phase 1: content-derived seed helper, replacing time-seeded selection on the retention path (`S`)
 - [ ] Phase 1: populate proto `Cluster.sample_points` in the adapter (`S`)
 - [ ] Phase 1: call `ExtractClusterFeatures` on the live path (`S`)
 - [ ] Phase 1: throughput benchmark against the kirk0 baseline (`S`)
