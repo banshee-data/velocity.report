@@ -328,7 +328,7 @@ rather than mathematical source).
 - Future engine `imm_cv_ca_rts_eval_v2` extends `imm_cv_ca_v2` with: `rts_smoothing_window`.
 - Getter/source path: [internal/config/tuning.go](../../internal/config/tuning.go) (`L5Common`)
 - Runtime mapping:
-  - [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go) (`TrackerConfigFromTuning`)
+  - [internal/lidar/l5tracks/tracking_config.go](../../internal/lidar/l5tracks/tracking_config.go) (`TrackerConfigFromTuning`)
   - Tracker wiring in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)
 
 ### L1 sensor and data source
