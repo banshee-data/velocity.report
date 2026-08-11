@@ -10,7 +10,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_LOCAL_BINARY = REPO_ROOT / "image" / "velocity-binaries" / "velocity-report"
+# Image builds expose the canonical multi-call binary as `velocity`; the
+# velocity-report name is installed remotely only as a compatibility alias.
+DEFAULT_LOCAL_BINARY = REPO_ROOT / "image" / "velocity-binaries" / "velocity"
 DEFAULT_HOST = "velocity.local"
 DEFAULT_USER = "pi"
 DEFAULT_REMOTE_TEMP_DIR = "/tmp/up"
@@ -32,7 +34,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--local-binary",
         default=str(DEFAULT_LOCAL_BINARY),
-        help="path to the local velocity-report binary to deploy",
+        help="path to the local canonical velocity binary to deploy",
     )
     parser.add_argument(
         "--remote-temp-dir",

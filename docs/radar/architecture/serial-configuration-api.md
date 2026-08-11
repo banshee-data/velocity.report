@@ -141,7 +141,7 @@ In real radar mode, startup loads the first enabled `radar_serial_config` row an
 
 ### Important limitation
 
-Reload applies the first enabled config only. Multi-sensor runtime adoption remains future work, and the real serial path still needs Pi/HAT plus USB adapter smoke validation before closing the rollout item.
+Reload applies the first enabled config only. Multi-sensor runtime adoption remains future work. Pi/HAT validation has confirmed DB-backed startup, device discovery, active-port test protection, no-op reload, and continued ingestion; a USB adapter and a deliberately changed-setting reload remain to be exercised separately.
 
 ## Deferred endpoints
 

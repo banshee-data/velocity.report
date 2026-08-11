@@ -26,7 +26,7 @@ def test_parse_args_defaults():
 
     assert args.host == "velocity.local"
     assert args.user == "pi"
-    assert args.local_binary == str(mod.DEFAULT_LOCAL_BINARY)
+    assert args.local_binary == str(ROOT / "image" / "velocity-binaries" / "velocity")
     assert args.remote_temp_dir == "/tmp/up"
     assert args.remote_binary == "/usr/local/bin/velocity-report"
     assert args.remote_db_path == "/var/lib/velocity-report/sensor_data.db"

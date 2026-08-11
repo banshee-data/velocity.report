@@ -3243,11 +3243,46 @@ describe('api', () => {
 			});
 		});
 
+		describe('reloadSerialConfig', () => {
+			it('should apply the enabled serial config', async () => {
+				const mockResult = {
+					success: true,
+					message: 'Serial configuration "/dev/ttySC1" already active',
+					config: {
+						config_id: 1,
+						port_path: '/dev/ttySC1',
+						source: 'database',
+						options: { baud_rate: 19200, data_bits: 8, stop_bits: 1, parity: 'N' }
+					}
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResult
+				});
+
+				const { reloadSerialConfig } = await import('./api');
+				await expect(reloadSerialConfig()).resolves.toEqual(mockResult);
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/reload', { method: 'POST' });
+			});
+
+			it('should surface reload failures', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					text: async () => 'no enabled serial configurations found'
+				});
+
+				const { reloadSerialConfig } = await import('./api');
+				await expect(reloadSerialConfig()).rejects.toThrow(
+					'Failed to apply serial configuration: no enabled serial configurations found'
+				);
+			});
+		});
+
 		describe('tailscale', () => {
 			it('getTailscaleStatus returns status and builds long-poll query', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ state: 'ready', version: 7 })
+					json: async () => ({ backend_state: 'Running', version: 7 })
 				});
 
 				const status = await getTailscaleStatus({ wait: 30, since: 5 });
@@ -3256,13 +3291,13 @@ describe('api', () => {
 				expect(callUrl).toContain('/api/tailscale/status');
 				expect(callUrl).toContain('wait=30');
 				expect(callUrl).toContain('v=5');
-				expect(status.state).toBe('ready');
+				expect(status.backend_state).toBe('Running');
 			});
 
 			it('getTailscaleStatus omits the query string when no options are given', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ state: 'disabled' })
+					json: async () => ({ backend_state: 'NoState' })
 				});
 
 				await getTailscaleStatus();
@@ -3274,22 +3309,22 @@ describe('api', () => {
 			it('enableTailscale POSTs and returns status', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ state: 'starting' })
+					json: async () => ({ backend_state: 'Starting' })
 				});
 
 				const status = await enableTailscale();
-				expect(status.state).toBe('starting');
+				expect(status.backend_state).toBe('Starting');
 				expect((global.fetch as jest.Mock).mock.calls[0][1]).toEqual({ method: 'POST' });
 			});
 
 			it('disableTailscale POSTs and returns status', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ state: 'disabled' })
+					json: async () => ({ backend_state: 'NoState' })
 				});
 
 				const status = await disableTailscale();
-				expect(status.state).toBe('disabled');
+				expect(status.backend_state).toBe('NoState');
 			});
 
 			it('surfaces the server error message on failure', async () => {
