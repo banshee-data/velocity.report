@@ -1,6 +1,6 @@
 # Serial configuration UI - quick reference
 
-- **Status:** Active; most of the operator surface is landed, with rollout work still open
+- **Status:** Active; startup adoption and explicit apply are landed, with discovery and hardware validation still open
 - **Full specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
 - **API reference:** See [docs/radar/architecture/serial-configuration-api.md](architecture/serial-configuration-api.md)
 - **Implementation plan:** See [docs/plans/serial-configuration-implementation-plan.md](../plans/serial-configuration-implementation-plan.md)
@@ -9,24 +9,22 @@ Quick-reference summary of what the current serial configuration work actually b
 
 ## What this feature enables
 
-Users can manage radar serial settings through a local web interface instead of editing service files by hand. The current implementation lands database-backed storage, a real serial test surface, model metadata, available-port listing, and a Sensor Serial Ports section on `/settings` for create, edit, delete, and test workflows.
+Users can manage radar serial settings through a local web interface instead of editing service files by hand. The current implementation lands database-backed storage, a real serial test surface, model metadata, available-port listing, and a Sensor Serial Ports section on `/settings` for create, edit, delete, test, and apply workflows.
 
-It also adds a reload manager that can swap the active serial mux at runtime. What it does not yet do is make the main radar startup path load the database config by default, nor does it ship the auto-detect helpers originally described in the design draft.
+It also adds a reload manager that can swap the active serial mux at runtime. The main radar startup path now loads the first enabled database config when real radar mode is active, preserving CLI `--port` fallback when no enabled config exists. The auto-detect helpers originally described in the design draft remain deferred.
 
 ## Delivered in the current implementation
 
 1. **Database-backed configuration**: `radar_serial_config` now stores serial port definitions in SQLite.
 2. **Shipped API surface**: CRUD, sensor-model listing, available-device listing, serial testing, and reload endpoints are present.
-3. **Operator UI**: the Sensor Serial Ports section on `/settings` provides list, create, edit, delete, and test flows.
+3. **Operator UI**: the Sensor Serial Ports section on `/settings` provides list, create, edit, delete, test, and apply flows.
 4. **Application-owned sensor models**: OPS243 model metadata lives in Go code, not in a separate lookup table.
-5. **Hot-reload building block**: `SerialPortManager` can reload the active serial mux from DB state.
-6. **Backward compatibility**: the CLI `--port` path still exists.
+5. **Runtime adoption**: real radar startup uses the first enabled DB config; CLI `--port` remains the fallback when no enabled config exists.
+6. **Hot reload**: `SerialPortManager` reloads the active serial mux from DB state and is exposed through the settings page.
+7. **Backward compatibility**: the CLI `--port` path still exists.
 
 ## Remaining work
 
-- Wire [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) to load enabled serial configs from the database at startup, with CLI fallback preserved.
-- Install the live `SerialPortManager` into the API server so saved settings can be applied to the real runtime path rather than only to tests.
-- Decide whether reload is explicit or automatic after save, then reflect that in the UI.
 - Add the deferred `auto-detect` and `detect-baud` endpoints plus the matching UI buttons if issue #290 is to be called fully complete.
 - Write the operator guide and run the flow on real Pi hardware.
 
@@ -34,9 +32,9 @@ It also adds a reload manager that can swap the active serial mux at runtime. Wh
 
 - Operators can inspect and edit serial settings without SSHing in to rewrite service arguments.
 - The test endpoint can validate a port and return raw responses before a config is trusted.
-- The UI can keep track of multiple saved configurations, even though the runtime currently still behaves like a single-active-sensor system.
+- The UI can keep track of multiple saved configurations, even though the runtime still applies the first enabled configuration as the single active radar sensor.
 - Device listing filters out already-assigned ports so the UI is less likely to invite a foot-gun.
-- The reload manager lays the groundwork for live changes without full service restarts.
+- The reload manager applies live changes without full service restarts in real radar mode.
 
 ## Key design decisions
 
@@ -118,4 +116,4 @@ Deferred, not shipped in the current implementation:
 - Done enough to demonstrate the feature: yes.
 - Done enough to close issue #290 without qualifiers: not quite.
 
-The branch has earned the right to close most of the checklist. The remaining work is runtime adoption, apply/reload UX, auto-detect helpers, and operator documentation.
+The branch has earned the right to close most of the checklist. The remaining work is auto-detect helpers, operator documentation, and real hardware validation.

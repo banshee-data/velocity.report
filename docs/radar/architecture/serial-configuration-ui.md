@@ -20,14 +20,13 @@ This document began as a design proposal. Much of it has now moved into code.
 - `radar_serial_config` schema, migration files, and DB CRUD helpers
 - API routes for configs, models, devices, test, and reload
 - Application-owned sensor model registry
-- Sensor Serial Ports section on `/settings` for list, create, edit, delete, and test flows
+- Sensor Serial Ports section on `/settings` for list, create, edit, delete, test, and apply flows
 - `SerialPortManager` hot-reload machinery and tests
+- DB-backed real radar startup with CLI fallback when no enabled config exists
 
 **Still open:**
 
-- Runtime startup in [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go) still needs to adopt DB-backed serial config as the main path
 - Auto-detect and detect-baud endpoints are still planned, not shipped
-- The UI still needs a clear apply/reload story for live runtime changes
 - Operator documentation and real-hardware validation still need finishing
 
 ## Problem
@@ -210,34 +209,34 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Requirement:** Load serial configuration from database at startup
 
-**Branch status:** Not yet wired into the main radar startup path.
+**Branch status:** Wired for the single-active radar runtime path; hardware validation remains.
 
 **Current Behaviour:**
 
-> **Source:** `internal/cmd/server/radar.go:35`. CLI flag `--port` defaults to `/dev/ttySC1`.
+> **Source:** [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go). Real radar startup opens the first enabled `radar_serial_config` row, falling back to the CLI `--port` value when no enabled row exists.
 
-**New Behaviour:**
+**Behaviour:**
 
 1. **Startup Sequence:**
    - Initialise database connection
    - Load enabled serial configurations from `radar_serial_config`
    - If no configs found, use CLI flag value (backward compatibility)
-   - Create SerialMux instances for each enabled configuration
+   - Create the active SerialMux from the selected configuration
 
 2. **Configuration Priority:**
    - Database configurations take precedence over CLI flags
    - CLI flag `--port` becomes fallback for legacy deployments
-   - New flag: `--ignore-db-serial` to force CLI flag usage
+   - Debug, fixture, and disabled-radar modes do not configure a real reload factory
 
-3. **Multi-Sensor Support (Future-Ready):**
-   - Store multiple SerialMux instances in a map
-   - Subscribe to all active sensors
-   - Tag incoming data with sensor ID for multi-radar analytics
+3. **Runtime Management:**
+   - Store the active mux behind `SerialPortManager`
+   - Route commands and subscriptions through the manager
+   - Apply saved changes through `POST /api/serial/reload`
 
 **Implementation Changes:**
 
 - **File:** [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
-- **Function:** New `loadSerialConfigs(db *db.DB) ([]SerialConfig, error)`
+- **Functions:** `runtimeSerialSnapshot(...)` chooses the startup config; `newRuntimeSerialManager(...)` installs the reload manager
 
 > **Source:** `SerialConfig` struct, `SensorModel` struct, and `GetSensorModel()` defined in sensor model registry (see FR1). Application-side model registry eliminates the need for database migrations when adding new sensor support.
 
@@ -288,7 +287,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 ### Phase 1: database foundation (minimal viable product)
 
-**Status:** Mostly complete. Schema and DB helpers are landed; startup adoption remains outstanding.
+**Status:** Complete pending hardware validation. Schema, DB helpers, and startup adoption are landed.
 
 **Goal:** Enable database-driven serial configuration without UI
 
@@ -303,8 +302,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 - Manual database insertion of config
 - Server startup with database config
-- Server startup with empty database (CLI fallback)
-- Server startup with `--ignore-db-serial` flag
+- Server startup with no enabled DB config (CLI fallback)
 
 **Timeline:** 1-2 days
 
@@ -684,10 +682,10 @@ sudo reboot
 
 ## Conclusion
 
-This feature now has real code behind it rather than only good intentions. It already improves operator setup materially; the remaining work is to finish runtime adoption, detection helpers, and operator-facing documentation without pretending those pieces are already done.
+This feature now has real code behind it rather than only good intentions. It already improves operator setup materially; the remaining work is to finish detection helpers, operator-facing documentation, and real hardware validation without pretending those pieces are already done.
 
 **Next Steps:**
 
-1. Wire DB-backed startup and install the real reload manager in [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
-2. Decide and ship the live apply/reload workflow in the UI
-3. Add the deferred detection helpers and publish the operator guide
+1. Add the deferred detection helpers
+2. Publish the operator guide
+3. Validate startup and reload on Pi/HAT hardware plus one USB serial adapter
