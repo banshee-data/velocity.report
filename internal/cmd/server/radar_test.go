@@ -122,7 +122,6 @@ func TestNewRuntimeSerialManager_EnablesActiveSerialTestPath(t *testing.T) {
 
 func TestRuntimeSerialSnapshotPrefersEnabledDatabaseConfig(t *testing.T) {
 	database := newTestDB(t)
-	disableAllSerialConfigs(t, database)
 
 	id, err := database.CreateSerialConfig(&db.SerialConfig{
 		PortPath:    "/dev/ttyUSB0",
@@ -160,7 +159,6 @@ func TestRuntimeSerialSnapshotPrefersEnabledDatabaseConfig(t *testing.T) {
 
 func TestRuntimeSerialSnapshotFallsBackToCLIWhenNoEnabledDatabaseConfig(t *testing.T) {
 	database := newTestDB(t)
-	disableAllSerialConfigs(t, database)
 
 	if _, err := database.CreateSerialConfig(&db.SerialConfig{
 		PortPath:    "/dev/ttyUSB0",
@@ -202,7 +200,6 @@ func TestRuntimeSerialSnapshotDisabledRadarHasNoActiveConfig(t *testing.T) {
 
 func TestRuntimeSerialSnapshotRejectsInvalidEnabledDatabaseConfig(t *testing.T) {
 	database := newTestDB(t)
-	disableAllSerialConfigs(t, database)
 
 	if _, err := database.CreateSerialConfig(&db.SerialConfig{
 		PortPath:    "/dev/ttyUSB0",
@@ -232,6 +229,11 @@ func newTestDB(t *testing.T) *db.DB {
 	if err != nil {
 		t.Fatalf("new test database: %v", err)
 	}
+	// Migration 000038 seeds a live-hardware default. Snapshot tests need to
+	// define the entire configuration set so selection remains deterministic.
+	if _, err := database.Exec(`DELETE FROM radar_serial_config`); err != nil {
+		t.Fatalf("clear seeded serial configs: %v", err)
+	}
 	t.Cleanup(func() {
 		if err := database.Close(); err != nil {
 			t.Errorf("close test database: %v", err)
@@ -239,12 +241,4 @@ func newTestDB(t *testing.T) *db.DB {
 	})
 
 	return database
-}
-
-func disableAllSerialConfigs(t *testing.T, database *db.DB) {
-	t.Helper()
-
-	if _, err := database.Exec(`UPDATE radar_serial_config SET enabled = 0`); err != nil {
-		t.Fatalf("disable seeded serial configs: %v", err)
-	}
 }
