@@ -72,7 +72,11 @@ func TestRadarEndToEnd(t *testing.T) {
 
 func TestNewRuntimeSerialManager_EnablesActiveSerialTestPath(t *testing.T) {
 	disabledMux := serialmux.NewDisabledSerialMux()
-	manager := newRuntimeSerialManager(nil, disabledMux, "/dev/ttySC1", true, false)
+	snapshot, err := runtimeSerialSnapshot(nil, "/dev/ttySC1", true, false)
+	if err != nil {
+		t.Fatalf("runtime serial snapshot: %v", err)
+	}
+	manager := newRuntimeSerialManager(nil, disabledMux, snapshot, false)
 	defer manager.Close()
 
 	server := api.NewServer(disabledMux, nil, "mph", "UTC")
@@ -114,4 +118,122 @@ func TestNewRuntimeSerialManager_EnablesActiveSerialTestPath(t *testing.T) {
 	if !strings.Contains(resp.Message, "already active") {
 		t.Fatalf("expected active-port shortcut message, got %q", resp.Message)
 	}
+}
+
+func TestRuntimeSerialSnapshotPrefersEnabledDatabaseConfig(t *testing.T) {
+	database := newTestDB(t)
+
+	id, err := database.CreateSerialConfig(&db.SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    115200,
+		DataBits:    7,
+		StopBits:    2,
+		Parity:      "Even",
+		Enabled:     true,
+		SensorModel: "OPS243-A",
+	})
+	if err != nil {
+		t.Fatalf("create serial config: %v", err)
+	}
+
+	snapshot, err := runtimeSerialSnapshot(database, "/dev/ttySC1", true, true)
+	if err != nil {
+		t.Fatalf("runtime serial snapshot: %v", err)
+	}
+
+	want := api.SerialConfigSnapshot{
+		ConfigID: int(id),
+		PortPath: "/dev/ttyUSB0",
+		Source:   "database",
+		Options: serialmux.PortOptions{
+			BaudRate: 115200,
+			DataBits: 7,
+			StopBits: 2,
+			Parity:   "E",
+		},
+	}
+	if diff := cmp.Diff(want, snapshot); diff != "" {
+		t.Fatalf("snapshot mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRuntimeSerialSnapshotFallsBackToCLIWhenNoEnabledDatabaseConfig(t *testing.T) {
+	database := newTestDB(t)
+
+	if _, err := database.CreateSerialConfig(&db.SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    115200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     false,
+		SensorModel: "OPS243-A",
+	}); err != nil {
+		t.Fatalf("create disabled serial config: %v", err)
+	}
+
+	snapshot, err := runtimeSerialSnapshot(database, " /dev/ttySC1 ", true, true)
+	if err != nil {
+		t.Fatalf("runtime serial snapshot: %v", err)
+	}
+
+	want := api.SerialConfigSnapshot{
+		PortPath: "/dev/ttySC1",
+		Source:   "cli",
+		Options:  defaultRuntimeSerialOptions(),
+	}
+	if diff := cmp.Diff(want, snapshot); diff != "" {
+		t.Fatalf("snapshot mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRuntimeSerialSnapshotDisabledRadarHasNoActiveConfig(t *testing.T) {
+	snapshot, err := runtimeSerialSnapshot(nil, "", false, false)
+	if err != nil {
+		t.Fatalf("runtime serial snapshot: %v", err)
+	}
+
+	if diff := cmp.Diff(api.SerialConfigSnapshot{}, snapshot); diff != "" {
+		t.Fatalf("snapshot mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRuntimeSerialSnapshotRejectsInvalidEnabledDatabaseConfig(t *testing.T) {
+	database := newTestDB(t)
+
+	if _, err := database.CreateSerialConfig(&db.SerialConfig{
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    12345,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "OPS243-A",
+	}); err != nil {
+		t.Fatalf("create invalid serial config: %v", err)
+	}
+
+	_, err := runtimeSerialSnapshot(database, "/dev/ttySC1", true, true)
+	if err == nil {
+		t.Fatal("expected invalid enabled database config error")
+	}
+	if !strings.Contains(err.Error(), "enabled serial configuration") {
+		t.Fatalf("expected enabled config context in error, got %v", err)
+	}
+}
+
+func newTestDB(t *testing.T) *db.DB {
+	t.Helper()
+
+	database, err := db.NewDB(t.TempDir() + "/sensor_data.db")
+	if err != nil {
+		t.Fatalf("new test database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := database.Close(); err != nil {
+			t.Errorf("close test database: %v", err)
+		}
+	})
+
+	return database
 }
