@@ -1229,6 +1229,24 @@ export interface SerialTestResponse {
 	suggestion?: string;
 }
 
+export interface SerialConfigSnapshot {
+	config_id?: number;
+	port_path: string;
+	source: string;
+	options: {
+		baud_rate: number;
+		data_bits: number;
+		stop_bits: number;
+		parity: string;
+	};
+}
+
+export interface SerialReloadResult {
+	success: boolean;
+	message: string;
+	config?: SerialConfigSnapshot;
+}
+
 export async function getSerialConfigs(): Promise<SerialConfig[]> {
 	const res = await fetch(`${API_BASE}/serial/configs`);
 	if (!res.ok) throw new Error(`Failed to fetch serial configs: ${res.status}`);
@@ -1305,6 +1323,17 @@ export async function testSerialPort(request: SerialTestRequest): Promise<Serial
 	if (!res.ok) {
 		const error = await res.text();
 		throw new Error(`Failed to test serial port: ${error}`);
+	}
+	return res.json();
+}
+
+export async function reloadSerialConfig(): Promise<SerialReloadResult> {
+	const res = await fetch(`${API_BASE}/serial/reload`, {
+		method: 'POST'
+	});
+	if (!res.ok) {
+		const error = await res.text();
+		throw new Error(`Failed to apply serial configuration: ${error}`);
 	}
 	return res.json();
 }

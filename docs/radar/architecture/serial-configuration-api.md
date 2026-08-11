@@ -135,9 +135,13 @@ Success returns `success`, `message`, and a `config` snapshot describing the new
 4. If different, build a new mux and swap it in.
 5. Return the active config snapshot in the response.
 
+### Runtime wiring
+
+In real radar mode, startup loads the first enabled `radar_serial_config` row and installs the same `SerialPortManager` used by this endpoint. Debug, fixture, and disabled-radar modes do not configure a real reload factory, so reload remains unavailable there.
+
 ### Important limitation
 
-The reload manager exists, but the current radar startup path does not yet prove that it is installed in production. Treat `/api/serial/reload` as implemented API surface with rollout work still pending.
+Reload applies the first enabled config only. Multi-sensor runtime adoption remains future work. Pi/HAT validation has confirmed DB-backed startup, device discovery, active-port test protection, no-op reload, and continued ingestion; a USB adapter and a deliberately changed-setting reload remain to be exercised separately.
 
 ## Deferred endpoints
 

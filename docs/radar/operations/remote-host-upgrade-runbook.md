@@ -20,10 +20,16 @@ paths:
 - Service: `/etc/systemd/system/velocity-report.service`
 - Data directory: `/var/lib/velocity-report`
 - Main database: `/var/lib/velocity-report/sensor_data.db`
-- Optional source/PDF checkout: `/opt/velocity-report`
+- Optional image release directory or source/PDF checkout: `/opt/velocity-report`
 
 Do not use this runbook for first-time installs. Do not overwrite the systemd
 unit unless there is a deliberate service configuration change.
+
+Current images keep the canonical executable at
+`/opt/velocity-report/versions/<version>/velocity` and expose compatibility
+links at `/usr/local/bin/velocity` and `/usr/local/bin/velocity-report`. When
+running the canonical `velocity` filename directly, use `velocity data migrate
+...`; `velocity-report migrate ...` is the compatibility-alias form.
 
 ## Ask-Mode guardrails
 
@@ -35,7 +41,6 @@ Stop and ask before continuing if any of these are true:
   upgrade.
 - `velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db status`
   reports `Dirty: true`.
-- `/opt/velocity-report` exists but `git status --short` is not clean.
 - The only available build output was produced from a checkout whose
   `web/build/index.html` is the stub page.
 - The host cannot provide `sudo` for service stop/start, file install, and
@@ -47,10 +52,10 @@ Decide these before you start:
 
 - `TARGET_REF`: git tag, commit SHA, or branch to deploy.
 - `NEW_BIN`: path to a vetted new binary on the host.
-- Whether `/opt/velocity-report` also needs to move to `TARGET_REF` so PDF
-  generation stays in sync with the Go binary.
+- Whether an optional `/opt/velocity-report` source checkout also needs to move
+  to `TARGET_REF` so PDF generation stays in sync with the Go binary.
 
-Preferred source for `NEW_BIN`: a prebuilt `velocity-report-{version}-linux-arm64`
+Preferred source for `NEW_BIN`: the prebuilt canonical `velocity` Linux/ARM64
 artifact already copied to the host. Building on-host is a fallback only.
 
 ## Reconnaissance
@@ -95,13 +100,11 @@ fi
 echo "=== disk ==="
 df -h /usr/local/bin /var/lib/velocity-report /opt/velocity-report /tmp 2>/dev/null || true
 
-echo "=== opt checkout ==="
+echo "=== opt layout ==="
 if [ -d /opt/velocity-report ]; then
   ls -ld /opt/velocity-report 2>/dev/null
-  ls -la /opt/velocity-report/.git/HEAD 2>/dev/null || echo "not a git repo"
-  git -C /opt/velocity-report log --oneline -1 2>/dev/null || true
-  git -C /opt/velocity-report status --short 2>/dev/null && echo "(working tree clean)" || true
-  ls -la /opt/velocity-report/config/tuning.defaults.json 2>/dev/null || echo "tuning config MISSING"
+  readlink -f /opt/velocity-report/current 2>/dev/null || echo "no current release link"
+  ls -ld /opt/velocity-report/versions 2>/dev/null || true
 else
   echo "/opt/velocity-report does not exist"
 fi
@@ -118,14 +121,10 @@ Paste the output back to the agent. The agent should check for:
 - Whether the service is active and which user it runs as.
 - Whether the database exists, its size, and whether migrations are clean
   (`Dirty: false`). A dirty migration is a guardrail: stop and ask.
-- Whether `/opt/velocity-report` is present, clean, and at which commit.
-  If `git status --short` printed any paths before `(working tree clean)`,
-  the checkout is dirty: stop and ask.
-- Whether [config/tuning.defaults.json](../../../config/tuning.defaults.json) exists in `/opt/velocity-report`.
-  If missing, the checkout predates the config restructure and must be
-  updated before the service can start.
-- Directory ownership of `/opt/velocity-report`: determines whether later
-  `git` and `make` steps need `sudo -u`.
+- Whether `/opt/velocity-report` has the expected `current` and `versions`
+  layout. It is normal for an image release directory not to be a Git checkout.
+- Whether the service explicitly supplies `--config`. An omitted flag uses the
+  binary's embedded tuning defaults and is valid for current images.
 - Whether `sudo` is available without a password (affects later steps).
 - The listen port printed at the end of the service block.
 
@@ -331,37 +330,33 @@ fi
 `sudo -u "$SERVICE_USER"` otherwise. Prefer it over `su - velocity` because
 the service user is normally created with a non-login shell.
 
-## Update service configuration
+## Preserve service configuration
 
-The binary requires a `--config` flag pointing at the
-tuning defaults file. The old `ExecStart` line does not include this flag.
-
-Check whether the service already has `--config`:
-
-```bash
-systemctl cat velocity-report.service | grep -q -- '--config' && echo "--config already present" || echo "--config MISSING — update needed"
-```
-
-If `--config` is missing, update the service file. This is the one step where
-the systemd unit is deliberately modified:
+Current image binaries embed the tuning defaults. The image service therefore
+normally omits `--config`, and that is a valid configuration. Do not edit the
+unit merely to add a config path. If the existing unit deliberately supplies
+`--config`, preserve it and verify that its referenced file remains available.
 
 ```bash
-sudo sed -i 's|ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db|ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json|' "$VR_SVC"
-sudo systemctl daemon-reload
-systemctl cat velocity-report.service | grep ExecStart
+SERVICE_COMMAND="$(systemctl show velocity-report.service -p ExecStart --value 2>/dev/null)"
+if printf '%s\n' "$SERVICE_COMMAND" | grep -q -- '--config'; then
+  echo "external --config is present; preserve and verify its file"
+else
+  echo "no --config; the image will use embedded tuning defaults"
+fi
 ```
-
-Verify the `ExecStart` line now includes both `--db-path` and `--config`
-before restarting.
 
 ## Pre-Restart verification
 
-Before starting the service, verify that the three common startup failures
-cannot occur. This block is read-only and safe to run at any time:
+Before starting the service, verify the binary's configuration source,
+migration state, and version. This block is read-only and safe to run at any
+time:
 
 ```bash
-echo "=== config file ==="
-ls -la /opt/velocity-report/config/tuning.defaults.json 2>/dev/null || echo "FAIL: tuning config missing"
+echo "=== tuning source ==="
+systemctl show velocity-report.service -p ExecStart --value 2>/dev/null | grep -q -- '--config' \
+  && echo "external --config configured" \
+  || echo "embedded tuning defaults configured"
 
 echo "=== migration state ==="
 "$VR_BIN" migrate --db-path "$VR_DB" status
@@ -372,9 +367,9 @@ echo "=== binary version ==="
 
 All three must pass before restarting:
 
-- **Config file exists**: the `--config` path in `ExecStart` must resolve.
-  If missing, the `/opt/velocity-report` checkout is stale or the
-  `git checkout` step failed (check permissions).
+- **Tuning source is understood**: an omitted `--config` uses embedded
+  defaults. When the unit supplies an external config, verify that specific
+  file separately.
 - **Migrations clean**: `Dirty: false` and the current version matches the
   latest migration the binary knows about. If the version is behind, run
   `migrate up` again. If `Dirty: true`, stop and recover.
@@ -478,12 +473,19 @@ On a pre-0.5.1 binary the after-action form silently creates a stray
 migrations as up-to-date while the real database is left untouched. v0.5.1+
 removed this footgun.
 
-### Tuning config required
+### Canonical command versus compatibility alias
 
-The binary requires `--config` pointing at
-[config/tuning.defaults.json](../../../config/tuning.defaults.json) (or the file must exist relative to the working
-directory). Older binaries had no `--config` flag. Upgrades crossing this
-boundary must update the `ExecStart` line in the systemd unit.
+The canonical image executable is named `velocity`, so its database command is
+`velocity data migrate ...`. Calling `/opt/velocity-report/current/velocity
+migrate ...` is intentionally rejected because `migrate` lives under the
+`data` namespace. The `/usr/local/bin/velocity-report` compatibility alias
+continues to accept `velocity-report migrate ...` for service-oriented scripts.
+
+### Embedded tuning defaults
+
+Current image binaries embed the default tuning configuration. `--config` is
+optional: preserve it when an installation deliberately supplies an external
+config, but do not add it to an image service that omits it.
 
 ### `/opt/velocity-report` permissions
 

@@ -188,17 +188,51 @@ func defaultRuntimeSerialOptions() serialmux.PortOptions {
 	}
 }
 
-func runtimeSerialSnapshot(portPath string, serialActive bool) api.SerialConfigSnapshot {
+func runtimeSerialSnapshot(database *db.DB, portPath string, serialActive bool, useDatabase bool) (api.SerialConfigSnapshot, error) {
+	if !serialActive {
+		return api.SerialConfigSnapshot{}, nil
+	}
+
+	if useDatabase {
+		if database == nil {
+			return api.SerialConfigSnapshot{}, fmt.Errorf("database serial configuration requested without a database handle")
+		}
+
+		configs, err := database.GetEnabledSerialConfigs()
+		if err != nil {
+			return api.SerialConfigSnapshot{}, fmt.Errorf("failed to load enabled serial configurations: %w", err)
+		}
+		if len(configs) > 0 {
+			cfg := configs[0]
+			opts, err := serialmux.PortOptions{
+				BaudRate: cfg.BaudRate,
+				DataBits: cfg.DataBits,
+				StopBits: cfg.StopBits,
+				Parity:   cfg.Parity,
+			}.Normalise()
+			if err != nil {
+				return api.SerialConfigSnapshot{}, fmt.Errorf("enabled serial configuration %d is invalid: %w", cfg.ID, err)
+			}
+
+			return api.SerialConfigSnapshot{
+				ConfigID: cfg.ID,
+				PortPath: cfg.PortPath,
+				Source:   "database",
+				Options:  opts,
+			}, nil
+		}
+	}
+
 	trimmedPath := strings.TrimSpace(portPath)
-	if !serialActive || trimmedPath == "" {
-		return api.SerialConfigSnapshot{}
+	if trimmedPath == "" {
+		return api.SerialConfigSnapshot{}, nil
 	}
 
 	return api.SerialConfigSnapshot{
 		PortPath: trimmedPath,
 		Source:   "cli",
 		Options:  defaultRuntimeSerialOptions(),
-	}
+	}, nil
 }
 
 func runtimeSerialFactory(reloadEnabled bool) api.SerialMuxFactory {
@@ -211,8 +245,8 @@ func runtimeSerialFactory(reloadEnabled bool) api.SerialMuxFactory {
 	}
 }
 
-func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterface, portPath string, serialActive bool, reloadEnabled bool) *api.SerialPortManager {
-	return api.NewSerialPortManager(database, current, runtimeSerialSnapshot(portPath, serialActive), runtimeSerialFactory(reloadEnabled))
+func newRuntimeSerialManager(database *db.DB, current serialmux.SerialMuxInterface, snapshot api.SerialConfigSnapshot, reloadEnabled bool) *api.SerialPortManager {
+	return api.NewSerialPortManager(database, current, snapshot, runtimeSerialFactory(reloadEnabled))
 }
 
 // Main
@@ -349,9 +383,6 @@ func Main(args []string) int {
 	if err := docsite.ValidateSource(*docsSource); err != nil {
 		log.Fatal(err)
 	}
-	if *port == "" {
-		log.Fatal("Serial port is required: use --port, e.g. --port /dev/ttySC1")
-	}
 	if !units.IsValid(*unitsFlag) {
 		log.Printf("Invalid units %q: valid options are: %s", *unitsFlag, units.GetValidUnitsString())
 		return 1
@@ -384,6 +415,24 @@ func Main(args []string) int {
 	// Compute tuning config hash for VRLOG provenance.
 	tuningHash := tuningHashOrWarn(tuningCfg, log.Printf)
 
+	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
+	// avoid relying on environment variables for configuration unless needed.
+	database, err := db.NewDB(*dbPathFlag)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v. Check file path is correct and directory is writable", err)
+	}
+	defer database.Close()
+
+	serialActive := !*disableRadar
+	reloadEnabled := !*disableRadar && !*debugMode && !*fixtureMode
+	serialSnapshot, err := runtimeSerialSnapshot(database, *port, serialActive, reloadEnabled)
+	if err != nil {
+		log.Fatalf("Failed to load serial runtime configuration: %v", err)
+	}
+	if serialActive && serialSnapshot.PortPath == "" {
+		log.Fatal("Serial port is required: save and enable a serial configuration or use --port, e.g. --port /dev/ttySC1")
+	}
+
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
 
@@ -406,9 +455,9 @@ func Main(args []string) int {
 		radarSerial = serialmux.NewMockSerialMux([]byte(lines[0] + "\n"))
 	} else {
 		var err error
-		radarSerial, err = serialmux.NewRealSerialMux(*port)
+		radarSerial, err = serialmux.NewRealSerialMuxWithOptions(serialSnapshot.PortPath, serialSnapshot.Options)
 		if err != nil {
-			log.Fatalf("failed to create radar port: %v. Check device is connected and port path is correct (default /dev/ttySC1)", err)
+			log.Fatalf("failed to create radar port %s from %s configuration: %v. Check device is connected and port path is correct (default /dev/ttySC1)", serialSnapshot.PortPath, serialSnapshot.Source, err)
 		}
 	}
 	if err := radarSerial.Initialise(); err != nil {
@@ -420,17 +469,7 @@ func Main(args []string) int {
 	// Log version and git SHA on startup
 	log.Printf("velocity-report v%s (git SHA: %s)", version.Version, version.GitSHA)
 
-	// Use the CLI flag value (defaults to ./sensor_data.db). We intentionally
-	// avoid relying on environment variables for configuration unless needed.
-	database, err := db.NewDB(*dbPathFlag)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v. Check file path is correct and directory is writable", err)
-	}
-	defer database.Close()
-
-	serialActive := !*disableRadar
-	reloadEnabled := !*disableRadar && !*debugMode && !*fixtureMode
-	serialManager := newRuntimeSerialManager(database, radarSerial, *port, serialActive, reloadEnabled)
+	serialManager := newRuntimeSerialManager(database, radarSerial, serialSnapshot, reloadEnabled)
 	defer serialManager.Close()
 
 	// Create a wait group for the HTTP server, serial monitor, and event handler routines

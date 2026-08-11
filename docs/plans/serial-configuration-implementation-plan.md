@@ -9,7 +9,7 @@
 
 Radar serial setup currently asks too much of operators. Editing service files by hand is fine if you already know where the trapdoors are, but it is a poor way to validate baud rate, port choice, or whether the device at the other end is awake and willing.
 
-This work changes the centre of gravity. Serial configuration becomes database-backed, visible in the web UI, and testable through local API calls. The remaining work is mostly about making the running radar process obey those saved settings automatically and finishing the last bits of operator polish.
+This work changes the centre of gravity. Serial configuration becomes database-backed, visible in the web UI, and testable through local API calls. The running radar process now adopts saved settings on startup in real radar mode and exposes an explicit apply path for live reloads; the remaining work is discovery polish, operator documentation, and hardware validation.
 
 ## Current state
 
@@ -19,25 +19,26 @@ This work changes the centre of gravity. Serial configuration becomes database-b
 - Sensor model metadata is application-owned in [internal/api/sensor_models.go](../../internal/api/sensor_models.go).
 - The web UI ships serial configuration inside the Sensor Serial Ports section of [web/src/routes/settings/+page.svelte](../../web/src/routes/settings/+page.svelte), backed by helpers in [web/src/lib/api.ts](../../web/src/lib/api.ts).
 - The current codebase includes test coverage for DB access, API handlers, and reload behaviour in [internal/db/serial_config_test.go](../../internal/db/serial_config_test.go), [internal/api/serial_config_test.go](../../internal/api/serial_config_test.go), and [internal/api/serial_reload_test.go](../../internal/api/serial_reload_test.go).
-- The hot-reload manager exists, but startup wiring from [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) still appears to be CLI-port-first rather than DB-config-first.
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) loads the first enabled DB serial config for real radar startup, with CLI `--port` fallback preserved when no enabled config exists.
+- The settings page exposes an explicit apply action that calls `POST /api/serial/reload`.
 - Auto-detect endpoints and UI affordances described in the original design are not present in the current implementation.
 
 ## Findings
 
-| Area             | Current state                                                                                                                                                       | Severity | Release view                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
-| Storage          | Schema, migration, and DB helpers are landed                                                                                                                        | Low      | Done for this release                            |
-| API core         | CRUD, model listing, device listing, test, and reload endpoints are landed                                                                                          | Low      | Done for this release                            |
-| Runtime adoption | `SerialPortManager` exists, but `internal/cmd/server/radar.go` is not yet using DB-backed config as the main startup path                                           | High     | Must finish before calling the feature complete  |
-| UX completion    | The Sensor Serial Ports section on `/settings` supports list/create/edit/delete/test, but not device auto-detect, baud-only detect, or an obvious apply/reload path | Medium   | Safe to defer some polish, not all               |
-| Documentation    | Design docs still read like a proposal and over-promise unshipped endpoints                                                                                         | Medium   | Fix now so the release notes do not lie politely |
+| Area             | Current state                                                                                                                                  | Severity | Release view                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
+| Storage          | Schema, migration, and DB helpers are landed                                                                                                   | Low      | Done for this release                            |
+| API core         | CRUD, model listing, device listing, test, and reload endpoints are landed                                                                     | Low      | Done for this release                            |
+| Runtime adoption | `internal/cmd/server/radar.go` uses DB-backed config first in real radar mode, with CLI fallback when no enabled config exists                 | Low      | Needs hardware smoke validation                  |
+| UX completion    | The Sensor Serial Ports section on `/app/settings` supports list/create/edit/delete/test/apply, but not device auto-detect or baud-only detect | Medium   | Discovery polish deferred to v0.8.0              |
+| Documentation    | Design docs still read like a proposal and over-promise unshipped endpoints                                                                    | Medium   | Fix now so the release notes do not lie politely |
 
 ## Design / approach
 
 Treat this as a completion pass, not a second design exercise.
 
 1. Keep the delivered branch scope as the baseline. The database model, API handlers, reload manager, and settings page are already the owning abstractions.
-2. Finish the runtime path at the startup boundary in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) rather than inventing more API.
+2. Keep runtime adoption at the startup boundary in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) rather than inventing more API.
 3. Make the docs separate shipped behaviour from planned behaviour. A design document is allowed to dream a little, but it should not claim to ship `POST /api/serial/auto-detect` when the code has never met it.
 4. Preserve CLI fallback until the DB-backed startup path is proven on real Pi hardware.
 
@@ -74,7 +75,7 @@ Treat this as a completion pass, not a second design exercise.
 **Steps:**
 
 1. Decide whether reload is explicit or automatic after save.
-2. Add the chosen affordance to the Sensor Serial Ports section on `/settings`.
+2. Add the chosen affordance to the Sensor Serial Ports section on `/app/settings`.
 3. Validate the flow on real hardware.
 
 **Milestone:** v0.5.1
@@ -85,25 +86,25 @@ Treat this as a completion pass, not a second design exercise.
 
 **Steps:**
 
-1. Track `auto-detect` / `detect-baud` as remaining work.
+1. Track `auto-detect` / `detect-baud` as v0.8.0 scope.
 2. Leave multi-sensor tagging and analytics in future scope.
 
-**Milestone:** v0.5.x follow-up
+**Milestone:** v0.8.0 (auto-detect / detect-baud); multi-sensor tagging stays open-ended future scope
 
 ## Dependencies
 
-- Raspberry Pi or equivalent hardware validation for the real serial path
-- Stable understanding of whether reload should be operator-invoked or automatic
+- USB serial adapter validation for the real serial path; the Pi/HAT path is now covered
+- A deliberately changed-setting reload on non-production hardware; unchanged live configs are covered
 - Existing migration and DB bootstrap flow remaining unchanged
 
 ## Risks
 
-| Risk                                                                             | Likelihood | Impact | Mitigation                                                     |
-| -------------------------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------- |
-| Docs mark the feature complete before runtime startup obeys DB config            | Medium     | High   | Keep startup adoption in Outstanding until verified            |
-| Saving config suggests immediate effect when runtime still uses CLI startup path | High       | High   | Add explicit wording and finish reload/apply behaviour         |
-| Auto-detect remains described as shipped                                         | Medium     | Medium | Move it into Outstanding/Deferred in every serial-config doc   |
-| Real hardware differs from mocked tests                                          | Medium     | Medium | Require one Pi validation pass before closing the rollout item |
+| Risk                                                                   | Likelihood | Impact | Mitigation                                                      |
+| ---------------------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------- |
+| Docs mark the feature complete before all hardware variants are proven | Medium     | High   | Record the Pi/HAT pass and retain USB validation as Outstanding |
+| Saving config is mistaken for immediate live apply                     | Medium     | Medium | Keep the explicit apply button and success/error toast visible  |
+| Auto-detect remains described as shipped                               | Medium     | Medium | Move it into Outstanding/Deferred in every serial-config doc    |
+| Real hardware differs from mocked tests                                | Medium     | Medium | Pi/HAT pass complete; require USB-adapter validation            |
 
 ## Checklist
 
@@ -114,19 +115,19 @@ Treat this as a completion pass, not a second design exercise.
 - [x] Added sensor model registry in application code
 - [x] Added `/api/serial/configs`, `/api/serial/models`, `/api/serial/devices`, `/api/serial/test`, and `/api/serial/reload`
 - [x] Added `SerialPortManager` hot-reload machinery and tests
-- [x] Added the Sensor Serial Ports UI on `/settings` for list, create, edit, delete, and test workflows
+- [x] Added the Sensor Serial Ports UI on `/app/settings` for list, create, edit, delete, and test workflows
+- [x] Wired DB-backed serial startup and real `SerialPortManager` installation in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go)
+- [x] Added an explicit apply/reload path in the settings UI
 - [x] Added branch-level documentation and devlog entries describing the delivered work
+- [x] Validated DB-backed Pi/HAT startup, discovery, active-port protection, no-op reload, and continued radar ingestion on `pi@velocity.local`
 
 ### Outstanding
 
-- [ ] Wire DB-backed serial startup and real `SerialPortManager` installation in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) (`M` effort)
-- [ ] Add an explicit apply/reload path in the UI, or make save trigger the safe runtime update path (`S/M` effort)
-- [ ] Add `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`, plus UI actions that use them (`M` effort)
-- [ ] Write the operator guide and troubleshooting doc for serial configuration (`S` effort)
-- [ ] Run a real-hardware validation pass on Pi/HAT and one USB serial adapter (`S` effort)
+- [ ] Run a real-hardware validation pass with a USB serial adapter and a deliberately changed-setting reload (`S` effort, v0.5.1)
 
 ### Deferred
 
+- [ ] Add `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`, plus UI actions that use them (`M` effort, moved to v0.8.0 — not blocking the v0.5.1 release)
 - [ ] Multi-sensor runtime adoption, data tagging, and analytics surfaces; tracked as future scope in [serial-configuration-ui.md](../radar/architecture/serial-configuration-ui.md) <!-- link-ignore -->
 
 ### Accepted residuals (no action planned)
