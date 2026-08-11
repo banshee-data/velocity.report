@@ -30,7 +30,7 @@ This work changes the centre of gravity. Serial configuration becomes database-b
 | Storage          | Schema, migration, and DB helpers are landed                                                                                                   | Low      | Done for this release                            |
 | API core         | CRUD, model listing, device listing, test, and reload endpoints are landed                                                                     | Low      | Done for this release                            |
 | Runtime adoption | `internal/cmd/server/radar.go` uses DB-backed config first in real radar mode, with CLI fallback when no enabled config exists                 | Low      | Needs hardware smoke validation                  |
-| UX completion    | The Sensor Serial Ports section on `/app/settings` supports list/create/edit/delete/test/apply, but not device auto-detect or baud-only detect | Medium   | Discovery polish can defer                       |
+| UX completion    | The Sensor Serial Ports section on `/app/settings` supports list/create/edit/delete/test/apply, but not device auto-detect or baud-only detect | Medium   | Discovery polish deferred to v0.8.0              |
 | Documentation    | Design docs still read like a proposal and over-promise unshipped endpoints                                                                    | Medium   | Fix now so the release notes do not lie politely |
 
 ## Design / approach
@@ -86,10 +86,10 @@ Treat this as a completion pass, not a second design exercise.
 
 **Steps:**
 
-1. Track `auto-detect` / `detect-baud` as remaining work.
+1. Track `auto-detect` / `detect-baud` as v0.8.0 scope.
 2. Leave multi-sensor tagging and analytics in future scope.
 
-**Milestone:** v0.5.x follow-up
+**Milestone:** v0.8.0 (auto-detect / detect-baud); multi-sensor tagging stays open-ended future scope
 
 ## Dependencies
 
@@ -123,11 +123,11 @@ Treat this as a completion pass, not a second design exercise.
 
 ### Outstanding
 
-- [ ] Add `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`, plus UI actions that use them (`M` effort)
-- [ ] Run a real-hardware validation pass with a USB serial adapter and a deliberately changed-setting reload (`S` effort)
+- [ ] Run a real-hardware validation pass with a USB serial adapter and a deliberately changed-setting reload (`S` effort, v0.5.1)
 
 ### Deferred
 
+- [ ] Add `POST /api/serial/auto-detect` and `POST /api/serial/detect-baud`, plus UI actions that use them (`M` effort, moved to v0.8.0 — not blocking the v0.5.1 release)
 - [ ] Multi-sensor runtime adoption, data tagging, and analytics surfaces; tracked as future scope in [serial-configuration-ui.md](../radar/architecture/serial-configuration-ui.md) <!-- link-ignore -->
 
 ### Accepted residuals (no action planned)
