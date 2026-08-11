@@ -122,6 +122,7 @@ func TestNewRuntimeSerialManager_EnablesActiveSerialTestPath(t *testing.T) {
 
 func TestRuntimeSerialSnapshotPrefersEnabledDatabaseConfig(t *testing.T) {
 	database := newTestDB(t)
+	disableAllSerialConfigs(t, database)
 
 	id, err := database.CreateSerialConfig(&db.SerialConfig{
 		PortPath:    "/dev/ttyUSB0",
@@ -159,6 +160,7 @@ func TestRuntimeSerialSnapshotPrefersEnabledDatabaseConfig(t *testing.T) {
 
 func TestRuntimeSerialSnapshotFallsBackToCLIWhenNoEnabledDatabaseConfig(t *testing.T) {
 	database := newTestDB(t)
+	disableAllSerialConfigs(t, database)
 
 	if _, err := database.CreateSerialConfig(&db.SerialConfig{
 		PortPath:    "/dev/ttyUSB0",
@@ -200,6 +202,7 @@ func TestRuntimeSerialSnapshotDisabledRadarHasNoActiveConfig(t *testing.T) {
 
 func TestRuntimeSerialSnapshotRejectsInvalidEnabledDatabaseConfig(t *testing.T) {
 	database := newTestDB(t)
+	disableAllSerialConfigs(t, database)
 
 	if _, err := database.CreateSerialConfig(&db.SerialConfig{
 		PortPath:    "/dev/ttyUSB0",
@@ -236,4 +239,12 @@ func newTestDB(t *testing.T) *db.DB {
 	})
 
 	return database
+}
+
+func disableAllSerialConfigs(t *testing.T, database *db.DB) {
+	t.Helper()
+
+	if _, err := database.Exec(`UPDATE radar_serial_config SET enabled = 0`); err != nil {
+		t.Fatalf("disable seeded serial configs: %v", err)
+	}
 }
