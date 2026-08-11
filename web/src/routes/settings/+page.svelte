@@ -10,6 +10,7 @@
 		getSerialDevices,
 		getTailscaleStatus,
 		getTransitWorkerState,
+		reloadSerialConfig,
 		testSerialPort,
 		updateSerialConfig,
 		updateTransitWorker,
@@ -18,6 +19,7 @@
 		type SerialConfig,
 		type SerialConfigRequest,
 		type SerialDevice,
+		type SerialReloadResult,
 		type SerialTestResponse,
 		type TailscaleStatus,
 		type TransitRunInfo,
@@ -96,6 +98,7 @@
 	let manualPortEntry = false;
 	let rescanning = false;
 	let testing = false;
+	let reloadingSerial = false;
 	let testResult: SerialTestResponse | null = null;
 	let showTestResultDialog = false;
 	let deletingConfig: SerialConfig | null = null;
@@ -645,6 +648,19 @@
 		}
 	}
 
+	async function handleSerialReload() {
+		try {
+			reloadingSerial = true;
+			const result: SerialReloadResult = await reloadSerialConfig();
+			showSerialMessage(result.message, result.success ? 'success' : 'error');
+		} catch (e) {
+			console.error('Failed to apply serial config:', e);
+			showSerialMessage(`Failed to apply serial configuration: ${e}`, 'error');
+		} finally {
+			reloadingSerial = false;
+		}
+	}
+
 	onMount(() => {
 		loadConfig();
 		loadTransitWorkerState();
@@ -714,13 +730,22 @@
 								/>
 							{/if}
 
-							<div class="flex items-center justify-between">
+							<div class="flex flex-wrap items-center justify-between gap-3">
 								<p class="text-surface-content/70 text-sm">
 									Configure and test radar sensor serial port connections.
 								</p>
-								<Button on:click={openCreatePanel} variant="fill" color="primary">
-									Add serial port
-								</Button>
+								<div class="flex flex-wrap gap-2">
+									<Button
+										on:click={handleSerialReload}
+										variant="outline"
+										disabled={reloadingSerial || !serialConfigs.some((c) => c.enabled)}
+									>
+										{reloadingSerial ? 'Applying...' : 'Apply enabled config'}
+									</Button>
+									<Button on:click={openCreatePanel} variant="fill" color="primary">
+										Add serial port
+									</Button>
+								</div>
 							</div>
 
 							{#if serialConfigs.length === 0}
