@@ -64,7 +64,7 @@ func (s *Server) showConfig(w http.ResponseWriter, r *http.Request) {
 
 // showCapabilities reports which sensors are active and their runtime state.
 // When no CapabilitiesProvider is set (radar-only deploy), the response
-// shows radar as active and LiDAR as disabled.
+// shows radar as active and omits LiDAR sensors with an empty map.
 func (s *Server) showCapabilities(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -74,16 +74,20 @@ func (s *Server) showCapabilities(w http.ResponseWriter, r *http.Request) {
 	}
 
 	caps := Capabilities{
-		Radar: true,
-		Lidar: LidarCapability{
-			Enabled: false,
-			State:   "disabled",
+		Radar: map[string]SensorStatus{
+			"default": {Enabled: true, Status: "receiving"},
 		},
-		LidarSweep: false,
+		Lidar: map[string]LidarSensorStatus{},
 	}
 
 	if s.capabilitiesProvider != nil {
 		caps = s.capabilitiesProvider.Capabilities()
+	}
+	if caps.Radar == nil {
+		caps.Radar = map[string]SensorStatus{}
+	}
+	if caps.Lidar == nil {
+		caps.Lidar = map[string]LidarSensorStatus{}
 	}
 
 	if err := json.NewEncoder(w).Encode(caps); err != nil {

@@ -156,7 +156,7 @@ forwards `velocity data …` and `velocity report …` here):
 - `GET /api/reports/{id}/download[/filename]` - Download report (PDF or ZIP)
 - `DELETE /api/reports/{id}` - Delete report
 - `GET /api/reports/site/{siteID}` - List reports for specific site
-- `GET /api/capabilities` - Get server capabilities
+- `GET /api/capabilities` - Get named `radar`/`lidar` capability maps. Radar is reported as the built-in `default` sensor; LiDAR is `{}` when `--enable-lidar` is off and currently reports `lidar.default.status = "starting"` when enabled until ready/error lifecycle callbacks are wired.
 - `GET /api/site_config_periods` - Get site configuration periods
 - `GET /api/timeline` - Get data timeline
 - `GET /api/transit_worker` - Transit worker status

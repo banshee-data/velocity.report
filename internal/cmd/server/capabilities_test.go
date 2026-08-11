@@ -10,17 +10,16 @@ func TestCapabilitiesProvider_DefaultState(t *testing.T) {
 	cp := newCapabilitiesProvider()
 	caps := cp.Capabilities()
 
-	if !caps.Radar {
-		t.Error("Expected radar to be true")
+	radarDefault, ok := caps.Radar["default"]
+	if !ok {
+		t.Fatal("Expected radar.default to exist")
 	}
-	if caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be false by default")
+	if !radarDefault.Enabled {
+		t.Error("Expected radar.default.enabled to be true")
 	}
-	if caps.Lidar.State != "disabled" {
-		t.Errorf("Expected lidar.state 'disabled', got %q", caps.Lidar.State)
-	}
-	if caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be false by default")
+
+	if len(caps.Lidar) != 0 {
+		t.Errorf("Expected empty lidar map by default, got %d entries", len(caps.Lidar))
 	}
 }
 
@@ -29,14 +28,35 @@ func TestCapabilitiesProvider_LidarReady(t *testing.T) {
 	cp.SetLidarReady(true)
 	caps := cp.Capabilities()
 
-	if !caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be true after SetLidarReady")
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist after SetLidarReady")
 	}
-	if caps.Lidar.State != "ready" {
-		t.Errorf("Expected lidar.state 'ready', got %q", caps.Lidar.State)
+	if !lidarDefault.Enabled {
+		t.Error("Expected lidar.default.enabled to be true")
 	}
-	if !caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be true")
+	if lidarDefault.Status != "ready" {
+		t.Errorf("Expected lidar.default.status 'ready', got %q", lidarDefault.Status)
+	}
+	if !lidarDefault.Sweep {
+		t.Error("Expected lidar.default.sweep to be true")
+	}
+}
+
+func TestCapabilitiesProvider_LidarReadyNoSweep(t *testing.T) {
+	cp := newCapabilitiesProvider()
+	cp.SetLidarReady(false)
+	caps := cp.Capabilities()
+
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist after SetLidarReady(false)")
+	}
+	if lidarDefault.Status != "ready" {
+		t.Errorf("Expected lidar.default.status 'ready', got %q", lidarDefault.Status)
+	}
+	if lidarDefault.Sweep {
+		t.Error("Expected lidar.default.sweep to be false when sweep disabled")
 	}
 }
 
@@ -48,14 +68,18 @@ func TestCapabilitiesProvider_LidarStarting(t *testing.T) {
 	cp.SetLidarStarting()
 	caps := cp.Capabilities()
 
-	if !caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be true during starting")
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist during starting")
 	}
-	if caps.Lidar.State != "starting" {
-		t.Errorf("Expected lidar.state 'starting', got %q", caps.Lidar.State)
+	if !lidarDefault.Enabled {
+		t.Error("Expected lidar.default.enabled to be true during starting")
 	}
-	if caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be false during starting")
+	if lidarDefault.Status != "starting" {
+		t.Errorf("Expected lidar.default.status 'starting', got %q", lidarDefault.Status)
+	}
+	if lidarDefault.Sweep {
+		t.Error("Expected lidar.default.sweep to be false during starting")
 	}
 }
 
@@ -67,14 +91,18 @@ func TestCapabilitiesProvider_LidarError(t *testing.T) {
 	cp.SetLidarError()
 	caps := cp.Capabilities()
 
-	if !caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be true in error state")
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist in error state")
 	}
-	if caps.Lidar.State != "error" {
-		t.Errorf("Expected lidar.state 'error', got %q", caps.Lidar.State)
+	if !lidarDefault.Enabled {
+		t.Error("Expected lidar.default.enabled to be true in error state")
 	}
-	if caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be false in error state")
+	if lidarDefault.Status != "error" {
+		t.Errorf("Expected lidar.default.status 'error', got %q", lidarDefault.Status)
+	}
+	if lidarDefault.Sweep {
+		t.Error("Expected lidar.default.sweep to be false in error state")
 	}
 }
 
@@ -84,14 +112,8 @@ func TestCapabilitiesProvider_LidarDisabled(t *testing.T) {
 	cp.SetLidarDisabled()
 	caps := cp.Capabilities()
 
-	if caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be false after SetLidarDisabled")
-	}
-	if caps.Lidar.State != "disabled" {
-		t.Errorf("Expected lidar.state 'disabled', got %q", caps.Lidar.State)
-	}
-	if caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be false after disable")
+	if len(caps.Lidar) != 0 {
+		t.Errorf("Expected empty lidar map after SetLidarDisabled, got %d entries", len(caps.Lidar))
 	}
 }
 

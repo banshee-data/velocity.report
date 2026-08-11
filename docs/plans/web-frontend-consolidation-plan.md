@@ -13,7 +13,7 @@ The project has three distinct web surfaces for LiDAR functionality:
 2. **Go-embedded HTML dashboards** (port 8081): LiDAR status, debug dashboard, parameter sweep/auto-tune, background regions
 3. **macOS Metal visualiser** (gRPC on port 50051): live 3D point cloud rendering, track labelling, replay
 
-The Svelte app was originally conceived as radar-only, with LiDAR interfaces living on port 8081 and the Mac app. Over time, LiDAR tracks, scenes, and runs were added to the Svelte app, creating a mixed-concern frontend. This makes it difficult to ship a radar-only binary without non-functioning LiDAR navigation items, and scatters LiDAR tooling across three surfaces.
+The Svelte app was originally conceived as radar-only, with LiDAR interfaces living on port 8081 and the Mac app. Over time, LiDAR tracks, scenes, and runs were added to the Svelte app, creating a mixed-concern frontend. PR #547 now hides sidebar LiDAR navigation in radar-only deployments, but direct-route disabled states and the split LiDAR tooling surfaces still need follow-through.
 
 ### Current state diagram
 
@@ -43,13 +43,13 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 
 ### Pain points
 
-| Problem                                       | Impact                                                   |
-| --------------------------------------------- | -------------------------------------------------------- |
-| LiDAR nav items visible in radar-only deploys | Confusing UX; broken links when `--enable-lidar` is off  |
-| Sweep dashboard only on 8081                  | Users must know two ports; no unified navigation         |
-| ECharts in Go embeds, LayerChart in Svelte    | Two charting stacks to maintain                          |
-| LiDAR status page uses Go templates           | Cannot benefit from Svelte reactivity or component reuse |
-| Three surfaces for LiDAR functionality        | Fragmented user experience; unclear where to find what   |
+| Problem                                       | Impact                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| LiDAR nav items visible in radar-only deploys | Sidebar gating is implemented; direct route empty states remain follow-up |
+| Sweep dashboard only on 8081                  | Users must know two ports; no unified navigation                          |
+| ECharts in Go embeds, LayerChart in Svelte    | Two charting stacks to maintain                                           |
+| LiDAR status page uses Go templates           | Cannot benefit from Svelte reactivity or component reuse                  |
+| Three surfaces for LiDAR functionality        | Fragmented user experience; unclear where to find what                    |
 
 ## Design constraints
 
@@ -95,7 +95,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 
 - `web/`: single SvelteKit app (unchanged structure)
 - LiDAR routes at `/app/lidar/*` (existing) plus new sweep/regions/status routes
-- Navigation sidebar queries `/api/config` or a new `/api/capabilities` endpoint to determine sensor availability
+- Navigation sidebar queries `/api/capabilities` to determine sensor availability
 - LiDAR nav items hidden when LiDAR is disabled
 
 **Advantages:**
@@ -111,7 +111,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 
 - Radar-only binary still ships LiDAR JavaScript (dead code in the bundle)
 - Requires a capabilities API and conditional navigation logic
-- Requires runtime capability refresh and backend lifecycle management for hot-enable/disable
+- Requires runtime capability refresh and backend lifecycle management for hot-enable/disable; #547 ships the refresh/store path, while full backend ready/error lifecycle wiring remains follow-up
 - LiDAR routes must return an explicit "LiDAR disabled" response and must not initialise hardware when disabled
 - Single [package.json](../../package.json) may accumulate LiDAR-specific dependencies over time
 
@@ -171,7 +171,12 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 
 Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside: shipping ~50KB of unused LiDAR JavaScript in radar-only deploys; is negligible compared to the maintenance cost of two separate applications or custom build tooling.
 
-The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/*` must return a clear "LiDAR disabled" response and must not initialise hardware when LiDAR is off. Direct URL access to `/app/lidar/*` should show a friendly disabled state. This pairs with runtime capability refresh so hot-enable/disable is reflected without restarting the radar process.
+The sidebar concern is mitigated by #547's capability-gated navigation. The
+remaining dead-route concern is server-side and route-level gating: `/api/lidar/*`
+must return a clear "LiDAR disabled" response without initialising hardware when
+LiDAR is off, and direct URL access to `/app/lidar/*` should show a friendly
+disabled state. Full hot-enable/disable truth also still needs backend lifecycle
+callbacks for ready/error transitions.
 
 ## Migration plan
 
@@ -179,33 +184,46 @@ The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/
 
 **Effort: Small (2–4 days)**
 
-Add a `/api/capabilities` endpoint (or extend `/api/config`) that reports which sensors are active and their runtime state:
+Implement `/api/capabilities` as the runtime sensor capability contract used by
+the Svelte sidebar:
 
 **Capabilities response shape:**
 
-| Field           | Type      | Example      | Purpose                                                  |
-| --------------- | --------- | ------------ | -------------------------------------------------------- |
-| `radar`         | `boolean` | `true`       | Radar sensor active                                      |
-| `lidar.enabled` | `boolean` | `false`      | LiDAR pipeline enabled                                   |
-| `lidar.state`   | `string`  | `"disabled"` | Runtime state (`disabled`, `starting`, `ready`, `error`) |
-| `lidar_sweep`   | `boolean` | `false`      | Sweep subsystem available                                |
+| Field                   | Type    | Example       | Purpose                                                                                  |
+| ----------------------- | ------- | ------------- | ---------------------------------------------------------------------------------------- |
+| `radar`                 | object  | `{...}`       | Named radar sensor map keyed by stable sensor name                                       |
+| `radar.default.enabled` | boolean | `true`        | Built-in radar sensor active                                                             |
+| `radar.default.status`  | string  | `"receiving"` | Runtime state (`disabled`, `starting`, `ready`, `receiving`, `stale`, `error`)           |
+| `lidar`                 | object  | `{}`          | Named LiDAR sensor map; empty when no LiDAR sensor is configured or active               |
+| `lidar.default.enabled` | boolean | `true`        | Built-in LiDAR sensor active when present                                                |
+| `lidar.default.status`  | string  | `"starting"`  | Current production state when LiDAR is enabled; `ready`/`error` wiring remains follow-up |
+| `lidar.default.sweep`   | boolean | `false`       | Sweep subsystem available                                                                |
 
-Capabilities must reflect runtime transitions (disabled, starting, ready, error) so LiDAR can be enabled or disabled without restarting the radar process. A backend lifecycle manager should own start/stop of LiDAR pipelines and must not interrupt radar logging or streaming.
+Capabilities define runtime states (`disabled`, `starting`, `ready`,
+`receiving`, `stale`, `error`) but current production wiring only reports radar
+as `receiving`, omits LiDAR when disabled, and reports LiDAR as `starting` when
+`--enable-lidar` constructs the LiDAR server. A backend lifecycle manager still
+needs to wire real startup success to `SetLidarReady` and failure to
+`SetLidarError` without interrupting radar logging or streaming.
 
-Update the root `+layout.svelte` to fetch capabilities on load and conditionally render LiDAR navigation items. Add periodic refresh (or SSE) so the UI updates when LiDAR comes online. When `lidar` is disabled, the sidebar shows only radar routes and all `/api/lidar/*` endpoints return a clear "LiDAR disabled" response without initialising hardware.
+The root `+layout.svelte` now fetches capabilities on mount and conditionally
+renders LiDAR navigation items. The store starts a retry timer immediately,
+retries startup failures, stops polling after a successful radar-only response,
+and keeps polling when any LiDAR sensor is present. Server-side `/api/lidar/*`
+disabled responses and direct-route empty states remain separate checklist items.
 
 **Files changed:**
 
 - [internal/api/server.go](../../internal/api/server.go): new `CapabilitiesProvider` interface, route registration, setter
 - [internal/api/server_admin.go](../../internal/api/server_admin.go): `showCapabilities()` handler
-- [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go): handler tests (4 cases)
+- [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go): handler tests for default, lifecycle, empty-map, nil-map, and multi-sensor responses
 - [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go): `capabilitiesProvider` with mutex-protected state transitions
-- [internal/cmd/server/capabilities_test.go](../../internal/cmd/server/capabilities_test.go): provider tests (6 cases)
+- [internal/cmd/server/capabilities_test.go](../../internal/cmd/server/capabilities_test.go): provider tests for disabled, ready, starting, error, and interface coverage
 - [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): wire capabilities provider into API server startup
-- [web/src/lib/api.ts](../../web/src/lib/api.ts): `Capabilities`, `LidarCapability` types and `getCapabilities()` function
-- [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts): 3 test cases for `getCapabilities()`
+- [web/src/lib/api.ts](../../web/src/lib/api.ts): `Capabilities`, `SensorStatus`, `LidarSensorStatus` types and `getCapabilities()` function
+- [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts): test cases for `getCapabilities()`
 - [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts): polling store with derived `lidarEnabled`/`lidarState`
-- [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts): 8 test cases for store
+- [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts): store tests for derived state, polling, startup retry, and idempotent start/stop
 - [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte): conditional LiDAR nav rendering, polling lifecycle
 
 ### Phase 1: migrate status page
@@ -341,16 +359,16 @@ This reduces binary size and eliminates the dual charting stack.
 
 ## Effort summary
 
-| Phase     | Scope                              | Effort         | Charting Rewrite                         |
-| --------- | ---------------------------------- | -------------- | ---------------------------------------- |
-| 0         | Capabilities API + conditional nav | 2–4 days       | None                                     |
-| 1         | Status page migration              | 2–3 days       | None                                     |
-| 2         | Regions dashboard migration        | 2–3 days       | None (Canvas 2D)                         |
-| 3         | Sweep dashboard migration          | 2–3 weeks      | **8 chart types** (ECharts → LayerChart) |
-| 4         | Debug dashboard retirement         | 1 day          | None                                     |
-| 5         | Port 8081 retirement               | 3–5 days       | None                                     |
-| 6         | Go embed cleanup                   | 1 day          | None                                     |
-| **Total** |                                    | **~5–6 weeks** |                                          |
+| Phase     | Scope                              | Effort          | Charting Rewrite                         |
+| --------- | ---------------------------------- | --------------- | ---------------------------------------- |
+| 0         | Capabilities API + conditional nav | Mostly complete | None                                     |
+| 1         | Status page migration              | 2–3 days        | None                                     |
+| 2         | Regions dashboard migration        | 2–3 days        | None (Canvas 2D)                         |
+| 3         | Sweep dashboard migration          | 2–3 weeks       | **8 chart types** (ECharts → LayerChart) |
+| 4         | Debug dashboard retirement         | 1 day           | None                                     |
+| 5         | Port 8081 retirement               | 3–5 days        | None                                     |
+| 6         | Go embed cleanup                   | 1 day           | None                                     |
+| **Total** |                                    | **~5–6 weeks**  |                                          |
 
 Phase 3 (sweep dashboard) dominates the effort due to the ECharts-to-LayerChart rewrite. All other phases are straightforward migrations of forms, tables, and Canvas-based visualisations that don't require charting library translation.
 
@@ -362,25 +380,30 @@ Expected timeline: 2–4 days.
 
 Checklist:
 
-- [x] Define the capabilities schema and state machine (disabled, starting, ready, error) and document the contract in `docs/`.
-  - Schema: `Capabilities { radar: bool, lidar: { enabled, state }, lidar_sweep: bool }`; see [internal/api/server.go](../../internal/api/server.go).
-  - States: `disabled → starting → ready → error`; see [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go).
-- [x] Implement a backend LiDAR lifecycle manager that can start/stop LiDAR pipelines without interrupting radar logging/stream.
-  - `capabilitiesProvider` in [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go) with mutex-protected state transitions.
-  - Wired in [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go): radar server construction is decoupled from LiDAR state.
-- [x] Implement `/api/capabilities` (or extend `/api/config`) with unit tests for default values and hardware-off scenarios.
+- [x] Define the capabilities schema and state machine (`disabled`, `starting`, `ready`, `receiving`, `stale`, `error`) and document the contract in `docs/`.
+  - Schema: `Capabilities { radar: Record<string, SensorStatus>, lidar: Record<string, LidarSensorStatus> }`; see [internal/api/server.go](../../internal/api/server.go).
+  - Current provider emits the built-in `"default"` radar key and either a `"default"` LiDAR key or an empty LiDAR map; see [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go).
+- [x] Implement the backend capability state holder.
+  - `capabilitiesProvider` in [internal/cmd/server/capabilities.go](../../internal/cmd/server/capabilities.go) has mutex-protected state transitions.
+  - [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) wires the provider into API startup and marks LiDAR `starting` when the LiDAR server exists.
+- [ ] Wire real LiDAR lifecycle callbacks.
+  - Startup success should call `SetLidarReady(true)` once sweep/routes are usable.
+  - Startup/listener failure should call `SetLidarError`.
+  - Radar hot-plug/disconnect status is not implemented by this phase; `radar.default` remains a static built-in capability.
+- [x] Implement `/api/capabilities` with unit tests for default values and hardware-off scenarios.
   - Handler: [internal/api/server_admin.go](../../internal/api/server_admin.go); `showCapabilities()`.
-  - Tests: [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go); 4 test cases (default, ready, error, method-not-allowed).
+  - Tests: [internal/api/capabilities_test.go](../../internal/api/capabilities_test.go); covers default, ready, error, method-not-allowed, empty-map, nil-map, and multi-sensor responses.
 - [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initialising hardware).
 - [x] Add `getCapabilities()` to [web/src/lib/api.ts](../../web/src/lib/api.ts).
   - Function: `getCapabilities()`; see [web/src/lib/api.ts](../../web/src/lib/api.ts).
-  - Tests: 3 test cases in [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts) (ready, disabled, error).
+  - Tests in [web/src/lib/api.test.ts](../../web/src/lib/api.test.ts) cover named-map response parsing and error handling.
 - [x] Update [web/src/routes/+layout.svelte](../../web/src/routes/+layout.svelte) to gate LiDAR nav items based on capabilities.
-  - LiDAR nav items wrapped in `{#if $capabilities.lidar.enabled}`.
+  - LiDAR nav items are gated by `Object.values($capabilities.lidar).some(s => s.enabled)`.
 - [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
 - [x] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
-  - Store: [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts); polls every 30 s with `startCapabilitiesPolling()`.
-  - Tests: 8 test cases in [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts).
+  - Store: [web/src/lib/stores/capabilities.ts](../../web/src/lib/stores/capabilities.ts); retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR sensors are present.
+  - Tests in [web/src/lib/stores/capabilities.test.ts](../../web/src/lib/stores/capabilities.test.ts) cover derived stores, radar-only/no-sensor cases, LiDAR polling, startup retry, and lifecycle idempotency.
+- [ ] Run hardware smoke validation on the release candidate: radar-only should return `lidar: {}` and hide LiDAR nav; `--enable-lidar` should include `lidar.default` and show LiDAR nav.
 - [ ] Add route-level lazy loading for LiDAR routes to minimise radar-only initial load.
 - [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
 - [ ] Add tests that hot-enable/disable LiDAR does not interrupt radar logging.

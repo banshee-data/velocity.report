@@ -437,9 +437,9 @@
 - Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata.
 - Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture.
 - Released 0.5.0 🌞 "Sunny Southeast": version set across Go/Python/web/macOS with expanded CHANGELOG.
-- {copilot/update-capabilities-check-radar-mode} Refactored the capabilities API to a multi-sensor named-object format (#430): per-sensor named objects in Go handlers and web stores.
-- {copilot/update-capabilities-check-radar-mode} Added smart LiDAR polling: web frontend polls LiDAR endpoints only when capabilities indicates hardware is present.
-- {copilot/update-capabilities-check-radar-mode} Added a multi-sensor capabilities plan document and marked it complete after implementation.
+- {copilot/update-capabilities-check-radar-mode} Refactored the capabilities API to a multi-sensor named-object format, ultimately carried forward in #547 after #430 was superseded: per-sensor named objects in Go handlers and web stores.
+- {copilot/update-capabilities-check-radar-mode} Added smart LiDAR capability polling: the web frontend retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR is present.
+- {copilot/update-capabilities-check-radar-mode} Added a multi-sensor capabilities plan document and marked the response-shape/navigation work complete after implementation; LiDAR ready/error lifecycle wiring remains follow-up work.
 - {copilot/update-capabilities-check-radar-mode} Expanded web test coverage with a multi-sensor `lidarState` derived store test.
 
 ## March 23, 2026 - capabilities gating, stream fix & host upgrade runbook
