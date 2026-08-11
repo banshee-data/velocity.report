@@ -79,7 +79,14 @@ if [[ -z "$GO_VERSION" ]]; then
     echo "error: failed to parse Go version from go.mod" >&2
     exit 1
 fi
-TYPST_VERSION=${TYPST_VERSION:-$(awk -F'?=' '/^TYPST_VERSION[[:space:]]*\?=/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' Makefile)}
+TYPST_VERSION=${TYPST_VERSION:-$(awk '
+    /^TYPST_VERSION[[:space:]]*\?=/ {
+        sub(/^[^=]*=/, "")
+        gsub(/[[:space:]]/, "")
+        print
+        exit
+    }
+' Makefile)}
 if [[ -z "$TYPST_VERSION" ]]; then
     echo "error: failed to parse TYPST_VERSION from Makefile" >&2
     exit 1
