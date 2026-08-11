@@ -304,6 +304,14 @@ fi
 # Record the version string so stage 01 can name the on-disk versions/<v>/ dir
 # without exec'ing the (ARM64) binary under qemu.
 printf '%s\n' "$VERSION" > "$BINARIES_DIR/VERSION"
+(
+    cd "$BINARIES_DIR"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum velocity > SHA256
+    else
+        shasum -a 256 velocity > SHA256
+    fi
+)
 
 if [[ "$BINARIES_ONLY" -eq 1 ]]; then
     log_info "Binary build complete; skipping image assembly (--binaries-only)"

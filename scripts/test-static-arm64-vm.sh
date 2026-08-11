@@ -15,7 +15,7 @@ if [[ -z "$BIN" || ! -f "$BIN" ]]; then
 fi
 BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
 
-for tool in qemu-system-aarch64 qemu-img ssh scp ssh-keygen curl sha512sum genisoimage; do
+for tool in qemu-system-aarch64 qemu-img ssh scp ssh-keygen curl sha512sum genisoimage python3; do
     command -v "$tool" >/dev/null || { echo "error: missing $tool" >&2; exit 1; }
 done
 
@@ -114,6 +114,19 @@ wait_api() {
     echo "API did not become ready" >&2
     return 1
 }
+assert_radar_capabilities() {
+    curl -fsS http://127.0.0.1:18082/api/capabilities | python3 -c '
+import json
+import sys
+
+caps = json.load(sys.stdin)
+radar = caps.get("radar", {}).get("default", {})
+if radar.get("enabled") is True and radar.get("status") == "receiving":
+    raise SystemExit(0)
+print(f"unexpected /api/capabilities response: {caps}", file=sys.stderr)
+raise SystemExit(1)
+'
+}
 
 echo "==> waiting for ARM64 VM ssh"
 ready=0
@@ -156,7 +169,7 @@ systemd-run --quiet --wait --pipe --collect --unit velocity-pcap-selfcheck \
 
 echo "==> validating API and database persistence"
 wait_api
-curl -fsS http://127.0.0.1:18082/api/capabilities | grep -q '"radar":true'
+assert_radar_capabilities
 curl -fsS http://127.0.0.1:18082/api/sites | grep -q 'Sample Site'
 VERSION_BEFORE="$(curl -fsS http://127.0.0.1:18082/api/version)"
 "${SSH[@]}" 'systemctl restart velocity-report.service; systemctl is-active --quiet velocity-report.service; test -s /var/lib/velocity-report/sensor_data.db'
