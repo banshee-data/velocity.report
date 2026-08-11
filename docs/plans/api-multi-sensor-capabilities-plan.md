@@ -243,8 +243,38 @@ Each class gets its own extended status type if it has class-specific fields.
 - [x] `pnpm --dir=web run build`
 - [x] `python3 scripts/check-relative-links.py`
 - [x] `python3 scripts/check-backtick-paths.py`
-- [ ] Hardware smoke on current release candidate: verify radar-only returns
+- [x] Hardware smoke on current release candidate: verify radar-only returns
       `lidar: {}` and hides LiDAR navigation; verify `--enable-lidar` adds
       `lidar.default` and shows LiDAR navigation. Do not treat radar
       disconnect/reconnect as a validation target for this PR because radar
       hot-plug state is not implemented.
+
+#### Smoke results
+
+Run against the release-candidate binary `v0.5.1-pre26` (`98e94ba0e`), built
+with `make build-radar-local`, serving the production web build. Two instances
+on separate ports and separate scratch databases, exercised through the browser
+as well as directly.
+
+| Case       | Flags            | `/api/capabilities`                                                           | Navigation                                                      |
+| ---------- | ---------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Radar-only | _(none)_         | `{"radar":{"default":{"enabled":true,"status":"receiving"}},"lidar":{}}`      | Dashboard, Sites, Reports, Settings, Docs                       |
+| LiDAR      | `--enable-lidar` | adds `"lidar":{"default":{"enabled":true,"status":"starting","sweep":false}}` | above plus Lidar Tracks, Replay Cases, Lidar Runs, Lidar Sweeps |
+
+Smart polling was confirmed at runtime over the same 112-second window: the
+radar-only instance served no further `/api/capabilities` requests after its
+initial fetch, while the LiDAR instance was polled three more times at 30 s
+spacing.
+
+`--enable-lidar` reports `status: "starting"` rather than `"ready"` because
+`SetLidarReady`/`SetLidarError` are not yet wired to real LiDAR startup
+outcomes; that follow-up is tracked in [BACKLOG.md](../BACKLOG.md). Navigation
+gates on `enabled`, so the pending status does not affect this check. The four
+LiDAR nav items gate on `enabled` and not on `sweep`, matching the behaviour on
+`main` before this change.
+
+Validated locally rather than on the Raspberry Pi. Neither assertion depends on
+attached sensors: `radar.default` is reported as `enabled: true`,
+`status: "receiving"` unconditionally (see the hot-plug limitation above), and
+`lidar.default` presence follows the `--enable-lidar` flag rather than whether
+the Hesai unit responds.
