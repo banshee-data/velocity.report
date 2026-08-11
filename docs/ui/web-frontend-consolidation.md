@@ -56,7 +56,7 @@ top-level named maps: `radar: Record<string, SensorStatus>` and
 `radar.default.enabled = true` and `lidar: {}`; LiDAR-enabled deployments
 currently include `lidar.default` with status `starting`.
 
-Current shipped behavior:
+Current shipped behaviour:
 
 - Svelte sidebar LiDAR navigation is hidden when the LiDAR map is empty.
 - The web store retries startup fetch failures, stops polling after successful
