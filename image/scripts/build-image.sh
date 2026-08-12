@@ -90,6 +90,7 @@ fi
 # Every timestamp in this build (Docker args, MOTD metadata, image filename)
 # derives from this single date call to guarantee consistency.
 BUILD_TIME="${BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
+BUILD_TS_COMPACT="${BUILD_TIME//[-:]/}"
 VERSION="${VERSION:-$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')}"
 GIT_SHA="${GIT_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "unknown")}"
 
