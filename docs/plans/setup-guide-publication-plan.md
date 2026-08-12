@@ -29,7 +29,7 @@ The guide now assumes the Pi image is the primary installation method. These ite
 - [ ] **Release URL live**: Download URL in the guide resolves to a real file
 - [ ] **Raspberry Pi Imager tested**: Verify the custom repository URL works in stock Imager
 - [ ] **First boot tested**: Flash → boot → SSH → `systemctl status velocity-report` shows `active (running)`
-- [ ] **velocity-ctl tested**: `sudo velocity-ctl upgrade --check` works on a fresh image
+- [ ] **Device upgrade tested**: `sudo velocity device upgrade --check` works on a fresh image
 
 ## Readability review
 

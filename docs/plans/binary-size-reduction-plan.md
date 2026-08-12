@@ -128,8 +128,8 @@ Adding these to production builds is standard practice:
 
 Add `-s -w` (strip symbol table and DWARF debug info) to production link flags: `LDFLAGS_PROD := -s -w $(LDFLAGS)`.
 
-Apply to `build-radar-linux` and `build-radar-linux-pcap` targets only (keep debug
-symbols for local/dev builds).
+Apply to the static Linux image/release targets (`build-radar-static` and
+`build-radar-static-arm64`) while keeping debug symbols for local/dev builds.
 
 Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 

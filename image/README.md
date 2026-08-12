@@ -15,7 +15,7 @@ compiler packages or SVG-to-PDF conversion packages for report generation.
 | ------------------------------------ | -------------------------------- |
 | `velocity` multi-call binary         | `/opt/velocity-report/current`   |
 | `velocity-report` compatibility link | `/usr/local/bin/velocity-report` |
-| `velocity-ctl` compatibility link    | `/usr/local/bin/velocity-ctl`    |
+| `velocity` canonical link            | `/usr/local/bin/velocity`        |
 | Web frontend                         | Embedded in Go binary            |
 
 LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
@@ -34,17 +34,17 @@ LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 ### No automatic updates
 
 The image makes zero unsolicited network requests. Updates are user-initiated
-via `sudo velocity-ctl upgrade`, which checks GitHub Releases for a newer
+via `sudo velocity device upgrade`, which checks GitHub Releases for a newer
 version, downloads the binary, verifies the SHA-256 checksum, and upgrades
 in-place: preserving the sensor database and all collected data.
 
 ```bash
-sudo velocity-ctl upgrade              # check + download + apply latest release
-sudo velocity-ctl upgrade --check      # print version comparison only
-sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
+sudo velocity device upgrade              # check + download + apply latest release
+sudo velocity device upgrade --check      # print version comparison only
+sudo velocity device upgrade --binary /f  # apply a local binary (offline upgrade)
 ```
 
-Rollback: `sudo velocity-ctl rollback` restores the previous version.
+Rollback: `sudo velocity device rollback` restores the previous version.
 
 ## Directory layout
 
@@ -60,8 +60,6 @@ image/
     │   └── 00-packages             # Device support packages
     ├── 01-velocity-binaries/       # Go binaries
     │   ├── 00-run.sh
-    ├── 02-velocity-python/         # Report output directory and velocity user
-    │   └── 00-run.sh
     ├── 03-velocity-config/         # User, service, serial, udev
     │   ├── 00-run.sh
     │   └── files/
@@ -82,6 +80,8 @@ image/
     │   └── files/
     │       ├── NetworkManager.state
     │       └── velocity-wired-dhcp.nmconnection
+    ├── 07-velocity-tailscale/      # Tailscale package install, masked by default
+    │   └── 01-run.sh
     └── EXPORT_IMAGE
 ```
 
@@ -104,17 +104,22 @@ Requires Docker (Docker Desktop on macOS). The script:
 `SKIP_BINARIES=1` still verifies that the staged binary is a statically linked
 Linux ELF before pi-gen can include it in an image.
 
+The staged binary is produced by the same static build route used for Linux
+release assets: Docker runs the pinned zig/musl toolchain in
+`image/Dockerfile.static-build`, builds `libpcap.a` from the vendored
+`third_party/libpcap` submodule, and `scripts/verify-static-elf.sh` rejects
+dynamic ELF output before the image stage can consume it.
+
 Build artifacts (`image/.pi-gen/`, `image/velocity-binaries/`, `*.img*`) are
 gitignored.
 
 ## CI pipeline
 
 The GitHub Actions workflow at `.github/workflows/build-image.yml` builds
-the image on version-tag pushes or manual dispatch. It cross-compiles the
-Linux release binaries, publishes the tagged radar binaries for Linux and
-macOS, runs the repo's `build-image.sh` helper inside CI, compresses the
-final image with xz, and uploads the `.img.xz` to the matching GitHub
-Release.
+the image on version-tag pushes or manual dispatch. Linux image/release
+binaries are built through the static Docker route, the ARM64 static binary is
+staged in `image/velocity-binaries/`, pi-gen consumes that staged artifact, and
+the final `.img.xz` plus checksum are uploaded to the matching GitHub Release.
 
 ## Flashing
 
@@ -153,12 +158,12 @@ sudo nmcli device connect eth0
 
 ## Image size budget (phase 1)
 
-| Component                       | Estimated Size  |
-| ------------------------------- | --------------- |
-| Raspberry Pi OS Lite (base)     | ~450 MB         |
-| Go binaries with embedded Typst | ~65 MB          |
-| LiDAR + web + system config     | ~11 MB          |
-| **Total (xz compressed)**       | **~150–300 MB** |
+| Component                                     | Estimated Size  |
+| --------------------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)                   | ~450 MB         |
+| Static Go binary with embedded Typst/docs/web | ~65 MB          |
+| LiDAR + system config + Tailscale package     | ~60 MB          |
+| **Total (xz compressed)**                     | **~150–300 MB** |
 
 ## Design document
 

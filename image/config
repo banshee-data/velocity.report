@@ -6,7 +6,7 @@ FIRST_USER_PASS=report
 DISABLE_FIRST_BOOT_USER_RENAME=1
 # SSH enabled for initial setup. The device is local-network-only (no
 # internet-facing ports). The MOTD warns the user to change the default
-# password on first login. Key-only auth available via velocity-ctl.
+# password on first login. Key-only auth is available via image SSH_KEY staging.
 ENABLE_SSH=1
 LOCALE_DEFAULT=en_US.UTF-8
 KEYBOARD_KEYMAP=us

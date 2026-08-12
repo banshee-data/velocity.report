@@ -394,10 +394,12 @@ backfill_ring_elevations --db sensor_data.db
 **Build Targets:**
 
 - `build-velocity` - Build the single multi-call `velocity` binary (→ `./velocity`)
-- `build-velocity-linux` - Cross-compile `velocity` for ARM64 Linux (Raspberry Pi)
+- `build-velocity-linux` - Host cross-compile compatibility target for ARM64 Linux
 - `build-velocity-mac` / `build-velocity-mac-intel` - Build `velocity` for macOS ARM64 / Intel
 - `build-radar-local` - Local development build with pcap (→ `./velocity-report-local`)
 - `build-radar-linux` / `build-radar-mac` / `build-radar-mac-intel` - Compatibility aliases for the `build-velocity-*` targets
+- `build-radar-static-arm64` - Static Raspberry Pi image/release-candidate build using Docker, zig/musl, and vendored libpcap
+- `build-radar-linux-docker` - Stage the static ARM64 image binary under `image/velocity-binaries/`
 - `build-ctl` / `build-ctl-linux` / `build-tools` - Compatibility aliases that build the same `velocity` binary (no separate `velocity-ctl`)
 - `build-web` - Build Svelte web frontend
 - `build-docs` - Build documentation site
@@ -481,8 +483,8 @@ open http://localhost:8080/app/
 #### Remote deployment
 
 ```bash
-# Build for Raspberry Pi
-make build-radar-linux
+# Build the static Raspberry Pi artifact used by image/release packaging
+make build-radar-static-arm64
 
 # On the Pi: upgrade using the device namespace
 sudo velocity device upgrade

@@ -150,12 +150,12 @@ call per build invocation, one source of truth within that invocation.
 **Compute-once rule.** Each build environment computes the timestamp
 exactly once at the start of its run, then threads it to every consumer:
 
-| Environment        | Where computed                   | Propagation                                |
-| ------------------ | -------------------------------- | ------------------------------------------ |
-| `make` targets     | `Makefile` § VERSION INFORMATION | Shell variables → Go ldflags, filenames    |
-| `build-image.sh`   | Section 2 (after arg parsing)    | `$BUILD_TIME` / `$BUILD_TS_COMPACT` in env |
-| CI (`build-image`) | First step → `$GITHUB_ENV`       | All subsequent steps read from env         |
-| CI (`mac-ci`)      | Per-job (build vs package)       | Local shell variable within step           |
+| Environment        | Where computed                   | Propagation                                                                          |
+| ------------------ | -------------------------------- | ------------------------------------------------------------------------------------ |
+| `make` targets     | `Makefile` § VERSION INFORMATION | Shell variables → Go ldflags, filenames                                              |
+| `build-image.sh`   | Section 2 (after arg parsing)    | `$BUILD_TIME` / `$BUILD_TS_COMPACT` to MOTD, image naming, and static binary staging |
+| CI (`build-image`) | First step → `$GITHUB_ENV`       | All subsequent steps read from env                                                   |
+| CI (`mac-ci`)      | Per-job (build vs package)       | Local shell variable within step                                                     |
 
 Different build environments (Make vs CI vs script) may produce
 different timestamps: that is expected because they are separate runs.
@@ -174,8 +174,8 @@ same timestamp.**
      ┌──────────┼──────────┐              │              ┌──────────┼──────────┐
      │          │          │              │              │          │          │
      ▼          ▼          ▼              ▼              ▼          ▼          ▼
-  Go bins    .dmg     BuildInfo      .img.xz         binaries    MOTD     .img.xz
-  (ld­flags)  (name)   .swift        (name)          (Docker)   (stamp)   (name)
+  Go bins    .dmg     BuildInfo      .img.xz       static bin   MOTD     .img.xz
+  (ldflags)  (name)   .swift        (name)        (Docker)    (stamp)   (name)
 ```
 
 Each column is a separate build environment. The invariant is
