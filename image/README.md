@@ -5,16 +5,17 @@ velocity.report for Raspberry Pi 4/400/5.
 
 ## Phase 1: working image (v0.5.1)
 
-Builds a single pcap-enabled Go binary with the Typst PDF engine embedded.
-The image does not install legacy report compiler packages or SVG-to-PDF
-conversion packages for report generation.
+Builds a single fully static, pcap-enabled Go binary with vendored libpcap
+and the Typst PDF engine embedded. The image does not install legacy report
+compiler packages or SVG-to-PDF conversion packages for report generation.
 
 ### What the image contains
 
 | Component                            | Install Path                     |
 | ------------------------------------ | -------------------------------- |
-| `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report` |
-| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`    |
+| `velocity` multi-call binary         | `/opt/velocity-report/current`   |
+| `velocity-report` compatibility link | `/usr/local/bin/velocity-report` |
+| `velocity-ctl` compatibility link    | `/usr/local/bin/velocity-ctl`    |
 | Web frontend                         | Embedded in Go binary            |
 
 LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
@@ -56,7 +57,7 @@ image/
 │   └── build-image.sh              # Local build helper
 └── stage-velocity/                 # pi-gen custom stage
     ├── 00-install-packages/        # Runtime APT package list
-    │   └── 00-packages             # libpcap + device support packages
+    │   └── 00-packages             # Device support packages
     ├── 01-velocity-binaries/       # Go binaries
     │   ├── 00-run.sh
     ├── 02-velocity-python/         # Report output directory and velocity user
@@ -88,23 +89,20 @@ image/
 
 ```bash
 make build-image                           # full build (Docker compile + image)
-make build-image HOST_BUILD=1              # use host Go toolchain (faster iteration)
 make build-image SKIP_BINARIES=1           # reuse previously compiled binaries
 make build-image SSH_KEY=~/.ssh/id_ed25519.pub  # install SSH key for velocity user
 ```
 
 Requires Docker (Docker Desktop on macOS). The script:
 
-1. Cross-compiles ARM64 Go binaries (or skips with `SKIP_BINARIES=1`)
+1. Stages a fully static ARM64 image binary through `scripts/stage-image-binary.sh`
 2. Clones [pi-gen](https://github.com/RPi-Distro/pi-gen) into `image/.pi-gen/`
 3. Copies stage scripts and binaries into the pi-gen tree
 4. Runs pi-gen's `build-docker.sh` to produce the image
 5. Compresses the output with `xz` and generates a SHA-256 checksum
 
-With `HOST_BUILD=1`, binaries are compiled using the host Go toolchain
-instead of Docker. This is faster for iteration but requires
-`aarch64-linux-gnu-gcc` for pcap support: without it, pcap is
-automatically omitted.
+`SKIP_BINARIES=1` still verifies that the staged binary is a statically linked
+Linux ELF before pi-gen can include it in an image.
 
 Build artifacts (`image/.pi-gen/`, `image/velocity-binaries/`, `*.img*`) are
 gitignored.

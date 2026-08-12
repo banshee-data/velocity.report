@@ -57,12 +57,7 @@ jobs:
       - name: Verify static ELF and embedded release features
         run: |
           for bin in build/static/velocity-report-*-static; do
-            file "$bin" | grep -q 'statically linked'
-            if readelf -d "$bin" 2>&1 | grep -q '(NEEDED)'; then
-              echo "unexpected dynamic dependency in $bin" >&2
-              readelf -d "$bin" >&2
-              exit 1
-            fi
+            ./scripts/verify-static-elf.sh "$bin"
           done
 
       - name: Smoke-test amd64 binary

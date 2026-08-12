@@ -53,8 +53,7 @@ jobs:
       - name: Verify release ELF and checksum
         run: |
           (cd image/velocity-binaries && sha256sum -c SHA256)
-          file image/velocity-binaries/velocity | grep -q 'statically linked'
-          ! readelf -d image/velocity-binaries/velocity 2>&1 | grep -q '(NEEDED)'
+          ./scripts/verify-static-elf.sh image/velocity-binaries/velocity
 
       - name: Install ARM64 system test dependencies
         run: sudo apt-get update && sudo apt-get install -y qemu-system-arm qemu-efi-aarch64 genisoimage

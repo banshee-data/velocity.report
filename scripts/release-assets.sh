@@ -98,27 +98,9 @@ build_linux_binaries() {
     sha="$(git_sha)"
     stamp="$(build_time)"
 
-    make -C "$REPO_ROOT" VERSION="$version" BUILD_TIME="$stamp" build-embedded-assets
-
-    rm -f "$IMAGE_DIR/velocity-binaries/velocity"
     VERSION="$version" GIT_SHA="$sha" BUILD_TIME="$stamp" \
-        ARCHES=arm64 OUT_DIR="$IMAGE_DIR/velocity-binaries" \
-        "$REPO_ROOT/scripts/build-radar-static.sh"
-
-    local built
-    built="$(find "$IMAGE_DIR/velocity-binaries" -maxdepth 1 -type f \
-        -name 'velocity-report-*-linux-arm64-*-static' -print | head -n1)"
-    if [[ -z "$built" ]]; then
-        echo "static ARM64 release build did not produce an artifact" >&2
-        exit 1
-    fi
-    mv "$built" "$IMAGE_DIR/velocity-binaries/velocity"
-    chmod 0755 "$IMAGE_DIR/velocity-binaries/velocity"
-    printf '%s\n' "$version" > "$IMAGE_DIR/velocity-binaries/VERSION"
-    (
-        cd "$IMAGE_DIR/velocity-binaries"
-        sha256sum velocity > SHA256
-    )
+        OUT_DIR="$IMAGE_DIR/velocity-binaries" \
+        "$REPO_ROOT/scripts/stage-image-binary.sh"
 }
 
 build_darwin_radar() {

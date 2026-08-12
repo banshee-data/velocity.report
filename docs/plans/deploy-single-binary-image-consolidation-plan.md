@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go binary, image build, systemd, PDF pipeline, Tailscale, sudoers)
-- **Target:** v0.5.1 (single primary binary cutover, static-binary Tailscale, embedded Typst, Typst source archive, read-only SQL path, and trim runtime apt deps down to `libpcap0.8` + `raspi-config`), v0.5.2 (remove the remaining apt purge/build-stage scaffolding and simplify stages); deliberately ahead of v0.6.0 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
+- **Target:** v0.5.1 (single primary binary cutover, static-binary Tailscale, embedded Typst, Typst source archive, read-only SQL path, and trim runtime apt deps down to `raspi-config`), v0.5.2 (remove the remaining apt purge/build-stage scaffolding and simplify stages); deliberately ahead of v0.6.0 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
 - **Companion plans:** [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md), [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md), [deploy-distribution-packaging-plan.md](deploy-distribution-packaging-plan.md), [cli-restructuring-plan.md](cli-restructuring-plan.md), [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md), [binary-size-reduction-plan.md](binary-size-reduction-plan.md), [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md), [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 - **Supersedes:** the "fold sweep / ctl later" sequencing in [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md); the texlive trimming work in [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md); the Phase 2 ".fmt precompile" goal in [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md) § Phase 2 — replaced wholesale by removing xelatex.
@@ -176,7 +176,6 @@ This is just sequencing — the design is already done in [deploy-nginx-removal-
 Once C and D land, the apt package list in [image/stage-velocity/00-install-packages/00-packages](../../image/stage-velocity/00-install-packages/00-packages) becomes:
 
 ```
-libpcap0.8         # LiDAR support
 raspi-config       # serial port / UART config
 ```
 
@@ -217,14 +216,14 @@ Inventory of every artifact that is not the binary itself, with effort to fold o
 | `sudoers.d/020_velocity-nopasswd`                                 | Grants `pi` broad `velocity-ctl *`; grants `velocity` two literal tailscale subcommands. | Shrinks to: `pi → velocity device *`; `velocity → velocity device tailscale {enable,disable}-tailscaled` plus the static-installer bridge.                  | A + B (`S`)     |
 | UART/SPI overlay edits to `/boot/firmware/config.txt`             | Direct file edits in stage script.                                                       | Stays in the image stage; this is firmware-boot config, not a runtime concern.                                                                              | (none)          |
 | `raspi-config`                                                    | apt package; used for serial port enable.                                                | Stays.                                                                                                                                                      | (none)          |
-| `libpcap0.8`                                                      | apt package; runtime dep of the Go binary.                                               | Stays.                                                                                                                                                      | (none)          |
+| `libpcap0.8`                                                      | Previously an apt package runtime dep of the Go binary.                                  | Deleted from the image; the image binary uses vendored static libpcap.                                                                                      | E (`S`)         |
 | `python3-serial`, `minicom`                                       | apt packages; debugging only.                                                            | Deleted.                                                                                                                                                    | E (`S`)         |
 | `jq`, `curl`                                                      | apt packages; build-time only.                                                           | Deleted from the image; remain in CI.                                                                                                                       | E (`S`)         |
 | `sqlite3`                                                         | apt package; operator convenience.                                                       | Replaced by `velocity data sql --read-only`; removed from the shipped image once the subcommand lands.                                                      | E (`S`)         |
 | `os-list-velocity.json`                                           | Custom rpi-imager catalog entry.                                                         | Stays.                                                                                                                                                      | (none)          |
 | Reports output dir creation                                       | Stage script `02-velocity-python/00-run.sh`.                                             | First-boot init inside the binary.                                                                                                                          | E (`S`)         |
 
-End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plus the base Pi OS Lite packages. The primary velocity-owned artefact at `/opt/velocity-report/` is the `velocity` binary; any extracted Typst runtime cache or Tailscale payload is subordinate, binary-owned implementation detail rather than a separate public surface.
+End-state apt manifest (target for v0.5.1): **`raspi-config`** plus the base Pi OS Lite packages. The primary velocity-owned artefact at `/opt/velocity-report/` is the `velocity` binary; any extracted Typst runtime cache or Tailscale payload is subordinate, binary-owned implementation detail rather than a separate public surface.
 
 ## Scope
 
@@ -330,8 +329,8 @@ remaining apt-surface trims are each unblocked by a specific later landing and
       `00-install-packages/01-run.sh` minimal-TeX build stage and
       `scripts/build-minimal-texlive.sh` / `scripts/install-minimal-texlive.sh`.
 
-Once all four land, the `00-packages` end-state is just `libpcap0.8` +
-`raspi-config`, and the only operator-facing binary name is `velocity`
+Once all four land, the `00-packages` end-state is just `raspi-config`,
+and the only operator-facing binary name is `velocity`
 (`velocity-report` survives only as the systemd-facing alias).
 
 ### Deferred
@@ -342,4 +341,4 @@ Once all four land, the `00-packages` end-state is just `libpcap0.8` +
 
 - [ ] Host lifecycle aliases (`velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, `velocity-bounce`) stay outside the binary. Host concerns are not application namespaces per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md).
 - [ ] UART/SPI overlay edits to `/boot/firmware/config.txt` stay in the image stage script. Firmware-boot config is not a runtime concern.
-- [ ] `libpcap0.8` and `raspi-config` apt packages survive into v0.6.0. They are tiny, stable, and have legitimate operator use.
+- [ ] `raspi-config` survives into v0.6.0 for serial/UART configuration.

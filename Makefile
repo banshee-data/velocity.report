@@ -20,7 +20,7 @@ help:
 	@echo "  build-velocity-linux Build velocity for Linux ARM64 with pcap"
 	@echo "  build-velocity-mac   Build velocity for macOS ARM64 with pcap"
 	@echo "  build-radar-linux    (alias) Build velocity for Linux ARM64 with pcap"
-	@echo "  build-radar-linux-docker Build for Linux ARM64 with pcap inside Docker (outputs to image/velocity-binaries/)"
+	@echo "  build-radar-linux-docker Build static Linux ARM64 image binary (outputs to image/velocity-binaries/)"
 	@echo "  build-radar-mac      (alias) Build velocity for macOS ARM64 with pcap"
 	@echo "  build-radar-mac-intel (alias) Build velocity for macOS AMD64 with pcap"
 	@echo "  build-radar-local    (alias) Build velocity for local development with pcap"
@@ -37,7 +37,7 @@ help:
 	@echo "  run-pcap-split       Split a PCAP into motion/static segments (PCAP=path)"
 	@echo "  build-ctl            (alias) Build velocity (device tools folded in)"
 	@echo "  build-ctl-linux      (alias) Build velocity for Linux ARM64"
-	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
+	@echo "  build-image          Build RPi image with static ARM64 image binary"
 	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
 	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-embedded-assets Build static assets embedded in release binaries"
@@ -445,17 +445,16 @@ build-image-deps:
 	fi; \
 	echo "✓ build-image dependencies OK"
 
-# Build a Raspberry Pi image using pi-gen (requires Docker)
-# Compiles ARM64 Go binaries with pcap support inside a Docker container,
-# then runs pi-gen to produce the flashable .img file.
+# Build a Raspberry Pi image using pi-gen (requires Docker).
+# Stages the same static ARM64 vendored-libpcap binary used by release
+# packaging, then runs pi-gen to produce the flashable .img file.
 # Pass SKIP_BINARIES=1 to reuse previously built binaries.
-# Pass HOST_BUILD=1 to use the host Go toolchain instead of Docker for compilation.
 # Pass SSH_KEY=~/.ssh/id_ed25519.pub to install an SSH key for the velocity user.
 # Tailscale: opt in at runtime via the velocity.report web UI
 # (Settings → Tailscale).  No build-time configuration.
 .PHONY: build-image
 build-image: build-image-deps
-	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(filter 1,$(HOST_BUILD)),--host-build) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
+	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
 
 # Flash the most recent .img.xz from deploy/ to an SD card (macOS only).
 # Requires DISK= to be set explicitly to prevent accidents.

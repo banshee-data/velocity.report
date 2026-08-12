@@ -135,7 +135,7 @@ for arch in $EXTRACT_ARCHES; do
     fi
     dst="$OUT_DIR/$(basename "$src")"
     mv -f "$src" "$dst"
-    file "$dst"
+    "$REPO_ROOT/scripts/verify-static-elf.sh" "$dst"
 done
 
 echo
