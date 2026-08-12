@@ -13,7 +13,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
-- in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` — which also removes the on-demand `curl` install it now carries for the keyring fetch (#519 dropped `curl` from `00-packages`; this takes it out of the image entirely); image ships zero Tailscale state until operator opts in via the web UI: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `M`
 - [#503] Opt-in Tailscale ACL roles: consume Tailscale capability grants to derive admin/view access for the web UI while keeping LAN access fully privileged by default. PR #503 carries ~1,040 lines of tested implementation as net-new files (`internal/api/auth.go`, `internal/tailscale/peercaps.go`, plus tests) that still apply cleanly; the branch is conflicted mainly because it patches `cmd/radar/radar.go`, which #519 removed `S`
 - [#290] (#11) Finish serial configuration rollout: validate a USB serial adapter plus a deliberately changed-setting reload. DB-backed startup, explicit apply/reload, operator workflow guidance, and the Pi/HAT validation pass are delivered; device/baud auto-detect endpoints moved to v0.8.0: [implementation plan](plans/serial-configuration-implementation-plan.md) `S`
 
@@ -204,6 +203,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## Complete
 
+- In-binary Tailscale installer: a pinned, SHA-256-verified static release is downloaded only on web-UI opt-in, extracted under `/opt/velocity-report/tailscale/<version>/`, recorded in install metadata, and wired through a binary-owned `tailscaled.service`; deleted `image/stage-velocity/07-velocity-tailscale/`, including its on-demand `curl` and apt repository setup, so images ship with zero Tailscale state: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `M`
 - [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
