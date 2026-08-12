@@ -69,6 +69,10 @@ func TestNodeFQDN(t *testing.T) {
 // literal (no wildcards), so any drift here breaks the system in a way
 // the test can catch before deploy.
 func TestSudoArgvIsLiteral(t *testing.T) {
+	wantInstall := []string{
+		"/usr/bin/sudo", "-n",
+		"/usr/local/bin/velocity", "device", "tailscale", "install",
+	}
 	wantEnable := []string{
 		"/usr/bin/sudo", "-n",
 		"/usr/local/bin/velocity", "device", "tailscale", "enable-tailscaled",
@@ -79,6 +83,9 @@ func TestSudoArgvIsLiteral(t *testing.T) {
 	}
 	if !slicesEqual(sudoEnableArgv, wantEnable) {
 		t.Fatalf("sudoEnableArgv drift: got %v want %v", sudoEnableArgv, wantEnable)
+	}
+	if !slicesEqual(sudoInstallArgv, wantInstall) {
+		t.Fatalf("sudoInstallArgv drift: got %v want %v", sudoInstallArgv, wantInstall)
 	}
 	if !slicesEqual(sudoDisableArgv, wantDisable) {
 		t.Fatalf("sudoDisableArgv drift: got %v want %v", sudoDisableArgv, wantDisable)
@@ -268,10 +275,17 @@ func (f *fakeClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (
 }
 
 type fakeSystemd struct {
+	installCalls int32
 	enableCalls  int32
 	disableCalls int32
+	installErr   error
 	enableErr    error
 	disableErr   error
+}
+
+func (f *fakeSystemd) InstallTailscale(ctx context.Context) error {
+	atomic.AddInt32(&f.installCalls, 1)
+	return f.installErr
 }
 
 func (f *fakeSystemd) EnableTailscaled(ctx context.Context) error {

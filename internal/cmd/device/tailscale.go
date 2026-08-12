@@ -1,19 +1,23 @@
 package device
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/tailscaleinstall"
 )
 
 type tailscaleActions struct {
+	install func() error
 	enable  func() error
 	disable func() error
 }
 
-// runTailscale handles `velocity device tailscale enable-tailscaled|disable-tailscaled`.
+// runTailscale handles `velocity device tailscale install|enable-tailscaled|disable-tailscaled`.
 //
 // These subcommands exist so the velocity-report server (running as the
 // non-root `velocity` user) can drive the daemon via a narrow sudoers
@@ -37,6 +41,7 @@ type tailscaleActions struct {
 // us to a hostile drop-in.
 func runTailscale(args []string) error {
 	return runTailscaleWithActions(args, tailscaleActions{
+		install: installTailscale,
 		enable:  enableTailscaled,
 		disable: disableTailscaled,
 	})
@@ -53,9 +58,11 @@ func runTailscaleWithActions(args []string, actions tailscaleActions) error {
 	}
 	rest := fs.Args()
 	if len(rest) == 0 {
-		return fmt.Errorf("usage: velocity device tailscale <enable-tailscaled|disable-tailscaled>")
+		return fmt.Errorf("usage: velocity device tailscale <install|enable-tailscaled|disable-tailscaled>")
 	}
 	switch rest[0] {
+	case "install":
+		return actions.install()
 	case "enable-tailscaled":
 		return actions.enable()
 	case "disable-tailscaled":
@@ -63,6 +70,10 @@ func runTailscaleWithActions(args []string, actions tailscaleActions) error {
 	default:
 		return fmt.Errorf("unknown tailscale subcommand: %s", rest[0])
 	}
+}
+
+func installTailscale() error {
+	return (tailscaleinstall.Installer{}).Install(context.Background())
 }
 
 func enableTailscaled() error {
@@ -97,7 +108,7 @@ func enableTailscaled() error {
 	if !socketReady {
 		return fmt.Errorf("tailscaled socket %s did not appear within 15s", socket)
 	}
-	if out, err := exec.Command("/usr/bin/tailscale", "set", "--operator=velocity").CombinedOutput(); err != nil {
+	if out, err := exec.Command("/opt/velocity-report/tailscale/current/tailscale", "set", "--operator=velocity").CombinedOutput(); err != nil {
 		// Fatal: without this the velocity service user cannot drive
 		// the local API socket and the UI flow will fail with a
 		// confusing "permission denied" several seconds later.  Fail

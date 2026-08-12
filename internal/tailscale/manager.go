@@ -1,7 +1,7 @@
 // Package tailscale provides an in-process manager that drives the
-// Tailscale daemon (tailscaled) on the device.  The daemon ships
-// installed-but-masked in the velocity.report image; this package is
-// responsible for unmasking and starting it on user opt-in, presenting
+// Tailscale daemon (tailscaled) on the device. The daemon is downloaded as a
+// pinned static payload only after operator opt-in; this package installs,
+// unmasks, and starts it, presenting
 // the interactive login URL to the web UI, and applying the standard
 // device policy (Tailscale SSH on, tailscale serve on for the local
 // HTTP server) once the node is up on the tailnet.
@@ -15,7 +15,7 @@
 // `tailscale set --operator=velocity`, which `velocity device tailscale`
 // invokes immediately after enabling tailscaled.
 //
-// systemctl operations (unmask/enable/start/stop/mask) are not reachable
+// Installation and systemctl operations (unmask/enable/start/stop/mask) are not reachable
 // over the local API, so we shell out via sudo to a narrow allowlist
 // configured in /etc/sudoers.d/020_velocity-nopasswd.  The set of
 // permitted subcommands is a closed enum (sudoAction) so the argv
@@ -117,12 +117,14 @@ func (r *realLocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchO
 // invoke directly.  The default implementation shells out to
 // `sudo velocity device tailscale ...`.
 type SystemdActor interface {
+	InstallTailscale(ctx context.Context) error
 	EnableTailscaled(ctx context.Context) error
 	DisableTailscaled(ctx context.Context) error
 }
 
 // The sudoers grant for the `velocity` service user is literal:
 //
+//	/usr/local/bin/velocity device tailscale install
 //	/usr/local/bin/velocity device tailscale enable-tailscaled
 //	/usr/local/bin/velocity device tailscale disable-tailscaled
 //
@@ -131,11 +133,16 @@ type SystemdActor interface {
 // If you add a new sudo-able subcommand, add it to /etc/sudoers.d
 // AND add a new fixed-argv method here — do not parameterise.
 var (
+	sudoInstallArgv = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity", "device", "tailscale", "install"}
 	sudoEnableArgv  = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity", "device", "tailscale", "enable-tailscaled"}
 	sudoDisableArgv = []string{"/usr/bin/sudo", "-n", "/usr/local/bin/velocity", "device", "tailscale", "disable-tailscaled"}
 )
 
 type sudoSystemdActor struct{}
+
+func (sudoSystemdActor) InstallTailscale(ctx context.Context) error {
+	return runFixedArgv(ctx, sudoInstallArgv)
+}
 
 func (sudoSystemdActor) EnableTailscaled(ctx context.Context) error {
 	return runFixedArgv(ctx, sudoEnableArgv)
@@ -710,6 +717,9 @@ func (m *Manager) WaitForChange(ctx context.Context, since uint64, timeout time.
 // BrowseToURL to land on the bus before returning so the API response
 // already carries the URL when one is needed.
 func (m *Manager) Enable(ctx context.Context) error {
+	if err := m.systemd.InstallTailscale(ctx); err != nil {
+		return fmt.Errorf("install tailscale: %w", err)
+	}
 	if err := m.systemd.EnableTailscaled(ctx); err != nil {
 		return fmt.Errorf("enable tailscaled: %w", err)
 	}
