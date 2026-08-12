@@ -112,6 +112,16 @@ Adopt Option A: remove persisted per-track speed percentiles from migration 030 
 
 Use dual-native agent definitions ([.github/agents/](../.github/agents) for Copilot, [.claude/agents/](../.claude/agents) for Claude Code) with persona methodology bounded to ~40–80 lines per agent and drift-checked weekly. Shared project knowledge (Layers 0–2) stays single-source in [.github/knowledge/](../.github/knowledge). Reusable workflows live in [.claude/skills/](../.claude/skills) as slash commands, not in agent bodies. Copilot prompt files are optional thin wrappers only — not canonical workflow definitions — [ops doc](platform/operations/agent-preparedness.md), [plan](plans/agent-claude-preparedness-review-plan.md)
 
+### D-26 — Static linux binaries: zig + musl in Docker
+
+Ship the radar binary as a fully-static linux/{amd64,arm64} ELF via `make build-radar-static`. Toolchain is `zig cc -target <arch>-linux-musl` + a static `libpcap.a` built from the vendored upstream submodule pinned to `libpcap-1.10.6`. The build runs entirely inside a hermetic Docker image ([image/Dockerfile.static-build](../image/Dockerfile.static-build)) with pinned base image digest and SHA-256-verified toolchain tarballs. Contributors need only `docker` and `git`.
+
+**Why zig over gcc:** stock `gcc-aarch64-linux-gnu` is glibc-based; glibc's NSS plugins force dynamic linking even for "static" binaries. Musl-targeting gcc exists (musl-cross-make, Alpine cross packages) but is either heavyweight to build or runs under qemu emulation. Zig is a single ~50 MB binary that cross-compiles to both arches at host speed and ships musl headers. The "another toolchain on contributor machines" objection is neutralised by the Docker hermeticism.
+
+**Why image and release builds share the static path:** image, release, and ad-hoc Linux artifacts now use the same `scripts/build-radar-static.sh` route. Image staging goes through `scripts/stage-image-binary.sh`, and `scripts/verify-static-elf.sh` rejects dynamic ELF output before an artifact can be staged. The old dynamic-libpcap image Dockerfile was removed so a flashable image cannot accidentally pick up `libpcap.so` from the build host or base image. Static artifacts are verified by CI on every PR ([static-build-ci.yml](../.github/workflows/static-build-ci.yml)) including a `--self-check` smoke test in a clean Debian container.
+
+**Other cgo binaries (cmd/sweep, cmd/tools/pcap-analyse, cmd/tools/settling-eval):** dev-host-only by policy. They are never shipped to a Pi and have no cross-compile target. If that changes, they get the same static treatment.
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |

@@ -98,7 +98,9 @@ build_linux_binaries() {
     sha="$(git_sha)"
     stamp="$(build_time)"
 
-    VERSION="$version" GIT_SHA="$sha" BUILD_TIME="$stamp" "$IMAGE_DIR/scripts/build-image.sh" --binaries-only
+    VERSION="$version" GIT_SHA="$sha" BUILD_TIME="$stamp" \
+        OUT_DIR="$IMAGE_DIR/velocity-binaries" \
+        "$REPO_ROOT/scripts/stage-image-binary.sh"
 }
 
 build_darwin_radar() {

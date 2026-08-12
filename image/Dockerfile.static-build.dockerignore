@@ -1,0 +1,53 @@
+# Per-Dockerfile .dockerignore for image/Dockerfile.static-build.
+# BuildKit picks this up automatically when --file is set to that Dockerfile.
+#
+# Whitelist-style: exclude everything, then re-include only what the
+# static build needs. Keeps the build context (and therefore the layer
+# cache) small and deterministic.
+
+*
+
+# Go module + source.
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!assets.go
+!static/
+!config/tuning.defaults.json
+
+# Drop non-build tree artefacts.
+internal/lidar/perf/
+internal/db/*.db
+internal/db/schema.sql.bak
+cmd/**/*_test.go
+internal/**/*_test.go
+cmd/**/testdata/
+internal/**/testdata/
+
+# Pre-built embed inputs (web frontend + offline docs).
+!web/build/
+!web/stub-index.html
+!docs_html/
+docs_html/**
+!docs_html/_site/
+!docs_html/_site/**
+docs_html/_site/data/maths/papers/*.pdf
+!docs_html/_site/.embed-stub
+!docs_html/stub-index.html
+
+# Stubs invoked from inside the image when web/docs assets are absent.
+!scripts/ensure-web-stub.sh
+!scripts/ensure-docs-stub.sh
+!scripts/download-typst.sh
+
+# In-tree libpcap toolchain + source submodule.
+!third_party/libpcap/
+!third_party/libpcap-static/
+third_party/libpcap-static/out/
+third_party/libpcap-static/build-*/
+
+# libpcap's CMakeLists.txt unconditionally references testprogs/ and
+# doc/, so we have to keep them in context. tests/ is fixture data the
+# build doesn't touch.
+third_party/libpcap/tests/

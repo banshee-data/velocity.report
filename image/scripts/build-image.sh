@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
 # build-image.sh — Build velocity.report RPi image
 #
-# Wraps pi-gen to produce a flashable .img file. By default, ARM64 Go
-# binaries are cross-compiled inside a Docker container (pcap-enabled).
-# Pass --host-build to use the host Go toolchain instead (faster
-# iteration; falls back to non-pcap if the cross-compiler is absent).
+# Wraps pi-gen to produce a flashable .img file. ARM64 Go binaries are
+# staged through scripts/stage-image-binary.sh, which builds the same
+# fully static vendored-libpcap artifact used by release packaging.
 #
 # Prerequisites:
 #   - Docker installed and running
-#   - Go toolchain (only when --host-build is used)
 #
 # Usage:
 #   ./image/scripts/build-image.sh [options]
 #
 # Options:
 #   --skip-binaries   Reuse binaries from a previous build
-#   --host-build      Build binaries with the host Go toolchain (no Docker compile)
 #   --binaries-only   Build web/docs assets and ARM64 binaries, then stop
 #   --ssh-key <path>  Install an SSH public key for the login user
 #
@@ -39,72 +36,6 @@ log_info()  { echo -e "${GREEN}✓${NC} $1"; }
 log_warn()  { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 
-DOCKER_BUILDER_IMAGE="velocity-builder"
-DOCKER_TOOLCHAIN_IMAGE="velocity-builder-toolchain"
-DOCKER_BUILD_CONTAINER_ID=""
-DOCKER_BUILD_CLEANUP_REQUESTED=0
-DOCKER_GO_MOD_CACHE_DIR=""
-DOCKER_GO_BUILD_CACHE_DIR=""
-DOCKER_GO_TMP_DIR=""
-
-remove_docker_temp_cache_dir() {
-    local path="${1:-}"
-
-    if [[ -z "$path" || ! -e "$path" ]]; then
-        return
-    fi
-
-    chmod -R u+w "$path"
-    rm -rf "$path"
-}
-
-cleanup_docker_build_artifacts() {
-    local phase="${1:-cleanup}"
-
-    if [[ "$DOCKER_BUILD_CLEANUP_REQUESTED" -ne 1 ]]; then
-        return
-    fi
-
-    if ! command -v docker &>/dev/null; then
-        return
-    fi
-
-    if ! docker info &>/dev/null; then
-        return
-    fi
-
-    log_info "Cleaning Docker builder image and cache (${phase})..."
-
-    if [[ -n "$DOCKER_BUILD_CONTAINER_ID" ]]; then
-        docker rm -f "$DOCKER_BUILD_CONTAINER_ID" >/dev/null 2>&1 || true
-        DOCKER_BUILD_CONTAINER_ID=""
-    fi
-
-    docker image rm -f "$DOCKER_BUILDER_IMAGE" >/dev/null 2>&1 || true
-    docker image rm -f "$DOCKER_TOOLCHAIN_IMAGE" >/dev/null 2>&1 || true
-    # NOTE: do NOT run `docker builder prune -af` here. That command prunes
-    # the *global* BuildKit cache for the whole machine and can wipe out
-    # unrelated Docker work in progress. The project-specific images are
-    # already removed above; Docker's builder cache GC will reclaim the
-    # rest lazily, and operators can run an explicit `docker builder prune`
-    # themselves when they want it.
-
-    if [[ -n "$DOCKER_GO_MOD_CACHE_DIR" ]]; then
-        remove_docker_temp_cache_dir "$DOCKER_GO_MOD_CACHE_DIR"
-        DOCKER_GO_MOD_CACHE_DIR=""
-    fi
-
-    if [[ -n "$DOCKER_GO_BUILD_CACHE_DIR" ]]; then
-        remove_docker_temp_cache_dir "$DOCKER_GO_BUILD_CACHE_DIR"
-        DOCKER_GO_BUILD_CACHE_DIR=""
-    fi
-
-    if [[ -n "$DOCKER_GO_TMP_DIR" ]]; then
-        remove_docker_temp_cache_dir "$DOCKER_GO_TMP_DIR"
-        DOCKER_GO_TMP_DIR=""
-    fi
-}
-
 # ---------------------------------------------------------------------------
 # 0. Cleanup handler — remove transient copies on exit
 # ---------------------------------------------------------------------------
@@ -112,7 +43,6 @@ PIGEN_DIR="$IMAGE_DIR/.pi-gen"
 
 cleanup() {
     log_info "Cleaning up transient build files..."
-    cleanup_docker_build_artifacts "exit"
     rm -rf "$PIGEN_DIR/stage-velocity"
     rm -rf "$PIGEN_DIR/velocity-binaries"
     # Remove transient copies staged from the repo into the working tree
@@ -128,13 +58,11 @@ cleanup() {
 # 1. Parse arguments
 # ---------------------------------------------------------------------------
 SKIP_BINARIES=0
-HOST_BUILD=0
 BINARIES_ONLY=0
 SSH_KEY_PATH=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --skip-binaries) SKIP_BINARIES=1; shift ;;
-        --host-build)    HOST_BUILD=1; shift ;;
         --binaries-only) BINARIES_ONLY=1; shift ;;
         --ssh-key)
             if [[ -z "${2:-}" ]]; then
@@ -169,16 +97,14 @@ GIT_SHA="${GIT_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "un
 # ---------------------------------------------------------------------------
 # 3. Check prerequisites
 # ---------------------------------------------------------------------------
-if [[ "$HOST_BUILD" -eq 0 || "$BINARIES_ONLY" -eq 0 ]]; then
-    if ! command -v docker &>/dev/null; then
-        log_error "Docker is required but not installed"
-        exit 1
-    fi
+if ! command -v docker &>/dev/null; then
+    log_error "Docker is required but not installed"
+    exit 1
+fi
 
-    if ! docker info &>/dev/null; then
-        log_error "Docker daemon is not running — start Docker Desktop and try again"
-        exit 1
-    fi
+if ! docker info &>/dev/null; then
+    log_error "Docker daemon is not running — start Docker Desktop and try again"
+    exit 1
 fi
 
 trap cleanup EXIT
@@ -190,107 +116,8 @@ BINARIES_DIR="$IMAGE_DIR/velocity-binaries"
 mkdir -p "$BINARIES_DIR"
 
 if [[ "$SKIP_BINARIES" -eq 0 ]]; then
-    log_info "Building embedded static assets..."
-    make -C "$REPO_ROOT" VERSION="$VERSION" BUILD_TIME="$BUILD_TIME" build-embedded-assets
-    if [[ ! -f "$REPO_ROOT/docs_html/_site/index.html" ]]; then
-        log_error "Embedded offline docs build did not produce docs_html/_site/index.html"
-        exit 1
-    fi
-    log_info "Embedded static assets built"
-
-    cd "$REPO_ROOT"
-
-    # Embed the typst PDF engine (linux/arm64) into the velocity binary so the
-    # device needs no separate typst install. Downloaded into the gitignored
-    # embed dir; the builds below add the typst_embed tag to bake it in.
-    log_info "Downloading typst engine for embedding (linux/arm64)..."
-    "$REPO_ROOT/scripts/download-typst.sh" "${TYPST_VERSION:-0.13.1}" linux arm64 \
-        "$REPO_ROOT/internal/report/typst/typstbin/dist/typst"
-
-    if [[ "$HOST_BUILD" -eq 1 ]]; then
-        # Host toolchain — fast path for local iteration.
-        # Needs aarch64-linux-gnu-gcc for pcap; falls back to non-pcap.
-        # EXTRA_LDFLAGS strips debug symbols for smaller image binaries.
-        log_info "Building ARM64 Go binary (host toolchain, typst embedded)..."
-        export EXTRA_LDFLAGS="-s -w"
-        if make build-velocity-linux TYPST_EMBED=1 2>/dev/null; then
-            log_info "Built velocity with pcap support"
-        else
-            log_warn "pcap cross-compile unavailable; building without pcap"
-            # CGO_ENABLED=0 forces a pure-Go build: the fallback exists precisely
-            # because the cross C toolchain is missing, so leaving CGO on would
-            # hit the same failure for any cgo-importing package. typst stays
-            # embedded via the typst_embed tag.
-            CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
-                -tags=typst_embed \
-                -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" \
-                -o "${BUILD_TS_COMPACT}-velocity-${VERSION//-/.}-linux-arm64-${GIT_SHA:0:7}" \
-                ./cmd/velocity
-        fi
-        unset EXTRA_LDFLAGS
-
-        VELOCITY_BIN=""
-        for candidate in "$REPO_ROOT"/*-velocity-*-linux-arm64-*; do
-            [ -e "$candidate" ] || continue
-            case "$(basename "$candidate")" in
-                *-velocity-report-*|*-velocity-ctl-*) continue ;;
-            esac
-            if [ -z "$VELOCITY_BIN" ] || [ "$candidate" -nt "$VELOCITY_BIN" ]; then
-                VELOCITY_BIN="$candidate"
-            fi
-        done
-        if [ -z "$VELOCITY_BIN" ]; then
-            log_error "Could not find timestamped velocity binary in $REPO_ROOT"
-            exit 1
-        fi
-        cp -f "$VELOCITY_BIN" "$BINARIES_DIR/velocity"
-    else
-        # Docker build — canonical path, always produces pcap-enabled binaries.
-        # Use a slim toolchain image plus host-mounted temp caches so the large
-        # Go module tree does not have to fit inside Docker's internal storage.
-        log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
-
-        DOCKER_BUILD_CLEANUP_REQUESTED=1
-        cleanup_docker_build_artifacts "before build"
-
-        docker build \
-            --force-rm \
-            --platform linux/amd64 \
-            -f "$IMAGE_DIR/Dockerfile.build" \
-            --target toolchain \
-            -t "$DOCKER_TOOLCHAIN_IMAGE" \
-            .
-
-        DOCKER_GO_MOD_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-mod.XXXXXX")"
-        DOCKER_GO_BUILD_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-build.XXXXXX")"
-        DOCKER_GO_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/velocity-go-tmp.XXXXXX")"
-
-        docker run \
-            --rm \
-            --platform linux/amd64 \
-            --user "$(id -u):$(id -g)" \
-            -e VERSION="$VERSION" \
-            -e GIT_SHA="$GIT_SHA" \
-            -e BUILD_TIME="$BUILD_TIME" \
-            -e GOMODCACHE=/tmp/go-mod-cache \
-            -e GOCACHE=/tmp/go-build-cache \
-            -e GOTMPDIR=/tmp/go-tmp \
-            -v "$REPO_ROOT:/build" \
-            -v "$BINARIES_DIR:/out" \
-            -v "$DOCKER_GO_MOD_CACHE_DIR:/tmp/go-mod-cache" \
-            -v "$DOCKER_GO_BUILD_CACHE_DIR:/tmp/go-build-cache" \
-            -v "$DOCKER_GO_TMP_DIR:/tmp/go-tmp" \
-            -w /build \
-            "$DOCKER_TOOLCHAIN_IMAGE" \
-            sh -lc '
-                export PATH=/usr/local/go/bin:$PATH
-                go build -tags=pcap,typst_embed -ldflags "-s -w -X github.com/banshee-data/velocity.report/internal/version.Version=${VERSION} -X github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA} -X github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}" -o /out/velocity ./cmd/velocity
-            '
-
-        cleanup_docker_build_artifacts "after build"
-    fi
-
-    chmod +x "$BINARIES_DIR/velocity"
+    VERSION="$VERSION" GIT_SHA="$GIT_SHA" BUILD_TIME="$BUILD_TIME" \
+        OUT_DIR="$BINARIES_DIR" "$REPO_ROOT/scripts/stage-image-binary.sh"
     log_info "Binary staged in $BINARIES_DIR"
 else
     if [[ ! -f "$BINARIES_DIR/velocity" ]]; then
@@ -298,12 +125,21 @@ else
         exit 1
     fi
     chmod +x "$BINARIES_DIR/velocity"
+    "$REPO_ROOT/scripts/verify-static-elf.sh" "$BINARIES_DIR/velocity"
     log_info "Using pre-staged binary in $BINARIES_DIR"
 fi
 
 # Record the version string so stage 01 can name the on-disk versions/<v>/ dir
 # without exec'ing the (ARM64) binary under qemu.
 printf '%s\n' "$VERSION" > "$BINARIES_DIR/VERSION"
+(
+    cd "$BINARIES_DIR"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum velocity > SHA256
+    else
+        shasum -a 256 velocity > SHA256
+    fi
+)
 
 if [[ "$BINARIES_ONLY" -eq 1 ]]; then
     log_info "Binary build complete; skipping image assembly (--binaries-only)"

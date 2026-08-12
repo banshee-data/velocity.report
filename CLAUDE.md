@@ -38,6 +38,7 @@ make build-radar-local     # Alias: build velocity for local dev (requires libpc
 make build-radar-linux     # Alias: build velocity for ARM64 cross-compile
 make build-radar-mac       # Go server, macOS ARM64 with pcap
 make build-radar-mac-intel # Go server, macOS AMD64 with pcap
+make build-radar-static    # Fully-static linux/{amd64,arm64} ELF via Docker (zig+musl+libpcap.a) — see D-26
 make build-web             # Svelte frontend → web/build/
 make build-docs            # Eleventy docs site → docs_html/_site/
 make build-docs-offline    # Embedded offline docs site (Eleventy)

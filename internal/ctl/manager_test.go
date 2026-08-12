@@ -25,6 +25,13 @@ type errorGetter struct {
 	err error
 }
 
+func TestParseReportedVersionIgnoresVelocityProgramName(t *testing.T) {
+	output := []byte("velocity  v0.5.1-pre26\n git sha: abc123\n")
+	if got := parseReportedVersion(output); got != "0.5.1-pre26" {
+		t.Fatalf("parseReportedVersion() = %q, want %q", got, "0.5.1-pre26")
+	}
+}
+
 func (g errorGetter) Get(_ string) (*http.Response, error) {
 	return nil, g.err
 }

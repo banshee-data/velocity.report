@@ -81,8 +81,8 @@ host (Linux x86_64, /dev/kvm)
     ├── /etc/default/tailscaled FLAGS="--login-server=http://10.0.2.2:8085"
     ├── tailscaled installed (apt) and masked, identical to image stage 07
     ├── velocity user + sudoers identical to image stage 03
-    ├── /usr/local/bin/velocity-report  (populated via qemu-push)
-    └── /usr/local/bin/velocity-ctl     (populated via qemu-push)
+    ├── /usr/local/bin/velocity         (populated via qemu-push)
+    └── /usr/local/bin/velocity-report  (compatibility alias)
 ```
 
 `10.0.2.2` is the QEMU user-mode networking gateway IP — the address the
@@ -139,23 +139,23 @@ page. The Makefile wraps this into one command.
 
 ## Faithful vs. mocked
 
-| Component                                       | Faithful            | Mocked                                                                    |
-| ----------------------------------------------- | ------------------- | ------------------------------------------------------------------------- |
-| systemd as PID 1                                | yes                 |                                                                           |
-| `velocity` system user + literal-argv sudoers   | yes                 |                                                                           |
-| `tailscaled` (upstream apt), masked-by-default  | yes                 |                                                                           |
-| `velocity-ctl tailscale enable-tailscaled` flow | yes                 |                                                                           |
-| `tailscale set --operator=velocity`             | yes                 |                                                                           |
-| `velocity-report.service` unit                  | yes                 |                                                                           |
-| Tailscale local API socket                      | yes (real daemon)   |                                                                           |
-| IPN bus subscription + `BrowseToURL`            | yes (real daemon)   |                                                                           |
-| `WhoIs` peer resolution + cap grants            | yes (via Headscale) |                                                                           |
-| `tailscale serve` config on :443                | yes                 |                                                                           |
-| Radar serial (`/dev/ttySC1`)                    |                     | `--radar=false`                                                           |
-| LiDAR UDP                                       |                     | `--lidar=false`                                                           |
-| Kernel architecture                             |                     | amd64 host kernel, not ARM64                                              |
-| Pi-specific hardware (HAT, UART)                |                     | absent; sensors flagged off                                               |
-| Tailscale coordination control plane            | yes (Headscale)     | (Headscale ≠ `controlplane.tailscale.com`, but the wire protocol matches) |
+| Component                                          | Faithful            | Mocked                                                                    |
+| -------------------------------------------------- | ------------------- | ------------------------------------------------------------------------- |
+| systemd as PID 1                                   | yes                 |                                                                           |
+| `velocity` system user + literal-argv sudoers      | yes                 |                                                                           |
+| `tailscaled` (upstream apt), masked-by-default     | yes                 |                                                                           |
+| `velocity device tailscale enable-tailscaled` flow | yes                 |                                                                           |
+| `tailscale set --operator=velocity`                | yes                 |                                                                           |
+| `velocity-report.service` unit                     | yes                 |                                                                           |
+| Tailscale local API socket                         | yes (real daemon)   |                                                                           |
+| IPN bus subscription + `BrowseToURL`               | yes (real daemon)   |                                                                           |
+| `WhoIs` peer resolution + cap grants               | yes (via Headscale) |                                                                           |
+| `tailscale serve` config on :443                   | yes                 |                                                                           |
+| Radar serial (`/dev/ttySC1`)                       |                     | `--radar=false`                                                           |
+| LiDAR UDP                                          |                     | `--lidar=false`                                                           |
+| Kernel architecture                                |                     | amd64 host kernel, not ARM64                                              |
+| Pi-specific hardware (HAT, UART)                   |                     | absent; sensors flagged off                                               |
+| Tailscale coordination control plane               | yes (Headscale)     | (Headscale ≠ `controlplane.tailscale.com`, but the wire protocol matches) |
 
 ## Files and layout
 
@@ -241,9 +241,9 @@ make qemu-peer-curl URL=...  # exec into peer-tailscale, curl <URL> against Magi
 5. Print connection summary: SSH command, web UI URL, headscale URL, peer
    container name.
 
-`make qemu-push` cross-builds via `GOOS=linux GOARCH=amd64 make build-radar-linux`
-(extending the existing target) and scp's both `velocity-report` and
-`velocity-ctl` into `/usr/local/bin/`, then `sudo systemctl restart
+`make qemu-push` builds the VM-target `velocity` binary and scp's it into
+`/usr/local/bin/velocity` with the `velocity-report` compatibility alias, then
+`sudo systemctl restart
 velocity-report.service` and `journalctl -n 20 -u velocity-report` for a
 quick smoke check.
 
@@ -259,7 +259,7 @@ seed ISO. Key sections:
 
 1. **User creation.** `pi` (UID 1000) for SSH and `velocity` (system
    user) matching image stage 03 exactly, including the `dialout`
-   secondary group. `pi` is granted the same broad `velocity-ctl *`
+   secondary group. `pi` is granted the same scoped `velocity device ...`
    sudoers, `velocity` gets the literal-argv grants — both written to
    `/etc/sudoers.d/020_velocity-nopasswd` via the symlinked source file.
 2. **SSH authorized keys.** The auto-generated `id_ed25519.pub` is
@@ -402,7 +402,7 @@ without depending on Tailscale semantics:
 1. `qemu-up` brings ssh up within timeout.
 2. `id velocity` exits zero inside the VM; the system user is present.
 3. `systemctl is-enabled tailscaled` returns `masked` on first boot.
-4. `sudo -n -u velocity sudo -n -l /usr/local/bin/velocity-ctl
+4. `sudo -n -u velocity sudo -n -l /usr/local/bin/velocity device
 tailscale enable-tailscaled` returns the literal argv (sudoers grant
    matches argv; `-l` lists permission without executing).
 5. `curl -fsS http://localhost:8080/api/health` returns 200 after push.

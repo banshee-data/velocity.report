@@ -50,12 +50,24 @@ jobs:
       - name: Build ARM64 binaries via repo target
         run: make release-build-linux-binaries
 
+      - name: Verify release ELF and checksum
+        run: |
+          (cd image/velocity-binaries && sha256sum -c SHA256)
+          ./scripts/verify-static-elf.sh image/velocity-binaries/velocity
+
+      - name: Install ARM64 system test dependencies
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm qemu-efi-aarch64 genisoimage
+
+      - name: Validate exact release binary under ARM64 kernel
+        run: ./scripts/test-static-arm64-vm.sh image/velocity-binaries/velocity
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: velocity-binaries
           path: |
             image/velocity-binaries/velocity
             image/velocity-binaries/VERSION
+            image/velocity-binaries/SHA256
           retention-days: 1
 
   release-linux-radar:

@@ -4,6 +4,7 @@
 # Expects CI artifacts in ${BASE_DIR}/velocity-binaries/:
 #   velocity   (ARM64 Go binary, pcap-enabled, multi-call dispatcher)
 #   VERSION    (the version string, used to name the on-disk versions/<v>/ dir)
+#   SHA256     (checksum generated alongside the release artifact)
 #
 # The binary is installed into the versioned layout that
 # `velocity device upgrade` swaps atomically at runtime:
@@ -24,9 +25,15 @@ if [ -z "${VERSION}" ]; then
     exit 1
 fi
 
+(cd "${BINARIES_DIR}" && sha256sum -c SHA256)
+
 # Install the real binary under its versioned directory.
 install -D -m 755 "${BINARIES_DIR}/velocity" \
     "${ROOTFS_DIR}/opt/velocity-report/versions/${VERSION}/velocity"
+
+EXPECTED_SHA="$(cut -d ' ' -f 1 "${BINARIES_DIR}/SHA256")"
+INSTALLED_SHA="$(sha256sum "${ROOTFS_DIR}/opt/velocity-report/versions/${VERSION}/velocity" | cut -d ' ' -f 1)"
+test "${INSTALLED_SHA}" = "${EXPECTED_SHA}"
 
 # current -> versions/<v> (relative target, resolved within /opt/velocity-report).
 ln -sfn "versions/${VERSION}" "${ROOTFS_DIR}/opt/velocity-report/current"

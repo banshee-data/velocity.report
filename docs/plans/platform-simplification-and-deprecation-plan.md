@@ -75,11 +75,11 @@ Rationale: useful for development, but not required as first-class public workfl
 
 ### 2) `cmd/` app and tool candidates
 
-#### A. `cmd/deploy` (replaced by `velocity-ctl` in v0.5.1): ✅ complete
+#### A. `cmd/deploy` (replaced by `velocity device …` in v0.5.1): ✅ complete
 
 - Replaced by [internal/cmd/device/](../../internal/cmd/device): purpose-built on-device management binary.
 - Reduction: one binary + 3,678 LOC + SSH surface + associated Make targets + duplicated deployment docs.
-- See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl).
+- See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl) for the superseded intermediate design.
 
 #### B. `cmd/transit-backfill` (high priority): ✅ complete
 
@@ -136,31 +136,31 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 ## Prioritised deprecation targets
 
-1. **`cmd/deploy` replaced by `velocity-ctl`** (✅ v0.5.1)
-2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`): replaced by `build-ctl*`
+1. **`cmd/deploy` replaced by `velocity device …`** (✅ v0.5.1)
+2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`): replaced by the on-device `velocity device …` lifecycle
 3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)): v0.5.0 breaking changes
 4. **`cmd/transit-backfill` and unowned tools cleanup**
 5. **LiDAR forwarding flag simplification**
 6. **Stats/plot/API-shortcut target consolidation after #252 parity**
 
-## Migration guidance: deploy tool → velocity-ctl
+## Migration guidance: deploy tool → `velocity device`
 
-The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`) are **deleted in v0.5.1**. The replacement is `velocity-ctl` ([design doc](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl)).
+The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`) are **deleted in v0.5.1**. The replacement is the `velocity device …` namespace in the multi-call binary; the earlier `velocity-ctl` intermediate design is superseded.
 
 ### Current workflow (deleted in v0.5.1)
 
 1. Cross-compile binary: `make build-radar-linux`
-2. Build deploy tool: `make build-deploy` → replaced by `make build-ctl`
+2. Build deploy tool: `make build-deploy`
 3. Copy binary and deploy tool to Pi or use SSH: `make deploy-install`
 4. Install LaTeX remotely: `make deploy-install-latex TARGET=<host>`
 5. Upgrade via SSH: `make deploy-upgrade`
 
 ### New workflow (v0.5.1)
 
-1. Build a complete Raspberry Pi image: `make build-image` (planned)
+1. Build a complete Raspberry Pi image: `make build-image`
 2. Flash the image to an SD card using Raspberry Pi Imager or `dd`
 3. Boot the Pi: the service starts automatically with all dependencies pre-installed
-4. Upgrade in-place: `sudo velocity-ctl upgrade` checks GitHub Releases,
+4. Upgrade in-place: `sudo velocity device upgrade` checks GitHub Releases,
    downloads the latest binary, and applies the upgrade: preserving the
    sensor database and all collected data. See
    [deploy-rpi-imager-fork-plan.md § 4.2.2a](deploy-rpi-imager-fork-plan.md#422a-update-mechanism)
@@ -210,7 +210,7 @@ reference only.
 
 Removal of `cmd/deploy`, its associated Make targets, and legacy deployment documentation is gated on **all** of the following conditions being met:
 
-1. **#210 image pipeline operational:** A working `make build-image` (or equivalent) target produces a bootable Raspberry Pi image with `velocity-report` binary, systemd service, database, and LaTeX pre-installed. The image must boot on a Raspberry Pi 4 and pass an integration check: service starts, API responds on `:8080`, and database is accessible.
+1. **#210 image pipeline operational:** A working `make build-image` target produces a bootable Raspberry Pi image with the static multi-call `velocity` binary, systemd service, database directory, and embedded Go + Typst PDF path. The image must boot on a Raspberry Pi 4 and pass an integration check: service starts, API responds on `:80`, and database is accessible.
 2. **Packaging path confirmed:** At least one successful end-to-end deployment has been performed using the image pipeline (flash → boot → service running → API responding).
 3. **Migration period elapsed:** v0.5.0 has shipped with both the image pipeline and the deprecated deploy tool available, giving users time to migrate. Removal is planned for v0.5.1.
 4. **No active deploy-tool users:** No known deployments rely exclusively on `cmd/deploy` for upgrades (confirmed via release notes or user communication).
@@ -219,7 +219,7 @@ Once all four conditions are met, the following will be removed:
 
 - `cmd/deploy/` directory and binary
 - `internal/deploy/` package
-- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`; all replaced by `build-ctl`, `build-ctl-linux`
+- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`; all replaced by the image build and on-device `velocity device …` lifecycle
 - `scripts/setup-radar-host.sh`
 - Deployment section from [README.md](../../README.md) (replaced by image pipeline instructions)
 
@@ -243,9 +243,9 @@ sub-plan:
 
 ### 2. Deployment surface replaced
 
-- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets are **deleted** in v0.5.1. Replaced by `velocity-ctl` ([internal/cmd/device/](../../internal/cmd/device)).
-- **Impact:** `velocity-deploy` binary no longer exists. `velocity-update` wrapper script no longer exists. Users run `sudo velocity-ctl upgrade` instead.
-- **Migration:** See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement-velocity-ctl) for the replacement.
+- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets are **deleted** in v0.5.1. Replaced by `velocity device …` ([internal/cmd/device/](../../internal/cmd/device)).
+- **Impact:** `velocity-deploy` binary no longer exists. `velocity-update` wrapper script no longer exists. Users run `sudo velocity device upgrade` instead.
+- **Migration:** See [distribution-packaging.md](../platform/operations/distribution-packaging.md) for the current shipped command surface.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.
 
 ### 3. `cmd/transit-backfill` soft-deprecated

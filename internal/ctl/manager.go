@@ -385,13 +385,39 @@ func (m *Manager) applyLocalBinary(path string) error {
 	// timestamped manual version so it slots into the versioned layout.
 	v := "local-" + m.now().UTC().Format("20060102-150405")
 	fmt.Fprintf(m.out, "Applying local binary as version %s: %s\n", v, path)
-	return m.applyVersionedUpgrade(v, path)
+	// The timestamp is an install-slot identifier, not the version reported by
+	// the binary. Verify against the embedded version so successful offline
+	// upgrades do not always stall for VerifyTimeout and emit a false warning.
+	want := binaryReportedVersion(path)
+	return m.applyVersionedUpgrade(v, path, want)
+}
+
+func binaryReportedVersion(path string) string {
+	cmd := exec.Command(path)
+	// The multi-call dispatcher keys off argv[0]. Local upgrade files commonly
+	// have names such as velocity-candidate, so explicitly select the canonical
+	// `velocity version` applet regardless of the source filename.
+	cmd.Args = []string{"velocity", "version"}
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return parseReportedVersion(output)
+}
+
+func parseReportedVersion(output []byte) string {
+	for _, field := range strings.Fields(string(output)) {
+		if len(field) > 1 && field[0] == 'v' && field[1] >= '0' && field[1] <= '9' {
+			return strings.TrimPrefix(field, "v")
+		}
+	}
+	return ""
 }
 
 // applyVersionedUpgrade stages srcBinary as versions/<v>/<BinaryName>, runs the
 // NEW binary's migrations before the swap, atomically activates the version,
 // restarts the service, verifies the running version, and prunes old versions.
-func (m *Manager) applyVersionedUpgrade(v, srcBinary string) error {
+func (m *Manager) applyVersionedUpgrade(v, srcBinary string, reportedVersion ...string) error {
 	vdir := m.versionDir(v)
 	if err := os.MkdirAll(vdir, 0o755); err != nil {
 		return fmt.Errorf("creating version dir %s: %w", vdir, err)
@@ -426,7 +452,11 @@ func (m *Manager) applyVersionedUpgrade(v, srcBinary string) error {
 		return fmt.Errorf("restarting service: %w", err)
 	}
 
-	m.verifyRunningVersion(v)
+	want := v
+	if len(reportedVersion) > 0 && reportedVersion[0] != "" {
+		want = reportedVersion[0]
+	}
+	m.verifyRunningVersion(want)
 
 	if err := m.prune(); err != nil {
 		fmt.Fprintf(m.err, "warning: pruning old versions failed: %v\n", err)

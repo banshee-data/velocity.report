@@ -36,7 +36,6 @@ apt-mark manual \
     libsqlite3-0 \
     openssl libssl3 libcrypt1 \
     ca-certificates \
-    libpcap0.8 \
     openssh-server openssh-client openssh-sftp-server ssh \
     systemd systemd-sysv systemd-timesyncd \
     network-manager libnm0 libndp0 libbluetooth3 \

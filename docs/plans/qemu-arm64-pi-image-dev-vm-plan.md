@@ -54,7 +54,7 @@ host (Linux x86_64)
     │   └── Matches production byte-for-byte
     ├── hostfwd: tcp 2222→22, tcp 8080→8080
     ├── login-server override: /etc/default/tailscaled FLAGS="--login-server=..."
-    └── /usr/local/bin/velocity-report + velocity-ctl (replaced via qemu-push)
+    └── /usr/local/bin/velocity + velocity-report alias (replaced via qemu-push)
 ```
 
 Note: `qemu-system-aarch64` with TCG is slow. On a typical developer
@@ -235,7 +235,7 @@ plan issue.
 
 **R2: qcow2 sparse semantics.** The `.img` file may be partially sparse
 (unallocated space). Converting to qcow2 preserves sparse regions, saving
-disk space on the host. But if the image is fully materialized (not sparse),
+disk space on the host. But if the image is fully materialised (not sparse),
 conversion still takes time. Documented in the README; not a blocker.
 
 **R3: Divergence from prod on -M virt.** Using `-M virt` instead of

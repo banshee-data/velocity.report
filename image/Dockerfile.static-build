@@ -1,0 +1,124 @@
+# Dockerfile.static-build — hermetic toolchain for fully-static
+# linux/{amd64,arm64} velocity-report binaries.
+#
+# Pin policy: every input that affects the binary's bytes is pinned to
+# a content digest. Base image to a registry sha256, toolchain tarballs
+# to upstream-published sha256s. Updates are explicit edits to this
+# file, not "what happened to be on the network today."
+#
+# Driven by scripts/build-radar-static.sh — not intended to be invoked
+# directly.
+
+# ---------------------------------------------------------------------------
+# Stage 1 — toolchain. Rarely invalidated (only when these ARGs change).
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim@sha256:67b30a61dc87758f0caf819646104f29ecbda97d920aaf5edc834128ac8493d3 AS toolchain
+
+ARG GO_VERSION=1.26.5
+ARG GO_SHA256=5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053
+ARG ZIG_VERSION=0.13.0
+ARG ZIG_SHA256=d45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl xz-utils \
+        cmake make flex bison \
+        git \
+        file \
+    && rm -rf /var/lib/apt/lists/*
+
+# Go (SHA-verified before extract).
+RUN curl -fsSL -o /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+    && echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum -c - \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz
+ENV PATH=/usr/local/go/bin:$PATH \
+    GOTOOLCHAIN=local
+
+# Zig (SHA-verified before extract). Used as the cgo C compiler
+# targeting <arch>-linux-musl.
+RUN curl -fsSL -o /tmp/zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" \
+    && echo "${ZIG_SHA256}  /tmp/zig.tar.xz" | sha256sum -c - \
+    && tar -C /usr/local -xJf /tmp/zig.tar.xz \
+    && rm /tmp/zig.tar.xz \
+    && ln -s "/usr/local/zig-linux-x86_64-${ZIG_VERSION}/zig" /usr/local/bin/zig
+
+ENV GOPATH=/go GOMODCACHE=/go/pkg/mod
+WORKDIR /src
+
+# Prime the Go module cache. Invalidates only on go.mod/go.sum change.
+COPY go.mod go.sum ./
+RUN go mod download
+
+# ---------------------------------------------------------------------------
+# Stage 2 — libpcap.a. Invalidates only when the submodule pointer or
+# the build infra changes. Independent of Go source and version metadata.
+# ---------------------------------------------------------------------------
+FROM toolchain AS libpcap
+
+ARG ARCHES="amd64 arm64"
+
+COPY third_party/libpcap /src/third_party/libpcap
+COPY third_party/libpcap-static /src/third_party/libpcap-static
+RUN set -eux; \
+    for arch in $ARCHES; do \
+        /src/third_party/libpcap-static/build.sh "$arch"; \
+    done
+
+# ---------------------------------------------------------------------------
+# Stage 3 — Go binaries. Invalidates on source change or version-stamp
+# change. Reuses libpcap.a from the layer above without recompiling it.
+# ---------------------------------------------------------------------------
+FROM libpcap AS build
+
+ARG ARCHES="amd64 arm64"
+ARG VERSION=dev
+ARG DEV_VERSION=dev
+ARG GIT_SHA=unknown
+ARG GIT_SHA_SHORT=unknown
+ARG BUILD_TIME=unknown
+ARG TYPST_VERSION=0.13.1
+
+COPY . /src
+RUN ./scripts/ensure-web-stub.sh && ./scripts/ensure-docs-stub.sh
+
+# DEV_VERSION and GIT_SHA_SHORT are computed on the host (bash-only
+# parameter expansion) and passed in as ARGs; this image's /bin/sh is
+# dash and would choke on `${VERSION//-/.}` inline.
+RUN set -eux; \
+    mkdir -p /out; \
+    VPKG=github.com/banshee-data/velocity.report/internal/version; \
+    for arch in $ARCHES; do \
+        case "$arch" in \
+            amd64) zig_target=x86_64-linux-musl ;; \
+            arm64) zig_target=aarch64-linux-musl ;; \
+            *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
+        esac; \
+        pcap_dir="/src/third_party/libpcap-static/out/$arch"; \
+        TYPST_CACHE_DIR=/tmp/velocity-typst-cache \
+            ./scripts/download-typst.sh "$TYPST_VERSION" linux "$arch" \
+            /src/internal/report/typst/typstbin/dist/typst; \
+        out="/out/velocity-report-${DEV_VERSION}-linux-${arch}-${GIT_SHA_SHORT}-static"; \
+        echo "==> building $out (zig target $zig_target)"; \
+        GOOS=linux GOARCH="$arch" CGO_ENABLED=1 \
+            CC="zig cc -target $zig_target" \
+            CXX="zig c++ -target $zig_target" \
+            CGO_CFLAGS="-I$pcap_dir/include" \
+            CGO_LDFLAGS="-L$pcap_dir/lib" \
+            CGO_LDFLAGS_ALLOW='-static' \
+            go build \
+                -tags=pcap,typst_embed \
+                -trimpath \
+                -buildvcs=false \
+                -ldflags "-s -w -buildid= -extldflags=-static -X '${VPKG}.Version=${VERSION}' -X '${VPKG}.GitSHA=${GIT_SHA}' -X '${VPKG}.BuildTime=${BUILD_TIME}'" \
+                -o "$out" \
+                ./cmd/velocity; \
+        file "$out"; \
+    done
+
+# ---------------------------------------------------------------------------
+# Stage 4 — export. The only stage anyone outside this Dockerfile cares
+# about: a scratch image whose root is just the built binaries, ready
+# for `docker build --output type=local,dest=./build`.
+# ---------------------------------------------------------------------------
+FROM scratch AS export
+COPY --from=build /out/ /

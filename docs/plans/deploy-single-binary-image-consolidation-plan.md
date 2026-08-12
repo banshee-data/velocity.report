@@ -1,8 +1,8 @@
 # Single-binary image consolidation
 
-- **Status:** Draft
+- **Status:** Active; most v0.5.1 consolidation has landed, with static Tailscale install still outstanding
 - **Layers:** Cross-cutting (Go binary, image build, systemd, PDF pipeline, Tailscale, sudoers)
-- **Target:** v0.5.1 (single primary binary cutover, static-binary Tailscale, embedded Typst, Typst source archive, read-only SQL path, and trim runtime apt deps down to `libpcap0.8` + `raspi-config`), v0.5.2 (remove the remaining apt purge/build-stage scaffolding and simplify stages); deliberately ahead of v0.6.0 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
+- **Target:** v0.5.1 (single primary binary cutover, embedded Typst, read-only SQL path, static Linux image/release binary route, and runtime apt manifest trimmed to `raspi-config` plus the still-separate Tailscale stage), v0.5.2 (in-binary Tailscale installer and remaining image-stage simplification); deliberately ahead of v0.6.0 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
 - **Companion plans:** [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md), [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md), [deploy-distribution-packaging-plan.md](deploy-distribution-packaging-plan.md), [cli-restructuring-plan.md](cli-restructuring-plan.md), [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md), [binary-size-reduction-plan.md](binary-size-reduction-plan.md), [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md), [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 - **Supersedes:** the "fold sweep / ctl later" sequencing in [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md); the texlive trimming work in [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md); the Phase 2 ".fmt precompile" goal in [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md) § Phase 2 — replaced wholesale by removing xelatex.
@@ -11,7 +11,7 @@
 
 ## Motivation
 
-The velocity.report Pi image today is a mixed Debian + Go + apt + bash + python tooling stack. Five things make updates fragile and the image fat:
+The velocity.report Pi image started this cycle as a mixed Debian + Go + apt + bash + python tooling stack. Five things made updates fragile and the image fat:
 
 1. Two Go binaries shipped to `/usr/local/bin` (`velocity-report`, `velocity-ctl`) plus a redirect stub (`velocity-update`), all sharing one Go runtime and embedded web build.
 2. A 143 MB vendored TeX Live tree extracted at image-build time from ~1 GB of apt packages that are then purged. xelatex is the only reason it exists.
@@ -25,75 +25,90 @@ If we do not do this before wide release, every one of these surfaces becomes a 
 
 ## Current state
 
-### Image layout (2026-05)
+### Image layout (current branch)
 
 Stage scripts under [image/stage-velocity/](../../image/stage-velocity/):
 
-| Stage                   | Purpose                                                                                     | apt packages installed                                                                                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `00-install-packages`   | install apt deps; build minimal TeX tree; purge apt TeX                                     | `nginx`, `librsvg2-bin`, `fonts-noto-color-emoji`, `texlive-xetex`, `texlive-latex-extra`, `fonts-lmodern`, `libpcap0.8`, `raspi-config`, `python3-serial`, `minicom`, `sqlite3`, `jq`, `curl` |
-| `01-velocity-binaries`  | install Go binaries                                                                         | (none) — installs `velocity-report`, `velocity-ctl`, `velocity-update`                                                                                                                         |
-| `02-velocity-python`    | create report output dir (legacy name; no python ships)                                     | (none)                                                                                                                                                                                         |
-| `03-velocity-config`    | systemd, sudoers, aliases, MOTD, nginx site, TLS cert oneshot, UART/SPI overlay, udev rules | (none)                                                                                                                                                                                         |
-| `04-velocity-lidar`     | static IP for LiDAR subnet                                                                  | (none)                                                                                                                                                                                         |
-| `05-velocity-wifi`      | regulatory domain fallback                                                                  | (none)                                                                                                                                                                                         |
-| `06-cleanup`            | purge dev/compiler/desktop/camera/X11/python-dev packages                                   | (purges, no installs)                                                                                                                                                                          |
-| `07-networking`         | finalise NetworkManager defaults                                                            | (none)                                                                                                                                                                                         |
-| `07-velocity-tailscale` | add Tailscale apt repo, install `tailscale`, mask the daemon                                | `tailscale`                                                                                                                                                                                    |
+| Stage                   | Purpose                                                                                                    | apt packages installed                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `00-install-packages`   | install baseline runtime package surface                                                                   | `raspi-config`                                                                                         |
+| `01-velocity-binaries`  | install the staged static ARM64 multi-call `velocity` binary into `/opt/velocity-report`                   | (none)                                                                                                 |
+| `03-velocity-config`    | systemd, scoped sudoers, aliases, MOTD, UART/SPI overlay, udev install, public docs copy                   | (none)                                                                                                 |
+| `04-velocity-lidar`     | static IP for LiDAR subnet via embedded `velocity device install network` payload                          | (none)                                                                                                 |
+| `05-velocity-wifi`      | regulatory domain fallback via embedded `velocity device install wifi` payload                             | (none)                                                                                                 |
+| `06-cleanup`            | purge dev/compiler/desktop/camera/X11/python-dev packages and package-manager cache                        | (purges, no installs)                                                                                  |
+| `07-networking`         | finalise NetworkManager defaults                                                                           | (none)                                                                                                 |
+| `07-velocity-tailscale` | add Tailscale apt repo, install `curl` transiently for keyring fetch, install `tailscale`, mask the daemon | `curl` during stage execution, then `tailscale` as the remaining runtime package outside `00-packages` |
 
-The two-binary surface:
+The binary surface:
 
-- [internal/cmd/server/](../../internal/cmd/server) — server binary, installed as `velocity-report`. Defaults to `serve`; subcommands `migrate`, `pdf`, `transits`.
-- [internal/cmd/device/](../../internal/cmd/device) — operator binary, installed as `velocity-ctl`. Subcommands `upgrade`, `rollback`, `backup`, `status`, `tailscale`.
-- [internal/cmd/tune/](../../internal/cmd/tune) — sweep harness, only ever built locally; not shipped to the Pi today.
+- `cmd/velocity` builds one multi-call binary named `velocity`.
+- `/usr/local/bin/velocity` is the canonical CLI entry point.
+- `/usr/local/bin/velocity-report` remains a compatibility alias for the server-oriented default.
+- The old standalone `velocity-ctl` binary and `velocity-update` redirect stub are removed; operator lifecycle is `velocity device ...`.
+- The `tune`, `data`, `report`, `serve`, `version`, and `device` namespaces live in the same binary.
 
 PDF pipeline:
 
-- `internal/report/report.go` shells out to `xelatex` two passes. Needs `/opt/velocity-report/texlive/` (143 MB) or system TeX Live.
-- `internal/report/tex/templates/` holds Go `text/template`-driven `.tex` sources. Output is a single PDF assembled with vendored Latin Modern, Noto Color Emoji, and SVG inclusion via `\includesvg` and `rsvg-convert`.
+- Report generation uses the Go + Typst path only. The old xelatex/TeX tree,
+  rsvg, and report-compiler package surface are removed from the image build.
+- Typst is embedded in the Go binary and validated by the server self-check.
 
 Tailscale lifecycle:
 
-- `image/stage-velocity/07-velocity-tailscale/01-run.sh` adds `pkgs.tailscale.com/stable/debian/<codename>` to apt sources and `apt install tailscale`. Daemon is then `systemctl mask`-ed.
-- `velocity-ctl tailscale enable-tailscaled` (called via a narrow sudoers grant by the Go server) unmasks, enables, and starts the daemon when the operator opts in via the web UI.
-- `internal/tailscale` drives login URL, `tailscale set --operator=velocity`, and `tailscale serve` against `http://127.0.0.1:8080` once the daemon is up.
+- `image/stage-velocity/07-velocity-tailscale/01-run.sh` still adds
+  `pkgs.tailscale.com/stable/debian/<codename>` to apt sources and
+  `apt install tailscale`. Daemon is then `systemctl mask`-ed.
+- `velocity device tailscale enable-tailscaled` (called via a narrow sudoers
+  grant by the Go server) unmasks, enables, and starts the daemon when the
+  operator opts in via the web UI.
+- `internal/tailscale` drives login URL, `tailscale set --operator=velocity`, and `tailscale serve` against `http://127.0.0.1:80` once the daemon is up.
+
+Build toolchain:
+
+- Static Linux image/release binaries are built through
+  [scripts/build-radar-static.sh](../../scripts/build-radar-static.sh), using
+  the hermetic Docker toolchain in
+  [image/Dockerfile.static-build](../../image/Dockerfile.static-build).
+- Docker installs pinned Go and zig toolchains, targets musl, and builds
+  `libpcap.a` from the vendored [third_party/libpcap](../../third_party/libpcap)
+  submodule.
+- Image staging uses [scripts/stage-image-binary.sh](../../scripts/stage-image-binary.sh)
+  and [scripts/verify-static-elf.sh](../../scripts/verify-static-elf.sh) so a
+  dynamic `libpcap.so` dependency cannot enter the image by accident.
 
 ## Findings
 
-| Area                                                                          | Current state                                                                                                                                                                             | Severity | Release view                                                                                                                                                    |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Two production Go binaries                                                    | `velocity-report` + `velocity-ctl` share runtime, web embed, version metadata; ship as separate artifacts.                                                                                | High     | Must fold into one before v0.6.0 wide release; otherwise the upgrade surface promises both binaries.                                                            |
-| `xelatex` + 143 MB TeX tree                                                   | Required only because the PDF pipeline writes `.tex`. xelatex run cost is ~2–4 s/report on a Pi 4.                                                                                        | High     | Typst is a single statically-linked binary, ~30 MB, native SVG, no external font matrix. Removing TeX removes the largest non-Go surface on the image.          |
-| Tailscale apt install at image-build                                          | Apt repo, codename detection, GPG keyring, install, mask. Image carries `tailscale` even for operators who never opt in.                                                                  | Medium   | Move the install to the moment the operator opts in. The image then ships zero Tailscale state.                                                                 |
-| `nginx` + self-signed TLS                                                     | Only purpose is TLS termination on `:443`. Browser warning UX is the worst dialog in the project.                                                                                         | Medium   | Already covered by [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md); pulled forward into this plan so the v0.5.1 image is the one we ship publicly. |
-| `librsvg2-bin`, `fonts-noto-color-emoji`, `fonts-lmodern`, `tipa`, `tex-gyre` | Only needed by the xelatex pipeline (SVG inclusion + map emoji).                                                                                                                          | Medium   | Disappear with xelatex.                                                                                                                                         |
-| `python3-serial`, `minicom`                                                   | Debugging only. Never invoked by the service.                                                                                                                                             | Low      | Drop with no replacement.                                                                                                                                       |
-| `jq`                                                                          | Only used by build-time shell scripts; not invoked at runtime.                                                                                                                            | Low      | Drop from image; keep in CI runners.                                                                                                                            |
-| `sqlite3`                                                                     | Used for ad-hoc DB inspection on the device.                                                                                                                                              | Low      | Replace with `velocity data sql --read-only` in v0.5.1 so routine inspection stays inside the supported binary surface.                                         |
-| `curl`                                                                        | Used by Tailscale install today; otherwise nothing on the device calls it.                                                                                                                | Low      | Drops when the Tailscale apt install is removed and the in-binary installer takes over via Go HTTP.                                                             |
-| `velocity-update` stub                                                        | Already a one-liner script that prints "use velocity-ctl".                                                                                                                                | Low      | Delete once `velocity-ctl` is the multi-call binary or folded into `velocity-report`.                                                                           |
-| Shell lifecycle aliases                                                       | `velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, `velocity-bounce` — promoted public surface per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md). | None     | Keep. These are host concerns, not binary concerns.                                                                                                             |
-| Embedded tuning defaults                                                      | `/opt/velocity-report/config/tuning.defaults.json` shipped as a separate file.                                                                                                            | Low      | Embed into the binary with `go:embed`; let the operator override via the existing config flag.                                                                  |
+| Area                                         | Current state                                                                                                                        | Release view                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Single production Go binary                  | Landed. `velocity` owns `serve`, `device`, `data`, `report`, `tune`, and `version`; `velocity-report` is only a compatibility alias. | Keep one promoted binary surface.                                                                             |
+| Static Linux image/release build             | Landed. Docker + zig/musl builds linux/{amd64,arm64}; vendored `libpcap.a` is linked statically and verified before staging.         | Image and release artifacts must continue through the shared static route.                                    |
+| `xelatex` + TeX tree                         | Removed. Reports use Go + embedded Typst; no TeX tree or rsvg package surface ships for reporting.                                   | Treat any reintroduction of TeX/image report packages as a release blocker.                                   |
+| Tailscale apt install at image build         | Still present. Stage 07 installs `curl` transiently, installs `tailscale`, and masks the daemon until opt-in.                        | Remaining major size/surface reduction is work unit B: in-binary Tailscale install or explicit accepted debt. |
+| `nginx` + self-signed TLS                    | Removed. Go binds `:80` directly with `CAP_NET_BIND_SERVICE`; HTTPS is a Tailscale Serve opt-in.                                     | Keep.                                                                                                         |
+| `python3-serial`, `minicom`, `jq`, `sqlite3` | Removed from the project apt manifest. SQLite inspection is `velocity data sql --read-only`.                                         | Keep diagnostics inside the supported binary surface.                                                         |
+| Shell lifecycle aliases                      | `velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, `velocity-bounce` remain.                                      | Keep. These are host lifecycle wrappers, not application namespaces.                                          |
+| Embedded tuning/network/udev/wifi defaults   | Landed via `go:embed` plus `velocity device install ...`.                                                                            | Keep installer payloads binary-owned.                                                                         |
 
 ## Design / approach
 
-This plan is one direction of travel with five named work units. Each is independently shippable and independently reversible.
+This plan is one direction of travel with five named work units. Each is independently shippable and independently reversible. Work units A, C, D, and most of E have landed; work unit B remains the major release-follow-up if we decide not to carry the Tailscale apt package into the final v0.5.1 image.
 
 **Direction of travel.** The Pi image becomes, at runtime:
 
 ```
 runtime artifact     who owns it
 -------------------  -------------------------------------
-/opt/velocity-report/velocity      single Go binary, multi-call
+/opt/velocity-report/versions/<v>/velocity  single Go binary, multi-call
 /etc/systemd/system/velocity.service   service unit
 /etc/profile.d/velocity-aliases.sh     5 shell wrappers
 /var/lib/velocity-report/sensor_data.db  SQLite WAL
 /etc/sudoers.d/020_velocity-nopasswd   3 lines: systemctl + tailscaled bridge
 ```
 
-No xelatex tree. No nginx. No apt tailscale. No `velocity-ctl`, no `velocity-update`, no vendored Typst tree, no `sqlite3` dependency for routine inspection. The only apt packages left at runtime are: the base OS + libc + libpcap + raspi-config + the network stack the OS already ships. Goal end-state for v0.6.0 is "the Pi image is Pi OS Lite + one primary Go binary plus only the binary-owned helper payloads needed to avoid runtime dependency drift."
+No xelatex tree. No nginx. No `velocity-ctl`, no `velocity-update`, no vendored Typst tree, no `sqlite3` dependency for routine inspection, and no runtime `libpcap0.8` dependency from the application binary. The current repo-level `00-packages` manifest is down to `raspi-config`; the remaining non-base runtime package surface is Tailscale from `07-velocity-tailscale`, pending work unit B. Goal end-state for v0.6.0 is "the Pi image is Pi OS Lite + one primary Go binary plus only the binary-owned helper payloads needed to avoid runtime dependency drift."
 
-**Compatibility contract.** `velocity-report` survives as the alias the systemd unit calls; `velocity-ctl` survives only as a transitional redirect into `velocity device ...` for one release. All other surfaces are deleted, not deprecated.
+**Compatibility contract.** `velocity-report` survives as the server-oriented alias the systemd unit can call; `velocity-ctl` and `velocity-update` are removed. All other removed surfaces are deleted, not deprecated.
 
 ### Work unit A: fold `velocity-ctl` and operator tools into one binary (v0.5.1) `M`
 
@@ -131,7 +146,7 @@ This is an accepted helper payload, not a second promoted application surface. T
 
 **Milestone:** v0.5.1. Validated against bookworm and trixie.
 
-### Work unit C: replace xelatex with Typst (v0.5.1) `L`
+### Work unit C: replace xelatex with Typst (v0.5.1) `L` ✅
 
 **Why now.** xelatex is the load-bearing reason for ~30% of the apt surface on the image and most of the PDF-side complexity. Typst is a single static binary, ~30 MB, with native SVG support and a Go-callable invocation pattern that mirrors what we already do with xelatex.
 
@@ -158,7 +173,7 @@ There is no production Go library binding to Typst's Rust crate; the credible pa
 7. Delete the `Phase 2 .fmt precompile` work from [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md) § Phase 2 and [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md). The whole problem disappears.
 8. CI: add a "PDF parity" job that renders a fixed report.json through both the old (xelatex) and new (Typst) pipelines for one release before deleting the xelatex path; compare page count, dominant glyph fingerprints, chart bounding boxes, and source-archive completeness. Delete the xelatex path after one release of co-existence.
 
-**Milestone:** v0.5.1. xelatex path deleted at v0.5.2 after one release of parity coverage.
+**Milestone:** v0.5.1. Landed; xelatex, report compiler packages, minimal-TeX scripts, and the old parity window are removed.
 
 ### Work unit D: pull nginx removal into v0.5.1 (instead of v0.6.0) `S`
 
@@ -176,7 +191,6 @@ This is just sequencing — the design is already done in [deploy-nginx-removal-
 Once C and D land, the apt package list in [image/stage-velocity/00-install-packages/00-packages](../../image/stage-velocity/00-install-packages/00-packages) becomes:
 
 ```
-libpcap0.8         # LiDAR support
 raspi-config       # serial port / UART config
 ```
 
@@ -196,48 +210,48 @@ Everything else either disappears with C/D or moves into the binary via B.
 
 Inventory of every artifact that is not the binary itself, with effort to fold or remove. Items already covered above are marked with their work unit.
 
-| Artifact                                                          | Today                                                                                    | Future state                                                                                                                                                | Effort          |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| `velocity-ctl`                                                    | Separate binary at `/usr/local/bin/velocity-ctl`.                                        | `velocity device ...` namespace inside the multi-call binary.                                                                                               | A (`M`)         |
-| `velocity-update` redirect stub                                   | Shell script at `/usr/local/bin/velocity-update`.                                        | Deleted.                                                                                                                                                    | A (`S`)         |
-| `internal/cmd/tune/`                                              | Local-dev binary; not shipped.                                                           | `velocity tune sweep`; shipped inside the binary.                                                                                                           | A (`S`)         |
-| Tailscale apt repo + install                                      | Image-build stage.                                                                       | Static-binary installer inside `velocity device tailscale install`; helper payload owned and versioned by the main binary; deferred until operator opts in. | B (`M`)         |
-| `tailscaled` mask state                                           | Set at image-build.                                                                      | Set by the binary at install time.                                                                                                                          | B (`S`)         |
-| `texlive-xetex` + minimal TeX tree                                | 143 MB at `/opt/velocity-report/texlive/`.                                               | Deleted; Typst replaces.                                                                                                                                    | C (`L`)         |
-| `librsvg2-bin` + `fonts-noto-color-emoji` + `fonts-lmodern`       | apt packages for the xelatex pipeline.                                                   | Deleted.                                                                                                                                                    | C (`S` after C) |
-| `scripts/build-minimal-texlive.sh` + `install-minimal-texlive.sh` | 200+ lines of bash that walk the TeX dependency manifest.                                | Deleted.                                                                                                                                                    | C (`S` after C) |
-| `nginx` + site + TLS oneshot                                      | Reverse proxy for `:443`.                                                                | Deleted; Go binds `:80` directly.                                                                                                                           | D (`S`)         |
-| `velocity-generate-tls.sh` + service                              | Self-signed cert generation oneshot.                                                     | Deleted.                                                                                                                                                    | D (`S`)         |
-| `tuning.defaults.json`                                            | File at `/opt/velocity-report/config/`.                                                  | `go:embed` into the binary; operator override via existing config flag.                                                                                     | E (`S`)         |
-| `lidar-network.conf`                                              | `/etc/network/interfaces.d/lidar`.                                                       | `go:embed` + `velocity device install network`.                                                                                                             | E (`S`)         |
-| `99-velocity-report.rules` (udev)                                 | `/etc/udev/rules.d/99-velocity-report.rules`.                                            | `go:embed` + `velocity device install udev`.                                                                                                                | E (`S`)         |
-| `wpa_supplicant.conf` fallback                                    | `/etc/wpa_supplicant/wpa_supplicant.conf`.                                               | `go:embed` + `velocity device install wifi`.                                                                                                                | E (`S`)         |
-| `velocity-aliases.sh` (host lifecycle wrappers)                   | `/etc/profile.d/velocity-aliases.sh`.                                                    | Stays — host lifecycle is not a binary concern per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md).                                      | (none)          |
-| `velocity-motd.sh` + `velocity-report-build`                      | MOTD shell script + build stamp.                                                         | Stays; embed the build stamp into the binary and have the MOTD read it from `velocity version`.                                                             | E (`S`)         |
-| `sudoers.d/020_velocity-nopasswd`                                 | Grants `pi` broad `velocity-ctl *`; grants `velocity` two literal tailscale subcommands. | Shrinks to: `pi → velocity device *`; `velocity → velocity device tailscale {enable,disable}-tailscaled` plus the static-installer bridge.                  | A + B (`S`)     |
-| UART/SPI overlay edits to `/boot/firmware/config.txt`             | Direct file edits in stage script.                                                       | Stays in the image stage; this is firmware-boot config, not a runtime concern.                                                                              | (none)          |
-| `raspi-config`                                                    | apt package; used for serial port enable.                                                | Stays.                                                                                                                                                      | (none)          |
-| `libpcap0.8`                                                      | apt package; runtime dep of the Go binary.                                               | Stays.                                                                                                                                                      | (none)          |
-| `python3-serial`, `minicom`                                       | apt packages; debugging only.                                                            | Deleted.                                                                                                                                                    | E (`S`)         |
-| `jq`, `curl`                                                      | apt packages; build-time only.                                                           | Deleted from the image; remain in CI.                                                                                                                       | E (`S`)         |
-| `sqlite3`                                                         | apt package; operator convenience.                                                       | Replaced by `velocity data sql --read-only`; removed from the shipped image once the subcommand lands.                                                      | E (`S`)         |
-| `os-list-velocity.json`                                           | Custom rpi-imager catalog entry.                                                         | Stays.                                                                                                                                                      | (none)          |
-| Reports output dir creation                                       | Stage script `02-velocity-python/00-run.sh`.                                             | First-boot init inside the binary.                                                                                                                          | E (`S`)         |
+| Artifact                                                          | Today                                                                                                                | Future state                                                                                                                                                | Effort  |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `velocity-ctl`                                                    | Removed.                                                                                                             | `velocity device ...` namespace inside the multi-call binary.                                                                                               | Done    |
+| `velocity-update` redirect stub                                   | Shell script at `/usr/local/bin/velocity-update`.                                                                    | Deleted.                                                                                                                                                    | A (`S`) |
+| `internal/cmd/tune/`                                              | Local-dev binary; not shipped.                                                                                       | `velocity tune sweep`; shipped inside the binary.                                                                                                           | A (`S`) |
+| Tailscale apt repo + install                                      | Image-build stage.                                                                                                   | Static-binary installer inside `velocity device tailscale install`; helper payload owned and versioned by the main binary; deferred until operator opts in. | B (`M`) |
+| `tailscaled` mask state                                           | Set at image-build.                                                                                                  | Set by the binary at install time.                                                                                                                          | B (`S`) |
+| `texlive-xetex` + minimal TeX tree                                | Removed.                                                                                                             | Deleted; Typst replaces.                                                                                                                                    | Done    |
+| `librsvg2-bin` + `fonts-noto-color-emoji` + `fonts-lmodern`       | Removed.                                                                                                             | Deleted.                                                                                                                                                    | Done    |
+| `scripts/build-minimal-texlive.sh` + `install-minimal-texlive.sh` | Removed.                                                                                                             | Deleted.                                                                                                                                                    | Done    |
+| `nginx` + site + TLS oneshot                                      | Reverse proxy for `:443`.                                                                                            | Deleted; Go binds `:80` directly.                                                                                                                           | D (`S`) |
+| `velocity-generate-tls.sh` + service                              | Self-signed cert generation oneshot.                                                                                 | Deleted.                                                                                                                                                    | D (`S`) |
+| `tuning.defaults.json`                                            | File at `/opt/velocity-report/config/`.                                                                              | `go:embed` into the binary; operator override via existing config flag.                                                                                     | E (`S`) |
+| `lidar-network.conf`                                              | `/etc/network/interfaces.d/lidar`.                                                                                   | `go:embed` + `velocity device install network`.                                                                                                             | E (`S`) |
+| `99-velocity-report.rules` (udev)                                 | `/etc/udev/rules.d/99-velocity-report.rules`.                                                                        | `go:embed` + `velocity device install udev`.                                                                                                                | E (`S`) |
+| `wpa_supplicant.conf` fallback                                    | `/etc/wpa_supplicant/wpa_supplicant.conf`.                                                                           | `go:embed` + `velocity device install wifi`.                                                                                                                | E (`S`) |
+| `velocity-aliases.sh` (host lifecycle wrappers)                   | `/etc/profile.d/velocity-aliases.sh`.                                                                                | Stays — host lifecycle is not a binary concern per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md).                                      | (none)  |
+| `velocity-motd.sh` + `velocity-report-build`                      | MOTD shell script + build stamp.                                                                                     | Stays; embed the build stamp into the binary and have the MOTD read it from `velocity version`.                                                             | E (`S`) |
+| `sudoers.d/020_velocity-nopasswd`                                 | Grants enumerated `pi → velocity device ...` and `velocity → velocity device tailscale {enable,disable}-tailscaled`. | Add the static-installer bridge only if work unit B lands.                                                                                                  | B (`S`) |
+| UART/SPI overlay edits to `/boot/firmware/config.txt`             | Direct file edits in stage script.                                                                                   | Stays in the image stage; this is firmware-boot config, not a runtime concern.                                                                              | (none)  |
+| `raspi-config`                                                    | apt package; used for serial port enable.                                                                            | Stays.                                                                                                                                                      | (none)  |
+| `libpcap0.8`                                                      | Previously an apt package runtime dep of the Go binary.                                                              | Deleted from the image; the image binary uses vendored static libpcap.                                                                                      | E (`S`) |
+| `python3-serial`, `minicom`                                       | apt packages; debugging only.                                                                                        | Deleted.                                                                                                                                                    | E (`S`) |
+| `jq`, `curl`                                                      | apt packages; build-time only.                                                                                       | Deleted from the image; remain in CI.                                                                                                                       | E (`S`) |
+| `sqlite3`                                                         | apt package; operator convenience.                                                                                   | Replaced by `velocity data sql --read-only`; removed from the shipped image once the subcommand lands.                                                      | E (`S`) |
+| `os-list-velocity.json`                                           | Custom rpi-imager catalog entry.                                                                                     | Stays.                                                                                                                                                      | (none)  |
+| Reports output dir creation                                       | Stage script `02-velocity-python/00-run.sh`.                                                                         | First-boot init inside the binary.                                                                                                                          | E (`S`) |
 
-End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plus the base Pi OS Lite packages. The primary velocity-owned artefact at `/opt/velocity-report/` is the `velocity` binary; any extracted Typst runtime cache or Tailscale payload is subordinate, binary-owned implementation detail rather than a separate public surface.
+End-state apt manifest (target for v0.5.1): **`raspi-config`** plus the base Pi OS Lite packages. The primary velocity-owned artefact at `/opt/velocity-report/` is the `velocity` binary; any extracted Typst runtime cache or Tailscale payload is subordinate, binary-owned implementation detail rather than a separate public surface.
 
 ## Scope
 
 ### Item 1: fold `velocity-ctl`, sweep, and update stub into one binary
 
-**Summary:** One binary `/opt/velocity-report/versions/<v>/velocity`, with `device`, `serve`, `tune`, `data`, `report`, `version`, `help` namespaces; `velocity-report` survives as the systemd-facing alias; `velocity-ctl` survives as a one-release deprecation shim; `velocity-update` deleted.
+**Summary:** One binary `/opt/velocity-report/versions/<v>/velocity`, with `device`, `serve`, `tune`, `data`, `report`, `version`, `help` namespaces; `velocity-report` survives as the systemd-facing alias; `velocity-ctl` and `velocity-update` are deleted.
 
 **Steps:**
 
 1. Move and rename per work unit A above.
 2. Update systemd unit to call `velocity` (or `velocity-report` symlink — same binary).
 3. Update sudoers, MOTD, docs to speak the new command surface.
-4. Add CI parity job: `velocity-ctl upgrade --check` and `velocity device check` produce byte-identical output for one release.
+4. Compatibility parity window is closed; invoke `velocity device ...` directly.
 
 **Milestone:** v0.5.1.
 
@@ -255,7 +269,7 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 
 **Steps:** see work unit C.
 
-**Milestone:** v0.5.1. xelatex path deleted at v0.5.2 after one release of co-existence.
+**Milestone:** v0.5.1. Landed; xelatex path deleted.
 
 ### Item 4: nginx + self-signed TLS removal (pulled forward)
 
@@ -275,9 +289,9 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 
 ## Dependencies
 
-- Work unit A (`velocity-ctl` fold) depends on the multi-call dispatcher landing per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md). The dispatcher is already specified; this plan sequences it into v0.5.1.
-- Work unit B (Tailscale installer) depends on A (the `device` namespace). Order: A → B inside v0.5.1.
-- Work unit C (Typst) depends on the embedded Typst extraction path, the Typst source-archive migration, and the PDF parity job landing together in v0.5.1, with xelatex retained only for one release of comparison coverage.
+- Work unit A (`velocity-ctl` fold) has landed.
+- Work unit B (Tailscale installer) depends on the landed `device` namespace.
+- Work unit C (Typst) has landed.
 - Work unit D (nginx removal) is independent and can land first inside v0.5.1.
 - Work unit E (apt-surface trim) depends on C and D; lands in v0.5.1 once the binary-owned SQL and Typst paths are in place.
 
@@ -285,9 +299,9 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 
 | Risk                                                                                                              | Likelihood | Impact | Mitigation                                                                                                                                                                                                              |
 | ----------------------------------------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Typst output parity diverges from xelatex on edge cases (kerning, glyph fallback)                                 | Medium     | Medium | Run xelatex and Typst side-by-side in CI for one release; ship Typst only after a clean diff on the canonical report set.                                                                                               |
+| Typst output parity diverges from legacy reports on edge cases (kerning, glyph fallback)                          | Low        | Medium | Keep report regression fixtures and hardware release checks focused on generated PDF success and source archive completeness.                                                                                           |
 | In-binary Tailscale installer fails on an unsupported architecture or leaves us on an untested distro combination | Medium     | Medium | Pin supported archive tuples in the baked manifest, fail loudly on unknown host combinations, and validate the static install flow on the release-supported Pi OS variants before cut.                                  |
-| `velocity-ctl` deprecation shim breaks operators who scripted against the old surface                             | Low        | Low    | One-release co-existence with a stderr warning; release notes call it out; sudoers still allows the old name for that release.                                                                                          |
+| Operators try old `velocity-ctl` commands from stale docs                                                         | Low        | Low    | Current docs use `velocity device ...`; release notes call out the removed shim.                                                                                                                                        |
 | nginx removal lands without `:80` binding capability set                                                          | Low        | High   | `AmbientCapabilities=CAP_NET_BIND_SERVICE` is set in the systemd unit at the same commit; image-build CI smoke-tests the bind on a chroot before image export.                                                          |
 | Binary size rises materially once Typst and helper payload logic are embedded                                     | High       | Low    | Measure and publish size by target in CI, but treat size as a tradeoff metric rather than a hard release gate for this plan; optimise obvious waste without reintroducing external runtime dependencies.                |
 | Static-binary Tailscale install fails mid-download or leaves partial state on disk                                | Low        | Medium | Download into a temp dir, verify checksum before activation, and only switch the stable symlink after the payload passes validation.                                                                                    |
@@ -298,41 +312,36 @@ End-state apt manifest (target for v0.5.1): **`libpcap0.8`, `raspi-config`** plu
 ### Complete
 
 - [x] Plan written and circulated for review.
-- [x] Work unit A: fold `velocity-ctl` and sweep into the multi-call binary, ship the `velocity-ctl` deprecation shim, and pull forward the **full** versioned dispatcher/upgrade machinery (`renameat2` swap, retention, single-artifact release.json). `velocity-update` was already removed (#290).
+- [x] Work unit A: fold `velocity-ctl` and sweep into the multi-call binary and pull forward the **full** versioned dispatcher/upgrade machinery (`renameat2` swap, retention, single-artifact release.json). `velocity-update` was already removed (#290).
 - [x] Work unit D: nginx removal landed (#517).
 - [x] Work unit E: `go:embed` for tuning defaults, network config, udev rules, and wpa_supplicant + `velocity device install`; `velocity data sql --read-only` read-only inspection subcommand replacing `sqlite3`; dropped `python3-serial`, `minicom`, `jq`, `curl`, and `sqlite3` from the apt surface; deleted the `02-velocity-python` stage.
 - [x] Removed the transitional `velocity-ctl` shim: the `/usr/local/bin/velocity-ctl` symlink (image stage 01), the `velocity-ctl` sudoers grants (stage 03), and the deprecation-warning path in `cmd/velocity/main.go`.
 - [x] Docs: updated distribution-packaging, rpi-imager, setup, asset-naming, COMMANDS, CLAUDE, and coding-standards to the new surface.
+- [x] Work unit C: Typst PDF pipeline; deleted `texlive-xetex` apt surface, minimal-texlive build scripts, old report compiler tree, and old parity window.
+- [x] Source archive migration: replace LaTeX source ZIP output with the editable Typst source archive.
+- [x] Static Linux build route: image/release/ad-hoc Linux artifacts share `scripts/build-radar-static.sh`; image staging verifies static ELF output through `scripts/stage-image-binary.sh` and `scripts/verify-static-elf.sh`.
 
 ### Outstanding
 
 - [ ] Work unit B: in-binary Tailscale installer; delete `image/stage-velocity/07-velocity-tailscale/` (`M`)
-- [ ] Work unit C: Typst PDF pipeline; delete `texlive-xetex` apt surface and the minimal-texlive build scripts (`L`)
-- [ ] Source archive migration: replace `report.tex` ZIP output with an editable `report.typ` archive and publish the operator migration note (`M`)
-- [ ] CI: PDF parity job (xelatex vs Typst) for one release before xelatex deletion, including source-archive completeness checks (`S`)
 - [ ] CI: image stage smoke test that the bind on `:80` works in a chroot before export (`S`)
-- [ ] Docs: Typst source-archive migration note (deferred with work unit C)
 
 ### Follow-on image cleanup (gated on work units B / C)
 
-The `sqlite3` drop and the `velocity-ctl` shim removal have landed; the
-remaining apt-surface trims are each unblocked by a specific later landing and
-**should be done in the same change that lands it**, not separately:
+The `sqlite3` drop, `velocity-ctl` shim removal, static libpcap build route,
+and Typst cutover have landed. The remaining apt-surface trim is unblocked by
+one later landing and **should be done in the same change that lands it**, not
+separately:
 
 - [ ] **When work unit B (in-binary Tailscale installer) lands:** delete
       `image/stage-velocity/07-velocity-tailscale/` _and_ the on-demand
       `apt-get install … curl` it now carries. `curl` was dropped from
       `00-packages` in #519 but stage 07 still installs it on demand for the
       keyring fetch; deleting the stage removes `curl` from the image entirely.
-- [ ] **When work unit C (Typst) lands:** drop `texlive-xetex`,
-      `texlive-latex-extra`, `fonts-lmodern`, `librsvg2-bin`, and
-      `fonts-noto-color-emoji` from `00-install-packages/00-packages`; delete the
-      `00-install-packages/01-run.sh` minimal-TeX build stage and
-      `scripts/build-minimal-texlive.sh` / `scripts/install-minimal-texlive.sh`.
-
-Once all four land, the `00-packages` end-state is just `libpcap0.8` +
-`raspi-config`, and the only operator-facing binary name is `velocity`
-(`velocity-report` survives only as the systemd-facing alias).
+      Once work unit B lands, the `00-packages` end-state remains just
+      `raspi-config`, the Tailscale stage disappears, and the only operator-facing
+      binary name is `velocity`
+      (`velocity-report` survives only as the systemd-facing alias).
 
 ### Deferred
 
@@ -342,4 +351,4 @@ Once all four land, the `00-packages` end-state is just `libpcap0.8` +
 
 - [ ] Host lifecycle aliases (`velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, `velocity-bounce`) stay outside the binary. Host concerns are not application namespaces per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md).
 - [ ] UART/SPI overlay edits to `/boot/firmware/config.txt` stay in the image stage script. Firmware-boot config is not a runtime concern.
-- [ ] `libpcap0.8` and `raspi-config` apt packages survive into v0.6.0. They are tiny, stable, and have legitimate operator use.
+- [ ] `raspi-config` survives into v0.6.0 for serial/UART configuration.

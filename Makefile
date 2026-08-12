@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre27
+VERSION := 0.5.1-pre28
 
 # =============================================================================
 # HELP TARGET (default)
@@ -20,11 +20,14 @@ help:
 	@echo "  build-velocity-linux Build velocity for Linux ARM64 with pcap"
 	@echo "  build-velocity-mac   Build velocity for macOS ARM64 with pcap"
 	@echo "  build-radar-linux    (alias) Build velocity for Linux ARM64 with pcap"
-	@echo "  build-radar-linux-docker Build for Linux ARM64 with pcap inside Docker (outputs to image/velocity-binaries/)"
+	@echo "  build-radar-linux-docker Build static Linux ARM64 image binary (outputs to image/velocity-binaries/)"
 	@echo "  build-radar-mac      (alias) Build velocity for macOS ARM64 with pcap"
 	@echo "  build-radar-mac-intel (alias) Build velocity for macOS AMD64 with pcap"
 	@echo "  build-radar-local    (alias) Build velocity for local development with pcap"
 	@echo "  build-tools          (alias) Build velocity (sweep is now 'velocity tune sweep')"
+	@echo "  build-radar-static       Build fully static linux/amd64 + linux/arm64 (zig+musl+libpcap.a)"
+	@echo "  build-radar-static-amd64 Build fully static linux/amd64 only"
+	@echo "  build-radar-static-arm64 Build fully static linux/arm64 only"
 	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
 	@echo "  release-radar-remote Build release Linux ARM64 binary and deploy it to DEPLOY_HOST (default velocity.local)"
 	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
@@ -34,7 +37,7 @@ help:
 	@echo "  run-pcap-split       Split a PCAP into motion/static segments (PCAP=path)"
 	@echo "  build-ctl            (alias) Build velocity (device tools folded in)"
 	@echo "  build-ctl-linux      (alias) Build velocity for Linux ARM64"
-	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
+	@echo "  build-image          Build RPi image with static ARM64 image binary"
 	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
 	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-embedded-assets Build static assets embedded in release binaries"
@@ -311,6 +314,37 @@ install-typst:
 		echo "Installed bin/typst — add $(CURDIR)/bin to PATH"; \
 	fi
 
+# Fully static linux/amd64 + linux/arm64 builds, performed entirely
+# inside a hermetic Docker image (image/Dockerfile.static-build) that
+# bundles zig + go + cmake + the libpcap submodule. The host only needs
+# docker and git. Produces self-contained ELF binaries with no glibc /
+# libpcap.so / libnl etc. runtime dependencies.
+#
+# BUILD_TIME defaults to the HEAD commit's committer date (UTC), so the
+# same source produces the same binary regardless of when you build.
+.PHONY: build-radar-static build-radar-static-amd64 build-radar-static-arm64 test-radar-static-arm64-vm test-radar-static-golden-pcap
+# BUILD_TIME is intentionally not forwarded — the script defaults it to
+# the HEAD commit's committer date so the same source produces the same
+# binary. Override by exporting BUILD_TIME in the environment.
+build-radar-static:
+	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ./scripts/build-radar-static.sh
+
+build-radar-static-amd64:
+	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=amd64 ./scripts/build-radar-static.sh
+
+build-radar-static-arm64:
+	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=arm64 ./scripts/build-radar-static.sh
+
+test-radar-static-arm64-vm:
+	@bin=$$(find build/static -maxdepth 1 -type f -name 'velocity-report-*-linux-arm64-*-static' -print | head -n1); \
+	[ -n "$$bin" ] || { echo "no ARM64 static binary found; run make build-radar-static-arm64" >&2; exit 1; }; \
+	./scripts/test-static-arm64-vm.sh "$$bin"
+
+test-radar-static-golden-pcap:
+	@bin=$$(find build/static -maxdepth 1 -type f -name 'velocity-report-*-linux-amd64-*-static' -print | head -n1); \
+	[ -n "$$bin" ] || { echo "no AMD64 static binary found; run make build-radar-static-amd64" >&2; exit 1; }; \
+	./scripts/test-static-golden-pcap.sh "$$bin"
+
 # Run settling-eval convergence evaluation against a PCAP file.
 # Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.
 # Usage: make run-settling-eval [PCAP=capture.pcap] [PORT=2368] [TUNING=config/tuning.defaults.json] [OUTPUT=report.json]
@@ -411,17 +445,16 @@ build-image-deps:
 	fi; \
 	echo "✓ build-image dependencies OK"
 
-# Build a Raspberry Pi image using pi-gen (requires Docker)
-# Compiles ARM64 Go binaries with pcap support inside a Docker container,
-# then runs pi-gen to produce the flashable .img file.
+# Build a Raspberry Pi image using pi-gen (requires Docker).
+# Stages the same static ARM64 vendored-libpcap binary used by release
+# packaging, then runs pi-gen to produce the flashable .img file.
 # Pass SKIP_BINARIES=1 to reuse previously built binaries.
-# Pass HOST_BUILD=1 to use the host Go toolchain instead of Docker for compilation.
 # Pass SSH_KEY=~/.ssh/id_ed25519.pub to install an SSH key for the velocity user.
 # Tailscale: opt in at runtime via the velocity.report web UI
 # (Settings → Tailscale).  No build-time configuration.
 .PHONY: build-image
 build-image: build-image-deps
-	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(filter 1,$(HOST_BUILD)),--host-build) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
+	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
 
 # Flash the most recent .img.xz from deploy/ to an SD card (macOS only).
 # Requires DISK= to be set explicitly to prevent accidents.

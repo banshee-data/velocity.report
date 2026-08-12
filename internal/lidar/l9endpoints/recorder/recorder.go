@@ -432,6 +432,9 @@ func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat chunk: %w", err)
 	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("failed to read frame length: chunk is not a regular file")
+	}
 	if info.Size() > maxChunkSize {
 		return nil, fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
 	}

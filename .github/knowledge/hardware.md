@@ -7,7 +7,8 @@ Canonical reference for sensor specifications, interfaces, and target platform.
 - **Hardware:** Raspberry Pi 4, 4 GB RAM, 64 GB SD card
 - **Architecture:** ARM64 Linux
 - **Constraints:** Limited CPU/memory compared with desktop; local-only deployment
-- **Cross-compilation:** `make build-radar-linux` produces ARM64 binary from desktop
+- **Cross-compilation:** `make build-radar-static-arm64` produces the ARM64
+  static binary used by Raspberry Pi image/release validation
 
 ## Radar Sensor
 

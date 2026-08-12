@@ -157,7 +157,7 @@ with a different tech stack (C++/Qt), release cadence, and contributor profile.
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | pi-gen stage scripts    | [image/stage-velocity/](../../../image/stage-velocity)                                                                                                          | Tightly coupled to server releases                                              |
 | OS-list repository JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)                                                                                             | Updated by CI on release                                                        |
-| Image CI workflow       | [.github/workflows/build-image.yml](../../../.github/workflows/build-image.yml)                                                                                 | Triggered by monorepo releases                                                  |
+| Image CI workflow       | [.github/workflows/build-image.yml](../../../.github/workflows/build-image.yml)                                                                                 | Builds/stages the static ARM64 image binary through Docker, then runs pi-gen    |
 | systemd service         | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../../image/stage-velocity/03-velocity-config/files/velocity-report.service)         | Canonical source                                                                |
 | udev rules              | [internal/cmd/device/files/99-velocity-report.rules](../../../internal/cmd/device/files/99-velocity-report.rules)                                               | Embedded; written by `velocity device install udev`                             |
 | Management surface      | [internal/cmd/device/](../../../internal/cmd/device)                                                                                                            | `velocity device upgrade`, `rollback`, `backup`, `status`, `install`, `version` |
@@ -168,22 +168,22 @@ with a different tech stack (C++/Qt), release cadence, and contributor profile.
 
 - SHA-256 checksums in GitHub release notes and os-list JSON
 - GPG-signed release assets considered
-- CI builds should be deterministic (same inputs → same hash)
-- Pin APT package versions; use GitHub Actions artifact attestation
-- `velocity` user runs with minimal privileges (no sudo)
+- The shipped Linux binary is verified as a statically linked ELF before image staging
+- CI should pin external inputs where practical; use GitHub Actions artifact attestation
+- `velocity` service user runs with minimal privileges and only the scoped sudoers entries needed for Tailscale service toggling
 - Serial port access via udev rules, not blanket permissions
-- No default passwords: rpi-imager first-boot handles user creation
+- Current image defaults to `pi` / `report` for initial setup with SSH enabled on the local network; the MOTD warns on login and the user should change it immediately
 - **No telemetry, no phone-home, no automatic updates, no cloud endpoints,
   no SSH keys, no PII in the image**
 
 ## Key risks
 
-| Risk                       | Mitigation                                                |
-| -------------------------- | --------------------------------------------------------- |
-| TeX Live size bloat        | Pre-compiled templates; target < 200 MB                   |
-| pi-gen build flakiness     | Pin package versions; local APT mirror in CI; retry logic |
-| ARM64 QEMU emulation speed | Native ARM64 runners or cross-compile outside chroot      |
-| GitHub 2 GB asset limit    | xz compression (3:1 ratio); CDN for larger images         |
-| Serial port conflicts      | `miniuart-bt` overlay moves Bluetooth to mini-UART        |
-| "It didn't boot" support   | Troubleshooting docs, systemd journal, web UI status page |
-| Scope creep                | Strict phased approach; Phase 1 delivers value in days    |
+| Risk                       | Mitigation                                                       |
+| -------------------------- | ---------------------------------------------------------------- |
+| Image size regression      | Static binary verification plus image-size review before release |
+| pi-gen build flakiness     | Pin package versions; local APT mirror in CI; retry logic        |
+| ARM64 QEMU emulation speed | Native ARM64 runners or cross-compile outside chroot             |
+| GitHub 2 GB asset limit    | xz compression (3:1 ratio); CDN for larger images                |
+| Serial port conflicts      | `miniuart-bt` overlay moves Bluetooth to mini-UART               |
+| "It didn't boot" support   | Troubleshooting docs, systemd journal, web UI status page        |
+| Scope creep                | Strict phased approach; Phase 1 delivers value in days           |

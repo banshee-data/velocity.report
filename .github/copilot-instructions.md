@@ -48,7 +48,11 @@ make test      # Run all test suites
 | Go       | `make format-go && make lint-go && make test-go && make build-radar-local` |
 | Web      | `make format-web && make lint-web && make test-web && make build-web`      |
 
-If the Go build fails due to missing pcap on the cross-compile host: install `libpcap-dev` (Linux) or `brew install libpcap` (macOS), then use `make build-radar-linux`.
+If the local Go build fails due to missing pcap dependencies, install
+`libpcap-dev` (Linux) or `brew install libpcap` (macOS). For Raspberry Pi
+image or release-candidate binaries, use `make build-radar-static-arm64` or
+`make build-radar-linux-docker`; those routes run in Docker with zig/musl and
+vendored libpcap instead of relying on host libpcap.
 
 For full build setup, dev servers, and testing: see [knowledge/build-and-test.md](knowledge/build-and-test.md).
 

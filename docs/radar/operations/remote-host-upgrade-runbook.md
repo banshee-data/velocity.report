@@ -179,23 +179,23 @@ if grep -q "Web Frontend Not Built" web/build/index.html 2>/dev/null; then
   echo "ERROR: stub web build — do not deploy this"; exit 1
 fi
 
-# Cross-compile for Raspberry Pi
-make build-radar-linux
+# Build the same static ARM64 artifact used by image/release packaging
+make build-radar-static-arm64
 
-# Sanity-check the artifact (dev builds have datetime prefix + SHA suffix)
-BINARY=$(ls -t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+# Sanity-check the artifact
+BINARY=$(ls -t build/static/velocity-report-*-linux-arm64-*-static 2>/dev/null | head -1)
 if [ -z "$BINARY" ]; then
-  echo "No matching linux-arm64 velocity-report binary found after build."
+  echo "No matching static linux-arm64 velocity-report binary found after build."
   exit 1
 fi
 file "$BINARY"
 ls -lh "$BINARY"
 ```
 
-The local output binary in the repo root is a dev-style versioned file such as
-`20260407T142345Z-velocity-report-0.5.1.pre1-linux-arm64-a1b2c3d`.
-A clean filename such as `velocity-report-0.5.1-linux-arm64` refers to a
-release asset, not the local output of `make build-radar-linux`.
+The local static output is written under `build/static/` with a filename such
+as `velocity-report-0.5.1.pre28-linux-arm64-42c08a4-static`. A clean filename
+without the `-static` suffix refers to an older dynamic or release naming
+surface and is not the image build input.
 
 ### Transfer to host
 
@@ -238,37 +238,27 @@ binary.
 ### Fallback: build on the host
 
 Only use this path if no dev machine is available and the host already has a
-suitable checkout plus the build toolchain. A plain `make build-radar-linux` on
-a fresh clone can succeed with a stubbed dashboard, which is not a production
-build.
+suitable checkout plus Docker. The production-like fallback is the same static
+Docker route used by image/release packaging; do not use the older host
+cross-compile target for release-candidate hardware validation.
 
 ```bash
 export TARGET_REF=<tag-or-sha>
 cd /path/to/velocity.report
 git status --short
 git checkout "$TARGET_REF"
-test -f web/build/index.html
-if grep -q "Web Frontend Not Built" web/build/index.html; then
-  echo "Stub web build detected; stop and use a real artifact or build the web app first."
-  exit 1
-fi
-make build-radar-linux
-BINARY=$(ls -1t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+make build-radar-static-arm64
+BINARY=$(ls -1t build/static/velocity-report-*-linux-arm64-*-static 2>/dev/null | head -1)
 if [ -z "$BINARY" ]; then
-  echo "No matching linux-arm64 velocity-report binary found after build."
+  echo "No matching static linux-arm64 velocity-report binary found after build."
   exit 1
 fi
 export NEW_BIN="$PWD/$BINARY"
 "$NEW_BIN" --version
 ```
 
-If `web/build/index.html` is missing, you need a real web build first:
-
-```bash
-make install-web
-make build-web
-make build-radar-linux
-```
+`scripts/build-radar-static.sh` builds embedded web/docs assets as part of the
+static binary route and verifies the resulting ELF is statically linked.
 
 ## Backup and stop the service
 
