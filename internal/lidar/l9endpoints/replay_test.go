@@ -471,20 +471,25 @@ func TestReplayServer_StreamFrames_Success(t *testing.T) {
 		}
 	}
 
-	// Server should now be paused at EOF
-	rs.mu.RLock()
-	paused := rs.paused
-	rs.mu.RUnlock()
-	if !paused {
-		t.Error("expected server to be paused at EOF")
-	}
-
-	// Reader should also be paused (SetPaused(true) called at EOF)
-	reader.mu.Lock()
-	readerPaused := reader.paused
-	reader.mu.Unlock()
-	if !readerPaused {
-		t.Error("expected reader to be paused at EOF")
+	// Sending the final frame happens before the next read observes EOF, so
+	// wait for the EOF transition to pause both the server and reader.
+	deadline = time.After(2 * time.Second)
+	for {
+		rs.mu.RLock()
+		paused := rs.paused
+		rs.mu.RUnlock()
+		reader.mu.Lock()
+		readerPaused := reader.paused
+		reader.mu.Unlock()
+		if paused && readerPaused {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for replay to pause at EOF")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 
 	// Cancel context to stop the stream
