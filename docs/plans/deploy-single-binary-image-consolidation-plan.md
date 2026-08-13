@@ -132,7 +132,7 @@ This is an accepted helper payload, not a second promoted application surface. T
 
 **Steps:**
 
-1. Delete [image/stage-velocity/07-velocity-tailscale/](../../image/stage-velocity/07-velocity-tailscale/) wholesale. The image ships with no Tailscale state.
+1. Delete `image/stage-velocity/07-velocity-tailscale/` wholesale. The image ships with no Tailscale state.
 2. Add `velocity device tailscale install` to the binary. It:
    - Detects CPU architecture and supported distro family from the running host.
    - Downloads the pinned static-binary tarball from `pkgs.tailscale.com/stable/tailscale_<arch>.tgz` using Go's `net/http` with SHA-256 verification against a manifest baked into the binary.
