@@ -16,9 +16,9 @@
 #   --binaries-only   Build web/docs assets and ARM64 binaries, then stop
 #   --ssh-key <path>  Install an SSH public key for the login user
 #
-# Tailscale: the image ships with tailscaled installed but masked.  The
-# operator opts in via the velocity.report web UI (Settings → Tailscale)
-# at runtime; there is no build-time auth-key flow.
+# Tailscale: the image ships with no Tailscale payload or state. The operator
+# opts in via the velocity.report web UI (Settings → Tailscale), which downloads
+# a pinned and verified static payload at runtime; there is no build-time auth-key flow.
 
 set -euo pipefail
 

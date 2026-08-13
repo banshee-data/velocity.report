@@ -12,7 +12,7 @@
 //	rollback  Restore the previous version via atomic symlink swap
 //	backup    Create a manual snapshot of binary + database
 //	status    Show systemd service status
-//	tailscale Manage tailscaled lifecycle (enable/disable)
+//	tailscale Install and manage tailscaled lifecycle
 //	version   Print installed version information
 package device
 
@@ -34,7 +34,7 @@ Commands:
   rollback  Restore previous version via atomic symlink swap
   backup    Snapshot binary + database
   status    Show service status
-  tailscale Manage tailscaled lifecycle (enable/disable)
+  tailscale Install and manage tailscaled lifecycle
   install   Write an embedded deploy file (network|udev|wifi)
   version   Print version information
 

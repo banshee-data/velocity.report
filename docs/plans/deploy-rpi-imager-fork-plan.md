@@ -14,8 +14,8 @@
 > stages one static ARM64 `velocity` binary built through Docker + zig/musl +
 > vendored `libpcap.a`; reports use embedded Typst; `velocity device ...`
 > replaces `velocity-ctl`; the repo-level package manifest is down to
-> `raspi-config`; and the remaining package-stage debt is the masked Tailscale
-> apt install in `07-velocity-tailscale`.
+> `raspi-config`; Tailscale is a pinned static payload downloaded only after
+> operator opt-in, so the image has no Tailscale package stage or state.
 
 ---
 
@@ -143,10 +143,10 @@ The image extends Raspberry Pi OS Lite (64-bit, Bookworm) with:
 raspi-config           # for serial port enable/disable
 ```
 
-`07-velocity-tailscale` still installs Tailscale from the upstream apt
-repository and masks `tailscaled` until the operator opts in. That stage also
-installs `curl` transiently for the keyring fetch. Removing that stage is the
-remaining in-binary Tailscale installer work tracked in
+The image has no Tailscale apt repository, package, service, or state.
+`velocity device tailscale install` fetches the pinned, SHA-256-verified static
+payload only after operator opt-in, then writes the binary-owned service and
+the existing narrow bridge enables it. See
 [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md).
 
 #### 4.2.2 velocity.report binaries
@@ -368,14 +368,14 @@ The CI pipeline ([.github/workflows/build-image.yml](../../.github/workflows/bui
 
 > **Current v0.5.1 image** ships no TeX tree and no dynamic libpcap dependency
 > from the application binary. The remaining optional-access package surface is
-> Tailscale until the in-binary installer lands.
+> Tailscale is downloaded only after operator opt-in; no Tailscale package ships in the image.
 
-| Component                                  | Estimated Size  |
-| ------------------------------------------ | --------------- |
-| Raspberry Pi OS Lite (base)                | ~450 MB         |
-| Static Go binary with embedded Typst/docs  | ~65 MB          |
-| LiDAR/system config plus Tailscale package | ~60 MB          |
-| **Total (xz compressed)**                  | **~150–300 MB** |
+| Component                                 | Estimated Size  |
+| ----------------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)               | ~450 MB         |
+| Static Go binary with embedded Typst/docs | ~65 MB          |
+| LiDAR/system config                       | ~60 MB          |
+| **Total (xz compressed)**                 | **~150–300 MB** |
 
 The historical TeX reduction work stream below is retained only for context;
 the current image removed the TeX tree instead.
@@ -674,7 +674,7 @@ compatibility alias for the server surface.
 
 - [x] Verify `make build-radar-static-arm64` produces a static ARM64 binary with LiDAR pcap support
 - [x] Verify Go + Typst PDF generation works on ARM64 Raspberry Pi OS
-- [x] Document the exact project APT manifest (`raspi-config`, plus the separate Tailscale stage)
+- [x] Document the exact project APT manifest (`raspi-config` only; Tailscale is an opt-in static payload)
 - [ ] Test RS-232 HAT configuration manually on a Raspberry Pi 4
 - [ ] Verify LiDAR packet capture works on Pi 4 with pcap-enabled binary (disabled by default, enable with `--enable-lidar`)
 
@@ -690,8 +690,8 @@ compatibility alias for the server surface.
 - [ ] Test image on physical Raspberry Pi 4 hardware
 - [ ] Produce first `.img.xz` release asset
 
-Note: current Phase 1 no longer installs `texlive-xetex` or stages a minimal
-TeX tree. The remaining image-size cleanup is the Tailscale package stage.
+Note: current Phase 1 no longer installs `texlive-xetex`, stages a minimal TeX
+tree, or carries a Tailscale package stage.
 
 ### Phase 2: custom repository JSON (2–3 days)
 

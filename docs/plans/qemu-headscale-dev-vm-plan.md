@@ -30,7 +30,8 @@ network calls, no contact with the developer's host-side `tailscaled`.
 
 In scope:
 
-- A QEMU VM that boots Debian (matching the Pi image's apt-tailscale path).
+- A QEMU VM that boots Debian and exercises the Pi image's pinned static
+  Tailscale payload and systemd contract.
 - Cloud-init provisioning that mirrors the production user, group, sudoers,
   and systemd unit layout from [image/stage-velocity/](../../image/stage-velocity/).
 - A Docker-hosted Headscale coordinator and at least one Docker-hosted
@@ -78,8 +79,8 @@ host (Linux x86_64, /dev/kvm)
     ├── qemu-system-x86_64 -enable-kvm
     ├── Debian 13 (trixie) generic cloud image
     ├── hostfwd: tcp 2222→22, tcp 8080→8080
-    ├── /etc/default/tailscaled FLAGS="--login-server=http://10.0.2.2:8085"
-    ├── tailscaled installed (apt) and masked, identical to image stage 07
+    ├── systemd drop-in adds --login-server=http://10.0.2.2:8085
+    ├── pinned static tailscaled installed only for the test flow
     ├── velocity user + sudoers identical to image stage 03
     ├── /usr/local/bin/velocity         (populated via qemu-push)
     └── /usr/local/bin/velocity-report  (compatibility alias)
@@ -99,7 +100,7 @@ The production Pi is ARM64. The dev VM is amd64 because:
 - The code paths under test are arch-agnostic Go: `internal/tailscale/`,
   `internal/api/server_tailscale.go`, and the device command shell-out are pure userland
   with no architecture-specific call sites.
-- The userland (Debian release, systemd version, tailscale apt repo,
+- The userland (Debian release, systemd version, static Tailscale payload,
   sudoers behaviour) is identical across the two architectures within the
   Debian release we target.
 
@@ -139,23 +140,23 @@ page. The Makefile wraps this into one command.
 
 ## Faithful vs. mocked
 
-| Component                                          | Faithful            | Mocked                                                                    |
-| -------------------------------------------------- | ------------------- | ------------------------------------------------------------------------- |
-| systemd as PID 1                                   | yes                 |                                                                           |
-| `velocity` system user + literal-argv sudoers      | yes                 |                                                                           |
-| `tailscaled` (upstream apt), masked-by-default     | yes                 |                                                                           |
-| `velocity device tailscale enable-tailscaled` flow | yes                 |                                                                           |
-| `tailscale set --operator=velocity`                | yes                 |                                                                           |
-| `velocity-report.service` unit                     | yes                 |                                                                           |
-| Tailscale local API socket                         | yes (real daemon)   |                                                                           |
-| IPN bus subscription + `BrowseToURL`               | yes (real daemon)   |                                                                           |
-| `WhoIs` peer resolution + cap grants               | yes (via Headscale) |                                                                           |
-| `tailscale serve` config on :443                   | yes                 |                                                                           |
-| Radar serial (`/dev/ttySC1`)                       |                     | `--radar=false`                                                           |
-| LiDAR UDP                                          |                     | `--lidar=false`                                                           |
-| Kernel architecture                                |                     | amd64 host kernel, not ARM64                                              |
-| Pi-specific hardware (HAT, UART)                   |                     | absent; sensors flagged off                                               |
-| Tailscale coordination control plane               | yes (Headscale)     | (Headscale ≠ `controlplane.tailscale.com`, but the wire protocol matches) |
+| Component                                            | Faithful            | Mocked                                                                    |
+| ---------------------------------------------------- | ------------------- | ------------------------------------------------------------------------- |
+| systemd as PID 1                                     | yes                 |                                                                           |
+| `velocity` system user + literal-argv sudoers        | yes                 |                                                                           |
+| pinned static `tailscaled`, installed on opt-in      | yes                 |                                                                           |
+| `velocity device tailscale install` then enable flow | yes                 |                                                                           |
+| `tailscale set --operator=velocity`                  | yes                 |                                                                           |
+| `velocity-report.service` unit                       | yes                 |                                                                           |
+| Tailscale local API socket                           | yes (real daemon)   |                                                                           |
+| IPN bus subscription + `BrowseToURL`                 | yes (real daemon)   |                                                                           |
+| `WhoIs` peer resolution + cap grants                 | yes (via Headscale) |                                                                           |
+| `tailscale serve` config on :443                     | yes                 |                                                                           |
+| Radar serial (`/dev/ttySC1`)                         |                     | `--radar=false`                                                           |
+| LiDAR UDP                                            |                     | `--lidar=false`                                                           |
+| Kernel architecture                                  |                     | amd64 host kernel, not ARM64                                              |
+| Pi-specific hardware (HAT, UART)                     |                     | absent; sensors flagged off                                               |
+| Tailscale coordination control plane                 | yes (Headscale)     | (Headscale ≠ `controlplane.tailscale.com`, but the wire protocol matches) |
 
 ## Files and layout
 
@@ -264,10 +265,10 @@ seed ISO. Key sections:
    `/etc/sudoers.d/020_velocity-nopasswd` via the symlinked source file.
 2. **SSH authorized keys.** The auto-generated `id_ed25519.pub` is
    installed in `/home/pi/.ssh/authorized_keys`. Password auth is off.
-3. **Tailscale apt repo install.** Reproduces the codename-detect logic
-   from `image/stage-velocity/07-velocity-tailscale/01-run.sh`.
-4. **Tailscale config override.** `/etc/default/tailscaled` carries
-   `FLAGS="--login-server=http://10.0.2.2:8085"` so the daemon, when
+3. **Pinned static Tailscale install.** Uses the release tuple from
+   `internal/tailscaleinstall/installer.go` rather than an apt repository.
+4. **Tailscale config override.** A `tailscaled.service` systemd drop-in adds
+   `--login-server=http://10.0.2.2:8085` so the daemon, when
    eventually unmasked, contacts Headscale rather than upstream.
 5. **Tailscaled mask.** `systemctl mask tailscaled.service` — same as
    stage 07. The operator's `Enable` toggle (via the velocity-report
@@ -426,10 +427,10 @@ nothing until reset.
 
 **R3: Drift between Pi image and VM provisioning.** The symlinks for
 the sudoers file and systemd unit prevent the most obvious drift.
-Anything else (e.g., the codename allowlist, the apt repo URL) is
-copied conceptually but not byte-identically. A periodic manual check
-against `image/stage-velocity/07-velocity-tailscale/01-run.sh` is part
-of the workflow; the README notes which sections must remain in sync.
+Anything else (the pinned static release manifest and the service override) is
+copied conceptually but not byte-identically. A periodic manual check against
+`internal/tailscaleinstall/installer.go` is part of the workflow; the README
+notes which sections must remain in sync.
 
 **R4: `--login-server` injection point.** The current
 `internal/tailscale/manager.go` neither sets nor cares about the

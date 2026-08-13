@@ -15,18 +15,20 @@ flags, access control, and integration with the server's existing
 
 ## 1. Install Tailscale on the Raspberry Pi
 
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-```
+Use **Settings → Enable Tailscale** in the web UI. The first opt-in downloads
+the project's pinned static Tailscale payload, verifies its SHA-256, and
+installs the binary-owned service; the image contains neither a Tailscale apt
+repository nor pre-existing Tailscale state. For a console recovery, run:
 
-This installs the `tailscaled` daemon and the `tailscale` CLI. On
-Raspberry Pi OS (Debian-based), the installer adds the apt repository and
-starts the service automatically.
+```bash
+sudo velocity device tailscale install
+sudo velocity device tailscale enable-tailscaled
+```
 
 Verify:
 
 ```bash
-tailscale version
+sudo /opt/velocity-report/tailscale/current/tailscale version
 systemctl status tailscaled
 ```
 
@@ -172,17 +174,9 @@ tailscale netcheck        # Diagnose connectivity
 
 ## 7. Keeping Tailscale updated
 
-Tailscale updates itself via apt on Debian-based systems:
-
-```bash
-sudo apt update && sudo apt upgrade tailscale
-```
-
-Or enable auto-update:
-
-```bash
-sudo tailscale set --auto-update
-```
+Tailscale is pinned and updated with velocity.report releases; it does not use
+apt or Tailscale auto-update. A released version refreshes on the next opt-in
+or console `velocity device tailscale install` invocation.
 
 ## 8. Troubleshooting
 
