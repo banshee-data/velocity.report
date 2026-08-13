@@ -23,8 +23,9 @@ import (
 const (
 	// Version is intentionally pinned: updates are shipped by updating this
 	// manifest, not by accepting a mutable "latest" download at runtime.
-	Version = "1.102.2"
-	rootDir = "/opt/velocity-report/tailscale"
+	Version       = "1.102.2"
+	rootDir       = "/opt/velocity-report/tailscale"
+	maxBinarySize = 64 << 20
 )
 
 // Release records a verified static Tailscale tarball.
@@ -104,7 +105,7 @@ func (i Installer) Install(ctx context.Context) error {
 		return fmt.Errorf("close Tailscale download: %w", err)
 	}
 	if got := hex.EncodeToString(hash.Sum(nil)); got != release.SHA256 {
-		return fmt.Errorf("Tailscale %s checksum mismatch: got %s", release.Version, got)
+		return fmt.Errorf("Tailscale %s checksum mismatch: got %s, want %s", release.Version, got, release.SHA256)
 	}
 	if err := i.extract(tempName, release); err != nil {
 		return err
@@ -213,6 +214,15 @@ func (i Installer) healthy(release Release) bool {
 		if err != nil || info.Mode()&0111 == 0 {
 			return false
 		}
+		link := filepath.Join(i.linkDir(), name)
+		linkInfo, err := os.Lstat(link)
+		if err != nil || linkInfo.Mode()&os.ModeSymlink == 0 {
+			return false
+		}
+		target, err := os.Readlink(link)
+		if err != nil || target != filepath.Join(i.root(), "current", name) {
+			return false
+		}
 	}
 	_, err = os.Stat(filepath.Join(i.systemdDir(), "tailscaled.service"))
 	return err == nil
@@ -253,15 +263,18 @@ func (i Installer) extract(tarball string, release Release) error {
 			if hdr.Typeflag != tar.TypeReg {
 				return fmt.Errorf("Tailscale archive %s is not a regular file", binary)
 			}
+			if hdr.Size < 0 || hdr.Size > maxBinarySize {
+				return fmt.Errorf("Tailscale archive %s size %d exceeds limit %d", binary, hdr.Size, maxBinarySize)
+			}
 			out := filepath.Join(staging, binary)
 			f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 			if err != nil {
 				return err
 			}
-			_, copyErr := io.Copy(f, io.LimitReader(tr, 64<<20))
+			written, copyErr := io.CopyN(f, tr, hdr.Size)
 			closeErr := f.Close()
 			if copyErr != nil {
-				return fmt.Errorf("extract %s: %w", binary, copyErr)
+				return fmt.Errorf("extract %s (%d of %d bytes): %w", binary, written, hdr.Size, copyErr)
 			}
 			if closeErr != nil {
 				return fmt.Errorf("close %s: %w", binary, closeErr)

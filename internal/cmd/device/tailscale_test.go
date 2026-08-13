@@ -1,10 +1,28 @@
 package device
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 )
+
+func TestRunTailscaleInstall(t *testing.T) {
+	original := installTailscalePayload
+	t.Cleanup(func() { installTailscalePayload = original })
+	called := 0
+	installTailscalePayload = func(ctx context.Context) error {
+		called++
+		return nil
+	}
+
+	if err := runTailscale([]string{"install"}); err != nil {
+		t.Fatalf("runTailscale install returned error: %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("install payload calls = %d, want 1", called)
+	}
+}
 
 func TestRunTailscaleWithActions(t *testing.T) {
 	var installed, enabled, disabled int

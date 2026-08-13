@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -18,7 +19,8 @@ func testArchive(t *testing.T) []byte {
 	var compressed bytes.Buffer
 	gz := gzip.NewWriter(&compressed)
 	tw := tar.NewWriter(gz)
-	for _, name := range []string{"tailscale_1.102.2_arm64/tailscale", "tailscale_1.102.2_arm64/tailscaled"} {
+	prefix := "tailscale_" + Version + "_arm64/"
+	for _, name := range []string{prefix + "tailscale", prefix + "tailscaled"} {
 		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: 4}); err != nil {
 			t.Fatal(err)
 		}
@@ -82,6 +84,59 @@ func TestInstallerInstallAndIdempotence(t *testing.T) {
 	}
 	if fetches != 1 || runs != 1 {
 		t.Fatalf("idempotent install fetches/runs = %d/%d, want 1/1", fetches, runs)
+	}
+
+	if err := os.Remove(filepath.Join(root, "bin", "tailscale")); err != nil {
+		t.Fatal(err)
+	}
+	if err := i.Install(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fetches != 2 || runs != 2 {
+		t.Fatalf("missing-link repair fetches/runs = %d/%d, want 2/2", fetches, runs)
+	}
+
+	tailscaledLink := filepath.Join(root, "bin", "tailscaled")
+	if err := os.Remove(tailscaledLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/tmp/not-tailscaled", tailscaledLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := i.Install(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if fetches != 3 || runs != 3 {
+		t.Fatalf("repointed-link repair fetches/runs = %d/%d, want 3/3", fetches, runs)
+	}
+	if target, err := os.Readlink(tailscaledLink); err != nil || target != filepath.Join(root, "current", "tailscaled") {
+		t.Fatalf("repaired tailscaled link target = %q, %v", target, err)
+	}
+}
+
+func TestExtractRejectsOversizedBinary(t *testing.T) {
+	var compressed bytes.Buffer
+	gz := gzip.NewWriter(&compressed)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: "tailscale_" + Version + "_arm64/tailscale",
+		Mode: 0755,
+		Size: maxBinarySize + 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	root := t.TempDir()
+	archive := filepath.Join(root, "oversized.tgz")
+	if err := os.WriteFile(archive, compressed.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := (Installer{Root: root}).extract(archive, Release{Version: Version})
+	if err == nil || !strings.Contains(err.Error(), "exceeds limit") {
+		t.Fatalf("extract oversized binary error = %v, want size limit error", err)
 	}
 }
 

@@ -24,10 +24,11 @@ type tailscaleActions struct {
 // allowlist:
 //
 //	velocity ALL=(root) NOPASSWD: \
+//	    /usr/local/bin/velocity device tailscale install, \
 //	    /usr/local/bin/velocity device tailscale enable-tailscaled, \
 //	    /usr/local/bin/velocity device tailscale disable-tailscaled
 //
-// The velocity-user grant is *literal* — only those two argv vectors
+// The velocity-user grant is *literal* — only those three argv vectors
 // are accepted, no wildcards.  The `pi` user gets the broader enumerated
 // `velocity device` verbs for interactive admin; the service user does not.
 //
@@ -72,8 +73,12 @@ func runTailscaleWithActions(args []string, actions tailscaleActions) error {
 	}
 }
 
+var installTailscalePayload = func(ctx context.Context) error {
+	return (tailscaleinstall.Installer{}).Install(ctx)
+}
+
 func installTailscale() error {
-	return (tailscaleinstall.Installer{}).Install(context.Background())
+	return installTailscalePayload(context.Background())
 }
 
 func enableTailscaled() error {
