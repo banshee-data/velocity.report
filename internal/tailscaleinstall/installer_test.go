@@ -67,6 +67,13 @@ func TestInstallerInstallAndIdempotence(t *testing.T) {
 			t.Fatalf("installed %s is not executable: %v", name, err)
 		}
 	}
+	info, err := os.Stat(filepath.Join(root, Version))
+	if err != nil {
+		t.Fatalf("stat installed version directory: %v", err)
+	}
+	if got, want := info.Mode().Perm(), os.FileMode(0755); got != want {
+		t.Fatalf("installed version directory mode = %o, want %o", got, want)
+	}
 	if target, err := os.Readlink(filepath.Join(root, "bin", "tailscale")); err != nil || target != filepath.Join(root, "current", "tailscale") {
 		t.Fatalf("tailscale link target = %q, %v", target, err)
 	}

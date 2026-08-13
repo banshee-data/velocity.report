@@ -272,6 +272,12 @@ func (i Installer) extract(tarball string, release Release) error {
 	if !found["tailscale"] || !found["tailscaled"] {
 		return fmt.Errorf("Tailscale archive is missing tailscale or tailscaled")
 	}
+	// os.MkdirTemp creates the staging directory as 0700. The velocity service
+	// account must traverse the final version directory to invoke tailscale via
+	// the local API socket, so correct that mode before atomically activating it.
+	if err := os.Chmod(staging, 0755); err != nil {
+		return fmt.Errorf("set Tailscale payload permissions: %w", err)
+	}
 	versionDir := filepath.Join(i.root(), release.Version)
 	if err := os.RemoveAll(versionDir); err != nil {
 		return fmt.Errorf("replace Tailscale %s: %w", release.Version, err)
