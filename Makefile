@@ -556,7 +556,7 @@ ensure-dev-web-build:
 		$(MAKE) build-web; \
 	fi
 
-.PHONY: build-docs build-docs-homepage verify-docs-homepage-build
+.PHONY: build-docs build-docs-public-html verify-docs-public-html-build
 build-docs:
 	@echo "Building documentation site..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
@@ -568,27 +568,27 @@ build-docs:
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
 
-# The Pi image serves the public site beneath /homepage/. Keep this as a
+# The Pi image serves the public site beneath /public_html/. Keep this as a
 # separate target so normal public-site builds continue to target the origin.
-build-docs-homepage:
+build-docs-public-html:
 	@echo "Building offline homepage site..."
-	@cd public_html && export VELOCITY_PUBLIC_HTML_PATH_PREFIX="/homepage/" && if command -v pnpm >/dev/null 2>&1; then \
+	@cd public_html && export VELOCITY_PUBLIC_HTML_PATH_PREFIX="/public_html/" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
 		npm run build; \
 	else \
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
-	@printf '%s\n' "/homepage/" > public_html/_site/.velocity-homepage-path-prefix
-	@$(MAKE) verify-docs-homepage-build
+	@printf '%s\n' "/public_html/" > public_html/_site/.velocity-public-html-path-prefix
+	@$(MAKE) verify-docs-public-html-build
 	@echo "✓ Offline homepage build complete: public_html/_site/"
 
-verify-docs-homepage-build:
+verify-docs-public-html-build:
 	@test -f public_html/_site/index.html
-	@test "$$(cat public_html/_site/.velocity-homepage-path-prefix)" = "/homepage/"
+	@test "$$(cat public_html/_site/.velocity-public-html-path-prefix)" = "/public_html/"
 	@test -f public_html/_site/guides/setup/index.html
 	@test -f public_html/_site/tool/protractor/index.html
-	@! rg -nP '(?:href|src)="/(?!homepage/|/)' public_html/_site --glob '*.html'
+	@! rg -nP '(?:href|src)="/(?!public_html/|/)' public_html/_site --glob '*.html'
 	@! rg -n 'url\("/' public_html/_site/css --glob '*.css'
 
 .PHONY: build-docs-offline
