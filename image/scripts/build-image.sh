@@ -194,12 +194,12 @@ done
 find "$DATA_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied data reference files"
 
-# Build the public homepage with paths rooted at /homepage/. The Go server
+# Build the public homepage with paths rooted at /public_html/. The Go server
 # serves this staged tree alongside its existing /docs/ repository-docs route.
 # Always rebuild here: a normal public deployment targets /, which is not a
 # safe substitute for the image's mounted path.
 log_info "Building offline homepage site..."
-make -C "$REPO_ROOT" build-docs-homepage
+make -C "$REPO_ROOT" build-docs-public-html
 PUBLIC_HTML_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
 rm -rf "$PUBLIC_HTML_DEST"
 mkdir -p "$PUBLIC_HTML_DEST"
