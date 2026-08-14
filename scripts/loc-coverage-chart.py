@@ -59,6 +59,19 @@ TEXT_DARK = "#e8e8e8"
 EDGE_LIGHT = "#111111"
 EDGE_DARK = "#d0d0d0"
 
+# Generated sources are excluded from both halves of the chart: their LOC is
+# dropped from the bar (run_cloc) and their statements are dropped from the
+# coverage fraction (parse_go_coverage). Counting them in only one half would
+# hatch the Go bar for code nobody writes or tests — protoc output is ~1.2k
+# uncovered statements, which on its own moved the Go bar by several points.
+GENERATED_SUFFIXES = (".pb.go",)
+
+
+def is_generated(path: str) -> bool:
+    """True for machine-generated sources excluded from LOC and coverage."""
+    return path.endswith(GENERATED_SUFFIXES)
+
+
 EXCLUDE_DIRS = (
     "web/build",
     "web/node_modules",
@@ -122,7 +135,7 @@ def run_cloc(repo_root: Path) -> dict[str, int]:
             continue
         if any(path == p or path.startswith(p + "/") for p in EXCLUDE_DIRS):
             continue
-        if path.endswith(".pb.go"):
+        if is_generated(path):
             continue
         selected.append(path)
     if not selected:
@@ -158,11 +171,13 @@ def parse_go_coverage(path: Path) -> tuple[int, int]:
             if not line or line.startswith("mode:"):
                 continue
             try:
-                _loc, rest = line.split(":", 1)
+                loc, rest = line.split(":", 1)
                 _range, num_stmts_s, count_s = rest.split()
                 num_stmts = int(num_stmts_s)
                 count = int(count_s)
             except (ValueError, IndexError):
+                continue
+            if is_generated(loc):
                 continue
             found += num_stmts
             if count > 0:

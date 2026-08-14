@@ -43,6 +43,40 @@ def test_parse_go_coverage_missing(tmp_path):
     assert mod.parse_go_coverage(tmp_path / "nope.out") == (0, 0)
 
 
+def test_parse_go_coverage_skips_generated(tmp_path):
+    """Generated .pb.go statements are excluded from the coverage fraction.
+
+    run_cloc already drops them from the LOC bar; counting their (always
+    uncovered) statements here would hatch the Go bar for code nobody writes.
+    """
+    mod = load_module()
+    cov = tmp_path / "coverage.out"
+    cov.write_text(
+        "mode: atomic\n"
+        "github.com/x/y/a.go:1.0,2.0 5 1\n"
+        "github.com/x/y/pb/visualiser.pb.go:1.0,2.0 900 0\n"
+        "github.com/x/y/pb/visualiser_grpc.pb.go:1.0,2.0 100 0\n"
+        "github.com/x/y/b.go:1.0,2.0 5 0\n"
+    )
+    assert mod.parse_go_coverage(cov) == (5, 10)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("internal/lidar/l9endpoints/pb/visualiser.pb.go", True),
+        ("internal/lidar/l9endpoints/pb/visualiser_grpc.pb.go", True),
+        ("internal/lidar/l9endpoints/grpc.go", False),
+        # Substring-only matches must not be treated as generated.
+        ("internal/pbgo/handler.go", False),
+        ("internal/lidar/pb.google.go", False),
+    ],
+)
+def test_is_generated(path, expected):
+    mod = load_module()
+    assert mod.is_generated(path) is expected
+
+
 def test_parse_lcov(tmp_path):
     mod = load_module()
     lcov = tmp_path / "lcov.info"
