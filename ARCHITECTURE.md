@@ -4,8 +4,9 @@ ____ ____ ____ _  _ _ ___ ____ ____ ___ _  _ ____ ____
 |  | |  \ |___ |  | |  |  |___ |___  |  |__| |  \ |___
 ```
 
-This document describes the system architecture, component relationships, data flow,
-and integration points for the velocity.report traffic monitoring system.
+# Architecture
+
+tl;dr a map of the running system: sensors, services, data paths, and the seams where they meet.
 
 For canonical numeric constants (ports, tuning defaults, and hard-coded thresholds),
 see [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md).
@@ -635,7 +636,7 @@ These three sources will be compared for initial reporting, with eventual goal o
 
 - High-precision timestamps (DOUBLE for subsecond accuracy via `UNIXEPOCH('subsec')`)
 - Sessionization via `radar_data_transits` (avoids expensive CTEs in queries)
-- LiDAR background modeling for change detection (grid stored as BLOB)
+- LiDAR background modelling for change detection (grid stored as BLOB)
 - WAL mode enabled for concurrent readers/writers
 - Indexes on timestamp columns for fast time-range queries
 - Time-based site configuration via `site_config_periods` (Type 6 Slowly Changing Dimension)

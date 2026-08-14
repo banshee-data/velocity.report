@@ -6,6 +6,9 @@
 
 # Frontend and visualisation design language
 
+This guide keeps the web UI, macOS visualiser, and reports legible as parts of one system. It sets
+the rules that prevent a familiar chart from changing its meaning merely because it changed rooms.
+
 ## 1. One strict goal
 
 Design for **operational clarity and cross-platform comparability**.

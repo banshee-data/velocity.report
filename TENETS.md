@@ -6,8 +6,11 @@
    ██    ███████ ██   ████ ███████    ██    ███████
 ```
 
-These are the non-negotiable principles that govern every decision in this project.
-When tenets conflict, earlier tenets take precedence.
+# Tenets
+
+These six principles decide what velocity.report is allowed to become. They are not decorative
+values for a slide deck: when a feature conflicts with one, the feature loses. Earlier tenets take
+precedence when the rules collide.
 
 ## 1. Privacy above all
 

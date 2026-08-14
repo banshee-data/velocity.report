@@ -2,6 +2,10 @@
 
 <!-- ignore-style-length -->
 
+This is the chronological engineering journal: what changed, why it mattered, and the evidence
+that made it worth recording. Entries are historical records, so new work belongs at the top and
+older entries stay put, however tempting hindsight may be.
+
 ## August 10, 2026 - macOS Developer ID signing and notarisation
 
 - Completed the first local VelocityVisualiser Developer ID release-signing

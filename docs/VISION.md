@@ -8,6 +8,8 @@
    ░███    ░██████  ░██████   ░██████  ░██████   ░██    ░███
 ```
 
+# Vision
+
 Long-term product direction for velocity.report,
 guiding backlog pruning and prioritisation decisions.
 

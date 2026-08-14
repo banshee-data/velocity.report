@@ -1,12 +1,12 @@
 # Open research questions
 
-Exploratory research topics for data scientists, ML engineers,
-and perception researchers interested in contributing to
-velocity.report. Each question needs evidence, not opinion.
+These are the questions the project has not earned the right to answer yet. They guide research
+by data scientists, ML engineers, and perception researchers, and every answer needs evidence,
+not confidence wearing a lab coat.
 
-This file is the canonical index of unanswered questions across
-the pipeline. Questions graduate to [docs/DECISIONS.md](../docs/DECISIONS.md)
-when they have a recorded answer with artefact provenance.
+This is the canonical index of unanswered questions across the pipeline. Questions graduate to
+[docs/DECISIONS.md](../docs/DECISIONS.md) when they have a recorded answer with artefact
+provenance.
 
 **Contribution protocol:** include the question being answered,
 the observed result, the exact parameter bundle, the validation
