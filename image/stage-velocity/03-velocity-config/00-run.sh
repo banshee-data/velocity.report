@@ -75,7 +75,7 @@ if [ -d files/data ]; then
     cp -r files/data "${ROOTFS_DIR}/opt/velocity-report/data"
 fi
 
-# Install the built public homepage. The Go service mounts it at /homepage/;
+# Install the built public homepage. The Go service mounts it at /public_html/;
 # repository docs remain embedded in the binary and mounted separately at /docs/.
 if [ -d files/public_html ]; then
     cp -r files/public_html "${ROOTFS_DIR}/opt/velocity-report/public_html"
