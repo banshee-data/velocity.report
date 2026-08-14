@@ -1,4 +1,4 @@
-import { gitRepoDocsUrl, offlineHomepageUrl } from './docsUrl';
+import { gitRepoDocsUrl, offlinePublicHTMLUrl } from './docsUrl';
 
 describe('gitRepoDocsUrl', () => {
 	it('uses the current origin with the repository docs path', () => {
@@ -20,10 +20,10 @@ describe('gitRepoDocsUrl', () => {
 	});
 });
 
-describe('offlineHomepageUrl', () => {
+describe('offlinePublicHTMLUrl', () => {
 	it('uses the current origin with the offline homepage path', () => {
-		expect(offlineHomepageUrl({ href: 'https://velocity.local/app/reports' })).toBe(
-			'https://velocity.local/homepage/'
+		expect(offlinePublicHTMLUrl({ href: 'https://velocity.local/app/reports' })).toBe(
+			'https://velocity.local/public_html/'
 		);
 	});
 });

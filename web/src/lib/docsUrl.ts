@@ -6,8 +6,8 @@ function localSiteUrl(locationLike: Pick<Location, 'href'>, pathname: string): s
 	return url.toString();
 }
 
-export function offlineHomepageUrl(locationLike: Pick<Location, 'href'>): string {
-	return localSiteUrl(locationLike, '/homepage/');
+export function offlinePublicHTMLUrl(locationLike: Pick<Location, 'href'>): string {
+	return localSiteUrl(locationLike, '/public_html/');
 }
 
 export function gitRepoDocsUrl(locationLike: Pick<Location, 'href'>): string {
