@@ -2,34 +2,38 @@
 
 Active plan: [embedded-offline-docs-site.md](../../plans/embedded-offline-docs-site.md)
 
-This page is the stable home for the embedded `/docs/` site: what it is
-for, how it is built, how it is served, and which parts belong to the
-offline operator shell rather than the public Eleventy site.
+This page describes the two documentation sites carried by the image: the
+repository reference at `/docs/` and the curated public homepage at
+`/homepage/`. It records what each site contains, how it is built, and how
+the main Go service serves it without opening another port.
 
 ## Purpose
 
-The offline docs site lets an operator read technical guidance from the
-device itself when the deployment has no internet access or no business
-trusting the internet with the job. It is served from the main Go HTTP
-surface at `/docs/`, so localhost, LAN access, and single-port reverse
-proxies all reach the same embedded documentation.
+The repository docs let an operator read technical guidance from the device
+itself when the deployment has no internet access or no business trusting the
+internet with the job. `/docs/` contains the repository's `docs/` and `data/`
+trees, rendered into the binary-embedded Eleventy site. `/homepage/` serves
+the image-staged public site, including its curated guides, from the same HTTP
+surface. Localhost, LAN access, and single-port reverse proxies reach both.
 
 ## Ownership split
 
-| Surface        | Owns                                                                 |
-| -------------- | -------------------------------------------------------------------- |
-| `docs_html/`   | Offline Eleventy shell, sidebar, build pipeline, search, link checks |
-| `public_html/` | Public docs shell, marketing-facing layout, public guide wrappers    |
-| `docs/`        | Internal technical content consumed by the offline site              |
+| Surface          | Owns                                                                      |
+| ---------------- | ------------------------------------------------------------------------- |
+| `docs_html/`     | Repository-docs shell, sidebar, build pipeline, search, and link checks   |
+| `public_html/`   | Curated public homepage and guides, staged on the image at `/homepage/`   |
+| `docs/`, `data/` | Technical and research content rendered into the `/docs/` repository site |
 
 The two Eleventy projects stay separate on purpose. Public docs and operator docs have different audiences, different publication rules, and very different ways to accidentally cause trouble.
 
 ## Build and serve model
 
 - `make build-docs-offline` builds the offline Eleventy site into `docs_html/_site`
+- `make build-docs-homepage` builds `public_html/_site` with paths rooted at `/homepage/`
 - `make dev-docs-offline` runs the offline Eleventy preview for authoring
 - `python3 scripts/check-relative-links.py` validates Markdown link integrity across the source tree
-- The Go server embeds the built output and serves it at `/docs/`
+- The Go server embeds `docs_html/_site` and serves it at `/docs/`
+- Image assembly stages `public_html/_site` at `/opt/velocity-report/public_html` and serves it at `/homepage/`
 - `--docs-source=embed|disk` switches between embedded and on-disk serving for development
 
 ## Scope boundary
