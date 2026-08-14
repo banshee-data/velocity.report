@@ -23,7 +23,7 @@
 	} from 'svelte-ux';
 
 	import { page } from '$app/state';
-	import { gitRepoDocsUrl, offlineHomepageUrl } from '$lib/docsUrl';
+	import { gitRepoDocsUrl, offlinePublicHTMLUrl } from '$lib/docsUrl';
 	import { discord } from '$lib/icons';
 	import {
 		capabilities,
@@ -37,7 +37,7 @@
 	let { children } = $props();
 	// Compute offline-site URLs synchronously from the page URL so they retain
 	// the current origin on a Pi, local development host, or Tailscale Serve.
-	let homepageUrl = $derived(offlineHomepageUrl({ href: page.url.href }));
+	let publicHTMLUrl = $derived(offlinePublicHTMLUrl({ href: page.url.href }));
 	let docsUrl = $derived(gitRepoDocsUrl({ href: page.url.href }));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
@@ -125,7 +125,7 @@
 			/>
 		{/if}
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
-		<NavItem text="Homepage (offline)" icon={mdiHome} path={homepageUrl} currentUrl={page.url} />
+		<NavItem text="Homepage (offline)" icon={mdiHome} path={publicHTMLUrl} currentUrl={page.url} />
 		<hr class="border-surface-300 my-2" aria-hidden="true" />
 		<NavItem
 			text="Git repo docs"
