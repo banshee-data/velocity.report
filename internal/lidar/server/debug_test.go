@@ -2,6 +2,9 @@ package server
 
 import (
 	"bytes"
+	"errors"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -81,4 +84,44 @@ func TestTracef_WithLogger(t *testing.T) {
 func TestTracef_NilLogger(t *testing.T) {
 	SetLogWriters(nil, nil, nil)
 	tracef("no-op %d", 1)
+}
+
+// TestOpsFatalf_Exits covers opsFatalf, which terminates the process on both
+// of its branches, so it can only be observed from a child process. The test
+// re-executes this binary with VELOCITY_TEST_FATAL set to select the branch:
+//
+//	"configured"   — a logger is wired, so it logs then calls os.Exit(1)
+//	"unconfigured" — no logger, so it falls through to log.Fatalf
+func TestOpsFatalf_Exits(t *testing.T) {
+	if mode := os.Getenv("VELOCITY_TEST_FATAL"); mode != "" {
+		if mode == "configured" {
+			SetLogWriters(os.Stdout, nil, nil)
+		} else {
+			SetLogWriters(nil, nil, nil)
+		}
+		opsFatalf("fatal: %s", mode)
+		t.Fatal("opsFatalf returned, want process exit")
+	}
+
+	for _, mode := range []string{"configured", "unconfigured"} {
+		t.Run(mode, func(t *testing.T) {
+			cmd := exec.Command(os.Args[0], "-test.run=^TestOpsFatalf_Exits$")
+			cmd.Env = append(os.Environ(), "VELOCITY_TEST_FATAL="+mode)
+			out, err := cmd.CombinedOutput()
+
+			if err == nil {
+				t.Fatalf("subprocess exited 0, want non-zero; output:\n%s", out)
+			}
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) {
+				t.Fatalf("subprocess error = %v, want *exec.ExitError; output:\n%s", err, out)
+			}
+			if code := exitErr.ExitCode(); code != 1 {
+				t.Errorf("exit code = %d, want 1; output:\n%s", code, out)
+			}
+			if !strings.Contains(string(out), "fatal: "+mode) {
+				t.Errorf("output missing the fatal message; got:\n%s", out)
+			}
+		})
+	}
 }
