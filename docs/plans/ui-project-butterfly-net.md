@@ -1,5 +1,6 @@
 # Plan: Velocity Report v2 UI 🦋 Project Butterfly Net
 
+- **Canonical:** [Velocity Report Butterfly Net](../ui/design/20260511-Velocity_Report_Butterfly_Net.md)
 - **Design sketch:** [`20260511-Velocity_Report_Butterfly_Net.html`](../ui/design/20260511-Velocity_Report_Butterfly_Net.html) (open in browser — standalone, no server needed)
 
 ## Context

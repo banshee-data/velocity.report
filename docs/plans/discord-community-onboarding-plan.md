@@ -1,5 +1,7 @@
 # Discord community onboarding plan
 
+- **Canonical:** [Community](../../public_html/src/community/index.md)
+
 The homepage now invites two kinds of people into the community:
 
 - residents and advocates who want help measuring a street

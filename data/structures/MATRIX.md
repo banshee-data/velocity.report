@@ -6,11 +6,13 @@
 ███      ███ ███  ███    ███    ███  ▀███ ▄███▄ ███▀ ▀███
 ```
 
-Complete mapping of components, API endpoints, database tables, data
-structures, and pipeline stages across the velocity.report codebase. Shows
-which surfaces consume each item: **DB** (SQLite persistence), **Web**
-(Svelte UI on `:8080`), **Mac** (Metal visualiser via gRPC). The Go
-report pipeline is documented separately in §11 as reference inventory.
+# Matrix
+
+This is the codebase's cross-reference ledger: components, API endpoints, database tables, data
+structures, and pipeline stages, with the surfaces that use each one. It answers "where does this
+go?" before that question has the chance to become a scavenger hunt. **DB** means SQLite
+persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser via gRPC. Section
+11 inventories the Go report pipeline separately.
 
 - **Source:** Full-codebase audit (March 2026)
 - **Inventory script:** [scripts/list-matrix-fields.py](../../scripts/list-matrix-fields.py): `--checklist` generates the LLM-consumable tracing checklist

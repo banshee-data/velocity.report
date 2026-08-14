@@ -10,7 +10,10 @@
   ▒███▒  ▓██▓  █    █ █    █ █░  ░█ █   ██ ████▒  ▒████░
 ```
 
-All make targets for building, testing, formatting, deploying, and operating velocity.report.
+# Commands
+
+This is the map of the project's make targets: how to build, test, format, deploy, and operate
+velocity.report without relying on tribal memory or a terminal incantation passed down at lunch.
 
 Run `make help` or `make` to see all available targets with descriptions.
 

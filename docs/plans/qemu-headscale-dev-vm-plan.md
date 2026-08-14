@@ -3,6 +3,7 @@
 - **Status:** design
 - **Owner:** patrickod
 - **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
+- **Canonical:** [qemu-headscale-dev-vm.md](../platform/operations/qemu-headscale-dev-vm.md)
 
 ## Why this exists
 

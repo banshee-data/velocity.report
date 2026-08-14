@@ -15,14 +15,10 @@
 
 </div>
 
-**Lines of code · test coverage shown as hatched (uncovered)**
-
-<img alt="Lines of code by language, with test coverage shown as hatched uncovered regions" src="https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg" width="440">
-
-Street-level speed measurement for neighbourhood change-makers, researchers,
-and anyone who needs evidence instead of guesswork about what traffic does.
-Radar and LiDAR sensors measure speeds and movement: no cameras, no licence plates,
-no individual is identified, tracked, or recorded. The data belongs to the community that collected it.
+velocity.report measures what traffic does on a street, so the people who live there can make
+their case with evidence rather than being asked to bring louder anecdotes. Radar and LiDAR
+measure speed and movement: no cameras, no licence plates, and no person is identified, tracked,
+or recorded. The data belongs to the community that collected it.
 
 <div align="center">
 
@@ -235,6 +231,10 @@ Check out [docs/plans](docs/plans/) and [BACKLOG.md](docs/BACKLOG.md) for any wo
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, coding standards,
 and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
+
+**Codebase breakdown, hatched area denotes code not covered by tests**
+
+<img alt="Lines of code by language, with test coverage shown as hatched uncovered regions" src="https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg" width="440">
 
 ## Deployment
 

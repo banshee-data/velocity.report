@@ -2,24 +2,121 @@
 
 <!-- ignore-style-length -->
 
-## August 10, 2026 - macOS Developer ID signing and notarisation
+This is the chronological engineering journal: what changed, why it mattered, and the evidence
+that made it worth recording. Entries are historical records, so new work belongs at the top and
+older entries stay put, however tempting hindsight may be.
 
-- Completed the first local VelocityVisualiser Developer ID release-signing
-  run: verified a usable `Developer ID Application` identity, signed the app
-  with hardened runtime and timestamping, packaged `VelocityVisualiser-0.5.1-pre26.dmg`,
-  submitted it through the `velocity-report` `notarytool` keychain profile,
-  stapled the accepted ticket, and passed `make verify-mac`.
-- Fixed the DMG packaging hang by making Finder layout automation
-  timeout-bounded and best-effort, with `DMG_LAYOUT=0` and
-  `DMG_LAYOUT_TIMEOUT_SECONDS` overrides for local or CI packaging.
-- Corrected the release packaging target so `make release-mac` packages the
-  signed app instead of rebuilding after signing, and updated the release docs
-  with the local keychain, notarytool, and GitHub Actions secret boundaries.
-- Made unsigned CI DMG outputs explicit: manual or tag runs without the full
-  release secret set now upload `UNSIGNED`-labelled DMG files and artifacts,
-  while partially configured signing secrets fail the workflow early.
+## August 14, 2026 - Key documentation standardisation
 
-## June 9, 2026 - Typst map editor, typstbin hardening & cleanup
+- Standardised the opening TL;DR paragraphs and heading structure across the key top-level docs, covering `ARCHITECTURE.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `COMMANDS.md`, `DEBUGGING.md`, `MAGIC_NUMBERS.md`, `TENETS.md`, and the `data/` and `docs/` hubs.
+- Relocated the LOC and coverage chart in `README.md` and clarified its description.
+- Recorded the missing PR number against a completed backlog item.
+
+## August 13, 2026 - Embedded Tailscale installer
+
+- Removed Tailscale from the Raspberry Pi image build and moved the installer into the `velocity` binary, so the image now ships with no Tailscale package, apt source, keyring, service, credentials, or state (#551).
+- Added `internal/tailscaleinstall`, which downloads the pinned 1.102.2 static release over `net/http`, verifies a baked SHA-256, extracts only the `tailscale` and `tailscaled` entries, and installs under `/opt/velocity-report/tailscale/<version>/` with an atomic `current` and `/usr/local/bin` symlink refresh (#551).
+- Hardened the installer against review findings: rejected tar entries over 64 MiB or short of their declared size, included the expected hash in checksum-mismatch errors, refused to overwrite non-symlink PATH entries, and fixed a `0700` extraction mode that stopped the non-root `velocity` account executing the client (#551).
+- Kept the privileged boundary a literal sudo allowlist, so the `velocity` service account can run only the fixed install, enable, and disable argv vectors rather than receiving a wildcard grant (#551).
+- Deleted the `image/stage-velocity/07-velocity-tailscale/` stage with its apt repository setup, keyring fetch, transient `curl` install, and image-time daemon masking, then updated the remote-access guide, the QEMU and Headscale plans, and the image plans to match (#551).
+- Bumped the release to `0.5.1-pre29` across the canonical version surfaces (#551).
+- Landed a grouped application dependency bump taking `modernc.org/sqlite` to 1.56.0, with a TypeScript/ESLint compatibility fix and a LiDAR replay test that now waits for the EOF pause (#550).
+
+## August 12, 2026 - Fully-static Linux builds
+
+- Added `make build-radar-static`, producing fully-static linux/amd64 and linux/arm64 binaries with no glibc, `libpcap.so`, or libnl dependency, built entirely inside a hermetic Docker image so contributors need only `docker` and `git` (#513).
+- Built the toolchain around `zig cc -target <arch>-linux-musl` as the cgo compiler, with `libpcap.a` compiled from the `third_party/libpcap` submodule pinned to the 1.10.6 release tag, giving host-speed cross-compilation to both architectures without qemu (#513).
+- Made the output reproducible: pinned `debian:bookworm-slim` by digest, SHA-256-verified the Go and zig tarballs before extract, defaulted `BUILD_TIME` to the HEAD committer date in UTC, and refused to build from a dirty tree unless `ALLOW_DIRTY=1` (#513).
+- Split the Dockerfile into toolchain, libpcap, and build stages so the `libpcap.a` layer only invalidates when the submodule pointer moves, and sourced `GO_VERSION` from `go.mod` so the pin cannot drift (#513).
+- Added a `--self-check` flag exercising DNS, UDP and TCP bind, and libpcap, plus `scripts/smoke-test-static.sh` to run the binary in a fresh `debian:bookworm-slim` of the matching architecture, and a `static-build-ci.yml` workflow covering both arches on every build-touching PR (#513).
+- Pointed the image build at the static binary path and refreshed the deployment documentation for the `velocity device` commands (#513).
+- {patrickod/tailscale-acls} Added an opt-in Tailscale ACL gate for admin and view access, then addressed the Copilot review on it.
+
+## August 11, 2026 - Multi-sensor capabilities & serial rollout
+
+- Replaced the single `radar` and `lidar` fields in `/api/capabilities` with named-object maps keyed by sensor name, updating the Go provider, API tests, frontend types, the Svelte capabilities store, and layout gating (#547).
+- Preserved smart polling across the redesign, so radar-only deployments fetch once while LiDAR deployments keep polling for runtime state transitions (#547).
+- Documented the empty `lidar: {}` semantics, dropped the unimplemented `last_reading_at` field from the plan and spec, and added `ready` to the status vocabulary, closing the review drift left by the superseded #430 (#547).
+- Made enabled database configuration the runtime default for radar serial startup, kept the CLI `--port` as the fallback when no enabled configuration exists, and gave clearer startup errors for invalid saved configuration (#549).
+- Added an "Apply enabled config" action on `/app/settings` backed by `POST /api/serial/reload`, with typed API client support and user-facing success and error feedback (#549).
+- Validated the rollout on the deployed Pi and HAT at `/dev/ttySC1`, `19200 8N1`: device discovery, configured-port filtering, active-port protection, mismatched-settings diagnostics, and the safe no-op reload path all held while radar ingestion continued (#549).
+- Deferred device and baud auto-detection, USB-adapter validation, and deliberately changed-setting reload to a later release, and said so plainly in the serial implementation plan (#549).
+- Bumped the release to `0.5.1-pre27` and pointed the remote-release utility at the canonical `image/velocity-binaries/velocity` build (#549).
+- {codex/four-platform-build-standardisation-plan} Added a four-platform build target standardisation plan and logged it in the backlog.
+
+## August 10, 2026 - macOS Developer ID signing, LiDAR maths planning & OBB doc recovery
+
+- Completed the first local VelocityVisualiser Developer ID release-signing run: verified a usable `Developer ID Application` identity, signed the app with hardened runtime and timestamping, packaged `VelocityVisualiser-0.5.1-pre26.dmg`, submitted it through the `velocity-report` `notarytool` keychain profile, stapled the accepted ticket, and passed `make verify-mac`.
+- Fixed the DMG packaging hang by making Finder layout automation timeout-bounded and best-effort, with `DMG_LAYOUT=0` and `DMG_LAYOUT_TIMEOUT_SECONDS` overrides for local or CI packaging.
+- Corrected the release packaging target so `make release-mac` packages the signed app instead of rebuilding after signing, and updated the release docs with the local keychain, notarytool, and GitHub Actions secret boundaries.
+- Made unsigned CI DMG outputs explicit: manual or tag runs without the full release secret set now upload `UNSIGNED`-labelled DMG files and artifacts, while partially configured signing secrets fail the workflow early.
+- Recovered the useful OBB heading-stability guidance from the superseded #397 as documentation only, keeping the shipped `obb_aspect_ratio_lock_threshold` default at `0.25` and framing `0.15` and `0.10` as replay-validation candidates rather than landed behaviour (#548).
+- Added the v0.5.2 [LiDAR maths coherence plan](plans/lidar-maths-coherence-plan.md): bidirectional citations between `data/maths/` and the Go implementation, a formalised L6 confidence model, new maths notes for L8 analytics and L1/L2 timing and geometry, and an unmasked CI gate (#540).
+- Reviewed the backlog for the v0.5.2 plans, auditing stale items and correcting overclaims, and added the shape-descriptor plan with a classifier analysis lane outline (#540).
+- Corrected the subsample determinism claim and logged a DBSCAN replay defect against the maths plans (#540).
+- Refreshed grouped application and documentation dependencies, taking `ruff` to 0.16.1 and `mermaid` to 11.16.1, and pinned TypeScript back to `^5.8.3` for typescript-eslint compatibility (#545, #546).
+
+## August 2, 2026 - Archived prototype references
+
+- Pointed the velocity-coherent plan at archived prototype tags after closing #391 and #390: the prototype was written against the pre-L1-L9 flat `internal/lidar/` layout, and the layered refactor removed every file it touched, so neither branch could be rebased (#544).
+- Added a "Prototype source (archived)" section naming `archive/vc-prototype-391` and `archive/algo-selection-390` with `git show` and `git checkout` recipes, and annotated the file table with per-file line and test counts (#544).
+- Confirmed no design content needed rescuing: the plan plus the velocity-foreground-extraction architecture doc and the maths proposal are a structural superset of the branch's design document (#544).
+- Refreshed grouped documentation dependencies (#543).
+
+## July 30, 2026 - pnpm 11, TypeScript 6 & CI repair
+
+- Moved the web tooling to Node 22 and bumped `packageManager` to `pnpm@11.18.0`, migrating the settings that pnpm 11 renamed (#536, #537).
+- Repaired a corrupt `pnpm-lock.yaml` that broke CI: fixed the prettier specifier format, removed duplicate entries, and cleaned up stale dependencies (#537, #541).
+- Took TypeScript to 6.0.3 and landed four grouped application dependency bumps across the Go, web, and public-site ecosystems (#536, #537, #541, #542).
+
+## July 29, 2026 - Dependency refresh
+
+- Bumped `@sveltejs/kit` to 2.69.1 and `postcss` to 8.5.18 (#538, #539).
+
+## July 13, 2026 - Dependency refresh
+
+- Refreshed grouped documentation dependencies for the docs site (#533).
+
+## June 24, 2026 - LiDAR PCAP tooling consolidation
+
+- Consolidated the offline LiDAR PCAP tooling into `velocity lidar pcap-split`, folding capture and health scanning, the motion and static timeline, and segment splitting into one tool under a new `lidar` namespace in the multi-call binary (#531).
+- Built `pcap-split` as a two-pass design: pass one classifies each frame via the `BackgroundManager`, pass two re-reads the capture and copies each packet into its segment by capture timestamp, so nothing buffers and the shared PCAP reader stays untouched (#531).
+- Replaced the per-cell noise-deviation motion signal with a background-drift ratio. The old signal conflated a busy but parked scene with genuine driving and produced false motion on the soma3 capture, while drift ratio is scene-independent. Added `sensor_movement_drift_ratio_threshold` to the L3 config block, default `0.35` (#531).
+- Extracted the pipeline timing benchmark into `internal/lidar/lidarbench` with a standalone `cmd/tools/lidar-bench` wrapper, then pointed `make test-perf` and the nightly CI step at it while preserving the `PerformanceMetrics` JSON schema so the committed baselines stayed valid (#531).
+- Removed `cmd/tools/pcap-analyse` along with track CSV/JSON export, ML training-data export, and SQLite persistence, capturing the removed pieces as self-contained architecture outlines in `docs/plans/lidar-offline-analysis-tooling-plan.md` (#531).
+- Added read-only per-frame settling accessors to `l3grid`, and made frame assembly flush the in-flight frame on close so capture order survives (#531).
+- Bumped the version to `0.5.1-pre26` and rewrote the pcap-analysis and performance-regression-testing docs for the new layout (#531).
+- {claude/strange-colden-a99dc2} Tested and documented the diagonal-Q process-noise gap (K1): the L5 prediction step omits the position-velocity coupling term of the continuous white-noise-acceleration model, underestimating cross-covariance and making the gating ellipse overconfident along the correlation direction.
+- {claude/strange-colden-a99dc2} Added an opt-in Joseph-form covariance update (K2), default off, which stayed roughly 14 times more symmetric than the naive form over 10k adversarial predict and update cycles while remaining positive-definite.
+- {claude/strange-colden-a99dc2} Documented the mean-absolute-deviation versus standard-deviation relationship in the L3 background spread (B1): `RangeSpreadMeters` tracks MAD, so a settled cell observing noise of 0.1 converges to about 0.0798, not 0.1.
+- {claude/strange-colden-a99dc2} Implemented CLEAR MOT (MOTA and MOTP) in `l8analytics` (M1) as pure computation, reusing `l5tracks.HungarianAssign` for per-frame matching. Ground-truth ingestion and endpoint wiring remain follow-ups.
+
+## June 19, 2026 - Dependency cleanup
+
+- Resolved the Dependabot security-update blockers by locking `dompurify` to 3.4.11 and adding `esbuild` 0.28.1 for Vite (#530).
+- Removed unused dependencies: `seaborn`, `scipy`, and `responses` from Python, `flake8` from the alignment tools, `cross-env` from the web package, and `autoprefixer` from the public site (#530).
+- Formatted the LiDAR sweeps page with the CI-pinned Prettier version (#530).
+
+## June 11, 2026 - LOC & coverage chart
+
+- Added a nightly LOC and coverage chart: a horizontal stacked SVG breaking down lines of code across js, go, mac, markdown, and scripts, with a hatched overlay marking the uncovered share of each coded language (#509).
+- Published the chart to a dedicated orphan `stats` branch so neither `main` nor `public_html` churn each night, force-pushing only when the SVG content actually changes (#509).
+- Wired the `loc-coverage-chart.yml` workflow to `workflow_run` after nightly CI succeeds on main: it downloads the coverage artifacts from the triggering run, runs `cloc --vcs=git`, and parses the Go cover profile plus two LCOV files (#509).
+- Added a `go-coverage` job producing the merged Go profile under `-tags=pcap`, published `coverage-go`, `coverage-web`, and `coverage-mac` artifacts from nightly CI, and added a `make loc-coverage-chart` target for iterating on the renderer locally (#509).
+- Made the chart dark-mode aware: compacted the layout, placed labels adaptively inside or outside segments, switched the uncovered overlay to a transparent red diagonal hatch, and drove outlines and off-bar labels from colour-scheme CSS classes (#529).
+- Moved the chart caption out of the SVG into `README.md`, dropped the in-chart title, footer, and percentages, and relabelled "markdown" as "docs" (#529).
+
+## June 10, 2026 - Chart timezone fix & pre25 release
+
+- Fixed a dashboard bug where the Vehicle Count card showed a non-zero count while the timeseries chart below it sat empty between roughly 5pm and midnight in timezones behind UTC. The card sent raw unix timestamps while the chart sent `YYYY-MM-DD` that the server re-interpreted as a calendar day, so the two endpoints queried different windows (#527).
+- Settled on one date contract: `/api/radar_stats` and `/api/charts/{timeseries,histogram,comparison}` now take `start` and `end` as ISO 8601 instants, so the server does no calendar-day interpretation and the original bug cannot recur (#527).
+- Made `tz` display-only for axis labels and response formatting, and had the frontend build instants from the picked day in the selected display timezone via DST-correct `Intl` offset maths (#527).
+- Defaulted the queried range to end at tomorrow-local so today's data is always in range, and fell back to the browser zone when the server default is `UTC` (#527).
+- Kept report generation on `YYYY-MM-DD`, since those values land on the report row, in the PDF, and in the report filename, where a colon-bearing instant cannot live (#527).
+- Added `docs/radar/architecture/dates-and-timezones.md` as the canonical reference for the DB, the API, and the frontend; storage stays UTC unix epoch seconds throughout (#527).
+- Cut `0.5.1-pre25`: refreshed `release.json` and the Raspberry Pi Imager catalogue, and taught `scripts/update-release-json.py` to match both the new versioned and the legacy binary asset names (#528).
+
+## June 9, 2026 - Typst map editor, typstbin hardening, pre24 release & plan graduation
 
 - Built the report map-editor integration: an SVG overlay with style selection, FOV-triangle overlay rendering, tile snapshots loaded only with user consent, and report-overlay visibility plus stale-preview detection (#522).
 - Replaced server-side OSM rendering with the consent-gated client editor: removed the dead Overpass module, the unused `/api/map/overpass` proxy, and the server-side OSM site-map renderer with its Phase 0 typst-prototype driver (#522).
@@ -27,6 +124,11 @@
 - Improved Typst report layout: histogram bucket handling, figure clearance and placement, and a surveyor/contact line that renders only when present (#522).
 - Added PDF-metadata support with trailer-parsing tests for Typst-generated reports, and consolidated the PDF migration docs and plan links (#522).
 - Encapsulated the Docker temp-cache removal in a dedicated build-script function and added a test covering the Docker Go cache cleanup.
+- Cut `0.5.1-pre24`: bumped the version, refreshed `release.json` and the Raspberry Pi Imager catalogue, added the Typst report engine entry to the changelog, and refreshed the homepage `stack.png` hero (#523, #525).
+- Restructured the June 4 to 9 devlog entries around the actual daily cadence rather than squash-merge dates, splitting the nginx and TLS removal, the unified-binary work, and the Typst migration across the days they were done (#523).
+- Graduated eight completed plans to symlinks pointing at the PDF reporting, distribution packaging, and CLI guide hubs, and inverted the visualiser performance investigation, which had been graduated backwards (#526).
+- De-circularised those hubs now that their plans resolve back to them, and dropped drift-prone counts from the reference docs so they age better (#526).
+- Landed a grouped application dependency bump taking `golang.org/x/sys` to 0.46.0 and `modernc.org/sqlite` to 1.52.0 (#524).
 
 ## June 8, 2026 - Typst PDF engine & TeX Live removal
 
@@ -282,7 +384,7 @@
 - Created the plan-graduation skill with slim hub-doc template and two-PR graduation rule. Added the docs-release-prep skill.
 - Resolved the lidar-schema-robustness plan as complete. Added status lines to 7 plans, consolidated webserver-tuning into the fixit plan.
 - Added CI docs link health check and refined linting scripts. Auto-built the documentation site when missing from the RPi image.
-- {dd/fix/security-c2-c3} Restricted default listen addresses to localhost. Reworked the `/command` allowlist into an advisory catalogue after confirming the OPS24x API command set is config/query-only and non-destructive (no firmware-flash command per AN-010-Z): the endpoint now forwards any command to the sensor, logging a warning for commands outside the documented catalogue rather than rejecting them. The catalogue (`internal/radar/commands.go`, now code+description and completed against AN-010-Z) is exposed read-only via `GET /api/commands` to back a future dashboard command dropdown.
+- Restricted default listen addresses to localhost. Reworked the `/command` allowlist into an advisory catalogue after confirming the OPS24x API command set is config/query-only and non-destructive (no firmware-flash command per AN-010-Z): the endpoint now forwards any command to the sensor, logging a warning for commands outside the documented catalogue rather than rejecting them. The catalogue (`internal/radar/commands.go`, now code+description and completed against AN-010-Z) is exposed read-only via `GET /api/commands` to back a future dashboard command dropdown.
 
 ## April 9, 2026 - asset naming, Go report generation & RPi image security
 
@@ -421,10 +523,10 @@
 - Added [data/QUESTIONS.md](../data/QUESTIONS.md) with open research questions about hourly comparison data and speed distributions.
 - Refactored [README.md](README.md) structure and added [COMMANDS.md](../COMMANDS.md) with make targets reference and ASCII art headers.
 - Split the Raspberry Pi image plan into phased delivery (Phase 1 bootable image, Phase 2 OTA, Phase 3 fleet management).
-- {dd/mac/dmg-signing} Added macOS code-signing and notarisation to the CI workflow and Makefile (#425): `codesign --deep`, `notarytool`, and `stapler`.
-- {dd/mac/dmg-signing} Fixed notarisation auth handling for macOS 13+ keychain profiles and removed the unreliable `spctl` DMG check.
-- {dd/mac/dmg-signing} Added a pre-build guard to verify the visualiser `.app` bundle exists before attempting DMG creation.
-- {dd/mac/dmg-signing} Enhanced notarisation error handling with detailed logging and keychain path resolution.
+- Added macOS code-signing and notarisation to the CI workflow and Makefile (#425): `codesign --deep`, `notarytool`, and `stapler`.
+- Fixed notarisation auth handling for macOS 13+ keychain profiles and removed the unreliable `spctl` DMG check.
+- Added a pre-build guard to verify the visualiser `.app` bundle exists before attempting DMG creation.
+- Enhanced notarisation error handling with detailed logging and keychain path resolution.
 
 ## March 24, 2026 - config consolidation, ERD refresh & workflow docs
 
@@ -590,7 +692,7 @@
 - Added versioned DMG export for VelocityVisualiser: automated packaging scripts, Finder-layout automation (`create-dmg`), CI wiring, and updated build/getting-started documentation.
 - Second round of macOS UI polish: label taxonomy consolidation, track labelling and navigation improvements, enhanced test coverage for visualiser components.
 - Bumped version to `0.5.0-pre14`.
-- {dd/mac/dmg-signing} Added initial code-signing and notarisation pipeline (#425): Makefile targets for `codesign`, `notarytool`, and `stapler`, wired into the CI release workflow.
+- Added initial code-signing and notarisation pipeline (#425): Makefile targets for `codesign`, `notarytool`, and `stapler`, wired into the CI release workflow.
 
 ## February 26, 2026 - replay EOF debugging, build metadata cI/Test plumbing & format docs
 

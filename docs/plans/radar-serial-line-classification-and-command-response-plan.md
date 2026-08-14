@@ -4,7 +4,7 @@
 - **Layers:** Go server (`internal/serialmux`, `internal/api`, radar ingest in `internal/cmd/server`)
 - **Target:** Unscheduled. Enables the command dashboard (the `GET /api/commands` dropdown shipped on PR 461) to display the result of a query command, not just fire it.
 - **Related:** [Security surface](../../.github/knowledge/security-surface.md), `internal/radar/commands.go` (advisory command catalogue)
-- **Canonical:** none yet; this plan is the working design until a hub doc is warranted.
+- **Canonical:** [serial-configuration-api.md](../radar/architecture/serial-configuration-api.md)
 
 ## Motivation
 
