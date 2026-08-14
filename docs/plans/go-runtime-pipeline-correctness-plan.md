@@ -2,6 +2,7 @@
 
 - **Status:** Active
 - **Layers:** Go server, LiDAR replay/tracking pipeline, radar DB derivation, API capability reporting
+- **Canonical:** [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md)
 - **Target:** v0.5.1-v0.5.7; runtime correctness gates land early, contract/API fixes follow in v0.5.3, and structural follow-through remains scheduled in the existing cleanup milestones.
 - **Companion plans:** [lidar-clock-abstraction-and-time-domain-model-plan.md](lidar-clock-abstraction-and-time-domain-model-plan.md), [lidar-performance-measurement-harness-plan.md](lidar-performance-measurement-harness-plan.md), [lidar-architecture-foundations-fixit-plan.md](lidar-architecture-foundations-fixit-plan.md), [metrics-registry-and-observability-plan.md](metrics-registry-and-observability-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md), [go-cmd-extraction-plan.md](go-cmd-extraction-plan.md), [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 
@@ -73,7 +74,7 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 3. Treat persisted replay output as a data product: no wall-clock display throttle may silently change semantic content.
 4. Make DB contracts match accepted ingest shapes.
 5. Use existing shared safety helpers rather than parallel path checks.
-6. Let v0.5.6 structural work move code after behavior is pinned down.
+6. Let v0.5.6 structural work move code after behaviour is pinned down.
 
 ## Scope
 
@@ -87,7 +88,7 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 1. Keep the remediation findings in this plan rather than a separate operations review.
 2. Exclude minor style issues and cleanup already clearly scheduled in the backlog.
-3. Identify which related cleanup docs remain companions and which behavior fixes this plan absorbs.
+3. Identify which related cleanup docs remain companions and which behaviour fixes this plan absorbs.
 
 **Milestone:** v0.5.2 planning complete.
 
@@ -147,7 +148,7 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 1. Decide whether magnitude-only rows are stored diagnostics only or analytic transit inputs.
 2. If speed is required for transits, filter transit derivation on `speed IS NOT NULL` and keep magnitude-only rows out of transit clustering.
-3. If magnitude-only rows are analytic inputs, scan speed as nullable and define clustering behavior without speed.
+3. If magnitude-only rows are analytic inputs, scan speed as nullable and define clustering behaviour without speed.
 4. Add regression tests with magnitude-only rows in otherwise valid transit windows.
 5. Document the ingest and transit contract in the radar operations docs or DB plan notes.
 
@@ -215,14 +216,14 @@ disconnect/reconnect.
 
 1. Leave background grid display repair, VRLOG timestamp indexing, and seek diagnostic logging in the existing v0.5.7 replay UX/stability backlog.
 2. Use Phase 1 and Phase 2 tests as server-side gates before relying on visual replay surfaces for analysis validation.
-3. Keep replay UX work free to optimize display and seek behavior without changing persisted analysis semantics.
+3. Keep replay UX work free to optimise display and seek behaviour without changing persisted analysis semantics.
 
 **Milestone:** v0.5.7 through existing backlog items.
 
 ## Dependencies
 
 - Phase 1 should land before side-by-side replay evaluation or HINT scoring is treated as trustworthy.
-- Phase 1 and the clock-abstraction plan touch the same throttle boundary; behavior should be pinned with tests before clock injection broadens the surface.
+- Phase 1 and the clock-abstraction plan touch the same throttle boundary; behaviour should be pinned with tests before clock injection broadens the surface.
 - Phase 4 builds on #547's named-map capability API. It owns runtime truth for
   LiDAR ready/error transitions, not another response-shape redesign.
 - Phase 5 does not need a new backlog item because existing v0.5.3 metric and data-completeness plans already own the broader output surfaces.

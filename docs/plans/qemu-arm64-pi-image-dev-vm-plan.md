@@ -3,6 +3,7 @@
 - **Status:** design (variant of qemu-headscale-dev-vm-plan.md)
 - **Owner:** patrickod
 - **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
+- **Canonical:** [qemu-headscale-dev-vm.md](../platform/operations/qemu-headscale-dev-vm.md)
 
 ## What this variant does differently
 

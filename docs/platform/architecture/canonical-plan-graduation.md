@@ -103,8 +103,8 @@ hub docs legitimately serve multiple plans.
 
 Every non-symlink plan under `docs/plans/` carries `Canonical` metadata, and
 completed plans are graduated to symlinks that point at their owning hub doc in
-one of the four hubs. The exact totals drift with every release, so they are not
-recorded here — derive them on demand:
+one of the four hubs. This batch raises the number of plan aliases from 31 to
+34; derive the current value on demand after later graduations:
 
 - `make report-plan-hygiene` — plan count, gate violations, advisory notes.
 - `find docs/plans -maxdepth 1 -type l | wc -l` — plans graduated to symlinks.
