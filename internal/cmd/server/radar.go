@@ -999,6 +999,13 @@ func Main(args []string) int {
 		} else {
 			log.Printf("Offline docs available on main HTTP server at %s (source=%s)", docsite.DefaultMount, *docsSource)
 		}
+		if handler, err := docsite.DiskHandler(docsite.HomepageDiskDir); err != nil {
+			log.Printf("Offline homepage route %s unavailable on main HTTP server: %v", docsite.HomepageMount, err)
+		} else if err := docsite.Mount(mux, docsite.HomepageMount, handler); err != nil {
+			log.Printf("Offline homepage route %s unavailable on main HTTP server: %v", docsite.HomepageMount, err)
+		} else {
+			log.Printf("Offline homepage available on main HTTP server at %s", docsite.HomepageMount)
+		}
 		serialManager.AttachAdminRoutes(mux)
 		database.AttachAdminRoutes(mux)
 
