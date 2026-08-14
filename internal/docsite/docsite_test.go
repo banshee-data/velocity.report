@@ -124,7 +124,7 @@ func TestMountRedirectsBarePrefix(t *testing.T) {
 	}
 }
 
-func TestMountServesHomepageAtItsOwnPrefix(t *testing.T) {
+func TestMountServesPublicHTMLAtItsOwnPrefix(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("offline homepage"), 0o644); err != nil {
 		t.Fatalf("write index: %v", err)
@@ -135,17 +135,17 @@ func TestMountServesHomepageAtItsOwnPrefix(t *testing.T) {
 		t.Fatalf("DiskHandler returned error: %v", err)
 	}
 	mux := http.NewServeMux()
-	if err := Mount(mux, HomepageMount, handler); err != nil {
+	if err := Mount(mux, PublicHTMLMount, handler); err != nil {
 		t.Fatalf("Mount returned error: %v", err)
 	}
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, HomepageMount, nil)
+	req := httptest.NewRequest(http.MethodGet, PublicHTMLMount, nil)
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET %s status = %d, want %d", HomepageMount, rec.Code, http.StatusOK)
+		t.Fatalf("GET %s status = %d, want %d", PublicHTMLMount, rec.Code, http.StatusOK)
 	}
 	if got := rec.Body.String(); got != "offline homepage" {
-		t.Fatalf("GET %s body = %q, want %q", HomepageMount, got, "offline homepage")
+		t.Fatalf("GET %s body = %q, want %q", PublicHTMLMount, got, "offline homepage")
 	}
 }

@@ -19,10 +19,10 @@ const (
 	SourceEmbed = "embed"
 	SourceDisk  = "disk"
 
-	DefaultDiskDir  = "docs_html/_site"
-	DefaultMount    = "/docs/"
-	HomepageDiskDir = "/opt/velocity-report/public_html"
-	HomepageMount   = "/homepage/"
+	DefaultDiskDir    = "docs_html/_site"
+	DefaultMount      = "/docs/"
+	PublicHTMLDiskDir = "/opt/velocity-report/public_html"
+	PublicHTMLMount   = "/public_html/"
 )
 
 func ValidateSource(source string) error {
