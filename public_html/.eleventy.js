@@ -3,6 +3,14 @@ const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
 const cheerio = require("cheerio");
 
+function normalisePathPrefix(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed || trimmed === "/") return "";
+  return `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+const pathPrefix = normalisePathPrefix(process.env.VELOCITY_PUBLIC_HTML_PATH_PREFIX);
+
 module.exports = function (eleventyConfig) {
   // Add syntax highlighting plugin
   eleventyConfig.addPlugin(syntaxHighlight);
@@ -45,6 +53,17 @@ module.exports = function (eleventyConfig) {
   };
 
   eleventyConfig.setLibrary("md", markdownLibrary);
+
+  // The public site normally lives at the origin. The Pi image also serves it
+  // under /homepage/, so rewrite root-relative HTML URLs only for that build.
+  // CSS font URLs are relative (see fonts.css), and therefore work in both
+  // locations without this transform.
+  if (pathPrefix) {
+    eleventyConfig.addTransform("prefix-offline-root-urls", function (content, outputPath) {
+      if (!outputPath || !outputPath.endsWith(".html")) return content;
+      return content.replace(/\b(href|src)=(['"])\/(?!\/)/g, `$1=$2${pathPrefix}`);
+    });
+  }
 
   // Copy static files directly to output
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
@@ -201,6 +220,7 @@ module.exports = function (eleventyConfig) {
   });
 
   return {
+    pathPrefix,
     dir: {
       input: "src",
       output: "_site",
