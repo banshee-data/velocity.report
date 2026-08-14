@@ -556,7 +556,7 @@ ensure-dev-web-build:
 		$(MAKE) build-web; \
 	fi
 
-.PHONY: build-docs
+.PHONY: build-docs build-docs-homepage verify-docs-homepage-build
 build-docs:
 	@echo "Building documentation site..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
@@ -567,6 +567,29 @@ build-docs:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
+
+# The Pi image serves the public site beneath /homepage/. Keep this as a
+# separate target so normal public-site builds continue to target the origin.
+build-docs-homepage:
+	@echo "Building offline homepage site..."
+	@cd public_html && export VELOCITY_PUBLIC_HTML_PATH_PREFIX="/homepage/" && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@printf '%s\n' "/homepage/" > public_html/_site/.velocity-homepage-path-prefix
+	@$(MAKE) verify-docs-homepage-build
+	@echo "✓ Offline homepage build complete: public_html/_site/"
+
+verify-docs-homepage-build:
+	@test -f public_html/_site/index.html
+	@test "$$(cat public_html/_site/.velocity-homepage-path-prefix)" = "/homepage/"
+	@test -f public_html/_site/guides/setup/index.html
+	@test -f public_html/_site/tool/protractor/index.html
+	@! rg -nP '(?:href|src)="/(?!homepage/|/)' public_html/_site --glob '*.html'
+	@! rg -n 'url\("/' public_html/_site/css --glob '*.css'
 
 .PHONY: build-docs-offline
 build-docs-offline:
