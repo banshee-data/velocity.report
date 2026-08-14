@@ -584,12 +584,7 @@ build-docs-public-html:
 	@echo "✓ Offline homepage build complete: public_html/_site/"
 
 verify-docs-public-html-build:
-	@test -f public_html/_site/index.html
-	@test "$$(cat public_html/_site/.velocity-public-html-path-prefix)" = "/public_html/"
-	@test -f public_html/_site/guides/setup/index.html
-	@test -f public_html/_site/tool/protractor/index.html
-	@! rg -nP '(?:href|src)="/(?!public_html/|/)' public_html/_site --glob '*.html'
-	@! rg -n 'url\("/' public_html/_site/css --glob '*.css'
+	@python3 scripts/verify-public-html-build.py
 
 .PHONY: build-docs-offline
 build-docs-offline:
