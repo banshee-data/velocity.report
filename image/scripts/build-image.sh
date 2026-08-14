@@ -194,20 +194,12 @@ done
 find "$DATA_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied data reference files"
 
-# Copy built documentation site (Eleventy output) for on-device reference.
-# Auto-build if _site/ is missing, matching the web frontend pattern above.
-if [ ! -d "$REPO_ROOT/public_html/_site" ]; then
-    log_info "Building documentation site..."
-    if command -v pnpm &>/dev/null; then
-        (cd "$REPO_ROOT/public_html" && pnpm run build)
-    elif command -v npm &>/dev/null; then
-        (cd "$REPO_ROOT/public_html" && npm run build)
-    else
-        log_error "pnpm or npm is required to build the documentation site"
-        exit 1
-    fi
-    log_info "Documentation site built"
-fi
+# Build the public homepage with paths rooted at /homepage/. The Go server
+# serves this staged tree alongside its existing /docs/ repository-docs route.
+# Always rebuild here: a normal public deployment targets /, which is not a
+# safe substitute for the image's mounted path.
+log_info "Building offline homepage site..."
+make -C "$REPO_ROOT" build-docs-homepage
 PUBLIC_HTML_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
 rm -rf "$PUBLIC_HTML_DEST"
 mkdir -p "$PUBLIC_HTML_DEST"
