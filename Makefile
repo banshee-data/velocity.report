@@ -1181,8 +1181,31 @@ test-go-changed-coverage:
 # Built with -tags=pcap so PCAP replay is the real implementation rather than
 # the refusing stub — settling evaluation and the offline replay tooling are
 # only reachable that way, and it matches how the shipped binary is built.
-# Needs libpcap (brew install libpcap / apt-get install libpcap-dev).
+# Needs libpcap (brew install libpcap / apt-get install libpcap-dev); CI
+# installs libpcap-dev in every job that runs this.
+#
+# Both ways of losing PCAP coverage are made loud rather than silent: a missing
+# libpcap is reported with the install command instead of a raw cgo error, and
+# dropping the tag from COVERAGE_TAGS refuses to run at all. Falling back to the
+# untagged build would still pass the gate while measuring ~400 fewer
+# statements, which is worse than failing.
 test-go-coverage-gate:
+	@case ",$(COVERAGE_TAGS)," in \
+		*,pcap,*) ;; \
+		*) echo "ERROR: COVERAGE_TAGS is '$(COVERAGE_TAGS)' and does not include 'pcap'."; \
+		   echo "       The untagged build stubs out ReadPCAPFile, so every PCAP replay"; \
+		   echo "       path becomes unreachable and unmeasured — the gate would pass"; \
+		   echo "       while covering ~400 fewer statements. Install libpcap instead:"; \
+		   echo "         macOS: brew install libpcap"; \
+		   echo "         Linux: sudo apt-get install libpcap-dev"; \
+		   exit 1 ;; \
+	esac
+	@env -u GOROOT go build -tags=$(COVERAGE_TAGS) ./internal/lidar/l1packets/network/ >/dev/null 2>&1 || { \
+		echo "ERROR: cannot build with -tags=$(COVERAGE_TAGS); libpcap headers are probably missing."; \
+		echo "         macOS: brew install libpcap"; \
+		echo "         Linux: sudo apt-get install libpcap-dev"; \
+		exit 1; \
+	}
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
