@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
@@ -13,17 +14,37 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
+// stubReplayFrameBuilder records SetBlockOnFrameChannel calls made by the
+// replay goroutine.
+//
+// The mutex is load-bearing: the final SetBlockOnFrameChannel(false) runs from
+// a deferred call inside that goroutine, and waitForPCAPDone does not wait when
+// pcapDone has already been cleared — so the test can read these fields while
+// the goroutine's defers are still unwinding. Without synchronisation the race
+// detector flags it under cross-package load (-race -p 2).
 type stubReplayFrameBuilder struct {
+	mu      sync.Mutex
 	dropped uint64
 	calls   []bool
 }
 
 func (s *stubReplayFrameBuilder) SetBlockOnFrameChannel(block bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.calls = append(s.calls, block)
 }
 
 func (s *stubReplayFrameBuilder) DroppedFrames() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.dropped
+}
+
+// blockCalls returns a copy of the recorded calls for assertions.
+func (s *stubReplayFrameBuilder) blockCalls() []bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]bool(nil), s.calls...)
 }
 
 func restoreDatasourceHandlerSeams() func() {
@@ -164,8 +185,8 @@ func TestStartPCAPLocked_AnalysisMode_CountErrorProgressAndDroppedFrames(t *test
 	if progressCurrent != 3 || progressTotal != 7 {
 		t.Fatalf("unexpected progress callback values: got (%d, %d)", progressCurrent, progressTotal)
 	}
-	if len(frameBuilder.calls) != 2 || !frameBuilder.calls[0] || frameBuilder.calls[1] {
-		t.Fatalf("unexpected SetBlockOnFrameChannel calls: %#v", frameBuilder.calls)
+	if calls := frameBuilder.blockCalls(); len(calls) != 2 || !calls[0] || calls[1] {
+		t.Fatalf("unexpected SetBlockOnFrameChannel calls: %#v", calls)
 	}
 }
 

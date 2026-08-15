@@ -100,6 +100,7 @@ help:
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
+	@echo "  test-go-coverage-gate Enforce the 82% per-file Go coverage floor"
 	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
@@ -818,6 +819,7 @@ PYTHON_VERSION = 3.12
 PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
+	scripts/test_check_go_coverage.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
@@ -1115,7 +1117,11 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+
+# Per-file Go coverage floor enforced by test-go-coverage-gate.
+COVERAGE_THRESHOLD ?= 82
+COVERAGE_TAGS ?= pcap
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1167,6 +1173,45 @@ test-go-coverage-summary:
 test-go-changed-coverage:
 	@echo "Checking branch-added internal Go file coverage..."
 	@python3 scripts/check_changed_go_coverage.py --run-go-test --threshold 98 --diff-filter=A --include-prefix internal/
+
+# Enforce the repo-wide per-file coverage floor. Exclusions (generated code,
+# process entrypoints, build-tag stubs) live in scripts/coverage_exclusions.json
+# and are validated on every run, so a stale entry fails the gate.
+#
+# Built with -tags=pcap so PCAP replay is the real implementation rather than
+# the refusing stub — settling evaluation and the offline replay tooling are
+# only reachable that way, and it matches how the shipped binary is built.
+# Needs libpcap (brew install libpcap / apt-get install libpcap-dev); CI
+# installs libpcap-dev in every job that runs this.
+#
+# Both ways of losing PCAP coverage are made loud rather than silent: a missing
+# libpcap is reported with the install command instead of a raw cgo error, and
+# dropping the tag from COVERAGE_TAGS refuses to run at all. Falling back to the
+# untagged build would still pass the gate while measuring ~400 fewer
+# statements, which is worse than failing.
+test-go-coverage-gate:
+	@case ",$(COVERAGE_TAGS)," in \
+		*,pcap,*) ;; \
+		*) echo "ERROR: COVERAGE_TAGS is '$(COVERAGE_TAGS)' and does not include 'pcap'."; \
+		   echo "       The untagged build stubs out ReadPCAPFile, so every PCAP replay"; \
+		   echo "       path becomes unreachable and unmeasured — the gate would pass"; \
+		   echo "       while covering ~400 fewer statements. Install libpcap instead:"; \
+		   echo "         macOS: brew install libpcap"; \
+		   echo "         Linux: sudo apt-get install libpcap-dev"; \
+		   exit 1 ;; \
+	esac
+	@env -u GOROOT go build -tags=$(COVERAGE_TAGS) ./internal/lidar/l1packets/network/ >/dev/null 2>&1 || { \
+		echo "ERROR: cannot build with -tags=$(COVERAGE_TAGS); libpcap headers are probably missing."; \
+		echo "         macOS: brew install libpcap"; \
+		echo "         Linux: sudo apt-get install libpcap-dev"; \
+		exit 1; \
+	}
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
+	@echo "  (replaying the kirk0.pcapng fixture — this takes several minutes)"
+	@env -u GOROOT VELOCITY_PCAP_FIXTURE_TESTS=1 go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
 
 # Run web test suite (Jest) using pnpm inside the web directory
 test-web:

@@ -86,8 +86,10 @@ Enforced by [scripts/check-single-sqlite-driver.sh](../../../scripts/check-singl
 
 ## Open structural items
 
-- **Query boundary:** [internal/api/lidar_labels.go](../../../internal/api/lidar_labels.go) still contains raw SQL (7 call sites)
-  that should move to [internal/lidar/storage/sqlite/label_store.go](../../../internal/lidar/storage/sqlite/label_store.go)
+- **Query boundary:** [internal/api/lidar_labels.go](../../../internal/api/lidar_labels.go) still contains raw SQL (8 call sites)
+  that should move into a store under [internal/lidar/storage/sqlite/](../../../internal/lidar/storage/sqlite). The former
+  `label_store.go` was removed rather than wired up: it targeted `lidar_track_annotations`,
+  dropped by migration 000033, so a store must be written against the current schema
 - **`EventAPI` JSON tags:** [internal/db/db.go](../../../internal/db/db.go) still uses PascalCase JSON tags; should be
   `snake_case` before API freeze
 - **Silent error drops:** concentrated in [internal/db/db.go](../../../internal/db/db.go), `l3grid/export_bg_snapshot.go`,
