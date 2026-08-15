@@ -201,6 +201,76 @@ func TestReadPCAPFileRealtimeStopsOnCancellation(t *testing.T) {
 	}
 }
 
+func TestReadPCAPFileRealtimeSkipsToStartSeconds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("replays a multi-frame PCAP fixture")
+	}
+
+	// Without an offset the replay processes from the first packet.
+	full := &replayTestParser{motorSpeed: 600}
+	cfg := fastReplay()
+	cfg.DurationSeconds = 0.5
+	if err := ReadPCAPFileRealtime(context.Background(), richPCAPPath, 2369,
+		full, nil, &MockFullPacketStats{}, cfg); err != nil {
+		t.Fatalf("full replay: %v", err)
+	}
+
+	// StartSeconds skips packets by capture timestamp rather than index, so
+	// the parser sees fewer of them for the same duration window.
+	skipped := &replayTestParser{motorSpeed: 600}
+	cfg.StartSeconds = 2.0
+	if err := ReadPCAPFileRealtime(context.Background(), richPCAPPath, 2369,
+		skipped, nil, &MockFullPacketStats{}, cfg); err != nil {
+		t.Fatalf("offset replay: %v", err)
+	}
+
+	if skipped.parseCalls >= full.parseCalls {
+		t.Errorf("replay from %.1fs parsed %d packets, want fewer than the full %d",
+			cfg.StartSeconds, skipped.parseCalls, full.parseCalls)
+	}
+}
+
+// slowFrameBuilder stalls the pipeline so the replay pacer falls behind and
+// its dynamic backoff engages.
+type slowFrameBuilder struct {
+	delay time.Duration
+	calls int
+}
+
+func (s *slowFrameBuilder) AddPointsPolar([]l2frames.PointPolar) {
+	s.calls++
+	time.Sleep(s.delay)
+}
+
+func (s *slowFrameBuilder) SetMotorSpeed(uint16) {}
+
+func TestReadPCAPFileRealtimeBacksOffWhenPipelineLags(t *testing.T) {
+	if testing.Short() {
+		t.Skip("must exceed the 3s startup grace period before backoff engages")
+	}
+
+	// Real-time pacing plus a deliberately slow frame builder means the
+	// pipeline cannot keep up, which is exactly the condition the dynamic
+	// backoff exists for. The replay has to run past pcapStartupGracePeriod
+	// (3s) before backoff is allowed to engage at all.
+	fb := &slowFrameBuilder{delay: 3 * time.Millisecond}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	defer cancel()
+
+	cfg := RealtimeReplayConfig{SpeedMultiplier: 1, DurationSeconds: -1}
+
+	err := ReadPCAPFileRealtime(ctx, richPCAPPath, 2369,
+		&replayTestParser{motorSpeed: 600}, fb, &MockFullPacketStats{}, cfg)
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ReadPCAPFileRealtime = %v, want nil or a context error", err)
+	}
+
+	if fb.calls == 0 {
+		t.Error("frame builder was never called")
+	}
+}
+
 func TestReadPCAPFileRealtimeRejectsMissingFile(t *testing.T) {
 	err := ReadPCAPFileRealtime(context.Background(),
 		"/nonexistent/capture.pcapng", 2369,
