@@ -8,9 +8,9 @@ eleventyComputed:
   title: "{{ folder.title }}"
 ---
 
-# {{ folder.title }}
+<h1>{{ folder.title }}</h1>
 
-Browse the documents in this folder.
+<p>Browse the documents in this folder.</p>
 
 <ul>
 {% for child in folder.children %}
