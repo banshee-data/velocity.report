@@ -373,7 +373,6 @@ func (ws *Server) Start(ctx context.Context) error {
 	pcapCancel := ws.pcapCancel
 	pcapDone := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
 	if pcapCancel != nil {
@@ -408,7 +407,6 @@ func (ws *Server) Close() error {
 	cancel := ws.pcapCancel
 	done := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 	if cancel != nil {
 		cancel()

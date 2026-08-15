@@ -267,7 +267,6 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	cancel := ws.pcapCancel
 	done := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
 	// Release dataSourceMu before waiting for goroutine completion to avoid deadlock
