@@ -33,6 +33,9 @@ type Analysis struct {
 // timeline and segment writing are separate steps. This is pass 1 of the
 // two-pass split (pass 2 is WriteSegments).
 func Analyse(cfg SplitConfig) (*Analysis, error) {
+	if cfg.DurationSeconds == 0 {
+		cfg.DurationSeconds = -1
+	}
 	parserCfg, err := parse.LoadPandar40PConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
@@ -112,7 +115,7 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	if err := network.ReadPCAPFile(
 		context.Background(), cfg.PCAPFile, cfg.UDPPort,
 		parser, sb, reader, nil,
-		0, -1, 0, 0, nil,
+		cfg.StartSeconds, cfg.DurationSeconds, 0, 0, nil,
 	); err != nil {
 		return nil, fmt.Errorf("pcap replay: %w", err)
 	}

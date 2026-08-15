@@ -20,30 +20,16 @@ const (
 	fixturePort = 2369
 )
 
-// requirePCAPFixture skips unless VELOCITY_PCAP_FIXTURE_TESTS is set.
-//
-// kirk0.pcapng is ~200 MB / 150k packets, and one full replay through the
-// tracking pipeline takes minutes under -race. Several per package overruns
-// Go's default 10-minute test timeout, so these replays are opt-in and the
-// standard `go test ./...` stays fast. `make test-go-coverage-gate` sets the
-// variable so the coverage gate still measures these paths, and the nightly
-// workflow runs them so they cannot rot.
-func requirePCAPFixture(t *testing.T) {
-	t.Helper()
-	if os.Getenv("VELOCITY_PCAP_FIXTURE_TESTS") == "" {
-		t.Skip("set VELOCITY_PCAP_FIXTURE_TESTS=1 to replay the kirk0.pcapng fixture")
-	}
-}
-
 // benchConfig returns a Config pointed at the fixture, writing into a temp dir.
 func benchConfig(t *testing.T) Config {
 	t.Helper()
 	return Config{
-		PCAPFile:  filepath.Clean(fixturePCAP),
-		OutputDir: t.TempDir(),
-		SensorID:  "test-sensor",
-		UDPPort:   fixturePort,
-		Quiet:     true,
+		PCAPFile:        filepath.Clean(fixturePCAP),
+		OutputDir:       t.TempDir(),
+		SensorID:        "test-sensor",
+		UDPPort:         fixturePort,
+		DurationSeconds: 10,
+		Quiet:           true,
 	}
 }
 
@@ -52,8 +38,6 @@ func benchConfig(t *testing.T) Config {
 // the only path that reaches runBenchmark, the analysis frame builder, and the
 // summary printers.
 func TestRunProducesBenchmarkResult(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := benchConfig(t)
 	cfg.BenchmarkOutput = filepath.Join(cfg.OutputDir, "bench.json")
 
@@ -101,8 +85,6 @@ func TestRunProducesBenchmarkResult(t *testing.T) {
 // a baseline whose metrics are far better than any real run must be reported
 // as a regression, which Run signals with exit code 1.
 func TestRunComparesAgainstBaseline(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := benchConfig(t)
 	baseline := filepath.Join(cfg.OutputDir, "baseline.json")
 

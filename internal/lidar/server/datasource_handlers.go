@@ -179,7 +179,6 @@ func (ws *Server) StopPCAPForSweep() error {
 	cancel := ws.pcapCancel
 	done := ws.pcapDone
 	ws.pcapCancel = nil
-	ws.pcapDone = nil
 	ws.pcapMu.Unlock()
 
 	// Unlock before waiting so PCAP goroutine can finish
@@ -225,9 +224,9 @@ func (ws *Server) StopPCAPForSweep() error {
 	return nil
 }
 
-// PCAPDone returns a channel that is closed when the current PCAP replay
-// finishes, or nil if no replay is in progress. The caller must not close
-// the returned channel.
+// PCAPDone returns the current or most-recent replay's completion channel.
+// A completed replay leaves a closed channel in place so callers cannot mistake
+// cleanup in progress for the absence of a replay. The caller must not close it.
 func (ws *Server) PCAPDone() <-chan struct{} {
 	ws.pcapMu.Lock()
 	defer ws.pcapMu.Unlock()
@@ -781,7 +780,6 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		ws.pcapMu.Lock()
 		ws.pcapInProgress = false
 		ws.pcapCancel = nil
-		ws.pcapDone = nil
 		ws.pcapSpeedMode = ""
 		ws.pcapSpeedRatio = 0.0
 		ws.plotsEnabled = false

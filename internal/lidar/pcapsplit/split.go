@@ -23,6 +23,8 @@ const (
 // segments.json `config` block.
 type SplitConfig struct {
 	PCAPFile         string  `json:"pcap_file"`
+	StartSeconds     float64 `json:"start_seconds"`
+	DurationSeconds  float64 `json:"duration_seconds"`
 	OutputDir        string  `json:"-"`
 	OutputPrefix     string  `json:"output_prefix"`
 	SettlingSec      float64 `json:"settling_sec"`
@@ -52,6 +54,7 @@ type SplitConfig struct {
 func DefaultSplitConfig() SplitConfig {
 	return SplitConfig{
 		OutputDir:        ".",
+		DurationSeconds:  -1,
 		SettlingSec:      DefaultSettlingSec,
 		MotionTriggerSec: DefaultMotionTriggerSec,
 		MaxMotionGapSec:  DefaultMaxMotionGapSec,
