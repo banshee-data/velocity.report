@@ -15,6 +15,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 - [#503] Opt-in Tailscale ACL roles: consume Tailscale capability grants to derive admin/view access for the web UI while keeping LAN access fully privileged by default. PR #503 carries ~1,040 lines of tested implementation as net-new files (`internal/api/auth.go`, `internal/tailscale/peercaps.go`, plus tests) that still apply cleanly; the branch is conflicted mainly because it patches `cmd/radar/radar.go`, which #519 removed `S`
 - [#290] (#11) Finish serial configuration rollout: validate a USB serial adapter plus a deliberately changed-setting reload. DB-backed startup, explicit apply/reload, operator workflow guidance, and the Pi/HAT validation pass are delivered; device/baud auto-detect endpoints moved to v0.8.0: [implementation plan](plans/serial-configuration-implementation-plan.md) `S`
+- Tailscale status long-poll version parsing: `parseUint64` in `internal/api/server_tailscale.go` discards `strconv.ParseUint`'s error, and `ParseUint` returns `math.MaxUint64` alongside `ErrRange` on overflow. An out-of-range `?v=` on `GET /api/tailscale/status` therefore pins the long-poll's `since` at the maximum, so the status version can never exceed it and every poll blocks for the full `maxTailscaleStatusWait` window (30s) instead of returning immediately. Return 0 when `ParseUint` reports an error, and update the `TestParseUint64` subtest that currently documents the saturating behaviour `S`
 
 ### v0.5.2 - LiDAR measurement + replay foundations (052)
 
