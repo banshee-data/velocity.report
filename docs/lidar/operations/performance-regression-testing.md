@@ -44,6 +44,8 @@ committed baseline.
 | Flag                    | Alias | Default                 | Description                                 |
 | ----------------------- | ----- | ----------------------- | ------------------------------------------- |
 | `-pcap`                 | -     | (required)              | Path to PCAP file                           |
+| `-start-seconds`        | -     | `0`                     | Capture offset at which to begin replay     |
+| `-duration-seconds`     | -     | `-1`                    | Replay duration (`-1` = remainder)          |
 | `-benchmark-output`     | -     | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
 | `-compare-baseline`     | -     | -                       | Compare against a baseline benchmark file   |
 | `-regression-threshold` | -     | `0.10` (10%)            | Threshold for flagging regressions          |
