@@ -31,6 +31,8 @@ internal/**/testdata/
 !docs_html/
 docs_html/**
 !docs_html/_site/
+# Includes .embed-manifest. Docker verifies and removes it before Go embeds
+# the generated tree, so every file in the host build must survive this context.
 !docs_html/_site/**
 docs_html/_site/data/maths/papers/*.pdf
 !docs_html/_site/.embed-stub

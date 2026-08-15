@@ -20,8 +20,6 @@ if [[ ! -f "$REPO_ROOT/docs_html/_site/index.html" ]]; then
     echo "error: embedded offline docs build did not produce docs_html/_site/index.html" >&2
     exit 1
 fi
-python3 "$REPO_ROOT/scripts/write-embedded-docs-manifest.py" "$REPO_ROOT/docs_html/_site"
-
 rm -f "$OUT_DIR"/velocity "$OUT_DIR"/velocity-report-*-linux-arm64-*-static
 
 VERSION="$VERSION" GIT_SHA="$GIT_SHA" BUILD_TIME="$BUILD_TIME" \

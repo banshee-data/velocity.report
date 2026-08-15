@@ -95,6 +95,7 @@ fi
 # Pre-build embed stubs on the host so they get copied into the image.
 "$REPO_ROOT/scripts/ensure-web-stub.sh"
 "$REPO_ROOT/scripts/ensure-docs-stub.sh"
+python3 "$REPO_ROOT/scripts/write-embedded-docs-manifest.py" "$REPO_ROOT/docs_html/_site"
 
 echo "==> Building Docker image: $IMAGE_TAG"
 echo "    VERSION:    $VERSION"

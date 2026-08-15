@@ -74,6 +74,10 @@ function isWithin(parent, child) {
 function outputURLForSourcePath(inputRoot, targetPath) {
   const rel = path.relative(inputRoot, targetPath).replace(/\\/g, "/");
   if (!rel || rel.startsWith("../")) return null;
+  // `docs/ui/DESIGN.md` and `docs/ui/design/` cannot both occupy the same
+  // output path on case-insensitive filesystems. Keep the prototype directory
+  // at its repository route and give the design document a distinct one.
+  if (rel === "docs/ui/DESIGN.md") return "/docs/ui/design-document/";
   if (rel === "README.md") return "/README/";
   if (rel.endsWith("/README.md")) {
     return `/${rel.slice(0, -"README.md".length)}`;
@@ -360,9 +364,11 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.addGlobalData("eleventyComputed", {
     permalink: (data) => {
       const inputPath = data.page?.inputPath || "";
-      if (!inputPath.endsWith("/README.md")) return data.permalink;
-
       const rel = path.relative(path.resolve("src"), path.resolve(inputPath));
+      if (rel === "docs/ui/DESIGN.md") {
+        return "docs/ui/design-document/index.html";
+      }
+      if (!inputPath.endsWith("/README.md")) return data.permalink;
       if (rel === "README.md") return "README/index.html";
       return `${rel.slice(0, -"README.md".length)}index.html`;
     },
