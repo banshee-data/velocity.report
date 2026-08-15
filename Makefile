@@ -589,7 +589,10 @@ verify-docs-public-html-build:
 .PHONY: build-docs-offline
 build-docs-offline:
 	@echo "Building embedded offline docs site..."
+	@python3 scripts/verify-docs-source-case.py
 	@./scripts/docs-offline-symlinks.sh create
+	@rm -rf docs_html/_site
+	@mkdir -p docs_html/_site
 	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
