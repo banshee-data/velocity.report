@@ -223,6 +223,69 @@ def test_stale_exclusion_detected_when_function_is_gone(tmp_path):
     assert "not found" in problems[0]
 
 
+def test_line_qualified_selector_disambiguates_same_named_functions(tmp_path):
+    """"Name@line" pins one of several same-named functions in a file.
+
+    internal/tailscale/manager.go declares Status twice: a one-line adapter
+    method delegating to the tailscale client, and the exported Manager.Status
+    that is testable. Excluding a bare "Status" would take both.
+    """
+    mod = load_module()
+    files = build_files(
+        mod,
+        tmp_path,
+        f"{PREFIX}a/x.go:88.1,89.2 1 0\n"  # adapter Status, uncovered
+        f"{PREFIX}a/x.go:611.1,620.2 9 9\n",  # Manager.Status, covered
+        {"a/x.go": [(87, "Status"), (610, "Status")]},
+    )
+    exclusions = [
+        mod.Exclusion(pattern="a/x.go", functions=["Status@87"], reason="adapter")
+    ]
+
+    per_file, _ = mod.apply_exclusions(files, exclusions)
+
+    assert per_file == {"a/x.go": {"Status@87"}}
+    # Only the adapter is discounted; the testable Status still counts.
+    assert files["a/x.go"].totals(per_file["a/x.go"], False) == (9, 9)
+
+
+def test_bare_selector_matches_every_same_named_function(tmp_path):
+    mod = load_module()
+    files = build_files(
+        mod,
+        tmp_path,
+        f"{PREFIX}a/x.go:88.1,89.2 1 0\n" f"{PREFIX}a/x.go:611.1,620.2 9 9\n",
+        {"a/x.go": [(87, "Status"), (610, "Status")]},
+    )
+    exclusions = [mod.Exclusion(pattern="a/x.go", functions=["Status"], reason="both")]
+
+    per_file, _ = mod.apply_exclusions(files, exclusions)
+
+    # Without a line qualifier both declarations are discounted, leaving
+    # nothing to measure.
+    assert files["a/x.go"].totals(per_file["a/x.go"], False) == (0, 0)
+
+
+def test_line_qualified_selector_that_matches_nothing_is_stale(tmp_path):
+    mod = load_module()
+    files = build_files(
+        mod,
+        tmp_path,
+        f"{PREFIX}a/x.go:88.1,89.2 1 0\n",
+        {"a/x.go": [(87, "Status")]},
+    )
+    # The function moved, so the pinned line no longer resolves.
+    exclusions = [
+        mod.Exclusion(pattern="a/x.go", functions=["Status@999"], reason="adapter")
+    ]
+
+    mod.apply_exclusions(files, exclusions)
+    problems = mod.stale_exclusion_errors(exclusions)
+
+    assert len(problems) == 1
+    assert "not found" in problems[0]
+
+
 def test_no_stale_problems_when_everything_matches(tmp_path):
     mod = load_module()
     files = build_files(

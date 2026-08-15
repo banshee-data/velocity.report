@@ -50,6 +50,40 @@
       "reason": "Build-tag stub for builds without the pcap tag; selfCheckLibpcap is a no-op here. The failure path is covered by TestRunSelfCheckFailsWhenLiveCaptureRequestedWithoutPcap."
     },
     {
+      "path": "internal/api/serial.go",
+      "functions": ["testSerialPort"],
+      "reason": "Opens a real serial device and exchanges probe commands with it. The validation and failed-open branches are still tested (see serial_coverage_test.go) — they just cannot carry the function past the floor, because the post-open command exchange needs an OPS243 on the other end."
+    },
+    {
+      "path": "internal/cmd/device/tailscale.go",
+      "functions": ["enableTailscaled", "disableTailscaled"],
+      "reason": "Privileged systemd lifecycle: shells out to /usr/bin/systemctl and waits on /var/run/tailscale/tailscaled.sock. Only meaningful on the Pi image, where the sudoers grant exists."
+    },
+    {
+      "path": "internal/tailscale/manager.go",
+      "functions": [
+        "Status@87",
+        "StatusWithoutPeers",
+        "GetPrefs",
+        "EditPrefs",
+        "GetServeConfig",
+        "SetServeConfig",
+        "StartLoginInteractive",
+        "Start@108",
+        "WatchIPNBus",
+        "InstallTailscale",
+        "EnableTailscaled",
+        "DisableTailscaled",
+        "runFixedArgv"
+      ],
+      "reason": "One-line adapter boilerplate. realLocalClient delegates straight to *local.Client (needs a live tailscaled) and sudoSystemdActor delegates to runFixedArgv (needs the sudoers grant). Status and Start are line-qualified so the testable Manager.Status and Manager.Start still count."
+    },
+    {
+      "path": "internal/tailscaleinstall/installer.go",
+      "functions": ["fetch", "run"],
+      "reason": "fetch performs the HTTPS release download; run shells out to the installed binary. Both need network and a Debian-family host. The surrounding logic — checksum verification, archive extraction, service file writing, health checks — stays in scope."
+    },
+    {
       "path": "internal/cmd/server/radar.go",
       "functions": ["Main", "runTransitsCommand"],
       "reason": "Process entrypoints: flag registration, server construction, signal handling and goroutine wiring, terminating in log.Fatalf/os.Exit and a blocking wg.Wait. Testing them means running the server. The rest of the file — the serial snapshot helpers, tailscaleServeTarget, and the visualiser/HINT adapters — stays in scope."

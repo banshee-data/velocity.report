@@ -6,7 +6,9 @@ once excluded code is discounted.
 
 Exclusions live in scripts/coverage_exclusions.json and are deliberately
 narrow: an entry names a file (or glob) and, optionally, the specific
-functions to discount.  Naming functions rather than whole files matters for
+functions to discount.  A function may be written as "Name" or, when a file
+declares the same name more than once (an adapter method and the exported
+function it wraps, say), as "Name@declLine" to pin one of them.  Naming functions rather than whole files matters for
 mixed files like internal/cmd/server/radar.go, where the process entrypoint is
 untestable but the surrounding helpers are not — excluding the whole file
 would hide those helpers from the gate.
@@ -46,6 +48,19 @@ class Block:
     statements: int
     covered: bool
     func: str = ""
+    # Line the enclosing function is declared on. Used to disambiguate
+    # same-named functions in one file (e.g. an adapter's Status method and
+    # the exported Status it wraps).
+    func_line: int = 0
+
+    def matches(self, selector: str) -> bool:
+        """True if this block's function matches a "Name" or "Name@line" selector."""
+        name, _, line = selector.partition("@")
+        if self.func != name:
+            return False
+        if not line:
+            return True
+        return str(self.func_line) == line
 
 
 @dataclass
@@ -59,7 +74,7 @@ class FileCoverage:
             return (0, 0)
         covered = total = 0
         for b in self.blocks:
-            if b.func in excluded_funcs:
+            if any(b.matches(sel) for sel in excluded_funcs):
                 continue
             total += b.statements
             if b.covered:
@@ -164,11 +179,13 @@ def assign_functions(
             continue
         idx = 0
         current = ""
+        current_line = 0
         for block in fc.blocks:  # blocks are sorted by start_line
             while idx < len(entries) and entries[idx][0] <= block.start_line:
-                current = entries[idx][1]
+                current_line, current = entries[idx]
                 idx += 1
             block.func = current
+            block.func_line = current_line
 
 
 @dataclass
@@ -230,9 +247,8 @@ def apply_exclusions(
             if exc.whole_file:
                 whole_files.add(path)
                 continue
-            present = {b.func for b in fc.blocks if b.func}
             for fn in exc.functions:
-                if fn in present:
+                if any(b.matches(fn) for b in fc.blocks):
                     exc.matched_funcs.add(fn)
                     excluded_funcs.setdefault(path, set()).add(fn)
     return excluded_funcs, whole_files
