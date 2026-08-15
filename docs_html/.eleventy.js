@@ -146,6 +146,65 @@ function humanizeSegment(segment) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+// Markdown files make pages, but an otherwise unadorned folder does not.  A
+// direct link to one of those folders would otherwise make Go's FileServer
+// return its directory listing, outside the documentation application shell.
+// Build small index pages for those folders so all docs/data routes remain in
+// the offline site.
+function buildFolderPages(inputRoot, outputPrefix, relativeDir = "") {
+  const directory = path.join(inputRoot, relativeDir);
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  const childFolders = [];
+  const children = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const entryPath = path.join(directory, entry.name);
+    const entryStat = fs.statSync(entryPath);
+    const childRelative = path.join(relativeDir, entry.name);
+    if (entryStat.isDirectory()) {
+      const pages = buildFolderPages(inputRoot, outputPrefix, childRelative);
+      childFolders.push(...pages);
+      const childURL = `/${outputPrefix}/${childRelative.replace(/\\/g, "/")}/`;
+      if (pages.some((page) => page.url === childURL)) {
+        children.push({
+          title: humanizeSegment(entry.name),
+          url: childURL,
+        });
+      }
+      continue;
+    }
+    if (!entryStat.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+    const sourcePath = path.join(inputRoot, childRelative);
+    const url = outputURLForSourcePath(path.resolve("src"), sourcePath);
+    if (url) children.push({ title: humanizePath(sourcePath), url });
+  }
+
+  if (!relativeDir) return childFolders;
+
+  const hasFolderIndex = entries.some(
+    (entry) => {
+      const entryStat = fs.statSync(path.join(directory, entry.name));
+      return (
+        entryStat.isFile() &&
+        (entry.name.toLowerCase() === "readme.md" ||
+          entry.name.toLowerCase() === "index.md")
+      );
+    },
+  );
+  if (hasFolderIndex || children.length === 0) return childFolders;
+
+  const normalized = relativeDir.replace(/\\/g, "/");
+  return [
+    ...childFolders,
+    {
+      title: normalized.split("/").map(humanizeSegment).join(" / "),
+      url: `/${outputPrefix}/${normalized}/`,
+      children,
+    },
+  ];
+}
+
 // Build a hierarchical tree of pages keyed by URL segments. Each node has:
 //   { name, segment, path, url, title, children, hasCurrent }
 // A node's `url` is null when the segment has no corresponding page (a pure
@@ -376,6 +435,11 @@ module.exports = function (eleventyConfig) {
       .filter((item) => item.inputPath.endsWith(".md"))
       .sort((a, b) => a.url.localeCompare(b.url));
   });
+
+  eleventyConfig.addGlobalData("folderPages", () => [
+    ...buildFolderPages(path.resolve("src/docs"), "docs"),
+    ...buildFolderPages(path.resolve("src/data"), "data"),
+  ]);
 
   eleventyConfig.addFilter("docsTitle", (item) => {
     if (item?.data?.title) return item.data.title;

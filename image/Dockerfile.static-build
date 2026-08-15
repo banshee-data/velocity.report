@@ -81,6 +81,8 @@ ARG TYPST_VERSION=0.13.1
 COPY . /src
 RUN ./scripts/ensure-web-stub.sh && ./scripts/ensure-docs-stub.sh
 RUN test -f /src/docs_html/_site/docs/ui/design/20260511-Velocity_Report_Butterfly_Net/index.html \
+    && test -f /src/docs_html/_site/docs/ui/design/index.html \
+    && test -f /src/docs_html/_site/data/experiments/try/index.html \
     && test -f /src/docs_html/_site/data/maths/MATHS/index.html
 
 # DEV_VERSION and GIT_SHA_SHORT are computed on the host (bash-only
