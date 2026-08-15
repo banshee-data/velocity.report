@@ -44,6 +44,21 @@
       "reason": "func main() wrapper. All the logic lives in run(), which takes its os.Stat, DB-open and backfill dependencies as parameters and is tested directly in the same package."
     },
     {
+      "path": "cmd/tools/lidar-bench/main.go",
+      "reason": "One-line wrapper: os.Exit(lidar.BenchMain(os.Args[1:])). The engine in internal/cmd/lidar is in scope. Marked optional because the file is pcap-tagged and absent from an untagged profile.",
+      "optional": true
+    },
+    {
+      "path": "cmd/tools/pcap-split/main.go",
+      "reason": "One-line wrapper: os.Exit(lidar.SplitMain(os.Args[1:])). The engine in internal/cmd/lidar is in scope. Marked optional because the file is pcap-tagged and absent from an untagged profile.",
+      "optional": true
+    },
+    {
+      "path": "cmd/tools/settling-eval/main.go",
+      "reason": "One-line wrapper over the settling-eval engine, which is covered directly in internal/lidar/settlingeval. Marked optional because the file is pcap-tagged and absent from an untagged profile.",
+      "optional": true
+    },
+    {
       "path": "internal/db/testsupport.go",
       "reason": "Test-only helper (NewTestDB) compiled into the package for other packages' tests. Exercised constantly, but by tests outside internal/db, so it never registers in this package's own profile."
     },
