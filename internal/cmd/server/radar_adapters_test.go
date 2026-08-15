@@ -1,12 +1,17 @@
 package server
 
 import (
+	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 // These adapters exist purely to bridge package types across an import cycle
@@ -100,6 +105,83 @@ func TestBackgroundManagerBridgeTranslatesSnapshotFields(t *testing.T) {
 	}
 	if got.TimestampNanos == 0 {
 		t.Error("TimestampNanos = 0, want the snapshot time carried across")
+	}
+}
+
+// erroringSweepBackend satisfies sweep.SweepBackend and fails every operation,
+// so a sweep run aborts immediately instead of replaying a capture. It is
+// enough to drive hintRunCreator's request-construction path.
+type erroringSweepBackend struct{}
+
+func (erroringSweepBackend) SensorID() string       { return "test-sensor" }
+func (erroringSweepBackend) FetchBuckets() []string { return nil }
+func (erroringSweepBackend) FetchAcceptanceMetrics() (map[string]interface{}, error) {
+	return nil, errors.New("backend unavailable")
+}
+func (erroringSweepBackend) ResetAcceptance() error { return errors.New("backend unavailable") }
+func (erroringSweepBackend) FetchGridStatus() (map[string]interface{}, error) {
+	return nil, errors.New("backend unavailable")
+}
+func (erroringSweepBackend) ResetGrid() error                { return errors.New("backend unavailable") }
+func (erroringSweepBackend) WaitForGridSettle(time.Duration) {}
+func (erroringSweepBackend) FetchTrackingMetrics() (map[string]interface{}, error) {
+	return nil, errors.New("backend unavailable")
+}
+func (erroringSweepBackend) SetTuningParams(map[string]interface{}) error {
+	return errors.New("backend unavailable")
+}
+func (erroringSweepBackend) StartPCAPReplayWithConfig(sweep.PCAPReplayConfig) error {
+	return errors.New("backend unavailable")
+}
+func (erroringSweepBackend) StopPCAPReplay() error                   { return nil }
+func (erroringSweepBackend) WaitForPCAPComplete(time.Duration) error { return nil }
+func (erroringSweepBackend) GetLastAnalysisRunID() string            { return "" }
+
+func TestHintRunCreatorRejectsMalformedParams(t *testing.T) {
+	creator := &hintRunCreator{runner: sweep.NewRunner(erroringSweepBackend{})}
+
+	// Malformed params are caught before any sweep is started, so this
+	// returns without touching the backend.
+	_, err := creator.CreateSweepRun("test-sensor", "scene.pcap",
+		json.RawMessage("{not json"), 0, 1)
+	if err == nil {
+		t.Fatal("CreateSweepRun with malformed params succeeded, want an error")
+	}
+	if !strings.Contains(err.Error(), "parsing paramsJSON") {
+		t.Errorf("error = %v, want it to name the params parse failure", err)
+	}
+}
+
+func TestHintRunCreatorInfersParamTypes(t *testing.T) {
+	creator := &hintRunCreator{runner: sweep.NewRunner(erroringSweepBackend{})}
+
+	// JSON carries no Go types, so CreateSweepRun infers one per value:
+	// bool, string, and float64 for every number. A failing backend aborts
+	// the run right after the request is built, which is all this needs.
+	params := json.RawMessage(`{"seed_from_first":true,"mode":"fast","noise_relative":0.01}`)
+
+	_, err := creator.CreateSweepRun("test-sensor", "scene.pcap", params, 0, 1)
+	if err == nil {
+		t.Fatal("CreateSweepRun succeeded against a failing backend, want an error")
+	}
+	// It must get past parsing — a parse failure here would mean the type
+	// inference never ran.
+	if strings.Contains(err.Error(), "parsing paramsJSON") {
+		t.Errorf("error = %v, want a failure after the params were parsed", err)
+	}
+}
+
+func TestHintRunCreatorAcceptsNullParams(t *testing.T) {
+	creator := &hintRunCreator{runner: sweep.NewRunner(erroringSweepBackend{})}
+
+	// A literal JSON null means "no parameter overrides" and must be treated
+	// as an empty sweep rather than a parse error.
+	_, err := creator.CreateSweepRun("test-sensor", "scene.pcap", json.RawMessage("null"), 0, 1)
+	if err == nil {
+		t.Fatal("CreateSweepRun succeeded against a failing backend, want an error")
+	}
+	if strings.Contains(err.Error(), "parsing paramsJSON") {
+		t.Errorf("error = %v, want null params to be accepted, not parsed as invalid", err)
 	}
 }
 
