@@ -25,9 +25,10 @@ REQUIRED_FILES = (
     "guides/setup/index.html",
     "tool/protractor/index.html",
 )
-# Root-relative asset and document URLs must remain beneath the image mount.
+# Root-relative public-site URLs must remain beneath the image mount. The
+# embedded repository docs are intentionally served from their own /docs/ mount.
 # URLs starting with // are protocol-relative and intentionally excluded.
-ROOT_URL = re.compile(r'(?:href|src)="/(?!public_html/|/)')
+ROOT_URL = re.compile(r'(?:href|src)="/(?!public_html/|docs/|/)')
 ROOT_CSS_URL = re.compile(r'url\("/')
 
 
@@ -58,7 +59,7 @@ def verify(site_dir: Path) -> list[str]:
     for path in sorted(site_dir.rglob("*.html")):
         for line_number in find_matches(path, ROOT_URL):
             errors.append(
-                f"root-relative href/src escapes {PATH_PREFIX}: {path}:{line_number}"
+                f"root-relative href/src escapes {PATH_PREFIX} or /docs/: {path}:{line_number}"
             )
 
     css_dir = site_dir / "css"
