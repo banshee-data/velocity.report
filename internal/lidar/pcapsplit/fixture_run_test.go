@@ -12,27 +12,16 @@ import (
 // and writer paths only run against a capture carrying real rotations.
 const splitFixture = "../perf/pcap/kirk0.pcapng"
 
-// requirePCAPFixture skips unless VELOCITY_PCAP_FIXTURE_TESTS is set. A full
-// replay of the ~200 MB fixture takes minutes under -race, and Analyse has no
-// window knob, so several of them in one package overruns Go's default
-// 10-minute test timeout. `make test-go-coverage-gate` sets the variable so the
-// gate still measures these paths, and the nightly workflow runs them.
-func requirePCAPFixture(t *testing.T) {
-	t.Helper()
-	if os.Getenv("VELOCITY_PCAP_FIXTURE_TESTS") == "" {
-		t.Skip("set VELOCITY_PCAP_FIXTURE_TESTS=1 to replay the kirk0.pcapng fixture")
-	}
-}
-
 func fixtureConfig(t *testing.T) SplitConfig {
 	t.Helper()
 	return SplitConfig{
-		PCAPFile:      filepath.Clean(splitFixture),
-		OutputDir:     t.TempDir(),
-		SensorID:      "test-sensor",
-		UDPPort:       2369,
-		TimelineUnits: "seconds",
-		ProgressSecs:  0,
+		PCAPFile:        filepath.Clean(splitFixture),
+		OutputDir:       t.TempDir(),
+		SensorID:        "test-sensor",
+		UDPPort:         2369,
+		DurationSeconds: 10,
+		TimelineUnits:   "seconds",
+		ProgressSecs:    0,
 	}
 }
 
@@ -40,8 +29,6 @@ func fixtureConfig(t *testing.T) SplitConfig {
 // frame assembly, RPM accumulation, motion/static classification and segment
 // construction.
 func TestAnalyseFixtureProducesSegments(t *testing.T) {
-	requirePCAPFixture(t)
-
 	got, err := Analyse(fixtureConfig(t))
 	if err != nil {
 		t.Fatalf("Analyse: %v", err)
@@ -81,8 +68,6 @@ func TestAnalyseRejectsMissingCapture(t *testing.T) {
 // TestRunFixtureWritesSegmentCaptures drives the full split, including the
 // writer that emits one capture per segment.
 func TestRunFixtureWritesSegmentCaptures(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.OutputPrefix = "seg"
 	cfg.ExportJSON = true
@@ -113,8 +98,6 @@ func TestRunFixtureWritesSegmentCaptures(t *testing.T) {
 }
 
 func TestRunDryRunSkipsWriting(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.DryRun = true
 
@@ -143,8 +126,6 @@ func TestRunRejectsMissingCapture(t *testing.T) {
 }
 
 func TestRunExportsMetricsAndMotionTimeline(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.DryRun = true
 	cfg.ExportMetrics = true
@@ -167,8 +148,6 @@ func TestRunExportsMetricsAndMotionTimeline(t *testing.T) {
 // both passes: analysis (wrapProgress) and writing (newWriteProgress). A short
 // interval guarantees at least one tick during the replay.
 func TestRunWithProgressReportingEnabled(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.ProgressSecs = 0.01
 
