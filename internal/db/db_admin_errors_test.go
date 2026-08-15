@@ -104,6 +104,26 @@ func TestDBStatsEndpointReportsEncodeFailure(t *testing.T) {
 	}
 }
 
+func TestBackupEndpointReportsVacuumFailure(t *testing.T) {
+	t.Chdir(t.TempDir())
+	database, mux := adminMux(t)
+	// A closed handle makes VACUUM INTO fail, so the backup never gets as far
+	// as opening or streaming a file.
+	if err := database.Close(); err != nil {
+		t.Fatalf("closing database: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, debugRequest("/debug/backup"))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500 (body %q)", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "could not create backup") {
+		t.Errorf("body = %q, want the backup-failure diagnostic", rec.Body)
+	}
+}
+
 func TestBackupEndpointReportsStreamFailure(t *testing.T) {
 	// Backup writes into the working directory, so run somewhere disposable.
 	t.Chdir(t.TempDir())
