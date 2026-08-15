@@ -323,6 +323,44 @@ func TestWriteServiceEmitsExpectedUnit(t *testing.T) {
 	}
 }
 
+func TestRequireDebianFamilyReportsUnreadableOSRelease(t *testing.T) {
+	// A host whose os-release cannot be read is not provably Debian-family,
+	// so the install must stop rather than assume.
+	i := Installer{OSRelease: filepath.Join(t.TempDir(), "absent-os-release")}
+
+	err := i.requireDebianFamily()
+	if err == nil {
+		t.Fatal("requireDebianFamily with an unreadable os-release succeeded, want an error")
+	}
+	if !strings.Contains(err.Error(), "read OS release") {
+		t.Errorf("error = %v, want it to name the unreadable os-release", err)
+	}
+}
+
+func TestRequireDebianFamilyAcceptsDebianDerivatives(t *testing.T) {
+	tests := []struct {
+		name     string
+		contents string
+	}{
+		{"debian", "ID=debian\n"},
+		{"raspbian", "ID=raspbian\n"},
+		// Ubuntu and friends declare their lineage via ID_LIKE.
+		{"derivative via ID_LIKE", "ID=ubuntu\nID_LIKE=debian\n"},
+		{"quoted values", "ID=\"debian\"\n"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "os-release")
+			if err := os.WriteFile(path, []byte(tc.contents), 0o644); err != nil {
+				t.Fatalf("writing os-release: %v", err)
+			}
+			if err := (Installer{OSRelease: path}).requireDebianFamily(); err != nil {
+				t.Errorf("requireDebianFamily(%q) = %v, want nil", tc.contents, err)
+			}
+		})
+	}
+}
+
 func TestFetchWithoutOverrideBuildsRequest(t *testing.T) {
 	// With no Fetch override the installer performs a real HTTP request. A
 	// malformed URL fails during request construction, before any network
