@@ -24,6 +24,8 @@ func BenchMain(args []string) int {
 	fs := flag.NewFlagSet("lidar-bench", flag.ContinueOnError)
 	configPath := fs.String("config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Path to PCAP file (required)")
+	fs.Float64Var(&cfg.StartSeconds, "start-seconds", 0, "Start replay at this capture offset in seconds")
+	fs.Float64Var(&cfg.DurationSeconds, "duration-seconds", -1, "Replay duration in seconds (-1 = remaining capture)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for benchmark JSON")
 	fs.StringVar(&cfg.SensorID, "sensor-id", "", "Sensor ID (default: from config l1.sensor)")
 	fs.IntVar(&cfg.UDPPort, "port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")

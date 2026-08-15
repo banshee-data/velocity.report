@@ -49,10 +49,12 @@ const (
 
 // Config holds the benchmark run parameters. Flag parsing lives in the caller.
 type Config struct {
-	PCAPFile  string
-	OutputDir string
-	SensorID  string
-	UDPPort   int
+	PCAPFile        string
+	OutputDir       string
+	SensorID        string
+	UDPPort         int
+	StartSeconds    float64
+	DurationSeconds float64
 
 	// Tuning is the loaded tuning config (from -config); nil falls back to the
 	// embedded defaults, so the measured pipeline matches live observation.
@@ -178,6 +180,9 @@ func Run(cfg Config) int {
 // runBenchmark replays the capture through the tracking pipeline with timing
 // instrumentation and assembles the performance metrics.
 func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
+	if cfg.DurationSeconds == 0 {
+		cfg.DurationSeconds = -1
+	}
 	runtime.GC()
 	var memBefore runtime.MemStats
 	runtime.ReadMemStats(&memBefore)
@@ -199,7 +204,7 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 	reader := wrapProgress(cfg, stats, "benchmark")
 	if err := network.ReadPCAPFile(
 		context.Background(), cfg.PCAPFile, cfg.UDPPort,
-		parser, fb, reader, nil, 0, -1, 0, 0, nil,
+		parser, fb, reader, nil, cfg.StartSeconds, cfg.DurationSeconds, 0, 0, nil,
 	); err != nil {
 		return nil, nil, fmt.Errorf("read PCAP: %w", err)
 	}

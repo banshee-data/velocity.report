@@ -189,6 +189,9 @@ func TestStartPCAPForSweep_SuccessPath(t *testing.T) {
 			t.Fatal("PCAP goroutine did not finish in time")
 		}
 	}
+	if got := ws.PCAPDone(); got != done {
+		t.Fatal("PCAPDone discarded the completed replay channel")
+	}
 }
 
 func TestStartPCAPForSweep_AnalysisMode(t *testing.T) {
@@ -941,9 +944,6 @@ func waitForPCAPDone(t *testing.T, ws *Server) {
 		case <-time.After(10 * time.Second):
 			t.Fatal("PCAP goroutine did not complete in time")
 		}
-	} else {
-		// Goroutine may have already finished and cleared pcapDone.
-		time.Sleep(200 * time.Millisecond)
 	}
 }
 

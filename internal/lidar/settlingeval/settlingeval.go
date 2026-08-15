@@ -19,22 +19,36 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
+// Config holds the parameters for an offline settling evaluation. A zero
+// DurationSeconds preserves the historical full-capture behaviour.
+type Config struct {
+	PCAPFile        string
+	TuningFile      string
+	SensorID        string
+	UDPPort         int
+	StartSeconds    float64
+	DurationSeconds float64
+}
+
 // Run replays a PCAP file offline through a local BackgroundManager and
 // evaluates settling convergence on every frame. No server is required.
-func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingReport, error) {
+func Run(cfg Config) (*l3grid.SettlingReport, error) {
 	start := time.Now()
+	if cfg.DurationSeconds == 0 {
+		cfg.DurationSeconds = -1
+	}
 
 	// --- Load tuning configuration ---
 	// Load tuning from the path if present, else the binary-embedded defaults,
 	// exactly as the live pipeline and the other pcap-* tools do.
-	if tuningFile == "" {
-		tuningFile = config.DefaultConfigPath
+	if cfg.TuningFile == "" {
+		cfg.TuningFile = config.DefaultConfigPath
 	}
-	tuningCfg, err := config.LoadTuningConfigOrEmbedded(tuningFile, radarassets.TuningDefaults)
+	tuningCfg, err := config.LoadTuningConfigOrEmbedded(cfg.TuningFile, radarassets.TuningDefaults)
 	if err != nil {
-		return nil, fmt.Errorf("load tuning config %s: %w", tuningFile, err)
+		return nil, fmt.Errorf("load tuning config %s: %w", cfg.TuningFile, err)
 	}
-	log.Printf("loaded tuning config (config=%s)", tuningFile)
+	log.Printf("loaded tuning config (config=%s)", cfg.TuningFile)
 
 	bgConfig := backgroundConfigFromTuningConfig(tuningCfg)
 	// For offline evaluation disable warmup gating so we can observe the
@@ -59,14 +73,14 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 	// --- Create BackgroundManager (DI, no global registration) ---
 	const rings = 40
 	const azBins = 1800
-	bgMgr := l3grid.NewBackgroundManagerDI(sensorID, rings, azBins, params, nil)
+	bgMgr := l3grid.NewBackgroundManagerDI(cfg.SensorID, rings, azBins, params, nil)
 	if bgMgr == nil {
 		return nil, fmt.Errorf("failed to create BackgroundManager")
 	}
 	if err := bgMgr.SetRingElevations(elevations); err != nil {
 		return nil, fmt.Errorf("set ring elevations: %w", err)
 	}
-	bgMgr.SetSourcePath(pcapFile)
+	bgMgr.SetSourcePath(cfg.PCAPFile)
 
 	// --- Convergence tracking state ---
 	thresholds := settlingThresholdsFromTuning(tuningCfg)
@@ -113,7 +127,7 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 
 	// --- Create FrameBuilder ---
 	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{
-		SensorID:        sensorID,
+		SensorID:        cfg.SensorID,
 		FrameCallback:   frameCallback,
 		FrameChCapacity: 32,
 	})
@@ -125,17 +139,17 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 	}()
 
 	// --- Replay PCAP at full speed ---
-	log.Printf("replaying %s (port %d) ...", pcapFile, udpPort)
+	log.Printf("replaying %s (port %d) ...", cfg.PCAPFile, cfg.UDPPort)
 	err = network.ReadPCAPFile(
 		context.Background(),
-		pcapFile,
-		udpPort,
+		cfg.PCAPFile,
+		cfg.UDPPort,
 		parser,
 		fb,
 		nil, // no packet stats
 		nil, // no packet forwarder
-		0,   // startSeconds
-		-1,  // durationSeconds (full file)
+		cfg.StartSeconds,
+		cfg.DurationSeconds,
 		0,   // packetOffset
 		0,   // totalPackets (unknown)
 		nil, // onProgress
@@ -165,9 +179,9 @@ func Run(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingRe
 	rationale := l3grid.BuildRationale(history, recommendedFrame, reportThresholds)
 
 	return &l3grid.SettlingReport{
-		PCAPFile:            pcapFile,
-		TuningFile:          tuningFile,
-		SensorID:            sensorID,
+		PCAPFile:            cfg.PCAPFile,
+		TuningFile:          cfg.TuningFile,
+		SensorID:            cfg.SensorID,
 		TotalSamples:        len(history),
 		TotalFrames:         frameCount,
 		MetricsHistory:      history,
