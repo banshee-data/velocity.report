@@ -100,6 +100,7 @@ help:
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
+	@echo "  test-go-coverage-gate Enforce the 82% per-file Go coverage floor"
 	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
@@ -818,6 +819,7 @@ PYTHON_VERSION = 3.12
 PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
+	scripts/test_check_go_coverage.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
@@ -1115,7 +1117,10 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+
+# Per-file Go coverage floor enforced by test-go-coverage-gate.
+COVERAGE_THRESHOLD ?= 82
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1167,6 +1172,16 @@ test-go-coverage-summary:
 test-go-changed-coverage:
 	@echo "Checking branch-added internal Go file coverage..."
 	@python3 scripts/check_changed_go_coverage.py --run-go-test --threshold 98 --diff-filter=A --include-prefix internal/
+
+# Enforce the repo-wide per-file coverage floor. Exclusions (generated code,
+# process entrypoints, build-tag stubs) live in scripts/coverage_exclusions.json
+# and are validated on every run, so a stale entry fails the gate.
+test-go-coverage-gate:
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@echo "Running Go tests for the coverage gate..."
+	@env -u GOROOT go test ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
 
 # Run web test suite (Jest) using pnpm inside the web directory
 test-web:
