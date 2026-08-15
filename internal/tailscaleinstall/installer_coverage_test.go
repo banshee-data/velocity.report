@@ -184,6 +184,145 @@ func TestInstallReportsExtractionFailure(t *testing.T) {
 	}
 }
 
+func TestWriteStableLinksRefusesToReplaceNonSymlink(t *testing.T) {
+	root := t.TempDir()
+	linkDir := filepath.Join(root, "bin")
+	if err := os.MkdirAll(linkDir, 0o755); err != nil {
+		t.Fatalf("creating link dir: %v", err)
+	}
+	// A real binary sitting where the symlink belongs is almost certainly
+	// the distro's own tailscale; clobbering it would be destructive.
+	if err := os.WriteFile(filepath.Join(linkDir, "tailscale"), []byte("distro binary"), 0o755); err != nil {
+		t.Fatalf("writing decoy binary: %v", err)
+	}
+
+	i := Installer{Root: root, LinkDir: linkDir}
+
+	err := i.writeStableLinks()
+	if err == nil {
+		t.Fatal("writeStableLinks replaced a regular file, want a refusal")
+	}
+	if !strings.Contains(err.Error(), "refuse to replace non-symlink") {
+		t.Errorf("error = %v, want the non-symlink refusal", err)
+	}
+	// The existing file must be untouched.
+	got, readErr := os.ReadFile(filepath.Join(linkDir, "tailscale"))
+	if readErr != nil {
+		t.Fatalf("reading decoy binary back: %v", readErr)
+	}
+	if string(got) != "distro binary" {
+		t.Errorf("decoy binary = %q, want it left alone", got)
+	}
+}
+
+func TestWriteStableLinksReportsUncreatableLinkDir(t *testing.T) {
+	root := t.TempDir()
+	// A regular file where the link directory should be makes MkdirAll fail.
+	blocker := filepath.Join(root, "bin")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatalf("writing blocker: %v", err)
+	}
+
+	i := Installer{Root: root, LinkDir: filepath.Join(blocker, "nested")}
+
+	err := i.writeStableLinks()
+	if err == nil {
+		t.Fatal("writeStableLinks with an uncreatable link dir succeeded, want an error")
+	}
+	if !strings.Contains(err.Error(), "create Tailscale link directory") {
+		t.Errorf("error = %v, want it to name the link directory", err)
+	}
+}
+
+func TestWriteStableLinksReplacesExistingSymlink(t *testing.T) {
+	root := t.TempDir()
+	linkDir := filepath.Join(root, "bin")
+	if err := os.MkdirAll(linkDir, 0o755); err != nil {
+		t.Fatalf("creating link dir: %v", err)
+	}
+	// A stale symlink from a previous install must be refreshed, not refused.
+	if err := os.Symlink("/nonexistent/old", filepath.Join(linkDir, "tailscale")); err != nil {
+		t.Fatalf("creating stale symlink: %v", err)
+	}
+
+	i := Installer{Root: root, LinkDir: linkDir}
+	if err := i.writeStableLinks(); err != nil {
+		t.Fatalf("writeStableLinks: %v", err)
+	}
+
+	target, err := os.Readlink(filepath.Join(linkDir, "tailscale"))
+	if err != nil {
+		t.Fatalf("reading link: %v", err)
+	}
+	if want := filepath.Join(root, "current", "tailscale"); target != want {
+		t.Errorf("link target = %q, want %q", target, want)
+	}
+}
+
+func TestWriteServiceReportsUncreatableSystemdDir(t *testing.T) {
+	root := t.TempDir()
+	blocker := filepath.Join(root, "systemd")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatalf("writing blocker: %v", err)
+	}
+
+	i := Installer{Root: root, SystemdDir: filepath.Join(blocker, "nested")}
+
+	err := i.writeService(Release{Version: Version})
+	if err == nil {
+		t.Fatal("writeService with an uncreatable systemd dir succeeded, want an error")
+	}
+	if !strings.Contains(err.Error(), "create systemd directory") {
+		t.Errorf("error = %v, want it to name the systemd directory", err)
+	}
+}
+
+func TestWriteServiceReportsUnwritableUnitFile(t *testing.T) {
+	root := t.TempDir()
+	systemdDir := filepath.Join(root, "systemd")
+	if err := os.MkdirAll(systemdDir, 0o755); err != nil {
+		t.Fatalf("creating systemd dir: %v", err)
+	}
+	// A directory where the unit file belongs makes WriteFile fail.
+	if err := os.MkdirAll(filepath.Join(systemdDir, "tailscaled.service"), 0o755); err != nil {
+		t.Fatalf("creating blocking directory: %v", err)
+	}
+
+	i := Installer{Root: root, SystemdDir: systemdDir}
+
+	err := i.writeService(Release{Version: Version})
+	if err == nil {
+		t.Fatal("writeService over a directory succeeded, want an error")
+	}
+	if !strings.Contains(err.Error(), "write tailscaled service") {
+		t.Errorf("error = %v, want it to name the unit file", err)
+	}
+}
+
+func TestWriteServiceEmitsExpectedUnit(t *testing.T) {
+	root := t.TempDir()
+	systemdDir := filepath.Join(root, "systemd")
+	i := Installer{Root: root, SystemdDir: systemdDir}
+
+	if err := i.writeService(Release{Version: Version}); err != nil {
+		t.Fatalf("writeService: %v", err)
+	}
+
+	unit, err := os.ReadFile(filepath.Join(systemdDir, "tailscaled.service"))
+	if err != nil {
+		t.Fatalf("reading unit file: %v", err)
+	}
+	// The unit must point at the version-stable "current" path, not a
+	// versioned directory, so upgrades do not need the unit rewritten.
+	wantExec := filepath.Join(root, "current", "tailscaled")
+	if !strings.Contains(string(unit), "ExecStart="+wantExec) {
+		t.Errorf("unit missing ExecStart=%s\n---\n%s", wantExec, unit)
+	}
+	if !strings.Contains(string(unit), "ExecStopPost="+wantExec+" --cleanup") {
+		t.Errorf("unit missing the cleanup ExecStopPost\n---\n%s", unit)
+	}
+}
+
 func TestFetchWithoutOverrideBuildsRequest(t *testing.T) {
 	// With no Fetch override the installer performs a real HTTP request. A
 	// malformed URL fails during request construction, before any network
