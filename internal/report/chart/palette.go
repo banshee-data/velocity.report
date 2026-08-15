@@ -1,9 +1,6 @@
 package chart
 
-import (
-	"fmt"
-	"image/color"
-)
+import "image/color"
 
 const (
 	ColourP50       = "#fbd92f" // Yellow — 50th percentile
@@ -27,8 +24,4 @@ var Palette = struct {
 	Max:       color.RGBA{R: 0x2d, G: 0x1e, B: 0x2f, A: 0xff},
 	CountBar:  color.RGBA{R: 0xa8, G: 0x9c, B: 0x95, A: 0xff},
 	LowSample: color.RGBA{R: 0xf7, G: 0xb3, B: 0x2b, A: 0xff},
-}
-
-func hex(c color.RGBA) string {
-	return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
 }
