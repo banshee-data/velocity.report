@@ -59,6 +59,23 @@
       "optional": true
     },
     {
+      "path": "cmd/tools/lidar-scene-extract/main.go",
+      "functions": [
+        "main",
+        "parseFlags"
+      ],
+      "reason": "main orchestrates the PCAP read and JSON write behind log.Fatalf; parseFlags binds to the global flag.CommandLine, so calling it from a test would consume the test binary's own flags. The scene-building logic it drives — voxel keying, scan-boundary detection, warmup/loop phases, the deterministic static snapshot — is tested directly."
+    },
+    {
+      "path": "cmd/tools/visualiser-server/main.go",
+      "reason": "Developer tool that starts a blocking gRPC server: every function either parses global flags, opens a listener, or blocks in waitForShutdown on a signal channel. The streaming engine it wraps is covered in internal/lidar/l9endpoints."
+    },
+    {
+      "path": "internal/cmd/server/selfcheck_pcap.go",
+      "reason": "The libpcap self-check itself. selfCheckLiveCapture opens a real AF_PACKET capture (needs privileges and a NIC); selfCheckLibpcap does run under -tags=pcap, but its only uncovered statements are the branches taken when pcap.Version() returns empty or FindAllDevs fails — i.e. when libpcap is broken, which is the very condition this file exists to detect and cannot be simulated in-process.",
+      "optional": true
+    },
+    {
       "path": "internal/db/testsupport.go",
       "reason": "Test-only helper (NewTestDB) compiled into the package for other packages' tests. Exercised constantly, but by tests outside internal/db, so it never registers in this package's own profile."
     },
