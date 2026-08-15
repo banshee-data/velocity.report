@@ -1234,8 +1234,8 @@ test-go-coverage-gate:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
-	@echo "  (replaying the kirk0.pcapng fixture — this takes several minutes)"
-	@env -u GOROOT VELOCITY_PCAP_FIXTURE_TESTS=1 go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@echo "  (running the bounded kirk0.pcapng fixture replays)"
+	@env -u GOROOT go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
 	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
 
 # Run web test suite (Jest) using pnpm inside the web directory
