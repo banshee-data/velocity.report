@@ -28,10 +28,11 @@ internal/**/testdata/
 !web/stub-index.html
 !scripts/ensure-web-stub.sh
 
-# Embedded offline docs inputs (built before image binaries are compiled)
-# Re-open the parent directory, then keep only the embed tree and stub source.
+# Embedded offline docs inputs (built before image binaries are compiled).
+# Keep the generated tree explicitly: Docker must not fall back to the stub or
+# a cached partial tree when compiling the binary's go:embed assets.
 !docs_html/
-docs_html/**
+docs_html/*
 !docs_html/_site/
 !docs_html/_site/**
 docs_html/_site/data/maths/papers/*.pdf
