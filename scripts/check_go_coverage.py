@@ -193,6 +193,10 @@ class Exclusion:
     pattern: str
     functions: "list[str]"
     reason: str
+    # optional entries may match nothing without being reported as stale.
+    # Reserved for build-tag-conditional files: a !pcap stub simply is not
+    # compiled (and so never appears in the profile) when -tags=pcap is set.
+    optional: bool = False
     matched_files: "set[str]" = field(default_factory=set)
     matched_funcs: "set[str]" = field(default_factory=set)
 
@@ -223,6 +227,7 @@ def load_exclusions(path: Path) -> "list[Exclusion]":
                 pattern=pattern,
                 functions=list(entry.get("functions", [])),
                 reason=reason,
+                optional=bool(entry.get("optional", False)),
             )
         )
     return out
@@ -259,7 +264,8 @@ def stale_exclusion_errors(exclusions: "Iterable[Exclusion]") -> "list[str]":
     problems: "list[str]" = []
     for exc in exclusions:
         if not exc.matched_files:
-            problems.append(f"{exc.pattern}: matches no file in the coverage profile")
+            if not exc.optional:
+                problems.append(f"{exc.pattern}: matches no file in the coverage profile")
             continue
         missing = [fn for fn in exc.functions if fn not in exc.matched_funcs]
         if missing:

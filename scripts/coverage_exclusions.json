@@ -8,8 +8,12 @@
     "the gate.",
     "",
     "Exclusions are validated. An entry that matches no file, or names a",
-    "function that no longer exists, fails the run — so this list cannot rot",
-    "quietly as code moves."
+    "function that no longer exists, fails the run \u2014 so this list cannot rot",
+    "quietly as code moves.",
+    "",
+    "Set \"optional\": true only for build-tag-conditional files, which are",
+    "legitimately absent from a profile built with the opposite tag. It waives",
+    "the staleness check, so do not use it to silence a genuinely stale entry."
   ],
   "exclusions": [
     {
@@ -34,7 +38,9 @@
     },
     {
       "path": "cmd/tools/backfill_lidar_run_config/main.go",
-      "functions": ["main"],
+      "functions": [
+        "main"
+      ],
       "reason": "func main() wrapper. All the logic lives in run(), which takes its os.Stat, DB-open and backfill dependencies as parameters and is tested directly in the same package."
     },
     {
@@ -43,20 +49,27 @@
     },
     {
       "path": "internal/lidar/l1packets/network/pcap_count_stub.go",
-      "reason": "Build-tag stub for builds without the pcap tag. The real implementation in the pcap-tagged file is what carries the logic."
+      "reason": "Build-tag stub for builds without the pcap tag. The real implementation in the pcap-tagged file is what carries the logic. Marked optional: this file is only compiled in the untagged build, so it is absent from a -tags=pcap profile.",
+      "optional": true
     },
     {
       "path": "internal/cmd/server/selfcheck_nopcap.go",
-      "reason": "Build-tag stub for builds without the pcap tag; selfCheckLibpcap is a no-op here. The failure path is covered by TestRunSelfCheckFailsWhenLiveCaptureRequestedWithoutPcap."
+      "reason": "Build-tag stub for builds without the pcap tag; selfCheckLibpcap is a no-op here. The failure path is covered by TestRunSelfCheckFailsWhenLiveCaptureRequestedWithoutPcap. Marked optional: this file is only compiled in the untagged build, so it is absent from a -tags=pcap profile.",
+      "optional": true
     },
     {
       "path": "internal/api/serial.go",
-      "functions": ["testSerialPort"],
-      "reason": "Opens a real serial device and exchanges probe commands with it. The validation and failed-open branches are still tested (see serial_coverage_test.go) — they just cannot carry the function past the floor, because the post-open command exchange needs an OPS243 on the other end."
+      "functions": [
+        "testSerialPort"
+      ],
+      "reason": "Opens a real serial device and exchanges probe commands with it. The validation and failed-open branches are still tested (see serial_coverage_test.go) \u2014 they just cannot carry the function past the floor, because the post-open command exchange needs an OPS243 on the other end."
     },
     {
       "path": "internal/cmd/device/tailscale.go",
-      "functions": ["enableTailscaled", "disableTailscaled"],
+      "functions": [
+        "enableTailscaled",
+        "disableTailscaled"
+      ],
       "reason": "Privileged systemd lifecycle: shells out to /usr/bin/systemctl and waits on /var/run/tailscale/tailscaled.sock. Only meaningful on the Pi image, where the sudoers grant exists."
     },
     {
@@ -80,13 +93,19 @@
     },
     {
       "path": "internal/tailscaleinstall/installer.go",
-      "functions": ["fetch", "run"],
-      "reason": "fetch performs the HTTPS release download; run shells out to the installed binary. Both need network and a Debian-family host. The surrounding logic — checksum verification, archive extraction, service file writing, health checks — stays in scope."
+      "functions": [
+        "fetch",
+        "run"
+      ],
+      "reason": "fetch performs the HTTPS release download; run shells out to the installed binary. Both need network and a Debian-family host. The surrounding logic \u2014 checksum verification, archive extraction, service file writing, health checks \u2014 stays in scope."
     },
     {
       "path": "internal/cmd/server/radar.go",
-      "functions": ["Main", "runTransitsCommand"],
-      "reason": "Process entrypoints: flag registration, server construction, signal handling and goroutine wiring, terminating in log.Fatalf/os.Exit and a blocking wg.Wait. Testing them means running the server. The rest of the file — the serial snapshot helpers, tailscaleServeTarget, and the visualiser/HINT adapters — stays in scope."
+      "functions": [
+        "Main",
+        "runTransitsCommand"
+      ],
+      "reason": "Process entrypoints: flag registration, server construction, signal handling and goroutine wiring, terminating in log.Fatalf/os.Exit and a blocking wg.Wait. Testing them means running the server. The rest of the file \u2014 the serial snapshot helpers, tailscaleServeTarget, and the visualiser/HINT adapters \u2014 stays in scope."
     }
   ]
 }

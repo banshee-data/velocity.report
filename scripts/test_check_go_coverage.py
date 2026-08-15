@@ -286,6 +286,51 @@ def test_line_qualified_selector_that_matches_nothing_is_stale(tmp_path):
     assert "not found" in problems[0]
 
 
+def test_optional_exclusion_may_match_nothing(tmp_path):
+    """Build-tag stubs are absent from a profile built with the opposite tag.
+
+    internal/cmd/server/selfcheck_nopcap.go only exists in the untagged build,
+    so under -tags=pcap its exclusion matches nothing. That is conditionality,
+    not rot, and must not fail the gate.
+    """
+    mod = load_module()
+    files = build_files(mod, tmp_path, f"{PREFIX}a/x.go:1.1,2.2 1 1\n", {})
+    exclusions = [
+        mod.Exclusion(
+            pattern="a/stub_nopcap.go", functions=[], reason="build-tag stub", optional=True
+        )
+    ]
+
+    mod.apply_exclusions(files, exclusions)
+
+    assert mod.stale_exclusion_errors(exclusions) == []
+
+
+def test_non_optional_exclusion_matching_nothing_still_fails(tmp_path):
+    mod = load_module()
+    files = build_files(mod, tmp_path, f"{PREFIX}a/x.go:1.1,2.2 1 1\n", {})
+    exclusions = [mod.Exclusion(pattern="a/gone.go", functions=[], reason="stale")]
+
+    mod.apply_exclusions(files, exclusions)
+
+    assert len(mod.stale_exclusion_errors(exclusions)) == 1
+
+
+def test_load_exclusions_reads_optional_flag(tmp_path):
+    mod = load_module()
+    path = write_exclusions(
+        tmp_path,
+        [
+            {"path": "a/x.go", "reason": "stub", "optional": True},
+            {"path": "a/y.go", "reason": "normal"},
+        ],
+    )
+
+    got = mod.load_exclusions(path)
+
+    assert [e.optional for e in got] == [True, False]
+
+
 def test_no_stale_problems_when_everything_matches(tmp_path):
     mod = load_module()
     files = build_files(

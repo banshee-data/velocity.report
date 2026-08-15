@@ -151,17 +151,5 @@ func TestRunSelfCheckReportsHeaderAndSummary(t *testing.T) {
 	}
 }
 
-func TestRunSelfCheckFailsWhenLiveCaptureRequestedWithoutPcap(t *testing.T) {
-	// This test binary is built without the pcap tag, so requesting a live
-	// capture must fail loudly rather than silently reporting success.
-	var out strings.Builder
-
-	code := runSelfCheck(&out, "eth0")
-
-	if code != 1 {
-		t.Errorf("runSelfCheck = %d, want 1 when live capture is unavailable", code)
-	}
-	if !strings.Contains(out.String(), "built without the pcap tag") {
-		t.Errorf("output = %q, want the missing-pcap-tag diagnostic", out.String())
-	}
-}
+// The live-capture behaviour depends on the pcap build tag, so it is asserted
+// in selfcheck_nopcap_test.go rather than here.

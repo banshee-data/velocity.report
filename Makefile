@@ -1121,6 +1121,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 
 # Per-file Go coverage floor enforced by test-go-coverage-gate.
 COVERAGE_THRESHOLD ?= 82
+COVERAGE_TAGS ?= pcap
 
 MAC_DIR = tools/visualiser-macos
 
@@ -1176,11 +1177,16 @@ test-go-changed-coverage:
 # Enforce the repo-wide per-file coverage floor. Exclusions (generated code,
 # process entrypoints, build-tag stubs) live in scripts/coverage_exclusions.json
 # and are validated on every run, so a stale entry fails the gate.
+#
+# Built with -tags=pcap so PCAP replay is the real implementation rather than
+# the refusing stub — settling evaluation and the offline replay tooling are
+# only reachable that way, and it matches how the shipped binary is built.
+# Needs libpcap (brew install libpcap / apt-get install libpcap-dev).
 test-go-coverage-gate:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
-	@echo "Running Go tests for the coverage gate..."
-	@env -u GOROOT go test ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
+	@env -u GOROOT go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
 	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
 
 # Run web test suite (Jest) using pnpm inside the web directory
