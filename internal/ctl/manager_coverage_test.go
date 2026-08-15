@@ -93,6 +93,89 @@ func TestReleaseAssetIsNewer(t *testing.T) {
 	}
 }
 
+func TestNewManagerFillsEveryDefault(t *testing.T) {
+	// A zero Config is what the CLI hands over when no flags are set, so
+	// every field has to acquire its production default here — a missed one
+	// means the device manager acts on an empty path or a zero timeout.
+	var out bytes.Buffer
+	m := NewManager(Config{}, nil, &fakeRunner{}, &out, &out)
+
+	if got := m.cfg.ReleaseMetaURL; got != defaultReleaseMetaURL {
+		t.Errorf("ReleaseMetaURL = %q, want %q", got, defaultReleaseMetaURL)
+	}
+	if got := m.cfg.InstallRoot; got != defaultInstallRoot {
+		t.Errorf("InstallRoot = %q, want %q", got, defaultInstallRoot)
+	}
+	if got := m.cfg.BinaryName; got != defaultBinaryName {
+		t.Errorf("BinaryName = %q, want %q", got, defaultBinaryName)
+	}
+	if got := m.cfg.ServiceName; got != defaultServiceName {
+		t.Errorf("ServiceName = %q, want %q", got, defaultServiceName)
+	}
+	if got := m.cfg.BackupDir; got != defaultBackupDir {
+		t.Errorf("BackupDir = %q, want %q", got, defaultBackupDir)
+	}
+	if got := m.cfg.DBPath; got != defaultDBPath {
+		t.Errorf("DBPath = %q, want %q", got, defaultDBPath)
+	}
+	if got := m.cfg.VersionURL; got != defaultVersionURL {
+		t.Errorf("VersionURL = %q, want %q", got, defaultVersionURL)
+	}
+	if got := m.cfg.Retain; got != defaultRetain {
+		t.Errorf("Retain = %d, want %d", got, defaultRetain)
+	}
+	// Zero timeouts would mean "no timeout" and could hang the device.
+	if m.cfg.RequestTimeout <= 0 {
+		t.Errorf("RequestTimeout = %v, want a positive default", m.cfg.RequestTimeout)
+	}
+	if m.cfg.DownloadTimeout <= 0 {
+		t.Errorf("DownloadTimeout = %v, want a positive default", m.cfg.DownloadTimeout)
+	}
+	if m.cfg.VerifyDelay <= 0 {
+		t.Errorf("VerifyDelay = %v, want a positive default", m.cfg.VerifyDelay)
+	}
+	if m.cfg.CurrentVersion == "" {
+		t.Error("CurrentVersion is empty, want the compiled-in version")
+	}
+	if m.cfg.GOOS == "" || m.cfg.GOARCH == "" {
+		t.Errorf("platform = %s/%s, want the runtime values", m.cfg.GOOS, m.cfg.GOARCH)
+	}
+}
+
+func TestNewManagerPreservesSuppliedConfig(t *testing.T) {
+	// Anything explicitly set must survive: the defaults only fill gaps.
+	var out bytes.Buffer
+	cfg := Config{
+		ReleaseMetaURL: "https://example.invalid/release.json",
+		InstallRoot:    "/custom/root",
+		BinaryName:     "custom-binary",
+		ServiceName:    "custom.service",
+		BackupDir:      "/custom/backups",
+		DBPath:         "/custom/db.sqlite",
+		VersionURL:     "http://127.0.0.1:9999/api/version",
+		Retain:         7,
+		CurrentVersion: "9.9.9",
+		GOOS:           "linux",
+		GOARCH:         "arm64",
+	}
+
+	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
+
+	if m.cfg.ReleaseMetaURL != cfg.ReleaseMetaURL ||
+		m.cfg.InstallRoot != cfg.InstallRoot ||
+		m.cfg.BinaryName != cfg.BinaryName ||
+		m.cfg.ServiceName != cfg.ServiceName ||
+		m.cfg.BackupDir != cfg.BackupDir ||
+		m.cfg.DBPath != cfg.DBPath ||
+		m.cfg.VersionURL != cfg.VersionURL ||
+		m.cfg.Retain != cfg.Retain ||
+		m.cfg.CurrentVersion != cfg.CurrentVersion ||
+		m.cfg.GOOS != cfg.GOOS ||
+		m.cfg.GOARCH != cfg.GOARCH {
+		t.Errorf("NewManager overwrote supplied config:\n got %+v\nwant %+v", m.cfg, cfg)
+	}
+}
+
 func TestRunCheckIsReadOnly(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
