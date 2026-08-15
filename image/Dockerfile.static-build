@@ -80,10 +80,12 @@ ARG TYPST_VERSION=0.13.1
 
 COPY . /src
 RUN ./scripts/ensure-web-stub.sh && ./scripts/ensure-docs-stub.sh
-RUN test -f /src/docs_html/_site/docs/ui/design/20260511-Velocity_Report_Butterfly_Net/index.html \
-    && test -f /src/docs_html/_site/docs/ui/design/index.html \
-    && test -f /src/docs_html/_site/data/experiments/try/index.html \
-    && test -f /src/docs_html/_site/data/maths/MATHS/index.html
+# The host writes this manifest after a successful Eleventy build.  Verify
+# every expected file and byte after Docker's ignore rules have been applied,
+# before Go compiles its `all:docs_html/_site` embed.
+RUN cd /src/docs_html/_site \
+    && sha256sum --strict --check .embed-manifest \
+    && rm .embed-manifest
 
 # DEV_VERSION and GIT_SHA_SHORT are computed on the host (bash-only
 # parameter expansion) and passed in as ARGs; this image's /bin/sh is
