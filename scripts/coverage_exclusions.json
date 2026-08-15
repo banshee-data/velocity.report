@@ -76,6 +76,13 @@
       "optional": true
     },
     {
+      "path": "internal/report/archive.go",
+      "functions": [
+        "BuildZip"
+      ],
+      "reason": "BuildZip's behaviour is well covered (contents, deterministic ordering, empty input); its only uncovered statements are the two branches taken when the zip writer fails, and it writes to an internal bytes.Buffer, which cannot. The reader-side failures in the same file — unparseable archive, unopenable entry, corrupt payload — are all tested."
+    },
+    {
       "path": "internal/db/testsupport.go",
       "reason": "Test-only helper (NewTestDB) compiled into the package for other packages' tests. Exercised constantly, but by tests outside internal/db, so it never registers in this package's own profile."
     },
