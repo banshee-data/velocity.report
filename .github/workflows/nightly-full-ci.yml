@@ -78,9 +78,16 @@ jobs:
         run: ./scripts/ensure-web-stub.sh
 
       - name: Run LiDAR tests with race detector
+        # VELOCITY_PCAP_FIXTURE_TESTS enables the full kirk0.pcapng replays,
+        # which are skipped in the per-PR job: one pass takes minutes under
+        # -race and several in a package overrun Go's default 10m per-package
+        # timeout. Nightly is where they run, so -timeout is raised to suit.
+        env:
+          VELOCITY_PCAP_FIXTURE_TESTS: "1"
         run: |
-          go test -race -tags=pcap -p 2 \
+          go test -race -tags=pcap -p 2 -timeout 50m \
             ./internal/lidar/... \
+            ./internal/cmd/lidar/... \
             ./internal/cmd/server/... \
             ./internal/cmd/tune/... \
             ./cmd/velocity/...

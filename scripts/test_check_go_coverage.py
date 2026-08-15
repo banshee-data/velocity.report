@@ -224,11 +224,11 @@ def test_stale_exclusion_detected_when_function_is_gone(tmp_path):
 
 
 def test_line_qualified_selector_disambiguates_same_named_functions(tmp_path):
-    """"Name@line" pins one of several same-named functions in a file.
+    """A `Name@line` selector pins one of several same-named functions.
 
     internal/tailscale/manager.go declares Status twice: a one-line adapter
     method delegating to the tailscale client, and the exported Manager.Status
-    that is testable. Excluding a bare "Status" would take both.
+    that is testable. Excluding a bare `Status` would take both.
     """
     mod = load_module()
     files = build_files(

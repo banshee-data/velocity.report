@@ -16,6 +16,17 @@ const (
 	fixturePort = 2369
 )
 
+// requirePCAPFixture skips unless VELOCITY_PCAP_FIXTURE_TESTS is set. Run
+// replays the whole ~200 MB capture — it has no window knob — which takes
+// minutes under -race. `make test-go-coverage-gate` sets the variable so the
+// gate still measures this path, and the nightly workflow runs it.
+func requirePCAPFixture(t *testing.T) {
+	t.Helper()
+	if os.Getenv("VELOCITY_PCAP_FIXTURE_TESTS") == "" {
+		t.Skip("set VELOCITY_PCAP_FIXTURE_TESTS=1 to replay the kirk0.pcapng fixture")
+	}
+}
+
 // TestRunReplaysFixtureAndReportsSettling drives the whole offline evaluation:
 // PCAP decode, frame assembly, background-grid updates and per-frame settling
 // metrics. It is the only path that reaches the frame callback, which is the
@@ -23,9 +34,7 @@ const (
 //
 // Requires -tags=pcap; without it network.ReadPCAPFile is a stub that refuses.
 func TestRunReplaysFixtureAndReportsSettling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("replays a multi-frame PCAP fixture")
-	}
+	requirePCAPFixture(t)
 
 	report, err := Run(filepath.Clean(fixturePCAP), "", "test-sensor", fixturePort)
 	if err != nil {

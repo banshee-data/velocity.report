@@ -10,6 +10,11 @@ import (
 // captureStdout runs fn with os.Stdout redirected to a pipe and returns what
 // was written. Print uses fmt.Printf directly, so this is the only way to
 // observe it.
+//
+// The redirect is undone before returning rather than in t.Cleanup: deferring
+// it to the end of the test would swallow anything the test wrote to stdout
+// afterwards, including the testing package's own failure output. Both pipe
+// ends are closed, the read end only after the reader goroutine has drained it.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
@@ -17,9 +22,15 @@ func captureStdout(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatalf("creating pipe: %v", err)
 	}
+	defer func() {
+		if err := r.Close(); err != nil {
+			t.Errorf("closing pipe reader: %v", err)
+		}
+	}()
+
 	orig := os.Stdout
 	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = orig })
+	defer func() { os.Stdout = orig }()
 
 	done := make(chan string, 1)
 	go func() {
@@ -29,6 +40,7 @@ func captureStdout(t *testing.T, fn func()) string {
 
 	fn()
 
+	// Closing the writer signals EOF, which lets the reader goroutine finish.
 	if err := w.Close(); err != nil {
 		t.Fatalf("closing pipe writer: %v", err)
 	}
