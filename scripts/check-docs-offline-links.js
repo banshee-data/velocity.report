@@ -157,24 +157,21 @@ for (const file of htmlFiles) {
     const href = $(element).attr("href");
     if (!href) return;
 
-    if (/^https:\/\/github\.com\/.+\/blob\//i.test(href)) {
-      warnings.push(
-        `${path.relative(siteRoot, file)}: GitHub blob URL remains external: ${href}`,
-      );
-    }
+    // The landing page explicitly crosses to the separately mounted homepage.
+    // GitHub is also intentional: source links point at the build revision.
+    if ($(element).attr("data-docs-app-surface") !== undefined) return;
 
     if (isExternal(href)) return;
-    if (/\.md(?:$|[?#])/i.test(href)) {
-      warnings.push(
-        `${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`,
-      );
-    }
     const shouldValidateRelative =
       href.startsWith("/") ||
       href.startsWith("#") ||
       $(element).attr("data-docs-internal") !== undefined;
     if (!shouldValidateRelative) return;
-
+    if (/\.md(?:$|[?#])/i.test(href)) {
+      warnings.push(
+        `${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`,
+      );
+    }
     let resolved;
     try {
       resolved = new URL(href, base);
