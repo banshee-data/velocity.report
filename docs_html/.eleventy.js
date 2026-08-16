@@ -8,6 +8,7 @@ const katex = require("katex");
 
 const embedStubMarker =
   "This placeholder keeps Go's docs_html/_site embed pattern valid on clean checkouts.\n";
+const repoRoot = path.resolve(__dirname, "..");
 
 function isExternalHref(href) {
   return (
@@ -88,14 +89,42 @@ function outputURLForSourcePath(inputRoot, targetPath) {
   return `/${rel}`;
 }
 
-function resolveHrefForInput(href, inputPath) {
-  if (isExternalHref(href) || !inputPath) return { href, resolved: false };
+function githubRepositoryPath(href) {
+  const match = String(href).match(
+    /^https:\/\/github\.com\/banshee-data\/velocity\.report\/blob\/[^/]+\/(.+?)(?:[?#].*)?$/i,
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
-  const inputRoot = path.resolve("src");
-  const sourceDir = path.dirname(path.resolve(inputPath));
-  const { pathname, query, hash } = splitHref(href);
-  if (!pathname) return { href, resolved: false };
+function buildGitSHA() {
+  const value = process.env.VELOCITY_DOCS_GIT_SHA || "main";
+  return /^[0-9a-f]{7,40}$/i.test(value) ? value : "main";
+}
 
+function githubBlobHref(candidate) {
+  try {
+    const resolved = fs.realpathSync(candidate);
+    const relative = path.relative(repoRoot, resolved).replace(/\\/g, "/");
+    if (
+      relative.startsWith("../") ||
+      path.isAbsolute(relative) ||
+      relative.startsWith("docs/") ||
+      relative.startsWith("data/") ||
+      relative.startsWith("public_html/") ||
+      !fs.statSync(resolved).isFile()
+    ) {
+      return null;
+    }
+    return `https://github.com/banshee-data/velocity.report/blob/${buildGitSHA()}/${relative
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`;
+  } catch {
+    return null;
+  }
+}
+
+function candidatesForPath(pathname, sourceDir) {
   const candidates = [];
   const direct = path.resolve(sourceDir, pathname);
   candidates.push(direct);
@@ -104,8 +133,33 @@ function resolveHrefForInput(href, inputPath) {
   }
   candidates.push(path.join(direct, "README.md"));
   candidates.push(path.join(direct, "index.md"));
+  return candidates;
+}
 
-  for (const candidate of candidates) {
+function resolveHrefForInput(href, inputPath) {
+  const githubPath = githubRepositoryPath(href);
+  if ((isExternalHref(href) && !githubPath) || !inputPath) {
+    return { href, resolved: false };
+  }
+
+  const inputRoot = path.resolve("src");
+  const documentSourceDir = path.dirname(path.resolve(inputPath));
+  let repositorySourceDir = documentSourceDir;
+  try {
+    repositorySourceDir = path.dirname(fs.realpathSync(inputPath));
+  } catch {
+    // Keep the docs-input path as the fallback for generated pages.
+  }
+  const split = splitHref(href);
+  const pathname = githubPath || split.pathname;
+  const query = githubPath ? "" : split.query;
+  const hash = githubPath ? "" : split.hash;
+  if (!pathname) return { href, resolved: false };
+
+  const documentCandidates = candidatesForPath(pathname, documentSourceDir);
+  const repositoryCandidates = candidatesForPath(pathname, repositorySourceDir);
+
+  for (const candidate of documentCandidates) {
     if (!isWithin(inputRoot, candidate)) continue;
     try {
       if (!require("fs").statSync(candidate).isFile()) continue;
@@ -115,6 +169,22 @@ function resolveHrefForInput(href, inputPath) {
     const outputURL = outputURLForSourcePath(inputRoot, candidate);
     if (outputURL) {
       return { href: `${outputURL}${query}${hash}`, resolved: true };
+    }
+  }
+
+  for (const candidate of repositoryCandidates) {
+    const sourceURL = githubBlobHref(candidate);
+    if (sourceURL) return { href: `${sourceURL}${query}${hash}`, resolved: false };
+  }
+
+  // Documentation frequently refers to repository-root source paths such as
+  // `internal/...` from within docs/ or data/. Link those files to the exact
+  // repository revision carried by this documentation build.
+  const repositoryPath = pathname.replace(/^\/+/, "");
+  if (repositoryPath && !repositoryPath.startsWith("../")) {
+    const sourceURL = githubBlobHref(path.resolve(repoRoot, repositoryPath));
+    if (sourceURL) {
+      return { href: `${sourceURL}${query}${hash}`, resolved: false };
     }
   }
 
@@ -425,7 +495,6 @@ module.exports = function (eleventyConfig) {
     "src/**/*.{png,jpg,jpeg,gif,svg,webp,json,yml,yaml,bib,txt,py,toml}",
   );
 
-  const repoRoot = path.resolve(__dirname, "..");
   const rootMarkdownWatchTargets = fs
     .readdirSync(repoRoot, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
@@ -486,6 +555,7 @@ module.exports = function (eleventyConfig) {
     const $ = cheerio.load(content, { decodeEntities: false });
     $("a[href]").each((_, element) => {
       if ($(element).attr("data-docs-internal") !== undefined) return;
+      if ($(element).attr("data-docs-app-surface") !== undefined) return;
       const href = $(element).attr("href");
       const result = resolveHrefForInput(href, this.inputPath);
       if (result.resolved) {
