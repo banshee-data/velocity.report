@@ -33,6 +33,10 @@ The two Eleventy projects stay separate on purpose. Public docs and operator doc
 - `make dev-docs-offline` runs the offline Eleventy preview for authoring
 - `python3 scripts/check-relative-links.py` validates Markdown link integrity across the source tree
 - The Go server embeds `docs_html/_site` and serves it at `/docs/`
+- Repository source links resolve to the immutable GitHub revision recorded in
+  the embedded-docs build metadata. The image does not carry a second source
+  tree: binary, UI, documentation, and runtime dependencies remain one
+  versioned release unit.
 - Image assembly stages `public_html/_site` at `/opt/velocity-report/public_html` and serves it at `/public_html/`
 - `--docs-source=embed|disk` switches between embedded and on-disk serving for development
 
