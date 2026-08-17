@@ -33,6 +33,24 @@ func benchConfig(t *testing.T) Config {
 	}
 }
 
+func TestNormaliseReplayDuration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   float64
+		want float64
+	}{
+		{name: "zero value means full capture", in: 0, want: -1},
+		{name: "explicit full capture", in: -1, want: -1},
+		{name: "bounded replay", in: 1.5, want: 1.5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normaliseReplayDuration(tc.in); got != tc.want {
+				t.Errorf("normaliseReplayDuration(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestRunProducesBenchmarkResult drives the whole benchmark: PCAP decode,
 // frame assembly, the L3–L6 pipeline, metric assembly and JSON output. It is
 // the only path that reaches runBenchmark, the analysis frame builder, and the

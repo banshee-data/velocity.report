@@ -33,9 +33,7 @@ type Analysis struct {
 // timeline and segment writing are separate steps. This is pass 1 of the
 // two-pass split (pass 2 is WriteSegments).
 func Analyse(cfg SplitConfig) (*Analysis, error) {
-	if cfg.DurationSeconds == 0 {
-		cfg.DurationSeconds = -1
-	}
+	cfg.DurationSeconds = normaliseReplayDuration(cfg.DurationSeconds)
 	parserCfg, err := parse.LoadPandar40PConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
@@ -148,6 +146,15 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	}
 	a.Capture = computeCaptureStats(cfg.PCAPFile, frameTimes, stats.count(), totalPoints, foregroundPoints, sb.snapshot())
 	return a, nil
+}
+
+// normaliseReplayDuration preserves the historical zero-value full-capture
+// behaviour while retaining -1 as the explicit full-capture setting.
+func normaliseReplayDuration(durationSeconds float64) float64 {
+	if durationSeconds == 0 {
+		return -1
+	}
+	return durationSeconds
 }
 
 // wrapProgress decorates inner with a periodic progress reporter when
