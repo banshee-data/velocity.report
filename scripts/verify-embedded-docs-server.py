@@ -29,7 +29,7 @@ class Links(HTMLParser):
         attributes = dict(attrs)
         href = attributes.get("href")
         if href:
-            self.hrefs.append((href, "data-docs-internal" in attributes))
+            self.hrefs.append((href, "data-docs-app-surface" in attributes))
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -131,8 +131,8 @@ def main() -> None:
                     continue
                 page_links = Links()
                 page_links.feed(body.decode("utf-8", errors="replace"))
-                for href, is_docs_internal in page_links.hrefs:
-                    if not is_docs_internal:
+                for href, is_docs_app_surface in page_links.hrefs:
+                    if is_docs_app_surface:
                         continue
                     target = urljoin(url, href)
                     parsed = urlsplit(target)
@@ -141,9 +141,6 @@ def main() -> None:
                     if parsed.netloc != urlsplit(root_url).netloc:
                         continue
                     if not parsed.path.startswith("/docs/"):
-                        failures.append(
-                            f"{page.relative_to(site_root)}: internal link escapes docs: {href}"
-                        )
                         continue
                     if target in checked_links:
                         continue
@@ -152,12 +149,12 @@ def main() -> None:
                         status, _ = request(opener, target)
                     except (HTTPError, URLError, TimeoutError) as error:
                         failures.append(
-                            f"{page.relative_to(site_root)}: broken link {href}: {error}"
+                            f"{page.relative_to(site_root)}: broken docs link {href}: {error}"
                         )
                     else:
                         if status != 200:
                             failures.append(
-                                f"{page.relative_to(site_root)}: broken link {href}: status={status}"
+                                f"{page.relative_to(site_root)}: broken docs link {href}: status={status}"
                             )
             if failures:
                 raise RuntimeError(

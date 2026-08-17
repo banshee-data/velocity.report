@@ -94,16 +94,18 @@ help:
 	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
+	@echo "  test                 Run all tests (Go + Python + Web + offline docs + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
-	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
+	@echo "  test-python          Run Python script/tool tests"
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  test-docs-offline    Run embedded offline docs tests"
+	@echo "  test-docs-offline-cov Run embedded offline docs tests with 98% line thresholds"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
@@ -844,6 +846,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
 	scripts/test_sqlite_erd.py \
+	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
@@ -1136,12 +1139,12 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov coverage loc-coverage-chart
 
 MAC_DIR = tools/visualiser-macos
 
-# Aggregate test target: runs Go, web, and macOS tests in sequence
-test: test-go test-web test-mac
+# Aggregate test target: every maintained unit-test suite in the repository.
+test: test-go test-python test-web test-docs-offline test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -1199,6 +1202,31 @@ test-web-cov:
 	@echo "Running web (Jest) tests with coverage..."
 	@cd $(WEB_DIR) && pnpm run test:coverage
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
+
+test-docs-offline:
+	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
+	@echo "Running embedded offline docs tests..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+
+test-docs-offline-cov: ensure-python-tools
+	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
+	@echo "Running embedded offline docs tests with coverage..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test:coverage; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test:coverage; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@$(VENV_PYTHON) -m coverage erase
+	@$(VENV_PYTHON) -m coverage run -m pytest scripts/test_verify_embedded_docs_server.py
+	@$(VENV_PYTHON) -m coverage report --fail-under=98 scripts/verify-embedded-docs-server.py
 
 # Run macOS visualiser tests (XCTest)
 test-mac:
@@ -1272,12 +1300,14 @@ test-mac-cov:
 	fi
 
 # Generate coverage reports for all components
-coverage: test-go-cov test-web-cov test-mac-cov
+coverage: test-go-cov test-python-cov test-web-cov test-docs-offline-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
-	@echo "  - Go:     coverage.html"
-	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
-	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo "  - Go:           coverage.html"
+	@echo "  - Python:       htmlcov-python/index.html"
+	@echo "  - Web:          $(WEB_DIR)/coverage/lcov-report/index.html"
+	@echo "  - Offline docs: terminal reports (98% line thresholds)"
+	@echo "  - macOS:        $(MAC_DIR)/coverage/TestResults.xcresult"
 
 # Render the LOC + coverage chart SVG into dist/loc-coverage.svg.
 # Reads coverage.out, coverage/lcov.info, and $(MAC_DIR)/coverage.info if

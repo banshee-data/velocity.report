@@ -162,11 +162,6 @@ for (const file of htmlFiles) {
     if ($(element).attr("data-docs-app-surface") !== undefined) return;
 
     if (isExternal(href)) return;
-    const shouldValidateRelative =
-      href.startsWith("/") ||
-      href.startsWith("#") ||
-      $(element).attr("data-docs-internal") !== undefined;
-    if (!shouldValidateRelative) return;
     if (/\.md(?:$|[?#])/i.test(href)) {
       warnings.push(
         `${path.relative(siteRoot, file)}: unresolved Markdown-style href was not rewritten: ${href}`,

@@ -5,6 +5,8 @@
   "description": "Embedded offline documentation site for velocity.report",
   "scripts": {
     "build": "eleventy",
+    "test": "node --test test/**/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=98 --test-coverage-include=.eleventy.js test/**/*.test.js",
     "dev": "eleventy --serve --port=8093",
     "clean": "rm -rf _site"
   },
