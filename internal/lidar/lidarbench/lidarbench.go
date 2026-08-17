@@ -180,9 +180,7 @@ func Run(cfg Config) int {
 // runBenchmark replays the capture through the tracking pipeline with timing
 // instrumentation and assembles the performance metrics.
 func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
-	if cfg.DurationSeconds == 0 {
-		cfg.DurationSeconds = -1
-	}
+	cfg.DurationSeconds = normaliseReplayDuration(cfg.DurationSeconds)
 	runtime.GC()
 	var memBefore runtime.MemStats
 	runtime.ReadMemStats(&memBefore)
@@ -241,6 +239,15 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 		ClassifyTimeMs:   classifyNs / 1e6,
 	}
 	return res, metrics, nil
+}
+
+// normaliseReplayDuration preserves the historical zero-value full-capture
+// behaviour while retaining -1 as the explicit full-capture setting.
+func normaliseReplayDuration(durationSeconds float64) float64 {
+	if durationSeconds == 0 {
+		return -1
+	}
+	return durationSeconds
 }
 
 func perSecond(count int, seconds float64) float64 {

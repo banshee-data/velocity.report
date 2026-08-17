@@ -25,6 +25,24 @@ func fixtureConfig(t *testing.T) SplitConfig {
 	}
 }
 
+func TestNormaliseReplayDuration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   float64
+		want float64
+	}{
+		{name: "zero value means full capture", in: 0, want: -1},
+		{name: "explicit full capture", in: -1, want: -1},
+		{name: "bounded replay", in: 1.5, want: 1.5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normaliseReplayDuration(tc.in); got != tc.want {
+				t.Errorf("normaliseReplayDuration(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestAnalyseFixtureProducesSegments drives the analysis half: PCAP decode,
 // frame assembly, RPM accumulation, motion/static classification and segment
 // construction.
