@@ -8,7 +8,7 @@
 
 # Tenets
 
-These six principles decide what velocity.report is allowed to become. They are not decorative
+These seven principles decide what velocity.report is allowed to become. They are not decorative
 values for a slide deck: when a feature conflicts with one, the feature loses. Earlier tenets take
 precedence when the rules collide.
 
@@ -53,3 +53,10 @@ Build for the constraints that exist, not the ones that might.
 
 Every project fact has one canonical source. Reference it; do not copy it.
 When functionality changes, update all relevant documentation.
+
+## 7. Cohesive releases
+
+A release is one versioned unit: binary, UI, documentation, and bundled
+dependencies such as Tailscale and Typst ship and update together. Do not add
+separately maintained payloads to an image merely for convenience; link to the
+immutable source revision that produced the build instead.
