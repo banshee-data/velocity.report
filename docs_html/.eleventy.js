@@ -91,7 +91,7 @@ function outputURLForSourcePath(inputRoot, targetPath) {
 
 function githubRepositoryPath(href) {
   const match = String(href).match(
-    /^https:\/\/github\.com\/banshee-data\/velocity\.report\/blob\/[^/]+\/(.+?)(?:[?#].*)?$/i,
+    /^https:\/\/github\.com\/banshee-data\/velocity\.report\/(?:blob|tree)\/[^/]+\/(.+?)(?:[?#].*)?$/i,
   );
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -101,21 +101,21 @@ function buildGitSHA() {
   return /^[0-9a-f]{7,40}$/i.test(value) ? value : "main";
 }
 
-function githubBlobHref(candidate) {
+function githubRepositoryHref(candidate) {
   try {
     const resolved = fs.realpathSync(candidate);
     const relative = path.relative(repoRoot, resolved).replace(/\\/g, "/");
+    const stat = fs.statSync(resolved);
     if (
+      relative === ".." ||
       relative.startsWith("../") ||
       path.isAbsolute(relative) ||
-      relative.startsWith("docs/") ||
-      relative.startsWith("data/") ||
-      relative.startsWith("public_html/") ||
-      !fs.statSync(resolved).isFile()
+      (!stat.isFile() && !stat.isDirectory())
     ) {
       return null;
     }
-    return `https://github.com/banshee-data/velocity.report/blob/${buildGitSHA()}/${relative
+    const view = stat.isDirectory() ? "tree" : "blob";
+    return `https://github.com/banshee-data/velocity.report/${view}/${buildGitSHA()}/${relative
       .split("/")
       .map(encodeURIComponent)
       .join("/")}`;
@@ -134,6 +134,30 @@ function candidatesForPath(pathname, sourceDir) {
   candidates.push(path.join(direct, "README.md"));
   candidates.push(path.join(direct, "index.md"));
   return candidates;
+}
+
+function documentationURLForRepositoryPath(candidate) {
+  if (!isWithin(repoRoot, candidate)) return null;
+  const relative = path.relative(repoRoot, candidate).replace(/\\/g, "/");
+  if (!relative.startsWith("docs/") && !relative.startsWith("data/")) {
+    return null;
+  }
+  try {
+    const stat = fs.statSync(candidate);
+    if (stat.isDirectory()) return `/${relative}/`;
+    if (!stat.isFile()) return null;
+  } catch {
+    return null;
+  }
+  return outputURLForSourcePath(repoRoot, candidate);
+}
+
+function isPublicHomepageRoot(candidate) {
+  try {
+    return fs.realpathSync(candidate) === fs.realpathSync(path.join(repoRoot, "public_html"));
+  } catch {
+    return false;
+  }
 }
 
 function resolveHrefForInput(href, inputPath) {
@@ -173,7 +197,14 @@ function resolveHrefForInput(href, inputPath) {
   }
 
   for (const candidate of repositoryCandidates) {
-    const sourceURL = githubBlobHref(candidate);
+    const documentationURL = documentationURLForRepositoryPath(candidate);
+    if (documentationURL) {
+      return { href: `${documentationURL}${query}${hash}`, resolved: true };
+    }
+    if (isPublicHomepageRoot(candidate)) {
+      return { href: "/public_html/", resolved: false, appSurface: true };
+    }
+    const sourceURL = githubRepositoryHref(candidate);
     if (sourceURL) return { href: `${sourceURL}${query}${hash}`, resolved: false };
   }
 
@@ -182,13 +213,21 @@ function resolveHrefForInput(href, inputPath) {
   // repository revision carried by this documentation build.
   const repositoryPath = pathname.replace(/^\/+/, "");
   if (repositoryPath && !repositoryPath.startsWith("../")) {
-    const sourceURL = githubBlobHref(path.resolve(repoRoot, repositoryPath));
+    const repositoryCandidate = path.resolve(repoRoot, repositoryPath);
+    const documentationURL = documentationURLForRepositoryPath(repositoryCandidate);
+    if (documentationURL) {
+      return { href: `${documentationURL}${query}${hash}`, resolved: true };
+    }
+    if (isPublicHomepageRoot(repositoryCandidate)) {
+      return { href: "/public_html/", resolved: false, appSurface: true };
+    }
+    const sourceURL = githubRepositoryHref(repositoryCandidate);
     if (sourceURL) {
       return { href: `${sourceURL}${query}${hash}`, resolved: false };
     }
   }
 
-  return { href: rewriteMarkdownHref(href), resolved: false };
+  return { href: rewriteMarkdownHref(href), resolved: false, unavailable: true };
 }
 
 function humanizePath(inputPath) {
@@ -266,7 +305,7 @@ function buildFolderPages(inputRoot, outputPrefix, relativeDir = "") {
       );
     },
   );
-  if (hasFolderIndex || children.length === 0) return childFolders;
+  if (hasFolderIndex) return childFolders;
 
   const normalized = relativeDir.replace(/\\/g, "/");
   return [
@@ -376,7 +415,7 @@ function githubSlugify(value) {
     .replace(/ /g, "-");
 }
 
-module.exports = function (eleventyConfig) {
+function configureOfflineDocs(eleventyConfig) {
   eleventyConfig.setUseGitIgnore(false);
 
   const markdownLibrary = markdownIt({
@@ -561,6 +600,15 @@ module.exports = function (eleventyConfig) {
       if (result.resolved) {
         $(element).attr("data-docs-internal", "true");
       }
+      if (result.appSurface) {
+        $(element).attr("data-docs-app-surface", "true");
+        $(element).attr("href", result.href);
+        return;
+      }
+      if (result.unavailable) {
+        $(element).replaceWith(`<code>${$(element).text()}</code>`);
+        return;
+      }
       $(element).attr(
         "href",
         relativeURLForPage(result.href, this.page.url || "/"),
@@ -581,4 +629,27 @@ module.exports = function (eleventyConfig) {
     htmlTemplateEngine: false,
     markdownTemplateEngine: false,
   };
+}
+
+module.exports = configureOfflineDocs;
+module.exports._test = {
+  buildBreadcrumbs,
+  buildDocsTree,
+  buildFolderPages,
+  candidatesForPath,
+  documentationURLForRepositoryPath,
+  githubRepositoryHref,
+  githubRepositoryPath,
+  githubSlugify,
+  humanizePath,
+  humanizeSegment,
+  isExternalHref,
+  isPublicHomepageRoot,
+  isWithin,
+  navGroup,
+  outputURLForSourcePath,
+  relativeURLForPage,
+  resolveHrefForInput,
+  rewriteMarkdownHref,
+  splitHref,
 };
