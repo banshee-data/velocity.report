@@ -32,6 +32,10 @@ The two Eleventy projects stay separate on purpose. Public docs and operator doc
 - `make build-docs-public-html` builds `public_html/_site` with paths rooted at `/public_html/`
 - `make dev-docs-offline` runs the offline Eleventy preview for authoring
 - `python3 scripts/check-relative-links.py` validates Markdown link integrity across the source tree
+- `scripts/check-docs-offline-links.js` and
+  `scripts/verify-embedded-docs-server.py` reject every same-origin `/docs/`
+  anchor that does not resolve; GitHub and the deliberate `/public_html/`
+  surface remain external routes.
 - The Go server embeds `docs_html/_site` and serves it at `/docs/`
 - Repository source links resolve to the immutable GitHub revision recorded in
   the embedded-docs build metadata. The image does not carry a second source
