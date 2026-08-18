@@ -154,11 +154,6 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 			return fmt.Errorf("reset state: %w", err)
 		}
 
-		// Set source path on BackgroundManager for region restoration
-		if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-			mgr.SetSourcePath(pcapFile)
-		}
-
 		if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
 			StartSeconds:     startSeconds,
 			DurationSeconds:  durationSeconds,
@@ -518,6 +513,15 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		return resolveErr
 	}
 
+	// Identify persisted region snapshots by the resolved path. Callers pass a
+	// bare filename — the documented curl example and the status page form both
+	// do — and the settled-snapshot restore looks up the resolved path, so
+	// recording the caller's spelling here meant the two never matched and
+	// settle-before-recording failed on every relative path.
+	if mgr := l3grid.GetBackgroundManager(ws.replayAnalysisSensorID(replayCfg)); mgr != nil {
+		mgr.SetSourcePath(resolvedPath)
+	}
+
 	runID := ""
 	if replayCfg.AnalysisMode {
 		startRunID, err := ws.startReplayAnalysisRun(resolvedPath, replayCfg)
@@ -651,8 +655,15 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			// Publish where the recorder is writing so the status surfaces can
 			// report it. Previously this was a goroutine-local bool paired with
 			// a closure local in the radar command, so nothing could observe it.
-			ws.setRecording(runID, ws.onRecordingStart(runID))
+			//
+			// An empty path means the recorder could not start — most often no
+			// visualiser publisher is configured. Reporting recording=true then
+			// would be its own small lie, so only the successful case is marked.
+			recordingPath := ws.onRecordingStart(runID)
 			recordingStarted = true
+			if recordingPath != "" {
+				ws.setRecording(runID, recordingPath)
+			}
 		}
 
 		if err == nil && replayCfg.SpeedMode == "analysis" {

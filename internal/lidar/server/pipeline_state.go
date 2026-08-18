@@ -214,6 +214,12 @@ func (ws *Server) tryBeginPCAPReplay(cfg ReplayConfig) bool {
 	ws.state.LastRunID = ""
 	ws.state.CurrentPacket = 0
 	ws.state.TotalPackets = 0
+	// The previous run's output stops being current once a new replay starts.
+	// It is retained after completion so a caller polling later can still see
+	// what was written, but carrying it into an unrelated run is just noise.
+	ws.state.RecordingPath = ""
+	ws.state.RecordingRunID = ""
+	ws.state.RecordingFrames = 0
 	return true
 }
 
@@ -303,5 +309,10 @@ func (ws *Server) setSourceVRLog(path string) {
 		s.TotalPasses = 1
 		s.CurrentPacket = 0
 		s.TotalPackets = 0
+		// See tryBeginPCAPReplay: a previous run's recording path would be
+		// stale context alongside a different replay.
+		s.RecordingPath = ""
+		s.RecordingRunID = ""
+		s.RecordingFrames = 0
 	})
 }

@@ -180,12 +180,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set source path on BackgroundManager for region restoration
-	// This allows skipping settling when replaying the same PCAP file
-	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-		mgr.SetSourcePath(pcapFile)
-	}
-
 	ws.pcapBenchmarkMode.Store(benchmarkMode)
 
 	if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
