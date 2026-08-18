@@ -99,7 +99,7 @@ func TestHandleDataSourceReportsRecording(t *testing.T) {
 // and in-progress flag, and packet progress restarts between them.
 func TestHandleDataSourceReportsReplayPasses(t *testing.T) {
 	ws := &Server{sensorID: "test-sensor", state: newPipelineState()}
-	if !ws.tryBeginPCAPReplay(ReplayConfig{AnalysisMode: true, SettleBeforeRecording: true}) {
+	if ok, _ := ws.tryBeginPCAPReplay(ReplayConfig{AnalysisMode: true, SettleBeforeRecording: true}); !ok {
 		t.Fatal("tryBeginPCAPReplay returned false on an idle server")
 	}
 
@@ -238,7 +238,7 @@ func TestRecordingPathClearedWhenANewReplayStarts(t *testing.T) {
 	ws.setSourceLive(false)
 	ws.setRecording("run-abc", "/data/vrlog/run-abc")
 	ws.endReplay(false)
-	if !ws.tryBeginPCAPReplay(ReplayConfig{}) {
+	if ok, _ := ws.tryBeginPCAPReplay(ReplayConfig{}); !ok {
 		t.Fatal("tryBeginPCAPReplay returned false on an idle server")
 	}
 	if got := ws.PipelineState().RecordingPath; got != "" {

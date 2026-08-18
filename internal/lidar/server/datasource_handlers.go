@@ -492,8 +492,16 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		replayCfg.SpeedRatio = 1.0
 	}
 
-	if !ws.tryBeginPCAPReplay(replayCfg) {
-		return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress: stop it first via POST /pcap/stop")}
+	if ok, blocker := ws.tryBeginPCAPReplay(replayCfg); !ok {
+		// Name the replay actually holding the slot. Reporting "PCAP replay is
+		// already in progress" for a VRLOG replay sent callers to /pcap/stop,
+		// which answers "system is not in PCAP mode" — a loop with no exit.
+		switch blocker {
+		case SourceModeVRLog:
+			return &switchError{status: http.StatusConflict, err: errors.New("a VRLOG replay is active: stop it first via POST /api/lidar/vrlog/stop")}
+		default:
+			return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress: stop it first via POST /pcap/stop")}
+		}
 	}
 	ws.pcapMu.Lock()
 	ws.pcapCancel = nil
@@ -565,6 +573,10 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string) {
 		defer close(finished)
+		// Release the slot claimed by tryBeginPCAPReplay on every exit path,
+		// whatever the source is by then. See releaseReplaySlot for what the
+		// old conditional teardown stranded.
+		defer ws.releaseReplaySlot()
 		defer cancel()
 		sensorID := ws.replayAnalysisSensorID(replayCfg)
 		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, sensorID, replayCfg.SpeedMode, replayCfg.SpeedRatio)

@@ -80,7 +80,7 @@ func TestLastAnalysisRunID_Set(t *testing.T) {
 		Stats:   NewPacketStats(),
 	})
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.LastRunID = "run-abc-123" })
+	ws.mutateState("test", func(s *PipelineState) { s.LastRunID = "run-abc-123" })
 	ws.pcapMu.Unlock()
 
 	id := ws.LastAnalysisRunID()
@@ -321,7 +321,7 @@ func TestStopPCAPForSweep_AnalysisMode(t *testing.T) {
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	var stopped bool
@@ -622,7 +622,7 @@ func TestStopPCAPForSweep_ResetStateError(t *testing.T) {
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.mutateState(func(s *PipelineState) { s.GridPreserved = false })
+	ws.mutateState("test", func(s *PipelineState) { s.GridPreserved = false })
 	ws.pcapMu.Unlock()
 
 	// Even if resetAllState has no error, this exercises the non-analysis path
@@ -655,7 +655,7 @@ func TestStartPCAPLocked_AlreadyInProgress(t *testing.T) {
 
 	ws.pcapSafeDir = tmpDir
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapMu.Unlock()
 
 	err := ws.startPCAPLocked("conflict.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
@@ -1177,7 +1177,7 @@ func TestStopPCAPForSweep_ResetAllStateFailure(t *testing.T) {
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.mutateState(func(s *PipelineState) { s.GridPreserved = false }) // non-analysis → calls resetAllState
+	ws.mutateState("test", func(s *PipelineState) { s.GridPreserved = false }) // non-analysis → calls resetAllState
 	ws.pcapMu.Unlock()
 
 	err := ws.StopPCAPForSweep()
@@ -1214,7 +1214,7 @@ func TestStopPCAPForSweep_StartListenerError(t *testing.T) {
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.mutateState(func(s *PipelineState) { s.GridPreserved = false })
+	ws.mutateState("test", func(s *PipelineState) { s.GridPreserved = false })
 	ws.pcapMu.Unlock()
 
 	err := ws.StopPCAPForSweep()
@@ -1325,7 +1325,7 @@ func TestStartPCAPLocked_StartRunError(t *testing.T) {
 
 	// Pre-set analysis mode so the goroutine attempts StartRun
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	err := ws.startPCAPLocked("runerr.pcap", "analysis", 1.0, 0, 0,

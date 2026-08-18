@@ -257,8 +257,15 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.PipelineState().Source != SourceModePCAP {
-		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode: stop the current data source first")
+	if state := ws.PipelineState(); state.Source != SourceModePCAP {
+		// Point at the endpoint that can actually stop what is running. The
+		// old message told the caller to "stop the current data source first"
+		// without saying which one, and PCAP start meanwhile blamed PCAP.
+		if state.Source == SourceModeVRLog {
+			ws.writeJSONError(w, http.StatusConflict, "a VRLOG replay is active, not a PCAP replay: stop it via POST /api/lidar/vrlog/stop")
+			return
+		}
+		ws.writeJSONError(w, http.StatusConflict, fmt.Sprintf("no PCAP replay to stop: the current source is %q", state.DataSourceWire()))
 		return
 	}
 

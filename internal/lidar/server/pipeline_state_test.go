@@ -121,7 +121,7 @@ func TestPipelineStateStatusLabel(t *testing.T) {
 
 func TestPipelineStateSnapshotIsCopy(t *testing.T) {
 	ws := &Server{state: newPipelineState()}
-	ws.mutateState(func(s *PipelineState) {
+	ws.mutateState("test", func(s *PipelineState) {
 		s.Source = SourceModePCAP
 		s.SourcePath = "/data/original.pcapng"
 	})
@@ -200,7 +200,7 @@ func TestPipelineStateConcurrentProgressAndSnapshot(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
-			ws.mutateState(func(s *PipelineState) {
+			ws.mutateState("test", func(s *PipelineState) {
 				s.Source = SourceModePCAP
 				s.ReplayActive = true
 			})

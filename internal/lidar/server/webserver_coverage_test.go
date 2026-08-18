@@ -2356,7 +2356,7 @@ func TestCov3_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 func TestCov3_HandlePCAPStop_NoReplayInProgress(t *testing.T) {
 	ws := &Server{sensorID: "cov3-stop-norep"}
 	ws.setTestSourcePCAPReplaying()
-	ws.mutateState(func(s *PipelineState) { s.ReplayActive = false })
+	ws.mutateState("test", func(s *PipelineState) { s.ReplayActive = false })
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-stop-norep", nil)
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
@@ -3566,7 +3566,7 @@ func TestCov3_HandlePCAPStop_InProgressV2(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
 	ws.pcapMu.Unlock()
@@ -3598,10 +3598,10 @@ func TestCov3_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-analysis", nil)
@@ -3642,7 +3642,7 @@ func TestCov3_HandlePCAPStop_NotInProgress(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.ReplayActive = false })
+	ws.mutateState("test", func(s *PipelineState) { s.ReplayActive = false })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-noprog", nil)
@@ -4689,7 +4689,7 @@ func TestCov5_HandlePCAPStop_NotInProgress(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.ReplayActive = false })
+	ws.mutateState("test", func(s *PipelineState) { s.ReplayActive = false })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -4721,7 +4721,7 @@ func TestCov5_HandlePCAPStop_WithCancelAndDone(t *testing.T) {
 	pcapCancel := func() {} // no-op cancel
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
 	ws.pcapMu.Unlock()
@@ -4753,10 +4753,10 @@ func TestCov5_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	close(done)
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = func() {}
 	ws.pcapDone = done
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -5411,10 +5411,10 @@ func TestCov6_HandlePCAPStop_AnalysisModePreservesGrid(t *testing.T) {
 	close(done)
 
 	ws.pcapMu.Lock()
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = func() {}
 	ws.pcapDone = done
-	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
