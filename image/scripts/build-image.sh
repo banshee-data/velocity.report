@@ -232,6 +232,29 @@ touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 rm -rf "$PIGEN_DIR/velocity-binaries"
 cp -r "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
 
+# The pi-gen Docker image is rebuilt from a transient build context. Mount the
+# two generated inputs explicitly when the container runs: this prevents a
+# Docker context/cache anomaly from silently dropping the custom final stage
+# after pi-gen has already spent time building the base operating system.
+PIGEN_STAGE_DIR="$PIGEN_DIR/stage-velocity"
+PIGEN_BINARIES_DIR="$PIGEN_DIR/velocity-binaries"
+for required_path in \
+    "$PIGEN_STAGE_DIR/EXPORT_IMAGE" \
+    "$PIGEN_STAGE_DIR/01-velocity-binaries/00-run.sh" \
+    "$PIGEN_BINARIES_DIR/velocity" \
+    "$PIGEN_BINARIES_DIR/VERSION"; do
+    if [[ ! -f "$required_path" ]]; then
+        log_error "pi-gen input missing before container launch: $required_path"
+        exit 1
+    fi
+done
+
+# build-docker.sh sources this config and forwards PIGEN_DOCKER_OPTS to
+# `docker run`. Append rather than replace any operator-supplied options.
+printf '\nPIGEN_DOCKER_OPTS="${PIGEN_DOCKER_OPTS:-} --volume %s:/pi-gen/stage-velocity:ro --volume %s:/pi-gen/velocity-binaries:ro"\n' \
+    "$PIGEN_STAGE_DIR" "$PIGEN_BINARIES_DIR" >> "$PIGEN_DIR/config"
+log_info "Verified and mounted custom pi-gen stage inputs"
+
 # ---------------------------------------------------------------------------
 # 6a. Install SSH public key for velocity user (optional)
 # ---------------------------------------------------------------------------
