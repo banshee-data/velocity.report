@@ -10,9 +10,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+)
+
+type analysisMotionClassifier interface {
+	SetRingElevations([]float64) error
+	Observe(time.Time, []l2frames.PointPolar) (MotionEvidence, error)
+}
+
+var (
+	loadAnalysisPandarConfig = parse.LoadPandar40PConfig
+	newAnalysisClassifier    = func(sensorID, sourcePath string, tuning *config.TuningConfig) (analysisMotionClassifier, error) {
+		return NewMotionClassifier(sensorID, sourcePath, tuning)
+	}
 )
 
 // Analysis is the result of the read/classify pass over a PCAP. Frames are the
@@ -34,7 +47,7 @@ type Analysis struct {
 // two-pass split (pass 2 is WriteSegments).
 func Analyse(cfg SplitConfig) (*Analysis, error) {
 	cfg.DurationSeconds = normaliseReplayDuration(cfg.DurationSeconds)
-	parserCfg, err := parse.LoadPandar40PConfig()
+	parserCfg, err := loadAnalysisPandarConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
 	}
@@ -44,7 +57,7 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	// Resolve the tuning once (nil = embedded defaults) without mutating a
 	// caller-owned configuration.
 	tuningCfg := tuningOrEmbedded(cfg.Tuning)
-	classifier, err := NewMotionClassifier(cfg.SensorID, cfg.PCAPFile, tuningCfg)
+	classifier, err := newAnalysisClassifier(cfg.SensorID, cfg.PCAPFile, tuningCfg)
 	if err != nil {
 		return nil, err
 	}

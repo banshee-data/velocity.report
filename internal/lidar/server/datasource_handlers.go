@@ -24,6 +24,11 @@ type replayFrameBuilder interface {
 	DroppedFrames() uint64
 }
 
+type replayCallbackDrainer interface {
+	FlushPendingFrames()
+	WaitForCallbacks()
+}
+
 var (
 	countPCAPPackets       = network.CountPCAPPackets
 	readPCAPFile           = network.ReadPCAPFile
@@ -37,6 +42,33 @@ var (
 			return nil
 		}
 		return fb
+	}
+	prepareSettledPCAPReplay = func(ws *Server, sensorID, sourcePath string) error {
+		if fb := getReplayFrameBuilder(sensorID); fb != nil {
+			if drainer, ok := fb.(replayCallbackDrainer); ok {
+				drainer.FlushPendingFrames()
+				drainer.WaitForCallbacks()
+			}
+		}
+
+		mgr := l3grid.GetBackgroundManager(sensorID)
+		if mgr == nil {
+			return fmt.Errorf("no background manager is registered for sensor %s", sensorID)
+		}
+		if !mgr.IsSettlingComplete() {
+			return fmt.Errorf("PCAP ended before the background grid settled")
+		}
+		if err := ws.resetAllState(); err != nil {
+			return fmt.Errorf("reset state between PCAP passes: %w", err)
+		}
+		restored, err := mgr.RestoreSettledSnapshotBySourcePath(sourcePath)
+		if err != nil {
+			return err
+		}
+		if !restored {
+			return fmt.Errorf("no settled background snapshot was persisted for %s", sourcePath)
+		}
+		return nil
 	}
 )
 
@@ -573,12 +605,6 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			defer ws.pcapDisableTrackPersistence.Store(false)
 		}
 
-		var recordingStarted bool
-		if runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
-			ws.onRecordingStart(runID)
-			recordingStarted = true
-		}
-
 		// Configure parser to use LiDAR timestamps for PCAP replay
 		// This ensures that replayed data has original timestamps, not current system time
 		if p, ok := ws.parser.(interface{ SetTimestampMode(parse.TimestampMode) }); ok {
@@ -637,9 +663,33 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			fb.SetBlockOnFrameChannel(true)
 			defer fb.SetBlockOnFrameChannel(false)
 		}
-		if replayCfg.SpeedMode == "analysis" {
+
+		if replayCfg.SettleBeforeRecording {
+			diagf("Starting PCAP settling pass before VRLOG recording: %s", path)
+			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, nil, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
+			if err == nil {
+				err = prepareSettledPCAPReplay(ws, sensorID, path)
+			}
+			if err == nil {
+				if ws.stats != nil {
+					ws.stats.GetAndReset()
+				}
+				ws.pcapMu.Lock()
+				ws.pcapCurrentPacket = 0
+				ws.pcapMu.Unlock()
+				diagf("Settled background restored from disk; starting recorded PCAP pass from the requested offset")
+			}
+		}
+
+		var recordingStarted bool
+		if err == nil && runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
+			ws.onRecordingStart(runID)
+			recordingStarted = true
+		}
+
+		if err == nil && replayCfg.SpeedMode == "analysis" {
 			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
-		} else {
+		} else if err == nil {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
 			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil {
@@ -727,6 +777,12 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			}
 
 			err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+		}
+		if fb := getReplayFrameBuilder(sensorID); fb != nil {
+			if drainer, ok := fb.(replayCallbackDrainer); ok {
+				drainer.FlushPendingFrames()
+				drainer.WaitForCallbacks()
+			}
 		}
 
 		if err != nil && !errors.Is(err, context.Canceled) {

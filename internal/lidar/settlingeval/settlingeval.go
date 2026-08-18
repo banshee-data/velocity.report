@@ -30,6 +30,14 @@ type Config struct {
 	DurationSeconds float64
 }
 
+var (
+	backgroundConfigForEvaluation  = backgroundConfigFromTuningConfig
+	loadEvaluationPandarConfig     = parse.LoadPandar40PConfig
+	newEvaluationBackgroundManager = func(sensorID string, rings, azBins int, params l3grid.BackgroundParams) *l3grid.BackgroundManager {
+		return l3grid.NewBackgroundManagerDI(sensorID, rings, azBins, params, nil)
+	}
+)
+
 // Run replays a PCAP file offline through a local BackgroundManager and
 // evaluates settling convergence on every frame. No server is required.
 func Run(cfg Config) (*l3grid.SettlingReport, error) {
@@ -50,7 +58,7 @@ func Run(cfg Config) (*l3grid.SettlingReport, error) {
 	}
 	log.Printf("loaded tuning config (config=%s)", cfg.TuningFile)
 
-	bgConfig := backgroundConfigFromTuningConfig(tuningCfg)
+	bgConfig := backgroundConfigForEvaluation(tuningCfg)
 	// For offline evaluation disable warmup gating so we can observe the
 	// full settling curve from frame 0. Set high settling period and
 	// warmup to not truncate the observation window.
@@ -63,7 +71,7 @@ func Run(cfg Config) (*l3grid.SettlingReport, error) {
 	params := bgConfig.ToBackgroundParams()
 
 	// --- Create parser ---
-	parserCfg, err := parse.LoadPandar40PConfig()
+	parserCfg, err := loadEvaluationPandarConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
 	}
@@ -73,7 +81,7 @@ func Run(cfg Config) (*l3grid.SettlingReport, error) {
 	// --- Create BackgroundManager (DI, no global registration) ---
 	const rings = 40
 	const azBins = 1800
-	bgMgr := l3grid.NewBackgroundManagerDI(cfg.SensorID, rings, azBins, params, nil)
+	bgMgr := newEvaluationBackgroundManager(cfg.SensorID, rings, azBins, params)
 	if bgMgr == nil {
 		return nil, fmt.Errorf("failed to create BackgroundManager")
 	}

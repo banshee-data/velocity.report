@@ -236,13 +236,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 
 	// Pipeline performance tracing state.
-	const slowFrameThresholdMs = 50.0 // emit diagf alert when frame exceeds this
-	const healthSummaryInterval = 100 // emit health summary every N processed frames
-	const timingWindowSize = 100      // rolling window for mean/p95 computation
-	var processedFrameCount uint64    // frames that passed throttle and were fully processed
-	var frameDurations []float64      // rolling window of frame durations (ms)
-	var lastFrameEndTime time.Time    // for lag ratio computation
-	var consecutiveBehind int         // consecutive frames where lag > 1.0
+	const slowFrameThresholdMs = 50.0  // emit diagf alert when frame exceeds this
+	const healthSummaryInterval = 100  // emit health summary every N processed frames
+	const timingWindowSize = 100       // rolling window for mean/p95 computation
+	var processedFrameCount uint64     // frames that passed throttle and were fully processed
+	var frameDurations []float64       // rolling window of frame durations (ms)
+	var lastFrameCaptureTime time.Time // for lag ratio computation
+	var consecutiveBehind int          // consecutive frames where lag > 1.0
 
 	// Deterministic recording: when a visualiser adapter and publisher are
 	// configured, every sensor frame must produce a VRLOG entry — even
@@ -290,7 +290,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
 
 		// Stage 1: Foreground extraction
-		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
+		// Frame timestamps are wall time for live sensors and capture time for
+		// PCAP replay. Using them here lets warm-up duration advance correctly
+		// even when an offline replay is intentionally unpaced.
+		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMaskAt(polar, frame.StartTimestamp)
 		if err != nil || mask == nil {
 			opsf("Failed to get foreground mask: %v", err)
 			publishEmptyFrame(frame)
@@ -412,10 +415,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						float64(heapBytes())/1024/1024, runtime.NumGoroutine())
 				}
 
-				// Lag tracking: detect when processing falls behind frame arrival rate
-				now := time.Now()
-				if !lastFrameEndTime.IsZero() {
-					interFrameGap := now.Sub(lastFrameEndTime)
+				// Lag tracking compares processing time with the capture interval. Wall
+				// time between synchronous callback completions includes the current
+				// processing cost and therefore cannot reveal that replay is behind.
+				if !lastFrameCaptureTime.IsZero() {
+					interFrameGap := frame.StartTimestamp.Sub(lastFrameCaptureTime)
 					frameDur := ft.Total()
 					if interFrameGap > 0 && frameDur > interFrameGap {
 						consecutiveBehind++
@@ -428,7 +432,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						consecutiveBehind = 0
 					}
 				}
-				lastFrameEndTime = now
+				lastFrameCaptureTime = frame.StartTimestamp
 			}
 			ft.Stage("forward")
 		}

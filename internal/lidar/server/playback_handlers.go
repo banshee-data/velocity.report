@@ -39,25 +39,27 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var enableDebug bool
 	var enablePlots bool
 	var benchmarkMode bool
+	var settleBeforeRecording bool
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile        string  `json:"pcap_file"`
-			AnalysisMode    bool    `json:"analysis_mode"`
-			SpeedMode       string  `json:"speed_mode"`
-			SpeedRatio      float64 `json:"speed_ratio"`
-			StartSeconds    float64 `json:"start_seconds"`
-			DurationSeconds float64 `json:"duration_seconds"`
-			DebugRingMin    int     `json:"debug_ring_min"`
-			DebugRingMax    int     `json:"debug_ring_max"`
-			DebugAzMin      float32 `json:"debug_az_min"`
-			DebugAzMax      float32 `json:"debug_az_max"`
-			EnableDebug     bool    `json:"enable_debug"`
-			EnablePlots     bool    `json:"enable_plots"`
-			BenchmarkMode   bool    `json:"benchmark_mode"`
+			PCAPFile              string  `json:"pcap_file"`
+			AnalysisMode          bool    `json:"analysis_mode"`
+			SpeedMode             string  `json:"speed_mode"`
+			SpeedRatio            float64 `json:"speed_ratio"`
+			StartSeconds          float64 `json:"start_seconds"`
+			DurationSeconds       float64 `json:"duration_seconds"`
+			DebugRingMin          int     `json:"debug_ring_min"`
+			DebugRingMax          int     `json:"debug_ring_max"`
+			DebugAzMin            float32 `json:"debug_az_min"`
+			DebugAzMax            float32 `json:"debug_az_max"`
+			EnableDebug           bool    `json:"enable_debug"`
+			EnablePlots           bool    `json:"enable_plots"`
+			BenchmarkMode         bool    `json:"benchmark_mode"`
+			SettleBeforeRecording bool    `json:"settle_before_recording"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -84,6 +86,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enableDebug = req.EnableDebug
 		enablePlots = req.EnablePlots
 		benchmarkMode = req.BenchmarkMode
+		settleBeforeRecording = req.SettleBeforeRecording
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -133,6 +136,12 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enableDebug = r.FormValue("enable_debug") == "true" || r.FormValue("enable_debug") == "1"
 		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 		benchmarkMode = r.FormValue("benchmark_mode") == "true" || r.FormValue("benchmark_mode") == "1"
+		settleBeforeRecording = r.FormValue("settle_before_recording") == "true" || r.FormValue("settle_before_recording") == "1"
+	}
+
+	if settleBeforeRecording && !analysisMode {
+		ws.writeJSONError(w, http.StatusBadRequest, "settle_before_recording requires analysis_mode=true so the second pass can record a VRLOG")
+		return
 	}
 
 	if speedMode == "" {
@@ -180,18 +189,19 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	ws.pcapBenchmarkMode.Store(benchmarkMode)
 
 	if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
-		StartSeconds:    startSeconds,
-		DurationSeconds: durationSeconds,
-		SpeedMode:       speedMode,
-		SpeedRatio:      speedRatio,
-		AnalysisMode:    analysisMode,
-		SensorID:        ws.sensorID,
-		DebugRingMin:    debugRingMin,
-		DebugRingMax:    debugRingMax,
-		DebugAzMin:      debugAzMin,
-		DebugAzMax:      debugAzMax,
-		EnableDebug:     enableDebug,
-		EnablePlots:     enablePlots,
+		StartSeconds:          startSeconds,
+		DurationSeconds:       durationSeconds,
+		SpeedMode:             speedMode,
+		SpeedRatio:            speedRatio,
+		AnalysisMode:          analysisMode,
+		SettleBeforeRecording: settleBeforeRecording,
+		SensorID:              ws.sensorID,
+		DebugRingMin:          debugRingMin,
+		DebugRingMax:          debugRingMax,
+		DebugAzMin:            debugAzMin,
+		DebugAzMax:            debugAzMax,
+		EnableDebug:           enableDebug,
+		EnablePlots:           enablePlots,
 	}); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
@@ -223,11 +233,12 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":         "started",
-		"sensor_id":      sensorID,
-		"current_source": string(ws.currentSource),
-		"pcap_file":      currentFile,
-		"analysis_mode":  analysisMode,
+		"status":                  "started",
+		"sensor_id":               sensorID,
+		"current_source":          string(ws.currentSource),
+		"pcap_file":               currentFile,
+		"analysis_mode":           analysisMode,
+		"settle_before_recording": settleBeforeRecording,
 	})
 }
 

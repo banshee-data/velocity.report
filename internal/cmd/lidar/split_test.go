@@ -36,6 +36,20 @@ func TestSplitMainRejectsMissingPCAP(t *testing.T) {
 	}
 }
 
+func TestSplitMainRejectsMissingTuningConfig(t *testing.T) {
+	badConfig := filepath.Join(t.TempDir(), "invalid.json")
+	if err := os.WriteFile(badConfig, []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+	code := SplitMain([]string{
+		"--config", badConfig,
+		"--pcap", "capture.pcap",
+	})
+	if code != 1 {
+		t.Errorf("SplitMain with missing tuning config = %d, want 1", code)
+	}
+}
+
 // TestSplitMainDryRunAnalysesWithoutWriting drives the analysis half of the
 // splitter — motion/static segmentation and the reporting paths — without
 // producing segment PCAPs.

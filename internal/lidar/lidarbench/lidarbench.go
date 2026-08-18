@@ -47,6 +47,11 @@ const (
 	bytesPerKB = 1024
 )
 
+var (
+	loadBenchmarkPandarConfig = parse.LoadEmbeddedPandar40PConfig
+	readBenchmarkBuildInfo    = debug.ReadBuildInfo
+)
+
 // Config holds the benchmark run parameters. Flag parsing lives in the caller.
 type Config struct {
 	PCAPFile        string
@@ -187,7 +192,7 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 
 	startTime := time.Now()
 
-	parserConfig, err := parse.LoadEmbeddedPandar40PConfig()
+	parserConfig, err := loadBenchmarkPandarConfig()
 	if err != nil {
 		return nil, nil, fmt.Errorf("load parser config: %w", err)
 	}
@@ -508,7 +513,7 @@ func getSystemInfo() SystemInfo {
 		NumCPU:    runtime.NumCPU(),
 		GoVersion: runtime.Version(),
 	}
-	if buildInfo, ok := debug.ReadBuildInfo(); ok {
+	if buildInfo, ok := readBenchmarkBuildInfo(); ok {
 		for _, setting := range buildInfo.Settings {
 			if setting.Key == "vcs.revision" {
 				if len(setting.Value) > commitHashLength {

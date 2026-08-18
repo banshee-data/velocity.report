@@ -17,12 +17,20 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 	for {
 		select {
 		case frame := <-fb.frameCh:
+			if frame != nil && frame.callbackBarrier != nil {
+				close(frame.callbackBarrier)
+				continue
+			}
 			fb.frameCallback(frame)
 		case <-fb.closeCh:
 			// Drain remaining frames so no sends block.
 			for {
 				select {
 				case frame := <-fb.frameCh:
+					if frame != nil && frame.callbackBarrier != nil {
+						close(frame.callbackBarrier)
+						continue
+					}
 					fb.frameCallback(frame)
 				default:
 					return
@@ -32,20 +40,56 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 	}
 }
 
-// Close shuts down the frame callback worker and waits for it to drain.
-// Must be called when the FrameBuilder is no longer needed to avoid
-// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
-func (fb *FrameBuilder) Close() {
+// WaitForCallbacks blocks until every frame queued before this call has
+// completed its callback. PCAP replay uses this between passes so resetting the
+// grid cannot race trailing warm-up frames still in the callback queue.
+func (fb *FrameBuilder) WaitForCallbacks() {
+	if fb == nil {
+		return
+	}
+
 	fb.mu.Lock()
-	if fb.closed {
+	if fb.closed || fb.frameCh == nil {
 		fb.mu.Unlock()
 		return
 	}
-	// Flush the final partial rotation and every buffered completed rotation
-	// before closing closeCh. Offline PCAP readers commonly finish before the
-	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
-	// appear to contain no data at all. Map iteration is unordered, so finish
-	// frames oldest-first to preserve capture ordering for callback consumers.
+	frameCh := fb.frameCh
+	closeCh := fb.closeCh
+	fb.mu.Unlock()
+
+	done := make(chan struct{})
+	barrier := &LiDARFrame{callbackBarrier: done}
+	select {
+	case frameCh <- barrier:
+	case <-closeCh:
+		return
+	}
+	select {
+	case <-done:
+	case <-closeCh:
+	}
+}
+
+// FlushPendingFrames finalises the current partial rotation and buffered
+// completed rotations without closing the builder. It is used at PCAP EOF so
+// a reusable runtime builder can finish one pass before starting the next.
+func (fb *FrameBuilder) FlushPendingFrames() {
+	if fb == nil {
+		return
+	}
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	if fb.closed {
+		return
+	}
+	for _, frame := range fb.takePendingFramesLocked() {
+		fb.finalizeFrame(frame, "flush")
+	}
+}
+
+// takePendingFramesLocked removes and returns pending frames in capture order.
+// Caller must hold fb.mu.
+func (fb *FrameBuilder) takePendingFramesLocked() []*LiDARFrame {
 	frames := make([]*LiDARFrame, 0, len(fb.frameBuffer)+1)
 	if fb.currentFrame != nil {
 		if fb.currentFrame.PointCount >= fb.minFramePoints {
@@ -64,6 +108,24 @@ func (fb *FrameBuilder) Close() {
 	sort.Slice(frames, func(i, j int) bool {
 		return frames[i].StartTimestamp.Before(frames[j].StartTimestamp)
 	})
+	return frames
+}
+
+// Close shuts down the frame callback worker and waits for it to drain.
+// Must be called when the FrameBuilder is no longer needed to avoid
+// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
+func (fb *FrameBuilder) Close() {
+	fb.mu.Lock()
+	if fb.closed {
+		fb.mu.Unlock()
+		return
+	}
+	// Flush the final partial rotation and every buffered completed rotation
+	// before closing closeCh. Offline PCAP readers commonly finish before the
+	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
+	// appear to contain no data at all. Map iteration is unordered, so finish
+	// frames oldest-first to preserve capture ordering for callback consumers.
+	frames := fb.takePendingFramesLocked()
 	for _, frame := range frames {
 		fb.finalizeFrame(frame, "close")
 	}
