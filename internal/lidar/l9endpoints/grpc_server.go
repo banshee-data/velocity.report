@@ -262,7 +262,19 @@ func (sc *sendCooldown) inSkipMode() bool {
 // coalesceBufferedFrames drains queued frames and keeps only the newest one.
 // This is used for replay catch-up so we stop serialising stale frames when
 // the client is already behind. Any discarded point clouds are released.
+//
+// Background frames are never coalesced away. A foreground frame can be dropped
+// because a later one supersedes it, but a background frame carries scene state
+// no later frame reproduces: the client renders whatever background it last
+// received until another arrives. Discarding one during a source change left the
+// previous source's settled grid on screen underneath the new source's
+// foreground, for as long as it took another background frame to survive — which
+// is why coalescing has to stop at one rather than skip past it.
 func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*FrameBundle, int) {
+	if frame != nil && frame.FrameType == FrameTypeBackground {
+		return frame, 0
+	}
+
 	skipped := 0
 	for len(frameCh) > 0 {
 		select {
@@ -272,6 +284,9 @@ func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*Fra
 			}
 			frame = newerFrame
 			skipped++
+			if frame != nil && frame.FrameType == FrameTypeBackground {
+				return frame, skipped
+			}
 		default:
 			return frame, skipped
 		}
