@@ -383,6 +383,12 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPSpeedMode     string
 		PCAPSpeedRatio    float64
 		FgSnapshotCounts  map[string]int
+		ReplayPass        string
+		ReplayTotalPasses int
+		Recording         bool
+		RecordingPath     string
+		GridPreserved     bool
+		LiveListener      bool
 	}{
 		Version:           version.Version,
 		GitSHA:            version.GitSHA,
@@ -403,6 +409,12 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		PCAPInProgress:    pcapInProgress,
 		PCAPSpeedMode:     pcapSpeedMode,
 		PCAPSpeedRatio:    pcapSpeedRatio,
+		ReplayPass:        string(state.Pass),
+		ReplayTotalPasses: state.TotalPasses,
+		Recording:         state.Recording,
+		RecordingPath:     state.RecordingPath,
+		GridPreserved:     state.GridPreserved,
+		LiveListener:      state.LiveListenerRunning,
 		FgSnapshotCounts:  ws.getLatestFgCounts(),
 	}
 

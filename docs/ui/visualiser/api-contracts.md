@@ -228,7 +228,7 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 | ---------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `StreamRequest`        | Client subscription config         | `sensor_id`, `include_points/clusters/tracks/debug`, `point_decimation`, `decimation_ratio`                     |
 | `FrameBundle`          | Top-level per-frame envelope       | `frame_id`, `timestamp_ns`, nested `PointCloudFrame`/`ClusterSet`/`TrackSet`/`DebugOverlaySet`, `playback_info` |
-| `PlaybackInfo`         | Replay metadata within FrameBundle | `is_live`, `log_start_ns`/`log_end_ns`, `playback_rate`, `paused`                                               |
+| `PlaybackInfo`         | Replay metadata within FrameBundle | `source_mode`, `recording`, `is_live`, `log_start_ns`/`log_end_ns`, `playback_rate`, `paused`, `seekable`       |
 | `PlaybackStatus`       | Response to playback RPCs          | `paused`, `rate`, `current_timestamp_ns`, `current_frame_id`                                                    |
 | `SeekRequest`          | Seek target (oneof)                | `timestamp_ns` or `frame_id`                                                                                    |
 | `SetRateRequest`       | Playback speed                     | `rate` (e.g. 0.5, 1.0, 2.0)                                                                                     |

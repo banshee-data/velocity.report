@@ -70,6 +70,32 @@
           </td>
           <td>{{.PCAPInProgress}}</td>
         </tr>
+        {{if .ReplayPass}}
+        <tr>
+          <td>
+            <strong>Replay Pass:</strong>
+          </td>
+          <td>{{.ReplayPass}}{{if .ReplayTotalPasses}} (of {{.ReplayTotalPasses}}){{end}}</td>
+        </tr>
+        {{end}}
+        <tr>
+          <td>
+            <strong>Recording VRLOG:</strong>
+          </td>
+          <td>{{.Recording}}{{if .RecordingPath}} &rarr; {{.RecordingPath}}{{end}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Grid Preserved:</strong>
+          </td>
+          <td>{{.GridPreserved}}</td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Live Listener Running:</strong>
+          </td>
+          <td>{{.LiveListener}}</td>
+        </tr>
         <tr>
           <td>
             <strong>UDP Port:</strong>
@@ -179,7 +205,7 @@
         </li>
         <li>
           <a href="/api/lidar/data_source?sensor_id={{.SensorID}}" target="_blank">
-            Data Source Status (live/pcap/pcap_analysis)
+            Data Source Status (live/pcap/pcap_analysis/vrlog)
           </a>
         </li>
         <li>

@@ -65,8 +65,17 @@ GET /api/lidar/data_source?sensor_id=hesai-pandar40p
 Data source values:
 
 - `live` - Normal live UDP data collection
-- `pcap` - PCAP replay in progress
+- `pcap` - PCAP replay, running or finished without grid retention
 - `pcap_analysis` - PCAP replay completed in analysis mode (grid preserved)
+- `vrlog` - Replay of a recorded frame log
+
+`pcap_analysis` is derived rather than stored: it means a PCAP source, a
+finished replay, and a retained grid. See
+[data-source-switching.md](data-source-switching.md) for the state model.
+
+The response also carries `source_path`, `replay_active`, `replay_pass`,
+`replay_total_passes`, `grid_preserved`, `live_listener_running`, `recording`,
+and `recording_path`.
 
 ### Resume live data (preserve grid)
 
@@ -138,6 +147,9 @@ The LiDAR status page (`http://localhost:8081/`) includes:
 - **Resume Live** link (appears when in analysis mode)
 - **Stop PCAP** link (resets grid)
 - **Grid Status** shows current mode and statistics
+- **Configuration table** shows the replay pass, whether a VRLOG is being
+  recorded and where, whether the grid is preserved, and whether the live
+  listener is running
 
 ## Logging
 
@@ -178,17 +190,37 @@ In analysis mode:
 
 ### State transitions
 
-```
-Live → PCAP (analysis_mode=true) → PCAP Analysis → Live (grid preserved)
-  ↓                                                      ↓
-  └────────────────── Grid Reset ──────────────────────┘
+```mermaid
+stateDiagram-v2
+	[*] --> Live
+	Live --> PCAP: pcap/start (analysis_mode=true)
+	PCAP --> PCAPAnalysis: replay ends, grid preserved
+	PCAPAnalysis --> Live: pcap/resume_live (grid preserved)
+	PCAPAnalysis --> Live: pcap/stop (grid reset)
 ```
 
 Normal mode:
 
+```mermaid
+stateDiagram-v2
+	[*] --> Live
+	Live --> PCAP: pcap/start (analysis_mode=false)
+	PCAP --> Live: replay ends, grid reset
 ```
-Live → PCAP (analysis_mode=false) → [auto-reset] → Live
+
+With `settle_before_recording`, the replay runs the selected window twice. Both
+passes report `data_source: "pcap"` with `pcap_in_progress: true`, and packet
+progress restarts between them, so `replay_pass` names which one is running:
+
+```mermaid
+stateDiagram-v2
+	[*] --> Settling: replay starts, replay_total_passes=2
+	Settling --> Recording: grid settled, snapshot reloaded, recording starts
+	Recording --> PCAPAnalysis: replay ends, grid preserved
 ```
+
+`recording` stays false throughout the settling pass — no VRLOG is opened until
+the settled snapshot has been restored.
 
 ### Performance notes
 
