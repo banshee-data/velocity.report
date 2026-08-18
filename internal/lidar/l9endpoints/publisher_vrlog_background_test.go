@@ -303,3 +303,61 @@ func TestLiveFrames_StillStampedWithLiveSeq(t *testing.T) {
 		return
 	}
 }
+
+// TestConcurrentPublishAndSendBackgroundSnapshot models the deployment's real
+// concurrency: the tracking pipeline calls Publish on its own goroutine while an
+// HTTP handler (OnVRLogLoad in internal/cmd/server/radar.go) calls the exported
+// SendBackgroundSnapshot. Both reach sendBackgroundSnapshot, which updates the
+// background bookkeeping fields, and shouldSendBackground reads them from the
+// publish hot path.
+//
+// Run under -race this fails without backgroundMu: lastBackgroundSent is a
+// time.Time, so an unsynchronised write is a torn read of a multi-word struct,
+// not merely a stale value.
+func TestConcurrentPublishAndSendBackgroundSnapshot(t *testing.T) {
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Nanosecond})
+	pub.running.Store(true)
+	t.Cleanup(func() { pub.running.Store(false) })
+	pub.SetBackgroundManager(&liveBackgroundManager{})
+	pub.lastForegroundTimestamp.Store(time.Now().UnixNano())
+
+	// Drain continuously; a full frameChan would short-circuit the very paths
+	// under test before they touch the shared fields.
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-pub.frameChan:
+			case <-done:
+				return
+			}
+		}
+	}()
+	t.Cleanup(func() { close(done) })
+
+	const iterations = 300
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { // pipeline goroutine
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			pub.Publish(&FrameBundle{
+				FrameID:        uint64(i),
+				FrameType:      FrameTypeForeground,
+				TimestampNanos: int64(i + 1),
+			})
+		}
+	}()
+	go func() { // HTTP handler goroutine
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			// The return value is deliberately ignored. Under load the drainer
+			// can fall behind and the send is dropped with "frame channel
+			// full", which is legitimate back-pressure rather than a failure;
+			// this test exists to exercise the shared fields under -race, not
+			// to assert delivery.
+			_ = pub.SendBackgroundSnapshot()
+		}
+	}()
+	wg.Wait()
+}

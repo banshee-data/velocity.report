@@ -52,8 +52,19 @@ type Publisher struct {
 	clients   map[string]*clientStream
 	clientsMu sync.RWMutex
 
-	// Background snapshot management (M3.5)
+	// Background snapshot management (M3.5).
+	//
+	// backgroundMgr is wired once by SetBackgroundManager during startup,
+	// before Start() launches any goroutine, and is read-only thereafter.
+	//
+	// backgroundMu guards lastBackgroundSeq and lastBackgroundSent, which are
+	// touched both by the pipeline goroutine (Publish → shouldSendBackground)
+	// and by HTTP handlers (SendBackgroundSnapshot). It is held only across
+	// those field accesses, never across GenerateBackgroundSnapshot: that walks
+	// the whole grid, and blocking the publish hot path behind it would stall
+	// frame delivery.
 	backgroundMgr           BackgroundManagerInterface
+	backgroundMu            sync.Mutex
 	lastBackgroundSeq       uint64
 	lastBackgroundSent      time.Time
 	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
@@ -161,17 +172,23 @@ func (p *Publisher) shouldSendBackground() bool {
 	// 3. Grid sequence changed (reset/sensor moved)
 
 	currentSeq := p.backgroundMgr.GetBackgroundSequenceNumber()
-	if currentSeq != p.lastBackgroundSeq && p.lastBackgroundSeq > 0 {
-		lidar.Diagf("[Visualiser] Background sequence changed (%d → %d), sending refresh", p.lastBackgroundSeq, currentSeq)
+
+	p.backgroundMu.Lock()
+	lastSeq := p.lastBackgroundSeq
+	lastSent := p.lastBackgroundSent
+	p.backgroundMu.Unlock()
+
+	if currentSeq != lastSeq && lastSeq > 0 {
+		lidar.Diagf("[Visualiser] Background sequence changed (%d → %d), sending refresh", lastSeq, currentSeq)
 		return true // Grid was reset
 	}
 
-	if p.lastBackgroundSent.IsZero() {
+	if lastSent.IsZero() {
 		diagf("[Visualiser] First background snapshot, sending now")
 		return true // Never sent
 	}
 
-	elapsed := time.Since(p.lastBackgroundSent)
+	elapsed := time.Since(lastSent)
 	if elapsed >= p.config.BackgroundInterval {
 		lidar.Diagf("[Visualiser] Background interval elapsed (%.1fs), sending refresh", elapsed.Seconds())
 		return true // Periodic refresh
@@ -232,8 +249,10 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 	// Send to all clients
 	select {
 	case p.frameChan <- bundle:
+		p.backgroundMu.Lock()
 		p.lastBackgroundSeq = snapshot.SequenceNumber
 		p.lastBackgroundSent = time.Now()
+		p.backgroundMu.Unlock()
 		pointCount := len(snapshot.X)
 		lidar.Diagf("[Visualiser] Background snapshot sent: %d points, seq=%d", pointCount, snapshot.SequenceNumber)
 	default:
