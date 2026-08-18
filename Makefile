@@ -1250,6 +1250,7 @@ test-web-cov:
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
 
 test-docs-offline:
+	@./scripts/docs-offline-symlinks.sh create
 	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
 	@echo "Running embedded offline docs tests..."
 	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
@@ -1261,6 +1262,7 @@ test-docs-offline:
 	fi
 
 test-docs-offline-cov: ensure-python-tools
+	@./scripts/docs-offline-symlinks.sh create
 	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
 	@echo "Running embedded offline docs tests with coverage..."
 	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
