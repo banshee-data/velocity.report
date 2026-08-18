@@ -36,11 +36,23 @@ Content-Type: application/json
 
 {
   "pcap_file": "break-80k.pcapng",
-  "analysis_mode": true
+  "analysis_mode": true,
+  "settle_before_recording": true
 }
 ```
 
-**Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`, `pcap_file` (resolved path), and `analysis_mode: true`.
+`settle_before_recording` is optional and requires `analysis_mode`. When enabled,
+the server runs the selected PCAP window once without recording so the background
+grid can settle, drains the completed frames, reloads that settled grid from the
+database, resets transient tracking state, then replays the same window from its
+start while recording the VRLOG. This keeps the settling interval in the recorded
+run instead of trimming it from the beginning. The request fails without starting
+the recorded pass if the selected window is too short to settle or its settled
+snapshot cannot be restored.
+
+**Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
+`pcap_file` (resolved path), `analysis_mode: true`, and the requested
+`settle_before_recording` value.
 
 ### Check data source status
 
@@ -81,9 +93,9 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 1. **Start analysis mode replay:**
 
    ```bash
-   curl -X POST "http://localhost:8082/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+   curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
      -H "Content-Type: application/json" \
-     -d '{"pcap_file":"break-80k.pcapng","analysis_mode":true}'
+     -d '{"pcap_file":"break-80k.pcapng","analysis_mode":true,"settle_before_recording":true}'
    ```
 
 2. **Wait for completion and inspect results:**
@@ -118,9 +130,11 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 
 ## Web UI
 
-The LiDAR status page (`http://localhost:8082/`) includes:
+The LiDAR status page (`http://localhost:8081/`) includes:
 
-- **PCAP Start Form** with "Analysis Mode" checkbox
+- **PCAP Start Form** with "Analyse & record VRLOG" and optional "Settle grid,
+  reload & record from start" checkboxes. Selecting settling also selects analysis
+  mode because the warm first pass is specifically a VRLOG capture workflow.
 - **Resume Live** link (appears when in analysis mode)
 - **Stop PCAP** link (resets grid)
 - **Grid Status** shows current mode and statistics
@@ -179,6 +193,8 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 ### Performance notes
 
 - PCAP replay runs as fast as CPU allows (not real-time throttled)
+- The optional settling pass is always unpaced; the recorded second pass uses the
+  requested replay speed
 - Example: 80K packets (28.7M points) processes in ~13 seconds
 - Grid preservation has no performance impact
 - Resuming live from analysis mode is instantaneous
@@ -187,6 +203,8 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 - Only one PCAP can be in progress at a time
 - Analysis mode requires manual resume or stop
+- Settle-before-recording needs enough capture time for the configured background
+  settling interval and a writable background snapshot database
 - Grid reset is irreversible (must replay PCAP to rebuild)
 - PCAP files must be in configured safe directory
 

@@ -9,6 +9,23 @@ import (
 	"testing"
 )
 
+func TestHandlePCAPStartSettleBeforeRecordingRequiresAnalysisMode(t *testing.T) {
+	ws := NewServer(Config{SensorID: "sensor-1"})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-1",
+		bytes.NewBufferString(`{"pcap_file":"capture.pcap","analysis_mode":false,"settle_before_recording":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	ws.handlePCAPStart(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("requires analysis_mode=true")) {
+		t.Fatalf("response = %s", rec.Body.String())
+	}
+}
+
 // TestHandlePlaybackStatus tests the GET /api/lidar/playback/status endpoint.
 func TestHandlePlaybackStatus(t *testing.T) {
 	tests := []struct {

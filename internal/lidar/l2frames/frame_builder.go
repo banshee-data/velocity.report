@@ -40,6 +40,7 @@ type LiDARFrame struct {
 	PacketGaps        int             // count of missing packets
 	CompletenessRatio float64         // ratio of received/expected packets
 	AzimuthCoverage   float64         // degrees of azimuth covered (0-360)
+	callbackBarrier   chan struct{}   // internal FIFO barrier used to drain callback work
 }
 
 // FrameBuilder accumulates points from multiple packets into complete rotational frames

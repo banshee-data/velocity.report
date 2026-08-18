@@ -256,13 +256,14 @@ func (c *Client) SetTuningParams(params map[string]interface{}) error {
 
 // PCAPReplayConfig holds configuration for starting a PCAP replay.
 type PCAPReplayConfig struct {
-	PCAPFile        string
-	StartSeconds    float64
-	DurationSeconds float64
-	MaxRetries      int
-	AnalysisMode    bool    // When true, preserve grid after PCAP completion
-	SpeedMode       string  // "analysis", "realtime", or "scaled"
-	SpeedRatio      float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
+	PCAPFile              string
+	StartSeconds          float64
+	DurationSeconds       float64
+	MaxRetries            int
+	AnalysisMode          bool    // When true, preserve grid after PCAP completion
+	SettleBeforeRecording bool    // When true, warm and reload the grid before recording
+	SpeedMode             string  // "analysis", "realtime", or "scaled"
+	SpeedRatio            float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
@@ -281,6 +282,9 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	}
 	if cfg.AnalysisMode {
 		payload["analysis_mode"] = true
+	}
+	if cfg.SettleBeforeRecording {
+		payload["settle_before_recording"] = true
 	}
 	if cfg.SpeedMode != "" {
 		payload["speed_mode"] = cfg.SpeedMode

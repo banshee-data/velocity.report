@@ -4,12 +4,17 @@ package lidarbench
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"testing"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // fixturePCAP is the reference multi-frame capture (UDP 2369). The 20Hz
@@ -167,6 +172,29 @@ func TestRunRejectsUncreatableOutputDir(t *testing.T) {
 	}
 }
 
+func TestRunReportsCorruptPCAP(t *testing.T) {
+	pcap := filepath.Join(t.TempDir(), "corrupt.pcap")
+	if err := os.WriteFile(pcap, []byte("not a pcap"), 0o644); err != nil {
+		t.Fatalf("writing corrupt PCAP: %v", err)
+	}
+	cfg := benchConfig(t)
+	cfg.PCAPFile = pcap
+	if code := Run(cfg); code != 1 {
+		t.Errorf("Run() with corrupt PCAP = %d, want 1", code)
+	}
+}
+
+func TestRunBenchmarkReportsParserConfigError(t *testing.T) {
+	original := loadBenchmarkPandarConfig
+	t.Cleanup(func() { loadBenchmarkPandarConfig = original })
+	loadBenchmarkPandarConfig = func() (*parse.Pandar40PConfig, error) {
+		return nil, errors.New("parser config failed")
+	}
+	if _, _, err := runBenchmark(benchConfig(t)); err == nil {
+		t.Fatal("expected parser config error")
+	}
+}
+
 func TestHandleBenchmarkOutputReportsUnwritableDestination(t *testing.T) {
 	// A path inside a nonexistent directory fails the final WriteFile, which
 	// must surface as a failing exit code rather than a silent success.
@@ -250,6 +278,149 @@ func TestAnalysisStatsAccumulate(t *testing.T) {
 	}
 	if points != 150 {
 		t.Errorf("points = %d, want 150", points)
+	}
+}
+
+func TestAnalysisFrameBuilderDirectBranches(t *testing.T) {
+	t.Run("empty packet", func(t *testing.T) {
+		fb := newAnalysisFrameBuilder(Config{SensorID: "bench-empty"}, &result{})
+		fb.AddPointsPolar(nil)
+		if len(fb.points) != 0 {
+			t.Fatalf("empty packet added %d points", len(fb.points))
+		}
+	})
+
+	t.Run("unavailable background mask", func(t *testing.T) {
+		fb := &analysisFrameBuilder{
+			bgManager: &l3grid.BackgroundManager{},
+			res:       &result{},
+			points:    []l2frames.PointPolar{{Channel: 1, Distance: 5}},
+		}
+		fb.processCurrentFrame()
+		if len(fb.frameTimes) != 1 {
+			t.Fatalf("frame timing samples = %d, want 1", len(fb.frameTimes))
+		}
+	})
+
+	t.Run("foreground clustering and tracking", func(t *testing.T) {
+		res := &result{}
+		fb := newAnalysisFrameBuilder(Config{SensorID: "bench-direct-foreground"}, res)
+		for i := range fb.bgManager.Grid.Cells {
+			fb.bgManager.Grid.Cells[i].AverageRangeMeters = 10
+			fb.bgManager.Grid.Cells[i].TimesSeenCount = 100
+		}
+		fb.bgManager.Grid.SettlingComplete = true
+		fb.bgManager.HasSettled = true
+		params := fb.bgManager.GetParams()
+		params.WarmupMinFrames = 0
+		params.WarmupDurationNanos = 0
+		params.NeighbourConfirmationCount = 0
+		params.ForegroundMinClusterPoints = 3
+		params.ForegroundDBSCANEps = 1
+		if err := fb.bgManager.SetParams(params); err != nil {
+			t.Fatalf("SetParams() error: %v", err)
+		}
+
+		base := time.Unix(20_000, 0)
+		for frameIndex := 0; frameIndex < 7; frameIndex++ {
+			fb.points = fb.points[:0]
+			for i := 0; i < 20; i++ {
+				fb.points = append(fb.points, l2frames.PointPolar{
+					Channel:   1,
+					Azimuth:   180 + float64(i)*0.01,
+					Elevation: float64(i%3) * 0.01,
+					Distance:  5 + float64(i)*0.005,
+					Timestamp: base.Add(time.Duration(frameIndex) * 50 * time.Millisecond).UnixNano(),
+				})
+			}
+			fb.frameStartTime = base.Add(time.Duration(frameIndex) * 50 * time.Millisecond)
+			fb.processCurrentFrame()
+		}
+		if res.TotalClusters == 0 {
+			t.Fatal("direct foreground frames produced no clusters")
+		}
+	})
+
+	t.Run("foreground without clusters", func(t *testing.T) {
+		res := &result{}
+		fb := newAnalysisFrameBuilder(Config{SensorID: "bench-direct-no-clusters"}, res)
+		for i := range fb.bgManager.Grid.Cells {
+			fb.bgManager.Grid.Cells[i].AverageRangeMeters = 10
+			fb.bgManager.Grid.Cells[i].TimesSeenCount = 100
+		}
+		fb.bgManager.Grid.SettlingComplete = true
+		fb.bgManager.HasSettled = true
+		params := fb.bgManager.GetParams()
+		params.WarmupMinFrames = 0
+		params.WarmupDurationNanos = 0
+		params.NeighbourConfirmationCount = 0
+		params.ForegroundMinClusterPoints = 999
+		params.ForegroundDBSCANEps = 1
+		if err := fb.bgManager.SetParams(params); err != nil {
+			t.Fatalf("SetParams() error: %v", err)
+		}
+		base := time.Unix(30_000, 0)
+		for i := 0; i < 20; i++ {
+			fb.points = append(fb.points, l2frames.PointPolar{
+				Channel:   1,
+				Azimuth:   180 + float64(i)*0.01,
+				Distance:  5 + float64(i)*0.005,
+				Timestamp: base.UnixNano(),
+			})
+		}
+		fb.frameStartTime = base
+		fb.processCurrentFrame()
+		if res.TotalClusters != 0 || len(fb.frameTimes) != 1 {
+			t.Fatalf("clusters=%d frameTimes=%d, want 0 and 1", res.TotalClusters, len(fb.frameTimes))
+		}
+	})
+}
+
+func TestGetSystemInfoReadsAndAbbreviatesRevision(t *testing.T) {
+	original := readBenchmarkBuildInfo
+	t.Cleanup(func() { readBenchmarkBuildInfo = original })
+	readBenchmarkBuildInfo = func() (*debug.BuildInfo, bool) {
+		return &debug.BuildInfo{Settings: []debug.BuildSetting{{
+			Key:   "vcs.revision",
+			Value: "1234567890abcdef",
+		}}}, true
+	}
+	if got := getSystemInfo().CommitHash; got != "1234567890ab" {
+		t.Fatalf("CommitHash = %q, want abbreviated revision", got)
+	}
+}
+
+func TestCompareWithBaselineReportsImprovements(t *testing.T) {
+	baselinePath := filepath.Join(t.TempDir(), "baseline.json")
+	baseline := BenchmarkResult{Metrics: PerformanceMetrics{
+		WallClockMs:     100,
+		FramesPerSecond: 100,
+		HeapAllocBytes:  100,
+		ClusterTimeMs:   100,
+		TrackingTimeMs:  100,
+		FrameTimeStats:  FrameTimeStats{AvgMs: 100, P95Ms: 100},
+	}}
+	data, err := json.Marshal(baseline)
+	if err != nil {
+		t.Fatalf("Marshal() error: %v", err)
+	}
+	if err := os.WriteFile(baselinePath, data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+	current := &PerformanceMetrics{
+		WallClockMs:     50,
+		FramesPerSecond: 200,
+		HeapAllocBytes:  50,
+		ClusterTimeMs:   50,
+		TrackingTimeMs:  50,
+		FrameTimeStats:  FrameTimeStats{AvgMs: 50, P95Ms: 50},
+	}
+	comparison, regressed := compareWithBaseline(baselinePath, current, 0.1)
+	if regressed {
+		t.Fatal("improved metrics were reported as a regression")
+	}
+	if comparison == nil || len(comparison.Improvements) != 7 {
+		t.Fatalf("improvements = %+v, want all seven metrics", comparison)
 	}
 }
 

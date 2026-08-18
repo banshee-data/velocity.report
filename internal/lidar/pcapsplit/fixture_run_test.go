@@ -3,10 +3,36 @@
 package pcapsplit
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
+
+type failingAnalysisClassifier struct {
+	setErr     error
+	observeErr error
+}
+
+func (f *failingAnalysisClassifier) SetRingElevations([]float64) error { return f.setErr }
+func (f *failingAnalysisClassifier) Observe(time.Time, []l2frames.PointPolar) (MotionEvidence, error) {
+	return MotionEvidence{}, f.observeErr
+}
+
+func restoreAnalysisSeams(t *testing.T) {
+	t.Helper()
+	originalLoad := loadAnalysisPandarConfig
+	originalNew := newAnalysisClassifier
+	t.Cleanup(func() {
+		loadAnalysisPandarConfig = originalLoad
+		newAnalysisClassifier = originalNew
+	})
+}
 
 // splitFixture is the reference multi-frame capture (UDP 2369). The analysis
 // and writer paths only run against a capture carrying real rotations.
@@ -81,6 +107,46 @@ func TestAnalyseRejectsMissingCapture(t *testing.T) {
 	if _, err := Analyse(cfg); err == nil {
 		t.Fatal("Analyse on a missing capture succeeded, want an error")
 	}
+}
+
+func TestAnalyseReportsSetupAndFrameErrors(t *testing.T) {
+	t.Run("parser config", func(t *testing.T) {
+		restoreAnalysisSeams(t)
+		loadAnalysisPandarConfig = func() (*parse.Pandar40PConfig, error) {
+			return nil, errors.New("parser config failed")
+		}
+		if _, err := Analyse(fixtureConfig(t)); err == nil {
+			t.Fatal("expected parser config error")
+		}
+	})
+
+	t.Run("classifier construction", func(t *testing.T) {
+		cfg := fixtureConfig(t)
+		cfg.SensorID = ""
+		if _, err := Analyse(cfg); err == nil {
+			t.Fatal("expected classifier construction error")
+		}
+	})
+
+	t.Run("ring elevations", func(t *testing.T) {
+		restoreAnalysisSeams(t)
+		newAnalysisClassifier = func(string, string, *config.TuningConfig) (analysisMotionClassifier, error) {
+			return &failingAnalysisClassifier{setErr: errors.New("elevations failed")}, nil
+		}
+		if _, err := Analyse(fixtureConfig(t)); err == nil {
+			t.Fatal("expected ring elevations error")
+		}
+	})
+
+	t.Run("frame observation", func(t *testing.T) {
+		restoreAnalysisSeams(t)
+		newAnalysisClassifier = func(string, string, *config.TuningConfig) (analysisMotionClassifier, error) {
+			return &failingAnalysisClassifier{observeErr: errors.New("observe failed")}, nil
+		}
+		if _, err := Analyse(fixtureConfig(t)); err == nil {
+			t.Fatal("expected frame observation error")
+		}
+	})
 }
 
 // TestRunFixtureWritesSegmentCaptures drives the full split, including the
