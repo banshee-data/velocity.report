@@ -804,17 +804,20 @@ func Main(args []string) int {
 					return "", fmt.Errorf("failed to open vrlog: %w", err)
 				}
 				frameEncoding := string(replayer.FrameEncoding())
+				// Drop the previous source's background BEFORE the replay
+				// starts. Clients keep the last background they were sent, so
+				// without this the live settled grid stays on screen under
+				// replayed foreground — it reads as a real scene and is not
+				// obviously wrong until something moves through it.
+				//
+				// Order matters: StartVRLogReplay emits the recording's own
+				// background, so clearing afterwards would wipe the very frame
+				// that replaces this one.
+				visualiserPublisher.ClearBackground()
 				// Start replay through the publisher
 				if err := visualiserPublisher.StartVRLogReplay(replayer); err != nil {
 					replayer.Close()
 					return "", fmt.Errorf("failed to start vrlog replay: %w", err)
-				}
-				// Fallback for recordings that hold no background frame of
-				// their own: the client has nothing to composite the replayed
-				// foreground against. A no-op when the replay already emitted
-				// its recorded background.
-				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
-					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
 				log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
 				return frameEncoding, nil

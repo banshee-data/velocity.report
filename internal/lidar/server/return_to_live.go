@@ -21,6 +21,15 @@ import (
 // reason is recorded in the state trace so the log shows what triggered the
 // return: an operator request, or a replay reaching its end.
 func (ws *Server) ReturnToLive(reason string) error {
+	return ws.returnToLive(reason, true)
+}
+
+// returnToLive does the work. stopActiveReplay must be false when the caller is
+// the replay goroutine tearing itself down: pcapDone only closes when that
+// goroutine exits, so waiting on it from inside would deadlock the replay
+// against itself. Every other caller passes true and waits for the replay to
+// finish before the pipeline is declared live.
+func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 	before := ws.PipelineState()
 	diagf("[DataSource] returning to live (%s) from %s", reason, before)
 
@@ -31,22 +40,24 @@ func (ws *Server) ReturnToLive(reason string) error {
 	// The operation is idempotent, and gating it on the state we are trying to
 	// repair is what let a replay keep running behind a source that said
 	// otherwise.
-	if ws.onVRLogStop != nil {
+	if stopActiveReplay && ws.onVRLogStop != nil {
 		ws.onVRLogStop()
 	}
 
 	// Cancel a running PCAP replay and wait for its goroutine, which releases
 	// the replay slot on its way out.
-	ws.pcapMu.Lock()
-	cancel := ws.pcapCancel
-	done := ws.pcapDone
-	ws.pcapCancel = nil
-	ws.pcapMu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
-	if done != nil {
-		<-done
+	if stopActiveReplay {
+		ws.pcapMu.Lock()
+		cancel := ws.pcapCancel
+		done := ws.pcapDone
+		ws.pcapCancel = nil
+		ws.pcapMu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+		if done != nil {
+			<-done
+		}
 	}
 
 	// Whatever the replay left behind, the slot is free now. The PCAP goroutine

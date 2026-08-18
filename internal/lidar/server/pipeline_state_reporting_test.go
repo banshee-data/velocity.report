@@ -181,7 +181,7 @@ func TestHandleVRLogStopReturnsToLive(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/stop", nil)
 	w := httptest.NewRecorder()
-	ws.handleVRLogStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("vrlog/stop status = %d, want %d", w.Code, http.StatusOK)

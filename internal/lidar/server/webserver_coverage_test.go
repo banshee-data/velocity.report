@@ -201,10 +201,10 @@ func TestCov_HandlePCAPStop_MissingSensorID(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d (sensor_id is optional; the stop targets the configured sensor)", w.Code, http.StatusOK)
 	}
 }
 
@@ -213,7 +213,7 @@ func TestCov_HandlePCAPStop_WrongSensorID(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop?sensor_id=wrong-sensor", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
@@ -228,7 +228,7 @@ func TestCov_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop?sensor_id=sensor-1", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
@@ -243,7 +243,7 @@ func TestCov_HandlePCAPStop_NoPCAPInProgress(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop?sensor_id=sensor-1", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
@@ -259,7 +259,7 @@ func TestCov_HandlePCAPStop_SensorIDFromFormValue(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop", nil)
 	req.Form = map[string][]string{"sensor_id": {"sensor-1"}}
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	// Stop is idempotent: from live it is a no-op that still reports success.
 	if w.Code != http.StatusOK {
@@ -1297,7 +1297,7 @@ func TestCov2_HandlePCAPStop_WrongSensorID(t *testing.T) {
 	ws := &Server{sensorID: "test-sensor"}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=wrong", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
@@ -1520,7 +1520,7 @@ func TestCov2_HandleVRLogStop_NoCallback(t *testing.T) {
 	ws := &Server{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/stop", nil)
 	w := httptest.NewRecorder()
-	ws.handleVRLogStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
@@ -1531,7 +1531,7 @@ func TestCov2_HandleVRLogStop_WithCallback(t *testing.T) {
 	ws := &Server{onVRLogStop: func() { called = true }}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/stop", nil)
 	w := httptest.NewRecorder()
-	ws.handleVRLogStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
@@ -2336,9 +2336,9 @@ func TestCov3_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	ws := &Server{sensorID: "s"}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	ws.handleReplayStop(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d (sensor_id is optional; the stop targets the configured sensor)", w.Code, http.StatusOK)
 	}
 }
 
@@ -2347,7 +2347,7 @@ func TestCov3_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 	ws.setTestSourceLive()
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-stop-live", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
@@ -2359,7 +2359,7 @@ func TestCov3_HandlePCAPStop_NoReplayInProgress(t *testing.T) {
 	ws.mutateState("test", func(s *PipelineState) { s.ReplayActive = false })
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-stop-norep", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
@@ -2372,7 +2372,7 @@ func TestCov3_HandlePCAPStop_FormSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	// Expect conflict since not in PCAP mode
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
@@ -3573,7 +3573,7 @@ func TestCov3_HandlePCAPStop_InProgressV2(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	// Deterministic now: a listener that will not bind is logged, not returned,
 	// so the stop itself always succeeds.
 	if w.Code != http.StatusOK {
@@ -3607,7 +3607,7 @@ func TestCov3_HandlePCAPStop_AnalysisMode(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-analysis", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	baseCancel()
 	ws.dataSourceMu.Lock()
 	ws.stopLiveListenerLocked()
@@ -3629,7 +3629,7 @@ func TestCov3_HandlePCAPStop_LiveSourceConflict(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-live2", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
@@ -3649,7 +3649,7 @@ func TestCov3_HandlePCAPStop_NotInProgress(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-noprog", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
@@ -3909,9 +3909,9 @@ func TestCov3_HandlePCAPStop_NoSensorID(t *testing.T) {
 	ws := &Server{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	ws.handleReplayStop(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d (sensor_id is optional; the stop targets the configured sensor)", w.Code, http.StatusOK)
 	}
 }
 
@@ -3919,7 +3919,7 @@ func TestCov3_HandlePCAPStop_WrongSensorID(t *testing.T) {
 	ws := &Server{sensorID: "my-sensor"}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=other", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
@@ -3936,7 +3936,7 @@ func TestCov3_HandlePCAPStop_FormValueSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 	// Will be conflict since system is not in PCAP mode, but we cover the form parsing path
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
@@ -4696,7 +4696,7 @@ func TestCov5_HandlePCAPStop_NotInProgress(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
-	ws.handlePCAPStop(rec, req)
+	ws.handleReplayStop(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -4730,7 +4730,7 @@ func TestCov5_HandlePCAPStop_WithCancelAndDone(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
-	ws.handlePCAPStop(rec, req)
+	ws.handleReplayStop(rec, req)
 
 	// startLiveListenerLocked failure no longer fails the stop.
 	if rec.Code != http.StatusOK {
@@ -4763,7 +4763,7 @@ func TestCov5_HandlePCAPStop_AnalysisMode(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
-	ws.handlePCAPStop(rec, req)
+	ws.handleReplayStop(rec, req)
 
 	// startLiveListenerLocked failure no longer fails the stop.
 	if rec.Code != http.StatusOK {
@@ -5421,7 +5421,7 @@ func TestCov6_HandlePCAPStop_AnalysisModePreservesGrid(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
-	ws.handlePCAPStop(rr, req)
+	ws.handleReplayStop(rr, req)
 
 	// No real UDP listener configured, but that no longer fails the stop.
 	assert.Equal(t, http.StatusOK, rr.Code, "expected 200, got %d", rr.Code)

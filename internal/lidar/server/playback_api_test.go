@@ -525,7 +525,7 @@ func TestHandleVRLogStop(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/api/lidar/vrlog/stop", nil)
 			w := httptest.NewRecorder()
 
-			ws.handleVRLogStop(w, req)
+			ws.handleReplayStop(w, req)
 
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)

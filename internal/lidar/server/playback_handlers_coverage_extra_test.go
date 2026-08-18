@@ -184,7 +184,7 @@ func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	// A grid that will not clear is still reported: live data would otherwise
 	// composite onto the recorded scene.
@@ -213,7 +213,7 @@ func TestPlayback_HandlePCAPStop_StartLiveListenerError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=sensor-stop-start-listener-error", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
@@ -242,7 +242,7 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=sensor-stop-callback", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())

@@ -31,13 +31,13 @@ The LiDAR monitor HTTP server. Provides real-time LiDAR status, tuning, and data
 
 **Route categories and access intent**:
 
-| Category              | Example endpoints                                         | Access                                                           |
-| --------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
-| Status/read-only      | `GET /api/lidar/status`, `GET /api/lidar/traffic`         | LAN                                                              |
-| Tuning                | `POST /api/lidar/params`, `POST /api/lidar/sweep/*`       | LAN                                                              |
-| Data source switching | `POST /api/lidar/pcap/start`, `POST /api/lidar/pcap/stop` | LAN                                                              |
-| Destructive           | `POST /api/lidar/runs/clear`                              | Feature-gated (`VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1`) |
-| Debug dashboards      | `/debug/lidar/*`                                          | LAN                                                              |
+| Category              | Example endpoints                                           | Access                                                           |
+| --------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
+| Status/read-only      | `GET /api/lidar/status`, `GET /api/lidar/traffic`           | LAN                                                              |
+| Tuning                | `POST /api/lidar/params`, `POST /api/lidar/sweep/*`         | LAN                                                              |
+| Data source switching | `POST /api/lidar/pcap/start`, `POST /api/lidar/replay/stop` | LAN                                                              |
+| Destructive           | `POST /api/lidar/runs/clear`                                | Feature-gated (`VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1`) |
+| Debug dashboards      | `/debug/lidar/*`                                            | LAN                                                              |
 
 **Trust level**: LAN-accessible. Tuning and data source endpoints modify runtime behaviour but do not destroy persisted data. The `/api/lidar/runs/clear` endpoint is behind `featureGate` and disabled by default.
 

@@ -493,15 +493,15 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	}
 
 	if ok, blocker := ws.tryBeginPCAPReplay(replayCfg); !ok {
-		// Name the replay actually holding the slot. Reporting "PCAP replay is
-		// already in progress" for a VRLOG replay sent callers to /pcap/stop,
-		// which answers "system is not in PCAP mode" — a loop with no exit.
-		switch blocker {
-		case SourceModeVRLog:
-			return &switchError{status: http.StatusConflict, err: errors.New("a VRLOG replay is active: stop it first via POST /api/lidar/vrlog/stop")}
-		default:
-			return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress: stop it first via POST /pcap/stop")}
+		// Name what is holding the slot, but only ever one endpoint to clear
+		// it. Pointing PCAP and VRLOG callers at different stops is what
+		// produced a pair of errors that referred callers to each other.
+		kind := "a PCAP replay"
+		if blocker == SourceModeVRLog {
+			kind = "a VRLOG replay"
 		}
+		return &switchError{status: http.StatusConflict, err: fmt.Errorf(
+			"%s is already running: stop it first via POST /api/lidar/replay/stop", kind)}
 	}
 	ws.pcapMu.Lock()
 	ws.pcapCancel = nil
@@ -831,37 +831,23 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		ws.pcapCancel = nil
 		ws.pcapMu.Unlock()
 
-		ws.dataSourceMu.Lock()
-		if state := ws.PipelineState(); state.Source == SourceModePCAP {
-			analysisMode := state.AnalysisMode()
-
-			// endReplay before the branch: the replay has stopped either way,
-			// and only grid retention differs between the two outcomes.
-			ws.endReplay(analysisMode)
-
-			if analysisMode {
-				// Analysis mode: keep grid intact, stay on the PCAP source so
-				// the derived wire token reports pcap_analysis.
-				diagf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
-			} else {
-				// Normal mode: reset all state and return to live
-				if err := ws.resetAllState(); err != nil {
-					opsf("Failed to reset state after PCAP: %v", err)
-				}
-				if err := ws.startLiveListenerLocked(); err != nil {
-					opsf("Failed to restart live listener after PCAP: %v", err)
-				} else {
-					ws.setSourceLive(false)
-					diagf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
-
-					// Notify visualiser gRPC server that replay has ended
-					if ws.onPCAPStopped != nil {
-						ws.onPCAPStopped()
-					}
-				}
-			}
+		// An analysis replay is asked to retain its grid for inspection, so it
+		// stays on the PCAP source and the wire token reports pcap_analysis
+		// until the operator calls resume-live. Every other replay returns to
+		// live by itself.
+		if state := ws.PipelineState(); state.AnalysisMode() {
+			ws.dataSourceMu.Lock()
+			ws.endReplay(true)
+			ws.dataSourceMu.Unlock()
+			diagf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
+		} else if err := ws.returnToLive("PCAP replay finished", false); err != nil {
+			// ReturnToLive is the single teardown. The hand-rolled copy that
+			// used to live here skipped setSourceLive and onPCAPStopped
+			// whenever the listener failed to restart, stranding the source on
+			// a replay that had already stopped and leaving the visualiser in
+			// replay mode.
+			opsf("Failed to return to live after PCAP replay: %v", err)
 		}
-		ws.dataSourceMu.Unlock()
 	}(resolvedPath, ctx, cancel, done, replayCfg, runID)
 
 	return nil

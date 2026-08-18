@@ -90,7 +90,7 @@ Switches from PCAP analysis mode back to live UDP data **without resetting the g
 ### Stop PCAP replay (reset grid)
 
 ```bash
-POST /api/lidar/pcap/stop?sensor_id=hesai-pandar40p
+POST /api/lidar/replay/stop?sensor_id=hesai-pandar40p
 ```
 
 Stops PCAP replay and **resets the grid** before returning to live data.
@@ -196,7 +196,7 @@ stateDiagram-v2
 	Live --> PCAP: pcap/start (analysis_mode=true)
 	PCAP --> PCAPAnalysis: replay ends, grid preserved
 	PCAPAnalysis --> Live: pcap/resume_live (grid preserved)
-	PCAPAnalysis --> Live: pcap/stop (grid reset)
+	PCAPAnalysis --> Live: replay/stop (grid reset)
 ```
 
 Normal mode:

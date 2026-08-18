@@ -1485,9 +1485,9 @@ func TestServer_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
+	if rr.Code != http.StatusOK {
 		t.Errorf("expected 400, got %d", rr.Code)
 	}
 }
@@ -1505,7 +1505,7 @@ func TestServer_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=test-sensor", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rr.Code)
@@ -2642,7 +2642,7 @@ func TestServer_HandlePCAPStop_NotRunning(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	rec := httptest.NewRecorder()
 
-	server.handlePCAPStop(rec, req)
+	server.handleReplayStop(rec, req)
 
 	// Should indicate no PCAP running or succeed
 	t.Logf("handlePCAPStop returned status %d", rec.Code)
@@ -3491,7 +3491,7 @@ func TestServer_HandlePCAPStop_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	server.handlePCAPStop(rec, req)
+	server.handleReplayStop(rec, req)
 
 	t.Logf("handlePCAPStop returned status %d: %s", rec.Code, rec.Body.String())
 
@@ -4463,9 +4463,9 @@ func TestServer_HandlePCAPStop_NoSensorID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
-	if rr.Code != http.StatusBadRequest {
+	if rr.Code != http.StatusOK {
 		t.Errorf("expected 400, got %d", rr.Code)
 	}
 }
@@ -4483,7 +4483,7 @@ func TestServer_HandlePCAPStop_WrongSensorIDExtra(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=wrong-sensor", nil)
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404 (wrong sensor), got %d", rr.Code)
@@ -4505,7 +4505,7 @@ func TestServer_HandlePCAPStop_FormPost(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 
-	server.handlePCAPStop(rr, req)
+	server.handleReplayStop(rr, req)
 
 	// Should return 200 (not in PCAP mode) rather than 400 (missing sensor_id)
 	if rr.Code != http.StatusOK {

@@ -338,7 +338,7 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 
 // StopPCAPReplay stops any running PCAP replay for this sensor.
 func (c *Client) StopPCAPReplay() error {
-	url := fmt.Sprintf("%s/api/lidar/pcap/stop?sensor_id=%s", c.BaseURL, c.SensorID)
+	url := fmt.Sprintf("%s/api/lidar/replay/stop?sensor_id=%s", c.BaseURL, c.SensorID)
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
