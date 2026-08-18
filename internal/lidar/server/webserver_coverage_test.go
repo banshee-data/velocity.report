@@ -2912,17 +2912,14 @@ func TestCov3_HandlePlaybackRate_ExceedsMax(t *testing.T) {
 	}
 }
 
-// --- handlePlaybackStatus (with callback) ---
+// --- handlePlaybackStatus ---
 
-func TestCov3_HandlePlaybackStatus_WithCallback(t *testing.T) {
-	ws := &Server{getPlaybackStatus: func() *PlaybackStatusInfo {
-		return &PlaybackStatusInfo{
-			Mode:     "replay",
-			Paused:   true,
-			Rate:     2.5,
-			Seekable: true,
-		}
-	}}
+func TestCov3_HandlePlaybackStatus_WithProbe(t *testing.T) {
+	ws := &Server{
+		state:         newPipelineState(),
+		playbackProbe: stubPlaybackProbe{pos: PlaybackPosition{Paused: true, Rate: 2.5, Seekable: true}},
+	}
+	ws.setTestSourcePCAPReplaying()
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/status", nil)
 	w := httptest.NewRecorder()
 	ws.handlePlaybackStatus(w, req)
@@ -2931,18 +2928,26 @@ func TestCov3_HandlePlaybackStatus_WithCallback(t *testing.T) {
 	}
 	var body PlaybackStatusInfo
 	json.NewDecoder(w.Body).Decode(&body)
-	if body.Mode != "replay" {
-		t.Errorf("mode = %s, want replay", body.Mode)
+	if body.Mode != "pcap" {
+		t.Errorf("mode = %s, want pcap", body.Mode)
+	}
+	if !body.Paused || body.Rate != 2.5 || !body.Seekable {
+		t.Errorf("position not taken from probe: %+v", body)
 	}
 }
 
-func TestCov3_HandlePlaybackStatus_CallbackReturnsNil(t *testing.T) {
-	ws := &Server{getPlaybackStatus: func() *PlaybackStatusInfo { return nil }}
+func TestCov3_HandlePlaybackStatus_NoProbe(t *testing.T) {
+	ws := &Server{state: newPipelineState()}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/status", nil)
 	w := httptest.NewRecorder()
 	ws.handlePlaybackStatus(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	var body PlaybackStatusInfo
+	json.NewDecoder(w.Body).Decode(&body)
+	if body.Mode != "live" {
+		t.Errorf("mode = %s, want live", body.Mode)
 	}
 }
 

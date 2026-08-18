@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
@@ -271,5 +272,35 @@ func recoverOrphanedSweepsOnStart(sweepStore orphanedSweepRecoverer, logger *log
 		logger.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
 	} else if n > 0 {
 		logger.Printf("Recovered %d orphaned sweep(s) from previous run", n)
+	}
+}
+
+// visualiserPlaybackProbe adapts the visualiser gRPC server to the monitor
+// server's PlaybackProbe interface.
+//
+// The two packages describe the same replay position with structurally
+// identical types rather than a shared one: internal/lidar/server already
+// imports l9endpoints, so a shared type would need l9endpoints to import back.
+// Converting here — in the composition root that already knows both — keeps
+// that dependency edge one-way.
+type visualiserPlaybackProbe struct {
+	server *l9endpoints.Server
+}
+
+func (p visualiserPlaybackProbe) PlaybackPosition() server.PlaybackPosition {
+	if p.server == nil {
+		return server.PlaybackPosition{Rate: 1.0}
+	}
+	info := p.server.PlaybackPosition()
+	return server.PlaybackPosition{
+		Paused:       info.Paused,
+		Rate:         info.Rate,
+		Seekable:     info.Seekable,
+		CurrentFrame: info.CurrentFrame,
+		TotalFrames:  info.TotalFrames,
+		TimestampNs:  info.TimestampNs,
+		LogStartNs:   info.LogStartNs,
+		LogEndNs:     info.LogEndNs,
+		ReplayEpoch:  info.ReplayEpoch,
 	}
 }

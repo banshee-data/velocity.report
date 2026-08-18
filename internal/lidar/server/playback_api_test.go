@@ -27,79 +27,158 @@ func TestHandlePCAPStartSettleBeforeRecordingRequiresAnalysisMode(t *testing.T) 
 }
 
 // TestHandlePlaybackStatus tests the GET /api/lidar/playback/status endpoint.
+// stubPlaybackProbe supplies a fixed replay position.
+type stubPlaybackProbe struct{ pos PlaybackPosition }
+
+func (s stubPlaybackProbe) PlaybackPosition() PlaybackPosition { return s.pos }
+
+// TestHandlePlaybackStatus drives the handler from real server state.
+//
+// The previous version of this test stubbed the getPlaybackStatus callback,
+// which is why it passed while production was broken: no wiring ever set that
+// callback, so the handler always took the nil branch and reported a hardcoded
+// live status regardless of what was actually playing.
 func TestHandlePlaybackStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		method         string
-		getStatus      func() *PlaybackStatusInfo
-		expectedStatus int
-		checkResponse  func(t *testing.T, resp map[string]interface{})
+		name          string
+		setup         func(ws *Server)
+		checkResponse func(t *testing.T, resp map[string]interface{})
 	}{
 		{
-			name:           "GET without callback returns default live status",
-			method:         http.MethodGet,
-			getStatus:      nil,
-			expectedStatus: http.StatusOK,
+			name:  "idle server reports live",
+			setup: func(ws *Server) {},
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				if resp["mode"] != "live" {
-					t.Errorf("expected mode=live, got %v", resp["mode"])
-				}
-				if resp["seekable"].(bool) {
-					t.Error("expected seekable=false")
-				}
+				assertField(t, resp, "mode", "live")
+				assertField(t, resp, "replay_active", false)
+				assertField(t, resp, "recording", false)
+				assertField(t, resp, "seekable", false)
 			},
 		},
 		{
-			name:   "GET with callback returns callback status",
-			method: http.MethodGet,
-			getStatus: func() *PlaybackStatusInfo {
-				return &PlaybackStatusInfo{
-					Mode:         "vrlog",
-					Paused:       true,
-					Rate:         1.5,
-					Seekable:     true,
-					CurrentFrame: 100,
-					TotalFrames:  500,
-				}
-			},
-			expectedStatus: http.StatusOK,
+			name:  "VRLOG replay reports vrlog and its path",
+			setup: func(ws *Server) { ws.setSourceVRLog("/var/lib/velocity-report/vrlog/run-abc") },
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				if resp["mode"] != "vrlog" {
-					t.Errorf("expected mode=vrlog, got %v", resp["mode"])
-				}
-				if !resp["paused"].(bool) {
-					t.Error("expected paused=true")
-				}
-				if !resp["seekable"].(bool) {
-					t.Error("expected seekable=true")
-				}
+				assertField(t, resp, "mode", "vrlog")
+				assertField(t, resp, "replay_active", true)
+				assertField(t, resp, "vrlog_path", "/var/lib/velocity-report/vrlog/run-abc")
+			},
+		},
+		{
+			name:  "finished analysis replay reports pcap_analysis with the grid kept",
+			setup: func(ws *Server) { ws.setTestSourcePCAPAnalysis() },
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assertField(t, resp, "mode", "pcap_analysis")
+				assertField(t, resp, "replay_active", false)
+				assertField(t, resp, "grid_preserved", true)
+			},
+		},
+		{
+			name: "active recording reports its path and run",
+			setup: func(ws *Server) {
+				ws.setTestSourcePCAPAnalysisReplaying()
+				ws.setRecording("run-abc", "/data/vrlog/run-abc")
+				ws.setRecordingFrames(12)
+			},
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assertField(t, resp, "recording", true)
+				assertField(t, resp, "recording_path", "/data/vrlog/run-abc")
+				assertField(t, resp, "recording_run_id", "run-abc")
+				assertField(t, resp, "recording_frames", float64(12))
+			},
+		},
+		{
+			name: "settling pass is distinguishable from the recorded pass",
+			setup: func(ws *Server) {
+				ws.tryBeginPCAPReplay(ReplayConfig{AnalysisMode: true, SettleBeforeRecording: true})
+				ws.setReplayPass(ReplayPassSettling)
+			},
+			checkResponse: func(t *testing.T, resp map[string]interface{}) {
+				assertField(t, resp, "replay_pass", "settling")
+				assertField(t, resp, "replay_total_passes", float64(2))
+				assertField(t, resp, "recording", false)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ws := &Server{
-				getPlaybackStatus: tt.getStatus,
-			}
+			ws := &Server{state: newPipelineState()}
+			tt.setup(ws)
 
-			req := httptest.NewRequest(tt.method, "/api/lidar/playback/status", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/status", nil)
 			w := httptest.NewRecorder()
-
 			ws.handlePlaybackStatus(w, req)
 
-			if w.Code != tt.expectedStatus {
-				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected status %d, got %d", http.StatusOK, w.Code)
 			}
-
-			if tt.checkResponse != nil && w.Code == http.StatusOK {
-				var resp map[string]interface{}
-				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-					t.Fatalf("failed to decode response: %v", err)
-				}
-				tt.checkResponse(t, resp)
+			var resp map[string]interface{}
+			if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
 			}
+			tt.checkResponse(t, resp)
 		})
+	}
+}
+
+// TestHandlePlaybackStatusUsesProbeForPosition verifies that replay position is
+// pulled from the streaming layer rather than mirrored into server state.
+func TestHandlePlaybackStatusUsesProbeForPosition(t *testing.T) {
+	ws := &Server{
+		state: newPipelineState(),
+		playbackProbe: stubPlaybackProbe{pos: PlaybackPosition{
+			Paused:       true,
+			Rate:         1.5,
+			Seekable:     true,
+			CurrentFrame: 42,
+			TotalFrames:  500,
+			ReplayEpoch:  3,
+		}},
+	}
+	ws.setSourceVRLog("/var/lib/velocity-report/vrlog/run-abc")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/status", nil)
+	w := httptest.NewRecorder()
+	ws.handlePlaybackStatus(w, req)
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	assertField(t, resp, "mode", "vrlog")
+	assertField(t, resp, "paused", true)
+	assertField(t, resp, "seekable", true)
+	assertField(t, resp, "current_frame", float64(42))
+	assertField(t, resp, "total_frames", float64(500))
+	assertField(t, resp, "replay_epoch", float64(3))
+	assertField(t, resp, "rate", float64(1.5))
+}
+
+// TestHandlePlaybackStatusWithoutProbe verifies the handler still reports mode
+// truthfully when no streaming layer is attached.
+func TestHandlePlaybackStatusWithoutProbe(t *testing.T) {
+	ws := &Server{state: newPipelineState()}
+	ws.setSourceVRLog("/var/lib/velocity-report/vrlog/run-abc")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/status", nil)
+	w := httptest.NewRecorder()
+	ws.handlePlaybackStatus(w, req)
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	assertField(t, resp, "mode", "vrlog")
+	assertField(t, resp, "current_frame", float64(0))
+	assertField(t, resp, "rate", float64(1))
+}
+
+func assertField(t *testing.T, resp map[string]interface{}, key string, want interface{}) {
+	t.Helper()
+	if got, ok := resp[key]; !ok {
+		t.Errorf("response has no %q field", key)
+	} else if got != want {
+		t.Errorf("%s = %v (%T), want %v (%T)", key, got, got, want, want)
 	}
 }
 

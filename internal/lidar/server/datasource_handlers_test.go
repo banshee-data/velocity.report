@@ -550,8 +550,12 @@ func TestStartPCAPForSweep_AnalysisModeWithDB(t *testing.T) {
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 		OnPCAPStarted:     func() { pcapStarted = true },
 		OnPCAPStopped:     func() {},
-		OnRecordingStart:  func(runID string) { recordedRunID = runID; recordingStarted = true },
-		OnRecordingStop:   func(_ string) string { recordingStopped = true; return "" },
+		OnRecordingStart: func(runID string) string {
+			recordedRunID = runID
+			recordingStarted = true
+			return "/tmp/recorded.vrlog"
+		},
+		OnRecordingStop: func(_ string) string { recordingStopped = true; return "" },
 	})
 	ws.setBaseContext(context.Background())
 
@@ -881,7 +885,7 @@ func TestStartPCAPForSweep_DisableRecording(t *testing.T) {
 		PCAPSafeDir:       tmpDir,
 		DB:                dbWrapped,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-		OnRecordingStart:  func(_ string) { recordingStartCalled = true },
+		OnRecordingStart:  func(_ string) string { recordingStartCalled = true; return "" },
 	})
 	ws.setBaseContext(context.Background())
 
@@ -986,8 +990,9 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 		Parser:          parser,
 		PacketForwarder: fwd,
 		OnPCAPStarted:   func() {},
-		OnRecordingStart: func(_ string) {
+		OnRecordingStart: func(_ string) string {
 			recordingStartCalled = true
+			return "/tmp/test.vrlog"
 		},
 		OnRecordingStop: func(_ string) string {
 			recordingStopCalled = true

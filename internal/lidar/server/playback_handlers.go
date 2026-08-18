@@ -397,28 +397,47 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 
 // handlePlaybackStatus returns the current playback state.
 // GET /api/lidar/playback/status
+//
+// Mode and recording come from the server's own state; only the fast-moving
+// replay position is pulled from the streaming layer. The handler this replaced
+// was driven by an optional callback that no production wiring ever set, so it
+// always took the nil branch and reported a hardcoded live status — including
+// throughout a VRLOG replay.
 func (ws *Server) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
-	if ws.getPlaybackStatus == nil {
-		// Return default live status when no playback callback is configured
-		status := &PlaybackStatusInfo{
-			Mode:     "live",
-			Paused:   false,
-			Rate:     1.0,
-			Seekable: false,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(status)
-		return
+	state := ws.PipelineState()
+
+	var position PlaybackPosition
+	if ws.playbackProbe != nil {
+		position = ws.playbackProbe.PlaybackPosition()
 	}
 
-	status := ws.getPlaybackStatus()
-	if status == nil {
-		status = &PlaybackStatusInfo{
-			Mode:     "live",
-			Paused:   false,
-			Rate:     1.0,
-			Seekable: false,
-		}
+	status := &PlaybackStatusInfo{
+		Mode:         state.DataSourceWire(),
+		Paused:       position.Paused,
+		Rate:         position.Rate,
+		Seekable:     position.Seekable,
+		CurrentFrame: position.CurrentFrame,
+		TotalFrames:  position.TotalFrames,
+		TimestampNs:  position.TimestampNs,
+		LogStartNs:   position.LogStartNs,
+		LogEndNs:     position.LogEndNs,
+		ReplayEpoch:  position.ReplayEpoch,
+
+		ReplayActive:      state.ReplayActive,
+		ReplayPass:        state.Pass,
+		ReplayTotalPasses: state.TotalPasses,
+		GridPreserved:     state.GridPreserved,
+
+		Recording:       state.Recording,
+		RecordingPath:   state.RecordingPath,
+		RecordingRunID:  state.RecordingRunID,
+		RecordingFrames: state.RecordingFrames,
+	}
+	if state.Source == SourceModeVRLog {
+		status.VRLogPath = state.SourcePath
+	}
+	if status.Rate == 0 {
+		status.Rate = 1.0
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -594,6 +613,10 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		frameEncoding = "unknown"
 	}
 
+	// Record the source. Without this the data-source surfaces kept reporting
+	// whatever preceded the replay — usually "live" — for its whole duration.
+	ws.setSourceVRLog(vrlogPath)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":        true,
@@ -612,8 +635,13 @@ func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
 
 	ws.onVRLogStop()
 
+	// Returning to live keeps whatever grid the pipeline already had: VRLOG
+	// replay streams recorded frames and never rebuilt it.
+	ws.setSourceLive(ws.PipelineState().GridPreserved)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
+		"success":        true,
+		"current_source": ws.PipelineState().DataSourceWire(),
 	})
 }

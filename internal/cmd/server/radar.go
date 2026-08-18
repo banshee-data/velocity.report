@@ -731,11 +731,12 @@ func Main(args []string) int {
 				}
 			},
 			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
+			PlaybackProbe:    visualiserPlaybackProbe{server: visualiserServer},
 			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
-			OnRecordingStart: func(runID string) {
+			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
-					return
+					return ""
 				}
 				vrlogRecorderMu.Lock()
 				defer vrlogRecorderMu.Unlock()
@@ -750,16 +751,16 @@ func Main(args []string) int {
 				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				if err := os.MkdirAll(baseDir, 0755); err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				recordPath := filepath.Join(baseDir, runID)
 				rec := newVRLogRecorderOrLog(recorder.NewRecorder, recordPath, lidarSensorID, log.Printf)
 				if rec == nil {
-					return
+					return ""
 				}
 
 				applyRecordingMetadata(rec, lidarDB, lidarServer, runID, tuningHash, log.Default())
@@ -768,6 +769,7 @@ func Main(args []string) int {
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
 				log.Printf("[Visualiser] VRLOG recording started: %s", vrlogRecorderPath)
+				return vrlogRecorderPath
 			},
 			OnRecordingStop: func(runID string) string {
 				if visualiserPublisher == nil {

@@ -292,3 +292,16 @@ func (ws *Server) setRecording(runID, path string) {
 func (ws *Server) clearRecording() {
 	ws.mutateState(func(s *PipelineState) { s.Recording = false })
 }
+
+// setSourceVRLog records that a VRLOG replay is driving the visualiser stream.
+func (ws *Server) setSourceVRLog(path string) {
+	ws.mutateState(func(s *PipelineState) {
+		s.Source = SourceModeVRLog
+		s.SourcePath = path
+		s.ReplayActive = true
+		s.Pass = ReplayPassNone
+		s.TotalPasses = 1
+		s.CurrentPacket = 0
+		s.TotalPackets = 0
+	})
+}

@@ -398,8 +398,9 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 		PCAPSafeDir: tmpDir,
 		DB:          dbWrapped,
 		Parser:      &mockTimestampParser{},
-		OnRecordingStart: func(string) {
+		OnRecordingStart: func(string) string {
 			events = append(events, "recording-start")
+			return "/tmp/events.vrlog"
 		},
 		OnRecordingStop: func(string) string {
 			events = append(events, "recording-stop")
@@ -685,7 +686,7 @@ func TestStartPCAPLocked_AnalysisMode_CompleteAndVRLogUpdateErrors(t *testing.T)
 		SensorID:         sensorID,
 		PCAPSafeDir:      tmpDir,
 		DB:               dbWrapped,
-		OnRecordingStart: func(string) {},
+		OnRecordingStart: func(string) string { return "/tmp/test.vrlog" },
 		OnRecordingStop:  func(string) string { return "/tmp/test.vrlog" },
 	})
 	ws.setBaseContext(context.Background())
