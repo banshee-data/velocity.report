@@ -826,6 +826,15 @@ func Main(args []string) int {
 				}
 			},
 		})
+		// Let the streaming layer read the source mode from its single owner
+		// rather than keeping a second copy that can drift out of agreement.
+		if visualiserServer != nil {
+			srv := lidarServer
+			visualiserServer.SetSourceModeProvider(func() (string, bool) {
+				state := srv.PipelineState()
+				return state.DataSourceWire(), state.Recording
+			})
+		}
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
 			lidarServer.SetTracker(tracker)

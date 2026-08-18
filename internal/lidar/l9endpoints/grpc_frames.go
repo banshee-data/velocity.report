@@ -213,6 +213,8 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
 			TotalFrames:       frame.PlaybackInfo.TotalFrames,
 			Seekable:          frame.PlaybackInfo.Seekable,
+			SourceMode:        sourceModeToProto(frame.PlaybackInfo.SourceMode),
+			Recording:         frame.PlaybackInfo.Recording,
 			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
 		}
 	}
@@ -249,4 +251,22 @@ func byteSliceToUint32(b []uint8) []uint32 {
 		result[i] = uint32(v)
 	}
 	return result
+}
+
+// sourceModeToProto maps the canonical source-mode token to its wire enum.
+// An unrecognised or empty token yields SOURCE_MODE_UNSPECIFIED, which tells
+// the client to fall back to inferring the mode from is_live and seekable.
+func sourceModeToProto(mode string) pb.SourceMode {
+	switch mode {
+	case "live":
+		return pb.SourceMode_SOURCE_MODE_LIVE
+	case "pcap":
+		return pb.SourceMode_SOURCE_MODE_PCAP
+	case "pcap_analysis":
+		return pb.SourceMode_SOURCE_MODE_PCAP_ANALYSIS
+	case "vrlog":
+		return pb.SourceMode_SOURCE_MODE_VRLOG
+	default:
+		return pb.SourceMode_SOURCE_MODE_UNSPECIFIED
+	}
 }
