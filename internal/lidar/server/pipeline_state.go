@@ -121,6 +121,16 @@ func (s PipelineState) AnalysisMode() bool {
 	return s.Source == SourceModePCAP && s.GridPreserved
 }
 
+// PCAPFile returns the active PCAP path, or empty when the source is not a
+// PCAP. Matches the legacy currentPCAPFile field, which was cleared whenever
+// the pipeline returned to live input.
+func (s PipelineState) PCAPFile() string {
+	if s.Source != SourceModePCAP {
+		return ""
+	}
+	return s.SourcePath
+}
+
 // StatusLabel renders the human-readable mode shown on the HTML status page.
 func (s PipelineState) StatusLabel() string {
 	switch {
@@ -168,4 +178,117 @@ func (ws *Server) setRecordingFrames(n uint64) {
 // setReplayPass records which pass of a multi-pass replay is running.
 func (ws *Server) setReplayPass(p ReplayPass) {
 	ws.mutateState(func(s *PipelineState) { s.Pass = p })
+}
+
+// setLiveListenerRunning records whether the live UDP listener is accepting
+// packets. Exposed on the status surfaces so an operator can tell "live input"
+// from "nothing is being ingested".
+func (ws *Server) setLiveListenerRunning(running bool) {
+	ws.mutateState(func(s *PipelineState) { s.LiveListenerRunning = running })
+}
+
+// tryBeginPCAPReplay atomically claims the replay slot for a PCAP replay,
+// returning false if a replay is already running.
+//
+// The claim has to be a compare-and-set on the same lock that publishes the
+// state: a caller that checked and then set separately could race a second
+// start request into a half-configured replay.
+func (ws *Server) tryBeginPCAPReplay(cfg ReplayConfig) bool {
+	totalPasses := 1
+	if cfg.SettleBeforeRecording {
+		totalPasses = 2
+	}
+
+	ws.stateMu.Lock()
+	defer ws.stateMu.Unlock()
+	if ws.state.ReplayActive {
+		return false
+	}
+	ws.state.Source = SourceModePCAP
+	ws.state.ReplayActive = true
+	ws.state.GridPreserved = cfg.AnalysisMode
+	ws.state.TotalPasses = totalPasses
+	ws.state.Pass = ReplayPassNone
+	ws.state.SpeedMode = ""
+	ws.state.SpeedRatio = 0
+	ws.state.LastRunID = ""
+	ws.state.CurrentPacket = 0
+	ws.state.TotalPackets = 0
+	return true
+}
+
+// abandonReplayStart releases the replay slot claimed by tryBeginPCAPReplay
+// when startup fails before the replay goroutine is launched.
+func (ws *Server) abandonReplayStart() {
+	ws.mutateState(func(s *PipelineState) {
+		s.ReplayActive = false
+		s.GridPreserved = false
+		s.TotalPasses = 1
+		s.Pass = ReplayPassNone
+		s.SpeedMode = ""
+		s.SpeedRatio = 0
+		s.LastRunID = ""
+	})
+}
+
+// markReplayRunning records the pacing and provenance of a replay that has
+// been successfully launched.
+func (ws *Server) markReplayRunning(path, speedMode string, speedRatio float64, runID string) {
+	ws.mutateState(func(s *PipelineState) {
+		s.SourcePath = path
+		s.SpeedMode = speedMode
+		s.SpeedRatio = speedRatio
+		s.LastRunID = runID
+	})
+}
+
+// endReplay records that the active replay has stopped. gridPreserved carries
+// whether the background grid is being retained for inspection, which is what
+// makes the difference between the pcap and pcap_analysis wire tokens.
+func (ws *Server) endReplay(gridPreserved bool) {
+	ws.mutateState(func(s *PipelineState) {
+		s.ReplayActive = false
+		s.GridPreserved = gridPreserved
+		s.Pass = ReplayPassNone
+		s.TotalPasses = 1
+		s.SpeedMode = ""
+		s.SpeedRatio = 0
+		s.Recording = false
+	})
+}
+
+// setSourceLive returns the pipeline to live input. gridPreserved records
+// whether the background grid built by a previous replay is being kept, which
+// resume-live does and stop-PCAP does not.
+func (ws *Server) setSourceLive(gridPreserved bool) {
+	ws.mutateState(func(s *PipelineState) {
+		s.Source = SourceModeLive
+		s.SourcePath = ""
+		s.ReplayActive = false
+		s.GridPreserved = gridPreserved
+		s.Pass = ReplayPassNone
+		s.TotalPasses = 1
+		s.SpeedMode = ""
+		s.SpeedRatio = 0
+		s.CurrentPacket = 0
+		s.TotalPackets = 0
+	})
+}
+
+// setRecording records that a VRLOG recorder is attached, along with where it
+// is writing. Previously this lived only as a closure local in the radar
+// command and a bool inside the replay goroutine, so no surface could report it.
+func (ws *Server) setRecording(runID, path string) {
+	ws.mutateState(func(s *PipelineState) {
+		s.Recording = true
+		s.RecordingRunID = runID
+		s.RecordingPath = path
+		s.RecordingFrames = 0
+	})
+}
+
+// clearRecording records that the VRLOG recorder has been detached. The path
+// is retained so a caller polling after completion can still see what was written.
+func (ws *Server) clearRecording() {
+	ws.mutateState(func(s *PipelineState) { s.Recording = false })
 }

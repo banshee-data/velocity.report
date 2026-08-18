@@ -3515,7 +3515,7 @@ func TestServer_HandlePCAPResumeLive_Success(t *testing.T) {
 
 	// Set up data source manager in analysis mode (which allows resume)
 	server.dataSourceMu.Lock()
-	server.currentSource = DataSourcePCAPAnalysis
+	server.setTestSourcePCAPAnalysis()
 	server.dataSourceMu.Unlock()
 
 	// Test resume live
@@ -4641,7 +4641,7 @@ func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
 	srv := NewServer(config)
 	// Skip automatic listener startup so Start() proceeds straight to
 	// the HTTP goroutine and blocks on <-ctx.Done().
-	srv.currentSource = DataSourcePCAP
+	srv.setTestSourcePCAPReplaying()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
@@ -4699,7 +4699,7 @@ func TestStart_ShutdownForceClose(t *testing.T) {
 		Stats:   NewPacketStats(),
 	}
 	srv := NewServer(config)
-	srv.currentSource = DataSourcePCAP
+	srv.setTestSourcePCAPReplaying()
 
 	// Replace the handler with one that blocks until told to stop.
 	unblock := make(chan struct{})

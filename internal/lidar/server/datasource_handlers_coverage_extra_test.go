@@ -320,9 +320,6 @@ func TestStartPCAPLocked_AnalysisMode_CountErrorProgressAndDroppedFrames(t *test
 		progressCurrent = current
 		progressTotal = total
 	}
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLockedWithConfig("analysis-seams.pcap", ReplayConfig{
 		AnalysisMode:     true,
@@ -410,9 +407,6 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 		},
 	})
 	ws.setBaseContext(context.Background())
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLockedWithConfig("two-pass.pcap", ReplayConfig{
 		AnalysisMode:          true,
@@ -500,9 +494,6 @@ func TestStartPCAPLocked_RealtimePlotsSuccessAndStopped(t *testing.T) {
 		timestamps[0] = startNs
 		timestamps[1] = endNs
 	}
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLockedWithConfig("realtime-success.pcap", ReplayConfig{
 		SpeedMode:    "scaled",
@@ -555,9 +546,6 @@ func TestStartPCAPLocked_RealtimePlotGenerateError(t *testing.T) {
 	defer stopLiveListenerIfRunning(ws)
 
 	ws.setBaseContext(context.Background())
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	readPCAPFileRealtime = func(
 		_ context.Context,
@@ -640,9 +628,6 @@ func TestStartPCAPLocked_AnalysisMode_FailRunError(t *testing.T) {
 		DB:          dbWrapped,
 	})
 	ws.setBaseContext(context.Background())
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLockedWithConfig("analysis-failrun.pcap", ReplayConfig{
 		AnalysisMode:     true,
@@ -704,9 +689,6 @@ func TestStartPCAPLocked_AnalysisMode_CompleteAndVRLogUpdateErrors(t *testing.T)
 		OnRecordingStop:  func(string) string { return "/tmp/test.vrlog" },
 	})
 	ws.setBaseContext(context.Background())
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLockedWithConfig("analysis-complete.pcap", ReplayConfig{
 		AnalysisMode:   true,
@@ -763,9 +745,6 @@ func TestStartPCAPLocked_NonAnalysis_ResetStateErrorAndStopped(t *testing.T) {
 	defer stopLiveListenerIfRunning(ws)
 
 	ws.setBaseContext(context.Background())
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLocked("reset-state-error.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
 	if err != nil {
@@ -818,9 +797,6 @@ func TestStartPCAPLocked_NonAnalysis_StartLiveListenerError(t *testing.T) {
 	}
 
 	ws.setBaseContext(context.Background())
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLocked("start-live-error.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
 	if err != nil {

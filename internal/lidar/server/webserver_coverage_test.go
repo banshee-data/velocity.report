@@ -222,8 +222,8 @@ func TestCov_HandlePCAPStop_WrongSensorID(t *testing.T) {
 
 func TestCov_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 	ws := &Server{
-		sensorID:      "sensor-1",
-		currentSource: DataSourceLive,
+		sensorID: "sensor-1",
+		state:    PipelineState{Source: SourceModeLive, TotalPasses: 1},
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop?sensor_id=sensor-1", nil)
@@ -237,9 +237,8 @@ func TestCov_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 
 func TestCov_HandlePCAPStop_NoPCAPInProgress(t *testing.T) {
 	ws := &Server{
-		sensorID:       "sensor-1",
-		currentSource:  DataSourcePCAP,
-		pcapInProgress: false,
+		sensorID: "sensor-1",
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: false, TotalPasses: 1},
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop?sensor_id=sensor-1", nil)
@@ -253,8 +252,8 @@ func TestCov_HandlePCAPStop_NoPCAPInProgress(t *testing.T) {
 
 func TestCov_HandlePCAPStop_SensorIDFromFormValue(t *testing.T) {
 	ws := &Server{
-		sensorID:      "sensor-1",
-		currentSource: DataSourceLive,
+		sensorID: "sensor-1",
+		state:    PipelineState{Source: SourceModeLive, TotalPasses: 1},
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop", nil)
@@ -1249,7 +1248,7 @@ func TestCov2_HandlePCAPStart_FormDataWithFields(t *testing.T) {
 }
 
 func TestCov2_HandlePCAPStart_AlreadyActive(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor", currentSource: DataSourcePCAP}
+	ws := &Server{sensorID: "test-sensor", state: PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1}}
 	body, _ := json.Marshal(map[string]string{"pcap_file": "/tmp/test.pcap"})
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=test-sensor", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -2345,7 +2344,7 @@ func TestCov3_HandlePCAPStop_MissingSensorID(t *testing.T) {
 
 func TestCov3_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 	ws := &Server{sensorID: "cov3-stop-live"}
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-stop-live", nil)
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
@@ -2356,8 +2355,8 @@ func TestCov3_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 
 func TestCov3_HandlePCAPStop_NoReplayInProgress(t *testing.T) {
 	ws := &Server{sensorID: "cov3-stop-norep"}
-	ws.currentSource = DataSourcePCAP
-	ws.pcapInProgress = false
+	ws.setTestSourcePCAPReplaying()
+	ws.mutateState(func(s *PipelineState) { s.ReplayActive = false })
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-stop-norep", nil)
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
@@ -2368,7 +2367,7 @@ func TestCov3_HandlePCAPStop_NoReplayInProgress(t *testing.T) {
 
 func TestCov3_HandlePCAPStop_FormSensorID(t *testing.T) {
 	ws := &Server{sensorID: "cov3-stop-form"}
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	form := strings.NewReader("sensor_id=cov3-stop-form")
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -2394,7 +2393,7 @@ func TestCov3_HandlePCAPResumeLive_WrongSensorID(t *testing.T) {
 
 func TestCov3_HandlePCAPResumeLive_NotInAnalysisMode(t *testing.T) {
 	ws := &Server{sensorID: "cov3-resume-notpcap"}
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=cov3-resume-notpcap", nil)
 	w := httptest.NewRecorder()
 	ws.handlePCAPResumeLive(w, req)
@@ -2405,7 +2404,7 @@ func TestCov3_HandlePCAPResumeLive_NotInAnalysisMode(t *testing.T) {
 
 func TestCov3_HandlePCAPResumeLive_FormValueSensorID(t *testing.T) {
 	ws := &Server{sensorID: "cov3-resume-form"}
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	form := strings.NewReader("sensor_id=cov3-resume-form")
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -2951,8 +2950,8 @@ func TestCov3_HandlePlaybackStatus_CallbackReturnsNil(t *testing.T) {
 
 func TestCov3_HandleDataSource_GET(t *testing.T) {
 	ws := &Server{
-		sensorID:      "cov3-ds",
-		currentSource: DataSourcePCAP,
+		sensorID: "cov3-ds",
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source", nil)
 	w := httptest.NewRecorder()
@@ -2983,9 +2982,9 @@ func TestCov3_HandleSweepDashboard(t *testing.T) {
 
 func TestCov3_HandleLidarStatus_GET(t *testing.T) {
 	ws := &Server{
-		sensorID:      "cov3-status",
-		stats:         NewPacketStats(),
-		currentSource: DataSourceLive,
+		sensorID: "cov3-status",
+		stats:    NewPacketStats(),
+		state:    PipelineState{Source: SourceModeLive, TotalPasses: 1},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/status", nil)
 	w := httptest.NewRecorder()
@@ -3012,10 +3011,10 @@ func TestCov3_HandleHealth(t *testing.T) {
 func TestCov3_Start_ContextCancel(t *testing.T) {
 	mux := http.NewServeMux()
 	ws := &Server{
-		sensorID:      "cov3-start",
-		stats:         NewPacketStats(),
-		currentSource: DataSourcePCAP, // Skip live listener start
-		server:        &http.Server{Addr: "127.0.0.1:0", Handler: mux},
+		sensorID: "cov3-start",
+		stats:    NewPacketStats(),
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1}, // Skip live listener start
+		server:   &http.Server{Addr: "127.0.0.1:0", Handler: mux},
 	}
 	ws.RegisterRoutes(mux)
 
@@ -3088,10 +3087,10 @@ func TestCov3_HandlePCAPStart_JSONWithAllFields(t *testing.T) {
 	os.WriteFile(pcapPath, []byte("fake pcap data"), 0o644)
 
 	ws := &Server{
-		sensorID:      "cov3-pcapstart",
-		currentSource: DataSourceLive,
-		pcapSafeDir:   dir,
-		stats:         NewPacketStats(),
+		sensorID:    "cov3-pcapstart",
+		state:       PipelineState{Source: SourceModeLive, TotalPasses: 1},
+		pcapSafeDir: dir,
+		stats:       NewPacketStats(),
 	}
 
 	body := fmt.Sprintf(`{
@@ -3120,10 +3119,10 @@ func TestCov3_HandlePCAPStart_JSONWithAllFields(t *testing.T) {
 
 func TestCov3_HandlePCAPStart_FormDataWithDebugParams(t *testing.T) {
 	ws := &Server{
-		sensorID:      "cov3-pcapstart-form",
-		currentSource: DataSourceLive,
-		pcapSafeDir:   "/tmp",
-		stats:         NewPacketStats(),
+		sensorID:    "cov3-pcapstart-form",
+		state:       PipelineState{Source: SourceModeLive, TotalPasses: 1},
+		pcapSafeDir: "/tmp",
+		stats:       NewPacketStats(),
 	}
 
 	form := strings.NewReader("pcap_file=test.pcap&speed_mode=analysis&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
@@ -3139,10 +3138,10 @@ func TestCov3_HandlePCAPStart_FormDataWithDebugParams(t *testing.T) {
 
 func TestCov3_HandlePCAPStart_FormDefaults(t *testing.T) {
 	ws := &Server{
-		sensorID:      "cov3-pcapstart-def",
-		currentSource: DataSourceLive,
-		pcapSafeDir:   "/tmp",
-		stats:         NewPacketStats(),
+		sensorID:    "cov3-pcapstart-def",
+		state:       PipelineState{Source: SourceModeLive, TotalPasses: 1},
+		pcapSafeDir: "/tmp",
+		stats:       NewPacketStats(),
 	}
 
 	form := strings.NewReader("pcap_file=test.pcap")
@@ -3312,9 +3311,9 @@ func TestCov3_StartPCAPLocked_AlreadyInProgress(t *testing.T) {
 	defer cancel()
 
 	ws := &Server{
-		sensorID:       "cov3-spcap-dup",
-		pcapSafeDir:    dir,
-		pcapInProgress: true,
+		sensorID:    "cov3-spcap-dup",
+		pcapSafeDir: dir,
+		state:       PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
 	}
 	ws.setBaseContext(ctx)
 
@@ -3558,11 +3557,11 @@ func TestCov3_HandlePCAPStop_InProgressV2(t *testing.T) {
 	close(done) // immediately done
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
 	ws.pcapMu.Unlock()
@@ -3590,14 +3589,14 @@ func TestCov3_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	close(done)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
-	ws.pcapAnalysisMode = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-analysis", nil)
@@ -3618,7 +3617,7 @@ func TestCov3_HandlePCAPStop_LiveSourceConflict(t *testing.T) {
 	ws.sensorID = "cov3-pcapstop-live2"
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-live2", nil)
@@ -3634,11 +3633,11 @@ func TestCov3_HandlePCAPStop_NotInProgress(t *testing.T) {
 	ws.sensorID = "cov3-pcapstop-noprog"
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = false
+	ws.mutateState(func(s *PipelineState) { s.ReplayActive = false })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-noprog", nil)
@@ -3656,7 +3655,7 @@ func TestCov3_HandlePCAPResumeLive_LiveConflict(t *testing.T) {
 	ws.sensorID = "cov3-resume-notanalysis2"
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=cov3-resume-notanalysis2", nil)
@@ -3923,7 +3922,7 @@ func TestCov3_HandlePCAPStop_FormValueSensorID(t *testing.T) {
 	ws := &Server{sensorID: "form-sensor"}
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	ws.dataSourceMu.Unlock()
 
 	form := strings.NewReader("sensor_id=form-sensor")
@@ -4499,7 +4498,7 @@ func TestCov4_HandleTracksChart_WithData(t *testing.T) {
 func TestCov4_HandleDataSource_Success(t *testing.T) {
 	ws := setupCov4Server(t)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data-source", nil)
@@ -4681,11 +4680,11 @@ func TestCov5_HandlePCAPStop_NotInProgress(t *testing.T) {
 	ws, _ := setupCov5Server(t, sid)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = false
+	ws.mutateState(func(s *PipelineState) { s.ReplayActive = false })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -4708,7 +4707,7 @@ func TestCov5_HandlePCAPStop_WithCancelAndDone(t *testing.T) {
 	ws.setBaseContext(ctx)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	// Set up a fake PCAP in progress with already-closed done channel
@@ -4717,7 +4716,7 @@ func TestCov5_HandlePCAPStop_WithCancelAndDone(t *testing.T) {
 	pcapCancel := func() {} // no-op cancel
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
 	ws.pcapMu.Unlock()
@@ -4742,17 +4741,17 @@ func TestCov5_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	ws.setBaseContext(ctx)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	done := make(chan struct{})
 	close(done)
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = func() {}
 	ws.pcapDone = done
-	ws.pcapAnalysisMode = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -4775,7 +4774,7 @@ func TestCov5_HandlePCAPResumeLive_AnalysisMode(t *testing.T) {
 	ws.setBaseContext(ctx)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id="+sid, nil)
@@ -4794,7 +4793,7 @@ func TestCov5_HandlePCAPResumeLive_NotAnalysis(t *testing.T) {
 	ws, _ := setupCov5Server(t, sid)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourceLive
+	ws.setTestSourceLive()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id="+sid, nil)
@@ -5400,17 +5399,17 @@ func TestCov6_HandlePCAPStop_AnalysisModePreservesGrid(t *testing.T) {
 	l2frames.RegisterFrameBuilder(sid, fb)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	done := make(chan struct{})
 	close(done)
 
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapCancel = func() {}
 	ws.pcapDone = done
-	ws.pcapAnalysisMode = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -5582,7 +5581,7 @@ func TestCov6_HandlePCAPResumeLive_StartListenerError(t *testing.T) {
 	ws.setBaseContext(ctx)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id="+sid, nil)
@@ -6139,9 +6138,8 @@ func TestWithDB_WithDatabase(t *testing.T) {
 // wait_for_done long-poll path falls through when no PCAP replay is active.
 func TestHandleDataSource_WaitForDone_NotInProgress(t *testing.T) {
 	ws := &Server{
-		sensorID:       "ds-test",
-		currentSource:  DataSourceLive,
-		pcapInProgress: false,
+		sensorID: "ds-test",
+		state:    PipelineState{Source: SourceModeLive, TotalPasses: 1},
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source?wait_for_done=true", nil)
@@ -6158,10 +6156,9 @@ func TestHandleDataSource_WaitForDone_NotInProgress(t *testing.T) {
 func TestHandleDataSource_WaitForDone_PCapFinishes(t *testing.T) {
 	done := make(chan struct{})
 	ws := &Server{
-		sensorID:       "ds-test",
-		currentSource:  DataSourcePCAP,
-		pcapInProgress: true,
-		pcapDone:       done,
+		sensorID: "ds-test",
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		pcapDone: done,
 	}
 
 	// Close done channel immediately so the select unblocks.
@@ -6180,10 +6177,9 @@ func TestHandleDataSource_WaitForDone_PCapFinishes(t *testing.T) {
 // returns when the request context is cancelled while waiting for PCAP.
 func TestHandleDataSource_WaitForDone_ContextCancelled(t *testing.T) {
 	ws := &Server{
-		sensorID:       "ds-test",
-		currentSource:  DataSourcePCAP,
-		pcapInProgress: true,
-		pcapDone:       make(chan struct{}), // never closed
+		sensorID: "ds-test",
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		pcapDone: make(chan struct{}), // never closed
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

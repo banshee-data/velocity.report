@@ -174,10 +174,10 @@ func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 
 	ws := &Server{sensorID: sensorID}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
@@ -194,10 +194,10 @@ func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 func TestPlayback_HandlePCAPStop_StartLiveListenerError(t *testing.T) {
 	ws := &Server{sensorID: "sensor-stop-start-listener-error"}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
@@ -223,10 +223,10 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 	}
 	ws.setBaseContext(baseCtx)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
@@ -250,7 +250,7 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 func TestPlayback_HandlePCAPResumeLive_StartListenerError(t *testing.T) {
 	ws := &Server{sensorID: "sensor-resume-error"}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=sensor-resume-error", nil)
@@ -274,7 +274,7 @@ func TestPlayback_HandlePCAPResumeLive_OnStoppedCallback(t *testing.T) {
 	}
 	ws.setBaseContext(baseCtx)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=sensor-resume-callback", nil)
