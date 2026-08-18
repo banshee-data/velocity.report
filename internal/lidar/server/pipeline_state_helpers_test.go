@@ -15,7 +15,7 @@ func (ws *Server) setTestSourceLive() {
 
 // setTestSourcePCAPReplaying places the server mid-PCAP-replay.
 func (ws *Server) setTestSourcePCAPReplaying() {
-	ws.mutateState(func(s *PipelineState) {
+	ws.mutateState("test", func(s *PipelineState) {
 		s.Source = SourceModePCAP
 		s.ReplayActive = true
 		s.GridPreserved = false
@@ -26,7 +26,7 @@ func (ws *Server) setTestSourcePCAPReplaying() {
 
 // setTestSourcePCAPAnalysisReplaying places the server mid-replay in analysis mode.
 func (ws *Server) setTestSourcePCAPAnalysisReplaying() {
-	ws.mutateState(func(s *PipelineState) {
+	ws.mutateState("test", func(s *PipelineState) {
 		s.Source = SourceModePCAP
 		s.ReplayActive = true
 		s.GridPreserved = true
@@ -39,7 +39,7 @@ func (ws *Server) setTestSourcePCAPAnalysisReplaying() {
 // the replay has finished and the grid is retained. This is what the
 // pcap_analysis wire token describes.
 func (ws *Server) setTestSourcePCAPAnalysis() {
-	ws.mutateState(func(s *PipelineState) {
+	ws.mutateState("test", func(s *PipelineState) {
 		s.Source = SourceModePCAP
 		s.ReplayActive = false
 		s.GridPreserved = true
@@ -50,5 +50,5 @@ func (ws *Server) setTestSourcePCAPAnalysis() {
 
 // setTestPCAPFile records the active source path.
 func (ws *Server) setTestPCAPFile(path string) {
-	ws.mutateState(func(s *PipelineState) { s.SourcePath = path })
+	ws.mutateState("test", func(s *PipelineState) { s.SourcePath = path })
 }

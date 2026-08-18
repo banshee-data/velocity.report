@@ -89,7 +89,7 @@ func TestHandlePlaybackStatus(t *testing.T) {
 		{
 			name: "settling pass is distinguishable from the recorded pass",
 			setup: func(ws *Server) {
-				ws.tryBeginPCAPReplay(ReplayConfig{AnalysisMode: true, SettleBeforeRecording: true})
+				_, _ = ws.tryBeginPCAPReplay(ReplayConfig{AnalysisMode: true, SettleBeforeRecording: true})
 				ws.setReplayPass(ReplayPassSettling)
 			},
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
