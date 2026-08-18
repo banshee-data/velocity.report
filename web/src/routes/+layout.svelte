@@ -127,12 +127,11 @@
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
 		<hr class="border-surface-300 my-2" aria-hidden="true" />
 		<NavItem
-			text="Git repo docs"
+			text="Docs"
 			icon={mdiBookOpenPageVariantOutline}
 			path={docsUrl}
 			currentUrl={page.url}
 		/>
-		<NavItem text="Homepage (offline)" icon={mdiHome} path={publicHTMLUrl} currentUrl={page.url} />
 	</nav>
 
 	<AppBar title="velocity.report">
