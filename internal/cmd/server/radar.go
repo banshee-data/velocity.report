@@ -830,6 +830,20 @@ func Main(args []string) int {
 				}
 			},
 		})
+		// A VRLOG that plays to its end returns the pipeline to live by itself.
+		// Nothing else observes the end, so without this the recording stayed
+		// the data source indefinitely: the live listener was never restarted,
+		// plugging the sensor back in produced nothing, and the replay slot
+		// stayed claimed so no new replay could start.
+		if visualiserPublisher != nil {
+			srv := lidarServer
+			visualiserPublisher.SetOnReplayEnded(func() {
+				if err := srv.ReturnToLive("VRLOG replay reached the end of its recording"); err != nil {
+					log.Printf("[Visualiser] Failed to return to live after VRLOG replay ended: %v", err)
+				}
+			})
+		}
+
 		// Let the streaming layer read the source mode from its single owner
 		// rather than keeping a second copy that can drift out of agreement.
 		if visualiserServer != nil {

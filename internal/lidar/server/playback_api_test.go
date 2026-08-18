@@ -506,7 +506,7 @@ func TestHandleVRLogStop(t *testing.T) {
 			name:           "POST without callback returns not implemented",
 			method:         http.MethodPost,
 			onStop:         nil,
-			expectedStatus: http.StatusNotImplemented,
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "POST with callback succeeds",

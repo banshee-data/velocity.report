@@ -306,11 +306,18 @@ func (p *Publisher) vrlogReplayLoop() {
 				// so the client can Seek(0) + Play() to restart.
 				diagf("[Visualiser] VRLOG replay complete — pausing at end")
 				p.vrlogMu.Lock()
+				alreadyAtEnd := p.vrlogPaused
 				p.vrlogPaused = true
 				if p.vrlogReader != nil {
 					p.vrlogReader.SetPaused(true)
 				}
 				p.vrlogMu.Unlock()
+				// Announce the end once per arrival, not on every loop
+				// iteration while parked here, so the owner can restore live
+				// input. The recording stays loaded and seekable.
+				if !alreadyAtEnd {
+					p.notifyReplayEnded()
+				}
 				// Reset timing so restart plays at correct pace.
 				lastFrameTime = 0
 				lastWallTime = time.Time{}

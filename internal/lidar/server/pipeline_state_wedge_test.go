@@ -3,7 +3,6 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -184,13 +183,67 @@ func TestEveryTransitionHelperLeavesAValidState(t *testing.T) {
 	}
 }
 
-// TestPCAPStopExplainsAVRLogReplay covers the user-visible half of the loop.
-// With a VRLOG replay holding the slot, POST /pcap/stop used to answer "system
-// is not in PCAP mode: stop the current data source first" without naming which
-// source or which endpoint, while POST /pcap/start blamed a PCAP replay. The
-// message must now point at the endpoint that can actually stop it.
-func TestPCAPStopExplainsAVRLogReplay(t *testing.T) {
-	const sensorID = "sensor-wedge-vrlog"
+// TestStopIsOneTeardownForEveryReplayKind covers the contract that replaced the
+// per-kind stops: whatever is playing, one stop clears it and the pipeline is
+// live afterwards. The old design rejected /pcap/stop when the source was not
+// PCAP, which is what left a VRLOG replay unstoppable from that endpoint.
+func TestStopIsOneTeardownForEveryReplayKind(t *testing.T) {
+	cases := []struct {
+		name string
+		set  func(*PipelineState)
+	}{
+		{"vrlog replaying", func(s *PipelineState) {
+			s.Source = SourceModeVRLog
+			s.SourcePath = "run/"
+			s.ReplayActive = true
+		}},
+		{"pcap replaying", func(s *PipelineState) {
+			s.Source = SourceModePCAP
+			s.SourcePath = "a.pcapng"
+			s.ReplayActive = true
+		}},
+		{"already live", func(s *PipelineState) {}},
+	}
+
+	for _, tc := range cases {
+		for _, endpoint := range []struct {
+			name   string
+			handle func(*Server, http.ResponseWriter, *http.Request)
+		}{
+			{"pcap/stop", (*Server).handlePCAPStop},
+			{"vrlog/stop", (*Server).handleVRLogStop},
+		} {
+			t.Run(tc.name+"/"+endpoint.name, func(t *testing.T) {
+				const sensorID = "sensor-one-stop"
+				ws := &Server{sensorID: sensorID, state: newPipelineState()}
+				ws.mutateState("test-setup", tc.set)
+
+				req := httptest.NewRequest(http.MethodPost, "/stop?sensor_id="+sensorID, nil)
+				w := httptest.NewRecorder()
+				endpoint.handle(ws, w, req)
+
+				if w.Code != http.StatusOK {
+					t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+				}
+				got := ws.PipelineState()
+				if got.Source != SourceModeLive {
+					t.Errorf("Source = %q, want live after stop", got.Source)
+				}
+				if got.ReplayActive {
+					t.Errorf("ReplayActive still set after stop: %s", got)
+				}
+				if err := got.Validate(); err != nil {
+					t.Errorf("stop left an invalid state: %v (%s)", err, got)
+				}
+			})
+		}
+	}
+}
+
+// TestStopIsIdempotent guards the property that makes the wedge unreachable:
+// repeating a stop is always safe, so a caller can always get back to live.
+func TestStopIsIdempotent(t *testing.T) {
+	const sensorID = "sensor-idempotent-stop"
 	ws := &Server{sensorID: sensorID, state: newPipelineState()}
 	ws.mutateState("test-setup", func(s *PipelineState) {
 		s.Source = SourceModeVRLog
@@ -198,36 +251,15 @@ func TestPCAPStopExplainsAVRLogReplay(t *testing.T) {
 		s.ReplayActive = true
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusConflict, w.Body.String())
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, "vrlog/stop") {
-		t.Errorf("stop error does not name the endpoint that can stop the replay: %s", body)
-	}
-	if !strings.Contains(body, "VRLOG") {
-		t.Errorf("stop error does not name VRLOG as the active replay: %s", body)
-	}
-}
-
-// TestPCAPStopExplainsAnIdleSource covers the same surface when nothing is
-// replaying at all: the caller is told what the source actually is.
-func TestPCAPStopExplainsAnIdleSource(t *testing.T) {
-	const sensorID = "sensor-wedge-idle"
-	ws := &Server{sensorID: sensorID, state: newPipelineState()}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusConflict, w.Body.String())
-	}
-	if body := w.Body.String(); !strings.Contains(body, "live") {
-		t.Errorf("stop error does not report the actual source: %s", body)
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/stop?sensor_id="+sensorID, nil)
+		w := httptest.NewRecorder()
+		ws.handlePCAPStop(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("stop %d: status = %d, want %d; body: %s", i, w.Code, http.StatusOK, w.Body.String())
+		}
+		if got := ws.PipelineState(); got.Source != SourceModeLive || got.ReplayActive {
+			t.Fatalf("stop %d left %s", i, got)
+		}
 	}
 }

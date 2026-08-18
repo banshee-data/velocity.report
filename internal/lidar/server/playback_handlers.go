@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -252,101 +251,20 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Acquire dataSourceMu first to maintain consistent lock ordering with handlePCAPStart
-	// (always dataSourceMu → pcapMu) to prevent deadlock
-	ws.dataSourceMu.Lock()
-	defer ws.dataSourceMu.Unlock()
-
-	if state := ws.PipelineState(); state.Source != SourceModePCAP {
-		// Point at the endpoint that can actually stop what is running. The
-		// old message told the caller to "stop the current data source first"
-		// without saying which one, and PCAP start meanwhile blamed PCAP.
-		if state.Source == SourceModeVRLog {
-			ws.writeJSONError(w, http.StatusConflict, "a VRLOG replay is active, not a PCAP replay: stop it via POST /api/lidar/vrlog/stop")
-			return
-		}
-		ws.writeJSONError(w, http.StatusConflict, fmt.Sprintf("no PCAP replay to stop: the current source is %q", state.DataSourceWire()))
+	// One teardown for every replay kind. This used to reject when the source
+	// was not PCAP, so a VRLOG replay could not be stopped here and a stranded
+	// replay slot could not be cleared at all.
+	if err := ws.ReturnToLive("operator requested stop"); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not return to live: %v", err))
 		return
-	}
-
-	// Now acquire pcapMu while holding dataSourceMu (consistent ordering)
-	ws.pcapMu.Lock()
-	if !ws.PipelineState().ReplayActive {
-		ws.pcapMu.Unlock()
-		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay is running: start one first via POST /pcap/start")
-		return
-	}
-	cancel := ws.pcapCancel
-	done := ws.pcapDone
-	ws.pcapCancel = nil
-	ws.pcapMu.Unlock()
-
-	// Release dataSourceMu before waiting for goroutine completion to avoid deadlock
-	// (the PCAP goroutine needs dataSourceMu to finish)
-	// NOTE: We must unlock manually here because we need to wait for done.
-	// Since handlePCAPStop defers the release of dataSourceMu, we must re-lock before returning.
-	ws.dataSourceMu.Unlock()
-
-	if cancel != nil {
-		cancel()
-	}
-	if done != nil {
-		<-done
-	}
-
-	// Reacquire dataSourceMu for subsequent operations
-	// This lock will be released by the deferred Unlock when function returns
-	ws.dataSourceMu.Lock()
-
-	// If in analysis mode, only reset grid if explicitly requested
-	ws.pcapMu.Lock()
-	analysisMode := ws.PipelineState().AnalysisMode()
-	ws.pcapMu.Unlock()
-	ws.pcapBenchmarkMode.Store(false) // Disable benchmark tracing when returning to live
-
-	if !analysisMode {
-		// Normal mode: always reset all state when stopping
-		if err := ws.resetAllState(); err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not reset state: %v", err))
-			return
-		}
-	} else {
-		// Analysis mode: still reset frame builder to clear stale frames
-		ws.resetFrameBuilder()
-		diagf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
-	}
-
-	// Clear source path since we're returning to live mode
-	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-		mgr.SetSourcePath("")
-	}
-
-	if err := ws.startLiveListenerLocked(); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not start live listener: %v", err))
-		return
-	}
-
-	// Stop resets the grid, so nothing is preserved.
-	ws.setSourceLive(false)
-
-	diagf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
-
-	// Notify visualiser gRPC server that replay has ended
-	if ws.onPCAPStopped != nil {
-		ws.onPCAPStopped()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":         "stopped",
-		"sensor_id":      sensorID,
+		"success":        true,
 		"current_source": ws.PipelineState().DataSourceWire(),
 	})
 }
-
-// handlePCAPResumeLive switches from PCAP analysis mode back to Live while preserving the background grid.
-// This allows overlaying live data on top of PCAP-analyzed background.
-// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -637,22 +555,11 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 // handleVRLogStop stops VRLOG replay and returns to live mode.
 // POST /api/lidar/vrlog/stop
 func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
-	if ws.onVRLogStop == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG stop is not available: check a VRLOG replay is active")
+	// Delegates to the same teardown as POST /pcap/stop. Kept as a route so
+	// existing clients and docs keep working; there is one implementation.
+	if err := ws.ReturnToLive("operator requested VRLOG stop"); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not return to live: %v", err))
 		return
-	}
-
-	ws.onVRLogStop()
-
-	// Returning to live keeps whatever grid the pipeline already had: VRLOG
-	// replay streams recorded frames and never rebuilt it.
-	ws.setSourceLive(ws.PipelineState().GridPreserved)
-
-	ws.dataSourceMu.Lock()
-	restartErr := ws.startLiveListenerLocked()
-	ws.dataSourceMu.Unlock()
-	if restartErr != nil {
-		opsf("Failed to restart live listener after VRLOG stop: %v", restartErr)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
