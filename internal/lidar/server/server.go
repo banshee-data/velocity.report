@@ -73,36 +73,27 @@ type Server struct {
 	// UDP listener lifecycle (live data source)
 	udpListenerConfig network.UDPListenerConfig
 	dataSourceMu      sync.RWMutex
-	currentSource     DataSource
-	currentPCAPFile   string
 	udpListener       *network.UDPListener
 	udpListenerCancel context.CancelFunc
 	udpListenerDone   chan struct{}
 	baseCtxMu         sync.RWMutex
 	baseCtx           context.Context
 
-	// state is the authoritative pipeline state (source, replay, recording).
-	// See pipeline_state.go for the locking contract: stateMu guards only the
-	// value and is never held across a call into another subsystem.
+	// state is the authoritative pipeline state: which source is driving the
+	// pipeline, whether a replay is running, and whether a VRLOG is being
+	// recorded. See pipeline_state.go for the locking contract — stateMu
+	// guards only the value and is never held across a call into another
+	// subsystem.
 	stateMu sync.RWMutex
 	state   PipelineState
 
-	// PCAP replay state
+	// PCAP replay lifecycle. pcapMu guards only the cancellation handles;
+	// everything an observer can see lives in state above.
 	pcapMu                      sync.Mutex
-	pcapInProgress              bool
 	pcapCancel                  context.CancelFunc
 	pcapDone                    chan struct{}
-	pcapAnalysisMode            bool        // When true, preserve grid after PCAP completion
-	pcapDisableRecording        bool        // When true, skip VRLOG recording during PCAP replay
 	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
 	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes
-	pcapSpeedMode               string
-	pcapSpeedRatio              float64
-	pcapLastRunID               string // Last analysis run ID from PCAP replay (protected by pcapMu)
-
-	// PCAP progress tracking (protected by pcapMu)
-	pcapCurrentPacket uint64 // 0-based index of current packet
-	pcapTotalPackets  uint64 // Total packets in current PCAP file
 
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
@@ -118,7 +109,6 @@ type Server struct {
 	// Grid plotter for visualization during PCAP replay
 	gridPlotter  *l9endpoints.GridPlotter
 	plotsBaseDir string // Base directory for plot output (e.g., "plots")
-	plotsEnabled bool   // Whether plots are enabled for current run
 
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
@@ -281,7 +271,6 @@ func NewServer(config Config) *Server {
 		packetForwarder:   config.PacketForwarder,
 		tuningConfig:      cloneTuningConfig(config.TuningConfig),
 		udpListenerConfig: listenerConfig,
-		currentSource:     DataSourceLive,
 		state:             newPipelineState(),
 		latestFgCounts:    make(map[string]int),
 		plotsBaseDir:      config.PlotsBaseDir,
@@ -350,7 +339,7 @@ func (ws *Server) Start(ctx context.Context) error {
 	ws.setBaseContext(ctx)
 
 	ws.dataSourceMu.Lock()
-	if ws.currentSource == DataSourceLive && ws.udpListener == nil {
+	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {
 		if err := ws.startLiveListenerLocked(); err != nil {
 			ws.dataSourceMu.Unlock()
 			return err

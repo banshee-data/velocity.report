@@ -201,8 +201,8 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("wait_for_done") == "true" {
 		ws.pcapMu.Lock()
 		done := ws.pcapDone
-		inProgress := ws.pcapInProgress
 		ws.pcapMu.Unlock()
+		inProgress := ws.PipelineState().PCAPInProgress()
 
 		if inProgress && done != nil {
 			select {
@@ -215,24 +215,18 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ws.dataSourceMu.RLock()
-	currentSource := ws.currentSource
-	currentPCAPFile := ws.currentPCAPFile
-	ws.dataSourceMu.RUnlock()
-
-	ws.pcapMu.Lock()
-	pcapInProgress := ws.pcapInProgress
-	analysisMode := ws.pcapAnalysisMode
-	lastRunID := ws.pcapLastRunID
-	ws.pcapMu.Unlock()
+	// One snapshot, not a field-by-field read across two mutexes: the source
+	// and the replay flag used to be guarded separately, so a status read could
+	// interleave with a transition and report a combination that never existed.
+	state := ws.PipelineState()
 
 	response := map[string]interface{}{
 		"status":           "ok",
-		"data_source":      string(currentSource),
-		"pcap_file":        currentPCAPFile,
-		"pcap_in_progress": pcapInProgress,
-		"analysis_mode":    analysisMode,
-		"last_run_id":      lastRunID,
+		"data_source":      state.DataSourceWire(),
+		"pcap_file":        state.PCAPFile(),
+		"pcap_in_progress": state.PCAPInProgress(),
+		"analysis_mode":    state.AnalysisMode(),
+		"last_run_id":      state.LastRunID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -246,14 +240,9 @@ func (ws *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
-	ws.dataSourceMu.RLock()
-	currentSource := ws.currentSource
-	currentPCAPFile := ws.currentPCAPFile
-	ws.dataSourceMu.RUnlock()
-
-	ws.pcapMu.Lock()
-	pcapInProgress := ws.pcapInProgress
-	ws.pcapMu.Unlock()
+	state := ws.PipelineState()
+	currentPCAPFile := state.PCAPFile()
+	pcapInProgress := state.PCAPInProgress()
 
 	var statsSnapshot *StatsSnapshot
 	if ws.stats != nil {
@@ -288,7 +277,7 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 		ForwardAddr:      ws.forwardAddr,
 		ForwardPort:      ws.forwardPort,
 		ParsingEnabled:   ws.parsingEnabled,
-		DataSource:       string(currentSource),
+		DataSource:       state.DataSourceWire(),
 		PCAPFile:         currentPCAPFile,
 		PCAPInProgress:   pcapInProgress,
 		Uptime:           uptime,
@@ -321,22 +310,15 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		parsingStatus = "disabled"
 	}
 
-	ws.dataSourceMu.RLock()
-	mode := "Live UDP"
-	switch ws.currentSource {
-	case DataSourcePCAP:
-		mode = "PCAP Replay"
-	case DataSourceLive:
-		mode = "Live UDP"
-	}
-	currentPCAPFile := ws.currentPCAPFile
-	ws.dataSourceMu.RUnlock()
-
-	ws.pcapMu.Lock()
-	pcapInProgress := ws.pcapInProgress
-	pcapSpeedMode := ws.pcapSpeedMode
-	pcapSpeedRatio := ws.pcapSpeedRatio
-	ws.pcapMu.Unlock()
+	// StatusLabel covers every source. The switch this replaced had no case for
+	// pcap_analysis, so the page rendered "Live UDP" while the pipeline was
+	// sitting on a preserved PCAP grid.
+	state := ws.PipelineState()
+	mode := state.StatusLabel()
+	currentPCAPFile := state.PCAPFile()
+	pcapInProgress := state.PCAPInProgress()
+	pcapSpeedMode := state.SpeedMode
+	pcapSpeedRatio := state.SpeedRatio
 
 	// Get background manager to show current params
 	var bgParams *l3grid.BackgroundParams

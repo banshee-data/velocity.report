@@ -80,7 +80,7 @@ func TestLastAnalysisRunID_Set(t *testing.T) {
 		Stats:   NewPacketStats(),
 	})
 	ws.pcapMu.Lock()
-	ws.pcapLastRunID = "run-abc-123"
+	ws.mutateState(func(s *PipelineState) { s.LastRunID = "run-abc-123" })
 	ws.pcapMu.Unlock()
 
 	id := ws.LastAnalysisRunID()
@@ -122,7 +122,7 @@ func TestStartPCAPForSweep_TimeoutWhenBusy(t *testing.T) {
 
 	// Simulate PCAP already in progress
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	err := ws.StartPCAPForSweep("/dummy.pcap", false, "analysis", 1.0, 0, 0, 1, false)
@@ -276,7 +276,7 @@ func TestStopPCAPForSweep_InPCAPMode(t *testing.T) {
 	close(done)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
@@ -291,7 +291,7 @@ func TestStopPCAPForSweep_InPCAPMode(t *testing.T) {
 
 	// After stop, source should be back to Live
 	ws.dataSourceMu.RLock()
-	src := ws.currentSource
+	src := ws.CurrentSource()
 	ws.dataSourceMu.RUnlock()
 	if src != DataSourceLive {
 		t.Errorf("expected DataSourceLive, got %v", src)
@@ -315,13 +315,13 @@ func TestStopPCAPForSweep_AnalysisMode(t *testing.T) {
 	close(done)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.pcapAnalysisMode = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	var stopped bool
@@ -340,7 +340,7 @@ func TestStopPCAPForSweep_AnalysisMode(t *testing.T) {
 
 	// After analysis mode stop, source should be Live
 	ws.dataSourceMu.RLock()
-	src := ws.currentSource
+	src := ws.CurrentSource()
 	ws.dataSourceMu.RUnlock()
 	if src != DataSourceLive {
 		t.Errorf("expected DataSourceLive, got %v", src)
@@ -366,7 +366,7 @@ func TestStopPCAPForSweep_NilCancelAndDone(t *testing.T) {
 
 	// Set PCAP mode but with nil cancel/done (edge case)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	err := ws.StopPCAPForSweep()
@@ -590,7 +590,7 @@ func TestStartPCAPForSweep_AnalysisModeWithDB(t *testing.T) {
 
 	// After analysis mode, source should be PCapAnalysis (grid preserved)
 	ws.dataSourceMu.RLock()
-	src := ws.currentSource
+	src := ws.CurrentSource()
 	ws.dataSourceMu.RUnlock()
 	if src != DataSourcePCAPAnalysis {
 		t.Logf("source after analysis: %v (expected PCAP_ANALYSIS)", src)
@@ -615,14 +615,10 @@ func TestStopPCAPForSweep_ResetStateError(t *testing.T) {
 	done := make(chan struct{})
 	close(done)
 
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
-
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.pcapAnalysisMode = false
+	ws.mutateState(func(s *PipelineState) { s.GridPreserved = false })
 	ws.pcapMu.Unlock()
 
 	// Even if resetAllState has no error, this exercises the non-analysis path
@@ -655,7 +651,7 @@ func TestStartPCAPLocked_AlreadyInProgress(t *testing.T) {
 
 	ws.pcapSafeDir = tmpDir
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapMu.Unlock()
 
 	err := ws.startPCAPLocked("conflict.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
@@ -1000,11 +996,6 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 	})
 	ws.setBaseContext(context.Background())
 
-	// Set source so the goroutine cleanup enters the analysis-mode path
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
-
 	err = ws.startPCAPLockedWithConfig("callbacks.pcap", ReplayConfig{
 		AnalysisMode:     true,
 		DisableRecording: false,
@@ -1033,7 +1024,7 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 
 	// After analysis mode goroutine, source should be PCapAnalysis (grid preserved)
 	ws.dataSourceMu.RLock()
-	src := ws.currentSource
+	src := ws.CurrentSource()
 	ws.dataSourceMu.RUnlock()
 	if src != DataSourcePCAPAnalysis {
 		t.Errorf("expected DataSourcePCAPAnalysis, got %v", src)
@@ -1066,10 +1057,6 @@ func TestStartPCAPLocked_RealtimeWithPlotsAndDebug(t *testing.T) {
 	// Non-analysis mode: goroutine will try resetAllState + startLiveListenerLocked
 	// in cleanup. Provide UDP listener config for startLiveListenerLocked.
 	ws.udpListenerConfig = network.UDPListenerConfig{Address: ":0"}
-
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	// enablePlots=true with plotsBaseDir → grid plotter init
 	// speedRatio=-1 with speedMode="scaled" → multiplier <= 0 → default to 1.0
@@ -1110,10 +1097,6 @@ func TestStartPCAPLocked_NonAnalysisWithPCAPStopped(t *testing.T) {
 	ws.setBaseContext(context.Background())
 
 	// Set to PCAP mode so goroutine cleanup enters the source-switch block.
-	// Non-analysis mode: cleanup resets state + starts live listener + calls onPCAPStopped.
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLocked("stopcb.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, false)
@@ -1183,13 +1166,13 @@ func TestStopPCAPForSweep_ResetAllStateFailure(t *testing.T) {
 	close(done)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.pcapAnalysisMode = false // non-analysis → calls resetAllState
+	ws.mutateState(func(s *PipelineState) { s.GridPreserved = false }) // non-analysis → calls resetAllState
 	ws.pcapMu.Unlock()
 
 	err := ws.StopPCAPForSweep()
@@ -1220,13 +1203,13 @@ func TestStopPCAPForSweep_StartListenerError(t *testing.T) {
 	close(done)
 
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.pcapAnalysisMode = false
+	ws.mutateState(func(s *PipelineState) { s.GridPreserved = false })
 	ws.pcapMu.Unlock()
 
 	err := ws.StopPCAPForSweep()
@@ -1299,10 +1282,6 @@ func TestStartPCAPLocked_GridPlotterStartError(t *testing.T) {
 	})
 	ws.setBaseContext(context.Background())
 
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
-
 	// enablePlots=true → gridPlotter.Start fails → gridPlotter set to nil
 	err := ws.startPCAPLocked("ploterr.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, true)
@@ -1341,12 +1320,8 @@ func TestStartPCAPLocked_StartRunError(t *testing.T) {
 
 	// Pre-set analysis mode so the goroutine attempts StartRun
 	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = true
+	ws.mutateState(func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
-
-	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
-	ws.dataSourceMu.Unlock()
 
 	err := ws.startPCAPLocked("runerr.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, false)

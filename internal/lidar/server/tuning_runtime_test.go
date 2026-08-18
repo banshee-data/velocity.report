@@ -118,9 +118,9 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	})
 
 	ws := &Server{
-		sensorID:      "runtime-sensor",
-		currentSource: DataSourcePCAP,
-		tracker:       tracker,
+		sensorID: "runtime-sensor",
+		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		tracker:  tracker,
 	}
 	ws.storeTuningConfig(cfg)
 
@@ -151,7 +151,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		t.Fatalf("unexpected L5 runtime sync: %+v", runtimeCfg.L5.CvKfV1)
 	}
 
-	wsNoStored := &Server{sensorID: "no-store-sensor", currentSource: DataSourcePCAPAnalysis}
+	wsNoStored := &Server{sensorID: "no-store-sensor", state: PipelineState{Source: SourceModePCAP, GridPreserved: true, TotalPasses: 1}}
 	fallback := wsNoStored.runtimeTuningConfig(bm)
 	if fallback.L1.Sensor != "no-store-sensor" || fallback.L1.DataSource != string(DataSourcePCAPAnalysis) {
 		t.Fatalf("unexpected fallback L1 sync: %+v", fallback.L1)
@@ -321,10 +321,10 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	classifier := l6objects.NewTrackClassifierWithMinObservations(5)
 	ws := &Server{
-		sensorID:      "patch-sensor",
-		tracker:       tracker,
-		classifier:    classifier,
-		currentSource: DataSourceLive,
+		sensorID:   "patch-sensor",
+		tracker:    tracker,
+		classifier: classifier,
+		state:      PipelineState{Source: SourceModeLive, TotalPasses: 1},
 	}
 	ws.storeTuningConfig(cfg)
 

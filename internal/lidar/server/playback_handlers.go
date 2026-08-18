@@ -164,7 +164,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.currentSource == DataSourcePCAP {
+	if ws.PipelineState().PCAPInProgress() {
 		ws.writeJSONError(w, http.StatusConflict, "PCAP replay is already running: stop it first via POST /pcap/stop")
 		return
 	}
@@ -215,8 +215,8 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.currentSource = DataSourcePCAP
-	currentFile := ws.currentPCAPFile
+	state := ws.PipelineState()
+	currentFile := state.PCAPFile()
 
 	mode := "replay"
 	if analysisMode {
@@ -235,7 +235,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":                  "started",
 		"sensor_id":               sensorID,
-		"current_source":          string(ws.currentSource),
+		"current_source":          state.DataSourceWire(),
 		"pcap_file":               currentFile,
 		"analysis_mode":           analysisMode,
 		"settle_before_recording": settleBeforeRecording,
@@ -263,14 +263,14 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
+	if ws.PipelineState().Source != SourceModePCAP {
 		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode: stop the current data source first")
 		return
 	}
 
 	// Now acquire pcapMu while holding dataSourceMu (consistent ordering)
 	ws.pcapMu.Lock()
-	if !ws.pcapInProgress {
+	if !ws.PipelineState().ReplayActive {
 		ws.pcapMu.Unlock()
 		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay is running: start one first via POST /pcap/start")
 		return
@@ -299,8 +299,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 
 	// If in analysis mode, only reset grid if explicitly requested
 	ws.pcapMu.Lock()
-	analysisMode := ws.pcapAnalysisMode
-	ws.pcapAnalysisMode = false // Clear flag when stopping
+	analysisMode := ws.PipelineState().AnalysisMode()
 	ws.pcapMu.Unlock()
 	ws.pcapBenchmarkMode.Store(false) // Disable benchmark tracing when returning to live
 
@@ -326,8 +325,8 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.currentSource = DataSourceLive
-	ws.currentPCAPFile = ""
+	// Stop resets the grid, so nothing is preserved.
+	ws.setSourceLive(false)
 
 	diagf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
 
@@ -340,7 +339,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":         "stopped",
 		"sensor_id":      sensorID,
-		"current_source": string(ws.currentSource),
+		"current_source": ws.PipelineState().DataSourceWire(),
 	})
 }
 
@@ -364,7 +363,7 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.currentSource != DataSourcePCAPAnalysis {
+	if ws.PipelineState().DataSourceWire() != string(DataSourcePCAPAnalysis) {
 		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP analysis mode: start a PCAP replay first")
 		return
 	}
@@ -375,12 +374,10 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.currentSource = DataSourceLive
-	ws.currentPCAPFile = ""
-
-	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = false
-	ws.pcapMu.Unlock()
+	// Resume-live deliberately keeps the grid built by the analysis replay.
+	// Recording that fact is what lets the status surfaces keep reporting it;
+	// previously it appeared once in this response and was then lost.
+	ws.setSourceLive(true)
 
 	diagf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
 
@@ -393,7 +390,7 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":         "resumed_live",
 		"sensor_id":      sensorID,
-		"current_source": string(ws.currentSource),
+		"current_source": ws.PipelineState().DataSourceWire(),
 		"grid_preserved": true,
 	})
 }
