@@ -809,6 +809,10 @@ func Main(args []string) int {
 					replayer.Close()
 					return "", fmt.Errorf("failed to start vrlog replay: %w", err)
 				}
+				// Fallback for recordings that hold no background frame of
+				// their own: the client has nothing to composite the replayed
+				// foreground against. A no-op when the replay already emitted
+				// its recorded background.
 				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
 					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
