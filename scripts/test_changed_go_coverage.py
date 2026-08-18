@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,6 +33,29 @@ def test_changed_package_patterns_are_unique_and_sorted():
             "assets.go",
         ]
     ) == [".", "./cmd/velocity", "./internal/ctl"]
+
+
+def test_import_paths_uses_the_same_build_tags_as_coverage(monkeypatch, tmp_path: Path):
+    mod = load_script_module()
+    captured = {}
+
+    def fake_check_output(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return "example.test/internal/tagged\n"
+
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+
+    assert mod.import_paths_for_patterns(["./internal/tagged"], tmp_path, "pcap") == [
+        "example.test/internal/tagged"
+    ]
+    assert captured["cmd"] == [
+        "go",
+        "list",
+        "-tags=pcap",
+        "./internal/tagged",
+    ]
+    assert captured["kwargs"]["cwd"] == tmp_path
 
 
 def test_path_in_scope_honors_include_and_exclude_prefixes():
