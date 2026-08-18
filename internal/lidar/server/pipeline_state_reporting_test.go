@@ -191,3 +191,57 @@ func TestHandleVRLogStopReturnsToLive(t *testing.T) {
 	}
 	assertField(t, decodeDataSource(t, ws), "data_source", "live")
 }
+
+// TestRecordingNotReportedWhenRecorderCannotStart guards against reporting a
+// recording that never began. OnRecordingStart returns an empty path when the
+// recorder could not be created — most often because no visualiser publisher is
+// configured — and claiming recording=true then is its own small falsehood.
+func TestRecordingNotReportedWhenRecorderCannotStart(t *testing.T) {
+	ws := &Server{sensorID: "test-sensor", state: newPipelineState()}
+
+	// A recorder that started successfully reports its path.
+	ws.setRecording("run-abc", "/data/vrlog/run-abc")
+	state := ws.PipelineState()
+	if !state.Recording || state.RecordingPath == "" {
+		t.Fatalf("expected an active recording, got %+v", state)
+	}
+
+	// One that could not start must leave the state alone.
+	ws.clearRecording()
+	if got := ws.PipelineState(); got.Recording {
+		t.Errorf("Recording = true after clearRecording, want false")
+	}
+	assertField(t, decodeDataSource(t, ws), "recording", false)
+}
+
+// TestRecordingPathClearedWhenANewReplayStarts verifies the recording path is
+// retained after completion — so a caller polling later can see what was
+// written — but does not follow an unrelated replay around.
+func TestRecordingPathClearedWhenANewReplayStarts(t *testing.T) {
+	ws := &Server{sensorID: "test-sensor", state: newPipelineState()}
+	ws.setTestSourcePCAPAnalysisReplaying()
+	ws.setRecording("run-abc", "/data/vrlog/run-abc")
+	ws.endReplay(true)
+
+	// Retained in the terminal analysis state.
+	if got := ws.PipelineState().RecordingPath; got != "/data/vrlog/run-abc" {
+		t.Errorf("RecordingPath = %q after completion, want it retained", got)
+	}
+
+	// Cleared once a VRLOG replay takes over.
+	ws.setSourceVRLog("/data/vrlog/run-xyz")
+	if got := ws.PipelineState().RecordingPath; got != "" {
+		t.Errorf("RecordingPath = %q during an unrelated VRLOG replay, want empty", got)
+	}
+
+	// Cleared once a new PCAP replay starts.
+	ws.setSourceLive(false)
+	ws.setRecording("run-abc", "/data/vrlog/run-abc")
+	ws.endReplay(false)
+	if !ws.tryBeginPCAPReplay(ReplayConfig{}) {
+		t.Fatal("tryBeginPCAPReplay returned false on an idle server")
+	}
+	if got := ws.PipelineState().RecordingPath; got != "" {
+		t.Errorf("RecordingPath = %q during a new PCAP replay, want empty", got)
+	}
+}
