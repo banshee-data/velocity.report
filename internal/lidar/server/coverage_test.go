@@ -690,8 +690,8 @@ func TestRealDataSourceManager_StartPCAPReplay_Error(t *testing.T) {
 	if err.Error() != "file not found" {
 		t.Errorf("Expected 'file not found', got: %v", err)
 	}
-	if mgr.IsPCAPInProgress() {
-		t.Error("Expected PCAP not in progress after error")
+	if ops.StartPCAPCalls != 1 {
+		t.Errorf("Expected the failed start to have been attempted once, got %d", ops.StartPCAPCalls)
 	}
 }
 

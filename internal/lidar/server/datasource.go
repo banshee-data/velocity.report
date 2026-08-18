@@ -56,23 +56,14 @@ type DataSourceManager interface {
 
 	// StopPCAPReplay stops the current PCAP replay.
 	StopPCAPReplay() error
-
-	// CurrentSource returns the currently active data source.
-	CurrentSource() DataSource
-
-	// CurrentPCAPFile returns the currently replaying PCAP file, if any.
-	CurrentPCAPFile() string
-
-	// IsPCAPInProgress returns true if a PCAP replay is currently active.
-	IsPCAPInProgress() bool
 }
 
 // MockDataSourceManager implements DataSourceManager for testing.
 type MockDataSourceManager struct {
 	mu sync.RWMutex
 
-	// Current state
-	source      DataSource
+	// Observation state for assertions. There is deliberately no `source`
+	// copy: what is driving the pipeline is answered by Server.PipelineState.
 	pcapFile    string
 	pcapConfig  ReplayConfig
 	liveStarted bool
@@ -97,9 +88,7 @@ type MockDataSourceManager struct {
 
 // NewMockDataSourceManager creates a new MockDataSourceManager.
 func NewMockDataSourceManager() *MockDataSourceManager {
-	return &MockDataSourceManager{
-		source: DataSourceLive,
-	}
+	return &MockDataSourceManager{}
 }
 
 // StartLiveListener starts the mock live listener.
@@ -115,7 +104,6 @@ func (m *MockDataSourceManager) StartLiveListener(ctx context.Context) error {
 	}
 
 	m.liveStarted = true
-	m.source = DataSourceLive
 	return nil
 }
 
@@ -149,11 +137,6 @@ func (m *MockDataSourceManager) StartPCAPReplay(ctx context.Context, file string
 	m.pcapFile = file
 	m.pcapConfig = config
 	m.pcapStarted = true
-	if config.AnalysisMode {
-		m.source = DataSourcePCAPAnalysis
-	} else {
-		m.source = DataSourcePCAP
-	}
 	return nil
 }
 
@@ -170,16 +153,7 @@ func (m *MockDataSourceManager) StopPCAPReplay() error {
 
 	m.pcapStarted = false
 	m.pcapFile = ""
-	m.source = DataSourceLive
 	return nil
-}
-
-// CurrentSource returns the current data source.
-func (m *MockDataSourceManager) CurrentSource() DataSource {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.source
 }
 
 // CurrentPCAPFile returns the current PCAP file.
@@ -219,7 +193,6 @@ func (m *MockDataSourceManager) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.source = DataSourceLive
 	m.pcapFile = ""
 	m.pcapConfig = ReplayConfig{}
 	m.liveStarted = false
@@ -234,14 +207,6 @@ func (m *MockDataSourceManager) Reset() {
 	m.StopPCAPCalls = 0
 	m.LastLiveCtx = nil
 	m.LastPCAPCtx = nil
-}
-
-// SetSource sets the current source (for testing state setup).
-func (m *MockDataSourceManager) SetSource(source DataSource) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.source = source
 }
 
 // Ensure MockDataSourceManager implements DataSourceManager.
@@ -276,20 +241,16 @@ type RealDataSourceManager struct {
 	// Server operations delegate
 	ops ServerDataSourceOperations
 
-	// Current state
-	source      DataSource
-	pcapFile    string
-	pcapConfig  ReplayConfig
+	// Lifecycle guards. This manager tracks only whether it has already
+	// started each source so its own calls stay idempotent; the authoritative
+	// answer to "what is driving the pipeline" lives in Server.PipelineState.
 	liveStarted bool
 	pcapStarted bool
 }
 
 // NewRealDataSourceManager creates a new RealDataSourceManager.
 func NewRealDataSourceManager(ops ServerDataSourceOperations) *RealDataSourceManager {
-	return &RealDataSourceManager{
-		ops:    ops,
-		source: DataSourceLive,
-	}
+	return &RealDataSourceManager{ops: ops}
 }
 
 // StartLiveListener starts the live UDP listener.
@@ -306,7 +267,6 @@ func (r *RealDataSourceManager) StartLiveListener(ctx context.Context) error {
 	}
 
 	r.liveStarted = true
-	r.source = DataSourceLive
 	return nil
 }
 
@@ -337,14 +297,7 @@ func (r *RealDataSourceManager) StartPCAPReplay(ctx context.Context, file string
 		return err
 	}
 
-	r.pcapFile = file
-	r.pcapConfig = config
 	r.pcapStarted = true
-	if config.AnalysisMode {
-		r.source = DataSourcePCAPAnalysis
-	} else {
-		r.source = DataSourcePCAP
-	}
 	return nil
 }
 
@@ -359,45 +312,7 @@ func (r *RealDataSourceManager) StopPCAPReplay() error {
 
 	r.ops.StopPCAPInternal()
 	r.pcapStarted = false
-	r.pcapFile = ""
-	r.source = DataSourceLive
 	return nil
-}
-
-// CurrentSource returns the currently active data source.
-func (r *RealDataSourceManager) CurrentSource() DataSource {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.source
-}
-
-// CurrentPCAPFile returns the currently replaying PCAP file.
-func (r *RealDataSourceManager) CurrentPCAPFile() string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.pcapFile
-}
-
-// IsPCAPInProgress returns true if PCAP replay is currently active.
-func (r *RealDataSourceManager) IsPCAPInProgress() bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.pcapStarted
-}
-
-// SetSource sets the current source (used internally by Server).
-func (r *RealDataSourceManager) SetSource(source DataSource) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.source = source
-}
-
-// SetPCAPState sets the PCAP state (used internally by Server).
-func (r *RealDataSourceManager) SetPCAPState(inProgress bool, file string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.pcapStarted = inProgress
-	r.pcapFile = file
 }
 
 // Ensure RealDataSourceManager implements DataSourceManager.
