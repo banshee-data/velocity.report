@@ -34,6 +34,7 @@ Content flow: `.md` → front matter selects layout → Nunjucks wraps → base 
 
 ```bash
 make build-docs          # Build site → public_html/_site/
+make build-docs-public-html # Build the image-mounted site → /public_html/
 make install-docs        # Install pnpm dependencies
 ```
 
@@ -46,7 +47,7 @@ cd public_html && pnpm run dev
 ## Deployment
 
 - **GitHub Pages:** auto-deploys from the `gh-pages` branch
-- **On-device:** the built site is installed to `/opt/velocity-report/public_html/` during `make build-image`, served locally for offline reference
+- **On-device:** `make build-image` rebuilds the site with `/public_html/`-prefixed links, installs it to `/opt/velocity-report/public_html/`, and the Go service serves it at `/public_html/`. The app sidebar links it as **Homepage (offline)**; **Git repo docs** remains the separate `/docs/` site.
 
 ## OS image list
 

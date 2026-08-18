@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre29
+VERSION := 0.5.1-pre30
 
 # =============================================================================
 # HELP TARGET (default)
@@ -94,17 +94,19 @@ help:
 	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run aggregate tests (Go + Web + macOS)"
+	@echo "  test                 Run all tests (Go + Python + Web + offline docs + macOS)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
 	@echo "  test-go-coverage-summary Show coverage summary for cmd/ and internal/"
 	@echo "  test-go-changed-coverage Enforce 98% coverage for branch-added internal Go files"
 	@echo "  test-go-coverage-gate Enforce the 82% per-file Go coverage floor"
-	@echo "  test-python          Run Python script/tool tests (not part of aggregate test)"
+	@echo "  test-python          Run Python script/tool tests"
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
+	@echo "  test-docs-offline    Run embedded offline docs tests"
+	@echo "  test-docs-offline-cov Run embedded offline docs tests with 98% line thresholds"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
@@ -556,7 +558,7 @@ ensure-dev-web-build:
 		$(MAKE) build-web; \
 	fi
 
-.PHONY: build-docs
+.PHONY: build-docs build-docs-public-html verify-docs-public-html-build
 build-docs:
 	@echo "Building documentation site..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
@@ -568,10 +570,31 @@ build-docs:
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
 
+# The Pi image serves the public site beneath /public_html/. Keep this as a
+# separate target so normal public-site builds continue to target the origin.
+build-docs-public-html:
+	@echo "Building offline homepage site..."
+	@cd public_html && export VELOCITY_PUBLIC_HTML_PATH_PREFIX="/public_html/" && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run build; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@printf '%s\n' "/public_html/" > public_html/_site/.velocity-public-html-path-prefix
+	@$(MAKE) verify-docs-public-html-build
+	@echo "✓ Offline homepage build complete: public_html/_site/"
+
+verify-docs-public-html-build:
+	@python3 scripts/verify-public-html-build.py
+
 .PHONY: build-docs-offline
 build-docs-offline:
 	@echo "Building embedded offline docs site..."
+	@python3 scripts/verify-docs-source-case.py
 	@./scripts/docs-offline-symlinks.sh create
+	@rm -rf docs_html/_site
+	@mkdir -p docs_html/_site
 	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
@@ -824,7 +847,9 @@ PYTHON_TEST_PATHS = \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
+	scripts/test_spider_docs_404s.py \
 	scripts/test_sqlite_erd.py \
+	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
@@ -1117,7 +1142,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov coverage loc-coverage-chart
 
 # Per-file Go coverage floor enforced by test-go-coverage-gate.
 COVERAGE_THRESHOLD ?= 82
@@ -1125,8 +1150,8 @@ COVERAGE_TAGS ?= pcap
 
 MAC_DIR = tools/visualiser-macos
 
-# Aggregate test target: runs Go, web, and macOS tests in sequence
-test: test-go test-web test-mac
+# Aggregate test target: every maintained unit-test suite in the repository.
+test: test-go test-python test-web test-docs-offline test-mac
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -1224,6 +1249,33 @@ test-web-cov:
 	@cd $(WEB_DIR) && pnpm run test:coverage
 	@echo "Coverage report: $(WEB_DIR)/coverage/lcov-report/index.html"
 
+test-docs-offline:
+	@./scripts/docs-offline-symlinks.sh create
+	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
+	@echo "Running embedded offline docs tests..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+
+test-docs-offline-cov: ensure-python-tools
+	@./scripts/docs-offline-symlinks.sh create
+	@if [ ! -d docs_html/node_modules ]; then $(MAKE) install-docs-offline; fi
+	@echo "Running embedded offline docs tests with coverage..."
+	@cd docs_html && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm run test:coverage; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm run test:coverage; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+	@$(VENV_PYTHON) -m coverage erase
+	@$(VENV_PYTHON) -m coverage run -m pytest scripts/test_verify_embedded_docs_server.py
+	@$(VENV_PYTHON) -m coverage report --fail-under=98 scripts/verify-embedded-docs-server.py
+
 # Run macOS visualiser tests (XCTest)
 test-mac:
 	@echo "Running macOS visualiser tests..."
@@ -1296,12 +1348,14 @@ test-mac-cov:
 	fi
 
 # Generate coverage reports for all components
-coverage: test-go-cov test-web-cov test-mac-cov
+coverage: test-go-cov test-python-cov test-web-cov test-docs-offline-cov test-mac-cov
 	@echo ""
 	@echo "✓ All coverage reports generated:"
-	@echo "  - Go:     coverage.html"
-	@echo "  - Web:    $(WEB_DIR)/coverage/lcov-report/index.html"
-	@echo "  - macOS:  $(MAC_DIR)/coverage/TestResults.xcresult"
+	@echo "  - Go:           coverage.html"
+	@echo "  - Python:       htmlcov-python/index.html"
+	@echo "  - Web:          $(WEB_DIR)/coverage/lcov-report/index.html"
+	@echo "  - Offline docs: terminal reports (98% line thresholds)"
+	@echo "  - macOS:        $(MAC_DIR)/coverage/TestResults.xcresult"
 
 # Render the LOC + coverage chart SVG into dist/loc-coverage.svg.
 # Reads coverage.out, coverage/lcov.info, and $(MAC_DIR)/coverage.info if

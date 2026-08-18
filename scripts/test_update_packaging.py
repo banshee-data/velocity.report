@@ -91,6 +91,18 @@ def test_image_binary_staging_rejects_dynamic_dependencies():
     assert "libpcap.so" in verifier
 
 
+def test_image_build_mounts_and_validates_transient_pi_gen_inputs():
+    build_script = (ROOT / "image" / "scripts" / "build-image.sh").read_text()
+
+    assert 'PIGEN_STAGE_DIR="$PIGEN_DIR/stage-velocity"' in build_script
+    assert 'PIGEN_BINARIES_DIR="$PIGEN_DIR/velocity-binaries"' in build_script
+    assert '"$PIGEN_STAGE_DIR/EXPORT_IMAGE"' in build_script
+    assert '"$PIGEN_STAGE_DIR/01-velocity-binaries/00-run.sh"' in build_script
+    assert '"$PIGEN_BINARIES_DIR/velocity"' in build_script
+    assert '--volume %s:/pi-gen/stage-velocity:ro' in build_script
+    assert '--volume %s:/pi-gen/velocity-binaries:ro' in build_script
+
+
 def test_image_runtime_defaults_use_scoped_sudo_and_embedded_tuning_defaults():
     stage_script = (ROOT / "image" / "stage-velocity" / "03-velocity-config" / "00-run.sh").read_text()
     cleanup_script = (ROOT / "image" / "stage-velocity" / "06-cleanup" / "00-run.sh").read_text()

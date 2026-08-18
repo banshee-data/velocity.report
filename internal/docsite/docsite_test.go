@@ -123,3 +123,29 @@ func TestMountRedirectsBarePrefix(t *testing.T) {
 		t.Fatalf("Location = %q, want %q", got, want)
 	}
 }
+
+func TestMountServesPublicHTMLAtItsOwnPrefix(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("offline homepage"), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+
+	handler, err := DiskHandler(dir)
+	if err != nil {
+		t.Fatalf("DiskHandler returned error: %v", err)
+	}
+	mux := http.NewServeMux()
+	if err := Mount(mux, PublicHTMLMount, handler); err != nil {
+		t.Fatalf("Mount returned error: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, PublicHTMLMount, nil)
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET %s status = %d, want %d", PublicHTMLMount, rec.Code, http.StatusOK)
+	}
+	if got := rec.Body.String(); got != "offline homepage" {
+		t.Fatalf("GET %s body = %q, want %q", PublicHTMLMount, got, "offline homepage")
+	}
+}

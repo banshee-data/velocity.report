@@ -194,20 +194,12 @@ done
 find "$DATA_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied data reference files"
 
-# Copy built documentation site (Eleventy output) for on-device reference.
-# Auto-build if _site/ is missing, matching the web frontend pattern above.
-if [ ! -d "$REPO_ROOT/public_html/_site" ]; then
-    log_info "Building documentation site..."
-    if command -v pnpm &>/dev/null; then
-        (cd "$REPO_ROOT/public_html" && pnpm run build)
-    elif command -v npm &>/dev/null; then
-        (cd "$REPO_ROOT/public_html" && npm run build)
-    else
-        log_error "pnpm or npm is required to build the documentation site"
-        exit 1
-    fi
-    log_info "Documentation site built"
-fi
+# Build the public homepage with paths rooted at /public_html/. The Go server
+# serves this staged tree alongside its existing /docs/ repository-docs route.
+# Always rebuild here: a normal public deployment targets /, which is not a
+# safe substitute for the image's mounted path.
+log_info "Building offline homepage site..."
+make -C "$REPO_ROOT" build-docs-public-html
 PUBLIC_HTML_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
 rm -rf "$PUBLIC_HTML_DEST"
 mkdir -p "$PUBLIC_HTML_DEST"
@@ -239,6 +231,29 @@ touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 
 rm -rf "$PIGEN_DIR/velocity-binaries"
 cp -r "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
+
+# The pi-gen Docker image is rebuilt from a transient build context. Mount the
+# two generated inputs explicitly when the container runs: this prevents a
+# Docker context/cache anomaly from silently dropping the custom final stage
+# after pi-gen has already spent time building the base operating system.
+PIGEN_STAGE_DIR="$PIGEN_DIR/stage-velocity"
+PIGEN_BINARIES_DIR="$PIGEN_DIR/velocity-binaries"
+for required_path in \
+    "$PIGEN_STAGE_DIR/EXPORT_IMAGE" \
+    "$PIGEN_STAGE_DIR/01-velocity-binaries/00-run.sh" \
+    "$PIGEN_BINARIES_DIR/velocity" \
+    "$PIGEN_BINARIES_DIR/VERSION"; do
+    if [[ ! -f "$required_path" ]]; then
+        log_error "pi-gen input missing before container launch: $required_path"
+        exit 1
+    fi
+done
+
+# build-docker.sh sources this config and forwards PIGEN_DOCKER_OPTS to
+# `docker run`. Append rather than replace any operator-supplied options.
+printf '\nPIGEN_DOCKER_OPTS="${PIGEN_DOCKER_OPTS:-} --volume %s:/pi-gen/stage-velocity:ro --volume %s:/pi-gen/velocity-binaries:ro"\n' \
+    "$PIGEN_STAGE_DIR" "$PIGEN_BINARIES_DIR" >> "$PIGEN_DIR/config"
+log_info "Verified and mounted custom pi-gen stage inputs"
 
 # ---------------------------------------------------------------------------
 # 6a. Install SSH public key for velocity user (optional)

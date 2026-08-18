@@ -23,7 +23,7 @@
 	} from 'svelte-ux';
 
 	import { page } from '$app/state';
-	import { offlineDocsUrl } from '$lib/docsUrl';
+	import { gitRepoDocsUrl } from '$lib/docsUrl';
 	import { discord } from '$lib/icons';
 	import {
 		capabilities,
@@ -35,10 +35,9 @@
 	import './app.css';
 
 	let { children } = $props();
-	// Compute the offline docs URL synchronously from the page URL so the Docs
-	// nav link has the correct href on first paint instead of briefly pointing
-	// at "/" until onMount runs.
-	let docsUrl = $derived(offlineDocsUrl({ href: page.url.href }));
+	// Compute the documentation URL synchronously from the page URL so it retains
+	// the current origin on a Pi, local development host, or Tailscale Serve.
+	let docsUrl = $derived(gitRepoDocsUrl({ href: page.url.href }));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
 	onMount(() => startCapabilitiesPolling());
@@ -125,6 +124,7 @@
 			/>
 		{/if}
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
+		<hr class="border-surface-300 my-2" aria-hidden="true" />
 		<NavItem
 			text="Docs"
 			icon={mdiBookOpenPageVariantOutline}

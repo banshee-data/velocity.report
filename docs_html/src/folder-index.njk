@@ -1,0 +1,19 @@
+---
+pagination:
+  data: folderPages
+  size: 1
+  alias: folder
+permalink: "{{ folder.url }}index.html"
+eleventyComputed:
+  title: "{{ folder.title }}"
+---
+
+<h1>{{ folder.title }}</h1>
+
+<p>Browse the documents in this folder.</p>
+
+<ul>
+{% for child in folder.children %}
+  <li><a href="{{ child.url | docsRelativeUrl(page.url) }}" data-docs-internal>{{ child.title }}</a></li>
+{% endfor %}
+</ul>
