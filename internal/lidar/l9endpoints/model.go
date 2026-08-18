@@ -362,6 +362,13 @@ type PlaybackInfo struct {
 	TotalFrames       uint64
 	Seekable          bool   // true when seek/step is supported (e.g. .vrlog replay)
 	ReplayEpoch       uint64 // monotonically increasing; bumped on each new replay load
+
+	// SourceMode names what is driving the pipeline, as the canonical token
+	// ("live", "pcap", "pcap_analysis", "vrlog"). Empty means unknown, which
+	// maps to SOURCE_MODE_UNSPECIFIED on the wire and leaves older clients on
+	// their is_live/seekable inference.
+	SourceMode string
+	Recording  bool
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.

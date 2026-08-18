@@ -57,9 +57,36 @@ type Server struct {
 	pcapEndNs         int64
 	replayEpoch       uint64 // monotonically increasing; bumped on each new replay load
 
+	// sourceModeProvider pulls the canonical source mode and recording flag
+	// from whoever owns them — the monitor server. It is a pull rather than a
+	// stored copy on purpose: mirroring the mode here is exactly what let this
+	// layer and the monitor server disagree about what was playing.
+	sourceModeProvider func() (mode string, recording bool)
+
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
 	preferenceMu      sync.RWMutex
+}
+
+// SetSourceModeProvider wires the authoritative source-mode lookup. Without
+// one, streamed frames carry SOURCE_MODE_UNSPECIFIED and clients fall back to
+// inferring the mode from is_live and seekable.
+func (s *Server) SetSourceModeProvider(fn func() (string, bool)) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.sourceModeProvider = fn
+}
+
+// currentSourceMode returns the canonical source mode and recording flag,
+// or ("", false) when no provider is wired.
+func (s *Server) currentSourceMode() (string, bool) {
+	s.playbackMu.RLock()
+	fn := s.sourceModeProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return "", false
+	}
+	return fn()
 }
 
 // NewServer creates a new gRPC server.
@@ -371,6 +398,16 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.RLock()
 				frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
 				s.playbackMu.RUnlock()
+			}
+			// Stamp the source mode on every frame, live included, so the
+			// client never has to infer it. Live frames carry no PlaybackInfo
+			// today, so one is created to hold it.
+			if mode, recording := s.currentSourceMode(); mode != "" {
+				if frame.PlaybackInfo == nil {
+					frame.PlaybackInfo = &PlaybackInfo{IsLive: mode == "live", PlaybackRate: 1.0}
+				}
+				frame.PlaybackInfo.SourceMode = mode
+				frame.PlaybackInfo.Recording = recording
 			}
 
 			// Measure serialisation and send time
