@@ -10,6 +10,11 @@ tools/visualiser-macos/DerivedData/
 build/
 dist/
 
+# Vendored third-party sources — not ours to reformat. The format-docs target
+# globs '**/*.md' from the repo root, so without this every docs commit rewrites
+# libpcap's own README and INSTALL files as incidental churn.
+third_party/
+
 # Dependencies
 node_modules/
 .venv/

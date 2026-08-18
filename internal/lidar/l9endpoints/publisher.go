@@ -528,11 +528,7 @@ func (p *Publisher) broadcastLoop() {
 				if frame.PointCloud != nil {
 					frame.PointCloud.Retain()
 				}
-				select {
-				case client.frameCh <- frame:
-					// Successfully sent
-				default:
-					// Client is slow, drop frame for this client.
+				if !p.enqueueForClient(client, frame) {
 					// Release the Retain we just did since frame wasn't sent.
 					if frame.PointCloud != nil {
 						frame.PointCloud.Release()
@@ -549,6 +545,43 @@ func (p *Publisher) broadcastLoop() {
 				frame.PointCloud.Release()
 			}
 		}
+	}
+}
+
+// enqueueForClient queues a frame for one client, reporting whether it was
+// accepted.
+//
+// A slow client normally just loses the frame: another foreground frame is along
+// shortly and supersedes it. Background frames are different — the client
+// renders the last one it received until another arrives, so dropping one during
+// a source change leaves the previous source's scene under the new source's
+// foreground. For those, evict the oldest queued frame and retry once, which
+// bounds the queue without blocking the broadcast loop on a slow client.
+func (p *Publisher) enqueueForClient(client *clientStream, frame *FrameBundle) bool {
+	select {
+	case client.frameCh <- frame:
+		return true
+	default:
+	}
+
+	if frame.FrameType != FrameTypeBackground {
+		return false
+	}
+
+	select {
+	case evicted := <-client.frameCh:
+		if evicted != nil && evicted.PointCloud != nil {
+			evicted.PointCloud.Release()
+		}
+		p.droppedFrames.Add(1)
+	default:
+	}
+
+	select {
+	case client.frameCh <- frame:
+		return true
+	default:
+		return false
 	}
 }
 
