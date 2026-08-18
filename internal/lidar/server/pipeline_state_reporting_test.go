@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -130,4 +132,62 @@ func TestHandleLidarStatusRendersPCAPAnalysisMode(t *testing.T) {
 		t.Fatalf("decode status: %v", err)
 	}
 	assertField(t, resp, "data_source", "pcap_analysis")
+}
+
+// TestHandleVRLogLoadStopsLiveListener verifies that loading a VRLOG takes the
+// live UDP listener down. Without this the listener keeps feeding L1/L2 while
+// recorded frames stream to the visualiser, so live and replayed frames
+// interleave — and reporting "vrlog" while live packets are still processed
+// would trade one false status for another.
+func TestHandleVRLogLoadStopsLiveListener(t *testing.T) {
+	tmp := t.TempDir()
+	ws := &Server{
+		sensorID:     "test-sensor",
+		state:        newPipelineState(),
+		vrlogSafeDir: tmp,
+		onVRLogLoad:  func(string) (string, error) { return "protobuf", nil },
+		onVRLogStop:  func() {},
+	}
+	ws.setLiveListenerRunning(true)
+
+	body := `{"vrlog_path":"` + filepath.Join(tmp, "run-abc") + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleVRLogLoad(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("vrlog/load status = %d, want %d: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	state := ws.PipelineState()
+	if state.Source != SourceModeVRLog {
+		t.Errorf("Source = %q, want %q", state.Source, SourceModeVRLog)
+	}
+	if state.LiveListenerRunning {
+		t.Error("live listener still running during a VRLOG replay")
+	}
+	assertField(t, decodeDataSource(t, ws), "live_listener_running", false)
+}
+
+// TestHandleVRLogStopReturnsToLive verifies the source returns to live when the
+// replay is stopped.
+func TestHandleVRLogStopReturnsToLive(t *testing.T) {
+	ws := &Server{
+		sensorID:    "test-sensor",
+		state:       newPipelineState(),
+		onVRLogStop: func() {},
+	}
+	ws.setSourceVRLog("/var/lib/velocity-report/vrlog/run-abc")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/stop", nil)
+	w := httptest.NewRecorder()
+	ws.handleVRLogStop(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("vrlog/stop status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if got := ws.PipelineState().Source; got != SourceModeLive {
+		t.Errorf("Source = %q, want %q", got, SourceModeLive)
+	}
+	assertField(t, decodeDataSource(t, ws), "data_source", "live")
 }

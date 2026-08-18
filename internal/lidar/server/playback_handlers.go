@@ -613,6 +613,14 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		frameEncoding = "unknown"
 	}
 
+	// Stop live ingest for the duration of the replay. Without this the UDP
+	// listener keeps feeding L1/L2 while recorded frames are streamed, so the
+	// two interleave — and reporting the source as "vrlog" while live packets
+	// are still being processed would be a new falsehood rather than a fix.
+	ws.dataSourceMu.Lock()
+	ws.stopLiveListenerLocked()
+	ws.dataSourceMu.Unlock()
+
 	// Record the source. Without this the data-source surfaces kept reporting
 	// whatever preceded the replay — usually "live" — for its whole duration.
 	ws.setSourceVRLog(vrlogPath)
@@ -638,6 +646,13 @@ func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
 	// Returning to live keeps whatever grid the pipeline already had: VRLOG
 	// replay streams recorded frames and never rebuilt it.
 	ws.setSourceLive(ws.PipelineState().GridPreserved)
+
+	ws.dataSourceMu.Lock()
+	restartErr := ws.startLiveListenerLocked()
+	ws.dataSourceMu.Unlock()
+	if restartErr != nil {
+		opsf("Failed to restart live listener after VRLOG stop: %v", restartErr)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
