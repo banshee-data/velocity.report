@@ -14,6 +14,8 @@ on:
       - "Makefile"
       - "scripts/docs-offline-symlinks.sh"
       - "scripts/check-docs-offline-links.js"
+      - "scripts/spider-docs-404s.py"
+      - "scripts/test_spider_docs_404s.py"
       - "scripts/verify-embedded-docs-server.py"
       - "scripts/test_verify_embedded_docs_server.py"
       - "scripts/verify-docs-offline-build.sh"

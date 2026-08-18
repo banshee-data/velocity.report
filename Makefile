@@ -847,6 +847,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
 	scripts/test_release_radar_remote.py \
+	scripts/test_spider_docs_404s.py \
 	scripts/test_sqlite_erd.py \
 	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
