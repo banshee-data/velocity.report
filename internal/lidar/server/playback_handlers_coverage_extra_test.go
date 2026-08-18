@@ -186,8 +186,17 @@ func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
 
+	// A grid that will not clear is still reported: live data would otherwise
+	// composite onto the recorded scene.
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+
+	// ...but the source must still have reached live. Returning early on the
+	// reset error used to leave Source naming the replay that had already
+	// stopped, which is how the state went stale behind a failed teardown.
+	if got := ws.PipelineState(); got.Source != SourceModeLive || got.ReplayActive {
+		t.Errorf("state did not reach live despite the reset error: %s", got)
 	}
 }
 
@@ -206,8 +215,8 @@ func TestPlayback_HandlePCAPStop_StartLiveListenerError(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}
 }
 

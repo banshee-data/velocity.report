@@ -1507,8 +1507,8 @@ func TestServer_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 
 	server.handlePCAPStop(rr, req)
 
-	if rr.Code != http.StatusConflict {
-		t.Errorf("expected 409, got %d", rr.Code)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
 	}
 }
 
@@ -4507,9 +4507,9 @@ func TestServer_HandlePCAPStop_FormPost(t *testing.T) {
 
 	server.handlePCAPStop(rr, req)
 
-	// Should return 409 (not in PCAP mode) rather than 400 (missing sensor_id)
-	if rr.Code != http.StatusConflict {
-		t.Errorf("expected 409 (not in PCAP mode), got %d: %s", rr.Code, rr.Body.String())
+	// Should return 200 (not in PCAP mode) rather than 400 (missing sensor_id)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200 (stop is idempotent), got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 

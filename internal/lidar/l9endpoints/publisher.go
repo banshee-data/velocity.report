@@ -86,6 +86,10 @@ type Publisher struct {
 	// vrlogEmittedBackground records whether the active replay published a
 	// background frame of its own at startup.
 	vrlogEmittedBackground bool
+	// onReplayEnded is invoked once when a VRLOG replay reaches the end of its
+	// recording, so the owner can return the pipeline to live input. Guarded by
+	// vrlogMu; always invoked on its own goroutine (see notifyReplayEnded).
+	onReplayEnded func()
 
 	// Stats
 	frameCount       atomic.Uint64
@@ -131,6 +135,31 @@ func NewPublisher(cfg Config) *Publisher {
 		frameChan: make(chan *FrameBundle, 100),
 		clients:   make(map[string]*clientStream),
 		stopCh:    make(chan struct{}),
+	}
+}
+
+// SetOnReplayEnded registers a callback fired once when a VRLOG replay reaches
+// the end of its recording. Without it a finished replay stays the pipeline's
+// data source forever: nothing else observes the end, so live input is never
+// restored and the replay slot is never released.
+func (p *Publisher) SetOnReplayEnded(fn func()) {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+	p.onReplayEnded = fn
+}
+
+// notifyReplayEnded invokes the end-of-replay callback on its own goroutine.
+//
+// The goroutine is required, not incidental: this is called from
+// vrlogReplayLoop, and the callback's natural implementation stops the replay,
+// which waits on vrlogWg — i.e. on this very goroutine. Calling it inline would
+// deadlock.
+func (p *Publisher) notifyReplayEnded() {
+	p.vrlogMu.RLock()
+	fn := p.onReplayEnded
+	p.vrlogMu.RUnlock()
+	if fn != nil {
+		go fn()
 	}
 }
 
