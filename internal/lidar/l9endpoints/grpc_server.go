@@ -617,3 +617,56 @@ func (s *Server) StartRecording(ctx context.Context, req *pb.RecordingRequest) (
 func (s *Server) StopRecording(ctx context.Context, req *pb.RecordingRequest) (*pb.RecordingStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "recording not yet supported")
 }
+
+// PlaybackPositionInfo is the replay position owned by this streaming layer.
+//
+// It mirrors server.PlaybackPosition structurally rather than importing it:
+// internal/lidar/server already imports this package, so declaring the
+// interface there and satisfying it here keeps the dependency edge one-way.
+//
+// It carries no mode field on purpose. Which source is driving the pipeline is
+// owned by the monitor server, which initiates every transition; this layer is
+// told, and duplicating the answer here is what previously let the two
+// disagree.
+type PlaybackPositionInfo struct {
+	Paused       bool
+	Rate         float32
+	Seekable     bool
+	CurrentFrame uint64
+	TotalFrames  uint64
+	TimestampNs  int64
+	LogStartNs   int64
+	LogEndNs     int64
+	ReplayEpoch  uint64
+}
+
+// PlaybackPosition returns the current replay position. Live streaming has no
+// meaningful position, so the zero value (with a unit rate) is returned.
+func (s *Server) PlaybackPosition() PlaybackPositionInfo {
+	s.playbackMu.RLock()
+	info := PlaybackPositionInfo{
+		Paused:       s.paused,
+		Rate:         s.playbackRate,
+		Seekable:     s.vrlogMode,
+		CurrentFrame: s.pcapCurrentPacket,
+		TotalFrames:  s.pcapTotalPackets,
+		LogStartNs:   s.pcapStartNs,
+		LogEndNs:     s.pcapEndNs,
+		ReplayEpoch:  s.replayEpoch,
+	}
+	vrlogMode := s.vrlogMode
+	s.playbackMu.RUnlock()
+
+	// Frame counts come from the VRLOG reader, which tracks them per frame;
+	// the packet counters above are the PCAP equivalent.
+	if vrlogMode && s.publisher != nil {
+		if reader := s.publisher.VRLogReader(); reader != nil {
+			info.CurrentFrame = reader.CurrentFrame()
+			info.TotalFrames = reader.TotalFrames()
+		}
+	}
+	if info.Rate == 0 {
+		info.Rate = 1.0
+	}
+	return info
+}

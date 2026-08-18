@@ -125,17 +125,17 @@ type Server struct {
 	onPCAPTimestamps func(startNs, endNs int64)
 
 	// Recording lifecycle callbacks
-	onRecordingStart func(runID string)
+	onRecordingStart func(runID string) string
 	onRecordingStop  func(runID string) string
 
 	// Playback control callbacks
-	onPlaybackPause   func()
-	onPlaybackPlay    func()
-	onPlaybackSeek    func(timestampNs int64) error
-	onPlaybackRate    func(rate float32)
-	onVRLogLoad       func(vrlogPath string) (string, error)
-	onVRLogStop       func()
-	getPlaybackStatus func() *PlaybackStatusInfo
+	onPlaybackPause func()
+	onPlaybackPlay  func()
+	onPlaybackSeek  func(timestampNs int64) error
+	onPlaybackRate  func(rate float32)
+	onVRLogLoad     func(vrlogPath string) (string, error)
+	onVRLogStop     func()
+	playbackProbe   PlaybackProbe
 
 	// Sweep runner for web-triggered parameter sweeps
 	sweepRunner SweepRunner
@@ -150,9 +150,37 @@ type Server struct {
 	sweepStore *sqlite.SweepStore
 }
 
+// PlaybackPosition is the fast-moving replay position owned by the streaming
+// layer. Pause/Play/Seek/SetRate arrive as gRPC calls and never pass through
+// HTTP, so mirroring this into the monitor server would recreate the very
+// divergence PipelineState exists to remove: it is pulled on demand instead.
+//
+// It deliberately carries no mode field. Mode has exactly one owner — the
+// monitor server — and leaving it out is what keeps that enforceable.
+type PlaybackPosition struct {
+	Paused       bool
+	Rate         float32
+	Seekable     bool
+	CurrentFrame uint64
+	TotalFrames  uint64
+	TimestampNs  int64
+	LogStartNs   int64
+	LogEndNs     int64
+	ReplayEpoch  uint64
+}
+
+// PlaybackProbe is implemented by the visualiser gRPC server.
+type PlaybackProbe interface {
+	PlaybackPosition() PlaybackPosition
+}
+
 // PlaybackStatusInfo represents the current playback state for API responses.
+//
+// Mode uses the canonical source-mode vocabulary (live, pcap, pcap_analysis,
+// vrlog) shared with /api/lidar/data_source, rather than a second near-synonym
+// field beside it.
 type PlaybackStatusInfo struct {
-	Mode         string  `json:"mode"` // "live", "pcap", "vrlog"
+	Mode         string  `json:"mode"`
 	Paused       bool    `json:"paused"`
 	Rate         float32 `json:"rate"`
 	Seekable     bool    `json:"seekable"`
@@ -162,6 +190,17 @@ type PlaybackStatusInfo struct {
 	LogStartNs   int64   `json:"log_start_ns"`
 	LogEndNs     int64   `json:"log_end_ns"`
 	VRLogPath    string  `json:"vrlog_path,omitempty"`
+
+	ReplayActive      bool       `json:"replay_active"`
+	ReplayPass        ReplayPass `json:"replay_pass"`
+	ReplayTotalPasses int        `json:"replay_total_passes"`
+	GridPreserved     bool       `json:"grid_preserved"`
+	ReplayEpoch       uint64     `json:"replay_epoch"`
+
+	Recording       bool   `json:"recording"`
+	RecordingPath   string `json:"recording_path,omitempty"`
+	RecordingRunID  string `json:"recording_run_id,omitempty"`
+	RecordingFrames uint64 `json:"recording_frames"`
 }
 
 // Config contains configuration options for the web server
@@ -207,21 +246,26 @@ type Config struct {
 	OnPCAPTimestamps func(startNs, endNs int64)
 
 	// OnRecordingStart is called when VRLOG recording starts for an analysis run.
-	// The callback receives the run ID and should start the recorder.
-	OnRecordingStart func(runID string)
+	// The callback receives the run ID, starts the recorder, and returns the
+	// path it is writing to (empty if recording could not start) so the server
+	// can report recording state instead of leaving it in a closure local.
+	OnRecordingStart func(runID string) string
 
 	// OnRecordingStop is called when VRLOG recording stops.
 	// The callback receives the run ID and should return the path to the recorded VRLOG.
 	OnRecordingStop func(runID string) string
 
 	// Playback control callbacks
-	OnPlaybackPause   func()
-	OnPlaybackPlay    func()
-	OnPlaybackSeek    func(timestampNs int64) error
-	OnPlaybackRate    func(rate float32)
-	OnVRLogLoad       func(vrlogPath string) (string, error)
-	OnVRLogStop       func()
-	GetPlaybackStatus func() *PlaybackStatusInfo
+	OnPlaybackPause func()
+	OnPlaybackPlay  func()
+	OnPlaybackSeek  func(timestampNs int64) error
+	OnPlaybackRate  func(rate float32)
+	OnVRLogLoad     func(vrlogPath string) (string, error)
+	OnVRLogStop     func()
+	// PlaybackProbe supplies replay position for GET /api/lidar/playback/status.
+	// A nil probe yields a zero position; mode and recording still report
+	// truthfully from the server's own state.
+	PlaybackProbe PlaybackProbe
 }
 
 // NewServer creates a new web server with the provided configuration
@@ -286,7 +330,7 @@ func NewServer(config Config) *Server {
 		onPlaybackRate:    config.OnPlaybackRate,
 		onVRLogLoad:       config.OnVRLogLoad,
 		onVRLogStop:       config.OnVRLogStop,
-		getPlaybackStatus: config.GetPlaybackStatus,
+		playbackProbe:     config.PlaybackProbe,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager

@@ -657,7 +657,10 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 		var recordingStarted bool
 		if err == nil && runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
-			ws.onRecordingStart(runID)
+			// Publish where the recorder is writing so the status surfaces can
+			// report it. Previously this was a goroutine-local bool paired with
+			// a closure local in the radar command, so nothing could observe it.
+			ws.setRecording(runID, ws.onRecordingStart(runID))
 			recordingStarted = true
 		}
 
@@ -784,6 +787,9 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			}
 		}
 
+		if recordingStarted {
+			ws.clearRecording()
+		}
 		if recordingStarted && ws.onRecordingStop != nil {
 			vrlogPath := ws.onRecordingStop(runID)
 			if vrlogPath != "" && ws.db != nil {

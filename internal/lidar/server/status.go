@@ -227,6 +227,16 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"pcap_in_progress": state.PCAPInProgress(),
 		"analysis_mode":    state.AnalysisMode(),
 		"last_run_id":      state.LastRunID,
+
+		// SourcePath covers VRLOG replays too, which pcap_file cannot.
+		"source_path":           state.SourcePath,
+		"replay_active":         state.ReplayActive,
+		"replay_pass":           string(state.Pass),
+		"replay_total_passes":   state.TotalPasses,
+		"grid_preserved":        state.GridPreserved,
+		"live_listener_running": state.LiveListenerRunning,
+		"recording":             state.Recording,
+		"recording_path":        state.RecordingPath,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
