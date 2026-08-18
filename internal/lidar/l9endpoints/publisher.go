@@ -364,8 +364,20 @@ func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 		}
 	}
 
-	// Set background sequence number for client cache coherence
-	if p.backgroundMgr != nil {
+	// Set background sequence number for client cache coherence.
+	//
+	// Replayed frames keep the sequence they were recorded with. At record time
+	// each frame was stamped from the same grid that produced the background
+	// recorded alongside it, so a recording is already self-consistent — and
+	// stays so across a mid-recording grid reset, where later background frames
+	// carry a new sequence and the frames after them match it. Restamping with
+	// the live grid's sequence would point replayed frames at a background the
+	// client is not holding.
+	//
+	// The exception is a recording that holds no background of its own: there
+	// the client is showing the live grid that SendBackgroundSnapshot sent as a
+	// fallback, so the live sequence is the correct one to advertise.
+	if p.backgroundMgr != nil && !(fromReplay && p.VRLogEmittedBackground()) {
 		frameBundle.BackgroundSeq = p.backgroundMgr.GetBackgroundSequenceNumber()
 	}
 

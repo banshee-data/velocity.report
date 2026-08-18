@@ -34,16 +34,11 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	// Publish() → shouldSendBackground() → IsVRLogActive() acquires
 	// vrlogMu.RLock(), which would deadlock if the write lock were
 	// still held.
-	emitted, err := p.emitFirstBackground(reader)
-	if err != nil {
+	if err := p.emitFirstBackground(reader); err != nil {
 		diagf("[Visualiser] emitFirstBackground failed: %v", err)
 		p.StopVRLogReplay()
 		return fmt.Errorf("emit first background: %w", err)
 	}
-
-	p.vrlogMu.Lock()
-	p.vrlogEmittedBackground = emitted
-	p.vrlogMu.Unlock()
 
 	go p.vrlogReplayLoop()
 
@@ -55,11 +50,11 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 // publishes it immediately so the client sees the background grid at the
 // start of replay.  The reader is reset to frame 0 afterwards.
 //
-// Returns whether a background frame was found and published.  A recording
-// made before the background grid settled holds none, which is the caller's
-// cue that the live grid is still needed as a fallback.
-func (p *Publisher) emitFirstBackground(reader FrameReader) (bool, error) {
-	emitted := false
+// Sets vrlogEmittedBackground when it finds one, which both gates the live
+// fallback in SendBackgroundSnapshot and tells publishInternal to preserve
+// replayed frames' recorded background sequence.  A recording made before the
+// background grid settled holds none, and the flag stays false.
+func (p *Publisher) emitFirstBackground(reader FrameReader) error {
 	total := reader.TotalFrames()
 	for i := uint64(0); i < total; i++ {
 		frame, err := reader.ReadFrame()
@@ -72,17 +67,22 @@ func (p *Publisher) emitFirstBackground(reader FrameReader) (bool, error) {
 			}
 			frame.PlaybackInfo.IsLive = false
 			frame.PlaybackInfo.Seekable = true
+			// Record that this replay supplies its own background BEFORE
+			// publishing, so publishInternal preserves this frame's recorded
+			// sequence instead of stamping it with the live grid's.
+			p.vrlogMu.Lock()
+			p.vrlogEmittedBackground = true
+			p.vrlogMu.Unlock()
 			p.publishReplay(frame)
-			emitted = true
 			diagf("[Visualiser] Emitted first background frame at index %d", i)
 			break
 		}
 	}
 	// Reset to the start so the main replay loop reads from frame 0.
 	if err := reader.Seek(0); err != nil {
-		return emitted, fmt.Errorf("seek to frame 0 after background scan: %w", err)
+		return fmt.Errorf("seek to frame 0 after background scan: %w", err)
 	}
-	return emitted, nil
+	return nil
 }
 
 // StopVRLogReplay stops the current VRLOG replay.

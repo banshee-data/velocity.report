@@ -198,3 +198,108 @@ func TestVRLogStartup_LiveBackgroundFallsBackWhenUnrecorded(t *testing.T) {
 		t.Errorf("background seq = %d, want %d (live fallback)", got, liveBackgroundSeq)
 	}
 }
+
+// replayedForegroundFrame builds a foreground frame as it would have been read
+// back from a VRLOG: BackgroundSeq already carries the sequence it was stamped
+// with at record time.
+func replayedForegroundFrame(recordedSeq uint64) *FrameBundle {
+	return &FrameBundle{
+		FrameID:        99,
+		FrameType:      FrameTypeForeground,
+		TimestampNanos: 5000,
+		BackgroundSeq:  recordedSeq,
+	}
+}
+
+// TestReplayedFrames_KeepRecordedBackgroundSeq verifies that a replay supplying
+// its own background leaves replayed frames' recorded BackgroundSeq alone.
+// Restamping them with the live grid's sequence would advertise a background
+// the client is not holding: the client caches under the background payload's
+// own sequence, so the two must agree.
+func TestReplayedFrames_KeepRecordedBackgroundSeq(t *testing.T) {
+	pub := newVRLogBackgroundTestPublisher(t)
+
+	reader := newScanOnlyReader([]*FrameBundle{
+		{FrameID: 1, FrameType: FrameTypeForeground, TimestampNanos: 1000},
+		recordedBackgroundFrame(),
+	})
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay failed: %v", err)
+	}
+	t.Cleanup(pub.StopVRLogReplay)
+
+	// The background frame the replay emitted must advertise its own recorded
+	// sequence, not the live grid's.
+	emitted := drainVRLogBackgrounds(pub)
+	if len(emitted) != 1 {
+		t.Fatalf("got %d background frames, want 1", len(emitted))
+	}
+	if got := emitted[0].BackgroundSeq; got != recordedBackgroundSeq {
+		t.Errorf("emitted background frame BackgroundSeq = %d, want %d (recorded)",
+			got, recordedBackgroundSeq)
+	}
+
+	// Frames from the replay loop must keep theirs too.
+	pub.publishReplay(replayedForegroundFrame(recordedBackgroundSeq))
+	frame := <-pub.frameChan
+	if got := frame.BackgroundSeq; got != recordedBackgroundSeq {
+		t.Errorf("replayed foreground BackgroundSeq = %d, want %d (recorded); the live grid's sequence was stamped over it",
+			got, recordedBackgroundSeq)
+	}
+}
+
+// TestReplayedFrames_TakeLiveSeqWhenBackgroundUnrecorded verifies the other
+// path: with no background in the recording the client is showing the live grid
+// sent as a fallback, so replayed frames must advertise the live sequence.
+func TestReplayedFrames_TakeLiveSeqWhenBackgroundUnrecorded(t *testing.T) {
+	pub := newVRLogBackgroundTestPublisher(t)
+
+	reader := newScanOnlyReader([]*FrameBundle{
+		{FrameID: 1, FrameType: FrameTypeForeground, TimestampNanos: 1000},
+		{FrameID: 2, FrameType: FrameTypeForeground, TimestampNanos: 2000},
+	})
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay failed: %v", err)
+	}
+	t.Cleanup(pub.StopVRLogReplay)
+
+	if err := pub.SendBackgroundSnapshot(); err != nil {
+		t.Fatalf("SendBackgroundSnapshot failed: %v", err)
+	}
+	drainVRLogBackgrounds(pub)
+
+	// The recorded sequence refers to a background that was never sent, so the
+	// live fallback's sequence is the correct one to advertise.
+	pub.publishReplay(replayedForegroundFrame(recordedBackgroundSeq))
+	frame := <-pub.frameChan
+	if got := frame.BackgroundSeq; got != liveBackgroundSeq {
+		t.Errorf("replayed foreground BackgroundSeq = %d, want %d (live fallback)",
+			got, liveBackgroundSeq)
+	}
+}
+
+// TestLiveFrames_StillStampedWithLiveSeq guards the ordinary path: with no
+// replay active, frames are stamped from the live grid as before.
+func TestLiveFrames_StillStampedWithLiveSeq(t *testing.T) {
+	pub := newVRLogBackgroundTestPublisher(t)
+
+	pub.Publish(&FrameBundle{
+		FrameID:        1,
+		FrameType:      FrameTypeForeground,
+		TimestampNanos: 1000,
+		BackgroundSeq:  recordedBackgroundSeq, // stale value must be overwritten
+	})
+
+	for {
+		frame := <-pub.frameChan
+		if frame.FrameType == FrameTypeBackground {
+			continue // the publisher's own first background snapshot
+		}
+		if got := frame.BackgroundSeq; got != liveBackgroundSeq {
+			t.Errorf("live foreground BackgroundSeq = %d, want %d", got, liveBackgroundSeq)
+		}
+		return
+	}
+}
