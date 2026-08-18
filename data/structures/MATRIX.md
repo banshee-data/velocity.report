@@ -106,13 +106,13 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | PCAP           | `routes.go`        | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
 | PCAP           | `routes.go`        | `POST /api/lidar/pcap/resume_live`              | -   | ✅  | -   |
 | PCAP           | `routes.go`        | `GET /api/lidar/pcap/files`                     | -   | ✅  | -   |
-| Playback       | `routes.go`        | `GET /api/lidar/playback/status`                | -   | ✅  | ✅  |
-| Playback       | `routes.go`        | `POST /api/lidar/playback/pause`                | -   | ✅  | -   |
-| Playback       | `routes.go`        | `POST /api/lidar/playback/play`                 | -   | ✅  | -   |
-| Playback       | `routes.go`        | `POST /api/lidar/playback/seek`                 | -   | ✅  | -   |
-| Playback       | `routes.go`        | `POST /api/lidar/playback/rate`                 | -   | ✅  | -   |
-| Playback       | `routes.go`        | `POST /api/lidar/vrlog/load`                    | -   | ✅  | ✅  |
-| Playback       | `routes.go`        | `POST /api/lidar/vrlog/stop`                    | -   | ✅  | ✅  |
+| Playback       | `routes.go`        | `GET /api/lidar/playback/status`                | -   | -   | 🔶  |
+| Playback       | `routes.go`        | `POST /api/lidar/playback/pause`                | -   | -   | -   |
+| Playback       | `routes.go`        | `POST /api/lidar/playback/play`                 | -   | -   | -   |
+| Playback       | `routes.go`        | `POST /api/lidar/playback/seek`                 | -   | -   | -   |
+| Playback       | `routes.go`        | `POST /api/lidar/playback/rate`                 | -   | -   | -   |
+| Playback       | `routes.go`        | `POST /api/lidar/vrlog/load`                    | -   | -   | ✅  |
+| Playback       | `routes.go`        | `POST /api/lidar/vrlog/stop`                    | -   | -   | ✅  |
 | Charts         | `routes.go`        | `GET /api/lidar/chart/polar`                    | -   | ✅  | -   |
 | Charts         | `routes.go`        | `GET /api/lidar/chart/heatmap`                  | -   | ✅  | -   |
 | Charts         | `routes.go`        | `GET /api/lidar/chart/foreground`               | -   | ✅  | -   |
@@ -152,6 +152,14 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Sweep history  | `routes.go`        | `PUT /api/lidar/sweeps/charts`                  | ✅  | ✅  | -   |
 | Destructive    | `track_api.go`     | `POST /api/lidar/tracks/clear`                  | ✅  | ✅  | -   |
 | Destructive    | `routes.go`        | `POST /api/lidar/runs/clear`                    | ✅  | ✅  | -   |
+
+**Playback row notes.** No web code calls any `/api/lidar/playback/*` or
+`/api/lidar/vrlog/*` endpoint; those rows previously carried Web ✅ marks that
+nothing backed. `GET /api/lidar/playback/status` is 🔶 on Mac: the Swift client
+defines `RunTrackLabelAPIClient.getPlaybackStatus()` but no app code path calls
+it. The visualiser learns playback state from `FrameBundle.playback_info` on the
+gRPC stream instead. `POST /api/lidar/vrlog/load|stop` are genuinely Mac-wired
+via `RunBrowserState`.
 
 ---
 
