@@ -671,7 +671,9 @@ final class LockedState<Value>: @unchecked Sendable {
                 playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
                 currentFrameIndex: proto.playbackInfo.currentFrameIndex,
                 totalFrames: proto.playbackInfo.totalFrames, seekable: proto.playbackInfo.seekable,
-                replayEpoch: proto.playbackInfo.replayEpoch)
+                replayEpoch: proto.playbackInfo.replayEpoch,
+                sourceMode: sourceMode(from: proto.playbackInfo.sourceMode),
+                recording: proto.playbackInfo.recording)
         }
 
         // Debug overlays
@@ -730,6 +732,21 @@ final class LockedState<Value>: @unchecked Sendable {
 
 /// Convert a proto ObjectClass enum value to its canonical string label.
 /// Returns empty string only for unspecified, otherwise a valid label.
+/// Maps the wire source mode to the client enum.
+///
+/// `.unspecified` means the server predates the field or has no provider wired,
+/// in which case the caller falls back to inferring the mode from `isLive` and
+/// `seekable`.
+private func sourceMode(from proto: Velocity_Visualiser_V1_SourceMode) -> SourceMode {
+    switch proto {
+    case .live: return .live
+    case .pcap: return .pcap
+    case .pcapAnalysis: return .pcapAnalysis
+    case .vrlog: return .vrlog
+    default: return .unspecified
+    }
+}
+
 private func objectClassLabel(_ oc: Velocity_Visualiser_V1_ObjectClass) -> String {
     switch oc {
     case .car: return "car"

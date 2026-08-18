@@ -974,7 +974,8 @@ struct PlaybackControlsView: View {
 
             // Mode indicator (only show when connected)
             PlaybackModeBadgeView(
-                modeLabel: ui.modeLabel, mode: ui.mode, isConnected: ui.isConnected)
+                modeLabel: appState.displayModeLabel, mode: ui.mode,
+                isRecording: appState.isRecording, isConnected: ui.isConnected)
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
     }
@@ -1049,24 +1050,10 @@ struct TimeDisplayView: View {
     }
 }
 
-struct ModeIndicatorView: View {
-    let isLive: Bool
-    let isConnected: Bool
-
-    var body: some View {
-        if isConnected {
-            Text(isLive ? "LIVE" : "REPLAY").font(.caption).fontWeight(.bold).foregroundColor(
-                isLive ? .red : .orange
-            ).padding(.horizontal, 8).padding(.vertical, 2).background(
-                isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2)
-            ).cornerRadius(4)
-        }
-    }
-}
-
 @available(macOS 15.0, *) struct PlaybackModeBadgeView: View {
     let modeLabel: String
     let mode: AppState.PlaybackMode
+    var isRecording: Bool = false
     let isConnected: Bool
 
     private var foreground: Color {
@@ -1080,9 +1067,17 @@ struct ModeIndicatorView: View {
 
     var body: some View {
         if isConnected {
-            Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground).padding(
-                .horizontal, 8
-            ).padding(.vertical, 2).background(foreground.opacity(0.16)).cornerRadius(4)
+            HStack(spacing: 6) {
+                Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground)
+                    .padding(.horizontal, 8).padding(.vertical, 2).background(
+                        foreground.opacity(0.16)
+                    ).cornerRadius(4)
+                if isRecording {
+                    Text("REC").font(.caption).fontWeight(.bold).foregroundColor(.red).padding(
+                        .horizontal, 8
+                    ).padding(.vertical, 2).background(Color.red.opacity(0.16)).cornerRadius(4)
+                }
+            }
         }
     }
 }
