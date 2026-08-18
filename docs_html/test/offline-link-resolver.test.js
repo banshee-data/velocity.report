@@ -236,7 +236,26 @@ test("the transform marks internal docs, externalises source, and removes placeh
   assert.equal(permalink({ page: { inputPath: path.join(docsRoot, "src/docs/platform/README.md") } }), "docs/platform/index.html");
   assert.equal(permalink({ permalink: "unchanged", page: { inputPath: path.join(docsRoot, "src/docs/X.md") } }), "unchanged");
   assert.equal(collections.get("docsPages")({ getAll: () => [{ inputPath: "b.txt", url: "/b/" }, { inputPath: "a.md", url: "/z/" }, { inputPath: "b.md", url: "/a/" }] }).length, 2);
-  assert(globals.get("folderPages")().length > 0);
+  const originalReaddirSync = fs.readdirSync;
+  const originalStatSync = fs.statSync;
+  try {
+    const docsSource = path.resolve("src/docs");
+    const guideSource = path.join(docsSource, "guide");
+    fs.readdirSync = (target) => {
+      if (target === docsSource) return [{ name: "guide" }];
+      return [];
+    };
+    fs.statSync = (target) => ({
+      isDirectory: () => target === guideSource,
+      isFile: () => false,
+    });
+    assert.deepEqual(globals.get("folderPages")(), [
+      { title: "Guide", url: "/docs/guide/", children: [] },
+    ]);
+  } finally {
+    fs.readdirSync = originalReaddirSync;
+    fs.statSync = originalStatSync;
+  }
   assert.equal(registrations.get("docsTitle")({ data: { title: "Named" } }), "Named");
   assert.equal(registrations.get("docsTitle")({ inputPath: "alpha-beta.md" }), "Alpha Beta");
   assert.equal(registrations.get("docsNavGroups")([{ inputPath: "src/docs/radar/a.md" }, { inputPath: "src/docs/radar/b.md" }]).length, 1);
