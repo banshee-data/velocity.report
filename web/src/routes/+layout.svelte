@@ -23,7 +23,7 @@
 	} from 'svelte-ux';
 
 	import { page } from '$app/state';
-	import { gitRepoDocsUrl, offlinePublicHTMLUrl } from '$lib/docsUrl';
+	import { gitRepoDocsUrl } from '$lib/docsUrl';
 	import { discord } from '$lib/icons';
 	import {
 		capabilities,
@@ -35,9 +35,8 @@
 	import './app.css';
 
 	let { children } = $props();
-	// Compute offline-site URLs synchronously from the page URL so they retain
+	// Compute the documentation URL synchronously from the page URL so it retains
 	// the current origin on a Pi, local development host, or Tailscale Serve.
-	let publicHTMLUrl = $derived(offlinePublicHTMLUrl({ href: page.url.href }));
 	let docsUrl = $derived(gitRepoDocsUrl({ href: page.url.href }));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
