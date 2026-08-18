@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // The reported failure was a single wedged state reached by ordinary use, in
@@ -210,8 +211,8 @@ func TestStopIsOneTeardownForEveryReplayKind(t *testing.T) {
 			name   string
 			handle func(*Server, http.ResponseWriter, *http.Request)
 		}{
-			{"pcap/stop", (*Server).handlePCAPStop},
-			{"vrlog/stop", (*Server).handleVRLogStop},
+			{"pcap/stop", (*Server).handleReplayStop},
+			{"vrlog/stop", (*Server).handleReplayStop},
 		} {
 			t.Run(tc.name+"/"+endpoint.name, func(t *testing.T) {
 				const sensorID = "sensor-one-stop"
@@ -254,12 +255,77 @@ func TestStopIsIdempotent(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/stop?sensor_id="+sensorID, nil)
 		w := httptest.NewRecorder()
-		ws.handlePCAPStop(w, req)
+		ws.handleReplayStop(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("stop %d: status = %d, want %d; body: %s", i, w.Code, http.StatusOK, w.Body.String())
 		}
 		if got := ws.PipelineState(); got.Source != SourceModeLive || got.ReplayActive {
 			t.Fatalf("stop %d left %s", i, got)
 		}
+	}
+}
+
+// TestSelfTeardownDoesNotWaitOnItself guards the deadlock that routing the PCAP
+// replay goroutine's teardown through ReturnToLive would otherwise introduce:
+// pcapDone only closes when that goroutine exits, so waiting on it from inside
+// the goroutine deadlocks the replay against itself.
+func TestSelfTeardownDoesNotWaitOnItself(t *testing.T) {
+	ws := &Server{sensorID: "sensor-self-teardown", state: newPipelineState()}
+	ws.mutateState("test-setup", func(s *PipelineState) {
+		s.Source = SourceModePCAP
+		s.SourcePath = "a.pcapng"
+		s.ReplayActive = true
+	})
+
+	// An open pcapDone stands in for a replay goroutine still running: the one
+	// calling this teardown.
+	ws.pcapMu.Lock()
+	ws.pcapDone = make(chan struct{})
+	ws.pcapMu.Unlock()
+
+	finished := make(chan error, 1)
+	go func() { finished <- ws.returnToLive("PCAP replay finished", false) }()
+
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("self-teardown waited on its own completion channel and deadlocked")
+	}
+
+	if got := ws.PipelineState(); got.Source != SourceModeLive || got.ReplayActive {
+		t.Errorf("self-teardown did not reach live: %s", got)
+	}
+}
+
+// TestOperatorStopStillWaitsForTheReplay is the other half: a stop from outside
+// must wait for the replay goroutine, or it would report live while frames were
+// still being published.
+func TestOperatorStopStillWaitsForTheReplay(t *testing.T) {
+	ws := &Server{sensorID: "sensor-operator-stop", state: newPipelineState()}
+	ws.mutateState("test-setup", func(s *PipelineState) {
+		s.Source = SourceModePCAP
+		s.SourcePath = "a.pcapng"
+		s.ReplayActive = true
+	})
+
+	done := make(chan struct{})
+	ws.pcapMu.Lock()
+	ws.pcapDone = done
+	ws.pcapMu.Unlock()
+
+	returned := make(chan error, 1)
+	go func() { returned <- ws.ReturnToLive("operator requested stop") }()
+
+	select {
+	case <-returned:
+		t.Fatal("operator stop returned before the replay goroutine finished")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(done) // the replay goroutine exits
+	select {
+	case <-returned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("operator stop did not return after the replay finished")
 	}
 }

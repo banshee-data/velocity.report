@@ -164,7 +164,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	defer ws.dataSourceMu.Unlock()
 
 	if ws.PipelineState().PCAPInProgress() {
-		ws.writeJSONError(w, http.StatusConflict, "PCAP replay is already running: stop it first via POST /pcap/stop")
+		ws.writeJSONError(w, http.StatusConflict, "a replay is already running: stop it first via POST /api/lidar/replay/stop")
 		return
 	}
 
@@ -237,23 +237,23 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 // handlePCAPStop cancels any active PCAP replay and returns to live UDP.
 // Method: POST. Query param: sensor_id (required to match configured sensor).
-func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
+func (ws *Server) handleReplayStop(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		sensorID = r.FormValue("sensor_id")
 	}
+	// sensor_id is optional here. The VRLOG stop this handler replaced never
+	// took one, and requiring it would break that route's existing callers; a
+	// single-sensor server has only one thing to stop anyway. Supplying it
+	// still gets the mismatch check.
 	if sensorID == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "the sensor_id parameter is required")
-		return
+		sensorID = ws.sensorID
 	}
 	if sensorID != ws.sensorID {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised: check the sensor_id matches the configured sensor", sensorID))
 		return
 	}
 
-	// One teardown for every replay kind. This used to reject when the source
-	// was not PCAP, so a VRLOG replay could not be stopped here and a stranded
-	// replay slot could not be cleared at all.
 	if err := ws.ReturnToLive("operator requested stop"); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not return to live: %v", err))
 		return
@@ -554,17 +554,3 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 
 // handleVRLogStop stops VRLOG replay and returns to live mode.
 // POST /api/lidar/vrlog/stop
-func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
-	// Delegates to the same teardown as POST /pcap/stop. Kept as a route so
-	// existing clients and docs keep working; there is one implementation.
-	if err := ws.ReturnToLive("operator requested VRLOG stop"); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not return to live: %v", err))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":        true,
-		"current_source": ws.PipelineState().DataSourceWire(),
-	})
-}

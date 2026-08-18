@@ -1049,7 +1049,7 @@ func TestServer_HandlePCAPStop_NoPCAPActive(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=test-sensor", nil)
 	rec := httptest.NewRecorder()
 
-	server.handlePCAPStop(rec, req)
+	server.handleReplayStop(rec, req)
 
 	// Should return success even if no PCAP is active
 	if rec.Code < 200 || rec.Code >= 300 {

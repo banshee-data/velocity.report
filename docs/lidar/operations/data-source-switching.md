@@ -64,10 +64,10 @@ All are served on both the LiDAR port (`:8081`) and the main API (`:8080`).
 | `GET /api/lidar/status`            | Server status including `data_source`, `pcap_file`, `pcap_in_progress` |
 | `GET /api/lidar/playback/status`   | Playback mode plus replay position                                     |
 | `POST /api/lidar/pcap/start`       | Start a PCAP replay (stops live ingest, resets the grid)               |
-| `POST /api/lidar/pcap/stop`        | Cancel the replay, reset the grid, resume live                         |
+| `POST /api/lidar/replay/stop`      | Stop whatever is replaying (PCAP or VRLOG) and resume live             |
 | `POST /api/lidar/pcap/resume_live` | Resume live from analysis mode, **keeping** the grid                   |
 | `POST /api/lidar/vrlog/load`       | Start a VRLOG replay (stops live ingest)                               |
-| `POST /api/lidar/vrlog/stop`       | Stop the replay and resume live                                        |
+| `POST /api/lidar/vrlog/stop`       | Alias of `replay/stop`, kept for existing clients                      |
 
 ### `GET /api/lidar/data_source`
 
@@ -115,11 +115,11 @@ stateDiagram-v2
 	Live --> PCAP: pcap/start
 	PCAP --> Live: replay ends (normal mode, grid reset)
 	PCAP --> PCAPAnalysis: replay ends (analysis mode, grid kept)
-	PCAP --> Live: pcap/stop (grid reset)
+	PCAP --> Live: replay/stop (grid reset)
 	PCAPAnalysis --> Live: pcap/resume_live (grid kept)
-	PCAPAnalysis --> Live: pcap/stop (grid reset)
+	PCAPAnalysis --> Live: replay/stop (grid reset)
 	Live --> VRLOG: vrlog/load
-	VRLOG --> Live: vrlog/stop
+	VRLOG --> Live: replay/stop
 ```
 
 `PCAPAnalysis` is the derived `pcap_analysis` token, not a distinct source.

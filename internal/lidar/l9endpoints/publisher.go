@@ -597,20 +597,52 @@ func (p *Publisher) Stats() PublisherStats {
 // SendBackgroundSnapshot sends a background snapshot of the live grid to
 // clients, bypassing the interval and sequence checks in shouldSendBackground.
 //
-// It is a no-op when a VRLOG replay has already emitted a background frame of
-// its own: clients cache whichever background arrives last, so pushing the live
-// grid on top would replace the recorded scene the replayed foreground frames
-// belong to. A replay whose recording holds no background frame still gets the
-// live grid, which is better than compositing against nothing.
+// It is a no-op while a VRLOG replay owns the stream. Clients cache whichever
+// background arrives last, so the live grid would replace the recorded scene
+// the replayed foreground belongs to — and when the recording carries no
+// background of its own, painting the live one under replayed foreground is
+// exactly the stale composite this avoids. ClearBackground covers that case
+// instead.
 //
 // sendBackgroundSnapshot builds its own bundle and pushes to frameChan
 // directly, so the live-frame drop in publishInternal does not cover it.
 func (p *Publisher) SendBackgroundSnapshot() error {
-	if p.IsVRLogActive() && p.VRLogEmittedBackground() {
-		diagf("[Visualiser] Skipping live background snapshot: replay emitted its own")
+	if p.IsVRLogActive() {
+		diagf("[Visualiser] Skipping live background snapshot: a replay owns the stream")
 		return nil
 	}
 	return p.sendBackgroundSnapshot()
+}
+
+// ClearBackground tells clients to drop the background they are holding, by
+// publishing a background frame carrying no points.
+//
+// Sent when the pipeline changes source. The client keeps the last background
+// it received until another replaces it, so without this a new source's
+// foreground is composited over the previous source's scene — a live settled
+// grid sitting under replayed points, which reads as a real scene and is not
+// obviously wrong until something moves through it.
+//
+// Clearing is unconditional rather than conditional on the new source having a
+// background of its own: showing nothing is honest, and a recording that does
+// carry one overwrites this within the same startup.
+func (p *Publisher) ClearBackground() {
+	if !p.running.Load() {
+		return
+	}
+	bundle := &FrameBundle{
+		FrameID:        p.frameCount.Add(1),
+		TimestampNanos: p.lastForegroundTimestamp.Load(),
+		SensorID:       p.config.SensorID,
+		FrameType:      FrameTypeBackground,
+		Background:     &BackgroundSnapshot{},
+	}
+	select {
+	case p.frameChan <- bundle:
+		diagf("[Visualiser] Cleared client background for source change")
+	default:
+		opsf("[Visualiser] Could not clear client background: frame channel full")
+	}
 }
 
 // PublisherStats contains publisher statistics.

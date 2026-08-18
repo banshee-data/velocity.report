@@ -818,7 +818,7 @@ func TestClient_StopPCAPReplay(t *testing.T) {
 			if r.Method != http.MethodPost {
 				t.Errorf("Expected POST, got %s", r.Method)
 			}
-			if r.URL.Path != "/api/lidar/pcap/stop" {
+			if r.URL.Path != "/api/lidar/replay/stop" {
 				t.Errorf("Unexpected path: %s", r.URL.Path)
 			}
 			w.WriteHeader(http.StatusOK)

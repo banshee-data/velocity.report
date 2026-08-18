@@ -109,7 +109,11 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	pcapRoutes := []route{
 		{"GET /api/lidar/data_source", ws.handleDataSource},
 		{"POST /api/lidar/pcap/start", ws.handlePCAPStart},
-		{"POST /api/lidar/pcap/stop", ws.handlePCAPStop},
+		// One stop for every replay kind. The two older paths are aliases of
+		// this handler, kept so existing clients and docs keep working; error
+		// messages name only the canonical route.
+		{"POST /api/lidar/replay/stop", ws.handleReplayStop},
+		{"POST /api/lidar/pcap/stop", ws.handleReplayStop},
 		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
 	}
@@ -149,7 +153,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/playback/seek", ws.handlePlaybackSeek},
 		{"POST /api/lidar/playback/rate", ws.handlePlaybackRate},
 		{"POST /api/lidar/vrlog/load", ws.handleVRLogLoad},
-		{"POST /api/lidar/vrlog/stop", ws.handleVRLogStop},
+		{"POST /api/lidar/vrlog/stop", ws.handleReplayStop},
 	}
 
 	// Register all route groups

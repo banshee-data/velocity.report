@@ -166,10 +166,14 @@ func TestVRLogStartup_RecordedBackgroundIsNotOverwritten(t *testing.T) {
 	}
 }
 
-// TestVRLogStartup_LiveBackgroundFallsBackWhenUnrecorded covers the other half:
-// a VRLOG with no background frame of its own leaves the client with nothing to
-// composite against, so the live grid is still sent as a fallback.
-func TestVRLogStartup_LiveBackgroundFallsBackWhenUnrecorded(t *testing.T) {
+// TestVRLogStartup_NoLiveGridWhenRecordingHasNoBackground replaces an earlier
+// test that asserted the opposite. The live grid used to be sent as a fallback
+// when a recording carried no background of its own, on the reasoning that
+// something was better than nothing. In practice it painted the previous
+// source's settled scene underneath replayed foreground, which reads as real
+// and is not obviously wrong until something moves through it. Showing no
+// background is the honest outcome; ClearBackground provides it.
+func TestVRLogStartup_NoLiveGridWhenRecordingHasNoBackground(t *testing.T) {
 	pub := newVRLogBackgroundTestPublisher(t)
 
 	reader := newScanOnlyReader([]*FrameBundle{
@@ -186,19 +190,13 @@ func TestVRLogStartup_LiveBackgroundFallsBackWhenUnrecorded(t *testing.T) {
 		t.Fatalf("SendBackgroundSnapshot failed: %v", err)
 	}
 
-	if pub.VRLogEmittedBackground() {
-		t.Error("VRLogEmittedBackground = true, want false: the recording holds no background frame")
-	}
-
-	backgrounds := drainVRLogBackgrounds(pub)
-	if len(backgrounds) != 1 {
-		t.Fatalf("got %d background frames, want 1 (the live fallback)", len(backgrounds))
-	}
-	if got := backgrounds[0].Background.SequenceNumber; got != liveBackgroundSeq {
-		t.Errorf("background seq = %d, want %d (live fallback)", got, liveBackgroundSeq)
+	if got := drainVRLogBackgrounds(pub); len(got) != 0 {
+		t.Errorf("got %d background frames, want 0: the live grid must not be painted under a replay", len(got))
 	}
 }
 
+// a VRLOG with no background frame of its own leaves the client with nothing to
+// composite against, so the live grid is still sent as a fallback.
 // replayedForegroundFrame builds a foreground frame as it would have been read
 // back from a VRLOG: BackgroundSeq already carries the sequence it was stamped
 // with at record time.
@@ -360,4 +358,68 @@ func TestConcurrentPublishAndSendBackgroundSnapshot(t *testing.T) {
 		}
 	}()
 	wg.Wait()
+}
+
+// TestClearBackgroundEmptiesTheClientScene covers the source-change handoff.
+// Clients keep the last background they were sent, so switching from live to a
+// VRLOG left the live settled grid on screen underneath replayed foreground —
+// it reads as a real scene and is not obviously wrong until something moves
+// through it. A background frame carrying no points clears it: the renderer
+// sets backgroundPointCount to 0 and the draw path gates on that.
+func TestClearBackgroundEmptiesTheClientScene(t *testing.T) {
+	pub := newVRLogBackgroundTestPublisher(t)
+
+	pub.ClearBackground()
+
+	frames := drainVRLogBackgrounds(pub)
+	if len(frames) != 1 {
+		t.Fatalf("got %d background frames, want 1", len(frames))
+	}
+	if frames[0].Background == nil {
+		t.Fatal("clear must carry a background payload, or the client ignores the frame")
+	}
+	if n := len(frames[0].Background.X); n != 0 {
+		t.Errorf("clear carried %d points, want 0", n)
+	}
+}
+
+// TestLiveGridIsNeverSentDuringReplay is the regression guard for the reported
+// symptom. The explicit snapshot call at replay start used to fall back to the
+// live grid whenever the recording held no background of its own, which painted
+// the previous source's scene under replayed foreground — the very thing the
+// fallback was supposed to avoid.
+func TestLiveGridIsNeverSentDuringReplay(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		frames []*FrameBundle
+	}{
+		{"recording carries a background", []*FrameBundle{
+			{FrameID: 1, FrameType: FrameTypeForeground, TimestampNanos: 1000},
+			recordedBackgroundFrame(),
+		}},
+		{"recording carries none", []*FrameBundle{
+			{FrameID: 1, FrameType: FrameTypeForeground, TimestampNanos: 1000},
+			{FrameID: 2, FrameType: FrameTypeForeground, TimestampNanos: 2000},
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pub := newVRLogBackgroundTestPublisher(t)
+			if err := pub.StartVRLogReplay(newScanOnlyReader(tc.frames)); err != nil {
+				t.Fatalf("StartVRLogReplay failed: %v", err)
+			}
+			t.Cleanup(pub.StopVRLogReplay)
+
+			if err := pub.SendBackgroundSnapshot(); err != nil {
+				t.Fatalf("SendBackgroundSnapshot failed: %v", err)
+			}
+
+			for _, f := range drainVRLogBackgrounds(pub) {
+				if f.Background != nil && f.Background.SequenceNumber == liveBackgroundSeq {
+					t.Errorf("the live grid reached the client during a replay (seq %d): "+
+						"replayed foreground would composite over the previous source's scene",
+						liveBackgroundSeq)
+				}
+			}
+		})
+	}
 }
