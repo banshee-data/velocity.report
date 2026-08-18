@@ -61,7 +61,7 @@ func (p *Publisher) emitFirstBackground(reader FrameReader) error {
 			}
 			frame.PlaybackInfo.IsLive = false
 			frame.PlaybackInfo.Seekable = true
-			p.Publish(frame)
+			p.publishReplay(frame)
 			diagf("[Visualiser] Emitted first background frame at index %d", i)
 			break
 		}
@@ -338,6 +338,6 @@ func (p *Publisher) vrlogReplayLoop() {
 		frame.PlaybackInfo.Seekable = true
 
 		// Publish to all clients
-		p.Publish(frame)
+		p.publishReplay(frame)
 	}
 }
