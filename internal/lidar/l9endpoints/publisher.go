@@ -72,6 +72,9 @@ type Publisher struct {
 	vrlogSendOneFrame bool // Send one frame after seek-while-paused
 	vrlogActive       bool
 	vrlogWg           sync.WaitGroup
+	// vrlogEmittedBackground records whether the active replay published a
+	// background frame of its own at startup.
+	vrlogEmittedBackground bool
 
 	// Stats
 	frameCount       atomic.Uint64
@@ -531,8 +534,22 @@ func (p *Publisher) Stats() PublisherStats {
 	}
 }
 
-// SendBackgroundSnapshot forces a background snapshot to be sent to clients.
+// SendBackgroundSnapshot sends a background snapshot of the live grid to
+// clients, bypassing the interval and sequence checks in shouldSendBackground.
+//
+// It is a no-op when a VRLOG replay has already emitted a background frame of
+// its own: clients cache whichever background arrives last, so pushing the live
+// grid on top would replace the recorded scene the replayed foreground frames
+// belong to. A replay whose recording holds no background frame still gets the
+// live grid, which is better than compositing against nothing.
+//
+// sendBackgroundSnapshot builds its own bundle and pushes to frameChan
+// directly, so the live-frame drop in publishInternal does not cover it.
 func (p *Publisher) SendBackgroundSnapshot() error {
+	if p.IsVRLogActive() && p.VRLogEmittedBackground() {
+		diagf("[Visualiser] Skipping live background snapshot: replay emitted its own")
+		return nil
+	}
 	return p.sendBackgroundSnapshot()
 }
 
