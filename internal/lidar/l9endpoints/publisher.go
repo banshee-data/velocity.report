@@ -303,7 +303,21 @@ func (p *Publisher) Stop() {
 }
 
 // Publish sends a frame to all connected clients.
+// Publish broadcasts a frame produced by the live pipeline.
+//
+// Frames are dropped while a VRLOG replay is active. Only background snapshots
+// were suppressed before, so live foreground frames continued to reach both the
+// stream and any attached recorder, interleaving with the replayed frames.
 func (p *Publisher) Publish(frame interface{}) {
+	p.publishInternal(frame, false)
+}
+
+// publishReplay broadcasts a frame read back from a VRLOG.
+func (p *Publisher) publishReplay(frame interface{}) {
+	p.publishInternal(frame, true)
+}
+
+func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 	if !p.running.Load() {
 		return
 	}
@@ -311,6 +325,12 @@ func (p *Publisher) Publish(frame interface{}) {
 	// Type assert to *FrameBundle
 	frameBundle, ok := frame.(*FrameBundle)
 	if !ok || frameBundle == nil {
+		return
+	}
+
+	// A VRLOG replay owns the stream: live frames arriving alongside it would
+	// interleave with the recorded ones and be written to any active recorder.
+	if !fromReplay && p.IsVRLogActive() {
 		return
 	}
 
