@@ -82,21 +82,6 @@ func (ws *Server) StopLiveListener() error {
 	return ws.dataSourceManager.StopLiveListener()
 }
 
-// GetCurrentSource returns the currently active data source.
-func (ws *Server) GetCurrentSource() DataSource {
-	return ws.dataSourceManager.CurrentSource()
-}
-
-// GetCurrentPCAPFile returns the current PCAP file being replayed.
-func (ws *Server) GetCurrentPCAPFile() string {
-	return ws.dataSourceManager.CurrentPCAPFile()
-}
-
-// IsPCAPInProgress returns true if PCAP replay is currently active.
-func (ws *Server) IsPCAPInProgress() bool {
-	return ws.dataSourceManager.IsPCAPInProgress()
-}
-
 // --- ServerDataSourceOperations implementation ---
 
 // StartLiveListenerInternal starts the UDP listener (called by RealDataSourceManager).
