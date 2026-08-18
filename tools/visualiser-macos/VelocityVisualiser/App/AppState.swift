@@ -102,6 +102,16 @@ private let logger = DevLogger(category: "AppState")
     @Published var totalFrames: UInt64 = 0
     // True when seek/step is supported, for example .vrlog replay.
     @Published var isSeekable: Bool = false
+
+    /// What the server says is driving the pipeline. Independent of
+    /// `isSeekable`, which is a capability: a VRLOG replay happens to be
+    /// seekable and a PCAP replay happens not to be, but neither implies the
+    /// other. `.unspecified` means the server predates the field, in which
+    /// case the mode is inferred from `isLive` and `seekable` as before.
+    @Published var sourceMode: SourceMode = .unspecified
+
+    /// True while the server is recording a VRLOG.
+    @Published var isRecording: Bool = false
     @Published var timeDisplayMode: TimeDisplayMode = .elapsed  // Clock display mode
     @Published private(set) var inFlightPlaybackCommand: PlaybackCommandKind?
     @Published private(set) var commandStartedAt: Date?
@@ -350,6 +360,20 @@ private let logger = DevLogger(category: "AppState")
         return playbackMode
     }
 
+    /// Badge text. The source names what is playing; `displayPlaybackMode`
+    /// only knows whether it is seekable, which is why a preserved analysis
+    /// grid used to be indistinguishable from an ordinary PCAP replay.
+    var displayModeLabel: String {
+        if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
+        switch sourceMode {
+        case .live: return "LIVE"
+        case .pcap: return "REPLAY (PCAP)"
+        case .pcapAnalysis: return "PCAP (ANALYSIS)"
+        case .vrlog: return "REPLAY (VRLOG)"
+        case .unspecified: return displayPlaybackMode.modeLabel
+        }
+    }
+
     var displayReplayProgress: Double {
         if hasValidTimelineRange { return replayProgress }
         guard totalFrames > 1 else { return replayProgress }
@@ -359,8 +383,7 @@ private let logger = DevLogger(category: "AppState")
     }
 
     var canInteractWithSeekSlider: Bool {
-        displayPlaybackMode == .replaySeekable && (hasValidTimelineRange || hasFrameIndexProgress)
-            && !playbackControlsBusy
+        isSeekable && (hasValidTimelineRange || hasFrameIndexProgress) && !playbackControlsBusy
     }
 
     var shouldShowReplayMetadataUnavailable: Bool {
@@ -392,9 +415,20 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
+    /// Fallback for servers that do not report a source mode.
     private func inferPlaybackMode(isLive: Bool, seekable: Bool) -> PlaybackMode {
         if isLive { return .live }
         return seekable ? .replaySeekable : .replayNonSeekable
+    }
+
+    /// Playback capability for a reported source. The source decides live vs
+    /// replay; `seekable` alone decides whether the replay can be scrubbed.
+    private func playbackMode(for source: SourceMode, seekable: Bool) -> PlaybackMode {
+        switch source {
+        case .live: return .live
+        case .pcap, .pcapAnalysis, .vrlog: return seekable ? .replaySeekable : .replayNonSeekable
+        case .unspecified: return seekable ? .replaySeekable : .replayNonSeekable
+        }
     }
 
     private func bumpPlaybackGeneration() { playbackStateGeneration &+= 1 }
@@ -1281,8 +1315,17 @@ private let logger = DevLogger(category: "AppState")
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
             if !hasPlaybackMetadata { hasPlaybackMetadata = true }
-            setPlaybackMode(
-                inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
+            if sourceMode != playbackInfo.sourceMode { sourceMode = playbackInfo.sourceMode }
+            if isRecording != playbackInfo.recording { isRecording = playbackInfo.recording }
+            if playbackInfo.sourceMode == .unspecified {
+                setPlaybackMode(
+                    inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
+            } else {
+                setPlaybackMode(
+                    playbackMode(for: playbackInfo.sourceMode, seekable: playbackInfo.seekable))
+                // Seekability is reported, not derived from the mode case.
+                if isSeekable != playbackInfo.seekable { isSeekable = playbackInfo.seekable }
+            }
             if logStartTimestamp != playbackInfo.logStartNs {
                 logStartTimestamp = playbackInfo.logStartNs
             }

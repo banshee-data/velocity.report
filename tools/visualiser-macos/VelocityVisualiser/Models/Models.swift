@@ -310,6 +310,19 @@ struct DebugOverlaySet {
 
 // MARK: - Playback
 
+/// What is driving the pipeline, as reported by the server.
+///
+/// This is an independent axis from `PlaybackInfo.seekable`, which is a
+/// capability. A VRLOG replay happens to be seekable and a PCAP replay happens
+/// not to be, but neither may be derived from the other.
+enum SourceMode: String {
+    case unspecified  // server predates the field; fall back to inference
+    case live
+    case pcap
+    case pcapAnalysis
+    case vrlog
+}
+
 struct PlaybackInfo {
     var isLive: Bool = true
     var logStartNs: Int64 = 0
@@ -320,6 +333,8 @@ struct PlaybackInfo {
     var totalFrames: UInt64 = 0
     var seekable: Bool = false  // true when seek/step is supported (e.g. .vrlog replay)
     var replayEpoch: UInt64 = 0  // monotonically increasing; bumped on each new replay load
+    var sourceMode: SourceMode = .unspecified
+    var recording: Bool = false  // true while the server is recording a VRLOG
 }
 
 // MARK: - Labels
