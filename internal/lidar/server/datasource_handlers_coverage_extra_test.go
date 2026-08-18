@@ -357,6 +357,9 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 	countPCAPPackets = func(string, int) (network.PCAPCountResult, error) {
 		return network.PCAPCountResult{Count: 10}, nil
 	}
+	var passDuringSettle, passDuringRecorded ReplayPass
+	var recordingDuringSettle bool
+	var wsRef *Server
 	readPCAPFile = func(
 		_ context.Context,
 		_ string,
@@ -371,10 +374,14 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 		_ uint64,
 		_ func(current, total uint64),
 	) error {
+		state := wsRef.PipelineState()
 		if len(events) == 0 {
 			events = append(events, "settle-pass")
+			passDuringSettle = state.Pass
+			recordingDuringSettle = state.Recording
 		} else {
 			events = append(events, "recorded-pass")
+			passDuringRecorded = state.Pass
 		}
 		return nil
 	}
@@ -408,6 +415,11 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 		},
 	})
 	ws.setBaseContext(context.Background())
+	wsRef = ws
+
+	if got := ws.PipelineState().TotalPasses; got != 1 {
+		t.Fatalf("TotalPasses before start = %d, want 1", got)
+	}
 
 	err := ws.startPCAPLockedWithConfig("two-pass.pcap", ReplayConfig{
 		AnalysisMode:          true,
@@ -423,6 +435,19 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 	want := []string{"settle-pass", "reload-grid", "recording-start", "recorded-pass", "recording-stop"}
 	if strings.Join(events, ",") != strings.Join(want, ",") {
 		t.Fatalf("events = %#v, want %#v", events, want)
+	}
+
+	// The two passes must be distinguishable from outside: both replay the
+	// same window and report the same source, and packet progress restarts
+	// between them.
+	if passDuringSettle != ReplayPassSettling {
+		t.Errorf("pass during settling = %q, want %q", passDuringSettle, ReplayPassSettling)
+	}
+	if recordingDuringSettle {
+		t.Error("recording reported active during the settling pass")
+	}
+	if passDuringRecorded != ReplayPassRecording {
+		t.Errorf("pass during recorded pass = %q, want %q", passDuringRecorded, ReplayPassRecording)
 	}
 	frameBuilder.mu.Lock()
 	drains := frameBuilder.drains

@@ -626,6 +626,11 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 
 		if replayCfg.SettleBeforeRecording {
+			// Name the pass. Both passes replay the same window and report the
+			// same source and in-progress flag, and packet progress restarts
+			// between them, so without this a progress display runs 0-100%
+			// twice with nothing to say why.
+			ws.setReplayPass(ReplayPassSettling)
 			diagf("Starting PCAP settling pass before VRLOG recording: %s", path)
 			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, nil, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
 			if err == nil {
@@ -636,6 +641,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 					ws.stats.GetAndReset()
 				}
 				ws.setReplayProgress(0, countResult.Count)
+				ws.setReplayPass(ReplayPassRecording)
 				diagf("Settled background restored from disk; starting recorded PCAP pass from the requested offset")
 			}
 		}
