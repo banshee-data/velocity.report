@@ -1593,7 +1593,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -1640,7 +1640,15 @@ report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdo
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
 
+check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
+	@scripts/check-buildinfo-placeholder.sh
+
+fix-buildinfo: ## Reset BuildInfo.swift to its committed placeholder
+	@scripts/check-buildinfo-placeholder.sh --fix
+
 .PHONY: check-agent-drift report-backtick-paths check-md-links
+
+.PHONY: check-buildinfo fix-buildinfo
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
