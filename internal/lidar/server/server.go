@@ -81,6 +81,12 @@ type Server struct {
 	baseCtxMu         sync.RWMutex
 	baseCtx           context.Context
 
+	// state is the authoritative pipeline state (source, replay, recording).
+	// See pipeline_state.go for the locking contract: stateMu guards only the
+	// value and is never held across a call into another subsystem.
+	stateMu sync.RWMutex
+	state   PipelineState
+
 	// PCAP replay state
 	pcapMu                      sync.Mutex
 	pcapInProgress              bool
@@ -276,6 +282,7 @@ func NewServer(config Config) *Server {
 		tuningConfig:      cloneTuningConfig(config.TuningConfig),
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
+		state:             newPipelineState(),
 		latestFgCounts:    make(map[string]int),
 		plotsBaseDir:      config.PlotsBaseDir,
 		onPCAPStarted:     config.OnPCAPStarted,
