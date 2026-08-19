@@ -33,21 +33,41 @@ func TestReconcilerNeverInterruptsAReplay(t *testing.T) {
 	}
 }
 
-// TestReconcilerLeavesAnalysisRetentionAlone guards the other deliberate hold:
-// a finished analysis replay keeps its grid for inspection and is left via
-// resume-live. Snapping it to live would discard what the operator asked to keep.
-func TestReconcilerLeavesAnalysisRetentionAlone(t *testing.T) {
+// TestStreamingSensorReclaimsAnAnalysisHold covers the rule that live presence
+// decides: a finished analysis replay holds its grid only while there is
+// nothing to go back to. Once packets arrive the pipeline is handed back.
+func TestStreamingSensorReclaimsAnAnalysisHold(t *testing.T) {
 	ws := &Server{sensorID: "sensor-analysis-hold", state: newPipelineState(), stats: streamingStats()}
 	ws.mutateState("test-setup", func(s *PipelineState) {
 		s.Source = SourceModePCAP
 		s.SourcePath = "a.pcapng"
 		s.GridPreserved = true
+		s.LiveListenerRunning = true
+	})
+
+	ws.reconcileLiveOnce()
+
+	if got := ws.PipelineState(); got.Source != SourceModeLive {
+		t.Errorf("Source = %q, want live: a streaming sensor takes precedence over grid retention (%s)", got.Source, got)
+	}
+}
+
+// TestAnalysisHoldSurvivesWithoutLive is the other half: with no packets there
+// is nothing to hand back to, so the hold stands and resume-live remains the
+// deliberate way out.
+func TestAnalysisHoldSurvivesWithoutLive(t *testing.T) {
+	ws := &Server{sensorID: "sensor-no-live", state: newPipelineState(), stats: NewPacketStats()}
+	ws.mutateState("test-setup", func(s *PipelineState) {
+		s.Source = SourceModePCAP
+		s.SourcePath = "a.pcapng"
+		s.GridPreserved = true
+		s.LiveListenerRunning = true
 	})
 
 	ws.reconcileLiveOnce()
 
 	if got := ws.PipelineState(); got.Source != SourceModePCAP || !got.GridPreserved {
-		t.Errorf("reconciler discarded a retained analysis grid: %s", got)
+		t.Errorf("hold was released with no live input to return to: %s", got)
 	}
 }
 
@@ -124,64 +144,58 @@ func TestSensorIsStreamingWindow(t *testing.T) {
 	})
 }
 
-// TestSettleBeforeRecordingReturnsToLive covers the reported PCAP -> live
-// failure. settle_before_recording requires analysis_mode=true so the second
-// pass can record a VRLOG, so such a run always carries the analysis flag. When
-// the end-of-replay teardown read that flag as "retain the grid for inspection"
-// it stayed on the PCAP source, and the reconciler skips a deliberate analysis
-// hold — so nothing ever returned the pipeline to live.
-func TestSettleBeforeRecordingReturnsToLive(t *testing.T) {
+// TestEndOfReplayFollowsLivePresence pins the rule that replaced the
+// configuration-based decision. settle_before_recording always carries the
+// analysis flag — the handler requires analysis_mode=true so the second pass
+// can record a VRLOG — so reading that flag to decide whether to hold the
+// pipeline stranded every recording run on pcap_analysis. Live presence decides
+// instead, which is the same answer for every replay kind.
+func TestEndOfReplayFollowsLivePresence(t *testing.T) {
 	tests := []struct {
-		name                  string
-		settleBeforeRecording bool
-		wantRetained          bool
+		name          string
+		streaming     bool
+		gridPreserved bool
+		wantSource    SourceMode
 	}{
-		{"settle-before-recording run releases the pipeline", true, false},
-		{"inspection analysis run keeps its grid", false, true},
+		{"streaming sensor reclaims a plain replay", true, false, SourceModeLive},
+		{"streaming sensor reclaims an analysis run", true, true, SourceModeLive},
+		{"no live leaves a plain replay parked", false, false, SourceModePCAP},
+		{"no live leaves an analysis run holding its grid", false, true, SourceModePCAP},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mirrors the teardown's decision: the flag alone is not enough,
-			// because a recording run sets it for an unrelated reason.
-			state := PipelineState{Source: SourceModePCAP, GridPreserved: true, TotalPasses: 1}
-			retainForInspection := state.AnalysisMode() && !tt.settleBeforeRecording
+			stats := NewPacketStats()
+			if tt.streaming {
+				stats.AddPacket(1024)
+			}
+			ws := &Server{sensorID: "sensor-end-of-replay", state: newPipelineState(), stats: stats}
+			ws.mutateState("test-setup", func(s *PipelineState) {
+				s.Source = SourceModePCAP
+				s.SourcePath = "a.pcapng"
+				s.GridPreserved = tt.gridPreserved
+				s.LiveListenerRunning = true
+			})
 
-			if retainForInspection != tt.wantRetained {
-				t.Errorf("retainForInspection = %v, want %v", retainForInspection, tt.wantRetained)
+			// Mirrors the end-of-replay teardown's decision.
+			if ws.sensorIsStreaming() {
+				if err := ws.returnToLive("test end of replay", false); err != nil {
+					t.Fatalf("returnToLive: %v", err)
+				}
+			} else {
+				ws.endReplay(ws.PipelineState().AnalysisMode())
+			}
+
+			got := ws.PipelineState()
+			if got.Source != tt.wantSource {
+				t.Errorf("Source = %q, want %q: %s", got.Source, tt.wantSource, got)
+			}
+			if got.ReplayActive {
+				t.Errorf("ReplayActive still set after the replay ended: %s", got)
+			}
+			if err := got.Validate(); err != nil {
+				t.Errorf("end of replay left an invalid state: %v (%s)", err, got)
 			}
 		})
 	}
-}
-
-// TestReconcilerSkipsAnalysisHoldButNotAStrandedReplay documents the boundary
-// the above depends on: the reconciler will not rescue a pipeline parked on
-// pcap_analysis, which is why the teardown must not park a recording run there.
-func TestReconcilerSkipsAnalysisHoldButNotAStrandedReplay(t *testing.T) {
-	t.Run("analysis hold is left alone", func(t *testing.T) {
-		ws := &Server{sensorID: "s", state: newPipelineState(), stats: streamingStats()}
-		ws.mutateState("test", func(s *PipelineState) {
-			s.Source = SourceModePCAP
-			s.SourcePath = "a.pcapng"
-			s.GridPreserved = true
-			s.LiveListenerRunning = true
-		})
-		ws.reconcileLiveOnce()
-		if ws.PipelineState().Source != SourceModePCAP {
-			t.Error("reconciler released a deliberate analysis hold")
-		}
-	})
-
-	t.Run("a finished replay with no retention is returned to live", func(t *testing.T) {
-		ws := &Server{sensorID: "s", state: newPipelineState(), stats: streamingStats()}
-		ws.mutateState("test", func(s *PipelineState) {
-			s.Source = SourceModePCAP
-			s.SourcePath = "a.pcapng"
-			s.LiveListenerRunning = true
-		})
-		ws.reconcileLiveOnce()
-		if got := ws.PipelineState(); got.Source != SourceModeLive {
-			t.Errorf("Source = %q, want live: %s", got.Source, got)
-		}
-	})
 }

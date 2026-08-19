@@ -27,7 +27,9 @@ const (
 //
 // It never interrupts a replay. A replay is the operator asking for something
 // other than live, and live packets arriving mid-replay are not a request to
-// abandon it; the reconciler waits until the replay is over.
+// abandon it; the reconciler waits until the replay is over. Once it is over,
+// a streaming sensor takes the pipeline back regardless of how the replay was
+// configured — including an analysis run holding its grid.
 func (ws *Server) runLiveReconciler(ctx context.Context) {
 	ticker := time.NewTicker(liveReconcileInterval)
 	defer ticker.Stop()
@@ -53,14 +55,12 @@ func (ws *Server) reconcileLiveOnce() {
 		return
 	}
 
-	// A finished analysis replay is parked deliberately: it retains its grid so
-	// the operator can inspect it, and POST /api/lidar/pcap/resume_live is how
-	// they leave. Snapping it back to live because the sensor happens to be
-	// streaming would discard the thing they asked to keep.
-	if state.Source == SourceModePCAP && state.GridPreserved {
-		return
-	}
-
+	// A finished replay is held only for as long as there is nothing to go back
+	// to. That includes an analysis replay retaining its grid: a streaming
+	// sensor takes precedence over the retention, so inspecting a grid while
+	// the sensor is connected means stopping the sensor or using a capture the
+	// reconciler cannot preempt. POST /api/lidar/pcap/resume_live remains the
+	// way to leave the hold deliberately while no packets are arriving.
 	streaming := ws.sensorIsStreaming()
 
 	// Nothing is replaying, so the listener should be up regardless of whether
