@@ -19,6 +19,9 @@ class RunTrackLabelAPIClient {
     /// URL session for HTTP requests.
     private let session: URLSession
 
+    /// Test-only view of the session, so cache policy can be asserted.
+    var sessionForTesting: URLSession { session }
+
     /// Shared JSON decoder configured for Go backend responses.
     /// Handles snake_case keys and Go's RFC3339Nano date format with
     /// fractional seconds and timezone offsets (e.g. "2026-02-10T20:05:09.283745-08:00").
@@ -42,7 +45,10 @@ class RunTrackLabelAPIClient {
 
     // MARK: - Initialisation
 
-    init(baseURL: URL = URL(string: "http://localhost:8080")!, session: URLSession = .shared) {
+    init(
+        baseURL: URL = URL(string: "http://localhost:8080")!,
+        session: URLSession = APISession.shared
+    ) {
         self.baseURL = baseURL
         self.session = session
     }
