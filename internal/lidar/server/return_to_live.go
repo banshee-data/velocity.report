@@ -68,14 +68,19 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	// Analysis replays keep their grid for inspection; everything else starts
-	// clean so live data is not composited onto a recorded scene.
-	preserveGrid := before.AnalysisMode()
+	// The grid is always reset here, analysis replays included. This path exists
+	// to start ingesting live data, and live returns settle into whatever cells
+	// the grid already holds: keeping a grid built from a capture means the next
+	// snapshot carries the recorded scene and the live one together, which
+	// renders as two overlaid backgrounds.
+	//
+	// Retention is not lost, it just belongs to the parked state rather than to
+	// going live. A finished analysis replay keeps its grid for as long as it
+	// stays parked, and POST /api/lidar/pcap/resume_live is the deliberate way
+	// to go live while keeping it — that handler starts the listener without
+	// resetting, and is the only place where the two scenes are asked for.
 	var resetErr error
-	if preserveGrid {
-		ws.resetFrameBuilder()
-		diagf("[DataSource] preserving grid from PCAP analysis for sensor=%s", ws.sensorID)
-	} else if err := ws.resetAllState(); err != nil {
+	if err := ws.resetAllState(); err != nil {
 		// Surface this — a grid that would not clear means live data composites
 		// onto a recorded scene — but do not return before the source is set
 		// live below. The replay really has stopped, and leaving the source
@@ -97,7 +102,7 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 		opsf("[DataSource] returned to live but the listener did not restart (%s): %v", reason, err)
 	}
 
-	ws.setSourceLive(preserveGrid)
+	ws.setSourceLive(false)
 	ws.pcapBenchmarkMode.Store(false)
 
 	if ws.onPCAPStopped != nil {

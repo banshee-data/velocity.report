@@ -199,3 +199,52 @@ func TestEndOfReplayFollowsLivePresence(t *testing.T) {
 		})
 	}
 }
+
+// TestReturnToLiveClearsACaptureBuiltGrid covers the double background: two
+// scenes drawn at once, the capture's and the live one.
+//
+// The visualiser renders a single background buffer, so both scenes have to
+// arrive inside one snapshot — which happens when live returns settle into a
+// grid the capture already filled. Returning to live preserved that grid for
+// analysis replays, and once a streaming sensor started reclaiming those
+// automatically, every such fallback produced the overlay.
+func TestReturnToLiveClearsACaptureBuiltGrid(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(*PipelineState)
+	}{
+		{"analysis replay retaining its grid", func(s *PipelineState) {
+			s.Source = SourceModePCAP
+			s.SourcePath = "a.pcapng"
+			s.GridPreserved = true
+		}},
+		{"plain replay", func(s *PipelineState) {
+			s.Source = SourceModePCAP
+			s.SourcePath = "a.pcapng"
+		}},
+		{"vrlog replay", func(s *PipelineState) {
+			s.Source = SourceModeVRLog
+			s.SourcePath = "run/"
+			s.ReplayActive = true
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws := &Server{sensorID: "sensor-grid-reset", state: newPipelineState()}
+			ws.mutateState("test-setup", tc.setup)
+
+			_ = ws.ReturnToLive("test")
+
+			got := ws.PipelineState()
+			if got.Source != SourceModeLive {
+				t.Errorf("Source = %q, want live", got.Source)
+			}
+			if got.GridPreserved {
+				t.Error("a capture-built grid was carried into live; live returns would settle " +
+					"into it and the next snapshot would hold both scenes")
+			}
+			if err := got.Validate(); err != nil {
+				t.Errorf("invalid state after returning to live: %v (%s)", err, got)
+			}
+		})
+	}
+}
