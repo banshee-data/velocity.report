@@ -1,6 +1,9 @@
 package l9endpoints
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // Background frames carry scene state that no later frame reproduces: the client
 // renders the last one it received until another arrives. Two places used to
@@ -93,5 +96,51 @@ func TestSlowClientStillReceivesBackgroundFrames(t *testing.T) {
 	}
 	if !delivered {
 		t.Error("background frame never reached the client queue")
+	}
+}
+
+// seqBackgroundManager reports a sequence the test controls, standing in for the
+// grid's persisted snapshot ID.
+type seqBackgroundManager struct{ seq uint64 }
+
+func (m *seqBackgroundManager) GenerateBackgroundSnapshot() (interface{}, error) {
+	return &BackgroundSnapshot{SequenceNumber: m.seq, X: []float32{1}, Y: []float32{2}, Z: []float32{3}}, nil
+}
+func (m *seqBackgroundManager) GetBackgroundSequenceNumber() uint64 { return m.seq }
+
+// TestSettledSnapshotRestoreRefreshesBackground covers the settle-before-recording
+// handover. The settling pass runs against an unsettled grid, which has no
+// persisted snapshot and so reports sequence 0. Restoring the settled snapshot
+// moves it to a real ID. That change must refresh the client immediately: the
+// old `lastSeq > 0` guard skipped exactly this transition, so the recorded pass
+// began with the client still holding the unsettled grid and nothing arrived
+// until the 30s interval elapsed.
+func TestSettledSnapshotRestoreRefreshesBackground(t *testing.T) {
+	mgr := &seqBackgroundManager{seq: 0}
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: 30 * time.Second})
+	pub.running.Store(true)
+	t.Cleanup(func() { pub.running.Store(false) })
+	pub.SetBackgroundManager(mgr)
+	pub.lastForegroundTimestamp.Store(time.Now().UnixNano())
+
+	// Settling pass: the first background is published at sequence 0.
+	if !pub.shouldSendBackground() {
+		t.Fatal("first background was not sent during the settling pass")
+	}
+	if err := pub.sendBackgroundSnapshot(); err != nil {
+		t.Fatalf("sendBackgroundSnapshot: %v", err)
+	}
+
+	// Interval nowhere near elapsed, grid unchanged: nothing to send.
+	if pub.shouldSendBackground() {
+		t.Error("a background was sent with no change and no interval elapsed")
+	}
+
+	// The settled snapshot is restored and the grid takes its persisted ID.
+	mgr.seq = 42
+
+	if !pub.shouldSendBackground() {
+		t.Error("restoring the settled snapshot did not refresh the background; " +
+			"the recorded pass would start on the unsettled grid until the interval elapsed")
 	}
 }

@@ -20,6 +20,7 @@ type PacketStats struct {
 	pointCount     int64
 	lastReset      time.Time
 	startTime      time.Time
+	lastPacketAt   time.Time
 	latestSnapshot *StatsSnapshot
 }
 
@@ -38,6 +39,17 @@ func (ps *PacketStats) AddPacket(bytes int) {
 	defer ps.mu.Unlock()
 	ps.packetCount++
 	ps.byteCount += int64(bytes)
+	ps.lastPacketAt = time.Now()
+}
+
+// LastPacketAt reports when a packet last arrived, or the zero time if none
+// has. Unlike packetCount this is never reset, so it answers "is the sensor
+// streaming right now?" independently of the counter resets that happen between
+// replay passes.
+func (ps *PacketStats) LastPacketAt() time.Time {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	return ps.lastPacketAt
 }
 
 // AddDropped increments dropped packet count

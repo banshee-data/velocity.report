@@ -207,14 +207,23 @@ func (p *Publisher) shouldSendBackground() bool {
 	lastSent := p.lastBackgroundSent
 	p.backgroundMu.Unlock()
 
-	if currentSeq != lastSeq && lastSeq > 0 {
-		lidar.Diagf("[Visualiser] Background sequence changed (%d → %d), sending refresh", lastSeq, currentSeq)
-		return true // Grid was reset
-	}
-
 	if lastSent.IsZero() {
 		diagf("[Visualiser] First background snapshot, sending now")
 		return true // Never sent
+	}
+
+	// Any change of sequence means the grid the client is holding is no longer
+	// the grid we have. This deliberately includes a change away from 0: the
+	// sequence is the persisted snapshot ID, so an unsettled grid reports 0 and
+	// takes a real ID the moment a settled snapshot is restored. That is exactly
+	// the settle-before-recording handover — settling pass publishes at 0, the
+	// restore moves it to the snapshot ID — and the old `lastSeq > 0` guard
+	// suppressed the refresh for precisely that transition, leaving the client
+	// on the unsettled grid until the 30s interval elapsed. The never-sent case
+	// above already covers the startup reading the guard was there for.
+	if currentSeq != lastSeq {
+		lidar.Diagf("[Visualiser] Background sequence changed (%d → %d), sending refresh", lastSeq, currentSeq)
+		return true // Grid was reset or a settled snapshot was restored
 	}
 
 	elapsed := time.Since(lastSent)

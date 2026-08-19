@@ -391,6 +391,11 @@ func (ws *Server) Start(ctx context.Context) error {
 	}
 	ws.dataSourceMu.Unlock()
 
+	// Keep the pipeline reconciled with what the sensor is actually doing, so a
+	// replay that finished before the sensor was connected does not leave the
+	// pipeline stranded when packets start arriving later.
+	go ws.runLiveReconciler(ctx)
+
 	// Start server in a goroutine so it doesn't block
 	go func() {
 		diagf("Starting HTTP server on %s", ws.address)
