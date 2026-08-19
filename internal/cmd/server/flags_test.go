@@ -271,8 +271,9 @@ func TestEnsureValidForwardMode(t *testing.T) {
 }
 
 type stubReplayPublisher struct {
-	active  bool
-	stopped bool
+	active            bool
+	stopped           bool
+	backgroundCleared bool
 }
 
 func (s *stubReplayPublisher) IsVRLogActive() bool {
@@ -281,6 +282,10 @@ func (s *stubReplayPublisher) IsVRLogActive() bool {
 
 func (s *stubReplayPublisher) StopVRLogReplay() {
 	s.stopped = true
+}
+
+func (s *stubReplayPublisher) ClearBackground() {
+	s.backgroundCleared = true
 }
 
 type stubReplayServer struct {
@@ -321,8 +326,12 @@ func TestHandlePCAPStartedVisualiserAndPublishProgress(t *testing.T) {
 	if len(server.vrlogModes) != 1 || len(server.replayModes) != 2 || server.replayModes[0] || !server.replayModes[1] {
 		t.Fatalf("unexpected replay mode transitions: %+v %+v", server.vrlogModes, server.replayModes)
 	}
-	if len(logs) != 2 {
+	// Stop the VRLOG replay, clear the client background, enter replay mode.
+	if len(logs) != 3 {
 		t.Fatalf("unexpected log count: %#v", logs)
+	}
+	if !publisher.backgroundCleared {
+		t.Error("PCAP start did not clear the client background")
 	}
 
 	publishPCAPProgress(server, 10, 20)
@@ -378,5 +387,21 @@ func TestNewVRLogRecorderOrLog(t *testing.T) {
 	)
 	if rec != nil || len(logs) == 0 || !strings.Contains(logs[len(logs)-1], "recorder boom") {
 		t.Fatalf("unexpected recorder failure result: rec=%v logs=%#v", rec, logs)
+	}
+}
+
+// TestPCAPStartClearsClientBackground guards the source handover. A PCAP replay
+// rebuilds the grid from the capture, so until it settles there is nothing to
+// show — and a settle-before-recording run publishes nothing new until its
+// settled snapshot is restored. Without a clear the live grid stayed on screen
+// underneath replayed foreground for that whole stretch.
+func TestPCAPStartClearsClientBackground(t *testing.T) {
+	publisher := &stubReplayPublisher{}
+	server := &stubReplayServer{}
+
+	handlePCAPStartedVisualiser(publisher, server, func(string, ...interface{}) {})
+
+	if !publisher.backgroundCleared {
+		t.Error("PCAP start did not clear the client background; the live scene stays under replayed foreground")
 	}
 }

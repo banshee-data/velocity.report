@@ -835,7 +835,17 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		// stays on the PCAP source and the wire token reports pcap_analysis
 		// until the operator calls resume-live. Every other replay returns to
 		// live by itself.
-		if state := ws.PipelineState(); state.AnalysisMode() {
+		//
+		// A settle-before-recording run is excluded even though it sets the
+		// analysis flag. It only sets it because the handler requires
+		// analysis_mode=true so the second pass can record a VRLOG — the flag
+		// is standing in for "this run records", not "hold the grid for me".
+		// Its output is the VRLOG, and its grid was restored from a snapshot
+		// rather than built for inspection, so retaining it just stranded the
+		// pipeline: the source stayed on PCAP and the reconciler skips a
+		// deliberate analysis hold.
+		retainForInspection := ws.PipelineState().AnalysisMode() && !replayCfg.SettleBeforeRecording
+		if retainForInspection {
 			ws.dataSourceMu.Lock()
 			ws.endReplay(true)
 			ws.dataSourceMu.Unlock()

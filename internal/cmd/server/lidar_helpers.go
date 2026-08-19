@@ -27,6 +27,7 @@ type ringElevationsSetter interface {
 type vrlogReplayController interface {
 	IsVRLogActive() bool
 	StopVRLogReplay()
+	ClearBackground()
 }
 
 type replayModeController interface {
@@ -164,6 +165,15 @@ func handlePCAPStartedVisualiser(publisher vrlogReplayController, server replayM
 	if !isNilHelperTarget(publisher) && publisher.IsVRLogActive() {
 		publisher.StopVRLogReplay()
 		logf("[Visualiser] Stopped VRLOG replay before PCAP start")
+	}
+	if !isNilHelperTarget(publisher) {
+		// Drop the live scene the client is holding. A PCAP replay rebuilds the
+		// grid from the capture, so until it settles there is no background to
+		// show — and a settle-before-recording run publishes nothing new until
+		// its settled snapshot is restored. Without this the live grid stays on
+		// screen underneath replayed foreground for that whole stretch.
+		publisher.ClearBackground()
+		logf("[Visualiser] Cleared client background for PCAP start")
 	}
 	if !isNilHelperTarget(server) {
 		server.SetVRLogMode(false)
