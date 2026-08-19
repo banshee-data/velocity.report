@@ -57,9 +57,36 @@ type Server struct {
 	pcapEndNs         int64
 	replayEpoch       uint64 // monotonically increasing; bumped on each new replay load
 
+	// sourceModeProvider pulls the canonical source mode and recording flag
+	// from whoever owns them — the monitor server. It is a pull rather than a
+	// stored copy on purpose: mirroring the mode here is exactly what let this
+	// layer and the monitor server disagree about what was playing.
+	sourceModeProvider func() (mode string, recording bool)
+
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
 	preferenceMu      sync.RWMutex
+}
+
+// SetSourceModeProvider wires the authoritative source-mode lookup. Without
+// one, streamed frames carry SOURCE_MODE_UNSPECIFIED and clients fall back to
+// inferring the mode from is_live and seekable.
+func (s *Server) SetSourceModeProvider(fn func() (string, bool)) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.sourceModeProvider = fn
+}
+
+// currentSourceMode returns the canonical source mode and recording flag,
+// or ("", false) when no provider is wired.
+func (s *Server) currentSourceMode() (string, bool) {
+	s.playbackMu.RLock()
+	fn := s.sourceModeProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return "", false
+	}
+	return fn()
 }
 
 // NewServer creates a new gRPC server.
@@ -235,7 +262,19 @@ func (sc *sendCooldown) inSkipMode() bool {
 // coalesceBufferedFrames drains queued frames and keeps only the newest one.
 // This is used for replay catch-up so we stop serialising stale frames when
 // the client is already behind. Any discarded point clouds are released.
+//
+// Background frames are never coalesced away. A foreground frame can be dropped
+// because a later one supersedes it, but a background frame carries scene state
+// no later frame reproduces: the client renders whatever background it last
+// received until another arrives. Discarding one during a source change left the
+// previous source's settled grid on screen underneath the new source's
+// foreground, for as long as it took another background frame to survive — which
+// is why coalescing has to stop at one rather than skip past it.
 func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*FrameBundle, int) {
+	if frame != nil && frame.FrameType == FrameTypeBackground {
+		return frame, 0
+	}
+
 	skipped := 0
 	for len(frameCh) > 0 {
 		select {
@@ -245,6 +284,9 @@ func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*Fra
 			}
 			frame = newerFrame
 			skipped++
+			if frame != nil && frame.FrameType == FrameTypeBackground {
+				return frame, skipped
+			}
 		default:
 			return frame, skipped
 		}
@@ -371,6 +413,16 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.RLock()
 				frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
 				s.playbackMu.RUnlock()
+			}
+			// Stamp the source mode on every frame, live included, so the
+			// client never has to infer it. Live frames carry no PlaybackInfo
+			// today, so one is created to hold it.
+			if mode, recording := s.currentSourceMode(); mode != "" {
+				if frame.PlaybackInfo == nil {
+					frame.PlaybackInfo = &PlaybackInfo{IsLive: mode == "live", PlaybackRate: 1.0}
+				}
+				frame.PlaybackInfo.SourceMode = mode
+				frame.PlaybackInfo.Recording = recording
 			}
 
 			// Measure serialisation and send time
@@ -616,4 +668,57 @@ func (s *Server) StartRecording(ctx context.Context, req *pb.RecordingRequest) (
 // StopRecording stops recording.
 func (s *Server) StopRecording(ctx context.Context, req *pb.RecordingRequest) (*pb.RecordingStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "recording not yet supported")
+}
+
+// PlaybackPositionInfo is the replay position owned by this streaming layer.
+//
+// It mirrors server.PlaybackPosition structurally rather than importing it:
+// internal/lidar/server already imports this package, so declaring the
+// interface there and satisfying it here keeps the dependency edge one-way.
+//
+// It carries no mode field on purpose. Which source is driving the pipeline is
+// owned by the monitor server, which initiates every transition; this layer is
+// told, and duplicating the answer here is what previously let the two
+// disagree.
+type PlaybackPositionInfo struct {
+	Paused       bool
+	Rate         float32
+	Seekable     bool
+	CurrentFrame uint64
+	TotalFrames  uint64
+	TimestampNs  int64
+	LogStartNs   int64
+	LogEndNs     int64
+	ReplayEpoch  uint64
+}
+
+// PlaybackPosition returns the current replay position. Live streaming has no
+// meaningful position, so the zero value (with a unit rate) is returned.
+func (s *Server) PlaybackPosition() PlaybackPositionInfo {
+	s.playbackMu.RLock()
+	info := PlaybackPositionInfo{
+		Paused:       s.paused,
+		Rate:         s.playbackRate,
+		Seekable:     s.vrlogMode,
+		CurrentFrame: s.pcapCurrentPacket,
+		TotalFrames:  s.pcapTotalPackets,
+		LogStartNs:   s.pcapStartNs,
+		LogEndNs:     s.pcapEndNs,
+		ReplayEpoch:  s.replayEpoch,
+	}
+	vrlogMode := s.vrlogMode
+	s.playbackMu.RUnlock()
+
+	// Frame counts come from the VRLOG reader, which tracks them per frame;
+	// the packet counters above are the PCAP equivalent.
+	if vrlogMode && s.publisher != nil {
+		if reader := s.publisher.VRLogReader(); reader != nil {
+			info.CurrentFrame = reader.CurrentFrame()
+			info.TotalFrames = reader.TotalFrames()
+		}
+	}
+	if info.Rate == 0 {
+		info.Rate = 1.0
+	}
+	return info
 }

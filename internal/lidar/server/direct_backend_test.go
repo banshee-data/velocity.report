@@ -443,7 +443,7 @@ func TestDirectBackend_GetLastAnalysisRunID(t *testing.T) {
 
 func TestDirectBackend_GetLastAnalysisRunID_WithValue(t *testing.T) {
 	ws := &Server{sensorID: "test-sensor"}
-	ws.pcapLastRunID = "run-abc-123"
+	ws.mutateState("test", func(s *PipelineState) { s.LastRunID = "run-abc-123" })
 	db := NewDirectBackend("test-sensor", ws)
 
 	runID := db.GetLastAnalysisRunID()

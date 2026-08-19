@@ -23,6 +23,8 @@ func SplitMain(args []string) int {
 	fs := flag.NewFlagSet("velocity-lidar-pcap-split", flag.ContinueOnError)
 	configPath := fs.String("config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Input PCAP/PCAPNG file (required)")
+	fs.Float64Var(&cfg.StartSeconds, "start-seconds", cfg.StartSeconds, "Start replay at this capture offset in seconds")
+	fs.Float64Var(&cfg.DurationSeconds, "duration-seconds", cfg.DurationSeconds, "Replay duration in seconds (0 or -1 = remaining capture)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for segments and metadata")
 	fs.StringVar(&cfg.OutputPrefix, "prefix", cfg.OutputPrefix, "Output filename prefix (default: input file stem)")
 	fs.Float64Var(&cfg.SettlingSec, "settling-sec", cfg.SettlingSec, "Sustained stability (s) required to declare static")

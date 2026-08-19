@@ -23,25 +23,25 @@ func (ws *Server) baseContext() context.Context {
 	return ws.baseCtx
 }
 
-// CurrentSource returns the active data source type.
+// CurrentSource returns the active data source as the legacy wire token.
+// Prefer PipelineState for new code: this collapses source and grid retention
+// back into a single value and cannot express a VRLOG replay's provenance.
 func (ws *Server) CurrentSource() DataSource {
-	ws.dataSourceMu.RLock()
-	defer ws.dataSourceMu.RUnlock()
-	return ws.currentSource
+	return DataSource(ws.PipelineState().DataSourceWire())
 }
 
 // CurrentPCAPFile returns the path of the active PCAP file (empty if none).
 func (ws *Server) CurrentPCAPFile() string {
-	ws.dataSourceMu.RLock()
-	defer ws.dataSourceMu.RUnlock()
-	return ws.currentPCAPFile
+	state := ws.PipelineState()
+	if state.Source != SourceModePCAP {
+		return ""
+	}
+	return state.SourcePath
 }
 
 // PCAPSpeedRatio returns the configured PCAP playback speed ratio.
 func (ws *Server) PCAPSpeedRatio() float64 {
-	ws.pcapMu.Lock()
-	defer ws.pcapMu.Unlock()
-	return ws.pcapSpeedRatio
+	return ws.PipelineState().SpeedRatio
 }
 
 // SetTracker sets the tracker reference for direct config access via /api/lidar/params.

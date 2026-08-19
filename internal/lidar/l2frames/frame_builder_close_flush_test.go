@@ -57,3 +57,67 @@ func TestCloseFlushesBufferedFramesInCaptureOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestWaitForCallbacksDrainsQueuedFrames(t *testing.T) {
+	processed := make(chan string, 2)
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:        "callback-drain",
+		FrameChCapacity: 2,
+		FrameCallback: func(frame *LiDARFrame) {
+			processed <- frame.FrameID
+		},
+	})
+	defer fb.Close()
+
+	fb.frameCh <- &LiDARFrame{FrameID: "first"}
+	fb.frameCh <- &LiDARFrame{FrameID: "second"}
+	fb.WaitForCallbacks()
+
+	for _, want := range []string{"first", "second"} {
+		select {
+		case got := <-processed:
+			if got != want {
+				t.Fatalf("callback order: got %q, want %q", got, want)
+			}
+		default:
+			t.Fatalf("WaitForCallbacks returned before %q was processed", want)
+		}
+	}
+}
+
+func TestFlushPendingFramesKeepsBuilderOpen(t *testing.T) {
+	frames := make(chan *LiDARFrame, 2)
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:       "flush-reusable",
+		MinFramePoints: 1,
+		FrameCallback: func(frame *LiDARFrame) {
+			frames <- frame
+		},
+	})
+	defer fb.Close()
+
+	for i, azimuth := range []float64{10, 20} {
+		fb.AddPointsPolar([]PointPolar{{Channel: 1, Azimuth: azimuth, Distance: 5, Timestamp: time.Now().UnixNano()}})
+		fb.FlushPendingFrames()
+		fb.WaitForCallbacks()
+		select {
+		case frame := <-frames:
+			if frame == nil || len(frame.PolarPoints) != 1 {
+				t.Fatalf("flush %d returned unexpected frame: %+v", i, frame)
+			}
+		default:
+			t.Fatalf("flush %d did not invoke the callback", i)
+		}
+	}
+}
+
+func TestReplayDrainHelpersAreSafeAfterClose(t *testing.T) {
+	var nilBuilder *FrameBuilder
+	nilBuilder.WaitForCallbacks()
+	nilBuilder.FlushPendingFrames()
+
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "closed-drain"})
+	fb.Close()
+	fb.WaitForCallbacks()
+	fb.FlushPendingFrames()
+}

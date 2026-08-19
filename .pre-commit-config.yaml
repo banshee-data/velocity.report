@@ -46,6 +46,16 @@ repos:
         files: ^tools/visualiser-macos/.*\.swift$
         stages: [pre-commit]
 
+      # BuildInfo.swift is restamped by every macOS build. It is tracked, so
+      # .gitignore cannot keep the generated values out; this can.
+      - id: check-buildinfo
+        name: check-buildinfo (no generated build stamps in git)
+        entry: scripts/check-buildinfo-placeholder.sh
+        language: system
+        pass_filenames: false
+        files: ^tools/visualiser-macos/VelocityVisualiser/App/BuildInfo\.swift$
+        stages: [pre-commit]
+
       - id: format-docs
         name: format-docs (prettier for Markdown files)
         entry: make format-docs

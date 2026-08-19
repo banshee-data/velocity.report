@@ -174,40 +174,49 @@ func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 
 	ws := &Server{sensorID: sensorID}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sensorID, nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
+	// A grid that will not clear is still reported: live data would otherwise
+	// composite onto the recorded scene.
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+
+	// ...but the source must still have reached live. Returning early on the
+	// reset error used to leave Source naming the replay that had already
+	// stopped, which is how the state went stale behind a failed teardown.
+	if got := ws.PipelineState(); got.Source != SourceModeLive || got.ReplayActive {
+		t.Errorf("state did not reach live despite the reset error: %s", got)
 	}
 }
 
 func TestPlayback_HandlePCAPStop_StartLiveListenerError(t *testing.T) {
 	ws := &Server{sensorID: "sensor-stop-start-listener-error"}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=sensor-stop-start-listener-error", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}
 }
 
@@ -223,17 +232,17 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 	}
 	ws.setBaseContext(baseCtx)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAP
+	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapDone = make(chan struct{})
 	close(ws.pcapDone)
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=sensor-stop-callback", nil)
 	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
+	ws.handleReplayStop(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
@@ -250,7 +259,7 @@ func TestPlayback_HandlePCAPStop_OnStoppedCallback(t *testing.T) {
 func TestPlayback_HandlePCAPResumeLive_StartListenerError(t *testing.T) {
 	ws := &Server{sensorID: "sensor-resume-error"}
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=sensor-resume-error", nil)
@@ -274,7 +283,7 @@ func TestPlayback_HandlePCAPResumeLive_OnStoppedCallback(t *testing.T) {
 	}
 	ws.setBaseContext(baseCtx)
 	ws.dataSourceMu.Lock()
-	ws.currentSource = DataSourcePCAPAnalysis
+	ws.setTestSourcePCAPAnalysis()
 	ws.dataSourceMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live?sensor_id=sensor-resume-callback", nil)

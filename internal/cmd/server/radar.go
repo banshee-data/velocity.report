@@ -731,11 +731,12 @@ func Main(args []string) int {
 				}
 			},
 			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
+			PlaybackProbe:    visualiserPlaybackProbe{server: visualiserServer},
 			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
-			OnRecordingStart: func(runID string) {
+			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
-					return
+					return ""
 				}
 				vrlogRecorderMu.Lock()
 				defer vrlogRecorderMu.Unlock()
@@ -750,16 +751,16 @@ func Main(args []string) int {
 				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				if err := os.MkdirAll(baseDir, 0755); err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				recordPath := filepath.Join(baseDir, runID)
 				rec := newVRLogRecorderOrLog(recorder.NewRecorder, recordPath, lidarSensorID, log.Printf)
 				if rec == nil {
-					return
+					return ""
 				}
 
 				applyRecordingMetadata(rec, lidarDB, lidarServer, runID, tuningHash, log.Default())
@@ -768,6 +769,7 @@ func Main(args []string) int {
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
 				log.Printf("[Visualiser] VRLOG recording started: %s", vrlogRecorderPath)
+				return vrlogRecorderPath
 			},
 			OnRecordingStop: func(runID string) string {
 				if visualiserPublisher == nil {
@@ -802,13 +804,20 @@ func Main(args []string) int {
 					return "", fmt.Errorf("failed to open vrlog: %w", err)
 				}
 				frameEncoding := string(replayer.FrameEncoding())
+				// Drop the previous source's background BEFORE the replay
+				// starts. Clients keep the last background they were sent, so
+				// without this the live settled grid stays on screen under
+				// replayed foreground — it reads as a real scene and is not
+				// obviously wrong until something moves through it.
+				//
+				// Order matters: StartVRLogReplay emits the recording's own
+				// background, so clearing afterwards would wipe the very frame
+				// that replaces this one.
+				visualiserPublisher.ClearBackground()
 				// Start replay through the publisher
 				if err := visualiserPublisher.StartVRLogReplay(replayer); err != nil {
 					replayer.Close()
 					return "", fmt.Errorf("failed to start vrlog replay: %w", err)
-				}
-				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
-					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
 				log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
 				return frameEncoding, nil
@@ -824,6 +833,29 @@ func Main(args []string) int {
 				}
 			},
 		})
+		// A VRLOG that plays to its end returns the pipeline to live by itself.
+		// Nothing else observes the end, so without this the recording stayed
+		// the data source indefinitely: the live listener was never restarted,
+		// plugging the sensor back in produced nothing, and the replay slot
+		// stayed claimed so no new replay could start.
+		if visualiserPublisher != nil {
+			srv := lidarServer
+			visualiserPublisher.SetOnReplayEnded(func() {
+				if err := srv.ReturnToLive("VRLOG replay reached the end of its recording"); err != nil {
+					log.Printf("[Visualiser] Failed to return to live after VRLOG replay ended: %v", err)
+				}
+			})
+		}
+
+		// Let the streaming layer read the source mode from its single owner
+		// rather than keeping a second copy that can drift out of agreement.
+		if visualiserServer != nil {
+			srv := lidarServer
+			visualiserServer.SetSourceModeProvider(func() (string, bool) {
+				state := srv.PipelineState()
+				return state.DataSourceWire(), state.Recording
+			})
+		}
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
 			lidarServer.SetTracker(tracker)

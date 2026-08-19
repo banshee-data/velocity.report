@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre30
+VERSION := 0.5.1-pre31
 
 # =============================================================================
 # HELP TARGET (default)
@@ -1234,8 +1234,8 @@ test-go-coverage-gate:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
-	@echo "  (replaying the kirk0.pcapng fixture — this takes several minutes)"
-	@env -u GOROOT VELOCITY_PCAP_FIXTURE_TESTS=1 go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@echo "  (running the bounded kirk0.pcapng fixture replays)"
+	@env -u GOROOT go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
 	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
 
 # Run web test suite (Jest) using pnpm inside the web directory
@@ -1593,7 +1593,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -1640,7 +1640,15 @@ report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdo
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
 
+check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
+	@scripts/check-buildinfo-placeholder.sh
+
+fix-buildinfo: ## Reset BuildInfo.swift to its committed placeholder
+	@scripts/check-buildinfo-placeholder.sh --fix
+
 .PHONY: check-agent-drift report-backtick-paths check-md-links
+
+.PHONY: check-buildinfo fix-buildinfo
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 

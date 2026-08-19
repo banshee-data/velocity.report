@@ -192,7 +192,7 @@ forwards `velocity data …` and `velocity report …` here):
 - `GET /api/lidar/grid_heatmap` - Get grid heatmap data
 - `GET /api/lidar/data_source` - Get current data source (live/PCAP)
 - `POST /api/lidar/pcap/start` - Start PCAP replay
-- `POST /api/lidar/pcap/stop` - Stop PCAP replay, return to live
+- `POST /api/lidar/replay/stop` - Stop whatever is replaying (PCAP or VRLOG), return to live
 - `POST /api/lidar/pcap/resume_live` - Resume live UDP after PCAP
 - `GET /api/lidar/pcap/files` - List available PCAP files
 - `POST /api/lidar/snapshots/cleanup` - Clean up old snapshots

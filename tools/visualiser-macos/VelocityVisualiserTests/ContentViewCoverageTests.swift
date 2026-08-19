@@ -363,6 +363,19 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
         let _ = view.body
     }
 
+    func testAnalysisLabel() throws {
+        let view = PlaybackModeBadgeView(
+            modeLabel: "PCAP (ANALYSIS)", mode: .replayNonSeekable, isConnected: true)
+        let _ = view.body
+    }
+
+    func testRecordingIndicator() throws {
+        let view = PlaybackModeBadgeView(
+            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isRecording: true,
+            isConnected: true)
+        let _ = view.body
+    }
+
     func testDisconnected() throws {
         let view = PlaybackModeBadgeView(
             modeLabel: "LIVE", mode: .live, isConnected: false)
@@ -713,25 +726,6 @@ struct ConfirmedGreenColourTest {
         let green = Color.confirmedGreen
         // Just verify the extension is accessible
         let _ = green
-    }
-}
-
-// MARK: - ModeIndicatorView Tests
-
-struct ModeIndicatorViewCoverageTests {
-    @Test func liveConnected() throws {
-        let view = ModeIndicatorView(isLive: true, isConnected: true)
-        let _ = view.body
-    }
-
-    @Test func replayConnected() throws {
-        let view = ModeIndicatorView(isLive: false, isConnected: true)
-        let _ = view.body
-    }
-
-    @Test func disconnected() throws {
-        let view = ModeIndicatorView(isLive: false, isConnected: false)
-        let _ = view.body
     }
 }
 

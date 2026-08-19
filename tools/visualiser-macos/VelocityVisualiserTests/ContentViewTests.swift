@@ -85,22 +85,36 @@ struct FormatDurationTests {
     }
 }
 
-// MARK: - ModeIndicatorView Tests
+// MARK: - PlaybackModeBadgeView Tests
 
-struct ModeIndicatorViewTests {
-    @Test func liveConnectedIndicator() throws {
-        let view = ModeIndicatorView(isLive: true, isConnected: true)
+@available(macOS 15.0, *) @MainActor final class PlaybackModeBadgeViewTests: XCTestCase {
+    func testLiveConnectedIndicator() throws {
+        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: true)
         // Verify the view can be created without crash
         let _ = view.body
     }
 
-    @Test func replayConnectedIndicator() throws {
-        let view = ModeIndicatorView(isLive: false, isConnected: true)
+    func testReplayConnectedIndicator() throws {
+        let view = PlaybackModeBadgeView(
+            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true)
         let _ = view.body
     }
 
-    @Test func disconnectedIndicator() throws {
-        let view = ModeIndicatorView(isLive: false, isConnected: false)
+    func testAnalysisIndicator() throws {
+        let view = PlaybackModeBadgeView(
+            modeLabel: "PCAP (ANALYSIS)", mode: .replayNonSeekable, isConnected: true)
+        let _ = view.body
+    }
+
+    func testRecordingIndicator() throws {
+        let view = PlaybackModeBadgeView(
+            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isRecording: true,
+            isConnected: true)
+        let _ = view.body
+    }
+
+    func testDisconnectedIndicator() throws {
+        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: false)
         let _ = view.body
     }
 }

@@ -24,6 +24,7 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogRate = 1.0
 	p.vrlogSendOneFrame = false
 	p.vrlogActive = true
+	p.vrlogEmittedBackground = false
 
 	p.vrlogWg.Add(1)
 
@@ -48,6 +49,11 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 // emitFirstBackground scans the VRLOG for the first background frame and
 // publishes it immediately so the client sees the background grid at the
 // start of replay.  The reader is reset to frame 0 afterwards.
+//
+// Sets vrlogEmittedBackground when it finds one, which both gates the live
+// fallback in SendBackgroundSnapshot and tells publishInternal to preserve
+// replayed frames' recorded background sequence.  A recording made before the
+// background grid settled holds none, and the flag stays false.
 func (p *Publisher) emitFirstBackground(reader FrameReader) error {
 	total := reader.TotalFrames()
 	for i := uint64(0); i < total; i++ {
@@ -61,7 +67,13 @@ func (p *Publisher) emitFirstBackground(reader FrameReader) error {
 			}
 			frame.PlaybackInfo.IsLive = false
 			frame.PlaybackInfo.Seekable = true
-			p.Publish(frame)
+			// Record that this replay supplies its own background BEFORE
+			// publishing, so publishInternal preserves this frame's recorded
+			// sequence instead of stamping it with the live grid's.
+			p.vrlogMu.Lock()
+			p.vrlogEmittedBackground = true
+			p.vrlogMu.Unlock()
+			p.publishReplay(frame)
 			diagf("[Visualiser] Emitted first background frame at index %d", i)
 			break
 		}
@@ -82,6 +94,7 @@ func (p *Publisher) StopVRLogReplay() {
 	}
 	close(p.vrlogStopCh)
 	p.vrlogActive = false
+	p.vrlogEmittedBackground = false
 	p.vrlogMu.Unlock()
 
 	p.vrlogWg.Wait()
@@ -101,6 +114,14 @@ func (p *Publisher) IsVRLogActive() bool {
 	p.vrlogMu.RLock()
 	defer p.vrlogMu.RUnlock()
 	return p.vrlogActive
+}
+
+// VRLogEmittedBackground reports whether the active VRLOG replay published a
+// background frame from the recording itself at startup.
+func (p *Publisher) VRLogEmittedBackground() bool {
+	p.vrlogMu.RLock()
+	defer p.vrlogMu.RUnlock()
+	return p.vrlogEmittedBackground
 }
 
 // VRLogReader returns the current VRLOG reader (nil if not active).
@@ -285,11 +306,18 @@ func (p *Publisher) vrlogReplayLoop() {
 				// so the client can Seek(0) + Play() to restart.
 				diagf("[Visualiser] VRLOG replay complete — pausing at end")
 				p.vrlogMu.Lock()
+				alreadyAtEnd := p.vrlogPaused
 				p.vrlogPaused = true
 				if p.vrlogReader != nil {
 					p.vrlogReader.SetPaused(true)
 				}
 				p.vrlogMu.Unlock()
+				// Announce the end once per arrival, not on every loop
+				// iteration while parked here, so the owner can restore live
+				// input. The recording stays loaded and seekable.
+				if !alreadyAtEnd {
+					p.notifyReplayEnded()
+				}
 				// Reset timing so restart plays at correct pace.
 				lastFrameTime = 0
 				lastWallTime = time.Time{}
@@ -338,6 +366,6 @@ func (p *Publisher) vrlogReplayLoop() {
 		frame.PlaybackInfo.Seekable = true
 
 		// Publish to all clients
-		p.Publish(frame)
+		p.publishReplay(frame)
 	}
 }
