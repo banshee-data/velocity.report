@@ -1,10 +1,19 @@
-# LiDAR state estimation and vehicle behaviour plan
+# LiDAR state estimation plan
 
 - **Status:** Draft (investigation)
-- **Layers:** L4 Perception, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints, storage
-- **Target:** v0.5.x through v0.7.x; the observation model lands first, the estimator and behaviour layers follow behind measurable gates
+- **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
+- **Target:** v0.5.x through v0.7.x; the observation model lands first, the estimator follows behind measurable gates
+- **Consumed by:** [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) (Phases 6 and 7; every behaviour metric depends on the final trajectory this plan produces)
 - **Companion plans:** [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
 - **Canonical maths:** [data/maths/tracking-maths.md](../../data/maths/tracking-maths.md), [data/maths/proposals/20260222-geometry-coherent-tracking.md](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
+
+> **Scope split.** This plan owns the path from raw points to a trustworthy
+> physical trajectory: observation model, estimator, uncertainty, geometry,
+> smoothing, persistence, and the evidence surface for abnormal motion. It owns
+> Phases 0 to 5 and Phase 8. What is then _measured about road-user behaviour_
+> using that trajectory, Phases 6 and 7, lives in
+> [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md). Phase
+> numbering is shared across the two documents so cross-references survive.
 
 ## Executive summary
 
@@ -1031,30 +1040,28 @@ No crash classifier is built. The `ModelValid = false` transition is precisely
 the hook a classifier would later attach to, and every metric it would need is
 persisted by Phase 4.
 
-## 13. Behaviour metrics architecture
+## 13. What the trajectory must support downstream
 
-Behaviour metrics consume the `final` estimate, never the online one, and are
-computed in L8. Each metric is tagged with the data it requires, because roughly
-half of what the brief asks for is not computable without roadway context that
-does not exist today.
+Behaviour analytics is specified in
+[lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md). This
+section states only the contract that plan depends on, so that a change here is
+visibly a change to its foundations.
 
-| Metric                                               | Requires                                                   | Available                     |
-| ---------------------------------------------------- | ---------------------------------------------------------- | ----------------------------- |
-| Mean, median, max, percentile speed                  | Final trajectory                                           | Phase 5                       |
-| Speed against position along the track               | Final trajectory                                           | Phase 5                       |
-| Longitudinal acceleration, peak accel and decel      | Acceleration state or smoothed differential                | Phase 5                       |
-| Braking onset and duration                           | Acceleration state with a sign-change detector             | Phase 5                       |
-| Jerk: peak positive, peak negative, RMS, event count | Smoothed acceleration; see 13.1                            | Phase 5, with caveats         |
-| Yaw rate, lateral acceleration, curvature            | Heading and yaw-rate states                                | Phase 5                       |
-| Abrupt steering events                               | Yaw-rate derivative over a smoothed window                 | Phase 5                       |
-| Minimum speed, stop duration, stop location          | Final trajectory only                                      | Phase 5                       |
-| Distance from stop line, rolling versus full stop    | **Stop-line geometry plus a site frame**                   | Phase 7, blocked              |
-| Lateral position within lane, distance from centre   | **Lane geometry** or an empirical path prior               | Phase 6 partial, Phase 7 full |
-| Heading error relative to lane                       | **Lane geometry**                                          | Phase 7, blocked              |
-| Lane departures                                      | **Lane geometry**                                          | Phase 7, blocked              |
-| Weaving and oscillation                              | Lateral position variance about the object's own mean path | Phase 5, no map needed        |
+### 13.1 The contract
 
-### 13.1 Jerk is mostly not observable, and the numbers say so
+| Guarantee                                                                  | Why behaviour analytics needs it                                                                                                                                  |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metrics read `EstimatedState` at `stage = final`, never `online`           | The online estimate is optimised for association and the live view, and is revised afterwards. A report built on it quotes a number the system no longer believes |
+| Every state carries its covariance and its `estimator_id`                  | Uncertainty must propagate into every derived metric, and a metric must be reproducible against the estimator version that produced it                            |
+| Heading and yaw rate are estimator states with covariance                  | Lateral acceleration, curvature and conflict geometry are undefined without an orientation that has an uncertainty                                                |
+| Object extents are a track-level belief with sigma, not a per-frame extent | Passing clearance and bumper-to-bumper gap are measured between object _surfaces_, so they inherit dimension uncertainty directly                                 |
+| Observations remain queryable alongside estimates                          | An interaction metric that looks implausible must be traceable back to what the sensor actually saw                                                               |
+| A metric is unavailable rather than approximate when observability fails   | Stated in full in the behaviour plan's suppression rules                                                                                                          |
+
+### 13.2 Jerk is mostly not observable, and the numbers say so
+
+This conclusion is load-bearing for the behaviour plan and belongs here, with
+the sampling-rate evidence that produced it.
 
 Computing jerk by finite differencing positions amplifies measurement noise by
 `1/dt³`. With an effective observation interval of 0.2 s and a corrected
@@ -1086,11 +1093,12 @@ This also means improving P4, the 56 % frame miss rate, has more leverage on
 behaviour metrics than any estimator upgrade. Doubling the observation rate
 halves the smoothing window needed for the same noise floor.
 
-### 13.2 Lane keeping without a map
+### 13.3 Lane keeping without a map
 
-A genuine interim exists. Accumulate the density of final trajectories over
-weeks, extract modal paths by lane direction, and express lateral offset relative
-to that empirical path. This needs no new sensing and no map.
+A genuine interim exists, and it belongs to this plan because it needs no
+roadway context: accumulate the density of final trajectories over weeks,
+extract modal paths by lane direction, and express lateral offset relative to
+that empirical path.
 
 It must be labelled honestly. "Deviation from the path most vehicles take" is not
 "deviation from the lane centre". They differ systematically wherever drivers
@@ -1098,6 +1106,10 @@ consistently favour one side, and reporting the former as the latter would be a
 data-integrity failure of the kind this project exists to avoid. Weaving,
 measured as the variance of a vehicle's lateral offset about its own smoothed
 path, needs no external reference at all and is honest today.
+
+The behaviour plan carries the further, and sharper, warning that neither
+quantity is the Standard Deviation of Lateral Position as that term is used in
+the driving-impairment literature.
 
 ## 14. Coordinate frames
 
@@ -1156,14 +1168,15 @@ as a by-product.
 
 ### 16.1 What exists
 
-| Asset                                                 | Content                                                               | Reusable                                                                                   |
-| ----------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `internal/lidar/perf/pcap/kirk0.pcapng`               | 200 MB, the reference recording, port 2369                            | Yes: the primary real-data source                                                          |
-| `internal/lidar/perf/pcap/lidar_20Hz.pcapng`          | 100 MB, degenerate, one frame                                         | No                                                                                         |
-| VRLOG recordings                                      | Post-pipeline `FrameBundle` snapshots                                 | Diagnostics only: they record rendered output, so the estimator cannot be re-run from them |
-| `lidar_run_tracks` with `user_label`, `quality_label` | Human labels including `jitter_velocity`, `truncated`, `disconnected` | Yes: the seed of the labelled partition                                                    |
-| `GroundTruthEvaluator`                                | Hungarian matching on temporal IoU                                    | Partially: track-level only, no spatial comparison                                         |
-| `lidar-test-corpus-plan`                              | A proposed five-PCAP corpus                                           | Yes: this plan depends on it                                                               |
+| Asset                                                  | Content                                                                | Reusable                                                                                   |
+| ------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `internal/lidar/perf/pcap/kirk0.pcapng`                | 200 MB, the reference recording, port 2369                             | Yes: the primary real-data source                                                          |
+| `internal/lidar/perf/pcap/lidar_20Hz.pcapng`           | 100 MB, degenerate, one frame                                          | No                                                                                         |
+| VRLOG recordings                                       | Post-pipeline `FrameBundle` snapshots                                  | Diagnostics only: they record rendered output, so the estimator cannot be re-run from them |
+| `lidar_run_tracks` with `user_label`, `quality_label`  | Human labels including `jitter_velocity`, `truncated`, `disconnected`  | Yes: the seed of the labelled partition                                                    |
+| `GroundTruthEvaluator`                                 | Hungarian matching on temporal IoU                                     | Partially: track-level only, no spatial comparison                                         |
+| `lidar-test-corpus-plan`                               | A proposed five-PCAP corpus                                            | Yes: this plan depends on it                                                               |
+| `/Volumes/lidar/lidar/seg/soma{0,1,2,3}-static-0.pcap` | 38 min of sensor-stationary capture across four placements, 2025-12-06 | **Yes: the real-data validation set for the measurement comparison, see 16.5**             |
 
 The VRLOG limitation is worth stating plainly, because it looks like a solution
 and is not. Replaying a VRLOG replays _decisions already made_. Comparing
@@ -1182,6 +1195,7 @@ estimator comparison is a query, not a pipeline run.
 | Partial occlusion and fragmentation     | Synthetic, controllable; plus labelled `truncated` and `disconnected` tracks | Mixed                                         |
 | Acceleration and braking                | Sparse: only 108 tracks above 10 m/s                                         | **Gap**: needs a higher-speed site            |
 | Turning and lane changes                | Not present at the current site                                              | **Gap**: corpus plan dependency               |
+| Viewpoint diversity for the same defect | soma0-3: four sensor placements, four aspect-angle distributions             | **Have, and it is the right axis, see 16.5**  |
 | Overlapping vehicles, merge and split   | `is_merge_candidate` and `is_split_candidate` flags exist                    | Partial                                       |
 | Pedestrians misassociated with vehicles | Labelled classes exist                                                       | Partial                                       |
 | Erratic or evasive motion               | None                                                                         | **Gap**: synthetic only, and label it as such |
@@ -1213,6 +1227,149 @@ asserts a hand-computed number tests the implementation against itself.
 
 Partition by time, not by track, so that a scene's background state does not
 leak across partitions.
+
+### 16.5 Experiment E1: lateral-error validation on the soma static captures
+
+This is the concrete form of open question Q1, and it is the experiment that
+decides whether Phase 2 proceeds as designed.
+
+#### What the recordings are
+
+Four sensor-stationary segments cut by `velocity lidar pcap-split`, all from the
+same sensor on 2025-12-06 between 12:23 and 14:16 local time. **`static` here
+means the sensor was stationary, not that the scene was empty**: `StaticLabel`
+in [pcapsplit/timeline.go](../../internal/lidar/pcapsplit/timeline.go) marks
+periods during which the platform did not move. Traffic is present throughout.
+The `motion` siblings are the sensor being carried between placements, and are
+not useful here.
+
+| File (`/Volumes/lidar/lidar/seg/`) | Duration      | Frames (10 Hz) | Packets       | Size         |
+| ---------------------------------- | ------------- | -------------- | ------------- | ------------ |
+| `soma0-static-0.pcap`              | 1 m 51 s      | ~1,110         | 151,085       | 191 MB       |
+| `soma1-static-0.pcap`              | 11 m 03 s     | ~6,630         | 1,193,182     | 1,507 MB     |
+| `soma2-static-0.pcap`              | 1 m 09 s      | ~690           | 75,878        | 96 MB        |
+| `soma3-static-0.pcap`              | 23 m 58 s     | ~14,384        | 2,589,001     | 3,269 MB     |
+| **Total**                          | **38 m 01 s** | **~22,810**    | **4,009,146** | **5,062 MB** |
+
+Verified as Hesai Pandar40P: 1266-byte UDP payloads, `192.168.100.202:10000 →
+192.168.100.151:2369`, 10.0 Hz with RPM 593 to 606. Same wire format and port as
+`kirk0.pcapng`, so the existing L1 path ingests them unchanged. Foreground
+fractions for the parent captures are 0.8 %, 1.4 %, 1.8 % and 1.0 %; only
+soma1's figure is a pure static-segment measurement, because soma1 has no motion
+segment at all.
+
+#### Why this is the right dataset for this specific question
+
+The hypothesis in Section 3 is not "the measurement is noisy". It is that the
+medoid's error is a **deterministic function of aspect angle**, the angle
+between the sensor bearing and the vehicle's heading. Four sensor placements
+give four different aspect-angle distributions over comparable traffic with the
+same sensor and the same afternoon's conditions. That is precisely the axis
+along which the hypothesis predicts the error varies, and it is the axis
+`kirk0` cannot probe, being a single placement. With one viewpoint you cannot
+separate "the medoid is biased by geometry" from "this particular geometry is
+unlucky".
+
+#### What it cannot validate
+
+Say this plainly, because the temptation to over-claim is real. One sensor, one
+day, one two-hour window, one neighbourhood, one road class, dry conditions.
+These captures give **viewpoint diversity and nothing else**. They therefore
+address open question Q9 only partially: they test whether the defect
+generalises across placements, not whether tuning generalises across sites,
+seasons, weather or sensor units. The five-PCAP corpus in
+[lidar-test-corpus-plan](lidar-test-corpus-plan.md) remains necessary.
+
+There is also **no ground truth**. No instrumented probe vehicle, no survey, no
+external reference trajectory. Absolute position error is not measurable on this
+data at all. Every test below is therefore designed to need no truth.
+
+#### The four ground-truth-free tests
+
+**E1.1 Conditional-mean-by-aspect (the decisive test).** For every observation
+of a confirmed moving track, compute all five candidate measurements from
+Section 9 against a robust path fitted over a window of at least 2 s, and bin
+the signed lateral offset by aspect angle. Random error has a conditional mean
+of zero in every bin. A geometric bias does not. The hypothesis predicts the
+medoid's conditional mean approaches ±W/2 in bins where one face dominates and
+passes through zero where two faces are equally weighted, **repeatably across
+different vehicles in the same bin**. This is sharp and falsifiable, and it
+survives the circularity objection below because a conditional mean conditioned
+on a covariate the fit does not use cannot be manufactured by the fit.
+
+**E1.2 Straight-segment residual spectrum.** For track segments with estimated
+curvature below a threshold, measure each candidate's lateral residual about a
+robust straight-line fit, reproducing on real data the comparison Section 3.3
+ran on synthetic data. Weakness: partially circular, since the fit uses the
+measurement under test. Mitigation: fit over a long window so a slowly varying
+bias partially averages out, and report the residual autocorrelation rather than
+only its magnitude. White residuals mean noise; correlated residuals with
+aspect-locked structure mean bias.
+
+**E1.3 Cross-measurement disagreement.** Compute the pairwise differences
+between the five candidates for the same cluster. This needs no fit and no truth
+whatsoever. Under the hypothesis those differences are structured and
+aspect-dependent; under the null they are unstructured. This is the cheapest
+test and should run first, as a smoke test before the expensive ones.
+
+**E1.4 Stationary-object noise floor.** Clusters whose true velocity is zero,
+which appear during background settling and after drift, have a known answer:
+they did not move. Their measurement spread at a _fixed_ aspect angle isolates
+each candidate's variance from its bias, giving the noise floor that the
+uncertainty model in Section 8 must reproduce. This is the one place in the
+whole plan where real data supplies an exact expected value.
+
+#### Protocol and dependencies
+
+1. **Prerequisite: Phase 1.** The near-edge measurement cannot be computed
+   without retained cluster points and per-cluster capture times. E1 is the
+   reason Phase 1 precedes Phase 2 rather than running alongside it.
+2. **Harness.** Extend `lidar-bench`
+   ([cmd/lidar/bench.go](../../internal/cmd/lidar/bench.go)) with an
+   observation-dump mode; it already replays an arbitrary PCAP through L1 to L6
+   with auto port detection and is the `make test-perf` gate. The alternative is
+   the server's `/api/lidar/pcap/start` in analysis mode with `-lidar-pcap-dir`
+   pointed at the volume, which additionally records an analysis run.
+3. **Settling budget is a real constraint.** `pcap-split` used a 60 s settling
+   duration, and L3 needs its own warmup. soma2 is 69 s long and soma0 is 111 s,
+   so after warmup each may yield well under a minute of usable frames. Run
+   `velocity lidar settling-eval` per file and publish the usable-frame count
+   **before** committing to the partition below.
+4. **Storage.** 5 GB on an external volume; the repo cannot vendor it. Add a
+   manifest with SHA-256 per file plus the split parameters, so a result is
+   attributable to an exact input.
+
+#### Partition assignment
+
+Honouring the rule that tuning and evaluation never share a recording:
+
+| Recording                          | Partition              | Rationale                                                                       |
+| ---------------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `soma1-static-0`                   | Development and tuning | 11 minutes, fully static, no motion segment to complicate settling              |
+| `soma3-static-0`                   | Decision gate          | The largest at 24 minutes; re-run on every gate evaluation, never tuned against |
+| `soma0-static-0`, `soma2-static-0` | Held-out regression    | Short, which suits a partition touched only to confirm a shipped change         |
+
+Cross-check the assignment against the settling-eval output from step 3: if
+soma0 or soma2 yields too few usable frames to be a meaningful regression set,
+promote a time-partitioned tail of soma3 instead rather than weakening the rule.
+
+#### Acceptance criteria
+
+E1 feeds gate G-GEO-1 and adds two conditions of its own.
+
+| Criterion                                   | Threshold                                                                                                                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1.3 runs and shows structured disagreement | Pairwise medoid-versus-near-edge difference has a non-zero conditional mean by aspect bin, p < 0.01                                                                           |
+| E1.1 confirms the mechanism                 | Medoid conditional mean by aspect bin is non-zero in at least three bins and its magnitude reaches at least 0.3 m; near-edge conditional mean stays within 0.1 m in every bin |
+| E1.1 replicates across placements           | The aspect-conditioned bias curve agrees in sign and approximate magnitude across all four recordings                                                                         |
+| E1.2 improvement                            | Near-edge p99 lateral residual is at least 50 % below medoid on the decision-gate recording                                                                                   |
+| E1.4 noise floor                            | Stationary-cluster spread is consistent with the Section 8 uncertainty model within a factor of two across range deciles                                                      |
+
+**A negative result is a real outcome, not a failure of the experiment.** If
+E1.1 shows no aspect-conditioned bias on real clusters, the synthetic model is
+unrepresentative, and Section 15's first invalidating condition has fired: real
+clusters lack a clean near face, and the increment should be reconsidered rather
+than patched. Record that outcome with the same weight as a positive one.
 
 ## 17. Metrics for evaluating the estimator
 
@@ -1310,8 +1467,8 @@ is biased.
 | 3     | Adaptive uncertainty and residual statistics      | G-UNC-1                |
 | 4     | Motion model extension                            | G-EST-1                |
 | 5     | Smoothing                                         | G-SMO-1                |
-| 6     | Behaviour metrics                                 | G-SMO-1 passed         |
-| 7     | Roadway context                                   | Site frame and map, L7 |
+| 6     | Behaviour analytics → behaviour plan              | G-SMO-1 passed         |
+| 7     | Roadway context → behaviour plan                  | Site frame and map, L7 |
 | 8     | Abnormal-motion evidence surface                  | Phase 4 complete       |
 
 ### Phase 0: instrumentation
@@ -1440,27 +1597,17 @@ it.
 
 **Acceptance.** G-SMO-1.
 
-### Phase 6: behaviour metrics
+### Phases 6 and 7: behaviour analytics and roadway context
 
-**Goal.** Speed, acceleration, braking, jerk and turning per passage.
+Owned by [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md),
+which splits them into 6A single-track kinematics, 6B pairwise interactions,
+6C empirical-path behaviour, and 7 roadway-context metrics. Both are gated on
+G-SMO-1 from this plan: behaviour metrics read the `final` estimate, so they
+cannot begin before smoothing produces one.
 
-**Files.** New `l8analytics/behaviour.go`; API and report surfaces.
-
-**Tests.** Metrics on synthetic trajectories with analytically known values.
-Jerk bandwidth assertions.
-
-**Risks.** Publishing jerk without a bandwidth statement. Mitigation: the API
-refuses to return jerk without one.
-
-**Acceptance.** Every metric reproduces its synthetic ground truth within a
-stated tolerance, and each carries an uncertainty.
-
-### Phase 7: roadway context
-
-Blocked on the site frame and map. Scope per
+Phase 7 additionally requires the site frame and a map, per
 [lidar-l7-scene-plan](lidar-l7-scene-plan.md). The empirical path prior from
-Section 13.2 can ship earlier as a Phase 6 extension, provided it is labelled as
-an empirical path and not as a lane.
+Section 13.3 needs neither and can ship inside Phase 6C.
 
 ### Phase 8: abnormal-motion evidence surface
 
@@ -1562,13 +1709,17 @@ plus a map source. The honest interim needs neither: accumulate the modal path
 from weeks of final trajectories and report deviation from it, labelled as
 "deviation from the dominant path" and never as lane offset. Weaving, measured
 against a vehicle's own smoothed path, is available today with no external
-reference.
+reference. The full lane-keeping feature set, and why the roadside window
+cannot support the literature's SDLP, are in
+[lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md).
 
 **12. What additional data is necessary for stop-sign compliance?**
 A site frame, and a stop-line annotation in that frame. Minimum speed, stop
 duration and stop location relative to the sensor are computable now. Distance
 from the stop line, and therefore the rolling-versus-full-stop distinction that
-actually matters, are not computable at all without both.
+actually matters, are not computable at all without both. The stop-behaviour
+feature set is specified in
+[lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md).
 
 **13. At what stage should acceleration and jerk be calculated?**
 Acceleration as an estimator state, at Phase 4, not as a post-hoc difference.
@@ -1627,18 +1778,18 @@ perfectly straight.
 
 ## 21. Open questions and experiments needed
 
-| #   | Question                                                                                                                                         | Experiment                                                                                                                                           | Blocks                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Q1  | Does the near-edge measurement win on **real** clusters, or does real-world noise destroy the clean near face that the synthetic model provides? | Replay kirk0 with points retained; compute all five candidate measurements offline; compare against a locally fitted smooth trajectory               | Phase 2. **The single highest-value experiment in this plan**       |
-| Q2  | Why is the association rate only 43.6 % for moving tracks?                                                                                       | Instrument association failures by cause: no cluster produced, cluster outside the gate, cluster lost to a competing track, frame throttled          | Phase 2 scope, and possibly a redirect of the whole increment to L4 |
-| Q3  | How much of the residual is intra-frame timing rather than geometry?                                                                             | Re-run the tracker using `WorldCluster.TSUnixNanos` instead of `frame.StartTimestamp`; measure the residual change, especially near the azimuth wrap | Phase 1; possibly a very cheap partial win                          |
-| Q4  | Is predicted heading reliable enough to select the visible face during track initialisation?                                                     | Measure heading error against synthetic ground truth over the first ten frames of a track                                                            | Phase 2 fallback design                                             |
-| Q5  | What is the real memory cost of point retention on a Pi 4 at peak cluster counts?                                                                | Instrument peak retained bytes across a full kirk0 replay at production DBSCAN parameters                                                            | Phase 1                                                             |
-| Q6  | Does the dimension prior converge fast enough to be useful on short tracks?                                                                      | Distribution of frames to reach a stable length estimate, by class and range                                                                         | Phase 2                                                             |
-| Q7  | Is acceleration observable at all at the effective 5 Hz rate, or does the CA state just absorb noise?                                            | Offline CA against synthetic braking with known ground truth, swept over sample rate                                                                 | G-EST-1                                                             |
-| Q8  | Are the 33 identified jump tracks all the same phenomenon?                                                                                       | Manual review against the per-track inspector, classified by cause                                                                                   | Phase 0                                                             |
-| Q9  | Does kirk0 overfit? The site has 108 tracks above 10 m/s out of 26,732                                                                           | Corpus plan dependency. All acceleration, braking and turning conclusions are **provisional** until a second, higher-speed site exists               | G-EST-1, G-EST-3, Phase 6                                           |
-| Q10 | Should the OBB centre replace the medoid as an immediate stopgap?                                                                                | It measured 0.279 m against 0.676 m mean bias: a two-and-a-half-fold improvement for a one-line change. Evaluate on real data as part of Q1          | Possible Phase 0.5                                                  |
+| #   | Question                                                                                                                                         | Experiment                                                                                                                                                       | Blocks                                                              |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Q1  | Does the near-edge measurement win on **real** clusters, or does real-world noise destroy the clean near face that the synthetic model provides? | **Experiment E1, Section 16.5**: the four soma static captures give four sensor placements; four ground-truth-free tests, decisively the aspect-conditioned mean | Phase 2. **The single highest-value experiment in this plan**       |
+| Q2  | Why is the association rate only 43.6 % for moving tracks?                                                                                       | Instrument association failures by cause: no cluster produced, cluster outside the gate, cluster lost to a competing track, frame throttled                      | Phase 2 scope, and possibly a redirect of the whole increment to L4 |
+| Q3  | How much of the residual is intra-frame timing rather than geometry?                                                                             | Re-run the tracker using `WorldCluster.TSUnixNanos` instead of `frame.StartTimestamp`; measure the residual change, especially near the azimuth wrap             | Phase 1; possibly a very cheap partial win                          |
+| Q4  | Is predicted heading reliable enough to select the visible face during track initialisation?                                                     | Measure heading error against synthetic ground truth over the first ten frames of a track                                                                        | Phase 2 fallback design                                             |
+| Q5  | What is the real memory cost of point retention on a Pi 4 at peak cluster counts?                                                                | Instrument peak retained bytes across a full kirk0 replay at production DBSCAN parameters                                                                        | Phase 1                                                             |
+| Q6  | Does the dimension prior converge fast enough to be useful on short tracks?                                                                      | Distribution of frames to reach a stable length estimate, by class and range                                                                                     | Phase 2                                                             |
+| Q7  | Is acceleration observable at all at the effective 5 Hz rate, or does the CA state just absorb noise?                                            | Offline CA against synthetic braking with known ground truth, swept over sample rate                                                                             | G-EST-1                                                             |
+| Q8  | Are the 33 identified jump tracks all the same phenomenon?                                                                                       | Manual review against the per-track inspector, classified by cause                                                                                               | Phase 0                                                             |
+| Q9  | Does kirk0 overfit? The site has 108 tracks above 10 m/s out of 26,732                                                                           | Partly answered by the soma captures: four viewpoints, but one site, one day, one road class. Acceleration, braking and turning conclusions stay provisional     | G-EST-1, G-EST-3, Phase 6                                           |
+| Q10 | Should the OBB centre replace the medoid as an immediate stopgap?                                                                                | It measured 0.279 m against 0.676 m mean bias: a two-and-a-half-fold improvement for a one-line change. Evaluate on real data as part of Q1                      | Possible Phase 0.5                                                  |
 
 Q10 deserves attention out of proportion to its size. If it survives contact
 with real data, it is a substantial improvement available immediately, and it
@@ -1651,7 +1802,9 @@ pressure.
 
 - [ ] Phase 0: wire the debug collector; populate per-stage timings; publish the baseline
 - [ ] Phase 0: extract the 33 jump tracks into the held-out partition
-- [ ] Experiment Q1 on real kirk0 data
+- [ ] Experiment E1 on the soma static captures (Section 16.5), starting with the cheap E1.3 smoke test
+- [ ] Run `velocity lidar settling-eval` on all four soma files and publish usable-frame counts before fixing the partition
+- [ ] Write the soma manifest: SHA-256 per file plus split parameters
 - [ ] Experiment Q3, cluster timestamps, cheap and possibly high value
 - [ ] Promote the synthetic scene prototype into `internal/lidar/l4perception/synthscene`
 - [ ] Change `adaptUnassociatedClusters` to emit observation and estimate together
@@ -1665,6 +1818,7 @@ pressure.
 - [ ] Factor-graph batch estimation, pending a pure-Go sparse solver
 - [ ] Site frame and L7 roadway context
 - [ ] Crash classification, deliberately out of scope
+- [ ] Behaviour analytics, Phases 6 and 7, split into [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md)
 
 ### Accepted residuals
 
