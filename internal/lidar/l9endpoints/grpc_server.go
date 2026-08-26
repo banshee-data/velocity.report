@@ -143,6 +143,14 @@ func (s *Server) SetVRLogMode(enabled bool) {
 	}
 }
 
+// sendStallTimeout bounds a single stream.Send. It is deliberately far longer
+// than any legitimate hiccup — at ten frames a second it is fifty frames of
+// slack — because the cost of ending a stream early is a reconnect, while the
+// cost of not bounding it is an indefinite stall that the send instrumentation
+// cannot even report.
+// A var rather than a const so tests can shorten it; nothing else reassigns it.
+var sendStallTimeout = 5 * time.Second
+
 // currentReplayEpoch returns the epoch that identifies the current source.
 // It is bumped whenever a replay is loaded, so a change means frame IDs from
 // here on belong to a different sequence than the ones before it.
@@ -337,7 +345,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	lastLogTime := time.Now()
 	const logInterval = 5 * time.Second
 	const slowSendThresholdMs = 50    // Warn if Send() takes > 50ms
-	const sendTimeoutMs = 100         // Skip frame if send would take > 100ms
+	const sendTimeoutMs = 100         // Log a send slower than this at trace level
 	const maxConsecutiveSlowSends = 3 // After 3 slow sends, start skipping
 	const minConsecutiveFastSends = 5 // Require 5 fast sends before exiting skip mode (hysteresis)
 
@@ -465,24 +473,51 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			msgSize := proto.Size(pbFrame)
 			totalBytesSent += int64(msgSize)
 
-			if err := stream.Send(pbFrame); err != nil {
-				// M7: Release on error path - protobuf data has been marshalled
-				// by Send(), so it's safe to release the source slices now.
-				if frame.PointCloud != nil {
-					frame.PointCloud.Release()
+			// stream.Send blocks for as long as the client declines to read:
+			// gRPC flow control stalls the write and the call carries no
+			// deadline of its own. Every piece of send instrumentation below
+			// runs after Send returns, so such a stall is not merely unbounded
+			// but invisible — on 2026-08-26 a visualiser stopped reading for
+			// four minutes and produced no slow-send log at all, only the
+			// publisher discarding every frame into a queue nobody was
+			// emptying.
+			//
+			// Bound it. Send runs on its own goroutine so this loop can give up
+			// on it; the goroutine owns the PointCloud release because
+			// frameBundleToProto aliases the point slices into pbFrame rather
+			// than copying them, so they must stay alive until Send has
+			// finished marshalling on every path, including the one where we
+			// have already stopped waiting.
+			sendResult := make(chan error, 1)
+			go func(pc *PointCloudFrame) {
+				sendErr := stream.Send(pbFrame)
+				if pc != nil {
+					pc.Release()
 				}
-				opsf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
-				return err
-			}
+				sendResult <- sendErr
+			}(frame.PointCloud)
 
-			// M7: Release PointCloud reference after stream.Send() completes.
-			// The protobuf message has been marshalled and sent, so we can
-			// safely decrement the reference count. When all clients have
-			// released, the slices are returned to the pool.
-			// NOTE: frameBundleToProto assigns X/Y/Z slices directly into the
-			// protobuf (no deep copy), so Release must happen AFTER Send.
-			if frame.PointCloud != nil {
-				frame.PointCloud.Release()
+			var sendErr error
+			select {
+			case sendErr = <-sendResult:
+			case <-ctx.Done():
+				// The stream is going away; the pending Send unblocks as it is
+				// torn down and its goroutine releases the frame.
+				return ctx.Err()
+			case <-time.After(sendStallTimeout):
+				// A client this far behind is not slow, it has stopped
+				// reading. gRPC forbids a concurrent Send on the same stream,
+				// so the frame cannot be skipped — end the stream and let the
+				// client reconnect, which is what it does on any other stream
+				// error.
+				opsf("[gRPC] Client %s stopped reading: no progress on a send for %v, closing the stream so it can reconnect",
+					clientID, sendStallTimeout)
+				return status.Errorf(codes.DeadlineExceeded,
+					"client stopped reading: send made no progress for %v", sendStallTimeout)
+			}
+			if sendErr != nil {
+				opsf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, sendErr)
+				return sendErr
 			}
 			sendDuration := time.Since(sendStart)
 			totalSendTimeNs += sendDuration.Nanoseconds()
