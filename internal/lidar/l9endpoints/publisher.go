@@ -92,13 +92,22 @@ type Publisher struct {
 	onReplayEnded func()
 
 	// Stats
-	frameCount       atomic.Uint64
-	clientCount      atomic.Int32
-	droppedFrames    atomic.Uint64
-	lastStatsTime    time.Time
-	lastFrameCount   uint64 // Frame count at last stats log
-	lastDroppedCount uint64 // Dropped count at last stats log
-	lastStatsMu      sync.Mutex
+	frameCount  atomic.Uint64
+	clientCount atomic.Int32
+	// droppedFrames counts frames lost at the publish stage: frameChan was full
+	// so the frame never entered the pipeline at all.
+	droppedFrames atomic.Uint64
+	// clientDroppedFrames counts frames lost at the broadcast stage: the frame
+	// was published successfully, then rejected because a client's own queue was
+	// full. Kept separate from droppedFrames because the two measure different
+	// stages and a frame can be counted at both — folding them into one ratio
+	// made a client accepting nothing read as exactly 50%, never higher.
+	clientDroppedFrames    atomic.Uint64
+	lastStatsTime          time.Time
+	lastFrameCount         uint64 // Frame count at last stats log
+	lastDroppedCount       uint64 // Publish-stage dropped count at last stats log
+	lastClientDroppedCount uint64 // Client-stage dropped count at last stats log
+	lastStatsMu            sync.Mutex
 
 	// Lifecycle
 	running atomic.Bool
@@ -491,6 +500,7 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount
 		p.lastDroppedCount = p.droppedFrames.Load()
+		p.lastClientDroppedCount = p.clientDroppedFrames.Load()
 		return
 	}
 
@@ -501,19 +511,41 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 		fps := float64(framesInInterval) / elapsed.Seconds()
 		dropped := p.droppedFrames.Load()
 		droppedInInterval := dropped - p.lastDroppedCount
+		clientDropped := p.clientDroppedFrames.Load()
+		clientDroppedInInterval := clientDropped - p.lastClientDroppedCount
 		clients := p.clientCount.Load()
-		lidar.Tracef("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d(%d total) clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
-			fps, framesInInterval, droppedInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
-		if droppedInInterval > 0 && framesInInterval > 0 {
-			dropPct := float64(droppedInInterval) / float64(framesInInterval+droppedInInterval) * 100
+		lidar.Tracef("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d(%d total) client_dropped=%d(%d total) clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
+			fps, framesInInterval, droppedInInterval, dropped, clientDroppedInInterval, clientDropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+
+		// Publish-stage loss: frames offered to the pipeline that never entered
+		// it. The denominator is everything offered, so this is a true rate.
+		if droppedInInterval > 0 {
+			offered := framesInInterval + droppedInInterval
+			dropPct := float64(droppedInInterval) / float64(offered) * 100
 			if dropPct > 10 {
-				lidar.Opsf("[Visualiser] WARNING: high drop rate %.1f%% (%d/%d frames dropped in %.0fs)",
-					dropPct, droppedInInterval, framesInInterval+droppedInInterval, elapsed.Seconds())
+				lidar.Opsf("[Visualiser] WARNING: high publish drop rate %.1f%% (%d/%d frames never entered the pipeline in %.0fs)",
+					dropPct, droppedInInterval, offered, elapsed.Seconds())
 			}
 		}
+
+		// Client-stage loss: frames that were published and then rejected
+		// because a client could not take them. The denominator is what was
+		// published, not published+rejected — a frame is counted once on each
+		// side, so summing them capped the reported rate at 50% for a single
+		// client and read "this client is receiving nothing" as "half the
+		// frames are getting through".
+		if clientDroppedInInterval > 0 && framesInInterval > 0 {
+			clientDropPct := float64(clientDroppedInInterval) / float64(framesInInterval) * 100
+			if clientDropPct > 10 {
+				lidar.Opsf("[Visualiser] WARNING: high client drop rate %.1f%% (%d of %d published frames rejected by slow clients in %.0fs, clients=%d)",
+					clientDropPct, clientDroppedInInterval, framesInInterval, elapsed.Seconds(), clients)
+			}
+		}
+
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount
 		p.lastDroppedCount = dropped
+		p.lastClientDroppedCount = clientDropped
 	}
 }
 
@@ -542,8 +574,10 @@ func (p *Publisher) broadcastLoop() {
 					if frame.PointCloud != nil {
 						frame.PointCloud.Release()
 					}
-					// Count this so gRPC stats reflect the full picture.
-					p.droppedFrames.Add(1)
+					// Client-stage loss: the frame was published, this client
+					// could not take it. Counted separately from publish-stage
+					// drops so the two are not summed into one ratio.
+					p.clientDroppedFrames.Add(1)
 				}
 			}
 			p.clientsMu.RUnlock()
@@ -582,7 +616,7 @@ func (p *Publisher) enqueueForClient(client *clientStream, frame *FrameBundle) b
 		if evicted != nil && evicted.PointCloud != nil {
 			evicted.PointCloud.Release()
 		}
-		p.droppedFrames.Add(1)
+		p.clientDroppedFrames.Add(1)
 	default:
 	}
 
