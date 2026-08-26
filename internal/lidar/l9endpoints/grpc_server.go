@@ -143,6 +143,15 @@ func (s *Server) SetVRLogMode(enabled bool) {
 	}
 }
 
+// currentReplayEpoch returns the epoch that identifies the current source.
+// It is bumped whenever a replay is loaded, so a change means frame IDs from
+// here on belong to a different sequence than the ones before it.
+func (s *Server) currentReplayEpoch() uint64 {
+	s.playbackMu.RLock()
+	defer s.playbackMu.RUnlock()
+	return s.replayEpoch
+}
+
 // SetPCAPProgress updates the current packet position for seek-bar display.
 func (s *Server) SetPCAPProgress(currentPacket, totalPackets uint64) {
 	s.playbackMu.Lock()
@@ -336,12 +345,24 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	var totalBytesSent int64
 	cooldown := newSendCooldown(maxConsecutiveSlowSends, minConsecutiveFastSends)
 	var lastFrameID uint64
+	// Frame IDs are only comparable within one source. A live stream and a
+	// recording number their frames independently, so the switch between them
+	// is a discontinuity, not a gap. lastEpoch detects the switch; see the gap
+	// accounting below.
+	var lastEpoch uint64
+	var totalFramesSent uint64
 
 	for {
 		select {
 		case <-ctx.Done():
-			lidar.Diagf("[gRPC] Client %s disconnected: frames_sent=%d dropped=%d slow_sends=%d avg_send_time_ms=%.2f",
-				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
+			// framesSent, slowSends and totalSendTimeNs are reset by the
+			// periodic stats block below, so on their own they describe the
+			// last partial interval, not the connection. droppedFrames is
+			// cumulative. Reporting the two side by side read as a lifetime
+			// total and made a healthy client look starved, so name the
+			// interval ones and carry a genuine lifetime count alongside.
+			lidar.Diagf("[gRPC] Client %s disconnected: frames_sent_total=%d frames_sent_last_interval=%d dropped_total=%d slow_sends_last_interval=%d avg_send_time_ms=%.2f",
+				clientID, totalFramesSent+framesSent, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
 			// Respect pause state — drop frames silently while paused,
@@ -383,6 +404,17 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Track frame ID gaps for detecting frames dropped before they reached
 			// this stream (for example, in the publisher when the client queue is full).
 			// Local catch-up skips are already counted above, so exclude them here.
+			//
+			// A change of replay epoch means the source changed, and the new
+			// source numbers its frames from its own sequence: a live stream at
+			// frame 500 followed by a recording starting at frame 6400 is not
+			// 5900 losses. Restart the comparison instead of measuring across
+			// the discontinuity.
+			epoch := s.currentReplayEpoch()
+			if epoch != lastEpoch {
+				lastFrameID = 0
+				lastEpoch = epoch
+			}
 			if lastFrameID > 0 && frame.FrameID > lastFrameID+1 {
 				gap := frame.FrameID - lastFrameID - 1
 				if skippedGap := uint64(skipped); gap > skippedGap {
@@ -495,7 +527,9 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					opsf("[gRPC] WARNING: Client %s queue backing up: %d/10 frames buffered", clientID, queueDepth)
 				}
 
-				// Reset counters for next interval
+				// Reset counters for next interval, carrying the lifetime total
+				// so the disconnect line can report both.
+				totalFramesSent += framesSent
 				framesSent = 0
 				totalSendTimeNs = 0
 				slowSends = 0

@@ -89,3 +89,34 @@ func TestClientDropRateIsNotCappedAtFifty(t *testing.T) {
 		t.Errorf("client drop rate = %.1f%%, want 100%%: every published frame was rejected", newPct)
 	}
 }
+
+// Frame IDs are only comparable within a single source. A live stream and a
+// recording each number their frames from their own sequence, so the switch
+// between them is a discontinuity — measuring a "gap" across it counts the
+// difference between two unrelated counters as losses. On 2026-08-26 a client
+// that was connected for the live-to-VRLOG switch reported dropped=5901 in a
+// 99ms window on that basis.
+func TestReplayEpochChangeResetsFrameGapAccounting(t *testing.T) {
+	s := NewServer(NewPublisher(Config{SensorID: "test-sensor"}))
+
+	if got := s.currentReplayEpoch(); got != 0 {
+		t.Fatalf("initial epoch = %d, want 0", got)
+	}
+
+	// Loading a replay bumps the epoch — that is the signal a stream uses to
+	// stop comparing frame IDs across the switch.
+	s.SetVRLogMode(true)
+	afterLoad := s.currentReplayEpoch()
+	if afterLoad == 0 {
+		t.Error("loading a VRLOG did not bump the replay epoch, so a stream cannot tell the source changed")
+	}
+
+	// Returning to live and loading again bumps it further: each source gets a
+	// distinct epoch rather than toggling between two values.
+	s.SetVRLogMode(false)
+	s.SetReplayMode(false)
+	s.SetVRLogMode(true)
+	if got := s.currentReplayEpoch(); got <= afterLoad {
+		t.Errorf("epoch after a second load = %d, want greater than %d", got, afterLoad)
+	}
+}
