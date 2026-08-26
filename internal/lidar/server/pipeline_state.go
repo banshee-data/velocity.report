@@ -312,6 +312,37 @@ func (ws *Server) releaseReplaySlot() {
 	})
 }
 
+// endReplayAndClaimLive releases the replay slot and names live as the source
+// in a single state mutation.
+//
+// The two have to move together. Releasing the slot first and setting the
+// source afterwards leaves the state reading "a VRLOG is the source and
+// nothing is replaying" for as long as the teardown takes — and that is
+// precisely the condition reconcileLiveOnce acts on, so a teardown already in
+// progress would be joined by a second, redundant one fired by the reconciler.
+// A 512ms window of it was observed on 2026-08-26, the width of the live
+// listener's bind wait.
+//
+// The listener flag is deliberately not touched here: the listener has not
+// been started yet at this point, and claiming otherwise would make the
+// reconciler skip the restart it is there to guarantee.
+func (ws *Server) endReplayAndClaimLive() {
+	ws.mutateState("endReplayAndClaimLive", func(s *PipelineState) {
+		s.ReplayActive = false
+		s.Pass = ReplayPassNone
+		s.TotalPasses = 1
+		s.SpeedMode = ""
+		s.SpeedRatio = 0
+		s.Recording = false
+
+		s.Source = SourceModeLive
+		s.SourcePath = ""
+		s.GridPreserved = false
+		s.CurrentPacket = 0
+		s.TotalPackets = 0
+	})
+}
+
 // abandonReplayStart releases the replay slot claimed by tryBeginPCAPReplay
 // when startup fails before the replay goroutine is launched.
 func (ws *Server) abandonReplayStart() {

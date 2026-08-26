@@ -63,7 +63,11 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 	// Whatever the replay left behind, the slot is free now. The PCAP goroutine
 	// releases it too; doing it here as well covers a VRLOG replay and a slot
 	// stranded by an earlier failure, and the operation is idempotent.
-	ws.releaseReplaySlot()
+	// Release the slot and name live as the source together. Doing them apart
+	// leaves "source is a replay, nothing is replaying" visible for the width of
+	// the teardown, which is what reconcileLiveOnce fires on — see
+	// endReplayAndClaimLive.
+	ws.endReplayAndClaimLive()
 
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
@@ -102,6 +106,9 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 		opsf("[DataSource] returned to live but the listener did not restart (%s): %v", reason, err)
 	}
 
+	// The source was already set live above, before the listener work, so the
+	// reconciler could never observe the intermediate state. This keeps the
+	// remaining reset (packet counters, grid retention) in one place.
 	ws.setSourceLive(false)
 	ws.pcapBenchmarkMode.Store(false)
 
