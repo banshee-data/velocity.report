@@ -23,6 +23,14 @@ updates:
     directory: "/web"
     patterns: ["*"]
     multi-ecosystem-group: "application"
+    # typescript@7 ships only the native tsc binary, not the JS compiler API.
+    # typescript-eslint and svelte-check both need the TS 6 API, so `typescript`
+    # stays on 6.x and TS 7 is installed alongside it as the @typescript/native
+    # alias. Revisit when typescript-eslint gains TS 7 support:
+    # https://github.com/typescript-eslint/typescript-eslint/issues/10940
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/docs_html"
