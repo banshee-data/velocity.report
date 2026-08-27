@@ -141,6 +141,9 @@ func (fb *FrameBuilder) Close() {
 	if fb.frameCh != nil {
 		<-fb.frameDone
 	}
+	// A burst that ended inside the reporting interval would otherwise go
+	// unreported entirely.
+	fb.FlushDroppedFrameReport()
 }
 
 // DroppedFrames returns the number of frames dropped due to a full
@@ -521,10 +524,69 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 				// This handles back-pressure when the tracking pipeline cannot
 				// keep up with frame arrival rate.
 				count := fb.droppedFrames.Add(1)
-				opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
+				fb.reportDroppedFrame(frame.FrameID, count)
 			}
 		}
 	}
+}
+
+// dropReportInterval is how often a burst of dropped frames is summarised.
+const dropReportInterval = 5 * time.Second
+
+// reportDroppedFrame records a dropped frame and emits at most one line per
+// dropReportInterval.
+//
+// Drops are bursty by nature: the pipeline stalls, the queue fills, and every
+// frame arriving behind it is lost until the backlog clears. Logging each one
+// individually reports the same event dozens of times — and buries the far more
+// useful facts, which are how many were lost and over what span.
+func (fb *FrameBuilder) reportDroppedFrame(frameID string, total uint64) {
+	now := time.Now()
+
+	fb.dropReportMu.Lock()
+	if fb.dropReportCount == 0 {
+		fb.dropReportStart = now
+		fb.dropReportFirst = frameID
+	}
+	fb.dropReportCount++
+	fb.dropReportLast = frameID
+
+	if now.Sub(fb.dropReportStart) < dropReportInterval {
+		fb.dropReportMu.Unlock()
+		return
+	}
+
+	count := fb.dropReportCount
+	first := fb.dropReportFirst
+	last := fb.dropReportLast
+	elapsed := now.Sub(fb.dropReportStart)
+	fb.dropReportCount = 0
+	fb.dropReportFirst = ""
+	fb.dropReportLast = ""
+	fb.dropReportMu.Unlock()
+
+	opsf("[FrameBuilder] Dropped %d frames in %.1fs (%s..%s): callback queue full, the tracking pipeline is not keeping up (total dropped: %d)",
+		count, elapsed.Seconds(), first, last, total)
+}
+
+// FlushDroppedFrameReport emits any pending drop summary. Called on shutdown so
+// a burst that ends inside the reporting interval is still reported.
+func (fb *FrameBuilder) FlushDroppedFrameReport() {
+	fb.dropReportMu.Lock()
+	count := fb.dropReportCount
+	first := fb.dropReportFirst
+	last := fb.dropReportLast
+	elapsed := time.Since(fb.dropReportStart)
+	fb.dropReportCount = 0
+	fb.dropReportFirst = ""
+	fb.dropReportLast = ""
+	fb.dropReportMu.Unlock()
+
+	if count == 0 {
+		return
+	}
+	opsf("[FrameBuilder] Dropped %d frames in %.1fs (%s..%s): callback queue full, the tracking pipeline is not keeping up (total dropped: %d)",
+		count, elapsed.Seconds(), first, last, fb.droppedFrames.Load())
 }
 
 // RequestExportNextFrameASC schedules export of the next completed frame to ASC format.

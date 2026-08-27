@@ -46,17 +46,26 @@ type LiDARFrame struct {
 // FrameBuilder accumulates points from multiple packets into complete rotational frames
 // Uses azimuth-based rotation detection and UDP sequence tracking for completeness
 type FrameBuilder struct {
-	sensorID            string            // sensor identifier
-	frameCallback       func(*LiDARFrame) // callback when frame is complete
-	frameCh             chan *LiDARFrame  // serialises frame callback invocations
-	frameDone           chan struct{}     // closed when frameCallbackWorker exits
-	droppedFrames       atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
-	blockOnFrameChannel bool              // when true, block instead of dropping frames (analysis mode)
-	exportNextFrameASC  bool              // flag to export next completed frame
-	exportBatchCount    int               // number of frames to export in batch
-	exportBatchExported int               // number of frames already exported in current batch
-	mu                  sync.Mutex        // protect concurrent access
-	frameCounter        int64             // sequential frame number
+	sensorID      string            // sensor identifier
+	frameCallback func(*LiDARFrame) // callback when frame is complete
+	frameCh       chan *LiDARFrame  // serialises frame callback invocations
+	frameDone     chan struct{}     // closed when frameCallbackWorker exits
+	droppedFrames atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
+	// dropReport rate-limits the drop log. Drops arrive in bursts — a stalled
+	// pipeline fills the queue and every frame behind it is lost — so logging
+	// each one turns a single stall into a wall of near-identical lines. On
+	// 2026-08-26 two stalls produced 84 of them. Summarise per interval instead.
+	dropReportMu        sync.Mutex
+	dropReportStart     time.Time
+	dropReportCount     uint64
+	dropReportFirst     string
+	dropReportLast      string
+	blockOnFrameChannel bool       // when true, block instead of dropping frames (analysis mode)
+	exportNextFrameASC  bool       // flag to export next completed frame
+	exportBatchCount    int        // number of frames to export in batch
+	exportBatchExported int        // number of frames already exported in current batch
+	mu                  sync.Mutex // protect concurrent access
+	frameCounter        int64      // sequential frame number
 
 	// Azimuth-based frame detection
 	currentFrame     *LiDARFrame // frame currently being built
