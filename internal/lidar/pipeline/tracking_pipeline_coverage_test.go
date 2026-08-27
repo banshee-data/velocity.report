@@ -833,6 +833,9 @@ func TestTrackingPipelineConfig_ThrottleDiagf(t *testing.T) {
 		BackgroundManager: bgMgr,
 		MaxFrameRate:      1, // 1 fps → 1s min interval; ensures all rapid-burst frames are throttled regardless of CI machine speed
 		RemoveGround:      false,
+		// The throttle applies to replays only, so this has to say a replay is
+		// running to reach it at all. Live input is processed frame for frame.
+		ReplayActive: replayFlag(true),
 	}
 	cb := cfg.NewFrameCallback()
 

@@ -86,6 +86,10 @@ type Server struct {
 	// subsystem.
 	stateMu sync.RWMutex
 	state   PipelineState
+	// replayActiveFlag mirrors state.ReplayActive for the tracking pipeline's
+	// per-frame hot path, which cannot take stateMu. Written only by
+	// mutateState; see ReplayActiveFlag.
+	replayActiveFlag atomic.Bool
 
 	// PCAP replay lifecycle. pcapMu guards only the cancellation handles;
 	// everything an observer can see lives in state above.

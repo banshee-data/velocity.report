@@ -644,7 +644,7 @@ func Main(args []string) int {
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
-				MaxFrameRate:        25, // Must exceed sensor max Hz (20) to avoid dropping live frames
+				MaxFrameRate:        25, // Replay catch-up ceiling; live is never throttled (see ReplayActive)
 				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:        tuningCfg.GetRemoveGround(),
@@ -868,6 +868,7 @@ func Main(args []string) int {
 		if pipelineConfig != nil {
 			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
 			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
+			pipelineConfig.ReplayActive = lidarServer.ReplayActiveFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.

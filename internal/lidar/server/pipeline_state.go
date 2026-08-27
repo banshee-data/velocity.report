@@ -1,6 +1,9 @@
 package server
 
-import "fmt"
+import (
+	"fmt"
+	"sync/atomic"
+)
 
 // PipelineState is the single authoritative answer to two questions: what is
 // driving the LiDAR pipeline right now, and what is being captured from it.
@@ -147,6 +150,21 @@ func (s PipelineState) StatusLabel() string {
 	}
 }
 
+// ReplayActiveFlag exposes whether a replay is driving the pipeline as a
+// lock-free flag, for the tracking pipeline's per-frame hot path.
+//
+// The frame-rate throttle uses it to confine itself to replays. The throttle
+// exists so a PCAP replaying far faster than real time cannot flood the
+// clustering and tracking stages, and it was assumed a live sensor could never
+// reach it because the cap sits above the sensor's rotation rate. That reasons
+// from rotation rate, while the throttle measures arrival spacing at the
+// callback: frames delivered in a clump trip a 25 fps gate even from a 10 Hz
+// sensor, and 5,500 live frames were throttled in sixteen minutes on
+// 2026-08-26.
+func (ws *Server) ReplayActiveFlag() *atomic.Bool {
+	return &ws.replayActiveFlag
+}
+
 // PipelineState returns a snapshot of the current pipeline state.
 func (ws *Server) PipelineState() PipelineState {
 	ws.stateMu.RLock()
@@ -209,7 +227,19 @@ func (ws *Server) mutateState(reason string, fn func(*PipelineState)) {
 	after := ws.state
 	ws.stateMu.Unlock()
 
+	ws.publishStateProjections(after)
 	reportStateTransition(reason, before, after)
+}
+
+// publishStateProjections mirrors the parts of the state that hot paths read
+// without taking the state lock.
+//
+// Every path that writes the state must call this. tryBeginPCAPReplay does its
+// own compare-and-set rather than going through mutateState, so it is the one
+// that would otherwise be missed — and it is precisely the transition that
+// starts a replay, which is what the throttle needs to know about.
+func (ws *Server) publishStateProjections(after PipelineState) {
+	ws.replayActiveFlag.Store(after.ReplayActive)
 }
 
 // reportStateTransition logs a state change and shouts about a broken
@@ -288,6 +318,7 @@ func (ws *Server) tryBeginPCAPReplay(cfg ReplayConfig) (bool, SourceMode) {
 	after := ws.state
 	ws.stateMu.Unlock()
 
+	ws.publishStateProjections(after)
 	reportStateTransition("tryBeginPCAPReplay", before, after)
 	return true, ""
 }
