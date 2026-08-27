@@ -831,42 +831,20 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		ws.pcapCancel = nil
 		ws.pcapMu.Unlock()
 
-		// What happens at the end of a replay is decided by whether there is
-		// live input to go back to, not by how the replay was configured.
+		// A finished replay stays the data source until an operator says
+		// otherwise. Playback stops, the last frame stays on screen, and the
+		// grid the replay built is left intact for inspection.
 		//
-		// A sensor that is streaming wins: every finished replay hands the
-		// pipeline back. Deciding this from the analysis flag instead is what
-		// stranded settle-before-recording runs, which set that flag only
-		// because the handler requires analysis_mode=true so the second pass
-		// can record a VRLOG.
-		//
-		// With no live input there is nothing to hand back to, so the pipeline
-		// stays where the replay left it — the last frame remains on screen and
-		// an analysis run keeps its grid. The reconciler takes it live once
-		// packets start arriving.
-		if ws.sensorIsStreaming() {
-			// ReturnToLive is the single teardown. The hand-rolled copy that
-			// used to live here skipped setSourceLive and onPCAPStopped
-			// whenever the listener failed to restart, stranding the source on
-			// a replay that had already stopped and leaving the visualiser in
-			// replay mode.
-			if err := ws.returnToLive("PCAP replay finished, sensor is streaming", false); err != nil {
-				opsf("Failed to return to live after PCAP replay: %v", err)
-			}
-		} else {
-			ws.dataSourceMu.Lock()
-			ws.endReplay(ws.PipelineState().AnalysisMode())
-			ws.dataSourceMu.Unlock()
-			diagf("[DataSource] PCAP replay finished for sensor=%s with no live input; holding the final state until packets arrive", ws.sensorID)
-
-			// Playback has stopped even though the pipeline stays on this
-			// source, so the visualiser is told either way. Holding the last
-			// frame on screen is a rendering state, not a replay still running,
-			// and leaving the client in replay mode misreports the transport.
-			if ws.onPCAPStopped != nil {
-				ws.onPCAPStopped()
-			}
-		}
+		// Deciding this automatically is what the previous designs kept getting
+		// wrong. Choosing from the analysis flag stranded settle-before-recording
+		// runs, which carry that flag only because the handler requires
+		// analysis_mode=true so the second pass can record. Choosing from whether
+		// the sensor happened to be streaming replaced that with a different
+		// surprise: the pipeline could be taken back to live, and the grid reset,
+		// while someone was still looking at the replay. Going live is now an
+		// explicit request — POST /api/lidar/pcap/stop, which the visualiser's
+		// Live toggle calls.
+		ws.parkFinishedReplay("PCAP replay finished")
 	}(resolvedPath, ctx, cancel, done, replayCfg, runID)
 
 	return nil

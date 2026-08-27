@@ -6,6 +6,30 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
+// parkFinishedReplay records that a replay has run to its end without changing
+// the data source.
+//
+// The replay slot is released so another replay can start, but the source keeps
+// naming the recording, the live listener stays down, and the grid is left
+// alone. The visualiser therefore holds the final frame and its Live toggle
+// stays off until an operator turns it back on, which is the only thing that
+// returns the pipeline to live input.
+// ParkFinishedReplay is the exported form, for the replay-ended callback the
+// radar command wires into the visualiser publisher.
+func (ws *Server) ParkFinishedReplay(reason string) { ws.parkFinishedReplay(reason) }
+
+func (ws *Server) parkFinishedReplay(reason string) {
+	ws.mutateState("parkFinishedReplay", func(s *PipelineState) {
+		s.ReplayActive = false
+		s.Pass = ReplayPassNone
+		s.TotalPasses = 1
+		s.SpeedMode = ""
+		s.SpeedRatio = 0
+		s.Recording = false
+	})
+	diagf("[DataSource] %s for sensor=%s; holding this source until an operator returns to live", reason, ws.sensorID)
+}
+
 // ReturnToLive stops whatever replay is driving the pipeline and restores live
 // input. It is the single teardown path: POST /pcap/stop, POST /vrlog/stop, the
 // end of a PCAP replay, and the end of a VRLOG replay all arrive here.

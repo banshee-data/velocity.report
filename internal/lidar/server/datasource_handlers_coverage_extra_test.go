@@ -539,8 +539,16 @@ func TestStartPCAPLocked_RealtimePlotsSuccessAndStopped(t *testing.T) {
 	if timestamps != [2]int64{10, 90} {
 		t.Fatalf("unexpected timestamp callback values: %#v", timestamps)
 	}
-	if !stopped {
-		t.Fatal("expected onPCAPStopped callback")
+	// A finished replay parks rather than returning to live, so the visualiser
+	// is not told playback stopped: it keeps showing the recording's final
+	// frame until an operator turns the Live toggle back on.
+	if stopped {
+		t.Fatal("onPCAPStopped fired for a finished replay; it should stay the data source until an operator returns to live")
+	}
+	if state := ws.PipelineState(); state.ReplayActive {
+		t.Error("the replay slot was not released, so no further replay could start")
+	} else if state.Source != SourceModePCAP {
+		t.Errorf("Source = %q, want %q: a finished replay stays the source", state.Source, SourceModePCAP)
 	}
 }
 
@@ -779,8 +787,16 @@ func TestStartPCAPLocked_NonAnalysis_ResetStateErrorAndStopped(t *testing.T) {
 
 	waitForPCAPDone(t, ws)
 
-	if !stopped {
-		t.Fatal("expected onPCAPStopped callback")
+	// A finished replay parks rather than returning to live, so the visualiser
+	// is not told playback stopped: it keeps showing the recording's final
+	// frame until an operator turns the Live toggle back on.
+	if stopped {
+		t.Fatal("onPCAPStopped fired for a finished replay; it should stay the data source until an operator returns to live")
+	}
+	if state := ws.PipelineState(); state.ReplayActive {
+		t.Error("the replay slot was not released, so no further replay could start")
+	} else if state.Source != SourceModePCAP {
+		t.Errorf("Source = %q, want %q: a finished replay stays the source", state.Source, SourceModePCAP)
 	}
 }
 

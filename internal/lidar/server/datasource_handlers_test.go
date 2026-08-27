@@ -1111,8 +1111,14 @@ func TestStartPCAPLocked_NonAnalysisWithPCAPStopped(t *testing.T) {
 
 	waitForPCAPDone(t, ws)
 
-	if !stoppedCalled {
-		t.Error("expected onPCAPStopped callback to fire after non-analysis PCAP completion")
+	// A finished replay stays the data source. Returning to live is an explicit
+	// operator action now (POST /api/lidar/pcap/stop, behind the visualiser's
+	// Live toggle), so completion must not fire the stop callback.
+	if stoppedCalled {
+		t.Error("onPCAPStopped fired on PCAP completion; a finished replay should stay the data source until an operator returns to live")
+	}
+	if state := ws.PipelineState(); state.ReplayActive {
+		t.Error("the replay slot was not released, so no further replay could start")
 	}
 }
 
