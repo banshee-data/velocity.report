@@ -63,10 +63,14 @@ type Publisher struct {
 	// those field accesses, never across GenerateBackgroundSnapshot: that walks
 	// the whole grid, and blocking the publish hot path behind it would stall
 	// frame delivery.
-	backgroundMgr           BackgroundManagerInterface
-	backgroundMu            sync.Mutex
-	lastBackgroundSeq       uint64
-	lastBackgroundSent      time.Time
+	backgroundMgr      BackgroundManagerInterface
+	backgroundMu       sync.Mutex
+	lastBackgroundSeq  uint64
+	lastBackgroundSent time.Time
+	// lastBackgroundFrame is the most recent background as broadcast, kept so a
+	// client that subscribes afterwards can be given the scene rather than
+	// rendering over nothing until the next refresh.
+	lastBackgroundFrame     *FrameBundle
 	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
@@ -561,6 +565,14 @@ func (p *Publisher) broadcastLoop() {
 		case <-p.stopCh:
 			return
 		case frame := <-p.frameChan:
+			// Remember the scene so a client that connects later can be given
+			// it. A background frame is published once and never repeated
+			// until the next refresh, so a client whose stream started even a
+			// few milliseconds afterwards would render nothing over it — which
+			// is exactly what a replay load does, publishing the recording's
+			// background and then restarting the stream to pick it up.
+			p.rememberBackground(frame)
+
 			p.clientsMu.RLock()
 			clientCount := len(p.clients)
 			for _, client := range p.clients {
@@ -644,7 +656,37 @@ func (p *Publisher) addClient(id string, req *pb.StreamRequest) *clientStream {
 	p.clientCount.Add(1)
 	diagf("[Visualiser] Client connected: %s (total: %d)", id, p.clientCount.Load())
 
+	// Hand the new client the current scene. Without this it renders over
+	// nothing until the next background is published — 30s on live, and on a
+	// replay only whenever the recording happens to contain another one.
+	if bg := p.latestBackground(); bg != nil {
+		select {
+		case client.frameCh <- bg:
+			diagf("[Visualiser] Sent cached background to new client %s", id)
+		default:
+		}
+	}
+
 	return client
+}
+
+// rememberBackground caches the most recent background frame so a client that
+// subscribes later can be sent the scene it would otherwise have missed.
+func (p *Publisher) rememberBackground(frame *FrameBundle) {
+	if frame == nil || frame.FrameType != FrameTypeBackground {
+		return
+	}
+	p.backgroundMu.Lock()
+	p.lastBackgroundFrame = frame
+	p.backgroundMu.Unlock()
+}
+
+// latestBackground returns the cached background frame, or nil if none has been
+// published yet.
+func (p *Publisher) latestBackground() *FrameBundle {
+	p.backgroundMu.Lock()
+	defer p.backgroundMu.Unlock()
+	return p.lastBackgroundFrame
 }
 
 // removeClient unregisters a streaming client.
