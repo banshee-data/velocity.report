@@ -56,8 +56,12 @@ struct AppCommands: Commands {
             Button("About VelocityVisualiser.app") { openWindow(id: "about") }
         }
 
-        // Suppress the macOS default View menu items (tab bar, toolbar, sidebar)
-        CommandGroup(replacing: .toolbar) {}
+        // View menu. Replacing .toolbar drops the macOS defaults (tab bar,
+        // toolbar customisation) and puts our own items in their place.
+        CommandGroup(replacing: .toolbar) {
+            Button("Clear") { appState.clearAll() }.keyboardShortcut(
+                "k", modifiers: [.command, .shift])
+        }
         CommandGroup(replacing: .sidebar) {}
 
         // Connection commands

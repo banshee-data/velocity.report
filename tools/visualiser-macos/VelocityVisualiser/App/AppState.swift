@@ -81,6 +81,9 @@ private let logger = DevLogger(category: "AppState")
     @Published var isConnecting: Bool = false
     @Published var serverAddress: String = "localhost:50051"
     @Published var connectionError: String?
+    /// True while a return-to-live request is in flight, so the Live toggle can
+    /// show progress and reject a second press.
+    @Published var isReturningToLive: Bool = false
 
     // MARK: - Playback State
 
@@ -591,6 +594,44 @@ private let logger = DevLogger(category: "AppState")
         allSeenTracks = [:]
         inViewTrackIDs = []
         logger.debug("Disconnected")
+    }
+
+    /// Whether live sensor input is driving the pipeline.
+    ///
+    /// Drives the toolbar's Live toggle. A recording keeps the pipeline once it
+    /// is loaded — including after it plays to its end — so this stays false
+    /// until someone turns the toggle back on.
+    var isLiveSource: Bool {
+        switch sourceMode {
+        case .live: return true
+        case .pcap, .pcapAnalysis, .vrlog: return false
+        case .unspecified: return isLive  // server predates source_mode
+        }
+    }
+
+    /// Return the pipeline to live sensor input, ending any loaded recording.
+    ///
+    /// The server resets the grid and restarts the listener; the cleared grid
+    /// arrives as an empty background frame, so there is nothing to clear here
+    /// beyond the transient overlays belonging to the replay.
+    func returnToLive() {
+        guard !isReturningToLive else { return }
+        isReturningToLive = true
+        logger.info("returnToLive() — leaving \(self.sourceMode.rawValue) for live input")
+
+        Task { @MainActor in
+            defer { isReturningToLive = false }
+            do {
+                try await runTrackLabelClient.returnToLive()
+                clearAll()
+                resetPlaybackState(mode: .live)
+                sourceMode = .live
+                runBrowserState.selectedRunID = nil
+            } catch {
+                logger.error("Failed to return to live: \(error.localizedDescription)")
+                connectionError = "Could not return to live: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// Clear all transient visualisation data while preserving the background grid and connection.

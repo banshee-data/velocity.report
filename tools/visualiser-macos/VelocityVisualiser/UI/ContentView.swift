@@ -627,9 +627,7 @@ struct ToolbarView: View {
                     appState.hasActiveFilters ? .orange : nil)
 
                 Divider().frame(height: 20)
-                Button(action: { appState.clearAll() }) {
-                    Label("Clear", systemImage: "xmark.circle")
-                }.help("Clear all except background grid")
+                LiveToggleView()
             }
 
             Spacer()
@@ -638,6 +636,35 @@ struct ToolbarView: View {
             OverlayTogglesView()
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
+    }
+}
+
+/// Live/replay switch for the pipeline's data source.
+///
+/// Loading a PCAP or VRLOG turns this off, and it stays off for as long as that
+/// recording is loaded — including after it plays to its end. Nothing turns it
+/// back on but an operator: the server no longer infers when a replay should be
+/// abandoned, because every rule for inferring it surprised somebody. Switching
+/// back to live clears the grid, so the next scene is built from live returns
+/// rather than composited onto the recording's.
+struct LiveToggleView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        let isLive = appState.isLiveSource
+        let busy = appState.isReturningToLive
+
+        Button(action: { appState.returnToLive() }) {
+            if busy {
+                ProgressView().controlSize(.small).frame(width: 14, height: 14)
+            } else {
+                Image(systemName: isLive ? "dot.radiowaves.left.and.right" : "pause.rectangle")
+            }
+            Text(isLive ? "Live" : "Replay")
+        }.tint(isLive ? .green : .orange).disabled(isLive || busy).help(
+            isLive
+                ? "Live sensor input is driving the pipeline"
+                : "Replaying a recording — switch back to live input (clears the grid)")
     }
 }
 
