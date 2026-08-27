@@ -63,6 +63,10 @@ type Server struct {
 	// layer and the monitor server disagree about what was playing.
 	sourceModeProvider func() (mode string, recording bool)
 
+	// settlingProvider pulls background settling progress. It comes from the
+	// grid rather than the pipeline state, so it is wired separately.
+	settlingProvider func() (settling bool, progress float32)
+
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
 	preferenceMu      sync.RWMutex
@@ -85,6 +89,24 @@ func (s *Server) currentSourceMode() (string, bool) {
 	s.playbackMu.RUnlock()
 	if fn == nil {
 		return "", false
+	}
+	return fn()
+}
+
+// SetSettlingProvider wires the background settling lookup.
+func (s *Server) SetSettlingProvider(fn func() (bool, float32)) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.settlingProvider = fn
+}
+
+// currentSettling reports whether the background grid is still settling.
+func (s *Server) currentSettling() (bool, float32) {
+	s.playbackMu.RLock()
+	fn := s.settlingProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return false, 0
 	}
 	return fn()
 }
@@ -468,6 +490,16 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				frame.PlaybackInfo.SourceMode = mode
 				frame.PlaybackInfo.Recording = recording
 			}
+			// Settling is stamped on every frame for the same reason as the
+			// source mode: an empty scene during warm-up is indistinguishable
+			// from a dead sensor unless the client is told which it is.
+			if settling, progress := s.currentSettling(); settling || progress > 0 {
+				if frame.PlaybackInfo == nil {
+					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
+				}
+				frame.PlaybackInfo.Settling = settling
+				frame.PlaybackInfo.SettlingProgress = progress
+			}
 
 			// Measure serialisation and send time
 			sendStart := time.Now()
@@ -534,8 +566,12 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					return ctx.Err()
 				case <-time.After(sendStallTimeout):
 					reportedStall = true
-					opsf("[gRPC] Client %s has not read for %v: the stream is blocked on a single send, frames are being dropped for it",
-						clientID, time.Since(waitingSince).Round(time.Second))
+					// Name the frame. A stall is nearly always one specific
+					// message the client cannot digest, and without its
+					// identity the log says only that something is stuck.
+					opsf("[gRPC] Client %s has not read for %v: blocked sending frame %d (type=%v points=%d msg=%.1fKB), frames are being dropped for it",
+						clientID, time.Since(waitingSince).Round(time.Second),
+						frame.FrameID, frame.FrameType, framePointCount(frame), float64(msgSize)/1024)
 				}
 			}
 			if sendErr != nil {
@@ -596,6 +632,19 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			}
 		}
 	}
+}
+
+// framePointCount reports how many points a frame carries, from wherever it
+// keeps them. A background frame has no PointCloud — its points live in the
+// snapshot — so counting only the cloud reports a large background as empty.
+func framePointCount(frame *FrameBundle) int {
+	if n := getPointCount(frame); n > 0 {
+		return n
+	}
+	if frame != nil && frame.Background != nil {
+		return len(frame.Background.X)
+	}
+	return 0
 }
 
 // getPointCount safely extracts point count from a frame bundle.

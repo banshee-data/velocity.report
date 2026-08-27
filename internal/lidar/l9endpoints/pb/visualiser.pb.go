@@ -2242,10 +2242,15 @@ type PlaybackInfo struct {
 	ReplayEpoch       uint64                 `protobuf:"varint,9,opt,name=replay_epoch,json=replayEpoch,proto3" json:"replay_epoch,omitempty"`                     // monotonically increasing epoch; bumped on each new replay load
 	// Seekability is a capability, not a mode: source_mode and seekable are
 	// independent axes and clients must not derive one from the other.
-	SourceMode    SourceMode `protobuf:"varint,10,opt,name=source_mode,json=sourceMode,proto3,enum=velocity.visualiser.v1.SourceMode" json:"source_mode,omitempty"`
-	Recording     bool       `protobuf:"varint,11,opt,name=recording,proto3" json:"recording,omitempty"` // true while a VRLOG is being recorded
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SourceMode SourceMode `protobuf:"varint,10,opt,name=source_mode,json=sourceMode,proto3,enum=velocity.visualiser.v1.SourceMode" json:"source_mode,omitempty"`
+	Recording  bool       `protobuf:"varint,11,opt,name=recording,proto3" json:"recording,omitempty"` // true while a VRLOG is being recorded
+	// Background settling. Until the grid settles there is no usable background,
+	// so foreground extraction yields nothing and the scene renders empty — which
+	// is indistinguishable from a dead sensor unless the client is told.
+	Settling         bool    `protobuf:"varint,12,opt,name=settling,proto3" json:"settling,omitempty"`                                          // true while the background grid is still settling
+	SettlingProgress float32 `protobuf:"fixed32,13,opt,name=settling_progress,json=settlingProgress,proto3" json:"settling_progress,omitempty"` // 0..1, whichever requirement is furthest from met
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PlaybackInfo) Reset() {
@@ -2353,6 +2358,20 @@ func (x *PlaybackInfo) GetRecording() bool {
 		return x.Recording
 	}
 	return false
+}
+
+func (x *PlaybackInfo) GetSettling() bool {
+	if x != nil {
+		return x.Settling
+	}
+	return false
+}
+
+func (x *PlaybackInfo) GetSettlingProgress() float32 {
+	if x != nil {
+		return x.SettlingProgress
+	}
+	return 0
 }
 
 type FrameBundle struct {
@@ -3420,7 +3439,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\x99\x03\n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xe2\x03\n" +
 	"\fPlaybackInfo\x12\x17\n" +
 	"\ais_live\x18\x01 \x01(\bR\x06isLive\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
@@ -3436,7 +3455,9 @@ const file_visualiser_proto_rawDesc = "" +
 	"\vsource_mode\x18\n" +
 	" \x01(\x0e2\".velocity.visualiser.v1.SourceModeR\n" +
 	"sourceMode\x12\x1c\n" +
-	"\trecording\x18\v \x01(\bR\trecording\"\xc3\x05\n" +
+	"\trecording\x18\v \x01(\bR\trecording\x12\x1a\n" +
+	"\bsettling\x18\f \x01(\bR\bsettling\x12+\n" +
+	"\x11settling_progress\x18\r \x01(\x02R\x10settlingProgress\"\xc3\x05\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +

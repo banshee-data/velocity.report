@@ -215,6 +215,8 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			Seekable:          frame.PlaybackInfo.Seekable,
 			SourceMode:        sourceModeToProto(frame.PlaybackInfo.SourceMode),
 			Recording:         frame.PlaybackInfo.Recording,
+			Settling:          frame.PlaybackInfo.Settling,
+			SettlingProgress:  frame.PlaybackInfo.SettlingProgress,
 			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
 		}
 	}

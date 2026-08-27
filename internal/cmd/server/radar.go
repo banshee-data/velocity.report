@@ -844,6 +844,21 @@ func Main(args []string) int {
 			})
 		}
 
+		// Report background settling to the client. Until the grid settles
+		// there is no usable background, so the scene renders empty and looks
+		// exactly like a sensor that has stopped.
+		if visualiserServer != nil {
+			sensor := lidarSensorID
+			visualiserServer.SetSettlingProvider(func() (bool, float32) {
+				mgr := l3grid.GetBackgroundManager(sensor)
+				if mgr == nil {
+					return false, 0
+				}
+				status := mgr.SettlingStatus()
+				return !status.Complete, float32(status.Progress)
+			})
+		}
+
 		// Let the streaming layer read the source mode from its single owner
 		// rather than keeping a second copy that can drift out of agreement.
 		if visualiserServer != nil {

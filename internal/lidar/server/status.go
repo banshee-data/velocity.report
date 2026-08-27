@@ -220,6 +220,11 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 	// interleave with a transition and report a combination that never existed.
 	state := ws.PipelineState()
 
+	var settling l3grid.SettlingStatus
+	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
+		settling = mgr.SettlingStatus()
+	}
+
 	response := map[string]interface{}{
 		"status":           "ok",
 		"data_source":      state.DataSourceWire(),
@@ -235,8 +240,12 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"replay_total_passes":   state.TotalPasses,
 		"grid_preserved":        state.GridPreserved,
 		"live_listener_running": state.LiveListenerRunning,
-		"recording":             state.Recording,
-		"recording_path":        state.RecordingPath,
+		// Until the grid settles there is no usable background, so the scene is
+		// empty for reasons that have nothing to do with the sensor.
+		"settling":          !settling.Complete,
+		"settling_progress": settling.Progress,
+		"recording":         state.Recording,
+		"recording_path":    state.RecordingPath,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

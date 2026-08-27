@@ -373,6 +373,12 @@ message PlaybackInfo {
   // independent axes and clients must not derive one from the other.
   SourceMode source_mode = 10;
   bool recording = 11;            // true while a VRLOG is being recorded
+
+  // Background settling. Until the grid settles there is no usable background,
+  // so foreground extraction yields nothing and the scene renders empty — which
+  // is indistinguishable from a dead sensor unless the client is told.
+  bool settling = 12;             // true while the background grid is still settling
+  float settling_progress = 13;   // 0..1, whichever requirement is furthest from met
 }
 
 message FrameBundle {
