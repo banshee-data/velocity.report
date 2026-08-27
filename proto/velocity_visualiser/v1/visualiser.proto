@@ -379,6 +379,10 @@ message PlaybackInfo {
   // is indistinguishable from a dead sensor unless the client is told.
   bool settling = 12;             // true while the background grid is still settling
   float settling_progress = 13;   // 0..1, whichever requirement is furthest from met
+  // Seconds spent settling so far. Shown in place of a percentage: settling
+  // can finish on convergence well before its ceiling, so a fraction of an
+  // unknown total says less than the time on the clock.
+  float settling_elapsed_seconds = 14;
 }
 
 message FrameBundle {

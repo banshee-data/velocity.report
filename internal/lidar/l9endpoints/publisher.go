@@ -70,7 +70,10 @@ type Publisher struct {
 	// lastBackgroundFrame is the most recent background as broadcast, kept so a
 	// client that subscribes afterwards can be given the scene rather than
 	// rendering over nothing until the next refresh.
-	lastBackgroundFrame     *FrameBundle
+	lastBackgroundFrame *FrameBundle
+	// lastSettlingComplete tracks the grid's settling state so the transition
+	// into "settled" can trigger a snapshot.
+	lastSettlingComplete    bool
 	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
@@ -124,6 +127,13 @@ type Publisher struct {
 type BackgroundManagerInterface interface {
 	GenerateBackgroundSnapshot() (interface{}, error) // Returns *l3grid.BackgroundSnapshotData
 	GetBackgroundSequenceNumber() uint64
+}
+
+// settlingAware is an optional capability of a background manager: whether its
+// grid has finished settling. Kept separate from BackgroundManagerInterface so
+// implementations that do not model settling are unaffected.
+type settlingAware interface {
+	IsSettlingComplete() bool
 }
 
 // FrameRecorder is an interface for recording frames.
@@ -223,6 +233,23 @@ func (p *Publisher) shouldSendBackground() bool {
 	if lastSent.IsZero() {
 		diagf("[Visualiser] First background snapshot, sending now")
 		return true // Never sent
+	}
+
+	// Settling just finished. Until it does the grid is empty, so the snapshot
+	// already sent carries no points; waiting for the next interval leaves the
+	// client showing foreground and boxes over nothing. That gap used to be
+	// invisible because settling took about as long as the interval — now that
+	// a grid can settle in six seconds, it is most of half a minute.
+	if aware, ok := p.backgroundMgr.(settlingAware); ok {
+		settled := aware.IsSettlingComplete()
+		p.backgroundMu.Lock()
+		justSettled := settled && !p.lastSettlingComplete
+		p.lastSettlingComplete = settled
+		p.backgroundMu.Unlock()
+		if justSettled {
+			diagf("[Visualiser] Settling completed, sending background now")
+			return true
+		}
 	}
 
 	// Any change of sequence means the grid the client is holding is no longer

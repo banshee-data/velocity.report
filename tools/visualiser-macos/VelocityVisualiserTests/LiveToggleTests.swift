@@ -96,9 +96,9 @@ import XCTest
         state.isConnected = true
         state.sourceMode = .live
         state.isSettling = true
-        state.settlingProgress = 0.42
+        state.settlingElapsedSeconds = 4.2
 
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 42%")
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 4.2s")
     }
 
     func testBadgeReturnsToTheSourceOnceSettled() {
@@ -106,7 +106,7 @@ import XCTest
         state.isConnected = true
         state.sourceMode = .live
         state.isSettling = true
-        state.settlingProgress = 1.0
+        state.settlingElapsedSeconds = 5.9
 
         state.isSettling = false
         XCTAssertEqual(state.displayModeLabel, "LIVE")
@@ -123,16 +123,18 @@ import XCTest
         XCTAssertEqual(state.displayModeLabel, "REPLAY (VRLOG)")
     }
 
-    func testSettlingProgressRounds() {
+    func testSettlingElapsedIsShownToOneDecimal() {
         let state = AppState()
         state.isConnected = true
         state.sourceMode = .live
         state.isSettling = true
 
-        state.settlingProgress = 0.0
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 0%")
+        state.settlingElapsedSeconds = 0
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 0.0s")
 
-        state.settlingProgress = 0.999
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 100%")
+        state.settlingElapsedSeconds = 5.918
+        XCTAssertEqual(
+            state.displayModeLabel, "SETTLING 5.9s",
+            "elapsed seconds must show one decimal place")
     }
 }

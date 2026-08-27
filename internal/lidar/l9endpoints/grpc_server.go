@@ -65,7 +65,7 @@ type Server struct {
 
 	// settlingProvider pulls background settling progress. It comes from the
 	// grid rather than the pipeline state, so it is wired separately.
-	settlingProvider func() (settling bool, progress float32)
+	settlingProvider func() (settling bool, progress float32, elapsedSecs float32)
 
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
@@ -94,19 +94,19 @@ func (s *Server) currentSourceMode() (string, bool) {
 }
 
 // SetSettlingProvider wires the background settling lookup.
-func (s *Server) SetSettlingProvider(fn func() (bool, float32)) {
+func (s *Server) SetSettlingProvider(fn func() (bool, float32, float32)) {
 	s.playbackMu.Lock()
 	defer s.playbackMu.Unlock()
 	s.settlingProvider = fn
 }
 
 // currentSettling reports whether the background grid is still settling.
-func (s *Server) currentSettling() (bool, float32) {
+func (s *Server) currentSettling() (bool, float32, float32) {
 	s.playbackMu.RLock()
 	fn := s.settlingProvider
 	s.playbackMu.RUnlock()
 	if fn == nil {
-		return false, 0
+		return false, 0, 0
 	}
 	return fn()
 }
@@ -493,12 +493,13 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Settling is stamped on every frame for the same reason as the
 			// source mode: an empty scene during warm-up is indistinguishable
 			// from a dead sensor unless the client is told which it is.
-			if settling, progress := s.currentSettling(); settling || progress > 0 {
+			if settling, progress, elapsedSecs := s.currentSettling(); settling || progress > 0 {
 				if frame.PlaybackInfo == nil {
 					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
 				}
 				frame.PlaybackInfo.Settling = settling
 				frame.PlaybackInfo.SettlingProgress = progress
+				frame.PlaybackInfo.SettlingElapsedSecs = elapsedSecs
 			}
 
 			// Measure serialisation and send time

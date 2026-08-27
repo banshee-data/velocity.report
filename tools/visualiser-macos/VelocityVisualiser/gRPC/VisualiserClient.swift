@@ -668,6 +668,7 @@ final class LockedState<Value>: @unchecked Sendable {
             frame.playbackInfo = PlaybackInfo(
                 isLive: proto.playbackInfo.isLive, settling: proto.playbackInfo.settling,
                 settlingProgress: proto.playbackInfo.settlingProgress,
+                settlingElapsedSeconds: proto.playbackInfo.settlingElapsedSeconds,
                 logStartNs: proto.playbackInfo.logStartNs, logEndNs: proto.playbackInfo.logEndNs,
                 playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
                 currentFrameIndex: proto.playbackInfo.currentFrameIndex,

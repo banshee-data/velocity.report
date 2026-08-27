@@ -313,6 +313,10 @@ func (bm *BackgroundManager) GridStatus() map[string]interface{} {
 // reported rather than left to be inferred from an empty screen.
 type SettlingStatus struct {
 	Complete bool
+	// Elapsed is how long the grid has been settling. Reported alongside the
+	// fraction because a percentage of an unknown total tells an operator
+	// nothing about how long they are waiting.
+	Elapsed time.Duration
 	// Progress runs 0..1. Settling needs both a minimum frame count and a
 	// minimum duration, so this is whichever of the two is furthest from being
 	// satisfied — the one still holding completion up.
@@ -329,8 +333,13 @@ func (bm *BackgroundManager) SettlingStatus() SettlingStatus {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	elapsed := time.Duration(0)
+	if !bm.StartTime.IsZero() {
+		elapsed = time.Since(bm.StartTime)
+	}
+
 	if g.SettlingComplete {
-		return SettlingStatus{Complete: true, Progress: 1}
+		return SettlingStatus{Complete: true, Progress: 1, Elapsed: elapsed}
 	}
 
 	// Nothing has been processed yet: StartTime is only set on the first frame,
@@ -357,7 +366,7 @@ func (bm *BackgroundManager) SettlingStatus() SettlingStatus {
 	if progress > 1 {
 		progress = 1
 	}
-	return SettlingStatus{Progress: progress}
+	return SettlingStatus{Progress: progress, Elapsed: elapsed}
 }
 
 // IsSettlingComplete returns whether the background grid has completed settling.

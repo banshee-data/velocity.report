@@ -205,19 +205,20 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 	// Include playback info
 	if frame.PlaybackInfo != nil {
 		pbFrame.PlaybackInfo = &pb.PlaybackInfo{
-			IsLive:            frame.PlaybackInfo.IsLive,
-			LogStartNs:        frame.PlaybackInfo.LogStartNs,
-			LogEndNs:          frame.PlaybackInfo.LogEndNs,
-			PlaybackRate:      frame.PlaybackInfo.PlaybackRate,
-			Paused:            frame.PlaybackInfo.Paused,
-			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
-			TotalFrames:       frame.PlaybackInfo.TotalFrames,
-			Seekable:          frame.PlaybackInfo.Seekable,
-			SourceMode:        sourceModeToProto(frame.PlaybackInfo.SourceMode),
-			Recording:         frame.PlaybackInfo.Recording,
-			Settling:          frame.PlaybackInfo.Settling,
-			SettlingProgress:  frame.PlaybackInfo.SettlingProgress,
-			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
+			IsLive:                 frame.PlaybackInfo.IsLive,
+			LogStartNs:             frame.PlaybackInfo.LogStartNs,
+			LogEndNs:               frame.PlaybackInfo.LogEndNs,
+			PlaybackRate:           frame.PlaybackInfo.PlaybackRate,
+			Paused:                 frame.PlaybackInfo.Paused,
+			CurrentFrameIndex:      frame.PlaybackInfo.CurrentFrameIndex,
+			TotalFrames:            frame.PlaybackInfo.TotalFrames,
+			Seekable:               frame.PlaybackInfo.Seekable,
+			SourceMode:             sourceModeToProto(frame.PlaybackInfo.SourceMode),
+			Recording:              frame.PlaybackInfo.Recording,
+			Settling:               frame.PlaybackInfo.Settling,
+			SettlingProgress:       frame.PlaybackInfo.SettlingProgress,
+			SettlingElapsedSeconds: frame.PlaybackInfo.SettlingElapsedSecs,
+			ReplayEpoch:            frame.PlaybackInfo.ReplayEpoch,
 		}
 	}
 

@@ -849,13 +849,13 @@ func Main(args []string) int {
 		// exactly like a sensor that has stopped.
 		if visualiserServer != nil {
 			sensor := lidarSensorID
-			visualiserServer.SetSettlingProvider(func() (bool, float32) {
+			visualiserServer.SetSettlingProvider(func() (bool, float32, float32) {
 				mgr := l3grid.GetBackgroundManager(sensor)
 				if mgr == nil {
-					return false, 0
+					return false, 0, 0
 				}
 				status := mgr.SettlingStatus()
-				return !status.Complete, float32(status.Progress)
+				return !status.Complete, float32(status.Progress), float32(status.Elapsed.Seconds())
 			})
 		}
 

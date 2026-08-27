@@ -2249,8 +2249,12 @@ type PlaybackInfo struct {
 	// is indistinguishable from a dead sensor unless the client is told.
 	Settling         bool    `protobuf:"varint,12,opt,name=settling,proto3" json:"settling,omitempty"`                                          // true while the background grid is still settling
 	SettlingProgress float32 `protobuf:"fixed32,13,opt,name=settling_progress,json=settlingProgress,proto3" json:"settling_progress,omitempty"` // 0..1, whichever requirement is furthest from met
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Seconds spent settling so far. Shown in place of a percentage: settling
+	// can finish on convergence well before its ceiling, so a fraction of an
+	// unknown total says less than the time on the clock.
+	SettlingElapsedSeconds float32 `protobuf:"fixed32,14,opt,name=settling_elapsed_seconds,json=settlingElapsedSeconds,proto3" json:"settling_elapsed_seconds,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *PlaybackInfo) Reset() {
@@ -2370,6 +2374,13 @@ func (x *PlaybackInfo) GetSettling() bool {
 func (x *PlaybackInfo) GetSettlingProgress() float32 {
 	if x != nil {
 		return x.SettlingProgress
+	}
+	return 0
+}
+
+func (x *PlaybackInfo) GetSettlingElapsedSeconds() float32 {
+	if x != nil {
+		return x.SettlingElapsedSeconds
 	}
 	return 0
 }
@@ -3439,7 +3450,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xe2\x03\n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\x9c\x04\n" +
 	"\fPlaybackInfo\x12\x17\n" +
 	"\ais_live\x18\x01 \x01(\bR\x06isLive\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
@@ -3457,7 +3468,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"sourceMode\x12\x1c\n" +
 	"\trecording\x18\v \x01(\bR\trecording\x12\x1a\n" +
 	"\bsettling\x18\f \x01(\bR\bsettling\x12+\n" +
-	"\x11settling_progress\x18\r \x01(\x02R\x10settlingProgress\"\xc3\x05\n" +
+	"\x11settling_progress\x18\r \x01(\x02R\x10settlingProgress\x128\n" +
+	"\x18settling_elapsed_seconds\x18\x0e \x01(\x02R\x16settlingElapsedSeconds\"\xc3\x05\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +

@@ -372,8 +372,9 @@ type PlaybackInfo struct {
 
 	// Settling reports that the background grid has not settled yet, so the
 	// scene renders empty through no fault of the sensor.
-	Settling         bool
-	SettlingProgress float32
+	Settling            bool
+	SettlingProgress    float32
+	SettlingElapsedSecs float32
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.

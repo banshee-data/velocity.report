@@ -90,6 +90,10 @@ private let logger = DevLogger(category: "AppState")
     /// sensor that has stopped.
     @Published var isSettling: Bool = false
     @Published var settlingProgress: Float = 0
+    /// Seconds spent settling so far. Shown instead of a percentage: settling
+    /// can finish on convergence well before its ceiling, so a fraction of an
+    /// unknown total says less than the time on the clock.
+    @Published var settlingElapsedSeconds: Float = 0
 
     // MARK: - Playback State
 
@@ -383,7 +387,7 @@ private let logger = DevLogger(category: "AppState")
         if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
         // Settling outranks the source: an empty scene during warm-up is the
         // thing an operator needs explained, and it resolves on its own.
-        if isSettling { return "SETTLING \(Int((settlingProgress * 100).rounded()))%" }
+        if isSettling { return String(format: "SETTLING %.1fs", settlingElapsedSeconds) }
         switch sourceMode {
         case .live: return "LIVE"
         case .pcap: return "REPLAY (PCAP)"
@@ -1387,6 +1391,9 @@ private let logger = DevLogger(category: "AppState")
             if isSettling != playbackInfo.settling { isSettling = playbackInfo.settling }
             if settlingProgress != playbackInfo.settlingProgress {
                 settlingProgress = playbackInfo.settlingProgress
+            }
+            if settlingElapsedSeconds != playbackInfo.settlingElapsedSeconds {
+                settlingElapsedSeconds = playbackInfo.settlingElapsedSeconds
             }
             if playbackInfo.sourceMode == .unspecified {
                 setPlaybackMode(
