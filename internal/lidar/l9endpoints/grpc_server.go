@@ -148,6 +148,10 @@ func (s *Server) SetVRLogMode(enabled bool) {
 // slack — because the cost of ending a stream early is a reconnect, while the
 // cost of not bounding it is an indefinite stall that the send instrumentation
 // cannot even report.
+// sendStallTimeout is how long a single stream.Send may make no progress
+// before it is reported. It is a reporting threshold, not a deadline: the send
+// is still waited for. See the stall handling in streamFromPublisher.
+//
 // A var rather than a const so tests can shorten it; nothing else reassigns it.
 var sendStallTimeout = 5 * time.Second
 
@@ -497,23 +501,42 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				sendResult <- sendErr
 			}(frame.PointCloud)
 
+			// Wait for the send, reporting a stall rather than acting on it.
+			//
+			// Severing the stream here was tried and made things worse. A
+			// client that has stopped reading is usually one whose UI thread is
+			// blocked, and a client in that state cannot run its reconnect
+			// logic either: on 2026-08-26 closing the stream after five seconds
+			// left the replay streaming to nobody for the remaining two and a
+			// half minutes, where previously the same client had recovered on
+			// its own after four. A genuinely departed client is already
+			// covered — its context is cancelled and the case below fires.
+			//
+			// So the timeout exists purely to make the stall visible, which is
+			// what was missing: every other piece of send instrumentation runs
+			// after Send returns, so a stalled send produced no diagnostic at
+			// all.
 			var sendErr error
-			select {
-			case sendErr = <-sendResult:
-			case <-ctx.Done():
-				// The stream is going away; the pending Send unblocks as it is
-				// torn down and its goroutine releases the frame.
-				return ctx.Err()
-			case <-time.After(sendStallTimeout):
-				// A client this far behind is not slow, it has stopped
-				// reading. gRPC forbids a concurrent Send on the same stream,
-				// so the frame cannot be skipped — end the stream and let the
-				// client reconnect, which is what it does on any other stream
-				// error.
-				opsf("[gRPC] Client %s stopped reading: no progress on a send for %v, closing the stream so it can reconnect",
-					clientID, sendStallTimeout)
-				return status.Errorf(codes.DeadlineExceeded,
-					"client stopped reading: send made no progress for %v", sendStallTimeout)
+			waitingSince := time.Now()
+			reportedStall := false
+		awaitSend:
+			for {
+				select {
+				case sendErr = <-sendResult:
+					if reportedStall {
+						opsf("[gRPC] Client %s resumed reading after %v",
+							clientID, time.Since(waitingSince).Round(time.Millisecond))
+					}
+					break awaitSend
+				case <-ctx.Done():
+					// The stream is going away; the pending Send unblocks as it
+					// is torn down and its goroutine releases the frame.
+					return ctx.Err()
+				case <-time.After(sendStallTimeout):
+					reportedStall = true
+					opsf("[gRPC] Client %s has not read for %v: the stream is blocked on a single send, frames are being dropped for it",
+						clientID, time.Since(waitingSince).Round(time.Second))
+				}
 			}
 			if sendErr != nil {
 				opsf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, sendErr)
