@@ -55,6 +55,26 @@ func TestSettlingStatusFollowsTheLaggingRequirement(t *testing.T) {
 	}
 }
 
+// Before the first frame the grid has not started settling. StartTime is unset
+// and WarmupFramesRemaining still holds its zero value, which means
+// "uninitialised" — reading it as "no frames left to wait for" reported a grid
+// that had seen nothing as 100% settled, so the status never appeared.
+func TestSettlingStatusIsZeroBeforeTheFirstFrame(t *testing.T) {
+	bm := NewBackgroundManagerDI("settle-unstarted", 16, 360, BackgroundParams{
+		SeedFromFirstObservation: true,
+		WarmupMinFrames:          100,
+		WarmupDurationNanos:      int64(60 * time.Second),
+	}, nil)
+
+	got := bm.SettlingStatus()
+	if got.Complete {
+		t.Error("reported complete before any frame was processed")
+	}
+	if got.Progress != 0 {
+		t.Errorf("Progress = %v, want 0 before the first frame", got.Progress)
+	}
+}
+
 func TestSettlingStatusStaysInRange(t *testing.T) {
 	bm := NewBackgroundManagerDI("settle-range", 16, 360, BackgroundParams{
 		SeedFromFirstObservation: true,

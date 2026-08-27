@@ -648,36 +648,40 @@ struct ToolbarView: View {
 /// Choosing Live clears the grid, so the next scene is built from live returns
 /// rather than composited onto the recording's.
 ///
-/// Replay is selectable only when a recording is loaded; there is nothing to
-/// replay otherwise.
+/// The control is inert while already live. Replay is not somewhere an operator
+/// can go from here — a recording has to be loaded from the run browser first —
+/// so offering the segment would be offering a transition that cannot happen.
 struct LiveToggleView: View {
     @EnvironmentObject var appState: AppState
 
-    private enum Source: Hashable {
-        case live
-        case replay
+    enum Source: String, Hashable, CaseIterable {
+        case live = "Live"
+        case replay = "Replay"
     }
 
     var body: some View {
-        let current: Source = appState.isLiveSource ? .live : .replay
+        let isLive = appState.isLiveSource
 
-        Picker(
-            "Source",
-            selection: Binding(
-                get: { current },
-                set: { selected in
-                    guard selected != current, selected == .live else { return }
-                    appState.returnToLive()
-                })
-        ) {
-            Text("Live").tag(Source.live)
-            Text("Replay").tag(Source.replay)
-        }.pickerStyle(.segmented).labelsHidden().fixedSize().disabled(appState.isReturningToLive)
-            .help(
-                appState.isLiveSource
-                    ? "Live sensor input is driving the pipeline"
-                    : "Replaying a recording — switch to Live to resume the sensor (clears the grid)"
-            )
+        Picker("Source", selection: sourceBinding) {
+            ForEach(Source.allCases, id: \.self) { source in Text(source.rawValue).tag(source) }
+        }.pickerStyle(.segmented).labelsHidden().frame(width: 140).disabled(
+            isLive || appState.isReturningToLive
+        ).help(
+            isLive
+                ? "Live sensor input is driving the pipeline — load a run to replay one"
+                : "Replaying a recording — switch to Live to resume the sensor (clears the grid)")
+    }
+
+    /// Reads the current source and accepts only the replay-to-live move. Every
+    /// other selection is a no-op that snaps straight back, which is why the
+    /// control is disabled rather than relying on this to reject them.
+    private var sourceBinding: Binding<Source> {
+        Binding(
+            get: { appState.isLiveSource ? .live : .replay },
+            set: { selected in
+                guard selected == .live, !appState.isLiveSource else { return }
+                appState.returnToLive()
+            })
     }
 }
 

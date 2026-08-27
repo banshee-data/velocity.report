@@ -59,6 +59,15 @@ import XCTest
         XCTAssertFalse(state.isLiveSource)
     }
 
+    /// The control offers exactly one transition: replay back to live. There is
+    /// nowhere to go from live, because a recording has to be loaded from the
+    /// run browser first — so the segments must not invite the move.
+    func testSourceSegmentsCoverBothStates() {
+        XCTAssertEqual(
+            LiveToggleView.Source.allCases.map(\.rawValue), ["Live", "Replay"],
+            "the segmented control must offer both states so the current one reads as selected")
+    }
+
     /// Guard against a second request while one is in flight.
     func testReturnToLiveIgnoresASecondPressWhileInFlight() {
         let state = AppState()

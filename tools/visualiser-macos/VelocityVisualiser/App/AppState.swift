@@ -635,7 +635,16 @@ private let logger = DevLogger(category: "AppState")
                 clearAll()
                 resetPlaybackState(mode: .live)
                 sourceMode = .live
+                currentRunID = nil
                 runBrowserState.selectedRunID = nil
+
+                // Restart the stream, for the same reason loading a replay
+                // does: the source changed underneath a stream that is still
+                // carrying the old one. A replay that wedged its client leaves
+                // that stream blocked on a send it will never finish, so
+                // without this the view stays on the replay's last frame and
+                // no live data ever arrives.
+                restartGRPCStream()
             } catch {
                 logger.error("Failed to return to live: \(error.localizedDescription)")
                 connectionError = "Could not return to live: \(error.localizedDescription)"

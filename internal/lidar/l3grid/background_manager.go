@@ -333,12 +333,21 @@ func (bm *BackgroundManager) SettlingStatus() SettlingStatus {
 		return SettlingStatus{Complete: true, Progress: 1}
 	}
 
+	// Nothing has been processed yet: StartTime is only set on the first frame,
+	// and WarmupFramesRemaining is still at its zero value, which means
+	// "uninitialised" rather than "no frames left to wait for". Reading it as
+	// the latter reported a grid that had not seen a single frame as fully
+	// settled.
+	if bm.StartTime.IsZero() {
+		return SettlingStatus{}
+	}
+
 	progress := 1.0
 	if g.Params.WarmupMinFrames > 0 {
 		done := g.Params.WarmupMinFrames - g.WarmupFramesRemaining
 		progress = math.Min(progress, float64(done)/float64(g.Params.WarmupMinFrames))
 	}
-	if g.Params.WarmupDurationNanos > 0 && !bm.StartTime.IsZero() {
+	if g.Params.WarmupDurationNanos > 0 {
 		elapsed := time.Since(bm.StartTime).Nanoseconds()
 		progress = math.Min(progress, float64(elapsed)/float64(g.Params.WarmupDurationNanos))
 	}
