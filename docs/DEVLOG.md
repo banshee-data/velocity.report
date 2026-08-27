@@ -6,6 +6,70 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## August 27, 2026 - Adaptive settling & visualiser stream robustness
+
+- {dd/go/test-pacp-replay} Completed Phase 4 of the settling plan: the background grid now ends warm-up on measured convergence, so a quiet scene settled in 5.9 seconds against its 30 second ceiling: [design doc](lidar/operations/settling-time-optimisation.md).
+- {dd/go/test-pacp-replay} Found the settling decision implemented twice, in the background-update path and in foreground extraction. The copies had drifted, convergence went into the one the live pipeline does not run, and the feature was unreachable in production despite passing its tests.
+- {dd/go/test-pacp-replay} Consolidated both paths onto `settlingCompleteLocked` and added a test asserting neither reimplements the decision. Lowered `warmup_min_frames` from 100 to 50, since that gate sets the floor under any settling time convergence can reach.
+- {dd/go/test-pacp-replay} Made settling report itself: the plan it starts with, progress towards the frame minimum, and either the reason it completed or the unmet criterion holding it up.
+- {dd/go/test-pacp-replay} Surfaced settling to operators through `GET /api/lidar/data_source` and proto `PlaybackInfo`, shown in the visualiser as a `SETTLING 5.9s` badge. An unsettled grid renders an empty scene, which is otherwise indistinguishable from a dead sensor.
+- {dd/go/test-pacp-replay} Handed each newly subscribed gRPC client the current background, and sent a fresh snapshot as settling completes. A replay load published the background 42 ms before the client restarted its stream, so the grid never arrived.
+- {dd/go/test-pacp-replay} Fixed a stream that ended signalling only "replay finished", which left the visualiser reporting itself connected after a server restart. One run showed five minutes of server uptime with zero client connections while the app claimed a live connection.
+- {dd/go/test-pacp-replay} Replaced the Live control with a Live/Replay segmented picker, made returning to live restart the gRPC stream, and keyed inspector visibility on `showSidePanel` alone so the button can close it with a track selected.
+- {dd/go/test-pacp-replay} Named the frame in the send-stall warning, which disproved the working hypothesis: the blocking frame was 39 points and 5.9 KB, in live mode, so frame size was never the cause. The client-side hang remains open: [design doc](plans/lidar-visualiser-stream-robustness-plan.md).
+
+## August 26, 2026 - Frame loss accounting & replay parking
+
+- Bumped the application dependency group with three updates (#558) and the documentation group with two (#560), and downgraded TypeScript to 6.x with a native alias for compatibility.
+- {dd/go/test-pacp-replay} Separated publish-stage from client-stage frame loss, which had been summed into one ratio that pegged at 50% and hid the real drop rate.
+- {dd/go/test-pacp-replay} Stopped counting a source change as thousands of dropped frames, and summarised dropped frames rather than logging each one.
+- {dd/go/test-pacp-replay} Bounded stream sends so a client that stops reading cannot stall the publisher, and reported the stall instead of severing the stream.
+- {dd/go/test-pacp-replay} Delivered buffered frames in capture order, and confined the frame-rate throttle to replays so live input is no longer decimated.
+- {dd/go/test-pacp-replay} Let a finished replay stay the data source rather than silently reverting to live, and closed the window where a teardown looked like an idle replay.
+- {dd/go/test-pacp-replay} Added a Live toggle to the visualiser and moved Clear to the View menu.
+- {dd/docs/state-est} Added and then split the LiDAR state estimation and vehicle behaviour plans, revising both to cover road users, the evidence split, and elevation.
+
+## August 19, 2026 - Background retention across source changes
+
+- {dd/go/test-pacp-replay} Reset the grid when returning to live, so a live scene is no longer composited onto a replay's retained background.
+- {dd/go/test-pacp-replay} Refreshed the background on snapshot restore and reconciled live state on packet arrival.
+- {dd/go/test-pacp-replay} Released the pipeline after a recording run, and cleared the background when a PCAP replay starts.
+- {dd/go/test-pacp-replay} Let live packet presence decide what a finished replay does, rather than assuming the operator wanted live input back.
+- {dd/go/test-pacp-replay} Kept the macOS API clients off Foundation's on-disk URL cache, which was the source of the `disk I/O error` messages the app logged: nothing in the app reads that cache.
+
+## August 18, 2026 - Offline homepage & replay teardown
+
+- Served the homepage offline in the Raspberry Pi image (#553), and created the docs symlinks before the offline docs tests run.
+- Added a live docs 404 spider for checking published documentation links.
+- Released `0.5.1-pre31` across the canonical version surfaces.
+- Kept generated build stamps out of git, so `BuildInfo.swift` no longer produces spurious diffs after every macOS build.
+- {dd/go/test-pacp-replay} Consolidated replay teardown into one path, and made replays that end return to live by themselves.
+- {dd/go/test-pacp-replay} Always released the replay slot, and traced every pipeline transition so state changes are attributable.
+- {dd/go/test-pacp-replay} Stopped the live grid overwriting a replay's own background, never discarded a background frame in transit, and guarded the publisher's background bookkeeping fields.
+
+## August 17, 2026 - LiDAR pipeline state model
+
+- {dd/go/test-pacp-replay} Added `PipelineState` as the single store for what drives the pipeline and what is captured from it, replacing three stores that could disagree under two different mutexes: [design doc](plans/lidar-pipeline-state-model-plan.md).
+- {dd/go/test-pacp-replay} Migrated the lidar server's state fields onto it and removed the divergent `DataSourceManager` accessors, which held a shadow source production never wrote.
+- {dd/go/test-pacp-replay} Reported VRLOG replay and recording state from the lidar HTTP API. `GET /api/lidar/playback/status` had returned a hardcoded live status, because its assignment site did not exist.
+- {dd/go/test-pacp-replay} Stopped the live listener during VRLOG replay and suppressed live frames while one is active, so live and replayed frames no longer interleaved into the recorder.
+- {dd/go/test-pacp-replay} Added `source_mode` and `recording` to proto `PlaybackInfo`, and made the Swift client read the mode instead of inferring it from `is_live` and `seekable`.
+- {dd/go/test-pacp-replay} Marked the settling and recording passes of a two-pass PCAP replay, which had been indistinguishable from outside, and identified settled PCAP snapshots by their resolved path.
+- Fixed GitHub URL handling and documentation link resolution, and isolated the offline docs folder pages under test.
+
+## August 16, 2026 - Offline docs link validation
+
+- Added link validation scripts for offline documentation integrity.
+- Merged TENET 7, cohesive releases (#556).
+
+## August 15, 2026 - Replay windows & coverage gate
+
+- Added start and duration parameters for PCAP replay to the lidar commands, and moved `Run` calls onto a `Config` struct so the window threads through one primitive rather than per-engine flags.
+- Clarified replay duration defaults, and documented the new parameters in the performance regression testing guide.
+- Updated the LiDAR test commands in CI for clarity and execution time.
+- Added tests behind a coverage gate (#554), and enhanced `import_paths_for_patterns` to support build tags.
+- Clarified repository source link resolution and build metadata in the offline docs, and improved the link validation logic in the offline docs checker.
+
 ## August 14, 2026 - Key documentation standardisation
 
 - Standardised the opening TL;DR paragraphs and heading structure across the key top-level docs, covering `ARCHITECTURE.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `COMMANDS.md`, `DEBUGGING.md`, `MAGIC_NUMBERS.md`, `TENETS.md`, and the `data/` and `docs/` hubs.

@@ -94,13 +94,18 @@ All items delivered on branch `claude/pcap-state-backend-aef738`.
 
 ## Follow-up
 
-- Confirm whether the explicit `SendBackgroundSnapshot()` call at VRLOG replay
-  start overwrites the replay's own recorded background in the client cache. It
-  bypasses `shouldSendBackground()`, which suppresses snapshots during replay,
-  and may be a deliberate fallback for logs with no background frame.
+- ~~Confirm whether the explicit `SendBackgroundSnapshot()` call at VRLOG replay
+  start overwrites the replay's own recorded background in the client cache.~~
+  **Resolved.** It did. The live grid no longer overwrites a replay's own
+  background, and a replay emits its recorded background at load. The remaining
+  gap — the client's stream restarting _after_ that background was published, so
+  the new stream missed it — is covered by
+  [stream robustness](lidar-visualiser-stream-robustness-plan.md), which hands
+  each subscribing client the current background.
 
 ## Related
 
+- [Stream robustness](lidar-visualiser-stream-robustness-plan.md) — delivering this state to the client reliably
 - [Data source switching](../lidar/operations/data-source-switching.md) — canonical operations reference
 - [PCAP analysis mode](../lidar/operations/pcap-analysis-mode.md) — analysis replays and two-pass settling
 - [Metrics registry](../platform/architecture/metrics-registry.md) — the source-mode vocabulary this adopts
