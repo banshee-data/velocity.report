@@ -1654,7 +1654,13 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         // avoids queueing a Task that could be delayed behind hundreds of
         // pending frame-delivery Tasks, or overridden by clientDidDisconnect.
         MainActor.assumeIsolated { [weak self] in
-            self?.appState?.handleStreamFinished(expectedGeneration: generation)
+            guard let appState = self?.appState else { return }
+            appState.handleStreamFinished(expectedGeneration: generation)
+            // The RPC is over, whatever ended it. No further frames can arrive
+            // on this stream, so the connection indicator must stop claiming
+            // otherwise — a server that restarts closes the stream this way,
+            // and the client went on showing "connected" indefinitely.
+            appState.isConnected = false
         }
     }
 }

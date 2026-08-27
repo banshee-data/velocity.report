@@ -660,10 +660,22 @@ func (p *Publisher) addClient(id string, req *pb.StreamRequest) *clientStream {
 	// nothing until the next background is published — 30s on live, and on a
 	// replay only whenever the recording happens to contain another one.
 	if bg := p.latestBackground(); bg != nil {
+		// Retain to match the Release that streamFromPublisher performs on
+		// every frame it takes off the channel. broadcastLoop retains per
+		// client for the same reason; enqueueing without it would release a
+		// reference this frame never held and hand a live buffer back to the
+		// pool. Background frames usually carry no point cloud, which is why
+		// the imbalance did no visible harm rather than why it was safe.
+		if bg.PointCloud != nil {
+			bg.PointCloud.Retain()
+		}
 		select {
 		case client.frameCh <- bg:
 			diagf("[Visualiser] Sent cached background to new client %s", id)
 		default:
+			if bg.PointCloud != nil {
+				bg.PointCloud.Release()
+			}
 		}
 	}
 
