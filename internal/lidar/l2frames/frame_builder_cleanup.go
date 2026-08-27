@@ -378,10 +378,27 @@ func (fb *FrameBuilder) cleanupFrames() {
 		}
 	}
 
-	// Finalize old frames
+	// Finalize old frames, oldest first.
+	//
+	// frameIDsToFinalize comes from ranging over a map, so it arrives in
+	// whatever order Go felt like. This is the path every live frame takes —
+	// completed rotations wait here for the buffer timeout and a tick usually
+	// releases two or three together — so an unsorted batch hands the tracking
+	// pipeline rotations out of capture order. The Kalman filters and the
+	// track timestamps both assume time moves forward. Close already sorts for
+	// exactly this reason; see takePendingFramesLocked.
+	batch := make([]*LiDARFrame, 0, len(frameIDsToFinalize))
 	for _, frameID := range frameIDsToFinalize {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
+		if frame != nil {
+			batch = append(batch, frame)
+		}
+	}
+	sort.Slice(batch, func(i, j int) bool {
+		return batch[i].StartTimestamp.Before(batch[j].StartTimestamp)
+	})
+	for _, frame := range batch {
 		fb.finalizeFrame(frame, "buffer_timeout")
 	}
 
