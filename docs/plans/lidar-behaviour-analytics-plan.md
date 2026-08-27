@@ -101,13 +101,46 @@ Restating the contract from
 violating it silently is the easiest way for this work to produce confident
 nonsense.
 
-| Requirement                                        | Why                                                                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Read `EstimatedState` at `stage = final`           | The online estimate is revised afterwards; a report built on it quotes a superseded number                                |
-| Carry covariance and `estimator_id` on every state | Uncertainty must propagate into every derived metric, and every metric must be reproducible against its estimator version |
-| Heading and yaw rate are states with covariance    | Lateral acceleration, curvature and conflict geometry are undefined without an orientation that has an uncertainty        |
-| Object extents are a track-level belief with sigma | Clearance and bumper-to-bumper gap are measured between surfaces, so they inherit extent uncertainty directly             |
-| Never read raw bounding-box centres                | The medoid measurement carries a viewpoint-dependent bias of up to half a vehicle width, measured at 0.676 m mean         |
+| Requirement                                                           | Why                                                                                                                                         |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read `EstimatedState` at `stage = final`                              | The online estimate is revised afterwards; a report built on it quotes a superseded number                                                  |
+| Carry covariance and `estimator_id` on every state                    | Uncertainty must propagate into every derived metric, and every metric must be reproducible against its estimator version                   |
+| Heading and yaw rate are states with covariance                       | Lateral acceleration, curvature and conflict geometry are undefined without an orientation that has an uncertainty                          |
+| Object extents are a track-level belief with sigma                    | Clearance and bumper-to-bumper gap are measured between surfaces, so they inherit extent uncertainty directly                               |
+| Never read raw bounding-box centres                                   | The medoid measurement carries a viewpoint-dependent bias of up to half a vehicle width, measured at 0.676 m mean                           |
+| Orientation is a belief with variance, held outside the dynamic state | Option A in the estimation plan keeps the motion filter linear; heading still arrives with an uncertainty, which is what these metrics need |
+| Road-surface geometry, where used, is named on the estimate           | A metric computed under a planar fallback on a graded site is not the same measurement as one computed on a surface model                   |
+
+**The contract, in one sentence.** State estimation produces an explainable,
+uncertainty-bearing final physical trajectory. Behaviour analytics consumes that
+trajectory and emits only metrics supported by class, geometry, observation
+coverage and uncertainty.
+
+### 2.1 Development may proceed in parallel; emission may not
+
+The previous draft said nothing here could begin before gate G-SMO-1. That
+conflated two different things and would have idled this work behind an
+estimator milestone for no engineering reason.
+
+| Activity                                                                                                                                                                                                      | Gate                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Designing, implementing and testing behaviour metrics against **analytical synthetic trajectories**, fixture `EstimatedState` streams, external trajectory datasets, and deterministic reference trajectories | **None.** Start now                                               |
+| Validating equations, suppression logic, uncertainty propagation and interaction classification                                                                                                               | **None.** These need trajectories, not _our_ trajectories         |
+| Emitting any **production** behaviour result derived from live or replayed LiDAR tracks                                                                                                                       | **G-SMO-1**, plus the per-metric applicability rules in Section 7 |
+
+The production gate, stated so it cannot be misread:
+
+> No production behavioural result may be emitted from raw or current LiDAR
+> tracks until the required trajectory-estimation gate has passed.
+
+This is strictly stronger than the old wording where it matters, because it
+covers the tempting middle case: computing a metric from today's medoid-based
+tracks "just to see". A number produced that way carries a 0.676 m position
+bias and must never reach a product surface.
+
+The practical consequence is that a fixture `EstimatedState` stream, with
+covariance and a declared estimator identity, is a first-class development
+input. Phase 6A should build against it from day one.
 
 ## 3. The observation budget
 
@@ -148,7 +181,7 @@ estimation plan's association work precedes this one.
 | Metric                                    | Fixed roadside | Mobile / in-vehicle | Why they differ                                                                                                             |
 | ----------------------------------------- | -------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Speed at a location                       | **high**       | medium              | The roadside sensor measures the location that matters; a probe vehicle measures wherever it happens to be                  |
-| Speed relative to posted limit            | **high**       | high                | Both need the limit as data; see Section 9.1                                                                                |
+| Speed relative to posted limit            | **high**       | high                | Both need the limit as data; see Section 10.1                                                                               |
 | Approach speed to a crossing or curve     | **high**       | medium              | Requires the geometry to be fixed and known                                                                                 |
 | Deceleration and braking in view          | **high**       | high                |                                                                                                                             |
 | Stop-line compliance                      | **high**       | low                 | Needs the stop line surveyed once, which suits a fixed site                                                                 |
@@ -258,14 +291,187 @@ Three rules govern denominators.
 3. **A rate with a denominator below a stated minimum is suppressed, not
    reported as zero.** One overtake is not a close-pass rate.
 
-## 7. Behaviour feature matrix
+## 7. Metric framework
+
+The feature matrix in Section 8 lists what can be measured. This section states
+the rules that decide, for any given road user in any given passage, whether a
+listed metric may actually be emitted. Those rules are load-bearing: most of the
+matrix is inapplicable to most passages, and a framework that computes
+everything for everyone would be wrong far more often than right.
+
+### 7.1 Road-user scope: three tiers
+
+The engine operates on **road-user passages and interactions**, not on driver
+identities. Metrics fall into three tiers, and the tier determines applicability
+before any threshold is considered.
+
+| Tier                                 | Applies to                                                       | Examples                                                                                                                                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Universal trajectory primitives**  | Every tracked road user, every class, including `unknown`        | Position and path, speed, velocity vector, path length, observed duration, trajectory curvature, acceleration where observable, per-state uncertainty, trajectory confidence, observation coverage |
+| **Class-specific behaviour metrics** | One motion class, because the concept only means something there | Following headway, braking behaviour, complete-stop behaviour, lane keeping, lane departure, approach speed, longitudinal jerk: all `rigid_vehicle`                                                |
+| **Interaction metrics**              | Pairs, usually across classes                                    | Surface-to-surface separation, PET, conflict geometry, yielding, vehicle-cyclist passing clearance, vehicle-pedestrian interaction, crossing conflicts                                             |
+
+**Do not compute every metric for every class.** Time headway for a pedestrian
+following another pedestrian on a footway is arithmetically computable and
+means nothing. Lane offset for a cyclist in a shared lane is ambiguous rather
+than wrong. Both are suppressed, with a reason, rather than emitted.
+
+The interaction tier is where the fixed roadside sensor is strongest, and it is
+also the tier that most needs cross-class handling: the interesting pairs are
+vehicle-cyclist and vehicle-pedestrian, not vehicle-vehicle.
+
+### 7.2 Applicability and suppression
+
+Every metric declares its requirements. When any requirement fails, the engine
+emits a **machine-readable suppression reason**, never a number and never a
+silent absence.
+
+```text
+following_headway:
+    requires:
+        follower motion class    = rigid_vehicle
+        leader                   = any object with an estimated extent
+        relation                 = common path, longitudinal, same direction
+        estimation lifecycle     = established, both parties
+        observation support      = observed, both parties, at the sampled instant
+        extent belief            = converged, both parties
+
+lane_offset:
+    requires:
+        lane geometry            = available for the traversed region
+        site pose                = active
+        motion class             = rigid_vehicle or two_wheeler
+        trajectory uncertainty   = lateral sigma below the lane-discrimination bound
+
+pet:
+    requires:
+        interaction type         = crossing, with confidence above the bound
+        conflict region          = derived or mapped
+        both crossings           = fully within the field of view
+        timing support           = crossing-time sigma below the reported precision
+```
+
+Suppression reasons form a closed vocabulary, registered alongside the project's
+other controlled vocabularies in
+[label-vocabulary.md](../lidar/architecture/label-vocabulary.md) rather than
+invented per metric:
+
+| Reason                            | Meaning                                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------------------------- |
+| `class_not_supported`             | The metric is not defined for this motion class                                           |
+| `insufficient_observation`        | Too few observed frames, or the passage is shorter than the metric's minimum support      |
+| `trajectory_uncertainty_too_high` | Propagated uncertainty exceeds the metric's usable bound                                  |
+| `interaction_type_uncertain`      | Classification confidence below the bound; see 7.5                                        |
+| `no_common_path`                  | The pair does not share the relation the metric assumes                                   |
+| `road_geometry_unavailable`       | No road-surface model for the traversed region                                            |
+| `lane_geometry_unavailable`       | No lane centreline or edges                                                               |
+| `metric_not_observable`           | Structurally unobservable at this sample rate, for example jerk on a short passage        |
+| `model_degraded`                  | The estimator reported `model_invalid` or `temporarily_degraded` for a contributing track |
+| `extent_not_converged`            | A required dimension belief has not met its admissibility count                           |
+| `planar_fallback_insufficient`    | Computed under a planar assumption on a graded site, where the grade error dominates      |
+
+**A suppressed metric is preferable to false precision**, and a suppression
+reason is a first-class result: it is stored, queryable and reportable. The rate
+of each suppression reason per site is itself a useful diagnostic, and it is the
+main thing Phase 6A should publish before anyone tunes anything.
+
+### 7.3 Observation support
+
+Not every missing frame is an occlusion, and conflating them corrupts exposure
+denominators. Every sampled instant on a track carries a support state.
+
+| State               | Meaning                                                     | Counts toward an exposure denominator?            |
+| ------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| `observed`          | A detection was associated at this instant                  | **Yes**                                           |
+| `coasted`           | The estimator propagated without a measurement              | **No**                                            |
+| `occluded_inferred` | Missing, and another object's geometry explains the absence | No, but recorded as expected-missing              |
+| `missed_unknown`    | Missing with no explanation                                 | No, and flagged: this is a detector defect signal |
+| `cluster_merged`    | The detection is present but merged with another object     | No                                                |
+| `cluster_split`     | The detection is fragmented across clusters                 | No                                                |
+| `out_of_fov`        | Geometrically outside the sensor's coverage                 | No, and not counted as a failure                  |
+
+The distinction between `occluded_inferred` and `missed_unknown` is the one that
+earns its keep. Occlusion is a property of the scene and is expected; an
+unexplained miss is a property of the pipeline and is a bug signal. The previous
+draft treated both as occlusion, which would have hidden defect P4, the 56 %
+frame miss rate, behind a plausible-sounding label.
+
+The principle from the previous draft is preserved and strengthened:
+
+> **Coasting is not observation.** A coasted state is a legitimate trajectory
+> estimate and is not evidence that anything was seen.
+
+### 7.4 Numeric measurements versus categorical outcomes
+
+The previous draft forced everything through a single `float64` measurement
+type. That does not fit outcomes such as "rolling stop" or "did not yield", and
+encoding them as numbers would be exactly the opaque mapping this plan exists to
+avoid.
+
+Two result kinds, related but distinct:
+
+| Kind                   | Carries                                                                                                                            | Example                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `BehaviourMeasurement` | A numeric value, its unit, its uncertainty, its benchmark and its provenance                                                       | `min_speed = 0.42 m/s, sigma 0.18` |
+| `BehaviourOutcome`     | A categorical label, the method and threshold version that produced it, and **references to the measurements it was derived from** | `stop_outcome = rolling_stop`      |
+
+**A categorical outcome never replaces its evidence.** `rolling_stop` must
+remain traceable to the minimum estimated speed, the duration below the speed
+threshold, the position relative to the stop zone, the trajectory uncertainty,
+and the road-surface or map confidence that positioned the stop line. The same
+rule applies to hard braking, short following distance, close passing, lane
+departure and yielding.
+
+Categorical outcomes are where the temptation to build a verdict is strongest,
+so the rule is absolute: the outcome is a convenience over the evidence, never a
+substitute for it.
+
+### 7.5 Interaction classification is uncertain, and must say so
+
+Every pairwise formula assumes an interaction type. Applying the longitudinal
+TTC formula to a pair that is actually crossing produces a confident number with
+no meaning.
+
+Interaction type is therefore classified **first**, from conflict angle,
+relative motion and path geometry, and it is classified **with a posterior**, not
+a label:
+
+```text
+InteractionClassification:
+    posterior over {following, crossing, merging, overtake, opposing}
+    evidence: conflict angle, relative velocity, path overlap, duration
+    confidence
+```
+
+When the posterior is ambiguous, for example `P(following)` close to
+`P(merging)`, metrics that depend on the distinction are suppressed with
+`interaction_type_uncertain`. They are not computed under the argmax.
+
+Metrics differ in how much they care. PET depends only on two crossing times and
+survives a merging-versus-crossing ambiguity. Longitudinal TTC does not survive
+a following-versus-merging ambiguity at all. Each metric declares the minimum
+classification confidence it needs, and the evidence behind the classification is
+retained so a surprising suppression can be explained.
+
+### 7.6 The explainability record
+
+Per principle 0.1 of the estimation plan, every emitted behaviour result
+preserves enough provenance to answer: which trajectory states contributed;
+which roadway or path geometry contributed; which thresholds were applied; which
+uncertainties were propagated; which method and version produced it; and why it
+was emitted rather than suppressed.
+
+This is a data-model requirement, not a logging aspiration. Section 10.2 carries
+the fields.
+
+## 8. Behaviour feature matrix
 
 Column key. **Scope**: `single` uses one track, `pair` requires two. **Map**:
 roadway context required, per [lidar-l7-scene-plan](lidar-l7-scene-plan.md).
 **RS**: fixed-roadside suitability. **Bench**: benchmark kind from Section 5.
 **Form**: `C` continuous, `E` event-based, `X` exposure-normalised.
 
-### 7.1 Speed behaviour
+### 8.1 Speed behaviour
 
 | Feature                                                | Definition                                                          | Units | Scope  | Map     | RS     | Bench                | Form |
 | ------------------------------------------------------ | ------------------------------------------------------------------- | ----- | ------ | ------- | ------ | -------------------- | ---- |
@@ -289,7 +495,7 @@ opportunity.
 `p85` here is the aggregate over a population of per-passage maxima, matching
 the existing project convention recorded in [CLAUDE.md](../../CLAUDE.md).
 
-### 7.2 Longitudinal control
+### 8.2 Longitudinal control
 
 | Feature                                      | Definition                                                          | Units | Scope  | Map | RS     | Bench                      | Form |
 | -------------------------------------------- | ------------------------------------------------------------------- | ----- | ------ | --- | ------ | -------------------------- | ---- |
@@ -308,6 +514,37 @@ filtering, or from studies whose sampling rate and vehicle instrumentation
 differ from ours. Report percentiles against a named local or external
 distribution.
 
+#### 8.2.1 Jerk is experimental until the bandwidth supports it
+
+Jerk is retained because it is genuinely useful when it can be measured, and it
+is marked **experimental** because at the current effective sample rate it
+usually cannot. Two quantities must never be confused:
+
+|                                     | Definition                                                           | Status                                                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Raw finite-difference jerk          | Third difference of estimated positions                              | **Never published.** At 0.2 s spacing and 0.05 m position sigma this is about 28 m/s^3 of noise against a 1 to 5 m/s^3 signal |
+| Band-limited estimator-derived jerk | Derivative of the refined acceleration state, over a declared window | Publishable, with its bandwidth attached                                                                                      |
+
+Rules, all testable:
+
+1. Jerk comes from the refined acceleration state. Never from position
+   differences, at any stage.
+2. Every jerk figure carries its effective window or temporal resolution. A
+   jerk number without a bandwidth describes the filter, not the road user.
+3. Jerk carries an uncertainty, per 9.3, and it is one of the metrics where an
+   asymmetric representation is likely to be the honest one.
+4. Jerk is suppressed with `metric_not_observable` when the passage is shorter
+   than the window, when observation support is inadequate, or when the
+   estimated jerk uncertainty exceeds the magnitude being reported.
+5. Acceptance is measured against **synthetic trajectories with analytically
+   known jerk**, swept across sample rate and noise, publishing the boundary at
+   which expected driving jerk becomes distinguishable from measurement noise.
+   Until that boundary is published, jerk stays experimental.
+
+If the system cannot distinguish ordinary driving jerk from measurement noise at
+the available rate, it suppresses jerk. It does not publish it because it can be
+calculated.
+
 **Jerk suppression is mandatory.** From
 [lidar-state-estimation-plan Section 13.2](lidar-state-estimation-plan.md):
 four-point differencing at 0.2 s spacing with a 0.05 m measurement gives about
@@ -317,7 +554,7 @@ passage is shorter than the window requires, or when the track is poorly
 observed. A jerk number without a bandwidth describes the filter, not the
 vehicle.
 
-### 7.3 Following behaviour
+### 8.3 Following behaviour
 
 For follower `F` and leader `L` in the same lane or path, travelling the same
 direction, the gap is **bumper to bumper**, not centre to centre:
@@ -350,7 +587,7 @@ is meaningless, because most of a passage may involve no leader at all.
 **Naming.** This is `observed_following_exposure` for one encounter at one site.
 It is not a tailgating propensity, and the schema must not permit that reading.
 
-### 7.4 Time to collision
+### 8.4 Time to collision
 
 TTC is the time until contact **if current relative motion continues
 unchanged**. It is defined only when the parties are closing.
@@ -374,7 +611,7 @@ independently established; label them accordingly.
 TTC is retained as a **continuous measurement**. Thresholds are reporting bins
 applied afterwards, never a filter applied before storage.
 
-### 7.5 DRAC and required braking
+### 8.5 DRAC and required braking
 
 Deceleration Rate to Avoid a Crash: the constant deceleration the follower would
 need, from now, to avoid contact if the leader continues unchanged.
@@ -408,7 +645,7 @@ roadside use.
 
 Keep DRAC continuous.
 
-### 7.6 Crossing conflicts and post-encroachment time
+### 8.6 Crossing conflicts and post-encroachment time
 
 PET is the elapsed time between one road user **vacating** a conflict region and
 another **entering** it:
@@ -442,7 +679,7 @@ Report PET as a continuous measurement. The literature's roughly 1 to 1.5 s
 serious-proximity band and SSAM's much broader 5 s candidacy screen are
 different tools for different jobs, and both are `research_threshold`.
 
-### 7.7 Lane and path keeping
+### 8.7 Lane and path keeping
 
 Three distinct references, never conflated:
 
@@ -475,7 +712,7 @@ protocol and against sustained driving. Comparing a ten-second roadside sample
 to them would be a category error. The name is deliberately different, and the
 API must never expose this field as `sdlp`.
 
-### 7.8 Lane changes, merges and cut-ins
+### 8.8 Lane changes, merges and cut-ins
 
 Counting lane changes is close to useless. The consequence is the measurement.
 
@@ -489,7 +726,7 @@ Counting lane changes is close to useless. The consequence is the measurement.
 | `accepted_gap`                        | Total gap accepted between lead and lag vehicles     | m     | pair   | yes     | medium | `external_distribution` | E    |
 | `thw_post_change`                     | Following vehicle's THW immediately after the cut-in | s     | pair   | partial | medium | `local_distribution`    | E    |
 | `ttc_post_change`                     | Following vehicle's minimum TTC after the cut-in     | s     | pair   | partial | medium | `research_threshold`    | E    |
-| `induced_response`                    | See Section 7.12                                     | n/a   | pair   | no      | medium | n/a                     | E    |
+| `induced_response`                    | See Section 8.12                                     | n/a   | pair   | no      | medium | n/a                     | E    |
 
 **A cut-in that leaves a following vehicle with a 0.6 s THW and a 1.1 s TTC is a
 measured interaction.** An "aggressive lane change" classifier is a guess. Build
@@ -500,22 +737,59 @@ is inside the field of view, with a stated margin before and after. A partially
 observed lane change yields a truncated duration and an understated
 displacement, and must be marked incomplete rather than reported.
 
-### 7.9 Cyclist and vulnerable-road-user overtaking
+### 8.9 Cyclist and vulnerable-road-user overtaking
 
 This is the sensor's strongest case and should be treated as a headline
 capability rather than a subsection of lane changes. An overtaking driver's own
 sensors see the clearance poorly; a cyclist's rear camera sees one side and no
 absolute geometry. A roadside LiDAR sees both parties and the road.
 
-| Feature                   | Definition                                  | Units | Scope | Map | RS   | Bench                             | Form |
-| ------------------------- | ------------------------------------------- | ----- | ----- | --- | ---- | --------------------------------- | ---- |
-| `passing_clearance_min`   | Minimum surface-to-surface lateral distance | m     | pair  | no  | high | `legal` + `external_distribution` | E    |
-| `passing_speed`           | Motor vehicle speed at closest approach     | m/s   | pair  | no  | high | `local_distribution`              | E    |
-| `cyclist_speed`           | Cyclist speed at closest approach           | m/s   | pair  | no  | high | n/a                               | E    |
-| `relative_speed_pass`     | Difference at closest approach              | m/s   | pair  | no  | high | `local_distribution`              | E    |
-| `duration_alongside`      | Time with longitudinal overlap              | s     | pair  | no  | high | n/a                               | E    |
-| `longitudinal_separation` | Signed along-path offset over the manoeuvre | m     | pair  | no  | high | n/a                               | C    |
-| `close_pass_rate`         | `close_pass_count / cyclist_overtake_count` | ratio | pair  | no  | high | `legal` + `X`                     | X    |
+#### The primitive is separation, not lateral distance
+
+The previous draft defined the quantity as a lateral distance. That is a
+special case, and it silently assumes a straight road, parallel paths and a
+well-defined lateral axis. It breaks on curved roads, on angled cyclist paths,
+during lane changes, at intersections, and for any crossing interaction.
+
+The universal primitive is:
+
+```
+min_separation = min over synchronised time t of
+                 surface_to_surface_distance( geom_A(t), geom_B(t) )
+```
+
+where `geom` is the estimated oriented geometry, meaning pose plus dimensions
+plus their uncertainties, and **synchronised** means both states are evaluated at
+the same instant after timestamp alignment, not at each track's own nearest
+sample. That primitive is defined for every interaction type and every class
+pair, and it needs no road frame.
+
+`passing_clearance_lateral` is then a **projection** of that separation onto the
+path-normal direction, computed only when the interaction is confidently
+classified as a conventional overtake and a path-aligned frame exists. It is a
+derived convenience for comparison against statutory passing distances, which
+are themselves written in lateral terms.
+
+|                                     | `min_separation`              | `passing_clearance_lateral`                                 |
+| ----------------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| Defined for                         | All interactions, all classes | Confident overtakes with a path frame                       |
+| Needs a road or path frame          | No                            | Yes                                                         |
+| Compares against statute            | No                            | Yes                                                         |
+| Suppression reason when unavailable | `insufficient_observation`    | `interaction_type_uncertain` or `road_geometry_unavailable` |
+
+Both are retained. Reporting only the projection would lose the measurement on
+exactly the geometries where a close pass is most dangerous.
+
+| Feature                   | Definition                                                 | Units | Scope | Map     | RS   | Bench                             | Form |
+| ------------------------- | ---------------------------------------------------------- | ----- | ----- | ------- | ---- | --------------------------------- | ---- |
+| `min_separation`          | Minimum synchronised surface-to-surface distance           | m     | pair  | no      | high | `local_distribution`              | E    |
+| `passing_clearance_min`   | Path-normal projection of `min_separation`, overtakes only | m     | pair  | partial | high | `legal` + `external_distribution` | E    |
+| `passing_speed`           | Motor vehicle speed at closest approach                    | m/s   | pair  | no      | high | `local_distribution`              | E    |
+| `cyclist_speed`           | Cyclist speed at closest approach                          | m/s   | pair  | no      | high | n/a                               | E    |
+| `relative_speed_pass`     | Difference at closest approach                             | m/s   | pair  | no      | high | `local_distribution`              | E    |
+| `duration_alongside`      | Time with longitudinal overlap                             | s     | pair  | no      | high | n/a                               | E    |
+| `longitudinal_separation` | Signed along-path offset over the manoeuvre                | m     | pair  | no      | high | n/a                               | C    |
+| `close_pass_rate`         | `close_pass_count / cyclist_overtake_count`                | ratio | pair  | no      | high | `legal` + `X`                     | X    |
 
 **Clearance and speed are reported separately and both retained.** A 1.2 m pass
 at 20 km/h and a 1.2 m pass at 60 km/h are different events. If a combined risk
@@ -535,7 +809,7 @@ share carriageway space without a kerb separation, and meaningless where a kerb
 fixes the geometry. Gate it on scene context rather than computing it
 everywhere.
 
-### 7.10 Yielding behaviour
+### 8.10 Yielding behaviour
 
 For a vehicle approaching a pedestrian or cyclist crossing its path:
 
@@ -558,7 +832,7 @@ signage, signal state, local statute and often on what each party could see.
 None of that is in the point cloud. Report the geometry and the outcome; let a
 human apply the law.
 
-### 7.11 Stop behaviour
+### 8.11 Stop behaviour
 
 | Feature                  | Definition                                                                      | Units | Scope  | Map | RS   | Bench                | Form |
 | ------------------------ | ------------------------------------------------------------------------------- | ----- | ------ | --- | ---- | -------------------- | ---- |
@@ -580,7 +854,7 @@ The speed epsilon is not free: at 5 Hz with a 0.05 m measurement, speed
 uncertainty near zero is roughly 0.2 to 0.35 m/s, so an epsilon below about
 0.3 m/s is measuring noise. State the epsilon with the result.
 
-### 7.12 Induced evasive response
+### 8.12 Induced evasive response
 
 A neutral representation for cases where one road user's motion is temporally
 associated with a defensive response by another.
@@ -606,7 +880,7 @@ criterion, and to the estimation plan's Phase 8 abnormal-motion evidence
 surface, which supplies the residual and model-validity signals that make a
 sudden response distinguishable from a tracking artefact.
 
-### 7.13 Interaction geometry
+### 8.13 Interaction geometry
 
 | Feature                               | Meaningful for                |
 | ------------------------------------- | ----------------------------- |
@@ -630,7 +904,7 @@ mean nothing, which is worse than reporting none.
 Interaction type is therefore classified **first**, from the conflict angle and
 relative motion, and it determines which metrics are computed at all.
 
-## 8. Uncertainty propagation and suppression
+## 9. Uncertainty propagation and suppression
 
 Every metric here is a function of estimated quantities, so every metric has an
 uncertainty. The rule from the estimation plan applies throughout: **a metric is
@@ -641,23 +915,23 @@ constants. The illustrative numbers below use a filtered speed sigma of
 0.15 m/s and a position sigma of 0.05 m, which are the estimation plan's Phase 2
 targets; the real values come from the covariance at evaluation time.
 
-### 8.1 Derived suppression rules
+### 9.1 Derived suppression rules
 
-| Metric                | Propagation                                                            | Suppression rule                                                                                                                                                                                                                                                                                                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ttc`                 | `σ_TTC/TTC = sqrt((σ_gap/gap)² + (σ_Δv/Δv)²)`                          | **The dominant failure mode.** As closing speed approaches zero, TTC diverges and its uncertainty diverges faster. With `σ_Δv = √2 · σ_v ≈ 0.21 m/s`, a closing speed of 0.5 m/s gives a 42 % relative error. Suppress when `Δv < 3 σ_Δv`, about 0.64 m/s at the illustrative sigma. Report a confidence interval, never a bare value                                                                 |
-| `thw`                 | `σ_THW/THW = sqrt((σ_gap/gap)² + (σ_v/v)²)`                            | Suppress when `speed_F` is below the stop epsilon; THW is undefined at rest, not infinite                                                                                                                                                                                                                                                                                                             |
-| `gap`                 | `σ_gap² = σ_sL² + σ_sF² + (σ_LL/2)² + (σ_LF/2)²`                       | Inherits both vehicles' **length** uncertainty. Suppress when either length belief has fewer observations than the estimation plan's dimension-convergence minimum                                                                                                                                                                                                                                    |
-| `passing_clearance`   | `σ_c² = σ_lat² + (σ_Wv/2)² + (σ_Wc/2)²`                                | **Dominated by extent, not position.** A cyclist is narrow and sparsely sampled: a per-track width sigma of 0.3 m contributes 0.15 m by itself, against a legal discrimination need of about 0.1 m. Therefore **cyclist and pedestrian widths must come from a class prior with a tight sigma, not from a per-track estimate**. This is the single most important uncertainty conclusion in this plan |
-| `pet`                 | `σ_PET² = (σ_sA/v_A)² + (σ_sB/v_B)² + (σ_boundary/v)²`                 | Robust: at 0.05 m and 10 m/s the crossing-time sigma is 5 ms, and at pedestrian speeds about 50 ms. The conflict-region boundary definition, not the trajectory, is the larger term. Suppress only when either party's crossing is not fully in view                                                                                                                                                  |
-| `accel_long`          | From the state covariance directly, once acceleration is a state       | Suppress below the estimation plan's minimum temporal support, about 1 s                                                                                                                                                                                                                                                                                                                              |
-| `jerk_*`              | Amplified by `1/dt³` if differenced; from the smoothed state otherwise | Suppress when the passage is shorter than the declared window. Always emit the bandwidth                                                                                                                                                                                                                                                                                                              |
-| `lateral_accel`       | `σ² = (ω σ_v)² + (v σ_ω)²`                                             | The `v σ_ω` term dominates because yaw rate is weakly observable at 5 Hz. Suppress when the yaw-rate variance exceeds a stated bound                                                                                                                                                                                                                                                                  |
-| `stop_position`       | `σ² = σ_s² + σ_pose² + σ_stopline²`                                    | **Not computable today**: the pipeline runs in sensor coordinates with a nil pose, so `σ_pose` is undefined. Blocked on the site frame                                                                                                                                                                                                                                                                |
-| `lateral_offset_lane` | `σ² = σ_lat² + σ_pose² + σ_lane_geometry²`                             | Same block. The map's own accuracy is a term, and a hand-drawn lane centreline can easily dominate the trajectory error                                                                                                                                                                                                                                                                               |
-| Any pairwise metric   | Both tracks contribute                                                 | Suppress when either track is below the quality floor, or when either was coasting rather than observed at the relevant instant                                                                                                                                                                                                                                                                       |
+| Metric                | Propagation                                                                         | Suppression rule                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ttc`                 | `σ_TTC/TTC = sqrt((σ_gap/gap)² + (σ_Δv/Δv)²)`                                       | **The dominant failure mode.** As closing speed approaches zero, TTC diverges and its uncertainty diverges faster. With `σ_Δv = √2 · σ_v ≈ 0.21 m/s`, a closing speed of 0.5 m/s gives a 42 % relative error. Suppress when `Δv < 3 σ_Δv`, about 0.64 m/s at the illustrative sigma. Report a confidence interval, never a bare value                                                                 |
+| `thw`                 | `σ_THW/THW = sqrt((σ_gap/gap)² + (σ_v/v)²)`                                         | Suppress when `speed_F` is below the stop epsilon; THW is undefined at rest, not infinite                                                                                                                                                                                                                                                                                                             |
+| `gap`                 | `σ_gap² = σ_sL² + σ_sF² + (σ_LL/2)² + (σ_LF/2)²`                                    | Inherits both vehicles' **length** uncertainty. Suppress when either length belief has fewer observations than the estimation plan's dimension-convergence minimum                                                                                                                                                                                                                                    |
+| `passing_clearance`   | `σ_c² = σ_lat² + (σ_Wv/2)² + (σ_Wc/2)²`                                             | **Dominated by extent, not position.** A cyclist is narrow and sparsely sampled: a per-track width sigma of 0.3 m contributes 0.15 m by itself, against a legal discrimination need of about 0.1 m. Therefore **cyclist and pedestrian widths must come from a class prior with a tight sigma, not from a per-track estimate**. This is the single most important uncertainty conclusion in this plan |
+| `pet`                 | `σ_PET² = (σ_sA/v_A)² + (σ_sB/v_B)² + (σ_boundary/v)²`                              | Robust: at 0.05 m and 10 m/s the crossing-time sigma is 5 ms, and at pedestrian speeds about 50 ms. The conflict-region boundary definition, not the trajectory, is the larger term. Suppress only when either party's crossing is not fully in view                                                                                                                                                  |
+| `accel_long`          | From the state covariance directly, once acceleration is a state                    | Suppress below the estimation plan's minimum temporal support, about 1 s                                                                                                                                                                                                                                                                                                                              |
+| `jerk_*`              | Amplified by `1/dt^3` if differenced; from the refined acceleration state otherwise | **Experimental.** Suppress when the passage is shorter than the declared window. Always emit the bandwidth. See 8.2.1                                                                                                                                                                                                                                                                                 |
+| `lateral_accel`       | `σ² = (ω σ_v)² + (v σ_ω)²`                                                          | The `v σ_ω` term dominates because yaw rate is weakly observable at 5 Hz. Suppress when the yaw-rate variance exceeds a stated bound                                                                                                                                                                                                                                                                  |
+| `stop_position`       | `σ² = σ_s² + σ_pose² + σ_stopline²`                                                 | **Not computable today**: the pipeline runs in sensor coordinates with a nil pose, so `σ_pose` is undefined. Blocked on the site frame                                                                                                                                                                                                                                                                |
+| `lateral_offset_lane` | `σ² = σ_lat² + σ_pose² + σ_lane_geometry²`                                          | Same block. The map's own accuracy is a term, and a hand-drawn lane centreline can easily dominate the trajectory error                                                                                                                                                                                                                                                                               |
+| Any pairwise metric   | Both tracks contribute                                                              | Suppress when either track is below the quality floor, or when either was coasting rather than observed at the relevant instant                                                                                                                                                                                                                                                                       |
 
-### 8.2 Coasting is not observation
+### 9.2 Coasting is not observation
 
 The estimation plan persists a `final` state for frames where the tracker was
 coasting through an occlusion. Those states are legitimate trajectory estimates
@@ -667,9 +941,76 @@ denominator must exclude coasted time. Otherwise a vehicle hidden behind a van
 for six frames silently contributes six frames of fictitious following
 exposure.
 
-## 9. Data model
+### 9.3 A scalar sigma is not always enough
 
-### 9.1 Roadway context does not exist yet, including the speed limit
+A single Gaussian sigma is adequate for primitives such as speed, separation and
+position. It is wrong for several of the metrics that matter most here, and
+being wrong in a way that understates the tail is the dangerous direction.
+
+| Metric                                                  | Why a scalar sigma misleads                                                                                                                                                                                  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ttc`                                                   | `gap / closing` is a ratio whose denominator can approach zero. Its distribution is heavy-tailed and asymmetric; a symmetric interval around the point estimate is meaningless near the suppression boundary |
+| `pet`                                                   | A difference of two threshold-crossing times, each of which is a first-passage quantity, not a Gaussian sample                                                                                               |
+| `min_separation`, `min_speed`, and every other extremum | The minimum of a correlated series. Its distribution is skewed toward the observed value: an extremum estimated from noisy samples is biased low, and symmetric error bars hide that                         |
+| `stop_duration`                                         | Time between two threshold crossings, bounded below at zero                                                                                                                                                  |
+| Any threshold-crossing time                             | Same                                                                                                                                                                                                         |
+
+The data model must therefore support more than one uncertainty representation,
+chosen per metric rather than imposed globally:
+
+| Representation                                                        | Use                                                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `sigma`                                                               | Symmetric, approximately Gaussian primitives                                          |
+| `interval` with a stated coverage, for example 5th to 95th percentile | Asymmetric or heavy-tailed quantities                                                 |
+| `bounds`, lower and upper                                             | Quantities with a hard physical bound, and lower-bound-only cases                     |
+| `method`                                                              | How it was propagated: `analytic`, `linearised`, `sigma_point`, `monte_carlo`         |
+| `samples`                                                             | Sample count, when the method is stochastic, so the interval's own precision is known |
+
+**Do not require every metric to use the same representation**, and do not
+default to sigma because it is convenient. A metric whose uncertainty is
+genuinely asymmetric and is reported as a sigma is misreported.
+
+Sigma-point or Monte Carlo propagation is the honest option for the extrema and
+the ratios, and it is affordable: these are per-event computations over a
+handful of states, not per-frame ones.
+
+### 9.4 Pairwise metrics are not independent
+
+Propagating two tracks' uncertainties as though they were independent is wrong,
+and it is wrong in both directions depending on the error source.
+
+| Uncertainty source                         | Independent between tracks?              | Effect on a relative measurement                                                                                                                     |
+| ------------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-track estimation noise                 | Yes, approximately                       | Adds in quadrature, as expected                                                                                                                      |
+| Extent belief per track                    | Yes                                      | Adds; dominates clearance, per 9.1                                                                                                                   |
+| Sensor pose and site calibration           | **No: common mode**                      | Largely **cancels** in a relative measurement, so treating it as independent overstates the uncertainty                                              |
+| Timestamp alignment between the two states | **No: common mode**, but does not cancel | A shared timing error moves both objects along their own paths, so it survives as a separation error proportional to relative speed                  |
+| Road-surface and map geometry              | **No: common mode**                      | Cancels for separation between two users on the same surface; does not cancel across a surface discontinuity, which is exactly the intersection case |
+
+Two consequences worth stating plainly. Passing clearance benefits from
+cancellation: both parties are localised against the same sensor pose, so a
+pose error moves both together and largely drops out of their separation. PET
+does not benefit in the same way, because it is a difference of times rather
+than of positions, and a timestamp error enters directly.
+
+Three uncertainty scopes are therefore tracked separately rather than summed
+into one number:
+
+```text
+track_local      per-track estimation and extent uncertainty
+shared_sensor    sensor pose, site calibration, timestamp alignment
+shared_geometry  road-surface and map geometry
+```
+
+**The first increment does not need to implement the cancellation.** It needs to
+avoid making independence irreversible: the three scopes are carried separately
+in the data model from the start, and the first implementation may simply sum
+them. Retrofitting a scope distinction after metrics have shipped with a single
+opaque sigma is the expensive path.
+
+## 10. Data model
+
+### 10.1 Roadway context does not exist yet, including the speed limit
 
 An inspection finding that gates most `legal` benchmarks: **there is no posted
 speed limit anywhere in the schema.** The `site` table carries latitude,
@@ -690,7 +1031,7 @@ The remaining roadway context, lane centrelines, stop lines, crossings and
 conflict regions, belongs to [lidar-l7-scene-plan](lidar-l7-scene-plan.md) and
 is the reason Phase 7 exists.
 
-### 9.2 Proposed types
+### 10.2 Proposed types
 
 Adapted to repository conventions rather than copied: track identifiers are
 **strings** (`trk_<uuid>`, per `TrackedObject.TrackID`), not integers;
@@ -700,71 +1041,163 @@ snake case.
 ```go
 package l8behaviour // new, under internal/lidar/
 
-// BenchmarkKind records what authority, if any, a comparison carries.
-type BenchmarkKind uint8
+// ---------------------------------------------------------------------------
+// Uncertainty: not always a scalar
+// ---------------------------------------------------------------------------
+
+// UncertaintyKind selects the representation. See 9.3: forcing every metric
+// into a symmetric sigma misreports the ratios and the extrema.
+type UncertaintyKind uint8
 
 const (
-    BenchmarkNone BenchmarkKind = iota
-    BenchmarkLegal                // a jurisdictional rule
-    BenchmarkResearchThreshold    // a published methodology's threshold
-    BenchmarkExternalDistribution // a published population
-    BenchmarkLocalDistribution    // our own stratified observations
-    BenchmarkNoEstablished        // reported as a value only
+    UncertaintyNone UncertaintyKind = iota
+    UncertaintySigma                 // symmetric, approximately Gaussian
+    UncertaintyInterval              // asymmetric, with a stated coverage
+    UncertaintyBounds                // hard lower and/or upper bound
 )
 
-// Benchmark identifies the specific authority behind a comparison, so that a
-// number in a report can be traced to the statute or paper that justifies it.
-type Benchmark struct {
-    Kind         BenchmarkKind `json:"kind"`
-    ID           string        `json:"id"`                     // e.g. "ssam.ttc.1.5s", "site.42.speed_limit"
-    Jurisdiction string        `json:"jurisdiction,omitempty"` // legal only
-    Citation     string        `json:"citation,omitempty"`     // research only
-    EffectiveAt  int64         `json:"effective_at,omitempty"` // legal only
-    Population   string        `json:"population,omitempty"`   // distribution only: the stratification used
+// PropagationMethod records how the uncertainty was obtained, because an
+// analytic bound and a 200-sample Monte Carlo interval deserve different trust.
+type PropagationMethod string
+
+const (
+    PropagationAnalytic   PropagationMethod = "analytic"
+    PropagationLinearised PropagationMethod = "linearised"
+    PropagationSigmaPoint PropagationMethod = "sigma_point"
+    PropagationMonteCarlo PropagationMethod = "monte_carlo"
+)
+
+type Uncertainty struct {
+    Kind   UncertaintyKind   `json:"kind"`
+    Sigma  float64           `json:"sigma,omitempty"`
+    Lower  *float64          `json:"lower,omitempty"`
+    Upper  *float64          `json:"upper,omitempty"`
+    Coverage float64         `json:"coverage,omitempty"` // e.g. 0.90 for a 5th-95th interval
+    Method PropagationMethod `json:"method"`
+    Samples int              `json:"samples,omitempty"`
+
+    // Contributions by scope, per 9.4. Carried separately from the start so
+    // that common-mode cancellation can be introduced later without
+    // reinterpreting stored values.
+    TrackLocal     float64 `json:"track_local,omitempty"`
+    SharedSensor   float64 `json:"shared_sensor,omitempty"`
+    SharedGeometry float64 `json:"shared_geometry,omitempty"`
 }
 
-// Measurement is one value with everything needed to judge it. Uncertainty and
-// provenance are mandatory, not optional decoration.
-type Measurement struct {
-    Name        string  `json:"name"`
-    Value       float64 `json:"value"`
-    Unit        string  `json:"unit"`
-    Sigma       float64 `json:"sigma"`
-    Suppressed  bool    `json:"suppressed"`
-    SuppressWhy string  `json:"suppress_why,omitempty"`
+// ---------------------------------------------------------------------------
+// Provenance
+// ---------------------------------------------------------------------------
+
+// Provenance answers "why should I believe this number?" for every result.
+// Four version axes, because a result can change for four independent reasons.
+type Provenance struct {
+    EstimateStage string `json:"estimate_stage"` // must be "final" for production
+    EstimatorID   string `json:"estimator_id"`
+    ObsModelID    string `json:"obs_model_id"`
+    MethodID      string `json:"method_id"`      // behaviour method and threshold set
+    GeometryID    string `json:"geometry_id,omitempty"` // road/map geometry version
+    ParamHash     string `json:"param_hash"`
+
+    // What was actually used.
+    ContributingTrackIDs []string `json:"contributing_track_ids"`
+    FirstUnixNanos       int64    `json:"first_unix_nanos"`
+    LastUnixNanos        int64    `json:"last_unix_nanos"`
+    ObservedFrames       int      `json:"observed_frames"`
+    CoastedFrames        int      `json:"coasted_frames"`
+    PlanarFallback       bool     `json:"planar_fallback"`
+}
+
+// ---------------------------------------------------------------------------
+// Results: numeric and categorical are different things
+// ---------------------------------------------------------------------------
+
+// SuppressionReason is a closed vocabulary; see 7.2.
+type SuppressionReason string
+
+// BehaviourMeasurement is a numeric result. Either Value is meaningful, or
+// Suppressed is set and Reason explains why. Never both, never neither.
+type BehaviourMeasurement struct {
+    Name  string  `json:"name"`
+    Value float64 `json:"value"`
+    Unit  string  `json:"unit"`
+
+    Uncertainty Uncertainty `json:"uncertainty"`
+
+    Suppressed bool              `json:"suppressed"`
+    Reason     SuppressionReason `json:"reason,omitempty"`
 
     Benchmark  *Benchmark `json:"benchmark,omitempty"`
-    Percentile *float64   `json:"percentile,omitempty"` // against Benchmark.Population
+    Percentile *float64   `json:"percentile,omitempty"`
 
-    // Exposure denominator, for rate-form metrics. Zero means not applicable.
+    // Exposure denominator for rate-form metrics, counting only `observed`
+    // support per 7.3.
     OpportunitySeconds float64 `json:"opportunity_seconds,omitempty"`
 
-    // Provenance back to the estimator that produced the trajectory.
-    EstimateStage string `json:"estimate_stage"` // must be "final"
-    EstimatorID   string `json:"estimator_id"`
-    ParamHash     string `json:"param_hash"`
+    Provenance Provenance `json:"provenance"`
 }
+
+// BehaviourOutcome is a categorical result. It never replaces its evidence:
+// DerivedFrom names the measurements that produced it, and they are stored.
+type BehaviourOutcome struct {
+    Name  string `json:"name"`  // e.g. "stop_outcome"
+    Value string `json:"value"` // e.g. "rolling_stop"
+
+    // Confidence in the categorisation itself, distinct from the uncertainty
+    // of the measurements behind it.
+    Confidence float64 `json:"confidence"`
+
+    // The measurements this outcome was derived from, by name, and the
+    // threshold set that mapped them to a category.
+    DerivedFrom  []string `json:"derived_from"`
+    ThresholdSet string   `json:"threshold_set"`
+
+    Suppressed bool              `json:"suppressed"`
+    Reason     SuppressionReason `json:"reason,omitempty"`
+
+    Provenance Provenance `json:"provenance"`
+}
+
+// ---------------------------------------------------------------------------
+// Passages and interactions
+// ---------------------------------------------------------------------------
+
+// ObservationSupport is the per-instant support state; see 7.3.
+type ObservationSupport string
+
+const (
+    SupportObserved         ObservationSupport = "observed"
+    SupportCoasted          ObservationSupport = "coasted"
+    SupportOccludedInferred ObservationSupport = "occluded_inferred"
+    SupportMissedUnknown    ObservationSupport = "missed_unknown"
+    SupportClusterMerged    ObservationSupport = "cluster_merged"
+    SupportClusterSplit     ObservationSupport = "cluster_split"
+    SupportOutOfFOV         ObservationSupport = "out_of_fov"
+)
 
 // PassageSummary is the per-track behavioural record: one road user, one
 // traverse of one site. Deliberately not called a driver profile.
 type PassageSummary struct {
-    TrackID     string `json:"track_id"`
-    SiteID      int64  `json:"site_id"`
-    SensorID    string `json:"sensor_id"`
-    ClassLabel  string `json:"class_label"`
+    TrackID  string `json:"track_id"`
+    SiteID   int64  `json:"site_id"`
+    SensorID string `json:"sensor_id"`
+
+    // Motion class drives applicability, per 7.1. Confidence is carried so a
+    // low-confidence class can gate class-specific metrics.
+    MotionClass     string  `json:"motion_class"`
+    ClassLabel      string  `json:"class_label"`
+    ClassConfidence float64 `json:"class_confidence"`
 
     StartUnixNanos int64 `json:"start_unix_nanos"`
     EndUnixNanos   int64 `json:"end_unix_nanos"`
 
     ObservedPathMetres float64 `json:"observed_path_metres"`
-    ObservedSeconds    float64 `json:"observed_seconds"`
-    CoastedSeconds     float64 `json:"coasted_seconds"`
+    SupportSeconds     map[ObservationSupport]float64 `json:"support_seconds"`
 
-    Metrics []Measurement `json:"metrics"`
+    Measurements []BehaviourMeasurement `json:"measurements"`
+    Outcomes     []BehaviourOutcome     `json:"outcomes"`
 }
 
-// InteractionType is classified before any metric is computed, because it
-// determines which formulae are valid at all.
+// InteractionType is classified with a posterior, not asserted; see 7.5.
 type InteractionType string
 
 const (
@@ -775,13 +1208,25 @@ const (
     InteractionOpposing  InteractionType = "opposing"
 )
 
+type InteractionClassification struct {
+    Posterior  map[InteractionType]float64 `json:"posterior"`
+    MAP        InteractionType             `json:"map"`
+    Confidence float64                     `json:"confidence"`
+
+    // Evidence retained so a surprising suppression can be explained.
+    ConflictAngleRad *float64 `json:"conflict_angle_rad,omitempty"`
+    PathOverlap      *float64 `json:"path_overlap,omitempty"`
+    RelativeSpeedMps *float64 `json:"relative_speed_mps,omitempty"`
+}
+
 // InteractionEvent is a pairwise encounter. Primary and Secondary name roles in
 // the geometry, not fault.
 type InteractionEvent struct {
-    EventID           string          `json:"event_id"`
-    PrimaryTrackID    string          `json:"primary_track_id"`
-    SecondaryTrackID  string          `json:"secondary_track_id"`
-    Type              InteractionType `json:"type"`
+    EventID          string `json:"event_id"`
+    PrimaryTrackID   string `json:"primary_track_id"`
+    SecondaryTrackID string `json:"secondary_track_id"`
+
+    Classification InteractionClassification `json:"classification"`
 
     StartUnixNanos int64 `json:"start_unix_nanos"`
     EndUnixNanos   int64 `json:"end_unix_nanos"`
@@ -791,44 +1236,49 @@ type InteractionEvent struct {
     ConflictX, ConflictY *float64 `json:"conflict_x,omitempty"`
     ConflictAngleRad     *float64 `json:"conflict_angle_rad,omitempty"`
     ConflictFromMap      bool     `json:"conflict_from_map"`
+    SurfaceContinuous    bool     `json:"surface_continuous"` // false across a grade discontinuity: see 9.4
 
-    // Metrics carry their own uncertainty and suppression state.
-    Metrics []Measurement `json:"metrics"`
+    Measurements []BehaviourMeasurement `json:"measurements"`
+    Outcomes     []BehaviourOutcome     `json:"outcomes"`
 
-    // How well both parties were observed throughout.
-    Confidence float64 `json:"confidence"`
-
-    // True when either party was coasting during the measured interval.
-    InvolvedCoasting bool `json:"involved_coasting"`
+    // Worst support state across both parties during the measured interval.
+    WorstSupport ObservationSupport `json:"worst_support"`
 }
 
 // ExposureWindow is an opportunity denominator, stored explicitly so a rate can
-// be audited and recomputed.
+// be audited and recomputed. Seconds counts `observed` support only.
 type ExposureWindow struct {
-    TrackID   string  `json:"track_id"`
-    Kind      string  `json:"kind"` // "free_flow", "valid_following", "yield_opportunity", "overtake"
-    Seconds   float64 `json:"seconds"`
-    StartUnixNanos int64 `json:"start_unix_nanos"`
-    EndUnixNanos   int64 `json:"end_unix_nanos"`
+    TrackID        string  `json:"track_id"`
+    Kind           string  `json:"kind"` // "free_flow", "valid_following", "yield_opportunity", "overtake"
+    Seconds        float64 `json:"seconds"`
+    StartUnixNanos int64   `json:"start_unix_nanos"`
+    EndUnixNanos   int64   `json:"end_unix_nanos"`
 }
 ```
 
-Three departures from the sketch in the brief, each deliberate.
+Five departures from the sketch in the brief, each deliberate.
 
-**Uncertainty is not an optional float.** `Measurement` carries `Sigma`,
-`Suppressed` and `SuppressWhy` because suppression is the common case for half
-these metrics and an absent value must explain itself.
+**Track identifiers are strings.** `TrackedObject.TrackID` is `trk_<uuid>`. An
+`int64` here would not compile against the existing tracker.
+
+**Numeric and categorical results are different types.** Forcing "rolling stop"
+through a `float64` would be exactly the opaque enum-to-number encoding this
+plan exists to avoid. `BehaviourOutcome` keeps a reference to the measurements
+it was derived from, so the evidence survives the categorisation.
+
+**Uncertainty is a struct, not a float.** Ratios and extrema are not symmetric,
+and the three uncertainty scopes are carried separately from the start so that
+common-mode cancellation is a later refinement rather than a migration.
 
 **Benchmark is a struct, not an ID string.** A legal benchmark needs a
 jurisdiction and an effective date; a research threshold needs a citation; a
-distribution needs its stratification. Flattening them to one string loses
-exactly the provenance this plan exists to preserve.
+distribution needs its stratification. Flattening them loses exactly the
+provenance this plan exists to preserve.
 
-**Interaction type is classified first.** It is a field on the event, and it
-gates which metrics are computed, rather than every metric being attempted on
-every pair.
+**Interaction type carries a posterior.** It gates which metrics are computed at
+all, and an ambiguous classification suppresses rather than picks the argmax.
 
-### 9.3 Persistence
+### 10.3 Persistence
 
 | Table                      | Content                                                       | Notes                                                                                                             |
 | -------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -842,7 +1292,7 @@ final estimates. It therefore carries `estimator_id` and `param_hash`, and a
 change to either invalidates the derived rows rather than silently mixing
 versions.
 
-## 10. Evaluation datasets
+## 11. Evaluation datasets
 
 What each source can and cannot validate. Claiming validation from a dataset
 lacking the necessary signal is the failure mode to avoid.
@@ -867,17 +1317,54 @@ an equation is implemented correctly and for external distributions. They are
 poor for predicting what fraction of interactions our sensor will actually
 observe, which is what the soma captures are for.
 
-## 11. Roadmap
+## 12. Roadmap
 
-Every phase is gated on **G-SMO-1** from the estimation plan. Nothing here can
-start before a `final` estimate exists.
+### 12.1 Two orderings, and they differ
+
+Engineering dependency order and product priority are not the same list, and
+conflating them lets implementation convenience masquerade as importance.
+
+| Engineering dependency order       | Product priority                         |
+| ---------------------------------- | ---------------------------------------- |
+| 1. Universal trajectory primitives | 1. **Vehicle-cyclist passing clearance** |
+| 2. Single-track kinematics         | 2. PET and conflict analysis             |
+| 3. Pairwise geometry               | 3. Pedestrian yielding                   |
+| 4. Empirical-path behaviour        | 4. Intersection approach behaviour       |
+| 5. Roadway context                 | 5. Stop compliance                       |
+| 6. Complex interaction metrics     | 6. Following exposure                    |
+|                                    | 7. Acceleration and braking              |
+|                                    | 8. Jerk                                  |
+
+The two lists are close to inverted at the top. Acceleration and braking are
+technically the easiest thing here and near the bottom of the product list.
+Passing clearance is the top product priority and depends on pairwise geometry,
+class priors for vulnerable-road-user extents, and a converged extent belief.
+
+Practical consequences for sequencing:
+
+- **Phase 6A ships the primitives, not the product.** Its output is
+  infrastructure plus a suppression-rate report, not a headline metric. Say so,
+  so that its completion is not mistaken for delivering value to a user.
+- **Pull passing-clearance dependencies forward.** The class-prior extent model
+  from 9.1, and the `min_separation` primitive from 8.9, are Phase 6B work that
+  should be scheduled early within it rather than last.
+- **Jerk is last in both orderings**, which is the one place they agree.
+
+### 12.2 Gating
+
+Development and emission are gated differently, per 2.1.
+
+|                                                                                                                            | Gate                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Building and testing any phase below against synthetic trajectories, fixture `EstimatedState` streams or external datasets | **None.** All phases may begin now                                                                        |
+| Emitting a production result from live or replayed LiDAR tracks                                                            | **G-SMO-1**, plus the phase's own acceptance criteria and the per-metric applicability rules in Section 7 |
 
 ### Phase 6A: single-track kinematics
 
 **Goal.** Passage-level speed, acceleration, braking, curvature, and stop
 behaviour that needs no map.
 
-**Inputs.** `final` estimates with covariance. No roadway context.
+**Inputs.** `final` estimates with covariance, or a fixture stream during development. No roadway context.
 
 **Files.** New `internal/lidar/l8behaviour/`; `Measurement`, `PassageSummary`,
 `ExposureWindow`; migration for `lidar_passage_summaries` and
@@ -952,7 +1439,7 @@ lane changes with target-lane gaps, intersection movement.
 
 **Inputs.** Site frame, per [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md).
 Roadway geometry, per [lidar-l7-scene-plan](lidar-l7-scene-plan.md). Speed limit
-in `site_config_periods`, per Section 9.1.
+in `site_config_periods`, per Section 10.1.
 
 **Acceptance.** Every `legal` benchmark carries its jurisdiction and effective
 date. Lane-relative metrics propagate map uncertainty and suppress when the map
@@ -967,7 +1454,7 @@ traversed; map accuracy unstated.
 regions, conflict angle, and the induced-response evidence surface.
 
 **Inputs.** Phase 6B, Phase 7 geometry, class priors for VRU extents per
-Section 8.1, and the estimation plan's Phase 8 abnormal-motion evidence.
+Section 9.1, and the estimation plan's Phase 8 abnormal-motion evidence.
 
 **Acceptance.** Passing clearance sigma below 0.1 m for the class-prior width
 model, verified against synthetic scenes with known geometry. Yield outcomes
@@ -978,7 +1465,7 @@ and magnitude, never causation.
 observed at closest approach; clearance sigma above the legal discrimination
 need.
 
-## 12. Open research questions
+## 13. Open research questions
 
 | #   | Question                                                                                               | Why it is unresolved                                                                                                                                                        |
 | --- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -992,7 +1479,107 @@ need.
 | B8  | Does the SSAM PET default of 5 s appear in the primary user manual?                                    | Confirmed only from secondary sources; see Section 5.1                                                                                                                      |
 | B9  | How much does the estimation plan's association rate improvement move behaviour feasibility?           | At 43.6 % the effective rate is 5 Hz; at 90 % it approaches 10 Hz, which roughly halves the jerk window and doubles interaction observability                               |
 
-## 13. References
+## 14. Answers to the questions this revision raised
+
+**1. Which metrics apply to all road users?**
+The universal trajectory primitives: position and path, speed, velocity vector,
+path length, observed duration, trajectory curvature, acceleration where
+observable, per-state uncertainty, trajectory confidence and observation
+coverage. Plus, on the interaction side, `min_separation` and conflict geometry,
+which are defined for any pair of estimated geometries. See 7.1.
+
+**2. Which are motor-vehicle-specific?**
+Following headway and its exposure, braking and acceleration behaviour, complete
+stop behaviour, lane keeping and lane departure, approach speed, and
+longitudinal jerk. These are `rigid_vehicle` metrics; computing them for a
+pedestrian is arithmetically possible and meaningless.
+
+**3. Which are pairwise interaction metrics?**
+Minimum synchronised surface-to-surface separation, PET, conflict point and
+angle, relative speed at conflict, TTC and DRAC for confidently longitudinal
+pairs, passing clearance for confident overtakes, yielding, and induced
+response. Most of the strategically valuable ones are cross-class.
+
+**4. How is metric applicability represented?**
+As explicit declared requirements per metric, covering motion class, relation
+between parties, estimation lifecycle, observation support, extent convergence,
+geometry availability, uncertainty bounds and interaction-classification
+confidence. Evaluated before the metric is computed, not after. See 7.2.
+
+**5. How are unsupported metrics suppressed?**
+With a machine-readable `SuppressionReason` from a closed vocabulary, stored and
+queryable alongside the results. A suppressed metric is a first-class result,
+not an absence, and the per-site rate of each reason is a diagnostic in its own
+right.
+
+**6. How are categorical outcomes separated from numeric measurements?**
+Two types. `BehaviourMeasurement` carries a value, unit, uncertainty, benchmark
+and provenance. `BehaviourOutcome` carries a label, a confidence, the threshold
+set that produced it, and **references to the measurements it was derived from**,
+which are themselves stored. "Rolling stop" always remains traceable to minimum
+speed, duration below threshold, position relative to the stop zone, trajectory
+uncertainty and geometry confidence.
+
+**7. How is trajectory uncertainty propagated into behaviour results?**
+Per metric, with a declared propagation method and a representation appropriate
+to its distribution: sigma for symmetric primitives, intervals for ratios and
+extrema, bounds where a hard limit exists. Contributions are carried in three
+scopes, `track_local`, `shared_sensor` and `shared_geometry`, so that
+common-mode cancellation can be introduced without reinterpreting stored values.
+See 9.3 and 9.4.
+
+**8. How are hilly and site geometries incorporated?**
+Metrics are computed in the local road-surface frame where one is available, and
+the result records which surface model was used or that a planar fallback
+applied. On a graded site a planar-fallback result whose grade error dominates
+is suppressed with `planar_fallback_insufficient`. Separation across a surface
+discontinuity, meaning the intersection case, loses the common-mode cancellation
+that separation on a shared surface enjoys, and `InteractionEvent` records
+`SurfaceContinuous` for exactly that reason. The surface model itself is L7; see
+[lidar-state-estimation-plan Section 14](lidar-state-estimation-plan.md).
+
+**9. Which metrics require lane or road-map context?**
+Lane-relative position, heading error relative to lane, lane departure,
+stop-line distance and the full stop-outcome taxonomy, lane-change target-lane
+gaps, and intersection movement classification. Speed-limit compliance needs
+site metadata rather than geometry, and that metadata does not exist yet either;
+see 10.1. Everything else in Sections 7 and 8 works in sensor or path
+coordinates.
+
+**10. Which metrics are strategically highest-value for a fixed roadside
+sensor?**
+Vehicle-cyclist passing clearance first, then PET and conflict analysis, then
+pedestrian yielding, then intersection approach behaviour, then stop
+compliance. These are the measurements a roadside sensor makes well and mobile
+telemetry makes poorly or not at all. Following exposure, acceleration and
+braking, and jerk are technically earlier and strategically later. See 12.1.
+
+## 15. Changes introduced by this revision
+
+| #   | Change                                                                                                                                      | Why                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Added Section 2.1: development may proceed in parallel; **emission** is what G-SMO-1 gates                                                  | The previous wording idled this work behind an estimator milestone for no engineering reason, while leaving the genuinely dangerous case, computing metrics from today's biased tracks, less clearly forbidden |
+| 2   | Added Section 7: the metric framework, ahead of the feature matrix                                                                          | The matrix said what could be measured and nothing said when it may be emitted                                                                                                                                 |
+| 3   | Added the three-tier road-user scope: universal primitives, class-specific metrics, interaction metrics                                     | The plan was implicitly motor-vehicle-shaped                                                                                                                                                                   |
+| 4   | Added declared per-metric applicability and a closed `SuppressionReason` vocabulary                                                         | A suppressed metric is now a first-class stored result rather than a silent absence                                                                                                                            |
+| 5   | Added the observation-support taxonomy, separating `occluded_inferred` from `missed_unknown`                                                | Treating every miss as occlusion would hide defect P4 behind a plausible label                                                                                                                                 |
+| 6   | Split `Measurement` into `BehaviourMeasurement` and `BehaviourOutcome`                                                                      | Forcing "rolling stop" through a `float64` is the opaque encoding this plan exists to avoid. Outcomes now reference the evidence they were derived from                                                        |
+| 7   | Added interaction classification as a **posterior** with retained evidence, gating metrics on classification confidence                     | Applying longitudinal TTC to an ambiguous following-versus-merging pair produces a confident meaningless number                                                                                                |
+| 8   | Generalised passing clearance to `min_separation`, with lateral clearance as a projection for confident overtakes                           | Lateral distance assumes a straight road and parallel paths; it breaks on curves, angled paths, lane changes and intersections                                                                                 |
+| 9   | Replaced scalar `Sigma` with an `Uncertainty` struct supporting intervals, bounds and a propagation method                                  | TTC, PET and every extremum are asymmetric or heavy-tailed; a symmetric sigma misreports them                                                                                                                  |
+| 10  | Added three uncertainty scopes, `track_local`, `shared_sensor`, `shared_geometry`                                                           | Pairwise metrics are not independent: sensor pose largely cancels in a separation and does not cancel in a PET                                                                                                 |
+| 11  | Marked jerk **experimental**, with the raw-versus-band-limited distinction and a published-boundary acceptance test                         | Jerk was retained but not sufficiently fenced                                                                                                                                                                  |
+| 12  | Added Section 12.1: engineering dependency order and product priority as separate orderings, with VRU interactions leading the product list | The two are close to inverted at the top, and implementation convenience was implying importance                                                                                                               |
+| 13  | Added four version axes to `Provenance`: estimator, observation model, behaviour method, geometry                                           | A result can change for four independent reasons                                                                                                                                                               |
+| 14  | Added Section 13A answering the ten questions this revision raised                                                                          |                                                                                                                                                                                                                |
+
+Deliberately unchanged: the observation budget measurements, the fixed-roadside
+versus mobile feasibility table, the benchmark taxonomy and its citation
+hygiene, the opportunity-normalisation argument, the feature groups themselves,
+the evaluation-dataset strategy and the open research questions. The revision
+corrects framework and representation; it does not relitigate the research.
+
+## 16. References
 
 Primary and authoritative sources only. Where a value could not be confirmed
 from a primary document, that is stated at the point of use.

@@ -8,12 +8,57 @@
 - **Canonical maths:** [data/maths/tracking-maths.md](../../data/maths/tracking-maths.md), [data/maths/proposals/20260222-geometry-coherent-tracking.md](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 
 > **Scope split.** This plan owns the path from raw points to a trustworthy
-> physical trajectory: observation model, estimator, uncertainty, geometry,
-> smoothing, persistence, and the evidence surface for abnormal motion. It owns
-> Phases 0 to 5 and Phase 8. What is then _measured about road-user behaviour_
-> using that trajectory, Phases 6 and 7, lives in
-> [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md). Phase
-> numbering is shared across the two documents so cross-references survive.
+> physical trajectory: observation model, measurement interpretation, estimator,
+> uncertainty, geometry, retrospective refinement, persistence, and the evidence
+> surface for abnormal motion. It owns Phases 0 to 5 and Phase 8. What is then
+> _measured about road-user behaviour_ using that trajectory, Phases 6 and 7,
+> lives in [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md).
+> Phase numbering is shared across the two documents so cross-references survive.
+>
+> **The contract between them.** State estimation produces an explainable,
+> uncertainty-bearing final physical trajectory. Behaviour analytics consumes
+> that trajectory and emits only metrics supported by class, geometry,
+> observation coverage and uncertainty.
+
+## 0. Principles
+
+Two principles govern every decision in this document. They are stated first
+because several later sections were revised specifically to satisfy them, and
+because a design that violates either is wrong regardless of its metrics.
+
+### 0.1 No black boxes
+
+For every derived state and every behavioural metric, the system must be able to
+say: what sensor evidence was observed; what physical state was estimated; which
+model and assumptions were applied; how uncertain that estimate was; how far the
+observation deviated from the estimate; why an observation was accepted,
+downweighted, rejected or marked ambiguous; and why a metric was emitted or
+suppressed.
+
+**No silent fallback may change the meaning of a quantity.** If a field called
+"estimated physical reference position" cannot be estimated, it does not quietly
+become something else. It becomes unavailable, with a stated reason. Section 12
+revises the degraded-mode design that previously violated this.
+
+### 0.2 Estimate the most probable physical path, do not cosmetically smooth
+
+The objective is not an aesthetically smooth trajectory. It is the most probable
+physical path of the observed road user, given the LiDAR observations, their
+uncertainty, known object geometry, class-conditioned motion constraints, and,
+where retrospective estimation is permitted, subsequent observations.
+
+> A historical state is revised only because additional evidence changes the most
+> probable physical state. We do not smooth trajectories merely to make them
+> appear physically plausible.
+
+This changes the vocabulary. Product-level language says **final trajectory
+estimate**, **retrospectively refined estimate**, or **most probable physical
+path**. Algorithm names stay technical: Kalman filter, RTS smoother, fixed-lag
+smoother are precise and are retained where an algorithm is meant.
+
+Both the observation and the estimate are preserved, so their disagreement stays
+inspectable. That is the mechanism that makes 0.1 enforceable rather than
+aspirational.
 
 ## Executive summary
 
@@ -172,22 +217,52 @@ motion model, are the current bottleneck on trajectory quality.
 
 ## 2. Problems, ranked
 
-| #   | Problem                                                           | Root cause                                                                                                                                                                                               | Severity                                                                                 |
-| --- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| P1  | Lateral position steps of up to about 1 m on straight-line travel | The measurement is a visible-surface point, not an object centre. Bias up to `W/2` laterally and `L/2` longitudinally, switching discretely between faces                                                | **Critical**: this is the reported defect                                                |
-| P2  | Systematic along-track drift across a pass                        | The medoid slides from the front of the visible face to the rear as the aspect angle sweeps, producing a signed position error that reverses at closest approach and reads as decelerate-then-accelerate | **Critical**: corrupts the speed product                                                 |
-| P3  | Observations are not retained                                     | `lidar_clusters` empty, cluster points discarded, observation table holds the estimate                                                                                                                   | **Critical**: blocks every offline comparison this plan depends on                       |
-| P4  | Association misses about 56 % of frames on moving tracks          | Under investigation; candidates are gating against a biased prediction, cluster fragmentation, and frame throttling                                                                                      | **High**: halves the effective sample rate                                               |
-| P5  | Orientation is estimated outside the estimator                    | EMA plus three guards, no covariance, cannot be predicted                                                                                                                                                | **High**: blocks any geometric observation model, which needs a predicted heading        |
-| P6  | Measurement noise is one isotropic scalar                         | `MeasurementNoise = 0.05` for all ranges, point counts and aspects                                                                                                                                       | **High**: gating and gain are wrong at both ends of the range envelope                   |
-| P7  | Dimensions are running means over partially observed frames       | `BoundingBoxLengthAvg` and siblings                                                                                                                                                                      | **Medium**: biases classification and blocks a dimension prior                           |
-| P8  | No per-frame residual record                                      | Debug collector unwired, nothing persisted                                                                                                                                                               | **Medium**: no way to distinguish a bad measurement from a real manoeuvre after the fact |
-| P9  | Single frame timestamp for all clusters                           | `Tracker.Update(clusters, frame.StartTimestamp)`                                                                                                                                                         | **Medium**: up to 100 ms of unmodelled time offset, azimuth-dependent                    |
-| P10 | Sensor frame is the only frame                                    | nil pose                                                                                                                                                                                                 | **Medium**: blocks lane and stop-line work entirely                                      |
+| #   | Problem                                                            | Root cause                                                                                                                                                                                                        | Severity                                                                                 |
+| --- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| P1  | Lateral position steps of up to about 1 m on straight-line travel  | The measurement is a visible-surface point, not an object centre. Bias up to `W/2` laterally and `L/2` longitudinally, switching discretely between faces                                                         | **Critical**: this is the reported defect                                                |
+| P2  | Systematic along-track drift across a pass                         | The medoid slides from the front of the visible face to the rear as the aspect angle sweeps, producing a signed position error that reverses at closest approach and reads as decelerate-then-accelerate          | **Critical**: corrupts the speed product                                                 |
+| P3  | Observations are not retained                                      | `lidar_clusters` empty, cluster points discarded, observation table holds the estimate                                                                                                                            | **Critical**: blocks every offline comparison this plan depends on                       |
+| P4  | Association misses about 56 % of frames on moving tracks           | Under investigation; candidates are gating against a biased prediction, cluster fragmentation, and frame throttling                                                                                               | **High**: halves the effective sample rate                                               |
+| P5  | Orientation is estimated outside the estimator                     | EMA plus three guards, no covariance, cannot be predicted                                                                                                                                                         | **High**: blocks any geometric observation model, which needs a predicted heading        |
+| P6  | Measurement noise is one isotropic scalar                          | `MeasurementNoise = 0.05` for all ranges, point counts and aspects                                                                                                                                                | **High**: gating and gain are wrong at both ends of the range envelope                   |
+| P7  | Dimensions are running means over partially observed frames        | `BoundingBoxLengthAvg` and siblings                                                                                                                                                                               | **Medium**: biases classification and blocks a dimension prior                           |
+| P8  | No per-frame residual record                                       | Debug collector unwired, nothing persisted                                                                                                                                                                        | **Medium**: no way to distinguish a bad measurement from a real manoeuvre after the fact |
+| P9  | Single frame timestamp for all clusters                            | `Tracker.Update(clusters, frame.StartTimestamp)`                                                                                                                                                                  | **Medium**: up to 100 ms of unmodelled time offset, azimuth-dependent                    |
+| P10 | Sensor frame is the only frame                                     | nil pose                                                                                                                                                                                                          | **Medium**: blocks lane and stop-line work entirely                                      |
+| P11 | Ground removal is a flat height band and is not slope-aware        | `HeightBandFilter.FilterVertical` keeps `z_floor <= z <= z_ceiling` on absolute Z in the sensor frame; [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) records "not slope-aware" as a known limit | **Critical on graded sites**: see 2.1                                                    |
+| P12 | Observation and estimator-conditioned interpretation are conflated | The previously proposed `Observation` type mixed sensor-derived fields with fields that require a predicted pose, such as aspect angle and visible-face identity                                                  | **High**: two estimator versions could not consume the same evidence reproducibly        |
 
 P1 and P2 are the same defect seen along two axes. P3 is the one that gates the
 work: until observations are retained, no decision gate in this plan can be
 evaluated on real data.
+
+### 2.1 P11 is a correctness problem, not a future refinement
+
+Deployment sites are graded, so this matters now. A band on absolute Z in a
+frame whose origin is the sensor does not follow the road. Across a scene with a
+grade, the same pair of thresholds sits at a different height above the road
+surface at each range, with two consequences that pull in opposite directions:
+
+| Where the road falls away from the sensor                                                          | Where the road rises toward the sensor                                                   |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| The floor threshold sits **above** the surface, so the lower part of each vehicle is clipped       | The floor threshold sits **below** the surface, so ground returns are admitted           |
+| Cluster loses its lower returns: point count falls, OBB height shrinks, the base-Z reference moves | Ground merges with the object: extents inflate, the near face is no longer the vehicle's |
+
+Both corrupt the cluster extents that the near-edge measurement in Section 9
+depends on. That makes P11 a direct threat to the fix this plan proposes, not a
+separate concern to be handled later.
+
+**It also threatens Experiment E1.** On a straight graded approach, range
+correlates with grade-induced filter error, and range correlates with aspect
+angle. E1.1 conditions the measurement error on aspect angle; a range-correlated
+ground artefact could therefore masquerade as, or mask, the aspect-conditioned
+bias the experiment exists to detect. Section 16.5 carries the mitigation.
+
+The remedy belongs at L4 and is scoped in Section 14.3: the band becomes a
+height **above an estimated local surface** rather than above the sensor plane.
+The surface model itself is L7 work, so Phase 1 uses the cheapest sufficient
+approximation and records the residual grade error rather than waiting for the
+full model.
 
 ## 3. Evidence: what the measurement actually is
 
@@ -295,46 +370,62 @@ vehicle CAD model.
 
 ### 4.1 Stage boundaries
 
-The architecture proposed in the brief is close to right. One boundary moves and
-one stage is added.
+The dashed feedback edge in the earlier draft, from the estimator back into the
+observation model, was correct about the physics and wrong about the data model.
+It made a single `Observation` type depend on a track prediction, which means
+two estimator versions could not consume the same evidence. The fix is to split
+the concept rather than the flow.
 
 ```mermaid
 flowchart TB
     A["L3 foreground points"] --> B["L4 cluster extraction<br/>points retained"]
-    B --> C["<b>L4b observation model</b><br/>visible-surface measurement<br/>+ measurement covariance"]
-    C --> D["L5 association<br/>gated on predicted pose"]
-    D --> E["L5 online estimator<br/>pose, motion, geometry"]
-    E --> F["L5 residual record<br/>track-local frame + NIS"]
-    F --> G["L5b fixed-lag smoother<br/>3 to 5 frames"]
-    G --> H["track close: full-track RTS<br/>final_estimate"]
-    H --> I["L6 classification"]
-    H --> J["L8 behaviour metrics"]
-    J --> K["L7 roadway context<br/>lanes, stop lines"]
-    E -.predicted pose.-> C
-    E -.predicted pose.-> D
+    B --> C["<b>DetectionObservation</b><br/>immutable sensor evidence<br/>no track, no estimator"]
+    C --> D["L5 prediction<br/>per active track"]
+    D --> E["L5 candidate association"]
+    E --> F["<b>MeasurementInterpretation</b><br/>observation x prediction x object model<br/>x estimator version"]
+    F --> G["L5 gating and likelihood"]
+    G --> H["L5 state update"]
+    H --> I["online EstimatedState<br/>+ Residual record"]
+    I --> J["L5b retrospective refinement<br/>fixed lag, then full-track RTS"]
+    J --> K["<b>TrajectoryEstimate</b><br/>final"]
+    K --> L["L6 classification"]
+    K --> M["L8 road-user trajectory primitives"]
+    N["L7 road surface and roadway geometry"] -.explicit input.-> F
+    N -.explicit input.-> M
     style C fill:#dff3e4,stroke:#2f6b3b
-    style G fill:#dff3e4,stroke:#2f6b3b
+    style F fill:#dff3e4,stroke:#2f6b3b
+    style K fill:#dff3e4,stroke:#2f6b3b
 ```
 
-The new stage is **L4b, the observation model**. It sits between clustering and
-association, and it is the piece that is missing today. It converts a set of
-cluster points into a measurement of a defined physical quantity, together with
-the covariance of that measurement, given the estimator's current belief about
-the object's pose and dimensions.
+Three things changed from the previous draft.
 
-That dependency, drawn dashed, is the one structural change the brief did not
-anticipate: **the observation model needs feedback from the estimator.** You
-cannot decide which face of a vehicle you are looking at without a prior on
-where the vehicle is and which way it points. This is not a layering violation
-so long as the flow is explicit: L4b consumes a read-only `PosePrior` published
-by L5 for the previous frame, and never mutates track state.
+**The observation splits in two.** `DetectionObservation` is immutable sensor
+evidence: what the cluster is, independent of any track. `MeasurementInterpretation`
+is what that evidence means _given_ a candidate track prediction, an object
+model and an estimator version. The interpretation is derived, versioned and
+disposable; the observation is evidence and is never rewritten. Section 5.2
+gives the types and the field-by-field split.
 
-The same prior improves association, which settles the brief's question about
-where state estimation, association and classification interact. A prediction
-unbiased by half a vehicle width is a better gate centre, and P4, the 56 % frame
-miss rate, is partly a gating problem.
-Expect association to improve as a side effect of fixing the measurement, and
-measure it.
+**Interpretation happens after association, not before.** You cannot decide which
+face of a vehicle you are looking at without knowing which vehicle it is. The
+ordering is therefore predict, associate on cheap track-agnostic geometry, then
+interpret the measurement against the chosen track, then gate on the interpreted
+likelihood. Association may interpret against several candidate tracks and
+compare, which is the same operation run more than once, not a different one.
+
+**Road-surface geometry is an explicit input, not an assumption.** It enters the
+measurement interpretation, because the near-edge measurement and the ground
+reference both depend on where the road surface is, and it enters the behaviour
+primitives, because distance along a road and lateral offset from it are
+surface-relative. It is drawn as an input so that its absence is visible: with
+no surface model, the interpretation falls back to a stated planar assumption
+and records that it did. See Section 14.
+
+The prior still improves association, which settles the question of where state
+estimation, association and classification interact. A prediction unbiased by
+half a vehicle width is a better gate centre, and P4, the 56 % frame miss rate,
+is partly a gating problem. Expect association to improve as a side effect of
+fixing the measurement, and measure it.
 
 ### 4.2 What stays where
 
@@ -363,49 +454,57 @@ probabilities, acceleration process noise and an RTS window. Those are schema
 stubs with no defaults block and no implementation. New estimators slot in here.
 No new selection mechanism is needed.
 
-## 5. Observation versus estimated state
+## 5. Observation, interpretation and estimated state
 
-### 5.1 The rule
+### 5.1 Three concepts, not two
 
-An **observation** is anything computable from one frame's points without
-reference to track history. An **estimated quantity** is anything that requires
-the prior. Applying that rule to today's code produces an uncomfortable result:
-`OBBHeadingRad` is neither. It is an EMA over frames, guarded by three
-heuristics, stored on the track, and consumed as though it were a measurement.
-Per-frame `OBBLength` and `OBBWidth` are observations, but of _visible extent_,
-not of vehicle dimensions, and the code treats them as the latter.
+The earlier draft had two: observation and estimate. That was one too few, and
+the missing middle is where reproducibility lives.
+
+| Concept                     | Definition                                                                | Depends on                                                             | Mutability                                          |
+| --------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------- |
+| `DetectionObservation`      | What the sensor and the clusterer produced for one detection in one frame | Sensor, L3, L4 only                                                    | **Immutable evidence.** Written once, never revised |
+| `MeasurementInterpretation` | What that evidence means as a measurement of a particular tracked object  | Observation, a track prediction, an object model, an estimator version | Derived and versioned. Freely recomputed            |
+| `EstimatedState`            | The estimator's belief about the physical object                          | The history of interpretations accepted for that track                 | Versioned by `(estimator_id, stage)`                |
+
+The test for which side a field belongs on is mechanical: **could you compute it
+before you knew which track this detection belongs to?** Range from the sensor:
+yes, observation. Aspect angle relative to the object's heading: no, that needs
+a predicted heading, so interpretation. Point count: observation. Which face is
+visible: interpretation. Measurement covariance: interpretation, because its
+anisotropy is defined relative to a predicted pose.
+
+By that test, several fields in the previous draft's `Observation` were
+misplaced: `AspectRad`, `VisibleFaces`, `Edges`, `SigmaRadial` and
+`SigmaTangential` all require a prediction. They move.
+
+Applying the same test to today's code produces the familiar uncomfortable
+result. `OBBHeadingRad` is neither observation nor estimate: it is an EMA over
+frames with three heuristic guards, stored on the track and consumed as though
+it were a measurement. Per-frame `OBBLength` and `OBBWidth` are observations of
+_visible extent_, not of vehicle dimensions, though the code treats them as the
+latter.
+
+**Why this matters concretely.** Two estimator versions must be able to consume
+the same stored evidence and legitimately disagree, without either of them
+rewriting the evidence. That is what makes the offline estimator comparison in
+Section 11.2 a query rather than a re-run, and it is what makes Experiment E1
+possible at all.
 
 ### 5.2 Proposed Go types
 
 ```go
 package l5tracks // or a new l4bobserve package; see Section 4.1
 
-// VisibleFace records which faces of the object the sensor could see this
-// frame. Derived from the sign of the dot product between each face normal
-// (under the predicted heading) and the sensor bearing, and confirmed by
-// point support on that face.
-type VisibleFace uint8
+// ---------------------------------------------------------------------------
+// Immutable evidence
+// ---------------------------------------------------------------------------
 
-const (
-    FaceNearSide VisibleFace = 1 << iota // lateral face towards the sensor
-    FaceFarSide                          // lateral face away (rarely observed)
-    FaceLeading                          // end face in the direction of travel
-    FaceTrailing                         // end face behind
-)
-
-// EdgeMeasurement is a measurement of one observed face plane, expressed as a
-// signed offset along the face normal in the track-local frame.
-type EdgeMeasurement struct {
-    Face      VisibleFace
-    Offset    float64 // metres from track origin along the face normal
-    Sigma     float64 // 1-sigma uncertainty of Offset
-    Support   int     // points contributing
-    Truncated bool    // face extent clipped by the cluster boundary
-}
-
-// Observation is everything one frame says about one detection. It is written
-// once, never revised, and is the unit of replay.
-type Observation struct {
+// DetectionObservation is everything one frame says about one detection,
+// computed with no reference to any track, prediction or estimator. It is
+// written once and never revised. It is the unit of replay and the unit of
+// reproducibility.
+type DetectionObservation struct {
     ObservationID int64
     SensorID      string
     FrameID       string
@@ -420,176 +519,259 @@ type Observation struct {
     MedoidX, MedoidY, MedoidZ float64
     OBB                       l4perception.OrientedBoundingBox
 
-    // Derived surface measurements, the actual filter input.
-    Edges []EdgeMeasurement
+    // Retained points, bounded per cluster; see the shape-descriptors plan.
+    Points []l4perception.WorldPoint
 
-    // Observation quality inputs.
-    PointCount        int
-    RangeMetres       float64 // sensor to cluster nearest point
-    BearingRad        float64
-    AspectRad         float64 // angle between sensor bearing and predicted heading
-    PointDensity      float64 // points per square metre of visible surface
-    AngularExtentRad  float64
-    VisibleFaces      VisibleFace
-    NearestNeighbourM float64 // distance to the nearest other cluster
+    // Candidate geometric primitives fitted without a track prior: planes and
+    // edges found in the cluster, unlabelled. Which of them is "the near side
+    // face" is an interpretation, not an observation.
+    CandidatePlanes []PlanePrimitive
+    CandidateEdges  []EdgePrimitive
+
+    // Sensor-relative quantities. All computable from the sensor origin alone.
+    RangeMetres      float64
+    BearingRad       float64
+    ElevationRad     float64
+    AngularExtentRad float64
+    PointCount       int
+    PointDensity     float64 // points per square metre of apparent frontal area
+
+    // Neighbourhood and quality, all track-agnostic.
+    NearestNeighbourM float64
     Fragmented        bool
-    GroundClipped     bool
+    GroundClipped     bool // the height band touched this cluster: see P11
+    IntensityMean     float64
 
-    // Measurement covariance in the SENSOR frame (radial, tangential), before
-    // rotation into the track frame. Diagonal is sufficient here; the
-    // correlation is introduced by the rotation.
-    SigmaRadial     float64
+    // Sensor-frame measurement noise, which depends only on range, angular
+    // resolution and point support. The track-conditioned part of the
+    // covariance lives in the interpretation.
+    SigmaRange      float64
     SigmaTangential float64
 }
 
-// EstimatedState is the estimator's belief. Produced at least once per frame
-// per live track, and revised by smoothing.
-type EstimatedState struct {
-    TrackID      string
-    TSUnixNanos  int64
-    Stage        EstimateStage // online | fixed_lag | final
-    EstimatorID  string        // e.g. "cv_kf_v2"
-    ParamHash    string        // tuning hash, for reproducibility
+// ---------------------------------------------------------------------------
+// Derived, versioned interpretation
+// ---------------------------------------------------------------------------
 
-    // Pose and motion. See Section 5.3 for why this parameterisation.
-    X, Y, Z    float64
-    HeadingRad float64
-    SpeedMps   float64
-    AccelMps2  float64 // longitudinal, vehicle frame
-    YawRateRps float64
+// VisibleFace records which faces of the object the sensor could see, under a
+// predicted pose. This is an interpretation: the same points imply different
+// faces under different predicted headings.
+type VisibleFace uint8
 
-    // Upper triangle of the 6x6 covariance, row-major, 21 elements.
-    Cov [21]float64
+const (
+    FaceNearSide VisibleFace = 1 << iota
+    FaceFarSide
+    FaceLeading
+    FaceTrailing
+)
 
-    // Geometry belief, maintained separately from motion.
-    Length, Width, Height          float64
-    SigmaLength, SigmaWidth, SigmaHeight float64
-    DimensionObsCount              int
-
-    // Multiple-model diagnostics. Empty for single-model estimators.
-    ModelProbabilities map[string]float64
-
-    // Validity. See Section 12.
-    ModelValid    bool
-    ModelWarnings []string
+// EdgeMeasurement is one observed face plane expressed as a signed offset along
+// the face normal, in the object-local frame implied by the predicted pose.
+type EdgeMeasurement struct {
+    Face      VisibleFace
+    Offset    float64 // metres from track origin along the face normal
+    Sigma     float64
+    Support   int  // points contributing
+    Truncated bool // face extent clipped by the cluster boundary
 }
 
-// Residuals ties one Observation to one EstimatedState. Written per frame.
-type Residuals struct {
-    TrackID          string
-    ObservationID    int64
-    TSUnixNanos      int64
-    EstimatorID      string
+// MeasurementInterpretation is what a DetectionObservation means as a
+// measurement of one candidate track, under one object model and one estimator
+// version. It is derived, disposable and versioned. Recomputing it from stored
+// observations must be exact.
+type MeasurementInterpretation struct {
+    ObservationID int64
+    TrackID       string
+    EstimatorID   string
+    ObsModelID    string // observation-model version, distinct from estimator
+    ParamHash     string
 
-    // Innovation in the TRACK-LOCAL frame, which is the frame a human can
-    // reason about. Longitudinal is along heading, lateral is across it.
-    LongitudinalM float64
-    LateralM      float64
-    VerticalM     float64
-    HeadingRad    float64
+    // The prediction this interpretation was made against, recorded so the
+    // interpretation can be audited without replaying the filter.
+    PredictedX, PredictedY float64
+    PredictedHeadingRad    float64
+    PredictedHeadingSigma  float64
 
-    // Geometry residuals, per observed face.
-    LengthM, WidthM, HeightM float64
+    // Track-conditioned geometry.
+    AspectRad    float64 // sensor bearing relative to predicted heading
+    VisibleFaces VisibleFace
+    Edges        []EdgeMeasurement
 
-    // Statistical consistency.
-    NIS            float64 // normalised innovation squared
-    MahalanobisD   float64
-    InnovationCovDet float64
+    // The measurement actually handed to the filter, and its dimension. The
+    // dimension varies with what was observed: a frame showing only the near
+    // lateral face constrains one axis, not two. See Section 9.1.
+    Z         []float64   // measurement vector
+    R         [][]float64 // measurement covariance, track frame
+    Dimension int
 
-    // Decision record: what the estimator did about this observation and why.
-    Disposition   Disposition // accepted | downweighted | excluded | model_invalid
-    WeightApplied float64     // 1.0 for full acceptance
-    Reason        string
-}
-```
+    // Road-surface context used, or the fallback that was applied instead.
+    SurfaceModelID string // empty when the planar fallback was used
+    PlanarFallback bool
 
-Three interfaces make the alternatives in the matrices swappable and separately
-testable:
-
-```go
-// MotionModel is one hypothesis about how state evolves. CV, CA, CTRV, CTRA
-// each implement this; IMM composes several.
-type MotionModel interface {
-    Name() string
-    Predict(s *EstimatedState, dt float64) error
-    ProcessNoise(dt float64) [21]float64
-}
-
-// MeasurementModel maps a belief to an expected observation and back.
-// This is where the visible-surface logic lives.
-type MeasurementModel interface {
-    Name() string
-    // Expect predicts what the sensor should see given the belief.
-    Expect(s *EstimatedState, sensorOrigin [3]float64) ExpectedObservation
-    // Innovate returns the residual and its covariance for a real observation.
-    Innovate(s *EstimatedState, o *Observation) (residual []float64, R [][]float64, err error)
-}
-
-// UncertaintyModel produces measurement covariance from observation features.
-// Fixed, range-dependent and learned variants all implement this.
-type UncertaintyModel interface {
-    Name() string
-    Covariance(o *Observation) (sigmaRadial, sigmaTangential float64)
+    // Why this interpretation exists and what happened to it.
+    Disposition Disposition
+    Reason      string
 }
 ```
 
-`TrackedObject` keeps its identity, lifecycle and aggregate fields. The Kalman
-fields `X, Y, VX, VY, P` are replaced by an embedded `EstimatedState` and a
-bounded `[]EstimatedState` smoothing buffer. The `TrackerInterface` gains
-`GetObservations(trackID)` and `GetResiduals(trackID)`; nothing is removed, so
-the visualiser and sweep paths keep working through the transition.
+`EstimatedState`, `Residuals` and the estimator interfaces follow in 5.4 and
+5.5, after the state parameterisation is settled, because their shapes depend on
+it.
 
-### 5.3 Choosing the state parameterisation
+### 5.3 Resolving the state dimensionality, and the linearity question
 
-The brief asks whether to use Cartesian velocity, speed and heading, or
-vehicle-frame accelerations. The answer is driven by the observation model, not
-by filter convenience.
+The earlier draft was internally inconsistent, and the inconsistency was
+load-bearing rather than cosmetic. It proposed a six-element state
+`[x, y, psi, v, a, omega]` with a 6x6 covariance, _and_ recommended keeping the
+linear constant-velocity Kalman filter for the first increment. Those cannot
+both be true. A state containing heading and speed has a transition
+`x += v cos(psi) dt`, which is nonlinear, and calling the resulting filter
+linear would be false.
 
-**Heading must be in the state.** The visible-surface measurement in Section 3.3
-is only definable relative to the object's orientation: you cannot say "near
-lateral face" without knowing which way the vehicle points. Today heading is an
-EMA maintained outside the filter, with no covariance and no prediction. Any
-geometric observation model requires a _predicted_ heading with an uncertainty,
-so heading moves into the state vector. This alone rules out the plain
-`[x, y, vx, vy]` and `[x, y, vx, vy, ax, ay]` parameterisations as end states.
+There are two coherent resolutions.
 
-**Speed and heading beat Cartesian velocity here.** Three reasons. The
-behaviour metrics in Section 13 want longitudinal and lateral acceleration in
-the vehicle frame, which is a rotation away from `(ax, ay)` and immediate from
-`(a, v·omega)`. Process noise is physically meaningful: a vehicle's uncertainty
-grows differently along its heading than across it, and a diagonal `Q` in polar
-form expresses that, while a diagonal `Q` in Cartesian form does not. And the
-90-degree heading ambiguity that currently needs three guards becomes a
-constrained state with a covariance rather than a heuristic.
+|                                        | Option A: Cartesian motion, separate orientation belief                                                                       | Option B: unified nonlinear state                 |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Dynamic state                          | `[x, y, vx, vy]`, 4 elements                                                                                                  | `[x, y, psi, v, a, omega]`, 6 elements            |
+| Covariance                             | 4x4                                                                                                                           | 6x6                                               |
+| Filter                                 | Linear KF, unchanged from today                                                                                               | EKF or UKF                                        |
+| Orientation                            | Separate `OrientationBelief` with its own scalar variance, updated from the geometric measurement and from velocity direction | Inside the state, with cross-covariance to motion |
+| Isolates the observation-model change? | **Yes**                                                                                                                       | No                                                |
+| Numerically fragile at low speed?      | Orientation is, and it is isolated there                                                                                      | The whole filter is                               |
 
-**Numerically, the cost is real and manageable.** Speed-heading form is
-nonlinear, so the filter becomes an EKF or UKF. Heading needs wrap handling at
-every operation. Near zero speed the heading is unobservable and the Jacobian is
-ill-conditioned, which is exactly the regime of the 5,982 near-stationary tracks
-in the database. Mitigations: freeze heading below a speed threshold, which the
-config already anticipates with `low_speed_heading_freeze_mps` in the
-`imm_cv_ca_v2` block; and use a UKF rather than an EKF if conditioning proves
-troublesome, since at six states the sigma-point cost is trivial on this
-workload.
+**Recommendation: Option A for Phases 2 and 3.**
 
-**Observability with this sensor.** At an effective 5 Hz with a corrected
-measurement of roughly 0.05 m accuracy:
+The reason is experimental, not mathematical. The entire justification for this
+plan is a measured regression: the medoid carries 0.676 m of mean lateral bias
+and 1.119 m of worst-case hop on a straight-line pass. Gate G-GEO-1 asks whether
+the near-edge measurement fixes it. If the estimator changes in the same
+increment, a null or negative result cannot be attributed, and a positive result
+cannot be trusted. Option A gives the clean comparison: **same motion estimator,
+improved observation model.**
 
-| Quantity                  | Observable?                               | Note                                                                             |
-| ------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------- |
-| Position                  | Yes, strongly                             | Directly measured once the bias is removed                                       |
-| Speed                     | Yes                                       | Two frames at 0.2 s and 0.05 m give about 0.35 m/s per-pair noise, well filtered |
-| Heading                   | Yes when moving, weakly below about 1 m/s | Two independent sources: velocity direction and observed face geometry           |
-| Longitudinal acceleration | Marginally, needs about 1 s of support    | Three-frame differencing noise is roughly 1.8 m/s² at 0.2 s spacing              |
-| Yaw rate                  | Weakly                                    | Needs either sustained turning or a well-observed long face                      |
-| Yaw acceleration          | **No**                                    | Do not put it in the state                                                       |
-| Length, width             | Yes over a track, no per frame            | Accumulate with uncertainty; never per-frame                                     |
-| Height                    | Yes, poorly                               | Sparse vertical sampling; useful for classification, not for pose                |
+Option B is likely the end state. Section 7.3 sets the gate for migrating to it.
 
-**Recommendation.** Define the persisted state schema as the full six-element
-`[x, y, psi, v, a, omega]` with the 6x6 covariance from the start, so the
-storage layer never churns. Pin `a` and `omega` to zero in the first production
-estimator. Turn them on behind the gates in Section 7.
+### 5.4 What is in the state, and what is not
+
+Stated explicitly, because leaving the Go types and the mathematics inconsistent
+is exactly what produced the previous draft's error.
+
+**Dynamic state, Phase 2 onward, Option A.** Four elements, index order fixed:
+
+```
+x = [ x, y, vx, vy ]T          indices 0..3
+P   4x4, row-major, 16 float64  P[i*4+j]
+F   4x4 constant-velocity transition
+Q   4x4 diagonal, dt-scaled
+H   varies with the interpretation's Dimension: see 9.1
+```
+
+**Beliefs maintained outside the dynamic state**, each with its own uncertainty,
+each predicted forward by its own model, none of them mixed into `P`:
+
+| Belief               | Representation                                                  | Why it is outside                                                                                      |
+| -------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Orientation          | `psi` with scalar variance, plus a 180-degree ambiguity flag    | Keeps the motion filter linear; orientation has its own dynamics and its own failure mode at low speed |
+| Dimensions           | `L, W, H` each with sigma and an admissible-frame count         | Not dynamic: they do not evolve, they are learned. See Section 9.2                                     |
+| Vertical position    | `z` of the object's ground contact, plus the surface model used | Vertical motion is road grade, not object dynamics. See Section 14                                     |
+| Motion class         | Class posterior over the motion-model taxonomy in 5.5           | Discrete, and it selects the model rather than being part of it                                        |
+| Estimation lifecycle | Enum, Section 5.6                                               | Discrete                                                                                               |
+
+**If Option B is later adopted**, the state becomes `[x, y, psi, v, a, omega]`
+with indices 0..5 and a 6x6 `P`, orientation moves in, and dimensions, vertical
+position, class and lifecycle stay outside. The persisted schema carries a
+covariance blob plus an explicit `state_model` discriminator, for example
+`cv_cartesian_v1`, so that storage does not churn at the migration. **A reader
+must never infer dimensionality from the covariance array length alone.**
+
+### 5.5 Road-user motion models
+
+The previous draft assumed a vehicle. A pedestrian who turns on the spot is not
+a vehicle with an implausible yaw rate; it is a pedestrian behaving normally.
+Forcing one motion model on every road user makes ordinary pedestrian motion
+look like a tracking failure and makes genuine vehicle anomalies look ordinary.
+
+The estimation framework and the data semantics stay common across classes.
+**Only the priors vary.**
+
+```text
+classification posterior
+        |   (confidence gates prior strength, never model certainty)
+        v
+motion-model applicability and prior weight
+        |
+        v
+trajectory estimate + uncertainty
+```
+
+| Motion class    | Members               | Physical priors                                                                                                                                                                                       |
+| --------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rigid_vehicle` | car, truck, bus       | Rigid body; predominantly forward motion; lateral velocity strongly penalised; bounded steering curvature; stable dimensions; heading strongly coupled to velocity direction                          |
+| `two_wheeler`   | cyclist, motorcyclist | Forward-biased but weaker; considerably more lateral freedom; rapid steering corrections admitted; low-speed instability expected; geometry varies with rider posture, so dimension priors are looser |
+| `pedestrian`    | pedestrian            | Approximately holonomic: may stop abruptly, turn in place, step sideways, reverse. **Heading is not equivalent to velocity direction** and must not be inferred from it                               |
+| `unknown`       | dynamic, unclassified | Weak priors and broad bounds. Deliberately worse at producing clean paths                                                                                                                             |
+
+The mapping from the classifier's labels
+([l6objects/classification.go](../../internal/lidar/l6objects/classification.go)
+emits car, truck, bus, pedestrian, cyclist, motorcyclist, dynamic) to motion
+class is deliberately coarse. The classifier cannot reliably separate car from
+truck today, truck and motorcyclist are commented out of the cascade, and the
+motion priors for car and truck barely differ. Four motion classes is the
+granularity the evidence supports.
+
+**Classification uncertainty must not silently become motion certainty.** Two
+rules enforce this:
+
+1. Prior strength scales with class posterior. At low confidence the priors
+   relax toward `unknown`; they do not snap to the argmax class.
+2. When the posterior is genuinely split between classes with _different_ motion
+   models, for example cyclist versus pedestrian at walking pace, the track runs
+   with the weaker of the two prior sets. It never runs with the stronger one on
+   a coin flip.
+
+**Do not force an unknown object into vehicle-like motion because that produces
+a cleaner path.** That is precisely the cosmetic smoothing that principle 0.2
+forbids, arriving through the side door.
+
+### 5.6 Estimation lifecycle
+
+The existing track lifecycle, `tentative` to `confirmed` to `deleted`, answers
+"should this track exist?". It does not answer "do we believe the physical state
+yet?". Those are different questions, and initialisation is where the difference
+bites: at track birth, position comes from a biased medoid, heading is
+unobservable, dimensions are a single partial view and association is weakest.
+
+| Estimation state       | Meaning                                                         | Entry evidence                                                                            | What may consume it                                               |
+| ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `initialising`         | A track exists; the physical pose is not yet believed           | Track created                                                                             | Association only. **No behaviour metric, no reported pose**       |
+| `geometry_converging`  | Motion is credible; dimensions and orientation are still moving | Sustained association; speed above the heading-observability floor                        | Motion-only metrics, flagged provisional                          |
+| `established`          | Pose, orientation and dimensions all within convergence bounds  | Dimension sigma below bound, orientation variance below bound, admissible-frame count met | Everything                                                        |
+| `temporarily_degraded` | Was established; evidence has become inadequate                 | Occlusion, fragmentation, sustained high NIS                                              | Coasted states, marked. Metrics suppressed per the behaviour plan |
+| `model_invalid`        | The object model may no longer describe this object             | Section 12                                                                                | Evidence only. **No pose**                                        |
+
+Initialisation specifics, since this is where a biased medoid could otherwise
+become a confident physical prior:
+
+- **Position seeding.** Seed from the medoid, because nothing better exists, and
+  seed the position covariance to reflect the _known medoid bias_, not the
+  medoid's precision. That bias is up to `W/2` for the class, so the initial
+  position sigma is of that order, not the 0.22 m implied by today's
+  `MeasurementNoise`. This is the most important line in the section: a biased
+  seed with an honest covariance is recoverable, a biased seed with a confident
+  covariance is not.
+- **Heading ambiguity** is represented explicitly as a bimodal belief, `psi` and
+  `psi + pi`, with a mode weight, rather than resolved by a guard. It collapses
+  when velocity direction or an asymmetric geometric cue resolves it. For
+  pedestrians it may never collapse, and that is a correct outcome.
+- **Dimensions** do not influence the object model until the admissibility rules
+  in 9.2 have accepted their first frame. Before that the class prior is used,
+  and is marked as the prior rather than as a measurement.
+- **Class priors** strengthen with the posterior, per 5.5.
+- **Covariance during initialisation** starts wide and is permitted to _stay_
+  wide. There is no minimum-confidence floor that manufactures certainty.
+
+A track may not leave `initialising` on frame count alone. It leaves when the
+evidence listed above exists.
 
 ## 6. Shared evaluation criteria
 
@@ -671,16 +853,25 @@ and a pure-Go sparse Cholesky becomes available.
 
 ### 7.3 Recommendation and gate
 
-**First implementation:** keep the linear constant-velocity Kalman filter.
+**First implementation: Option A from Section 5.3.** Keep the linear
+constant-velocity Kalman filter over `[x, y, vx, vy]`, genuinely unchanged.
 Change only its input, from the medoid to the visible-surface measurement, and
 change its measurement covariance from a scalar to the anisotropic model in
-Section 8. Add heading to the state as a constrained element updated from the
-geometric measurement, so that the observation model has a predicted orientation
-to work with, but keep `a` and `omega` pinned to zero.
+Section 8.
+
+Orientation is maintained as a **separate belief** with its own variance, not as
+a state element. That is what keeps the filter honestly linear while still
+giving the observation model the predicted heading it needs. The earlier draft
+put heading in the state and also called the filter linear; those are
+incompatible, and Section 5.3 resolves it.
 
 Doing anything more in the first increment would confound the experiment. If the
 estimator and the measurement change together, a regression cannot be
 attributed.
+
+Motion-class priors from Section 5.5 enter here as class-conditioned process
+noise and class-conditioned plausibility bounds. They change `Q` and the gate,
+not the filter's structure, so Option A survives them.
 
 **Alternatives to prototype in parallel, offline only:** CA, and IMM over
 {stationary, CV, CA}. Both run against stored observations, neither ships.
@@ -716,6 +907,24 @@ tracks above 10 m/s, so this may never fire. Note that
 [Q5 of the pipeline review](../../data/maths/pipeline-review-open-questions.md)
 argues turning belongs to L7 corridor constraints rather than L5, and this plan
 does not disturb that conclusion.
+
+**Decision gate G-EST-4, from Option A to Option B.** Migrating orientation into
+the dynamic state, and therefore to an EKF or UKF, requires:
+
+1. G-GEO-1 already passed, so the observation-model change has been measured
+   independently and cannot be confounded by the estimator change.
+2. Evidence that the separate orientation belief is the limiting error term:
+   specifically, that orientation variance is a significant partial predictor of
+   lateral residual after controlling for range, aspect and point count.
+3. A demonstrated need for orientation-motion cross-covariance, meaning at least
+   one metric whose uncertainty is materially wrong because the two beliefs are
+   modelled as independent.
+4. Low-speed conditioning tested first: on the 5,982 near-stationary tracks in
+   the database, a nonlinear filter must not degrade against Option A. This is
+   the failure mode most likely to bite, since heading is unobservable at rest.
+
+Point 4 is the one that will decide it. A unified nonlinear state is more
+expressive everywhere and worse precisely where most of our tracks live.
 
 ## 8. Uncertainty matrix
 
@@ -830,19 +1039,93 @@ dimensions varies with what was actually observed.** That is the property the
 current pipeline lacks, and the reason a partially occluded vehicle currently
 drags the estimate sideways.
 
-### 9.2 Dimension accumulation
+### 9.2 Dimension estimation
 
-Dimensions must never come from a running mean over per-frame extents, because
-partially observed frames bias the mean downward. Use a per-dimension estimate
-updated only from frames where that dimension's face pair is fully observed
-(both `FaceLeading` and `FaceTrailing` for length, both lateral faces for width),
-with an upper-envelope prior: the observed extent is a _lower bound_ on the true
-dimension, so the update should be asymmetric. A robust high quantile of the
-observed extents over the track, weighted by visibility completeness, is
-adequate and is far simpler than a full Bayesian shape filter. The Bayesian
-treatment is fully worked out in
+The governing insight survives from the previous draft and is worth restating,
+because everything else follows from it:
+
+> A partial visible extent is a **lower bound** on the physical dimension, not a
+> noisy sample of it.
+
+That single asymmetry rules out a running mean, which the current code uses
+(`BoundingBoxLengthAvg` and siblings, defect P7). A mean over partial views
+converges below the truth and keeps going down as the track accumulates distant,
+poorly observed frames.
+
+It also rules out a naive maximum, for the opposite reason: a maximum is a
+one-way ratchet, so a single merged cluster permanently inflates the dimension
+for the rest of the track. Both failure modes are real and they pull in
+opposite directions.
+
+#### 9.2.1 Frame admissibility
+
+Dimension evidence is admitted per dimension, not per frame. A frame may be
+admissible for width and inadmissible for length in the same instant.
+
+| Frame condition                                                                          | Length evidence                                 | Width evidence           | Rationale                                                                                          |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| Both end faces visible                                                                   | **Admit as measurement**                        | n/a                      | The extent is the dimension, up to measurement noise                                               |
+| Both lateral faces visible                                                               | n/a                                             | **Admit as measurement** | Rare from a single monostatic sensor; treat as high value when it occurs                           |
+| One face plus a resolved opposite edge                                                   | Admit, downweighted                             | Admit, downweighted      | The far edge is inferred, so sigma is inflated                                                     |
+| One face only                                                                            | **Admit as lower bound only**                   | Same                     | Raises the floor, can never lower the estimate                                                     |
+| Cluster truncated at the FOV boundary                                                    | Reject                                          | Reject                   | The extent is an artefact of the sensor boundary                                                   |
+| `Fragmented` set                                                                         | Reject                                          | Reject                   | The cluster is part of an object, so its extent is meaningless as a dimension                      |
+| Merge suspected: extent far above the current belief and the neighbour distance is small | **Reject**                                      | Reject                   | This is the ratchet failure mode; see 9.2.3                                                        |
+| Split suspected: extent far below belief while a new track appears adjacent              | Reject as measurement, **admit as lower bound** | Same                     | A split gives a genuine lower bound and a false upper one                                          |
+| `GroundClipped` set (P11)                                                                | Reject for height, admit others                 | Admit                    | The grade artefact corrupts vertical extent specifically                                           |
+| Estimation lifecycle is `initialising`                                                   | Reject                                          | Reject                   | Pose is not yet believed, so the object frame the extent is measured in is not yet believed either |
+
+#### 9.2.2 The estimator
+
+A bounded, class-prior-anchored quantile estimator, in three parts:
+
+```
+prior:       class-conditioned (L, W, H) with generous sigma, from 5.5
+lower bound: running maximum over admissible lower-bound frames
+estimate:    robust upper quantile (default: 80th percentile) over admissible
+             measurement frames, clamped below by the lower bound and clamped
+             above by the class prior plus k sigma
+```
+
+The upper clamp is what defeats the ratchet: a merged cluster that survives the
+admissibility filter still cannot push the length past the class prior's
+plausible range. The lower clamp preserves the physical fact that the object is
+at least as big as the largest thing we have cleanly seen.
+
+The quantile rather than the maximum is deliberate. The maximum is the maximum
+likelihood estimator for a uniform-noise lower bound, and it is also maximally
+sensitive to the one bad frame that got through. The 80th percentile costs a
+little bias, which the lower-bound clamp then removes, and buys robustness.
+
+Sigma comes from the spread of the admissible measurement frames and from the
+count of them, and it is floored by the class prior's sigma until enough
+admissible frames exist. **It is never zero, and never below the class prior
+floor**, because a dimension estimated from a handful of views of one aspect is
+not precisely known regardless of how consistent those views were.
+
+#### 9.2.3 Preventing permanent inflation
+
+Three defences, because this is the failure that would quietly poison every
+downstream clearance measurement:
+
+1. **Admissibility** rejects the frame, per 9.2.1.
+2. **The class prior clamp** bounds anything that gets through.
+3. **Revisability.** The dimension belief is recomputed from the retained
+   admissible-frame record rather than updated in place, so a frame later
+   reclassified as a merge, for example by the split and merge detection in
+   `Tracker.Update`, can be removed and the estimate corrected. An in-place
+   running estimator cannot do this, which is the deeper reason to store the
+   evidence rather than the accumulator.
+
+Dimension sigma is exposed downstream, not just the point estimate. The
+behaviour plan's clearance uncertainty is dominated by it, so a plan that
+publishes only the estimate would silently mislead the metric that matters most.
+
+The full Bayesian treatment is worked out in
 [the geometry-coherent proposal](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
-and should be adopted if the quantile approach proves insufficient.
+and should be adopted if the quantile approach proves insufficient. Its axis
+selection by likelihood is complementary rather than alternative: it decides
+_which_ extent is length, and 9.2.2 decides what to do with it.
 
 ### 9.3 Decision gate G-GEO-1
 
@@ -865,7 +1148,24 @@ retained-points work from
 plus evidence that residual lateral error above 0.1 m persists and is
 attributable to edge localisation rather than to the dimension prior.
 
-## 10. Smoothing matrix
+## 10. Retrospective refinement
+
+Terminology, per principle 0.2. The algorithms below are correctly named: a
+fixed-lag smoother and an RTS smoother are what they are. The **output** is a
+_retrospectively refined estimate_ and, at track close, a _final trajectory
+estimate_. It is not a "smoothed trajectory", because the purpose is not
+smoothness.
+
+> A historical state is revised only because additional evidence changes the
+> most probable physical state. We do not smooth trajectories merely to make
+> them appear physically plausible.
+
+Two consequences are testable rather than rhetorical, and both appear in the
+gates below. A refinement pass that reduces residuals on straight-line traffic
+while also flattening a hard braking event has failed, however good its
+aggregate numbers look. And a refinement that changes a state without new
+evidence entering the window is a bug, not a feature: the revision magnitude is
+recorded per frame precisely so that this is detectable.
 
 | Strategy                           | Latency        | C1   | C4   | C12  | C7   | C9   | Note                                                                           |
 | ---------------------------------- | -------------- | ---- | ---- | ---- | ---- | ---- | ------------------------------------------------------------------------------ |
@@ -889,6 +1189,12 @@ speed must quote the `final` value, and the API must be able to say which stage
 a number came from. Reports built on the online estimate would be quoting a
 number the system itself no longer believes.
 
+Each refined state records **what new evidence justified the revision**: which
+observations entered the window after the online estimate was produced, and the
+magnitude of the resulting change. That record is what distinguishes evidence-
+driven revision from cosmetic smoothing, and it is the audit trail principle 0.1
+requires. A revision with an empty evidence set is a defect.
+
 The 300 ms window is chosen from the data, not from convention. At an effective
 5 Hz observation rate, three frames is 600 ms of wall time and typically two or
 three actual observations. The occlusion excursion measured in Section 3.2
@@ -904,7 +1210,7 @@ Fixed-lag smoothing ships when:
    used to paper over a measurement defect.
 2. On the decision-gate partition, fixed-lag reduces p99 lateral residual by at
    least a further 20 % over online.
-3. **On the abnormal-motion set, the smoothed trajectory preserves at least 85 %
+3. **On the abnormal-motion set, the refined estimate preserves at least 85 %
    of the peak measured deceleration and at least 85 % of the peak yaw rate.**
    A smoother that flattens a hard braking event has failed, whatever it does to
    the aggregate metrics.
@@ -1013,15 +1319,69 @@ large residual that reverses on the next frame, so the signed sum returns
 towards zero. A real manoeuvre produces same-sign residuals that accumulate. The
 sensor artefact in Section 3.2 reverses. Real braking does not.
 
-**Invariant 3: the model can declare itself invalid.** When the CUSUM fires on
-multiple axes at once, or geometry residuals exceed the dimension prior by a
-large margin, or the anchor identity becomes unresolvable across consecutive
-frames, the estimator sets `ModelValid = false` and switches to a degraded mode:
-process noise inflated by an order of magnitude, dimension prior frozen rather
-than updated, geometric measurement replaced by the raw cluster centroid. The
-track is kept, the transition is timestamped, and everything is logged. This is
-the transition from "measurement inconsistent with the model" to "the model may
-no longer describe this object".
+**Invariant 3: the model can declare itself invalid, without redefining what its
+fields mean.** When the CUSUM fires on multiple axes at once, or geometry
+residuals exceed the dimension prior by a large margin, or the anchor identity
+becomes unresolvable across consecutive frames, the estimator enters
+`model_invalid`: process noise inflated by an order of magnitude, dimension
+belief frozen rather than updated, the transition timestamped and logged.
+
+The previous draft added "geometric measurement replaced by the raw cluster
+centroid" to that list. **That is removed, and it was the most dangerous line in
+the document.** It would have silently redefined `X` and `Y` mid-track, from
+_estimated physical reference position_ to _raw cluster representative point_,
+which are different quantities that differ by up to half a vehicle width. Every
+consumer downstream, every behaviour metric, every report, would have kept
+reading the field as though its meaning had not changed. That is precisely the
+silent fallback principle 0.1 forbids.
+
+The correct behaviour when the physical pose cannot be estimated is to say so:
+
+```text
+EstimatedState:
+    ModelValid    = false
+    PoseConfidence = degraded          // or unavailable
+    X, Y          = last believed physical pose, coasted, with inflated covariance
+    Covariance     = large and honest
+
+DetectionObservation:
+    MedoidX, MedoidY = still recorded, still available, still labelled a medoid
+```
+
+The raw medoid remains available to anyone who wants it, under its own name, in
+the immutable observation where it always lived. What does not happen is a field
+quietly changing meaning. Behaviour metrics that depend on physical pose are
+then **suppressed with a reason**, per the behaviour plan's suppression
+taxonomy, rather than computed from a quantity that is not what they think it
+is.
+
+#### 12.1.1 Surprise is class-relative
+
+Model degradation must not assume vehicle-like dynamics for every road user. The
+same trajectory that indicates a spin for a car is an ordinary sidestep for a
+pedestrian.
+
+| Signal                                               | `rigid_vehicle`                                           | `two_wheeler`                               | `pedestrian`                                      | `unknown`         |
+| ---------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------- | ----------------- |
+| Sustained lateral acceleration above the class bound | Strong evidence of manoeuvre, collision or model failure  | Weaker: rapid steering correction is normal | **Not informative**: lateral stepping is ordinary | Weak, wide bounds |
+| Heading discontinuity above ~90 degrees in one frame | Strong evidence of spin or association failure            | Moderate                                    | **Not informative**: turning in place is ordinary | Weak              |
+| Velocity direction reversal                          | Strong                                                    | Moderate                                    | **Not informative**                               | Weak              |
+| Speed to zero within one frame                       | Moderate                                                  | Moderate                                    | Ordinary                                          | Weak              |
+| Sustained geometry change beyond the dimension prior | Strong: deformation or merge                              | Moderate: posture change is real            | Moderate                                          | Weak              |
+| Sustained high NIS                                   | Class-independent, but the threshold is class-conditioned |                                             |                                                   |                   |
+
+The mechanism is unchanged and stays explainable: innovation, Mahalanobis
+distance, NIS, per-axis residual components, CUSUM on the signed normalised
+residual. **The thresholds, and the decision to declare `model_invalid`, become
+class-conditioned.** An `unknown` object uses weak priors and broad bounds, which
+means it is harder to declare invalid, which is correct: we have less basis for
+saying its behaviour is impossible.
+
+One consequence worth stating because it is easy to get backwards. A
+pedestrian's motion model tolerates more, so a pedestrian track is harder to
+declare invalid on kinematic grounds alone. Pedestrian model invalidity should
+therefore lean on **geometric and association** evidence, meaning fragmentation,
+merge, and anchor ambiguity, rather than on kinematic surprise.
 
 ### 12.2 Evidence preserved for later classifiers
 
@@ -1111,33 +1471,121 @@ The behaviour plan carries the further, and sharper, warning that neither
 quantity is the Standard Deviation of Lateral Position as that term is used in
 the driving-impairment literature.
 
-## 14. Coordinate frames
+## 14. Coordinate frames and road-surface geometry
 
 The tracker currently has one frame. `TransformToWorld(foregroundPoints, nil,
-sensorID)` passes a nil pose, so sensor and world coincide.
+sensorID)` passes a nil pose, so sensor and world coincide. That is tolerable
+for a single sensor on flat ground. It is not tolerable on a graded site, which
+is what defect P11 records.
 
-| Frame                      | Needed for                                                               | Status                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Sensor polar               | Measurement covariance, angular resolution                               | Available in `PointPolar`                                                                               |
-| Sensor Cartesian           | Everything today                                                         | Current working frame                                                                                   |
-| Site / world ENU           | Multi-sensor fusion, map alignment, stop lines                           | `Pose` type exists, unused; see [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md) |
-| Vehicle-local              | Edge measurements, longitudinal and lateral residuals, behaviour metrics | **Introduced by this plan**                                                                             |
-| Lane-local Frenet `(s, d)` | Lane keeping, stop compliance                                            | L7, deferred                                                                                            |
+### 14.1 Frame hierarchy
 
-The vehicle-local frame is required now, because the edge measurement and the
-residual decomposition are both defined in it. It costs one rotation by the
-estimated heading and needs no calibration.
+| Frame                   | Needed for                                                                                        | Status                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Sensor polar            | Measurement covariance, angular resolution                                                        | Available in `PointPolar`                                                                                             |
+| Sensor Cartesian        | Everything today                                                                                  | Current working frame                                                                                                 |
+| Site / world 3D         | Multi-sensor fusion, map alignment, stop lines                                                    | `Pose` type exists, unused; see [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)               |
+| **Road surface / path** | Distance along the road, lateral offset, height above surface, grade-aware speed and acceleration | **New. Substance in [lidar-l7-scene-plan](lidar-l7-scene-plan.md); this plan defines the interface and the fallback** |
+| Object-local            | Edge measurements, longitudinal and lateral residuals                                             | **Introduced by this plan**                                                                                           |
 
-The site frame is **not** required now, and this plan should not block on it. A
-single static sensor can do everything through Phase 6 in sensor coordinates.
-Introduce the site frame when a second sensor or a map arrives, and note that
-doing so is a pure relabelling of a rigid transform, so nothing in this design
-changes.
+The object-local frame is required now: the edge measurement and the residual
+decomposition are both defined in it. It costs one rotation by the estimated
+orientation and needs no calibration.
 
-Frenet is deferred to L7 with the rest of the roadway context. Adopting it early
-would encode scene knowledge at L5, which
+The site frame is not required for Phases 0 to 5 and this plan does not block on
+it. Introducing it later is a pure relabelling of a rigid transform.
+
+### 14.2 Separate road-user dynamics from road-surface geometry
+
+The temptation on hilly ground is to promote the road user to a full 3D dynamic
+model. Resist it. A car driving over a crest is not accelerating vertically in
+any sense that belongs in its motion model; the road moved. Mixing the two makes
+grade indistinguishable from object instability and puts an unobservable
+vertical dynamic state into a filter that cannot support it.
+
+The separation is:
+
+| Concern                        | Owner                                | Represented as                                                                           |
+| ------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Road-user dynamics             | This plan, L5                        | Planar motion **in the local road-surface frame**, per Section 5.4                       |
+| Road-surface geometry          | L7                                   | A 2.5D surface model: piecewise planar patches or path-aligned 3D centrelines with grade |
+| The object's vertical position | This plan, outside the dynamic state | Height of ground contact above the local surface, plus which surface was used            |
+
+Normal vertical motion caused by grade is therefore **not** an abnormal-motion
+signal, and Section 12's indicator table must never treat it as one. That is a
+concrete requirement on the class-conditioned thresholds, not a note.
+
+A curvilinear road-surface representation follows naturally:
+
+```text
+s = distance along the roadway or path, measured on the surface
+d = lateral offset from the reference line
+h = height above the local road surface
+```
+
+with surface orientation and grade varying along `s`. This keeps speed,
+longitudinal acceleration, lateral displacement, separation between road users,
+stop-line distance and lane position meaningful on a hill, where planar
+equivalents silently degrade.
+
+### 14.3 Discontinuous intersection surfaces
+
+A single global road plane is insufficient for the deployment area. An
+intersection of graded streets has approaches meeting at different slopes, and
+the surface is genuinely discontinuous in gradient across the junction.
+
+The L7 model must therefore allow an intersection to carry several connected
+surface segments, for example one per approach plus one or more transition
+surfaces, each with independent grade and orientation. A road user's **current
+surface hypothesis** then selects the local frame, and at an ambiguous
+intersection several candidate surface or path hypotheses may coexist
+temporarily, with the ambiguity expressed as uncertainty rather than resolved by
+a guess.
+
+**This plan does not require that model to exist.** It requires three things:
+
+1. **An interface.** The measurement interpretation takes an optional surface
+   model and records which one it used, or records `PlanarFallback` when none
+   was available. This is already in the `MeasurementInterpretation` type in
+   Section 5.2.
+2. **An honest fallback.** With no surface model, a stated planar assumption
+   applies and the residual grade error is recorded rather than absorbed. A
+   metric whose error budget is dominated by the unmodelled grade is suppressed,
+   not reported.
+3. **A near-term remedy for P11.** Ground removal moves from a band on absolute
+   sensor-frame Z to a band on **height above an estimated local surface**. The
+   cheapest sufficient version is a coarse per-region plane fit from the settled
+   L3 background, which already accumulates height statistics per cell. That is
+   a small change with a large correctness benefit, and it does not wait for the
+   full L7 surface model.
+
+### 14.4 Capability split
+
+Which capabilities work in sensor coordinates, and which need surface geometry.
+This is the list a reader should check before assuming a metric is available.
+
+| Capability                                            | Sensor frame only               | Needs surface / site geometry            |
+| ----------------------------------------------------- | ------------------------------- | ---------------------------------------- |
+| Near-edge measurement, on flat ground                 | Yes                             |                                          |
+| Near-edge measurement, on a graded approach           |                                 | **Yes**: P11 corrupts extents without it |
+| Position, velocity, acceleration                      | Yes                             |                                          |
+| Speed along the road surface                          | Approximately, with grade error | **Yes** for correctness on a grade       |
+| Object-local residuals, NIS                           | Yes                             |                                          |
+| Dimension estimation                                  | Yes, once P11 is remedied       |                                          |
+| Interaction geometry, separation, PET                 | Yes                             | Improved by it                           |
+| Passing clearance                                     | Yes                             | Improved by it                           |
+| Lateral offset from an empirical dominant path        | Yes                             |                                          |
+| Lane-relative position, heading error, lane departure |                                 | **Yes**                                  |
+| Stop-line distance                                    |                                 | **Yes**                                  |
+| Speed-limit compliance                                |                                 | Needs site metadata, not geometry        |
+| Multi-sensor fusion                                   |                                 | **Yes**                                  |
+
+Frenet-style `(s, d, h)` is deferred to L7 along with the rest of roadway
+context. Adopting it early would encode scene knowledge at L5, which
 [Q5 of the pipeline review](../../data/maths/pipeline-review-open-questions.md)
-argues against, and this plan agrees.
+argues against, and this plan agrees. What changes from the previous draft is
+that the _interface_ to it is defined now, so that L7 arriving later is an
+addition rather than a refactor.
 
 ## 15. Cross-cutting first-implementation decision table
 
@@ -1146,12 +1594,12 @@ visible when it happens.
 
 | Dimension                       | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Required inputs**             | Cluster member points, retained through L4 (dependency on [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md) Phase 1); per-cluster capture timestamp, already computed and currently discarded; predicted pose from the previous frame                                                                                                                                                                                                                                                                                                                                                 |
+| **Required inputs**             | Cluster member points, retained through L4 (dependency on [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md) Phase 1); per-cluster capture timestamp, already computed and currently discarded; predicted pose from the previous frame; **a coarse road-surface fit for the P11 remedy**                                                                                                                                                                                                                                                                                               |
 | **New types**                   | `Observation`, `EdgeMeasurement`, `VisibleFace`, `EstimatedState`, `Residuals`, `Disposition`; interfaces `MotionModel`, `MeasurementModel`, `UncertaintyModel`                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Estimator scope**             | Linear CV Kalman filter, unchanged algorithm. State extended to include heading with covariance. Acceleration and yaw rate present in the schema, pinned to zero                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Estimator scope**             | Linear CV Kalman filter over `[x, y, vx, vy]`, genuinely unchanged (Option A, Section 5.3). Orientation, dimensions and vertical position are **separate beliefs**, not state elements. Motion-class priors enter as class-conditioned `Q` and bounds                                                                                                                                                                                                                                                                                                                                               |
 | **Uncertainty scope**           | Anisotropic sensor-frame `R` from range, azimuth quantisation, effective point count on the measured face, and edge truncation. No learned component. No bias inflation                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Geometry scope**              | Near-edge measurement per visible face, plus a dimension estimate accumulated with an asymmetric upper-envelope update. No point-to-model fitting, no hull                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Smoothing scope**             | None. Online only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Refinement scope**            | None. Online only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Persistence scope**           | `lidar_observations` and `lidar_track_residuals` created and written. `lidar_track_estimates` created, written at `stage = online` only                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Realtime / offline boundary** | Online: measurement, association, filter, residual computation. Offline: everything else, including all candidate estimator prototypes                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Excluded**                    | IMM, CA, CTRV, CTRA, UKF, factor graphs, smoothing of any kind, behaviour metrics, jerk, lane and stop context, crash classification, learned uncertainty, site frame, multi-sensor                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1319,6 +1767,34 @@ each candidate's variance from its bias, giving the noise floor that the
 uncertainty model in Section 8 must reproduce. This is the one place in the
 whole plan where real data supplies an exact expected value.
 
+#### The grade confound, and how E1 handles it
+
+Defect P11 threatens this experiment directly, so the mitigation is part of the
+design rather than a caveat. On a straight graded approach, grade-induced ground
+filter error correlates with range, and range correlates with aspect angle. E1.1
+conditions the measurement error on aspect angle. A range-correlated ground
+artefact could therefore masquerade as the aspect-conditioned bias E1 exists to
+detect, or mask it.
+
+Three steps, in order:
+
+1. **Measure the grade first.** Fit a coarse plane to the settled L3 background
+   per site and publish the gradient. This is cheap, it is a prerequisite for
+   the P11 remedy anyway, and it tells us whether the confound is live at each
+   of the four placements.
+2. **Add `GroundClipped` to the observation** and record, per frame, whether the
+   height band touched the cluster. Any observation with it set is excluded from
+   E1.1's conditional means and reported as a separate stratum.
+3. **Stratify E1.1 by range as well as aspect.** The hypothesis predicts an
+   aspect-conditioned bias that persists _within_ a range stratum. A confound
+   predicts a range-conditioned effect that vanishes once range is controlled.
+   The two are distinguishable, and this is the check that makes E1 credible on
+   graded ground.
+
+If a placement turns out to be steep enough that step 3 leaves too few
+observations per cell, run E1 on the flattest placement first and treat the
+graded ones as replication rather than as the primary evidence.
+
 #### Protocol and dependencies
 
 1. **Prerequisite: Phase 1.** The near-edge measurement cannot be computed
@@ -1370,6 +1846,59 @@ E1.1 shows no aspect-conditioned bias on real clusters, the synthetic model is
 unrepresentative, and Section 15's first invalidating condition has fired: real
 clusters lack a clean near face, and the increment should be reconsidered rather
 than patched. Record that outcome with the same weight as a positive one.
+
+### 16.6 Class-general and grade-aware test coverage
+
+The previous corpus was vehicle-shaped, which is a problem now that Section 5.5
+makes motion models class-conditioned. An estimator tuned and tested only on
+cars will make pedestrian behaviour look like failure.
+
+#### Per-class synthetic scenarios
+
+| `rigid_vehicle`                         | `two_wheeler`                  | `pedestrian`                |
+| --------------------------------------- | ------------------------------ | --------------------------- |
+| Straight, constant speed                | Straight riding                | Straight walking            |
+| Acceleration                            | Gradual lateral drift          | Abrupt stop                 |
+| Braking                                 | Rapid steering correction      | 90-degree turn in place     |
+| Turns                                   | Overtaking and being overtaken | Direction reversal          |
+| Lane changes                            | Low-speed wobble               | Lateral step                |
+| Severe swerve                           | Stopping and starting          | Curved path                 |
+| Partial visible-face change             | Turning                        | Temporary occlusion         |
+| Occlusion, cluster split, cluster merge | Occlusion                      | Group splitting and merging |
+| Collision-like abnormal motion          |                                |                             |
+
+The pedestrian cases matter most, because they are the ones a vehicle-shaped
+estimator gets wrong in the direction of false alarm. A 90-degree turn in place
+and a direction reversal must both come through as ordinary motion for a
+`pedestrian` motion class, and both must raise model-validity flags for a
+`rigid_vehicle`. **A test that asserts only the first half is only half a
+test.**
+
+#### Grade-aware scenarios
+
+Because deployment sites are graded, these are correctness tests rather than
+future-proofing:
+
+| Scenario                                   | Asserts                                                                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Constant-grade approach                    | Path distance is measured along the surface, not chord length; speed and acceleration stay correct; the ground filter does not clip the vehicle or admit the road |
+| Crest transition                           | Normal vertical motion is **not** flagged as abnormal; the object's ground-contact height stays near zero                                                         |
+| Valley transition                          | Same, opposite sign; extents are not inflated by admitted ground                                                                                                  |
+| Two approaches meeting at different slopes | Surface hypothesis selection works; uncertainty rises while the hypothesis is ambiguous rather than a wrong surface being chosen confidently                      |
+| Curved 3D path                             | Lateral offset is measured in the local surface frame; curvature is not contaminated by grade                                                                     |
+
+The uncertainty assertion is the one most likely to be skipped and most
+important to keep: at an ambiguous surface assignment, the correct behaviour is
+wider uncertainty, not a confident answer.
+
+#### Evaluation criteria, restated for classes
+
+Per principle 0.2, the estimator is not rewarded for smoothness. Each scenario is
+scored on physical trajectory error against known ground truth, uncertainty
+calibration, recovery after missed observations, responsiveness to genuine
+manoeuvres, false rejection of valid motion, and class-conditioned residual
+consistency. A pedestrian estimator that produces beautiful smooth paths through
+a 90-degree turn has failed the fourth and fifth of those.
 
 ## 17. Metrics for evaluating the estimator
 
@@ -1444,6 +1973,36 @@ by `(track, frame, estimator_id, stage)`, this is a join. This tool is what
 makes the decision gates evaluable, and it should be built in Phase 2 rather
 than deferred, because every gate from G-EST-1 onward depends on it.
 
+### 18.4 Observability signals, reserved
+
+**Scope note: observability design is a separate plan.** This section reserves
+the outputs so that plan is an addition rather than a refactor. It does not
+choose a telemetry backend, and nothing here should be read as endorsing one.
+
+Durable analytical and audit data, meaning observations, interpretations,
+estimates, residuals and behaviour results, stays clearly separate from
+operational telemetry. They have different retention, different consumers and
+different correctness requirements. Do not merge them.
+
+Candidate signals the estimator should be able to emit:
+
+| Per observation or frame               | Per track                        |
+| -------------------------------------- | -------------------------------- |
+| Measurement available                  | Observation coverage             |
+| Measurement type and dimension         | Coasted-frame fraction           |
+| Measurement uncertainty                | Maximum observation gap          |
+| Innovation components, object-local    | Uncertainty quantiles            |
+| NIS and normalised residual            | Residual quantiles               |
+| Association disposition and reason     | Class stability                  |
+| Coasting flag                          | Model-degraded duration          |
+| Model-valid flag                       | Estimation-lifecycle dwell times |
+| Classification confidence              | Suppressed-metric count          |
+| Surface model used, or planar fallback | Grade at the track's location    |
+
+Every one of these already exists as a field in Sections 5.2 and 11, or falls
+out of them. That is the point: the observability plan should be able to consume
+the audit record rather than requiring new instrumentation.
+
 ### 18.3 Delivery surface
 
 The macOS visualiser is the right home for live inspection. For the comparator,
@@ -1505,12 +2064,23 @@ regression tracks extracted into the held-out partition.
 retention and per-cluster timestamps; new `storage/sqlite/observation_store.go`;
 migration for `lidar_observations`.
 
-**Types.** `Observation`, `EdgeMeasurement`, `VisibleFace`, `UncertaintyModel`
-with a fixed-covariance implementation only.
+**Types.** `DetectionObservation`, `PlanePrimitive`, `EdgePrimitive`,
+`UncertaintyModel` with a fixed-covariance implementation only.
+`MeasurementInterpretation` is defined but not yet populated: Phase 1 stores
+evidence, Phase 2 interprets it.
+
+**Also in Phase 1: the P11 remedy.** Ground removal moves from a band on
+absolute sensor-frame Z to a band on height above a coarse per-region surface
+fitted from the settled L3 background, and every observation records
+`GroundClipped`. This is in Phase 1 rather than later for two reasons: it
+corrupts the extents the Phase 2 measurement depends on, and Experiment E1
+cannot be trusted on graded ground without it. Publish the fitted gradient per
+site as part of the phase.
 
 **Tests.** Synthetic scenes with known geometry assert edge offsets to within
-0.02 m. Round-trip: stored observations replayed through the current tracker
-reproduce today's output.
+0.02 m. Constant-grade and crest scenarios assert the ground filter neither
+clips the vehicle nor admits the road. Round-trip: stored observations replayed
+through the current tracker reproduce today's output.
 
 **Migration.** Additive. `lidar_track_observations` untouched.
 
@@ -1776,6 +2346,86 @@ content of Section 15, and it targets exactly the reported defect: a measured
 0.676 m mean lateral bias and 1.119 m worst-case hop, on a vehicle driving
 perfectly straight.
 
+### 20.1 Questions raised by this revision
+
+**1. What data is immutable sensor evidence?**
+Everything computable from the sensor and the clusterer without knowing which
+track a detection belongs to: capture time, cluster identity, medoid, OBB,
+retained points, unlabelled candidate planes and edges, range, bearing,
+elevation, angular extent, point count and density, neighbour distance,
+fragmentation, ground-clipping, intensity, and the sensor-frame noise terms that
+depend only on range and angular resolution. This is `DetectionObservation`. It
+is written once and never revised.
+
+**2. What data is track or estimator-conditioned interpretation?**
+Anything requiring a prediction: aspect angle, which faces are visible, labelled
+edge measurements, the measurement vector and its dimension, and the
+track-frame measurement covariance whose anisotropy is defined relative to a
+predicted pose. This is `MeasurementInterpretation`, versioned by both estimator
+and observation-model identity, and freely recomputable from stored evidence.
+The test is mechanical: could you compute it before you knew which track this
+was?
+
+**3. What state is universal across road-user classes?**
+All of it. The dynamic state `[x, y, vx, vy]`, its 4x4 covariance, the separate
+orientation, dimension and vertical-position beliefs, the residual record and
+the estimation lifecycle are identical for a bus and a pedestrian. The framework
+and the data semantics do not fork by class.
+
+**4. Which priors and models vary by class?**
+Process noise, lateral-motion penalty, steering-curvature bounds, dimension
+priors and their sigmas, heading-to-velocity coupling, and every threshold used
+to declare surprise or model invalidity. Four motion classes: `rigid_vehicle`,
+`two_wheeler`, `pedestrian`, `unknown`. See 5.5 and 12.1.1.
+
+**5. How does classification confidence affect model selection?**
+Prior strength scales with the class posterior, and relaxes toward `unknown` at
+low confidence rather than snapping to the argmax. Where the posterior is split
+between classes with materially different motion models, the weaker prior set
+wins. Classification uncertainty must never become motion certainty, which is
+the failure that would make an unknown object inherit a vehicle's clean path.
+
+**6. How does the estimator represent model degradation without silent
+fallback?**
+By keeping every field's meaning fixed and marking the state instead:
+`ModelValid = false`, degraded pose confidence, honestly large covariance,
+coasted pose. The raw medoid remains available under its own name in the
+immutable observation. The previous draft's substitution of the medoid for `X`
+and `Y` during degradation is removed; it silently redefined a field mid-track.
+Dependent behaviour metrics are suppressed with a reason.
+
+**7. How is elevation handled separately from planar road-user dynamics?**
+Road-user dynamics stay planar **in the local road-surface frame**. The object's
+vertical position is the height of its ground contact above that surface, held
+outside the dynamic state along with the identity of the surface used. Grade is
+a property of the road, not of the object, so normal vertical motion over a
+crest is never an abnormal-motion signal. See 14.2.
+
+**8. How do piecewise road surfaces affect trajectory estimation?**
+Through three interfaces rather than through the filter's structure: the
+measurement interpretation records which surface model it used or that it fell
+back to a plane; the road-surface frame supplies `(s, d, h)` where available;
+and ambiguous surface assignment at an intersection raises uncertainty instead
+of picking a surface. The surface model itself is L7. What this plan owns is the
+interface, the honest fallback, and the near-term P11 remedy.
+
+**9. What is meant by a final trajectory estimate?**
+The `stage = final` `EstimatedState` series for a track: the most probable
+physical path given all observations of that track, produced by full-track RTS
+at track close, carrying covariance, estimator identity and parameter hash. It
+is not "the smoothed track". It is distinct from `online`, which is what was
+believed at the time, and from `fixed_lag`, which is the persisted per-frame
+record at about 300 ms of hindsight.
+
+**10. What prevents retrospective estimation from becoming cosmetic smoothing?**
+Four things, all testable. Each refined state records the new evidence that
+justified its revision, and a revision with an empty evidence set is a defect.
+The revision magnitude is recorded and bounded, with larger revisions flagged
+rather than silently applied. Gate G-SMO-1 requires at least 85 % of peak
+measured deceleration and yaw rate to survive on the abnormal-motion set. And
+smoothness never appears as a headline metric, only paired with
+manoeuvre-magnitude preservation, per 17.1.
+
 ## 21. Open questions and experiments needed
 
 | #   | Question                                                                                                                                         | Experiment                                                                                                                                                       | Blocks                                                              |
@@ -1795,6 +2445,34 @@ Q10 deserves attention out of proportion to its size. If it survives contact
 with real data, it is a substantial improvement available immediately, and it
 would buy time for the rest of the plan to be done properly rather than under
 pressure.
+
+## 22. Changes introduced by this revision
+
+Relative to the version that split this plan from the behaviour plan.
+
+| #   | Change                                                                                                                                               | Why                                                                                                                                                                                                        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Added Section 0: no black boxes, and estimate the most probable physical path rather than cosmetically smoothing                                     | Both principles were implicit and were being violated in Sections 10 and 12                                                                                                                                |
+| 2   | Split `Observation` into immutable `DetectionObservation` and derived `MeasurementInterpretation`                                                    | The previous type mixed sensor evidence with fields requiring a track prediction, so two estimator versions could not consume the same evidence reproducibly. Recorded as defect P12                       |
+| 3   | Resolved the state dimensionality contradiction: **Option A**, `[x, y, vx, vy]` with a 4x4 covariance and orientation held as a separate belief      | The previous draft proposed a six-element state _and_ a linear filter. Those are incompatible. Option A keeps the filter honestly linear and isolates the observation-model change that Gate G-GEO-1 tests |
+| 4   | Added gate G-EST-4 for migrating to a unified nonlinear state                                                                                        | Option B is likely the end state; it needed a gate rather than a silent assumption                                                                                                                         |
+| 5   | Added road-user motion models: `rigid_vehicle`, `two_wheeler`, `pedestrian`, `unknown`, with prior strength scaled by class posterior                | The plan assumed a vehicle. Pedestrian motion would have been read as tracking failure                                                                                                                     |
+| 6   | Added the estimation lifecycle, distinct from the track lifecycle, with explicit initialisation rules                                                | Nothing previously prevented a biased initial medoid from becoming a confident physical prior                                                                                                              |
+| 7   | **Removed the medoid fallback during model degradation**                                                                                             | It silently redefined `X` and `Y` mid-track from estimated physical pose to raw cluster point. The single most dangerous line in the previous draft                                                        |
+| 8   | Made abnormal-motion thresholds class-conditioned                                                                                                    | Vehicle-shaped surprise thresholds make ordinary pedestrian motion look like a collision                                                                                                                   |
+| 9   | Replaced the dimension running-quantile sketch with an admissibility taxonomy, a bounded class-anchored estimator, and three anti-inflation defences | The previous text ruled out the running mean but left the merged-cluster ratchet unaddressed                                                                                                               |
+| 10  | Added defect **P11**: ground removal is a flat height band and is not slope-aware; deployment sites are graded                                       | It corrupts the cluster extents the near-edge measurement depends on, and it threatens Experiment E1. Remedy pulled into Phase 1                                                                           |
+| 11  | Added Section 14.2 to 14.4: road-surface frame, dynamics-versus-geometry separation, discontinuous intersection surfaces, and a capability split     | Elevation was absent. Substance lives in the L7 scene plan; this plan owns the interface and the fallback                                                                                                  |
+| 12  | Added the grade confound to Experiment E1 with a three-step mitigation                                                                               | On a graded approach, range correlates with both filter error and aspect angle, so the confound could fake or mask the result                                                                              |
+| 13  | Renamed Section 10 to retrospective refinement and required every revision to record its justifying evidence                                         | Terminology change per principle 0.2, made testable rather than rhetorical                                                                                                                                 |
+| 14  | Added class-general and grade-aware test coverage in 16.6                                                                                            | The corpus was vehicle-shaped                                                                                                                                                                              |
+| 15  | Added Section 18.4 reserving observability signals                                                                                                   | Interfaces only; the observability design is a separate plan                                                                                                                                               |
+| 16  | Added Section 20.1 answering the ten questions this revision raised                                                                                  |                                                                                                                                                                                                            |
+
+Deliberately unchanged: the measured evidence in Section 3, all five comparison
+matrices, the decision gates and their thresholds, the persistence design, the
+diagnostics requirements, and Experiment E1's four ground-truth-free tests. The
+revision corrects architecture; it does not relitigate findings.
 
 ## Checklist
 
