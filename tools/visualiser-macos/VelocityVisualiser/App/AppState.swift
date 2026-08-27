@@ -315,7 +315,14 @@ private let logger = DevLogger(category: "AppState")
     private var lastUIUpdateClock = ContinuousClock.now
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
-    private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    private let defaultRunTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    /// Substitute run-track API client, for tests. Without it a test that
+    /// exercises returnToLive() posts to whatever server is actually listening
+    /// on the default port and switches its source out from under the operator.
+    var runTrackLabelClientOverride: RunTrackLabelAPIClient?
+    private var runTrackLabelClient: RunTrackLabelAPIClient {
+        runTrackLabelClientOverride ?? defaultRunTrackLabelClient
+    }
     let runBrowserState = RunBrowserState()
     private var queuedSeekProgress: Double?
     private var seekWaitFrameCount: Int = 0  // Frames since seek RPC completed; safety valve
