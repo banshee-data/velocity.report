@@ -1331,7 +1331,8 @@ private let logger = DevLogger(category: "AppState")
         // rendering and gRPC frame delivery.  The renderer.updateFrame()
         // call above is unaffected — 3D visuals stay at full speed.
         let uiNow = ContinuousClock.now
-        let panelOpen = showSidePanel || selectedTrackID != nil
+        // Matches the view's condition: the panel is open iff showSidePanel.
+        let panelOpen = showSidePanel
         let minUIInterval: ContinuousClock.Duration =
             panelOpen
             ? .milliseconds(100)  // ~10 fps UI when panel visible

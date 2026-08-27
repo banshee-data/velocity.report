@@ -73,10 +73,14 @@ struct ContentView: View {
                     }.frame(minWidth: 400, minHeight: 300)
                 }.frame(minWidth: 600)
 
-                // Side panel
-                if appState.showSidePanel || appState.selectedTrackID != nil {
-                    SidePanelView().frame(width: 520)
-                }
+                // Side panel. Visibility is showSidePanel alone: selecting a
+                // track opens the panel by setting it (see selectTrack), so
+                // also keying off the selection here made the state
+                // unclosable — the Inspector button toggled the flag off and
+                // the selection held the panel open regardless. It also
+                // defeated selectTrackQuietly, whose whole purpose is to
+                // select without popping the panel open.
+                if appState.showSidePanel { SidePanelView().frame(width: 520) }
 
             }
 

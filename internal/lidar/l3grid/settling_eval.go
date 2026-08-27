@@ -1,7 +1,9 @@
 package l3grid
 
 import (
+	"fmt"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -186,7 +188,39 @@ func (g *BackgroundGrid) settlingConvergedLocked() bool {
 	g.settlingCheckCounter = 0
 
 	metrics := g.evaluateSettlingLocked(0)
-	return metrics.IsConverged(thresholds)
+	converged := metrics.IsConverged(thresholds)
+
+	// Report the measurement, not just the verdict. "Still settling" with no
+	// numbers gives an operator nothing to act on, and the criteria are only
+	// worth having if it is visible which one is holding completion up.
+	if !converged {
+		diagf("[BackgroundManager] Settling not converged for sensor=%s: %s",
+			g.SensorID, unmetCriteria(metrics, thresholds))
+	}
+	return converged
+}
+
+// unmetCriteria names the thresholds a measurement has not reached, with the
+// values, so the log says which one to look at rather than that something is
+// unmet.
+func unmetCriteria(m SettlingMetrics, t SettlingThresholds) string {
+	var unmet []string
+	if m.CoverageRate < t.MinCoverage {
+		unmet = append(unmet, fmt.Sprintf("coverage %.3f < %.3f", m.CoverageRate, t.MinCoverage))
+	}
+	if m.SpreadDeltaRate > t.MaxSpreadDelta {
+		unmet = append(unmet, fmt.Sprintf("spread_delta %.6f > %.6f", m.SpreadDeltaRate, t.MaxSpreadDelta))
+	}
+	if m.RegionStability < t.MinRegionStability {
+		unmet = append(unmet, fmt.Sprintf("region_stability %.3f < %.3f", m.RegionStability, t.MinRegionStability))
+	}
+	if m.MeanConfidence < t.MinConfidence {
+		unmet = append(unmet, fmt.Sprintf("mean_confidence %.1f < %.1f", m.MeanConfidence, t.MinConfidence))
+	}
+	if len(unmet) == 0 {
+		return "all criteria met"
+	}
+	return strings.Join(unmet, ", ")
 }
 
 // settlingThresholdsLocked builds the convergence criteria from the grid's
