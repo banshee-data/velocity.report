@@ -325,6 +325,10 @@ enum SourceMode: String {
 
 struct PlaybackInfo {
     var isLive: Bool = true
+    /// True while the background grid is still settling, so an empty scene is
+    /// warm-up rather than a dead sensor.
+    var settling: Bool = false
+    var settlingProgress: Float = 0
     var logStartNs: Int64 = 0
     var logEndNs: Int64 = 0
     var playbackRate: Float = 1.0

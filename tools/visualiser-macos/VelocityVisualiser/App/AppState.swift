@@ -84,6 +84,12 @@ private let logger = DevLogger(category: "AppState")
     /// True while a return-to-live request is in flight, so the Live toggle can
     /// show progress and reject a second press.
     @Published var isReturningToLive: Bool = false
+    /// True while the background grid is still settling. Foreground extraction
+    /// produces nothing until it finishes, so the scene is legitimately empty
+    /// for about a minute after going live — which otherwise looks like a
+    /// sensor that has stopped.
+    @Published var isSettling: Bool = false
+    @Published var settlingProgress: Float = 0
 
     // MARK: - Playback State
 
@@ -368,6 +374,9 @@ private let logger = DevLogger(category: "AppState")
     /// grid used to be indistinguishable from an ordinary PCAP replay.
     var displayModeLabel: String {
         if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
+        // Settling outranks the source: an empty scene during warm-up is the
+        // thing an operator needs explained, and it resolves on its own.
+        if isSettling { return "SETTLING \(Int((settlingProgress * 100).rounded()))%" }
         switch sourceMode {
         case .live: return "LIVE"
         case .pcap: return "REPLAY (PCAP)"
@@ -1358,6 +1367,10 @@ private let logger = DevLogger(category: "AppState")
             if !hasPlaybackMetadata { hasPlaybackMetadata = true }
             if sourceMode != playbackInfo.sourceMode { sourceMode = playbackInfo.sourceMode }
             if isRecording != playbackInfo.recording { isRecording = playbackInfo.recording }
+            if isSettling != playbackInfo.settling { isSettling = playbackInfo.settling }
+            if settlingProgress != playbackInfo.settlingProgress {
+                settlingProgress = playbackInfo.settlingProgress
+            }
             if playbackInfo.sourceMode == .unspecified {
                 setPlaybackMode(
                     inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))

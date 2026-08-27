@@ -75,3 +75,55 @@ import XCTest
             "the source must not change until the server confirms the switch")
     }
 }
+
+@available(macOS 15.0, *) @MainActor final class SettlingStatusTests: XCTestCase {
+
+    /// Until the background grid settles, foreground extraction produces
+    /// nothing and the scene renders empty — for about a minute after going
+    /// live. Without saying so, a working sensor is indistinguishable from a
+    /// dead one: the badge said LIVE over an empty view.
+    func testSettlingOutranksTheSourceInTheStatusBadge() {
+        let state = AppState()
+        state.isConnected = true
+        state.sourceMode = .live
+        state.isSettling = true
+        state.settlingProgress = 0.42
+
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 42%")
+    }
+
+    func testBadgeReturnsToTheSourceOnceSettled() {
+        let state = AppState()
+        state.isConnected = true
+        state.sourceMode = .live
+        state.isSettling = true
+        state.settlingProgress = 1.0
+
+        state.isSettling = false
+        XCTAssertEqual(state.displayModeLabel, "LIVE")
+    }
+
+    /// A replay has its own settled grid recorded with it, so the badge should
+    /// name the recording rather than a warm-up that is not happening.
+    func testReplayBadgeIsUnaffectedWhenNotSettling() {
+        let state = AppState()
+        state.isConnected = true
+        state.sourceMode = .vrlog
+        state.isSettling = false
+
+        XCTAssertEqual(state.displayModeLabel, "REPLAY (VRLOG)")
+    }
+
+    func testSettlingProgressRounds() {
+        let state = AppState()
+        state.isConnected = true
+        state.sourceMode = .live
+        state.isSettling = true
+
+        state.settlingProgress = 0.0
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 0%")
+
+        state.settlingProgress = 0.999
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 100%")
+    }
+}

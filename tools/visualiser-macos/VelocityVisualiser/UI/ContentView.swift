@@ -641,30 +641,43 @@ struct ToolbarView: View {
 
 /// Live/replay switch for the pipeline's data source.
 ///
-/// Loading a PCAP or VRLOG turns this off, and it stays off for as long as that
-/// recording is loaded — including after it plays to its end. Nothing turns it
-/// back on but an operator: the server no longer infers when a replay should be
-/// abandoned, because every rule for inferring it surprised somebody. Switching
-/// back to live clears the grid, so the next scene is built from live returns
+/// Loading a PCAP or VRLOG selects Replay, and it stays there for as long as
+/// that recording is loaded — including after it plays to its end. Nothing
+/// selects Live but an operator: the server no longer infers when a replay
+/// should be abandoned, because every rule for inferring it surprised somebody.
+/// Choosing Live clears the grid, so the next scene is built from live returns
 /// rather than composited onto the recording's.
+///
+/// Replay is selectable only when a recording is loaded; there is nothing to
+/// replay otherwise.
 struct LiveToggleView: View {
     @EnvironmentObject var appState: AppState
 
-    var body: some View {
-        let isLive = appState.isLiveSource
-        let busy = appState.isReturningToLive
+    private enum Source: Hashable {
+        case live
+        case replay
+    }
 
-        Button(action: { appState.returnToLive() }) {
-            if busy {
-                ProgressView().controlSize(.small).frame(width: 14, height: 14)
-            } else {
-                Image(systemName: isLive ? "dot.radiowaves.left.and.right" : "pause.rectangle")
-            }
-            Text(isLive ? "Live" : "Replay")
-        }.tint(isLive ? .green : .orange).disabled(isLive || busy).help(
-            isLive
-                ? "Live sensor input is driving the pipeline"
-                : "Replaying a recording — switch back to live input (clears the grid)")
+    var body: some View {
+        let current: Source = appState.isLiveSource ? .live : .replay
+
+        Picker(
+            "Source",
+            selection: Binding(
+                get: { current },
+                set: { selected in
+                    guard selected != current, selected == .live else { return }
+                    appState.returnToLive()
+                })
+        ) {
+            Text("Live").tag(Source.live)
+            Text("Replay").tag(Source.replay)
+        }.pickerStyle(.segmented).labelsHidden().fixedSize().disabled(appState.isReturningToLive)
+            .help(
+                appState.isLiveSource
+                    ? "Live sensor input is driving the pipeline"
+                    : "Replaying a recording — switch to Live to resume the sensor (clears the grid)"
+            )
     }
 }
 
