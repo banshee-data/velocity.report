@@ -76,7 +76,16 @@ func (bm *BackgroundManager) EvaluateSettling(frameNumber int) SettlingMetrics {
 	g := bm.Grid
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.evaluateSettlingLocked(frameNumber)
+}
 
+// evaluateSettlingLocked is EvaluateSettling's body, for callers that already
+// hold the grid lock. ProcessFramePolar decides settling completion while
+// holding it, so it cannot go back through the exported form.
+//
+// The caller must hold g.mu for writing: this updates the delta-tracking state
+// that makes SpreadDeltaRate and RegionStability frame-over-frame measures.
+func (g *BackgroundGrid) evaluateSettlingLocked(frameNumber int) SettlingMetrics {
 	total := len(g.Cells)
 	if total == 0 {
 		return SettlingMetrics{FrameNumber: frameNumber, EvaluatedAt: time.Now()}
@@ -146,4 +155,56 @@ func (bm *BackgroundManager) EvaluateSettling(frameNumber int) SettlingMetrics {
 		EvaluatedAt:     time.Now(),
 		FrameNumber:     frameNumber,
 	}
+}
+
+// defaultSettlingCheckInterval is how many frames apart convergence is
+// evaluated when the caller does not choose. Evaluation walks every cell, so it
+// is deliberately not run per frame; at ten frames a second this is about once
+// a second, which is fine resolution for a decision measured in seconds.
+const defaultSettlingCheckInterval = 10
+
+// settlingConvergedLocked reports whether the grid has met its convergence
+// criteria, evaluating at most once per SettlingCheckInterval frames.
+//
+// The caller must hold g.mu for writing. Returns false when no thresholds are
+// configured, which leaves settling on the frame-count-and-duration rule alone.
+func (g *BackgroundGrid) settlingConvergedLocked() bool {
+	thresholds, ok := g.settlingThresholdsLocked()
+	if !ok {
+		return false
+	}
+
+	interval := g.Params.SettlingCheckInterval
+	if interval <= 0 {
+		interval = defaultSettlingCheckInterval
+	}
+
+	g.settlingCheckCounter++
+	if g.settlingCheckCounter < interval {
+		return false
+	}
+	g.settlingCheckCounter = 0
+
+	metrics := g.evaluateSettlingLocked(0)
+	return metrics.IsConverged(thresholds)
+}
+
+// settlingThresholdsLocked builds the convergence criteria from the grid's
+// parameters, reporting false when they are not configured.
+//
+// All four must be set. A partially configured set would let a grid settle on
+// whichever dimensions happened to be filled in, which is a worse guarantee
+// than the duration it would be replacing.
+func (g *BackgroundGrid) settlingThresholdsLocked() (SettlingThresholds, bool) {
+	p := g.Params
+	if p.SettlingMinCoverage <= 0 || p.SettlingMaxSpreadDelta <= 0 ||
+		p.SettlingMinRegionStability <= 0 || p.SettlingMinConfidence <= 0 {
+		return SettlingThresholds{}, false
+	}
+	return SettlingThresholds{
+		MinCoverage:        float64(p.SettlingMinCoverage),
+		MaxSpreadDelta:     float64(p.SettlingMaxSpreadDelta),
+		MinRegionStability: float64(p.SettlingMinRegionStability),
+		MinConfidence:      float64(p.SettlingMinConfidence),
+	}, true
 }
