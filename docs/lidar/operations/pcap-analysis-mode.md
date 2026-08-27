@@ -172,9 +172,8 @@ Normal mode logs:
 # Starting normal replay
 [DataSource] switched to PCAP replay mode for sensor=hesai-pandar40p file=break-80k.pcapng
 
-# Completion with auto-reset
-[ResetGrid] sensor=hesai-pandar40p nonzero_before=45442 nonzero_after=0 ...
-[DataSource] auto-switched to Live after PCAP for sensor=hesai-pandar40p
+# Completion — the replay stays the data source
+[DataSource] PCAP replay finished for sensor=hesai-pandar40p; holding this source until an operator returns to live
 ```
 
 ## Technical details
@@ -190,23 +189,30 @@ In analysis mode:
 
 ### State transitions
 
-```mermaid
-stateDiagram-v2
-	[*] --> Live
-	Live --> PCAP: pcap/start (analysis_mode=true)
-	PCAP --> PCAPAnalysis: replay ends, grid preserved
-	PCAPAnalysis --> Live: pcap/resume_live (grid preserved)
-	PCAPAnalysis --> Live: replay/stop (grid reset)
-```
-
-Normal mode:
+Nothing changes the source on its own. A replay that reaches its end releases
+the replay slot and stops there, holding its final frame and the grid it built;
+only an operator takes the pipeline back to live.
 
 ```mermaid
 stateDiagram-v2
 	[*] --> Live
-	Live --> PCAP: pcap/start (analysis_mode=false)
-	PCAP --> Live: replay ends, grid reset
+	Live --> PCAP: pcap/start
+	PCAP --> PCAPParked: replay ends, slot released
+	PCAPParked --> PCAP: pcap/start (another replay)
+	PCAPParked --> Live: replay/stop (grid reset)
+	PCAPParked --> Live: pcap/resume_live (grid preserved)
 ```
+
+`PCAPParked` reports `pcap_in_progress: false` with `data_source` still naming
+the replay — `pcap_analysis` when the run preserved its grid, `pcap` otherwise.
+The visualiser's Live toggle shows this as **Replay** and stays there until
+switched back.
+
+Two earlier designs decided this automatically and both surprised operators.
+Choosing from the analysis flag stranded `settle_before_recording` runs, which
+carry that flag only because recording a VRLOG requires `analysis_mode=true`.
+Choosing from whether the sensor was streaming reset the grid and switched the
+source while someone was still reading the replay.
 
 With `settle_before_recording`, the replay runs the selected window twice. Both
 passes report `data_source: "pcap"` with `pcap_in_progress: true`, and packet
@@ -216,7 +222,7 @@ progress restarts between them, so `replay_pass` names which one is running:
 stateDiagram-v2
 	[*] --> Settling: replay starts, replay_total_passes=2
 	Settling --> Recording: grid settled, snapshot reloaded, recording starts
-	Recording --> PCAPAnalysis: replay ends, grid preserved
+	Recording --> PCAPParked: replay ends, grid preserved
 ```
 
 `recording` stays false throughout the settling pass — no VRLOG is opened until
