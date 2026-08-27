@@ -685,43 +685,12 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if startTimeWasZero && g.WarmupFramesRemaining == 0 && g.Params.WarmupMinFrames > 0 && !g.SettlingComplete {
 		g.WarmupFramesRemaining = g.Params.WarmupMinFrames
 	}
-	// Announce the plan once, when warm-up begins. Whether convergence is armed
-	// decides if the duration is a ceiling or the whole wait, and that is not
-	// otherwise visible: an unarmed grid simply takes the full duration with
-	// nothing in the log to say why.
-	if startTimeWasZero && !g.SettlingComplete {
-		if thresholds, armed := g.settlingThresholdsLocked(); armed {
-			diagf("[BackgroundManager] Settling started for sensor=%s: %d frames minimum, %v ceiling, convergence armed (%+v)",
-				g.SensorID, g.Params.WarmupMinFrames, time.Duration(g.Params.WarmupDurationNanos), thresholds)
-		} else {
-			diagf("[BackgroundManager] Settling started for sensor=%s: %d frames minimum, %v fixed wait, convergence NOT armed (thresholds unset: coverage=%v spread=%v region=%v confidence=%v)",
-				g.SensorID, g.Params.WarmupMinFrames, time.Duration(g.Params.WarmupDurationNanos),
-				g.Params.SettlingMinCoverage, g.Params.SettlingMaxSpreadDelta,
-				g.Params.SettlingMinRegionStability, g.Params.SettlingMinConfidence)
-		}
-	}
 	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
 	if postSettleAlpha > 0 && postSettleAlpha <= 1 && g.SettlingComplete {
 		effectiveAlpha = postSettleAlpha
 	}
 	if !g.SettlingComplete {
-		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
-		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
-		// A grid that has demonstrably converged does not need to wait out the
-		// rest of the warm-up. The duration is a ceiling for scenes that never
-		// converge, not a toll every scene pays: a quiet one can be ready in a
-		// few seconds, and holding foreground extraction back until thirty have
-		// elapsed is thirty seconds of an empty screen for no gain.
-		//
-		// The frame minimum still applies. Convergence measured over too few
-		// frames is not evidence of anything.
-		convergedEarly := framesReady && !durReady && g.settlingConvergedLocked()
-		if convergedEarly {
-			diagf("[BackgroundManager] Settling completed early on convergence for sensor=%s after %v (ceiling was %v)",
-				g.SensorID, time.Duration(nowNanos-bm.StartTime.UnixNano()),
-				time.Duration(g.Params.WarmupDurationNanos))
-		}
-		if (framesReady && durReady) || convergedEarly {
+		if bm.settlingCompleteLocked(nowNanos) {
 			g.SettlingComplete = true
 			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
 				effectiveAlpha = postSettleAlpha
@@ -738,15 +707,6 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		} else {
 			if g.WarmupFramesRemaining > 0 {
 				g.WarmupFramesRemaining--
-				// Report progress towards the frame minimum. Convergence is
-				// not even consulted until it is met, so a grid still counting
-				// frames explains a wait that no convergence log accounts for.
-				if g.WarmupFramesRemaining%25 == 0 {
-					diagf("[BackgroundManager] Settling for sensor=%s: %d of %d warm-up frames remaining, %v of %v elapsed",
-						g.SensorID, g.WarmupFramesRemaining, g.Params.WarmupMinFrames,
-						time.Duration(nowNanos-bm.StartTime.UnixNano()).Round(time.Second),
-						time.Duration(g.Params.WarmupDurationNanos))
-				}
 			}
 			effectiveAlpha = alpha
 			// Collect variance metrics during settling

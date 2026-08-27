@@ -217,7 +217,9 @@ type BackgroundGrid struct {
 	WarmupFramesRemaining int
 	// settlingCheckCounter paces convergence evaluation during warm-up.
 	settlingCheckCounter int
-	SettlingComplete     bool
+	// settlingAnnounced ensures the settling plan is logged once per warm-up.
+	settlingAnnounced bool
+	SettlingComplete  bool
 
 	// Telemetry for monitoring (feeds into system_events)
 	ForegroundCount int64

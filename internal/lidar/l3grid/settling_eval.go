@@ -242,3 +242,67 @@ func (g *BackgroundGrid) settlingThresholdsLocked() (SettlingThresholds, bool) {
 		MinConfidence:      float64(p.SettlingMinConfidence),
 	}, true
 }
+
+// settlingCompleteLocked decides whether warm-up is over, and reports why.
+//
+// Both the background update and the foreground extraction path make this
+// decision every frame, and they used to make it with two copies of the same
+// logic. They drifted: convergence was added to one, and the live pipeline runs
+// the other, so a feature that measurably worked was never reached. One
+// function now serves both.
+//
+// The caller must hold g.mu for writing.
+func (bm *BackgroundManager) settlingCompleteLocked(nowNanos int64) bool {
+	g := bm.Grid
+	elapsed := time.Duration(nowNanos - bm.StartTime.UnixNano())
+
+	framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
+	durReady := g.Params.WarmupDurationNanos <= 0 ||
+		int64(elapsed) >= g.Params.WarmupDurationNanos
+
+	// Announce the plan once. Whether convergence is armed decides if the
+	// duration is a ceiling or the whole wait, and an unarmed grid otherwise
+	// just takes the full duration with nothing to say why.
+	if !g.settlingAnnounced {
+		g.settlingAnnounced = true
+		if thresholds, armed := g.settlingThresholdsLocked(); armed {
+			diagf("[BackgroundManager] Settling started for sensor=%s: %d frames minimum, %v ceiling, convergence armed (%+v)",
+				g.SensorID, g.Params.WarmupMinFrames,
+				time.Duration(g.Params.WarmupDurationNanos), thresholds)
+		} else {
+			diagf("[BackgroundManager] Settling started for sensor=%s: %d frames minimum, %v fixed wait, convergence NOT armed (coverage=%v spread=%v region=%v confidence=%v)",
+				g.SensorID, g.Params.WarmupMinFrames,
+				time.Duration(g.Params.WarmupDurationNanos),
+				g.Params.SettlingMinCoverage, g.Params.SettlingMaxSpreadDelta,
+				g.Params.SettlingMinRegionStability, g.Params.SettlingMinConfidence)
+		}
+	}
+
+	// Report progress towards the frame minimum. Convergence is not consulted
+	// until it is met, so a grid still counting frames accounts for a wait that
+	// no convergence log would explain.
+	if !framesReady && g.Params.WarmupMinFrames > 0 && g.WarmupFramesRemaining%25 == 0 {
+		diagf("[BackgroundManager] Settling for sensor=%s: %d of %d warm-up frames remaining, %v of %v elapsed",
+			g.SensorID, g.WarmupFramesRemaining, g.Params.WarmupMinFrames,
+			elapsed.Round(time.Second), time.Duration(g.Params.WarmupDurationNanos))
+	}
+
+	if framesReady && durReady {
+		diagf("[BackgroundManager] Settling complete for sensor=%s after %v (frame minimum and duration both met)",
+			g.SensorID, elapsed.Round(time.Millisecond))
+		return true
+	}
+
+	// A grid that has demonstrably converged need not wait out the rest of the
+	// warm-up. The duration is a ceiling for scenes that never converge, not a
+	// toll every scene pays. The frame minimum still applies: convergence
+	// measured over too few frames is not evidence of anything.
+	if framesReady && !durReady && g.settlingConvergedLocked() {
+		diagf("[BackgroundManager] Settling complete for sensor=%s after %v on convergence (ceiling was %v)",
+			g.SensorID, elapsed.Round(time.Millisecond),
+			time.Duration(g.Params.WarmupDurationNanos))
+		return true
+	}
+
+	return false
+}
