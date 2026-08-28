@@ -56,6 +56,7 @@ help:
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
+	@echo "  debug-mac-cycles     Run under lldb, logging the stack behind every AttributeGraph cycle"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -724,6 +725,28 @@ run-mac:
 	kill $$tail_pid 2>/dev/null; \
 	exit $$status
 
+## debug-mac-cycles: run the visualiser under lldb, logging the stack behind every AttributeGraph cycle
+debug-mac-cycles:
+	@if [ ! -f "$(VISUALISER_BIN)" ]; then \
+		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@mkdir -p $(CURDIR)/logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	cyclelog=$(CURDIR)/logs/visualiser-cycles-$${ts}.log; \
+	echo "Running the visualiser under lldb. Reproduce the cycles, then quit the app."; \
+	echo "  cycle log: $$cyclelog"; \
+	echo ""; \
+	lldb \
+	  -o "breakpoint set --name 'AG::Graph::print_cycle' --auto-continue true" \
+	  -o "breakpoint command add --one-liner 'bt 24'" \
+	  -o "run" \
+	  -o "quit" \
+	  "$(VISUALISER_BIN)" 2>&1 | tee "$$cyclelog"; \
+	echo ""; \
+	echo "Frames naming your own views:"; \
+	grep -E "VelocityVisualiser\`" "$$cyclelog" | sort | uniq -c | sort -rn | head -20 || true
+
 dev-mac:
 	@echo "Stopping any running visualiser instances..."
 	@pkill -f "VelocityVisualiser" || true
@@ -975,7 +998,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
+.PHONY: debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
