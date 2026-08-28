@@ -717,7 +717,7 @@ struct ConnectionButtonView: View {
                 Image(systemName: isConnected ? "stop.circle.fill" : "play.circle.fill")
             }
             Text(isConnecting ? "Connecting..." : (isConnected ? "Disconnect" : "Connect"))
-        }.tint(isConnected ? .red : .green).disabled(isConnecting)
+        }.tint(isConnected ? .red : .green).inert(isConnecting, hint: "Connecting to the server")
     }
 }
 
@@ -954,8 +954,8 @@ struct PlaybackControlsView: View {
             Button(action: {
                 uiLogger.debug("UI: Play/Pause button clicked")
                 appState.togglePlayPause()
-            }) { Image(systemName: ui.isPaused ? "play.fill" : "pause.fill") }.disabled(
-                ui.playPauseDisabled)
+            }) { Image(systemName: ui.isPaused ? "play.fill" : "pause.fill") }.inert(
+                ui.playPauseDisabled, hint: "Playback controls need a loaded recording")
 
             // Step buttons (only for seekable modes like .vrlog replay)
             if ui.showStepButtons {
@@ -964,16 +964,16 @@ struct PlaybackControlsView: View {
                         for: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)
                     uiLogger.debug("UI: Step backward button clicked — frames=\(frameCount)")
                     appState.stepBackward(by: frameCount)
-                }) { Image(systemName: "backward.frame.fill") }.help(playbackStepButtonHelp)
-                    .disabled(ui.stepBackwardDisabled)
+                }) { Image(systemName: "backward.frame.fill") }.help(playbackStepButtonHelp).inert(
+                    ui.stepBackwardDisabled, hint: "Already at the start")
 
                 Button(action: {
                     let frameCount = playbackStepFrameCount(
                         for: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)
                     uiLogger.debug("UI: Step forward button clicked — frames=\(frameCount)")
                     appState.stepForward(by: frameCount)
-                }) { Image(systemName: "forward.frame.fill") }.help(playbackStepButtonHelp)
-                    .disabled(ui.stepForwardDisabled)
+                }) { Image(systemName: "forward.frame.fill") }.help(playbackStepButtonHelp).inert(
+                    ui.stepForwardDisabled, hint: "Already at the end")
             }
 
             // Timeline (replay mode)
@@ -992,7 +992,8 @@ struct PlaybackControlsView: View {
                             // so we don't call setSliderEditing(false) here to avoid a race.
                             appState.seek(to: appState.replayProgress)
                         }
-                    }.frame(minWidth: 200).disabled(ui.seekSliderDisabled)
+                    }.frame(minWidth: 200).inert(
+                        ui.seekSliderDisabled, hint: "This source cannot be scrubbed")
                 } else if ui.showReadOnlyProgress {
                     // Read-only progress bar for PCAP replay
                     Slider(value: .constant(appState.displayReplayProgress), in: 0...1).frame(
@@ -1014,7 +1015,9 @@ struct PlaybackControlsView: View {
                 Button(action: { appState.decreaseRate() }) {
                     Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
                         Rectangle())
-                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
+                }.buttonStyle(.borderless).inert(
+                    ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                ).controlPillBackground()
 
                 // Rate display: clickable to reset to 1x
                 Button(action: { appState.resetRate() }) {
@@ -1022,15 +1025,18 @@ struct PlaybackControlsView: View {
                         Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
                         Text("x").font(.caption)
                     }.frame(width: 45, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.plain).disabled(ui.rateControlsDisabled).foregroundColor(
-                    ui.rateControlsDisabled ? .secondary : .primary
-                ).controlPillBackground().onHover { hovering in
-                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                }
+                }.buttonStyle(.plain).inert(
+                    ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                ).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
+                    .controlPillBackground().onHover { hovering in
+                        if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                    }
 
                 Button(action: { appState.increaseRate() }) {
                     Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
+                }.buttonStyle(.borderless).inert(
+                    ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                ).controlPillBackground()
             }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
@@ -1923,7 +1929,7 @@ struct BulkLabelView: View {
                             ? Color.confirmedGreen.opacity(0.15) : Color.clear
                     ).cornerRadius(4)
                 }.buttonStyle(.plain).help("Apply '\(entry.name)' to all \(count) visible tracks")
-                    .disabled(count == 0)
+                    .inert(count == 0, hint: "No tracks to show")
             }
         }
     }

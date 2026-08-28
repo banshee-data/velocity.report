@@ -19,14 +19,48 @@ import XCTest
     /// Walks up from this file to find ContentView.swift, so the test does not
     /// depend on the working directory the runner happens to use.
     private static func contentViewPath(file: String = #filePath) -> String {
+        uiFilePath(named: "ContentView.swift", file: file)
+    }
+
+    private static func uiFilePath(named name: String, file: String = #filePath) -> String {
         var dir = URL(fileURLWithPath: file).deletingLastPathComponent()
         for _ in 0..<6 {
-            let candidate = dir.appendingPathComponent(
-                "VelocityVisualiser/UI/ContentView.swift")
+            let candidate = dir.appendingPathComponent("VelocityVisualiser/UI/\(name)")
             if FileManager.default.fileExists(atPath: candidate.path) { return candidate.path }
             dir = dir.deletingLastPathComponent()
         }
         return ""
+    }
+
+    /// No view may disable a control on changing state. `.disabled(true)` and
+    /// `.disabled(false)` are fine: a constant never triggers `setEnabled:`
+    /// after the first layout. It is the flipping that re-enters the graph.
+    func testNoViewDisablesOnChangingState() throws {
+        for name in ["ContentView.swift", "RunBrowserView.swift"] {
+            let path = Self.uiFilePath(named: name)
+            guard !path.isEmpty else { return XCTFail("\(name) not found") }
+            let source = try String(contentsOfFile: path, encoding: .utf8)
+
+            let offenders =
+                source
+                .split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+                .filter { _, line in
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    guard !trimmed.hasPrefix("//"), trimmed.contains(".disabled(") else {
+                        return false
+                    }
+                    return !trimmed.contains(".disabled(true)")
+                        && !trimmed.contains(".disabled(false)")
+                }
+                .map { "\(name):\($0.offset + 1)" }
+
+            XCTAssertTrue(
+                offenders.isEmpty,
+                "\(offenders) disable on changing state; that calls -[NSCell setEnabled:], "
+                    + "which recomputes AppKit's key-view loop and re-enters the SwiftUI graph. "
+                    + "Use .inert(_:hint:) instead.")
+        }
     }
 
     /// The source control must not use `.disabled()`: it flips on every source

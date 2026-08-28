@@ -60,7 +60,7 @@ private enum RunBrowserLayout {
                 Spacer()
                 Button(action: { Task { await runBrowserState.refresh() } }) {
                     Image(systemName: "arrow.clockwise")
-                }.buttonStyle(.borderless).disabled(runBrowserState.isLoading)
+                }.buttonStyle(.borderless).inert(runBrowserState.isLoading, hint: "Loading runs")
             }.padding()
 
             Divider()
