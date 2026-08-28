@@ -139,8 +139,18 @@ enum VisualiserClientError: Error, LocalizedError {
             )
             let serviceConfig = ServiceConfig(methodConfig: [methodConfig])
 
+            // Set the HTTP/2 window explicitly rather than inheriting the
+            // default. On 2026-08-28 the server sat blocked in Send for 105s
+            // while this client waited for a message that never came, with the
+            // main thread responsive and the read loop idle on a background
+            // thread — both ends waiting on each other, which is what
+            // exhausted flow control looks like from the outside.
+            var config = HTTP2ClientTransport.Posix.Config.defaults
+            config.http2.targetWindowSize = 16 * 1024 * 1024
+            config.http2.maxFrameSize = 1 << 20
+
             let transport = try HTTP2ClientTransport.Posix(
-                target: .dns(host: host, port: port), transportSecurity: .plaintext,
+                target: .dns(host: host, port: port), transportSecurity: .plaintext, config: config,
                 serviceConfig: serviceConfig)
 
             let grpcClient = GRPCClient(transport: transport)

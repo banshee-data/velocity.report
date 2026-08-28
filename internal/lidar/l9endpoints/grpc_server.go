@@ -342,6 +342,12 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	// Create a unique client ID
 	clientID := fmt.Sprintf("grpc-%d", time.Now().UnixNano())
 
+	// Cumulative volume on this stream, for diagnosing a blocked send. An
+	// HTTP/2 connection window opens at 65535 bytes and grows only by
+	// WINDOW_UPDATE, so where a stall begins says whether it is flow control.
+	var bytesSentOnStream int64
+	var framesSentOnStream int64
+
 	// Subscribe to frames
 	frameCh := make(chan *FrameBundle, 10)
 
@@ -556,6 +562,10 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			for {
 				select {
 				case sendErr = <-sendResult:
+					if sendErr == nil {
+						bytesSentOnStream += int64(msgSize)
+						framesSentOnStream++
+					}
 					if reportedStall {
 						opsf("[gRPC] Client %s resumed reading after %v",
 							clientID, time.Since(waitingSince).Round(time.Millisecond))
@@ -570,9 +580,15 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					// Name the frame. A stall is nearly always one specific
 					// message the client cannot digest, and without its
 					// identity the log says only that something is stuck.
-					opsf("[gRPC] Client %s has not read for %v: blocked sending frame %d (type=%v points=%d msg=%.1fKB), frames are being dropped for it",
+					// Cumulative bytes matter as much as this frame's size. An
+					// HTTP/2 connection window opens at 65535 bytes and grows
+					// only by WINDOW_UPDATE, so a stall that always begins near
+					// a round multiple of that is flow control rather than a
+					// slow client.
+					opsf("[gRPC] Client %s has not read for %v: blocked sending frame %d (type=%v points=%d msg=%.1fKB, %.1fKB sent on this stream in %d frames), frames are being dropped for it",
 						clientID, time.Since(waitingSince).Round(time.Second),
-						frame.FrameID, frame.FrameType, framePointCount(frame), float64(msgSize)/1024)
+						frame.FrameID, frame.FrameType, framePointCount(frame), float64(msgSize)/1024,
+						float64(bytesSentOnStream)/1024, framesSentOnStream)
 				}
 			}
 			if sendErr != nil {
