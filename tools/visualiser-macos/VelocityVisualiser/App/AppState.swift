@@ -84,6 +84,9 @@ private let logger = DevLogger(category: "AppState")
     /// True while a return-to-live request is in flight, so the Live toggle can
     /// show progress and reject a second press.
     @Published var isReturningToLive: Bool = false
+    /// Non-published twin of `isReturningToLive`, so the re-entrancy guard can
+    /// bite synchronously without publishing from inside a view update.
+    private var returnToLiveInFlight = false
     /// True while the background grid is still settling. Foreground extraction
     /// produces nothing until it finishes, so the scene is legitimately empty
     /// for about a minute after going live — which otherwise looks like a
@@ -635,12 +638,22 @@ private let logger = DevLogger(category: "AppState")
     /// arrives as an empty background frame, so there is nothing to clear here
     /// beyond the transient overlays belonging to the replay.
     func returnToLive() {
-        guard !isReturningToLive else { return }
-        isReturningToLive = true
+        // The synchronous guard is separate from the published flag on purpose.
+        // A Picker calls this from inside a view update, and publishing there
+        // while the same view reads the value through .disabled() is an
+        // AttributeGraph cycle. The guard still has to bite immediately, or a
+        // double-click sends two requests, so re-entrancy is tracked in plain
+        // state and only the observable flag is deferred.
+        guard !returnToLiveInFlight else { return }
+        returnToLiveInFlight = true
         logger.info("returnToLive() — leaving \(self.sourceMode.rawValue) for live input")
 
         Task { @MainActor in
-            defer { isReturningToLive = false }
+            isReturningToLive = true
+            defer {
+                isReturningToLive = false
+                returnToLiveInFlight = false
+            }
             do {
                 try await runTrackLabelClient.returnToLive()
                 clearAll()

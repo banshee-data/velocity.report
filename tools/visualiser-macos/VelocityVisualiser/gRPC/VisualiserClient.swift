@@ -282,7 +282,21 @@ enum VisualiserClientError: Error, LocalizedError {
                     let minFrameInterval: ContinuousClock.Duration = .milliseconds(33)
                     var lastDispatchTime = ContinuousClock.now - minFrameInterval
                     do {
+                        var lastMessageArrival = ContinuousClock.now
                         for try await protoFrame in response.messages {
+                            // Time spent waiting for the transport to hand over
+                            // the next message. The server reports a blocked
+                            // send; this is the same gap seen from the client,
+                            // and it separates "the app never asked for another
+                            // frame" from "the app asked and nothing came".
+                            let interArrival = ContinuousClock.now - lastMessageArrival
+                            lastMessageArrival = ContinuousClock.now
+                            if interArrival > .milliseconds(1000) {
+                                print(
+                                    "[VisualiserClient] ⚠️ waited \(interArrival.formattedMillis) for the next message "
+                                        + "(frame \(frameCount), pending main-actor \(self?._pendingMainActorFrames.depth ?? -1), skipped \(skippedFrames))"
+                                )
+                            }
                             frameCount += 1
 
                             // Background snapshots are rare and critical for
@@ -299,6 +313,17 @@ enum VisualiserClientError: Error, LocalizedError {
                                     continue
                                 }
                                 lastDispatchTime = now
+                            }
+
+                            let serviceStart = ContinuousClock.now
+                            defer {
+                                let serviced = ContinuousClock.now - serviceStart
+                                if serviced > .milliseconds(250) {
+                                    print(
+                                        "[VisualiserClient] ⚠️ frame \(frameCount) took \(serviced.formattedMillis) "
+                                            + "inside the read loop — the transport is not being drained meanwhile"
+                                    )
+                                }
                             }
 
                             // Log every 100 frames

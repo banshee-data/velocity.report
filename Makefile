@@ -708,8 +708,21 @@ run-mac:
 		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
 		exit 1; \
 	fi
-	@echo "Running macOS visualiser..."
-	@$(VISUALISER_BIN)
+	@mkdir -p $(CURDIR)/logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	maclog=$(CURDIR)/logs/visualiser-$${ts}.log; \
+	echo "Running macOS visualiser..."; \
+	echo "  app log: $$maclog"; \
+	: > "$$maclog"; \
+	$(VISUALISER_BIN) >> "$$maclog" 2>&1 & \
+	app_pid=$$!; \
+	tail -f "$$maclog" & \
+	tail_pid=$$!; \
+	trap 'kill $$app_pid 2>/dev/null; kill $$tail_pid 2>/dev/null; wait $$app_pid 2>/dev/null; exit 130' INT TERM HUP; \
+	wait $$app_pid; \
+	status=$$?; \
+	kill $$tail_pid 2>/dev/null; \
+	exit $$status
 
 dev-mac:
 	@echo "Stopping any running visualiser instances..."
@@ -971,8 +984,8 @@ ensure-python-tools:
 define run_dev_go
 	mkdir -p logs; \
 	ts=$$(date +%Y%m%d-%H%M%S); \
-	logfile=logs/velocity-$${ts}.log; \
-	debuglog=logs/velocity-debug-$${ts}.log; \
+	logfile=$(CURDIR)/logs/velocity-$${ts}.log; \
+	debuglog=$(CURDIR)/logs/velocity-debug-$${ts}.log; \
 	piddir=logs/pids; \
 	pidfile=$${piddir}/velocity-$${ts}.pid; \
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
@@ -981,7 +994,9 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity; \
 	mkdir -p "$$piddir"; \
-	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH"; \
+	echo "  ops log:   $$logfile"; \
+	echo "  debug log: $$debuglog"; \
 	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
 endef
