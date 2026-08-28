@@ -675,7 +675,14 @@ struct LiveToggleView: View {
             .tint(.accentColor)
             // Spring loading lets a drag hover a segment to switch to it, matching
             // the behaviour of the other segmented controls in the toolbar.
-            .springLoadingBehavior(.enabled).disabled(isLive || appState.isReturningToLive).help(
+            .springLoadingBehavior(.enabled)
+            // Not `.disabled()`: this flips on every source change, and changing a
+            // cell's enabled state makes AppKit recompute the key-view loop, which
+            // re-enters SwiftUI's graph inside the update that changed it.
+            .inert(
+                isLive || appState.isReturningToLive,
+                hint: "Load a recording from the run browser to replay one"
+            ).help(
                 isLive
                     ? "Live sensor input is driving the pipeline — load a run to replay one"
                     : "Replaying a recording — switch to Live to resume the sensor (clears the grid)"
