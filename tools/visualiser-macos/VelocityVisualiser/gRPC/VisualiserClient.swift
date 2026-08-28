@@ -282,6 +282,14 @@ enum VisualiserClientError: Error, LocalizedError {
                     let minFrameInterval: ContinuousClock.Duration = .milliseconds(33)
                     var lastDispatchTime = ContinuousClock.now - minFrameInterval
                     do {
+                        // Which thread drains the stream decides whether a
+                        // wedged main thread can starve it. If this reports the
+                        // main thread, the read loop and the UI are competing
+                        // for the same one and a stall on either stops both.
+                        vlog(
+                            "[VisualiserClient] read loop running on "
+                                + (Thread.isMainThread ? "the MAIN thread" : "a background thread"))
+
                         var lastMessageArrival = ContinuousClock.now
                         for try await protoFrame in response.messages {
                             // Time spent waiting for the transport to hand over
@@ -294,7 +302,8 @@ enum VisualiserClientError: Error, LocalizedError {
                             if interArrival > .milliseconds(1000) {
                                 vlog(
                                     "[VisualiserClient] ⚠️ waited \(interArrival.formattedMillis) for the next message "
-                                        + "(frame \(frameCount), pending main-actor \(self?._pendingMainActorFrames.depth ?? -1), skipped \(skippedFrames))"
+                                        + "(frame \(frameCount), pending main-actor \(self?._pendingMainActorFrames.depth ?? -1), "
+                                        + "skipped \(skippedFrames), loop on \(Thread.isMainThread ? "MAIN" : "background") thread)"
                                 )
                             }
                             frameCount += 1

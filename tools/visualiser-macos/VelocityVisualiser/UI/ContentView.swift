@@ -668,12 +668,18 @@ struct LiveToggleView: View {
 
         Picker("Source", selection: sourceBinding) {
             ForEach(Source.allCases, id: \.self) { source in Text(source.rawValue).tag(source) }
-        }.pickerStyle(.segmented).labelsHidden().frame(width: 140).disabled(
-            isLive || appState.isReturningToLive
-        ).help(
-            isLive
-                ? "Live sensor input is driving the pipeline — load a run to replay one"
-                : "Replaying a recording — switch to Live to resume the sensor (clears the grid)")
+        }.pickerStyle(.segmented).labelsHidden().frame(width: 140)
+            // The accent tint is what makes the selected segment read as selected.
+            // Without it the control renders as two flat panes, which is how it was
+            // being mistaken for a pair of buttons.
+            .tint(.accentColor)
+            // Spring loading lets a drag hover a segment to switch to it, matching
+            // the behaviour of the other segmented controls in the toolbar.
+            .springLoadingBehavior(.enabled).disabled(isLive || appState.isReturningToLive).help(
+                isLive
+                    ? "Live sensor input is driving the pipeline — load a run to replay one"
+                    : "Replaying a recording — switch to Live to resume the sensor (clears the grid)"
+            )
     }
 
     /// Reads the current source and accepts only the replay-to-live move. Every
