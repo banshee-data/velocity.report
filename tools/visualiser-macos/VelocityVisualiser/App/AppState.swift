@@ -387,7 +387,7 @@ private let logger = DevLogger(category: "AppState")
         if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
         // Settling outranks the source: an empty scene during warm-up is the
         // thing an operator needs explained, and it resolves on its own.
-        if isSettling { return String(format: "SETTLING %.1fs", settlingElapsedSeconds) }
+        if isSettling { return String(format: "SETTLING %.0fs", settlingElapsedSeconds) }
         switch sourceMode {
         case .live: return "LIVE"
         case .pcap: return "REPLAY (PCAP)"

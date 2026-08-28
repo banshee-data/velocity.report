@@ -73,7 +73,10 @@ type Publisher struct {
 	lastBackgroundFrame *FrameBundle
 	// lastSettlingComplete tracks the grid's settling state so the transition
 	// into "settled" can trigger a snapshot.
-	lastSettlingComplete    bool
+	lastSettlingComplete bool
+	// settlingUnawareOnce guards a one-time warning when the background manager
+	// cannot report settling state.
+	settlingUnawareOnce     sync.Once
 	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
@@ -240,7 +243,16 @@ func (p *Publisher) shouldSendBackground() bool {
 	// client showing foreground and boxes over nothing. That gap used to be
 	// invisible because settling took about as long as the interval — now that
 	// a grid can settle in six seconds, it is most of half a minute.
-	if aware, ok := p.backgroundMgr.(settlingAware); ok {
+	aware, ok := p.backgroundMgr.(settlingAware)
+	if !ok {
+		// Say so once. A manager that does not report settling silently loses
+		// the send-on-settle behaviour, and a wrapper that forgets to forward
+		// the method looks exactly like one that never had it.
+		p.settlingUnawareOnce.Do(func() {
+			diagf("[Visualiser] Background manager %T does not report settling; the client will wait for the refresh interval after settling completes", p.backgroundMgr)
+		})
+	}
+	if ok {
 		settled := aware.IsSettlingComplete()
 		p.backgroundMu.Lock()
 		justSettled := settled && !p.lastSettlingComplete

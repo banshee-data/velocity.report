@@ -39,7 +39,7 @@ import XCTest
         XCTAssertTrue(state.isSettling)
         XCTAssertEqual(state.settlingProgress, 0.25, accuracy: 0.0001)
         XCTAssertEqual(state.settlingElapsedSeconds, 2.5, accuracy: 0.0001)
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 2.5s")
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 2s")
     }
 
     /// The badge must follow settling down as well as up: once the grid is

@@ -1194,6 +1194,14 @@ type backgroundManagerBridge struct {
 	mgr *l3grid.BackgroundManager
 }
 
+// IsSettlingComplete forwards the grid's settling state so the publisher can
+// send a snapshot the moment settling ends. Without it the bridge satisfies
+// only the required interface, the publisher's optional check finds nothing,
+// and the client waits out the full refresh interval over an empty grid.
+func (b *backgroundManagerBridge) IsSettlingComplete() bool {
+	return b.mgr.IsSettlingComplete()
+}
+
 func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, error) {
 	data, err := b.mgr.GenerateBackgroundSnapshot()
 	if err != nil {
