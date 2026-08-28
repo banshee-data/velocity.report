@@ -35,6 +35,11 @@ private let appLogger = DevLogger(category: "App")
     }
 
     init() {
+        // Before anything logs. Redirected stdout is block-buffered, so without
+        // this the app's own output reaches a log file late, in 4 KB chunks,
+        // and truncated mid-line when the process is killed.
+        AppLog.configure()
+
         // Disable the macOS default tab bar (removes "Show Tab Bar" from View menu)
         NSWindow.allowsAutomaticWindowTabbing = false
 

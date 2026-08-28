@@ -543,7 +543,7 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Connection
 
     func toggleConnection() {
-        print(
+        vlog(
             "[AppState] toggleConnection called, isConnected: \(isConnected), isConnecting: \(isConnecting)"
         )
         logger.info(
@@ -567,7 +567,7 @@ private let logger = DevLogger(category: "AppState")
             logger.info("connect() skipped — already connecting or connected")
             return
         }
-        print("[AppState] 🔌 CONNECTING to \(serverAddress)...")
+        vlog("[AppState] 🔌 CONNECTING to \(serverAddress)...")
         logger.info("connect() starting, serverAddress: \(self.serverAddress)")
         isConnecting = true
         connectionError = nil
@@ -584,11 +584,11 @@ private let logger = DevLogger(category: "AppState")
             do {
                 logger.debug("Calling grpcClient.connect()...")
                 try await grpcClient?.connect()
-                print("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
+                vlog("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
                 logger.info("grpcClient.connect() succeeded!")
                 await MainActor.run { self.isConnecting = false }
             } catch {
-                print("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
+                vlog("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
                 logger.error("Connection error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.connectionError = "Failed: cannot connect to \(self.serverAddress)"
@@ -602,7 +602,7 @@ private let logger = DevLogger(category: "AppState")
     }
 
     func disconnect() {
-        print("[AppState] 🔌 DISCONNECTING...")
+        vlog("[AppState] 🔌 DISCONNECTING...")
         logger.info("disconnect() called")
         grpcClient?.disconnect()
         grpcClient = nil
@@ -1618,7 +1618,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
     }
 
     func clientDidConnect(_ client: VisualiserClient) {
-        print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
+        vlog("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
         delegateLogger.info("clientDidConnect called")
         Task { @MainActor [weak self] in
             guard let appState = self?.appState else { return }
@@ -1633,7 +1633,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
     }
 
     func clientDidDisconnect(_ client: VisualiserClient, error: Error?) {
-        print(
+        vlog(
             "[ClientDelegate] ❌ CLIENT DISCONNECTED, error: \(error?.localizedDescription ?? "none")"
         )
         delegateLogger.warning(
@@ -1666,7 +1666,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
     }
 
     func clientDidFinishStream(_ client: VisualiserClient) {
-        print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
+        vlog("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
         let generation = self.generation
         // Call synchronously — we are already on MainActor (called from
