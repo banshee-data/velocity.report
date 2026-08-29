@@ -1,6 +1,6 @@
 # LiDAR visualiser stream robustness (v0.5.7)
 
-- **Status:** Complete, with one open item
+- **Status:** Complete, pending confirmation of the stall fix
 - **Layers:** L9 endpoints (gRPC streaming, publisher), macOS visualiser (Swift client, UI)
 - **Target:** v0.5.7; the state model landed, and then the stream carrying it proved unreliable
 - **Canonical:** [data-source-switching.md](../lidar/operations/data-source-switching.md)
@@ -121,14 +121,41 @@ is why a test now fails on any view that disables on changing state.
 This did not affect the stall. The watchdog showed the main thread responsive
 throughout, so the cycles were real jank and log noise rather than its cause.
 
+## The stall
+
+Stalls of 37 to 105 seconds, on frames as small as 0.1 KB, in live and replay
+alike. Both ends waited on each other: the server blocked in `Send`, the client
+idle on a background thread with a responsive main thread and nothing queued
+for the main actor. Frame size, replay mode, leaked streams, a wedged main
+thread and the app's own frame handling were each ruled out in turn, and none
+of it found the cause, because every measurement was taken inside the one
+process.
+
+A second client settled it. `make debug-grpc-probe` streams from the same
+server with an unrelated HTTP/2 stack: **2000 frames, 14.6 MB, one 2.5 s gap
+and no stall**. The server can push megabytes to a client that keeps reading,
+so the fault was never the server's, and 11 MB delivered cleanly also disposes
+of any window-exhaustion theory on that side.
+
+The client now sets its HTTP/2 window explicitly at 16 MB rather than
+inheriting grpc-swift's default. Stalls per run, against the build:
+
+| Build       | Stalls | Window set |
+| ----------- | ------ | ---------- |
+| `d2bc837a9` | 7      | no         |
+| `3b59fe5b1` | 11     | no         |
+| `dc3c08361` | 12     | no         |
+| `85e3b661f` | 30     | no         |
+| `92ca155e2` | **0**  | yes        |
+
+The clean run covers 25 minutes and 11 client connections, with the visualiser
+streaming 800 frames in one of them; previously a stall arrived within 25
+frames of connecting. Treat this as strongly indicated rather than proven: the
+absence held across one session, and the two changes that shipped either side
+of it (the non-blocking hand-off and the cycle fix) were not isolated from it.
+
 ## Open items
 
-- **Client-side hang (beachball).** A ~42 s main-actor stall in the Swift app
-  that recovers unaided. Server-side evidence is conclusive about what it is
-  _not_: not frame size, not replay-specific, not a leaked stream, not the
-  background snapshot. Diagnosing it needs client-side instrumentation — timing
-  the per-frame `await MainActor.run` hop and logging when it exceeds a
-  threshold, the same play that worked server-side.
 - **`settling_max_spread_delta` may be mis-scaled.** It is documented as a
   per-frame mean delta but evaluated every `SettlingCheckInterval` frames, so it
   measures a second of drift against a per-frame bar. Convergence currently
