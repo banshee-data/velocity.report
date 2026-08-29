@@ -78,6 +78,7 @@ All items delivered on branch `dd/go/test-pacp-replay`.
 | 10   | Return to live restarts the gRPC stream, symmetrically with loading a replay               |
 | 11   | A stream that ends clears the connection, not only the replay-finished flag                |
 | 12   | Inspector visibility keyed on `showSidePanel` alone                                        |
+| 13   | Replace `.disabled()` with `.inert` wherever availability changes, ending the cycles       |
 
 ## Evidence
 
@@ -96,6 +97,29 @@ minutes of server uptime with **zero client connections**, while the visualiser
 reported itself connected throughout. A client on a dead stream receives no
 tracks, so no boxes, and whatever is on screen is the last frame before the
 server went away.
+
+## AttributeGraph cycles
+
+Every captured cycle was rooted at `-[NSCell setEnabled:]`, which calls
+`nextValidKeyView`, which makes AppKit recompute the window's key-view loop,
+which re-enters SwiftUI's view graph through `NSHostingView.responderNode` —
+inside the update that changed the enabled state. None of the app's own frames
+appeared in the stacks: it is AppKit and SwiftUI re-entering each other, and a
+control's availability changing is what starts it.
+
+`.inert(_:hint:)` dims and stops hit-testing without touching AppKit's enabled
+state. Every view that disables on changing state now uses it. Constant
+`.disabled(true)` is untouched: a value that never changes cannot trigger
+`setEnabled:` after the first layout, and it is the flipping that re-enters the
+graph.
+
+Measured: 24 cycles, 24 again after converting one control, then **0** across a
+three-minute run streaming 800 frames. The first attempt converted the control
+that had just been written rather than the ones the stack counts named, which
+is why a test now fails on any view that disables on changing state.
+
+This did not affect the stall. The watchdog showed the main thread responsive
+throughout, so the cycles were real jank and log noise rather than its cause.
 
 ## Open items
 
