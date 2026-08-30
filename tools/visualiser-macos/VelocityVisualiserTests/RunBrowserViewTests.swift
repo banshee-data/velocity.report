@@ -296,7 +296,7 @@ struct PlaybackStatusModelTests {
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
-        XCTAssertFalse(state.isLive)
+        XCTAssertNotEqual(state.playbackMode, .live)
         XCTAssertEqual(state.currentRunID, "run-123")
         XCTAssertFalse(state.isPaused)
         XCTAssertFalse(state.replayFinished)
@@ -314,7 +314,7 @@ struct PlaybackStatusModelTests {
         XCTAssertEqual(state.prepareForNewReplayCallCount, 0)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
         // A failed load returns before playback state is reset or replay activated.
-        XCTAssertTrue(state.isLive)
+        XCTAssertEqual(state.playbackMode, .live)
         XCTAssertNil(state.currentRunID)
     }
 }

@@ -390,8 +390,7 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
     func testReplaySeekableWithValidTimeline() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.isPaused = true
         state.logStartTimestamp = 0
         state.logEndTimestamp = 60_000_000_000
@@ -404,7 +403,7 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
     func testReplayNonSeekableWithFrameProgress() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.currentFrameIndex = 50
         state.totalFrames = 100
@@ -414,7 +413,7 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
     func testReplayNonSeekableNoMetadata() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.totalFrames = 0
         state.logStartTimestamp = 0
@@ -425,7 +424,7 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
     func testPlaybackControlsDisconnected() throws {
         let state = AppState()
         state.isConnected = false
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         hostView(PlaybackControlsView(), state: state)
     }
 }
@@ -986,7 +985,7 @@ struct SparklineViewCoverageTests {
 
     func testGraphViewWithTrimmedSamplesLeadOut() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         // Build 20 frames where speed drops to near-zero at the end
         for i: UInt64 in 0..<20 {
             var frame = FrameBundle()
@@ -1012,7 +1011,7 @@ struct SparklineViewCoverageTests {
 
     func testGraphViewStaticTrack() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         // Build frames where speed is always below threshold (static object)
         for i: UInt64 in 0..<10 {
             var frame = FrameBundle()
@@ -1033,7 +1032,7 @@ struct SparklineViewCoverageTests {
 
     func testGraphViewWithMaxSpeed() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         for i: UInt64 in 0..<5 {
             var frame = FrameBundle()
             frame.frameID = i

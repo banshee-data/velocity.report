@@ -488,17 +488,21 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// Stamp the source mode on every frame, live included, so the
 			// client never has to infer it. Live frames carry no PlaybackInfo
 			// today, so one is created to hold it.
-			if mode, recording := s.currentSourceMode(); mode != "" {
+			mode, recording := s.currentSourceMode()
+			if mode != "" {
 				if frame.PlaybackInfo == nil {
 					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
 				}
 				frame.PlaybackInfo.SourceMode = mode
 				frame.PlaybackInfo.Recording = recording
 			}
-			// Settling is stamped on every frame for the same reason as the
-			// source mode: an empty scene during warm-up is indistinguishable
-			// from a dead sensor unless the client is told which it is.
-			if settling, elapsedSecs := s.currentSettling(); settling || elapsedSecs > 0 {
+			// Settling describes the live grid, so it belongs only on live
+			// frames: an empty scene during warm-up is indistinguishable from a
+			// dead sensor unless the client is told which it is. A replay
+			// carries its own recorded background and settles nothing, and
+			// reporting the live grid's warm-up over it showed "SETTLING 0s"
+			// against a scene that was already complete.
+			if settling, elapsedSecs := s.currentSettling(); mode == "live" && (settling || elapsedSecs > 0) {
 				if frame.PlaybackInfo == nil {
 					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
 				}

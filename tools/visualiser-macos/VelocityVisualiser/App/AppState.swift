@@ -101,7 +101,6 @@ private let logger = DevLogger(category: "AppState")
 
     @Published var isPaused: Bool = false
     @Published var playbackRate: Float = 1.0
-    @Published var isLive: Bool = true
     @Published var currentTimestamp: Int64 = 0
     @Published var currentFrameID: UInt64 = 0
     @Published var playbackMode: PlaybackMode = .live
@@ -122,7 +121,7 @@ private let logger = DevLogger(category: "AppState")
     /// `isSeekable`, which is a capability: a VRLOG replay happens to be
     /// seekable and a PCAP replay happens not to be, but neither implies the
     /// other. `.unspecified` means the server predates the field, in which
-    /// case the mode is inferred from `isLive` and `seekable` as before.
+    /// case there is no source yet and nothing is assumed.
     @Published var sourceMode: SourceMode = .unspecified
 
     /// True while the server is recording a VRLOG.
@@ -376,9 +375,6 @@ private let logger = DevLogger(category: "AppState")
 
     var displayPlaybackMode: PlaybackMode {
         if !isConnected && playbackMode == .unknown { return .unknown }
-        if playbackMode == .live && !isLive {
-            return isSeekable ? .replaySeekable : .replayNonSeekable
-        }
         return playbackMode
     }
 
@@ -425,18 +421,8 @@ private let logger = DevLogger(category: "AppState")
     func setPlaybackMode(_ mode: PlaybackMode) {
         playbackMode = mode
         switch mode {
-        case .unknown:
-            isLive = false
-            isSeekable = false
-        case .live:
-            isLive = true
-            isSeekable = false
-        case .replayNonSeekable:
-            isLive = false
-            isSeekable = false
-        case .replaySeekable:
-            isLive = false
-            isSeekable = true
+        case .unknown, .live, .replayNonSeekable: isSeekable = false
+        case .replaySeekable: isSeekable = true
         }
     }
 
@@ -1435,7 +1421,7 @@ private let logger = DevLogger(category: "AppState")
 
             // Log mode on first frame
             if frameCount == 1 {
-                let mode = isLive ? "LIVE" : "REPLAY"
+                let mode = playbackMode == .live ? "LIVE" : "REPLAY"
                 logger.info(
                     "Mode: \(mode), rate: \(playbackInfo.playbackRate), totalFrames: \(playbackInfo.totalFrames)"
                 )
@@ -1530,7 +1516,7 @@ private let logger = DevLogger(category: "AppState")
         // Update replay progress (skip if user is interacting with slider).
         // Frame-index progress is preferred — it is robust against non-linear
         // timestamp distribution and background-frame timestamp contamination.
-        if !isLive && !wasSeekingAtFrameStart && !isSeekingInProgress {
+        if playbackMode != .live && !wasSeekingAtFrameStart && !isSeekingInProgress {
             if totalFrames > 1 {
                 replayProgress = max(0, min(1, Double(currentFrameIndex) / Double(totalFrames - 1)))
             } else if logEndTimestamp > logStartTimestamp {
@@ -1615,7 +1601,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
             appState.replayFinished = false
             appState.hasPlaybackMetadata = false
             appState.setPlaybackMode(.unknown)
-            // Note: isLive is determined from first frame's PlaybackInfo
+            // Note: the source is determined from the first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }
     }

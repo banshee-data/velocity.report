@@ -78,3 +78,34 @@ func TestPublisherToleratesAManagerWithoutSettling(t *testing.T) {
 		t.Error("sent a background for a manager that reports no settling state")
 	}
 }
+
+// A replay carries its own recorded background and settles nothing. Reporting
+// the live grid's warm-up over it put "SETTLING 0s" on the badge against a
+// scene that was already complete.
+func TestSettlingIsNotStampedOnReplayFrames(t *testing.T) {
+	tests := []struct {
+		mode      string
+		wantStamp bool
+	}{
+		{"live", true},
+		{"vrlog", false},
+		{"pcap", false},
+		{"pcap_analysis", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			s := NewServer(nil)
+			s.SetSourceModeProvider(func() (string, bool) { return tt.mode, false })
+			s.SetSettlingProvider(func() (bool, float32) { return true, 0 })
+
+			settling, _ := s.currentSettling()
+			mode, _ := s.currentSourceMode()
+			stamped := mode == "live" && settling
+
+			if stamped != tt.wantStamp {
+				t.Errorf("source %q: stamped=%v, want %v", tt.mode, stamped, tt.wantStamp)
+			}
+		})
+	}
+}

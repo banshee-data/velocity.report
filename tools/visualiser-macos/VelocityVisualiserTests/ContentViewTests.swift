@@ -434,7 +434,7 @@ struct SparklineViewTests {
 
     func testGraphViewWithOneSample() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         var frame = FrameBundle()
         frame.frameID = 0
         frame.timestampNanos = 100_000_000
@@ -452,7 +452,7 @@ struct SparklineViewTests {
 
     func testGraphViewWithMultipleSamples() async throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         for i: UInt64 in 0..<20 {
             var frame = FrameBundle()
             frame.frameID = i
@@ -566,15 +566,14 @@ struct SparklineViewTests {
     func testPlaybackControlsLiveMode() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = true
+        state.setPlaybackMode(.live)
         host(PlaybackControlsView(), state: state)
     }
 
     func testPlaybackControlsReplayMode() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
         host(PlaybackControlsView(), state: state)
@@ -589,8 +588,7 @@ struct SparklineViewTests {
     func testPlaybackControlsReplayFinished() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.replayFinished = true
         state.isPaused = true
         state.replayProgress = 1.0
@@ -600,7 +598,7 @@ struct SparklineViewTests {
     func testPlaybackControlsNotSeekable() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         host(PlaybackControlsView(), state: state)
     }

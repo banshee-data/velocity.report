@@ -22,8 +22,7 @@ import XCTest
 
     func testStepForwardIncreasesFrameIndex() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.currentFrameIndex = 100
         state.totalFrames = 1000
 
@@ -36,7 +35,7 @@ import XCTest
 
     func testStepForwardIgnoresWhenLive() throws {
         let state = AppState()
-        state.isLive = true
+        state.setPlaybackMode(.live)
         state.isSeekable = true
         state.currentFrameIndex = 100
         state.totalFrames = 1000
@@ -46,7 +45,7 @@ import XCTest
 
     func testStepForwardIgnoresWhenNotSeekable() throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
 
         state.stepForward()  // Should be no-op when not seekable
@@ -54,8 +53,7 @@ import XCTest
 
     func testStepForwardIgnoresAtEnd() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.currentFrameIndex = 999
         state.totalFrames = 1000
 
@@ -64,8 +62,7 @@ import XCTest
 
     func testStepBackwardDecreasesFrameIndex() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.currentFrameIndex = 100
 
         state.stepBackward()  // Verify method executes without crash
@@ -73,8 +70,7 @@ import XCTest
 
     func testStepBackwardIgnoresAtStart() throws {
         let state = AppState()
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.currentFrameIndex = 0
 
         state.stepBackward()  // Should not step before start
@@ -87,7 +83,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.playbackRate = 64.0  // Already at max
 
         state.increaseRate()
@@ -99,7 +95,7 @@ import XCTest
         let fake = FakePlaybackRPCClient()
         state.isConnected = true
         state.playbackCommandClientOverride = fake
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.playbackRate = 2.0
 
         state.increaseRate()
@@ -926,7 +922,7 @@ struct VisualiserClientDecodeTests {
     @Test func playbackControlsViewLiveMode() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = true
+        state.setPlaybackMode(.live)
 
         // Only verify view instantiation — PlaybackControlsView uses
         // $appState.replayProgress bindings that crash outside SwiftUI.
@@ -936,7 +932,7 @@ struct VisualiserClientDecodeTests {
     @Test func playbackControlsViewReplayMode() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isPaused = true
         state.isSeekable = true
 
@@ -946,7 +942,7 @@ struct VisualiserClientDecodeTests {
     @Test func playbackControlsViewNonSeekable() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
 
         let _ = PlaybackControlsView().environmentObject(state)
