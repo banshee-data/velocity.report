@@ -353,7 +353,6 @@ type StatePrediction struct {
 
 // PlaybackInfo contains playback metadata for replay mode.
 type PlaybackInfo struct {
-	IsLive            bool
 	LogStartNs        int64
 	LogEndNs          int64
 	PlaybackRate      float32

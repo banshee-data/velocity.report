@@ -312,8 +312,8 @@ func TestSyntheticGenerator_PlaybackInfo(t *testing.T) {
 	if frame.PlaybackInfo == nil {
 		t.Fatal("expected non-nil PlaybackInfo")
 	}
-	if !frame.PlaybackInfo.IsLive {
-		t.Error("expected IsLive=true for synthetic data")
+	if frame.PlaybackInfo.SourceMode != "live" {
+		t.Error("expected SOURCE_MODE_LIVE for synthetic data")
 	}
 	if frame.PlaybackInfo.PlaybackRate != 1.0 {
 		t.Errorf("expected PlaybackRate=1.0, got %f", frame.PlaybackInfo.PlaybackRate)

@@ -299,7 +299,9 @@ struct DebugOverlayTests {
 struct PlaybackInfoTests {
     @Test func defaultInitialisation() throws {
         let info = PlaybackInfo()
-        #expect(info.isLive == true)
+        // Unknown until the server says otherwise. The old default assumed live,
+        // which meant a frame that never carried a source read as live input.
+        #expect(info.sourceMode == .unspecified)
         #expect(info.logStartNs == 0)
         #expect(info.logEndNs == 0)
         #expect(info.playbackRate == 1.0)
@@ -310,7 +312,7 @@ struct PlaybackInfoTests {
 
     @Test func replayMode() throws {
         var info = PlaybackInfo()
-        info.isLive = false
+        info.sourceMode = .vrlog
         info.logStartNs = 1_000_000_000
         info.logEndNs = 2_000_000_000
         info.playbackRate = 0.5
@@ -318,7 +320,7 @@ struct PlaybackInfoTests {
         info.currentFrameIndex = 50
         info.totalFrames = 500
 
-        #expect(info.isLive == false)
+        #expect(info.sourceMode != .live)
         #expect(info.logEndNs - info.logStartNs == 1_000_000_000)
         #expect(info.playbackRate == 0.5)
         #expect(info.paused == true)
@@ -551,14 +553,14 @@ struct FrameBundleIntegrationTests {
             ])
 
         bundle.playbackInfo = PlaybackInfo(
-            isLive: true, logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
-            currentFrameIndex: 0, totalFrames: 0)
+            logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 0, totalFrames: 0, sourceMode: .live)
 
         #expect(bundle.frameID == 42)
         #expect(bundle.pointCloud?.pointCount == 3)
         #expect(bundle.clusters?.clusters.count == 1)
         #expect(bundle.tracks?.tracks.count == 1)
         #expect(bundle.tracks?.trails.count == 1)
-        #expect(bundle.playbackInfo?.isLive == true)
+        #expect(bundle.playbackInfo?.sourceMode == .live)
     }
 }

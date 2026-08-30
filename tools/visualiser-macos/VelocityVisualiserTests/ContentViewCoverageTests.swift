@@ -993,7 +993,7 @@ struct SparklineViewCoverageTests {
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 50_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 100)
             let speed: Float = i < 15 ? Float(i) * 1.0 : 0.1  // Drop to near-zero after frame 14
             frame.tracks = TrackSet(
@@ -1019,7 +1019,7 @@ struct SparklineViewCoverageTests {
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 100)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
@@ -1039,7 +1039,7 @@ struct SparklineViewCoverageTests {
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 200_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 50)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 200_000_000,

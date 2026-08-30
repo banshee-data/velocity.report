@@ -439,7 +439,7 @@ struct SparklineViewTests {
         frame.frameID = 0
         frame.timestampNanos = 100_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
             currentFrameIndex: 0, totalFrames: 10)
         frame.tracks = TrackSet(
             frameID: 0, timestampNanos: 100_000_000,
@@ -458,7 +458,7 @@ struct SparklineViewTests {
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 50_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 100)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 50_000_000,

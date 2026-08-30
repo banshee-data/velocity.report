@@ -698,7 +698,6 @@ func (r *Replayer) ReadFrame() (*l9endpoints.FrameBundle, error) {
 
 	// Add playback info with current frame index (before incrementing)
 	frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
-		IsLive:            false,
 		LogStartNs:        r.header.StartNs,
 		LogEndNs:          r.header.EndNs,
 		PlaybackRate:      r.rate,

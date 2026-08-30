@@ -34,7 +34,6 @@ func TestFrameBundleCarriesSourceMode(t *testing.T) {
 	frame := &FrameBundle{
 		FrameID: 1,
 		PlaybackInfo: &PlaybackInfo{
-			IsLive:     false,
 			Seekable:   true,
 			SourceMode: "vrlog",
 			Recording:  true,
@@ -52,7 +51,7 @@ func TestFrameBundleCarriesSourceMode(t *testing.T) {
 		t.Error("Recording not carried through to the wire")
 	}
 	// is_live stays populated so older clients keep working.
-	if pbFrame.PlaybackInfo.IsLive {
+	if pbFrame.PlaybackInfo.SourceMode == pb.SourceMode_SOURCE_MODE_LIVE {
 		t.Error("IsLive = true for a VRLOG replay")
 	}
 	// Seekability is an independent axis and must survive unchanged.

@@ -19,7 +19,7 @@ import XCTest
     ) -> FrameBundle {
         var f = FrameBundle(frameID: 1, timestampNanos: 0, sensorID: "test")
         f.playbackInfo = PlaybackInfo(
-            isLive: sourceMode == .live, settling: settling,
+            settling: settling,
             settlingElapsedSeconds: elapsed,
             logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
             currentFrameIndex: 0, totalFrames: 0, seekable: false, replayEpoch: 0,

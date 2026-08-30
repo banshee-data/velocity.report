@@ -468,7 +468,6 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			if s.replayMode && frame.PlaybackInfo == nil {
 				s.playbackMu.RLock()
 				frame.PlaybackInfo = &PlaybackInfo{
-					IsLive:            false,
 					LogStartNs:        s.pcapStartNs,
 					LogEndNs:          s.pcapEndNs,
 					PlaybackRate:      s.playbackRate,
@@ -491,7 +490,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// today, so one is created to hold it.
 			if mode, recording := s.currentSourceMode(); mode != "" {
 				if frame.PlaybackInfo == nil {
-					frame.PlaybackInfo = &PlaybackInfo{IsLive: mode == "live", PlaybackRate: 1.0}
+					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
 				}
 				frame.PlaybackInfo.SourceMode = mode
 				frame.PlaybackInfo.Recording = recording

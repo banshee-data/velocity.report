@@ -407,14 +407,13 @@ func (ObjectClass) EnumDescriptor() ([]byte, []int) {
 	return file_visualiser_proto_rawDescGZIP(), []int{6}
 }
 
-// SourceMode names what is driving the pipeline. Clients previously had to
-// infer this from is_live plus seekable, which could not distinguish a
-// preserved analysis grid from an ordinary PCAP replay and said nothing about
-// recording.
+// SourceMode names what is driving the pipeline. Clients once inferred this
+// from is_live plus seekable, which could not distinguish a preserved analysis
+// grid from an ordinary PCAP replay and said nothing about recording.
 type SourceMode int32
 
 const (
-	SourceMode_SOURCE_MODE_UNSPECIFIED   SourceMode = 0 // server predates this field; infer from is_live/seekable
+	SourceMode_SOURCE_MODE_UNSPECIFIED   SourceMode = 0 // proto3 requires a zero value; the server always sets a real one
 	SourceMode_SOURCE_MODE_LIVE          SourceMode = 1
 	SourceMode_SOURCE_MODE_PCAP          SourceMode = 2 // PCAP replay in progress
 	SourceMode_SOURCE_MODE_PCAP_ANALYSIS SourceMode = 3 // PCAP replay finished, background grid retained
@@ -2231,7 +2230,6 @@ func (x *LabelSet) GetLabels() []*LabelEvent {
 
 type PlaybackInfo struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	IsLive            bool                   `protobuf:"varint,1,opt,name=is_live,json=isLive,proto3" json:"is_live,omitempty"`                    // retained for compatibility; == (source_mode == SOURCE_MODE_LIVE)
 	LogStartNs        int64                  `protobuf:"varint,2,opt,name=log_start_ns,json=logStartNs,proto3" json:"log_start_ns,omitempty"`      // first frame timestamp in log
 	LogEndNs          int64                  `protobuf:"varint,3,opt,name=log_end_ns,json=logEndNs,proto3" json:"log_end_ns,omitempty"`            // last frame timestamp in log
 	PlaybackRate      float32                `protobuf:"fixed32,4,opt,name=playback_rate,json=playbackRate,proto3" json:"playback_rate,omitempty"` // 1.0 = real-time
@@ -2281,13 +2279,6 @@ func (x *PlaybackInfo) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PlaybackInfo.ProtoReflect.Descriptor instead.
 func (*PlaybackInfo) Descriptor() ([]byte, []int) {
 	return file_visualiser_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *PlaybackInfo) GetIsLive() bool {
-	if x != nil {
-		return x.IsLive
-	}
-	return false
 }
 
 func (x *PlaybackInfo) GetLogStartNs() int64 {
@@ -3439,9 +3430,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xf5\x03\n" +
-	"\fPlaybackInfo\x12\x17\n" +
-	"\ais_live\x18\x01 \x01(\bR\x06isLive\x12 \n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xe2\x03\n" +
+	"\fPlaybackInfo\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
 	"logStartNs\x12\x1c\n" +
 	"\n" +
@@ -3457,7 +3447,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"sourceMode\x12\x1c\n" +
 	"\trecording\x18\v \x01(\bR\trecording\x12\x1a\n" +
 	"\bsettling\x18\f \x01(\bR\bsettling\x128\n" +
-	"\x18settling_elapsed_seconds\x18\x0e \x01(\x02R\x16settlingElapsedSecondsJ\x04\b\r\x10\x0e\"\xc3\x05\n" +
+	"\x18settling_elapsed_seconds\x18\x0e \x01(\x02R\x16settlingElapsedSecondsJ\x04\b\x01\x10\x02J\x04\b\r\x10\x0e\"\xc3\x05\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +

@@ -46,16 +46,13 @@ import XCTest
             "a finished replay still owns the pipeline; the toggle must not flip itself back to live")
     }
 
-    /// An older server sends no source_mode. Fall back to the transport's own
-    /// live flag rather than claiming replay.
-    func testUnspecifiedSourceFallsBackToTheTransportFlag() {
+    /// Before the first frame there is no source. It must not read as live:
+    /// claiming live input the server has not reported is the confusion the
+    /// source mode was introduced to end.
+    func testUnspecifiedSourceIsNotLive() {
         let state = AppState()
         state.sourceMode = .unspecified
 
-        state.isLive = true
-        XCTAssertTrue(state.isLiveSource)
-
-        state.isLive = false
         XCTAssertFalse(state.isLiveSource)
     }
 

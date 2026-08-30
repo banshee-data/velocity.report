@@ -346,12 +346,11 @@ message LabelSet {
 // Frame Bundle (Main Streaming Message)
 // =============================================================================
 
-// SourceMode names what is driving the pipeline. Clients previously had to
-// infer this from is_live plus seekable, which could not distinguish a
-// preserved analysis grid from an ordinary PCAP replay and said nothing about
-// recording.
+// SourceMode names what is driving the pipeline. Clients once inferred this
+// from is_live plus seekable, which could not distinguish a preserved analysis
+// grid from an ordinary PCAP replay and said nothing about recording.
 enum SourceMode {
-  SOURCE_MODE_UNSPECIFIED = 0;   // server predates this field; infer from is_live/seekable
+  SOURCE_MODE_UNSPECIFIED = 0;   // proto3 requires a zero value; the server always sets a real one
   SOURCE_MODE_LIVE = 1;
   SOURCE_MODE_PCAP = 2;          // PCAP replay in progress
   SOURCE_MODE_PCAP_ANALYSIS = 3; // PCAP replay finished, background grid retained
@@ -359,7 +358,11 @@ enum SourceMode {
 }
 
 message PlaybackInfo {
-  bool is_live = 1;              // retained for compatibility; == (source_mode == SOURCE_MODE_LIVE)
+  // 1 held is_live, which was only ever (source_mode == SOURCE_MODE_LIVE).
+  // Server and client ship from one repository and one version, so there was
+  // no mismatched pair for it to serve, and two spellings of the same fact
+  // invite the question of which is authoritative.
+  reserved 1;
   int64 log_start_ns = 2;        // first frame timestamp in log
   int64 log_end_ns = 3;          // last frame timestamp in log
   float playback_rate = 4;       // 1.0 = real-time

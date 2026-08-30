@@ -818,12 +818,12 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 			ReferenceFrame: "ENU",
 		},
 		PlaybackInfo: &PlaybackInfo{
-			IsLive:       true,
 			LogStartNs:   1000000000,
 			LogEndNs:     2000000000,
 			PlaybackRate: 1.5,
 			Paused:       false,
 			Seekable:     true,
+			SourceMode:   "live",
 		},
 	}
 
@@ -834,8 +834,8 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 	if pbFrame.PlaybackInfo == nil {
 		t.Fatal("expected non-nil PlaybackInfo")
 	}
-	if !pbFrame.PlaybackInfo.IsLive {
-		t.Error("expected IsLive=true")
+	if pbFrame.PlaybackInfo.SourceMode != pb.SourceMode_SOURCE_MODE_LIVE {
+		t.Error("expected SOURCE_MODE_LIVE")
 	}
 	if pbFrame.PlaybackInfo.PlaybackRate != 1.5 {
 		t.Errorf("expected PlaybackRate=1.5, got %f", pbFrame.PlaybackInfo.PlaybackRate)

@@ -166,7 +166,7 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 5_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 10_000_000_000, playbackRate: 2.0,
+            logStartNs: 0, logEndNs: 10_000_000_000, playbackRate: 2.0,
             paused: false, currentFrameIndex: 100, totalFrames: 1000, seekable: true)
 
         state.onFrameReceived(frame)
@@ -455,7 +455,7 @@ struct VisualiserClientDecodeTests {
         var proto = Velocity_Visualiser_V1_FrameBundle()
         proto.frameID = 400
 
-        proto.playbackInfo.isLive = false
+        proto.playbackInfo.sourceMode = .vrlog
         proto.playbackInfo.currentFrameIndex = 50
         proto.playbackInfo.totalFrames = 200
         proto.playbackInfo.seekable = true
@@ -464,7 +464,7 @@ struct VisualiserClientDecodeTests {
 
         let result = client.decodeFrameBundle(proto)
         #expect(result.playbackInfo != nil)
-        #expect(result.playbackInfo?.isLive == false)
+        #expect(result.playbackInfo?.sourceMode == .vrlog)
         #expect(result.playbackInfo?.currentFrameIndex == 50)
         #expect(result.playbackInfo?.totalFrames == 200)
         #expect(result.playbackInfo?.seekable == true)

@@ -156,7 +156,7 @@ import XCTest
         frame.frameID = 99
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 10, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 10, playbackRate: 1.0, paused: false,
             currentFrameIndex: 1, totalFrames: 2, seekable: false)
 
         state.onFrameReceived(frame, generation: 999)
@@ -432,7 +432,7 @@ import XCTest
         frame.frameID = 12
         frame.timestampNanos = 1_500
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false,
+            logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false,
             currentFrameIndex: 1, totalFrames: 2, seekable: false)
 
         state.onFrameReceived(frame)
@@ -450,7 +450,7 @@ import XCTest
         frame.frameID = 9
         frame.timestampNanos = 500
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000, logEndNs: 1_000, playbackRate: 1.0, paused: true,
+            logStartNs: 1_000, logEndNs: 1_000, playbackRate: 1.0, paused: true,
             currentFrameIndex: 3, totalFrames: 5, seekable: false)
 
         state.onFrameReceived(frame)
@@ -950,7 +950,7 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0,
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0,
             paused: false, currentFrameIndex: 50, totalFrames: 500)
 
         state.onFrameReceived(frame)
@@ -985,7 +985,7 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
             currentFrameIndex: 99, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
@@ -1004,7 +1004,7 @@ import XCTest
         frame.frameID = 50
         frame.timestampNanos = 500_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
             currentFrameIndex: 49, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
@@ -1022,8 +1022,8 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: true, logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
-            currentFrameIndex: 99, totalFrames: 100)
+            logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 99, totalFrames: 100, sourceMode: .live)
 
         state.onFrameReceived(frame)
         await Task.yield()
@@ -1509,7 +1509,7 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 0, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
@@ -1646,7 +1646,7 @@ import XCTest
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 10)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
@@ -1664,7 +1664,7 @@ import XCTest
         backFrame.frameID = 2
         backFrame.timestampNanos = 200_000_000
         backFrame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: true,
+            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: true,
             currentFrameIndex: 2, totalFrames: 10)
         backFrame.tracks = TrackSet(
             frameID: 2, timestampNanos: 200_000_000,
@@ -1686,7 +1686,7 @@ import XCTest
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: false, currentFrameIndex: i, totalFrames: 100)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
@@ -1709,7 +1709,7 @@ import XCTest
             frame.frameID = 5
             frame.timestampNanos = 500_000_000
             frame.playbackInfo = PlaybackInfo(
-                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
                 paused: true, currentFrameIndex: 5, totalFrames: 10)
             frame.tracks = TrackSet(
                 frameID: 5, timestampNanos: 500_000_000,
@@ -2013,7 +2013,7 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 1_500_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 100, totalFrames: 394)
         frame.tracks = TrackSet(
             frameID: 100, timestampNanos: 1_500_000_000,
@@ -2074,7 +2074,7 @@ import XCTest
         frame.frameID = 0
         frame.timestampNanos = 500_000_000
         frame.playbackInfo = PlaybackInfo(
-            isLive: false, logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0,
+            logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 0, totalFrames: 394)
         frame.tracks = TrackSet(
             frameID: 0, timestampNanos: 500_000_000,

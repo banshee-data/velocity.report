@@ -65,7 +65,6 @@ func (p *Publisher) emitFirstBackground(reader FrameReader) error {
 			if frame.PlaybackInfo == nil {
 				frame.PlaybackInfo = &PlaybackInfo{}
 			}
-			frame.PlaybackInfo.IsLive = false
 			frame.PlaybackInfo.Seekable = true
 			// Record that this replay supplies its own background BEFORE
 			// publishing, so publishInternal preserves this frame's recorded
@@ -362,7 +361,6 @@ func (p *Publisher) vrlogReplayLoop() {
 		if frame.PlaybackInfo == nil {
 			frame.PlaybackInfo = &PlaybackInfo{}
 		}
-		frame.PlaybackInfo.IsLive = false
 		frame.PlaybackInfo.Seekable = true
 
 		// Publish to all clients

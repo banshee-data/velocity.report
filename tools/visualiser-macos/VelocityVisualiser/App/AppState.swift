@@ -395,7 +395,7 @@ private let logger = DevLogger(category: "AppState")
         case .pcap: return "REPLAY (PCAP)"
         case .pcapAnalysis: return "PCAP (ANALYSIS)"
         case .vrlog: return "REPLAY (VRLOG)"
-        case .unspecified: return displayPlaybackMode.modeLabel
+        case .unspecified: return displayPlaybackMode.modeLabel  // before the first frame
         }
     }
 
@@ -441,11 +441,6 @@ private let logger = DevLogger(category: "AppState")
     }
 
     /// Fallback for servers that do not report a source mode.
-    private func inferPlaybackMode(isLive: Bool, seekable: Bool) -> PlaybackMode {
-        if isLive { return .live }
-        return seekable ? .replaySeekable : .replayNonSeekable
-    }
-
     /// Playback capability for a reported source. The source decides live vs
     /// replay; `seekable` alone decides whether the replay can be scrubbed.
     private func playbackMode(for source: SourceMode, seekable: Bool) -> PlaybackMode {
@@ -627,7 +622,7 @@ private let logger = DevLogger(category: "AppState")
         switch sourceMode {
         case .live: return true
         case .pcap, .pcapAnalysis, .vrlog: return false
-        case .unspecified: return isLive  // server predates source_mode
+        case .unspecified: return false  // no frame yet; not live until the server says so
         }
     }
 
@@ -1404,10 +1399,7 @@ private let logger = DevLogger(category: "AppState")
             if settlingElapsedSeconds != playbackInfo.settlingElapsedSeconds {
                 settlingElapsedSeconds = playbackInfo.settlingElapsedSeconds
             }
-            if playbackInfo.sourceMode == .unspecified {
-                setPlaybackMode(
-                    inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
-            } else {
+            do {
                 setPlaybackMode(
                     playbackMode(for: playbackInfo.sourceMode, seekable: playbackInfo.seekable))
                 // Seekability is reported, not derived from the mode case.
@@ -1553,7 +1545,7 @@ private let logger = DevLogger(category: "AppState")
         // than waiting for gRPC stream termination, which may never propagate
         // in grpc-swift-v2's NIO transport (the `for try await` iterator can
         // hang indefinitely after the server closes the stream with OK status).
-        if let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
+        if let playbackInfo = frame.playbackInfo, playbackInfo.sourceMode != .live,
             playbackInfo.totalFrames > 0,
             playbackInfo.currentFrameIndex + 1 >= playbackInfo.totalFrames
         {
@@ -1566,8 +1558,8 @@ private let logger = DevLogger(category: "AppState")
                 replayProgress = 1.0
                 if logEndTimestamp > 0 { currentTimestamp = logEndTimestamp }
             }
-        } else if replayFinished, let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
-            playbackInfo.totalFrames > 0,
+        } else if replayFinished, let playbackInfo = frame.playbackInfo,
+            playbackInfo.sourceMode != .live, playbackInfo.totalFrames > 0,
             playbackInfo.currentFrameIndex + 1 < playbackInfo.totalFrames
         {
             // User seeked/stepped away from the last frame — clear finished
