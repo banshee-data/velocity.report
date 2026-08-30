@@ -14,12 +14,12 @@ import XCTest
 @available(macOS 15.0, *) @MainActor final class SettlingDeliveryTests: XCTestCase {
 
     private func frame(
-        settling: Bool, progress: Float, elapsed: Float = 0,
+        settling: Bool, elapsed: Float = 0,
         sourceMode: SourceMode = .live
     ) -> FrameBundle {
         var f = FrameBundle(frameID: 1, timestampNanos: 0, sensorID: "test")
         f.playbackInfo = PlaybackInfo(
-            isLive: sourceMode == .live, settling: settling, settlingProgress: progress,
+            isLive: sourceMode == .live, settling: settling,
             settlingElapsedSeconds: elapsed,
             logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
             currentFrameIndex: 0, totalFrames: 0, seekable: false, replayEpoch: 0,
@@ -34,10 +34,9 @@ import XCTest
         let state = AppState()
         state.isConnected = true
 
-        state.onFrameReceived(frame(settling: true, progress: 0.25, elapsed: 2.5))
+        state.onFrameReceived(frame(settling: true, elapsed: 2.5))
 
         XCTAssertTrue(state.isSettling)
-        XCTAssertEqual(state.settlingProgress, 0.25, accuracy: 0.0001)
         XCTAssertEqual(state.settlingElapsedSeconds, 2.5, accuracy: 0.0001)
         XCTAssertEqual(state.displayModeLabel, "SETTLING 2s")
     }
@@ -48,10 +47,10 @@ import XCTest
         let state = AppState()
         state.isConnected = true
 
-        state.onFrameReceived(frame(settling: true, progress: 0.9))
+        state.onFrameReceived(frame(settling: true, elapsed: 0.9))
         XCTAssertTrue(state.isSettling)
 
-        state.onFrameReceived(frame(settling: false, progress: 1.0))
+        state.onFrameReceived(frame(settling: false, elapsed: 1.0))
 
         XCTAssertFalse(state.isSettling)
         XCTAssertEqual(state.displayModeLabel, "LIVE")
@@ -63,7 +62,7 @@ import XCTest
         let state = AppState()
         state.isConnected = true
 
-        state.onFrameReceived(frame(settling: false, progress: 0, elapsed: 0, sourceMode: .vrlog))
+        state.onFrameReceived(frame(settling: false, elapsed: 0, sourceMode: .vrlog))
 
         XCTAssertFalse(state.isSettling)
         XCTAssertEqual(state.displayModeLabel, "REPLAY (VRLOG)")

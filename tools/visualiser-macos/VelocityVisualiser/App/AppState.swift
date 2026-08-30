@@ -92,7 +92,6 @@ private let logger = DevLogger(category: "AppState")
     /// for about a minute after going live — which otherwise looks like a
     /// sensor that has stopped.
     @Published var isSettling: Bool = false
-    @Published var settlingProgress: Float = 0
     /// Seconds spent settling so far. Shown instead of a percentage: settling
     /// can finish on convergence well before its ceiling, so a fraction of an
     /// unknown total says less than the time on the clock.
@@ -1402,9 +1401,6 @@ private let logger = DevLogger(category: "AppState")
             if sourceMode != playbackInfo.sourceMode { sourceMode = playbackInfo.sourceMode }
             if isRecording != playbackInfo.recording { isRecording = playbackInfo.recording }
             if isSettling != playbackInfo.settling { isSettling = playbackInfo.settling }
-            if settlingProgress != playbackInfo.settlingProgress {
-                settlingProgress = playbackInfo.settlingProgress
-            }
             if settlingElapsedSeconds != playbackInfo.settlingElapsedSeconds {
                 settlingElapsedSeconds = playbackInfo.settlingElapsedSeconds
             }

@@ -242,10 +242,10 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"live_listener_running": state.LiveListenerRunning,
 		// Until the grid settles there is no usable background, so the scene is
 		// empty for reasons that have nothing to do with the sensor.
-		"settling":          !settling.Complete,
-		"settling_progress": settling.Progress,
-		"recording":         state.Recording,
-		"recording_path":    state.RecordingPath,
+		"settling":                 !settling.Complete,
+		"settling_elapsed_seconds": settling.Elapsed.Seconds(),
+		"recording":                state.Recording,
+		"recording_path":           state.RecordingPath,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -328,7 +328,6 @@ struct PlaybackInfo {
     /// True while the background grid is still settling, so an empty scene is
     /// warm-up rather than a dead sensor.
     var settling: Bool = false
-    var settlingProgress: Float = 0
     /// Seconds spent settling so far, shown in place of a percentage.
     var settlingElapsedSeconds: Float = 0
     var logStartNs: Int64 = 0

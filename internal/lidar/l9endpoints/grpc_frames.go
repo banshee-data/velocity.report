@@ -216,7 +216,6 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			SourceMode:             sourceModeToProto(frame.PlaybackInfo.SourceMode),
 			Recording:              frame.PlaybackInfo.Recording,
 			Settling:               frame.PlaybackInfo.Settling,
-			SettlingProgress:       frame.PlaybackInfo.SettlingProgress,
 			SettlingElapsedSeconds: frame.PlaybackInfo.SettlingElapsedSecs,
 			ReplayEpoch:            frame.PlaybackInfo.ReplayEpoch,
 		}
