@@ -287,6 +287,9 @@ func (ws *Server) setLiveListenerRunning(running bool) {
 // state: a caller that checked and then set separately could race a second
 // start request into a half-configured replay.
 func (ws *Server) tryBeginPCAPReplay(cfg ReplayConfig) (bool, SourceMode) {
+	// A new replay supersedes any parked replay still waiting for live input.
+	ws.cancelParkedLiveWatch()
+
 	totalPasses := 1
 	if cfg.SettleBeforeRecording {
 		totalPasses = 2
@@ -452,6 +455,8 @@ func (ws *Server) clearRecording() {
 
 // setSourceVRLog records that a VRLOG replay is driving the visualiser stream.
 func (ws *Server) setSourceVRLog(path string) {
+	// A new replay supersedes any parked replay still waiting for live input.
+	ws.cancelParkedLiveWatch()
 	ws.mutateState("setSourceVRLog", func(s *PipelineState) {
 		s.Source = SourceModeVRLog
 		s.SourcePath = path

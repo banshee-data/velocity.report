@@ -103,6 +103,25 @@ All items delivered on branch `claude/pcap-state-backend-aef738`.
   [stream robustness](lidar-visualiser-stream-robustness-plan.md), which hands
   each subscribing client the current background.
 
+## Parking waits for live
+
+A finished replay parks: the recording stays the source, its last frame stays on
+screen, and the operator decides what happens next. That was right as far as it
+went, and wrong in one case — a replay loaded yesterday was still the source
+this morning with the sensor streaming, because nothing was watching.
+
+Parking now starts the live listener and watches for a packet. The recording
+remains the source until one actually arrives, so the last frame is held rather
+than replaced by an empty grid, and a quiet sensor leaves the replay parked
+indefinitely as before. Only packets arriving after the park count:
+`LastPacketAt` survives a replay, so an older timestamp says the sensor was
+streaming before, not that it is streaming now.
+
+The server owns the decision, so every client sees the same source. The watcher
+is cancelled whenever something else decides — an operator going live, or
+another replay starting — so one armed under an earlier replay cannot fire under
+a later one.
+
 ## Related
 
 - [Stream robustness](lidar-visualiser-stream-robustness-plan.md) — delivering this state to the client reliably

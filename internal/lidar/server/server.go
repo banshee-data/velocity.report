@@ -93,8 +93,11 @@ type Server struct {
 
 	// PCAP replay lifecycle. pcapMu guards only the cancellation handles;
 	// everything an observer can see lives in state above.
-	pcapMu                      sync.Mutex
-	pcapCancel                  context.CancelFunc
+	pcapMu     sync.Mutex
+	pcapCancel context.CancelFunc
+	// parkedLiveWatchCancel stops the watcher that hands a parked replay over to
+	// live input. Guarded by pcapMu with the other replay-lifecycle fields.
+	parkedLiveWatchCancel       context.CancelFunc
 	pcapDone                    chan struct{}
 	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
 	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes

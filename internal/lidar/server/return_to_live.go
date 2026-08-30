@@ -1,10 +1,17 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
+
+// parkedLiveWatchInterval is how often a parked replay checks for live input.
+// Coarse on purpose: this decides whether to change the data source, not
+// anything a frame depends on.
+const parkedLiveWatchInterval = 500 * time.Millisecond
 
 // parkFinishedReplay records that a replay has run to its end without changing
 // the data source.
@@ -27,7 +34,70 @@ func (ws *Server) parkFinishedReplay(reason string) {
 		s.SpeedRatio = 0
 		s.Recording = false
 	})
-	diagf("[DataSource] %s for sensor=%s; holding this source until an operator returns to live", reason, ws.sensorID)
+	diagf("[DataSource] %s for sensor=%s; holding this source and watching for live input", reason, ws.sensorID)
+	ws.watchForLiveWhileParked()
+}
+
+// watchForLiveWhileParked brings the live listener back up under a parked
+// replay and hands the pipeline to live input as soon as a packet arrives.
+//
+// Parking keeps the recording on screen, which is what an operator wants when
+// there is nothing else to show. It should not outlast the sensor being quiet:
+// a replay loaded yesterday was still the source this morning with the sensor
+// streaming, because nothing was watching. The listener has to run for a packet
+// to be seen at all, so it is started here rather than waited for.
+//
+// The recording stays the source until a packet actually arrives, so the last
+// frame is held rather than replaced by an empty grid.
+func (ws *Server) watchForLiveWhileParked() {
+	baseCtx := ws.baseContext()
+	if baseCtx == nil || ws.stats == nil {
+		return
+	}
+
+	ws.pcapMu.Lock()
+	if ws.parkedLiveWatchCancel != nil {
+		ws.parkedLiveWatchCancel()
+	}
+	ctx, cancel := context.WithCancel(baseCtx)
+	ws.parkedLiveWatchCancel = cancel
+	if err := ws.startLiveListenerLocked(); err != nil {
+		ws.pcapMu.Unlock()
+		opsf("[DataSource] could not start the live listener under a parked replay: %v", err)
+		cancel()
+		return
+	}
+	ws.pcapMu.Unlock()
+
+	// Only packets that arrive after parking count. LastPacketAt survives a
+	// replay, so an older timestamp says the sensor was streaming before, not
+	// that it is streaming now.
+	parkedAt := time.Now()
+
+	go func() {
+		ticker := time.NewTicker(parkedLiveWatchInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if !ws.stats.LastPacketAt().After(parkedAt) {
+					continue
+				}
+				// Re-check under the current state: an operator may have gone
+				// live or loaded another replay while this was waiting.
+				if ws.PipelineState().Source == SourceModeLive {
+					return
+				}
+				diagf("[DataSource] live input resumed under a parked replay for sensor=%s; taking it live", ws.sensorID)
+				if err := ws.returnToLive("live input resumed under a parked replay", true); err != nil {
+					opsf("[DataSource] failed to take live input under a parked replay: %v", err)
+				}
+				return
+			}
+		}
+	}()
 }
 
 // ReturnToLive stops whatever replay is driving the pipeline and restores live
@@ -55,6 +125,9 @@ func (ws *Server) ReturnToLive(reason string) error {
 // finish before the pipeline is declared live.
 func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 	before := ws.PipelineState()
+
+	// Whatever brought us here supersedes a parked replay's wait for live.
+	ws.cancelParkedLiveWatch()
 	diagf("[DataSource] returning to live (%s) from %s", reason, before)
 
 	// Stop a VRLOG replay first. This calls into l9endpoints, so it must happen
@@ -147,4 +220,17 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 
 	diagf("[DataSource] live input restored for sensor=%s (%s)", ws.sensorID, reason)
 	return nil
+}
+
+// cancelParkedLiveWatch stops any watcher waiting to hand a parked replay over
+// to live input. Called whenever something else decides the source, so a
+// watcher armed under an earlier replay cannot fire under a later one.
+func (ws *Server) cancelParkedLiveWatch() {
+	ws.pcapMu.Lock()
+	cancel := ws.parkedLiveWatchCancel
+	ws.parkedLiveWatchCancel = nil
+	ws.pcapMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
