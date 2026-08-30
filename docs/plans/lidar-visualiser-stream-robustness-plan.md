@@ -79,6 +79,8 @@ All items delivered on branch `dd/go/test-pacp-replay`.
 | 11   | A stream that ends clears the connection, not only the replay-finished flag                |
 | 12   | Inspector visibility keyed on `showSidePanel` alone                                        |
 | 13   | Replace `.disabled()` with `.inert` wherever availability changes, ending the cycles       |
+| 14   | Delete the `is_live` compatibility layer and the source inference it fed                   |
+| 15   | Require settling reporting on the interface; drop the unread settling fraction             |
 
 ## Evidence
 
@@ -153,6 +155,32 @@ streaming 800 frames in one of them; previously a stall arrived within 25
 frames of connecting. Treat this as strongly indicated rather than proven: the
 absence held across one session, and the two changes that shipped either side
 of it (the non-blocking hand-off and the cycle fix) were not isolated from it.
+
+## Simplifications taken after review
+
+The branch was reviewed for compatibility code that would make later work
+harder. Four things went:
+
+- **`is_live`.** Only ever `source_mode == SOURCE_MODE_LIVE`, kept for a
+  server/client version mismatch that cannot occur when both ship from one
+  repository. It fed an inference path that reconstructed the source from
+  `is_live` and `seekable` — the reconstruction `source_mode` was introduced to
+  replace.
+- **Optional settling reporting.** Made optional so seven test fakes would not
+  need updating; the production bridge then silently did not implement it and
+  the feature no-oped for a release cycle. It is required now, so the compiler
+  catches what a runtime warning had been papering over.
+- **`settling_progress`.** Plumbed through proto, both models, an `@Published`
+  property and the HTTP API, and never displayed. Superseded by elapsed
+  seconds.
+- **The frame-drop bound and its instrumentation.** Added on the theory that a
+  wedged main thread was starving the read loop, which the watchdog disproved
+  and the probe then buried. The awaited hand-off is back: it applies natural
+  back-pressure and drops nothing.
+
+Three further candidates are tracked in the backlog rather than taken here: the
+four independent frame-drop paths, the `.inert` fork's house rule, and the
+legacy JSON VRLOG encoding.
 
 ## Open items
 
