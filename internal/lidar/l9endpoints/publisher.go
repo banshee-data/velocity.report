@@ -130,12 +130,11 @@ type Publisher struct {
 type BackgroundManagerInterface interface {
 	GenerateBackgroundSnapshot() (interface{}, error) // Returns *l3grid.BackgroundSnapshotData
 	GetBackgroundSequenceNumber() uint64
-}
-
-// settlingAware is an optional capability of a background manager: whether its
-// grid has finished settling. Kept separate from BackgroundManagerInterface so
-// implementations that do not model settling are unaffected.
-type settlingAware interface {
+	// IsSettlingComplete reports whether the grid has finished settling, so a
+	// snapshot can be sent the moment it does. Required rather than optional:
+	// as an optional capability the production bridge silently did not provide
+	// it, the type assertion found nothing, and send-on-settle no-oped while
+	// every test passed.
 	IsSettlingComplete() bool
 }
 
@@ -243,25 +242,14 @@ func (p *Publisher) shouldSendBackground() bool {
 	// client showing foreground and boxes over nothing. That gap used to be
 	// invisible because settling took about as long as the interval — now that
 	// a grid can settle in six seconds, it is most of half a minute.
-	aware, ok := p.backgroundMgr.(settlingAware)
-	if !ok {
-		// Say so once. A manager that does not report settling silently loses
-		// the send-on-settle behaviour, and a wrapper that forgets to forward
-		// the method looks exactly like one that never had it.
-		p.settlingUnawareOnce.Do(func() {
-			diagf("[Visualiser] Background manager %T does not report settling; the client will wait for the refresh interval after settling completes", p.backgroundMgr)
-		})
-	}
-	if ok {
-		settled := aware.IsSettlingComplete()
-		p.backgroundMu.Lock()
-		justSettled := settled && !p.lastSettlingComplete
-		p.lastSettlingComplete = settled
-		p.backgroundMu.Unlock()
-		if justSettled {
-			diagf("[Visualiser] Settling completed, sending background now")
-			return true
-		}
+	settled := p.backgroundMgr.IsSettlingComplete()
+	p.backgroundMu.Lock()
+	justSettled := settled && !p.lastSettlingComplete
+	p.lastSettlingComplete = settled
+	p.backgroundMu.Unlock()
+	if justSettled {
+		diagf("[Visualiser] Settling completed, sending background now")
+		return true
 	}
 
 	// Any change of sequence means the grid the client is holding is no longer

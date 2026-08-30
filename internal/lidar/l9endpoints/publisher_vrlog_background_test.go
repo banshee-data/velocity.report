@@ -82,6 +82,8 @@ func (m *liveBackgroundManager) GenerateBackgroundSnapshot() (interface{}, error
 
 func (m *liveBackgroundManager) GetBackgroundSequenceNumber() uint64 { return liveBackgroundSeq }
 
+func (m *liveBackgroundManager) IsSettlingComplete() bool { return false }
+
 // newVRLogBackgroundTestPublisher returns a running publisher wired to a live
 // background grid, with a foreground timestamp already recorded so background
 // snapshots are not deferred for want of one.

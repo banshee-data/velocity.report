@@ -108,6 +108,8 @@ func (m *seqBackgroundManager) GenerateBackgroundSnapshot() (interface{}, error)
 }
 func (m *seqBackgroundManager) GetBackgroundSequenceNumber() uint64 { return m.seq }
 
+func (m *seqBackgroundManager) IsSettlingComplete() bool { return false }
+
 // TestSettledSnapshotRestoreRefreshesBackground covers the settle-before-recording
 // handover. The settling pass runs against an unsettled grid, which has no
 // persisted snapshot and so reports sequence 0. Restoring the settled snapshot

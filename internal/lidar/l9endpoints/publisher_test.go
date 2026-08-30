@@ -630,6 +630,8 @@ func (m *mockBackgroundManagerWrongType) GetBackgroundSequenceNumber() uint64 {
 	return 1
 }
 
+func (m *mockBackgroundManagerWrongType) IsSettlingComplete() bool { return false }
+
 func TestPublisher_SendBackgroundSnapshot_Success(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"
