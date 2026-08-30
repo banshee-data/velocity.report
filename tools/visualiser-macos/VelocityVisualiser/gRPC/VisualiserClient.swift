@@ -72,16 +72,6 @@ enum VisualiserClientError: Error, LocalizedError {
 
     let address: String
     let _isConnected = LockedState(false)
-
-    /// Frames handed to the main actor and not yet handled. The read loop no
-    /// longer waits for each one, so this is what stops a slow main thread
-    /// turning into an unbounded queue.
-    let _pendingMainActorFrames = PendingCounter()
-
-    /// How far the main actor may fall behind before foreground frames are
-    /// dropped. Small on purpose: the point of the queue is to absorb a hiccup,
-    /// not to buffer a backlog the renderer would only discard later.
-    static let maxPendingMainActorFrames = 3
     private let _streamTask = LockedState<Task<Void, Never>?>(nil)
     private let _clientTask = LockedState<Task<Void, Error>?>(nil)
     let _grpcClient = LockedState<GRPCClient<HTTP2ClientTransport.Posix>?>(nil)
@@ -300,22 +290,7 @@ enum VisualiserClientError: Error, LocalizedError {
                             "[VisualiserClient] read loop running on "
                                 + (Thread.isMainThread ? "the MAIN thread" : "a background thread"))
 
-                        var lastMessageArrival = ContinuousClock.now
                         for try await protoFrame in response.messages {
-                            // Time spent waiting for the transport to hand over
-                            // the next message. The server reports a blocked
-                            // send; this is the same gap seen from the client,
-                            // and it separates "the app never asked for another
-                            // frame" from "the app asked and nothing came".
-                            let interArrival = ContinuousClock.now - lastMessageArrival
-                            lastMessageArrival = ContinuousClock.now
-                            if interArrival > .milliseconds(1000) {
-                                vlog(
-                                    "[VisualiserClient] ⚠️ waited \(interArrival.formattedMillis) for the next message "
-                                        + "(frame \(frameCount), pending main-actor \(self?._pendingMainActorFrames.depth ?? -1), "
-                                        + "skipped \(skippedFrames), loop on \(Thread.isMainThread ? "MAIN" : "background") thread)"
-                                )
-                            }
                             frameCount += 1
 
                             // Background snapshots are rare and critical for
@@ -334,17 +309,6 @@ enum VisualiserClientError: Error, LocalizedError {
                                 lastDispatchTime = now
                             }
 
-                            let serviceStart = ContinuousClock.now
-                            defer {
-                                let serviced = ContinuousClock.now - serviceStart
-                                if serviced > .milliseconds(250) {
-                                    vlog(
-                                        "[VisualiserClient] ⚠️ frame \(frameCount) took \(serviced.formattedMillis) "
-                                            + "inside the read loop — the transport is not being drained meanwhile"
-                                    )
-                                }
-                            }
-
                             // Log every 100 frames
                             if frameCount % 100 == 1 {
                                 vlog(
@@ -357,54 +321,11 @@ enum VisualiserClientError: Error, LocalizedError {
                             // The delegate was captured once at stream start (Fix 3),
                             // structurally binding this entire stream to one handler.
                             guard let strongSelf = self else { continue }
-                            let decodeStart = ContinuousClock.now
                             let frame = strongSelf.decodeFrameBundle(protoFrame)
-                            let decodeTook = ContinuousClock.now - decodeStart
 
-                            // This await is why a stalled main thread stalls the
-                            // transport: the read loop cannot advance until the
-                            // hop completes, so the client stops reading and the
-                            // server's send blocks behind it. Timing both halves
-                            // separates "our frame handling is slow" from
-                            // "something else owns the main thread".
-                            // Hand off without waiting. Awaiting the main actor
-                            // per frame is what let a stalled main thread stall
-                            // the transport: the loop could not advance, so the
-                            // client stopped reading and the server's send
-                            // blocked behind it for tens of seconds.
-                            //
-                            // The queue is bounded instead. While the main actor
-                            // is behind, frames are dropped rather than piling
-                            // up, which is the same bargain the server already
-                            // makes for a slow client.
-                            let inFlight = strongSelf._pendingMainActorFrames
-                            let queued = inFlight.increment()
-                            if queued > Self.maxPendingMainActorFrames && !isBackground {
-                                inFlight.decrement()
-                                skippedFrames += 1
-                                continue
-                            }
-
-                            let hopStart = ContinuousClock.now
-                            Task { @MainActor [weak strongSelf] in
-                                defer { inFlight.decrement() }
+                            await MainActor.run { [weak strongSelf] in
                                 guard let self = strongSelf else { return }
-                                let handlerStart = ContinuousClock.now
                                 streamDelegate?.client(self, didReceiveFrame: frame)
-                                let handlerTook = ContinuousClock.now - handlerStart
-                                let hopTook = ContinuousClock.now - hopStart
-
-                                // Report a slow hop so the cause is attributable:
-                                // the wait separates "something else owns the main
-                                // thread" from "our own frame handling is slow".
-                                if hopTook > .milliseconds(500) {
-                                    let waited = hopTook - handlerTook
-                                    vlog(
-                                        "[VisualiserClient] ⚠️ main-actor hop \(hopTook.formattedMillis) "
-                                            + "(waiting \(waited.formattedMillis), handler \(handlerTook.formattedMillis), "
-                                            + "decode \(decodeTook.formattedMillis), queued \(queued))"
-                                    )
-                                }
                             }
                         }
                         vlog(
@@ -643,32 +564,6 @@ struct RecordingStatus {
 // MARK: - Locked State Helper
 
 /// Thread-safe wrapper for mutable state.
-/// A lock-guarded counter for frames in flight to the main actor.
-final class PendingCounter: @unchecked Sendable {
-    private var count = 0
-    private let lock = NSLock()
-
-    /// Increments and returns the new depth.
-    @discardableResult func increment() -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        count += 1
-        return count
-    }
-
-    func decrement() {
-        lock.lock()
-        defer { lock.unlock() }
-        if count > 0 { count -= 1 }
-    }
-
-    var depth: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return count
-    }
-}
-
 final class LockedState<Value>: @unchecked Sendable {
     private var _value: Value
     private let lock = NSLock()
@@ -889,12 +784,3 @@ private func objectClassLabel(_ oc: Velocity_Visualiser_V1_ObjectClass) -> Strin
 
 /// Checks if an ObjectClass enum value represents a valid classification.
 private func isClassified(_ label: String) -> Bool { return !label.isEmpty }
-
-extension ContinuousClock.Duration {
-    /// Milliseconds to one decimal place, for timing logs.
-    var formattedMillis: String {
-        let (seconds, attoseconds) = components
-        let millis = Double(seconds) * 1000 + Double(attoseconds) / 1_000_000_000_000_000
-        return String(format: "%.1fms", millis)
-    }
-}

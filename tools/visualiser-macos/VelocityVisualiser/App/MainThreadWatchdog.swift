@@ -52,3 +52,12 @@ final class MainThreadWatchdog: @unchecked Sendable {
         timer = nil
     }
 }
+
+extension ContinuousClock.Duration {
+    /// Milliseconds to one decimal place, for timing logs.
+    var formattedMillis: String {
+        let (seconds, attoseconds) = components
+        let millis = Double(seconds) * 1000 + Double(attoseconds) / 1_000_000_000_000_000
+        return String(format: "%.1fms", millis)
+    }
+}
