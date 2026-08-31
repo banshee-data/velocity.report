@@ -70,14 +70,18 @@ Two invariants carry the design:
 `Client.WaitForPCAPComplete` gates on it and the sweep runner calls that once
 per combination, so widening it would hang every sweep during a VRLOG replay.
 
-On the wire, a `SourceMode` enum carries the same vocabulary. `is_live` stays
-populated, and `SOURCE_MODE_UNSPECIFIED` leaves older clients on their existing
-inference. Seekability remains an independent axis: the Swift client derives the
-badge label from the source and seek availability from `seekable` directly.
+On the wire, a `SourceMode` enum carries the same vocabulary. The former
+`is_live` compatibility field was removed because it was only another spelling
+of `source_mode == LIVE`; server and client ship together, so keeping both
+created ambiguity without preserving a real compatibility boundary.
+`SOURCE_MODE_UNSPECIFIED` now means exactly that no source has been reported —
+the client does not infer one from seekability. Seekability remains an
+independent axis: the Swift client derives the badge label from the source and
+seek availability from `seekable` directly.
 
 ## Scope
 
-All items delivered on branch `claude/pcap-state-backend-aef738`.
+All items delivered on branch `dd/go/test-pacp-replay` for PR #555.
 
 | Item | Summary                                                                                                                |
 | ---- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -91,17 +95,21 @@ All items delivered on branch `claude/pcap-state-backend-aef738`.
 | 8    | `SourceMode` enum and `recording` on proto `PlaybackInfo`                                                              |
 | 9    | Swift reads the source mode instead of inferring it                                                                    |
 | 10   | Documentation, MATRIX corrections, backlog                                                                             |
+| 11   | One idempotent replay-stop path that can recover inconsistent state                                                    |
+| 12   | Finished replays park until live packets resume or an operator switches source                                         |
+| 13   | Clear stale cached backgrounds on both sides of a source transition                                                    |
+| 14   | Report live settling time and sensor silence without leaking either state onto replay frames                           |
 
-## Follow-up
+## Resolved follow-up
 
 - ~~Confirm whether the explicit `SendBackgroundSnapshot()` call at VRLOG replay
   start overwrites the replay's own recorded background in the client cache.~~
   **Resolved.** It did. The live grid no longer overwrites a replay's own
-  background, and a replay emits its recorded background at load. The remaining
-  gap — the client's stream restarting _after_ that background was published, so
-  the new stream missed it — is covered by
-  [stream robustness](lidar-visualiser-stream-robustness-plan.md), which hands
-  each subscribing client the current background.
+  background, and a replay emits its recorded background at load. The client
+  stream restarting _after_ that background was published exposed a second
+  gap; [stream robustness](lidar-visualiser-stream-robustness-plan.md) now routes
+  every subscription through the publisher's normal registration path and hands
+  the new client the current background.
 
 ## Parking waits for live
 
@@ -121,6 +129,21 @@ The server owns the decision, so every client sees the same source. The watcher
 is cancelled whenever something else decides — an operator going live, or
 another replay starting — so one armed under an earlier replay cannot fire under
 a later one.
+
+## Empty live scenes
+
+A live source still emits empty visualiser frames when the physical sensor has
+stopped sending packets, so frame arrival alone cannot distinguish a quiet scene
+from a silent sensor. The composition root derives `sensor_silent` from the
+server's packet statistics. It is stamped only on live frames: no packet seen
+yet, or a last packet more than three seconds old, renders as `IDLE`. Replay
+frames never inherit physical-sensor silence.
+Settling takes precedence as `SETTLING 04s`, because warm-up is a bounded wait
+with a specific cause.
+
+Returning to live also clears the publisher's cached replay background. The
+grid reset and the cache clear are one contract: without both, a reconnecting
+client receives the recording's scene and draws new live foreground over it.
 
 ## Related
 

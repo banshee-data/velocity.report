@@ -113,26 +113,51 @@ because Pause/Play/Seek/SetRate arrive as gRPC calls and never pass through HTTP
 stateDiagram-v2
 	[*] --> Live
 	Live --> PCAP: pcap/start
-	PCAP --> Live: replay ends (normal mode, grid reset)
+	PCAP --> PCAPParked: replay ends (normal mode)
 	PCAP --> PCAPAnalysis: replay ends (analysis mode, grid kept)
 	PCAP --> Live: replay/stop (grid reset)
+	PCAPParked --> Live: new live packet or replay/stop
 	PCAPAnalysis --> Live: pcap/resume_live (grid kept)
-	PCAPAnalysis --> Live: replay/stop (grid reset)
+	PCAPAnalysis --> Live: new live packet or replay/stop (grid reset)
 	Live --> VRLOG: vrlog/load
 	VRLOG --> Live: replay/stop
+	VRLOG --> VRLOGParked: replay ends
+	VRLOGParked --> Live: new live packet or replay/stop
 ```
 
 `PCAPAnalysis` is the derived `pcap_analysis` token, not a distinct source.
+The parked states retain the recording and its final frame while starting the
+live listener underneath it. Only a packet arriving after parking hands the
+pipeline to live; an older `LastPacketAt` value proves only that the sensor was
+streaming before the replay. Loading another replay or explicitly switching
+source cancels the earlier watch.
 
 ## Ingest during replay
 
-Both PCAP and VRLOG replay stop the live UDP listener for their duration, and
-restart it on return to live. `live_listener_running` reports this, so "live
-source" and "actually ingesting packets" can be told apart.
+Both PCAP and VRLOG replay stop the live UDP listener while playback is active.
+When playback parks, the listener starts again while the source continues to
+name the recording; this lets a new packet reclaim the pipeline without
+replacing the replay's final frame with an empty grid first.
+`live_listener_running` reports this, so "replay source" and "listener stopped"
+must not be treated as synonyms.
 
 During a VRLOG replay the publisher also drops frames produced by the live
 pipeline, so replayed frames are not interleaved with live ones on the gRPC
 stream or written into an active recording.
+
+## Visualiser status
+
+Every gRPC frame carries the authoritative `source_mode`; the removed `is_live`
+field is not reconstructed on either side. Settling time and sensor silence are
+live-only annotations. The client shows settling as `SETTLING 06s`, then `LIVE`
+once packets are arriving. It shows `IDLE` when the source is live but no packet
+has ever arrived, or the last one is more than three seconds old. Replay frames
+never inherit the physical sensor's settling or silence state.
+
+The publisher caches the latest background so a newly subscribed client can
+render immediately. Source changes publish an empty background first, including
+the return to live, so a reconnect cannot combine a recording's cached scene
+with foreground from the new source.
 
 ## Concurrency
 

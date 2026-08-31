@@ -1,6 +1,6 @@
 # LiDAR visualiser stream robustness (v0.5.7)
 
-- **Status:** Complete, pending confirmation of the stall fix
+- **Status:** Complete
 - **Layers:** L9 endpoints (gRPC streaming, publisher), macOS visualiser (Swift client, UI)
 - **Target:** v0.5.7; the state model landed, and then the stream carrying it proved unreliable
 - **Canonical:** [data-source-switching.md](../lidar/operations/data-source-switching.md)
@@ -19,9 +19,11 @@ Three symptoms, reported as separate bugs, turned out to share that root:
   dead sensor.
 - Bounding boxes "disappeared" in both live and replay.
 
-The last two were the same bug wearing different clothes, and the first is still
-open. Getting there required making the stream describe its own failures, which
-is most of what this plan delivers.
+The last two were the same bug wearing different clothes. The first is reduced
+to a longer field-confirmation item in the backlog: the implementation work is
+complete, but one clean 25-minute session is evidence rather than a lifetime
+warranty. Getting there required making the stream describe its own failures,
+which is most of what this plan delivers.
 
 ## Findings
 
@@ -35,7 +37,7 @@ is most of what this plan delivers.
 | Settling visibility     | Not reported at all; an empty warm-up scene looked like a fault                                      | High     |
 | Source switching        | A `Picker` whose binding rejected every change, rendering as two inert buttons                       | Medium   |
 | Return to live          | Did not restart the gRPC stream, so a wedged replay stream stayed wedged and live never appeared     | High     |
-| Inspector pane          | Shown on `showSidePanel                                                                              |          | selectedTrackID != nil`, so the toggle could not close it with a track selected | Medium |
+| Inspector pane          | Shown when either the toggle or a selected track asked for it, so the toggle could not close it      | Medium   |
 
 ## Design
 
@@ -56,31 +58,38 @@ future client.
 
 **An empty scene must say why it is empty.** Until the background grid settles,
 foreground extraction yields nothing. Settling state travels on the wire beside
-the source mode, and the visualiser shows `SETTLING 5.9s` in place of the source
+the source mode, and the visualiser shows `SETTLING 06s` in place of the source
 badge — settling outranks the source deliberately, because it is the thing that
-needs explaining and it resolves on its own.
+needs explaining and it resolves on its own. A live source whose sensor has not
+sent a packet yet, or whose last packet is more than three seconds old, reports
+`sensor_silent` and reads `IDLE`; that flag is live-only and is never copied
+onto a replay.
 
 ## Scope
 
 All items delivered on branch `dd/go/test-pacp-replay`.
 
-| Item | Summary                                                                                    |
-| ---- | ------------------------------------------------------------------------------------------ |
-| 1    | Separate publish-stage and client-stage frame loss; stop counting a source change as drops |
-| 2    | Bound a stream send; report a stalled send instead of severing the stream                  |
-| 3    | Name the stalling frame: id, type, point count, serialised size                            |
-| 4    | Deliver buffered frames in capture order; confine the frame-rate throttle to replays       |
-| 5    | Summarise dropped frames instead of logging each one                                       |
-| 6    | Hand a newly subscribed client the current background, with correct reference counting     |
-| 7    | Send a background snapshot as settling completes, on the transition alone                  |
-| 8    | Report settling on `/api/lidar/data_source` and proto `PlaybackInfo`                       |
-| 9    | Live/Replay segmented control; disabled while live, since a recording must be loaded first |
-| 10   | Return to live restarts the gRPC stream, symmetrically with loading a replay               |
-| 11   | A stream that ends clears the connection, not only the replay-finished flag                |
-| 12   | Inspector visibility keyed on `showSidePanel` alone                                        |
-| 13   | Replace `.disabled()` with `.inert` wherever availability changes, ending the cycles       |
-| 14   | Delete the `is_live` compatibility layer and the source inference it fed                   |
-| 15   | Require settling reporting on the interface; drop the unread settling fraction             |
+| Item | Summary                                                                                       |
+| ---- | --------------------------------------------------------------------------------------------- |
+| 1    | Separate publish-stage and client-stage frame loss; stop counting a source change as drops    |
+| 2    | Bound a stream send; report a stalled send instead of severing the stream                     |
+| 3    | Name the stalling frame: id, type, point count, serialised size                               |
+| 4    | Deliver buffered frames in capture order; confine the frame-rate throttle to replays          |
+| 5    | Summarise dropped frames instead of logging each one                                          |
+| 6    | Hand a newly subscribed client the current background, with correct reference counting        |
+| 7    | Send a background snapshot as settling completes, on the transition alone                     |
+| 8    | Report settling on `/api/lidar/data_source` and proto `PlaybackInfo`                          |
+| 9    | Live/Replay segmented control; disabled while live, since a recording must be loaded first    |
+| 10   | Return to live restarts the gRPC stream, symmetrically with loading a replay                  |
+| 11   | A stream that ends clears the connection, not only the replay-finished flag                   |
+| 12   | Inspector visibility keyed on `showSidePanel` alone                                           |
+| 13   | Replace `.disabled()` with `.inert` wherever availability changes, ending the cycles          |
+| 14   | Delete the `is_live` compatibility layer and the source inference it fed                      |
+| 15   | Require settling reporting on the interface; drop the unread settling fraction                |
+| 16   | Route the gRPC handler through normal client registration so every client gets the background |
+| 17   | Clear the cached replay background when returning to live                                     |
+| 18   | Report silent live input as `IDLE`, with settling taking precedence                           |
+| 19   | Show replay rate controls only alongside a replay timeline                                    |
 
 ## Evidence
 
@@ -155,6 +164,8 @@ streaming 800 frames in one of them; previously a stall arrived within 25
 frames of connecting. Treat this as strongly indicated rather than proven: the
 absence held across one session, and the two changes that shipped either side
 of it (the non-blocking hand-off and the cycle fix) were not isolated from it.
+Longer field confirmation remains explicitly tracked in `BACKLOG.md`; it is not
+presented here as hardware validation the branch did not perform.
 
 ## Simplifications taken after review
 
@@ -182,12 +193,15 @@ Three further candidates are tracked in the backlog rather than taken here: the
 four independent frame-drop paths, the `.inert` fork's house rule, and the
 legacy JSON VRLOG encoding.
 
-## Open items
+## Tracked follow-up
 
 - **`settling_max_spread_delta` may be mis-scaled.** It is documented as a
   per-frame mean delta but evaluated every `SettlingCheckInterval` frames, so it
   measures a second of drift against a per-frame bar. Convergence currently
   fires regardless, so this is a latent tightening rather than a live fault.
+- **Stall confirmation remains operational.** The 16 MB client window has one
+  clean 25-minute session across 11 connections. A longer run remains in the
+  backlog so absence of a recurrence is not mistaken for proof of cause.
 
 ## Related
 

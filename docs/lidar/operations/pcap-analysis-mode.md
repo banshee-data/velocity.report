@@ -4,10 +4,13 @@ PCAP analysis mode replays captured packet data through the LiDAR pipeline while
 
 ## Overview
 
-The LiDAR system supports two modes for PCAP replay:
+The LiDAR system supports two modes for PCAP replay. Both park on their final
+frame when the selected window ends. While parked, the server listens for live
+packets; a new packet returns the pipeline to live, while a quiet sensor leaves
+the replay available for inspection.
 
-1. **Normal PCAP Replay** - Replays PCAP file, then automatically resets grid and returns to live data
-2. **PCAP Analysis Mode** - Replays PCAP file and **preserves the background grid** for inspection and analysis
+1. **Normal PCAP Replay** - Replays the PCAP file and holds its final scene while parked; automatic live handover resets the grid
+2. **PCAP Analysis Mode** - Replays the PCAP file and **preserves the background grid** while parked, including across an explicit `resume_live`, for inspection and analysis
 
 ## Use cases
 
@@ -115,12 +118,12 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 3. **Resume live data (preserving PCAP background):**
 
    ```bash
-   curl "http://localhost:8082/api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p"
+   curl -X POST "http://localhost:8081/api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p"
    ```
 
 4. **When done, reset grid:**
    ```bash
-   curl "http://localhost:8082/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
+   curl "http://localhost:8081/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
    ```
 
 ### Comparative analysis
@@ -173,7 +176,7 @@ Normal mode logs:
 [DataSource] switched to PCAP replay mode for sensor=hesai-pandar40p file=break-80k.pcapng
 
 # Completion — the replay stays the data source
-[DataSource] PCAP replay finished for sensor=hesai-pandar40p; holding this source until an operator returns to live
+[DataSource] PCAP replay finished for sensor=hesai-pandar40p; holding this source until live input resumes or an operator switches source
 ```
 
 ## Technical details
