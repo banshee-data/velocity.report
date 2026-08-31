@@ -138,15 +138,32 @@ func (p *Publisher) SetVRLogPaused(paused bool) {
 	if p.vrlogReader != nil {
 		p.vrlogReader.SetPaused(paused)
 	}
+	// Send one frame so the client learns it is paused.
+	//
+	// Playback state reaches a client only on a frame, and pausing stops
+	// frames — so without this the transition is the one thing that can never
+	// be reported. The client goes on believing it is playing: its transport
+	// bar does not move, pause looks dead because it is already paused, and a
+	// rate change looks ignored because the new rate rides on a frame too.
+	// Seeking already does this for the same reason.
+	if paused {
+		p.vrlogSendOneFrame = true
+	}
 }
 
 // SetVRLogRate sets the playback rate for VRLOG replay.
+// SetVRLogRate sets the playback rate, and sends one frame if paused so the
+// change is visible: like the paused flag, the rate reaches a client only on a
+// frame.
 func (p *Publisher) SetVRLogRate(rate float32) {
 	p.vrlogMu.Lock()
 	defer p.vrlogMu.Unlock()
 	p.vrlogRate = rate
 	if p.vrlogReader != nil {
 		p.vrlogReader.SetRate(rate)
+	}
+	if p.vrlogPaused {
+		p.vrlogSendOneFrame = true
 	}
 }
 
