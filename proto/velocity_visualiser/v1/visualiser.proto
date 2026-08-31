@@ -386,6 +386,11 @@ message PlaybackInfo {
   // time on the clock; 13 carried that fraction and nothing ever read it.
   reserved 13;
   float settling_elapsed_seconds = 14;
+
+  // True when the source is live but no packets have arrived recently. Frames
+  // keep flowing while a sensor is silent — they are simply empty — so a client
+  // cannot tell a quiet scene from a stopped sensor by frame arrival alone.
+  bool sensor_silent = 15;
 }
 
 message FrameBundle {

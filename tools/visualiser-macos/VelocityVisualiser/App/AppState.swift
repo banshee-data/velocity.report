@@ -96,6 +96,9 @@ private let logger = DevLogger(category: "AppState")
     /// can finish on convergence well before its ceiling, so a fraction of an
     /// unknown total says less than the time on the clock.
     @Published var settlingElapsedSeconds: Float = 0
+    /// Live input with no packets arriving. Frames keep flowing while a sensor
+    /// is silent — they are simply empty — so this cannot be inferred here.
+    @Published var sensorSilent: Bool = false
 
     // MARK: - Playback State
 
@@ -390,7 +393,9 @@ private let logger = DevLogger(category: "AppState")
         // second draws the eye to the wrong thing.
         if isSettling { return String(format: "SETTLING %02.0fs", settlingElapsedSeconds) }
         switch sourceMode {
-        case .live: return "LIVE"
+        // A live source with nothing arriving is the same wait as a connection
+        // with no source, so it reads the same rather than inventing a word.
+        case .live: return sensorSilent ? "IDLE" : "LIVE"
         case .pcap: return "REPLAY (PCAP)"
         case .pcapAnalysis: return "PCAP (ANALYSIS)"
         case .vrlog: return "REPLAY (VRLOG)"
@@ -1391,6 +1396,9 @@ private let logger = DevLogger(category: "AppState")
             if isSettling != playbackInfo.settling { isSettling = playbackInfo.settling }
             if settlingElapsedSeconds != playbackInfo.settlingElapsedSeconds {
                 settlingElapsedSeconds = playbackInfo.settlingElapsedSeconds
+            }
+            if sensorSilent != playbackInfo.sensorSilent {
+                sensorSilent = playbackInfo.sensorSilent
             }
             do {
                 setPlaybackMode(

@@ -329,6 +329,8 @@ struct PlaybackInfo {
     var settling: Bool = false
     /// Seconds spent settling so far, shown in place of a percentage.
     var settlingElapsedSeconds: Float = 0
+    /// Live input with no packets arriving.
+    var sensorSilent: Bool = false
     var logStartNs: Int64 = 0
     var logEndNs: Int64 = 0
     var playbackRate: Float = 1.0

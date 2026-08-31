@@ -113,3 +113,38 @@ func TestGRPCHandlerSubscribesThroughAddClient(t *testing.T) {
 		t.Error("streamFromPublisher should subscribe through addClient")
 	}
 }
+
+// Returning to live resets the grid, so the replay's background no longer
+// describes anything. The cached background handed to a reconnecting client
+// must be cleared with it: without that, toggling back to live drew live
+// foreground over the recording's scene.
+func TestReturningToLiveClearsTheCachedBackground(t *testing.T) {
+	p := NewPublisher(Config{SensorID: "test-sensor"})
+	p.running.Store(true)
+
+	p.rememberBackground(&FrameBundle{
+		FrameID:    1,
+		FrameType:  FrameTypeBackground,
+		Background: &BackgroundSnapshot{X: []float32{1, 2, 3}},
+	})
+
+	// ClearBackground publishes an empty background, which the broadcast loop
+	// remembers in place of the replay's.
+	p.ClearBackground()
+
+	select {
+	case frame := <-p.frameChan:
+		p.rememberBackground(frame)
+	default:
+		t.Fatal("ClearBackground published nothing")
+	}
+
+	got := p.latestBackground()
+	if got == nil {
+		t.Fatal("no background cached after the clear")
+	}
+	if len(got.Background.X) != 0 {
+		t.Errorf("cached background still holds %d points; a client reconnecting after a "+
+			"return to live would be handed the replay's scene", len(got.Background.X))
+	}
+}

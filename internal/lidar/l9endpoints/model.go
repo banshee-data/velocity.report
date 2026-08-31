@@ -373,6 +373,8 @@ type PlaybackInfo struct {
 	// scene renders empty through no fault of the sensor.
 	Settling            bool
 	SettlingElapsedSecs float32
+	// SensorSilent reports live input with no packets arriving.
+	SensorSilent bool
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.

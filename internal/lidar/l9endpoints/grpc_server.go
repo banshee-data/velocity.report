@@ -67,6 +67,11 @@ type Server struct {
 	// grid rather than the pipeline state, so it is wired separately.
 	settlingProvider func() (settling bool, elapsedSecs float32)
 
+	// sensorSilentProvider reports live input with no packets arriving. Frames
+	// keep flowing while a sensor is silent, so this cannot be inferred from
+	// frame arrival.
+	sensorSilentProvider func() bool
+
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
 	preferenceMu      sync.RWMutex
@@ -89,6 +94,24 @@ func (s *Server) currentSourceMode() (string, bool) {
 	s.playbackMu.RUnlock()
 	if fn == nil {
 		return "", false
+	}
+	return fn()
+}
+
+// SetSensorSilentProvider wires the live-input presence lookup.
+func (s *Server) SetSensorSilentProvider(fn func() bool) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.sensorSilentProvider = fn
+}
+
+// currentSensorSilent reports whether live input has gone quiet.
+func (s *Server) currentSensorSilent() bool {
+	s.playbackMu.RLock()
+	fn := s.sensorSilentProvider
+	s.playbackMu.RUnlock()
+	if fn == nil {
+		return false
 	}
 	return fn()
 }
@@ -502,6 +525,15 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 				frame.PlaybackInfo.Settling = settling
 				frame.PlaybackInfo.SettlingElapsedSecs = elapsedSecs
+			}
+			// Silence is a live-only condition, like settling: a replay's
+			// packets came out of a file and its sensor is not expected to be
+			// producing anything.
+			if mode == "live" && s.currentSensorSilent() {
+				if frame.PlaybackInfo == nil {
+					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
+				}
+				frame.PlaybackInfo.SensorSilent = true
 			}
 
 			// Measure serialisation and send time

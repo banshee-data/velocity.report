@@ -159,3 +159,14 @@ func FormatWithCommas(n int64) string {
 	}
 	return result
 }
+
+// LastPacketAt reports when the sensor last delivered a packet, or the zero
+// time if it never has. Exported for callers that need to distinguish a quiet
+// scene from a stopped sensor: frames keep flowing either way, empty ones when
+// nothing is arriving.
+func (ws *Server) LastPacketAt() time.Time {
+	if ws == nil || ws.stats == nil {
+		return time.Time{}
+	}
+	return ws.stats.LastPacketAt()
+}

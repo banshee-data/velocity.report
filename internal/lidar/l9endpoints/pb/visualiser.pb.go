@@ -2247,8 +2247,12 @@ type PlaybackInfo struct {
 	// is indistinguishable from a dead sensor unless the client is told.
 	Settling               bool    `protobuf:"varint,12,opt,name=settling,proto3" json:"settling,omitempty"` // true while the background grid is still settling
 	SettlingElapsedSeconds float32 `protobuf:"fixed32,14,opt,name=settling_elapsed_seconds,json=settlingElapsedSeconds,proto3" json:"settling_elapsed_seconds,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// True when the source is live but no packets have arrived recently. Frames
+	// keep flowing while a sensor is silent — they are simply empty — so a client
+	// cannot tell a quiet scene from a stopped sensor by frame arrival alone.
+	SensorSilent  bool `protobuf:"varint,15,opt,name=sensor_silent,json=sensorSilent,proto3" json:"sensor_silent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PlaybackInfo) Reset() {
@@ -2363,6 +2367,13 @@ func (x *PlaybackInfo) GetSettlingElapsedSeconds() float32 {
 		return x.SettlingElapsedSeconds
 	}
 	return 0
+}
+
+func (x *PlaybackInfo) GetSensorSilent() bool {
+	if x != nil {
+		return x.SensorSilent
+	}
+	return false
 }
 
 type FrameBundle struct {
@@ -3430,7 +3441,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xe2\x03\n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\x87\x04\n" +
 	"\fPlaybackInfo\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
 	"logStartNs\x12\x1c\n" +
@@ -3447,7 +3458,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"sourceMode\x12\x1c\n" +
 	"\trecording\x18\v \x01(\bR\trecording\x12\x1a\n" +
 	"\bsettling\x18\f \x01(\bR\bsettling\x128\n" +
-	"\x18settling_elapsed_seconds\x18\x0e \x01(\x02R\x16settlingElapsedSecondsJ\x04\b\x01\x10\x02J\x04\b\r\x10\x0e\"\xc3\x05\n" +
+	"\x18settling_elapsed_seconds\x18\x0e \x01(\x02R\x16settlingElapsedSeconds\x12#\n" +
+	"\rsensor_silent\x18\x0f \x01(\bR\fsensorSilentJ\x04\b\x01\x10\x02J\x04\b\r\x10\x0e\"\xc3\x05\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +

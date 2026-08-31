@@ -78,6 +78,11 @@ const (
 	deployedVelocityBinaryPath = "/opt/velocity-report/current/velocity"
 )
 
+// sensorSilentAfter is how long without a packet counts as a silent sensor.
+// Long enough not to trip on a dropped frame or a brief hiccup, short enough
+// that an operator watching an empty scene is told why within a few seconds.
+const sensorSilentAfter = 3 * time.Second
+
 func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
 	dbPath := defaultDBPath
 	explicitDBPath := false
@@ -725,9 +730,16 @@ func Main(args []string) int {
 			TuningConfig:      tuningCfg,
 			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPStopped: func() {
+				// Returning to live resets the grid, so the replay's background
+				// no longer describes anything. Clearing says so: without it a
+				// reconnecting client is handed the recording's background and
+				// draws live foreground over a scene from the capture.
+				if visualiserPublisher != nil {
+					visualiserPublisher.ClearBackground()
+				}
 				if visualiserServer != nil {
 					visualiserServer.SetReplayMode(false)
-					log.Printf("[Visualiser] PCAP stopped: switched to live mode")
+					log.Printf("[Visualiser] Replay stopped: switched to live mode")
 				}
 			},
 			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
@@ -849,6 +861,13 @@ func Main(args []string) int {
 		// exactly like a sensor that has stopped.
 		if visualiserServer != nil {
 			sensor := lidarSensorID
+			// A sensor that has stopped still produces frames, empty ones, so
+			// silence has to come from packet arrival rather than the stream.
+			visualiserServer.SetSensorSilentProvider(func() bool {
+				last := lidarServer.LastPacketAt()
+				return last.IsZero() || time.Since(last) > sensorSilentAfter
+			})
+
 			visualiserServer.SetSettlingProvider(func() (bool, float32) {
 				mgr := l3grid.GetBackgroundManager(sensor)
 				if mgr == nil {
