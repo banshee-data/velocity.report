@@ -58,6 +58,7 @@ help:
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
 	@echo "  debug-mac-cycles     Run under lldb, logging the stack behind every AttributeGraph cycle"
 	@echo "  debug-grpc-probe     Stream with a second gRPC client to isolate a stall (ADDR/GAP/WINDOW)"
+	@echo "  debug-grpc-soak      Long multi-client soak to confirm the transport fix (CLIENTS/DURATION)"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -742,6 +743,26 @@ debug-grpc-probe:
 	  -gap "$${GAP:-1s}" \
 	  $${WINDOW:+-window $$WINDOW} 2>&1 | tee "$$probelog"
 
+## debug-grpc-soak: long multi-client stream to confirm the transport-window fix
+##   Defaults to 4 clients for an hour. The stall it hunts was intermittent, so
+##   absence over minutes proved little; this is the run that can close it out.
+debug-grpc-soak:
+	@mkdir -p $(CURDIR)/logs
+	@go build -o $(CURDIR)/bin/grpc-probe ./cmd/tools/grpc-probe
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	soaklog=$(CURDIR)/logs/grpc-soak-$${ts}.log; \
+	echo "Soaking $${CLIENTS:-4} streams for $${DURATION:-1h}. Run the visualiser alongside."; \
+	echo "  soak log: $$soaklog"; \
+	echo ""; \
+	$(CURDIR)/bin/grpc-probe \
+	  -addr "$${ADDR:-localhost:50051}" \
+	  -clients "$${CLIENTS:-4}" \
+	  -duration "$${DURATION:-1h}" \
+	  -gap "$${GAP:-1s}" \
+	  $${WINDOW:+-window $$WINDOW} 2>&1 | tee "$$soaklog"; \
+	echo ""; \
+	echo "Gaps over $${GAP:-1s}: $$(grep -cE 'gap [0-9]' "$$soaklog" || echo 0)"
+
 ## debug-mac-cycles: run the visualiser under lldb, logging the stack behind every AttributeGraph cycle
 debug-mac-cycles:
 	@if [ ! -f "$(VISUALISER_BIN)" ]; then \
@@ -1014,7 +1035,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: debug-grpc-probe debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
+.PHONY: debug-grpc-probe debug-grpc-soak debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we

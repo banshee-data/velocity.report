@@ -18,6 +18,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -60,6 +61,7 @@ func main() {
 	gapThreshold := flag.Duration("gap", time.Second, "report gaps longer than this")
 	duration := flag.Duration("duration", 0, "stop after this long (0 runs until interrupted)")
 	windowSize := flag.Int("window", 0, "HTTP/2 initial window size in bytes (0 uses the default)")
+	clients := flag.Int("clients", 1, "number of concurrent streams, each on its own connection")
 	flag.Parse()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -89,9 +91,37 @@ func main() {
 		fmt.Printf("HTTP/2 windows pinned to %d bytes\n", *windowSize)
 	}
 
-	conn, err := grpc.NewClient(*addr, opts...)
+	if *clients < 1 {
+		*clients = 1
+	}
+	if *clients > 1 {
+		fmt.Printf("%d concurrent streams\n", *clients)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < *clients; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			streamOne(ctx, n, *addr, opts, *gapThreshold)
+		}(i + 1)
+	}
+	wg.Wait()
+}
+
+// streamOne runs a single stream to completion, reporting gaps as it goes.
+// Each stream gets its own connection: sharing one would multiplex them onto a
+// single HTTP/2 connection and hide per-connection flow control, which is the
+// thing a stall investigation most needs to see.
+func streamOne(ctx context.Context, n int, addr string, opts []grpc.DialOption, gapThreshold time.Duration) {
+	label := ""
+	if n > 0 {
+		label = fmt.Sprintf("[%d] ", n)
+	}
+
+	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "dial %s: %v\n", *addr, err)
+		fmt.Fprintf(os.Stderr, "dial %s: %v\n", addr, err)
 		os.Exit(1)
 	}
 	defer func() { _ = conn.Close() }()
@@ -108,7 +138,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("streaming from %s, reporting gaps over %v\n", *addr, *gapThreshold)
+	fmt.Printf("%sstreaming from %s, reporting gaps over %v\n", label, addr, gapThreshold)
 
 	var stats probeStats
 	last := time.Now()
@@ -132,18 +162,18 @@ func main() {
 		}
 
 		size := proto.Size(frame)
-		if stats.observe(size, gap, *gapThreshold) {
+		if stats.observe(size, gap, gapThreshold) {
 			// Cumulative bytes locate the gap against the HTTP/2 connection
 			// window, which opens at 65535 and grows only by WINDOW_UPDATE.
-			fmt.Printf("%s gap %v before frame %d (%.1fKB, %.1fKB received on this stream)\n",
-				now.Format("2006/01/02 15:04:05.000"), gap.Round(time.Millisecond),
+			fmt.Printf("%s%s gap %v before frame %d (%.1fKB, %.1fKB received on this stream)\n",
+				label, now.Format("2006/01/02 15:04:05.000"), gap.Round(time.Millisecond),
 				stats.frames, float64(size)/1024, float64(stats.bytesSeen)/1024)
 		}
 
 		if stats.frames%500 == 0 {
 			fmt.Printf("%s %d frames, %.1fMB, %d gaps over %v\n",
 				now.Format("2006/01/02 15:04:05.000"), stats.frames,
-				float64(stats.bytesSeen)/(1024*1024), stats.gaps, *gapThreshold)
+				float64(stats.bytesSeen)/(1024*1024), stats.gaps, gapThreshold)
 		}
 	}
 
@@ -152,8 +182,8 @@ func main() {
 		stats.frames, elapsed.Round(time.Millisecond),
 		stats.framesPerSecond(elapsed), float64(stats.bytesSeen)/(1024*1024))
 	if stats.gaps == 0 {
-		fmt.Printf("no gap over %v: this client streamed without stalling\n", *gapThreshold)
+		fmt.Printf("no gap over %v: this client streamed without stalling\n", gapThreshold)
 	} else {
-		fmt.Printf("%d gaps over %v, worst %v\n", stats.gaps, *gapThreshold, stats.worstGap.Round(time.Millisecond))
+		fmt.Printf("%d gaps over %v, worst %v\n", stats.gaps, gapThreshold, stats.worstGap.Round(time.Millisecond))
 	}
 }

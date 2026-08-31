@@ -225,5 +225,6 @@ internal/report/typst/typstbin/dist/typst.exe
 
 # Developer-installed typst binary (make install-typst / runtime auto-download)
 bin/grpc-probe
+/grpc-probe
 bin/typst
 bin/typst.exe

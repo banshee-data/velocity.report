@@ -344,13 +344,14 @@
 
             <div class="form-row">
               <div class="form-group form-inline">
-                <input type="checkbox" name="analysis_mode" value="true" id="chk_analysis_{{.SensorID}}" />
+                <input type="checkbox" name="analysis_mode" value="true" id="chk_analysis_{{.SensorID}}"
+                  checked />
                 <label for="chk_analysis_{{.SensorID}}" style="font-weight: normal; margin: 0;">Analyse
                   &amp; record VRLOG</label>
               </div>
               <div class="form-group form-inline">
                 <input type="checkbox" name="settle_before_recording" value="true"
-                  id="chk_settle_before_recording_{{.SensorID}}" />
+                  id="chk_settle_before_recording_{{.SensorID}}" checked />
                 <label for="chk_settle_before_recording_{{.SensorID}}" style="font-weight: normal; margin: 0;">Settle grid,
                   reload &amp; record from start</label>
               </div>

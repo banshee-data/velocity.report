@@ -768,6 +768,20 @@ func Main(args []string) int {
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
+
+				// Open the recording with the background, so a replay of it has
+				// a scene from its first frame. Without this the background
+				// lands wherever the refresh interval happened to fall — one
+				// recording carries it at frame 2 and another at frame 116, and
+				// the second draws foreground over nothing until it arrives.
+				//
+				// The settle-before-recording flow reaches here with the grid
+				// already settled and restored, which is what makes the
+				// snapshot worth writing rather than empty.
+				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
+					log.Printf("[Visualiser] could not open the recording with a background: %v", err)
+				}
+
 				log.Printf("[Visualiser] VRLOG recording started: %s", vrlogRecorderPath)
 				return vrlogRecorderPath
 			},
