@@ -144,6 +144,14 @@ input. Phase 6A should build against it from day one.
 
 ## 3. The observation budget
 
+**Canonical source.** Figures shared with the estimation plan, meaning the
+43.6 % association rate, the 11.3 % excursion rate, the 0.316 m p99 lateral
+residual and the count of tracks above 10 m/s, live in
+[lidar-state-estimation-plan Section 1.5](lidar-state-estimation-plan.md) and are
+cited from there rather than restated. When they are re-measured, that section
+is the one to update. The passage budget below is specific to this plan and is
+measured here.
+
 Measured across 1,710 confirmed tracks with at least 10 observations, drawn from
 the production database and stratified by peak speed.
 
@@ -465,6 +473,37 @@ This is a data-model requirement, not a logging aspiration. Section 10.2 carries
 the fields.
 
 ## 8. Behaviour feature matrix
+
+### 8.0 What is actually in scope
+
+The groups below are all researched and all retained, because the citation work
+is the expensive part and re-doing it later would be waste. **Most of them are
+not in the first increment.** This table is the scope boundary; treat a group
+marked deferred as reference material, not as a backlog item.
+
+Scope follows the product priority in 12.1, not the order the groups happen to
+appear in. That ordering is deliberate: passing clearance is the top product
+priority and it sits at 8.9, while acceleration and braking are the easiest to
+build and near the bottom of the product list.
+
+| Group                             | Scope                                                                  | Reason                                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 8.1 Speed behaviour               | **In**: instantaneous, mean, median, max, percentile                   | The universal primitives. Speed-limit compliance and speeding exposure are deferred with the site metadata they need |
+| 8.2 Longitudinal control          | **In**: acceleration, peak accel and decel, braking onset and duration | Cheap once the acceleration state exists. Jerk stays experimental per 8.2.1                                          |
+| 8.3 Following behaviour           | **In**: gap, THW, exposure over valid following time                   | The first pairwise metric, and the one that exercises the interaction framework                                      |
+| 8.4 Time to collision             | **In**                                                                 | Needed by the conflict work above it in the product list                                                             |
+| 8.6 Crossing conflicts and PET    | **In**                                                                 | Product priority 2, and the strongest surrogate a fixed sensor can measure. Works without a map, per 8.6             |
+| 8.9 Cyclist and VRU overtaking    | **In**                                                                 | **Product priority 1**                                                                                               |
+| 8.10 Yielding behaviour           | **In**                                                                 | Product priority 3                                                                                                   |
+| 8.13 Interaction geometry         | **In**                                                                 | Shared substrate for 8.3, 8.4, 8.6, 8.9 and 8.10                                                                     |
+| 8.5 DRAC                          | Deferred                                                               | Threshold selection is itself contested; TTC covers the same situations for now                                      |
+| 8.7 Lane and path keeping         | Deferred                                                               | Needs lane geometry. The empirical-path subset lands in Phase 6C                                                     |
+| 8.8 Lane changes, merges, cut-ins | Deferred                                                               | Needs lane geometry and a completeness gate that the field of view often fails                                       |
+| 8.11 Stop behaviour               | Deferred                                                               | Needs stop-line geometry for anything beyond minimum speed and dwell                                                 |
+| 8.12 Induced evasive response     | Deferred                                                               | Depends on the estimation plan's Phase 8 evidence surface                                                            |
+
+Eight groups in, five deferred. Every deferred group is blocked on roadway
+context, site metadata, or an upstream phase, rather than on effort.
 
 Column key. **Scope**: `single` uses one track, `pair` requires two. **Map**:
 roadway context required, per [lidar-l7-scene-plan](lidar-l7-scene-plan.md).
