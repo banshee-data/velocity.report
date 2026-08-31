@@ -220,20 +220,20 @@ motion model, are the current bottleneck on trajectory quality.
 
 ## 2. Problems, ranked
 
-| #   | Problem                                                            | Root cause                                                                                                                                                                                                        | Severity                                                                                 |
-| --- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| P1  | Lateral position steps of up to about 1 m on straight-line travel  | The measurement is a visible-surface point, not an object centre. Bias up to `W/2` laterally and `L/2` longitudinally, switching discretely between faces                                                         | **Critical**: this is the reported defect                                                |
-| P2  | Systematic along-track drift across a pass                         | The medoid slides from the front of the visible face to the rear as the aspect angle sweeps, producing a signed position error that reverses at closest approach and reads as decelerate-then-accelerate          | **Critical**: corrupts the speed product                                                 |
-| P3  | Observations are not retained                                      | `lidar_clusters` empty, cluster points discarded, observation table holds the estimate                                                                                                                            | **Critical**: blocks every offline comparison this plan depends on                       |
-| P4  | Association misses about 56 % of frames on moving tracks           | Under investigation; candidates are gating against a biased prediction, cluster fragmentation, and frame throttling                                                                                               | **High**: halves the effective sample rate                                               |
-| P5  | Orientation is estimated outside the estimator                     | EMA plus three guards, no covariance, cannot be predicted                                                                                                                                                         | **High**: blocks any geometric observation model, which needs a predicted heading        |
-| P6  | Measurement noise is one isotropic scalar                          | `MeasurementNoise = 0.05` for all ranges, point counts and aspects                                                                                                                                                | **High**: gating and gain are wrong at both ends of the range envelope                   |
-| P7  | Dimensions are running means over partially observed frames        | `BoundingBoxLengthAvg` and siblings                                                                                                                                                                               | **Medium**: biases classification and blocks a dimension prior                           |
-| P8  | No per-frame residual record                                       | Debug collector unwired, nothing persisted                                                                                                                                                                        | **Medium**: no way to distinguish a bad measurement from a real manoeuvre after the fact |
-| P9  | Single frame timestamp for all clusters                            | `Tracker.Update(clusters, frame.StartTimestamp)`                                                                                                                                                                  | **Medium**: up to 100 ms of unmodelled time offset, azimuth-dependent                    |
-| P10 | Sensor frame is the only frame                                     | nil pose                                                                                                                                                                                                          | **Medium**: blocks lane and stop-line work entirely                                      |
-| P11 | Ground removal is a flat height band and is not slope-aware        | `HeightBandFilter.FilterVertical` keeps `z_floor <= z <= z_ceiling` on absolute Z in the sensor frame; [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) records "not slope-aware" as a known limit | **Critical on graded sites**: see 2.1                                                    |
-| P12 | Observation and estimator-conditioned interpretation are conflated | The previously proposed `Observation` type mixed sensor-derived fields with fields that require a predicted pose, such as aspect angle and visible-face identity                                                  | **High**: two estimator versions could not consume the same evidence reproducibly        |
+| #   | Problem                                                            | Root cause                                                                                                                                                                                                                                            | Severity                                                                                                           |
+| --- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| P1  | Lateral position steps of up to about 1 m on straight-line travel  | The measurement is a visible-surface point, not an object centre. Bias up to `W/2` laterally and `L/2` longitudinally, switching discretely between faces                                                                                             | **Critical**: this is the reported defect                                                                          |
+| P2  | Systematic along-track drift across a pass                         | The medoid slides from the front of the visible face to the rear as the aspect angle sweeps, producing a signed position error that reverses at closest approach and reads as decelerate-then-accelerate                                              | **Critical**: corrupts the speed product                                                                           |
+| P3  | Observations are not retained                                      | `lidar_clusters` empty, cluster points discarded, observation table holds the estimate                                                                                                                                                                | **Critical**: blocks every offline comparison this plan depends on                                                 |
+| P4  | Association misses about 56 % of frames on moving tracks           | Under investigation; candidates are gating against a biased prediction, cluster fragmentation, and frame throttling                                                                                                                                   | **High**: halves the effective sample rate                                                                         |
+| P5  | Orientation is estimated outside the estimator                     | EMA plus three guards, no covariance, cannot be predicted                                                                                                                                                                                             | **High**: blocks any geometric observation model, which needs a predicted heading                                  |
+| P6  | Measurement noise is one isotropic scalar                          | `MeasurementNoise = 0.05` for all ranges, point counts and aspects                                                                                                                                                                                    | **High**: gating and gain are wrong at both ends of the range envelope                                             |
+| P7  | Dimensions collapse to the thickness of the one visible face       | `BoundingBoxLengthAvg` and siblings average per-frame extents that are themselves the wrong quantity under single-face visibility. Measured: 73 % of moving tracks in run `f84105d8` carry an estimated width below 1.0 m, mode 0.1 to 0.3 m; see 3.4 | **High**: starves the classifier, 81 % unclassified in that run, and breaks every clearance measurement downstream |
+| P8  | No per-frame residual record                                       | Debug collector unwired, nothing persisted                                                                                                                                                                                                            | **Medium**: no way to distinguish a bad measurement from a real manoeuvre after the fact                           |
+| P9  | Single frame timestamp for all clusters                            | `Tracker.Update(clusters, frame.StartTimestamp)`                                                                                                                                                                                                      | **Medium**: up to 100 ms of unmodelled time offset, azimuth-dependent                                              |
+| P10 | Sensor frame is the only frame                                     | nil pose                                                                                                                                                                                                                                              | **Medium**: blocks lane and stop-line work entirely                                                                |
+| P11 | Ground removal is a flat height band and is not slope-aware        | `HeightBandFilter.FilterVertical` keeps `z_floor <= z <= z_ceiling` on absolute Z in the sensor frame; [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) records "not slope-aware" as a known limit                                     | **Critical on graded sites**: see 2.1                                                                              |
+| P12 | Observation and estimator-conditioned interpretation are conflated | The previously proposed `Observation` type mixed sensor-derived fields with fields that require a predicted pose, such as aspect angle and visible-face identity                                                                                      | **High**: two estimator versions could not consume the same evidence reproducibly                                  |
 
 P1 and P2 are the same defect seen along two axes. P3 is the one that gates the
 work: until observations are retained, no decision gate in this plan can be
@@ -368,6 +368,73 @@ worth having.
 
 That is the minimum useful geometric representation, and it is far short of a
 vehicle CAD model.
+
+### 3.4 The same mechanism, confirmed on real data
+
+The result above is synthetic. Run `f84105d8-b3be-416f-8809-551ef6bfce10`
+confirms the mechanism on real traffic, and it does so through a second symptom
+that the synthetic model predicts but that had not previously been checked.
+
+The run: 6,846 frames, 11 m 03 s, replayed from `soma1-static-0.pcap` at
+**playback rate 0.1**, build 0.5.1-pre31, 2,038 tracks. The slow playback matters
+as a control: at one tenth speed the frame-rate throttle is not engaged, so
+nothing below can be dismissed as a throughput artefact.
+
+**Estimated width collapses on moving tracks.**
+
+| Estimated width | Moving tracks (max speed >= 3 m/s) |
+| --------------- | ---------------------------------- |
+| 0.1 m           | 50                                 |
+| 0.2 m           | 53                                 |
+| 0.3 m           | 42                                 |
+| 0.4 m           | 21                                 |
+| 0.5 m           | 12                                 |
+| 0.6 m           | 19                                 |
+| 0.7 m and above | 91                                 |
+
+**172 of 288 moving tracks, 60 %, carry an estimated width below 0.5 m**, which
+is narrower than a pedestrian. **210, or 73 %, are below 1.0 m**, which is
+narrower than any car. The mode sits at 0.1 to 0.3 m.
+
+That is not a plausible width for anything moving at 3 m/s or more. It is the
+**thickness of a single observed face**, set by range noise and surface
+curvature, which is exactly what the sensor sees when only the near side of a
+vehicle returns points.
+
+**This is the same cause as the position bias.** Section 3.3 showed that with
+only the near face visible, the medoid sits at `W/2` from the true centre.
+The identical visibility condition makes the observed extent across the object
+collapse to the face's own thickness. One mechanism, two symptoms, and the
+second is now measured on real traffic rather than inferred.
+
+Corroborating figures from the same run:
+
+| Observation                                                            | Value                                                          |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Tracks with no class assigned                                          | **1,648 of 2,038, 81 %**                                       |
+| Tracks classified `car`                                                | 15, mean 4.37 x **0.85** x 1.78 m                              |
+| Mean observations per moving track                                     | **6**                                                          |
+| Example from the track inspector: `trk_4a27c73c`, class `car`, 8.0 m/s | L x W x H = **0.8 x 0.2 x 0.2 m**, `Hits: 0` while `Confirmed` |
+
+Three things follow.
+
+**The classifier is being starved, not mistuned.** It reads dimensions and
+speed. When 73 % of moving tracks present a sub-metre width, an 81 %
+unclassified rate is the arithmetic consequence, not an independent defect. Even
+the fifteen tracks it does call `car` carry a mean width of 0.85 m against a real
+1.8 m, so the bias survives classification.
+
+**Defect P7 is worse than "biases the mean".** The running mean over per-frame
+extents is not merely pulled low by partial views; the per-frame extents
+themselves are the wrong quantity whenever one face dominates. Section 9.2's
+admissibility rules exist for precisely this, and this run is the evidence that
+they are load-bearing rather than fastidious.
+
+**Mean 6 observations per moving track** indicates severe fragmentation, well
+below the 42-observation median measured across the production database in
+Section 1.5. The tuning hash for this run differs from production, so treat the
+absolute figure as run-specific rather than as a new baseline; the direction is
+consistent with defect P4 either way.
 
 ## 4. Target architecture
 
@@ -1835,15 +1902,29 @@ promote a time-partitioned tail of soma3 instead rather than weakening the rule.
 
 #### Known-defect recordings
 
-Two VRLOG recordings contain tracks exhibiting the lateral-jump defect and are
-the labelling source for the regression set:
+Three VRLOG recordings contain tracks exhibiting the lateral-jump defect and
+are the labelling source for the regression set:
 
-| Recording                              | Frames | Source capture   | Build       | Tuning hash   |
-| -------------------------------------- | ------ | ---------------- | ----------- | ------------- |
-| `0fb02f22-eeaa-4cfa-8dad-843762bd9108` | 470    | `clar0-1.pcapng` | 0.5.1-pre31 | `0c7fe71f...` |
-| `60a4774c-db3e-4008-9b7e-d1059ec27319` | 1,832  | `kirk1.pcapng`   | 0.5.0-pre16 | `0ff58022...` |
+| Recording                                  | Frames    | Duration  | Tracks    | Source capture        | Build       | Playback |
+| ------------------------------------------ | --------- | --------- | --------- | --------------------- | ----------- | -------- |
+| **`f84105d8-b3be-416f-8809-551ef6bfce10`** | **6,846** | 11 m 03 s | **2,038** | `soma1-static-0.pcap` | 0.5.1-pre31 | 0.1x     |
+| `0fb02f22-eeaa-4cfa-8dad-843762bd9108`     | 470       | 47 s      |           | `clar0-1.pcapng`      | 0.5.1-pre31 | 1x       |
+| `60a4774c-db3e-4008-9b7e-d1059ec27319`     | 1,832     | 178 s     |           | `kirk1.pcapng`        | 0.5.0-pre16 | 1x       |
 
 Under `sensor_data/lidar/vrlog/`.
+
+**`f84105d8` is the primary labelling source.** It is an order of magnitude
+larger than the other two, it carries denser traffic, and many tracks in it
+exhibit the lateral bounding-box behaviour. It is also the run whose statistics
+supply Section 3.4's real-data confirmation of the mechanism, so cases labelled
+from it can be cross-referenced against those figures.
+
+Two properties of this run are worth carrying forward rather than discovering
+twice. Its **playback rate is 0.1**, so the frame-rate throttle was not engaged
+and nothing it shows can be attributed to a throughput shortfall. And its source
+is `soma1-static-0.pcap`, the **superseded** split rather than the current
+`soma1-static-0-1.pcap`, so a re-run against the current corpus will not
+reproduce it frame for frame. Label cases by what they show, not by frame index.
 
 **Use them for labelling, not for the experiment.** A VRLOG stores post-pipeline
 `FrameBundle` snapshots, so it replays decisions already made and cannot re-run
@@ -2549,7 +2630,7 @@ revision corrects architecture; it does not relitigate findings.
 - [ ] Implement D2: switch the measurement source to the OBB centre, behind a recorded source field
 - [ ] Re-baseline G-GEO-1's regression numbers after D2 ships
 - [ ] Fit a coarse ground plane per capture and publish the gradient, to settle P11 severity
-- [ ] Label the jump tracks in VRLOGs `0fb02f22` and `60a4774c` into the held-out regression set
+- [ ] Label the jump tracks in VRLOG `f84105d8` (primary, 2,038 tracks) into the held-out regression set, then `0fb02f22` and `60a4774c`
 - [ ] Re-measure durations and frame counts for the re-split soma captures and `clar0-1`
 
 ### Deferred
