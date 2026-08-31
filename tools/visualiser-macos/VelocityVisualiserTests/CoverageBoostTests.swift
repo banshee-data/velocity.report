@@ -162,8 +162,8 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 5_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 0, logEndNs: 10_000_000_000, playbackRate: 2.0,
-            paused: false, currentFrameIndex: 100, totalFrames: 1000, seekable: true)
+            logStartNs: 0, logEndNs: 10_000_000_000, playbackRate: 2.0, paused: false,
+            currentFrameIndex: 100, totalFrames: 1000, seekable: true)
 
         state.onFrameReceived(frame)
 
@@ -457,6 +457,11 @@ struct VisualiserClientDecodeTests {
         proto.playbackInfo.seekable = true
         proto.playbackInfo.playbackRate = 2.0
         proto.playbackInfo.paused = true
+        proto.playbackInfo.recording = true
+        proto.playbackInfo.settling = true
+        proto.playbackInfo.settlingElapsedSeconds = 4.25
+        proto.playbackInfo.sensorSilent = true
+        proto.playbackInfo.replayEpoch = 7
 
         let result = client.decodeFrameBundle(proto)
         #expect(result.playbackInfo != nil)
@@ -466,6 +471,11 @@ struct VisualiserClientDecodeTests {
         #expect(result.playbackInfo?.seekable == true)
         #expect(result.playbackInfo?.playbackRate == 2.0)
         #expect(result.playbackInfo?.paused == true)
+        #expect(result.playbackInfo?.recording == true)
+        #expect(result.playbackInfo?.settling == true)
+        #expect(result.playbackInfo?.settlingElapsedSeconds == 4.25)
+        #expect(result.playbackInfo?.sensorSilent == true)
+        #expect(result.playbackInfo?.replayEpoch == 7)
     }
 
     /// Test that a track with alpha == 0 defaults to 1.0

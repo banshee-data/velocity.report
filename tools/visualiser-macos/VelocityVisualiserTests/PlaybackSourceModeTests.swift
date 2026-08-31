@@ -11,12 +11,12 @@ import XCTest
 /// `seekable` says whether it can be scrubbed.
 @available(macOS 15.0, *) @MainActor final class PlaybackSourceModeTests: XCTestCase {
 
-    private func frame(sourceMode: SourceMode, seekable: Bool, recording: Bool = false)
-        -> FrameBundle
-    {
+    private func frame(
+        sourceMode: SourceMode, seekable: Bool, recording: Bool = false, sensorSilent: Bool = false
+    ) -> FrameBundle {
         var f = FrameBundle(frameID: 1, timestampNanos: 0, sensorID: "test")
         f.playbackInfo = PlaybackInfo(
-            logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+            sensorSilent: sensorSilent, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
             paused: false, currentFrameIndex: 0, totalFrames: 100, seekable: seekable,
             replayEpoch: 1, sourceMode: sourceMode, recording: recording)
         return f
@@ -37,8 +37,7 @@ import XCTest
     func testAnalysisModeIsDistinguishableFromPlainPCAP() throws {
         let analysis = AppState()
         analysis.isConnected = true
-        analysis.onFrameReceived(
-            frame(sourceMode: .pcapAnalysis, seekable: false))
+        analysis.onFrameReceived(frame(sourceMode: .pcapAnalysis, seekable: false))
 
         let plain = AppState()
         plain.isConnected = true
@@ -52,8 +51,7 @@ import XCTest
     func testRecordingIsReadFromTheFrame() throws {
         let state = AppState()
         state.isConnected = true
-        state.onFrameReceived(
-            frame(sourceMode: .pcap, seekable: false, recording: true))
+        state.onFrameReceived(frame(sourceMode: .pcap, seekable: false, recording: true))
 
         XCTAssertTrue(state.isRecording)
     }
@@ -105,5 +103,18 @@ import XCTest
         XCTAssertEqual(state.sourceMode, .live)
         XCTAssertEqual(state.displayModeLabel, "LIVE")
         XCTAssertEqual(state.displayPlaybackMode, .live)
+    }
+
+    func testSensorSilenceIsReadAndClearedFromLiveFrames() throws {
+        let state = AppState()
+        state.isConnected = true
+
+        state.onFrameReceived(frame(sourceMode: .live, seekable: false, sensorSilent: true))
+        XCTAssertTrue(state.sensorSilent)
+        XCTAssertEqual(state.displayModeLabel, "IDLE")
+
+        state.onFrameReceived(frame(sourceMode: .live, seekable: false, sensorSilent: false))
+        XCTAssertFalse(state.sensorSilent)
+        XCTAssertEqual(state.displayModeLabel, "LIVE")
     }
 }

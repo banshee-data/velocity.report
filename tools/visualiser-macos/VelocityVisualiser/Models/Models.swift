@@ -316,7 +316,7 @@ struct DebugOverlaySet {
 /// capability. A VRLOG replay happens to be seekable and a PCAP replay happens
 /// not to be, but neither may be derived from the other.
 enum SourceMode: String {
-    case unspecified  // server predates the field; fall back to inference
+    case unspecified  // no source has been reported yet
     case live
     case pcap
     case pcapAnalysis

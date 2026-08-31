@@ -754,9 +754,8 @@ final class LockedState<Value>: @unchecked Sendable {
 /// Returns empty string only for unspecified, otherwise a valid label.
 /// Maps the wire source mode to the client enum.
 ///
-/// `.unspecified` means the server predates the field or has no provider wired,
-/// in which case the caller falls back to inferring the mode from `isLive` and
-/// `seekable`.
+/// `.unspecified` means no source was reported; callers keep it unspecified
+/// rather than deriving one from seekability.
 private func sourceMode(from proto: Velocity_Visualiser_V1_SourceMode) -> SourceMode {
     switch proto {
     case .live: return .live

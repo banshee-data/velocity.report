@@ -123,8 +123,8 @@ private let logger = DevLogger(category: "AppState")
     /// What the server says is driving the pipeline. Independent of
     /// `isSeekable`, which is a capability: a VRLOG replay happens to be
     /// seekable and a PCAP replay happens not to be, but neither implies the
-    /// other. `.unspecified` means the server predates the field, in which
-    /// case there is no source yet and nothing is assumed.
+    /// other. `.unspecified` means there is no source report yet, so nothing is
+    /// assumed.
     @Published var sourceMode: SourceMode = .unspecified
 
     /// True while the server is recording a VRLOG.
@@ -438,7 +438,6 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
-    /// Fallback for servers that do not report a source mode.
     /// Playback capability for a reported source. The source decides live vs
     /// replay; `seekable` alone decides whether the replay can be scrubbed.
     private func playbackMode(for source: SourceMode, seekable: Bool) -> PlaybackMode {
