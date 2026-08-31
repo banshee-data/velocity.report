@@ -40,10 +40,22 @@ import XCTest
         XCTAssertEqual(noSource.displayModeLabel, live(silent: true).displayModeLabel)
     }
 
-    /// Settling outranks silence: warm-up explains itself and resolves, where
-    /// idle does not.
-    func testSettlingOutranksSilence() {
+    /// Silence outranks settling. A grid settles on arriving frames, so with the
+    /// sensor quiet the count cannot advance: at the end of a replay with no
+    /// sensor the badge sat on "SETTLING 00s" indefinitely, promising progress
+    /// that could not happen.
+    func testSilenceOutranksSettling() {
         let state = live(silent: true)
+        state.isSettling = true
+        state.settlingElapsedSeconds = 4
+
+        XCTAssertEqual(state.displayModeLabel, "IDLE")
+    }
+
+    /// While packets are arriving, settling is the thing worth reporting: it
+    /// explains an empty scene and resolves on its own.
+    func testSettlingIsReportedWhilePacketsArrive() {
+        let state = live(silent: false)
         state.isSettling = true
         state.settlingElapsedSeconds = 4
 

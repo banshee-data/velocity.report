@@ -388,6 +388,12 @@ private let logger = DevLogger(category: "AppState")
         if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
         // Settling outranks the source: an empty scene during warm-up is the
         // thing an operator needs explained, and it resolves on its own.
+        // Silence outranks settling. A grid settles on arriving frames, so with
+        // the sensor quiet the count cannot advance and reporting progress
+        // promises something that will not happen: at the end of a replay with
+        // no sensor, the badge sat on "SETTLING 00s" indefinitely.
+        if sensorSilent && sourceMode == .live { return "IDLE" }
+
         // Two digits so the badge does not resize as the count passes 9. The
         // pill is anchored in a corner, and a label that changes width every
         // second draws the eye to the wrong thing.
