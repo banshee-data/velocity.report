@@ -159,11 +159,24 @@ inheriting grpc-swift's default. Stalls per run, against the build:
 | `85e3b661f` | 30     | no         |
 | `92ca155e2` | **0**  | yes        |
 
-The clean run covers 25 minutes and 11 client connections, with the visualiser
-streaming 800 frames in one of them; previously a stall arrived within 25
-frames of connecting. Treat this as strongly indicated rather than proven: the
-absence held across one session, and the two changes that shipped either side
-of it (the non-blocking hand-off and the cycle fix) were not isolated from it.
+An hour-long soak on 2026-08-31 settles it. Four concurrent streams, each on
+its own connection, took **35,987 frames and 320.5 MB apiece — 1.28 GB in
+total — at a sustained 10.0 frames per second**, the sensor's own rate, with
+the visualiser attached throughout.
+
+Four gaps over a second, worst 2.144 s. Nothing resembling the 37 to 105 second
+stalls that prompted this work, and no drift in throughput across the hour.
+
+All four streams saw each gap within 5 ms of one another, which rules out
+per-client flow control: independent connections do not stall in lockstep. One
+gap lines up exactly with a source change, a parked replay taking live input
+and resetting the grid. The other three have no logged cause — no frame
+discards, no drop-rate warning, packet rate steady at 1800/s either side — so
+they are a brief pause in frame production rather than anything the transport
+did.
+
+The window change is what tracks with this. Stalls per run before it: 7, 11, 12
+and 30, of 37 to 105 seconds each.
 Longer field confirmation remains explicitly tracked in `BACKLOG.md`; it is not
 presented here as hardware validation the branch did not perform.
 
