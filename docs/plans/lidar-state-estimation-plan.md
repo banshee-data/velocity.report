@@ -176,6 +176,9 @@ isotropically at every range and point count.
 
 ### 1.5 Measured facts from the production database
 
+**This section is canonical.** The behaviour plan cites these figures rather
+than restating them, so a re-measurement updates one place.
+
 Sample: `sensor_data.db`, 55,315 tracks and 3,526,860 observations.
 
 | Fact                                                                                                                           | Value                                                                 |
@@ -816,23 +819,35 @@ nonlinear and need one or the other. Separating them makes the decision tractabl
 
 ### 7.1 Motion models
 
-| Model                                 | State    | C1   | C2   | C4   | C6   | C7   | C9   | C10  | Verdict                                                                      |
-| ------------------------------------- | -------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---------------------------------------------------------------------------- |
-| Constant velocity (today)             | 4        | `--` | `++` | `-`  | `++` | `++` | `++` | `++` | Retain as the baseline and as an IMM mode                                    |
-| Constant acceleration                 | 6        | `--` | `+`  | `+`  | `+`  | `++` | `++` | `+`  | Strict superset of CV; second increment                                      |
-| Constant turn rate, constant velocity | 5        | `--` | `o`  | `+`  | `+`  | `+`  | `+`  | `o`  | Turning only; weak yaw-rate observability at 5 Hz                            |
-| Constant turn rate and acceleration   | 6        | `--` | `-`  | `++` | `o`  | `+`  | `o`  | `-`  | Most expressive single model, least observable here                          |
-| Stationary                            | 2        | `--` | `++` | `--` | `++` | `++` | `++` | `++` | Only useful inside an IMM; 5,982 near-stationary tracks make it worth having |
-| Interacting multiple model            | per-mode | `--` | `+`  | `++` | `+`  | `+`  | `-`  | `o`  | Right end state, wrong starting point                                        |
+Three live candidates. Everything else is deferred, for the reason in the note
+below the table.
 
-Every row scores `--` on C1. That is the point of the matrix. **No motion model
-solves the reported defect**, because the defect is in the measurement.
+| Model                      | State    | C1   | C2   | C4   | C6   | C7   | C9   | Verdict                                                   |
+| -------------------------- | -------- | ---- | ---- | ---- | ---- | ---- | ---- | --------------------------------------------------------- |
+| Constant velocity (today)  | 4        | `--` | `++` | `-`  | `++` | `++` | `++` | **Keep.** The baseline, and an IMM mode later             |
+| Constant acceleration      | 6        | `--` | `+`  | `+`  | `+`  | `++` | `++` | Strict superset of CV; the next increment, behind G-EST-1 |
+| Interacting multiple model | per-mode | `--` | `+`  | `++` | `+`  | `+`  | `-`  | Right end state, wrong starting point                     |
 
-The IMM row deserves its `+` on C6 rather than a minus. Mode probabilities are
-genuinely explainable output: "the constant-acceleration mode carried 0.82 of
-the weight during braking" is a sentence a person can check. The complexity cost
-is in mixing, mode-conditioned covariances, and the interaction with gating,
+**Every row scores `--` on C1.** That is the point of the table: no motion model
+solves the reported defect, because the defect is in the measurement. A reader
+who takes nothing else from Section 7 should take that.
+
+The IMM row earns its `+` on explainability rather than a minus. Mode
+probabilities are genuinely auditable output: "the constant-acceleration mode
+carried 0.82 of the weight during braking" is a sentence a person can check. The
+cost is in mixing, mode-conditioned covariances and the interaction with gating,
 which is where IMM implementations usually go wrong.
+
+**Deferred, and why.** CTRV, CTRA and a stationary mode were scored in the
+previous draft and are removed from the decision surface here. All three depend
+on evidence that does not exist yet, and carrying them as live options implied a
+choice that is not actually open. CTRV and CTRA need turning to be a measured
+failure mode, which the current low-speed sites do not supply, and
+[Q5 of the pipeline review](../../data/maths/pipeline-review-open-questions.md)
+argues turning belongs to L7 corridor constraints rather than L5. A stationary
+mode is only meaningful inside an IMM, and 5,982 near-stationary tracks make it
+worth revisiting **at** G-EST-2, not before. Reinstate any of them when the
+residual record justifies it.
 
 ### 7.2 Filter algorithms
 
@@ -888,43 +903,20 @@ not the filter's structure, so Option A survives them.
 4. CA offline reduces p99 longitudinal residual by at least 20 % with no more
    than a 5 % increase in p99 lateral residual.
 
-**Decision gate G-EST-2, from single model to IMM.** Requires G-EST-1 passed
-plus:
+**Gates beyond G-EST-1 are deferred.** Moving to an IMM, to a nonlinear turning
+model, or to the unified nonlinear state of Option B each requires evidence that
+the residual record does not yet contain. Writing their thresholds now would be
+guessing, and would give three unearned decisions the appearance of being live.
+The conditions under which each becomes worth specifying:
 
-1. CA offline shows over-dispersed NIS during _constant-speed_ segments, that is,
-   the acceleration state is absorbing noise when there is no acceleration.
-2. IMM offline improves worst-case per-track position error by at least 15 %
-   against CA on the decision-gate partition.
-3. Mode probabilities are stable, meaning fewer than 2 mode flips per second on
-   constant-speed segments.
-4. Added per-frame CPU measured on Pi 4 hardware is under 2 ms at 100 tracks.
+| Deferred gate                                 | Reinstate when                                                                                                                                                                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single model to IMM                           | G-EST-1 has passed **and** CA shows over-dispersed NIS during constant-speed segments, meaning the acceleration state is absorbing noise                                                                                        |
+| Nonlinear turning model                       | Turning is a measured failure mode: turning segments exceed 10 % of track-frames with residuals at least twice the straight-line baseline                                                                                       |
+| Option A to Option B, unified nonlinear state | Orientation variance is shown to be the limiting error term after controlling for range, aspect and point count. Test low-speed conditioning first: heading is unobservable at rest, and most of our tracks are near-stationary |
 
-**Decision gate G-EST-3, to a nonlinear turning model.** Requires evidence that
-turning is a material failure mode at the deployed sites, specifically that
-turning segments account for over 10 % of track-frames and show residuals at
-least twice the straight-line baseline. The current sites are low speed with few
-tracks above 10 m/s, so this may never fire. Note that
-[Q5 of the pipeline review](../../data/maths/pipeline-review-open-questions.md)
-argues turning belongs to L7 corridor constraints rather than L5, and this plan
-does not disturb that conclusion.
-
-**Decision gate G-EST-4, from Option A to Option B.** Migrating orientation into
-the dynamic state, and therefore to an EKF or UKF, requires:
-
-1. G-GEO-1 already passed, so the observation-model change has been measured
-   independently and cannot be confounded by the estimator change.
-2. Evidence that the separate orientation belief is the limiting error term:
-   specifically, that orientation variance is a significant partial predictor of
-   lateral residual after controlling for range, aspect and point count.
-3. A demonstrated need for orientation-motion cross-covariance, meaning at least
-   one metric whose uncertainty is materially wrong because the two beliefs are
-   modelled as independent.
-4. Low-speed conditioning tested first: on the 5,982 near-stationary tracks in
-   the database, a nonlinear filter must not degrade against Option A. This is
-   the failure mode most likely to bite, since heading is unobservable at rest.
-
-Point 4 is the one that will decide it. A unified nonlinear state is more
-expressive everywhere and worse precisely where most of our tracks live.
+Each will get a full gate in its own increment, written against the evidence
+that triggered it.
 
 ## 8. Uncertainty matrix
 
@@ -1693,11 +1685,22 @@ not useful here.
 
 | File (`/Volumes/lidar/lidar/seg/`) | Duration      | Frames (10 Hz) | Packets       | Size         |
 | ---------------------------------- | ------------- | -------------- | ------------- | ------------ |
+| `kirk0.pcapng`                     | in repo       | ~830           | see baseline  | 191 MB       |
+| `clar0-1.pcapng`                   | see note      | ~470 in VRLOG  | see note      | see note     |
 | `soma0-static-0.pcap`              | 1 m 51 s      | ~1,110         | 151,085       | 191 MB       |
-| `soma1-static-0.pcap`              | 11 m 03 s     | ~6,630         | 1,193,182     | 1,507 MB     |
-| `soma2-static-0.pcap`              | 1 m 09 s      | ~690           | 75,878        | 96 MB        |
-| `soma3-static-0.pcap`              | 23 m 58 s     | ~14,384        | 2,589,001     | 3,269 MB     |
+| `soma1-static-0-1.pcap`            | see note      | see note       | see note      | see note     |
+| `soma3-static-0-1.pcap`            | see note      | see note       | see note      | see note     |
 | **Total**                          | **38 m 01 s** | **~22,810**    | **4,009,146** | **5,062 MB** |
+
+**Filenames and provenance.** The set was revised after the first draft. Three
+changes: `soma2-static-0` is dropped, because at 69 s against a 60 s settling
+duration it yields too few usable frames to be a meaningful partition;
+`soma1` and `soma3` were re-split and now carry a `-0-1` segment suffix; and
+`clar0-1.pcapng` is added, which matters more than the rest because it is a
+**different site**, not a fourth placement at the same one. Row values marked
+"see note" were measured on the superseded splits and must be re-measured
+before the partition below is fixed. `/Volumes/lidar` was not readable from the
+session that made this edit, so only `kirk0.pcapng` was re-verified on disk.
 
 Verified as Hesai Pandar40P: 1266-byte UDP payloads, `192.168.100.202:10000 →
 192.168.100.151:2369`, 10.0 Hz with RPM 593 to 606. Same wire format and port as
@@ -1819,15 +1822,49 @@ graded ones as replication rather than as the primary evidence.
 
 Honouring the rule that tuning and evaluation never share a recording:
 
-| Recording                          | Partition              | Rationale                                                                       |
-| ---------------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
-| `soma1-static-0`                   | Development and tuning | 11 minutes, fully static, no motion segment to complicate settling              |
-| `soma3-static-0`                   | Decision gate          | The largest at 24 minutes; re-run on every gate evaluation, never tuned against |
-| `soma0-static-0`, `soma2-static-0` | Held-out regression    | Short, which suits a partition touched only to confirm a shipped change         |
+| Recording                   | Partition              | Rationale                                                                                                |
+| --------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `soma1-static-0-1`          | Development and tuning | Fully static, no motion segment to complicate settling                                                   |
+| `soma3-static-0-1`          | Decision gate          | The largest; re-run on every gate evaluation, never tuned against                                        |
+| `soma0-static-0`, `clar0-1` | Held-out regression    | `clar0-1` is the only genuinely different site, which makes it the strongest held-out evidence available |
+| `kirk0`                     | Baseline continuity    | Retained so results stay comparable with the existing perf baseline and the 33 labelled jump tracks      |
 
 Cross-check the assignment against the settling-eval output from step 3: if
 soma0 or soma2 yields too few usable frames to be a meaningful regression set,
 promote a time-partitioned tail of soma3 instead rather than weakening the rule.
+
+#### Known-defect recordings
+
+Two VRLOG recordings contain tracks exhibiting the lateral-jump defect and are
+the labelling source for the regression set:
+
+| Recording                              | Frames | Source capture   | Build       | Tuning hash   |
+| -------------------------------------- | ------ | ---------------- | ----------- | ------------- |
+| `0fb02f22-eeaa-4cfa-8dad-843762bd9108` | 470    | `clar0-1.pcapng` | 0.5.1-pre31 | `0c7fe71f...` |
+| `60a4774c-db3e-4008-9b7e-d1059ec27319` | 1,832  | `kirk1.pcapng`   | 0.5.0-pre16 | `0ff58022...` |
+
+Under `sensor_data/lidar/vrlog/`.
+
+**Use them for labelling, not for the experiment.** A VRLOG stores post-pipeline
+`FrameBundle` snapshots, so it replays decisions already made and cannot re-run
+a candidate measurement. What it can do, and what nothing else currently does,
+is let a human find and mark the exact tracks and frames where the jump is
+visible. Those marks become the held-out regression cases; E1 itself then runs
+from the source captures.
+
+Note the two recordings were produced by different builds under different tuning
+hashes, so they are not comparable to each other as evidence. Each is a source
+of individually labelled cases.
+
+#### Ground-plane fitting sources
+
+Decision D1 (Section 21) needs a measured grade per site before P11's severity
+is settled. The captures above are the input: fit a coarse plane to the settled
+L3 background per capture and publish the gradient. `clar0-1` and `kirk0` matter
+most here, being the two distinct sites.
+
+This runs offline against stored captures. **It must not touch a live server or
+an in-progress recording run.**
 
 #### Acceptance criteria
 
@@ -2145,9 +2182,9 @@ stratified gates, and ship behind a config flag with the fixed model retained.
 probability stability assertions.
 
 **Risks.** IMM tuning is genuinely hard, and a badly tuned IMM is worse than CV.
-Mitigation: CA ships first and alone; IMM only at G-EST-2.
+Mitigation: CA ships first and alone; IMM only behind the deferred gate in 7.3.
 
-**Acceptance.** G-EST-1, then G-EST-2.
+**Acceptance.** G-EST-1. IMM is out of scope for this phase; see 7.3.
 
 ### Phase 5: smoothing
 
@@ -2217,7 +2254,7 @@ unattributable.
 IMM over {stationary, CV, CA} is the right end state, and the config schema
 already anticipates it with `imm_cv_ca_v2`. It is the wrong starting point,
 because the evidence needed to choose and tune its modes does not exist yet.
-Gates G-EST-1 and G-EST-2 define what evidence would justify it. Note that
+G-EST-1 and the deferred-gate table in 7.3 define what evidence would justify it. Note that
 5,982 near-stationary tracks in the database make a stationary mode more
 valuable here than the usual CV-plus-CA pairing.
 
@@ -2439,12 +2476,33 @@ manoeuvre-magnitude preservation, per 17.1.
 | Q7  | Is acceleration observable at all at the effective 5 Hz rate, or does the CA state just absorb noise?                                            | Offline CA against synthetic braking with known ground truth, swept over sample rate                                                                             | G-EST-1                                                             |
 | Q8  | Are the 33 identified jump tracks all the same phenomenon?                                                                                       | Manual review against the per-track inspector, classified by cause                                                                                               | Phase 0                                                             |
 | Q9  | Does kirk0 overfit? The site has 108 tracks above 10 m/s out of 26,732                                                                           | Partly answered by the soma captures: four viewpoints, but one site, one day, one road class. Acceleration, braking and turning conclusions stay provisional     | G-EST-1, G-EST-3, Phase 6                                           |
-| Q10 | Should the OBB centre replace the medoid as an immediate stopgap?                                                                                | It measured 0.279 m against 0.676 m mean bias: a two-and-a-half-fold improvement for a one-line change. Evaluate on real data as part of Q1                      | Possible Phase 0.5                                                  |
 
-Q10 deserves attention out of proportion to its size. If it survives contact
-with real data, it is a substantial improvement available immediately, and it
-would buy time for the rest of the plan to be done properly rather than under
-pressure.
+### 21.1 Decisions taken
+
+| #   | Decision                                                                 | Consequence                                                                                                                                                                   |
+| --- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **P11 is treated as a current defect**: deployment sites are graded      | The slope-aware ground-filter remedy moves into Phase 1, ahead of the Phase 2 measurement change. Severity is still to be confirmed by measuring the grade per site, per 16.5 |
+| D2  | **Ship the OBB centre as an immediate stopgap**, ahead of E1 and Phase 2 | 0.279 m mean lateral bias against the medoid's 0.676 m: a 2.4x improvement for a change of one measurement source. Conditions below                                           |
+| D3  | **Gate set confirmed** as G-PER-1, G-GEO-1, G-UNC-1, G-EST-1, G-SMO-1    | Gates beyond G-EST-1 are deferred to the conditions table in 7.3                                                                                                              |
+| D4  | **Product priority leads with vulnerable-road-user interactions**        | Recorded in the behaviour plan's roadmap; engineering dependency order is tracked separately                                                                                  |
+
+#### D2 conditions
+
+The stopgap is worth taking because it buys time for the rest of the plan to be
+done properly rather than under pressure. It is worth fencing for the same
+reason: it is an improvement to a quantity that is still not the vehicle centre.
+
+1. The OBB centre is **still a visible-surface artefact**, measured at 0.279 m
+   mean bias and 0.565 m worst hop. It is not a fix, and shipping it must not be
+   allowed to reduce the urgency of Phase 2.
+2. Validate on real data first, as part of E1.3, which is the cheapest of the
+   four tests and needs no fitted trajectory.
+3. Persist which measurement source produced each estimate. Without that, the
+   stopgap silently splits the historical record into two incomparable regimes,
+   which is the same class of error as the medoid fallback removed in Section 12.
+4. Re-baseline the regression numbers after it ships. The 0.676 m and 11.3 %
+   figures that G-GEO-1 is written against are medoid figures; leaving them in
+   place would make Phase 2 appear to clear a bar it has already been handed.
 
 ## 22. Changes introduced by this revision
 
@@ -2455,7 +2513,7 @@ Relative to the version that split this plan from the behaviour plan.
 | 1   | Added Section 0: no black boxes, and estimate the most probable physical path rather than cosmetically smoothing                                     | Both principles were implicit and were being violated in Sections 10 and 12                                                                                                                                |
 | 2   | Split `Observation` into immutable `DetectionObservation` and derived `MeasurementInterpretation`                                                    | The previous type mixed sensor evidence with fields requiring a track prediction, so two estimator versions could not consume the same evidence reproducibly. Recorded as defect P12                       |
 | 3   | Resolved the state dimensionality contradiction: **Option A**, `[x, y, vx, vy]` with a 4x4 covariance and orientation held as a separate belief      | The previous draft proposed a six-element state _and_ a linear filter. Those are incompatible. Option A keeps the filter honestly linear and isolates the observation-model change that Gate G-GEO-1 tests |
-| 4   | Added gate G-EST-4 for migrating to a unified nonlinear state                                                                                        | Option B is likely the end state; it needed a gate rather than a silent assumption                                                                                                                         |
+| 4   | Deferred the IMM, turning-model and Option-B gates to a conditions table in 7.3                                                                      | Option B is likely the end state; it needed a gate rather than a silent assumption                                                                                                                         |
 | 5   | Added road-user motion models: `rigid_vehicle`, `two_wheeler`, `pedestrian`, `unknown`, with prior strength scaled by class posterior                | The plan assumed a vehicle. Pedestrian motion would have been read as tracking failure                                                                                                                     |
 | 6   | Added the estimation lifecycle, distinct from the track lifecycle, with explicit initialisation rules                                                | Nothing previously prevented a biased initial medoid from becoming a confident physical prior                                                                                                              |
 | 7   | **Removed the medoid fallback during model degradation**                                                                                             | It silently redefined `X` and `Y` mid-track from estimated physical pose to raw cluster point. The single most dangerous line in the previous draft                                                        |
@@ -2487,12 +2545,17 @@ revision corrects architecture; it does not relitigate findings.
 - [ ] Promote the synthetic scene prototype into `internal/lidar/l4perception/synthscene`
 - [ ] Change `adaptUnassociatedClusters` to emit observation and estimate together
 - [ ] Fix the three lifetime-aggregate fields written into `lidar_track_observations`
-- [ ] Decide Q10: OBB centre as an immediate stopgap
+- [x] Decide Q10: OBB centre as an immediate stopgap. **Accepted**, see 21.1 D2
+- [ ] Implement D2: switch the measurement source to the OBB centre, behind a recorded source field
+- [ ] Re-baseline G-GEO-1's regression numbers after D2 ships
+- [ ] Fit a coarse ground plane per capture and publish the gradient, to settle P11 severity
+- [ ] Label the jump tracks in VRLOGs `0fb02f22` and `60a4774c` into the held-out regression set
+- [ ] Re-measure durations and frame counts for the re-split soma captures and `clar0-1`
 
 ### Deferred
 
-- [ ] IMM, pending G-EST-2
-- [ ] Nonlinear turning models, pending G-EST-3 and a corpus site that turns
+- [ ] IMM, pending the deferred-gate conditions in 7.3
+- [ ] Nonlinear turning models, pending the deferred-gate conditions in 7.3 and a corpus site that turns
 - [ ] Factor-graph batch estimation, pending a pure-Go sparse solver
 - [ ] Site frame and L7 roadway context
 - [ ] Crash classification, deliberately out of scope
