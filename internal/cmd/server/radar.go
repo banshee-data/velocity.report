@@ -729,22 +729,10 @@ func Main(args []string) int {
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 			TuningConfig:      tuningCfg,
 			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPStopped: func() {
-				// Returning to live resets the grid, so the replay's background
-				// no longer describes anything. Clearing says so: without it a
-				// reconnecting client is handed the recording's background and
-				// draws live foreground over a scene from the capture.
-				if visualiserPublisher != nil {
-					visualiserPublisher.ClearBackground()
-				}
-				if visualiserServer != nil {
-					visualiserServer.SetReplayMode(false)
-					log.Printf("[Visualiser] Replay stopped: switched to live mode")
-				}
-			},
-			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
-			PlaybackProbe:    visualiserPlaybackProbe{server: visualiserServer},
-			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
+			OnPCAPStopped:     replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPProgress:    pcapProgressCallback(visualiserServer),
+			PlaybackProbe:     visualiserPlaybackProbe{server: visualiserServer},
+			OnPCAPTimestamps:  pcapTimestampsCallback(visualiserServer),
 			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
@@ -864,8 +852,7 @@ func Main(args []string) int {
 			// A sensor that has stopped still produces frames, empty ones, so
 			// silence has to come from packet arrival rather than the stream.
 			visualiserServer.SetSensorSilentProvider(func() bool {
-				last := lidarServer.LastPacketAt()
-				return last.IsZero() || time.Since(last) > sensorSilentAfter
+				return sensorIsSilent(lidarServer.LastPacketAt(), time.Now(), sensorSilentAfter)
 			})
 
 			visualiserServer.SetSettlingProvider(func() (bool, float32) {

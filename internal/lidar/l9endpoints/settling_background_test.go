@@ -97,14 +97,23 @@ func TestSettlingIsNotStampedOnReplayFrames(t *testing.T) {
 		t.Run(tt.mode, func(t *testing.T) {
 			s := NewServer(nil)
 			s.SetSourceModeProvider(func() (string, bool) { return tt.mode, false })
-			s.SetSettlingProvider(func() (bool, float32) { return true, 0 })
+			s.SetSettlingProvider(func() (bool, float32) { return true, 2.5 })
 
-			settling, _ := s.currentSettling()
-			mode, _ := s.currentSourceMode()
-			stamped := mode == "live" && settling
+			frame := &FrameBundle{}
+			s.decoratePlaybackInfo(frame)
+			if frame.PlaybackInfo == nil {
+				t.Fatal("source mode was not attached to the frame")
+			}
+			stamped := frame.PlaybackInfo.Settling
 
 			if stamped != tt.wantStamp {
 				t.Errorf("source %q: stamped=%v, want %v", tt.mode, stamped, tt.wantStamp)
+			}
+			if tt.wantStamp && frame.PlaybackInfo.SettlingElapsedSecs != 2.5 {
+				t.Errorf("source %q: elapsed=%v, want 2.5", tt.mode, frame.PlaybackInfo.SettlingElapsedSecs)
+			}
+			if !tt.wantStamp && frame.PlaybackInfo.SettlingElapsedSecs != 0 {
+				t.Errorf("source %q inherited live settling elapsed time %v", tt.mode, frame.PlaybackInfo.SettlingElapsedSecs)
 			}
 		})
 	}

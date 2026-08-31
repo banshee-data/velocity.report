@@ -274,6 +274,7 @@ type stubReplayPublisher struct {
 	active            bool
 	stopped           bool
 	backgroundCleared bool
+	clearCalls        int
 }
 
 func (s *stubReplayPublisher) IsVRLogActive() bool {
@@ -286,6 +287,7 @@ func (s *stubReplayPublisher) StopVRLogReplay() {
 
 func (s *stubReplayPublisher) ClearBackground() {
 	s.backgroundCleared = true
+	s.clearCalls++
 }
 
 type stubReplayServer struct {
@@ -361,6 +363,66 @@ func TestHandlePCAPStartedVisualiserAndCallbacks_TypedNil(t *testing.T) {
 	pcapTimestampsCallback(server)(3, 4)
 	if isNilHelperTarget(42) {
 		t.Fatal("expected concrete non-nil value to be treated as non-nil")
+	}
+}
+
+func TestReplayStoppedCallbackClearsBackgroundAndLeavesReplayMode(t *testing.T) {
+	var logs []string
+	logf := func(format string, args ...any) {
+		logs = append(logs, fmt.Sprintf(format, args...))
+	}
+	publisher := &stubReplayPublisher{}
+	server := &stubReplayServer{}
+
+	replayStoppedCallback(publisher, server, logf)()
+
+	if publisher.clearCalls != 1 {
+		t.Errorf("ClearBackground calls = %d, want 1", publisher.clearCalls)
+	}
+	if len(server.replayModes) != 1 || server.replayModes[0] {
+		t.Errorf("replay mode transitions = %v, want [false]", server.replayModes)
+	}
+	if len(server.vrlogModes) != 0 {
+		t.Errorf("VRLOG mode was changed by the common replay-stop callback: %v", server.vrlogModes)
+	}
+	if len(logs) != 1 || !strings.Contains(logs[0], "Replay stopped: switched to live mode") {
+		t.Errorf("logs = %q, want the replay-stop transition", logs)
+	}
+}
+
+func TestReplayStoppedCallbackToleratesMissingVisualiserComponents(t *testing.T) {
+	var publisher *stubReplayPublisher
+	var server *stubReplayServer
+
+	handleReplayStoppedVisualiser(publisher, server, func(string, ...any) {
+		t.Fatal("typed-nil components should not produce a transition log")
+	})
+	handleReplayStoppedVisualiser(nil, nil, func(string, ...any) {
+		t.Fatal("nil components should not produce a transition log")
+	})
+}
+
+func TestSensorIsSilentBoundaryCases(t *testing.T) {
+	now := time.Date(2026, time.August, 30, 12, 0, 0, 0, time.UTC)
+	after := 3 * time.Second
+	tests := []struct {
+		name string
+		last time.Time
+		want bool
+	}{
+		{name: "no packet yet", last: time.Time{}, want: true},
+		{name: "inside timeout", last: now.Add(-after + time.Nanosecond), want: false},
+		{name: "exactly at timeout", last: now.Add(-after), want: false},
+		{name: "past timeout", last: now.Add(-after - time.Nanosecond), want: true},
+		{name: "future timestamp", last: now.Add(time.Second), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sensorIsSilent(tt.last, now, after); got != tt.want {
+				t.Errorf("sensorIsSilent(%v, %v, %v) = %v, want %v", tt.last, now, after, got, tt.want)
+			}
+		})
 	}
 }
 

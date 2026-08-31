@@ -364,8 +364,7 @@ type PlaybackInfo struct {
 
 	// SourceMode names what is driving the pipeline, as the canonical token
 	// ("live", "pcap", "pcap_analysis", "vrlog"). Empty means unknown, which
-	// maps to SOURCE_MODE_UNSPECIFIED on the wire and leaves older clients on
-	// their is_live/seekable inference.
+	// maps to SOURCE_MODE_UNSPECIFIED on the wire rather than inventing a source.
 	SourceMode string
 	Recording  bool
 

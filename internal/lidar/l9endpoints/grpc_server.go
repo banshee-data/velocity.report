@@ -78,8 +78,8 @@ type Server struct {
 }
 
 // SetSourceModeProvider wires the authoritative source-mode lookup. Without
-// one, streamed frames carry SOURCE_MODE_UNSPECIFIED and clients fall back to
-// inferring the mode from is_live and seekable.
+// one, streamed frames carry SOURCE_MODE_UNSPECIFIED rather than guessing a
+// source the monitor server has not reported.
 func (s *Server) SetSourceModeProvider(fn func() (string, bool)) {
 	s.playbackMu.Lock()
 	defer s.playbackMu.Unlock()
@@ -132,6 +132,63 @@ func (s *Server) currentSettling() (bool, float32) {
 		return false, 0
 	}
 	return fn()
+}
+
+// decoratePlaybackInfo adds the server-owned playback state to a frame before
+// it is serialised. Keeping the composition in one testable step matters: the
+// source, settling state and sensor-presence flag come from three providers,
+// but they form one wire contract and must agree on which source they describe.
+func (s *Server) decoratePlaybackInfo(frame *FrameBundle) {
+	// Inject PlaybackInfo for replay mode (PCAP) if not already set.
+	if s.replayMode && frame.PlaybackInfo == nil {
+		s.playbackMu.RLock()
+		frame.PlaybackInfo = &PlaybackInfo{
+			LogStartNs:        s.pcapStartNs,
+			LogEndNs:          s.pcapEndNs,
+			PlaybackRate:      s.playbackRate,
+			Paused:            s.paused,
+			CurrentFrameIndex: s.pcapCurrentPacket,
+			TotalFrames:       s.pcapTotalPackets,
+			Seekable:          false,
+			ReplayEpoch:       s.replayEpoch,
+		}
+		s.playbackMu.RUnlock()
+	}
+
+	// Stamp epoch on existing PlaybackInfo (for example, from a VRLOG recorder).
+	if s.replayMode && frame.PlaybackInfo != nil && frame.PlaybackInfo.ReplayEpoch == 0 {
+		s.playbackMu.RLock()
+		frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
+		s.playbackMu.RUnlock()
+	}
+
+	// Stamp the source on every frame, live included. Live frames otherwise
+	// carry no PlaybackInfo, so create one rather than make the client infer it.
+	mode, recording := s.currentSourceMode()
+	if mode != "" {
+		if frame.PlaybackInfo == nil {
+			frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
+		}
+		frame.PlaybackInfo.SourceMode = mode
+		frame.PlaybackInfo.Recording = recording
+	}
+
+	// Settling and silence describe current live input. Set both
+	// deterministically rather than only setting their true cases: a VRLOG
+	// frame may contain the values recorded while it was live, and replaying
+	// that frame must not resurrect an old SETTLING or IDLE badge.
+	if frame.PlaybackInfo != nil {
+		if mode == "live" {
+			settling, elapsedSecs := s.currentSettling()
+			frame.PlaybackInfo.Settling = settling
+			frame.PlaybackInfo.SettlingElapsedSecs = elapsedSecs
+			frame.PlaybackInfo.SensorSilent = s.currentSensorSilent()
+		} else if mode != "" {
+			frame.PlaybackInfo.Settling = false
+			frame.PlaybackInfo.SettlingElapsedSecs = 0
+			frame.PlaybackInfo.SensorSilent = false
+		}
+	}
 }
 
 // NewServer creates a new gRPC server.
@@ -480,61 +537,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			}
 			lastFrameID = frame.FrameID
 
-			// Inject PlaybackInfo for replay mode (PCAP) if not already set.
-			// This allows the client to show "REPLAY" instead of "LIVE".
-			if s.replayMode && frame.PlaybackInfo == nil {
-				s.playbackMu.RLock()
-				frame.PlaybackInfo = &PlaybackInfo{
-					LogStartNs:        s.pcapStartNs,
-					LogEndNs:          s.pcapEndNs,
-					PlaybackRate:      s.playbackRate,
-					Paused:            s.paused,
-					CurrentFrameIndex: s.pcapCurrentPacket,
-					TotalFrames:       s.pcapTotalPackets,
-					Seekable:          false,
-					ReplayEpoch:       s.replayEpoch,
-				}
-				s.playbackMu.RUnlock()
-			}
-			// Stamp epoch on existing PlaybackInfo (e.g. from VRLOG recorder)
-			if s.replayMode && frame.PlaybackInfo != nil && frame.PlaybackInfo.ReplayEpoch == 0 {
-				s.playbackMu.RLock()
-				frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
-				s.playbackMu.RUnlock()
-			}
-			// Stamp the source mode on every frame, live included, so the
-			// client never has to infer it. Live frames carry no PlaybackInfo
-			// today, so one is created to hold it.
-			mode, recording := s.currentSourceMode()
-			if mode != "" {
-				if frame.PlaybackInfo == nil {
-					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
-				}
-				frame.PlaybackInfo.SourceMode = mode
-				frame.PlaybackInfo.Recording = recording
-			}
-			// Settling describes the live grid, so it belongs only on live
-			// frames: an empty scene during warm-up is indistinguishable from a
-			// dead sensor unless the client is told which it is. A replay
-			// carries its own recorded background and settles nothing, and
-			// reporting the live grid's warm-up over it showed "SETTLING 0s"
-			// against a scene that was already complete.
-			if settling, elapsedSecs := s.currentSettling(); mode == "live" && (settling || elapsedSecs > 0) {
-				if frame.PlaybackInfo == nil {
-					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
-				}
-				frame.PlaybackInfo.Settling = settling
-				frame.PlaybackInfo.SettlingElapsedSecs = elapsedSecs
-			}
-			// Silence is a live-only condition, like settling: a replay's
-			// packets came out of a file and its sensor is not expected to be
-			// producing anything.
-			if mode == "live" && s.currentSensorSilent() {
-				if frame.PlaybackInfo == nil {
-					frame.PlaybackInfo = &PlaybackInfo{PlaybackRate: 1.0}
-				}
-				frame.PlaybackInfo.SensorSilent = true
-			}
+			s.decoratePlaybackInfo(frame)
 
 			// Measure serialisation and send time
 			sendStart := time.Now()

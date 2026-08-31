@@ -256,8 +256,8 @@ func byteSliceToUint32(b []uint8) []uint32 {
 }
 
 // sourceModeToProto maps the canonical source-mode token to its wire enum.
-// An unrecognised or empty token yields SOURCE_MODE_UNSPECIFIED, which tells
-// the client to fall back to inferring the mode from is_live and seekable.
+// An unrecognised or empty token yields SOURCE_MODE_UNSPECIFIED rather than
+// asserting a source the monitor server did not report.
 func sourceModeToProto(mode string) pb.SourceMode {
 	switch mode {
 	case "live":

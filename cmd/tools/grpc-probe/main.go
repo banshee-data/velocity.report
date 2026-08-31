@@ -28,6 +28,33 @@ import (
 	pb "github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
 )
 
+type probeStats struct {
+	frames    int
+	bytesSeen int64
+	worstGap  time.Duration
+	gaps      int
+}
+
+func (s *probeStats) observe(size int, gap, threshold time.Duration) bool {
+	s.frames++
+	s.bytesSeen += int64(size)
+	if gap <= threshold {
+		return false
+	}
+	s.gaps++
+	if gap > s.worstGap {
+		s.worstGap = gap
+	}
+	return true
+}
+
+func (s probeStats) framesPerSecond(elapsed time.Duration) float64 {
+	if elapsed <= 0 {
+		return 0
+	}
+	return float64(s.frames) / elapsed.Seconds()
+}
+
 func main() {
 	addr := flag.String("addr", "localhost:50051", "visualiser gRPC address")
 	gapThreshold := flag.Duration("gap", time.Second, "report gaps longer than this")
@@ -83,14 +110,9 @@ func main() {
 
 	fmt.Printf("streaming from %s, reporting gaps over %v\n", *addr, *gapThreshold)
 
-	var (
-		frames    int
-		bytesSeen int64
-		worstGap  time.Duration
-		gaps      int
-		last      = time.Now()
-		started   = time.Now()
-	)
+	var stats probeStats
+	last := time.Now()
+	started := time.Now()
 
 	for {
 		frame, err := stream.Recv()
@@ -105,40 +127,33 @@ func main() {
 			if ctx.Err() != nil {
 				break
 			}
-			fmt.Fprintf(os.Stderr, "recv after %d frames: %v\n", frames, err)
+			fmt.Fprintf(os.Stderr, "recv after %d frames: %v\n", stats.frames, err)
 			os.Exit(1)
 		}
 
-		frames++
 		size := proto.Size(frame)
-		bytesSeen += int64(size)
-
-		if gap > *gapThreshold {
-			gaps++
-			if gap > worstGap {
-				worstGap = gap
-			}
+		if stats.observe(size, gap, *gapThreshold) {
 			// Cumulative bytes locate the gap against the HTTP/2 connection
 			// window, which opens at 65535 and grows only by WINDOW_UPDATE.
 			fmt.Printf("%s gap %v before frame %d (%.1fKB, %.1fKB received on this stream)\n",
 				now.Format("2006/01/02 15:04:05.000"), gap.Round(time.Millisecond),
-				frames, float64(size)/1024, float64(bytesSeen)/1024)
+				stats.frames, float64(size)/1024, float64(stats.bytesSeen)/1024)
 		}
 
-		if frames%500 == 0 {
+		if stats.frames%500 == 0 {
 			fmt.Printf("%s %d frames, %.1fMB, %d gaps over %v\n",
-				now.Format("2006/01/02 15:04:05.000"), frames,
-				float64(bytesSeen)/(1024*1024), gaps, *gapThreshold)
+				now.Format("2006/01/02 15:04:05.000"), stats.frames,
+				float64(stats.bytesSeen)/(1024*1024), stats.gaps, *gapThreshold)
 		}
 	}
 
 	elapsed := time.Since(started)
 	fmt.Printf("\n%d frames in %v (%.1f/s), %.1fMB\n",
-		frames, elapsed.Round(time.Millisecond),
-		float64(frames)/elapsed.Seconds(), float64(bytesSeen)/(1024*1024))
-	if gaps == 0 {
+		stats.frames, elapsed.Round(time.Millisecond),
+		stats.framesPerSecond(elapsed), float64(stats.bytesSeen)/(1024*1024))
+	if stats.gaps == 0 {
 		fmt.Printf("no gap over %v: this client streamed without stalling\n", *gapThreshold)
 	} else {
-		fmt.Printf("%d gaps over %v, worst %v\n", gaps, *gapThreshold, worstGap.Round(time.Millisecond))
+		fmt.Printf("%d gaps over %v, worst %v\n", stats.gaps, *gapThreshold, stats.worstGap.Round(time.Millisecond))
 	}
 }

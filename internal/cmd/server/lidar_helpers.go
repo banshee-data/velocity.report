@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
@@ -199,6 +200,34 @@ func pcapStartedCallback(publisher vrlogReplayController, server replayModeContr
 	return func() {
 		handlePCAPStartedVisualiser(publisher, server, logf)
 	}
+}
+
+func handleReplayStoppedVisualiser(publisher vrlogReplayController, server replayModeController, logf logfFunc) {
+	if !isNilHelperTarget(publisher) {
+		// Returning to live resets the grid, so the replay's cached background
+		// no longer describes anything. Clear it before a reconnecting client
+		// can be handed the recording's scene under live foreground.
+		publisher.ClearBackground()
+	}
+	if !isNilHelperTarget(server) {
+		server.SetReplayMode(false)
+		logf("[Visualiser] Replay stopped: switched to live mode")
+	}
+}
+
+func replayStoppedCallback(publisher vrlogReplayController, server replayModeController, logf logfFunc) func() {
+	return func() {
+		handleReplayStoppedVisualiser(publisher, server, logf)
+	}
+}
+
+// sensorIsSilent applies the live-input timeout without reading the wall clock
+// internally, so the never-seen, boundary and clock-skew cases stay explicit.
+func sensorIsSilent(lastPacketAt, now time.Time, silentAfter time.Duration) bool {
+	if lastPacketAt.IsZero() {
+		return true
+	}
+	return now.Sub(lastPacketAt) > silentAfter
 }
 
 func pcapTimestampsCallback(server pcapTimestampsSetter) func(int64, int64) {
