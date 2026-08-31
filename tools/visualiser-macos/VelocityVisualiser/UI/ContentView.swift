@@ -681,12 +681,7 @@ struct LiveToggleView: View {
             // re-enters SwiftUI's graph inside the update that changed it.
             .inert(
                 isLive || appState.isReturningToLive,
-                hint: "Load a recording from the run browser to replay one"
-            ).help(
-                isLive
-                    ? "Live sensor input is driving the pipeline — load a run to replay one"
-                    : "Replaying a recording — switch to Live to resume the sensor (clears the grid)"
-            )
+                hint: "Load a recording from the run browser to replay one")
     }
 
     /// Reads the current source and accepts only the replay-to-live move. Every
@@ -901,6 +896,7 @@ func formatDuration(_ nanos: Int64) -> String {
     let seekSliderDisabled: Bool
     let playPauseDisabled: Bool
     let rateControlsDisabled: Bool
+    let showRateControls: Bool
     let modeLabel: String
 
     init(
@@ -934,6 +930,10 @@ func formatDuration(_ nanos: Int64) -> String {
         // When replay finished, always allow the play button (to restart)
         playPauseDisabled = replayFinished ? false : (!isConnected || busy || isLiveOrUnknown)
         rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
+        // Playback rate applies to a recording. Live input has one rate, so on
+        // live the controls were permanently inert furniture rather than
+        // something an operator could act on.
+        showRateControls = isReplay || replayFinished
     }
 }
 
@@ -1010,34 +1010,37 @@ struct PlaybackControlsView: View {
                 Spacer()
             }
 
-            // Rate control (disabled in live mode)
-            HStack(spacing: 3) {
-                Button(action: { appState.decreaseRate() }) {
-                    Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
-                        Rectangle())
-                }.buttonStyle(.borderless).inert(
-                    ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
-                ).controlPillBackground()
+            // Rate control, present only where a rate can be changed.
+            if ui.showRateControls {
+                HStack(spacing: 3) {
+                    Button(action: { appState.decreaseRate() }) {
+                        Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
+                            Rectangle())
+                    }.buttonStyle(.borderless).inert(
+                        ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                    ).controlPillBackground()
 
-                // Rate display: clickable to reset to 1x
-                Button(action: { appState.resetRate() }) {
-                    HStack(spacing: 0) {
-                        Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
-                        Text("x").font(.caption)
-                    }.frame(width: 45, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.plain).inert(
-                    ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
-                ).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
-                    .controlPillBackground().onHover { hovering in
-                        if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                    }
+                    // Rate display: clickable to reset to 1x
+                    Button(action: { appState.resetRate() }) {
+                        HStack(spacing: 0) {
+                            Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
+                            Text("x").font(.caption)
+                        }.frame(width: 45, height: 22).contentShape(Rectangle())
+                    }.buttonStyle(.plain).inert(
+                        ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                    ).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
+                        .controlPillBackground().onHover { hovering in
+                            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                        }
 
-                Button(action: { appState.increaseRate() }) {
-                    Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.borderless).inert(
-                    ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
-                ).controlPillBackground()
-            }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
+                    Button(action: { appState.increaseRate() }) {
+                        Image(systemName: "plus").frame(width: 22, height: 22).contentShape(
+                            Rectangle())
+                    }.buttonStyle(.borderless).inert(
+                        ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                    ).controlPillBackground()
+                }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
+            }
 
             // Mode indicator (only show when connected)
             PlaybackModeBadgeView(
@@ -1135,10 +1138,10 @@ struct TimeDisplayView: View {
     var body: some View {
         if isConnected {
             HStack(spacing: 6) {
-                Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground)
-                    .padding(.horizontal, 8).padding(.vertical, 2).background(
-                        foreground.opacity(0.16)
-                    ).cornerRadius(4)
+                Text(modeLabel).font(.caption).fontWeight(.bold).monospacedDigit().foregroundColor(
+                    foreground
+                ).padding(.horizontal, 8).padding(.vertical, 2).background(foreground.opacity(0.16))
+                    .cornerRadius(4)
                 if isRecording {
                     Text("REC").font(.caption).fontWeight(.bold).foregroundColor(.red).padding(
                         .horizontal, 8

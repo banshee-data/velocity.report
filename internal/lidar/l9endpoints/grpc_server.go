@@ -348,19 +348,13 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 	var bytesSentOnStream int64
 	var framesSentOnStream int64
 
-	// Subscribe to frames
-	frameCh := make(chan *FrameBundle, 10)
-
-	// Register with publisher
-	s.publisher.clientsMu.Lock()
-	s.publisher.clients[clientID] = &clientStream{
-		id:      clientID,
-		request: req,
-		frameCh: frameCh,
-		doneCh:  make(chan struct{}),
-	}
-	s.publisher.clientsMu.Unlock()
-	s.publisher.clientCount.Add(1)
+	// Subscribe through the publisher rather than registering here. Doing it
+	// inline duplicated addClient and so skipped what it does beyond
+	// registration — handing the new client the current background. A replay
+	// whose recording carries its background early looked fine; one carrying it
+	// at frame 116 drew foreground over an empty grid until the next refresh.
+	client := s.publisher.addClient(clientID, req)
+	frameCh := client.frameCh
 
 	lidar.Diagf("[gRPC] Client %s subscribed: points=%v clusters=%v tracks=%v",
 		clientID, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)

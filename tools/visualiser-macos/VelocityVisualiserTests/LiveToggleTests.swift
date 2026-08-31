@@ -95,7 +95,7 @@ import XCTest
         state.isSettling = true
         state.settlingElapsedSeconds = 4.2
 
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 4s")
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 04s")
     }
 
     func testBadgeReturnsToTheSourceOnceSettled() {
@@ -127,14 +127,14 @@ import XCTest
         state.isSettling = true
 
         state.settlingElapsedSeconds = 0
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 0s")
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 00s")
 
         state.settlingElapsedSeconds = 5.918
         XCTAssertEqual(
-            state.displayModeLabel, "SETTLING 6s",
-            "elapsed seconds must be whole: a badge ticking tenths is noise at this cadence")
+            state.displayModeLabel, "SETTLING 06s",
+            "elapsed seconds are whole and padded, so the badge keeps its width")
 
         state.settlingElapsedSeconds = 5.4
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 5s")
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 05s")
     }
 }

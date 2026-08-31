@@ -38,7 +38,7 @@ import XCTest
 
         XCTAssertTrue(state.isSettling)
         XCTAssertEqual(state.settlingElapsedSeconds, 2.5, accuracy: 0.0001)
-        XCTAssertEqual(state.displayModeLabel, "SETTLING 2s")
+        XCTAssertEqual(state.displayModeLabel, "SETTLING 02s")
     }
 
     /// The badge must follow settling down as well as up: once the grid is
@@ -101,7 +101,18 @@ import XCTest
         state.sourceMode = .unspecified
         state.setPlaybackMode(.replaySeekable)
 
-        XCTAssertEqual(state.displayModeLabel, AppState.PlaybackMode.replaySeekable.modeLabel)
+        // Connected with nothing driving the pipeline: idle, not connecting.
+        // The transport is already up, so "connecting" describes the wrong wait.
+        XCTAssertEqual(state.displayModeLabel, "IDLE")
+    }
+
+    /// Connected with no replay loaded and no packets arriving is idle.
+    func testConnectedWithNoSourceReportsIdle() {
+        let state = AppState()
+        state.isConnected = true
+        state.sourceMode = .unspecified
+
+        XCTAssertEqual(state.displayModeLabel, "IDLE")
     }
 
     /// Before a connection there is no source to report.

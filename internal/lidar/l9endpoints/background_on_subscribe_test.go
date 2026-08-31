@@ -1,6 +1,8 @@
 package l9endpoints
 
 import (
+	"bytes"
+	"os"
 	"testing"
 
 	pb "github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
@@ -85,5 +87,29 @@ func TestRememberBackgroundIgnoresNil(t *testing.T) {
 	p.rememberBackground(nil)
 	if got := p.latestBackground(); got != nil {
 		t.Errorf("latestBackground() = %+v, want nil", got)
+	}
+}
+
+// The gRPC handler must subscribe through addClient rather than registering a
+// client itself. It used to do the latter, which duplicated the registration
+// and skipped everything else addClient does — chiefly handing the new client
+// the current background.
+//
+// The bug hid behind the recordings it was tested with: a VRLOG carrying its
+// background at frame 2 looked correct, because the background arrived with the
+// first frames anyway. One carrying it at frame 116 drew foreground over an
+// empty grid until the next refresh.
+func TestGRPCHandlerSubscribesThroughAddClient(t *testing.T) {
+	src, err := os.ReadFile("grpc_server.go")
+	if err != nil {
+		t.Fatalf("read grpc_server.go: %v", err)
+	}
+
+	if bytes.Contains(src, []byte("s.publisher.clients[clientID] = &clientStream{")) {
+		t.Error("streamFromPublisher registers its own client; that skips the background " +
+			"handover addClient performs. Call s.publisher.addClient instead.")
+	}
+	if !bytes.Contains(src, []byte("s.publisher.addClient(")) {
+		t.Error("streamFromPublisher should subscribe through addClient")
 	}
 }

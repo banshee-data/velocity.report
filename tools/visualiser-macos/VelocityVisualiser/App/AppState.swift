@@ -385,13 +385,20 @@ private let logger = DevLogger(category: "AppState")
         if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
         // Settling outranks the source: an empty scene during warm-up is the
         // thing an operator needs explained, and it resolves on its own.
-        if isSettling { return String(format: "SETTLING %.0fs", settlingElapsedSeconds) }
+        // Two digits so the badge does not resize as the count passes 9. The
+        // pill is anchored in a corner, and a label that changes width every
+        // second draws the eye to the wrong thing.
+        if isSettling { return String(format: "SETTLING %02.0fs", settlingElapsedSeconds) }
         switch sourceMode {
         case .live: return "LIVE"
         case .pcap: return "REPLAY (PCAP)"
         case .pcapAnalysis: return "PCAP (ANALYSIS)"
         case .vrlog: return "REPLAY (VRLOG)"
-        case .unspecified: return displayPlaybackMode.modeLabel  // before the first frame
+        case .unspecified:
+            // Connected, with nothing driving the pipeline: no replay loaded
+            // and no packets arriving. "Connecting" describes the transport,
+            // which is already up, so it says the wrong thing about the wait.
+            return isConnected ? "IDLE" : displayPlaybackMode.modeLabel
         }
     }
 
