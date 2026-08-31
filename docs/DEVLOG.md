@@ -6,6 +6,23 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## August 30, 2026 - Replay handover & PR #555 close-out
+
+- {dd/go/test-pacp-replay} Removed three speculative compatibility layers after review: the duplicate proto `is_live` field and its Swift inference path, the settling fraction no view displayed, and the optional settling capability that had allowed production wiring to no-op while tests passed.
+- {dd/go/test-pacp-replay} Kept settling state on live frames only and removed `AppState.isLive`, the third local spelling of the source. Replay frames now carry their recorded scene without inheriting the live grid's warm-up state.
+- {dd/go/test-pacp-replay} Made a finished replay start the live listener while keeping the recording on screen, then hand the pipeline to live only after a new packet arrives. Packets from before parking do not count, and a later replay or operator action cancels the earlier watch.
+- {dd/go/test-pacp-replay} Routed every gRPC subscription through the publisher's normal client-registration path, so a new client receives the current background even when the recording's next background frame is minutes away.
+- {dd/go/test-pacp-replay} Cleared the cached replay background when returning to live, preventing a reconnecting client from drawing live foreground over the recording's scene after the grid reset.
+- {dd/go/test-pacp-replay} Reported a live sensor with no packets for three seconds as `IDLE`; `SETTLING 04s` takes precedence, replay sources never inherit the silence flag, and rate controls appear only when a replay timeline exists.
+- {dd/go/test-pacp-replay} Expanded close-out regression coverage across the actual Go playback-info composition path, proto-to-Swift decoding, live-silence boundaries, replay-stop background clearing, parked-replay handover, and the independent gRPC probe's gap accounting.
+
+## August 28, 2026 - Visualiser stall isolation & AttributeGraph cycles
+
+- {dd/go/test-pacp-replay} Added `make debug-grpc-probe`, a second client using Go's HTTP/2 stack, and streamed 2,000 frames / 14.6 MB without a server-side stall. That isolated the long pauses to the Swift client rather than the publisher.
+- {dd/go/test-pacp-replay} Added timestamped, line-buffered app logging and a main-thread watchdog. The watchdog stayed responsive while the gRPC read loop paused, ruling out the working theory that a wedged main thread starved the transport.
+- {dd/go/test-pacp-replay} Traced every captured AttributeGraph cycle to AppKit recomputing the key-view loop from a changing enabled state, then replaced dynamic `.disabled()` calls with `.inert(_:hint:)`; the measured cycle count fell from 24 to zero across a three-minute, 800-frame run.
+- {dd/go/test-pacp-replay} Set the grpc-swift HTTP/2 window explicitly to 16 MB. The first measured build with it recorded zero stalls over 25 minutes and 11 connections, while the comparison builds recorded 7–30; longer field confirmation remains in the backlog rather than being claimed as proven.
+
 ## August 27, 2026 - Adaptive settling & visualiser stream robustness
 
 - {dd/go/test-pacp-replay} Completed Phase 4 of the settling plan: the background grid now ends warm-up on measured convergence, so a quiet scene settled in 5.9 seconds against its 30 second ceiling: [design doc](lidar/operations/settling-time-optimisation.md).
