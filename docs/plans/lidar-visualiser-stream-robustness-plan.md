@@ -177,6 +177,42 @@ did.
 
 The window change is what tracks with this. Stalls per run before it: 7, 11, 12
 and 30, of 37 to 105 seconds each.
+
+### What this does not establish
+
+Every observation in this document comes from **one machine, with client and
+server on loopback**. That is the easiest case the transport will ever see: no
+real network, no packet loss, no latency, and a flow-control window that never
+has to cover a round trip. A 16 MB window that suffices there may not survive
+a real RTT, and the fault was in the client's transport rather than anything
+about this host, so nothing here is host-specific in a way that would make the
+result generalise on its own.
+
+Three environments remain unexercised, and each is tracked in the backlog:
+
+| Environment            | Why it differs                                                         |
+| ---------------------- | ---------------------------------------------------------------------- |
+| Server on another host | Real RTT and loss; the window has to cover the bandwidth-delay product |
+| Linux server build     | Different scheduler and network stack under the same Go server         |
+| Raspberry Pi           | The deployment target: less CPU, slower memory, contended network      |
+
+`make debug-grpc-soak` takes `ADDR`, so the same hour can be run against each
+with the visualiser attached. Record the per-host numbers here rather than
+treating the Mac result as the answer.
+
+### The residual gaps
+
+Four gaps over a second across the hour, worst 2.144 s. All four streams saw
+each within 5 ms, so frame production paused rather than the transport
+stalling. One lines up with a source change — a parked replay taking live
+input, with the grid reset that follows — and is expected. The other three have
+no logged cause: no frame discards, no drop-rate warning, packet rate steady at
+1800/s either side.
+
+They are far below what prompted this work and are not a reason to hold the
+change. Attributing them needs a per-frame production timestamp on the publish
+path, so a pause can be located rather than inferred; that is tracked
+separately.
 Longer field confirmation remains explicitly tracked in `BACKLOG.md`; it is not
 presented here as hardware validation the branch did not perform.
 
@@ -206,15 +242,30 @@ Three further candidates are tracked in the backlog rather than taken here: the
 four independent frame-drop paths, the `.inert` fork's house rule, and the
 legacy JSON VRLOG encoding.
 
+## Where this stands
+
+| Concern                        | Status                                                               |
+| ------------------------------ | -------------------------------------------------------------------- |
+| Transport stall (beachball)    | Resolved on macOS loopback; unverified off-host, on Linux, on the Pi |
+| AttributeGraph cycles          | Resolved, 24 to 0                                                    |
+| Background delivery to clients | Resolved: on subscribe, on settle, and on return to live             |
+| Residual 1-2s gaps             | Understood as frame-production pauses; three of four unattributed    |
+| Frame-drop path count          | Four independent paths, unconsolidated                               |
+
 ## Tracked follow-up
 
 - **`settling_max_spread_delta` may be mis-scaled.** It is documented as a
   per-frame mean delta but evaluated every `SettlingCheckInterval` frames, so it
   measures a second of drift against a per-frame bar. Convergence currently
   fires regardless, so this is a latent tightening rather than a live fault.
-- **Stall confirmation remains operational.** The 16 MB client window has one
-  clean 25-minute session across 11 connections. A longer run remains in the
-  backlog so absence of a recurrence is not mistaken for proof of cause.
+- **The stall is unverified off this machine.** An hour-long four-stream soak
+  on 2026-08-31 found no trace of it, but every observation here is macOS with
+  client and server on loopback. Re-running against another host, the Linux
+  build and a Raspberry Pi is tracked in the backlog: loopback never exercises
+  a real round trip, which is exactly what a flow-control window has to cover.
+- **Three of the four residual gaps have no attributed cause.** Locating them
+  needs a per-frame production timestamp on the publish path, so a pause can be
+  measured rather than inferred from its absence in the logs.
 
 ## Related
 

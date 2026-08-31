@@ -385,6 +385,19 @@ At 20 Hz, 50 frames = 2.5 seconds.
 Since Phase 4 the 30 s duration is a ceiling, not the expected wait: a grid that
 converges settles as soon as it does, and the frame minimum sets the floor.
 
+## Field results
+
+| Date       | Scene | Result                                                      |
+| ---------- | ----- | ----------------------------------------------------------- |
+| 2026-08-27 | Quiet | Settled in 5.918s against a 30s ceiling                     |
+| 2026-08-28 | Quiet | Settled in 6.032s; background delivered on completion       |
+| 2026-08-30 | Quiet | Settled in 6.925s after a parked replay handed over to live |
+
+All three are macOS with the sensor on the local network. A busier scene, or
+one with moving traffic through the settling window, should be expected to take
+longer and may reach the ceiling — that is what the ceiling is for, and it has
+not yet been observed in the field.
+
 ## Changelog
 
 - **2026-08-27**: Phase 4 complete — convergence-based settling termination; `warmup_min_frames` lowered 100 → 50; settling state surfaced on the HTTP API, the gRPC wire, and the visualiser badge
