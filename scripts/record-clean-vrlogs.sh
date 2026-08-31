@@ -23,7 +23,10 @@ set -euo pipefail
 API="${API:-http://localhost:8081}"
 SENSOR="${SENSOR:-hesai-pandar40p}"
 SPEED="${SPEED:-0.1}"
-PCAP_DIR="${PCAP_DIR:-/Users/david/code/sensor_data/lidar/static}"
+# Paths are relative to the server's own PCAP root, not this machine's
+# filesystem: the server resolves them and may not even be on this host.
+# GET /api/lidar/pcap/files lists what it can see.
+PCAP_PREFIX="${PCAP_PREFIX:-static}"
 DRY_RUN=""
 [ "${1:-}" = "--dry-run" ] && DRY_RUN="yes"
 
@@ -65,30 +68,57 @@ wait_for_idle() {
 }
 
 start_run() {
-  local file="$1" path="${PCAP_DIR}/$1"
+  local file="$1" path="${PCAP_PREFIX:+${PCAP_PREFIX}/}$1"
 
-  if [ ! -f "$path" ]; then
-    log "SKIP ${file}: not found at ${path}"
+  if ! server_has_capture "$path"; then
+    log "SKIP ${file}: the server does not list ${path} (see GET /api/lidar/pcap/files)"
     return 1
   fi
 
   if [ -n "$DRY_RUN" ]; then
-    log "would start ${file} at ${SPEED}x with settle-before-recording"
+    log "would start ${path} at ${SPEED}x with settle-before-recording"
     return 0
   fi
 
-  log "starting ${file} at ${SPEED}x"
-  curl -fsS -X POST "${API}/api/lidar/pcap/start?sensor_id=${SENSOR}" \
+  log "starting ${path} at ${SPEED}x"
+  local body
+  # Without -f a 4xx body is still printed, which is where the server explains
+  # itself; -f would replace it with "curl: (22)" and lose the reason.
+  if ! body=$(curl -sS -w '\n%{http_code}' -X POST \
+    "${API}/api/lidar/pcap/start?sensor_id=${SENSOR}" \
     --data-urlencode "pcap_file=${path}" \
     --data-urlencode "analysis_mode=true" \
     --data-urlencode "settle_before_recording=true" \
     --data-urlencode "speed_mode=scaled" \
-    --data-urlencode "speed_ratio=${SPEED}" \
-    | sed 's/^/  /'
-  echo
+    --data-urlencode "speed_ratio=${SPEED}" 2>&1); then
+    log "  ${file}: request failed: ${body}"
+    return 1
+  fi
+
+  local code="${body##*$'\n'}" payload="${body%$'\n'*}"
+  if [ "$code" != "200" ]; then
+    log "  ${file}: server said ${code}: ${payload}"
+    return 1
+  fi
+  printf '  %s\n' "$payload"
 }
 
-log "Recording ${#CAPTURES[@]} VRLOGs from ${PCAP_DIR} at ${SPEED}x"
+# server_has_capture asks the server what it can see, rather than testing this
+# machine's filesystem: paths are resolved server-side.
+server_has_capture() {
+  curl -fsS "${API}/api/lidar/pcap/files" 2>/dev/null \
+    | python3 -c "
+import json,sys
+want = sys.argv[1]
+try:
+    files = json.load(sys.stdin).get('files', [])
+except Exception:
+    sys.exit(1)
+sys.exit(0 if any(f.get('path') == want for f in files) else 1)
+" "$1"
+}
+
+log "Recording ${#CAPTURES[@]} VRLOGs from ${PCAP_PREFIX:-the server root} at ${SPEED}x"
 log "Each capture runs twice: once to settle the grid, once recorded."
 echo
 

@@ -302,6 +302,11 @@ func (ws *Server) tryBeginPCAPReplay(cfg ReplayConfig) (bool, SourceMode) {
 		return false, blocker
 	}
 	before := ws.state
+	// Remember what the claim displaces. A start that fails after taking the
+	// slot has to put the source back: leaving it on PCAP with no replay
+	// running strands every client on "REPLAY (PCAP)" while live packets flow,
+	// and nothing later corrects it because no replay ever ended.
+	ws.sourceBeforeReplayClaim = ws.state.Source
 	ws.state.Source = SourceModePCAP
 	ws.state.ReplayActive = true
 	ws.state.GridPreserved = cfg.AnalysisMode
@@ -380,7 +385,17 @@ func (ws *Server) endReplayAndClaimLive() {
 // abandonReplayStart releases the replay slot claimed by tryBeginPCAPReplay
 // when startup fails before the replay goroutine is launched.
 func (ws *Server) abandonReplayStart() {
+	ws.stateMu.Lock()
+	restore := ws.sourceBeforeReplayClaim
+	ws.sourceBeforeReplayClaim = ""
+	ws.stateMu.Unlock()
+
 	ws.mutateState("abandonReplayStart", func(s *PipelineState) {
+		// The replay never ran, so the source it displaced is still the truth.
+		if restore != "" {
+			s.Source = restore
+			s.SourcePath = ""
+		}
 		s.ReplayActive = false
 		s.GridPreserved = false
 		s.TotalPasses = 1

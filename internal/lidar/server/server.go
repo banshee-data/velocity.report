@@ -97,7 +97,11 @@ type Server struct {
 	pcapCancel context.CancelFunc
 	// parkedLiveWatchCancel stops the watcher that hands a parked replay over to
 	// live input. Guarded by pcapMu with the other replay-lifecycle fields.
-	parkedLiveWatchCancel       context.CancelFunc
+	parkedLiveWatchCancel context.CancelFunc
+	// sourceBeforeReplayClaim holds the source a replay claim displaced, so a
+	// start that fails after taking the slot can put it back. Guarded by
+	// stateMu with the state it describes.
+	sourceBeforeReplayClaim     SourceMode
 	pcapDone                    chan struct{}
 	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
 	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes
