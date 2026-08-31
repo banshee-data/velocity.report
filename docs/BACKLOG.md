@@ -180,6 +180,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## v2.0 (Advanced perception & connected)
 
+- S2 geographic-indexing foundation: shared WGS84 → L13 conversion, L10 derivation with `CellID.Parent(10)`, canonical SQLite/JSON representation, L10 filesystem partitioning, a single-hyphen family display, a non-text UI scan cue, migrations, and known-vector/level-marker tests. S2 cells remain independent of site/deployment/session identity: [architecture decision](lidar/architecture/geographic-indexing.md) `L`
 - (#325) Ground-plane vector-scene maths (P3, D-05): 3D scene reconstruction with ground-plane constraints: [proposal](../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10): comprehensive quality control tooling for LiDAR data: [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - Classification candidate ladder (classifier plan Phases 3–4): fit and benchmark the transparent tiers (data-derived threshold tables, logistic regression, depth-limited tree emitted as generated Go) against the rule-based baseline, re-evaluate truck and motorcyclist as live classes, then run the research-only headroom probe that quantifies what the explainability constraint costs; gated on the Phase 1 scorecard and a multi-scene corpus: [plan](plans/lidar-ml-classifier-training-plan.md) `L`
@@ -197,7 +198,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - (#326) AV dataset integration: taxonomy mapping, Parquet ingestion: [design doc](plans/lidar-av-lidar-integration-plan.md) `XL`
 - (#327) AV range image format: dual-return support: [design doc](lidar/architecture/av-range-image-format-alignment.md) `L`
 - Static pose alignment: 7-DOF tracking: [design doc](plans/lidar-static-pose-alignment-plan.md) `L`
-- Online geometry-prior service: opt-in community-maintained geometry priors (local-only remains default): [design doc](lidar/architecture/vector-scene-map.md) `L`
+- Online geometry-prior service: opt-in community-maintained geometry priors using canonical S2 L13 data partitions beneath S2 L10 filesystem groups (local-only remains default): [design doc](lidar/architecture/geometry-prior-service.md) `L`
 - Multi-location aggregate dashboard: cross-site analytics and comparative reporting `L`
 - (#9) LAN authentication: add auth layer if deployment moves beyond private LAN: [design doc §10.1](ui/design-review-and-improvement.md) `M`
 - (#7) Live SQL query view: browser-based SQL query tool; low priority while TailSQL suffices `S`

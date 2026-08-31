@@ -1,0 +1,268 @@
+# S2 geographic indexing and presentation
+
+- **Status:** Architecture decision; implementation planned for v2.0
+- **Scope:** Geographic partitioning for persisted data, analytics, and files
+- **Related:** [Geometry-prior service](geometry-prior-service.md), [ground plane extraction](ground-plane-extraction.md), [GPS ethernet parsing](gps-ethernet-parsing.md)
+
+## Decision
+
+velocity.report will use Google S2 Geometry for geographic partitioning:
+
+```text
+WGS84 position
+        │
+        ▼
+     S2 L13
+fine geographic partition
+database / analytics / interoperability
+        │
+        ▼ Parent(10)
+     S2 L10
+coarse geographic partition
+filesystem / coarse browsing
+```
+
+The raw WGS84 fix remains the authoritative physical position measurement at
+the sensor and geometry boundary. S2 indexes that measurement; it does not
+reduce the precision of captured or exported geometry.
+
+S2 L13 is the canonical fine partition for database indexing, aggregation,
+joins, lookups, and external dataset interoperability. L13 was chosen in part
+for deliberate interoperability with published S2 L13 datasets and
+methodologies used by Waymo and Valgo HumanBaselines. That is an
+interoperability choice, not a claim that Waymo defines an industry standard.
+
+S2 L10 is the canonical coarse partition for filesystem layout, filenames,
+path prefixes, and human-oriented regional browsing. Code should calculate L13
+from the WGS84 position and derive L10 from that CellID. It must not independently
+persist competing calculations of the two levels.
+
+### Historical artefact: superseded coordinate-string addressing
+
+Earlier plans proposed truncating or rounding latitude/longitude into
+geographic IDs, database buckets, and path names. That approach is retained
+here only as a record of the rejected design. From this decision onward, active
+plans must use canonical S2 L13 for fine geographic identity and derive L10
+with `Parent(10)` for coarse grouping. They must not repeat the legacy terms,
+fields, flags, filenames, or precision-based partition design.
+
+Every new plan that introduces geographic identity, persistence, lookup, or
+filesystem layout must cite this decision and use S2. WGS84 may appear in an
+active plan only as a precise measurement or geometry reference, never as a
+parallel identifier or partition scheme.
+
+## Geographic cells are not operational identities
+
+An S2 cell is an orthogonal geographic index. It is not a site, intersection,
+road, sensor, deployment, or survey session:
+
+```text
+geographic cell ≠ physical site ≠ sensor deployment ≠ survey/session
+```
+
+One L13 cell can contain several roads and intersections, sensors in different
+positions or directions, repeated deployments, and many survey sessions.
+Existing or future identifiers for those entities must remain distinct from
+the S2 CellID.
+
+## CellID, canonical token, and family display
+
+These terms describe different things:
+
+```text
+S2 hierarchy
+    determined by CellID operations such as Parent()
+
+canonical token
+    standard S2 serialisation of the 64-bit CellID as hexadecimal,
+    with trailing zeroes removed
+
+family display
+    velocity.report human-readable presentation of a canonical token,
+    with one hyphen at the configured family boundary
+
+scan cue
+    non-text UI spacing inside the rendered family prefix; visual only
+
+family prefix
+    a visual aid for a specified level relationship; not an S2 CellID
+```
+
+These are the normative names in prose, UI specifications, and future
+implementation symbols. They describe purpose rather than character counts.
+The family display and scan cue are derived presentation, never additional
+stored fields or identifiers.
+
+Machine fields include both the S2 level and representation: use
+`s2_l13_token` for the fine token and, only where materialising the derived
+coarse value is necessary, `s2_l10_token`. Presentation APIs use
+`family_display` and `scan_cue`. Names must describe purpose and S2 level,
+never character counts or visual segment lengths.
+
+For the selected levels, canonical tokens have these lengths:
+
+| Level | Canonical token length | Example    |
+| ----- | ---------------------- | ---------- |
+| L10   | 6 hexadecimal chars    | `808581`   |
+| L13   | 8 hexadecimal chars    | `80858004` |
+
+The primary velocity.report family display groups the selected L10/L13 family
+with one hyphen:
+
+```text
+L10 canonical:  808581
+L10 family display:  80858-1
+
+L13 canonical:       80858004
+L13 family display:  80858-004
+
+family prefix:  80858
+```
+
+`80858` is not an L10 ID, and one such family can contain several L10 cells.
+The sample pair is a real parent/child relationship, but it illustrates the
+family display rather than a calculation technique: the L13 cell's L10 parent
+still comes only from `Parent(10)`. The hyphen is presentation only; removing
+it recovers the canonical token. Only the canonical token is an identifier.
+Family displays may appear in logs, UI, and other human-facing text, but not as
+database keys, S2 interoperability values, or machine-readable filenames.
+
+### Scan-cued UI rendering
+
+The UI may make the family prefix easier to scan by inserting a small visual
+gap after its first three hexadecimal characters. This is the **scan cue**. It
+does not create another token format or another identifier. The gap should be
+narrower than an ordinary word space: enough to guide the eye without looking
+like a second delimiter.
+
+| Name                             | L10 example           | L13 example             |
+| -------------------------------- | --------------------- | ----------------------- |
+| Canonical token                  | `808581`              | `80858004`              |
+| Family display                   | `80858-1`             | `80858-004`             |
+| Scan-cued rendering illustration | `808[visual gap]58-1` | `808[visual gap]58-004` |
+| Selected or copied text          | `80858-1`             | `80858-004`             |
+
+The bracketed wording above documents where pixels separate; it is not literal
+UI text. Implement the scan cue with layout or styling outside the text value.
+Do not insert a regular space, non-breaking space, thin space, hair space, or
+any other Unicode character. The scan cue must contribute no character to
+selection, clipboard data, accessibility names, search values, input, logs, or
+serialised output. Human-facing text exposes the family display without the
+cue; machine serialisation exposes the canonical token. A plain-text display
+fallback therefore remains `80858-1` or `80858-004`.
+
+Human input may accept either the canonical token or the family display, then
+remove the single presentation hyphen and validate the canonical token. It must
+never persist the family display, and the scan cue can never occur in input.
+
+The scan cue is standardised only for the primary L10/L13 family display. It
+has no S2 hierarchy meaning and must not be applied blindly to diagnostics for
+other levels.
+
+## The five-character prefix is specific to L10 → L13
+
+An S2 level `L` contributes:
+
+```text
+3 face bits + 2 × L hierarchy/address bits
+```
+
+Only complete hexadecimal nibbles wholly inside shared hierarchy bits are a
+guaranteed lexical prefix. The level-marker bit may occupy part of the final
+nibble of a canonical token.
+
+| Level | Hierarchy bits | Complete shared bits | Own-level prefix chars |
+| ----- | -------------- | -------------------- | ---------------------- |
+| L8    | 3 + 2×8 = 19   | 16                   | 4                      |
+| L10   | 3 + 2×10 = 23  | 20                   | 5                      |
+
+Consequently, the guaranteed common prefixes for the relationships relevant to
+this design are:
+
+| Relationship | Guaranteed common prefix |
+| ------------ | ------------------------ |
+| L8 → L10     | 4 hexadecimal characters |
+| L8 → L13     | 4 hexadecimal characters |
+| L10 → L13    | 5 hexadecimal characters |
+
+The five-character family is useful because velocity.report deliberately pairs
+L10 with L13. It is not a general property of S2 tokens. A family-display
+formatter for other levels must be level- and context-aware rather than
+inserting a hyphen after five characters. For example:
+
+```text
+canonical L8:       80859
+L8 family display:  8085-9
+
+canonical L10:       808581
+L10 family display:  80858-1
+
+canonical L13:       80858004
+L13 family display:  80858-004    # actual descendant of 808581
+```
+
+## Canonical tokens are not lexical hierarchy paths
+
+The token contains Hilbert-curve hierarchy/address bits and a level-marker bit.
+Computing a parent is therefore not equivalent to truncating hexadecimal text.
+Real L10 cells can have these L8 parents:
+
+```text
+L10 family display   L8 parent family display
+80858-1           →  8085-9
+80858-7           →  8085-9
+
+808f7-d           →  808f-7
+808f7-f           →  808f-7
+```
+
+The second pair happens to resemble lexical truncation; the first does not.
+Both follow S2 semantics.
+
+Future hierarchy code must never determine a parent by truncating a token,
+extracting a prefix, adding or removing hexadecimal characters, or manipulating
+the family display. It must operate on an S2 CellID. In Go, that operation is
+`parent := cell.Parent(level)`.
+
+Formatting or parsing a hyphen is allowed only at the presentation boundary.
+It must not participate in hierarchy, containment, joins, or partition lookup.
+
+## Persistence and filesystem rules
+
+- Persist canonical L13 where a geographic index is required, alongside the
+  precise WGS84 position where the physical measurement is required.
+- Derive the L10 parent from L13 using CellID semantics.
+- Prefer canonical L10 tokens for coarse filesystem directories and canonical
+  L13 tokens for fine files or records beneath them. The level must be explicit
+  in the surrounding schema or path contract.
+- Use family displays only in human-facing output. A UI may add the non-text
+  scan cue, but logs and CLI output remain plain family-display text.
+- Do not turn shortened WGS84 values into identifiers or directory names.
+
+The implementation design must settle how to represent the unsigned S2 CellID
+in SQLite's signed 64-bit `INTEGER`, whether canonical token strings are the
+safer database boundary, how JSON serialises the value, and which indexes and
+migrations are needed. This document deliberately does not choose those details.
+
+## Planned implementation sequence
+
+All of this remains future implementation work:
+
+1. Introduce a shared S2 geographic utility layer.
+2. Add deterministic WGS84 position → L13 conversion.
+3. Derive L10 with `CellID.Parent(10)`.
+4. Choose and document the canonical SQLite representation for L13, including
+   signed/unsigned and token-string trade-offs.
+5. Define the canonical L10 filesystem contract.
+6. Add an explicitly L10/L13-aware family-display formatter and a separate UI
+   scan-cue renderer. Keep the cue outside text selection, copying,
+   accessibility names, and serialisation; keep diagnostics for other levels
+   level-aware.
+7. Add database indexes and migrations.
+8. Migrate planned or existing geographic partition references without
+   replacing site, deployment, or session identities.
+9. Update APIs, JSON, analytics, and tooling to recognise canonical S2 IDs.
+10. Add known-vector, parent/child, level-marker, and boundary tests, including
+    parents that do not resemble lexical truncation.
+11. Validate filesystem determinism and canonical-token round trips.
+12. Validate interoperability against known Waymo and Valgo L13 cells.

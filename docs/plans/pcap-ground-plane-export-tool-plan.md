@@ -7,6 +7,7 @@
 
 - [docs/lidar/architecture/ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)
 - [docs/lidar/architecture/gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md)
+- [docs/lidar/architecture/geographic-indexing.md](../lidar/architecture/geographic-indexing.md)
 - [data/maths/ground-plane-maths.md](../../data/maths/ground-plane-maths.md)
 
 ## Objective
@@ -17,11 +18,14 @@ Extend the existing `pcap-analyse` command-line tool to compute and export groun
 2. **GIS integration**: Generate geo-referenced ground plane data compatible with mapping tools (GPS additive)
 3. **Offline processing**: Extract ground plane from archived PCAP files without real-time replay
 4. **Quality assurance**: Validate sensor placement and ground plane extraction algorithms
-5. **Global grid population**: Merge settled tiles into the persistent lat/long global grid (GPS additive)
+5. **Global dataset population**: Merge settled tiles into persistent WGS84 ground data partitioned by canonical S2 L13 cells, with L10 for coarse filesystem grouping (GPS additive)
 
-**Sensor-iterative principle:** Ground plane extraction **must work with LiDAR data alone**. GPS flags are strictly optional and only enable geographic export formats and Tier 2 global grid population. The core extraction pipeline operates in sensor-local coordinates.
+**Sensor-iterative principle:** Ground plane extraction **must work with LiDAR data alone**. GPS flags are strictly optional and only enable geographic export formats and Tier 2 global dataset population. The core extraction pipeline operates in sensor-local coordinates.
 
-The ground plane extraction reuses the existing L1→L2→L3 background grid pipeline, with ground plane fitting within L4 Perception, exporting to multiple formats with optional GPS coordinates.
+The ground plane extraction reuses the existing L1→L2→L3 background grid
+pipeline, with ground plane fitting within L4 Perception. Optional GPS supplies
+a precise WGS84 geometry origin; every geographic identity and partition is a
+canonical S2 cell.
 
 ## Background
 
@@ -40,7 +44,7 @@ Existing export infrastructure:
 GPS support exists but is unused:
 
 - L1 parser extracts GPS timestamps from PCAP
-- Site config stores lat/long in database
+- Site config has a WGS84 origin but no canonical S2 geographic index
 - No coordinate transformation or geo-referencing currently implemented
 
 ## New CLI flags
@@ -60,13 +64,11 @@ Add the following flags to [internal/lidar/lidarbench/lidarbench.go](../../inter
 ### GPS geo-referencing (optional: additive only)
 
 ```
---gps-lat               Manual GPS latitude for geo-referencing (decimal degrees)
---gps-lon               Manual GPS longitude for geo-referencing (decimal degrees)
---gps-alt               Manual GPS altitude MSL in metres (default: 0.0)
+--wgs84-origin          Manual precise WGS84 origin for geo-referencing
 --gps-heading           Sensor heading in degrees clockwise from true north (default: 0.0)
---gps-from-pcap         Extract GPS coordinates from PCAP packets (default: false)
---global-grid-merge     Merge settled tiles into Tier 2 global grid file (default: false)
---global-grid-file      Path to global grid file for load/merge (default: "")
+--gps-from-pcap         Extract the WGS84 fix from PCAP packets (default: false)
+--s2-dataset-merge      Merge settled tiles into the Tier 2 S2 dataset (default: false)
+--s2-dataset-root       Root of the canonical L10/L13 partition tree (default: "")
 ```
 
 ### Flag validation rules
@@ -74,10 +76,10 @@ Add the following flags to [internal/lidar/lidarbench/lidarbench.go](../../inter
 - If `--ground-plane` is false, all other ground plane flags are ignored
 - `--ground-plane-format` accepts multiple comma-separated values: `--ground-plane-format geojson,csv,vtk`
 - **GPS flags are strictly optional.** If no GPS source is available, export in local Cartesian coordinates (sensor at origin). All core extraction works without GPS.
-- If `--gps-from-pcap` is true and no GPS packets found, fall back to manual coordinates
+- If `--gps-from-pcap` is true and no GPS packets are found, fall back to the manual WGS84 origin
 - If neither GPS source is available, GeoJSON export uses `coordinate_system: "Sensor-XY"` (local metres)
 - `--ground-confidence-min` filters tiles below threshold from all exports
-- `--global-grid-merge` requires either `--gps-lat/--gps-lon` or `--gps-from-pcap` (GPS is needed for global grid positioning)
+- `--s2-dataset-merge` requires either `--wgs84-origin` or `--gps-from-pcap`; the tool derives and validates canonical L13 before writing any global record
 
 ## Processing pipeline extension
 
@@ -111,16 +113,19 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
    - Classify curvature: flat (λ_min < 0.01), cambered (0.01 ≤ λ_min < 0.05), rough (≥ 0.05)
    - Filter tiles below `--ground-confidence-min` threshold
 
-8. **GPS Transformation** (optional: only if GPS coordinates available):
+8. **GPS Transformation** (optional: only if a WGS84 fix is available):
    - Construct ENU (East-North-Up) coordinate frame at GPS origin
-   - Transform tile corners from sensor Cartesian to ENU to WGS84 (lat/long)
+   - Transform tile corners from sensor Cartesian to ENU to WGS84
    - Rotate plane normals by sensor heading
+   - Calculate canonical S2 L13 from the resulting WGS84 geometry
 
-9. **Global Grid Merge** (optional: only if `--global-grid-merge` and GPS available):
-   - Load existing global grid from `--global-grid-file` (if exists)
-   - Diff settled local tiles against global tiles
+9. **Global Dataset Merge** (optional: only if `--s2-dataset-merge` and GPS available):
+   - Convert the WGS84 position to a canonical S2 L13 CellID/token
+   - Derive its L10 parent with `CellID.Parent(10)`, never token truncation
+   - Load applicable L13 records beneath `--s2-dataset-root/<l10>/`
+   - Diff settled local tiles against global ground geometry
    - Merge consistent tiles; flag divergent tiles for review
-   - Write updated global grid back to file
+   - Write canonical-token paths back beneath the L10 directory
 
 10. **Export to Formats**: Write files to output directory (see Output Structure)
 
@@ -132,7 +137,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 
 **Format**:
 
-A GeoJSON `FeatureCollection` with top-level `metadata` (sensor model, capture timestamp, GPS origin, tile size, range, confidence threshold, and coordinate system) and one `Feature` per tile. Each feature is a `Polygon` geometry (closed ring of four corners) with properties:
+A GeoJSON `FeatureCollection` with top-level `metadata` (sensor model, capture timestamp, WGS84 origin, canonical S2 L13 token, tile size, range, confidence threshold, and geometry reference) and one `Feature` per tile. Each feature is a `Polygon` geometry (closed ring of four corners) with properties:
 
 | Property             | Type     | Example               | Notes                               |
 | -------------------- | -------- | --------------------- | ----------------------------------- |
@@ -151,7 +156,7 @@ A GeoJSON `FeatureCollection` with top-level `metadata` (sensor model, capture t
 **Implementation Notes**:
 
 - Polygon coordinates must close (first point == last point) per GeoJSON spec (RFC 7946)
-- If no GPS coordinates, use local Cartesian (metres) with `coordinate_system: "Sensor-XY"`
+- If no WGS84 fix is available, use local Cartesian metres with `coordinate_system: "Sensor-XY"` and omit S2 identity
 - Plane equation: `ax + by + cz + d = 0` where `[a,b,c]` is `plane_normal`, `d` is `plane_offset`
 
 ### ASC (cloudCompare compatible, priority 2)
@@ -177,7 +182,7 @@ NODATA_value -9999
 - Reuse existing `ExportBackgroundGridToASC()` from [internal/lidar/l3grid/export_bg_snapshot.go](../../internal/lidar/l3grid/export_bg_snapshot.go)
 - Z values are fitted plane heights, not raw point heights
 - Tiles below confidence threshold written as `NODATA_value`
-- If GPS coordinates available, use ENU X/Y for xllcorner/yllcorner (metres from GPS origin)
+- If a WGS84 fix is available, use ENU X/Y for xllcorner/yllcorner (metres from the GPS origin)
 
 ### CSV (simple tabular, priority 2)
 
@@ -187,29 +192,29 @@ NODATA_value -9999
 
 One header row followed by one row per tile. Columns:
 
-| Column               | Example   | Notes                                    |
-| -------------------- | --------- | ---------------------------------------- |
-| `tile_x`             | 10        | Grid column                              |
-| `tile_y`             | 5         | Grid row                                 |
-| `lat`                | 51.507412 | 6 decimal places (omit or `0` if no GPS) |
-| `lon`                | −0.127834 | 6 decimal places                         |
-| `plane_a`            | 0.02      | Normal x                                 |
-| `plane_b`            | −0.01     | Normal y                                 |
-| `plane_c`            | 0.9998    | Normal z                                 |
-| `plane_d`            | −1.85     | Offset (3 decimals)                      |
-| `confidence`         | 0.95      | Fit confidence 0–1                       |
-| `curvature_class`    | flat      | Classification label                     |
-| `curvature_deg`      | 1.2       | Degrees                                  |
-| `point_count`        | 847       | Points in tile                           |
-| `mean_height`        | −1.85     | Metres (3 decimals)                      |
-| `height_std_dev`     | 0.03      | Metres                                   |
-| `settlement_time_ms` | 2340      | Convergence time                         |
+| Column               | Example  | Notes                                      |
+| -------------------- | -------- | ------------------------------------------ |
+| `tile_x`             | 10       | Grid column                                |
+| `tile_y`             | 5        | Grid row                                   |
+| `s2_l13_token`       | 80858004 | Canonical fine geographic partition        |
+| `s2_l10_token`       | 808581   | Canonical parent derived with `Parent(10)` |
+| `plane_a`            | 0.02     | Normal x                                   |
+| `plane_b`            | −0.01    | Normal y                                   |
+| `plane_c`            | 0.9998   | Normal z                                   |
+| `plane_d`            | −1.85    | Offset (3 decimals)                        |
+| `confidence`         | 0.95     | Fit confidence 0–1                         |
+| `curvature_class`    | flat     | Classification label                       |
+| `curvature_deg`      | 1.2      | Degrees                                    |
+| `point_count`        | 847      | Points in tile                             |
+| `mean_height`        | −1.85    | Metres (3 decimals)                        |
+| `height_std_dev`     | 0.03     | Metres                                     |
+| `settlement_time_ms` | 2340     | Convergence time                           |
 
 **Implementation Notes**:
 
-- If no GPS: omit `lat,lon` columns or write `0,0`
+- If no WGS84 fix is available, omit both S2 token columns
 - Plane equation: `ax + by + cz + d = 0`
-- All numeric values rounded to sensible precision (lat/lon: 6 decimals, heights: 3 decimals)
+- Numeric geometry values use format-appropriate precision; heights use 3 decimals
 
 ### VTK (paraView, priority 3)
 
@@ -235,17 +240,17 @@ A VTK `StructuredGrid` file (XML format, version 1.0, little-endian) with extent
 1. **PCAP GPS** (if `--gps-from-pcap` enabled):
    - Parse GPS ethernet packets using [docs/lidar/architecture/gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md) spec
    - Extract first valid GNGGA or GNRMC sentence with 3D fix
-   - Use lat/lon/alt from GPS, heading from `--gps-heading` or NMEA course-over-ground
+   - Use the precise WGS84 fix from GPS, derive canonical L13, and use heading from `--gps-heading` or NMEA course-over-ground
 
 2. **Manual CLI Flags** (if PCAP GPS unavailable or disabled):
-   - Use `--gps-lat`, `--gps-lon`, `--gps-alt`, `--gps-heading`
-   - Validate lat/lon ranges: -90 ≤ lat ≤ 90, -180 ≤ lon ≤ 180
-   - Default altitude 0.0m MSL, default heading 0.0° (north)
+   - Use `--wgs84-origin` and `--gps-heading`
+   - Validate the WGS84 fix before deriving canonical L13
+   - Default elevation 0.0m MSL and heading 0.0° (north) only when the operator explicitly accepts those assumptions
 
 3. **No Geo-Referencing** (if neither source available):
    - Export in local sensor-relative Cartesian coordinates (X: forward, Y: left, Z: up)
    - Set `coordinate_system: "Sensor-XY"` in GeoJSON metadata
-   - Omit lat/lon from CSV, use tile_x/tile_y only
+   - Omit S2 identity from CSV and use tile_x/tile_y only
 
 ### Coordinate transformation
 
@@ -257,8 +262,8 @@ A VTK `StructuredGrid` file (XML format, version 1.0, little-endian) with extent
 
 All formats include GPS origin in metadata/header:
 
-- GeoJSON: `metadata.gps_origin` object
-- ASC: Comment lines `# GPS_ORIGIN: lat lon alt heading`
+- GeoJSON: `metadata.wgs84_origin` object
+- ASC: sidecar metadata records the WGS84 origin, canonical L13/L10 tokens, elevation, and heading
 - CSV: Separate `ground-plane-meta.json` sidecar file
 - VTK: `<FieldData>` with GPS parameters
 
@@ -279,7 +284,12 @@ output/<run-id>/
     └── ...
 ```
 
-**Global grid file** (if `--global-grid-merge`): Written to path specified by `--global-grid-file`, outside the per-run output directory. This file accumulates across runs.
+**Global dataset** (if `--s2-dataset-merge`): Written beneath
+`--s2-dataset-root` outside the per-run output directory. Machine-readable
+paths use canonical tokens, for example
+`<root>/808581/80858004.geojson`; family displays never appear in paths. An L13
+boundary-crossing policy (split geometry or multi-index it) must be chosen
+before implementation.
 
 **Naming Convention**: `ground-plane.<format>` for main export files
 
@@ -287,25 +297,27 @@ output/<run-id>/
 
 The metadata file (`ground-plane-meta.json`) records extraction parameters and results:
 
-| Field                  | Type        | Example                   | Notes                             |
-| ---------------------- | ----------- | ------------------------- | --------------------------------- |
-| `extraction_timestamp` | string      | "2026-01-15T10:45:23Z"    | ISO 8601                          |
-| `pcap_file`            | string      | "capture-2026-01-15.pcap" | Source PCAP                       |
-| `sensor_model`         | string      | "Hesai Pandar40P"         | Detected sensor                   |
-| `coordinate_system`    | string      | "Sensor-XY"               | "WGS84" when GPS available        |
-| `gps_source`           | string      | "none"                    | "manual" or "pcap" when available |
-| `gps_origin`           | object/null | null                      | Populated when GPS available      |
-| `tile_size_m`          | float       | 1.0                       | Grid resolution                   |
-| `range_max_m`          | float       | 50.0                      | Max range filter                  |
-| `confidence_min`       | float       | 0.5                       | Min confidence threshold          |
-| `total_tiles`          | int         | 847                       | Tiles computed                    |
-| `exported_tiles`       | int         | 791                       | Tiles above threshold             |
-| `filtered_tiles`       | int         | 56                        | Tiles below threshold             |
-| `processing_time_s`    | float       | 12.4                      | Wall clock time                   |
-| `formats`              | string[]    | ["csv", "asc"]            | Output formats written            |
-| `global_grid_merged`   | bool        | false                     | Whether merged into global grid   |
+| Field                   | Type        | Example                   | Notes                                                 |
+| ----------------------- | ----------- | ------------------------- | ----------------------------------------------------- |
+| `extraction_timestamp`  | string      | "2026-01-15T10:45:23Z"    | ISO 8601                                              |
+| `pcap_file`             | string      | "capture-2026-01-15.pcap" | Source PCAP                                           |
+| `sensor_model`          | string      | "Hesai Pandar40P"         | Detected sensor                                       |
+| `coordinate_system`     | string      | "Sensor-XY"               | "WGS84" when GPS available                            |
+| `gps_source`            | string      | "none"                    | "manual" or "pcap" when available                     |
+| `wgs84_origin`          | object/null | null                      | Precise geometry origin when GPS is available         |
+| `s2_l13_token`          | string/null | "80858004"                | Canonical fine partition when GPS is available        |
+| `s2_l10_token`          | string/null | "808581"                  | Canonical parent derived with `Parent(10)`            |
+| `tile_size_m`           | float       | 1.0                       | Grid resolution                                       |
+| `range_max_m`           | float       | 50.0                      | Max range filter                                      |
+| `confidence_min`        | float       | 0.5                       | Min confidence threshold                              |
+| `total_tiles`           | int         | 847                       | Tiles computed                                        |
+| `exported_tiles`        | int         | 791                       | Tiles above threshold                                 |
+| `filtered_tiles`        | int         | 56                        | Tiles below threshold                                 |
+| `processing_time_s`     | float       | 12.4                      | Wall clock time                                       |
+| `formats`               | string[]    | ["csv", "asc"]            | Output formats written                                |
+| `global_dataset_merged` | bool        | false                     | Whether merged into the global S2-partitioned dataset |
 
-When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becomes `"manual"` or `"pcap"`, and `gps_origin` is populated.
+When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becomes `"manual"` or `"pcap"`, and `wgs84_origin` is populated.
 
 ## Implementation phases
 
@@ -343,20 +355,23 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 
 **Testing**: Export format validation, regression testing (existing exports unchanged)
 
-### Phase 3: GPS geo-referencing and geoJSON export
+### Phase 3: GPS geo-referencing, S2 partitioning, and geoJSON export
 
-**Goal**: Add GPS coordinate transformation and primary export format
+**Goal**: Add GPS coordinate transformation, canonical geographic partitioning, and primary export format
 
 **Tasks**:
 
-1. Add GPS CLI flags (`--gps-lat`, `--gps-lon`, `--gps-alt`, `--gps-heading`)
+1. Add GPS CLI flags (`--wgs84-origin`, `--gps-heading`)
 2. Implement `--gps-from-pcap` flag and NMEA sentence parsing
 3. Implement coordinate transformation: Cartesian → ENU → WGS84
-4. Implement GeoJSON export with geo-referenced tile polygons
-5. Update CSV/ASC exports to include GPS metadata
-6. Integration tests: GPS fallback chain, coordinate transformation accuracy
+4. Introduce the shared S2 utility; convert WGS84 → L13 and derive L10 with `CellID.Parent(10)`
+5. Decide the canonical SQLite/JSON L13 representation, including signed-`INTEGER`/`uint64` trade-offs and migration/index requirements
+6. Implement the canonical L10/L13 filesystem layout and GeoJSON export with geo-referenced tile polygons
+7. Add the explicitly L10/L13-aware family-display formatter for human-facing text and a separate UI scan-cue renderer. The cue is layout only: it must add no copyable character and must stay out of accessibility names, storage, and hierarchy operations
+8. Update CSV/ASC exports to include GPS and canonical S2 metadata
+9. Add known-vector, hierarchy, level-marker, boundary, and coordinate transformation tests, including parents that do not resemble token truncation
 
-**Deliverable**: `pcap-analyse --ground-plane --gps-lat 51.5074 --gps-lon -0.1278` produces geo-referenced GeoJSON
+**Deliverable**: `pcap-analyse --ground-plane --wgs84-origin <position>` produces geo-referenced GeoJSON with canonical L13 metadata and an L10-grouped filesystem destination
 
 **Testing**: Validate GeoJSON schema (RFC 7946), test with QGIS import, verify coordinate transformation
 
@@ -389,6 +404,12 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
   - Test Cartesian → ENU → WGS84 round-trip accuracy (GPS additive path)
   - Test heading rotation (0°, 90°, 180°, 270°)
   - Test edge cases (poles, antimeridian)
+- **S2 Geographic Indexing**: future shared geographic utility tests
+  - Test known WGS84 → L13 vectors and L13 → L10 `Parent(10)` relationships
+  - Test canonical-token and family-display round trips separately
+  - Test that the UI scan cue contributes no character to selection, clipboard, accessibility names, search, or input values
+  - Test level-marker cases where an L8 parent is not a lexical truncation of its L10 child
+  - Test that no hierarchy operation consumes a token prefix or family display
 
 ### Integration tests
 
@@ -435,7 +456,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - [ ] Integration test passes with 3 different PCAP files
 - [ ] Export files written to correct output directory structure
 
-### Phase 3: GPS and geoJSON
+### Phase 3: GPS, S2, and geoJSON
 
 - [ ] GPS fallback chain works: PCAP → manual → local coordinates
 - [ ] GeoJSON validates against RFC 7946 schema (use `geojsonlint`)
@@ -443,6 +464,9 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - [ ] Tile positions within 10cm of expected locations (for known GPS origin)
 - [ ] Coordinate transformation accuracy: < 1cm error for points within 100m
 - [ ] CSV and ASC exports include GPS metadata
+- [ ] Geographic records use canonical L13 tokens and filesystem paths use canonical L10 parents derived with `Parent(10)`
+- [ ] Known-vector and non-lexical-parent tests pass; family displays are confined to human-facing presentation and the UI scan cue is non-text
+- [ ] Site, deployment, and session identities remain independent of S2 cells
 
 ### Phase 4: VTK and polish
 
@@ -466,9 +490,9 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 
 - **Ground plane change detection**: Compare ground plane exports from multiple captures to detect road damage or surface changes
 - **Integration with web API**: Add `/api/lidar/export/ground-plane` endpoint for on-demand extraction
-- **Automatic GPS from database**: Query site config for GPS coordinates if not provided via CLI
+- **Automatic GPS from database**: Query the site WGS84 origin, derive canonical L13, and validate it against any supplied partition
 - **Multi-PCAP batch processing**: Process entire directory of PCAP files with single command
 - **Ground plane texture mapping**: Export surface roughness or reflectivity as additional tile properties
-- **Global grid visualisation**: Web UI for browsing the persistent Tier 2 global ground grid
+- **Global dataset visualisation**: Web UI for browsing canonical S2 L10/L13 ground partitions
 - **OSM polyline import** (v2): Anchor ground plane tiles to kerb lines, crosswalks, and road edges from OpenStreetMap
 - **OSM write-back** (v2): Propose edits to OSM with more accurate geometry from LiDAR measurements (requires OSM API key)

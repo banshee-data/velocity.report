@@ -7,6 +7,10 @@
 > a simple fixed-height band filter (floor −2.8 m, ceiling +1.5 m).
 > The tile-based plane-fitting approach described below is a future evolution.
 
+Geographic persistence follows the repository-wide [S2 geographic-indexing
+decision](geographic-indexing.md). S2 partitions global data; it does not replace
+the metre-scale surface tiles used for ground modelling.
+
 ## 1. Overview & motivation
 
 ### Purpose
@@ -15,12 +19,12 @@ A **ground plane extraction subsystem** within L4 Perception that models the roa
 
 ### Architecture principles
 
-**Sensor-iterative (LiDAR-only first):** All local PCAP observations are sensor-iterative. The ground plane subsystem **must function with the LiDAR sensor alone, with no GPS**. GPS is only additive; it enriches exports with geographic coordinates but is never required for core ground plane extraction or height-above-ground queries. Every algorithm described in this document operates in sensor-local coordinates by default.
+**Sensor-iterative (LiDAR-only first):** All local PCAP observations are sensor-iterative. The ground plane subsystem **must function with the LiDAR sensor alone, with no GPS**. GPS is only additive; it supplies WGS84 geometry and canonical S2 indexing but is never required for core ground plane extraction or height-above-ground queries. Every algorithm described in this document operates in sensor-local coordinates by default.
 
 **Two-tier ground model:** The system distinguishes between:
 
 1. **Local scene ground**: per-observation-session ground tiles settled from live LiDAR returns. These are the working data for real-time perception.
-2. **Global published ground**: a persistent, lat/long-aligned grid (0.001 millidegree tiles, approximately 111 m at the equator down to ~43.5 m at 67°N/S) that accumulates across observation sessions. Global tiles can be loaded at startup, diffed against the current local scene, and updated from settled local tiles. This global grid is a shared, publishable artefact.
+2. **Global published ground**: persistent WGS84 ground geometry partitioned by canonical S2 L13 cells, with the L10 parent used for coarse filesystem grouping. It accumulates across observation sessions and remains a shared, publishable artefact. The S2 cell is an index around the detailed metre-scale ground tiles, not a replacement for their geometry or a site/session identity.
 
 ### Motivation
 
@@ -37,7 +41,7 @@ The ground plane subsystem addresses these needs by:
 - **Settling rapidly** to provide stable height references within seconds of observation
 - **Handling discontinuous surfaces**: modelling flatness and curvature locally without requiring a global solver
 - **Providing confidence metrics**: queryable per-tile planarity and coverage statistics
-- **Optionally aligning with geographic coordinates**: lat/long-aligned Cartesian grid for integration with mapping tools and multi-device deployments (GPS additive, never required)
+- **Optionally publishing geographic geometry**: WGS84 geometry partitioned by canonical S2 L13 for integration with mapping tools and multi-device deployments (GPS additive, never required)
 
 ### Relationship to existing systems
 
@@ -111,19 +115,30 @@ The **local scene grid** is the primary working data, settled from live LiDAR re
 - **Tile indexing**: Integer indices (ix, iy) with tile centre at (ix · tileSize, iy · tileSize) relative to sensor origin.
 - **Tile size**: Configurable, default 1.0 m × 1.0 m (see tile size table below).
 - **Coverage**: Determined by sensor range and visibility; typically 50–100 m radius.
-- **Lifecycle**: Created per observation session; settles within seconds; discarded when session ends (or promoted to global grid if GPS available).
+- **Lifecycle**: Created per observation session; settles within seconds; discarded when session ends (or published to the global dataset if GPS is available).
 
 This is the only tier required for core perception. The system **must** function at this tier with LiDAR data alone.
 
-#### Tier 2: global published grid (GPS-enhanced, optional)
+#### Tier 2: global published dataset (GPS-enhanced, optional)
 
-When GPS coordinates are available, settled local tiles can be projected into a **global lat/long-aligned grid** that persists across observation sessions:
+When a GPS WGS84 position is available, settled local tiles can be transformed to
+WGS84 geometry and published in a persistent S2-partitioned dataset:
 
-- **Grid axes**: X = East, Y = North (WGS84 local tangent plane convention).
-- **Tile sizing**: 0.001 millidegree (≈0.001° × 0.001°). At the equator this is approximately 111 m × 111 m. At 67°N/S latitude this is approximately 43.5 m × 111 m (longitude shrinks by cos(latitude)). Each global tile spans multiple local scene tiles.
-- **Tile indexing**: Integer millidegree indices: `ix = floor(longitude / 0.001)`, `iy = floor(latitude / 0.001)`.
-- **Persistence**: Stored in SQLite and exportable as a shared artefact. Can be loaded at startup to seed local scene grids (providing prior ground estimates before LiDAR settling completes).
-- **Diff/merge**: When a new observation session settles, its local tiles are diffed against the existing global grid. Consistent tiles strengthen confidence; divergent tiles trigger re-evaluation (construction, seasonal change, etc.).
+- **Fine geographic partition**: canonical S2 L13, calculated from the WGS84
+  position associated with the geometry.
+- **Coarse partition**: canonical S2 L10, derived from the L13 CellID with
+  `Parent(10)` and used for filesystem grouping.
+- **Surface resolution**: the local ground polygons retain their metre-scale
+  bounds and plane parameters. L13 is the database/aggregation partition, not
+  the ground-tile size.
+- **Persistence**: L13-partitioned records are stored in SQLite and exportable
+  as a shared artefact. They can be loaded to seed a local scene before LiDAR
+  settling completes.
+- **Diff/merge**: a settled session is compared with records in the applicable
+  L13 partition. Consistent ground strengthens confidence; divergence triggers
+  re-evaluation for construction, seasonal change, or bad alignment.
+- **Identity**: site, sensor deployment, and observation-session IDs remain
+  separate. Several of each may legitimately contribute to one L13 cell.
 
 Global tiles contain aggregate statistics from multiple observation sessions:
 
@@ -135,17 +150,22 @@ Global tiles contain aggregate statistics from multiple observation sessions:
 | Last updated      | Timestamp of most recent contribution               |
 | Confidence        | Combined planarity from all contributing sessions   |
 
-### Lat/Long-Aligned cartesian grid (tier 2)
+### WGS84 alignment and S2 partitioning (tier 2)
 
-When GPS is available, the local sensor-frame grid can be transformed to a geographic Cartesian grid:
+When GPS is available, the local sensor-frame grid can be transformed through
+an East/North local tangent plane to WGS84 geometry, then indexed by S2:
 
 **Benefits of Cartesian geographic alignment:**
 
-1. **Multi-device fusion**: Multiple sensors at different locations can contribute to a shared ground plane map by mapping their observations into the same geographic grid.
-2. **Export to GIS tools**: Tiles can be exported as GeoJSON polygons or ASC raster grids with lat/long coordinates for inspection in QGIS, Google Earth, etc.
+1. **Multi-device fusion**: Multiple sensors at different locations can contribute to a shared ground dataset by mapping observations into WGS84 and the same L13 partition.
+2. **Export to GIS tools**: Tiles can be exported as WGS84 GeoJSON polygons or ASC raster grids carrying canonical S2 L13 metadata for inspection in QGIS, Google Earth, and similar tools.
 3. **Terrain databases**: Future integration with external elevation models (e.g., USGS DEMs) for prior seeding or validation.
 
-**Tradeoff:** Cartesian grids require a coordinate transform from sensor-local spherical (distance, azimuth, elevation) → sensor-local Cartesian (X=right, Y=forward, Z=up) → world-frame Cartesian (X=East, Y=North, Z=up). This adds computational cost but is necessary for geographic alignment.
+**Tradeoff:** Geographic publication requires a coordinate transform from
+sensor-local spherical (distance, azimuth, elevation) → sensor-local Cartesian
+(X=right, Y=forward, Z=up) → world-frame Cartesian (X=East, Y=North, Z=up) →
+WGS84. S2 is applied after that transform. It does not provide the transform or
+replace the precise geometry.
 
 ### Tile size selection
 
@@ -179,13 +199,13 @@ The L3 `BackgroundGrid` and L4 ground plane serve complementary roles:
 
 | Aspect               | L3 Background Grid (polar)                       | L4 Ground Plane (Cartesian)                             |
 | -------------------- | ------------------------------------------------ | ------------------------------------------------------- |
-| **Geometry**         | Rings × azimuth bins                             | Cartesian tiles (sensor-local or lat/long aligned)      |
+| **Geometry**         | Rings × azimuth bins                             | Cartesian tiles (sensor-local or WGS84-referenced)      |
 | **Purpose**          | Foreground/background separation                 | Surface modelling for height-above-ground               |
 | **Representation**   | Per-cell range statistics (mean, spread, freeze) | Per-tile plane equation (normal, offset)                |
 | **Update rate**      | Per-frame EMA updates                            | Incremental PCA/least-squares                           |
 | **Coordinate frame** | Sensor-centric polar                             | Sensor-local Cartesian (Tier 1) or world-frame (Tier 2) |
 | **Export format**    | VTK ImageData, ASC (debugging)                   | GeoJSON, ASC raster, VTK StructuredGrid                 |
-| **GPS required**     | No                                               | No (Tier 1); Yes (Tier 2 global grid)                   |
+| **GPS required**     | No                                               | No (Tier 1); Yes (Tier 2 global dataset)                |
 
 The ground plane can consume **ground-classified points** from the L3 background grid (cells marked as static and within ground Z-band) or operate independently on raw L2 frame points filtered by elevation. Initial implementation should support both modes for flexibility.
 
@@ -335,7 +355,11 @@ This propagation is **optional** and can be implemented as a post-processing ste
 
 The system must support queries like:
 
-`QueryFlatness(lat, lon, radius, tolerance)` queries flatness within a radius by checking that all tiles are settled, have planarity ≥ 0.95, and Z-deviation is within the tolerance. This enables downstream consumers to assess height measurement reliability and flag uncertain regions.
+`QueryFlatness(position, radius, tolerance)` queries flatness around a WGS84
+position within its canonical S2 L13 partition by checking that all tiles are
+settled, have planarity ≥ 0.95, and Z-deviation is within the tolerance. This
+enables downstream consumers to assess height measurement reliability and flag
+uncertain regions.
 
 ---
 
@@ -489,8 +513,8 @@ The current `HeightBandFilter` in [internal/lidar/l4perception/ground.go](../../
 │  └─────────┬───────────┘    └──────────────────────────┘  │
 │            │                                              │
 │  ┌─────────▼───────────┐   (optional, GPS additive)       │
-│  │ Global Grid         │                                  │
-│  │ diff/merge (Tier 2) │                                  │
+│  │ Global Ground       │                                  │
+│  │ S2 L13 partitions   │                                  │
 │  └─────────────────────┘                                  │
 └───────────────────────────────────────────────────────────┘
          │
@@ -527,7 +551,10 @@ A VTK `StructuredGrid` file with `WholeExtent` matching the grid dimensions (e.g
 
 **3. GeoJSON** (for GIS tools):
 
-A GeoJSON `FeatureCollection` where each feature represents one ground tile. Each feature's `geometry` is a `Polygon` with tile corner coordinates (longitude, latitude). Feature `properties` include:
+A GeoJSON `FeatureCollection` where each feature represents one ground tile.
+Each feature's `geometry` is a WGS84 `Polygon` following RFC 7946 coordinate
+ordering. Each feature and collection carries its canonical S2 L13 token.
+Feature `properties` include:
 
 | Property       | Type     | Description                     |
 | -------------- | -------- | ------------------------------- |
@@ -561,7 +588,14 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 
 **`GroundSurface` interface**: Non-point-based interface published to the rest of L4 Perception. Exposes `QueryHeightAboveGround(x, y, z) → (height, confidence, ok)`, `IsSettled() → bool`, and `TileAt(x, y) → (normal, offset, confidence, ok)` without leaking the internal tile representation.
 
-**`GlobalGroundGrid`** (Tier 2, GPS-required): Millidegree-indexed tiles (`GlobalTileIndex` with `LatMillideg`, `LonMillideg`) aggregating statistics across sessions. Each `GlobalGroundTile` stores `MeanNormal`, `MeanZOffset`, `SessionCount`, `LastUpdatedNanos`, `Confidence`, and `TotalPoints`. Fixed at 0.001° resolution for cross-device interoperability.
+**`GlobalGroundDataset`** (Tier 2, GPS-required): future
+S2-L13-partitioned storage aggregating WGS84 ground geometry across sessions.
+Each record retains the detailed ground bounds and stores the canonical L13
+CellID/token plus `MeanNormal`, `MeanZOffset`, `SessionCount`,
+`LastUpdatedNanos`, `Confidence`, and `TotalPoints`. L10 is derived with
+`Parent(10)` for filesystem grouping; it is not calculated independently.
+Implementation must define how ground polygons crossing an L13 boundary are
+split or multi-indexed without inventing a parallel string-bucket scheme.
 
 ### Key methods
 
@@ -579,7 +613,15 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 
 ### Storage schema
 
-Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` stores periodic snapshots as gzip-compressed gob-encoded tile arrays with SHA256 dedup hash, indexed by timestamp. Columns include sensor ID, origin lat/lon, tile size, settled tile count, total point count, and JSON-serialised `GroundPlaneParams`.
+Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql`
+stores periodic snapshots as gzip-compressed gob-encoded tile arrays with
+SHA256 dedup hash, indexed by timestamp. Columns include sensor ID, WGS84
+origin, canonical S2 L13 token, tile size, settled tile count, total point
+count, and JSON-serialised `GroundPlaneParams`. Future Tier 2 records retain
+the precise WGS84 measurement at the geometry boundary and use canonical L13
+for every geographic lookup; the SQLite representation must first resolve S2
+`uint64` versus signed 64-bit `INTEGER`, canonical-token strings, indexes,
+migrations, and JSON serialisation.
 
 ---
 
@@ -615,13 +657,13 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 ### GPS geo-referencing integration (additive only)
 
-**Principle:** GPS is strictly additive. The ground plane **must** function without GPS. GPS enables Tier 2 global grid population and geographic exports but is never required for core perception.
+**Principle:** GPS is strictly additive. The ground plane **must** function without GPS. GPS enables Tier 2 global dataset population and geographic exports but is never required for core perception.
 
 **Current state:** GPS parsing exists ([internal/lidar/l1packets/parse/extract.go](../../../internal/lidar/l1packets/parse/extract.go)) but integration with LiDAR pipeline is incomplete.
 
 **When GPS is available:**
 
-1. **Sensor position** (lat, lon, altitude) to define Tier 2 grid origin.
+1. **Sensor WGS84 position and elevation** to geo-reference detailed ground geometry and calculate its canonical L13 partition.
 2. **Sensor heading** (compass bearing) to transform sensor-local X/Y → world-frame East/North.
 3. **Timestamp synchronisation**: GPS time must align with LiDAR frame timestamps (PTP or GPS-disciplined system clock).
 
@@ -629,8 +671,8 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 - Tier 1 local scene grid operates in sensor-local coordinates.
 - Height-above-ground queries, clustering, and all L4 perception functions work normally.
-- No geographic exports (GeoJSON tile corners require GPS coordinates).
-- No Tier 2 global grid population (requires geographic positioning).
+- No geographic exports (GeoJSON tile corners require a precise WGS84 position).
+- No Tier 2 global dataset population (requires geographic positioning).
 
 **Recommendation:** GPS integration is a separate enhancement phase. Core ground plane implementation is LiDAR-only.
 
@@ -673,7 +715,7 @@ OSM import is explicitly opt-in. It is not part of the offline default and must
 not run unless the operator enables remote map/prior requests for the
 deployment.
 
-1. Query OSM Overpass API for road geometry within the global grid's bounding box.
+1. Query OSM Overpass API for road geometry within the selected global dataset's WGS84 bounds.
 2. Parse polylines (ways) for kerb lines, crosswalks, stop lines, sign positions.
 3. Project OSM features onto the ground plane grid as **anchor constraints**: known height discontinuities (kerbs: +0.15 m), known flat regions (crosswalks), known positions (signs).
 4. Use anchors to validate and refine ground plane tile boundaries.
@@ -687,7 +729,7 @@ deployment.
 
 **Privacy note:** OSM write-back shares geometric features (kerb positions, road edges); never vehicle data or PII. This is consistent with privacy-first design as it enriches the public map, not a private database.
 
-**Deferred to:** Future work (v2). Core ground plane and Tier 2 global grid must be stable first.
+**Deferred to:** Future work (v2). Core ground plane and the Tier 2 global dataset must be stable first.
 
 ---
 
@@ -706,7 +748,7 @@ deployment.
 - **VTK File Formats**: [VTK XML formats](https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf) (`.vti`, `.vts`, `.vtp`)
 - **GeoJSON Specification**: [RFC 7946](https://tools.ietf.org/html/rfc7946) (geographic feature collections)
 - **PCD Format**: [Point Cloud Data](https://pointclouds.org/documentation/tutorials/pcd_file_format.html) (PCL standard)
-- **WGS84 / EPSG:4326**; [World Geodetic System 1984](https://epsg.io/4326) (lat/long coordinate reference system)
+- **WGS84 / EPSG:4326**; [World Geodetic System 1984](https://epsg.io/4326) (precise geometry reference; S2 remains the geographic identity)
 
 ---
 
@@ -754,7 +796,9 @@ deployment.
 - [ ] External DEM integration (USGS, OSM elevation)
 - [ ] Temporal change detection (construction zone monitoring)
 - [ ] IMU integration for dynamic tilt correction
-- [ ] Tier 2 global grid: diff/merge across observation sessions
+- [ ] Tier 2 global dataset: canonical S2 L13 partitioning and diff/merge across observation sessions
+- [ ] Derive the S2 L10 filesystem parent with `CellID.Parent(10)`; never by token-prefix manipulation
+- [ ] Decide SQLite/JSON representation for canonical L13 and add known-vector, hierarchy, level-marker, and boundary tests
 - [ ] OSM polyline import for anchor constraints (kerbs, crosswalks, signs)
 - [ ] OSM write-back workflow (v2, requires API key)
 - [ ] **Vector scene map**: Extend tile-based ground plane into polygon-based multi-feature representation with buildings, vegetation, and hierarchical LOD (see [docs/lidar/architecture/vector-scene-map.md](vector-scene-map.md))
@@ -768,12 +812,12 @@ The ground plane extraction subsystem provides a geometric foundation for height
 - **Accurate height-above-ground measurements** for pedestrian/vehicle/cyclist classification
 - **Adaptive ground filtering** that handles San Francisco's hilly terrain and kerb discontinuities
 - **Confidence-aware queries** for assessing measurement reliability
-- **Optional geographic alignment** for multi-device fusion and GIS integration (GPS additive)
+- **Optional WGS84 alignment with S2 L13 partitioning** for multi-device fusion and GIS integration (GPS additive)
 
 The piecewise-planar tile approach balances **spatial resolution** (1 m tiles capture local features), **computational efficiency** (incremental PCA, O(1) per-tile updates), and **robustness** (outlier rejection, confidence decay). Settlement within 5–10 seconds ensures rapid deployment while maintaining stability via locked baseline mechanisms.
 
 The ground plane lives within **L4 Perception**, publishing a `GroundSurface` interface: a non-point-based representation of the scene geometry that is unioned with point-based clustering for scene understanding. This preserves the existing L3 background grid's role for foreground/background separation while adding geometric surface reasoning within perception.
 
-The **two-tier model** (local scene tiles + global published grid) separates concerns: Tier 1 operates with LiDAR alone (sensor-iterative, no GPS dependency), while Tier 2 enriches the system when GPS is available, enabling cross-session accumulation and geographic exports. The system always functions with the LiDAR-only sensor; GPS is only additive.
+The **two-tier model** (local scene tiles + S2-partitioned global published ground) separates concerns: Tier 1 operates with LiDAR alone (sensor-iterative, no GPS dependency), while Tier 2 enriches the system when GPS is available, enabling cross-session accumulation and geographic exports. The system always functions with the LiDAR-only sensor; GPS is only additive.
 
 Open questions around sensor calibration, GPS geo-referencing, and multi-device fusion are deferred to future work, allowing an incremental implementation path that delivers value early (accurate height measurements) while preserving extensibility for advanced features (geographic alignment, OSM integration, external terrain databases).
