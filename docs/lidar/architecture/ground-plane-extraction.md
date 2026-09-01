@@ -616,11 +616,12 @@ split or multi-indexed without inventing a parallel string-bucket scheme.
 Planned SQLite table `ground_plane_snapshots` will store periodic snapshots as
 gzip-compressed gob-encoded tile arrays with SHA256 dedup hash, indexed by
 timestamp. Columns include sensor ID, WGS84 origin, canonical S2 L13 token, tile
-size, settled tile count, total point count, and JSON-serialised `GroundPlaneParams`.
-the precise WGS84 measurement at the geometry boundary and use canonical L13
-for every geographic lookup; the SQLite representation must first resolve S2
-`uint64` versus signed 64-bit `INTEGER`, canonical-token strings, indexes,
-migrations, and JSON serialisation.
+size, settled tile count, total point count, and JSON-serialised
+`GroundPlaneParams`. Future Tier 2 records retain the precise WGS84 measurement
+at the geometry boundary and use canonical L13 for every geographic lookup;
+the SQLite representation must first resolve S2 `uint64` versus signed 64-bit
+`INTEGER`, canonical-token strings, indexes, migrations, and JSON
+serialisation.
 
 ---
 

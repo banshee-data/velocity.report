@@ -227,7 +227,7 @@ Calculation: degrees + (minutes / 60)
             = 48.1173
 ```
 
-**Implementation:** `parseNMEACoordinate(coord, hemisphere string) (float64, error)` in `internal/gps/nmea/` parses each hemisphere-marked angular component by splitting degrees from minutes at the decimal-point offset, dividing minutes by 60 to get decimal degrees, and negating the result for S/W hemispheres. The parser combines the normalised components into a `WGS84Position`; the ingestion boundary immediately derives its canonical S2 L13 CellID and token. Coarse L10 grouping comes only from `cell.Parent(10)`.
+**Implementation:** `parseNMEACoordinate(coord, hemisphere string) (float64, error)` in `internal/gps/nmea/` parses each hemisphere-marked angular component by splitting degrees from minutes at the decimal-point offset, dividing minutes by 60 to get decimal degrees, and negating the result for S/W hemispheres. The parser combines the normalised components into a `WGS84Position`; the ingestion boundary immediately derives its canonical S2 L13 CellID and token using the [canonical cell-positioning model](geographic-indexing.md#how-s2-positions-and-numbers-cells). Coarse L10 grouping comes only from `cell.Parent(10)`.
 
 ### Checksum validation
 

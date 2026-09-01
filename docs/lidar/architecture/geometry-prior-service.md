@@ -48,7 +48,11 @@ priors/
 An L10 cell contains exactly 64 L13 descendants (`4³` for the three S2 levels
 between L10 and L13), so a directory has at most 64 aggregate cell files before
 any deliberately separate contribution/version objects. Sparse areas simply
-omit cells for which no prior exists.
+omit cells for which no prior exists. The four-child subdivision and
+face-local Hilbert ordering are explained in the canonical
+[geographic-indexing decision](geographic-indexing.md#how-s2-positions-and-numbers-cells)
+and the official [S2 Cells developer
+guide](https://s2geometry.io/devguide/s2cell_hierarchy).
 
 The L10 parent must be calculated from the L13 CellID with `Parent(10)`. It must
 never be obtained by truncating the L13 token or extracting a lexical prefix.

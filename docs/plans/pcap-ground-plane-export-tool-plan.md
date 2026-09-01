@@ -64,7 +64,8 @@ Add the following flags to [internal/lidar/lidarbench/lidarbench.go](../../inter
 ### GPS geo-referencing (optional: additive only)
 
 ```
---wgs84-origin          Manual precise WGS84 origin for geo-referencing (lat,lon[,elevation_msl] in decimal degrees/metres)
+--wgs84-origin <east_west_deg,north_south_deg[,elevation_msl_m]>
+                        Manual precise WGS84 geometry origin
 --gps-heading           Sensor heading in degrees clockwise from true north (required unless derived from NMEA course-over-ground)
 --gps-from-pcap         Extract the WGS84 fix from PCAP packets (default: false)
 --s2-dataset-merge      Merge settled tiles into the Tier 2 S2 dataset (default: false)
@@ -77,6 +78,7 @@ Add the following flags to [internal/lidar/lidarbench/lidarbench.go](../../inter
 - `--ground-plane-format` accepts multiple comma-separated values: `--ground-plane-format geojson,csv,vtk`
 - **GPS flags are strictly optional.** If no GPS source is available, export in local Cartesian coordinates (sensor at origin). All core extraction works without GPS.
 - If `--gps-from-pcap` is true and no GPS packets are found, fall back to the manual WGS84 origin
+- `--wgs84-origin` validates the signed east/west component in the range −180° to 180°, the signed north/south component in the range −90° to 90°, and optional MSL elevation in metres
 - If neither GPS source is available, GeoJSON export uses `coordinate_system: "Sensor-XY"` (local metres)
 - `--ground-confidence-min` filters tiles below threshold from all exports
 - `--s2-dataset-merge` requires either `--wgs84-origin` or `--gps-from-pcap`; the tool derives and validates canonical L13 before writing any global record
@@ -120,7 +122,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
    - Calculate canonical S2 L13 from the resulting WGS84 geometry
 
 9. **Global Dataset Merge** (optional: only if `--s2-dataset-merge` and GPS available):
-   - Convert the WGS84 position to a canonical S2 L13 CellID/token
+   - Convert the WGS84 position to a canonical S2 L13 CellID/token using the [canonical cell-positioning model](../lidar/architecture/geographic-indexing.md#how-s2-positions-and-numbers-cells)
    - Derive its L10 parent with `CellID.Parent(10)`, never token truncation
    - Load applicable L13 records beneath `--s2-dataset-root/<l10>/`
    - Diff settled local tiles against global ground geometry
@@ -192,23 +194,23 @@ NODATA_value -9999
 
 One header row followed by one row per tile. Columns:
 
-| Column               | Example  | Notes                                      |
-| -------------------- | -------- | ------------------------------------------ |
-| `tile_x`             | 10       | Grid column                                |
-| `tile_y`             | 5        | Grid row                                   |
+| Column               | Example    | Notes                                                                  |
+| -------------------- | ---------- | ---------------------------------------------------------------------- |
+| `tile_x`             | 10         | Grid column                                                            |
+| `tile_y`             | 5          | Grid row                                                               |
 | `s2_l13_token`       | "80858004" | Canonical fine geographic partition (hex string; treat as text)        |
 | `s2_l10_token`       | "808581"   | Canonical parent derived with `Parent(10)` (hex string; treat as text) |
-| `plane_a`            | 0.02     | Normal x                                   |
-| `plane_b`            | −0.01    | Normal y                                   |
-| `plane_c`            | 0.9998   | Normal z                                   |
-| `plane_d`            | −1.85    | Offset (3 decimals)                        |
-| `confidence`         | 0.95     | Fit confidence 0–1                         |
-| `curvature_class`    | flat     | Classification label                       |
-| `curvature_deg`      | 1.2      | Degrees                                    |
-| `point_count`        | 847      | Points in tile                             |
-| `mean_height`        | −1.85    | Metres (3 decimals)                        |
-| `height_std_dev`     | 0.03     | Metres                                     |
-| `settlement_time_ms` | 2340     | Convergence time                           |
+| `plane_a`            | 0.02       | Normal x                                                               |
+| `plane_b`            | −0.01      | Normal y                                                               |
+| `plane_c`            | 0.9998     | Normal z                                                               |
+| `plane_d`            | −1.85      | Offset (3 decimals)                                                    |
+| `confidence`         | 0.95       | Fit confidence 0–1                                                     |
+| `curvature_class`    | flat       | Classification label                                                   |
+| `curvature_deg`      | 1.2        | Degrees                                                                |
+| `point_count`        | 847        | Points in tile                                                         |
+| `mean_height`        | −1.85      | Metres (3 decimals)                                                    |
+| `height_std_dev`     | 0.03       | Metres                                                                 |
+| `settlement_time_ms` | 2340       | Convergence time                                                       |
 
 **Implementation Notes**:
 

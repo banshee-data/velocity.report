@@ -3,6 +3,7 @@
 - **Status:** Architecture decision; implementation planned for v2.0
 - **Scope:** Geographic partitioning for persisted data, analytics, and files
 - **Related:** [Geometry-prior service](geometry-prior-service.md), [ground plane extraction](ground-plane-extraction.md), [GPS ethernet parsing](gps-ethernet-parsing.md)
+- **S2 reference:** [S2 Cells developer guide](https://s2geometry.io/devguide/s2cell_hierarchy)
 
 ## Decision
 
@@ -36,6 +37,76 @@ S2 L10 is the canonical coarse partition for filesystem layout, filenames,
 path prefixes, and human-oriented regional browsing. Code should calculate L13
 from the WGS84 position and derive L10 from that CellID. It must not independently
 persist competing calculations of the two levels.
+
+## How S2 positions and numbers cells
+
+The official [S2 Cells developer
+guide](https://s2geometry.io/devguide/s2cell_hierarchy) is the normative
+background for the hierarchy and CellID concepts summarised here.
+
+### From a WGS84 position to a spherical cell
+
+S2 starts with the six faces of a cube, projects them onto the unit sphere, and
+recursively divides every cell into four children. Level 0 therefore has six
+face cells; level 30 contains the leaf cells. On the sphere, each cell is a
+quadrilateral bounded by four geodesic edges rather than an axis-aligned map
+rectangle.
+
+The conceptual positioning pipeline is:
+
+```text
+WGS84 position
+    → point on the unit sphere
+    → one of six cube faces
+    → position within that face
+    → leaf-cell position in the face grid
+    → S2 CellID at the requested level
+```
+
+The intermediate face-grid systems are implementation details owned by S2.
+Application code should give the library a WGS84-derived spherical point and
+request the required level; it should not reproduce the cube projection or
+Hilbert traversal.
+
+The original WGS84 fix can lie anywhere inside the selected cell. The CellID
+represents the centre position of that cell along the S2 curve, so converting a
+fix to L13 intentionally yields a regional index rather than another encoding
+of the precise measurement.
+
+### Hilbert ordering, position, and level
+
+Within each cube face, S2 uses a Hilbert space-filling curve. The six face
+curves are rotated and reflected as necessary and joined into one continuous
+loop over the sphere. Each subdivision selects one of four children in curve
+order, contributing two hierarchy/address bits. This ordering gives useful
+locality for indexes and ordered scans: CellIDs that are numerically close
+identify cells that are geographically close. The converse is not guaranteed,
+particularly across face, cell, or curve boundaries, so numeric or lexical
+token distance must never be used as a geographic distance test.
+
+At level `L`, the 64-bit CellID has this conceptual structure:
+
+```text
+[3-bit face] [2-bit child] repeated L times [1 marker bit] [zero padding]
+```
+
+The face and child bits locate the cell along the S2 curve. The lowest set bit
+is the level marker: its position identifies the subdivision level and makes
+cell centres at different levels distinct. Moving to a parent changes the
+level marker and preserves the appropriate face/Hilbert address bits. This is
+why hierarchy belongs to `CellID.Parent(level)`, containment, and child
+operations—not token slicing.
+
+For velocity.report this means:
+
+- L13 identifies the fine region containing the WGS84 measurement; it does not
+  replace or round that measurement.
+- L10 is the S2 parent region containing that L13 cell, obtained with
+  `Parent(10)`.
+- Sorted CellIDs may improve storage locality, but nearest-cell and distance
+  queries must use S2 spatial operations.
+- A canonical hexadecimal token serialises the CellID; it is not a readable
+  sequence of cube-face or child selections.
 
 ### Historical artefact: superseded coordinate-string addressing
 
