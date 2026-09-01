@@ -20,6 +20,13 @@ const LAND_MASK_PATH = path.join(TOOL_DIRECTORY, "land", "sf-shoreline-and-islan
 // every later run reads it back so manual opt-ins survive regeneration.
 const SELECTION_DIRECTORY = path.join(TOOL_DIRECTORY, "selection");
 const SELECTION_PATH = path.join(SELECTION_DIRECTORY, "80858-1-l13-cells.json");
+export const DETAILED_RENDER_OPTIONS = {
+  showCells: true,
+  title: "80858-1: 64 S2 L13 descendants in Hilbert order",
+  description:
+    "The actual S2 L13 cells inside canonical parent 808581, projected in Web Mercator. Segments through enabled cells are strong; the rest stay visible at reduced opacity. Chevrons mark the direction of travel.",
+};
+
 const COARSE_PARENTS = ["808581", "808587", "808f7d", "808f7f"];
 const ORIENTATION_EXAMPLES = [
   { orientation: 0, label: "canonical", parent: "808587" },
@@ -75,12 +82,7 @@ export async function generateAssets() {
   written.push(
     await writeGenerated(
       "80858-1-l13-detailed.svg",
-      renderHilbertSvg(detailed, {
-        showCells: true,
-        title: "80858-1: 64 S2 L13 descendants in Hilbert order",
-        description:
-          "The actual S2 L13 cells inside canonical parent 808581, projected in Web Mercator. Segments through enabled cells are strong; the rest stay visible at reduced opacity. Chevrons mark the direction of travel.",
-      }),
+      renderHilbertSvg(detailed, DETAILED_RENDER_OPTIONS),
     ),
   );
   written.push(

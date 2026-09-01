@@ -7,8 +7,10 @@ import {
   buildS2HilbertModel,
   getHilbertTraversal,
   parseCellSelection,
+  renderHilbertSvg,
   unknownSelectionTokens,
 } from "../index.mjs";
+import { DETAILED_RENDER_OPTIONS } from "../generate-assets.mjs";
 
 const GENERATED = new URL("../generated/", import.meta.url);
 const SELECTION = new URL("../selection/", import.meta.url);
@@ -109,4 +111,24 @@ test("every drawn element carries its own fill and stroke attributes", async () 
       assert.match(element, /fill="none"/, `${filename}: ${element.slice(0, 80)}`);
     }
   }
+});
+
+test("the committed detailed SVG matches the committed selection", async () => {
+  // The structural checks above pass even when the asset is stale, because the
+  // cell count and group names do not change when cells are opted in. This
+  // compares the file against a fresh render, so editing the selection without
+  // regenerating fails here rather than shipping a picture of the old choice.
+  const svg = await readFile(new URL("80858-1-l13-detailed.svg", GENERATED), "utf8");
+  const cellSelection = JSON.parse(
+    await readFile(new URL("80858-1-l13-cells.json", SELECTION), "utf8"),
+  );
+  const model = buildS2HilbertModel({
+    parent: "808581",
+    targetLevel: 13,
+    width: 1200,
+    height: 1200,
+    padding: 52,
+    cellSelection,
+  });
+  assert.equal(svg, renderHilbertSvg(model, DETAILED_RENDER_OPTIONS));
 });
