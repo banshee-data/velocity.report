@@ -16,6 +16,17 @@ const DEFAULT_STYLES = `
 ${tokensToCss(HILBERT_TOKENS)}
 `;
 
+/**
+ * Build an id namespacer. Callers embedding more than one of these SVGs inline
+ * pass a distinct `idPrefix` so ids stay unique across the host document.
+ */
+export function idNamespace(prefix = "") {
+  if (typeof prefix !== "string") {
+    throw new TypeError("idPrefix must be a string.");
+  }
+  return (name) => `${prefix}${name}`;
+}
+
 function formatNumber(value) {
   const rounded = Math.abs(value) < 0.0000005 ? 0 : value;
   return Number(rounded.toFixed(6)).toString();
@@ -97,7 +108,7 @@ export function buildChevrons(points, options = {}) {
   return chevrons;
 }
 
-function renderChevrons(model) {
+function renderChevrons(model, id) {
   const chevrons = buildChevrons(model.path, {
     classifications: model.segmentClassifications,
   });
@@ -111,7 +122,7 @@ function renderChevrons(model) {
       return `    <polyline class="${classList}"${hilbertAttrs(classList)} points="${polygonPoints(chevron.points)}" data-from-index="${chevron.fromIndex}" data-to-index="${chevron.toIndex}" />`;
     })
     .join("\n");
-  return `<g id="chevrons">\n${markup}\n  </g>`;
+  return `<g id="${id("chevrons")}">\n${markup}\n  </g>`;
 }
 
 /** Step `distance` along from->to, measured from whichever end anchors the label. */
@@ -128,7 +139,7 @@ function offsetAlong(from, to, distance, fromEnd = false) {
   };
 }
 
-function renderCells(model, showCells, showLabels) {
+function renderCells(model, showCells, showLabels, id) {
   if (!showCells && !showLabels) return "";
   const polygons = showCells
     ? model.cells
@@ -146,21 +157,21 @@ function renderCells(model, showCells, showLabels) {
         )
         .join("\n")
     : "";
-  return `<g id="cells">\n${[polygons, labels].filter(Boolean).join("\n")}\n  </g>`;
+  return `<g id="${id("cells")}">\n${[polygons, labels].filter(Boolean).join("\n")}\n  </g>`;
 }
 
-function renderTraversal(model, markerId) {
+function renderTraversal(model, markerId, id) {
   const fullPath = buildPathData(model.path);
   if (!model.classifiedSegments) {
-    return `<g id="hilbert-path">
+    return `<g id="${id("hilbert-path")}">
     <path class="hilbert-path hilbert-unclassified"${hilbertAttrs("hilbert-path hilbert-unclassified")} d="${fullPath}" marker-end="url(#${markerId})" />
   </g>`;
   }
 
-  return `<g id="hilbert-water">
+  return `<g id="${id("hilbert-water")}">
     <path class="hilbert-path hilbert-water"${hilbertAttrs("hilbert-path hilbert-water")} d="${buildSegmentPathData(model.classifiedSegments.water)}" />
   </g>
-  <g id="hilbert-land">
+  <g id="${id("hilbert-land")}">
     <path class="hilbert-path hilbert-land"${hilbertAttrs("hilbert-path hilbert-land")} d="${buildSegmentPathData(model.classifiedSegments.land)}" />
   </g>
   <path class="hilbert-direction" fill="none" stroke="none" d="${fullPath}" marker-end="url(#${markerId})" />`;
@@ -177,11 +188,16 @@ export function renderHilbertSvg(model, options = {}) {
   const description =
     options.description ??
     `${model.cells.length} S2 descendants connected in ascending CellID Hilbert order.`;
-  const markerId = options.markerId ?? "hilbert-arrow";
+  // Namespacing every generated id lets several of these SVGs be inlined into
+  // one document without their aria-labelledby and url(#marker) references
+  // resolving to whichever copy happens to come first. Empty by default, so a
+  // standalone file is unchanged.
+  const id = idNamespace(options.idPrefix);
+  const markerId = options.markerId ?? id("hilbert-arrow");
   const [viewX, viewY, viewWidth, viewHeight] = model.projection.viewBox;
   const start = model.path[0];
   const end = model.path.at(-1);
-  const cells = renderCells(model, showCells, showLabels);
+  const cells = renderCells(model, showCells, showLabels, id);
   const labelOffset = options.endpointLabelOffset ?? 22;
   // Push each label along the traversal's own direction — backwards from the
   // start, onwards past the end — so neither lands on top of the arrowhead.
@@ -193,22 +209,22 @@ export function renderHilbertSvg(model, options = {}) {
     : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${formatNumber(model.projection.width)}" height="${formatNumber(model.projection.height)}" viewBox="${[viewX, viewY, viewWidth, viewHeight].map(formatNumber).join(" ")}" role="img" aria-labelledby="svg-title svg-description" data-s2-token="${model.parent.token}" data-s2-level="${model.parentLevel}" data-target-level="${model.targetLevel}" data-classification-source="${model.classificationSource ?? "none"}">
-  <title id="svg-title">${escapeXml(title)}</title>
-  <desc id="svg-description">${escapeXml(description)}</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="${formatNumber(model.projection.width)}" height="${formatNumber(model.projection.height)}" viewBox="${[viewX, viewY, viewWidth, viewHeight].map(formatNumber).join(" ")}" role="img" aria-labelledby="${id("svg-title")} ${id("svg-description")}" data-s2-token="${model.parent.token}" data-s2-level="${model.parentLevel}" data-target-level="${model.targetLevel}" data-classification-source="${model.classificationSource ?? "none"}">
+  <title id="${id("svg-title")}">${escapeXml(title)}</title>
+  <desc id="${id("svg-description")}">${escapeXml(description)}</desc>
   <defs>
     <marker id="${markerId}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--hilbert-marker, #d1495b)" />
     </marker>
     <style>${options.styles ?? DEFAULT_STYLES}</style>
   </defs>
-  <g id="parent-cell">
+  <g id="${id("parent-cell")}">
     <polygon class="s2-parent"${hilbertAttrs("s2-parent")} points="${polygonPoints(model.parent.vertices)}" data-s2-token="${model.parent.token}" data-s2-level="${model.parentLevel}" />
   </g>
   ${cells}
-  ${renderTraversal(model, markerId)}
-  ${renderChevrons(model)}
-  <g id="markers">
+  ${renderTraversal(model, markerId, id)}
+  ${renderChevrons(model, id)}
+  <g id="${id("markers")}">
     <circle class="hilbert-start"${hilbertAttrs("hilbert-start")} cx="${formatNumber(start.x)}" cy="${formatNumber(start.y)}" r="10" data-index="0" data-s2-token="${start.token}" />
     <circle class="hilbert-start-core"${hilbertAttrs("hilbert-start-core")} cx="${formatNumber(start.x)}" cy="${formatNumber(start.y)}" r="3.5" data-index="0" />
     <circle class="hilbert-end"${hilbertAttrs("hilbert-end")} cx="${formatNumber(end.x)}" cy="${formatNumber(end.y)}" r="7" data-index="${end.index}" data-s2-token="${end.token}" />
@@ -228,14 +244,15 @@ export function renderOrientationLegendSvg(entries, options = {}) {
   const panelHeight = options.panelHeight ?? 300;
   const width = panelWidth * entries.length;
   const height = panelHeight;
-  const markerId = "legend-arrow";
+  const id = idNamespace(options.idPrefix);
+  const markerId = options.markerId ?? id("legend-arrow");
   const panels = entries
     .map(({ label, model, orientation }, index) => {
       const offsetX = index * panelWidth;
       const path = buildPathData(model.path);
       const start = model.path[0];
       const end = model.path.at(-1);
-      return `<g id="orientation-${orientation}" transform="translate(${offsetX} 0)" data-orientation="${orientation}" data-s2-token="${model.parent.token}">
+      return `<g id="${id(`orientation-${orientation}`)}" transform="translate(${offsetX} 0)" data-orientation="${orientation}" data-s2-token="${model.parent.token}">
     <rect class="legend-panel"${legendAttrs("legend-panel")} x="8" y="8" width="${panelWidth - 16}" height="${panelHeight - 16}" rx="8" />
     <text class="legend-title"${legendAttrs("legend-title")} x="${panelWidth / 2}" y="36">${escapeXml(label)}</text>
     <g transform="translate(${(panelWidth - 190) / 2} 58)">
@@ -258,9 +275,9 @@ ${buildChevrons(model.path, { size: 7 })
     .join("\n  ");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="legend-title legend-description">
-  <title id="legend-title">S2 Hilbert orientation states</title>
-  <desc id="legend-description">Four actual S2 level 10 cells whose level 12 descendants demonstrate the canonical, swapped, inverted, and swapped plus inverted orientation states.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="${id("legend-title")} ${id("legend-description")}">
+  <title id="${id("legend-title")}">S2 Hilbert orientation states</title>
+  <desc id="${id("legend-description")}">Four actual S2 level 10 cells whose level 12 descendants demonstrate the canonical, swapped, inverted, and swapped plus inverted orientation states.</desc>
   <defs>
     <marker id="${markerId}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#d1495b" />
@@ -287,7 +304,7 @@ function renderChevronSet(points, className, size) {
     .join("\n");
 }
 
-function renderCompositePanel(panel, options) {
+function renderCompositePanel(panel, options, id) {
   const { labelInset, chevronSize } = options;
   const isHero = panel.role === "hero";
   const anchor = labelAnchor(panel.parent, labelInset);
@@ -319,7 +336,7 @@ ${panel.selectedCells
   const coarseClass = "hilbert-coarse";
   const chevronClass = "composite-chevron";
 
-  return `    <g id="panel-${panel.parent.token}" data-s2-token="${panel.parent.token}" data-s2-level="${panel.parent.level}" data-role="${panel.role}" data-orientation-label="${escapeXml(panel.label)}">
+  return `    <g id="${id(`panel-${panel.parent.token}`)}" data-s2-token="${panel.parent.token}" data-s2-level="${panel.parent.level}" data-role="${panel.role}" data-orientation-label="${escapeXml(panel.label)}">
       <polygon class="s2-parent"${compositeAttrs("s2-parent")} points="${polygonPoints(panel.parent.vertices)}" />
 ${[tiles, detail].filter(Boolean).join("\n")}
       <path class="${coarseClass}"${compositeAttrs(coarseClass)} d="${buildPathData(panel.coarse.path)}" data-s2-level="${panel.coarse.level}" />
@@ -393,7 +410,7 @@ function connectorChevrons(start, end, size) {
  * same weight, and the same chevron for direction, so a join reads as the line
  * carrying on rather than as separate notation.
  */
-function renderConnections(model, chevronSize) {
+function renderConnections(model, chevronSize, id) {
   const { links = [], stubs = [] } = model.connections ?? {};
   if (links.length === 0 && stubs.length === 0) return "";
 
@@ -415,7 +432,7 @@ function renderConnections(model, chevronSize) {
     );
   }
 
-  return `    <g id="connections">
+  return `    <g id="${id("connections")}">
 ${parts.join("\n")}
     </g>`;
 }
@@ -425,6 +442,7 @@ ${parts.join("\n")}
  * shared projection, so the cells join because S2 says they do.
  */
 export function renderCompositeSvg(model, options = {}) {
+  const id = idNamespace(options.idPrefix);
   const panelOptions = {
     labelInset: options.labelInset ?? 0,
     chevronSize: options.chevronSize ?? 10,
@@ -437,16 +455,16 @@ export function renderCompositeSvg(model, options = {}) {
     `${model.panels.length} adjacent S2 level 10 cells sharing one Web Mercator projection.`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${formatNumber(model.projection.width)}" height="${formatNumber(model.projection.height)}" viewBox="${[viewX, viewY, viewWidth, viewHeight].map(formatNumber).join(" ")}" role="img" aria-labelledby="composite-title composite-description">
-  <title id="composite-title">${escapeXml(title)}</title>
-  <desc id="composite-description">${escapeXml(description)}</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="${formatNumber(model.projection.width)}" height="${formatNumber(model.projection.height)}" viewBox="${[viewX, viewY, viewWidth, viewHeight].map(formatNumber).join(" ")}" role="img" aria-labelledby="${id("composite-title")} ${id("composite-description")}">
+  <title id="${id("composite-title")}">${escapeXml(title)}</title>
+  <desc id="${id("composite-description")}">${escapeXml(description)}</desc>
   <defs>
     <style>${options.styles ?? COMPOSITE_STYLES}</style>
   </defs>
-  <g id="panels">
-${model.panels.map((panel) => renderCompositePanel(panel, panelOptions)).join("\n")}
+  <g id="${id("panels")}">
+${model.panels.map((panel) => renderCompositePanel(panel, panelOptions, id)).join("\n")}
   </g>
-${renderConnections(model, panelOptions.chevronSize)}
+${renderConnections(model, panelOptions.chevronSize, id)}
 </svg>
 `;
 }

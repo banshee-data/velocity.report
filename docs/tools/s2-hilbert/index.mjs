@@ -44,6 +44,7 @@ export {
   buildChevrons,
   buildPathData,
   cellSlantDegrees,
+  idNamespace,
   renderCompositeSvg,
   renderHilbertSvg,
   renderOrientationLegendSvg,
