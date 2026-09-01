@@ -3,8 +3,13 @@ import {
   parseCellSelection,
   unknownSelectionTokens,
 } from "./cell-selection.mjs";
-import { getHilbertTraversal, parseCanonicalToken, s2 } from "./hierarchy.mjs";
-import { projectTraversals } from "./projection.mjs";
+import {
+  cellIdToGeographicGeometry,
+  getHilbertTraversal,
+  parseCanonicalToken,
+  s2,
+} from "./hierarchy.mjs";
+import { projectTraversals, projectWebMercator } from "./projection.mjs";
 
 /** The S2 swap and invert bits, named. Derived from the cell, never guessed. */
 export const ORIENTATION_NAMES = [
@@ -25,8 +30,14 @@ export function orientationName(token) {
  * shared edges rather than being nudged into place.
  */
 export function buildS2CompositeModel(options) {
-  if (!options || !Array.isArray(options.panels) || options.panels.length === 0) {
-    throw new TypeError("buildS2CompositeModel requires a non-empty panels list.");
+  if (
+    !options ||
+    !Array.isArray(options.panels) ||
+    options.panels.length === 0
+  ) {
+    throw new TypeError(
+      "buildS2CompositeModel requires a non-empty panels list.",
+    );
   }
 
   const specs = options.panels.map((panel) => ({
@@ -56,7 +67,9 @@ export function buildS2CompositeModel(options) {
           `The selection for ${spec.parent} names ${unknown.length} token(s) that are not L${spec.detailLevel} descendants: ${unknown.slice(0, 4).join(", ")}.`,
         );
       }
-      selectedCells = detail.cells.filter((cell) => selection.get(cell.token) === true);
+      selectedCells = detail.cells.filter(
+        (cell) => selection.get(cell.token) === true,
+      );
     }
 
     // With a selection the detail run varies in weight: heavy across the shaded
@@ -69,8 +82,13 @@ export function buildS2CompositeModel(options) {
       parent: coarse.parent,
       role: spec.role ?? "context",
       label: spec.label ?? orientationName(coarse.parent.token),
-      showLabel: spec.showLabel ?? true,
-      coarse: { level: spec.coarseLevel, cells: coarse.cells, path: coarse.path },
+      showLabel: spec.showLabel ?? false,
+      showOffMapContinuations: spec.showOffMapContinuations ?? false,
+      coarse: {
+        level: spec.coarseLevel,
+        cells: coarse.cells,
+        path: coarse.path,
+      },
       detail: {
         level: spec.detailLevel,
         cells: detail.cells,
@@ -79,12 +97,17 @@ export function buildS2CompositeModel(options) {
       },
       selectedCells,
       selectedCount: selectedCells ? selectedCells.length : null,
+      detailSelection: selection,
     };
   });
 
-  const chain = buildPanelChain(panels, (a, b) =>
-    s2.cellid.next(parseCanonicalToken(a)) === parseCanonicalToken(b),
-  );
+  const projectCentreOf = (token) => {
+    const geometry = cellIdToGeographicGeometry(parseCanonicalToken(token));
+    return projected.fit.project(
+      projectWebMercator(geometry.centre, projected.anchorLng),
+    );
+  };
+  const connections = buildPanelLinks(panels, projectCentreOf);
 
   return {
     schemaVersion: 1,
@@ -99,76 +122,144 @@ export function buildS2CompositeModel(options) {
       scale: projected.fit.scale,
     },
     panels,
-    chain,
+    connections,
   };
-}
-
-function permutations(items) {
-  if (items.length <= 1) return [items];
-  return items.flatMap((item, index) =>
-    permutations([...items.slice(0, index), ...items.slice(index + 1)]).map((rest) => [
-      item,
-      ...rest,
-    ]),
-  );
 }
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /**
- * Order the panels so each one's end sits next to the following one's start.
+ * Where the S2 curve actually enters and leaves each cell.
  *
- * These four L10 cells are geographic neighbours but are NOT all consecutive on
- * the Hilbert curve, so there is no single S2 traversal to read the order from.
- * The shortest end-to-start chain is therefore chosen from the projected
- * geometry, exhaustively and deterministically. Each link records whether S2
- * really does run one cell straight into the next.
+ * This is read from the curve itself: the predecessor and successor of a cell
+ * are `cellid.prev` and `cellid.next` at its own level. Only when that
+ * neighbour happens to be another panel is there a link to draw inside the
+ * figure. Every other entry and exit leaves the mapped area, and is shown as a
+ * stub pointing at wherever the real neighbour lies. Nothing here is inferred
+ * from how close two panels happen to look.
  */
-export function buildPanelChain(panels, isConsecutive) {
-  const indices = panels.map((_, index) => index);
-  let best = null;
-  for (const order of permutations(indices)) {
-    const total = order
-      .slice(0, -1)
-      .reduce(
-        (sum, panelIndex, step) =>
-          sum +
-          distance(
-            panels[panelIndex].coarse.path.at(-1),
-            panels[order[step + 1]].coarse.path[0],
-          ),
-        0,
-      );
-    // Ties break on the lexicographically smallest order, so the result is stable.
-    if (best === null || total < best.total - 1e-9) best = { order, total };
-  }
-
-  // A junction reads as a continuation only if it spans about one coarse step.
-  // Anything longer is a jump across the figure and is drawn as such.
-  const stepLengths = panels.flatMap((panel) =>
-    panel.coarse.path.slice(0, -1).map((point, index) => distance(point, panel.coarse.path[index + 1])),
+export function buildPanelLinks(panels, projectCentreOf) {
+  const tokenToPanel = new Map(
+    panels.map((panel, index) => [panel.parent.token, index]),
   );
-  const typicalStep = stepLengths.sort((a, b) => a - b)[Math.floor(stepLengths.length / 2)];
+  const stepLengths = panels.flatMap((panel) =>
+    panel.coarse.path
+      .slice(0, -1)
+      .map((point, index) => distance(point, panel.coarse.path[index + 1])),
+  );
+  const typicalStep = stepLengths.sort((a, b) => a - b)[
+    Math.floor(stepLengths.length / 2)
+  ];
 
-  const links = best.order.slice(0, -1).map((panelIndex, step) => {
-    const from = panels[panelIndex];
-    const to = panels[best.order[step + 1]];
-    const start = from.coarse.path.at(-1);
-    const end = to.coarse.path[0];
-    const length = distance(start, end);
-    return {
-      fromToken: from.parent.token,
-      toToken: to.parent.token,
-      start,
-      end,
-      length,
-      typicalStep,
-      continuous: length <= typicalStep * 1.4,
-      s2Consecutive: isConsecutive(from.parent.token, to.parent.token),
-    };
+  const links = [];
+  const stubs = [];
+
+  panels.forEach((panel) => {
+    const id = parseCanonicalToken(panel.parent.token);
+    const previousToken = s2.cellid.toToken(s2.cellid.prev(id));
+    const nextToken = s2.cellid.toToken(s2.cellid.next(id));
+
+    if (tokenToPanel.has(nextToken)) {
+      const target = panels[tokenToPanel.get(nextToken)];
+      links.push({
+        fromToken: panel.parent.token,
+        toToken: nextToken,
+        // Both runs cross the join, so both are drawn across it.
+        coarse: { start: panel.coarse.path.at(-1), end: target.coarse.path[0] },
+        detail: { start: panel.detail.path.at(-1), end: target.detail.path[0] },
+        // Heavy only if both cells it joins are selected in their own panel.
+        detailHeavy: Boolean(
+          panel.detailSelection?.get(panel.detail.path.at(-1).token) === true &&
+          target.detailSelection?.get(target.detail.path[0].token) === true,
+        ),
+        length: distance(panel.coarse.path.at(-1), target.coarse.path[0]),
+      });
+    } else {
+      stubs.push(
+        makeStub(
+          panel,
+          "exit",
+          nextToken,
+          projectCentreOf(nextToken),
+          typicalStep,
+        ),
+      );
+    }
+
+    // An entry is drawn only when the predecessor is off the page; otherwise its
+    // own exit link already draws that joint.
+    if (!tokenToPanel.has(previousToken)) {
+      stubs.push(
+        makeStub(
+          panel,
+          "entry",
+          previousToken,
+          projectCentreOf(previousToken),
+          typicalStep,
+        ),
+      );
+    }
   });
 
-  return { order: best.order, links, totalLength: best.total };
+  return { links, stubs, typicalStep };
+}
+
+/**
+ * The unit vector along whichever of the cell's own edges best matches `delta`.
+ *
+ * The brown run only ever travels along the cell's two edge directions, so a
+ * stub aimed straight at a neighbour's centre comes out at some diagonal that
+ * does not belong to the drawing. Snapping to an edge axis keeps every stub
+ * parallel to the run it continues, while still leaving by the side the S2
+ * neighbour actually lies on.
+ */
+export function snapToCellAxis(vertices, delta) {
+  const axes = [];
+  for (let index = 0; index < 2; index += 1) {
+    const from = vertices[index];
+    const to = vertices[index + 1];
+    const length = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    const unit = { x: (to.x - from.x) / length, y: (to.y - from.y) / length };
+    axes.push(unit, { x: -unit.x, y: -unit.y });
+  }
+  return axes.reduce((best, axis) =>
+    axis.x * delta.x + axis.y * delta.y > best.x * delta.x + best.y * delta.y
+      ? axis
+      : best,
+  );
+}
+
+function makeStub(panel, kind, neighbourToken, neighbourCentre, typicalStep) {
+  const anchor =
+    kind === "entry" ? panel.coarse.path[0] : panel.coarse.path.at(-1);
+  const delta = {
+    x: neighbourCentre.x - anchor.x,
+    y: neighbourCentre.y - anchor.y,
+  };
+  const axis = snapToCellAxis(panel.parent.vertices, delta);
+  const outer = {
+    x: anchor.x + axis.x * typicalStep,
+    y: anchor.y + axis.y * typicalStep,
+  };
+  return {
+    kind,
+    panelToken: panel.parent.token,
+    neighbourToken,
+    // An entry runs inwards and an exit runs outwards, so direction of travel is
+    // always start to end, exactly as it is for the run itself.
+    start: kind === "entry" ? outer : anchor,
+    end: kind === "entry" ? anchor : outer,
+    bearing: compassBearing(delta.x, delta.y),
+  };
+}
+
+/** Screen-space compass bearing, with y increasing downwards as SVG has it. */
+export function compassBearing(deltaX, deltaY) {
+  const vertical =
+    Math.abs(deltaY) > Math.abs(deltaX) * 0.4 ? (deltaY < 0 ? "N" : "S") : "";
+  const horizontal =
+    Math.abs(deltaX) > Math.abs(deltaY) * 0.4 ? (deltaX > 0 ? "E" : "W") : "";
+  return `${vertical}${horizontal}` || "same";
 }
 
 /** Report which panels share an edge, so a layout can be checked, not assumed. */

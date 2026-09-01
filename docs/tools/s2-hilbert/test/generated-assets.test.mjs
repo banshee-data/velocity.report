@@ -76,3 +76,37 @@ test("the legend contains all four verified S2 orientation states", async () => 
   }
   assert.equal((svg.match(/<polyline class="legend-chevron/g) ?? []).length, 15 * 4);
 });
+
+test("every drawn element carries its own fill and stroke attributes", async () => {
+  // Illustrator, Inkscape and Figma routinely drop an embedded <style> block.
+  // A path that relies on CSS alone then falls back to filled-and-unstroked,
+  // which turns each Hilbert curve into a solid shape. Presentation attributes
+  // are what keep these files usable in a design tool.
+  const files = [
+    "80858-1-l13-detailed.svg",
+    "80858-1-l12-coarse.svg",
+    "80858-7-l12-coarse.svg",
+    "808f7-d-l12-coarse.svg",
+    "808f7-f-l12-coarse.svg",
+    "s2-hilbert-orientations.svg",
+    "s2-l10-quad-composite.svg",
+  ];
+
+  for (const filename of files) {
+    const svg = await readFile(new URL(filename, GENERATED), "utf8");
+    const body = svg.slice(svg.indexOf("</defs>"));
+    const drawn = [...body.matchAll(/<(path|polygon|polyline|circle|rect|text)\b[^>]*>/g)];
+    assert.ok(drawn.length > 0, filename);
+    for (const [element] of drawn) {
+      assert.match(
+        element,
+        /\bfill="|\bstroke="/,
+        `${filename}: element renders as filled-black without CSS: ${element.slice(0, 80)}`,
+      );
+    }
+    // Every stroked line must say so outright rather than inherit a fill.
+    for (const [element] of body.matchAll(/<(?:path|polyline)\b[^>]*>/g)) {
+      assert.match(element, /fill="none"/, `${filename}: ${element.slice(0, 80)}`);
+    }
+  }
+});

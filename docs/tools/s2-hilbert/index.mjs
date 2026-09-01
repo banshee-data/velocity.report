@@ -31,8 +31,11 @@ export {
 } from "./cell-selection.mjs";
 export {
   ORIENTATION_NAMES,
+  buildPanelLinks,
   buildS2CompositeModel,
+  compassBearing,
   compositeAdjacency,
+  snapToCellAxis,
   orientationName,
 } from "./composite.mjs";
 export { buildOrderedChildrenDocument, buildS2HilbertModel } from "./model.mjs";

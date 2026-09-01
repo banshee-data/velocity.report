@@ -37,8 +37,17 @@ export async function generateComposite() {
     height: 1400,
     padding: 56,
     panels: [
-      { parent: HERO, role: "hero", cellSelection },
-      ...CONTEXT.map((parent) => ({ parent, role: "context" })),
+      {
+        parent: HERO,
+        role: "hero",
+        cellSelection,
+        showOffMapContinuations: true,
+      },
+      ...CONTEXT.map((parent) => ({
+        parent,
+        role: "context",
+        showOffMapContinuations: parent === "808587",
+      })),
     ],
   });
 
@@ -52,21 +61,29 @@ export async function generateComposite() {
 
   await mkdir(GENERATED_DIRECTORY, { recursive: true });
   const destination = path.join(GENERATED_DIRECTORY, OUTPUT_NAME);
-  await writeFile(destination, renderCompositeSvg(model, COMPOSITE_RENDER_OPTIONS), "utf8");
+  await writeFile(
+    destination,
+    renderCompositeSvg(model, COMPOSITE_RENDER_OPTIONS),
+    "utf8",
+  );
 
   return { model, adjacency, destination };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   generateComposite()
     .then(({ model, adjacency, destination }) => {
       for (const panel of model.panels) {
-        const kind = panel.role === "hero" ? "hero" : orientationName(panel.parent.token);
+        const kind =
+          panel.role === "hero" ? "hero" : orientationName(panel.parent.token);
         const tiles =
-          panel.selectedCount === null ? "" : `, ${panel.selectedCount} selected tiles`;
-        process.stdout.write(
-          `${panel.parent.displayToken}  ${kind}${tiles}\n`,
-        );
+          panel.selectedCount === null
+            ? ""
+            : `, ${panel.selectedCount} selected tiles`;
+        process.stdout.write(`${panel.parent.displayToken}  ${kind}${tiles}\n`);
       }
       for (const pair of adjacency) {
         process.stdout.write(`  ${pair.a} ${pair.relation} ${pair.b}\n`);

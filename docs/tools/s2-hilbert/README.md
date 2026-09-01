@@ -92,6 +92,14 @@ The legend therefore borrows `80858-5` for the swap-and-invert panel rather than
 
 The cells render as parallelograms rather than squares. That is not a projection defect: S2 cells are faces of a projected cube, and this far from a face centre their edges do not align with meridians or parallels. The shear is already present in the raw WGS84 vertices before Web Mercator sees them.
 
+## Why the files carry attributes as well as a stylesheet
+
+Every drawn element is given its own `fill` and `stroke` presentation attributes, and the same values are also written into a `<style>` block. This is deliberate belt and braces.
+
+Illustrator, Inkscape and Figma routinely ignore an embedded stylesheet. A `<path>` that relies on CSS alone then falls back to the SVG defaults — filled black, no stroke — which turns every Hilbert curve into a solid blob and makes the file useless for design work. Presentation attributes render correctly everywhere.
+
+CSS still wins wherever it is honoured, because a stylesheet rule beats a presentation attribute, so swapping `styles` for your own keeps working exactly as before. [style-tokens.mjs](style-tokens.mjs) holds one table per figure and generates both forms from it, so the two can never drift apart. A test opens each generated asset, discards the `<defs>`, and fails if any drawn element would render unstyled.
+
 ## Reading the direction
 
 Every straight run carries one chevron at its midpoint, pointing the way the traversal travels, so direction is legible without tracing the line by eye. The start is a green ring, the end a red arrowhead, and both are labelled; the labels are pushed along the traversal's own direction — backwards from the start, onwards past the end — so they never land on the arrowhead. Chevrons appear on the detailed view, on all four coarse L10 views, and in every legend panel.
@@ -160,28 +168,35 @@ Every cell draws the same two runs — the full 64-step L13 traversal in blue th
 
 | Cell                            | Brown (16-step) | Blue (L13)                                     |
 | ------------------------------- | --------------- | ---------------------------------------------- |
-| `80858-1` (hero)                | light           | heavy across the shaded cells, light elsewhere |
+| `80858-1` (hero)                | solid           | heavy across the shaded cells, light elsewhere |
 | `80858-7`, `808f7-d`, `808f7-f` | solid           | light throughout                               |
+
+One brown, one weight, everywhere. The blue run is the only thing that changes.
 
 The shaded cells come from the selection file, so the heavy blue traces exactly the cells that are enabled. Both runs join cell **centres**; the shading is a fill behind them, never a substitute for the line.
 
-All four cells are labelled with their orientation name, derived from `Cell.orientation` and never hard-coded per token. Labels sit at the centre of each cell and are rotated onto the cell's own slant, read from the direction of its top edge, so they lie along the cell instead of cutting across it. Anchoring a label to the topmost _vertex_ does not work: the cells are sheared, so that vertex can sit far to one side and drift over a neighbour.
+Orientation captions are off by default, since the figure is normally lettered in a design tool. Each panel still records its orientation in `data-orientation-label`, derived from `Cell.orientation` and never hard-coded per token. Passing `showLabel: true` prints them: centred in the cell and rotated onto its own slant, read from the direction of its top edge, so a caption lies along the cell instead of cutting across it. Anchoring one to the topmost _vertex_ does not work — the cells are sheared, so that vertex can sit far to one side and drift over a neighbour.
 
-### Joining the cells into one run
+### Where the curve enters and leaves
 
-The four 16-step runs are chained end to start so the eye can follow one path across the figure, and only the two ends of that whole chain keep a marker — interior junctions are where one cell's end meets the next cell's start, and marking both would put a full stop and a capital letter in the middle of a sentence.
+The four cells are geographic neighbours, but the Hilbert curve does **not** run through them one after another. Each cell's true predecessor and successor are `cellid.prev` and `cellid.next` at its own level, and for three of the four both lie outside the mapped area entirely.
 
-The order is not read off the S2 curve, because it cannot be. **These four cells are geographic neighbours but are not all consecutive on the Hilbert curve**, so no single S2 traversal runs through just these four. `buildPanelChain` therefore picks the shortest end-to-start chain from the projected geometry, exhaustively over all orderings, which lands on `80858-7 → 808f7-d → 808f7-f → 80858-1` — the familiar Hilbert U through a 2×2.
+So only one link is drawn inside the figure, and the rest are stubs pointing at wherever the real neighbour actually is:
 
-Each junction records what it actually is, and the drawing does not pretend otherwise:
+| Cell      | Enters from               | Leaves towards            |
+| --------- | ------------------------- | ------------------------- |
+| `80858-1` | `80857f`, from its right  | `808583`, up and left     |
+| `80858-7` | `808585`, from above      | `808589`, to the left     |
+| `808f7-d` | `808f7b`, from below      | **`808f7f`, on the page** |
+| `808f7-f` | **`808f7d`, on the page** | `808f81`, to the right    |
 
-| Junction              | Span          | Drawn        | `next()` in S2? |
-| --------------------- | ------------- | ------------ | --------------- |
-| `80858-7` → `808f7-d` | about 4 steps | faint dashed | no              |
-| `808f7-d` → `808f7-f` | one step      | solid        | **yes**         |
-| `808f7-f` → `80858-1` | one step      | solid        | no              |
+`808f7-d` to `808f7-f` is the only true succession here — `next(808f7d) === 808f7f` — so it is the only join drawn between two cells, and **both** runs cross it: the brown and the blue alike. The other six are stubs that run off the page.
 
-Two junctions span exactly one coarse step, so they read as a continuation and are drawn solid. The third spans four and is drawn as a faint dashed jump rather than implying a continuity that does not exist. Only `808f7-d` → `808f7-f` is a true S2 succession — `next(808f7d) === 808f7f` — and every connector carries `data-s2-consecutive` and `data-continuous` so the distinction survives into the file.
+Links and stubs are drawn as further steps of the brown run — same colour, same weight, same chevron for direction — so a join reads as the line carrying on rather than as separate notation. A stub is exactly one step long and is snapped to one of the cell's own edge axes: the run only ever travels along those two directions, so a stub aimed straight at a distant neighbour's centre comes out at a diagonal that belongs to nothing else in the drawing. Snapping keeps it parallel to the run it continues while still leaving by the side the S2 neighbour is actually on.
+
+That junction is also the one that gets de-duplicated. `808f7-d`'s exit and `808f7-f`'s entry are the same joint, so it is drawn once, as the exit; no cell draws an entry stub for a predecessor already on the page.
+
+None of this is inferred from what happens to look close together. An earlier version chose the shortest end-to-start chain across the four cells, which produced a plausible but wrong answer: it invented a route where the curve simply leaves the frame. Every entry and exit now comes from `prev` and `next`, and each stub carries `data-neighbour`, `data-kind` and `data-bearing` so it can be checked against S2 directly.
 
 ### Changing which tiles are shown
 
