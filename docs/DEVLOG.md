@@ -61,7 +61,7 @@ older entries stay put, however tempting hindsight may be.
 - Delivered buffered frames in capture order, and confined the frame-rate throttle to replays so live input is no longer decimated.
 - Let a finished replay stay the data source rather than silently reverting to live, and closed the window where a teardown looked like an idle replay.
 - Added a Live toggle to the visualiser and moved Clear to the View menu.
-- Added and then split the LiDAR state estimation and vehicle behaviour plans, revising both to cover road users, the evidence split, and elevation.
+- {dd/docs/state-est} Added and then split the LiDAR state estimation and vehicle behaviour plans, revising both to cover road users, the evidence split, and elevation.
 
 ## August 19, 2026 - Background retention across source changes
 
@@ -128,7 +128,7 @@ older entries stay put, however tempting hindsight may be.
 - Split the Dockerfile into toolchain, libpcap, and build stages so the `libpcap.a` layer only invalidates when the submodule pointer moves, and sourced `GO_VERSION` from `go.mod` so the pin cannot drift (#513).
 - Added a `--self-check` flag exercising DNS, UDP and TCP bind, and libpcap, plus `scripts/smoke-test-static.sh` to run the binary in a fresh `debian:bookworm-slim` of the matching architecture, and a `static-build-ci.yml` workflow covering both arches on every build-touching PR (#513).
 - Pointed the image build at the static binary path and refreshed the deployment documentation for the `velocity device` commands (#513).
-- Added an opt-in Tailscale ACL gate for admin and view access, then addressed the Copilot review on it.
+- {patrickod/tailscale-acls} Added an opt-in Tailscale ACL gate for admin and view access, then addressed the Copilot review on it.
 
 ## August 11, 2026 - Multi-sensor capabilities & serial rollout
 
@@ -140,7 +140,7 @@ older entries stay put, however tempting hindsight may be.
 - Validated the rollout on the deployed Pi and HAT at `/dev/ttySC1`, `19200 8N1`: device discovery, configured-port filtering, active-port protection, mismatched-settings diagnostics, and the safe no-op reload path all held while radar ingestion continued (#549).
 - Deferred device and baud auto-detection, USB-adapter validation, and deliberately changed-setting reload to a later release, and said so plainly in the serial implementation plan (#549).
 - Bumped the release to `0.5.1-pre27` and pointed the remote-release utility at the canonical `image/velocity-binaries/velocity` build (#549).
-- Added a four-platform build target standardisation plan and logged it in the backlog.
+- {codex/four-platform-build-standardisation-plan} Added a four-platform build target standardisation plan and logged it in the backlog.
 
 ## August 10, 2026 - macOS Developer ID signing, LiDAR maths planning & OBB doc recovery
 
@@ -184,10 +184,10 @@ older entries stay put, however tempting hindsight may be.
 - Removed `cmd/tools/pcap-analyse` along with track CSV/JSON export, ML training-data export, and SQLite persistence, capturing the removed pieces as self-contained architecture outlines in `docs/plans/lidar-offline-analysis-tooling-plan.md` (#531).
 - Added read-only per-frame settling accessors to `l3grid`, and made frame assembly flush the in-flight frame on close so capture order survives (#531).
 - Bumped the version to `0.5.1-pre26` and rewrote the pcap-analysis and performance-regression-testing docs for the new layout (#531).
-- Tested and documented the diagonal-Q process-noise gap (K1): the L5 prediction step omits the position-velocity coupling term of the continuous white-noise-acceleration model, underestimating cross-covariance and making the gating ellipse overconfident along the correlation direction.
-- Added an opt-in Joseph-form covariance update (K2), default off, which stayed roughly 14 times more symmetric than the naive form over 10k adversarial predict and update cycles while remaining positive-definite.
-- Documented the mean-absolute-deviation versus standard-deviation relationship in the L3 background spread (B1): `RangeSpreadMeters` tracks MAD, so a settled cell observing noise of 0.1 converges to about 0.0798, not 0.1.
-- Implemented CLEAR MOT (MOTA and MOTP) in `l8analytics` (M1) as pure computation, reusing `l5tracks.HungarianAssign` for per-frame matching. Ground-truth ingestion and endpoint wiring remain follow-ups.
+- {claude/strange-colden-a99dc2} Tested and documented the diagonal-Q process-noise gap (K1): the L5 prediction step omits the position-velocity coupling term of the continuous white-noise-acceleration model, underestimating cross-covariance and making the gating ellipse overconfident along the correlation direction.
+- {claude/strange-colden-a99dc2} Added an opt-in Joseph-form covariance update (K2), default off, which stayed roughly 14 times more symmetric than the naive form over 10k adversarial predict and update cycles while remaining positive-definite.
+- {claude/strange-colden-a99dc2} Documented the mean-absolute-deviation versus standard-deviation relationship in the L3 background spread (B1): `RangeSpreadMeters` tracks MAD, so a settled cell observing noise of 0.1 converges to about 0.0798, not 0.1.
+- {claude/strange-colden-a99dc2} Implemented CLEAR MOT (MOTA and MOTP) in `l8analytics` (M1) as pure computation, reusing `l5tracks.HungarianAssign` for per-frame matching. Ground-truth ingestion and endpoint wiring remain follow-ups.
 
 ## June 19, 2026 - Dependency cleanup
 
@@ -341,7 +341,7 @@ older entries stay put, however tempting hindsight may be.
 - Removed the Python PDF generator from current documentation, CI setup, Make targets, VS Code settings, and production expectations; the Go report pipeline is now the only supported PDF path, while Python stays for developer tooling only (#485).
 - Updated report-pipeline docs, TeX dependency paths, and related scripts so the repository stops talking about removed PDF machinery as if it might still stroll back in later.
 - Refactored the proto pipeline so CI calls repo-owned scripts and Make targets instead of growing more shell inside workflow YAML, with better cache-key derivation, prerequisite checks, and clearer DEBUGGING notes (#486).
-- Continued the Swift security and CI branch: added CodeQL coverage for Swift, fixed action pinning and native ARM Homebrew handling in proto setup, bumped grpc-swift-protobuf codegen, and polished the macOS About view.
+- {dd/ci/add-swift} Continued the Swift security and CI branch: added CodeQL coverage for Swift, fixed action pinning and native ARM Homebrew handling in proto setup, bumped grpc-swift-protobuf codegen, and polished the macOS About view.
 
 ## April 29, 2026 - Offline docs, report polish & dependency refresh
 
@@ -637,10 +637,10 @@ older entries stay put, however tempting hindsight may be.
 - Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata.
 - Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture.
 - Released 0.5.0 🌞 "Sunny Southeast": version set across Go/Python/web/macOS with expanded CHANGELOG.
-- Refactored the capabilities API to a multi-sensor named-object format, ultimately carried forward in #547 after #430 was superseded: per-sensor named objects in Go handlers and web stores.
-- Added smart LiDAR capability polling: the web frontend retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR is present.
-- Added a multi-sensor capabilities plan document and marked the response-shape/navigation work complete after implementation; LiDAR ready/error lifecycle wiring remains follow-up work.
-- Expanded web test coverage with a multi-sensor `lidarState` derived store test.
+- {copilot/update-capabilities-check-radar-mode} Refactored the capabilities API to a multi-sensor named-object format, ultimately carried forward in #547 after #430 was superseded: per-sensor named objects in Go handlers and web stores.
+- {copilot/update-capabilities-check-radar-mode} Added smart LiDAR capability polling: the web frontend retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR is present.
+- {copilot/update-capabilities-check-radar-mode} Added a multi-sensor capabilities plan document and marked the response-shape/navigation work complete after implementation; LiDAR ready/error lifecycle wiring remains follow-up work.
+- {copilot/update-capabilities-check-radar-mode} Expanded web test coverage with a multi-sensor `lidarState` derived store test.
 
 ## March 23, 2026 - capabilities gating, stream fix & host upgrade runbook
 
@@ -696,8 +696,8 @@ older entries stay put, however tempting hindsight may be.
 - Rewrote [CONTRIBUTING.md](../CONTRIBUTING.md) with updated contributor guidance, personas, and workflow expectations.
 - Expanded the v0.5.0 breaking-schema update plan to cover migration sequencing and cleanup scope.
 - Added `VelocityVisualiser.app` download and promo assets to the homepage, including supporting media/conversion tooling.
-- Added a Cairo-based bumper sticker generator tool (#403): Python CLI producing SVG/PNG stickers with configurable text and gradient backgrounds.
-- Addressed code review feedback on `y_frac` semantics, Cool-S proportions, and step divisor clarity.
+- {copilot/add-bumper-sticker-designs} Added a Cairo-based bumper sticker generator tool (#403): Python CLI producing SVG/PNG stickers with configurable text and gradient backgrounds.
+- {copilot/add-bumper-sticker-designs} Addressed code review feedback on `y_frac` semantics, Cool-S proportions, and step divisor clarity.
 
 ## March 17, 2026 - shim removal, MATRIX inventory & sweep worker planning
 
@@ -707,7 +707,7 @@ older entries stay put, however tempting hindsight may be.
 - Added HINT metric observability planning and related data-structure remediation updates.
 - Added the distributed sweep-workers plan.
 - Added the 100-line plan and checked in experiment notes / documentation cleanup across docs and Python.
-- Added OBB heading stability plan (#397): documented remaining work for oriented bounding box heading estimation, covering temporal smoothing, velocity-aligned correction, and evaluation metrics.
+- {codex/plan-remaining-obb-heading-stability} Added OBB heading stability plan (#397): documented remaining work for oriented bounding box heading estimation, covering temporal smoothing, velocity-aligned correction, and evaluation metrics.
 
 ## March 16, 2026 - header standardisation & backlog prune
 
