@@ -61,7 +61,7 @@ test("models contain actual centres, vertices, and a continuous 64-point path", 
   assert.equal(model.parent.level, 10);
   assert.equal(model.cells.length, 64);
   assert.equal(model.path.length, 64);
-  assert.equal(model.landMaskApplied, false);
+  assert.equal(model.selectionApplied, false);
   for (const cell of model.cells) {
     assert.equal(cell.vertices.length, 4);
     assert.ok(Number.isFinite(cell.centre.lat));

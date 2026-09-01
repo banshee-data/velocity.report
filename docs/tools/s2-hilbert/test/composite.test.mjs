@@ -195,7 +195,7 @@ test("every panel shows its full detail run, weighted only where selected", asyn
 
   // The hero splits its 63 detail segments into heavy and light runs.
   assert.equal(hero.detail.classifications.length, 63);
-  const heavy = hero.detail.classifications.filter((c) => c === "land").length;
+  const heavy = hero.detail.classifications.filter((c) => c === "selected").length;
   assert.ok(heavy > 0 && heavy < 63);
   assert.match(svg, /<path class="hilbert-detail hilbert-detail-heavy"/);
   // Context panels draw the same 64-cell run, light throughout.

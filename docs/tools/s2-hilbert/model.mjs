@@ -4,28 +4,11 @@ import {
   unknownSelectionTokens,
 } from "./cell-selection.mjs";
 import { getHilbertTraversal } from "./hierarchy.mjs";
-import {
-  classifyTraversalSegments,
-  isWorldPointOnLand,
-  prepareLandMask,
-} from "./land-mask.mjs";
 import { projectTraversal } from "./projection.mjs";
 
-/** Whole-segment classification, one entry per centre-to-centre link. */
-function classifySegmentsByCoastline(path, preparedMask) {
-  return path.slice(0, -1).map((from, index) => {
-    const to = path[index + 1];
-    const midpoint = {
-      x: (from.world.x + to.world.x) / 2,
-      y: (from.world.y + to.world.y) / 2,
-    };
-    return isWorldPointOnLand(midpoint, preparedMask) ? "land" : "water";
-  });
-}
-
-/** Split each centre-to-centre link into whole lit or unlit segments. */
+/** Split each centre-to-centre link into whole selected or unselected runs. */
 function segmentsFromClassifications(path, classifications, projectWorldPoint) {
-  const classified = { land: [], water: [] };
+  const classified = { selected: [], unselected: [] };
   classifications.forEach((classification, index) => {
     classified[classification].push({
       fromIndex: index,
@@ -38,9 +21,8 @@ function segmentsFromClassifications(path, classifications, projectWorldPoint) {
 }
 
 /**
- * Build a JSON-friendly model from actual S2 descendants. Both the optional
- * land mask and the optional per-cell selection are data, not part of S2
- * traversal or projection logic. A selection takes precedence over a mask.
+ * Build a JSON-friendly model from actual S2 descendants. The optional per-cell
+ * selection is data, not part of S2 traversal or projection logic.
  */
 export function buildS2HilbertModel(options) {
   if (!options || typeof options !== "object") {
@@ -52,7 +34,6 @@ export function buildS2HilbertModel(options) {
 
   let classifiedSegments = null;
   let segmentClassifications = null;
-  let classificationSource = null;
 
   if (options.cellSelection) {
     const selection = parseCellSelection(options.cellSelection);
@@ -68,26 +49,13 @@ export function buildS2HilbertModel(options) {
       segmentClassifications,
       projectWorldPoint,
     );
-    classificationSource = "selection";
-  } else if (options.landMask) {
-    const preparedMask = prepareLandMask(options.landMask, projected.projection.anchorLng);
-    // The drawn path is clipped at the coastline itself, while the chevrons
-    // follow one classification per link so each straight run keeps exactly one.
-    classifiedSegments = classifyTraversalSegments(
-      projected.path,
-      preparedMask,
-      projectWorldPoint,
-    );
-    segmentClassifications = classifySegmentsByCoastline(projected.path, preparedMask);
-    classificationSource = "coastline";
   }
 
   return {
     ...serialisableModel,
     classifiedSegments,
     segmentClassifications,
-    classificationSource,
-    landMaskApplied: classificationSource === "coastline",
+    selectionApplied: classifiedSegments !== null,
   };
 }
 

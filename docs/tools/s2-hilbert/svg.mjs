@@ -168,11 +168,11 @@ function renderTraversal(model, markerId, id) {
   </g>`;
   }
 
-  return `<g id="${id("hilbert-water")}">
-    <path class="hilbert-path hilbert-water"${hilbertAttrs("hilbert-path hilbert-water")} d="${buildSegmentPathData(model.classifiedSegments.water)}" />
+  return `<g id="${id("hilbert-unselected")}">
+    <path class="hilbert-path hilbert-unselected"${hilbertAttrs("hilbert-path hilbert-unselected")} d="${buildSegmentPathData(model.classifiedSegments.unselected)}" />
   </g>
-  <g id="${id("hilbert-land")}">
-    <path class="hilbert-path hilbert-land"${hilbertAttrs("hilbert-path hilbert-land")} d="${buildSegmentPathData(model.classifiedSegments.land)}" />
+  <g id="${id("hilbert-selected")}">
+    <path class="hilbert-path hilbert-selected"${hilbertAttrs("hilbert-path hilbert-selected")} d="${buildSegmentPathData(model.classifiedSegments.selected)}" />
   </g>
   <path class="hilbert-direction" fill="none" stroke="none" d="${fullPath}" marker-end="url(#${markerId})" />`;
 }
@@ -328,8 +328,8 @@ ${panel.selectedCells
   // Every panel shows its full detail run. Weight is the only thing that varies:
   // heavy across shaded cells where a selection says so, light everywhere else.
   const detail = panel.detail.classifications
-    ? `      <path class="hilbert-detail hilbert-detail-light"${compositeAttrs("hilbert-detail hilbert-detail-light")} d="${weightedPathData(panel.detail.path, panel.detail.classifications, "water")}" data-s2-level="${panel.detail.level}" />
-      <path class="hilbert-detail hilbert-detail-heavy"${compositeAttrs("hilbert-detail hilbert-detail-heavy")} d="${weightedPathData(panel.detail.path, panel.detail.classifications, "land")}" data-s2-level="${panel.detail.level}" />`
+    ? `      <path class="hilbert-detail hilbert-detail-light"${compositeAttrs("hilbert-detail hilbert-detail-light")} d="${weightedPathData(panel.detail.path, panel.detail.classifications, "unselected")}" data-s2-level="${panel.detail.level}" />
+      <path class="hilbert-detail hilbert-detail-heavy"${compositeAttrs("hilbert-detail hilbert-detail-heavy")} d="${weightedPathData(panel.detail.path, panel.detail.classifications, "selected")}" data-s2-level="${panel.detail.level}" />`
     : `      <path class="hilbert-detail hilbert-detail-light"${compositeAttrs("hilbert-detail hilbert-detail-light")} d="${buildPathData(panel.detail.path)}" data-s2-level="${panel.detail.level}" />`;
 
   // One brown, one weight, everywhere. Only the blue detail run varies.

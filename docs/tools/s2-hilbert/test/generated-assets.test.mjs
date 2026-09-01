@@ -3,14 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  buildOrderedChildrenDocument,
-  buildS2HilbertModel,
   getHilbertTraversal,
   parseCellSelection,
-  renderHilbertSvg,
   unknownSelectionTokens,
 } from "../index.mjs";
-import { DETAILED_RENDER_OPTIONS } from "../generate-assets.mjs";
 
 const GENERATED = new URL("../generated/", import.meta.url);
 const SELECTION = new URL("../selection/", import.meta.url);
@@ -20,26 +16,6 @@ const COARSE_FILES = [
   "808f7-d-l12-coarse.svg",
   "808f7-f-l12-coarse.svg",
 ];
-
-test("the checked-in ordered child data matches a fresh S2 traversal", async () => {
-  const checkedIn = JSON.parse(await readFile(new URL("80858-1-l13.json", GENERATED), "utf8"));
-  const regenerated = buildOrderedChildrenDocument(
-    buildS2HilbertModel({ parent: "808581", targetLevel: 13 }),
-  );
-  assert.deepEqual(checkedIn, regenerated);
-});
-
-test("the detailed SVG contains 64 cells and semantic land and water paths", async () => {
-  const svg = await readFile(new URL("80858-1-l13-detailed.svg", GENERATED), "utf8");
-  assert.equal((svg.match(/class="s2-cell"/g) ?? []).length, 64);
-  assert.match(svg, /id="hilbert-land"/);
-  assert.match(svg, /id="hilbert-water"/);
-  assert.match(svg, /data-target-level="13"/);
-  assert.match(svg, /data-classification-source="selection"/);
-  assert.equal((svg.match(/<polyline class="hilbert-chevron/g) ?? []).length, 63);
-  assert.match(svg, />START</);
-  assert.match(svg, />END</);
-});
 
 test("the committed cell selection covers every L13 child exactly once", async () => {
   const selection = JSON.parse(
@@ -85,7 +61,6 @@ test("every drawn element carries its own fill and stroke attributes", async () 
   // which turns each Hilbert curve into a solid shape. Presentation attributes
   // are what keep these files usable in a design tool.
   const files = [
-    "80858-1-l13-detailed.svg",
     "80858-1-l12-coarse.svg",
     "80858-7-l12-coarse.svg",
     "808f7-d-l12-coarse.svg",
@@ -111,24 +86,4 @@ test("every drawn element carries its own fill and stroke attributes", async () 
       assert.match(element, /fill="none"/, `${filename}: ${element.slice(0, 80)}`);
     }
   }
-});
-
-test("the committed detailed SVG matches the committed selection", async () => {
-  // The structural checks above pass even when the asset is stale, because the
-  // cell count and group names do not change when cells are opted in. This
-  // compares the file against a fresh render, so editing the selection without
-  // regenerating fails here rather than shipping a picture of the old choice.
-  const svg = await readFile(new URL("80858-1-l13-detailed.svg", GENERATED), "utf8");
-  const cellSelection = JSON.parse(
-    await readFile(new URL("80858-1-l13-cells.json", SELECTION), "utf8"),
-  );
-  const model = buildS2HilbertModel({
-    parent: "808581",
-    targetLevel: 13,
-    width: 1200,
-    height: 1200,
-    padding: 52,
-    cellSelection,
-  });
-  assert.equal(svg, renderHilbertSvg(model, DETAILED_RENDER_OPTIONS));
 });

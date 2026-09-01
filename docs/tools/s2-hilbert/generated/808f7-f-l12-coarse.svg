@@ -10,8 +10,8 @@
   .s2-cell { fill: none; stroke: #315a70; stroke-width: 0.8; opacity: 0.42; }
   .s2-parent { fill: none; stroke: #163747; stroke-width: 2; }
   .hilbert-path { fill: none; stroke: #006d77; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-  .hilbert-land { opacity: 1; }
-  .hilbert-water { opacity: 0.3; }
+  .hilbert-selected { opacity: 1; }
+  .hilbert-unselected { opacity: 0.3; }
   .hilbert-unclassified { opacity: 1; }
   .hilbert-chevron { fill: none; stroke: #023e4a; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
   .hilbert-start { fill: #fff; stroke: #1b7f5a; stroke-width: 4; }

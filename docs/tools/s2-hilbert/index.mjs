@@ -17,16 +17,8 @@ export {
   unwrapLongitude,
 } from "./projection.mjs";
 export {
-  classifyTraversalSegments,
-  isGeographicPointOnLand,
-  isWorldPointOnLand,
-  prepareLandMask,
-  splitWorldSegmentByLandMask,
-} from "./land-mask.mjs";
-export {
   classifySegmentsBySelection,
   parseCellSelection,
-  seedCellSelection,
   unknownSelectionTokens,
 } from "./cell-selection.mjs";
 export {

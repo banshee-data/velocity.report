@@ -1,6 +1,6 @@
 # S2 Hilbert SVG generator
 
-This documentation tool turns real S2 cells into editable SVG geometry. It generates the 64-cell traversal used by the infographic, four quieter 16-cell orientation examples, and a compact orientation legend. The production application and its geographic indexing code are not involved.
+This documentation tool turns real S2 cells into editable SVG geometry. It generates a four-cell composite of adjacent L10 parents, four quieter 16-cell orientation examples, and a compact orientation legend. The production application and its geographic indexing code are not involved.
 
 S2 orders cells along a Hilbert space-filling curve. Nearby positions usually receive nearby CellIDs, which makes spatial indexes rather more useful than a bag of unrelated numbers. Every level divides one cell into four children. An L10 parent therefore contains 16 L12 cells and 64 L13 cells.
 
@@ -26,37 +26,34 @@ From the repository root:
 make render-s2-hilbert
 ```
 
-That installs the root documentation dependencies if they are missing, then regenerates every checked-in asset. The underlying scripts are also available directly:
+That installs the root documentation dependencies if they are missing, then regenerates every checked-in asset. `make render-s2-composite` rebuilds just the composite. The underlying scripts are also available directly:
 
 ```bash
 pnpm install
 pnpm run s2-hilbert:assets
+pnpm run s2-hilbert:composite
 ```
 
-The generator writes these files under `generated/`:
+The generator writes exactly three kinds of file under `generated/`:
 
-- `80858-1-l13-detailed.svg`: all 64 L13 descendants of `808581`
-- four `l12-coarse.svg` files: 16 real L12 descendants for each infographic parent
-- `s2-hilbert-orientations.svg`: one actual S2 example for each orientation bit state
 - `s2-l10-quad-composite.svg`: all four L10 parents joined along their real shared edges
-- `80858-1-l13.json`: the exact ordered tokens, decimal CellIDs, and centres
+- four `*-l12-coarse.svg` files: 16 real L12 descendants for each parent
+- `s2-hilbert-orientations.svg`: one actual S2 example for each orientation bit state
 
 The output contains no timestamps, so identical inputs produce byte-for-byte identical files.
 
 ## Run the CLI
 
-Generate a detailed SVG and the ordered child data:
+The CLI renders any parent at any level, independently of the checked-in assets:
 
 ```bash
 npm run s2-hilbert -- \
   --parent 808581 \
   --target-level 13 \
-  --land-mask docs/tools/s2-hilbert/land/sf-shoreline-and-islands.geojson \
+  --cell-selection tools/s2-hilbert/selection/80858-1-l13-cells.json \
   --output /tmp/80858-1-l13.svg \
   --json /tmp/80858-1-l13.json
 ```
-
-Generate a coarse orientation example:
 
 ```bash
 npm run s2-hilbert -- \
@@ -108,9 +105,7 @@ Chevrons follow the same lit/dim styling as the line beneath them, one classific
 
 ## Choosing which cells are lit
 
-The coastline is one way to decide which parts of the traversal are emphasised. A per-cell selection is the other, and it is the one to reach for when the answer is editorial rather than geographic.
-
-A selection is a list of objects, one per L13 cell:
+Which parts of a traversal are emphasised is an editorial decision, and it is made in one place: a per-cell selection listing every L13 cell of the parent.
 
 ```json
 [
@@ -119,33 +114,11 @@ A selection is a list of objects, one per L13 cell:
 ]
 ```
 
-`token` and `enabled` are the load-bearing fields; `index` and `displayToken` are there to make the file readable while editing. A segment is lit when **both** of the cells it joins are enabled, so a run of consecutive opted-in cells lights up as one continuous stretch.
+`token` and `enabled` are the load-bearing fields; `index` and `displayToken` are there to make the file readable while editing. A segment is emphasised when **both** of the cells it joins are enabled, so a run of consecutive opted-in cells reads as one continuous stretch.
 
-The committed selection lives at `selection/80858-1-l13-cells.json` — hand-edited input, not generated output, which is why it sits outside `generated/`. The first run seeds it from the coastline pass and reports how many cells it enabled. Every later run reads it back, so **regeneration never overwrites your edits**. To opt more cells in, flip `enabled` to `true` and run `make render-s2-hilbert` again.
+The committed selection lives at `selection/80858-1-l13-cells.json`. It is hand-maintained input, not generated output, which is why it sits outside `generated/`; nothing overwrites it. To change which cells are emphasised, flip `enabled` and run `make render-s2-hilbert` again.
 
-To seed a fresh selection for a different parent or level:
-
-```bash
-npm run s2-hilbert -- \
-  --parent 808581 \
-  --target-level 13 \
-  --land-mask docs/tools/s2-hilbert/land/sf-shoreline-and-islands.geojson \
-  --seed-selection /tmp/80858-1-l13-cells.json
-```
-
-Then render with it:
-
-```bash
-npm run s2-hilbert -- \
-  --parent 808581 \
-  --target-level 13 \
-  --cell-selection /tmp/80858-1-l13-cells.json \
-  --output /tmp/80858-1-l13.svg
-```
-
-A selection takes precedence over `--land-mask`. A selection naming a cell that is not a descendant of the requested parent is refused rather than quietly ignored. The SVG records which route produced it in `data-classification-source`, which reads `selection`, `coastline`, or `none`.
-
-The rendered group ids stay `hilbert-land` and `hilbert-water` in both modes, so the infographic's styling contract does not change when you switch. In selection mode read them as lit and dim.
+A selection naming a cell that is not a descendant of the requested parent is refused rather than quietly ignored.
 
 ## The four-cell composite
 
@@ -200,23 +173,11 @@ None of this is inferred from what happens to look close together. An earlier ve
 
 ### Changing which tiles are shown
 
-The hero's tiles come from `selection/80858-1-l13-cells.json`, the same file described above. To show more, flip `enabled` to `true` and regenerate:
-
-```bash
-make render-s2-hilbert
-```
-
-The composite reads the file on every run and never rewrites it, so hand-edits are the point rather than a hazard. The seed currently enables 20 of the 64 cells; the generator prints the count each run, and a selection naming a cell that is not an L13 descendant of the panel's own parent is refused rather than silently dropped.
-
-## Land and water remain one journey
-
-The optional land mask accepts GeoJSON `Polygon`, `MultiPolygon`, and collections of either. The tool projects the mask through the same Web Mercator transform as the S2 geometry, finds every coastline intersection along each centre-to-centre segment, and classifies the pieces by polygon containment. Land is drawn at full opacity. Water is drawn at 30 per cent opacity, not removed, so the traversal remains continuous.
-
-The checked-in example mask is a roughly 20-metre simplification of the public-domain [DataSF SF Shoreline and Islands dataset](https://data.sfgov.org/d/rgcx-5tix). It contains San Francisco's mainland and islands, including Treasure Island and Yerba Buena Island. A bridge line is not land merely because people can drive over the water beneath it. Replace the file with a more suitable Polygon or MultiPolygon when another coastline, resolution, or definition of land is required.
+The hero's tiles come from the selection file described above. Flip `enabled` and run `make render-s2-hilbert`; the composite reads the file on every run and never rewrites it, so hand-edits are the point rather than a hazard. The generator prints the enabled count each run.
 
 ## Reuse in a browser
 
-`index.mjs` exports the hierarchy, projection, mask, model, and SVG functions without importing `fs`, streams, argument parsers, or `process`. A future browser explorer can call `buildS2HilbertModel` with a canonical parent and target level, then pass the model to `renderHilbertSvg` or to another renderer. The CLI and batch generator are the only Node-specific layers.
+`index.mjs` exports the hierarchy, projection, selection, model, and SVG functions without importing `fs`, streams, argument parsers, or `process`. A future browser explorer can call `buildS2HilbertModel` with a canonical parent and target level, then pass the model to `renderHilbertSvg` or to another renderer. The CLI and batch generator are the only Node-specific layers.
 
 Web Mercator preserves the familiar web-map appearance, not area or distance. Latitudes are clamped to the projection's normal limit. Longitudes are unwrapped around the selected parent's centre so a local cell does not split at the antimeridian. S2 edges are represented by their four authoritative vertices; at these levels the projected edge curvature between vertices is negligible for the documentation graphic.
 
@@ -230,4 +191,4 @@ make test-s2-hilbert
 
 `make test` includes it. The suite is also available as `pnpm run test:s2-hilbert`.
 
-The suite checks descendant counts, parentage, monotonic Hilbert order, uniqueness, token round-trips, deterministic models and SVG, projection behaviour, all four orientation states, and land-mask clipping. It also checks that Treasure Island is land while a point on the Bay Bridge crossing remains water under the supplied shoreline mask. Geography is data here, as it should be; the Hilbert algorithm has quite enough responsibilities already.
+The suite checks descendant counts, parentage, monotonic Hilbert order, uniqueness, token round-trips, deterministic models and SVG, projection behaviour, all four orientation states, id namespacing, cell selection, and the composite's adjacency and entry/exit links. Which cells are emphasised is data here, as it should be; the Hilbert algorithm has quite enough responsibilities already.

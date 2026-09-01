@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -8,13 +7,9 @@ import {
   classifySegmentsBySelection,
   parseCellSelection,
   renderHilbertSvg,
-  seedCellSelection,
   getHilbertTraversal,
   unknownSelectionTokens,
 } from "../index.mjs";
-
-const LAND_MASK_URL = new URL("../land/sf-shoreline-and-islands.geojson", import.meta.url);
-const loadLandMask = async () => JSON.parse(await readFile(LAND_MASK_URL, "utf8"));
 
 function selectionFor(tokens, enabledTokens) {
   return tokens.map((token) => ({ token, enabled: enabledTokens.includes(token) }));
@@ -70,9 +65,9 @@ test("a selection lights a segment only when both of its cells are enabled", () 
   ];
   const selection = parseCellSelection(selectionFor(["a", "b", "c", "d"], ["a", "b", "d"]));
   assert.deepEqual(classifySegmentsBySelection(path, selection), [
-    "land", // a -> b, both enabled
-    "water", // b -> c, c disabled
-    "water", // c -> d, c disabled
+    "selected", // a -> b, both enabled
+    "unselected", // b -> c, c disabled
+    "unselected", // c -> d, c disabled
   ]);
 });
 
@@ -114,29 +109,6 @@ test("a selection naming foreign cells is refused", () => {
   );
 });
 
-test("the coastline seeds a selection that the model then reproduces", async () => {
-  const landMask = await loadLandMask();
-  const traversal = getHilbertTraversal("808581", 13);
-  const seeded = seedCellSelection(traversal, landMask);
-
-  assert.equal(seeded.length, 64);
-  assert.ok(seeded.some((cell) => cell.enabled), "some cells are land");
-  assert.ok(seeded.some((cell) => !cell.enabled), "some cells are water");
-  for (const cell of seeded) {
-    assert.equal(typeof cell.enabled, "boolean");
-    assert.match(cell.token, /^[0-9a-f]+$/);
-  }
-
-  const model = buildS2HilbertModel({
-    parent: "808581",
-    targetLevel: 13,
-    cellSelection: seeded,
-  });
-  assert.equal(model.classificationSource, "selection");
-  assert.equal(model.landMaskApplied, false);
-  assert.equal(model.segmentClassifications.length, 63);
-});
-
 test("opting a cell in relights the segments that reach it", () => {
   const traversal = getHilbertTraversal("808581", 13);
   const tokens = traversal.cells.map((cell) => cell.token);
@@ -150,32 +122,6 @@ test("opting a cell in relights the segments that reach it", () => {
     targetLevel: 13,
     cellSelection: selectionFor(tokens, [tokens[0], tokens[1], tokens[2]]),
   });
-  assert.equal(before.classifiedSegments.land.length, 1);
-  assert.equal(after.classifiedSegments.land.length, 2);
-});
-
-test("a selection takes precedence over a land mask", async () => {
-  const traversal = getHilbertTraversal("808581", 13);
-  const tokens = traversal.cells.map((cell) => cell.token);
-  const model = buildS2HilbertModel({
-    parent: "808581",
-    targetLevel: 13,
-    landMask: await loadLandMask(),
-    cellSelection: selectionFor(tokens, []),
-  });
-  assert.equal(model.classificationSource, "selection");
-  assert.equal(model.classifiedSegments.land.length, 0);
-});
-
-test("the SVG declares which classification produced it", async () => {
-  const plain = renderHilbertSvg(buildS2HilbertModel({ parent: "808581", targetLevel: 12 }));
-  assert.match(plain, /data-classification-source="none"/);
-  const coastline = renderHilbertSvg(
-    buildS2HilbertModel({
-      parent: "808581",
-      targetLevel: 13,
-      landMask: await loadLandMask(),
-    }),
-  );
-  assert.match(coastline, /data-classification-source="coastline"/);
+  assert.equal(before.classifiedSegments.selected.length, 1);
+  assert.equal(after.classifiedSegments.selected.length, 2);
 });

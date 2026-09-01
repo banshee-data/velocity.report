@@ -1,20 +1,13 @@
-import { isGeographicPointOnLand, prepareLandMask } from "./land-mask.mjs";
-
 /**
- * Per-cell opt-in lists. The coastline pass seeds one; a human then edits it.
- * This is browser-safe: reading and writing the file belongs to the CLI layer.
+ * Per-cell opt-in lists.
+ *
+ * A selection is the only thing that decides which parts of a traversal are
+ * emphasised. It is a hand-maintained list, not a derived one: whichever cells
+ * matter for a given figure are the ones marked enabled.
+ *
+ * Reading and writing the file belongs to the CLI layer, so this stays
+ * browser-safe.
  */
-
-/** Seed a selection from a land mask, enabling every cell whose centre is land. */
-export function seedCellSelection(traversal, geoJson, anchorLng = undefined) {
-  const preparedMask = prepareLandMask(geoJson, anchorLng ?? traversal.parent.centre.lng);
-  return traversal.cells.map((cell) => ({
-    index: cell.index,
-    token: cell.token,
-    displayToken: cell.displayToken,
-    enabled: isGeographicPointOnLand(cell.centre, preparedMask),
-  }));
-}
 
 /**
  * Accept either the plain list form written by the tool or a wrapped object,
@@ -45,14 +38,14 @@ export function parseCellSelection(source) {
 }
 
 /**
- * A segment is lit when both of the cells it joins are enabled, so a run of
- * consecutive opted-in cells lights up as one continuous stretch.
+ * A segment is selected when both of the cells it joins are enabled, so a run
+ * of consecutive opted-in cells reads as one continuous stretch.
  */
 export function classifySegmentsBySelection(path, selection) {
   return path.slice(0, -1).map((from, index) => {
     const to = path[index + 1];
     const enabled = selection.get(from.token) === true && selection.get(to.token) === true;
-    return enabled ? "land" : "water";
+    return enabled ? "selected" : "unselected";
   });
 }
 

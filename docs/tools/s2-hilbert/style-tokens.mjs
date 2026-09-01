@@ -20,8 +20,8 @@ export const HILBERT_TOKENS = {
     "stroke-linecap": "round",
     "stroke-linejoin": "round",
   },
-  "hilbert-land": { opacity: "1" },
-  "hilbert-water": { opacity: "0.3" },
+  "hilbert-selected": { opacity: "1" },
+  "hilbert-unselected": { opacity: "0.3" },
   "hilbert-unclassified": { opacity: "1" },
   "hilbert-chevron": {
     fill: "none",
