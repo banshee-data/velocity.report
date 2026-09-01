@@ -31,11 +31,11 @@ DRY_RUN=""
 [ "${1:-}" = "--dry-run" ] && DRY_RUN="yes"
 
 CAPTURES=(
-  "kirk0.pcapng"
-  "clar0-1.pcapng"
-  "soma0-static-0.pcap"
-  "soma1-static-0-1.pcap"
-  "soma3-static-0-1.pcap"
+  # "kirk0.pcapng"
+  # "clar0-1.pcapng"
+  # "soma0-static-0.pcap"
+  "soma1-static-0.pcap"
+  # "soma3-static-0-1.pcap"
 )
 
 log() { printf '%s %s\n' "$(date '+%Y/%m/%d %H:%M:%S')" "$*"; }
