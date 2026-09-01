@@ -23,7 +23,12 @@ PATH_PREFIX = "/public_html/"
 REQUIRED_FILES = (
     "index.html",
     "guides/setup/index.html",
-    "tool/protractor/index.html",
+    "tools/protractor/index.html",
+    "tool/protractor/index.html",  # compatibility redirect for the pre-/tools/ URL
+    "notes/index.html",
+    "notes/s2-spatial-indexing/index.html",
+    "reference/s2-addressing/index.html",
+    "community/index.html",
 )
 # Root-relative public-site URLs must remain beneath the image mount. The
 # embedded repository docs are intentionally served from their own /docs/ mount.

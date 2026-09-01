@@ -47,11 +47,31 @@ public_html/
 ├── src/                # Source files
 │   ├── _layouts/       # Nunjucks templates
 │   ├── _includes/      # Reusable components
-│   ├── guides/         # Markdown content
+│   ├── guides/         # Task-oriented guides (Setup, Tailscale)
+│   ├── tools/          # Practical browser utilities (Protractor)
+│   ├── notes/          # Field Notes: technical articles
+│   ├── reference/      # Exact technical conventions and profiles
+│   ├── community/      # Community page
 │   └── css/            # Styles with Tailwind
 ├── package.json        # Dependencies and scripts
 └── README.md           # This file
 ```
+
+## Where does a page go?
+
+The site is organised by what a visitor is trying to do, not by content type:
+
+| The page...                           | Goes to                       |
+| ------------------------------------- | ----------------------------- |
+| helps someone accomplish a task       | `guides/` (Setup) or `tools/` |
+| explains something learned or decided | `notes/` (Field Notes)        |
+| defines an exact technical contract   | `reference/`                  |
+| helps someone participate             | `community/`                  |
+| explains the overall project          | the homepage                  |
+
+Primary navigation stays small: Setup, Tools, Field Notes, Community, GitHub. Reference pages are linked contextually from the pages that cite them, not from the navigation bar.
+
+Full rationale, front-matter conventions, and how to move a URL: [docs/ui/docs-site.md](../docs/ui/docs-site.md).
 
 ## Architecture: Markdown + nunjucks pattern
 

@@ -206,7 +206,7 @@
   .site-header .mobile-toggle {
     display: inline-flex;
   }
-  /* Mobile: keep all three actions (Discord, Code, Download) visible but
+  /* Mobile: keep all three actions (Discord, GitHub, Download) visible but
      * drop the text labels so the bar reads as a row of three buttons. */
   .site-header .nav-code .label,
   .site-header .nav-cta .label {

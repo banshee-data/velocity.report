@@ -1,0 +1,27 @@
+{#
+  Client-side redirect for a route that has moved.
+
+  GitHub Pages serves this site statically, so there is no server-side rewrite
+  to lean on. A page using this layout sets `redirectTo` to the new logical
+  URL and gets a meta refresh, a canonical link, and a visible fallback link.
+
+  The meta refresh uses the `url` filter because the offline image build's
+  `prefix-offline-root-urls` transform only rewrites `href` and `src`. The
+  anchor stays plain root-relative so that same transform prefixes it exactly
+  once.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0; url={{ redirectTo | url }}">
+    <title>{{ title }}</title>
+    <meta name="robots" content="noindex, follow">
+    <link rel="canonical" href="{{ site.url }}{{ redirectTo }}">
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+    <p>This page has moved to <a href="{{ redirectTo }}">{{ site.url }}{{ redirectTo }}</a>.</p>
+</body>
+</html>

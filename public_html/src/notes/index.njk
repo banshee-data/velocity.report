@@ -1,0 +1,43 @@
+---
+layout: page.njk
+title: "Field Notes: velocity.report"
+description: "Technical notes from building, measuring, and deploying velocity.report."
+eleventyExcludeFromCollections: true
+---
+
+<div class="max-w-4xl mx-auto">
+  <header class="mb-10">
+    <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-3">Field Notes</h1>
+    <p class="text-xl text-gray-600 dark:text-gray-400">
+      Technical notes from building, measuring, and deploying velocity.report.
+    </p>
+    <p class="mt-4 text-gray-600 dark:text-gray-400">
+      Design decisions, experiments, and the things a street teaches you that a
+      specification does not. Written when there is something worth writing down,
+      which is not the same as weekly.
+    </p>
+  </header>
+
+  <ol class="note-index">
+  {% for note in collections.notes %}
+    <li class="note-index__item">
+      <a href="{{ note.url }}" class="note-index__link">
+        {% if note.data.date %}
+        <p class="note-index__date">
+          <time datetime="{{ note.data.date }}">{{ note.data.date | dateDisplay }}</time>
+        </p>
+        {% endif %}
+        <h2 class="note-index__title">{{ note.data.title }}</h2>
+        {% if note.data.description %}
+        <p class="note-index__description">{{ note.data.description }}</p>
+        {% endif %}
+      </a>
+      {% if note.data.topics %}
+      <p class="note-index__topics">
+        {% for topic in note.data.topics %}<span class="note-index__topic">{{ topic }}</span>{% endfor %}
+      </p>
+      {% endif %}
+    </li>
+  {% endfor %}
+  </ol>
+</div>

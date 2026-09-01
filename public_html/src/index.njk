@@ -199,6 +199,25 @@ og_image: /img/stack.png
             </div>
           </div>
         </div>
+
+        {# Difficulty, time, and cost come from the setup guide's own front
+           matter so this band cannot drift away from the guide it advertises. #}
+        {% set setupGuide = collections.guides | selectattr("url", "equalto", "/guides/setup/") | first %}
+        <div class="start-band" id="start">
+          <div class="start-copy">
+            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Get started</span></div>
+            <h3>Set up. Collect. Analyse.</h3>
+            <p>One guide covers all three. It takes you from a boxed Raspberry Pi to a mounted sensor, a live dashboard, and a report you can hand to somebody who can act on it. Allow an afternoon.</p>
+          </div>
+          <div class="start-actions">
+            <a href="/guides/setup/" class="btn btn-primary">Setup guide &rarr;</a>
+            <a href="{{ release.rpi_image.url }}" class="btn btn-ghost">Download the Pi image</a>
+            {% if setupGuide %}
+            <p class="start-meta">{{ setupGuide.data.difficulty | capitalize }} &middot; {{ setupGuide.data.time }} &middot; around {{ setupGuide.data.cost }} of hardware</p>
+            {% endif %}
+            <p class="start-meta">Also: <a href="/guides/tailscale/">remote access with Tailscale</a> &middot; <a href="/guides/">all guides</a></p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -332,6 +351,57 @@ og_image: /img/stack.png
       </div>
     </section>
 
+    <section id="tools">
+      <div class="wrap">
+        <div class="section-header">
+          <div class="left">
+            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Tools</span></div>
+            <h2>Small utilities for the fiddly parts.</h2>
+          </div>
+          <div class="right">Runs in your browser</div>
+        </div>
+        <div class="tool-grid">
+          <a class="tool-card" href="/tools/protractor/">
+            <div class="tool-card__head">
+              <span class="tool-card__name">Protractor</span>
+              <span class="tool-card__go">Open &rarr;</span>
+            </div>
+            <h3>Measure the cosine error angle from a photo</h3>
+            <p>Take a top-down photo of the mounted sensor, click two points along the kerb and two along the baseplate, and read off the angle the speed correction needs. The photo never leaves your browser.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="notes">
+      <div class="wrap">
+        <div class="section-header">
+          <div class="left">
+            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>From the field</span></div>
+            <h2>Technical notes from building and deploying velocity.report.</h2>
+          </div>
+          <div class="right"><a href="/notes/" class="mono-link">All field notes &rarr;</a></div>
+        </div>
+        {% set latest = collections.notes | first %}
+        {% if latest %}
+        <a class="note-feature" href="{{ latest.url }}">
+          <div class="note-feature__meta">
+            <span class="note-feature__label">Latest</span>
+            {% if latest.data.date %}<span class="note-feature__date">{{ latest.data.date | dateDisplay }}</span>{% endif %}
+          </div>
+          <h3>{{ latest.data.title }}</h3>
+          <p>{{ latest.data.description }}</p>
+          <div class="note-feature__foot">
+            {% if latest.data.topics %}
+            <span class="note-feature__topics">{% for topic in latest.data.topics %}<span class="note-feature__topic">{{ topic }}</span>{% endfor %}</span>
+            {% endif %}
+            <span class="note-feature__go">Read the note &rarr;</span>
+          </div>
+        </a>
+        {% endif %}
+      </div>
+    </section>
+
     <section>
       <div class="wrap">
         <div class="section-header">
@@ -376,6 +446,22 @@ og_image: /img/stack.png
               <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md" class="btn btn-ghost">Open questions →</a>
               <a href="/community/#discord" class="btn btn-ghost">Discord guide →</a>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="community">
+      <div class="wrap">
+        <div class="community-band">
+          <div class="community-copy">
+            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Community</span></div>
+            <h3>Somebody has already had your problem.</h3>
+            <p>Discord is where the awkward setup questions and the blurry photographs of mounting brackets go. GitHub is where bugs, decisions, and design arguments go, so they can still be found a year later.</p>
+          </div>
+          <div class="community-actions">
+            <a href="/community/" class="btn btn-primary">Community &rarr;</a>
+            <a href="/community/#discord" class="btn btn-ghost">Discord guide</a>
           </div>
         </div>
       </div>

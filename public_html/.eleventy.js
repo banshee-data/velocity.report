@@ -200,6 +200,12 @@ module.exports = function (eleventyConfig) {
     return collectionApi.getFilteredByGlob("src/reference/**/*.md");
   });
 
+  // Field Notes, newest first. The index page is .njk so the glob picks up
+  // notes only and never has to filter its own listing page back out.
+  eleventyConfig.addCollection("notes", function (collectionApi) {
+    return collectionApi.getFilteredByGlob("src/notes/**/*.md").reverse();
+  });
+
   // Add a custom filter for reading time estimation
   eleventyConfig.addFilter("readingTime", (content) => {
     const wordsPerMinute = 200;

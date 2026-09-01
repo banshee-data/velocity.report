@@ -18,7 +18,7 @@ layout: page.njk
                 <span class="text-gray-400 dark:text-gray-500">/</span>
             </li>
             <li>
-                <a href="/{{ section }}/" class="hover:text-emerald-600 dark:hover:text-emerald-400 capitalize">{{ section }}</a>
+                <a href="/{{ section }}/" class="hover:text-emerald-600 dark:hover:text-emerald-400 capitalize">{{ sectionTitle or section }}</a>
             </li>
             <li>
                 <span class="text-gray-400 dark:text-gray-500">/</span>
@@ -38,7 +38,7 @@ layout: page.njk
             <p class="text-xl text-gray-600 dark:text-gray-400 mb-4">{{ description }}</p>
             {% endif %}
 
-            {% if date or readingTime %}
+            {% if date or version %}
             <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                 {% if date %}
                 <div class="flex items-center space-x-2">
@@ -55,6 +55,15 @@ layout: page.njk
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <span>{{ content | readingTime }} min read</span>
+                </div>
+                {% endif %}
+
+                {% if version %}
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Version {{ version }}</span>
                 </div>
                 {% endif %}
             </div>

@@ -906,3 +906,122 @@ details.toc[open] > summary::after {
     flex-basis: 100%;
   }
 }
+
+/* =========================================================================
+ * Information-architecture components
+ *
+ * Shared by the /tools/ and /notes/ namespaces. These pages use page.njk
+ * (Tailwind) rather than the homepage's standalone stylesheet, so their
+ * chrome lives here.
+ * ========================================================================= */
+
+@layer components {
+  /* Context strip above a tool, naming the family it belongs to */
+  .tool-intro {
+    @apply mb-6;
+  }
+
+  .tool-intro__eyebrow {
+    @apply font-mono text-xs font-semibold uppercase tracking-widest text-emerald-600;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .tool-intro__eyebrow {
+      @apply text-emerald-400;
+    }
+  }
+
+  .tool-intro__lead {
+    @apply mt-2 max-w-2xl text-gray-600;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .tool-intro__lead {
+      @apply text-gray-400;
+    }
+  }
+
+  /* Field Notes index — a list, not a card grid, so one entry still reads
+     as a deliberate page rather than a mostly empty shelf. */
+  .note-index {
+    @apply list-none m-0 p-0;
+  }
+
+  .note-index__item {
+    @apply py-8;
+    border-top: 1px solid transparent;
+    background: var(--gb-hr) border-box;
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+    background-position: top left;
+  }
+
+  .note-index__link {
+    @apply block no-underline;
+  }
+
+  .note-index__date {
+    @apply font-mono text-xs uppercase tracking-widest text-gray-500;
+  }
+
+  .note-index__title {
+    @apply mt-2 text-2xl font-bold text-gray-900;
+  }
+
+  .note-index__link:hover .note-index__title {
+    @apply text-emerald-700;
+  }
+
+  .note-index__description {
+    @apply mt-2 max-w-3xl text-gray-600;
+  }
+
+  .note-index__topics {
+    @apply mt-3 flex flex-wrap gap-2;
+  }
+
+  .note-index__topic {
+    @apply rounded-full border border-gray-200 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-gray-500;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .note-index__date,
+    .note-index__topic {
+      @apply text-gray-400;
+    }
+
+    .note-index__title {
+      @apply text-gray-100;
+    }
+
+    .note-index__link:hover .note-index__title {
+      @apply text-emerald-400;
+    }
+
+    .note-index__description {
+      @apply text-gray-400;
+    }
+
+    .note-index__topic {
+      @apply border-gray-700;
+    }
+  }
+}
+
+/* Wide figures opt out of the prose image height cap: an infographic that is
+   unreadable at 28rem tall is not doing its job. Unlayered so it beats the
+   unlayered `.prose img` rule above. */
+.prose .figure-wide {
+  margin: 2rem 0;
+}
+
+.prose .figure-wide img {
+  max-height: none;
+  width: 100%;
+}
+
+.prose .figure-wide figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
