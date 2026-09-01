@@ -156,6 +156,9 @@ help:
 	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
+	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
+	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
+	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  version-exact        Update version across codebase (VER=0.5.1 [TARGETS=...])"
@@ -1217,7 +1220,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert coverage loc-coverage-chart
 
 # Per-file Go coverage floor enforced by test-go-coverage-gate.
 COVERAGE_THRESHOLD ?= 82
@@ -1226,7 +1229,7 @@ COVERAGE_TAGS ?= pcap
 MAC_DIR = tools/visualiser-macos
 
 # Aggregate test target: every maintained unit-test suite in the repository.
-test: test-go test-python test-web test-docs-offline test-mac
+test: test-go test-python test-web test-docs-offline test-mac test-s2-hilbert
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -1851,6 +1854,33 @@ render-overlays:
 	@echo "✓ Overlays written"
 
 render: render-diagrams render-overlays
+
+# S2 Hilbert-curve documentation assets. Node tooling under tools/, kept
+# out of the production Go and web builds; see tools/s2-hilbert/README.md.
+S2_HILBERT_DIR = tools/s2-hilbert
+
+.PHONY: install-s2-hilbert render-s2-hilbert render-s2-composite test-s2-hilbert
+
+install-s2-hilbert:
+	@if [ ! -d node_modules/s2js ]; then \
+		echo "Installing root documentation tooling dependencies (pnpm)..."; \
+		pnpm install; \
+	fi
+
+render-s2-hilbert: install-s2-hilbert
+	@echo "Generating S2 Hilbert SVG assets..."
+	@pnpm run --silent s2-hilbert:assets
+	@echo "Generating the four-cell L10 composite..."
+	@pnpm run --silent s2-hilbert:composite
+	@echo "✓ Assets written to $(S2_HILBERT_DIR)/generated/"
+
+render-s2-composite: install-s2-hilbert
+	@echo "Generating the four-cell L10 composite..."
+	@pnpm run --silent s2-hilbert:composite
+
+test-s2-hilbert: install-s2-hilbert
+	@echo "Running S2 Hilbert generator tests..."
+	@pnpm run --silent test:s2-hilbert
 
 # =============================================================================
 # UTILITIES
