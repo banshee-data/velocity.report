@@ -64,8 +64,8 @@ Add the following flags to [internal/lidar/lidarbench/lidarbench.go](../../inter
 ### GPS geo-referencing (optional: additive only)
 
 ```
---wgs84-origin          Manual precise WGS84 origin for geo-referencing
---gps-heading           Sensor heading in degrees clockwise from true north (default: 0.0)
+--wgs84-origin          Manual precise WGS84 origin for geo-referencing (lat,lon[,elevation_msl] in decimal degrees/metres)
+--gps-heading           Sensor heading in degrees clockwise from true north (required unless derived from NMEA course-over-ground)
 --gps-from-pcap         Extract the WGS84 fix from PCAP packets (default: false)
 --s2-dataset-merge      Merge settled tiles into the Tier 2 S2 dataset (default: false)
 --s2-dataset-root       Root of the canonical L10/L13 partition tree (default: "")
@@ -196,8 +196,8 @@ One header row followed by one row per tile. Columns:
 | -------------------- | -------- | ------------------------------------------ |
 | `tile_x`             | 10       | Grid column                                |
 | `tile_y`             | 5        | Grid row                                   |
-| `s2_l13_token`       | 80858004 | Canonical fine geographic partition        |
-| `s2_l10_token`       | 808581   | Canonical parent derived with `Parent(10)` |
+| `s2_l13_token`       | "80858004" | Canonical fine geographic partition (hex string; treat as text)        |
+| `s2_l10_token`       | "808581"   | Canonical parent derived with `Parent(10)` (hex string; treat as text) |
 | `plane_a`            | 0.02     | Normal x                                   |
 | `plane_b`            | −0.01    | Normal y                                   |
 | `plane_c`            | 0.9998   | Normal z                                   |
@@ -355,7 +355,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 
 **Testing**: Export format validation, regression testing (existing exports unchanged)
 
-### Phase 3: GPS geo-referencing, S2 partitioning, and geoJSON export
+### Phase 3: GPS geo-referencing, S2 partitioning, and GeoJSON export
 
 **Goal**: Add GPS coordinate transformation, canonical geographic partitioning, and primary export format
 
@@ -456,7 +456,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - [ ] Integration test passes with 3 different PCAP files
 - [ ] Export files written to correct output directory structure
 
-### Phase 3: GPS, S2, and geoJSON
+### Phase 3: GPS, S2, and GeoJSON
 
 - [ ] GPS fallback chain works: PCAP → manual → local coordinates
 - [ ] GeoJSON validates against RFC 7946 schema (use `geojsonlint`)

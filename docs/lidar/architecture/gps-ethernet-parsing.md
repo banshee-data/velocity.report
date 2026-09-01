@@ -566,7 +566,7 @@ rounding coordinates or manipulating token strings.
 
 - Consistent with privacy-first design (no cameras, no licence plates)
 - Local-only storage (SQLite database)
-- No external transmission of S2 or WGS84 location data
+- No external transmission of S2 or WGS84 location data by default (remote map/prior fetches are explicit opt-in)
 
 ### Local-Only storage
 
@@ -574,7 +574,7 @@ rounding coordinates or manipulating token strings.
 
 - Canonical S2 identities and any necessary WGS84 acquisition values are stored in the local SQLite database
 - PCAP files remain on Raspberry Pi (`/var/lib/velocity-report/`)
-- No cloud synchronisation or external transmission
+- No cloud synchronisation; external transmission only when explicitly enabled (for example, remote priors or map lookups)
 
 **User Control:**
 
