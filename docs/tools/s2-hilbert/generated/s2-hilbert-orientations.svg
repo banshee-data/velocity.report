@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="300" viewBox="0 0 1040 300" role="img" aria-labelledby="legend-title legend-description">
+  <title id="legend-title">S2 Hilbert orientation states</title>
+  <desc id="legend-description">Four actual S2 level 10 cells whose level 12 descendants demonstrate the canonical, swapped, inverted, and swapped plus inverted orientation states.</desc>
+  <defs>
+    <marker id="legend-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d1495b" />
+    </marker>
+    <style>
+  .legend-panel { fill: #f8fbfc; stroke: #c7d7de; stroke-width: 1; }
+  .legend-parent { fill: none; stroke: #315a70; stroke-width: 1.5; }
+  .legend-path { fill: none; stroke: #006d77; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+  .legend-chevron { fill: none; stroke: #023e4a; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .legend-start { fill: #fff; stroke: #1b7f5a; stroke-width: 3; }
+  .legend-start-core { fill: #1b7f5a; stroke: none; }
+  .legend-end { fill: #d1495b; stroke: #fff; stroke-width: 1.5; }
+  .legend-title { fill: #163747; font-family: system-ui, sans-serif; font-size: 16; font-weight: 600; text-anchor: middle; }
+</style>
+  </defs>
+  <g id="orientation-0" transform="translate(0 0)" data-orientation="0" data-s2-token="808587">
+    <rect class="legend-panel" fill="#f8fbfc" stroke="#c7d7de" stroke-width="1" x="8" y="8" width="244" height="284" rx="8" />
+    <text class="legend-title" fill="#163747" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle" x="130" y="36">canonical</text>
+    <g transform="translate(35 58)">
+      <polygon class="legend-parent" fill="none" stroke="#315a70" stroke-width="1.5" points="38.636043,57.028402 38.636043,177 151.363957,133.047039 151.363957,13" />
+      <path class="legend-path" fill="none" stroke="#006d77" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M 52.721675,66.517537 L 52.721675,96.512626 L 80.897538,85.507116 L 80.897538,55.507311 L 109.079523,44.502561 L 137.26762,33.503294 L 137.26762,63.512521 L 109.079523,74.507078 L 109.079523,104.511775 L 137.26762,93.521929 L 137.26762,123.531513 L 109.079523,134.516645 L 80.897538,145.50725 L 80.897538,115.507098 L 52.721675,126.507889 L 52.721675,156.503321" marker-end="url(#legend-arrow)" />
+      <g class="legend-chevrons">
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="47.681675,78.015082 52.721675,85.015082 57.761675,78.015082" data-from-index="0" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="65.383187,96.977863 70.069734,89.736463 61.715772,87.588695" data-from-index="1" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="85.937538,74.007214 80.897538,67.007214 75.857538,74.007214" data-from-index="2" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="93.561532,55.972789 98.248782,48.731844 89.895027,46.583266" data-from-index="3" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="121.745126,44.970435 126.434131,37.730626 118.080897,35.580023" data-from-index="4" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="132.22762,45.007907 137.26762,52.007907 142.30762,45.007907" data-from-index="5" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="124.602882,63.042499 119.912827,70.281628 128.265749,72.433442" data-from-index="6" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="104.039523,86.009426 109.079523,93.009426 114.119523,86.009426" data-from-index="7" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="121.743395,104.983944 126.4345,97.745496 118.081891,95.592471" data-from-index="8" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="132.22762,105.026721 137.26762,112.026721 142.30762,105.026721" data-from-index="9" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="124.604614,123.057194 119.912458,130.294962 128.264755,132.4492" data-from-index="10" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="96.418129,134.044716 91.727725,141.283619 100.080543,143.435836" data-from-index="11" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="85.937538,134.007174 80.897538,127.007174 75.857538,134.007174" data-from-index="12" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="68.236894,115.039709 63.549294,122.280428 71.902945,124.429409" data-from-index="13" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="47.681675,138.005605 52.721675,145.005605 57.761675,138.005605" data-from-index="14" />
+      </g>
+      <circle class="legend-start" fill="#fff" stroke="#1b7f5a" stroke-width="3" cx="52.721675" cy="66.517537" r="7" />
+      <circle class="legend-start-core" fill="#1b7f5a" stroke="none" cx="52.721675" cy="66.517537" r="2.5" />
+      <circle class="legend-end" fill="#d1495b" stroke="#fff" stroke-width="1.5" cx="52.721675" cy="156.503321" r="5" />
+    </g>
+  </g>
+  <g id="orientation-1" transform="translate(260 0)" data-orientation="1" data-s2-token="808f7f">
+    <rect class="legend-panel" fill="#f8fbfc" stroke="#c7d7de" stroke-width="1" x="8" y="8" width="244" height="284" rx="8" />
+    <text class="legend-title" fill="#163747" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle" x="130" y="36">swapped</text>
+    <g transform="translate(35 58)">
+      <polygon class="legend-parent" fill="none" stroke="#315a70" stroke-width="1.5" points="38.557999,56.88795 38.557999,177 151.442001,133.187479 151.442001,13" />
+      <path class="legend-path" fill="none" stroke="#006d77" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M 52.663176,66.412185 L 80.878099,55.437047 L 80.878099,85.471974 L 52.663176,96.442398 L 52.663176,126.472773 L 52.663176,156.503307 L 80.878099,145.542322 L 80.878099,115.507068 L 109.099105,104.546856 L 109.099105,134.586827 L 137.326186,123.636831 L 137.326186,93.592147 L 137.326186,63.547628 L 109.099105,74.507048 L 109.099105,44.467409 L 137.326186,33.50328" marker-end="url(#legend-arrow)" />
+      <g class="legend-chevrons">
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="65.33584,66.890599 70.032549,59.655786 61.68161,57.496292" data-from-index="0" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="75.838099,66.954511 80.878099,73.954511 85.918099,66.954511" data-from-index="1" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="68.2063,84.991411 63.508541,92.225542 71.859167,94.386248" data-from-index="2" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="47.623176,107.957586 52.663176,114.957586 57.703176,107.957586" data-from-index="3" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="47.623176,137.98804 52.663176,144.98804 57.703176,137.98804" data-from-index="4" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="65.33324,156.988172 70.033102,149.755406 61.683104,147.592274" data-from-index="5" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="85.918099,134.024695 80.878099,127.024695 75.838099,134.024695" data-from-index="6" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="93.550629,115.99218 98.251189,108.759869 89.901401,106.59593" data-from-index="7" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="104.059105,116.066841 109.099105,123.066841 114.139105,116.066841" data-from-index="8" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="121.772363,135.07649 126.475723,127.845999 118.126773,125.678827" data-from-index="9" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="142.366186,112.114489 137.326186,105.114489 132.286186,112.114489" data-from-index="10" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="142.366186,82.069887 137.326186,75.069887 132.286186,82.069887" data-from-index="11" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="124.651197,63.062259 119.949936,70.294115 128.299514,72.458864" data-from-index="12" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="114.139105,62.987229 109.099105,55.987229 104.059105,62.987229" data-from-index="13" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="121.774959,44.950632 126.475172,37.718095 118.12528,35.554556" data-from-index="14" />
+      </g>
+      <circle class="legend-start" fill="#fff" stroke="#1b7f5a" stroke-width="3" cx="52.663176" cy="66.412185" r="7" />
+      <circle class="legend-start-core" fill="#1b7f5a" stroke="none" cx="52.663176" cy="66.412185" r="2.5" />
+      <circle class="legend-end" fill="#d1495b" stroke="#fff" stroke-width="1.5" cx="137.326186" cy="33.50328" r="5" />
+    </g>
+  </g>
+  <g id="orientation-2" transform="translate(520 0)" data-orientation="2" data-s2-token="808581">
+    <rect class="legend-panel" fill="#f8fbfc" stroke="#c7d7de" stroke-width="1" x="8" y="8" width="244" height="284" rx="8" />
+    <text class="legend-title" fill="#163747" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle" x="130" y="36">inverted</text>
+    <g transform="translate(35 58)">
+      <polygon class="legend-parent" fill="none" stroke="#315a70" stroke-width="1.5" points="38.582958,56.943781 38.582958,177 151.417042,133.131457 151.417042,13" />
+      <path class="legend-path" fill="none" stroke="#006d77" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M 137.307469,123.594784 L 137.307469,93.564079 L 109.092871,104.532765 L 109.092871,134.558769 L 80.884343,145.528264 L 52.681897,156.503259 L 52.681897,126.486668 L 80.884343,115.506965 L 80.884343,85.485847 L 52.681897,96.470256 L 52.681897,66.454028 L 80.884343,55.464916 L 109.092871,44.481314 L 109.092871,74.506945 L 137.307469,63.53356 L 137.307469,33.503232" marker-end="url(#legend-arrow)" />
+      <g class="legend-chevrons">
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="142.347469,112.079432 137.307469,105.079432 132.267469,112.079432" data-from-index="0" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="124.636129,93.082718 119.938011,100.316617 128.288529,102.477737" data-from-index="1" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="104.052871,116.045767 109.092871,123.045767 114.132871,116.045767" data-from-index="2" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="96.423984,134.077672 91.726572,141.312029 100.077301,143.472334" data-from-index="3" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="68.217052,145.04957 63.521392,152.285064 71.872645,154.443347" data-from-index="4" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="57.721897,144.994964 52.681897,137.994964 47.641897,144.994964" data-from-index="5" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="65.350054,126.963216 70.044664,119.727041 61.693099,117.569969" data-from-index="6" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="85.924343,103.996406 80.884343,96.996406 75.844343,103.996406" data-from-index="7" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="68.215322,85.011445 63.52176,92.2483 71.873638,94.404162" data-from-index="8" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="57.721897,84.962142 52.681897,77.962142 47.641897,84.962142" data-from-index="9" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="65.351782,66.926286 70.044296,59.688751 61.692106,57.534099" data-from-index="10" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="93.555821,55.939582 98.250091,48.703185 89.898424,46.546507" data-from-index="11" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="104.052871,55.994129 109.092871,62.994129 114.132871,55.994129" data-from-index="12" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="121.765074,74.986164 126.462146,67.751586 118.111315,65.591674" data-from-index="13" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="142.347469,52.018396 137.307469,45.018396 132.267469,52.018396" data-from-index="14" />
+      </g>
+      <circle class="legend-start" fill="#fff" stroke="#1b7f5a" stroke-width="3" cx="137.307469" cy="123.594784" r="7" />
+      <circle class="legend-start-core" fill="#1b7f5a" stroke="none" cx="137.307469" cy="123.594784" r="2.5" />
+      <circle class="legend-end" fill="#d1495b" stroke="#fff" stroke-width="1.5" cx="137.307469" cy="33.503232" r="5" />
+    </g>
+  </g>
+  <g id="orientation-3" transform="translate(780 0)" data-orientation="3" data-s2-token="808585">
+    <rect class="legend-panel" fill="#f8fbfc" stroke="#c7d7de" stroke-width="1" x="8" y="8" width="244" height="284" rx="8" />
+    <text class="legend-title" fill="#163747" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle" x="130" y="36">swapped + inverted</text>
+    <g transform="translate(35 58)">
+      <polygon class="legend-parent" fill="none" stroke="#315a70" stroke-width="1.5" points="38.660912,57.084225 38.660912,177 151.339088,132.991024 151.339088,13" />
+      <path class="legend-path" fill="none" stroke="#006d77" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M 137.24897,123.489473 L 109.073311,134.488591 L 109.073311,104.497686 L 137.24897,93.493865 L 137.24897,63.498455 L 137.24897,33.503246 L 109.073311,44.516464 L 109.073311,74.506975 L 80.90376,85.520987 L 80.90376,55.535176 L 52.74033,66.559374 L 52.74033,96.540481 L 52.74033,126.521782 L 80.90376,115.506995 L 80.90376,145.493194 L 52.74033,156.503273" marker-end="url(#legend-arrow)" />
+      <g class="legend-chevrons">
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="124.588721,123.021318 119.900766,130.261806 128.254311,132.411198" data-from-index="0" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="114.113311,122.993139 109.073311,115.993139 104.033311,122.993139" data-from-index="1" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="121.734425,104.963697 126.421331,97.722529 118.067475,95.574347" data-from-index="2" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="142.28897,81.99616 137.24897,74.99616 132.20897,81.99616" data-from-index="3" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="142.28897,52.00085 137.24897,45.00085 132.20897,52.00085" data-from-index="4" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="124.58613,33.041521 119.901318,40.284045 128.255796,42.429809" data-from-index="5" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="104.033311,56.01172 109.073311,63.01172 114.113311,56.01172" data-from-index="6" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="96.41294,74.045508 91.728838,81.28849 100.083526,83.433436" data-from-index="7" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="85.94376,74.028082 80.90376,67.028082 75.86376,74.028082" data-from-index="8" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="68.244137,55.078251 63.562842,62.323047 71.918359,64.464757" data-from-index="9" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="47.70033,78.049928 52.74033,85.049928 57.78033,78.049928" data-from-index="10" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="47.70033,108.031132 52.74033,115.031132 57.78033,108.031132" data-from-index="11" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="65.398223,126.983001 70.081618,119.739561 61.726721,117.59543" data-from-index="12" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="75.86376,127.000094 80.90376,134.000094 85.94376,127.000094" data-from-index="13" />
+        <polyline class="legend-chevron" fill="none" stroke="#023e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="68.246733,145.029828 63.562287,152.272588 71.916873,154.417931" data-from-index="14" />
+      </g>
+      <circle class="legend-start" fill="#fff" stroke="#1b7f5a" stroke-width="3" cx="137.24897" cy="123.489473" r="7" />
+      <circle class="legend-start-core" fill="#1b7f5a" stroke="none" cx="137.24897" cy="123.489473" r="2.5" />
+      <circle class="legend-end" fill="#d1495b" stroke="#fff" stroke-width="1.5" cx="52.74033" cy="156.503273" r="5" />
+    </g>
+  </g>
+</svg>
