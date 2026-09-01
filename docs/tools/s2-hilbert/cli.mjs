@@ -7,8 +7,10 @@ import { pathToFileURL } from "node:url";
 import {
   buildOrderedChildrenDocument,
   buildS2HilbertModel,
+  getHilbertTraversal,
   parseCliToken,
   renderHilbertSvg,
+  seedCellSelection,
 } from "./index.mjs";
 
 const HELP = `Usage:
@@ -22,6 +24,8 @@ Output:
   --output FILE           Write SVG to FILE; otherwise print it to stdout
   --json FILE             Write the ordered child data to FILE
   --land-mask FILE        Optional Polygon or MultiPolygon GeoJSON land mask
+  --cell-selection FILE   Per-cell opt-in list; overrides --land-mask for styling
+  --seed-selection FILE   Write a selection seeded from --land-mask, then exit
   --print-ids             Print the ordered child table to stdout
 
 Geometry and presentation:
@@ -81,6 +85,8 @@ export function parseArguments(arguments_) {
     else if (argument === "--output") options.output = value;
     else if (argument === "--json") options.json = value;
     else if (argument === "--land-mask") options.landMask = value;
+    else if (argument === "--cell-selection") options.cellSelection = value;
+    else if (argument === "--seed-selection") options.seedSelection = value;
     else if (argument === "--title") options.title = value;
     else if (argument === "--view-box") {
       options.viewBox = value
@@ -123,6 +129,27 @@ export async function main(arguments_ = process.argv.slice(2)) {
   const landMask = options.landMask
     ? JSON.parse(await readFile(path.resolve(options.landMask), "utf8"))
     : undefined;
+
+  if (options.seedSelection) {
+    if (!landMask) throw new Error("--seed-selection needs a --land-mask to seed from.");
+    const seeded = seedCellSelection(
+      getHilbertTraversal(options.parent, options.targetLevel),
+      landMask,
+    );
+    const seedPath = await writeTextFile(
+      options.seedSelection,
+      `${JSON.stringify(seeded, null, 2)}\n`,
+    );
+    const enabled = seeded.filter((cell) => cell.enabled).length;
+    process.stderr.write(
+      `Seeded ${enabled}/${seeded.length} enabled cells to ${seedPath}\n`,
+    );
+    return;
+  }
+
+  const cellSelection = options.cellSelection
+    ? JSON.parse(await readFile(path.resolve(options.cellSelection), "utf8"))
+    : undefined;
   const model = buildS2HilbertModel({
     parent: options.parent,
     targetLevel: options.targetLevel,
@@ -131,6 +158,7 @@ export async function main(arguments_ = process.argv.slice(2)) {
     padding: options.padding,
     viewBox: options.viewBox,
     landMask,
+    cellSelection,
   });
   const svg = renderHilbertSvg(model, {
     showCells: options.showCells,

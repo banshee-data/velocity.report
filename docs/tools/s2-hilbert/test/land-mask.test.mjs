@@ -42,6 +42,28 @@ test("a segment crossing a polygon is retained as water, land, water", () => {
   assert.deepEqual(pieces[1].end, pieces[2].start);
 });
 
+test("the closing position of a ring does not make the whole plane land", () => {
+  // A GeoJSON ring repeats its first position, so every ring carries one
+  // zero-length edge. If the boundary test treats that edge as containing any
+  // point, every query returns the same answer and land/water classification
+  // silently collapses.
+  const mask = prepareLandMask({
+    type: "Polygon",
+    coordinates: [
+      [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+        [-1, -1],
+      ],
+    ],
+  });
+  assert.equal(isGeographicPointOnLand({ lat: 0, lng: 0 }, mask), true);
+  assert.equal(isGeographicPointOnLand({ lat: 0, lng: 40 }, mask), false);
+  assert.equal(isGeographicPointOnLand({ lat: 60, lng: -120 }, mask), false);
+});
+
 test("polygon holes remain water", () => {
   const mask = prepareLandMask({
     type: "Polygon",

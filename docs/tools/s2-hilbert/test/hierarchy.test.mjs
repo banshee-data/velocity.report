@@ -100,6 +100,40 @@ test("the four authoritative orientation bit states use actual S2 parents", () =
   }
 });
 
+test("the four infographic parents cover three of the four orientation states", () => {
+  // Verified against s2js Cell.orientation, cellid.faceIJOrientation, and the
+  // geometry of the 16 L12 centres on a 4x4 grid. 808581 and 808f7d are both
+  // orientation 2 and traverse identically, so the reference set cannot
+  // demonstrate all four states and the legend borrows 808585 for the fourth.
+  const parents = ["808581", "808587", "808f7d", "808f7f"];
+  const orientations = parents.map(
+    (token) => s2.Cell.fromCellID(parseCanonicalToken(token)).orientation,
+  );
+  assert.deepEqual(orientations, [2, 0, 2, 1]);
+  assert.equal(new Set(orientations).size, 3);
+  assert.ok(!orientations.includes(3), "swap+invert is absent from the reference set");
+
+  // Same orientation must mean the same traversal, step for step. The grid has
+  // to be read in S2's own face coordinates: cells are sheared with respect to
+  // latitude and longitude, so lat/lng does not give a 4x4 lattice.
+  const signature = (token) => {
+    const centres = getDescendantIds(token, 12).map((cellId) => {
+      const { si, ti } = s2.cellid.faceSiTi(cellId);
+      return [Number(si), Number(ti)];
+    });
+    const columns = [...new Set(centres.map((c) => c[0]))].sort((a, b) => a - b);
+    const rows = [...new Set(centres.map((c) => c[1]))].sort((a, b) => a - b);
+    assert.equal(columns.length, 4, `${token} spans a 4-column grid`);
+    assert.equal(rows.length, 4, `${token} spans a 4-row grid`);
+    return centres
+      .map(([si, ti]) => `${columns.indexOf(si)}${rows.indexOf(ti)}`)
+      .join(" ");
+  };
+  assert.equal(signature("808581"), signature("808f7d"));
+  assert.notEqual(signature("808581"), signature("808587"));
+  assert.notEqual(signature("808587"), signature("808f7f"));
+});
+
 test("the ordered child document uses canonical tokens and geographic centres", () => {
   const document = buildOrderedChildrenDocument(
     buildS2HilbertModel({ parent: PARENT_TOKEN, targetLevel: 13 }),

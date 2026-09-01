@@ -46,16 +46,27 @@ export function prepareLandMask(geoJson, anchorLng = 0) {
 }
 
 function pointOnSegment(point, start, end) {
-  const cross =
-    (point.y - start.y) * (end.x - start.x) -
-    (point.x - start.x) * (end.y - start.y);
-  if (Math.abs(cross) > INTERSECTION_EPSILON) return false;
-  const dot =
-    (point.x - start.x) * (end.x - start.x) +
-    (point.y - start.y) * (end.y - start.y);
-  if (dot < -INTERSECTION_EPSILON) return false;
-  const lengthSquared = (end.x - start.x) ** 2 + (end.y - start.y) ** 2;
-  return dot <= lengthSquared + INTERSECTION_EPSILON;
+  const edgeX = end.x - start.x;
+  const edgeY = end.y - start.y;
+  const lengthSquared = edgeX ** 2 + edgeY ** 2;
+  // A closed GeoJSON ring repeats its first position, so every ring ends with a
+  // zero-length edge. That edge satisfies the collinearity and projection tests
+  // below for any point whatsoever, which would make pointInRing answer "on the
+  // boundary" for the entire plane.
+  if (lengthSquared === 0) return false;
+
+  // Scale the tolerances by the edge length so INTERSECTION_EPSILON stays a
+  // distance in Web Mercator world units rather than an area. Simplified
+  // shorelines have very short edges, and an absolute area test would treat
+  // distant points as collinear with them.
+  const edgeLength = Math.sqrt(lengthSquared);
+  const cross = (point.y - start.y) * edgeX - (point.x - start.x) * edgeY;
+  if (Math.abs(cross) > INTERSECTION_EPSILON * edgeLength) return false;
+  const dot = (point.x - start.x) * edgeX + (point.y - start.y) * edgeY;
+  return (
+    dot >= -INTERSECTION_EPSILON * edgeLength &&
+    dot <= lengthSquared + INTERSECTION_EPSILON * edgeLength
+  );
 }
 
 function pointInRing(point, ring) {

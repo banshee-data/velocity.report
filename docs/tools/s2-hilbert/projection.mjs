@@ -104,38 +104,44 @@ function projectGeographicPoint(point, anchorLng) {
   };
 }
 
-/** Project a geographic S2 traversal into one fitted SVG geometry model. */
-export function projectTraversal(traversal, options = {}) {
-  const anchorLng = traversal.parent.centre.lng;
-  const parentWorld = traversal.parent.vertices.map((point) =>
-    projectGeographicPoint(point, anchorLng),
-  );
-  const cellsWorld = traversal.cells.map((cell) => ({
-    ...cell,
-    centre: projectGeographicPoint(cell.centre, anchorLng),
-    vertices: cell.vertices.map((point) => projectGeographicPoint(point, anchorLng)),
-  }));
-  const allPoints = [
+/** Move a traversal into Web Mercator world coordinates, before any fitting. */
+function traversalToWorld(traversal, anchorLng) {
+  return {
+    parentWorld: traversal.parent.vertices.map((point) =>
+      projectGeographicPoint(point, anchorLng),
+    ),
+    parentCentreWorld: projectGeographicPoint(traversal.parent.centre, anchorLng),
+    cellsWorld: traversal.cells.map((cell) => ({
+      ...cell,
+      centre: projectGeographicPoint(cell.centre, anchorLng),
+      vertices: cell.vertices.map((point) => projectGeographicPoint(point, anchorLng)),
+    })),
+  };
+}
+
+function worldPoints({ parentWorld, cellsWorld }) {
+  return [
     ...parentWorld.map((point) => point.world),
     ...cellsWorld.flatMap((cell) => [
       cell.centre.world,
       ...cell.vertices.map((point) => point.world),
     ]),
   ];
-  const fit = createSvgFit(allPoints, options);
+}
+
+function applyFit(traversal, world, fit, anchorLng) {
   const fitPoint = (point) => ({ ...point, ...fit.project(point.world) });
-  const cells = cellsWorld.map((cell) => ({
+  const cells = world.cellsWorld.map((cell) => ({
     ...cell,
     centre: fitPoint(cell.centre),
     vertices: cell.vertices.map(fitPoint),
   }));
-
   return {
     ...traversal,
     parent: {
       ...traversal.parent,
-      centre: fitPoint(projectGeographicPoint(traversal.parent.centre, anchorLng)),
-      vertices: parentWorld.map(fitPoint),
+      centre: fitPoint(world.parentCentreWorld),
+      vertices: world.parentWorld.map(fitPoint),
     },
     cells,
     path: cells.map((cell) => ({
@@ -159,4 +165,30 @@ export function projectTraversal(traversal, options = {}) {
     },
     projectWorldPoint: fit.project,
   };
+}
+
+/**
+ * Project several traversals through ONE shared fit, so adjacent S2 cells keep
+ * their true relative positions and join along their real shared edges.
+ */
+export function projectTraversals(traversals, options = {}) {
+  if (traversals.length === 0) throw new Error("Cannot project an empty traversal list.");
+  const anchorLng = traversals[0].parent.centre.lng;
+  const worlds = traversals.map((traversal) => traversalToWorld(traversal, anchorLng));
+  const fit = createSvgFit(worlds.flatMap(worldPoints), options);
+  return {
+    fit,
+    anchorLng,
+    traversals: traversals.map((traversal, index) =>
+      applyFit(traversal, worlds[index], fit, anchorLng),
+    ),
+  };
+}
+
+/** Project a geographic S2 traversal into one fitted SVG geometry model. */
+export function projectTraversal(traversal, options = {}) {
+  const anchorLng = traversal.parent.centre.lng;
+  const world = traversalToWorld(traversal, anchorLng);
+  const fit = createSvgFit(worldPoints(world), options);
+  return applyFit(traversal, world, fit, anchorLng);
 }

@@ -12,6 +12,7 @@ export {
   WEB_MERCATOR_MAX_LATITUDE,
   createSvgFit,
   projectTraversal,
+  projectTraversals,
   projectWebMercator,
   unwrapLongitude,
 } from "./projection.mjs";
@@ -22,10 +23,25 @@ export {
   prepareLandMask,
   splitWorldSegmentByLandMask,
 } from "./land-mask.mjs";
+export {
+  classifySegmentsBySelection,
+  parseCellSelection,
+  seedCellSelection,
+  unknownSelectionTokens,
+} from "./cell-selection.mjs";
+export {
+  ORIENTATION_NAMES,
+  buildS2CompositeModel,
+  compositeAdjacency,
+  orientationName,
+} from "./composite.mjs";
 export { buildOrderedChildrenDocument, buildS2HilbertModel } from "./model.mjs";
 export {
   DEFAULT_STYLES,
+  buildChevrons,
   buildPathData,
+  cellSlantDegrees,
+  renderCompositeSvg,
   renderHilbertSvg,
   renderOrientationLegendSvg,
 } from "./svg.mjs";

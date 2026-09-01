@@ -6,7 +6,8 @@
   "scripts": {
     "s2-hilbert": "node docs/tools/s2-hilbert/cli.mjs",
     "s2-hilbert:assets": "node docs/tools/s2-hilbert/generate-assets.mjs",
-    "test:s2-hilbert": "node --test docs/tools/s2-hilbert/test/*.test.mjs"
+    "test:s2-hilbert": "node --test docs/tools/s2-hilbert/test/*.test.mjs",
+    "s2-hilbert:composite": "node docs/tools/s2-hilbert/generate-composite.mjs"
   },
   "devDependencies": {
     "prettier": "3.8.3",
