@@ -1855,9 +1855,9 @@ render-overlays:
 
 render: render-diagrams render-overlays
 
-# S2 Hilbert-curve documentation assets. Node tooling under docs/tools/, kept
-# out of the production Go and web builds; see docs/tools/s2-hilbert/README.md.
-S2_HILBERT_DIR = docs/tools/s2-hilbert
+# S2 Hilbert-curve documentation assets. Node tooling under tools/, kept
+# out of the production Go and web builds; see tools/s2-hilbert/README.md.
+S2_HILBERT_DIR = tools/s2-hilbert
 
 .PHONY: install-s2-hilbert render-s2-hilbert render-s2-composite test-s2-hilbert
 

@@ -4,10 +4,10 @@
   "private": true,
   "packageManager": "pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c",
   "scripts": {
-    "s2-hilbert": "node docs/tools/s2-hilbert/cli.mjs",
-    "s2-hilbert:assets": "node docs/tools/s2-hilbert/generate-assets.mjs",
-    "test:s2-hilbert": "node --test docs/tools/s2-hilbert/test/*.test.mjs",
-    "s2-hilbert:composite": "node docs/tools/s2-hilbert/generate-composite.mjs"
+    "s2-hilbert": "node tools/s2-hilbert/cli.mjs",
+    "s2-hilbert:assets": "node tools/s2-hilbert/generate-assets.mjs",
+    "test:s2-hilbert": "node --test tools/s2-hilbert/test/*.test.mjs",
+    "s2-hilbert:composite": "node tools/s2-hilbert/generate-composite.mjs"
   },
   "devDependencies": {
     "prettier": "3.8.3",
