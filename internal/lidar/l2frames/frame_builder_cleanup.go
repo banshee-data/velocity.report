@@ -17,12 +17,20 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 	for {
 		select {
 		case frame := <-fb.frameCh:
+			if frame != nil && frame.callbackBarrier != nil {
+				close(frame.callbackBarrier)
+				continue
+			}
 			fb.frameCallback(frame)
 		case <-fb.closeCh:
 			// Drain remaining frames so no sends block.
 			for {
 				select {
 				case frame := <-fb.frameCh:
+					if frame != nil && frame.callbackBarrier != nil {
+						close(frame.callbackBarrier)
+						continue
+					}
 					fb.frameCallback(frame)
 				default:
 					return
@@ -32,20 +40,56 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 	}
 }
 
-// Close shuts down the frame callback worker and waits for it to drain.
-// Must be called when the FrameBuilder is no longer needed to avoid
-// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
-func (fb *FrameBuilder) Close() {
+// WaitForCallbacks blocks until every frame queued before this call has
+// completed its callback. PCAP replay uses this between passes so resetting the
+// grid cannot race trailing warm-up frames still in the callback queue.
+func (fb *FrameBuilder) WaitForCallbacks() {
+	if fb == nil {
+		return
+	}
+
 	fb.mu.Lock()
-	if fb.closed {
+	if fb.closed || fb.frameCh == nil {
 		fb.mu.Unlock()
 		return
 	}
-	// Flush the final partial rotation and every buffered completed rotation
-	// before closing closeCh. Offline PCAP readers commonly finish before the
-	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
-	// appear to contain no data at all. Map iteration is unordered, so finish
-	// frames oldest-first to preserve capture ordering for callback consumers.
+	frameCh := fb.frameCh
+	closeCh := fb.closeCh
+	fb.mu.Unlock()
+
+	done := make(chan struct{})
+	barrier := &LiDARFrame{callbackBarrier: done}
+	select {
+	case frameCh <- barrier:
+	case <-closeCh:
+		return
+	}
+	select {
+	case <-done:
+	case <-closeCh:
+	}
+}
+
+// FlushPendingFrames finalises the current partial rotation and buffered
+// completed rotations without closing the builder. It is used at PCAP EOF so
+// a reusable runtime builder can finish one pass before starting the next.
+func (fb *FrameBuilder) FlushPendingFrames() {
+	if fb == nil {
+		return
+	}
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	if fb.closed {
+		return
+	}
+	for _, frame := range fb.takePendingFramesLocked() {
+		fb.finalizeFrame(frame, "flush")
+	}
+}
+
+// takePendingFramesLocked removes and returns pending frames in capture order.
+// Caller must hold fb.mu.
+func (fb *FrameBuilder) takePendingFramesLocked() []*LiDARFrame {
 	frames := make([]*LiDARFrame, 0, len(fb.frameBuffer)+1)
 	if fb.currentFrame != nil {
 		if fb.currentFrame.PointCount >= fb.minFramePoints {
@@ -64,6 +108,24 @@ func (fb *FrameBuilder) Close() {
 	sort.Slice(frames, func(i, j int) bool {
 		return frames[i].StartTimestamp.Before(frames[j].StartTimestamp)
 	})
+	return frames
+}
+
+// Close shuts down the frame callback worker and waits for it to drain.
+// Must be called when the FrameBuilder is no longer needed to avoid
+// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
+func (fb *FrameBuilder) Close() {
+	fb.mu.Lock()
+	if fb.closed {
+		fb.mu.Unlock()
+		return
+	}
+	// Flush the final partial rotation and every buffered completed rotation
+	// before closing closeCh. Offline PCAP readers commonly finish before the
+	// wall-clock cleanup timer fires; dropping these frames makes a fast replay
+	// appear to contain no data at all. Map iteration is unordered, so finish
+	// frames oldest-first to preserve capture ordering for callback consumers.
+	frames := fb.takePendingFramesLocked()
 	for _, frame := range frames {
 		fb.finalizeFrame(frame, "close")
 	}
@@ -79,6 +141,9 @@ func (fb *FrameBuilder) Close() {
 	if fb.frameCh != nil {
 		<-fb.frameDone
 	}
+	// A burst that ended inside the reporting interval would otherwise go
+	// unreported entirely.
+	fb.FlushDroppedFrameReport()
 }
 
 // DroppedFrames returns the number of frames dropped due to a full
@@ -313,10 +378,27 @@ func (fb *FrameBuilder) cleanupFrames() {
 		}
 	}
 
-	// Finalize old frames
+	// Finalize old frames, oldest first.
+	//
+	// frameIDsToFinalize comes from ranging over a map, so it arrives in
+	// whatever order Go felt like. This is the path every live frame takes —
+	// completed rotations wait here for the buffer timeout and a tick usually
+	// releases two or three together — so an unsorted batch hands the tracking
+	// pipeline rotations out of capture order. The Kalman filters and the
+	// track timestamps both assume time moves forward. Close already sorts for
+	// exactly this reason; see takePendingFramesLocked.
+	batch := make([]*LiDARFrame, 0, len(frameIDsToFinalize))
 	for _, frameID := range frameIDsToFinalize {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
+		if frame != nil {
+			batch = append(batch, frame)
+		}
+	}
+	sort.Slice(batch, func(i, j int) bool {
+		return batch[i].StartTimestamp.Before(batch[j].StartTimestamp)
+	})
+	for _, frame := range batch {
 		fb.finalizeFrame(frame, "buffer_timeout")
 	}
 
@@ -459,10 +541,69 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 				// This handles back-pressure when the tracking pipeline cannot
 				// keep up with frame arrival rate.
 				count := fb.droppedFrames.Add(1)
-				opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
+				fb.reportDroppedFrame(frame.FrameID, count)
 			}
 		}
 	}
+}
+
+// dropReportInterval is how often a burst of dropped frames is summarised.
+const dropReportInterval = 5 * time.Second
+
+// reportDroppedFrame records a dropped frame and emits at most one line per
+// dropReportInterval.
+//
+// Drops are bursty by nature: the pipeline stalls, the queue fills, and every
+// frame arriving behind it is lost until the backlog clears. Logging each one
+// individually reports the same event dozens of times — and buries the far more
+// useful facts, which are how many were lost and over what span.
+func (fb *FrameBuilder) reportDroppedFrame(frameID string, total uint64) {
+	now := time.Now()
+
+	fb.dropReportMu.Lock()
+	if fb.dropReportCount == 0 {
+		fb.dropReportStart = now
+		fb.dropReportFirst = frameID
+	}
+	fb.dropReportCount++
+	fb.dropReportLast = frameID
+
+	if now.Sub(fb.dropReportStart) < dropReportInterval {
+		fb.dropReportMu.Unlock()
+		return
+	}
+
+	count := fb.dropReportCount
+	first := fb.dropReportFirst
+	last := fb.dropReportLast
+	elapsed := now.Sub(fb.dropReportStart)
+	fb.dropReportCount = 0
+	fb.dropReportFirst = ""
+	fb.dropReportLast = ""
+	fb.dropReportMu.Unlock()
+
+	opsf("[FrameBuilder] Dropped %d frames in %.1fs (%s..%s): callback queue full, the tracking pipeline is not keeping up (total dropped: %d)",
+		count, elapsed.Seconds(), first, last, total)
+}
+
+// FlushDroppedFrameReport emits any pending drop summary. Called on shutdown so
+// a burst that ends inside the reporting interval is still reported.
+func (fb *FrameBuilder) FlushDroppedFrameReport() {
+	fb.dropReportMu.Lock()
+	count := fb.dropReportCount
+	first := fb.dropReportFirst
+	last := fb.dropReportLast
+	elapsed := time.Since(fb.dropReportStart)
+	fb.dropReportCount = 0
+	fb.dropReportFirst = ""
+	fb.dropReportLast = ""
+	fb.dropReportMu.Unlock()
+
+	if count == 0 {
+		return
+	}
+	opsf("[FrameBuilder] Dropped %d frames in %.1fs (%s..%s): callback queue full, the tracking pipeline is not keeping up (total dropped: %d)",
+		count, elapsed.Seconds(), first, last, fb.droppedFrames.Load())
 }
 
 // RequestExportNextFrameASC schedules export of the next completed frame to ASC format.

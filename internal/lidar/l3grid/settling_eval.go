@@ -1,7 +1,9 @@
 package l3grid
 
 import (
+	"fmt"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -76,7 +78,16 @@ func (bm *BackgroundManager) EvaluateSettling(frameNumber int) SettlingMetrics {
 	g := bm.Grid
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.evaluateSettlingLocked(frameNumber)
+}
 
+// evaluateSettlingLocked is EvaluateSettling's body, for callers that already
+// hold the grid lock. ProcessFramePolar decides settling completion while
+// holding it, so it cannot go back through the exported form.
+//
+// The caller must hold g.mu for writing: this updates the delta-tracking state
+// that makes SpreadDeltaRate and RegionStability frame-over-frame measures.
+func (g *BackgroundGrid) evaluateSettlingLocked(frameNumber int) SettlingMetrics {
 	total := len(g.Cells)
 	if total == 0 {
 		return SettlingMetrics{FrameNumber: frameNumber, EvaluatedAt: time.Now()}
@@ -146,4 +157,152 @@ func (bm *BackgroundManager) EvaluateSettling(frameNumber int) SettlingMetrics {
 		EvaluatedAt:     time.Now(),
 		FrameNumber:     frameNumber,
 	}
+}
+
+// defaultSettlingCheckInterval is how many frames apart convergence is
+// evaluated when the caller does not choose. Evaluation walks every cell, so it
+// is deliberately not run per frame; at ten frames a second this is about once
+// a second, which is fine resolution for a decision measured in seconds.
+const defaultSettlingCheckInterval = 10
+
+// settlingConvergedLocked reports whether the grid has met its convergence
+// criteria, evaluating at most once per SettlingCheckInterval frames.
+//
+// The caller must hold g.mu for writing. Returns false when no thresholds are
+// configured, which leaves settling on the frame-count-and-duration rule alone.
+func (g *BackgroundGrid) settlingConvergedLocked() bool {
+	thresholds, ok := g.settlingThresholdsLocked()
+	if !ok {
+		return false
+	}
+
+	interval := g.Params.SettlingCheckInterval
+	if interval <= 0 {
+		interval = defaultSettlingCheckInterval
+	}
+
+	g.settlingCheckCounter++
+	if g.settlingCheckCounter < interval {
+		return false
+	}
+	g.settlingCheckCounter = 0
+
+	metrics := g.evaluateSettlingLocked(0)
+	converged := metrics.IsConverged(thresholds)
+
+	// Report the measurement, not just the verdict. "Still settling" with no
+	// numbers gives an operator nothing to act on, and the criteria are only
+	// worth having if it is visible which one is holding completion up.
+	if !converged {
+		diagf("[BackgroundManager] Settling not converged for sensor=%s: %s",
+			g.SensorID, unmetCriteria(metrics, thresholds))
+	}
+	return converged
+}
+
+// unmetCriteria names the thresholds a measurement has not reached, with the
+// values, so the log says which one to look at rather than that something is
+// unmet.
+func unmetCriteria(m SettlingMetrics, t SettlingThresholds) string {
+	var unmet []string
+	if m.CoverageRate < t.MinCoverage {
+		unmet = append(unmet, fmt.Sprintf("coverage %.3f < %.3f", m.CoverageRate, t.MinCoverage))
+	}
+	if m.SpreadDeltaRate > t.MaxSpreadDelta {
+		unmet = append(unmet, fmt.Sprintf("spread_delta %.6f > %.6f", m.SpreadDeltaRate, t.MaxSpreadDelta))
+	}
+	if m.RegionStability < t.MinRegionStability {
+		unmet = append(unmet, fmt.Sprintf("region_stability %.3f < %.3f", m.RegionStability, t.MinRegionStability))
+	}
+	if m.MeanConfidence < t.MinConfidence {
+		unmet = append(unmet, fmt.Sprintf("mean_confidence %.1f < %.1f", m.MeanConfidence, t.MinConfidence))
+	}
+	if len(unmet) == 0 {
+		return "all criteria met"
+	}
+	return strings.Join(unmet, ", ")
+}
+
+// settlingThresholdsLocked builds the convergence criteria from the grid's
+// parameters, reporting false when they are not configured.
+//
+// All four must be set. A partially configured set would let a grid settle on
+// whichever dimensions happened to be filled in, which is a worse guarantee
+// than the duration it would be replacing.
+func (g *BackgroundGrid) settlingThresholdsLocked() (SettlingThresholds, bool) {
+	p := g.Params
+	if p.SettlingMinCoverage <= 0 || p.SettlingMaxSpreadDelta <= 0 ||
+		p.SettlingMinRegionStability <= 0 || p.SettlingMinConfidence <= 0 {
+		return SettlingThresholds{}, false
+	}
+	return SettlingThresholds{
+		MinCoverage:        float64(p.SettlingMinCoverage),
+		MaxSpreadDelta:     float64(p.SettlingMaxSpreadDelta),
+		MinRegionStability: float64(p.SettlingMinRegionStability),
+		MinConfidence:      float64(p.SettlingMinConfidence),
+	}, true
+}
+
+// settlingCompleteLocked decides whether warm-up is over, and reports why.
+//
+// Both the background update and the foreground extraction path make this
+// decision every frame, and they used to make it with two copies of the same
+// logic. They drifted: convergence was added to one, and the live pipeline runs
+// the other, so a feature that measurably worked was never reached. One
+// function now serves both.
+//
+// The caller must hold g.mu for writing.
+func (bm *BackgroundManager) settlingCompleteLocked(nowNanos int64) bool {
+	g := bm.Grid
+	elapsed := time.Duration(nowNanos - bm.StartTime.UnixNano())
+
+	framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
+	durReady := g.Params.WarmupDurationNanos <= 0 ||
+		int64(elapsed) >= g.Params.WarmupDurationNanos
+
+	// Announce the plan once. Whether convergence is armed decides if the
+	// duration is a ceiling or the whole wait, and an unarmed grid otherwise
+	// just takes the full duration with nothing to say why.
+	if !g.settlingAnnounced {
+		g.settlingAnnounced = true
+		if thresholds, armed := g.settlingThresholdsLocked(); armed {
+			diagf("[BackgroundManager] Settling started for sensor=%s: %d frames minimum, %v ceiling, convergence armed (%+v)",
+				g.SensorID, g.Params.WarmupMinFrames,
+				time.Duration(g.Params.WarmupDurationNanos), thresholds)
+		} else {
+			diagf("[BackgroundManager] Settling started for sensor=%s: %d frames minimum, %v fixed wait, convergence NOT armed (coverage=%v spread=%v region=%v confidence=%v)",
+				g.SensorID, g.Params.WarmupMinFrames,
+				time.Duration(g.Params.WarmupDurationNanos),
+				g.Params.SettlingMinCoverage, g.Params.SettlingMaxSpreadDelta,
+				g.Params.SettlingMinRegionStability, g.Params.SettlingMinConfidence)
+		}
+	}
+
+	// Report progress towards the frame minimum. Convergence is not consulted
+	// until it is met, so a grid still counting frames accounts for a wait that
+	// no convergence log would explain.
+	if !framesReady && g.Params.WarmupMinFrames > 0 && g.WarmupFramesRemaining%25 == 0 {
+		diagf("[BackgroundManager] Settling for sensor=%s: %d of %d warm-up frames remaining, %v of %v elapsed",
+			g.SensorID, g.WarmupFramesRemaining, g.Params.WarmupMinFrames,
+			elapsed.Round(time.Second), time.Duration(g.Params.WarmupDurationNanos))
+	}
+
+	if framesReady && durReady {
+		diagf("[BackgroundManager] Settling complete for sensor=%s after %v (frame minimum and duration both met)",
+			g.SensorID, elapsed.Round(time.Millisecond))
+		return true
+	}
+
+	// A grid that has demonstrably converged need not wait out the rest of the
+	// warm-up. The duration is a ceiling for scenes that never converge, not a
+	// toll every scene pays. The frame minimum still applies: convergence
+	// measured over too few frames is not evidence of anything.
+	if framesReady && !durReady && g.settlingConvergedLocked() {
+		diagf("[BackgroundManager] Settling complete for sensor=%s after %v on convergence (ceiling was %v)",
+			g.SensorID, elapsed.Round(time.Millisecond),
+			time.Duration(g.Params.WarmupDurationNanos))
+		return true
+	}
+
+	return false
 }

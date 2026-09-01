@@ -15,14 +15,11 @@ func TestMockDataSourceManager_StartLiveListener(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if !mgr.IsLiveStarted() {
-		t.Error("Expected live listener to be started")
-	}
-	if mgr.CurrentSource() != DataSourceLive {
-		t.Errorf("Expected source DataSourceLive, got %s", mgr.CurrentSource())
-	}
 	if mgr.StartLiveCalls != 1 {
 		t.Errorf("Expected 1 StartLiveCalls, got %d", mgr.StartLiveCalls)
+	}
+	if !mgr.IsLiveStarted() {
+		t.Error("Expected live listener started")
 	}
 	if mgr.LastLiveCtx != ctx {
 		t.Error("Expected context to be recorded")
@@ -94,9 +91,6 @@ func TestMockDataSourceManager_StartPCAPReplay(t *testing.T) {
 	if !mgr.IsPCAPInProgress() {
 		t.Error("Expected PCAP replay to be in progress")
 	}
-	if mgr.CurrentSource() != DataSourcePCAP {
-		t.Errorf("Expected source DataSourcePCAP, got %s", mgr.CurrentSource())
-	}
 	if mgr.CurrentPCAPFile() != "/path/to/test.pcap" {
 		t.Errorf("Expected PCAP file '/path/to/test.pcap', got '%s'", mgr.CurrentPCAPFile())
 	}
@@ -127,8 +121,8 @@ func TestMockDataSourceManager_StartPCAPReplay_AnalysisMode(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	if mgr.CurrentSource() != DataSourcePCAPAnalysis {
-		t.Errorf("Expected source DataSourcePCAPAnalysis, got %s", mgr.CurrentSource())
+	if !mgr.GetLastPCAPConfig().AnalysisMode {
+		t.Error("Expected the analysis-mode config to be recorded")
 	}
 }
 
@@ -162,9 +156,6 @@ func TestMockDataSourceManager_StopPCAPReplay(t *testing.T) {
 	}
 	if mgr.CurrentPCAPFile() != "" {
 		t.Errorf("Expected empty PCAP file, got '%s'", mgr.CurrentPCAPFile())
-	}
-	if mgr.CurrentSource() != DataSourceLive {
-		t.Errorf("Expected source to reset to DataSourceLive, got %s", mgr.CurrentSource())
 	}
 	if mgr.StopPCAPCalls != 1 {
 		t.Errorf("Expected 1 StopPCAPCalls, got %d", mgr.StopPCAPCalls)
@@ -204,9 +195,7 @@ func TestMockDataSourceManager_Reset(t *testing.T) {
 	if mgr.IsPCAPInProgress() {
 		t.Error("Expected PCAP not in progress after reset")
 	}
-	if mgr.CurrentSource() != DataSourceLive {
-		t.Errorf("Expected source DataSourceLive, got %s", mgr.CurrentSource())
-	}
+
 	if mgr.StartLiveCalls != 0 {
 		t.Errorf("Expected 0 StartLiveCalls, got %d", mgr.StartLiveCalls)
 	}
@@ -224,16 +213,6 @@ func TestMockDataSourceManager_Reset(t *testing.T) {
 	}
 	if mgr.StopLiveError != nil {
 		t.Error("Expected nil StopLiveError after reset")
-	}
-}
-
-func TestMockDataSourceManager_SetSource(t *testing.T) {
-	mgr := NewMockDataSourceManager()
-
-	mgr.SetSource(DataSourcePCAPAnalysis)
-
-	if mgr.CurrentSource() != DataSourcePCAPAnalysis {
-		t.Errorf("Expected source DataSourcePCAPAnalysis, got %s", mgr.CurrentSource())
 	}
 }
 
@@ -338,9 +317,6 @@ func TestRealDataSourceManager_StartLiveListener(t *testing.T) {
 	if ops.StartLiveCalls != 1 {
 		t.Errorf("Expected 1 StartLiveCalls, got %d", ops.StartLiveCalls)
 	}
-	if mgr.CurrentSource() != DataSourceLive {
-		t.Errorf("Expected source DataSourceLive, got %s", mgr.CurrentSource())
-	}
 
 	// Starting again should be a no-op
 	err = mgr.StartLiveListener(context.Background())
@@ -412,15 +388,6 @@ func TestRealDataSourceManager_StartPCAPReplay(t *testing.T) {
 	if ops.LastPCAPFile != "/path/to/test.pcap" {
 		t.Errorf("Expected PCAP file '/path/to/test.pcap', got '%s'", ops.LastPCAPFile)
 	}
-	if mgr.CurrentSource() != DataSourcePCAP {
-		t.Errorf("Expected source DataSourcePCAP, got %s", mgr.CurrentSource())
-	}
-	if !mgr.IsPCAPInProgress() {
-		t.Error("Expected PCAP in progress")
-	}
-	if mgr.CurrentPCAPFile() != "/path/to/test.pcap" {
-		t.Errorf("Expected CurrentPCAPFile '/path/to/test.pcap', got '%s'", mgr.CurrentPCAPFile())
-	}
 }
 
 func TestRealDataSourceManager_StartPCAPReplay_AnalysisMode(t *testing.T) {
@@ -435,8 +402,8 @@ func TestRealDataSourceManager_StartPCAPReplay_AnalysisMode(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if mgr.CurrentSource() != DataSourcePCAPAnalysis {
-		t.Errorf("Expected source DataSourcePCAPAnalysis, got %s", mgr.CurrentSource())
+	if !ops.LastPCAPConfig.AnalysisMode {
+		t.Error("Expected the analysis-mode config to reach the server operations")
 	}
 }
 
@@ -468,38 +435,6 @@ func TestRealDataSourceManager_StopPCAPReplay(t *testing.T) {
 	}
 	if ops.StopPCAPCalls != 1 {
 		t.Errorf("Expected 1 StopPCAPCalls, got %d", ops.StopPCAPCalls)
-	}
-	if mgr.IsPCAPInProgress() {
-		t.Error("Expected PCAP not in progress")
-	}
-	if mgr.CurrentPCAPFile() != "" {
-		t.Errorf("Expected empty CurrentPCAPFile, got '%s'", mgr.CurrentPCAPFile())
-	}
-	if mgr.CurrentSource() != DataSourceLive {
-		t.Errorf("Expected source DataSourceLive, got %s", mgr.CurrentSource())
-	}
-}
-
-func TestRealDataSourceManager_SetSource(t *testing.T) {
-	ops := &MockServerOps{}
-	mgr := NewRealDataSourceManager(ops)
-
-	mgr.SetSource(DataSourcePCAPAnalysis)
-	if mgr.CurrentSource() != DataSourcePCAPAnalysis {
-		t.Errorf("Expected source DataSourcePCAPAnalysis, got %s", mgr.CurrentSource())
-	}
-}
-
-func TestRealDataSourceManager_SetPCAPState(t *testing.T) {
-	ops := &MockServerOps{}
-	mgr := NewRealDataSourceManager(ops)
-
-	mgr.SetPCAPState(true, "manual.pcap")
-	if !mgr.IsPCAPInProgress() {
-		t.Error("Expected PCAP in progress")
-	}
-	if mgr.CurrentPCAPFile() != "manual.pcap" {
-		t.Errorf("Expected CurrentPCAPFile 'manual.pcap', got '%s'", mgr.CurrentPCAPFile())
 	}
 }
 

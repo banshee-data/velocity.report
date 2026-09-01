@@ -367,7 +367,7 @@ struct StringTruncatedTests {
 
     func testRunBrowserViewWithActiveReplay() throws {
         let state = AppState()
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.currentRunID = "run-replay-active"
         host(RunBrowserView(), state: state)
     }
@@ -400,8 +400,7 @@ struct StringTruncatedTests {
     func testSeekableReplayMode() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.isPaused = false
         state.playbackRate = 2.0
         state.totalFrames = 1000
@@ -415,8 +414,7 @@ struct StringTruncatedTests {
     func testSeekablePausedMode() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
-        state.isSeekable = true
+        state.setPlaybackMode(.replaySeekable)
         state.isPaused = true
         state.playbackRate = 1.0
         state.totalFrames = 500
@@ -427,7 +425,7 @@ struct StringTruncatedTests {
     func testNonSeekableReplayWithFrameIndexProgress() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.isPaused = false
         state.totalFrames = 1000
@@ -438,7 +436,7 @@ struct StringTruncatedTests {
     func testNonSeekableReplayNoMetadata() throws {
         let state = AppState()
         state.isConnected = true
-        state.isLive = false
+        state.setPlaybackMode(.replayNonSeekable)
         state.isSeekable = false
         state.totalFrames = 0
         state.currentFrameIndex = 0

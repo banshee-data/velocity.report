@@ -305,6 +305,70 @@ func (bm *BackgroundManager) GridStatus() map[string]interface{} {
 	}
 }
 
+// SettlingStatus describes how far the background grid is through settling.
+//
+// Until it completes there is no usable background, so foreground extraction
+// yields nothing and the visualiser shows an empty scene. That looks
+// indistinguishable from a broken sensor, which is why the progress is
+// reported rather than left to be inferred from an empty screen.
+type SettlingStatus struct {
+	Complete bool
+	// Elapsed is how long the grid has been settling. Reported alongside the
+	// fraction because a percentage of an unknown total tells an operator
+	// nothing about how long they are waiting.
+	Elapsed time.Duration
+	// Progress runs 0..1. Settling needs both a minimum frame count and a
+	// minimum duration, so this is whichever of the two is furthest from being
+	// satisfied — the one still holding completion up.
+	Progress float64
+}
+
+// SettlingStatus reports the grid's settling progress. Safe to call
+// concurrently with ProcessFramePolar.
+func (bm *BackgroundManager) SettlingStatus() SettlingStatus {
+	if bm == nil || bm.Grid == nil {
+		return SettlingStatus{}
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	elapsed := time.Duration(0)
+	if !bm.StartTime.IsZero() {
+		elapsed = time.Since(bm.StartTime)
+	}
+
+	if g.SettlingComplete {
+		return SettlingStatus{Complete: true, Progress: 1, Elapsed: elapsed}
+	}
+
+	// Nothing has been processed yet: StartTime is only set on the first frame,
+	// and WarmupFramesRemaining is still at its zero value, which means
+	// "uninitialised" rather than "no frames left to wait for". Reading it as
+	// the latter reported a grid that had not seen a single frame as fully
+	// settled.
+	if bm.StartTime.IsZero() {
+		return SettlingStatus{}
+	}
+
+	progress := 1.0
+	if g.Params.WarmupMinFrames > 0 {
+		done := g.Params.WarmupMinFrames - g.WarmupFramesRemaining
+		progress = math.Min(progress, float64(done)/float64(g.Params.WarmupMinFrames))
+	}
+	if g.Params.WarmupDurationNanos > 0 {
+		elapsed := time.Since(bm.StartTime).Nanoseconds()
+		progress = math.Min(progress, float64(elapsed)/float64(g.Params.WarmupDurationNanos))
+	}
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 1 {
+		progress = 1
+	}
+	return SettlingStatus{Progress: progress, Elapsed: elapsed}
+}
+
 // IsSettlingComplete returns whether the background grid has completed settling.
 // It acquires a read lock internally so it is safe to call concurrently with
 // ProcessFramePolar.
@@ -635,9 +699,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		effectiveAlpha = postSettleAlpha
 	}
 	if !g.SettlingComplete {
-		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
-		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
-		if framesReady && durReady {
+		if bm.settlingCompleteLocked(nowNanos) {
 			g.SettlingComplete = true
 			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
 				effectiveAlpha = postSettleAlpha

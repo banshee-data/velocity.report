@@ -842,3 +842,5 @@ func (m *testBackgroundManager) GenerateBackgroundSnapshot() (interface{}, error
 func (m *testBackgroundManager) GetBackgroundSequenceNumber() uint64 {
 	return 1
 }
+
+func (m *testBackgroundManager) IsSettlingComplete() bool { return false }

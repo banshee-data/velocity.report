@@ -94,11 +94,11 @@ Each chunk file contains a sequence of length-prefixed serialised frames.
 ### Frame encoding
 
 ```
-┌──────────────┬────────────────────────────────┐
-│ uint32 LE    │ Frame data                     │
-│ (4 bytes)    │ (variable length)              │
-│ = byte count │ = JSON-serialised FrameBundle  │
-└──────────────┴────────────────────────────────┘
+┌──────────────┬────────────────────────────────────┐
+│ uint32 LE    │ Frame data                         │
+│ (4 bytes)    │ (variable length)                  │
+│ = byte count │ = protobuf-serialised FrameBundle  │
+└──────────────┴────────────────────────────────────┘
 ```
 
 Frames are concatenated sequentially within the chunk with no padding or
@@ -106,13 +106,19 @@ delimiters beyond the length prefix.
 
 ### Serialisation format
 
-**Current (v0.5):** JSON-serialised `FrameBundle` (Go `encoding/json`).
+**Written:** protobuf-serialised `FrameBundle`, per the
+[protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto). The
+recorder has no other mode: `frameSerializer` is bound to the protobuf
+serialiser in [`recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go),
+and the `.pb` chunk extension describes what is actually inside.
 
-> **Note:** The TODO in the source code indicates a future migration to
-> Protocol Buffers for the on-disk frame encoding. The `.pb` file extension
-> is forward-looking; the current format is JSON. See the
-> [protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto)
-> for the target wire format.
+**Read:** protobuf, or JSON for recordings made before the protobuf migration
+(#381). `detectFrameEncoding` probes protobuf first and falls back to Go
+`encoding/json`, so a legacy log still replays without conversion.
+
+> **Note:** JSON is a read-only compatibility path for existing recordings, not
+> a format anything still produces. It is retained because those recordings
+> remain useful; nothing new is written in it.
 
 ### Chunk rotation policy
 

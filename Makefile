@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre30
+VERSION := 0.5.1-pre31
 
 # =============================================================================
 # HELP TARGET (default)
@@ -56,6 +56,9 @@ help:
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
+	@echo "  debug-mac-cycles     Run under lldb, logging the stack behind every AttributeGraph cycle"
+	@echo "  debug-grpc-probe     Stream with a second gRPC client to isolate a stall (ADDR/GAP/WINDOW)"
+	@echo "  debug-grpc-soak      Long multi-client soak to confirm the transport fix (CLIENTS/DURATION)"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -708,8 +711,78 @@ run-mac:
 		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
 		exit 1; \
 	fi
-	@echo "Running macOS visualiser..."
-	@$(VISUALISER_BIN)
+	@mkdir -p $(CURDIR)/logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	maclog=$(CURDIR)/logs/visualiser-$${ts}.log; \
+	echo "Running macOS visualiser..."; \
+	echo "  app log: $$maclog"; \
+	: > "$$maclog"; \
+	$(VISUALISER_BIN) >> "$$maclog" 2>&1 & \
+	app_pid=$$!; \
+	tail -f "$$maclog" & \
+	tail_pid=$$!; \
+	trap 'kill $$app_pid 2>/dev/null; kill $$tail_pid 2>/dev/null; wait $$app_pid 2>/dev/null; exit 130' INT TERM HUP; \
+	wait $$app_pid; \
+	status=$$?; \
+	kill $$tail_pid 2>/dev/null; \
+	exit $$status
+
+## debug-grpc-probe: stream from the visualiser server with a second client, reporting gaps
+##   Isolates a stall: if this stalls too the server is at fault, if it streams
+##   cleanly while the visualiser stalls the fault is the Swift client's.
+debug-grpc-probe:
+	@mkdir -p $(CURDIR)/logs
+	@go build -o $(CURDIR)/bin/grpc-probe ./cmd/tools/grpc-probe
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	probelog=$(CURDIR)/logs/grpc-probe-$${ts}.log; \
+	echo "Streaming from $${ADDR:-localhost:50051}. Reproduce the stall, then interrupt."; \
+	echo "  probe log: $$probelog"; \
+	echo ""; \
+	$(CURDIR)/bin/grpc-probe \
+	  -addr "$${ADDR:-localhost:50051}" \
+	  -gap "$${GAP:-1s}" \
+	  $${WINDOW:+-window $$WINDOW} 2>&1 | tee "$$probelog"
+
+## debug-grpc-soak: long multi-client stream to confirm the transport-window fix
+##   Defaults to 4 clients for an hour. The stall it hunts was intermittent, so
+##   absence over minutes proved little; this is the run that can close it out.
+debug-grpc-soak:
+	@mkdir -p $(CURDIR)/logs
+	@go build -o $(CURDIR)/bin/grpc-probe ./cmd/tools/grpc-probe
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	soaklog=$(CURDIR)/logs/grpc-soak-$${ts}.log; \
+	echo "Soaking $${CLIENTS:-4} streams for $${DURATION:-1h}. Run the visualiser alongside."; \
+	echo "  soak log: $$soaklog"; \
+	echo ""; \
+	$(CURDIR)/bin/grpc-probe \
+	  -addr "$${ADDR:-localhost:50051}" \
+	  -clients "$${CLIENTS:-4}" \
+	  -duration "$${DURATION:-1h}" \
+	  -gap "$${GAP:-1s}" \
+	  $${WINDOW:+-window $$WINDOW} 2>&1 | tee "$$soaklog"; \
+	echo ""; \
+	echo "Gaps over $${GAP:-1s}: $$(grep -cE 'gap [0-9]' "$$soaklog" || echo 0)"
+
+## debug-mac-cycles: run the visualiser under lldb, logging the stack behind every AttributeGraph cycle
+debug-mac-cycles:
+	@if [ ! -f "$(VISUALISER_BIN)" ]; then \
+		echo "Error: Visualiser binary not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@mkdir -p $(CURDIR)/logs
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	cyclelog=$(CURDIR)/logs/visualiser-cycles-$${ts}.log; \
+	echo "Running the visualiser under lldb. Reproduce, then quit the app."; \
+	echo "  cycle log: $$cyclelog"; \
+	echo ""; \
+	lldb \
+	  -o "breakpoint set --name 'AG::Graph::print_cycle' --auto-continue true" \
+	  -o "breakpoint command add --one-liner 'bt 24'" \
+	  -o "run" -o "quit" \
+	  "$(VISUALISER_BIN)" 2>&1 | tee "$$cyclelog"; \
+	echo ""; \
+	echo "Cycles: $$(grep -c 'cycle detected' "$$cyclelog" || echo 0)"; \
+	grep -oE "AppKit\`[-+]\[NS[A-Za-z]+ [a-zA-Z:]+\]" "$$cyclelog" | sort | uniq -c | sort -rn | head -5 || true
 
 dev-mac:
 	@echo "Stopping any running visualiser instances..."
@@ -962,7 +1035,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
+.PHONY: debug-grpc-probe debug-grpc-soak debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -971,8 +1044,8 @@ ensure-python-tools:
 define run_dev_go
 	mkdir -p logs; \
 	ts=$$(date +%Y%m%d-%H%M%S); \
-	logfile=logs/velocity-$${ts}.log; \
-	debuglog=logs/velocity-debug-$${ts}.log; \
+	logfile=$(CURDIR)/logs/velocity-$${ts}.log; \
+	debuglog=$(CURDIR)/logs/velocity-debug-$${ts}.log; \
 	piddir=logs/pids; \
 	pidfile=$${piddir}/velocity-$${ts}.pid; \
 	DB_PATH=$${DB_PATH:-./sensor_data.db}; \
@@ -981,7 +1054,9 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity; \
 	mkdir -p "$$piddir"; \
-	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
+	echo "Starting velocity-report-local (background) with DB=$$DB_PATH"; \
+	echo "  ops log:   $$logfile"; \
+	echo "  debug log: $$debuglog"; \
 	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
 endef
@@ -1234,8 +1309,8 @@ test-go-coverage-gate:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go tests for the coverage gate (tags=$(COVERAGE_TAGS))..."
-	@echo "  (replaying the kirk0.pcapng fixture — this takes several minutes)"
-	@env -u GOROOT VELOCITY_PCAP_FIXTURE_TESTS=1 go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
+	@echo "  (running the bounded kirk0.pcapng fixture replays)"
+	@env -u GOROOT go test -tags=$(COVERAGE_TAGS) ./... -coverprofile=coverage.out -covermode=atomic >/dev/null
 	@python3 scripts/check_go_coverage.py --profile coverage.out --threshold $(COVERAGE_THRESHOLD)
 
 # Run web test suite (Jest) using pnpm inside the web directory
@@ -1593,7 +1668,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -1640,7 +1715,15 @@ report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdo
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
 
+check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
+	@scripts/check-buildinfo-placeholder.sh
+
+fix-buildinfo: ## Reset BuildInfo.swift to its committed placeholder
+	@scripts/check-buildinfo-placeholder.sh --fix
+
 .PHONY: check-agent-drift report-backtick-paths check-md-links
+
+.PHONY: check-buildinfo fix-buildinfo
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 

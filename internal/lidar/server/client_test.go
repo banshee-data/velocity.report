@@ -767,11 +767,12 @@ func TestClient_StartPCAPReplayWithConfig_Success(t *testing.T) {
 
 	c := NewClient(server.Client(), server.URL, "sensor1")
 	err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{
-		PCAPFile:        "captures/sample.pcapng",
-		StartSeconds:    12.5,
-		DurationSeconds: 30,
-		AnalysisMode:    true,
-		MaxRetries:      1,
+		PCAPFile:              "captures/sample.pcapng",
+		StartSeconds:          12.5,
+		DurationSeconds:       30,
+		AnalysisMode:          true,
+		SettleBeforeRecording: true,
+		MaxRetries:            1,
 	})
 	if err != nil {
 		t.Fatalf("StartPCAPReplayWithConfig failed: %v", err)
@@ -788,6 +789,9 @@ func TestClient_StartPCAPReplayWithConfig_Success(t *testing.T) {
 	}
 	if received["analysis_mode"].(bool) != true {
 		t.Fatalf("unexpected analysis_mode: %v", received["analysis_mode"])
+	}
+	if received["settle_before_recording"].(bool) != true {
+		t.Fatalf("unexpected settle_before_recording: %v", received["settle_before_recording"])
 	}
 }
 
@@ -814,7 +818,7 @@ func TestClient_StopPCAPReplay(t *testing.T) {
 			if r.Method != http.MethodPost {
 				t.Errorf("Expected POST, got %s", r.Method)
 			}
-			if r.URL.Path != "/api/lidar/pcap/stop" {
+			if r.URL.Path != "/api/lidar/replay/stop" {
 				t.Errorf("Unexpected path: %s", r.URL.Path)
 			}
 			w.WriteHeader(http.StatusOK)

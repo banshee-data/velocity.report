@@ -681,7 +681,7 @@ func TestSceneCov2_ReplayPCAPInProgress(t *testing.T) {
 
 	// Mark PCAP as already in progress
 	ws.pcapMu.Lock()
-	ws.pcapInProgress = true
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
 	ws.pcapMu.Unlock()
 
 	// Insert scene

@@ -16,17 +16,6 @@ const (
 	fixturePort = 2369
 )
 
-// requirePCAPFixture skips unless VELOCITY_PCAP_FIXTURE_TESTS is set. Run
-// replays the whole ~200 MB capture — it has no window knob — which takes
-// minutes under -race. `make test-go-coverage-gate` sets the variable so the
-// gate still measures this path, and the nightly workflow runs it.
-func requirePCAPFixture(t *testing.T) {
-	t.Helper()
-	if os.Getenv("VELOCITY_PCAP_FIXTURE_TESTS") == "" {
-		t.Skip("set VELOCITY_PCAP_FIXTURE_TESTS=1 to replay the kirk0.pcapng fixture")
-	}
-}
-
 // TestRunReplaysFixtureAndReportsSettling drives the whole offline evaluation:
 // PCAP decode, frame assembly, background-grid updates and per-frame settling
 // metrics. It is the only path that reaches the frame callback, which is the
@@ -34,9 +23,7 @@ func requirePCAPFixture(t *testing.T) {
 //
 // Requires -tags=pcap; without it network.ReadPCAPFile is a stub that refuses.
 func TestRunReplaysFixtureAndReportsSettling(t *testing.T) {
-	requirePCAPFixture(t)
-
-	report, err := Run(filepath.Clean(fixturePCAP), "", "test-sensor", fixturePort)
+	report, err := Run(Config{PCAPFile: filepath.Clean(fixturePCAP), SensorID: "test-sensor", UDPPort: fixturePort, DurationSeconds: 10})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -74,7 +61,7 @@ func TestRunReplaysFixtureAndReportsSettling(t *testing.T) {
 }
 
 func TestRunRejectsMissingPCAP(t *testing.T) {
-	if _, err := Run("does-not-exist.pcapng", "", "test-sensor", fixturePort); err == nil {
+	if _, err := Run(Config{PCAPFile: "does-not-exist.pcapng", SensorID: "test-sensor", UDPPort: fixturePort}); err == nil {
 		t.Fatal("Run on a missing PCAP succeeded, want an error")
 	}
 }
@@ -87,7 +74,7 @@ func TestRunRejectsUnreadableTuningConfig(t *testing.T) {
 		t.Fatalf("writing bad config: %v", err)
 	}
 
-	if _, err := Run(filepath.Clean(fixturePCAP), bad, "test-sensor", fixturePort); err == nil {
+	if _, err := Run(Config{PCAPFile: filepath.Clean(fixturePCAP), TuningFile: bad, SensorID: "test-sensor", UDPPort: fixturePort}); err == nil {
 		t.Fatal("Run with a malformed tuning config succeeded, want an error")
 	}
 }

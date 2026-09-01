@@ -6,6 +6,104 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
+## August 31, 2026 - Stall closed, replay state repaired & clean VRLOGs
+
+- Confirmed the visualiser stall fixed with an hour-long four-stream soak: 35,987 frames and 320.5MB per stream at a sustained 10 frames per second, with the visualiser attached throughout (#555).
+- Recorded four gaps over a second across that hour, worst 2.144s, each seen by all four streams within 5ms. Independent connections do not stall in lockstep, so these are pauses in frame production rather than the transport; one coincides with a source change and three remain unattributed (#555).
+- Wrote down what the result does not establish. Every observation is macOS with client and server on loopback, which never exercises a real round trip, so backlog items now call for the same soak against another host, the Linux build and a Raspberry Pi (#555).
+- Fixed a replay start that failed after claiming the slot leaving the source on PCAP for good. Nothing corrected it afterwards because no replay had ended, so clients sat on `REPLAY (PCAP)` while live packets flowed underneath (#555).
+- Made pausing a replay send one frame. Playback state reaches a client only on a frame and pausing stops frames, so the transition could never report itself: the server sat paused at frame 2518 of 6846 while the visualiser went on showing playback, pause looked dead and rate changes looked ignored (#555).
+- Made a rate change while paused send a frame for the same reason (#555).
+- Reported a silent live sensor as `IDLE` ahead of settling. A grid settles on arriving frames, so with the sensor quiet the count cannot advance and `SETTLING 00s` promised progress that could not happen (#555).
+- Opened VRLOG recordings with a background frame, so replaying one shows a scene immediately. Recordings had inherited whatever order the capture happened to have, one carrying its background at frame 2 and another at frame 116 (#555).
+- Ticked settle-before-recording and analysis mode by default on the `:8081` form, the pair being required together (#555).
+- Added `cmd/tools/vrlog-check`, which reports encoding, frame count, first background index and a verdict using the recorder's own decoder. Six fresh recordings all carry their background at frame 0, against first-background indices of 111 to 616 across the older set (#555).
+- Added `scripts/record-clean-vrlogs.sh` to re-record captures through the settle-before-recording flow, sending server-relative paths and asking the server what it can see rather than testing the local filesystem (#555).
+- Added `make debug-grpc-soak` for long multi-client runs, each stream on its own connection so per-connection flow control stays visible (#555).
+- Covered the source-switch regressions in Swift, including returning to live restarting the gRPC stream, which had no test at all and is how it shipped broken. The tests answer from a URLProtocol stub: an earlier draft posted to whatever server was listening (#555).
+- Normalised the backlog: every completed entry now carries a bracketed PR number, the section is sorted by PR ascending, and all seventeen PR numbers above 450 were checked against GitHub (#555).
+
+## August 30, 2026 - Replay handover & PR #555 close-out
+
+- Removed three speculative compatibility layers after review: the duplicate proto `is_live` field and its Swift inference path, the settling fraction no view displayed, and the optional settling capability that had allowed production wiring to no-op while tests passed.
+- Kept settling state on live frames only and removed `AppState.isLive`, the third local spelling of the source. Replay frames now carry their recorded scene without inheriting the live grid's warm-up state.
+- Made a finished replay start the live listener while keeping the recording on screen, then hand the pipeline to live only after a new packet arrives. Packets from before parking do not count, and a later replay or operator action cancels the earlier watch.
+- Routed every gRPC subscription through the publisher's normal client-registration path, so a new client receives the current background even when the recording's next background frame is minutes away.
+- Cleared the cached replay background when returning to live, preventing a reconnecting client from drawing live foreground over the recording's scene after the grid reset.
+- Reported a live sensor with no packets for three seconds as `IDLE`; `SETTLING 04s` takes precedence, replay sources never inherit the silence flag, and rate controls appear only when a replay timeline exists.
+- Expanded close-out regression coverage across the actual Go playback-info composition path, proto-to-Swift decoding, live-silence boundaries, replay-stop background clearing, parked-replay handover, and the independent gRPC probe's gap accounting.
+
+## August 28, 2026 - Visualiser stall isolation & AttributeGraph cycles
+
+- Added `make debug-grpc-probe`, a second client using Go's HTTP/2 stack, and streamed 2,000 frames / 14.6 MB without a server-side stall. That isolated the long pauses to the Swift client rather than the publisher.
+- Added timestamped, line-buffered app logging and a main-thread watchdog. The watchdog stayed responsive while the gRPC read loop paused, ruling out the working theory that a wedged main thread starved the transport.
+- Traced every captured AttributeGraph cycle to AppKit recomputing the key-view loop from a changing enabled state, then replaced dynamic `.disabled()` calls with `.inert(_:hint:)`; the measured cycle count fell from 24 to zero across a three-minute, 800-frame run.
+- Set the grpc-swift HTTP/2 window explicitly to 16 MB. The first measured build with it recorded zero stalls over 25 minutes and 11 connections, while the comparison builds recorded 7–30; longer field confirmation remains in the backlog rather than being claimed as proven.
+
+## August 27, 2026 - Adaptive settling & visualiser stream robustness
+
+- Completed Phase 4 of the settling plan: the background grid now ends warm-up on measured convergence, so a quiet scene settled in 5.9 seconds against its 30 second ceiling: [design doc](lidar/operations/settling-time-optimisation.md).
+- Found the settling decision implemented twice, in the background-update path and in foreground extraction. The copies had drifted, convergence went into the one the live pipeline does not run, and the feature was unreachable in production despite passing its tests.
+- Consolidated both paths onto `settlingCompleteLocked` and added a test asserting neither reimplements the decision. Lowered `warmup_min_frames` from 100 to 50, since that gate sets the floor under any settling time convergence can reach.
+- Made settling report itself: the plan it starts with, progress towards the frame minimum, and either the reason it completed or the unmet criterion holding it up.
+- Surfaced settling to operators through `GET /api/lidar/data_source` and proto `PlaybackInfo`, shown in the visualiser as a `SETTLING 5.9s` badge. An unsettled grid renders an empty scene, which is otherwise indistinguishable from a dead sensor.
+- Handed each newly subscribed gRPC client the current background, and sent a fresh snapshot as settling completes. A replay load published the background 42 ms before the client restarted its stream, so the grid never arrived.
+- Fixed a stream that ended signalling only "replay finished", which left the visualiser reporting itself connected after a server restart. One run showed five minutes of server uptime with zero client connections while the app claimed a live connection.
+- Replaced the Live control with a Live/Replay segmented picker, made returning to live restart the gRPC stream, and keyed inspector visibility on `showSidePanel` alone so the button can close it with a track selected.
+- Named the frame in the send-stall warning, which disproved the working hypothesis: the blocking frame was 39 points and 5.9 KB, in live mode, so frame size was never the cause. The client-side hang remains open: [design doc](plans/lidar-visualiser-stream-robustness-plan.md).
+
+## August 26, 2026 - Frame loss accounting & replay parking
+
+- Bumped the application dependency group with three updates (#558) and the documentation group with two (#560), and downgraded TypeScript to 6.x with a native alias for compatibility.
+- Separated publish-stage from client-stage frame loss, which had been summed into one ratio that pegged at 50% and hid the real drop rate.
+- Stopped counting a source change as thousands of dropped frames, and summarised dropped frames rather than logging each one.
+- Bounded stream sends so a client that stops reading cannot stall the publisher, and reported the stall instead of severing the stream.
+- Delivered buffered frames in capture order, and confined the frame-rate throttle to replays so live input is no longer decimated.
+- Let a finished replay stay the data source rather than silently reverting to live, and closed the window where a teardown looked like an idle replay.
+- Added a Live toggle to the visualiser and moved Clear to the View menu.
+- {dd/docs/state-est} Added and then split the LiDAR state estimation and vehicle behaviour plans, revising both to cover road users, the evidence split, and elevation.
+
+## August 19, 2026 - Background retention across source changes
+
+- Reset the grid when returning to live, so a live scene is no longer composited onto a replay's retained background.
+- Refreshed the background on snapshot restore and reconciled live state on packet arrival.
+- Released the pipeline after a recording run, and cleared the background when a PCAP replay starts.
+- Let live packet presence decide what a finished replay does, rather than assuming the operator wanted live input back.
+- Kept the macOS API clients off Foundation's on-disk URL cache, which was the source of the `disk I/O error` messages the app logged: nothing in the app reads that cache.
+
+## August 18, 2026 - Offline homepage & replay teardown
+
+- Served the homepage offline in the Raspberry Pi image (#553), and created the docs symlinks before the offline docs tests run.
+- Added a live docs 404 spider for checking published documentation links.
+- Released `0.5.1-pre31` across the canonical version surfaces.
+- Kept generated build stamps out of git, so `BuildInfo.swift` no longer produces spurious diffs after every macOS build.
+- Consolidated replay teardown into one path, and made replays that end return to live by themselves.
+- Always released the replay slot, and traced every pipeline transition so state changes are attributable.
+- Stopped the live grid overwriting a replay's own background, never discarded a background frame in transit, and guarded the publisher's background bookkeeping fields.
+
+## August 17, 2026 - LiDAR pipeline state model
+
+- Added `PipelineState` as the single store for what drives the pipeline and what is captured from it, replacing three stores that could disagree under two different mutexes: [design doc](plans/lidar-pipeline-state-model-plan.md).
+- Migrated the lidar server's state fields onto it and removed the divergent `DataSourceManager` accessors, which held a shadow source production never wrote.
+- Reported VRLOG replay and recording state from the lidar HTTP API. `GET /api/lidar/playback/status` had returned a hardcoded live status, because its assignment site did not exist.
+- Stopped the live listener during VRLOG replay and suppressed live frames while one is active, so live and replayed frames no longer interleaved into the recorder.
+- Added `source_mode` and `recording` to proto `PlaybackInfo`, and made the Swift client read the mode instead of inferring it from `is_live` and `seekable`.
+- Marked the settling and recording passes of a two-pass PCAP replay, which had been indistinguishable from outside, and identified settled PCAP snapshots by their resolved path.
+- Fixed GitHub URL handling and documentation link resolution, and isolated the offline docs folder pages under test.
+
+## August 16, 2026 - Offline docs link validation
+
+- Added link validation scripts for offline documentation integrity.
+- Merged TENET 7, cohesive releases (#556).
+
+## August 15, 2026 - Replay windows & coverage gate
+
+- Added start and duration parameters for PCAP replay to the lidar commands, and moved `Run` calls onto a `Config` struct so the window threads through one primitive rather than per-engine flags.
+- Clarified replay duration defaults, and documented the new parameters in the performance regression testing guide.
+- Updated the LiDAR test commands in CI for clarity and execution time.
+- Added tests behind a coverage gate (#554), and enhanced `import_paths_for_patterns` to support build tags.
+- Clarified repository source link resolution and build metadata in the offline docs, and improved the link validation logic in the offline docs checker.
+
 ## August 14, 2026 - Key documentation standardisation
 
 - Standardised the opening TL;DR paragraphs and heading structure across the key top-level docs, covering `ARCHITECTURE.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `COMMANDS.md`, `DEBUGGING.md`, `MAGIC_NUMBERS.md`, `TENETS.md`, and the `data/` and `docs/` hubs.

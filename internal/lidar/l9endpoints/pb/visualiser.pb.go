@@ -407,6 +407,64 @@ func (ObjectClass) EnumDescriptor() ([]byte, []int) {
 	return file_visualiser_proto_rawDescGZIP(), []int{6}
 }
 
+// SourceMode names what is driving the pipeline. Clients once inferred this
+// from is_live plus seekable, which could not distinguish a preserved analysis
+// grid from an ordinary PCAP replay and said nothing about recording.
+type SourceMode int32
+
+const (
+	SourceMode_SOURCE_MODE_UNSPECIFIED   SourceMode = 0 // proto3 requires a zero value; the server always sets a real one
+	SourceMode_SOURCE_MODE_LIVE          SourceMode = 1
+	SourceMode_SOURCE_MODE_PCAP          SourceMode = 2 // PCAP replay in progress
+	SourceMode_SOURCE_MODE_PCAP_ANALYSIS SourceMode = 3 // PCAP replay finished, background grid retained
+	SourceMode_SOURCE_MODE_VRLOG         SourceMode = 4 // replay of a recorded frame log
+)
+
+// Enum value maps for SourceMode.
+var (
+	SourceMode_name = map[int32]string{
+		0: "SOURCE_MODE_UNSPECIFIED",
+		1: "SOURCE_MODE_LIVE",
+		2: "SOURCE_MODE_PCAP",
+		3: "SOURCE_MODE_PCAP_ANALYSIS",
+		4: "SOURCE_MODE_VRLOG",
+	}
+	SourceMode_value = map[string]int32{
+		"SOURCE_MODE_UNSPECIFIED":   0,
+		"SOURCE_MODE_LIVE":          1,
+		"SOURCE_MODE_PCAP":          2,
+		"SOURCE_MODE_PCAP_ANALYSIS": 3,
+		"SOURCE_MODE_VRLOG":         4,
+	}
+)
+
+func (x SourceMode) Enum() *SourceMode {
+	p := new(SourceMode)
+	*p = x
+	return p
+}
+
+func (x SourceMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SourceMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_visualiser_proto_enumTypes[7].Descriptor()
+}
+
+func (SourceMode) Type() protoreflect.EnumType {
+	return &file_visualiser_proto_enumTypes[7]
+}
+
+func (x SourceMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SourceMode.Descriptor instead.
+func (SourceMode) EnumDescriptor() ([]byte, []int) {
+	return file_visualiser_proto_rawDescGZIP(), []int{7}
+}
+
 type CoordinateFrameInfo struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	FrameId        string                 `protobuf:"bytes,1,opt,name=frame_id,json=frameId,proto3" json:"frame_id,omitempty"`                      // e.g., "site/hesai-01"
@@ -2172,7 +2230,6 @@ func (x *LabelSet) GetLabels() []*LabelEvent {
 
 type PlaybackInfo struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	IsLive            bool                   `protobuf:"varint,1,opt,name=is_live,json=isLive,proto3" json:"is_live,omitempty"`                    // true if live, false if replay
 	LogStartNs        int64                  `protobuf:"varint,2,opt,name=log_start_ns,json=logStartNs,proto3" json:"log_start_ns,omitempty"`      // first frame timestamp in log
 	LogEndNs          int64                  `protobuf:"varint,3,opt,name=log_end_ns,json=logEndNs,proto3" json:"log_end_ns,omitempty"`            // last frame timestamp in log
 	PlaybackRate      float32                `protobuf:"fixed32,4,opt,name=playback_rate,json=playbackRate,proto3" json:"playback_rate,omitempty"` // 1.0 = real-time
@@ -2181,8 +2238,21 @@ type PlaybackInfo struct {
 	TotalFrames       uint64                 `protobuf:"varint,7,opt,name=total_frames,json=totalFrames,proto3" json:"total_frames,omitempty"`                     // total frames in log
 	Seekable          bool                   `protobuf:"varint,8,opt,name=seekable,proto3" json:"seekable,omitempty"`                                              // true if seek/step is supported (e.g. .vrlog replay)
 	ReplayEpoch       uint64                 `protobuf:"varint,9,opt,name=replay_epoch,json=replayEpoch,proto3" json:"replay_epoch,omitempty"`                     // monotonically increasing epoch; bumped on each new replay load
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Seekability is a capability, not a mode: source_mode and seekable are
+	// independent axes and clients must not derive one from the other.
+	SourceMode SourceMode `protobuf:"varint,10,opt,name=source_mode,json=sourceMode,proto3,enum=velocity.visualiser.v1.SourceMode" json:"source_mode,omitempty"`
+	Recording  bool       `protobuf:"varint,11,opt,name=recording,proto3" json:"recording,omitempty"` // true while a VRLOG is being recorded
+	// Background settling. Until the grid settles there is no usable background,
+	// so foreground extraction yields nothing and the scene renders empty — which
+	// is indistinguishable from a dead sensor unless the client is told.
+	Settling               bool    `protobuf:"varint,12,opt,name=settling,proto3" json:"settling,omitempty"` // true while the background grid is still settling
+	SettlingElapsedSeconds float32 `protobuf:"fixed32,14,opt,name=settling_elapsed_seconds,json=settlingElapsedSeconds,proto3" json:"settling_elapsed_seconds,omitempty"`
+	// True when the source is live but no packets have arrived recently. Frames
+	// keep flowing while a sensor is silent — they are simply empty — so a client
+	// cannot tell a quiet scene from a stopped sensor by frame arrival alone.
+	SensorSilent  bool `protobuf:"varint,15,opt,name=sensor_silent,json=sensorSilent,proto3" json:"sensor_silent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PlaybackInfo) Reset() {
@@ -2213,13 +2283,6 @@ func (x *PlaybackInfo) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PlaybackInfo.ProtoReflect.Descriptor instead.
 func (*PlaybackInfo) Descriptor() ([]byte, []int) {
 	return file_visualiser_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *PlaybackInfo) GetIsLive() bool {
-	if x != nil {
-		return x.IsLive
-	}
-	return false
 }
 
 func (x *PlaybackInfo) GetLogStartNs() int64 {
@@ -2276,6 +2339,41 @@ func (x *PlaybackInfo) GetReplayEpoch() uint64 {
 		return x.ReplayEpoch
 	}
 	return 0
+}
+
+func (x *PlaybackInfo) GetSourceMode() SourceMode {
+	if x != nil {
+		return x.SourceMode
+	}
+	return SourceMode_SOURCE_MODE_UNSPECIFIED
+}
+
+func (x *PlaybackInfo) GetRecording() bool {
+	if x != nil {
+		return x.Recording
+	}
+	return false
+}
+
+func (x *PlaybackInfo) GetSettling() bool {
+	if x != nil {
+		return x.Settling
+	}
+	return false
+}
+
+func (x *PlaybackInfo) GetSettlingElapsedSeconds() float32 {
+	if x != nil {
+		return x.SettlingElapsedSeconds
+	}
+	return 0
+}
+
+func (x *PlaybackInfo) GetSensorSilent() bool {
+	if x != nil {
+		return x.SensorSilent
+	}
+	return false
 }
 
 type FrameBundle struct {
@@ -3343,9 +3441,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xb6\x02\n" +
-	"\fPlaybackInfo\x12\x17\n" +
-	"\ais_live\x18\x01 \x01(\bR\x06isLive\x12 \n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\x87\x04\n" +
+	"\fPlaybackInfo\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
 	"logStartNs\x12\x1c\n" +
 	"\n" +
@@ -3355,7 +3452,14 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x13current_frame_index\x18\x06 \x01(\x04R\x11currentFrameIndex\x12!\n" +
 	"\ftotal_frames\x18\a \x01(\x04R\vtotalFrames\x12\x1a\n" +
 	"\bseekable\x18\b \x01(\bR\bseekable\x12!\n" +
-	"\freplay_epoch\x18\t \x01(\x04R\vreplayEpoch\"\xc3\x05\n" +
+	"\freplay_epoch\x18\t \x01(\x04R\vreplayEpoch\x12C\n" +
+	"\vsource_mode\x18\n" +
+	" \x01(\x0e2\".velocity.visualiser.v1.SourceModeR\n" +
+	"sourceMode\x12\x1c\n" +
+	"\trecording\x18\v \x01(\bR\trecording\x12\x1a\n" +
+	"\bsettling\x18\f \x01(\bR\bsettling\x128\n" +
+	"\x18settling_elapsed_seconds\x18\x0e \x01(\x02R\x16settlingElapsedSeconds\x12#\n" +
+	"\rsensor_silent\x18\x0f \x01(\bR\fsensorSilentJ\x04\b\x01\x10\x02J\x04\b\r\x10\x0e\"\xc3\x05\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +
@@ -3464,7 +3568,14 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x10OBJECT_CLASS_BUS\x10\x06\x12\x14\n" +
 	"\x10OBJECT_CLASS_CAR\x10\a\x12\x16\n" +
 	"\x12OBJECT_CLASS_TRUCK\x10\b\x12\x1d\n" +
-	"\x19OBJECT_CLASS_MOTORCYCLIST\x10\t2\xf0\x06\n" +
+	"\x19OBJECT_CLASS_MOTORCYCLIST\x10\t*\x8b\x01\n" +
+	"\n" +
+	"SourceMode\x12\x1b\n" +
+	"\x17SOURCE_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10SOURCE_MODE_LIVE\x10\x01\x12\x14\n" +
+	"\x10SOURCE_MODE_PCAP\x10\x02\x12\x1d\n" +
+	"\x19SOURCE_MODE_PCAP_ANALYSIS\x10\x03\x12\x15\n" +
+	"\x11SOURCE_MODE_VRLOG\x10\x042\xf0\x06\n" +
 	"\x11VisualiserService\x12\\\n" +
 	"\fStreamFrames\x12%.velocity.visualiser.v1.StreamRequest\x1a#.velocity.visualiser.v1.FrameBundle0\x01\x12U\n" +
 	"\x05Pause\x12$.velocity.visualiser.v1.PauseRequest\x1a&.velocity.visualiser.v1.PlaybackStatus\x12S\n" +
@@ -3488,7 +3599,7 @@ func file_visualiser_proto_rawDescGZIP() []byte {
 	return file_visualiser_proto_rawDescData
 }
 
-var file_visualiser_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_visualiser_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
 var file_visualiser_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_visualiser_proto_goTypes = []any{
 	(DecimationMode)(0),          // 0: velocity.visualiser.v1.DecimationMode
@@ -3498,90 +3609,92 @@ var file_visualiser_proto_goTypes = []any{
 	(OcclusionState)(0),          // 4: velocity.visualiser.v1.OcclusionState
 	(MotionModel)(0),             // 5: velocity.visualiser.v1.MotionModel
 	(ObjectClass)(0),             // 6: velocity.visualiser.v1.ObjectClass
-	(*CoordinateFrameInfo)(nil),  // 7: velocity.visualiser.v1.CoordinateFrameInfo
-	(*PointCloudFrame)(nil),      // 8: velocity.visualiser.v1.PointCloudFrame
-	(*GridMetadata)(nil),         // 9: velocity.visualiser.v1.GridMetadata
-	(*BackgroundSnapshot)(nil),   // 10: velocity.visualiser.v1.BackgroundSnapshot
-	(*OrientedBoundingBox)(nil),  // 11: velocity.visualiser.v1.OrientedBoundingBox
-	(*Cluster)(nil),              // 12: velocity.visualiser.v1.Cluster
-	(*ClusterSet)(nil),           // 13: velocity.visualiser.v1.ClusterSet
-	(*Track)(nil),                // 14: velocity.visualiser.v1.Track
-	(*TrackPoint)(nil),           // 15: velocity.visualiser.v1.TrackPoint
-	(*TrackTrail)(nil),           // 16: velocity.visualiser.v1.TrackTrail
-	(*TrackSet)(nil),             // 17: velocity.visualiser.v1.TrackSet
-	(*AssociationCandidate)(nil), // 18: velocity.visualiser.v1.AssociationCandidate
-	(*GatingEllipse)(nil),        // 19: velocity.visualiser.v1.GatingEllipse
-	(*InnovationResidual)(nil),   // 20: velocity.visualiser.v1.InnovationResidual
-	(*StatePrediction)(nil),      // 21: velocity.visualiser.v1.StatePrediction
-	(*DebugOverlaySet)(nil),      // 22: velocity.visualiser.v1.DebugOverlaySet
-	(*LabelEvent)(nil),           // 23: velocity.visualiser.v1.LabelEvent
-	(*LabelSet)(nil),             // 24: velocity.visualiser.v1.LabelSet
-	(*PlaybackInfo)(nil),         // 25: velocity.visualiser.v1.PlaybackInfo
-	(*FrameBundle)(nil),          // 26: velocity.visualiser.v1.FrameBundle
-	(*StreamRequest)(nil),        // 27: velocity.visualiser.v1.StreamRequest
-	(*PlaybackStatus)(nil),       // 28: velocity.visualiser.v1.PlaybackStatus
-	(*PauseRequest)(nil),         // 29: velocity.visualiser.v1.PauseRequest
-	(*PlayRequest)(nil),          // 30: velocity.visualiser.v1.PlayRequest
-	(*SeekRequest)(nil),          // 31: velocity.visualiser.v1.SeekRequest
-	(*SetRateRequest)(nil),       // 32: velocity.visualiser.v1.SetRateRequest
-	(*OverlayModeRequest)(nil),   // 33: velocity.visualiser.v1.OverlayModeRequest
-	(*OverlayModeResponse)(nil),  // 34: velocity.visualiser.v1.OverlayModeResponse
-	(*CapabilitiesRequest)(nil),  // 35: velocity.visualiser.v1.CapabilitiesRequest
-	(*CapabilitiesResponse)(nil), // 36: velocity.visualiser.v1.CapabilitiesResponse
-	(*RecordingRequest)(nil),     // 37: velocity.visualiser.v1.RecordingRequest
-	(*RecordingStatus)(nil),      // 38: velocity.visualiser.v1.RecordingStatus
+	(SourceMode)(0),              // 7: velocity.visualiser.v1.SourceMode
+	(*CoordinateFrameInfo)(nil),  // 8: velocity.visualiser.v1.CoordinateFrameInfo
+	(*PointCloudFrame)(nil),      // 9: velocity.visualiser.v1.PointCloudFrame
+	(*GridMetadata)(nil),         // 10: velocity.visualiser.v1.GridMetadata
+	(*BackgroundSnapshot)(nil),   // 11: velocity.visualiser.v1.BackgroundSnapshot
+	(*OrientedBoundingBox)(nil),  // 12: velocity.visualiser.v1.OrientedBoundingBox
+	(*Cluster)(nil),              // 13: velocity.visualiser.v1.Cluster
+	(*ClusterSet)(nil),           // 14: velocity.visualiser.v1.ClusterSet
+	(*Track)(nil),                // 15: velocity.visualiser.v1.Track
+	(*TrackPoint)(nil),           // 16: velocity.visualiser.v1.TrackPoint
+	(*TrackTrail)(nil),           // 17: velocity.visualiser.v1.TrackTrail
+	(*TrackSet)(nil),             // 18: velocity.visualiser.v1.TrackSet
+	(*AssociationCandidate)(nil), // 19: velocity.visualiser.v1.AssociationCandidate
+	(*GatingEllipse)(nil),        // 20: velocity.visualiser.v1.GatingEllipse
+	(*InnovationResidual)(nil),   // 21: velocity.visualiser.v1.InnovationResidual
+	(*StatePrediction)(nil),      // 22: velocity.visualiser.v1.StatePrediction
+	(*DebugOverlaySet)(nil),      // 23: velocity.visualiser.v1.DebugOverlaySet
+	(*LabelEvent)(nil),           // 24: velocity.visualiser.v1.LabelEvent
+	(*LabelSet)(nil),             // 25: velocity.visualiser.v1.LabelSet
+	(*PlaybackInfo)(nil),         // 26: velocity.visualiser.v1.PlaybackInfo
+	(*FrameBundle)(nil),          // 27: velocity.visualiser.v1.FrameBundle
+	(*StreamRequest)(nil),        // 28: velocity.visualiser.v1.StreamRequest
+	(*PlaybackStatus)(nil),       // 29: velocity.visualiser.v1.PlaybackStatus
+	(*PauseRequest)(nil),         // 30: velocity.visualiser.v1.PauseRequest
+	(*PlayRequest)(nil),          // 31: velocity.visualiser.v1.PlayRequest
+	(*SeekRequest)(nil),          // 32: velocity.visualiser.v1.SeekRequest
+	(*SetRateRequest)(nil),       // 33: velocity.visualiser.v1.SetRateRequest
+	(*OverlayModeRequest)(nil),   // 34: velocity.visualiser.v1.OverlayModeRequest
+	(*OverlayModeResponse)(nil),  // 35: velocity.visualiser.v1.OverlayModeResponse
+	(*CapabilitiesRequest)(nil),  // 36: velocity.visualiser.v1.CapabilitiesRequest
+	(*CapabilitiesResponse)(nil), // 37: velocity.visualiser.v1.CapabilitiesResponse
+	(*RecordingRequest)(nil),     // 38: velocity.visualiser.v1.RecordingRequest
+	(*RecordingStatus)(nil),      // 39: velocity.visualiser.v1.RecordingStatus
 }
 var file_visualiser_proto_depIdxs = []int32{
 	0,  // 0: velocity.visualiser.v1.PointCloudFrame.decimation_mode:type_name -> velocity.visualiser.v1.DecimationMode
-	9,  // 1: velocity.visualiser.v1.BackgroundSnapshot.grid_metadata:type_name -> velocity.visualiser.v1.GridMetadata
-	11, // 2: velocity.visualiser.v1.Cluster.obb:type_name -> velocity.visualiser.v1.OrientedBoundingBox
-	12, // 3: velocity.visualiser.v1.ClusterSet.clusters:type_name -> velocity.visualiser.v1.Cluster
+	10, // 1: velocity.visualiser.v1.BackgroundSnapshot.grid_metadata:type_name -> velocity.visualiser.v1.GridMetadata
+	12, // 2: velocity.visualiser.v1.Cluster.obb:type_name -> velocity.visualiser.v1.OrientedBoundingBox
+	13, // 3: velocity.visualiser.v1.ClusterSet.clusters:type_name -> velocity.visualiser.v1.Cluster
 	2,  // 4: velocity.visualiser.v1.ClusterSet.method:type_name -> velocity.visualiser.v1.ClusteringMethod
 	3,  // 5: velocity.visualiser.v1.Track.state:type_name -> velocity.visualiser.v1.TrackState
 	6,  // 6: velocity.visualiser.v1.Track.object_class:type_name -> velocity.visualiser.v1.ObjectClass
 	4,  // 7: velocity.visualiser.v1.Track.occlusion_state:type_name -> velocity.visualiser.v1.OcclusionState
 	5,  // 8: velocity.visualiser.v1.Track.motion_model:type_name -> velocity.visualiser.v1.MotionModel
-	15, // 9: velocity.visualiser.v1.TrackTrail.points:type_name -> velocity.visualiser.v1.TrackPoint
-	14, // 10: velocity.visualiser.v1.TrackSet.tracks:type_name -> velocity.visualiser.v1.Track
-	16, // 11: velocity.visualiser.v1.TrackSet.trails:type_name -> velocity.visualiser.v1.TrackTrail
-	18, // 12: velocity.visualiser.v1.DebugOverlaySet.association_candidates:type_name -> velocity.visualiser.v1.AssociationCandidate
-	19, // 13: velocity.visualiser.v1.DebugOverlaySet.gating_ellipses:type_name -> velocity.visualiser.v1.GatingEllipse
-	20, // 14: velocity.visualiser.v1.DebugOverlaySet.residuals:type_name -> velocity.visualiser.v1.InnovationResidual
-	21, // 15: velocity.visualiser.v1.DebugOverlaySet.predictions:type_name -> velocity.visualiser.v1.StatePrediction
+	16, // 9: velocity.visualiser.v1.TrackTrail.points:type_name -> velocity.visualiser.v1.TrackPoint
+	15, // 10: velocity.visualiser.v1.TrackSet.tracks:type_name -> velocity.visualiser.v1.Track
+	17, // 11: velocity.visualiser.v1.TrackSet.trails:type_name -> velocity.visualiser.v1.TrackTrail
+	19, // 12: velocity.visualiser.v1.DebugOverlaySet.association_candidates:type_name -> velocity.visualiser.v1.AssociationCandidate
+	20, // 13: velocity.visualiser.v1.DebugOverlaySet.gating_ellipses:type_name -> velocity.visualiser.v1.GatingEllipse
+	21, // 14: velocity.visualiser.v1.DebugOverlaySet.residuals:type_name -> velocity.visualiser.v1.InnovationResidual
+	22, // 15: velocity.visualiser.v1.DebugOverlaySet.predictions:type_name -> velocity.visualiser.v1.StatePrediction
 	6,  // 16: velocity.visualiser.v1.LabelEvent.object_class:type_name -> velocity.visualiser.v1.ObjectClass
-	23, // 17: velocity.visualiser.v1.LabelSet.labels:type_name -> velocity.visualiser.v1.LabelEvent
-	7,  // 18: velocity.visualiser.v1.FrameBundle.coordinate_frame:type_name -> velocity.visualiser.v1.CoordinateFrameInfo
-	8,  // 19: velocity.visualiser.v1.FrameBundle.point_cloud:type_name -> velocity.visualiser.v1.PointCloudFrame
-	13, // 20: velocity.visualiser.v1.FrameBundle.clusters:type_name -> velocity.visualiser.v1.ClusterSet
-	17, // 21: velocity.visualiser.v1.FrameBundle.tracks:type_name -> velocity.visualiser.v1.TrackSet
-	22, // 22: velocity.visualiser.v1.FrameBundle.debug:type_name -> velocity.visualiser.v1.DebugOverlaySet
-	25, // 23: velocity.visualiser.v1.FrameBundle.playback_info:type_name -> velocity.visualiser.v1.PlaybackInfo
-	1,  // 24: velocity.visualiser.v1.FrameBundle.frame_type:type_name -> velocity.visualiser.v1.FrameType
-	10, // 25: velocity.visualiser.v1.FrameBundle.background:type_name -> velocity.visualiser.v1.BackgroundSnapshot
-	0,  // 26: velocity.visualiser.v1.StreamRequest.point_decimation:type_name -> velocity.visualiser.v1.DecimationMode
-	27, // 27: velocity.visualiser.v1.VisualiserService.StreamFrames:input_type -> velocity.visualiser.v1.StreamRequest
-	29, // 28: velocity.visualiser.v1.VisualiserService.Pause:input_type -> velocity.visualiser.v1.PauseRequest
-	30, // 29: velocity.visualiser.v1.VisualiserService.Play:input_type -> velocity.visualiser.v1.PlayRequest
-	31, // 30: velocity.visualiser.v1.VisualiserService.Seek:input_type -> velocity.visualiser.v1.SeekRequest
-	32, // 31: velocity.visualiser.v1.VisualiserService.SetRate:input_type -> velocity.visualiser.v1.SetRateRequest
-	33, // 32: velocity.visualiser.v1.VisualiserService.SetOverlayModes:input_type -> velocity.visualiser.v1.OverlayModeRequest
-	35, // 33: velocity.visualiser.v1.VisualiserService.GetCapabilities:input_type -> velocity.visualiser.v1.CapabilitiesRequest
-	37, // 34: velocity.visualiser.v1.VisualiserService.StartRecording:input_type -> velocity.visualiser.v1.RecordingRequest
-	37, // 35: velocity.visualiser.v1.VisualiserService.StopRecording:input_type -> velocity.visualiser.v1.RecordingRequest
-	26, // 36: velocity.visualiser.v1.VisualiserService.StreamFrames:output_type -> velocity.visualiser.v1.FrameBundle
-	28, // 37: velocity.visualiser.v1.VisualiserService.Pause:output_type -> velocity.visualiser.v1.PlaybackStatus
-	28, // 38: velocity.visualiser.v1.VisualiserService.Play:output_type -> velocity.visualiser.v1.PlaybackStatus
-	28, // 39: velocity.visualiser.v1.VisualiserService.Seek:output_type -> velocity.visualiser.v1.PlaybackStatus
-	28, // 40: velocity.visualiser.v1.VisualiserService.SetRate:output_type -> velocity.visualiser.v1.PlaybackStatus
-	34, // 41: velocity.visualiser.v1.VisualiserService.SetOverlayModes:output_type -> velocity.visualiser.v1.OverlayModeResponse
-	36, // 42: velocity.visualiser.v1.VisualiserService.GetCapabilities:output_type -> velocity.visualiser.v1.CapabilitiesResponse
-	38, // 43: velocity.visualiser.v1.VisualiserService.StartRecording:output_type -> velocity.visualiser.v1.RecordingStatus
-	38, // 44: velocity.visualiser.v1.VisualiserService.StopRecording:output_type -> velocity.visualiser.v1.RecordingStatus
-	36, // [36:45] is the sub-list for method output_type
-	27, // [27:36] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	24, // 17: velocity.visualiser.v1.LabelSet.labels:type_name -> velocity.visualiser.v1.LabelEvent
+	7,  // 18: velocity.visualiser.v1.PlaybackInfo.source_mode:type_name -> velocity.visualiser.v1.SourceMode
+	8,  // 19: velocity.visualiser.v1.FrameBundle.coordinate_frame:type_name -> velocity.visualiser.v1.CoordinateFrameInfo
+	9,  // 20: velocity.visualiser.v1.FrameBundle.point_cloud:type_name -> velocity.visualiser.v1.PointCloudFrame
+	14, // 21: velocity.visualiser.v1.FrameBundle.clusters:type_name -> velocity.visualiser.v1.ClusterSet
+	18, // 22: velocity.visualiser.v1.FrameBundle.tracks:type_name -> velocity.visualiser.v1.TrackSet
+	23, // 23: velocity.visualiser.v1.FrameBundle.debug:type_name -> velocity.visualiser.v1.DebugOverlaySet
+	26, // 24: velocity.visualiser.v1.FrameBundle.playback_info:type_name -> velocity.visualiser.v1.PlaybackInfo
+	1,  // 25: velocity.visualiser.v1.FrameBundle.frame_type:type_name -> velocity.visualiser.v1.FrameType
+	11, // 26: velocity.visualiser.v1.FrameBundle.background:type_name -> velocity.visualiser.v1.BackgroundSnapshot
+	0,  // 27: velocity.visualiser.v1.StreamRequest.point_decimation:type_name -> velocity.visualiser.v1.DecimationMode
+	28, // 28: velocity.visualiser.v1.VisualiserService.StreamFrames:input_type -> velocity.visualiser.v1.StreamRequest
+	30, // 29: velocity.visualiser.v1.VisualiserService.Pause:input_type -> velocity.visualiser.v1.PauseRequest
+	31, // 30: velocity.visualiser.v1.VisualiserService.Play:input_type -> velocity.visualiser.v1.PlayRequest
+	32, // 31: velocity.visualiser.v1.VisualiserService.Seek:input_type -> velocity.visualiser.v1.SeekRequest
+	33, // 32: velocity.visualiser.v1.VisualiserService.SetRate:input_type -> velocity.visualiser.v1.SetRateRequest
+	34, // 33: velocity.visualiser.v1.VisualiserService.SetOverlayModes:input_type -> velocity.visualiser.v1.OverlayModeRequest
+	36, // 34: velocity.visualiser.v1.VisualiserService.GetCapabilities:input_type -> velocity.visualiser.v1.CapabilitiesRequest
+	38, // 35: velocity.visualiser.v1.VisualiserService.StartRecording:input_type -> velocity.visualiser.v1.RecordingRequest
+	38, // 36: velocity.visualiser.v1.VisualiserService.StopRecording:input_type -> velocity.visualiser.v1.RecordingRequest
+	27, // 37: velocity.visualiser.v1.VisualiserService.StreamFrames:output_type -> velocity.visualiser.v1.FrameBundle
+	29, // 38: velocity.visualiser.v1.VisualiserService.Pause:output_type -> velocity.visualiser.v1.PlaybackStatus
+	29, // 39: velocity.visualiser.v1.VisualiserService.Play:output_type -> velocity.visualiser.v1.PlaybackStatus
+	29, // 40: velocity.visualiser.v1.VisualiserService.Seek:output_type -> velocity.visualiser.v1.PlaybackStatus
+	29, // 41: velocity.visualiser.v1.VisualiserService.SetRate:output_type -> velocity.visualiser.v1.PlaybackStatus
+	35, // 42: velocity.visualiser.v1.VisualiserService.SetOverlayModes:output_type -> velocity.visualiser.v1.OverlayModeResponse
+	37, // 43: velocity.visualiser.v1.VisualiserService.GetCapabilities:output_type -> velocity.visualiser.v1.CapabilitiesResponse
+	39, // 44: velocity.visualiser.v1.VisualiserService.StartRecording:output_type -> velocity.visualiser.v1.RecordingStatus
+	39, // 45: velocity.visualiser.v1.VisualiserService.StopRecording:output_type -> velocity.visualiser.v1.RecordingStatus
+	37, // [37:46] is the sub-list for method output_type
+	28, // [28:37] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_visualiser_proto_init() }
@@ -3598,7 +3711,7 @@ func file_visualiser_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_visualiser_proto_rawDesc), len(file_visualiser_proto_rawDesc)),
-			NumEnums:      7,
+			NumEnums:      8,
 			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,

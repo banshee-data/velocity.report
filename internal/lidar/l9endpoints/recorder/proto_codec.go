@@ -168,7 +168,6 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 
 	if frame.PlaybackInfo != nil {
 		pbFrame.PlaybackInfo = &pb.PlaybackInfo{
-			IsLive:            frame.PlaybackInfo.IsLive,
 			LogStartNs:        frame.PlaybackInfo.LogStartNs,
 			LogEndNs:          frame.PlaybackInfo.LogEndNs,
 			PlaybackRate:      frame.PlaybackInfo.PlaybackRate,
@@ -342,7 +341,6 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 
 	if pbFrame.PlaybackInfo != nil {
 		frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
-			IsLive:            pbFrame.PlaybackInfo.IsLive,
 			LogStartNs:        pbFrame.PlaybackInfo.LogStartNs,
 			LogEndNs:          pbFrame.PlaybackInfo.LogEndNs,
 			PlaybackRate:      pbFrame.PlaybackInfo.PlaybackRate,

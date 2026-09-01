@@ -272,7 +272,7 @@ Recommended future override path: config key `observability.prometheus.prefix`, 
 
 - [x] Write this plan.
 - [ ] Use this plan as the naming reference for ongoing speed-metric work.
-- [ ] Confirm the source-mode vocabulary (`live`, `pcap`, `pcap_analysis`, `vrlog`) as the canonical tag/filter set.
+- [x] Confirm the source-mode vocabulary (`live`, `pcap`, `pcap_analysis`, `vrlog`) as the canonical tag/filter set. Adopted by the LiDAR pipeline state model: the same four tokens are reported by `/api/lidar/data_source`, `/api/lidar/playback/status`, and the gRPC `SourceMode` enum.
 
 ### Phase 1 - speed naming reset
 

@@ -180,7 +180,7 @@ multiplied by `1.0 + 3.0 × (100 − count) / 100` (4× at count 0, 1× at 100+)
 | `/api/lidar/grid_status` | GET      | Background grid statistics        |
 | `/api/lidar/grid_reset`  | GET      | Reset background grid             |
 | `/api/lidar/pcap/start`  | POST     | Start PCAP replay                 |
-| `/api/lidar/pcap/stop`   | POST     | Stop PCAP replay                  |
+| `/api/lidar/replay/stop` | POST     | Stop any replay, return to live   |
 | `/api/lidar/data_source` | GET      | Current data source (live/pcap)   |
 
 ---

@@ -3,36 +3,69 @@
 package pcapsplit
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
+
+type failingAnalysisClassifier struct {
+	setErr     error
+	observeErr error
+}
+
+func (f *failingAnalysisClassifier) SetRingElevations([]float64) error { return f.setErr }
+func (f *failingAnalysisClassifier) Observe(time.Time, []l2frames.PointPolar) (MotionEvidence, error) {
+	return MotionEvidence{}, f.observeErr
+}
+
+func restoreAnalysisSeams(t *testing.T) {
+	t.Helper()
+	originalLoad := loadAnalysisPandarConfig
+	originalNew := newAnalysisClassifier
+	t.Cleanup(func() {
+		loadAnalysisPandarConfig = originalLoad
+		newAnalysisClassifier = originalNew
+	})
+}
 
 // splitFixture is the reference multi-frame capture (UDP 2369). The analysis
 // and writer paths only run against a capture carrying real rotations.
 const splitFixture = "../perf/pcap/kirk0.pcapng"
 
-// requirePCAPFixture skips unless VELOCITY_PCAP_FIXTURE_TESTS is set. A full
-// replay of the ~200 MB fixture takes minutes under -race, and Analyse has no
-// window knob, so several of them in one package overruns Go's default
-// 10-minute test timeout. `make test-go-coverage-gate` sets the variable so the
-// gate still measures these paths, and the nightly workflow runs them.
-func requirePCAPFixture(t *testing.T) {
-	t.Helper()
-	if os.Getenv("VELOCITY_PCAP_FIXTURE_TESTS") == "" {
-		t.Skip("set VELOCITY_PCAP_FIXTURE_TESTS=1 to replay the kirk0.pcapng fixture")
-	}
-}
-
 func fixtureConfig(t *testing.T) SplitConfig {
 	t.Helper()
 	return SplitConfig{
-		PCAPFile:      filepath.Clean(splitFixture),
-		OutputDir:     t.TempDir(),
-		SensorID:      "test-sensor",
-		UDPPort:       2369,
-		TimelineUnits: "seconds",
-		ProgressSecs:  0,
+		PCAPFile:        filepath.Clean(splitFixture),
+		OutputDir:       t.TempDir(),
+		SensorID:        "test-sensor",
+		UDPPort:         2369,
+		DurationSeconds: 10,
+		TimelineUnits:   "seconds",
+		ProgressSecs:    0,
+	}
+}
+
+func TestNormaliseReplayDuration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   float64
+		want float64
+	}{
+		{name: "zero value means full capture", in: 0, want: -1},
+		{name: "explicit full capture", in: -1, want: -1},
+		{name: "bounded replay", in: 1.5, want: 1.5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normaliseReplayDuration(tc.in); got != tc.want {
+				t.Errorf("normaliseReplayDuration(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -40,8 +73,6 @@ func fixtureConfig(t *testing.T) SplitConfig {
 // frame assembly, RPM accumulation, motion/static classification and segment
 // construction.
 func TestAnalyseFixtureProducesSegments(t *testing.T) {
-	requirePCAPFixture(t)
-
 	got, err := Analyse(fixtureConfig(t))
 	if err != nil {
 		t.Fatalf("Analyse: %v", err)
@@ -78,11 +109,49 @@ func TestAnalyseRejectsMissingCapture(t *testing.T) {
 	}
 }
 
+func TestAnalyseReportsSetupAndFrameErrors(t *testing.T) {
+	t.Run("parser config", func(t *testing.T) {
+		restoreAnalysisSeams(t)
+		loadAnalysisPandarConfig = func() (*parse.Pandar40PConfig, error) {
+			return nil, errors.New("parser config failed")
+		}
+		if _, err := Analyse(fixtureConfig(t)); err == nil {
+			t.Fatal("expected parser config error")
+		}
+	})
+
+	t.Run("classifier construction", func(t *testing.T) {
+		cfg := fixtureConfig(t)
+		cfg.SensorID = ""
+		if _, err := Analyse(cfg); err == nil {
+			t.Fatal("expected classifier construction error")
+		}
+	})
+
+	t.Run("ring elevations", func(t *testing.T) {
+		restoreAnalysisSeams(t)
+		newAnalysisClassifier = func(string, string, *config.TuningConfig) (analysisMotionClassifier, error) {
+			return &failingAnalysisClassifier{setErr: errors.New("elevations failed")}, nil
+		}
+		if _, err := Analyse(fixtureConfig(t)); err == nil {
+			t.Fatal("expected ring elevations error")
+		}
+	})
+
+	t.Run("frame observation", func(t *testing.T) {
+		restoreAnalysisSeams(t)
+		newAnalysisClassifier = func(string, string, *config.TuningConfig) (analysisMotionClassifier, error) {
+			return &failingAnalysisClassifier{observeErr: errors.New("observe failed")}, nil
+		}
+		if _, err := Analyse(fixtureConfig(t)); err == nil {
+			t.Fatal("expected frame observation error")
+		}
+	})
+}
+
 // TestRunFixtureWritesSegmentCaptures drives the full split, including the
 // writer that emits one capture per segment.
 func TestRunFixtureWritesSegmentCaptures(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.OutputPrefix = "seg"
 	cfg.ExportJSON = true
@@ -113,8 +182,6 @@ func TestRunFixtureWritesSegmentCaptures(t *testing.T) {
 }
 
 func TestRunDryRunSkipsWriting(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.DryRun = true
 
@@ -143,8 +210,6 @@ func TestRunRejectsMissingCapture(t *testing.T) {
 }
 
 func TestRunExportsMetricsAndMotionTimeline(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.DryRun = true
 	cfg.ExportMetrics = true
@@ -167,8 +232,6 @@ func TestRunExportsMetricsAndMotionTimeline(t *testing.T) {
 // both passes: analysis (wrapProgress) and writing (newWriteProgress). A short
 // interval guarantees at least one tick during the replay.
 func TestRunWithProgressReportingEnabled(t *testing.T) {
-	requirePCAPFixture(t)
-
 	cfg := fixtureConfig(t)
 	cfg.ProgressSecs = 0.01
 

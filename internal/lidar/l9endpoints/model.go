@@ -353,7 +353,6 @@ type StatePrediction struct {
 
 // PlaybackInfo contains playback metadata for replay mode.
 type PlaybackInfo struct {
-	IsLive            bool
 	LogStartNs        int64
 	LogEndNs          int64
 	PlaybackRate      float32
@@ -362,6 +361,19 @@ type PlaybackInfo struct {
 	TotalFrames       uint64
 	Seekable          bool   // true when seek/step is supported (e.g. .vrlog replay)
 	ReplayEpoch       uint64 // monotonically increasing; bumped on each new replay load
+
+	// SourceMode names what is driving the pipeline, as the canonical token
+	// ("live", "pcap", "pcap_analysis", "vrlog"). Empty means unknown, which
+	// maps to SOURCE_MODE_UNSPECIFIED on the wire rather than inventing a source.
+	SourceMode string
+	Recording  bool
+
+	// Settling reports that the background grid has not settled yet, so the
+	// scene renders empty through no fault of the sensor.
+	Settling            bool
+	SettlingElapsedSecs float32
+	// SensorSilent reports live input with no packets arriving.
+	SensorSilent bool
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.

@@ -690,8 +690,8 @@ func TestRealDataSourceManager_StartPCAPReplay_Error(t *testing.T) {
 	if err.Error() != "file not found" {
 		t.Errorf("Expected 'file not found', got: %v", err)
 	}
-	if mgr.IsPCAPInProgress() {
-		t.Error("Expected PCAP not in progress after error")
+	if ops.StartPCAPCalls != 1 {
+		t.Errorf("Expected the failed start to have been attempted once, got %d", ops.StartPCAPCalls)
 	}
 }
 
@@ -1049,7 +1049,7 @@ func TestServer_HandlePCAPStop_NoPCAPActive(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=test-sensor", nil)
 	rec := httptest.NewRecorder()
 
-	server.handlePCAPStop(rec, req)
+	server.handleReplayStop(rec, req)
 
 	// Should return success even if no PCAP is active
 	if rec.Code < 200 || rec.Code >= 300 {

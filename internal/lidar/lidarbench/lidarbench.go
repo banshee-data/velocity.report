@@ -47,12 +47,19 @@ const (
 	bytesPerKB = 1024
 )
 
+var (
+	loadBenchmarkPandarConfig = parse.LoadEmbeddedPandar40PConfig
+	readBenchmarkBuildInfo    = debug.ReadBuildInfo
+)
+
 // Config holds the benchmark run parameters. Flag parsing lives in the caller.
 type Config struct {
-	PCAPFile  string
-	OutputDir string
-	SensorID  string
-	UDPPort   int
+	PCAPFile        string
+	OutputDir       string
+	SensorID        string
+	UDPPort         int
+	StartSeconds    float64
+	DurationSeconds float64
 
 	// Tuning is the loaded tuning config (from -config); nil falls back to the
 	// embedded defaults, so the measured pipeline matches live observation.
@@ -178,13 +185,14 @@ func Run(cfg Config) int {
 // runBenchmark replays the capture through the tracking pipeline with timing
 // instrumentation and assembles the performance metrics.
 func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
+	cfg.DurationSeconds = normaliseReplayDuration(cfg.DurationSeconds)
 	runtime.GC()
 	var memBefore runtime.MemStats
 	runtime.ReadMemStats(&memBefore)
 
 	startTime := time.Now()
 
-	parserConfig, err := parse.LoadEmbeddedPandar40PConfig()
+	parserConfig, err := loadBenchmarkPandarConfig()
 	if err != nil {
 		return nil, nil, fmt.Errorf("load parser config: %w", err)
 	}
@@ -199,7 +207,7 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 	reader := wrapProgress(cfg, stats, "benchmark")
 	if err := network.ReadPCAPFile(
 		context.Background(), cfg.PCAPFile, cfg.UDPPort,
-		parser, fb, reader, nil, 0, -1, 0, 0, nil,
+		parser, fb, reader, nil, cfg.StartSeconds, cfg.DurationSeconds, 0, 0, nil,
 	); err != nil {
 		return nil, nil, fmt.Errorf("read PCAP: %w", err)
 	}
@@ -236,6 +244,15 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 		ClassifyTimeMs:   classifyNs / 1e6,
 	}
 	return res, metrics, nil
+}
+
+// normaliseReplayDuration preserves the historical zero-value full-capture
+// behaviour while retaining -1 as the explicit full-capture setting.
+func normaliseReplayDuration(durationSeconds float64) float64 {
+	if durationSeconds == 0 {
+		return -1
+	}
+	return durationSeconds
 }
 
 func perSecond(count int, seconds float64) float64 {
@@ -496,7 +513,7 @@ func getSystemInfo() SystemInfo {
 		NumCPU:    runtime.NumCPU(),
 		GoVersion: runtime.Version(),
 	}
-	if buildInfo, ok := debug.ReadBuildInfo(); ok {
+	if buildInfo, ok := readBenchmarkBuildInfo(); ok {
 		for _, setting := range buildInfo.Settings {
 			if setting.Key == "vcs.revision" {
 				if len(setting.Value) > commitHashLength {

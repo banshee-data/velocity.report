@@ -19,6 +19,9 @@ class RunTrackLabelAPIClient {
     /// URL session for HTTP requests.
     private let session: URLSession
 
+    /// Test-only view of the session, so cache policy can be asserted.
+    var sessionForTesting: URLSession { session }
+
     /// Shared JSON decoder configured for Go backend responses.
     /// Handles snake_case keys and Go's RFC3339Nano date format with
     /// fractional seconds and timezone offsets (e.g. "2026-02-10T20:05:09.283745-08:00").
@@ -42,7 +45,10 @@ class RunTrackLabelAPIClient {
 
     // MARK: - Initialisation
 
-    init(baseURL: URL = URL(string: "http://localhost:8080")!, session: URLSession = .shared) {
+    init(
+        baseURL: URL = URL(string: "http://localhost:8080")!,
+        session: URLSession = APISession.shared
+    ) {
         self.baseURL = baseURL
         self.session = session
     }
@@ -191,6 +197,25 @@ class RunTrackLabelAPIClient {
     /// Stop VRLOG replay.
     func stopVRLog() async throws {
         let url = baseURL.appendingPathComponent("api/lidar/vrlog/stop")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let (_, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+            (200...299).contains(httpResponse.statusCode)
+        else { throw APIError.requestFailed(response) }
+    }
+
+    /// Return the pipeline to live input, ending whatever replay is loaded.
+    ///
+    /// This is the only thing that takes the pipeline off a recording. A replay
+    /// that reaches its end stays the data source, holding its final frame and
+    /// the grid it built, so going live is always a deliberate request. The
+    /// server resets the grid and restarts the sensor listener.
+    func returnToLive() async throws {
+        let url = baseURL.appendingPathComponent("api/lidar/pcap/stop")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

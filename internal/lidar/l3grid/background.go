@@ -17,11 +17,21 @@ type BackgroundParams struct {
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
 	FreezeThresholdMultiplier      float32 // e.g., 3.0
 	NeighbourConfirmationCount     int     // e.g., 5 of 8 neighbours
-	WarmupDurationNanos            int64   // optional extra settle time before emitting foreground
+	WarmupDurationNanos            int64   // settle-time ceiling: settle by here regardless
 	WarmupMinFrames                int     // optional minimum frames before considering settled
-	PostSettleUpdateFraction       float32 // optional lower alpha after settle for stability
-	ForegroundMinClusterPoints     int     // min points for a cluster to be forwarded/considered
-	ForegroundDBSCANEps            float32 // clustering radius for foreground gating
+	// SettlingThresholds, when set, lets a grid finish settling as soon as it
+	// has demonstrably converged rather than waiting out WarmupDurationNanos.
+	// The duration becomes a ceiling for scenes that never converge — busy
+	// ones, or a sensor watching moving traffic — rather than a fixed cost
+	// every scene pays. WarmupMinFrames is still required either way.
+	SettlingThresholds *SettlingThresholds
+	// SettlingCheckInterval is how many frames apart convergence is evaluated.
+	// Evaluation walks every cell, so it is not run per frame. Zero means the
+	// default.
+	SettlingCheckInterval      int
+	PostSettleUpdateFraction   float32 // optional lower alpha after settle for stability
+	ForegroundMinClusterPoints int     // min points for a cluster to be forwarded/considered
+	ForegroundDBSCANEps        float32 // clustering radius for foreground gating
 	// ForegroundMaxInputPoints caps the number of points fed into the core DBSCAN
 	// loop. When the input exceeds this value, uniform random subsampling is
 	// applied to keep runtime bounded. If this value is zero or negative, a
@@ -205,7 +215,11 @@ type BackgroundGrid struct {
 	// Performance tracking for system_events table integration
 	LastProcessingTimeUs  int64
 	WarmupFramesRemaining int
-	SettlingComplete      bool
+	// settlingCheckCounter paces convergence evaluation during warm-up.
+	settlingCheckCounter int
+	// settlingAnnounced ensures the settling plan is logged once per warm-up.
+	settlingAnnounced bool
+	SettlingComplete  bool
 
 	// Telemetry for monitoring (feeds into system_events)
 	ForegroundCount int64

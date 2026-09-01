@@ -1,0 +1,39 @@
+name: 🏷️ BuildInfo placeholder
+
+# BuildInfo.swift is restamped with a git SHA and timestamp by every macOS
+# build. It is tracked so the Xcode target always has something to compile,
+# which means .gitignore cannot keep the generated values out. Without this
+# gate the stamp rides along in unrelated commits and conflicts on every merge.
+#
+# Runs on ubuntu: this is a text check and needs no Xcode.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift"
+      - "scripts/check-buildinfo-placeholder.sh"
+      - ".github/workflows/buildinfo-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift"
+      - "scripts/check-buildinfo-placeholder.sh"
+      - ".github/workflows/buildinfo-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buildinfo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-buildinfo:
+    name: "🏷️ No generated build stamps in git"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: "Check BuildInfo.swift holds only placeholder values"
+        run: scripts/check-buildinfo-placeholder.sh

@@ -258,3 +258,18 @@ func TestHintLabelAdapterUpdateTrackLabelUnknownTrack(t *testing.T) {
 		t.Errorf("adapter error = %v, store error = %v; want them to agree", err, wantErr)
 	}
 }
+
+// The publisher discovers settling state through an optional interface, so a
+// bridge that omits the method loses send-on-settle silently: the assertion
+// simply finds nothing, and the client waits out the whole refresh interval
+// over an empty grid. That is what happened on 2026-08-28, where settling
+// finished at 6.0s and the background did not arrive until 24s later.
+func TestBackgroundManagerBridgeReportsSettling(t *testing.T) {
+	mgr := newTestBackgroundManager(t)
+	bridge := &backgroundManagerBridge{mgr: mgr}
+
+	var settlingAware interface{ IsSettlingComplete() bool } = bridge
+	if got, want := settlingAware.IsSettlingComplete(), mgr.IsSettlingComplete(); got != want {
+		t.Errorf("IsSettlingComplete() = %v, want the manager's %v", got, want)
+	}
+}

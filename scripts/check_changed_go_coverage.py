@@ -78,10 +78,14 @@ def changed_package_patterns(files: list[str]) -> list[str]:
     return ["." if d == "." else f"./{d}" for d in dirs]
 
 
-def import_paths_for_patterns(patterns: list[str], cwd: Path) -> list[str]:
+def import_paths_for_patterns(patterns: list[str], cwd: Path, tags: str) -> list[str]:
     if not patterns:
         return []
-    out = subprocess.check_output(["go", "list", *patterns], cwd=cwd, env=go_env(cwd), text=True)
+    cmd = ["go", "list"]
+    if tags:
+        cmd.append(f"-tags={tags}")
+    cmd.extend(patterns)
+    out = subprocess.check_output(cmd, cwd=cwd, env=go_env(cwd), text=True)
     return [line for line in out.splitlines() if line]
 
 
@@ -222,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.run_go_test:
-        packages = import_paths_for_patterns(patterns, cwd)
+        packages = import_paths_for_patterns(patterns, cwd, args.tags)
         run_go_coverage(packages, args.profile, cwd, args.tags)
 
     coverage = parse_coverage_profile(args.profile)

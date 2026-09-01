@@ -14,7 +14,7 @@
       "neighbour_confirmation_count": 2,
       "seed_from_first": false,
       "warmup_duration_nanos": 30000000000,
-      "warmup_min_frames": 100,
+      "warmup_min_frames": 50,
       "post_settle_update_fraction": 0,
       "enable_diagnostics": false,
       "freeze_duration": "5s",

@@ -857,3 +857,5 @@ func (m *testReplayBackgroundManager) GenerateBackgroundSnapshot() (interface{},
 func (m *testReplayBackgroundManager) GetBackgroundSequenceNumber() uint64 {
 	return 1
 }
+
+func (m *testReplayBackgroundManager) IsSettlingComplete() bool { return false }

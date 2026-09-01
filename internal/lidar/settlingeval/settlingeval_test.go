@@ -31,7 +31,7 @@ func TestBackgroundConfigFromTuningConfig(t *testing.T) {
 }
 
 func TestRunUsesTuningConfigBeforeReplayFailure(t *testing.T) {
-	_, err := Run("/nonexistent.pcap", "", "test-sensor", 2369)
+	_, err := Run(Config{PCAPFile: "/nonexistent.pcap", SensorID: "test-sensor", UDPPort: 2369})
 	if err == nil {
 		t.Fatal("expected replay error for nonexistent PCAP")
 	}

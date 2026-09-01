@@ -78,6 +78,11 @@ const (
 	deployedVelocityBinaryPath = "/opt/velocity-report/current/velocity"
 )
 
+// sensorSilentAfter is how long without a packet counts as a silent sensor.
+// Long enough not to trip on a dropped frame or a brief hiccup, short enough
+// that an operator watching an empty scene is told why within a few seconds.
+const sensorSilentAfter = 3 * time.Second
+
 func parseMigrateCommandArgs(args []string, defaultDBPath string) ([]string, string, bool, error) {
 	dbPath := defaultDBPath
 	explicitDBPath := false
@@ -644,7 +649,7 @@ func Main(args []string) int {
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
-				MaxFrameRate:        25, // Must exceed sensor max Hz (20) to avoid dropping live frames
+				MaxFrameRate:        25, // Replay catch-up ceiling; live is never throttled (see ReplayActive)
 				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:        tuningCfg.GetRemoveGround(),
@@ -724,18 +729,14 @@ func Main(args []string) int {
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 			TuningConfig:      tuningCfg,
 			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPStopped: func() {
-				if visualiserServer != nil {
-					visualiserServer.SetReplayMode(false)
-					log.Printf("[Visualiser] PCAP stopped: switched to live mode")
-				}
-			},
-			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
-			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
-			OnRecordingStart: func(runID string) {
+			OnPCAPStopped:     replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPProgress:    pcapProgressCallback(visualiserServer),
+			PlaybackProbe:     visualiserPlaybackProbe{server: visualiserServer},
+			OnPCAPTimestamps:  pcapTimestampsCallback(visualiserServer),
+			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
-					return
+					return ""
 				}
 				vrlogRecorderMu.Lock()
 				defer vrlogRecorderMu.Unlock()
@@ -750,16 +751,16 @@ func Main(args []string) int {
 				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				if err := os.MkdirAll(baseDir, 0755); err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
-					return
+					return ""
 				}
 				recordPath := filepath.Join(baseDir, runID)
 				rec := newVRLogRecorderOrLog(recorder.NewRecorder, recordPath, lidarSensorID, log.Printf)
 				if rec == nil {
-					return
+					return ""
 				}
 
 				applyRecordingMetadata(rec, lidarDB, lidarServer, runID, tuningHash, log.Default())
@@ -767,7 +768,22 @@ func Main(args []string) int {
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
+
+				// Open the recording with the background, so a replay of it has
+				// a scene from its first frame. Without this the background
+				// lands wherever the refresh interval happened to fall — one
+				// recording carries it at frame 2 and another at frame 116, and
+				// the second draws foreground over nothing until it arrives.
+				//
+				// The settle-before-recording flow reaches here with the grid
+				// already settled and restored, which is what makes the
+				// snapshot worth writing rather than empty.
+				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
+					log.Printf("[Visualiser] could not open the recording with a background: %v", err)
+				}
+
 				log.Printf("[Visualiser] VRLOG recording started: %s", vrlogRecorderPath)
+				return vrlogRecorderPath
 			},
 			OnRecordingStop: func(runID string) string {
 				if visualiserPublisher == nil {
@@ -802,13 +818,20 @@ func Main(args []string) int {
 					return "", fmt.Errorf("failed to open vrlog: %w", err)
 				}
 				frameEncoding := string(replayer.FrameEncoding())
+				// Drop the previous source's background BEFORE the replay
+				// starts. Clients keep the last background they were sent, so
+				// without this the live settled grid stays on screen under
+				// replayed foreground — it reads as a real scene and is not
+				// obviously wrong until something moves through it.
+				//
+				// Order matters: StartVRLogReplay emits the recording's own
+				// background, so clearing afterwards would wipe the very frame
+				// that replaces this one.
+				visualiserPublisher.ClearBackground()
 				// Start replay through the publisher
 				if err := visualiserPublisher.StartVRLogReplay(replayer); err != nil {
 					replayer.Close()
 					return "", fmt.Errorf("failed to start vrlog replay: %w", err)
-				}
-				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
-					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
 				log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
 				return frameEncoding, nil
@@ -824,6 +847,47 @@ func Main(args []string) int {
 				}
 			},
 		})
+		// A VRLOG that plays to its end stays loaded and stays the data source.
+		// Only the replay slot is released, so another replay can start; the
+		// recording remains on screen at its final frame and the visualiser's
+		// Live toggle stays off until an operator turns it back on.
+		if visualiserPublisher != nil {
+			srv := lidarServer
+			visualiserPublisher.SetOnReplayEnded(func() {
+				srv.ParkFinishedReplay("VRLOG replay reached the end of its recording")
+			})
+		}
+
+		// Report background settling to the client. Until the grid settles
+		// there is no usable background, so the scene renders empty and looks
+		// exactly like a sensor that has stopped.
+		if visualiserServer != nil {
+			sensor := lidarSensorID
+			// A sensor that has stopped still produces frames, empty ones, so
+			// silence has to come from packet arrival rather than the stream.
+			visualiserServer.SetSensorSilentProvider(func() bool {
+				return sensorIsSilent(lidarServer.LastPacketAt(), time.Now(), sensorSilentAfter)
+			})
+
+			visualiserServer.SetSettlingProvider(func() (bool, float32) {
+				mgr := l3grid.GetBackgroundManager(sensor)
+				if mgr == nil {
+					return false, 0
+				}
+				status := mgr.SettlingStatus()
+				return !status.Complete, float32(status.Elapsed.Seconds())
+			})
+		}
+
+		// Let the streaming layer read the source mode from its single owner
+		// rather than keeping a second copy that can drift out of agreement.
+		if visualiserServer != nil {
+			srv := lidarServer
+			visualiserServer.SetSourceModeProvider(func() (string, bool) {
+				state := srv.PipelineState()
+				return state.DataSourceWire(), state.Recording
+			})
+		}
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
 			lidarServer.SetTracker(tracker)
@@ -836,6 +900,7 @@ func Main(args []string) int {
 		if pipelineConfig != nil {
 			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
 			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
+			pipelineConfig.ReplayActive = lidarServer.ReplayActiveFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
@@ -1147,6 +1212,14 @@ func runTransitsCommand(args []string) {
 // the lidar and visualiser packages.
 type backgroundManagerBridge struct {
 	mgr *l3grid.BackgroundManager
+}
+
+// IsSettlingComplete forwards the grid's settling state so the publisher can
+// send a snapshot the moment settling ends. Without it the bridge satisfies
+// only the required interface, the publisher's optional check finds nothing,
+// and the client waits out the full refresh interval over an empty grid.
+func (b *backgroundManagerBridge) IsSettlingComplete() bool {
+	return b.mgr.IsSettlingComplete()
 }
 
 func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, error) {

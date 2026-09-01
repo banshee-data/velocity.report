@@ -2,12 +2,45 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
+
+type failingRoundTripper struct{}
+
+func (failingRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("transport failed")
+}
+
+func TestClientTransportErrors(t *testing.T) {
+	c := NewClient(&http.Client{Transport: failingRoundTripper{}}, "http://example.test", "sensor1")
+
+	if err := c.StartPCAPReplay("capture.pcap", 1); err == nil {
+		t.Error("StartPCAPReplay should return its transport error")
+	}
+	if got := c.FetchBuckets(); len(got) != len(DefaultBuckets()) {
+		t.Errorf("FetchBuckets fallback length = %d, want %d", len(got), len(DefaultBuckets()))
+	}
+	if err := c.ResetGrid(); err == nil {
+		t.Error("ResetGrid should return its transport error")
+	}
+	if err := c.SetParams(BackgroundParams{}); err == nil {
+		t.Error("SetParams should return its transport error")
+	}
+	if err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{PCAPFile: "capture.pcap", MaxRetries: 1}); err == nil {
+		t.Error("StartPCAPReplayWithConfig should return its transport error")
+	}
+	if err := c.StopPCAPReplay(); err == nil {
+		t.Error("StopPCAPReplay should return its transport error")
+	}
+	if _, err := c.FetchTrackingMetrics(); err == nil {
+		t.Error("FetchTrackingMetrics should return its transport error")
+	}
+}
 
 // --- GetLastAnalysisRunID ---
 

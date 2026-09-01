@@ -27,6 +27,8 @@ func SettlingEvalMain(args []string) int {
 	fs.StringVar(&configPath, "config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
 	fs.StringVar(&configPath, "tuning", config.DefaultConfigPath, "deprecated alias for -config")
 	udpPort := fs.Int("port", 0, "UDP port filter for PCAP packets (0 = auto-detect from the capture)")
+	startSeconds := fs.Float64("start-seconds", 0, "Start replay at this capture offset in seconds")
+	durationSeconds := fs.Float64("duration-seconds", -1, "Replay duration in seconds (0 or -1 = remaining capture)")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: velocity lidar settling-eval [flags] <pcap-file>\n\n")
@@ -52,7 +54,14 @@ func SettlingEvalMain(args []string) int {
 		return 1
 	}
 
-	report, err := settlingeval.Run(pcapFile, configPath, *sensor, port)
+	report, err := settlingeval.Run(settlingeval.Config{
+		PCAPFile:        pcapFile,
+		TuningFile:      configPath,
+		SensorID:        *sensor,
+		UDPPort:         port,
+		StartSeconds:    *startSeconds,
+		DurationSeconds: *durationSeconds,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "settling-eval: %v\n", err)
 		return 1
