@@ -8,7 +8,7 @@
 
 ## The S2 world over San Francisco
 
-[![S2 L10 and L13 cells over San Francisco, with the Hilbert curve traced at L12 and L13](../../images/s2-10-sf.jpg)](../../images/s2-10-sf.jpg)
+[![S2 L10 and L13 cells over San Francisco, with the Hilbert curve traced at L12 and L13](../../../public_html/src/images/s2-10-sf.jpg)](../../../public_html/src/images/s2-10-sf.jpg)
 
 Read this first. Every convention in this guide is visible in one picture.
 
