@@ -411,7 +411,7 @@ Missing GPS leaves all S2 tags absent, records
 records use `"not_applicable"`. If accepted position evidence spans L10 cells,
 requested tagging fails instead of silently choosing one. The complete
 filename, summary, VRLOG, and database conformance contract is defined by the
-[S2 geographic-indexing decision](../architecture/geographic-indexing.md#static-pcap-and-vrlog-artefact-conformance).
+[S2 geographic-indexing plan](../../plans/s2-geographic-indexing-plan.md#static-pcap-and-vrlog-artefact-conformance).
 
 ### Motion classifier API
 

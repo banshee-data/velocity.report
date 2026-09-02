@@ -78,7 +78,7 @@ error. Both columns remain `NULL` for legacy data, moving segments, and
 sensor-local captures without accepted WGS84 provenance.
 
 See the [static PCAP and VRLOG conformance
-contract](../architecture/geographic-indexing.md#static-pcap-and-vrlog-artefact-conformance).
+contract](../../plans/s2-geographic-indexing-plan.md#static-pcap-and-vrlog-artefact-conformance).
 
 ### Phase 2.2: replayCaseStore
 

@@ -65,7 +65,7 @@ Legacy recordings, moving captures, and sensor-local recordings without
 accepted WGS84 provenance may omit both fields; storing only one is invalid.
 Adding the fields requires a wire-format version bump and analyser support.
 The full cross-artefact contract lives in the [S2 geographic-indexing
-decision](../../docs/lidar/architecture/geographic-indexing.md#static-pcap-and-vrlog-artefact-conformance).
+plan](../../docs/plans/s2-geographic-indexing-plan.md#static-pcap-and-vrlog-artefact-conformance).
 
 ### coordinate_frame
 
