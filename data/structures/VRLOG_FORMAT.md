@@ -40,6 +40,33 @@ JSON object written when the recorder closes. Contains log-level metadata.
 | `tuning_hash`      | string  | SHA-256 hex digest of the tuning config JSON (omitted if empty)        |
 | `build_version`    | string  | velocity.report version that created the recording                     |
 
+### Planned S2 provenance extension
+
+The upcoming geographic-indexing phase will add two optional fields to the
+header of a VRLOG derived from a located static PCAP segment:
+
+| Field          | Type   | Description                                             |
+| -------------- | ------ | ------------------------------------------------------- |
+| `s2_l13_token` | string | Canonical fine-cell token copied from split metadata    |
+| `s2_l10_token` | string | Canonical `Parent(10)` token copied from split metadata |
+
+For example, a source named
+`capture-static-0-s2-l10-808581.pcap` produces
+`capture-static-0-s2-l10-808581.vrlog/`, whose `header.json` carries
+`"s2_l13_token": "80858004"` and `"s2_l10_token": "808581"`. The
+canonical tokens are machine data; family displays and UI-only spacing do not
+belong in either the path or header.
+
+The recorder copies these fields from trusted PCAP split metadata. It must not
+recover them by parsing the source filename. When both are present, validation
+requires the CellID represented by `s2_l13_token` to have
+`Parent(10) == s2_l10_token`, and requires the L10 filename tag to agree.
+Legacy recordings, moving captures, and sensor-local recordings without
+accepted WGS84 provenance may omit both fields; storing only one is invalid.
+Adding the fields requires a wire-format version bump and analyser support.
+The full cross-artefact contract lives in the [S2 geographic-indexing
+plan](../../docs/plans/s2-geographic-indexing-plan.md#static-pcap-and-vrlog-artefact-conformance).
+
 ### coordinate_frame
 
 | Field             | Type   | Description                  |

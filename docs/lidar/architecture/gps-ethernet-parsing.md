@@ -3,19 +3,19 @@
 Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR ingestion while preserving sensor-only operation, including parsing boundaries, data contracts, rollout safeguards, and integration validation requirements.
 
 **Status:** Proposed
-**Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md)
+**Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md), [S2 geographic indexing](./geographic-indexing.md)
 
 ## Overview & motivation
 
 ### Architecture principle: GPS is additive
 
-**All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive: it enriches the system with geographic coordinates but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
+**All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive: it supplies a precise WGS84 measurement from which the system derives canonical S2 cells, but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
 
 GPS data **may** be ingested over ethernet to enable optional geographic features when a GPS receiver is available. The following sections specify boundaries, data contracts, rollout safeguards, and integration validation.
 
 ### Current state
 
-The velocity.report system currently stores site-level GPS coordinates in the database ([internal/db/site.go](../../../internal/db/site.go)) for map markers and report generation. LiDAR data operates in a sensor-local coordinate frame (X=right, Y=forward, Z=up) with no automatic geo-referencing capability.
+The velocity.report system currently stores a legacy site-level WGS84 origin in the database ([internal/db/site.go](../../../internal/db/site.go)) for map markers and report generation. LiDAR data operates in a sensor-local coordinate frame (X=right, Y=forward, Z=up) with no automatic S2 indexing or geo-referencing capability.
 
 The L1 packet parsing layer ([internal/lidar/l1packets/parse/](../../../internal/lidar/l1packets/parse)) already handles Hesai Pandar40P UDP packets with multiple timestamp modes including `TimestampModePTP` and `TimestampModeGPS`. The `resolvePacketTime()` function supports PTP/GPS timestamps with static-detection fallback, but does not ingest GPS position data.
 
@@ -23,9 +23,9 @@ The L1 packet parsing layer ([internal/lidar/l1packets/parse/](../../../internal
 
 Geographic referencing of LiDAR data is **optional but valuable** for:
 
-1. **Tier 2 Global Ground Grid**: Populate the persistent lat/long-aligned ground plane grid (see [ground-plane-extraction.md](ground-plane-extraction.md)) that accumulates across observation sessions
+1. **Tier 2 Global Ground Dataset**: Populate persistent WGS84 ground geometry partitioned by canonical S2 L13 cells (see [ground-plane-extraction.md](ground-plane-extraction.md)) across observation sessions; derive the coarse L10 filesystem parent with S2 CellID semantics
 2. **Multi-location PCAP Analysis**: Process captures from different deployment sites with absolute geographic context
-3. **GeoJSON Exports**: Export ground plane tiles and other data with lat/long coordinates for GIS tools
+3. **GeoJSON Exports**: Export ground plane tiles and other data as WGS84 geometry carrying canonical S2 L13 metadata for GIS tools
 4. **OSM Integration** (future): Anchor LiDAR observations to OpenStreetMap features for validation
 
 ### What works without GPS (primary operating mode)
@@ -41,7 +41,7 @@ Without GPS, the system operates normally in sensor-local coordinates:
 ### Design goals
 
 - **Strictly additive**: System must work identically without GPS; GPS only adds geographic context
-- **Privacy-preserving**: GPS coordinates are site-level metadata, not per-vehicle tracking
+- **Privacy-preserving**: Canonical S2 cells describe observation areas, not per-vehicle tracking; precise WGS84 measurements remain local geometry inputs
 - **PCAP-compatible**: GPS packets captured alongside LiDAR packets in mixed network captures
 - **Fallback graceful**: Use database site config when no GPS hardware available
 - **Timestamp-correlated**: Associate GPS fixes with LiDAR frames by timestamp
@@ -156,14 +156,15 @@ $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
        |      |          |           |  |  +- HDOP
        |      |          |           |  +- Satellites used
        |      |          |           +- Fix quality (0=invalid, 1=GPS, 2=DGPS, 4=RTK)
-       |      |          +- Longitude (dddmm.mmmm, E/W)
-       |      +- Latitude (ddmm.mmmm, N/S)
+       |      |          +- East/west angular component (dddmm.mmmm, E/W)
+       |      +- North/south angular component (ddmm.mmmm, N/S)
        +- UTC time (hhmmss.sss)
 ```
 
 **Fields Required:**
 
-- Latitude, longitude (decimal degrees after conversion)
+- WGS84 position (decimal degrees after normalisation)
+- Canonical S2 L13 token derived from that position
 - Fix quality (must be ≥1 for valid position)
 - HDOP (horizontal dilution of precision)
 - Satellite count (quality indicator)
@@ -180,8 +181,8 @@ $GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
        |      | |          |           |     |     +- Date (DDMMYY)
        |      | |          |           |     +- Course (degrees)
        |      | |          |           +- Speed (knots)
-       |      | |          +- Longitude
-       |      | +- Latitude
+       |      | |          +- East/west angular component
+       |      | +- North/south angular component
        |      +- Status (A=active, V=void)
        +- UTC time
 ```
@@ -190,7 +191,7 @@ $GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
 
 - Date (for absolute timestamp construction)
 - Status (must be 'A' for valid fix)
-- Latitude, longitude (redundant with GGA, used for validation)
+- WGS84 position (redundant with GGA, used for validation)
 
 **$GPGSA - DOP and Active Satellites**
 
@@ -213,7 +214,7 @@ $GPGSA,A,3,04,05,09,12,24,,,,,,,,,2.5,1.3,2.1*39
 - PDOP (position dilution of precision, quality metric)
 - Fix type (require 3D fix for altitude)
 
-### Coordinate conversion
+### WGS84 fix normalisation
 
 NMEA uses `DDmm.mmmm` format; must convert to decimal degrees:
 
@@ -226,7 +227,7 @@ Calculation: degrees + (minutes / 60)
             = 48.1173
 ```
 
-**Implementation:** `parseNMEACoordinate(coord, hemisphere string) (float64, error)` in `internal/gps/nmea/` parses the `DDmm.mmmm` format by splitting degrees from minutes at the decimal-point offset, dividing minutes by 60 to get decimal degrees, and negating the result for S/W hemispheres.
+**Implementation:** `parseNMEACoordinate(coord, hemisphere string) (float64, error)` in `internal/gps/nmea/` parses each hemisphere-marked angular component by splitting degrees from minutes at the decimal-point offset, dividing minutes by 60 to get decimal degrees, and negating the result for S/W hemispheres. The parser combines the normalised components into a `WGS84Position`; the ingestion boundary immediately derives its canonical S2 L13 CellID and token using the [canonical cell-positioning model](geographic-indexing.md#how-s2-positions-and-numbers-cells). Coarse L10 grouping comes only from `cell.Parent(10)`.
 
 ### Checksum validation
 
@@ -260,7 +261,7 @@ NMEA time must correlate with LiDAR timestamps:
 
 1. Construct absolute UTC timestamp from NMEA date+time
 2. Match to LiDAR packet timestamps via `resolvePacketTime()`
-3. Interpolate GPS position between fixes for high-frequency LiDAR frames
+3. Interpolate the precise WGS84 position between fixes for high-frequency LiDAR frames, then derive the canonical S2 L13 cell for each result
 4. Detect GPS time jumps (reconnection, leap seconds)
 
 **Challenges:**
@@ -275,11 +276,11 @@ NMEA time must correlate with LiDAR timestamps:
 
 **GPSFix - Single Position Fix**
 
-`GPSFix` struct in `internal/gps/` represents a single GPS measurement. Key fields: `Timestamp` (UTC), `Latitude`/`Longitude` (decimal degrees, WGS84), `AltitudeMSL`/`AltitudeHAE` (metres), `FixQuality` (0=invalid, 1=GPS, 2=DGPS, 4=RTK, 5=Float RTK), `SatelliteCount`, `HDOP`/`PDOP`, `Speed` (m/s, from GPRMC), `Course` (degrees), and `GeoidSep` (metres). `IsValid()` requires fix quality ≥1, ≥4 satellites, and HDOP <5.0. `IsPrecise()` requires fix quality ≥2 and HDOP <2.0.
+`GPSFix` in `internal/gps/` represents a single GPS measurement. Its planned contract holds `Timestamp` (UTC), `Position` (`WGS84Position`, retained at acquisition precision), `S2L13CellID`, `AltitudeMSL`/`AltitudeHAE` (metres), `FixQuality` (0=invalid, 1=GPS, 2=DGPS, 4=RTK, 5=Float RTK), `SatelliteCount`, `HDOP`/`PDOP`, `Speed` (m/s, from GPRMC), `Course` (degrees), and `GeoidSep` (metres). `IsValid()` requires fix quality ≥1, ≥4 satellites, and HDOP <5.0. `IsPrecise()` requires fix quality ≥2 and HDOP <2.0. The WGS84 value is a physical measurement, while `S2L13CellID` supplies geographic identity and lookup semantics.
 
 **GPSConfig - Data Source Configuration**
 
-`GPSConfig` struct in `internal/gps/` specifies GPS ingestion parameters: enabled flag, source type, UDP port/address, HTTP endpoint and poll interval, NMEA sentence filter list, minimum satellite count (default 4), maximum HDOP (default 5.0), and timeout before fallback. `GPSSourceType` is an enum with four values: `GPSSourceUDP` (standalone NMEA-over-UDP receiver), `GPSSourceHTTP` (Hesai built-in API), `GPSSourcePCAP` (replay from capture), and `GPSSourceSiteConfig` (manual coordinates from database).
+`GPSConfig` struct in `internal/gps/` specifies GPS ingestion parameters: enabled flag, source type, UDP port/address, HTTP endpoint and poll interval, NMEA sentence filter list, minimum satellite count (default 4), maximum HDOP (default 5.0), and timeout before fallback. `GPSSourceType` is an enum with four values: `GPSSourceUDP` (standalone NMEA-over-UDP receiver), `GPSSourceHTTP` (Hesai built-in API), `GPSSourcePCAP` (replay from capture), and `GPSSourceSiteConfig` (manual WGS84 origin from database). Every source passes through the same WGS84-to-S2 conversion boundary.
 
 **GPSReceiver - Data Source Manager**
 
@@ -287,7 +288,7 @@ NMEA time must correlate with LiDAR timestamps:
 
 ### WGS84 datum
 
-All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
+All precise GPS fixes use the **WGS84 (World Geodetic System 1984)** datum. They are geometry inputs, not geographic identifiers; the canonical S2 L13 cell derived from each fix is the system identity:
 
 - Standard for GPS/GNSS systems worldwide
 - Ellipsoid: semi-major axis 6378137 m, flattening 1/298.257223563
@@ -299,7 +300,7 @@ All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
 - **HAE (Height Above Ellipsoid)**: Altitude relative to WGS84 ellipsoid
 - **Relationship**: `HAE = MSL + GeoidSeparation` (from GPGGA sentence)
 
-### Coordinate precision requirements
+### Position precision requirements
 
 **Ground Plane Tile Alignment:**
 
@@ -360,12 +361,12 @@ Associate GPS fixes with LiDAR frames by timestamp:
 
 ### Sensor-to-World transform
 
-Compute WGS84-referenced coordinate transform from GPS position:
+Compute a WGS84-referenced geometry transform from the GPS position, then derive the canonical S2 L13 cell:
 
 **Transform Chain:**
 
 ```
-Sensor Frame → Site Frame → Local ENU → ECEF → WGS84 Lat/Long
+Sensor Frame → Site Frame → Local ENU → ECEF → WGS84 position → S2 L13
 ```
 
 **Components:**
@@ -373,12 +374,13 @@ Sensor Frame → Site Frame → Local ENU → ECEF → WGS84 Lat/Long
 1. **Sensor mounting transform**: Rotation/translation from sensor to site anchor point
 2. **ENU (East-North-Up) frame**: Local tangent plane at GPS position
 3. **ECEF (Earth-Centred Earth-Fixed)**: 3D Cartesian coordinates
-4. **WGS84**: Geodetic latitude/longitude/altitude
+4. **WGS84**: Precise geodetic position and elevation for geometry
+5. **S2 L13**: Canonical geographic identity and database partition; derive L10 with `Parent(10)` when a coarse filesystem partition is needed
 
 **For Ground Plane Export:**
 
 - Ground plane tiles aligned to local ENU frame
-- Tile origin specified in WGS84 coordinates
+- Tile origin specified as a precise WGS84 position with canonical S2 L13 metadata
 - Normal vector: Z-axis in ENU frame (true vertical)
 
 ## PCAP considerations
@@ -444,7 +446,7 @@ The BPF filter expression `"udp and (dst port 2368 or dst port 10110)"` is appli
 **Handling Missing GPS:**
 
 - PCAP contains LiDAR packets but no GPS packets
-- Fallback to site config (manual lat/long from database)
+- Fallback to the site config's manual WGS84 origin and derive its canonical S2 L13 cell
 - Warn user about missing geo-reference
 
 ## Configuration
@@ -473,13 +475,17 @@ JSON configuration for site-specific deployments. Top-level sections:
 
 **`site` section:**
 
-| Field          | Type   | Example                    | Description           |
-| -------------- | ------ | -------------------------- | --------------------- |
-| `name`         | string | `"Oak Street Residential"` | Site display name     |
-| `latitude`     | float  | `47.6062`                  | WGS84 latitude        |
-| `longitude`    | float  | `-122.3321`                | WGS84 longitude       |
-| `altitude_msl` | float  | `50.0`                     | Altitude (metres MSL) |
-| `timezone`     | string | `"America/Los_Angeles"`    | IANA timezone         |
+| Field           | Type          | Example                    | Description                                 |
+| --------------- | ------------- | -------------------------- | ------------------------------------------- |
+| `name`          | string        | `"Oak Street Residential"` | Site display name                           |
+| `s2_l13_token`  | string        | `"80858004"`               | Canonical S2 geographic identity            |
+| `wgs84_origin`  | WGS84Position | `{...}`                    | Optional precise geometry origin; not an ID |
+| `elevation_msl` | float         | `50.0`                     | Altitude (metres MSL)                       |
+| `timezone`      | string        | `"America/Los_Angeles"`    | IANA timezone                               |
+
+The implementation validates that `wgs84_origin`, when present, resolves to
+`s2_l13_token`. It derives the L10 filesystem cell with S2 `Parent(10)` rather
+than storing a separately entered coarse identifier.
 
 **`gps` section:**
 
@@ -507,10 +513,10 @@ Graceful degradation when GPS unavailable:
 
 1. **Primary**: Real-time GPS from UDP stream
 2. **Secondary**: GPS from PCAP replay (if present)
-3. **Tertiary**: Manual site config from database ([internal/db/site.go](../../../internal/db/site.go))
+3. **Tertiary**: Manual WGS84 site origin and canonical S2 L13 identity from the database ([internal/db/site.go](../../../internal/db/site.go))
 4. **Quaternary**: No geo-reference (sensor-local coordinates only)
 
-**Decision Logic:** `GeoReference.GetPosition(t)` in `internal/gps/` implements a cascaded fallback: first attempts the real-time GPS receiver via `GetFixAtTime(t)`, then falls back to constructing a fix from the database site config (with `FixQuality: 0` to indicate manual origin), and finally returns `ErrNoGeoReference` if neither source is available.
+**Decision Logic:** `GeoReference.GetPosition(t)` in `internal/gps/` implements a cascaded fallback: first attempts the real-time GPS receiver via `GetFixAtTime(t)`, then falls back to constructing a fix from the database site's WGS84 origin and validated S2 L13 CellID (with `FixQuality: 0` to indicate manual origin), and finally returns `ErrNoGeoReference` if neither source is available.
 
 ## Storage schema
 
@@ -518,43 +524,57 @@ Graceful degradation when GPS unavailable:
 
 For mobile deployments or multi-session analysis:
 
-`gps_fix_history` table (in [internal/db/migrations/](../../../internal/db/migrations)) stores timestamped GPS fixes with WGS84 coordinates (`latitude`, `longitude`, `altitude_msl`, `altitude_hae`), precision metrics (`fix_quality`, `satellite_count`, `hdop`, `pdop`), motion data (`speed`, `course`), and a `session_id` foreign key to `capture_session`. Indexed on `timestamp` and `session_id`.
+The planned `gps_fix_history` table (in [internal/db/migrations/](../../../internal/db/migrations)) stores each timestamped WGS84 acquisition value as `wgs84_position`, its canonical `s2_l13_token`, elevation values (`altitude_msl`, `altitude_hae`), precision metrics (`fix_quality`, `satellite_count`, `hdop`, `pdop`), motion data (`speed`, `course`), and a `session_id` foreign key to `capture_session`. Index geographic queries by the canonical L13 cell together with timestamp or session. The precise WGS84 value remains available for geometry and audit, but is never assembled into an identifier.
 
 ### Session-Level GPS metadata
 
 Link GPS position to PCAP capture sessions:
 
-`capture_session` table links PCAP files to GPS metadata. Columns: UUID primary key, PCAP filename, start/end timestamps, representative GPS position (`gps_latitude`, `gps_longitude`, `gps_altitude_msl`), quality aggregates (`gps_fix_count`, `gps_fix_quality_median`, `gps_hdop_median`), and a `site_id` foreign key to site config.
+The planned `capture_session` table links PCAP files to geographic metadata. Columns: UUID primary key, PCAP filename, start/end timestamps, representative canonical `s2_l13_token`, optional precise `wgs84_origin`, `gps_altitude_msl`, quality aggregates (`gps_fix_count`, `gps_fix_quality_median`, `gps_hdop_median`), and a `site_id` foreign key to site config. A moving session records all crossed L13 cells through its fix history rather than pretending to have one coordinate-derived session identity.
+
+The session and site identifiers remain operational identities. Neither is
+replaced by an S2 cell: several sites, deployments, or sessions may occupy one
+L13 partition, and one moving session may cross several partitions.
 
 ### Ground plane geo-referencing
 
-Link ground plane tiles to GPS coordinates:
+Link ground plane tiles to canonical S2 geographic identities:
 
-`ground_plane_tile` table stores geo-referenced ground plane tiles. Columns: session link, tile grid coordinates (`tile_x`, `tile_y`), WGS84 centre point, bounding box (`bbox_north/south/east/west`), `point_count`, and a `geometry_blob` (compressed). Indexed on `session_id`, tile coordinates, and bounding box for spatial queries.
+The planned `ground_plane_tile` table stores geo-referenced ground plane tiles.
+Columns retain the session link, local tile coordinates (`tile_x`, `tile_y`),
+WGS84 centre point, bounding box (`bbox_north/south/east/west`), `point_count`,
+and compressed `geometry_blob`. Where geographic lookup is required, each
+record also carries the canonical S2 L13 partition. L10 is derived from that
+CellID with `Parent(10)` and is not a second independently calculated identity.
+
+Before implementation, the storage design must resolve S2 `uint64` versus
+SQLite signed 64-bit `INTEGER`, canonical token/string alternatives, indexes,
+migration, and JSON serialisation. It must not construct either level by
+rounding coordinates or manipulating token strings.
 
 ## Security & privacy
 
-### GPS as site-level metadata
+### S2 as site-level geographic metadata
 
 **Not Personally Identifiable Information:**
 
-- GPS coordinates identify sensor location, not individuals
+- Canonical S2 cells identify the sensor's approximate observation area, not individuals
 - No tracking of vehicle positions or routes
-- Site-level granularity (building/street level)
+- L13 site-area granularity for identity; precise WGS84 values are retained only where geometry requires them
 
 **Privacy Alignment:**
 
 - Consistent with privacy-first design (no cameras, no licence plates)
 - Local-only storage (SQLite database)
-- No external transmission of coordinates
+- No external transmission of S2 or WGS84 location data by default (remote map/prior fetches are explicit opt-in)
 
 ### Local-Only storage
 
 **Data Retention:**
 
-- GPS coordinates stored in local SQLite database
+- Canonical S2 identities and any necessary WGS84 acquisition values are stored in the local SQLite database
 - PCAP files remain on Raspberry Pi (`/var/lib/velocity-report/`)
-- No cloud synchronisation or external transmission
+- No cloud synchronisation; external transmission only when explicitly enabled (for example, remote priors or map lookups)
 
 **User Control:**
 
@@ -583,7 +603,7 @@ Link ground plane tiles to GPS coordinates:
 
 **Current State:**
 
-- GPS provides sensor position (latitude/longitude/altitude)
+- GPS provides a precise WGS84 sensor position and canonical S2 L13 cell
 - Sensor orientation unknown (roll, pitch, yaw)
 - Ground plane assumes level mounting
 
@@ -653,9 +673,9 @@ Link ground plane tiles to GPS coordinates:
 
 **GPS Requirements:**
 
-- Common WGS84 reference frame
+- Common WGS84 geometry reference and canonical S2 L13 identity
 - Time synchronisation (PTP or GPS time)
-- Coordinate transform validation
+- Geometry-transform and WGS84-to-S2 validation
 
 ### GeoJSON export for GIS integration
 
@@ -667,7 +687,7 @@ Link ground plane tiles to GPS coordinates:
 
 **Format Example:**
 
-Output is a standard GeoJSON `FeatureCollection` where each feature is a `Polygon` with 2.5D coordinates (longitude, latitude, altitude). Properties include `tile_id`, `point_count`, and `session_id` linking back to the capture session.
+Output is a standard GeoJSON `FeatureCollection` where each feature is a `Polygon` with WGS84 2.5D positions in RFC 7946 axis order. Properties include `s2_l13_token`, `tile_id`, `point_count`, and `session_id`; the canonical S2 token supplies geographic identity while the polygon supplies precise geometry.
 
 ---
 
@@ -678,7 +698,7 @@ All GPS work is **additive** and should not modify any existing LiDAR-only code 
 1. Implement NMEA parser with checksum validation (`internal/gps/nmea/`)
 2. Create `GPSReceiver` for UDP ingestion (`internal/gps/receiver.go`)
 3. Extend L1 packet pipeline with **optional** GPS correlation ([internal/lidar/l1packets/](../../../internal/lidar/l1packets))
-4. Add GPS schema to SQLite database ([internal/db/migrations/](../../../internal/db/migrations))
+4. Add the S2-first GPS schema to SQLite database ([internal/db/migrations/](../../../internal/db/migrations))
 5. Implement PCAP replay with GPS extraction ([internal/lidar/lidarbench/](../../../internal/lidar/lidarbench))
 6. Document user-facing GPS configuration (`docs/src/guides/gps-setup.md`)
 

@@ -52,6 +52,34 @@ Replay cases are persisted in the `lidar_replay_cases` table, created by migrati
 - [internal/db/migrations/000031_table_naming.up.sql](../../../internal/db/migrations/000031_table_naming.up.sql) (renames from `lidar_scenes`)
 - [internal/db/migrations/000031_table_naming.down.sql](../../../internal/db/migrations/000031_table_naming.down.sql)
 
+### Upcoming S2 provenance columns
+
+The geographic-indexing phase will add nullable canonical token columns to the
+existing execution model:
+
+| Table                | Planned column | Meaning                                         |
+| -------------------- | -------------- | ----------------------------------------------- |
+| `lidar_replay_cases` | `s2_l13_token` | Fine cell recorded by the static split          |
+| `lidar_replay_cases` | `s2_l10_token` | Coarse cell derived with `Parent(10)`           |
+| `lidar_run_records`  | `s2_l13_token` | Fine cell copied from replay/VRLOG provenance   |
+| `lidar_run_records`  | `s2_l10_token` | Coarse cell copied from replay/VRLOG provenance |
+
+These columns are geographic attributes, not identifiers: `replay_case_id`
+and `run_id` retain their current meanings. Add indexes for the L13 and L10
+columns so fine-cell and coarse filesystem-area queries do not depend on
+`pcap_file` string matching.
+
+Static-PCAP registration imports the exact pair from `segments.json`; VRLOG
+registration imports it from `header.json`. Validation parses the canonical
+tokens as S2 CellIDs and requires `L13.Parent(10) == L10`. If a tagged filename,
+split summary, VRLOG header, and database row are all present, their values must
+agree. A mismatch or a row containing only one token is a hard provenance
+error. Both columns remain `NULL` for legacy data, moving segments, and
+sensor-local captures without accepted WGS84 provenance.
+
+See the [static PCAP and VRLOG conformance
+contract](../../plans/s2-geographic-indexing-plan.md#static-pcap-and-vrlog-artefact-conformance).
+
 ### Phase 2.2: replayCaseStore
 
 Created [internal/lidar/storage/sqlite/scene_store.go](../../../internal/lidar/storage/sqlite/scene_store.go) with comprehensive CRUD operations (file rename pending).
