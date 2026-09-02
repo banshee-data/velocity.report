@@ -315,6 +315,96 @@ in SQLite's signed 64-bit `INTEGER`, whether canonical token strings are the
 safer database boundary, how JSON serialises the value, and which indexes and
 migrations are needed. This document deliberately does not choose those details.
 
+## Static PCAP and VRLOG artefact conformance
+
+The shipped `pcap-split` workflow produces motion and static PCAP segments,
+`segments.json`, and a human-readable summary. The upcoming S2 implementation
+must extend that workflow so a located static segment carries one consistent
+geographic tag through every derived artefact:
+
+```text
+representative WGS84 position
+        → canonical S2 L13
+        → Parent(10)
+        → canonical S2 L10
+             ├── static PCAP filename and L10 directory
+             ├── segments.json and summary.txt
+             ├── derived VRLOG directory and header.json
+             └── replay-case and run-record database columns
+```
+
+The filename tag makes a detached static capture coarse-addressable without
+opening a sidecar. The one machine naming grammar is:
+
+```text
+<prefix>-static-<index>-s2-l10-<canonical-l10-token>.pcap
+```
+
+For example:
+
+```text
+capture-static-0-s2-l10-808581.pcap
+capture-static-0-s2-l10-808581.vrlog/
+```
+
+`808581` is the canonical L10 token. The family display `80858-1` and the UI
+scan cue never appear in a machine filename or directory. A coarse archive may
+also place both artefacts beneath `808581/`; repeating the canonical tag in the
+basename is intentional because files are often copied out of their parent
+directory.
+
+### Tag derivation and eligibility
+
+- Prefer a configured surveyed WGS84 site origin. Otherwise use a quality-
+  filtered representative fix from the static segment.
+- Calculate L13 once from that WGS84 position and derive L10 only with
+  `Parent(10)`.
+- Attach a single L10 tag only to a static segment whose accepted position
+  evidence is consistent with that L10 cell. A requested geographic export
+  fails closed when accepted fixes span L10 cells; it must not choose a token
+  from the filename or silently use the first fix.
+- Motion segments may cross geographic cells and do not receive a single-cell
+  filename tag. A future moving-capture covering is a set of S2 cells, not a
+  fabricated single token.
+- GPS remains additive. Without an accepted WGS84 source, `pcap-split` still
+  emits its existing sensor-local artefacts, leaves S2 fields absent/NULL, and
+  records the reason as `geographic_status: "unavailable"`.
+
+### Metadata surfaces
+
+Each `segments.json` record carries a `geographic_status`. For a located static
+segment, the value is `"located"` and the record also carries
+`s2_l13_token`, `s2_l10_token`, and `geographic_source`. A static segment
+without accepted WGS84 provenance uses `"unavailable"` and omits both tokens;
+a moving segment uses `"not_applicable"` because it cannot truthfully claim
+one cell.
+
+The text summary repeats the canonical tokens beneath each located static
+segment, for example:
+
+```text
+[1] static  ...  capture-static-0-s2-l10-808581.pcap
+    S2 L13 token: 80858004
+    S2 L10 token: 808581
+```
+
+It may add the plain family display as a human aid, but never the UI-only scan
+cue. `segments.json` is the import authority; the summary is a human-readable
+projection of the same record. The PCAP bytes themselves remain standard
+packet-capture data and are not rewritten to embed velocity.report metadata.
+
+A VRLOG recorded from that static PCAP copies the exact canonical tokens into
+`header.json`; it does not recompute them from the source basename. Database
+registration copies the same pair into nullable `s2_l13_token` and
+`s2_l10_token` columns on the replay case and run record. These are geographic
+attributes, not replacements for replay-case, run, session, or VRLOG identity.
+
+Conformance validation derives `Parent(10)` from the stored L13 CellID and
+requires the filename tag, `segments.json`, text summary, VRLOG header, and
+database values to agree wherever each surface is present. A disagreement is a
+hard provenance error. Legacy and sensor-local artefacts may omit all S2 fields,
+but partial or contradictory tagging is invalid.
+
 ## Planned implementation sequence
 
 All of this remains future implementation work:
@@ -329,11 +419,17 @@ All of this remains future implementation work:
    scan-cue renderer. Keep the cue outside text selection, copying,
    accessibility names, and serialisation; keep diagnostics for other levels
    level-aware.
-7. Add database indexes and migrations.
-8. Migrate planned or existing geographic partition references without
-   replacing site, deployment, or session identities.
-9. Update APIs, JSON, analytics, and tooling to recognise canonical S2 IDs.
-10. Add known-vector, parent/child, level-marker, and boundary tests, including
+7. Extend `pcap-split` with optional WGS84 ingestion, static-segment L13/L10
+   derivation, canonical L10 filename tags, and summary/JSON provenance.
+8. Propagate static-source S2 tags into VRLOG directory names and `header.json`.
+9. Add nullable L13/L10 columns and indexes to replay cases and run records,
+   plus cross-surface conformance validation.
+10. Add database indexes and migrations for other S2-partitioned datasets.
+11. Migrate planned or existing geographic partition references without
+    replacing site, deployment, or session identities.
+12. Update APIs, JSON, analytics, and tooling to recognise canonical S2 IDs.
+13. Add known-vector, parent/child, level-marker, and boundary tests, including
     parents that do not resemble lexical truncation.
-11. Validate filesystem determinism and canonical-token round trips.
-12. Validate interoperability against known Waymo and Valgo L13 cells.
+14. Validate filesystem determinism, canonical-token round trips, and PCAP /
+    VRLOG / database tag consistency.
+15. Validate interoperability against known Waymo and Valgo L13 cells.

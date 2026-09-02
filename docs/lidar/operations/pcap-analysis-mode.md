@@ -329,6 +329,31 @@ segments/
 └── capture-summary.txt
 ```
 
+### Upcoming S2 tagging for static artefacts
+
+The S2 phase will preserve the shipped two-pass split and add geographic
+provenance only when a surveyed or quality-filtered WGS84 position is
+available. Each eligible static segment derives canonical L13 and then L10 via
+`Parent(10)`. Its machine filename becomes, for example,
+`capture-static-0-s2-l10-808581.pcap`; motion segments keep their existing
+untagged names because they may cross cells.
+
+The same static-segment record in `segments.json` will carry
+`geographic_status: "located"`, `s2_l13_token`, `s2_l10_token`, and
+`geographic_source`. The corresponding entry in `capture-summary.txt` will
+print both canonical tokens and may show the plain L10 family display, but
+never the UI-only scan cue. `segments.json`, rather than either display or
+filename parsing, is the import authority. When the segment is registered as a
+replay case or recorded as VRLOG, the exact tokens propagate to database
+metadata and `header.json`.
+
+Missing GPS leaves all S2 tags absent, records
+`geographic_status: "unavailable"`, and preserves sensor-local output. Motion
+records use `"not_applicable"`. If accepted position evidence spans L10 cells,
+requested tagging fails instead of silently choosing one. The complete
+filename, summary, VRLOG, and database conformance contract is defined by the
+[S2 geographic-indexing decision](../architecture/geographic-indexing.md#static-pcap-and-vrlog-artefact-conformance).
+
 ### Motion classifier API
 
 The shared L3 background manager provides these read-only motion inputs:
