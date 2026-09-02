@@ -630,6 +630,8 @@ func (m *mockBackgroundManagerWrongType) GetBackgroundSequenceNumber() uint64 {
 	return 1
 }
 
+func (m *mockBackgroundManagerWrongType) IsSettlingComplete() bool { return false }
+
 func TestPublisher_SendBackgroundSnapshot_Success(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"
@@ -863,7 +865,6 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 			FrameID:        uint64(i),
 			TimestampNanos: startNs + int64(i)*100_000_000,
 			PlaybackInfo: &PlaybackInfo{
-				IsLive:            false,
 				LogStartNs:        startNs,
 				LogEndNs:          endNs,
 				PlaybackRate:      1.0,
@@ -911,7 +912,7 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 		if pi.TotalFrames != 3 {
 			t.Errorf("frame %d TotalFrames = %d, want 3", i, pi.TotalFrames)
 		}
-		if pi.IsLive {
+		if pi.SourceMode == "live" {
 			t.Errorf("frame %d IsLive = true, want false", i)
 		}
 		if !pi.Seekable {

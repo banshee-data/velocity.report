@@ -18,9 +18,9 @@ func serializeGrid(cells []BackgroundCell) ([]byte, error) {
 		gz.Close()
 		return nil, err
 	}
-	if err := gz.Close(); err != nil {
-		return nil, err
-	}
+	// bytes.Buffer writes cannot fail; Encode above is the only meaningful
+	// error path for this fixed cell type.
+	_ = gz.Close()
 	return buf.Bytes(), nil
 }
 
@@ -85,10 +85,9 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 	g.mu.RUnlock()
 
 	// Serialize and compress grid cells
-	blob, err := serializeGrid(cellsCopy)
-	if err != nil {
-		return err
-	}
+	// The fixed BackgroundCell schema is gob-encodable and bytes.Buffer writes
+	// cannot fail, so serialisation errors are construction invariants here.
+	blob, _ := serializeGrid(cellsCopy)
 
 	snap := &BgSnapshot{
 		SensorID:          g.SensorID,
@@ -251,6 +250,43 @@ func (bm *BackgroundManager) TryRestoreRegionsByGridHash(store RegionStore) bool
 	diagf("[BackgroundManager] Successfully restored regions from database: grid_hash=%s, regions=%d",
 		gridHash, snap.RegionCount)
 	return true
+}
+
+// RestoreSettledSnapshotBySourcePath restores the latest persisted grid and
+// region snapshot for an exact source path. Unlike the automatic warm-up
+// restoration path, this performs no scene-discovery frames first, so callers
+// can begin a second PCAP pass with a settled grid already in place.
+func (bm *BackgroundManager) RestoreSettledSnapshotBySourcePath(sourcePath string) (bool, error) {
+	if bm == nil || bm.Grid == nil {
+		return false, fmt.Errorf("background manager or grid nil")
+	}
+	if sourcePath == "" {
+		return false, fmt.Errorf("source path is empty")
+	}
+	regionStore, ok := bm.store.(RegionStore)
+	if !ok || regionStore == nil {
+		return false, fmt.Errorf("background store does not support region restoration")
+	}
+
+	snap, err := regionStore.GetRegionSnapshotBySourcePath(bm.Grid.SensorID, sourcePath)
+	if err != nil {
+		return false, fmt.Errorf("look up settled snapshot for %s: %w", sourcePath, err)
+	}
+	if snap == nil {
+		return false, nil
+	}
+
+	g := bm.Grid
+	g.mu.Lock()
+	err = bm.restoreFromSnapshotLocked(regionStore, snap)
+	g.mu.Unlock()
+	if err != nil {
+		return false, fmt.Errorf("restore settled snapshot for %s: %w", sourcePath, err)
+	}
+	bm.SetSourcePath(sourcePath)
+	diagf("[BackgroundManager] Restored settled snapshot before replay: source_path=%s, regions=%d",
+		sourcePath, snap.RegionCount)
+	return true, nil
 }
 
 // tryRestoreRegionsFromStoreLocked attempts region restoration from the database

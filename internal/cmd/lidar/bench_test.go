@@ -11,18 +11,6 @@ import (
 // benchFixture is the reference multi-frame capture used by the perf gate.
 const benchFixture = "../../lidar/perf/pcap/kirk0.pcapng"
 
-// requirePCAPFixture skips unless VELOCITY_PCAP_FIXTURE_TESTS is set. These
-// applets replay the whole ~200 MB capture, which takes minutes under -race.
-// The flag-validation tests around them still run every time; only the replays
-// are opt-in. `make test-go-coverage-gate` sets the variable so the gate still
-// measures these paths, and the nightly workflow runs them.
-func requirePCAPFixture(t *testing.T) {
-	t.Helper()
-	if os.Getenv("VELOCITY_PCAP_FIXTURE_TESTS") == "" {
-		t.Skip("set VELOCITY_PCAP_FIXTURE_TESTS=1 to replay the kirk0.pcapng fixture")
-	}
-}
-
 func TestBenchMainRequiresPCAP(t *testing.T) {
 	// Exit code 2 is the usage-error code, distinct from 1 (run failure).
 	if code := BenchMain(nil); code != 2 {
@@ -66,8 +54,6 @@ func TestBenchMainRejectsMissingPCAP(t *testing.T) {
 }
 
 func TestBenchMainRunsBenchmarkOverFixture(t *testing.T) {
-	requirePCAPFixture(t)
-
 	dir := t.TempDir()
 	out := filepath.Join(dir, "bench.json")
 
@@ -78,6 +64,7 @@ func TestBenchMainRunsBenchmarkOverFixture(t *testing.T) {
 		"-output", dir,
 		"-benchmark-output", out,
 		"-port", "0",
+		"-duration-seconds", "10",
 		"-quiet",
 	})
 	if code != 0 {

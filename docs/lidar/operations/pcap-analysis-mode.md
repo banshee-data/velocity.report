@@ -4,10 +4,13 @@ PCAP analysis mode replays captured packet data through the LiDAR pipeline while
 
 ## Overview
 
-The LiDAR system supports two modes for PCAP replay:
+The LiDAR system supports two modes for PCAP replay. Both park on their final
+frame when the selected window ends. While parked, the server listens for live
+packets; a new packet returns the pipeline to live, while a quiet sensor leaves
+the replay available for inspection.
 
-1. **Normal PCAP Replay** - Replays PCAP file, then automatically resets grid and returns to live data
-2. **PCAP Analysis Mode** - Replays PCAP file and **preserves the background grid** for inspection and analysis
+1. **Normal PCAP Replay** - Replays the PCAP file and holds its final scene while parked; automatic live handover resets the grid
+2. **PCAP Analysis Mode** - Replays the PCAP file and **preserves the background grid** while parked, including across an explicit `resume_live`, for inspection and analysis
 
 ## Use cases
 
@@ -36,11 +39,23 @@ Content-Type: application/json
 
 {
   "pcap_file": "break-80k.pcapng",
-  "analysis_mode": true
+  "analysis_mode": true,
+  "settle_before_recording": true
 }
 ```
 
-**Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`, `pcap_file` (resolved path), and `analysis_mode: true`.
+`settle_before_recording` is optional and requires `analysis_mode`. When enabled,
+the server runs the selected PCAP window once without recording so the background
+grid can settle, drains the completed frames, reloads that settled grid from the
+database, resets transient tracking state, then replays the same window from its
+start while recording the VRLOG. This keeps the settling interval in the recorded
+run instead of trimming it from the beginning. The request fails without starting
+the recorded pass if the selected window is too short to settle or its settled
+snapshot cannot be restored.
+
+**Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
+`pcap_file` (resolved path), `analysis_mode: true`, and the requested
+`settle_before_recording` value.
 
 ### Check data source status
 
@@ -53,8 +68,17 @@ GET /api/lidar/data_source?sensor_id=hesai-pandar40p
 Data source values:
 
 - `live` - Normal live UDP data collection
-- `pcap` - PCAP replay in progress
+- `pcap` - PCAP replay, running or finished without grid retention
 - `pcap_analysis` - PCAP replay completed in analysis mode (grid preserved)
+- `vrlog` - Replay of a recorded frame log
+
+`pcap_analysis` is derived rather than stored: it means a PCAP source, a
+finished replay, and a retained grid. See
+[data-source-switching.md](data-source-switching.md) for the state model.
+
+The response also carries `source_path`, `replay_active`, `replay_pass`,
+`replay_total_passes`, `grid_preserved`, `live_listener_running`, `recording`,
+and `recording_path`.
 
 ### Resume live data (preserve grid)
 
@@ -69,7 +93,7 @@ Switches from PCAP analysis mode back to live UDP data **without resetting the g
 ### Stop PCAP replay (reset grid)
 
 ```bash
-POST /api/lidar/pcap/stop?sensor_id=hesai-pandar40p
+POST /api/lidar/replay/stop?sensor_id=hesai-pandar40p
 ```
 
 Stops PCAP replay and **resets the grid** before returning to live data.
@@ -81,9 +105,9 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 1. **Start analysis mode replay:**
 
    ```bash
-   curl -X POST "http://localhost:8082/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+   curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
      -H "Content-Type: application/json" \
-     -d '{"pcap_file":"break-80k.pcapng","analysis_mode":true}'
+     -d '{"pcap_file":"break-80k.pcapng","analysis_mode":true,"settle_before_recording":true}'
    ```
 
 2. **Wait for completion and inspect results:**
@@ -94,12 +118,12 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 3. **Resume live data (preserving PCAP background):**
 
    ```bash
-   curl "http://localhost:8082/api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p"
+   curl -X POST "http://localhost:8081/api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p"
    ```
 
 4. **When done, reset grid:**
    ```bash
-   curl "http://localhost:8082/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
+   curl "http://localhost:8081/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
    ```
 
 ### Comparative analysis
@@ -118,12 +142,17 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 
 ## Web UI
 
-The LiDAR status page (`http://localhost:8082/`) includes:
+The LiDAR status page (`http://localhost:8081/`) includes:
 
-- **PCAP Start Form** with "Analysis Mode" checkbox
+- **PCAP Start Form** with "Analyse & record VRLOG" and optional "Settle grid,
+  reload & record from start" checkboxes. Selecting settling also selects analysis
+  mode because the warm first pass is specifically a VRLOG capture workflow.
 - **Resume Live** link (appears when in analysis mode)
 - **Stop PCAP** link (resets grid)
 - **Grid Status** shows current mode and statistics
+- **Configuration table** shows the replay pass, whether a VRLOG is being
+  recorded and where, whether the grid is preserved, and whether the live
+  listener is running
 
 ## Logging
 
@@ -146,9 +175,8 @@ Normal mode logs:
 # Starting normal replay
 [DataSource] switched to PCAP replay mode for sensor=hesai-pandar40p file=break-80k.pcapng
 
-# Completion with auto-reset
-[ResetGrid] sensor=hesai-pandar40p nonzero_before=45442 nonzero_after=0 ...
-[DataSource] auto-switched to Live after PCAP for sensor=hesai-pandar40p
+# Completion — the replay stays the data source
+[DataSource] PCAP replay finished for sensor=hesai-pandar40p; holding this source until live input resumes or an operator switches source
 ```
 
 ## Technical details
@@ -164,21 +192,50 @@ In analysis mode:
 
 ### State transitions
 
-```
-Live → PCAP (analysis_mode=true) → PCAP Analysis → Live (grid preserved)
-  ↓                                                      ↓
-  └────────────────── Grid Reset ──────────────────────┘
+Nothing changes the source on its own. A replay that reaches its end releases
+the replay slot and stops there, holding its final frame and the grid it built;
+only an operator takes the pipeline back to live.
+
+```mermaid
+stateDiagram-v2
+	[*] --> Live
+	Live --> PCAP: pcap/start
+	PCAP --> PCAPParked: replay ends, slot released
+	PCAPParked --> PCAP: pcap/start (another replay)
+	PCAPParked --> Live: replay/stop (grid reset)
+	PCAPParked --> Live: pcap/resume_live (grid preserved)
 ```
 
-Normal mode:
+`PCAPParked` reports `pcap_in_progress: false` with `data_source` still naming
+the replay — `pcap_analysis` when the run preserved its grid, `pcap` otherwise.
+The visualiser's Live toggle shows this as **Replay** and stays there until
+switched back.
 
+Two earlier designs decided this automatically and both surprised operators.
+Choosing from the analysis flag stranded `settle_before_recording` runs, which
+carry that flag only because recording a VRLOG requires `analysis_mode=true`.
+Choosing from whether the sensor was streaming reset the grid and switched the
+source while someone was still reading the replay.
+
+With `settle_before_recording`, the replay runs the selected window twice. Both
+passes report `data_source: "pcap"` with `pcap_in_progress: true`, and packet
+progress restarts between them, so `replay_pass` names which one is running:
+
+```mermaid
+stateDiagram-v2
+	[*] --> Settling: replay starts, replay_total_passes=2
+	Settling --> Recording: grid settled, snapshot reloaded, recording starts
+	Recording --> PCAPParked: replay ends, grid preserved
 ```
-Live → PCAP (analysis_mode=false) → [auto-reset] → Live
-```
+
+`recording` stays false throughout the settling pass — no VRLOG is opened until
+the settled snapshot has been restored.
 
 ### Performance notes
 
 - PCAP replay runs as fast as CPU allows (not real-time throttled)
+- The optional settling pass is always unpaced; the recorded second pass uses the
+  requested replay speed
 - Example: 80K packets (28.7M points) processes in ~13 seconds
 - Grid preservation has no performance impact
 - Resuming live from analysis mode is instantaneous
@@ -187,6 +244,8 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 - Only one PCAP can be in progress at a time
 - Analysis mode requires manual resume or stop
+- Settle-before-recording needs enough capture time for the configured background
+  settling interval and a writable background snapshot database
 - Grid reset is irreversible (must replay PCAP to rebuild)
 - PCAP files must be in configured safe directory
 
@@ -205,7 +264,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
 
-**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is a thin shim over the same engine). `pcap-split` is the single offline tool for **scan, motion stats, and splits**: its summary reports capture health (duration, frame rate from motor RPM, RPM range, points/frame, foreground %) alongside the motion/static segments. To preview the stats and timeline without writing any PCAP files, add `--dry-run`; `--stats-10s` appends per-10-second frame-rate buckets and `--motion-json timeline.json` writes the motion/static timeline to a file. Both offline tools (`pcap-split`, `settling-eval`) take `--config <tuning.json>` and load it via the same disk-or-embedded fallback as the live server, so offline analysis runs the **same algorithms and tuning as live observation** (the background model, motion thresholds, and sensor id all come from the tuning config; `settling-eval`'s old `--tuning` is a deprecated alias). When `--port` is omitted the sensor's UDP port is auto-detected from the capture. The detailed breakdown lists each segment by offset seconds by default; pass `--timeline-units frames` or `--timeline-units timestamp` for frame indices or absolute capture time (these diverge when a capture has recording gaps). Long reads print progress lines to stderr every 20 s by default; the scan pass reports percentage, packets, points, RPM, points-per-frame, elapsed time, and rate, while the write pass reports only percentage, packets, elapsed time, and rate. Tune or silence both with `--progress N` (0 disables). Pipeline performance regression testing lives in a separate dev/CI tool, `lidar-bench` (see [performance-regression-testing.md](performance-regression-testing.md)).
+**Status:** Implemented. Run it as `velocity lidar pcap-split --pcap capture.pcapng --output ./segments` (or the standalone `cmd/tools/pcap-split` wrapper, which is a thin shim over the same engine). `pcap-split` is the single offline tool for **scan, motion stats, and splits**: its summary reports capture health (duration, frame rate from motor RPM, RPM range, points/frame, foreground %) alongside the motion/static segments. To preview the stats and timeline without writing any PCAP files, add `--dry-run`; `--stats-10s` appends per-10-second frame-rate buckets and `--motion-json timeline.json` writes the motion/static timeline to a file. Both offline tools (`pcap-split`, `settling-eval`) take `--config <tuning.json>` and load it via the same disk-or-embedded fallback as the live server, so offline analysis runs the **same algorithms and tuning as live observation** (the background model, motion thresholds, and sensor id all come from the tuning config; `settling-eval`'s old `--tuning` is a deprecated alias). Use `--start-seconds N` and `--duration-seconds N` to limit an offline replay; `0` and `-1` mean the remainder of the capture. When `--port` is omitted the sensor's UDP port is auto-detected from the capture. The detailed breakdown lists each segment by offset seconds by default; pass `--timeline-units frames` or `--timeline-units timestamp` for frame indices or absolute capture time (these diverge when a capture has recording gaps). Long reads print progress lines to stderr every 20 s by default; the scan pass reports percentage, packets, points, RPM, points-per-frame, elapsed time, and rate, while the write pass reports only percentage, packets, elapsed time, and rate. Tune or silence both with `--progress N` (0 disables). Pipeline performance regression testing lives in a separate dev/CI tool, `lidar-bench` (see [performance-regression-testing.md](performance-regression-testing.md)).
 
 ### Problem
 

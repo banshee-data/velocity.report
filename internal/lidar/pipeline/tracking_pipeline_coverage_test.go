@@ -359,6 +359,26 @@ func TestTrackingPipelineConfig_NewFrameCallback_WithBackgroundManager(t *testin
 	cb(makeForegroundFrame("fg-1", now.Add(600*time.Millisecond), 20.0, 5.0))
 }
 
+func TestTrackingPipelineConfig_WarmupUsesFrameCaptureTime(t *testing.T) {
+	sensorID := "capture-time-warmup"
+	bgMgr := l3grid.NewBackgroundManagerDI(sensorID, 16, 360, l3grid.BackgroundParams{
+		SeedFromFirstObservation: true,
+		BackgroundUpdateFraction: 0.5,
+		WarmupDurationNanos:      int64(30 * time.Second),
+	}, nil)
+	cb := (&TrackingPipelineConfig{SensorID: sensorID, BackgroundManager: bgMgr}).NewFrameCallback()
+
+	t0 := time.Unix(1_700_000_000, 0)
+	cb(makeStableFrame("warmup-start", t0, 20.0))
+	if bgMgr.IsSettlingComplete() {
+		t.Fatal("grid settled on the first frame")
+	}
+	cb(makeStableFrame("warmup-complete", t0.Add(31*time.Second), 20.0))
+	if !bgMgr.IsSettlingComplete() {
+		t.Fatal("grid did not settle after 31 seconds of capture time")
+	}
+}
+
 // TestTrackingPipelineConfig_NewFrameCallback_FullPipelineWithDB tests the entire pipeline
 // including foreground extraction → clustering → tracking → DB persistence → pruning.
 func TestTrackingPipelineConfig_NewFrameCallback_FullPipelineWithDB(t *testing.T) {
@@ -589,8 +609,8 @@ func TestTrackingPipelineConfig_WithFgForwarder_DebugRange(t *testing.T) {
 		// Set debug range to only forward a specific region
 		DebugRingMin: 0,
 		DebugRingMax: 5,
-		DebugAzMin:   0,
-		DebugAzMax:   30,
+		DebugAzMin:   170,
+		DebugAzMax:   190,
 	}, nil)
 
 	fwd := &mockFgForwarder{}
@@ -813,6 +833,9 @@ func TestTrackingPipelineConfig_ThrottleDiagf(t *testing.T) {
 		BackgroundManager: bgMgr,
 		MaxFrameRate:      1, // 1 fps → 1s min interval; ensures all rapid-burst frames are throttled regardless of CI machine speed
 		RemoveGround:      false,
+		// The throttle applies to replays only, so this has to say a replay is
+		// running to reach it at all. Live input is processed frame for frame.
+		ReplayActive: replayFlag(true),
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -1063,6 +1086,11 @@ func TestTrackingPipelineConfig_GroundFilterRemovesAll(t *testing.T) {
 		RemoveGround:      true,
 		HeightBandFloor:   99.0,  // Impossibly high floor
 		HeightBandCeiling: 100.0, // Impossibly high ceiling
+		BenchmarkMode: func() *atomic.Bool {
+			mode := &atomic.Bool{}
+			mode.Store(true)
+			return mode
+		}(),
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -1105,9 +1133,13 @@ type mockTrackerCov struct {
 	tentativeCount   int
 	confirmedCount   int
 	deletedCount     int
+	updateDelay      time.Duration
 }
 
 func (m *mockTrackerCov) Update(clusters []l5tracks.WorldCluster, timestamp time.Time) {
+	if m.updateDelay > 0 {
+		time.Sleep(m.updateDelay)
+	}
 	m.updateCalls++
 }
 func (m *mockTrackerCov) GetActiveTracks() []*l5tracks.TrackedObject    { return m.activeTracks }
@@ -1271,10 +1303,13 @@ func TestIsNilInterface_WithForegroundForwarder(t *testing.T) {
 // cfg.Tracker is nil but DBSCAN produced clusters.
 func TestNilTrackerAfterClusters(t *testing.T) {
 	bm := testBackgroundManagerPrePopulated(t)
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
 
 	cfg := &TrackingPipelineConfig{
 		BackgroundManager: bm,
 		Tracker:           nil, // explicitly nil
+		BenchmarkMode:     benchmarkMode,
 	}
 
 	cb := cfg.NewFrameCallback()
@@ -1303,10 +1338,13 @@ func TestNoClustersRecordStats(t *testing.T) {
 	bm.HasSettled = true
 
 	tracker := &mockTrackerCov{}
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
 
 	cfg := &TrackingPipelineConfig{
 		BackgroundManager: bm,
 		Tracker:           tracker,
+		BenchmarkMode:     benchmarkMode,
 	}
 
 	cb := cfg.NewFrameCallback()
@@ -1952,5 +1990,37 @@ func TestTrackingPipelineConfig_BenchmarkMode_LagDetection(t *testing.T) {
 	output := opsBuf.String()
 	if !strings.Contains(output, "[Benchmark]") {
 		t.Errorf("expected [Benchmark] output in lag detection test")
+	}
+}
+
+func TestTrackingPipelineConfig_BenchmarkMode_DetectsSlowReplayLag(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
+	tracker := &mockTrackerCov{updateDelay: 55 * time.Millisecond}
+	cfg := &TrackingPipelineConfig{
+		SensorID:          "coverage-deterministic-lag",
+		BackgroundManager: testBackgroundManagerPrePopulated(t),
+		Tracker:           tracker,
+		BenchmarkMode:     benchmarkMode,
+	}
+	callback := cfg.NewFrameCallback()
+	base := time.Unix(10_000, 0)
+	for i := 0; i < 4; i++ {
+		frame := clusterFramePrePopulated()
+		frame.FrameID = fmt.Sprintf("slow-lag-%d", i)
+		frame.StartTimestamp = base.Add(time.Duration(i) * time.Millisecond)
+		callback(frame)
+	}
+
+	output := opsBuf.String()
+	if !strings.Contains(output, "[Benchmark] SLOW") {
+		t.Fatalf("expected deterministic slow-frame warning, got:\n%s", output)
+	}
+	if !strings.Contains(output, "[Benchmark] BEHIND") {
+		t.Fatalf("expected deterministic replay-lag warning, got:\n%s", output)
 	}
 }

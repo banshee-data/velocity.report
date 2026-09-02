@@ -1,393 +1,181 @@
-# Data source switching implementation plan
+# Data source switching
 
-- **Status:** Implemented (November 2025)
+- **Status:** Implemented
+- **Canonical:** the pipeline state model in [`internal/lidar/server/pipeline_state.go`](../../../internal/lidar/server/pipeline_state.go)
 
-- **Endpoints registered in `internal/lidar/monitor/webserver.go`:**
+The LiDAR server switches between live sensor input, PCAP replay, and VRLOG
+replay at runtime over HTTP. There is no startup flag for the data source: the
+server always boots live, and every transition happens through the API.
 
-- `POST /api/lidar/pcap/start`: Start PCAP replay (resets grid, stops UDP listener)
-- `POST /api/lidar/pcap/stop`: Stop replay and resume live UDP
-- `POST /api/lidar/resume_live`: Resume live UDP data source
-- `GET /api/lidar/data_source`: Current data source, PCAP file, and replay status
+## The state model
 
----
+What is driving the pipeline, and what is being captured from it, are answered
+by a single value — `PipelineState` — held behind one lock in
+[`internal/lidar/server`](../../../internal/lidar/server). Everything the status
+surfaces report is derived from a single snapshot of it, so a status read can
+never show a combination of fields that never existed together.
 
-## Problem statement
+Two things that are easy to conflate are kept apart:
 
-Currently, switching between live LiDAR data and PCAP replay requires restarting the server with the `--lidar-pcap-mode` flag. This is cumbersome during development and testing when frequently switching between data sources.
+| Axis      | Field                        | Meaning                                                        |
+| --------- | ---------------------------- | -------------------------------------------------------------- |
+| Source    | `Source`                     | `live`, `pcap`, or `vrlog` — what is feeding the pipeline      |
+| Retention | `GridPreserved`              | whether the background grid is being kept for inspection       |
+| Activity  | `ReplayActive`               | whether a replay is running now, as opposed to having finished |
+| Pass      | `Pass`                       | `settling` or `recording` during a two-pass replay             |
+| Capture   | `Recording`, `RecordingPath` | whether a VRLOG is being written, and where                    |
 
-## Proposed solution
+`pcap_analysis` is **not** a source. It is a derived wire token meaning "a PCAP
+produced this grid, the replay has finished, and the grid is retained" — a
+source plus a retention flag plus an activity flag. Keeping it derived is what
+lets resume-live report a live source with the grid still preserved, which the
+older single enum could not express.
 
-Replace the CLI flag with a runtime-configurable data source that can be switched via HTTP API without server restart. When switching sources, the system will:
+Seekability is likewise a capability, not a mode. A VRLOG replay happens to be
+seekable and a PCAP replay happens not to be, but neither may be derived from
+the other.
 
-1. Stop current data ingestion (UDP listener or PCAP replay)
-2. Reset the background grid to clear old data
-3. Start the new data source (live or PCAP)
+## Data source values
 
-## Architecture changes
+Reported as `data_source` by `GET /api/lidar/data_source` and `GET /api/lidar/status`:
 
-### 1. New data source state management
+| Value           | Meaning                                                 |
+| --------------- | ------------------------------------------------------- |
+| `live`          | live UDP ingest from the sensor                         |
+| `pcap`          | PCAP replay, running or finished without grid retention |
+| `pcap_analysis` | PCAP replay finished in analysis mode, grid retained    |
+| `vrlog`         | replay of a recorded frame log to the visualiser        |
 
-**File**: `internal/lidar/monitor/webserver.go`
+This vocabulary matches the source-mode set in
+[metrics-registry.md](../../platform/architecture/metrics-registry.md) and the
+`SourceMode` enum on the gRPC wire.
 
-Add data source state to `WebServer`:
+Note that `l1.data_source` in the tuning config uses the same three PCAP-side
+tokens, but as _launch intent_ — an input, not runtime state. The two are
+validated separately and should not be conflated.
 
-The `DataSource` type is a string enum with two values: `"live"` and `"pcap"`. The `WebServer` struct gains the following fields for data-source management:
+## Endpoints
 
-| Field               | Type                   | Purpose                             |
-| ------------------- | ---------------------- | ----------------------------------- |
-| `dataSourceMu`      | `sync.RWMutex`         | Guards data-source state            |
-| `currentSource`     | `DataSource`           | Current active source (live/pcap)   |
-| `currentPCAPFile`   | `string`               | Active PCAP file path (if any)      |
-| `udpListener`       | `*network.UDPListener` | Managed UDP listener reference      |
-| `udpListenerCancel` | `context.CancelFunc`   | Cancel function for live listener   |
-| `pcapMu`            | `sync.Mutex`           | Guards PCAP replay state (existing) |
-| `pcapInProgress`    | `bool`                 | Whether a replay is running         |
+All are served on both the LiDAR port (`:8081`) and the main API (`:8080`).
 
-**Rationale**: Centralize data source management in WebServer since it already handles PCAP replay and has access to all necessary components.
+| Endpoint                           | Purpose                                                                |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `GET /api/lidar/data_source`       | Full state snapshot (see below)                                        |
+| `GET /api/lidar/status`            | Server status including `data_source`, `pcap_file`, `pcap_in_progress` |
+| `GET /api/lidar/playback/status`   | Playback mode plus replay position                                     |
+| `POST /api/lidar/pcap/start`       | Start a PCAP replay (stops live ingest, resets the grid)               |
+| `POST /api/lidar/replay/stop`      | Stop whatever is replaying (PCAP or VRLOG) and resume live             |
+| `POST /api/lidar/pcap/resume_live` | Resume live from analysis mode, **keeping** the grid                   |
+| `POST /api/lidar/vrlog/load`       | Start a VRLOG replay (stops live ingest)                               |
+| `POST /api/lidar/vrlog/stop`       | Alias of `replay/stop`, kept for existing clients                      |
 
-### 2. Data source endpoints
+### `GET /api/lidar/data_source`
 
-**Status Endpoint**: `GET /api/lidar/data_source`
-
-Returns the current data source, active PCAP file (if any), and whether a replay is running. This endpoint is read-only and intended for dashboards/clients that need to poll the current mode.
-
-**Switching Endpoints**:
-
-- `POST /api/lidar/pcap/start?sensor_id=<id>`
-  - Body: `{ "pcap_file": "capture.pcap" }`
-  - Starts PCAP replay (stops UDP listener, resets background, launches replay)
-  - 409 when a replay is already active
-- `POST /api/lidar/pcap/stop?sensor_id=<id>`
-  - Cancels an in-progress replay, resets the grid, and resumes live UDP ingestion
-  - 409 when no replay is active
-
-These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding live-mode management and grid reset semantics.
-
-### 3. Implementation flow
-
-**Handler Flow**
-
-- `handlePCAPStart`
-  1. Validate `sensor_id` and JSON body (`pcap_file` required)
-  2. Acquire `dataSourceMu`, stop live listener, reset background grid
-  3. Validate PCAP path (safe directory enforcement)
-  4. Launch `ReadPCAPFile` goroutine and set `currentSource` to PCAP
-  5. Return canonical file path in response
-
-- `handlePCAPStop`
-  1. Validate `sensor_id`
-  2. Cancel the running replay (if active) and wait for completion
-  3. Reset background grid and restart live UDP listener
-  4. Update `currentSource` to live and clear `currentPCAPFile`
-
-- `handleDataSource` (GET)
-  - Return current source state for observability (live/pcap, file path, replay status)
-
-### 4. UDP listener lifecycle changes
-
-**Current State**: UDP listener started once in `main()`, runs until program exit. Controlled by `--lidar-pcap-mode` flag.
-
-**New State**: UDP listener lifecycle managed by WebServer, always starts in live mode.
-
-**File**: [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
-
-**Changes** (BREAKING):
-
-- **Remove** `lidarPCAPMode` CLI flag entirely
-- Always pass UDP listener config to WebServer
-- WebServer starts UDP listener on initialisation (live mode default)
-- WebServer manages stopping/starting UDP listener when switching sources
-- Cleaner architecture: data source is runtime config, not startup flag
-
-**Migration**: Users relying on `--lidar-pcap-mode` should instead:
-
-```bash
-# Old way (removed):
-./radar --lidar-pcap-mode
-
-# New way:
-./radar  # starts in live mode
-# Trigger PCAP replay at runtime (sensor id required)
-curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
-   -H "Content-Type: application/json" \
-   -d '{"pcap_file": "file.pcap"}'
-
-# Return to live data when finished
-curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
+```json
+{
+  "status": "ok",
+  "data_source": "pcap",
+  "pcap_file": "/data/pcaps/capture.pcapng",
+  "pcap_in_progress": true,
+  "analysis_mode": true,
+  "last_run_id": "run-abc",
+  "source_path": "/data/pcaps/capture.pcapng",
+  "replay_active": true,
+  "replay_pass": "settling",
+  "replay_total_passes": 2,
+  "grid_preserved": true,
+  "live_listener_running": false,
+  "recording": false,
+  "recording_path": ""
+}
 ```
 
-### 5. WebServer configuration updates
-
-**File**: `internal/lidar/monitor/webserver.go`
-
-`WebServerConfig` gains a `UDPListenerConfig` field of type `network.UDPListenerConfig`, which provides the UDP listener settings so that the `WebServer` can start and stop the listener at runtime. The `InitialDataSource` field is removed — the server always starts in live mode.
-
-### 6. Status endpoint updates
-
-**File**: `internal/lidar/monitor/webserver.go`
-
-Update `/api/lidar/status` response to include data source information:
-
-The `StatusResponse` struct gains three fields for data-source observability:
-
-| Field            | Type     | JSON                  | Purpose                              |
-| ---------------- | -------- | --------------------- | ------------------------------------ |
-| `DataSource`     | `string` | `data_source`         | Current source: `"live"` or `"pcap"` |
-| `PCAPFile`       | `string` | `pcap_file,omitempty` | Active PCAP file (if source is pcap) |
-| `PCAPInProgress` | `bool`   | `pcap_in_progress`    | Whether a PCAP replay is running     |
-
-This allows clients to:
-
-- Query current data source
-- Know if safe to switch (pcap_in_progress=false)
-- See which PCAP file is being replayed
-
-### 6. Grid reset integration
-
-**File**: `internal/lidar/background.go`
-
-Already has `ResetBackground()` method - use it during source switch.
-
-**Ensure**:
-
-- Reset is synchronous (blocks until complete)
-- Reset clears all grid state (times_seen, averages, spreads)
-- Reset logged with timestamp for debugging
-
-### 7. Concurrency safety
-
-**Critical Sections**:
-
-1. **Data source switching**: Write lock on `dataSourceMu` during transition
-2. **PCAP replay**: Existing `pcapMu` protects concurrent PCAP starts
-3. **Grid access**: BackgroundManager already thread-safe via internal mutex
-
-**Race Conditions to Prevent**:
-
-- Multiple simultaneous source switches
-- Source switch during PCAP replay
-- Grid access during reset
-
-**Solution**:
-
-- `handlePCAPStart` acquires `dataSourceMu` while stopping live ingestion/resetting the grid
-- `handlePCAPStop` cancels the replay without holding `dataSourceMu`, waits for completion, then restarts live under the lock
-- The status endpoint uses a read lock to avoid blocking active switches
-
-## API design considerations
-
-Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/pcap/stop` (GET) endpoints for switching, plus `/api/lidar/data_source` (GET) for status. This preserves backward compatibility for tooling that already targets the PCAP routes while adding a lightweight status endpoint for UI polling.
-
-## Migration path
-
-### Phase 1: implement core functionality
-
-1. Add `currentSource`, `currentPCAPFile` state to WebServer
-2. Implement `handlePCAPStart`/`handlePCAPStop` with proper locking + 409 handling
-3. Add UDP listener lifecycle management (start/stop)
-4. Expose data source status via `/api/lidar/data_source`
-5. Add tests for status endpoint / start-stop flows
-
-### Phase 2: remove CLI flag (BREAKING)
-
-1. Remove `--lidar-pcap-mode` flag from [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)
-2. Remove all PCAP mode conditionals from main()
-3. WebServer always starts in live mode (UDP listener running)
-4. Update build targets and documentation
-
-### Phase 3: update tools & scripts
-
-1. Update `plot_grid_heatmap.py` to use new endpoint
-2. Update sweep tools to switch source via API
-3. Update Makefile targets:
-   - `stats-live`: No changes needed (default mode)
-   - `stats-pcap`: Call API to switch before running
-   - `dev-go-pcap`: Remove this target (no longer needed)
-4. Update helper scripts in [scripts/api/lidar/](../../../scripts/api/lidar)
-5. Add new script: `switch_data_source.sh`
-
-### Phase 4: documentation & migration guide
-
-1. Update [../architecture/lidar-sidecar-overview.md](../architecture/lidar-sidecar-overview.md) to remove PCAP mode flag
-2. Update [internal/cmd/server/README.md](../../../internal/cmd/server/README.md) with new workflow
-3. Add migration guide for users of `--lidar-pcap-mode`
-4. Update API documentation with new endpoint
-
-## File changes summary
-
-### New files
-
-- None (all changes to existing files)
-
-### Modified files
-
-1. **`internal/lidar/monitor/webserver.go`** (~200 lines added)
-   - Add data source state fields (including currentPCAPFile)
-   - Add PCAP start/stop handlers and status endpoint
-   - Add UDP listener lifecycle management
-   - Update `setupRoutes()` to register PCAP and status endpoints
-   - Modify `Start()` to initialise in live mode (start UDP listener)
-   - Update status endpoint to include data_source, pcap_file, pcap_in_progress
-
-2. **[internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)** (~40 lines changed)
-   - **REMOVE** `lidarPCAPMode` flag declaration
-   - Remove conditional UDP listener startup logic
-   - Always pass UDP listener config to WebServer
-   - Remove PCAP mode references from main()
-   - WebServer now manages UDP listener lifecycle
-
-3. **[tools/grid-heatmap/plot_grid_heatmap.py](../../../tools/grid-heatmap/plot_grid_heatmap.py)** (~20 lines changed)
-   - Call `/api/lidar/pcap/start` and `/api/lidar/pcap/stop` with retry logic
-   - Automatically restore live mode after snapshot capture
-
-4. **`scripts/api/lidar/*.sh`** (~60 lines changed)
-   - Update helper scripts to use the dedicated PCAP start/stop endpoints
-   - Add status helper for `/api/lidar/data_source`
-
-5. **`Makefile`** (~15 lines changed)
-   - Remove `dev-go-pcap` target (no longer needed)
-   - Update `stats-pcap` / API targets to call start/stop helpers
-
-6. **Documentation Updates** (~100 lines changed)
-   - [docs/lidar/architecture/lidar-sidecar-overview.md](../architecture/lidar-sidecar-overview.md) - remove PCAP mode flag references
-   - [internal/cmd/server/README.md](../../../internal/cmd/server/README.md) - update with new API workflow
-   - [scripts/api/README.md](../../../scripts/api/README.md) - document new endpoint
-   - Add migration guide for `--lidar-pcap-mode` users
-
-## Testing strategy
-
-### Unit tests
-
-1. `TestDataSourceSwitch_LiveToPCAP` - verify clean transition
-2. `TestDataSourceSwitch_PCAPToLive` - verify reverse transition
-3. `TestDataSourceSwitch_Concurrent` - verify locking prevents races
-4. `TestDataSourceSwitch_InvalidSource` - verify error handling
-5. `TestDataSourceSwitch_MissingPCAPFile` - verify validation
-
-### Integration tests
-
-1. Start server → switch to PCAP → verify grid resets → verify data ingestion
-2. Start server → switch to live → verify UDP listener running → verify packets
-3. Switch during active PCAP replay → verify blocking/error handling
-
-### Manual testing
-
-1. Run server, switch between sources multiple times
-2. Monitor grid reset timing
-3. Verify no memory leaks from UDP goroutine cleanup
-4. Test with sweep tools using new API
-
-## Performance considerations
-
-### Grid reset cost
-
-- **Current**: ~1-5ms for 72,000 cells (measured in existing code)
-- **Impact**: Negligible for interactive switching
-- **Mitigation**: Already asynchronous in background manager
-
-### UDP listener restart
-
-- **Cost**: Socket bind/unbind + goroutine creation
-- **Time**: <10ms typically
-- **Impact**: Minimal, acceptable for manual switches
-
-### PCAP transition
-
-- **Cost**: Wait for current replay to finish (if in progress)
-- **Mitigation**: Report 409 Conflict if PCAP running, suggest retry
-
-## Decisions made
-
-1. **`--lidar-pcap-mode` flag: REMOVE** ✅
-   - Server always starts in live mode by default
-   - Use API to switch to PCAP mode as needed
-   - Breaking change, but cleaner architecture
-
-2. **Switching to PCAP automatically starts replay** ✅
-   - Yes, if `pcap_file` provided in request body
-   - Matches current behaviour, intuitive UX
-
-3. **Block switching during PCAP replay** ✅
-   - Return 409 Conflict if PCAP currently running
-   - Client should wait and retry
-   - Prevents incomplete PCAP data issues
-
-4. **Expose current source in `/api/lidar/status`** ✅
-   - Add `data_source` field to status response
-   - Include `pcap_file` if currently running PCAP
-   - Enables clients to query current state
-
-5. **Log source switches to database** ✅
-   - Add to existing API timing logs for audit trail
-   - Track source switches for debugging
-
-## Benefits
-
-1. **No server restarts** - dramatically improves dev workflow
-2. **Consistent API** - single endpoint for data source management
-3. **Clean transitions** - automatic grid reset prevents stale data
-4. **Better testing** - easier to test both modes in same session
-5. **Tool integration** - sweep tools can manage source internally
-
-## Risks & mitigations
-
-| Risk                              | Impact                   | Mitigation                                           |
-| --------------------------------- | ------------------------ | ---------------------------------------------------- |
-| Race condition during switch      | Data corruption          | Strict mutex locking, well-tested                    |
-| UDP socket leak                   | Resource exhaustion      | Proper context cancellation, defer cleanup           |
-| **Breaking change removes flag**  | **User workflows break** | **Clear migration guide, version notes**             |
-| PCAP blocking (409) during switch | User confusion           | Clear error message, document retry pattern          |
-| Grid reset timing                 | Lost recent data         | Document behaviour, provide confirmation in response |
-
-## Timeline estimate
-
-- **Phase 1** (Core Implementation): 5-7 hours
-  - Data source state + status endpoint: 1.5 hours
-  - API endpoint with 409 blocking: 2 hours
-  - UDP lifecycle management: 2.5 hours
-  - Testing: 1 hour
-
-- **Phase 2** (Remove CLI Flag): 2-3 hours
-  - Remove flag from internal/cmd/server: 1 hour
-  - Update conditionals: 1 hour
-  - Testing: 1 hour
-
-- **Phase 3** (Tool Integration): 2-3 hours
-  - Update tools: 1 hour
-  - Update scripts: 1 hour
-  - Makefile changes: 1 hour
-
-- **Phase 4** (Documentation): 2-3 hours
-  - Migration guide: 1 hour
-  - API docs: 1 hour
-  - Update existing docs: 1 hour
-
-**Total**: 11-16 hours
-
-## Success criteria
-
-1. ✅ Can switch from live to PCAP without restart
-2. ✅ Can switch from PCAP to live without restart
-3. ✅ Grid automatically resets on switch
-4. ✅ No UDP socket leaks after multiple switches
-5. ✅ Switching blocked (409) during active PCAP replay
-6. ✅ Status endpoint shows current data source and PCAP state
-7. ✅ `--lidar-pcap-mode` flag completely removed
-8. ✅ All existing tools continue to work with updates
-9. ✅ Makefile targets simplified (single server mode)
-10. ✅ Migration guide available for users
-11. ✅ Documentation reflects new workflow
-
-## Next steps
-
-1. ✅ **Reviewed & Decided** - Decisions confirmed:
-   - Remove `--lidar-pcap-mode` flag
-   - Block switching during PCAP (409 response)
-   - Expose data source in status endpoint
-2. **Implement** Phase 1 (core functionality + status endpoint)
-3. **Implement** Phase 2 (remove CLI flag)
-4. **Test** thoroughly with existing tools
-5. **Update** tools, scripts, and Makefile
-6. **Write** migration guide
-7. **Update** documentation
-8. **Deploy** and monitor for issues
+`source_path` covers VRLOG replays, which `pcap_file` cannot. `pcap_in_progress`
+is deliberately narrow — a PCAP source with a replay running, never a VRLOG
+replay — because `Client.WaitForPCAPComplete` gates on it and the sweep runner
+calls that once per parameter combination.
+
+`?wait_for_done=true` long-polls until the active PCAP replay completes.
+
+### `GET /api/lidar/playback/status`
+
+Reports `mode` using the same four-value vocabulary, alongside `paused`, `rate`,
+`seekable`, frame position, `replay_pass`, `replay_total_passes`, `recording`,
+`recording_path`, and `recording_frames`.
+
+Mode and recording come from the server's own state. Only the fast-moving replay
+position (`paused`, `rate`, `current_frame`) is pulled from the streaming layer,
+because Pause/Play/Seek/SetRate arrive as gRPC calls and never pass through HTTP.
+
+## State transitions
+
+```mermaid
+stateDiagram-v2
+	[*] --> Live
+	Live --> PCAP: pcap/start
+	PCAP --> PCAPParked: replay ends (normal mode)
+	PCAP --> PCAPAnalysis: replay ends (analysis mode, grid kept)
+	PCAP --> Live: replay/stop (grid reset)
+	PCAPParked --> Live: new live packet or replay/stop
+	PCAPAnalysis --> Live: pcap/resume_live (grid kept)
+	PCAPAnalysis --> Live: new live packet or replay/stop (grid reset)
+	Live --> VRLOG: vrlog/load
+	VRLOG --> Live: replay/stop
+	VRLOG --> VRLOGParked: replay ends
+	VRLOGParked --> Live: new live packet or replay/stop
+```
+
+`PCAPAnalysis` is the derived `pcap_analysis` token, not a distinct source.
+The parked states retain the recording and its final frame while starting the
+live listener underneath it. Only a packet arriving after parking hands the
+pipeline to live; an older `LastPacketAt` value proves only that the sensor was
+streaming before the replay. Loading another replay or explicitly switching
+source cancels the earlier watch.
+
+## Ingest during replay
+
+Both PCAP and VRLOG replay stop the live UDP listener while playback is active.
+When playback parks, the listener starts again while the source continues to
+name the recording; this lets a new packet reclaim the pipeline without
+replacing the replay's final frame with an empty grid first.
+`live_listener_running` reports this, so "replay source" and "listener stopped"
+must not be treated as synonyms.
+
+During a VRLOG replay the publisher also drops frames produced by the live
+pipeline, so replayed frames are not interleaved with live ones on the gRPC
+stream or written into an active recording.
+
+## Visualiser status
+
+Every gRPC frame carries the authoritative `source_mode`; the removed `is_live`
+field is not reconstructed on either side. Settling time and sensor silence are
+live-only annotations. The client shows settling as `SETTLING 06s`, then `LIVE`
+once packets are arriving. It shows `IDLE` when the source is live but no packet
+has ever arrived, or the last one is more than three seconds old. Replay frames
+never inherit the physical sensor's settling or silence state.
+
+The publisher caches the latest background so a newly subscribed client can
+render immediately. Source changes publish an empty background first, including
+the return to live, so a reconnect cannot combine a recording's cached scene
+with foreground from the new source.
+
+## Concurrency
+
+| Lock           | Guards                                                                          |
+| -------------- | ------------------------------------------------------------------------------- |
+| `dataSourceMu` | source transitions: listener start/stop, state reset, replay start/stop         |
+| `stateMu`      | the `PipelineState` value only; never held across a call into another subsystem |
+| `pcapMu`       | the replay cancellation handles                                                 |
+
+Claiming the replay slot is a compare-and-set on the same lock that publishes the
+state, so a second start request cannot race into a half-configured replay.
+
+The rule for `stateMu` matters: `onRecordingStart` reaches `applyRecordingMetadata`,
+which calls back into `Server.CurrentSource()`. Holding a state lock across that
+path would deadlock.
+
+## Related
+
+- [PCAP analysis mode](pcap-analysis-mode.md) — analysis replays and the two-pass settling workflow
+- [Metrics registry](../../platform/architecture/metrics-registry.md) — the canonical source-mode vocabulary
+- [Visualiser proto contract](../../ui/visualiser/proto-contract.md) — how the mode reaches the macOS client

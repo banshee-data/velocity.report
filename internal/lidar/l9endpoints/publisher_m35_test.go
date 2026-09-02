@@ -23,6 +23,8 @@ func (m *mockBackgroundManager) GetBackgroundSequenceNumber() uint64 {
 	return m.sequenceNumber
 }
 
+func (m *mockBackgroundManager) IsSettlingComplete() bool { return false }
+
 func TestPublisher_ShouldSendBackground(t *testing.T) {
 	tests := []struct {
 		name               string

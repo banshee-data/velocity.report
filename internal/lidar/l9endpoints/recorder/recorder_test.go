@@ -530,8 +530,8 @@ func TestReplayerReadFrame(t *testing.T) {
 
 		if frame.PlaybackInfo == nil {
 			t.Errorf("ReadFrame() frame %d PlaybackInfo is nil", i)
-		} else if frame.PlaybackInfo.IsLive {
-			t.Errorf("ReadFrame() PlaybackInfo.IsLive = true, want false")
+		} else if frame.PlaybackInfo.SourceMode == "live" {
+			t.Errorf("ReadFrame() PlaybackInfo.SourceMode = live, want a replay source")
 		} else if !frame.PlaybackInfo.Seekable {
 			t.Errorf("ReadFrame() PlaybackInfo.Seekable = false, want true")
 		}
@@ -1322,7 +1322,7 @@ func TestReplayerPlaybackInfoTimestamps(t *testing.T) {
 		if pi.CurrentFrameIndex != uint64(i) {
 			t.Errorf("frame %d CurrentFrameIndex = %d, want %d", i, pi.CurrentFrameIndex, i)
 		}
-		if pi.IsLive {
+		if pi.SourceMode == "live" {
 			t.Errorf("frame %d IsLive = true, want false", i)
 		}
 		if !pi.Seekable {

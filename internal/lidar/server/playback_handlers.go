@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -39,25 +38,27 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var enableDebug bool
 	var enablePlots bool
 	var benchmarkMode bool
+	var settleBeforeRecording bool
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile        string  `json:"pcap_file"`
-			AnalysisMode    bool    `json:"analysis_mode"`
-			SpeedMode       string  `json:"speed_mode"`
-			SpeedRatio      float64 `json:"speed_ratio"`
-			StartSeconds    float64 `json:"start_seconds"`
-			DurationSeconds float64 `json:"duration_seconds"`
-			DebugRingMin    int     `json:"debug_ring_min"`
-			DebugRingMax    int     `json:"debug_ring_max"`
-			DebugAzMin      float32 `json:"debug_az_min"`
-			DebugAzMax      float32 `json:"debug_az_max"`
-			EnableDebug     bool    `json:"enable_debug"`
-			EnablePlots     bool    `json:"enable_plots"`
-			BenchmarkMode   bool    `json:"benchmark_mode"`
+			PCAPFile              string  `json:"pcap_file"`
+			AnalysisMode          bool    `json:"analysis_mode"`
+			SpeedMode             string  `json:"speed_mode"`
+			SpeedRatio            float64 `json:"speed_ratio"`
+			StartSeconds          float64 `json:"start_seconds"`
+			DurationSeconds       float64 `json:"duration_seconds"`
+			DebugRingMin          int     `json:"debug_ring_min"`
+			DebugRingMax          int     `json:"debug_ring_max"`
+			DebugAzMin            float32 `json:"debug_az_min"`
+			DebugAzMax            float32 `json:"debug_az_max"`
+			EnableDebug           bool    `json:"enable_debug"`
+			EnablePlots           bool    `json:"enable_plots"`
+			BenchmarkMode         bool    `json:"benchmark_mode"`
+			SettleBeforeRecording bool    `json:"settle_before_recording"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -84,6 +85,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enableDebug = req.EnableDebug
 		enablePlots = req.EnablePlots
 		benchmarkMode = req.BenchmarkMode
+		settleBeforeRecording = req.SettleBeforeRecording
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -133,6 +135,12 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enableDebug = r.FormValue("enable_debug") == "true" || r.FormValue("enable_debug") == "1"
 		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 		benchmarkMode = r.FormValue("benchmark_mode") == "true" || r.FormValue("benchmark_mode") == "1"
+		settleBeforeRecording = r.FormValue("settle_before_recording") == "true" || r.FormValue("settle_before_recording") == "1"
+	}
+
+	if settleBeforeRecording && !analysisMode {
+		ws.writeJSONError(w, http.StatusBadRequest, "settle_before_recording requires analysis_mode=true so the second pass can record a VRLOG")
+		return
 	}
 
 	if speedMode == "" {
@@ -155,8 +163,8 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.currentSource == DataSourcePCAP {
-		ws.writeJSONError(w, http.StatusConflict, "PCAP replay is already running: stop it first via POST /pcap/stop")
+	if ws.PipelineState().PCAPInProgress() {
+		ws.writeJSONError(w, http.StatusConflict, "a replay is already running: stop it first via POST /api/lidar/replay/stop")
 		return
 	}
 
@@ -171,27 +179,22 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set source path on BackgroundManager for region restoration
-	// This allows skipping settling when replaying the same PCAP file
-	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-		mgr.SetSourcePath(pcapFile)
-	}
-
 	ws.pcapBenchmarkMode.Store(benchmarkMode)
 
 	if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
-		StartSeconds:    startSeconds,
-		DurationSeconds: durationSeconds,
-		SpeedMode:       speedMode,
-		SpeedRatio:      speedRatio,
-		AnalysisMode:    analysisMode,
-		SensorID:        ws.sensorID,
-		DebugRingMin:    debugRingMin,
-		DebugRingMax:    debugRingMax,
-		DebugAzMin:      debugAzMin,
-		DebugAzMax:      debugAzMax,
-		EnableDebug:     enableDebug,
-		EnablePlots:     enablePlots,
+		StartSeconds:          startSeconds,
+		DurationSeconds:       durationSeconds,
+		SpeedMode:             speedMode,
+		SpeedRatio:            speedRatio,
+		AnalysisMode:          analysisMode,
+		SettleBeforeRecording: settleBeforeRecording,
+		SensorID:              ws.sensorID,
+		DebugRingMin:          debugRingMin,
+		DebugRingMax:          debugRingMax,
+		DebugAzMin:            debugAzMin,
+		DebugAzMax:            debugAzMax,
+		EnableDebug:           enableDebug,
+		EnablePlots:           enablePlots,
 	}); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
@@ -205,8 +208,8 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.currentSource = DataSourcePCAP
-	currentFile := ws.currentPCAPFile
+	state := ws.PipelineState()
+	currentFile := state.PCAPFile()
 
 	mode := "replay"
 	if analysisMode {
@@ -223,120 +226,45 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":         "started",
-		"sensor_id":      sensorID,
-		"current_source": string(ws.currentSource),
-		"pcap_file":      currentFile,
-		"analysis_mode":  analysisMode,
+		"status":                  "started",
+		"sensor_id":               sensorID,
+		"current_source":          state.DataSourceWire(),
+		"pcap_file":               currentFile,
+		"analysis_mode":           analysisMode,
+		"settle_before_recording": settleBeforeRecording,
 	})
 }
 
 // handlePCAPStop cancels any active PCAP replay and returns to live UDP.
 // Method: POST. Query param: sensor_id (required to match configured sensor).
-func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
+func (ws *Server) handleReplayStop(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		sensorID = r.FormValue("sensor_id")
 	}
+	// sensor_id is optional here. The VRLOG stop this handler replaced never
+	// took one, and requiring it would break that route's existing callers; a
+	// single-sensor server has only one thing to stop anyway. Supplying it
+	// still gets the mismatch check.
 	if sensorID == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "the sensor_id parameter is required")
-		return
+		sensorID = ws.sensorID
 	}
 	if sensorID != ws.sensorID {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised: check the sensor_id matches the configured sensor", sensorID))
 		return
 	}
 
-	// Acquire dataSourceMu first to maintain consistent lock ordering with handlePCAPStart
-	// (always dataSourceMu → pcapMu) to prevent deadlock
-	ws.dataSourceMu.Lock()
-	defer ws.dataSourceMu.Unlock()
-
-	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
-		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode: stop the current data source first")
+	if err := ws.ReturnToLive("operator requested stop"); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not return to live: %v", err))
 		return
-	}
-
-	// Now acquire pcapMu while holding dataSourceMu (consistent ordering)
-	ws.pcapMu.Lock()
-	if !ws.pcapInProgress {
-		ws.pcapMu.Unlock()
-		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay is running: start one first via POST /pcap/start")
-		return
-	}
-	cancel := ws.pcapCancel
-	done := ws.pcapDone
-	ws.pcapCancel = nil
-	ws.pcapDone = nil
-	ws.pcapMu.Unlock()
-
-	// Release dataSourceMu before waiting for goroutine completion to avoid deadlock
-	// (the PCAP goroutine needs dataSourceMu to finish)
-	// NOTE: We must unlock manually here because we need to wait for done.
-	// Since handlePCAPStop defers the release of dataSourceMu, we must re-lock before returning.
-	ws.dataSourceMu.Unlock()
-
-	if cancel != nil {
-		cancel()
-	}
-	if done != nil {
-		<-done
-	}
-
-	// Reacquire dataSourceMu for subsequent operations
-	// This lock will be released by the deferred Unlock when function returns
-	ws.dataSourceMu.Lock()
-
-	// If in analysis mode, only reset grid if explicitly requested
-	ws.pcapMu.Lock()
-	analysisMode := ws.pcapAnalysisMode
-	ws.pcapAnalysisMode = false // Clear flag when stopping
-	ws.pcapMu.Unlock()
-	ws.pcapBenchmarkMode.Store(false) // Disable benchmark tracing when returning to live
-
-	if !analysisMode {
-		// Normal mode: always reset all state when stopping
-		if err := ws.resetAllState(); err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not reset state: %v", err))
-			return
-		}
-	} else {
-		// Analysis mode: still reset frame builder to clear stale frames
-		ws.resetFrameBuilder()
-		diagf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
-	}
-
-	// Clear source path since we're returning to live mode
-	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-		mgr.SetSourcePath("")
-	}
-
-	if err := ws.startLiveListenerLocked(); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not start live listener: %v", err))
-		return
-	}
-
-	ws.currentSource = DataSourceLive
-	ws.currentPCAPFile = ""
-
-	diagf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
-
-	// Notify visualiser gRPC server that replay has ended
-	if ws.onPCAPStopped != nil {
-		ws.onPCAPStopped()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":         "stopped",
-		"sensor_id":      sensorID,
-		"current_source": string(ws.currentSource),
+		"success":        true,
+		"current_source": ws.PipelineState().DataSourceWire(),
 	})
 }
-
-// handlePCAPResumeLive switches from PCAP analysis mode back to Live while preserving the background grid.
-// This allows overlaying live data on top of PCAP-analyzed background.
-// Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -354,7 +282,7 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.currentSource != DataSourcePCAPAnalysis {
+	if ws.PipelineState().DataSourceWire() != string(DataSourcePCAPAnalysis) {
 		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP analysis mode: start a PCAP replay first")
 		return
 	}
@@ -365,12 +293,10 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.currentSource = DataSourceLive
-	ws.currentPCAPFile = ""
-
-	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = false
-	ws.pcapMu.Unlock()
+	// Resume-live deliberately keeps the grid built by the analysis replay.
+	// Recording that fact is what lets the status surfaces keep reporting it;
+	// previously it appeared once in this response and was then lost.
+	ws.setSourceLive(true)
 
 	diagf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
 
@@ -383,35 +309,54 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":         "resumed_live",
 		"sensor_id":      sensorID,
-		"current_source": string(ws.currentSource),
+		"current_source": ws.PipelineState().DataSourceWire(),
 		"grid_preserved": true,
 	})
 }
 
 // handlePlaybackStatus returns the current playback state.
 // GET /api/lidar/playback/status
+//
+// Mode and recording come from the server's own state; only the fast-moving
+// replay position is pulled from the streaming layer. The handler this replaced
+// was driven by an optional callback that no production wiring ever set, so it
+// always took the nil branch and reported a hardcoded live status — including
+// throughout a VRLOG replay.
 func (ws *Server) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
-	if ws.getPlaybackStatus == nil {
-		// Return default live status when no playback callback is configured
-		status := &PlaybackStatusInfo{
-			Mode:     "live",
-			Paused:   false,
-			Rate:     1.0,
-			Seekable: false,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(status)
-		return
+	state := ws.PipelineState()
+
+	var position PlaybackPosition
+	if ws.playbackProbe != nil {
+		position = ws.playbackProbe.PlaybackPosition()
 	}
 
-	status := ws.getPlaybackStatus()
-	if status == nil {
-		status = &PlaybackStatusInfo{
-			Mode:     "live",
-			Paused:   false,
-			Rate:     1.0,
-			Seekable: false,
-		}
+	status := &PlaybackStatusInfo{
+		Mode:         state.DataSourceWire(),
+		Paused:       position.Paused,
+		Rate:         position.Rate,
+		Seekable:     position.Seekable,
+		CurrentFrame: position.CurrentFrame,
+		TotalFrames:  position.TotalFrames,
+		TimestampNs:  position.TimestampNs,
+		LogStartNs:   position.LogStartNs,
+		LogEndNs:     position.LogEndNs,
+		ReplayEpoch:  position.ReplayEpoch,
+
+		ReplayActive:      state.ReplayActive,
+		ReplayPass:        state.Pass,
+		ReplayTotalPasses: state.TotalPasses,
+		GridPreserved:     state.GridPreserved,
+
+		Recording:       state.Recording,
+		RecordingPath:   state.RecordingPath,
+		RecordingRunID:  state.RecordingRunID,
+		RecordingFrames: state.RecordingFrames,
+	}
+	if state.Source == SourceModeVRLog {
+		status.VRLogPath = state.SourcePath
+	}
+	if status.Rate == 0 {
+		status.Rate = 1.0
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -587,6 +532,18 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		frameEncoding = "unknown"
 	}
 
+	// Stop live ingest for the duration of the replay. Without this the UDP
+	// listener keeps feeding L1/L2 while recorded frames are streamed, so the
+	// two interleave — and reporting the source as "vrlog" while live packets
+	// are still being processed would be a new falsehood rather than a fix.
+	ws.dataSourceMu.Lock()
+	ws.stopLiveListenerLocked()
+	ws.dataSourceMu.Unlock()
+
+	// Record the source. Without this the data-source surfaces kept reporting
+	// whatever preceded the replay — usually "live" — for its whole duration.
+	ws.setSourceVRLog(vrlogPath)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":        true,
@@ -597,16 +554,3 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 
 // handleVRLogStop stops VRLOG replay and returns to live mode.
 // POST /api/lidar/vrlog/stop
-func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
-	if ws.onVRLogStop == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG stop is not available: check a VRLOG replay is active")
-		return
-	}
-
-	ws.onVRLogStop()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-	})
-}

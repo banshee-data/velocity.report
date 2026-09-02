@@ -1,6 +1,6 @@
 # LiDAR background settling time optimisation
 
-- **Status:** Phase 3 Complete (February 2026)
+- **Status:** Phase 4 Complete (August 2026)
 
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period.
 
@@ -9,9 +9,9 @@ This document proposes two complementary approaches to address the loss of ~30 s
 - ✅ Phase 1: Background Grid Restoration - Not implemented (regions-only approach used instead)
 - ✅ Phase 2: Region Persistence - **COMPLETE** (see implementation details below)
 - ✅ Phase 3: Settling Evaluation Tool - **COMPLETE** (see implementation details below)
-- 🔲 Phase 4: Adaptive Settling Mode - Not started
+- ✅ Phase 4: Adaptive Settling Mode - **COMPLETE** (see implementation details below)
 
-**Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely.
+**Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely. Where no snapshot matches, settling now ends on measured convergence instead of waiting out the fixed duration — a quiet scene settles in about six seconds rather than thirty.
 
 **Cross-reference**: The sweep runner ([internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)) implements a `SettleMode` field with two options: `once` (settle once, keep grid across combinations) and `per_combo` (re-settle per combination). This uses region persistence for efficient parameter sweeps. See also [`auto-tuning.md`](auto-tuning.md).
 
@@ -115,7 +115,7 @@ Create [cmd/tools/settling-eval/main.go](../../../cmd/tools/settling-eval/main.g
 
 Modify `ProcessFramePolar` to support adaptive settling:
 
-> **Source:** `internal/lidar/config.go` (when implemented). `SettlingMode` enum (`Fixed`, `Adaptive`). `BackgroundConfig` gains SettlingMode plus three adaptive thresholds: MinCoverageForSettling (e.g. 0.8), MaxSpreadDeltaForSettling (e.g. 0.001), and MinConfidenceForSettling (e.g. 10).
+> **Source:** delivered without a `SettlingMode` enum. `BackgroundParams` carries `SettlingMinCoverage`, `SettlingMaxSpreadDelta`, `SettlingMinRegionStability`, and `SettlingMinConfidence`; convergence engages when all four are set. See Phase 4 below.
 
 #### Pros
 
@@ -222,11 +222,68 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 
 **Outcome**: Data-driven guidance for tuning settling parameters.
 
-### Phase 4: adaptive settling mode (optional)
+### Phase 4: adaptive settling mode ✅ COMPLETE
 
-1. Add `SettlingModeAdaptive` option
-2. Implement convergence-based settling termination
-3. Add runtime API to switch settling modes
+Settling ends when the grid has demonstrably converged, rather than when a fixed
+duration expires. `WarmupDurationNanos` becomes a **ceiling** for scenes that
+never converge — a busy junction, or a sensor watching moving traffic — instead
+of a toll every scene pays.
+
+**Measured result**: a quiet scene settles in **5.9 s against a 30 s ceiling**
+(2026-08-27). Until settling completes, foreground extraction yields nothing, so
+this is 24 seconds of otherwise-empty scene recovered on every cold start.
+
+#### What arms it
+
+There is no `SettlingMode` enum. Convergence engages when all four thresholds in
+[`SettlingThresholds`](../../../internal/lidar/l3grid/settling_eval.go) are
+configured, and the existing frame-and-duration rule applies untouched when they
+are not. All four are required: a partial set would let a grid settle on
+whichever dimensions happened to be filled in, which is a weaker guarantee than
+the duration it replaces.
+
+The thresholds already existed in `config/tuning.defaults.json` and were already
+consumed by the offline `settlingeval` tool (Phase 3). Phase 4 is largely the
+work of consulting them while the grid is actually settling.
+
+#### The frame minimum still applies
+
+`warmup_min_frames` gates the convergence check entirely — it is not consulted
+until the frames are in — so it sets the floor under any settling time
+convergence can reach. It was lowered from 100 to **50** (five seconds at 10 Hz)
+to match. Convergence measured over a handful of frames is not evidence of
+anything, which is why the gate stays.
+
+Evaluation walks every cell, so it runs on an interval
+(`SettlingCheckInterval`, default 10 frames) rather than per frame.
+
+#### One decision, two callers
+
+The settling decision previously existed twice: once in the background update
+path and once in foreground extraction, as two copies of the same test. They
+drifted — convergence was added to one while the live pipeline ran the other, so
+the feature was unreachable in production despite working under test. Both now
+call `settlingCompleteLocked`, and a test asserts neither path reimplements it.
+
+#### Observability
+
+Settling reports itself at diag level:
+
+```text
+Settling started for sensor=X: 50 frames minimum, 30s ceiling, convergence armed (…)
+Settling for sensor=X: 25 of 50 warm-up frames remaining, 2s of 30s elapsed
+Settling complete for sensor=X after 5.918s on convergence (ceiling was 30s)
+```
+
+An unarmed grid says so explicitly, naming the missing thresholds. A convergence
+check that fails names the unmet criterion with its value, so "still settling"
+is never reported without something to act on.
+
+Settling state also reaches operators live: `GET /api/lidar/data_source` carries
+`settling` and `settling_progress`, and proto `PlaybackInfo` carries `settling`,
+`settling_progress`, and `settling_elapsed_seconds`, which the macOS visualiser
+shows as a `SETTLING 5.9s` badge. Until settling completes the scene renders
+empty, which is otherwise indistinguishable from a dead sensor.
 
 **Outcome**: Self-tuning settling for new deployments without prior data.
 
@@ -237,7 +294,7 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 | Phase 1 | Medium | High   | **P0** - Immediate benefit for existing deployments |
 | Phase 2 | Low    | Medium | P1 - Completes the restoration story                |
 | Phase 3 | Medium | Medium | P1 - Provides tuning guidance                       |
-| Phase 4 | High   | Low    | P2 - Nice-to-have for edge cases                    |
+| Phase 4 | High   | Low    | ✅ Complete - delivered August 2026                 |
 
 ## API changes
 
@@ -320,12 +377,28 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 
 From `config.go`:
 
-> **Source:** `internal/lidar/config.go`. `DefaultBackgroundConfig()` returns WarmupDuration 30 s, WarmupMinFrames 100, SettlingPeriod 5 min (for first snapshot).
+> **Source:** `config/tuning.defaults.json`, active L3 profile. `warmup_duration_nanos` 30 s, `warmup_min_frames` 50, `settling_period` 5 min (for first snapshot), plus the four `settling_*` convergence thresholds.
 
-At 10 Hz (Hesai P40), 100 frames = 10 seconds.
-At 20 Hz, 100 frames = 5 seconds.
-`WarmupDuration` of 30s ensures both conditions are met.
+At 10 Hz (Hesai P40), 50 frames = 5 seconds.
+At 20 Hz, 50 frames = 2.5 seconds.
+
+Since Phase 4 the 30 s duration is a ceiling, not the expected wait: a grid that
+converges settles as soon as it does, and the frame minimum sets the floor.
+
+## Field results
+
+| Date       | Scene | Result                                                      |
+| ---------- | ----- | ----------------------------------------------------------- |
+| 2026-08-27 | Quiet | Settled in 5.918s against a 30s ceiling                     |
+| 2026-08-28 | Quiet | Settled in 6.032s; background delivered on completion       |
+| 2026-08-30 | Quiet | Settled in 6.925s after a parked replay handed over to live |
+
+All three are macOS with the sensor on the local network. A busier scene, or
+one with moving traffic through the settling window, should be expected to take
+longer and may reach the ceiling — that is what the ceiling is for, and it has
+not yet been observed in the field.
 
 ## Changelog
 
+- **2026-08-27**: Phase 4 complete — convergence-based settling termination; `warmup_min_frames` lowered 100 → 50; settling state surfaced on the HTTP API, the gRPC wire, and the visualiser badge
 - **2026-02-05**: Initial design document created

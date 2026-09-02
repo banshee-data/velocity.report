@@ -158,9 +158,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		effectiveAlpha = postSettleAlpha
 	}
 	if !g.SettlingComplete {
-		framesReady := g.Params.WarmupMinFrames <= 0 || g.WarmupFramesRemaining <= 0
-		durReady := g.Params.WarmupDurationNanos <= 0 || (nowNanos-bm.StartTime.UnixNano() >= g.Params.WarmupDurationNanos)
-		if framesReady && durReady {
+		if bm.settlingCompleteLocked(nowNanos) {
 			g.SettlingComplete = true
 			if postSettleAlpha > 0 && postSettleAlpha <= 1 {
 				effectiveAlpha = postSettleAlpha

@@ -50,6 +50,32 @@ func TestPacketStats_AddPacket(t *testing.T) {
 	}
 }
 
+func TestServerLastPacketAtHandlesUnavailableAndLiveStats(t *testing.T) {
+	var nilServer *Server
+	if got := nilServer.LastPacketAt(); !got.IsZero() {
+		t.Errorf("nil server LastPacketAt = %v, want zero", got)
+	}
+
+	withoutStats := &Server{}
+	if got := withoutStats.LastPacketAt(); !got.IsZero() {
+		t.Errorf("server without stats LastPacketAt = %v, want zero", got)
+	}
+
+	stats := NewPacketStats()
+	withStats := &Server{stats: stats}
+	if got := withStats.LastPacketAt(); !got.IsZero() {
+		t.Errorf("before first packet LastPacketAt = %v, want zero", got)
+	}
+
+	before := time.Now()
+	stats.AddPacket(1262)
+	after := time.Now()
+	got := withStats.LastPacketAt()
+	if got.Before(before) || got.After(after) {
+		t.Errorf("LastPacketAt = %v, want between %v and %v", got, before, after)
+	}
+}
+
 func TestPacketStats_AddDropped(t *testing.T) {
 	stats := NewPacketStats()
 

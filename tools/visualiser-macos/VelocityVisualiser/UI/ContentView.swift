@@ -73,10 +73,14 @@ struct ContentView: View {
                     }.frame(minWidth: 400, minHeight: 300)
                 }.frame(minWidth: 600)
 
-                // Side panel
-                if appState.showSidePanel || appState.selectedTrackID != nil {
-                    SidePanelView().frame(width: 520)
-                }
+                // Side panel. Visibility is showSidePanel alone: selecting a
+                // track opens the panel by setting it (see selectTrack), so
+                // also keying off the selection here made the state
+                // unclosable — the Inspector button toggled the flag off and
+                // the selection held the panel open regardless. It also
+                // defeated selectTrackQuietly, whose whole purpose is to
+                // select without popping the panel open.
+                if appState.showSidePanel { SidePanelView().frame(width: 520) }
 
             }
 
@@ -627,9 +631,7 @@ struct ToolbarView: View {
                     appState.hasActiveFilters ? .orange : nil)
 
                 Divider().frame(height: 20)
-                Button(action: { appState.clearAll() }) {
-                    Label("Clear", systemImage: "xmark.circle")
-                }.help("Clear all except background grid")
+                LiveToggleView()
             }
 
             Spacer()
@@ -638,6 +640,60 @@ struct ToolbarView: View {
             OverlayTogglesView()
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
+    }
+}
+
+/// Live/replay switch for the pipeline's data source.
+///
+/// Loading a PCAP or VRLOG selects Replay, and it stays there for as long as
+/// that recording is loaded — including after it plays to its end. Nothing
+/// selects Live but an operator: the server no longer infers when a replay
+/// should be abandoned, because every rule for inferring it surprised somebody.
+/// Choosing Live clears the grid, so the next scene is built from live returns
+/// rather than composited onto the recording's.
+///
+/// The control is inert while already live. Replay is not somewhere an operator
+/// can go from here — a recording has to be loaded from the run browser first —
+/// so offering the segment would be offering a transition that cannot happen.
+struct LiveToggleView: View {
+    @EnvironmentObject var appState: AppState
+
+    enum Source: String, Hashable, CaseIterable {
+        case live = "Live"
+        case replay = "Replay"
+    }
+
+    var body: some View {
+        let isLive = appState.isLiveSource
+
+        Picker("Source", selection: sourceBinding) {
+            ForEach(Source.allCases, id: \.self) { source in Text(source.rawValue).tag(source) }
+        }.pickerStyle(.segmented).labelsHidden().frame(width: 140)
+            // The accent tint is what makes the selected segment read as selected.
+            // Without it the control renders as two flat panes, which is how it was
+            // being mistaken for a pair of buttons.
+            .tint(.accentColor)
+            // Spring loading lets a drag hover a segment to switch to it, matching
+            // the behaviour of the other segmented controls in the toolbar.
+            .springLoadingBehavior(.enabled)
+            // Not `.disabled()`: this flips on every source change, and changing a
+            // cell's enabled state makes AppKit recompute the key-view loop, which
+            // re-enters SwiftUI's graph inside the update that changed it.
+            .inert(
+                isLive || appState.isReturningToLive,
+                hint: "Load a recording from the run browser to replay one")
+    }
+
+    /// Reads the current source and accepts only the replay-to-live move. Every
+    /// other selection is a no-op that snaps straight back, which is why the
+    /// control is disabled rather than relying on this to reject them.
+    private var sourceBinding: Binding<Source> {
+        Binding(
+            get: { appState.isLiveSource ? .live : .replay },
+            set: { selected in
+                guard selected == .live, !appState.isLiveSource else { return }
+                appState.returnToLive()
+            })
     }
 }
 
@@ -656,7 +712,7 @@ struct ConnectionButtonView: View {
                 Image(systemName: isConnected ? "stop.circle.fill" : "play.circle.fill")
             }
             Text(isConnecting ? "Connecting..." : (isConnected ? "Disconnect" : "Connect"))
-        }.tint(isConnected ? .red : .green).disabled(isConnecting)
+        }.tint(isConnected ? .red : .green).inert(isConnecting, hint: "Connecting to the server")
     }
 }
 
@@ -840,6 +896,7 @@ func formatDuration(_ nanos: Int64) -> String {
     let seekSliderDisabled: Bool
     let playPauseDisabled: Bool
     let rateControlsDisabled: Bool
+    let showRateControls: Bool
     let modeLabel: String
 
     init(
@@ -873,6 +930,10 @@ func formatDuration(_ nanos: Int64) -> String {
         // When replay finished, always allow the play button (to restart)
         playPauseDisabled = replayFinished ? false : (!isConnected || busy || isLiveOrUnknown)
         rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
+        // Playback rate applies to a recording. Live input has one rate, so on
+        // live the controls were permanently inert furniture rather than
+        // something an operator could act on.
+        showRateControls = isReplay || replayFinished
     }
 }
 
@@ -893,8 +954,8 @@ struct PlaybackControlsView: View {
             Button(action: {
                 uiLogger.debug("UI: Play/Pause button clicked")
                 appState.togglePlayPause()
-            }) { Image(systemName: ui.isPaused ? "play.fill" : "pause.fill") }.disabled(
-                ui.playPauseDisabled)
+            }) { Image(systemName: ui.isPaused ? "play.fill" : "pause.fill") }.inert(
+                ui.playPauseDisabled, hint: "Playback controls need a loaded recording")
 
             // Step buttons (only for seekable modes like .vrlog replay)
             if ui.showStepButtons {
@@ -903,16 +964,16 @@ struct PlaybackControlsView: View {
                         for: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)
                     uiLogger.debug("UI: Step backward button clicked — frames=\(frameCount)")
                     appState.stepBackward(by: frameCount)
-                }) { Image(systemName: "backward.frame.fill") }.help(playbackStepButtonHelp)
-                    .disabled(ui.stepBackwardDisabled)
+                }) { Image(systemName: "backward.frame.fill") }.help(playbackStepButtonHelp).inert(
+                    ui.stepBackwardDisabled, hint: "Already at the start")
 
                 Button(action: {
                     let frameCount = playbackStepFrameCount(
                         for: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)
                     uiLogger.debug("UI: Step forward button clicked — frames=\(frameCount)")
                     appState.stepForward(by: frameCount)
-                }) { Image(systemName: "forward.frame.fill") }.help(playbackStepButtonHelp)
-                    .disabled(ui.stepForwardDisabled)
+                }) { Image(systemName: "forward.frame.fill") }.help(playbackStepButtonHelp).inert(
+                    ui.stepForwardDisabled, hint: "Already at the end")
             }
 
             // Timeline (replay mode)
@@ -931,7 +992,8 @@ struct PlaybackControlsView: View {
                             // so we don't call setSliderEditing(false) here to avoid a race.
                             appState.seek(to: appState.replayProgress)
                         }
-                    }.frame(minWidth: 200).disabled(ui.seekSliderDisabled)
+                    }.frame(minWidth: 200).inert(
+                        ui.seekSliderDisabled, hint: "This source cannot be scrubbed")
                 } else if ui.showReadOnlyProgress {
                     // Read-only progress bar for PCAP replay
                     Slider(value: .constant(appState.displayReplayProgress), in: 0...1).frame(
@@ -948,33 +1010,42 @@ struct PlaybackControlsView: View {
                 Spacer()
             }
 
-            // Rate control (disabled in live mode)
-            HStack(spacing: 3) {
-                Button(action: { appState.decreaseRate() }) {
-                    Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
-                        Rectangle())
-                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
+            // Rate control, present only where a rate can be changed.
+            if ui.showRateControls {
+                HStack(spacing: 3) {
+                    Button(action: { appState.decreaseRate() }) {
+                        Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
+                            Rectangle())
+                    }.buttonStyle(.borderless).inert(
+                        ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                    ).controlPillBackground()
 
-                // Rate display: clickable to reset to 1x
-                Button(action: { appState.resetRate() }) {
-                    HStack(spacing: 0) {
-                        Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
-                        Text("x").font(.caption)
-                    }.frame(width: 45, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.plain).disabled(ui.rateControlsDisabled).foregroundColor(
-                    ui.rateControlsDisabled ? .secondary : .primary
-                ).controlPillBackground().onHover { hovering in
-                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                }
+                    // Rate display: clickable to reset to 1x
+                    Button(action: { appState.resetRate() }) {
+                        HStack(spacing: 0) {
+                            Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
+                            Text("x").font(.caption)
+                        }.frame(width: 45, height: 22).contentShape(Rectangle())
+                    }.buttonStyle(.plain).inert(
+                        ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                    ).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
+                        .controlPillBackground().onHover { hovering in
+                            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                        }
 
-                Button(action: { appState.increaseRate() }) {
-                    Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
-            }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
+                    Button(action: { appState.increaseRate() }) {
+                        Image(systemName: "plus").frame(width: 22, height: 22).contentShape(
+                            Rectangle())
+                    }.buttonStyle(.borderless).inert(
+                        ui.rateControlsDisabled, hint: "Playback rate applies to replays only"
+                    ).controlPillBackground()
+                }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
+            }
 
             // Mode indicator (only show when connected)
             PlaybackModeBadgeView(
-                modeLabel: ui.modeLabel, mode: ui.mode, isConnected: ui.isConnected)
+                modeLabel: appState.displayModeLabel, mode: ui.mode,
+                isRecording: appState.isRecording, isConnected: ui.isConnected)
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
     }
@@ -1049,24 +1120,10 @@ struct TimeDisplayView: View {
     }
 }
 
-struct ModeIndicatorView: View {
-    let isLive: Bool
-    let isConnected: Bool
-
-    var body: some View {
-        if isConnected {
-            Text(isLive ? "LIVE" : "REPLAY").font(.caption).fontWeight(.bold).foregroundColor(
-                isLive ? .red : .orange
-            ).padding(.horizontal, 8).padding(.vertical, 2).background(
-                isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2)
-            ).cornerRadius(4)
-        }
-    }
-}
-
 @available(macOS 15.0, *) struct PlaybackModeBadgeView: View {
     let modeLabel: String
     let mode: AppState.PlaybackMode
+    var isRecording: Bool = false
     let isConnected: Bool
 
     private var foreground: Color {
@@ -1080,9 +1137,17 @@ struct ModeIndicatorView: View {
 
     var body: some View {
         if isConnected {
-            Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground).padding(
-                .horizontal, 8
-            ).padding(.vertical, 2).background(foreground.opacity(0.16)).cornerRadius(4)
+            HStack(spacing: 6) {
+                Text(modeLabel).font(.caption).fontWeight(.bold).monospacedDigit().foregroundColor(
+                    foreground
+                ).padding(.horizontal, 8).padding(.vertical, 2).background(foreground.opacity(0.16))
+                    .cornerRadius(4)
+                if isRecording {
+                    Text("REC").font(.caption).fontWeight(.bold).foregroundColor(.red).padding(
+                        .horizontal, 8
+                    ).padding(.vertical, 2).background(Color.red.opacity(0.16)).cornerRadius(4)
+                }
+            }
         }
     }
 }
@@ -1867,7 +1932,7 @@ struct BulkLabelView: View {
                             ? Color.confirmedGreen.opacity(0.15) : Color.clear
                     ).cornerRadius(4)
                 }.buttonStyle(.plain).help("Apply '\(entry.name)' to all \(count) visible tracks")
-                    .disabled(count == 0)
+                    .inert(count == 0, hint: "No tracks to show")
             }
         }
     }

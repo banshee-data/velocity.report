@@ -22,6 +22,36 @@ type ForegroundForwarder interface {
 	ForwardForeground(points []l2frames.PointPolar)
 }
 
+// shouldThrottleFrame reports whether the expensive downstream pipeline should
+// be skipped for a frame that has just arrived.
+//
+// Three things must all hold. A replay has to be driving the pipeline: the
+// throttle exists to stop a PCAP replaying faster than real time from flooding
+// clustering and tracking, and it has no business acting on live input. A
+// minimum interval has to be configured. And the previous processed frame has
+// to be recent enough that this one falls inside that interval.
+//
+// The replay condition is the one that was missing. The throttle used to run
+// unconditionally, justified by setting the cap above the sensor's maximum
+// rotation rate — but rotation rate is not arrival spacing. Frames are
+// assembled from packets and delivered to the callback in clumps, so two
+// completing within the interval trip the gate however slowly the sensor turns.
+// A 10 Hz sensor had 5,500 frames throttled against a 25 fps cap in sixteen
+// minutes on 2026-08-26, and each throttled frame also skipped AdvanceMisses,
+// quietly slowing live track ageing.
+func shouldThrottleFrame(replayActive *atomic.Bool, minInterval time.Duration, lastProcessed, now time.Time) bool {
+	if replayActive == nil || !replayActive.Load() {
+		return false
+	}
+	if minInterval <= 0 {
+		return false
+	}
+	if lastProcessed.IsZero() {
+		return false
+	}
+	return now.Sub(lastProcessed) < minInterval
+}
+
 // VisualiserPublisher interface allows publishing frames to the gRPC visualiser endpoints (l9endpoints).
 type VisualiserPublisher interface {
 	Publish(frame interface{})
@@ -137,10 +167,31 @@ type TrackingPipelineConfig struct {
 	// update but before the expensive clustering/tracking/serialisation path.
 	// Zero means no limit (process every frame).
 	//
-	// The value MUST exceed the sensor's maximum frame rate to avoid
-	// dropping live data. Hesai Pandar40P runs at 10 or 20 Hz depending
-	// on configuration; 25 fps provides 5 fps (25%) headroom above the 20 Hz mode.
+	// It applies to replays only — see ReplayActive. Headroom above the
+	// sensor's rotation rate is not sufficient protection for live data,
+	// because the throttle measures how far apart frames arrive at the
+	// callback rather than how fast the sensor turns.
 	MaxFrameRate float64
+
+	// ReplayActive gates the frame-rate throttle. When nil or false the
+	// throttle is disabled entirely and every frame is processed.
+	//
+	// The throttle exists for one situation: a PCAP replaying faster than real
+	// time, where unbounded catch-up floods clustering and tracking. It used to
+	// run unconditionally, on the reasoning that a cap above the sensor's
+	// maximum rotation rate could never catch live data. That conflates two
+	// different quantities. Frames do not arrive evenly spaced just because the
+	// sensor turns evenly: they are assembled from packets and delivered in
+	// clumps, so any two completing within the minimum interval trip the gate
+	// no matter how slowly the sensor is turning. On 2026-08-26 a 10 Hz sensor
+	// had 5,500 frames throttled in sixteen minutes against a 25 fps cap.
+	//
+	// That was not a harmless loss of surplus frames. A throttled frame skips
+	// AdvanceMisses — correct for replay catch-up, where advancing misses on a
+	// flood of frames would delete tentative tracks within a few hundred
+	// milliseconds — but on live data it means track ageing quietly runs slower
+	// than configured.
+	ReplayActive *atomic.Bool
 
 	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
 	// DBSCAN clustering. Each cubic voxel of this side length (metres) is
@@ -236,13 +287,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 
 	// Pipeline performance tracing state.
-	const slowFrameThresholdMs = 50.0 // emit diagf alert when frame exceeds this
-	const healthSummaryInterval = 100 // emit health summary every N processed frames
-	const timingWindowSize = 100      // rolling window for mean/p95 computation
-	var processedFrameCount uint64    // frames that passed throttle and were fully processed
-	var frameDurations []float64      // rolling window of frame durations (ms)
-	var lastFrameEndTime time.Time    // for lag ratio computation
-	var consecutiveBehind int         // consecutive frames where lag > 1.0
+	const slowFrameThresholdMs = 50.0  // emit diagf alert when frame exceeds this
+	const healthSummaryInterval = 100  // emit health summary every N processed frames
+	const timingWindowSize = 100       // rolling window for mean/p95 computation
+	var processedFrameCount uint64     // frames that passed throttle and were fully processed
+	var frameDurations []float64       // rolling window of frame durations (ms)
+	var lastFrameCaptureTime time.Time // for lag ratio computation
+	var consecutiveBehind int          // consecutive frames where lag > 1.0
 
 	// Deterministic recording: when a visualiser adapter and publisher are
 	// configured, every sensor frame must produce a VRLOG entry — even
@@ -290,7 +341,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
 
 		// Stage 1: Foreground extraction
-		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
+		// Frame timestamps are wall time for live sensors and capture time for
+		// PCAP replay. Using them here lets warm-up duration advance correctly
+		// even when an offline replay is intentionally unpaced.
+		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMaskAt(polar, frame.StartTimestamp)
 		if err != nil || mask == nil {
 			opsf("Failed to get foreground mask: %v", err)
 			publishEmptyFrame(frame)
@@ -341,25 +395,31 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// (clustering, tracking, serialisation) when frames arrive faster
 		// than MaxFrameRate. Background model update above still runs on
 		// every frame so foreground extraction stays accurate.
-		if minFrameInterval > 0 {
-			now := time.Now()
-			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
-				count := throttledFrames.Add(1)
-				if count%50 == 0 {
-					diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, maxFrameRate)
-				}
-				// Do NOT advance miss counters during throttle.
-				// PCAP catch-up floods frames faster than real-time;
-				// advancing misses would kill tentative tracks
-				// (max_misses=3) within ~300 ms. Live sensors never
-				// reach this path (MaxFrameRate > sensor Hz), so
-				// skipping AdvanceMisses has no effect on live tracking.
-				//
-				// Still record the frame for deterministic VRLOG mapping.
-				publishEmptyFrame(frame)
-				return
+		//
+		// Replays only. Live input is processed frame for frame: there is no
+		// catch-up flood to defend against, and skipping AdvanceMisses on live
+		// data slows track ageing.
+		if shouldThrottleFrame(cfg.ReplayActive, minFrameInterval, lastProcessedTime, time.Now()) {
+			count := throttledFrames.Add(1)
+			if count%50 == 0 {
+				diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, maxFrameRate)
 			}
-			lastProcessedTime = now
+			// Do NOT advance miss counters during throttle.
+			// PCAP catch-up floods frames faster than real-time;
+			// advancing misses would kill tentative tracks
+			// (max_misses=3) within ~300 ms. Live input never reaches
+			// this path now that the throttle is gated on ReplayActive,
+			// so track ageing on live data runs at the configured rate.
+			//
+			// Still record the frame for deterministic VRLOG mapping.
+			publishEmptyFrame(frame)
+			return
+		}
+		// Kept current even when the throttle is inactive, so a replay
+		// starting mid-stream measures from the last frame actually
+		// processed rather than from whenever the flag flipped.
+		if minFrameInterval > 0 {
+			lastProcessedTime = time.Now()
 		}
 
 		// --- Performance Tracing ---
@@ -412,10 +472,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						float64(heapBytes())/1024/1024, runtime.NumGoroutine())
 				}
 
-				// Lag tracking: detect when processing falls behind frame arrival rate
-				now := time.Now()
-				if !lastFrameEndTime.IsZero() {
-					interFrameGap := now.Sub(lastFrameEndTime)
+				// Lag tracking compares processing time with the capture interval. Wall
+				// time between synchronous callback completions includes the current
+				// processing cost and therefore cannot reveal that replay is behind.
+				if !lastFrameCaptureTime.IsZero() {
+					interFrameGap := frame.StartTimestamp.Sub(lastFrameCaptureTime)
 					frameDur := ft.Total()
 					if interFrameGap > 0 && frameDur > interFrameGap {
 						consecutiveBehind++
@@ -428,7 +489,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						consecutiveBehind = 0
 					}
 				}
-				lastFrameEndTime = now
+				lastFrameCaptureTime = frame.StartTimestamp
 			}
 			ft.Stage("forward")
 		}

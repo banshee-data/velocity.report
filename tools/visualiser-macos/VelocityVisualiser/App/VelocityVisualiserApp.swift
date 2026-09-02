@@ -15,6 +15,7 @@ private let appLogger = DevLogger(category: "App")
 
 @main struct VelocityVisualiserApp: App {
     @StateObject private var appState = AppState()
+    private static let watchdog = MainThreadWatchdog()
 
     var body: some Scene {
         WindowGroup {
@@ -35,6 +36,16 @@ private let appLogger = DevLogger(category: "App")
     }
 
     init() {
+        // Before anything logs. Redirected stdout is block-buffered, so without
+        // this the app's own output reaches a log file late, in 4 KB chunks,
+        // and truncated mid-line when the process is killed.
+        AppLog.configure()
+
+        // Independent of the frame stream on purpose: when the stream stalls,
+        // this is the only thing that can say whether the main thread stalled
+        // with it.
+        if !AppState.isRunningUnderXCTest { VelocityVisualiserApp.watchdog.start() }
+
         // Disable the macOS default tab bar (removes "Show Tab Bar" from View menu)
         NSWindow.allowsAutomaticWindowTabbing = false
 
@@ -56,8 +67,12 @@ struct AppCommands: Commands {
             Button("About VelocityVisualiser.app") { openWindow(id: "about") }
         }
 
-        // Suppress the macOS default View menu items (tab bar, toolbar, sidebar)
-        CommandGroup(replacing: .toolbar) {}
+        // View menu. Replacing .toolbar drops the macOS defaults (tab bar,
+        // toolbar customisation) and puts our own items in their place.
+        CommandGroup(replacing: .toolbar) {
+            Button("Clear") { appState.clearAll() }.keyboardShortcut(
+                "k", modifiers: [.command, .shift])
+        }
         CommandGroup(replacing: .sidebar) {}
 
         // Connection commands

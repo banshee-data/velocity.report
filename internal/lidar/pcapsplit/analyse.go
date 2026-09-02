@@ -10,9 +10,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+)
+
+type analysisMotionClassifier interface {
+	SetRingElevations([]float64) error
+	Observe(time.Time, []l2frames.PointPolar) (MotionEvidence, error)
+}
+
+var (
+	loadAnalysisPandarConfig = parse.LoadPandar40PConfig
+	newAnalysisClassifier    = func(sensorID, sourcePath string, tuning *config.TuningConfig) (analysisMotionClassifier, error) {
+		return NewMotionClassifier(sensorID, sourcePath, tuning)
+	}
 )
 
 // Analysis is the result of the read/classify pass over a PCAP. Frames are the
@@ -33,7 +46,8 @@ type Analysis struct {
 // timeline and segment writing are separate steps. This is pass 1 of the
 // two-pass split (pass 2 is WriteSegments).
 func Analyse(cfg SplitConfig) (*Analysis, error) {
-	parserCfg, err := parse.LoadPandar40PConfig()
+	cfg.DurationSeconds = normaliseReplayDuration(cfg.DurationSeconds)
+	parserCfg, err := loadAnalysisPandarConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
 	}
@@ -43,7 +57,7 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	// Resolve the tuning once (nil = embedded defaults) without mutating a
 	// caller-owned configuration.
 	tuningCfg := tuningOrEmbedded(cfg.Tuning)
-	classifier, err := NewMotionClassifier(cfg.SensorID, cfg.PCAPFile, tuningCfg)
+	classifier, err := newAnalysisClassifier(cfg.SensorID, cfg.PCAPFile, tuningCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +126,7 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	if err := network.ReadPCAPFile(
 		context.Background(), cfg.PCAPFile, cfg.UDPPort,
 		parser, sb, reader, nil,
-		0, -1, 0, 0, nil,
+		cfg.StartSeconds, cfg.DurationSeconds, 0, 0, nil,
 	); err != nil {
 		return nil, fmt.Errorf("pcap replay: %w", err)
 	}
@@ -145,6 +159,15 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	}
 	a.Capture = computeCaptureStats(cfg.PCAPFile, frameTimes, stats.count(), totalPoints, foregroundPoints, sb.snapshot())
 	return a, nil
+}
+
+// normaliseReplayDuration preserves the historical zero-value full-capture
+// behaviour while retaining -1 as the explicit full-capture setting.
+func normaliseReplayDuration(durationSeconds float64) float64 {
+	if durationSeconds == 0 {
+		return -1
+	}
+	return durationSeconds
 }
 
 // wrapProgress decorates inner with a periodic progress reporter when

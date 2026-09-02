@@ -52,10 +52,31 @@ type Publisher struct {
 	clients   map[string]*clientStream
 	clientsMu sync.RWMutex
 
-	// Background snapshot management (M3.5)
-	backgroundMgr           BackgroundManagerInterface
-	lastBackgroundSeq       uint64
-	lastBackgroundSent      time.Time
+	// Background snapshot management (M3.5).
+	//
+	// backgroundMgr is wired once by SetBackgroundManager during startup,
+	// before Start() launches any goroutine, and is read-only thereafter.
+	//
+	// backgroundMu guards lastBackgroundSeq and lastBackgroundSent, which are
+	// touched both by the pipeline goroutine (Publish → shouldSendBackground)
+	// and by HTTP handlers (SendBackgroundSnapshot). It is held only across
+	// those field accesses, never across GenerateBackgroundSnapshot: that walks
+	// the whole grid, and blocking the publish hot path behind it would stall
+	// frame delivery.
+	backgroundMgr      BackgroundManagerInterface
+	backgroundMu       sync.Mutex
+	lastBackgroundSeq  uint64
+	lastBackgroundSent time.Time
+	// lastBackgroundFrame is the most recent background as broadcast, kept so a
+	// client that subscribes afterwards can be given the scene rather than
+	// rendering over nothing until the next refresh.
+	lastBackgroundFrame *FrameBundle
+	// lastSettlingComplete tracks the grid's settling state so the transition
+	// into "settled" can trigger a snapshot.
+	lastSettlingComplete bool
+	// settlingUnawareOnce guards a one-time warning when the background manager
+	// cannot report settling state.
+	settlingUnawareOnce     sync.Once
 	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
@@ -72,15 +93,31 @@ type Publisher struct {
 	vrlogSendOneFrame bool // Send one frame after seek-while-paused
 	vrlogActive       bool
 	vrlogWg           sync.WaitGroup
+	// vrlogEmittedBackground records whether the active replay published a
+	// background frame of its own at startup.
+	vrlogEmittedBackground bool
+	// onReplayEnded is invoked once when a VRLOG replay reaches the end of its
+	// recording, so the owner can return the pipeline to live input. Guarded by
+	// vrlogMu; always invoked on its own goroutine (see notifyReplayEnded).
+	onReplayEnded func()
 
 	// Stats
-	frameCount       atomic.Uint64
-	clientCount      atomic.Int32
-	droppedFrames    atomic.Uint64
-	lastStatsTime    time.Time
-	lastFrameCount   uint64 // Frame count at last stats log
-	lastDroppedCount uint64 // Dropped count at last stats log
-	lastStatsMu      sync.Mutex
+	frameCount  atomic.Uint64
+	clientCount atomic.Int32
+	// droppedFrames counts frames lost at the publish stage: frameChan was full
+	// so the frame never entered the pipeline at all.
+	droppedFrames atomic.Uint64
+	// clientDroppedFrames counts frames lost at the broadcast stage: the frame
+	// was published successfully, then rejected because a client's own queue was
+	// full. Kept separate from droppedFrames because the two measure different
+	// stages and a frame can be counted at both — folding them into one ratio
+	// made a client accepting nothing read as exactly 50%, never higher.
+	clientDroppedFrames    atomic.Uint64
+	lastStatsTime          time.Time
+	lastFrameCount         uint64 // Frame count at last stats log
+	lastDroppedCount       uint64 // Publish-stage dropped count at last stats log
+	lastClientDroppedCount uint64 // Client-stage dropped count at last stats log
+	lastStatsMu            sync.Mutex
 
 	// Lifecycle
 	running atomic.Bool
@@ -93,6 +130,12 @@ type Publisher struct {
 type BackgroundManagerInterface interface {
 	GenerateBackgroundSnapshot() (interface{}, error) // Returns *l3grid.BackgroundSnapshotData
 	GetBackgroundSequenceNumber() uint64
+	// IsSettlingComplete reports whether the grid has finished settling, so a
+	// snapshot can be sent the moment it does. Required rather than optional:
+	// as an optional capability the production bridge silently did not provide
+	// it, the type assertion found nothing, and send-on-settle no-oped while
+	// every test passed.
+	IsSettlingComplete() bool
 }
 
 // FrameRecorder is an interface for recording frames.
@@ -117,6 +160,31 @@ func NewPublisher(cfg Config) *Publisher {
 		frameChan: make(chan *FrameBundle, 100),
 		clients:   make(map[string]*clientStream),
 		stopCh:    make(chan struct{}),
+	}
+}
+
+// SetOnReplayEnded registers a callback fired once when a VRLOG replay reaches
+// the end of its recording. Without it a finished replay stays the pipeline's
+// data source forever: nothing else observes the end, so live input is never
+// restored and the replay slot is never released.
+func (p *Publisher) SetOnReplayEnded(fn func()) {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+	p.onReplayEnded = fn
+}
+
+// notifyReplayEnded invokes the end-of-replay callback on its own goroutine.
+//
+// The goroutine is required, not incidental: this is called from
+// vrlogReplayLoop, and the callback's natural implementation stops the replay,
+// which waits on vrlogWg — i.e. on this very goroutine. Calling it inline would
+// deadlock.
+func (p *Publisher) notifyReplayEnded() {
+	p.vrlogMu.RLock()
+	fn := p.onReplayEnded
+	p.vrlogMu.RUnlock()
+	if fn != nil {
+		go fn()
 	}
 }
 
@@ -158,17 +226,47 @@ func (p *Publisher) shouldSendBackground() bool {
 	// 3. Grid sequence changed (reset/sensor moved)
 
 	currentSeq := p.backgroundMgr.GetBackgroundSequenceNumber()
-	if currentSeq != p.lastBackgroundSeq && p.lastBackgroundSeq > 0 {
-		lidar.Diagf("[Visualiser] Background sequence changed (%d → %d), sending refresh", p.lastBackgroundSeq, currentSeq)
-		return true // Grid was reset
-	}
 
-	if p.lastBackgroundSent.IsZero() {
+	p.backgroundMu.Lock()
+	lastSeq := p.lastBackgroundSeq
+	lastSent := p.lastBackgroundSent
+	p.backgroundMu.Unlock()
+
+	if lastSent.IsZero() {
 		diagf("[Visualiser] First background snapshot, sending now")
 		return true // Never sent
 	}
 
-	elapsed := time.Since(p.lastBackgroundSent)
+	// Settling just finished. Until it does the grid is empty, so the snapshot
+	// already sent carries no points; waiting for the next interval leaves the
+	// client showing foreground and boxes over nothing. That gap used to be
+	// invisible because settling took about as long as the interval — now that
+	// a grid can settle in six seconds, it is most of half a minute.
+	settled := p.backgroundMgr.IsSettlingComplete()
+	p.backgroundMu.Lock()
+	justSettled := settled && !p.lastSettlingComplete
+	p.lastSettlingComplete = settled
+	p.backgroundMu.Unlock()
+	if justSettled {
+		diagf("[Visualiser] Settling completed, sending background now")
+		return true
+	}
+
+	// Any change of sequence means the grid the client is holding is no longer
+	// the grid we have. This deliberately includes a change away from 0: the
+	// sequence is the persisted snapshot ID, so an unsettled grid reports 0 and
+	// takes a real ID the moment a settled snapshot is restored. That is exactly
+	// the settle-before-recording handover — settling pass publishes at 0, the
+	// restore moves it to the snapshot ID — and the old `lastSeq > 0` guard
+	// suppressed the refresh for precisely that transition, leaving the client
+	// on the unsettled grid until the 30s interval elapsed. The never-sent case
+	// above already covers the startup reading the guard was there for.
+	if currentSeq != lastSeq {
+		lidar.Diagf("[Visualiser] Background sequence changed (%d → %d), sending refresh", lastSeq, currentSeq)
+		return true // Grid was reset or a settled snapshot was restored
+	}
+
+	elapsed := time.Since(lastSent)
 	if elapsed >= p.config.BackgroundInterval {
 		lidar.Diagf("[Visualiser] Background interval elapsed (%.1fs), sending refresh", elapsed.Seconds())
 		return true // Periodic refresh
@@ -229,8 +327,10 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 	// Send to all clients
 	select {
 	case p.frameChan <- bundle:
+		p.backgroundMu.Lock()
 		p.lastBackgroundSeq = snapshot.SequenceNumber
 		p.lastBackgroundSent = time.Now()
+		p.backgroundMu.Unlock()
 		pointCount := len(snapshot.X)
 		lidar.Diagf("[Visualiser] Background snapshot sent: %d points, seq=%d", pointCount, snapshot.SequenceNumber)
 	default:
@@ -303,7 +403,21 @@ func (p *Publisher) Stop() {
 }
 
 // Publish sends a frame to all connected clients.
+// Publish broadcasts a frame produced by the live pipeline.
+//
+// Frames are dropped while a VRLOG replay is active. Only background snapshots
+// were suppressed before, so live foreground frames continued to reach both the
+// stream and any attached recorder, interleaving with the replayed frames.
 func (p *Publisher) Publish(frame interface{}) {
+	p.publishInternal(frame, false)
+}
+
+// publishReplay broadcasts a frame read back from a VRLOG.
+func (p *Publisher) publishReplay(frame interface{}) {
+	p.publishInternal(frame, true)
+}
+
+func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 	if !p.running.Load() {
 		return
 	}
@@ -311,6 +425,12 @@ func (p *Publisher) Publish(frame interface{}) {
 	// Type assert to *FrameBundle
 	frameBundle, ok := frame.(*FrameBundle)
 	if !ok || frameBundle == nil {
+		return
+	}
+
+	// A VRLOG replay owns the stream: live frames arriving alongside it would
+	// interleave with the recorded ones and be written to any active recorder.
+	if !fromReplay && p.IsVRLogActive() {
 		return
 	}
 
@@ -341,8 +461,20 @@ func (p *Publisher) Publish(frame interface{}) {
 		}
 	}
 
-	// Set background sequence number for client cache coherence
-	if p.backgroundMgr != nil {
+	// Set background sequence number for client cache coherence.
+	//
+	// Replayed frames keep the sequence they were recorded with. At record time
+	// each frame was stamped from the same grid that produced the background
+	// recorded alongside it, so a recording is already self-consistent — and
+	// stays so across a mid-recording grid reset, where later background frames
+	// carry a new sequence and the frames after them match it. Restamping with
+	// the live grid's sequence would point replayed frames at a background the
+	// client is not holding.
+	//
+	// The exception is a recording that holds no background of its own: there
+	// the client is showing the live grid that SendBackgroundSnapshot sent as a
+	// fallback, so the live sequence is the correct one to advertise.
+	if p.backgroundMgr != nil && !(fromReplay && p.VRLogEmittedBackground()) {
 		frameBundle.BackgroundSeq = p.backgroundMgr.GetBackgroundSequenceNumber()
 	}
 
@@ -399,6 +531,7 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount
 		p.lastDroppedCount = p.droppedFrames.Load()
+		p.lastClientDroppedCount = p.clientDroppedFrames.Load()
 		return
 	}
 
@@ -409,19 +542,41 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 		fps := float64(framesInInterval) / elapsed.Seconds()
 		dropped := p.droppedFrames.Load()
 		droppedInInterval := dropped - p.lastDroppedCount
+		clientDropped := p.clientDroppedFrames.Load()
+		clientDroppedInInterval := clientDropped - p.lastClientDroppedCount
 		clients := p.clientCount.Load()
-		lidar.Tracef("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d(%d total) clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
-			fps, framesInInterval, droppedInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
-		if droppedInInterval > 0 && framesInInterval > 0 {
-			dropPct := float64(droppedInInterval) / float64(framesInInterval+droppedInInterval) * 100
+		lidar.Tracef("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d(%d total) client_dropped=%d(%d total) clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
+			fps, framesInInterval, droppedInInterval, dropped, clientDroppedInInterval, clientDropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+
+		// Publish-stage loss: frames offered to the pipeline that never entered
+		// it. The denominator is everything offered, so this is a true rate.
+		if droppedInInterval > 0 {
+			offered := framesInInterval + droppedInInterval
+			dropPct := float64(droppedInInterval) / float64(offered) * 100
 			if dropPct > 10 {
-				lidar.Opsf("[Visualiser] WARNING: high drop rate %.1f%% (%d/%d frames dropped in %.0fs)",
-					dropPct, droppedInInterval, framesInInterval+droppedInInterval, elapsed.Seconds())
+				lidar.Opsf("[Visualiser] WARNING: high publish drop rate %.1f%% (%d/%d frames never entered the pipeline in %.0fs)",
+					dropPct, droppedInInterval, offered, elapsed.Seconds())
 			}
 		}
+
+		// Client-stage loss: frames that were published and then rejected
+		// because a client could not take them. The denominator is what was
+		// published, not published+rejected — a frame is counted once on each
+		// side, so summing them capped the reported rate at 50% for a single
+		// client and read "this client is receiving nothing" as "half the
+		// frames are getting through".
+		if clientDroppedInInterval > 0 && framesInInterval > 0 {
+			clientDropPct := float64(clientDroppedInInterval) / float64(framesInInterval) * 100
+			if clientDropPct > 10 {
+				lidar.Opsf("[Visualiser] WARNING: high client drop rate %.1f%% (%d of %d published frames rejected by slow clients in %.0fs, clients=%d)",
+					clientDropPct, clientDroppedInInterval, framesInInterval, elapsed.Seconds(), clients)
+			}
+		}
+
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount
 		p.lastDroppedCount = dropped
+		p.lastClientDroppedCount = clientDropped
 	}
 }
 
@@ -437,6 +592,14 @@ func (p *Publisher) broadcastLoop() {
 		case <-p.stopCh:
 			return
 		case frame := <-p.frameChan:
+			// Remember the scene so a client that connects later can be given
+			// it. A background frame is published once and never repeated
+			// until the next refresh, so a client whose stream started even a
+			// few milliseconds afterwards would render nothing over it — which
+			// is exactly what a replay load does, publishing the recording's
+			// background and then restarting the stream to pick it up.
+			p.rememberBackground(frame)
+
 			p.clientsMu.RLock()
 			clientCount := len(p.clients)
 			for _, client := range p.clients {
@@ -445,17 +608,15 @@ func (p *Publisher) broadcastLoop() {
 				if frame.PointCloud != nil {
 					frame.PointCloud.Retain()
 				}
-				select {
-				case client.frameCh <- frame:
-					// Successfully sent
-				default:
-					// Client is slow, drop frame for this client.
+				if !p.enqueueForClient(client, frame) {
 					// Release the Retain we just did since frame wasn't sent.
 					if frame.PointCloud != nil {
 						frame.PointCloud.Release()
 					}
-					// Count this so gRPC stats reflect the full picture.
-					p.droppedFrames.Add(1)
+					// Client-stage loss: the frame was published, this client
+					// could not take it. Counted separately from publish-stage
+					// drops so the two are not summed into one ratio.
+					p.clientDroppedFrames.Add(1)
 				}
 			}
 			p.clientsMu.RUnlock()
@@ -466,6 +627,43 @@ func (p *Publisher) broadcastLoop() {
 				frame.PointCloud.Release()
 			}
 		}
+	}
+}
+
+// enqueueForClient queues a frame for one client, reporting whether it was
+// accepted.
+//
+// A slow client normally just loses the frame: another foreground frame is along
+// shortly and supersedes it. Background frames are different — the client
+// renders the last one it received until another arrives, so dropping one during
+// a source change leaves the previous source's scene under the new source's
+// foreground. For those, evict the oldest queued frame and retry once, which
+// bounds the queue without blocking the broadcast loop on a slow client.
+func (p *Publisher) enqueueForClient(client *clientStream, frame *FrameBundle) bool {
+	select {
+	case client.frameCh <- frame:
+		return true
+	default:
+	}
+
+	if frame.FrameType != FrameTypeBackground {
+		return false
+	}
+
+	select {
+	case evicted := <-client.frameCh:
+		if evicted != nil && evicted.PointCloud != nil {
+			evicted.PointCloud.Release()
+		}
+		p.clientDroppedFrames.Add(1)
+	default:
+	}
+
+	select {
+	case client.frameCh <- frame:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -485,7 +683,49 @@ func (p *Publisher) addClient(id string, req *pb.StreamRequest) *clientStream {
 	p.clientCount.Add(1)
 	diagf("[Visualiser] Client connected: %s (total: %d)", id, p.clientCount.Load())
 
+	// Hand the new client the current scene. Without this it renders over
+	// nothing until the next background is published — 30s on live, and on a
+	// replay only whenever the recording happens to contain another one.
+	if bg := p.latestBackground(); bg != nil {
+		// Retain to match the Release that streamFromPublisher performs on
+		// every frame it takes off the channel. broadcastLoop retains per
+		// client for the same reason; enqueueing without it would release a
+		// reference this frame never held and hand a live buffer back to the
+		// pool. Background frames usually carry no point cloud, which is why
+		// the imbalance did no visible harm rather than why it was safe.
+		if bg.PointCloud != nil {
+			bg.PointCloud.Retain()
+		}
+		select {
+		case client.frameCh <- bg:
+			diagf("[Visualiser] Sent cached background to new client %s", id)
+		default:
+			if bg.PointCloud != nil {
+				bg.PointCloud.Release()
+			}
+		}
+	}
+
 	return client
+}
+
+// rememberBackground caches the most recent background frame so a client that
+// subscribes later can be sent the scene it would otherwise have missed.
+func (p *Publisher) rememberBackground(frame *FrameBundle) {
+	if frame == nil || frame.FrameType != FrameTypeBackground {
+		return
+	}
+	p.backgroundMu.Lock()
+	p.lastBackgroundFrame = frame
+	p.backgroundMu.Unlock()
+}
+
+// latestBackground returns the cached background frame, or nil if none has been
+// published yet.
+func (p *Publisher) latestBackground() *FrameBundle {
+	p.backgroundMu.Lock()
+	defer p.backgroundMu.Unlock()
+	return p.lastBackgroundFrame
 }
 
 // removeClient unregisters a streaming client.
@@ -511,9 +751,55 @@ func (p *Publisher) Stats() PublisherStats {
 	}
 }
 
-// SendBackgroundSnapshot forces a background snapshot to be sent to clients.
+// SendBackgroundSnapshot sends a background snapshot of the live grid to
+// clients, bypassing the interval and sequence checks in shouldSendBackground.
+//
+// It is a no-op while a VRLOG replay owns the stream. Clients cache whichever
+// background arrives last, so the live grid would replace the recorded scene
+// the replayed foreground belongs to — and when the recording carries no
+// background of its own, painting the live one under replayed foreground is
+// exactly the stale composite this avoids. ClearBackground covers that case
+// instead.
+//
+// sendBackgroundSnapshot builds its own bundle and pushes to frameChan
+// directly, so the live-frame drop in publishInternal does not cover it.
 func (p *Publisher) SendBackgroundSnapshot() error {
+	if p.IsVRLogActive() {
+		diagf("[Visualiser] Skipping live background snapshot: a replay owns the stream")
+		return nil
+	}
 	return p.sendBackgroundSnapshot()
+}
+
+// ClearBackground tells clients to drop the background they are holding, by
+// publishing a background frame carrying no points.
+//
+// Sent when the pipeline changes source. The client keeps the last background
+// it received until another replaces it, so without this a new source's
+// foreground is composited over the previous source's scene — a live settled
+// grid sitting under replayed points, which reads as a real scene and is not
+// obviously wrong until something moves through it.
+//
+// Clearing is unconditional rather than conditional on the new source having a
+// background of its own: showing nothing is honest, and a recording that does
+// carry one overwrites this within the same startup.
+func (p *Publisher) ClearBackground() {
+	if !p.running.Load() {
+		return
+	}
+	bundle := &FrameBundle{
+		FrameID:        p.frameCount.Add(1),
+		TimestampNanos: p.lastForegroundTimestamp.Load(),
+		SensorID:       p.config.SensorID,
+		FrameType:      FrameTypeBackground,
+		Background:     &BackgroundSnapshot{},
+	}
+	select {
+	case p.frameChan <- bundle:
+		diagf("[Visualiser] Cleared client background for source change")
+	default:
+		opsf("[Visualiser] Could not clear client background: frame channel full")
+	}
 }
 
 // PublisherStats contains publisher statistics.

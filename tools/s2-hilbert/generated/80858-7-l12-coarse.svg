@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720" role="img" aria-labelledby="svg-title svg-description" data-s2-token="808587" data-s2-level="10" data-target-level="12" data-classification-source="none">
+  <title id="svg-title">80858-7: S2 L12 Hilbert orientation</title>
+  <desc id="svg-description">Sixteen actual S2 L12 descendants of canonical L10 parent 808587, connected in ascending CellID order.</desc>
+  <defs>
+    <marker id="hilbert-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--hilbert-marker, #d1495b)" />
+    </marker>
+    <style>
+  .s2-cell { fill: none; stroke: #315a70; stroke-width: 0.8; opacity: 0.42; }
+  .s2-parent { fill: none; stroke: #163747; stroke-width: 2; }
+  .hilbert-path { fill: none; stroke: #006d77; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+  .hilbert-selected { opacity: 1; }
+  .hilbert-unselected { opacity: 0.3; }
+  .hilbert-unclassified { opacity: 1; }
+  .hilbert-chevron { fill: none; stroke: #023e4a; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .hilbert-start { fill: #fff; stroke: #1b7f5a; stroke-width: 4; }
+  .hilbert-start-core { fill: #1b7f5a; stroke: none; }
+  .hilbert-end { fill: #d1495b; stroke: #fff; stroke-width: 2; }
+  .endpoint-label { font-family: system-ui, sans-serif; font-size: 12; font-weight: 700; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: #fff; stroke-width: 3.5; stroke-linejoin: round; }
+  .endpoint-label-start { fill: #1b7f5a; }
+  .endpoint-label-end { fill: #d1495b; }
+  .s2-label { fill: #163747; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10; text-anchor: middle; dominant-baseline: central; }
+</style>
+  </defs>
+  <g id="parent-cell">
+    <polygon class="s2-parent" fill="none" stroke="#163747" stroke-width="2" points="148.291479,217.374972 148.291479,668 571.708521,502.908389 571.708521,52" data-s2-token="808587" data-s2-level="10" />
+  </g>
+  <g id="cells">
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="148.291479,217.374972 148.291479,330.03026 254.111256,288.673367 254.111256,176.000365" data-s2-token="8085861" data-s2-level="12" data-index="0" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="148.291479,330.03026 148.291479,442.686206 254.111256,401.347037 254.111256,288.673367" data-s2-token="8085863" data-s2-level="12" data-index="1" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="254.111256,288.673367 254.111256,401.347037 359.954048,360.028397 359.954048,247.337016" data-s2-token="8085865" data-s2-level="12" data-index="2" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="254.111256,176.000365 254.111256,288.673367 359.954048,247.337016 359.954048,134.646311" data-s2-token="8085867" data-s2-level="12" data-index="3" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="359.954048,134.646311 359.954048,247.337016 465.819816,206.02124 465.819816,93.312845" data-s2-token="8085869" data-s2-level="12" data-index="4" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="465.819816,93.312845 465.819816,206.02124 571.708521,164.726072 571.708521,52" data-s2-token="808586b" data-s2-level="12" data-index="5" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="465.819816,206.02124 465.819816,318.730321 571.708521,277.452841 571.708521,164.726072" data-s2-token="808586d" data-s2-level="12" data-index="6" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="359.954048,247.337016 359.954048,360.028397 465.819816,318.730321 465.819816,206.02124" data-s2-token="808586f" data-s2-level="12" data-index="7" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="359.954048,360.028397 359.954048,472.720438 465.819816,431.44007 465.819816,318.730321" data-s2-token="8085871" data-s2-level="12" data-index="8" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="465.819816,318.730321 465.819816,431.44007 571.708521,390.180286 571.708521,277.452841" data-s2-token="8085873" data-s2-level="12" data-index="9" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="465.819816,431.44007 465.819816,544.150467 571.708521,502.908389 571.708521,390.180286" data-s2-token="8085875" data-s2-level="12" data-index="10" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="359.954048,472.720438 359.954048,585.413117 465.819816,544.150467 465.819816,431.44007" data-s2-token="8085877" data-s2-level="12" data-index="11" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="254.111256,514.021357 254.111256,626.696306 359.954048,585.413117 359.954048,472.720438" data-s2-token="8085879" data-s2-level="12" data-index="12" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="254.111256,401.347037 254.111256,514.021357 359.954048,472.720438 359.954048,360.028397" data-s2-token="808587b" data-s2-level="12" data-index="13" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="148.291479,442.686206 148.291479,555.342793 254.111256,514.021357 254.111256,401.347037" data-s2-token="808587d" data-s2-level="12" data-index="14" />
+    <polygon class="s2-cell" fill="none" stroke="#315a70" stroke-width="0.8" opacity="0.42" points="148.291479,555.342793 148.291479,668 254.111256,626.696306 254.111256,514.021357" data-s2-token="808587f" data-s2-level="12" data-index="15" />
+  </g>
+  <g id="hilbert-path">
+    <path class="hilbert-path hilbert-unclassified" fill="none" stroke="#006d77" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1" d="M 201.198488,253.01709 L 201.198488,365.681571 L 307.029778,324.343802 L 307.029778,211.661609 L 412.884062,170.326692 L 518.761304,129.012373 L 518.761304,241.729956 L 412.884062,283.026586 L 412.884062,395.727153 L 518.761304,354.448221 L 518.761304,467.167148 L 412.884062,508.428373 L 307.029778,549.71016 L 307.029778,437.026659 L 201.198488,478.346706 L 201.198488,591.012475" marker-end="url(#hilbert-arrow)" />
+  </g>
+  <g id="chevrons">
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="194.718488,304.849331 201.198488,313.849331 207.678488,304.849331" data-from-index="0" data-to-index="1" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="252.280164,352.685819 258.305726,343.375448 247.564917,340.614032" data-from-index="1" data-to-index="2" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="313.509778,272.502705 307.029778,263.502705 300.549778,272.502705" data-from-index="2" data-to-index="3" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="358.122207,198.667104 364.148671,189.357318 353.40813,186.59486" data-from-index="3" data-to-index="4" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="463.986111,157.342042 470.014831,148.033716 459.274959,145.268656" data-from-index="4" data-to-index="5" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="512.281304,180.871164 518.761304,189.871164 525.241304,180.871164" data-from-index="5" data-to-index="6" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="467.660368,254.706028 461.630298,264.01348 472.369768,266.780097" data-from-index="6" data-to-index="7" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="406.404062,334.87687 412.884062,343.87687 419.364062,334.87687" data-from-index="7" data-to-index="8" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="463.983885,382.759663 470.015305,373.453087 459.276236,370.684911" data-from-index="8" data-to-index="9" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="512.281304,406.307684 518.761304,415.307684 525.241304,406.307684" data-from-index="9" data-to-index="10" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="467.662595,480.126051 461.629823,489.431752 472.36849,492.201487" data-from-index="10" data-to-index="11" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="361.794975,521.397112 355.764456,530.704273 366.503793,533.471409" data-from-index="11" data-to-index="12" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="313.509778,497.86841 307.029778,488.86841 300.549778,497.86841" data-from-index="12" data-to-index="13" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="255.949217,450.013817 249.922302,459.323312 260.66271,462.086289" data-from-index="13" data-to-index="14" />
+    <polyline class="hilbert-chevron" fill="none" stroke="#023e4a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="194.718488,530.17959 201.198488,539.17959 207.678488,530.17959" data-from-index="14" data-to-index="15" />
+  </g>
+  <g id="markers">
+    <circle class="hilbert-start" fill="#fff" stroke="#1b7f5a" stroke-width="4" cx="201.198488" cy="253.01709" r="10" data-index="0" data-s2-token="8085861" />
+    <circle class="hilbert-start-core" fill="#1b7f5a" stroke="none" cx="201.198488" cy="253.01709" r="3.5" data-index="0" />
+    <circle class="hilbert-end" fill="#d1495b" stroke="#fff" stroke-width="2" cx="201.198488" cy="591.012475" r="7" data-index="15" data-s2-token="808587f" />
+    <text class="endpoint-label endpoint-label-start" font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="#fff" stroke-width="3.5" stroke-linejoin="round" fill="#1b7f5a" x="201.198488" y="231.01709">START</text>
+    <text class="endpoint-label endpoint-label-end" font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="#fff" stroke-width="3.5" stroke-linejoin="round" fill="#d1495b" x="201.198488" y="613.012475">END</text>
+  </g>
+</svg>

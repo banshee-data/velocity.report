@@ -36,12 +36,24 @@ func TestSplitMainRejectsMissingPCAP(t *testing.T) {
 	}
 }
 
+func TestSplitMainRejectsMissingTuningConfig(t *testing.T) {
+	badConfig := filepath.Join(t.TempDir(), "invalid.json")
+	if err := os.WriteFile(badConfig, []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+	code := SplitMain([]string{
+		"--config", badConfig,
+		"--pcap", "capture.pcap",
+	})
+	if code != 1 {
+		t.Errorf("SplitMain with missing tuning config = %d, want 1", code)
+	}
+}
+
 // TestSplitMainDryRunAnalysesWithoutWriting drives the analysis half of the
 // splitter — motion/static segmentation and the reporting paths — without
 // producing segment PCAPs.
 func TestSplitMainDryRunAnalysesWithoutWriting(t *testing.T) {
-	requirePCAPFixture(t)
-
 	dir := t.TempDir()
 	motionJSON := filepath.Join(dir, "motion.json")
 
@@ -55,6 +67,7 @@ func TestSplitMainDryRunAnalysesWithoutWriting(t *testing.T) {
 		"-motion-json", motionJSON,
 		"-timeline-units", "timestamp",
 		"-progress", "0",
+		"-duration-seconds", "10",
 	})
 	if code != 0 {
 		t.Fatalf("SplitMain = %d, want 0", code)
@@ -78,8 +91,6 @@ func TestSplitMainDryRunAnalysesWithoutWriting(t *testing.T) {
 // TestSplitMainWritesSegments exercises the writer: real segment captures plus
 // the metadata sidecars.
 func TestSplitMainWritesSegments(t *testing.T) {
-	requirePCAPFixture(t)
-
 	dir := t.TempDir()
 
 	code := SplitMain([]string{
@@ -88,6 +99,7 @@ func TestSplitMainWritesSegments(t *testing.T) {
 		"-prefix", "seg",
 		"-export-json",
 		"-progress", "0",
+		"-duration-seconds", "10",
 	})
 	if code != 0 {
 		t.Fatalf("SplitMain = %d, want 0", code)
@@ -103,8 +115,6 @@ func TestSplitMainWritesSegments(t *testing.T) {
 }
 
 func TestSplitMainUnknownTimelineUnitsFallsBackToFrames(t *testing.T) {
-	requirePCAPFixture(t)
-
 	// -timeline-units is not validated: FormatMotionTimeline switches on
 	// "seconds" and "timestamp" and renders frame numbers for anything else.
 	// An unrecognised value is therefore a successful run with the frames
@@ -115,6 +125,7 @@ func TestSplitMainUnknownTimelineUnitsFallsBackToFrames(t *testing.T) {
 		"-dry-run",
 		"-timeline-units", "furlongs",
 		"-progress", "0",
+		"-duration-seconds", "10",
 	})
 	if code != 0 {
 		t.Errorf("SplitMain with unknown timeline units = %d, want 0", code)

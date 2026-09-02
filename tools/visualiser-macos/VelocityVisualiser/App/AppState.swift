@@ -81,12 +81,29 @@ private let logger = DevLogger(category: "AppState")
     @Published var isConnecting: Bool = false
     @Published var serverAddress: String = "localhost:50051"
     @Published var connectionError: String?
+    /// True while a return-to-live request is in flight, so the Live toggle can
+    /// show progress and reject a second press.
+    @Published var isReturningToLive: Bool = false
+    /// Non-published twin of `isReturningToLive`, so the re-entrancy guard can
+    /// bite synchronously without publishing from inside a view update.
+    private var returnToLiveInFlight = false
+    /// True while the background grid is still settling. Foreground extraction
+    /// produces nothing until it finishes, so the scene is legitimately empty
+    /// for about a minute after going live — which otherwise looks like a
+    /// sensor that has stopped.
+    @Published var isSettling: Bool = false
+    /// Seconds spent settling so far. Shown instead of a percentage: settling
+    /// can finish on convergence well before its ceiling, so a fraction of an
+    /// unknown total says less than the time on the clock.
+    @Published var settlingElapsedSeconds: Float = 0
+    /// Live input with no packets arriving. Frames keep flowing while a sensor
+    /// is silent — they are simply empty — so this cannot be inferred here.
+    @Published var sensorSilent: Bool = false
 
     // MARK: - Playback State
 
     @Published var isPaused: Bool = false
     @Published var playbackRate: Float = 1.0
-    @Published var isLive: Bool = true
     @Published var currentTimestamp: Int64 = 0
     @Published var currentFrameID: UInt64 = 0
     @Published var playbackMode: PlaybackMode = .live
@@ -102,6 +119,16 @@ private let logger = DevLogger(category: "AppState")
     @Published var totalFrames: UInt64 = 0
     // True when seek/step is supported, for example .vrlog replay.
     @Published var isSeekable: Bool = false
+
+    /// What the server says is driving the pipeline. Independent of
+    /// `isSeekable`, which is a capability: a VRLOG replay happens to be
+    /// seekable and a PCAP replay happens not to be, but neither implies the
+    /// other. `.unspecified` means there is no source report yet, so nothing is
+    /// assumed.
+    @Published var sourceMode: SourceMode = .unspecified
+
+    /// True while the server is recording a VRLOG.
+    @Published var isRecording: Bool = false
     @Published var timeDisplayMode: TimeDisplayMode = .elapsed  // Clock display mode
     @Published private(set) var inFlightPlaybackCommand: PlaybackCommandKind?
     @Published private(set) var commandStartedAt: Date?
@@ -296,7 +323,14 @@ private let logger = DevLogger(category: "AppState")
     private var lastUIUpdateClock = ContinuousClock.now
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
-    private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    private let defaultRunTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    /// Substitute run-track API client, for tests. Without it a test that
+    /// exercises returnToLive() posts to whatever server is actually listening
+    /// on the default port and switches its source out from under the operator.
+    var runTrackLabelClientOverride: RunTrackLabelAPIClient?
+    private var runTrackLabelClient: RunTrackLabelAPIClient {
+        runTrackLabelClientOverride ?? defaultRunTrackLabelClient
+    }
     let runBrowserState = RunBrowserState()
     private var queuedSeekProgress: Double?
     private var seekWaitFrameCount: Int = 0  // Frames since seek RPC completed; safety valve
@@ -344,10 +378,39 @@ private let logger = DevLogger(category: "AppState")
 
     var displayPlaybackMode: PlaybackMode {
         if !isConnected && playbackMode == .unknown { return .unknown }
-        if playbackMode == .live && !isLive {
-            return isSeekable ? .replaySeekable : .replayNonSeekable
-        }
         return playbackMode
+    }
+
+    /// Badge text. The source names what is playing; `displayPlaybackMode`
+    /// only knows whether it is seekable, which is why a preserved analysis
+    /// grid used to be indistinguishable from an ordinary PCAP replay.
+    var displayModeLabel: String {
+        if !isConnected && playbackMode == .unknown { return PlaybackMode.unknown.modeLabel }
+        // Settling outranks the source: an empty scene during warm-up is the
+        // thing an operator needs explained, and it resolves on its own.
+        // Silence outranks settling. A grid settles on arriving frames, so with
+        // the sensor quiet the count cannot advance and reporting progress
+        // promises something that will not happen: at the end of a replay with
+        // no sensor, the badge sat on "SETTLING 00s" indefinitely.
+        if sensorSilent && sourceMode == .live { return "IDLE" }
+
+        // Two digits so the badge does not resize as the count passes 9. The
+        // pill is anchored in a corner, and a label that changes width every
+        // second draws the eye to the wrong thing.
+        if isSettling { return String(format: "SETTLING %02.0fs", settlingElapsedSeconds) }
+        switch sourceMode {
+        // A live source with nothing arriving is the same wait as a connection
+        // with no source, so it reads the same rather than inventing a word.
+        case .live: return sensorSilent ? "IDLE" : "LIVE"
+        case .pcap: return "REPLAY (PCAP)"
+        case .pcapAnalysis: return "PCAP (ANALYSIS)"
+        case .vrlog: return "REPLAY (VRLOG)"
+        case .unspecified:
+            // Connected, with nothing driving the pipeline: no replay loaded
+            // and no packets arriving. "Connecting" describes the transport,
+            // which is already up, so it says the wrong thing about the wait.
+            return isConnected ? "IDLE" : displayPlaybackMode.modeLabel
+        }
     }
 
     var displayReplayProgress: Double {
@@ -359,8 +422,7 @@ private let logger = DevLogger(category: "AppState")
     }
 
     var canInteractWithSeekSlider: Bool {
-        displayPlaybackMode == .replaySeekable && (hasValidTimelineRange || hasFrameIndexProgress)
-            && !playbackControlsBusy
+        isSeekable && (hasValidTimelineRange || hasFrameIndexProgress) && !playbackControlsBusy
     }
 
     var shouldShowReplayMetadataUnavailable: Bool {
@@ -377,24 +439,19 @@ private let logger = DevLogger(category: "AppState")
     func setPlaybackMode(_ mode: PlaybackMode) {
         playbackMode = mode
         switch mode {
-        case .unknown:
-            isLive = false
-            isSeekable = false
-        case .live:
-            isLive = true
-            isSeekable = false
-        case .replayNonSeekable:
-            isLive = false
-            isSeekable = false
-        case .replaySeekable:
-            isLive = false
-            isSeekable = true
+        case .unknown, .live, .replayNonSeekable: isSeekable = false
+        case .replaySeekable: isSeekable = true
         }
     }
 
-    private func inferPlaybackMode(isLive: Bool, seekable: Bool) -> PlaybackMode {
-        if isLive { return .live }
-        return seekable ? .replaySeekable : .replayNonSeekable
+    /// Playback capability for a reported source. The source decides live vs
+    /// replay; `seekable` alone decides whether the replay can be scrubbed.
+    private func playbackMode(for source: SourceMode, seekable: Bool) -> PlaybackMode {
+        switch source {
+        case .live: return .live
+        case .pcap, .pcapAnalysis, .vrlog: return seekable ? .replaySeekable : .replayNonSeekable
+        case .unspecified: return seekable ? .replaySeekable : .replayNonSeekable
+        }
     }
 
     private func bumpPlaybackGeneration() { playbackStateGeneration &+= 1 }
@@ -483,7 +540,7 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Connection
 
     func toggleConnection() {
-        print(
+        vlog(
             "[AppState] toggleConnection called, isConnected: \(isConnected), isConnecting: \(isConnecting)"
         )
         logger.info(
@@ -507,7 +564,7 @@ private let logger = DevLogger(category: "AppState")
             logger.info("connect() skipped — already connecting or connected")
             return
         }
-        print("[AppState] 🔌 CONNECTING to \(serverAddress)...")
+        vlog("[AppState] 🔌 CONNECTING to \(serverAddress)...")
         logger.info("connect() starting, serverAddress: \(self.serverAddress)")
         isConnecting = true
         connectionError = nil
@@ -524,11 +581,11 @@ private let logger = DevLogger(category: "AppState")
             do {
                 logger.debug("Calling grpcClient.connect()...")
                 try await grpcClient?.connect()
-                print("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
+                vlog("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
                 logger.info("grpcClient.connect() succeeded!")
                 await MainActor.run { self.isConnecting = false }
             } catch {
-                print("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
+                vlog("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
                 logger.error("Connection error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.connectionError = "Failed: cannot connect to \(self.serverAddress)"
@@ -542,7 +599,7 @@ private let logger = DevLogger(category: "AppState")
     }
 
     func disconnect() {
-        print("[AppState] 🔌 DISCONNECTING...")
+        vlog("[AppState] 🔌 DISCONNECTING...")
         logger.info("disconnect() called")
         grpcClient?.disconnect()
         grpcClient = nil
@@ -557,6 +614,63 @@ private let logger = DevLogger(category: "AppState")
         allSeenTracks = [:]
         inViewTrackIDs = []
         logger.debug("Disconnected")
+    }
+
+    /// Whether live sensor input is driving the pipeline.
+    ///
+    /// Drives the toolbar's Live toggle. A recording keeps the pipeline once it
+    /// is loaded — including after it plays to its end — so this stays false
+    /// until someone turns the toggle back on.
+    var isLiveSource: Bool {
+        switch sourceMode {
+        case .live: return true
+        case .pcap, .pcapAnalysis, .vrlog: return false
+        case .unspecified: return false  // no frame yet; not live until the server says so
+        }
+    }
+
+    /// Return the pipeline to live sensor input, ending any loaded recording.
+    ///
+    /// The server resets the grid and restarts the listener; the cleared grid
+    /// arrives as an empty background frame, so there is nothing to clear here
+    /// beyond the transient overlays belonging to the replay.
+    func returnToLive() {
+        // The synchronous guard is separate from the published flag on purpose.
+        // A Picker calls this from inside a view update, and publishing there
+        // while the same view reads the value through .disabled() is an
+        // AttributeGraph cycle. The guard still has to bite immediately, or a
+        // double-click sends two requests, so re-entrancy is tracked in plain
+        // state and only the observable flag is deferred.
+        guard !returnToLiveInFlight else { return }
+        returnToLiveInFlight = true
+        logger.info("returnToLive() — leaving \(self.sourceMode.rawValue) for live input")
+
+        Task { @MainActor in
+            isReturningToLive = true
+            defer {
+                isReturningToLive = false
+                returnToLiveInFlight = false
+            }
+            do {
+                try await runTrackLabelClient.returnToLive()
+                clearAll()
+                resetPlaybackState(mode: .live)
+                sourceMode = .live
+                currentRunID = nil
+                runBrowserState.selectedRunID = nil
+
+                // Restart the stream, for the same reason loading a replay
+                // does: the source changed underneath a stream that is still
+                // carrying the old one. A replay that wedged its client leaves
+                // that stream blocked on a send it will never finish, so
+                // without this the view stays on the replay's last frame and
+                // no live data ever arrives.
+                restartGRPCStream()
+            } catch {
+                logger.error("Failed to return to live: \(error.localizedDescription)")
+                connectionError = "Could not return to live: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// Clear all transient visualisation data while preserving the background grid and connection.
@@ -1231,7 +1345,8 @@ private let logger = DevLogger(category: "AppState")
         // rendering and gRPC frame delivery.  The renderer.updateFrame()
         // call above is unaffected — 3D visuals stay at full speed.
         let uiNow = ContinuousClock.now
-        let panelOpen = showSidePanel || selectedTrackID != nil
+        // Matches the view's condition: the panel is open iff showSidePanel.
+        let panelOpen = showSidePanel
         let minUIInterval: ContinuousClock.Duration =
             panelOpen
             ? .milliseconds(100)  // ~10 fps UI when panel visible
@@ -1281,8 +1396,21 @@ private let logger = DevLogger(category: "AppState")
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
             if !hasPlaybackMetadata { hasPlaybackMetadata = true }
-            setPlaybackMode(
-                inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
+            if sourceMode != playbackInfo.sourceMode { sourceMode = playbackInfo.sourceMode }
+            if isRecording != playbackInfo.recording { isRecording = playbackInfo.recording }
+            if isSettling != playbackInfo.settling { isSettling = playbackInfo.settling }
+            if settlingElapsedSeconds != playbackInfo.settlingElapsedSeconds {
+                settlingElapsedSeconds = playbackInfo.settlingElapsedSeconds
+            }
+            if sensorSilent != playbackInfo.sensorSilent {
+                sensorSilent = playbackInfo.sensorSilent
+            }
+            do {
+                setPlaybackMode(
+                    playbackMode(for: playbackInfo.sourceMode, seekable: playbackInfo.seekable))
+                // Seekability is reported, not derived from the mode case.
+                if isSeekable != playbackInfo.seekable { isSeekable = playbackInfo.seekable }
+            }
             if logStartTimestamp != playbackInfo.logStartNs {
                 logStartTimestamp = playbackInfo.logStartNs
             }
@@ -1313,7 +1441,7 @@ private let logger = DevLogger(category: "AppState")
 
             // Log mode on first frame
             if frameCount == 1 {
-                let mode = isLive ? "LIVE" : "REPLAY"
+                let mode = playbackMode == .live ? "LIVE" : "REPLAY"
                 logger.info(
                     "Mode: \(mode), rate: \(playbackInfo.playbackRate), totalFrames: \(playbackInfo.totalFrames)"
                 )
@@ -1408,7 +1536,7 @@ private let logger = DevLogger(category: "AppState")
         // Update replay progress (skip if user is interacting with slider).
         // Frame-index progress is preferred — it is robust against non-linear
         // timestamp distribution and background-frame timestamp contamination.
-        if !isLive && !wasSeekingAtFrameStart && !isSeekingInProgress {
+        if playbackMode != .live && !wasSeekingAtFrameStart && !isSeekingInProgress {
             if totalFrames > 1 {
                 replayProgress = max(0, min(1, Double(currentFrameIndex) / Double(totalFrames - 1)))
             } else if logEndTimestamp > logStartTimestamp {
@@ -1423,7 +1551,7 @@ private let logger = DevLogger(category: "AppState")
         // than waiting for gRPC stream termination, which may never propagate
         // in grpc-swift-v2's NIO transport (the `for try await` iterator can
         // hang indefinitely after the server closes the stream with OK status).
-        if let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
+        if let playbackInfo = frame.playbackInfo, playbackInfo.sourceMode != .live,
             playbackInfo.totalFrames > 0,
             playbackInfo.currentFrameIndex + 1 >= playbackInfo.totalFrames
         {
@@ -1436,8 +1564,8 @@ private let logger = DevLogger(category: "AppState")
                 replayProgress = 1.0
                 if logEndTimestamp > 0 { currentTimestamp = logEndTimestamp }
             }
-        } else if replayFinished, let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
-            playbackInfo.totalFrames > 0,
+        } else if replayFinished, let playbackInfo = frame.playbackInfo,
+            playbackInfo.sourceMode != .live, playbackInfo.totalFrames > 0,
             playbackInfo.currentFrameIndex + 1 < playbackInfo.totalFrames
         {
             // User seeked/stepped away from the last frame — clear finished
@@ -1484,7 +1612,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
     }
 
     func clientDidConnect(_ client: VisualiserClient) {
-        print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
+        vlog("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
         delegateLogger.info("clientDidConnect called")
         Task { @MainActor [weak self] in
             guard let appState = self?.appState else { return }
@@ -1493,13 +1621,13 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
             appState.replayFinished = false
             appState.hasPlaybackMetadata = false
             appState.setPlaybackMode(.unknown)
-            // Note: isLive is determined from first frame's PlaybackInfo
+            // Note: the source is determined from the first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }
     }
 
     func clientDidDisconnect(_ client: VisualiserClient, error: Error?) {
-        print(
+        vlog(
             "[ClientDelegate] ❌ CLIENT DISCONNECTED, error: \(error?.localizedDescription ?? "none")"
         )
         delegateLogger.warning(
@@ -1532,7 +1660,7 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
     }
 
     func clientDidFinishStream(_ client: VisualiserClient) {
-        print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
+        vlog("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
         let generation = self.generation
         // Call synchronously — we are already on MainActor (called from
@@ -1540,7 +1668,13 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         // avoids queueing a Task that could be delayed behind hundreds of
         // pending frame-delivery Tasks, or overridden by clientDidDisconnect.
         MainActor.assumeIsolated { [weak self] in
-            self?.appState?.handleStreamFinished(expectedGeneration: generation)
+            guard let appState = self?.appState else { return }
+            appState.handleStreamFinished(expectedGeneration: generation)
+            // The RPC is over, whatever ended it. No further frames can arrive
+            // on this stream, so the connection indicator must stop claiming
+            // otherwise — a server that restarts closes the stream this way,
+            // and the client went on showing "connected" indefinitely.
+            appState.isConnected = false
         }
     }
 }
