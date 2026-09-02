@@ -59,51 +59,7 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <section class="hero-tagline-bar">
-      <div class="wrap tagline">
-        <span>Raspberry Pi + radar sensor</span><span class="dot"></span>
-        <span>Local-only data</span><span class="dot"></span>
-        <span>Open source</span><span class="dot"></span>
-        <span>Audit-friendly PDFs</span>
-      </div>
-    </section>
-
     <script type="module" src="/js/hero-scene.js"></script>
-
-    <section class="status-section">
-      <div class="wrap">
-        <div class="pipeline">
-          <div class="gen">
-            <div class="head">
-              <div class="key"><span class="gen-no">GEN 01 · RADAR</span></div>
-              <span class="pill"><span class="dot"></span>IN THE WILD</span>
-            </div>
-            <div class="gen-title">Ready now. Measuring streets today.</div>
-            <div class="desc">Radar speed monitoring on Raspberry Pi. It already produces PDF reports, percentile breakdowns, and hourly patterns for real residential streets.</div>
-            <div class="meter"><div class="fill" style="width:100%;"></div></div>
-            <div class="meta-row">
-              <span>STATUS <span class="v">STABLE</span></span>
-              <span>RELEASE <span class="v">v{{ release.stable.linux_arm64.version }}</span></span>
-              <span>HARDWARE <span class="v">OmniPreSense RADAR</span></span>
-            </div>
-          </div>
-          <div class="gen">
-            <div class="head">
-              <div class="key"><span class="gen-no">GEN 02 · LIDAR</span></div>
-              <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
-            </div>
-            <div class="gen-title">Open research, calibrating.</div>
-            <div class="desc">LiDAR captures the whole scene, classifies road users, and tracks how they move around each other. The maths are open. The questions are open too. It is not the kind of system you install and forget, yet.</div>
-            <div class="meter"><div class="fill amber" style="width:45%;"></div></div>
-            <div class="meta-row">
-              <span>STATUS <span class="v">EXPERIMENTAL</span></span>
-              <span>PIPELINE <span class="v">CALIBRATING</span></span>
-              <span>HARDWARE <span class="v">Hesai LiDAR</span></span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <section id="how">
       <div class="wrap">
@@ -117,7 +73,7 @@ og_image: /img/stack.png
           <div class="step">
             <div class="num"><span><span class="step-no">01</span> · RECORD</span></div>
             <h3>Point it at the street.</h3>
-            <p>Mount it on a window or fence and the radar measures passing vehicle speeds. No images. No identifying data.</p>
+            <p>Mount it on a window or fence and an OmniPreSense radar measures passing vehicle speeds. No images. No identifying data.</p>
             <div class="illus">
               <svg viewBox="0 0 220 130" width="100%" style="max-height:140px;">
                 <defs><radialGradient id="rg1" cx="50%" cy="60%" r="60%"><stop offset="0%" stop-color="#10b981" stop-opacity="0.4"/><stop offset="100%" stop-color="#10b981" stop-opacity="0"/></radialGradient></defs>
@@ -207,7 +163,7 @@ og_image: /img/stack.png
           <div class="start-copy">
             <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Get started</span></div>
             <h3>Set up. Collect. Analyse.</h3>
-            <p>One guide covers all three. It takes you from a boxed Raspberry Pi to a mounted sensor, a live dashboard, and a report you can hand to somebody who can act on it. Allow an afternoon.</p>
+            <p>One guide covers all three, and you do not need to be a developer to follow it. It takes you from a boxed Raspberry Pi to a mounted sensor, a live dashboard, and a council-ready PDF you can hand to somebody who can act on it. Allow an afternoon.</p>
           </div>
           <div class="start-actions">
             <a href="/guides/setup/" class="btn btn-primary">Setup guide &rarr;</a>
@@ -233,7 +189,7 @@ og_image: /img/stack.png
         <div class="dl-grid">
           <div class="dl-section">
             <div class="dl-head">
-              <div class="dl-label">Raspberry Pi image</div>
+              <div class="dl-label">Raspberry Pi image <span class="pill"><span class="dot"></span>STABLE</span></div>
               <a href="{{ release.rpi_image.release_url }}" class="dl-link">Release notes →</a>
             </div>
             <div class="dl-card">
@@ -263,7 +219,7 @@ og_image: /img/stack.png
 
           <div class="dl-section">
             <div class="dl-head">
-              <div class="dl-label">Server downloads</div>
+              <div class="dl-label">Server downloads <span class="pill"><span class="dot"></span>STABLE</span></div>
               <a href="https://github.com/banshee-data/velocity.report/releases/tag/v{{ release.stable.linux_arm64.version }}" class="dl-link">Release notes →</a>
             </div>
             <div class="dl-card">
@@ -297,6 +253,28 @@ og_image: /img/stack.png
       </div>
     </section>
 
+    <section id="tools">
+      <div class="wrap">
+        <div class="section-header">
+          <div class="left">
+            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Tools</span></div>
+            <h2>Small utilities for the fiddly parts.</h2>
+          </div>
+          <div class="right">Runs in your browser</div>
+        </div>
+        <div class="tool-grid">
+          <a class="tool-card" href="/tools/protractor/">
+            <div class="tool-card__head">
+              <span class="tool-card__name">Protractor</span>
+              <span class="tool-card__go">Open &rarr;</span>
+            </div>
+            <h3>Measure the cosine error angle from a photo</h3>
+            <p>Take a top-down photo of the mounted sensor, click two points along the kerb and two along the baseplate, and read off the angle the speed correction needs. The photo never leaves your browser.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <section id="research">
       <div class="wrap">
         <div class="section-header">
@@ -312,6 +290,7 @@ og_image: /img/stack.png
               <div class="pill-row">
                 <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
                 <span class="pill signal"><span class="dot"></span>OPEN PIPELINE</span>
+                <span class="pill signal"><span class="dot"></span>HESAI PANDAR40P</span>
               </div>
               <p>See the whole street, classify road users, and measure how they move around each other. The code is real, the maths are published, and the results are still being calibrated.</p>
               <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it captures the full scene, identifies road-user types, and tracks motion through it. What it does not give you yet is a finished set of street-safety metrics you can accept on sight. That part is still under active work.</p>
@@ -351,28 +330,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <section id="tools">
-      <div class="wrap">
-        <div class="section-header">
-          <div class="left">
-            <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Tools</span></div>
-            <h2>Small utilities for the fiddly parts.</h2>
-          </div>
-          <div class="right">Runs in your browser</div>
-        </div>
-        <div class="tool-grid">
-          <a class="tool-card" href="/tools/protractor/">
-            <div class="tool-card__head">
-              <span class="tool-card__name">Protractor</span>
-              <span class="tool-card__go">Open &rarr;</span>
-            </div>
-            <h3>Measure the cosine error angle from a photo</h3>
-            <p>Take a top-down photo of the mounted sensor, click two points along the kerb and two along the baseplate, and read off the angle the speed correction needs. The photo never leaves your browser.</p>
-          </a>
-        </div>
-      </div>
-    </section>
-
     <section id="notes">
       <div class="wrap">
         <div class="section-header">
@@ -402,55 +359,6 @@ og_image: /img/stack.png
       </div>
     </section>
 
-    <section>
-      <div class="wrap">
-        <div class="section-header">
-          <div class="left">
-            <h2>Get the evidence, or help build the next part</h2>
-          </div>
-        </div>
-        <div class="audience">
-          <div class="aud-card">
-            <div class="role">For residents &amp; advocates</div>
-            <h3>Measure your street.</h3>
-            <p>You do not need to be a developer. Flash the Pi image, aim it out of a window, leave it running for a week, and take numbers to the next meeting instead of a story that someone can wave away.</p>
-            <ul>
-              <li>Flash the Raspberry Pi image once; after setup, the main workflow lives in the web dashboard</li>
-              <li>Council-ready PDF with speed distributions, hourly patterns, and percentiles</li>
-              <li>Privacy by design: radar only, no faces, no plates, and no cloud account</li>
-              <li>Discord help for mounting, aiming, setup snags, and making the case</li>
-            </ul>
-            <div class="aud-cta">
-              <a href="{{ release.rpi_image.url }}" class="btn btn-primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download the Pi image
-              </a>
-              <a href="/guides/setup/" class="btn btn-ghost">Setup guide →</a>
-            </div>
-          </div>
-          <div class="aud-card contributor">
-            <div class="role">For engineers &amp; researchers</div>
-            <h3>Help us see the street.</h3>
-            <p>The radar pipeline is the most mature part of the project. The LiDAR pipeline is open and still calibrating. Geometry, tracking, and classification still have real unanswered questions, which is another way of saying there is useful work to do.</p>
-            <ul>
-              <li>Open-source pipeline, published maths, and a public list of open questions</li>
-              <li>LiDAR research preview: point clouds, tracking, classification</li>
-              <li>Discord for fast design triage; GitHub issues and PRs for decisions that need a paper trail</li>
-              <li>Apache-2.0 licensed, documented, and backed by calibration data</li>
-            </ul>
-            <div class="aud-cta">
-              <a href="https://github.com/banshee-data/velocity.report" class="btn btn-secondary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.92.57.1.78-.25.78-.55v-1.95c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.34.95.1-.74.4-1.24.73-1.52-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.4-5.25 5.68.41.35.78 1.05.78 2.12v3.14c0 .3.21.66.79.55A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg>
-                Repository
-              </a>
-              <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md" class="btn btn-ghost">Open questions →</a>
-              <a href="/community/#discord" class="btn btn-ghost">Discord guide →</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section id="community">
       <div class="wrap">
         <div class="community-band">
@@ -458,10 +366,12 @@ og_image: /img/stack.png
             <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Community</span></div>
             <h3>Somebody has already had your problem.</h3>
             <p>Discord is where the awkward setup questions and the blurry photographs of mounting brackets go. GitHub is where bugs, decisions, and design arguments go, so they can still be found a year later.</p>
+            <p>If you would rather work on the pipeline than mount a sensor, geometry, tracking, classification, and evaluation all have real unanswered questions. The maths and the open research queue are both published.</p>
           </div>
           <div class="community-actions">
             <a href="/community/" class="btn btn-primary">Community &rarr;</a>
-            <a href="/community/#discord" class="btn btn-ghost">Discord guide</a>
+            <a href="https://github.com/banshee-data/velocity.report" class="btn btn-ghost">Repository &#8599;</a>
+            <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md" class="btn btn-ghost">Open questions &rarr;</a>
           </div>
         </div>
       </div>
@@ -474,17 +384,9 @@ og_image: /img/stack.png
             <div class="left">
               <span class="mono">FAQ</span>
               <h3>Common questions</h3>
-              <p class="faq-blurb">Quick answers to the questions people usually ask before they download.</p>
+              <p class="faq-blurb">The three that decide whether this is the right tool for your street.</p>
             </div>
             <div class="faq-list">
-              <div class="faq-item">
-                <h4>What is this?</h4>
-                <p>An open-source traffic speed monitor. Plug a radar sensor into a Raspberry Pi, let it measure how fast vehicles pass, and it produces a PDF with speed distributions, hourly patterns, and percentile breakdowns. No cloud, no cameras, and no habit of collecting things it does not need.</p>
-              </div>
-              <div class="faq-item">
-                <h4>Who is this for?</h4>
-                <p>People trying to show that traffic on their street is a safety problem, and to do it with numbers rather than a weary look at the road. Residents, parent groups, neighbourhood campaigns, and anyone who has been told to come back with evidence.</p>
-              </div>
               <div class="faq-item">
                 <h4>What does it measure?</h4>
                 <p>Vehicle speeds. A radar sensor records how fast vehicles pass and stores the results on a Raspberry Pi. No faces, no licence plates, and no images of any kind.</p>
@@ -496,10 +398,6 @@ og_image: /img/stack.png
               <div class="faq-item">
                 <h4>What about LiDAR?</h4>
                 <p>LiDAR is still research-stage. The pipeline is open, the maths are published, and the current release includes a macOS visualiser for engineers and curious users. Today, the dependable PDF path is radar. LiDAR is not the install-it-and-forget-it path yet.</p>
-              </div>
-              <div class="faq-item">
-                <h4>How do I get started?</h4>
-                <p>Follow the <a href="/guides/setup/" class="inline-link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you should have a working speed monitor and a PDF report fit for a council meeting.</p>
               </div>
             </div>
           </div>

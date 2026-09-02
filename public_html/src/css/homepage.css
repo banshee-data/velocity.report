@@ -479,104 +479,6 @@ a:hover {
   border-bottom-right-radius: 14px;
 }
 
-/* ===== Status / pipeline strip ===== */
-.pipeline {
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(16, 185, 129, 0.02), transparent 50%)
-      padding-box,
-    linear-gradient(var(--panel), var(--panel)) padding-box,
-    var(--gb-border) border-box;
-  padding: 22px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  position: relative;
-}
-@media (max-width: 800px) {
-  .pipeline {
-    grid-template-columns: 1fr;
-  }
-}
-.pipeline .gen {
-  padding: 14px 22px;
-  position: relative;
-  /* Flex column so the meter + meta-row sit flush at the bottom and the
-   * description fills whatever vertical space remains. With two cells
-   * side-by-side, this is what makes the two timelines line up. */
-  display: flex;
-  flex-direction: column;
-}
-.pipeline .gen + .gen {
-  border-left: 1px dashed var(--line-2);
-}
-@media (max-width: 800px) {
-  .pipeline .gen + .gen {
-    border-left: none;
-    border-top: 1px dashed var(--line-2);
-  }
-}
-.pipeline .gen .head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-.pipeline .gen .head .key {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.pipeline .gen .head .key .gen-no {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-mute);
-  letter-spacing: 0.1em;
-}
-.pipeline .gen .head .key .gen-name {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-.pipeline .gen .desc {
-  color: var(--text-soft);
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 14px;
-  /* No width cap — let the description flow as wide as the card so each
-   * cell can wrap its own way and the bottom rows still align. */
-  flex: 1 1 auto;
-}
-.pipeline .meter {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--panel-3);
-  overflow: hidden;
-  position: relative;
-}
-.pipeline .meter .fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--emerald-3), var(--emerald));
-  border-radius: 3px;
-}
-.pipeline .meter .fill.amber {
-  background: linear-gradient(90deg, #b45309, var(--amber));
-}
-.pipeline .meta-row {
-  display: flex;
-  gap: 18px;
-  margin-top: 10px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-mute);
-  letter-spacing: 0.05em;
-}
-.pipeline .meta-row .v {
-  color: var(--text-soft);
-}
-
 /* ===== Section header ===== */
 section {
   padding: var(--d-pad-section) 0;
@@ -905,6 +807,10 @@ section {
   margin: 0;
   max-width: 64ch;
 }
+.community-copy p + p,
+.start-copy p + p {
+  margin-top: 12px;
+}
 .community-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1157,77 +1063,6 @@ section {
   height: auto;
 }
 
-/* ===== Audience split ===== */
-.audience {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--d-gap);
-}
-@media (max-width: 880px) {
-  .audience {
-    grid-template-columns: 1fr;
-  }
-}
-.aud-card {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: var(--d-pad-card);
-  background: linear-gradient(180deg, var(--panel), var(--bg-2));
-  overflow: hidden;
-}
-.aud-card .role {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-mute);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.aud-card h3 {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 8px 0 12px;
-  color: var(--text);
-}
-.aud-card p {
-  color: var(--text-soft);
-  font-size: 14.5px;
-  line-height: 1.55;
-  margin-bottom: 18px;
-}
-.aud-card ul {
-  margin: 0 0 22px;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.aud-card ul li {
-  font-size: 13.5px;
-  color: var(--text-soft);
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.aud-card ul li::before {
-  content: "";
-  flex: 0 0 6px;
-  height: 6px;
-  margin-top: 8px;
-  background: var(--emerald);
-  border-radius: 1px;
-}
-.aud-card .aud-cta {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.aud-card.contributor ul li::before {
-  background: var(--signal);
-}
-
 /* ===== FAQ ===== */
 .faq {
   border-top: 1px solid var(--line);
@@ -1387,7 +1222,6 @@ section {
 .aesthetic-instrument .vis-panel,
 .aesthetic-instrument .dl-section,
 .aesthetic-instrument .research,
-.aesthetic-instrument .aud-card,
 .aesthetic-instrument .step {
   position: relative;
 }
@@ -1408,16 +1242,6 @@ section {
   background-size: 24px 100%;
 }
 
-.aesthetic-instrument .pipeline {
-  background:
-    linear-gradient(to right, rgba(16, 185, 129, 0.03) 0%, transparent 12%)
-      padding-box,
-    linear-gradient(to right, rgba(245, 158, 11, 0.025) 50%, transparent 62%)
-      padding-box,
-    linear-gradient(var(--panel), var(--panel)) padding-box,
-    var(--gb-border) border-box;
-}
-
 .aesthetic-refined .corner-tick {
   display: none;
 }
@@ -1426,10 +1250,6 @@ section {
 }
 
 /* ===== Patch: class-name adapters for static HTML ===== */
-.status-section {
-  padding: 20px 0 24px;
-}
-
 .panel-foot {
   padding: 10px 14px;
   border-top: 1px solid var(--line);
@@ -1503,19 +1323,6 @@ section {
   color: var(--emerald-fg);
   text-decoration: underline;
 }
-
-/* Pipeline title — was inline style */
-.pipeline .gen .gen-title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text);
-  margin-bottom: 10px;
-}
-/* (deduped: the .pipeline .gen .desc rule lives in the pipeline section
- * above; this previous override capped width to 36ch which is what made
- * the two timelines drop out of alignment when descriptions had different
- * lengths.) */
 
 /* Research section */
 .pill-row {
@@ -2059,29 +1866,6 @@ section {
   color: var(--emerald-2);
 }
 
-/* Tagline strip — sits between hero and status section. */
-.hero-tagline-bar {
-  background: var(--bg);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 14px 0;
-}
-.hero-tagline-bar .tagline {
-  color: var(--text-mute);
-  font-size: 13.5px;
-  letter-spacing: 0.02em;
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.hero-tagline-bar .tagline .dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--text-mute);
-}
-
 /* ==========================================================================
  * Brand serif — full split.
  * Homepage marketing headlines use EB Garamond; the body, nav, and every
@@ -2092,7 +1876,6 @@ section {
 .section-header h2,
 .steps .step h3,
 .research-grid h3,
-.audience .aud-card h3,
 .faq-grid .left h3,
 .cityhall .cityhall-h2,
 .cityhall blockquote {
@@ -2111,7 +1894,6 @@ section {
 }
 .steps .step h3,
 .research-grid h3,
-.audience .aud-card h3,
 .faq-grid .left h3 {
   font-weight: 500;
   letter-spacing: -0.012em;
@@ -2228,12 +2010,6 @@ section {
     left: 0;
     right: 0;
     bottom: 0;
-  }
-  .pipeline {
-    padding: 0;
-  }
-  .pipeline .gen {
-    padding: var(--d-pad-card-mobile);
   }
   .step {
     padding: var(--d-pad-card-mobile);

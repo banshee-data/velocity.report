@@ -50,6 +50,8 @@ Primary navigation is deliberately small and stays that way: **Setup, Tools, Fie
 
 Field Notes are technical articles about building, measuring, and deploying the system: design decisions, experiments, and lessons learned. The category is not a blog, a newsroom, or a research index, and should not be renamed into one. A note explains a decision; the matching reference page, if there is one, states it precisely. Neither duplicates the other.
 
+The homepage carries one section per destination, in navigation order: how it works and getting started, downloads, tools, research, field notes, community, FAQ, and the advocacy closer. Each section owns its message exclusively. Before adding a section, check whether the message is already stated somewhere on the page: status, hardware names, and calls to action belong at the point where they change a decision, not in a section of their own.
+
 Do not create empty landing pages, placeholder cards, or "coming soon" entries to make the hierarchy look complete. A clean namespace holding one real page is better than a navigation tree of empty categories. `/tools/` and `/reference/` currently have no index page for exactly this reason: navigation points at the real page instead.
 
 ### Content types and front matter
