@@ -41,10 +41,7 @@ func TestChoosingSettleForcesAnalysis(t *testing.T) {
 
 func readStatusPage(t *testing.T) string {
 	t.Helper()
-	fsys, err := LegacyStatusFS()
-	if err != nil {
-		t.Fatalf("LegacyStatusFS: %v", err)
-	}
+	fsys := LegacyStatusFS()
 	raw, err := fs.ReadFile(fsys, "status.html")
 	if err != nil {
 		t.Fatalf("read status.html: %v", err)

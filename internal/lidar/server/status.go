@@ -16,6 +16,14 @@ import (
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
+// statusTemplate is the operator status page, parsed once at initialisation.
+// Parsing per request cost a template compile on every hit and left a load
+// failure to be reported as a 500 — but the source is embedded and validated at
+// build time, so a failure here is a build mistake and belongs at startup.
+var statusTemplate = template.Must(
+	template.ParseFS(l9endpoints.LegacyStatusFS(), "status.html"),
+)
+
 // handleGridStatus returns simple statistics about the in-memory BackgroundGrid
 // for a sensor: distribution of TimesSeenCount, number of frozen cells, and totals.
 // Query params: sensor_id (required)
@@ -184,11 +192,8 @@ func (ws *Server) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// bm.Grid is non-nil above, which is the only case GetGridHeatmap declines.
 	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
-	if heatmap == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "could not generate heatmap: check grid data is populated")
-		return
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(heatmap)
@@ -358,17 +363,8 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Refresh foreground snapshot counts for status rendering.
 	ws.updateLatestFgCounts(ws.sensorID)
 
-	// Load and parse the HTML template from embedded filesystem
-	statusFS, statusFSErr := l9endpoints.LegacyStatusFS()
-	if statusFSErr != nil {
-		http.Error(w, "could not load status assets: "+statusFSErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	tmpl, err := template.ParseFS(statusFS, "status.html")
-	if err != nil {
-		http.Error(w, "could not load status template: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// The template is parsed once at initialisation, not per request.
+	tmpl := statusTemplate
 
 	// Template data
 	data := struct {
