@@ -43,11 +43,7 @@ func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
-	assetsFS, err := l9endpoints.LegacyAssetsFS()
-	if err != nil {
-		opsf("failed to prepare echarts assets: %v", err)
-		assetsFS = nil
-	}
+	assetsFS := l9endpoints.LegacyAssetsFS()
 
 	// Core status and health routes
 	coreRoutes := []route{

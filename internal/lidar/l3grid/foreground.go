@@ -225,13 +225,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if az < 0 {
 			az += 360.0
 		}
+		// az is normalised into [0, 360) above, so the bin is already in range.
 		azBin := int((az / 360.0) * float64(azBins))
-		if azBin < 0 {
-			azBin = 0
-		}
-		if azBin >= azBins {
-			azBin = azBins - 1
-		}
 
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
@@ -275,10 +270,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if cellNeighbourConfirm > 0 {
 			// Search radius should be at least equal to the required confirmation count
 			// to make it possible to satisfy the condition.
+			// cellNeighbourConfirm is > 0 here, so the radius needs no floor.
 			searchRadius := cellNeighbourConfirm
-			if searchRadius < 1 {
-				searchRadius = 1
-			}
 			// Cap search radius to avoid excessive checks
 			if searchRadius > 10 {
 				searchRadius = 10
@@ -419,16 +412,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				cell.RecentForegroundCount++
 			}
 
-			// Decrease confidence for divergent observations, but maintain minimum floor
-			// to prevent cells from "forgetting" their settled background
+			// Decrease confidence for divergent observations, down to the
+			// floor, so a cell does not "forget" a settled background after a
+			// few transits.
+			//
+			// There is no full-drain branch. The one removed here required
+			// TimesSeenCount <= minConfFloor and TimesSeenCount > 0 and
+			// minConfFloor == 0 at once, which cannot hold — and minConfFloor
+			// is never 0 anyway, because an unset floor is coerced to
+			// DefaultMinConfidenceFloor above. TimesSeenCount therefore cannot
+			// reach zero here, which is why no nonzeroCellCount bookkeeping
+			// belongs on this path.
 			if cell.TimesSeenCount > minConfFloor {
 				cell.TimesSeenCount--
-			} else if cell.TimesSeenCount > 0 && minConfFloor == 0 {
-				// Only allow full drain if MinConfidenceFloor is explicitly 0
-				cell.TimesSeenCount--
-				if cell.TimesSeenCount == 0 && g.nonzeroCellCount > 0 {
-					g.nonzeroCellCount--
-				}
 			}
 			// Freeze cell if divergence is very large, but only if we are not confident
 			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),
