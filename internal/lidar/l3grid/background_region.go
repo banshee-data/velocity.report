@@ -258,7 +258,7 @@ func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *Backgroun
 	for len(regions) > targetMax {
 		// Take the smallest region
 		smallest := regions[0]
-		// Clear the slot before resliceing: the returned slice keeps the whole
+		// Clear the slot before reslicing: the returned slice keeps the whole
 		// backing array alive, so leaving the pointer here would retain every
 		// merged-away region for the life of the RegionManager.
 		regions[0] = nil
