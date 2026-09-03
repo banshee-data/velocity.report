@@ -148,11 +148,17 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 			}
 		}
 
-		// Create region for this connected component
+		// Create region for this connected component.
+		//
+		// CellMask is deliberately left nil here. A connected-component pass
+		// over a noisy grid produces thousands of one-cell components, and a
+		// full-grid mask each costs len(grid.Cells) bytes: on a 40x1800 grid
+		// that was ~900 MB of masks for regions the merge step immediately
+		// discards. Masks are materialised for the survivors instead, in
+		// materialiseCellMasks below.
 		if len(regionCells) > 0 {
 			region := &Region{
 				ID:        regionID,
-				CellMask:  make([]bool, totalCells),
 				CellList:  regionCells,
 				CellCount: len(regionCells),
 			}
@@ -160,7 +166,6 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 			// Calculate mean variance for this region
 			sumVariance := 0.0
 			for _, cIdx := range regionCells {
-				region.CellMask[cIdx] = true
 				rm.CellToRegionID[cIdx] = regionID
 				sumVariance += rm.SettlingMetrics.VariancePerCell[cIdx]
 			}
@@ -179,6 +184,7 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 		tempRegions = rm.mergeSmallestRegions(tempRegions, grid, maxRegions)
 	}
 
+	materialiseCellMasks(tempRegions, totalCells)
 	rm.Regions = tempRegions
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Now()
@@ -240,11 +246,24 @@ func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *Backgroun
 		return regions[i].CellCount < regions[j].CellCount
 	})
 
+	// Index by ID so the merge target is found without rescanning every
+	// remaining region. The scan was O(regions) inside a loop that runs once
+	// per merged-away region, which on a fragmented grid is quadratic.
+	byID := make(map[int]*Region, len(regions))
+	for _, r := range regions {
+		byID[r.ID] = r
+	}
+
 	// Merge smallest regions into nearest neighbours until we reach target
 	for len(regions) > targetMax {
 		// Take the smallest region
 		smallest := regions[0]
+		// Clear the slot before resliceing: the returned slice keeps the whole
+		// backing array alive, so leaving the pointer here would retain every
+		// merged-away region for the life of the RegionManager.
+		regions[0] = nil
 		regions = regions[1:]
+		delete(byID, smallest.ID)
 
 		// Find the nearest region (by checking neighbours of cells in smallest)
 		nearestRegionID := -1
@@ -282,20 +301,16 @@ func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *Backgroun
 		}
 
 		// Find the target region and merge
-		for _, r := range regions {
-			if r.ID == nearestRegionID {
-				// Merge smallest into this region
-				for _, cellIdx := range smallest.CellList {
-					r.CellMask[cellIdx] = true
-					r.CellList = append(r.CellList, cellIdx)
-					rm.CellToRegionID[cellIdx] = r.ID
-				}
-				r.CellCount += smallest.CellCount
-				// Update mean variance
-				r.MeanVariance = (r.MeanVariance*float64(r.CellCount-smallest.CellCount) +
-					smallest.MeanVariance*float64(smallest.CellCount)) / float64(r.CellCount)
-				break
+		if r, ok := byID[nearestRegionID]; ok {
+			// Merge smallest into this region
+			for _, cellIdx := range smallest.CellList {
+				r.CellList = append(r.CellList, cellIdx)
+				rm.CellToRegionID[cellIdx] = r.ID
 			}
+			r.CellCount += smallest.CellCount
+			// Update mean variance
+			r.MeanVariance = (r.MeanVariance*float64(r.CellCount-smallest.CellCount) +
+				smallest.MeanVariance*float64(smallest.CellCount)) / float64(r.CellCount)
 		}
 	}
 
@@ -471,4 +486,23 @@ func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot, totalCells in
 		len(rm.Regions), snap.SettlingFrames, snap.GridHash)
 
 	return nil
+}
+
+// materialiseCellMasks fills in the CellMask of each surviving region from its
+// CellList. Masks are allocated here rather than at construction so the
+// thousands of components the merge step discards never pay for one.
+func materialiseCellMasks(regions []*Region, totalCells int) {
+	for _, r := range regions {
+		if r == nil {
+			continue
+		}
+		if len(r.CellMask) != totalCells {
+			r.CellMask = make([]bool, totalCells)
+		}
+		for _, cellIdx := range r.CellList {
+			if cellIdx >= 0 && cellIdx < totalCells {
+				r.CellMask[cellIdx] = true
+			}
+		}
+	}
 }
