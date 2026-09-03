@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-09-02T04:03:52Z",
+  "pcap_file": "kirk0.pcapng",
+  "system_info": {
+    "goos": "darwin",
+    "goarch": "arm64",
+    "num_cpu": 8,
+    "go_version": "go1.26.5",
+    "commit_hash": "232a8386757c"
+  },
+  "metrics": {
+    "wall_clock_ms": 14324,
+    "frame_time_stats": {
+      "min_ms": 2.718792,
+      "max_ms": 340.005208,
+      "avg_ms": 14.05617417548077,
+      "p50_ms": 6.278917,
+      "p95_ms": 66.639458,
+      "p99_ms": 143.109833,
+      "samples": 832
+    },
+    "frames_per_second": 58.08433398492041,
+    "packets_per_second": 10453.853672158615,
+    "points_per_second": 4005616.8667969843,
+    "heap_alloc_bytes": 1287757176,
+    "total_alloc_bytes": 66998140160,
+    "num_gc": 132,
+    "gc_pause_ns": 11948157,
+    "pipeline_time_ms": 14324,
+    "cluster_time_ms": 8476,
+    "tracking_time_ms": 51,
+    "classify_time_ms": 58
+  }
+}
