@@ -166,8 +166,17 @@ func (si *SpatialIndex) getCellID(x, y float64) int64 {
 // RegionQuery returns indices of all points within eps distance of points[idx].
 // Uses 2D (x, y) Euclidean distance for neighborhood queries.
 func (si *SpatialIndex) RegionQuery(points []WorldPoint, idx int, eps float64) []int {
+	return si.regionQueryInto(points, idx, eps, nil)
+}
+
+// regionQueryInto is RegionQuery writing into a caller-supplied buffer.
+//
+// DBSCAN calls this once per point plus once per expansion step, so a fresh
+// slice per call is the single largest allocator in the pipeline. Callers that
+// consume the result before the next query pass a scratch buffer instead.
+func (si *SpatialIndex) regionQueryInto(points []WorldPoint, idx int, eps float64, dst []int) []int {
 	p := points[idx]
-	neighbors := []int{}
+	neighbors := dst[:0]
 	eps2 := eps * eps // Use squared distance to avoid sqrt
 
 	// Get base cell coordinates
@@ -358,6 +367,20 @@ func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
 
 	labels[seedIdx] = clusterID
 
+	// One scratch buffer for every neighbourhood query in this expansion. The
+	// contents are copied into the seed list before the next query overwrites
+	// them, so a single buffer is safe.
+	var scratch []int
+
+	// Points already queued for this expansion. Without it a point sitting in
+	// k overlapping neighbourhoods is appended k times, and the seed list of a
+	// dense cluster grows with the number of core points rather than with the
+	// number of points to visit.
+	queued := make([]bool, len(points))
+	for _, idx := range neighbors {
+		queued[idx] = true
+	}
+
 	// Use a queue-based approach for expansion
 	for j := 0; j < len(neighbors); j++ {
 		idx := neighbors[j]
@@ -371,11 +394,23 @@ func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
 		}
 
 		labels[idx] = clusterID
-		newNeighbors := si.RegionQuery(points, idx, eps)
+		scratch = si.regionQueryInto(points, idx, eps, scratch)
 
-		if len(newNeighbors) >= minPts {
-			// Core point - add its neighbors to the queue
-			neighbors = append(neighbors, newNeighbors...)
+		if len(scratch) >= minPts {
+			// Core point - add its neighbors to the queue. Points already
+			// assigned to a cluster are skipped: the loop above discards them
+			// anyway, and in a dense cluster every core point re-reports the
+			// same neighbourhood, so appending them unfiltered grew the seed
+			// list quadratically in the cluster's size.
+			for _, nIdx := range scratch {
+				if queued[nIdx] {
+					continue
+				}
+				if labels[nIdx] == 0 || labels[nIdx] == -1 {
+					queued[nIdx] = true
+					neighbors = append(neighbors, nIdx)
+				}
+			}
 		}
 	}
 }
