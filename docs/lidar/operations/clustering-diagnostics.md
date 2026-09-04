@@ -139,9 +139,14 @@ internal/lidar/perf/baseline/
 ├── baseline-kirk0-full-ci.json   # CI baseline, full profile
 ├── baseline-kirk0-l3-only.json   # local baseline, l3-only profile
 ├── baseline-kirk0-l3-only-ci.json # CI baseline, l3-only profile
-├── baseline-kirk0-pi.json        # Raspberry Pi ARM64 baseline (manual)
-└── baseline-lidar_20Hz.json      # second fixture
+├── baseline-kirk0-full-pi.json   # Raspberry Pi ARM64 baseline (manual)
+└── baseline-lidar_20Hz-full.json # second fixture
 ```
+
+The shape is `baseline-<capture>-<profile>[-hardware].json`. Both the profile and
+the hardware belong in the name because a benchmark refuses to compare across
+either: depth is part of the workload, and timings from one architecture say
+nothing about another.
 
 ### B.5 Go micro-benchmarks
 

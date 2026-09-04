@@ -1,6 +1,6 @@
 # LiDAR pipeline profiles (v0.5.2)
 
-- **Status:** Implemented (v0.5.2); CI baselines outstanding
+- **Status:** Implemented (v0.5.2) in #566; CI baselines outstanding
 - **Layers:** LiDAR pipeline (L3–L6), tuning config, perf-regression CI
 - **Target:** v0.5.2; the perf gate cannot be re-armed until a baseline can say which workload it measured
 - **Companion plans:** [lidar-performance-measurement-harness-plan](lidar-performance-measurement-harness-plan.md), [lidar-clock-abstraction-and-time-domain-model-plan](lidar-clock-abstraction-and-time-domain-model-plan.md) <!-- link-ignore -->
@@ -340,10 +340,14 @@ hardware.
 
 ### Outstanding
 
-- [ ] Item 4: cut the CI baselines via the 📏 Capture Perf Baseline workflow and
-      commit them (`S`). Local baselines for `full` and `l3-only` are committed;
-      until the `-ci` files exist the nightly runs the absolute frame-budget check
-      alone, which is a real gate rather than a skip
+- [ ] Item 4: commit the CI baselines for `full` and `l3-only` (`S`). Local
+      baselines are committed. The 📏 Capture Perf Baseline workflow now runs on
+      pull requests touching the perf harness or tuning config — it had to, since
+      `workflow_dispatch` is registered from the default branch alone, so a change
+      needing a fresh baseline could not dispatch one until after it landed and it
+      needed the baseline to land. What remains is downloading that run's artifact
+      and committing the two `-ci` files. Until they exist the gate runs the
+      absolute frame-budget check alone, which is a real gate rather than a skip
 
 ### Deferred
 

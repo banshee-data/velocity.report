@@ -6,6 +6,14 @@ The `lidar-bench` tool measures the LiDAR L1–L6 tracking pipeline over a PCAP 
 
 `lidar-bench` times the full pipeline (foreground extraction → DBSCAN clustering → Kalman tracking → classification) and compares the result against a committed baseline, so algorithm improvements, new features, or refactoring don't inadvertently degrade processing speed. It is a dev/CI tool, separate from the operational `velocity lidar pcap-split` (scan, motion stats, splits).
 
+It asks two separate questions, and both have to be answered:
+
+- **Did this get slower than it was?** A comparison against a committed baseline,
+  which is only meaningful when both runs measured the same workload — see
+  [What makes two runs comparable](#what-makes-two-runs-comparable).
+- **Is it fast enough for the sensor?** An absolute per-frame budget, checked with
+  or without a baseline. No comparison against a previous run can answer this one.
+
 **Why performance testing matters:**
 
 - Real-time processing requires consistent throughput (≥10 FPS for Pandar40P)
@@ -196,42 +204,61 @@ committed baseline.
 ### Example commands
 
 ```bash
-# Write a fresh baseline
-./lidar-bench -pcap capture.pcapng -benchmark-output perf/baseline.json -quiet
+# Write a fresh baseline as the median of five runs
+./lidar-bench -pcap capture.pcapng -repeat 5 -benchmark-output perf/baseline.json
 
 # Compare with a stricter threshold (5% instead of 10%)
 ./lidar-bench -pcap capture.pcapng -compare-baseline baseline.json -regression-threshold 0.05
+
+# Measure the same capture at a shallower depth
+./lidar-bench -pcap capture.pcapng -profile l3-only
 ```
 
 ## Workflow examples
 
-### Creating a baseline benchmark
+### Changing the pipeline
 
-Establish a baseline on the main branch before making changes:
+Run the gate before opening a pull request. It compares against the committed
+baseline for your platform and checks the frame budget:
 
 ```bash
-# Checkout main branch
-git checkout main
-
-# Build and run baseline benchmark
-go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
-./lidar-bench -pcap data/gold-standard.pcapng -benchmark-output baseline.json -quiet
-
-# Commit baseline for CI use
-git add baseline.json
-git commit -m "[go] add performance baseline for gold-standard.pcapng"
+make test-perf-all
 ```
 
-### Comparing in CI
+If the comparison is refused rather than failed, the two runs measured different
+workloads — see [What makes two runs comparable](#what-makes-two-runs-comparable).
+That is usually correct and means the baseline needs recapturing, not that the
+change is slow.
 
-After making algorithm changes, compare against the baseline:
+### Changing tuning, or anything that moves the fingerprint
+
+A tuning change alters the config fingerprint, so every committed baseline stops
+applying to it. Recapture in the same pull request:
 
 ```bash
-# Build with your changes
-go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
+# Local baselines, for your own machine
+make perf-baseline-all
+```
 
-# Compare against baseline (exits with code 1 on regression)
-./lidar-bench -pcap data/gold-standard.pcapng -compare-baseline baseline.json -quiet
+CI baselines come from the 📏 Capture Perf Baseline workflow, which runs
+automatically on a pull request touching the perf harness, the tuning config or the
+baselines themselves. Download its `perf-baselines-gated` artifact and commit the
+`-ci` files alongside your change.
+
+### Measuring a shallower profile
+
+Useful when tuning the background model: `l3-only` runs L3 and stops, so a run costs
+about half as long and none of the variance comes from clustering.
+
+```bash
+make test-perf PROFILE=l3-only
+```
+
+Or point the tool at a profile config directly:
+
+```bash
+go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
+./lidar-bench -pcap internal/lidar/perf/pcap/kirk0.pcapng -config config/profiles/l3-only.json
 ```
 
 ### Interpreting results
