@@ -1,6 +1,6 @@
 # LiDAR pipeline profiles (v0.5.2)
 
-- **Status:** Draft
+- **Status:** Implemented (v0.5.2); CI baselines outstanding
 - **Layers:** LiDAR pipeline (L3–L6), tuning config, perf-regression CI
 - **Target:** v0.5.2; the perf gate cannot be re-armed until a baseline can say which workload it measured
 - **Companion plans:** [lidar-performance-measurement-harness-plan](lidar-performance-measurement-harness-plan.md), [lidar-clock-abstraction-and-time-domain-model-plan](lidar-clock-abstraction-and-time-domain-model-plan.md) <!-- link-ignore -->
@@ -325,20 +325,45 @@ hardware.
 - [x] Establish that `heap_alloc_bytes` is GC-phase noise and that one collection fixes it (F3)
 - [x] Confirm the engine selector exists but is unwired, and that 5 of 8 engines are config-only
 
+- [x] Item 1: stabilise the heap metric — `runtime.GC()` before the closing read;
+      `heap_alloc_bytes` now reads 17.0 MiB on every run of the full profile
+- [x] Item 2: workload identity in the baseline — `profile`, `tuning_fingerprint`,
+      `metrics.work` and platform, with the comparator refusing rather than
+      emitting a delta; the zero-baseline skip removed
+- [x] Item 3: the profile enum and stage gating — gated in both
+      `tracking_pipeline.go` and `analysisFrameBuilder`, with a per-profile
+      stage-counter test in each
+- [x] Item 5: document the profiles
+
 ### Outstanding
 
-- [ ] Item 1: stabilise the heap metric (`S`)
-- [ ] Item 2: workload identity in the baseline (`S`)
-- [ ] Item 3: the profile enum and stage gating (`M`)
-- [ ] Item 4: cut the new baselines (`S`, gated on #565)
-- [ ] Item 5: document the profiles (`S`)
+- [ ] Item 4: cut the CI baselines via the 📏 Capture Perf Baseline workflow and
+      commit them (`S`). Local baselines for `full` and `l3-only` are committed;
+      until the `-ci` files exist the nightly runs the absolute frame-budget check
+      alone, which is a real gate rather than a skip
 
 ### Deferred
 
 - [ ] Runtime dispatch on the per-layer `engine` selector: five registered engines have no implementation, and wiring dispatch for absent algorithms would invent a support surface rather than use one
 - [ ] Pi-hardware profile baselines: covered by the hardware-baseline scheme in [lidar-performance-measurement-harness-plan](lidar-performance-measurement-harness-plan.md) <!-- link-ignore -->
 
+### Implementation notes
+
+Four profiles were implemented rather than three. `track` was to be dropped as a
+name, on the evidence that it is 0.1% cheaper than `full` with identical tracker
+state — but the gate it needs is one more early return at a boundary that already
+existed, and it is genuinely useful for isolating classifier cost. The reasoning
+that mattered was about **gating**, not existence, and that is honoured:
+`PERF_GATED_PROFILES` is `full l3-only`, and `detect` and `track` are diagnostic.
+
+The 98 ms frame budget arrived alongside this work rather than in the harness plan.
+It is the answer to a question no relative gate can address — whether the pipeline
+keeps up with a 10 Hz sensor at all — and `kirk0` is exactly 10.0 Hz (83.183 s,
+832 frames), so the budget is 2 ms inside the frame interval.
+
 ### Accepted residuals (no action planned)
 
-- [ ] `track` as a named profile: 0.1% cheaper than `full` with identical tracker state; the distinction is not a load characteristic anyone would deploy on
+- [ ] Work counters are not bit-exact across runs: L3 settling is wall-clock
+      dependent (F5), so counts drift with replay speed. Measured at under 0.01%
+      across five repeats, against a 10% identity tolerance
 - [ ] Wall-clock variance on `full` (±4% across repeats): inherent to a wall-clock throughput metric, and the reason the 30% gate threshold is not tightened

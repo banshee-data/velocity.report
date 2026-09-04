@@ -13,27 +13,126 @@ The `lidar-bench` tool measures the LiDAR L1–L6 tracking pipeline over a PCAP 
 - Pipeline stage timing helps identify bottlenecks during optimisation
 - Regression detection prevents performance issues from reaching production
 
+## Profiles
+
+A **profile** names how far up the layer stack the pipeline runs. It is set by
+`pipeline.profile` in the tuning config, overridden per run with `-profile`, and
+recorded in every benchmark document.
+
+| Profile   | Runs                                                 | Gated | Why it exists                                                                    |
+| --------- | ---------------------------------------------------- | ----- | -------------------------------------------------------------------------------- |
+| `l3-only` | L3 background model, settling, region identification | yes   | Background and settling tuning in isolation; sensor health; constrained hardware |
+| `detect`  | + L4 world transform, ground removal, clustering     | no    | Cluster-level tuning with no tracker state and no track persistence              |
+| `track`   | + L5 Kalman tracking                                 | no    | Isolating classifier cost and behaviour                                          |
+| `full`    | + L6 classification, persistence, publish            | yes   | What ships. The default when `pipeline.profile` is absent.                       |
+
+Each profile has a config in `config/tuning.profile-<name>.json`, generated from
+`config/tuning.defaults.json` and differing from it **only** in `pipeline.profile`.
+A test enforces that: two profiles are comparable only if the profile is the sole
+difference between them.
+
+**Why `detect` exists.** It is 0.3% cheaper than `full` on an 83-second benchmark,
+which is not a reason to keep it. It holds no Kalman state and performs no track
+persistence — neither shows up in a benchmark, and both matter to a Pi running for
+weeks, where `max_tracks` state and per-frame DB writes accumulate. Do not optimise
+it away on the benchmark evidence alone.
+
+**Why only two are gated.** `detect` and `track` sit within run-to-run noise of
+`full` (measured at 9 615 / 9 623 / 9 644 ms against a ±4% spread). Gating them
+would produce three sets of numbers that move together and explain nothing. An
+unexercised gated profile is a set of numbers nobody can account for when it moves.
+
+## What makes two runs comparable
+
+A benchmark records **cost** (how long) and **work** (how much). Without both, a
+run that quietly stopped detecting anything is indistinguishable from a fast one.
+
+Every document carries a workload identity:
+
+| Field                | Meaning                                                        |
+| -------------------- | -------------------------------------------------------------- |
+| `profile`            | Which layers ran                                               |
+| `tuning_fingerprint` | Hash of the whole resolved tuning config                       |
+| `pcap_file`          | Which capture                                                  |
+| `system_info`        | Platform, CPU count, Go version                                |
+| `metrics.work`       | Frames, foreground points, background points, clusters, tracks |
+
+The comparator **refuses** to compare runs whose identity differs, and says which
+field diverged. It does not emit a delta between incomparable things. A baseline
+with no `profile` or no `tuning_fingerprint` is refused outright.
+
+Work counters carry a 10% tolerance rather than requiring equality: L3's settling
+is wall-clock dependent, so counts drift slightly with replay speed. Measured drift
+across five repeats on one machine is under 0.01%; between profiles it is 33%,
+which the profile check catches first.
+
+This is the check that was missing. The CI baseline committed in June 2026 recorded
+832 frames, **zero** foreground points and **zero** clusters — a pipeline whose
+background model never finished settling, so nothing downstream of L3 ever ran. For
+three months it read as a healthy full-pipeline run, and when detection started
+working the gate reported the cost of it as a 7028% heap regression.
+
+## The frame budget
+
+`pipeline.frame_budget_ms` (default **98 ms**) is the per-frame ceiling. Beyond it a
+frame is in alarm — lag — territory: the pipeline is no longer keeping up with a
+10 Hz sensor, and the next frame is already waiting.
+
+This check needs no baseline, and runs whether or not one is supplied. "Slower than
+last time" and "fast enough for the sensor" are different questions, and only the
+second has a fixed answer. A relative gate can only ever answer the first.
+
+`-max-frames-over-budget-pct` (default 1.0) is the share of frames allowed past the
+ceiling before the run fails. It is not zero because the tail is genuinely noisy:
+identical code over the same capture on one machine produced worst-frame times from
+86 ms to 329 ms. Tighten it as headroom improves; treat a rise in
+`frame_budget.frames_over` as the signal, not the worst single frame.
+
 ## Quick start
 
 ### Create a baseline benchmark
+
+Baselines are named `baseline-<capture>-<profile>[-ci].json`, with the `-ci` suffix
+for runner hardware and no suffix for local. Capture them with the Makefile rather
+than by hand, so the repeat count and output path stay consistent:
+
+```bash
+# Capture one profile locally as the median of five runs
+make perf-baseline PROFILE=full
+
+# Capture every gated profile
+make perf-baseline-all
+```
+
+Capture CI baselines on the runner, not locally — a local M1 run is roughly 1.4x
+faster, so a local baseline measures the wrong machine. Use the
+**📏 Capture Perf Baseline** workflow (`workflow_dispatch`), which uploads the
+result as an artifact for review in a pull request.
+
+Under the Makefile, this is what runs:
 
 ```bash
 # Build the tool (requires libpcap)
 go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
-# Run benchmark on a gold standard PCAP file
-./lidar-bench -pcap data/gold-standard.pcapng -benchmark-output baseline.json -quiet
+# Median of five runs at the full profile
+./lidar-bench -pcap data/gold-standard.pcapng -profile full -repeat 5 \
+  -benchmark-output baseline.json
 ```
 
 ### Compare against baseline
 
 ```bash
-# Run benchmark and compare against baseline
-./lidar-bench -pcap data/gold-standard.pcapng -compare-baseline baseline.json -quiet
+# Gate one profile
+make test-perf PROFILE=full
 
-# Exit code 1 if regression detected
-echo "Exit code: $?"
+# Gate every gated profile, reporting all failures
+make test-perf-all
 ```
+
+Exit code 1 means one of three things, and the output says which: a regression
+against the baseline, a frame-budget breach, or a refusal to compare because the
+baseline measured a different workload.
 
 ## CLI reference
 
@@ -41,20 +140,23 @@ echo "Exit code: $?"
 through `make test-perf`, which builds the tool and compares against the
 committed baseline.
 
-| Flag                    | Alias | Default                 | Description                                 |
-| ----------------------- | ----- | ----------------------- | ------------------------------------------- |
-| `-pcap`                 | -     | (required)              | Path to PCAP file                           |
-| `-start-seconds`        | -     | `0`                     | Capture offset at which to begin replay     |
-| `-duration-seconds`     | -     | `-1`                    | Replay duration (`-1` = remainder)          |
-| `-benchmark-output`     | -     | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
-| `-compare-baseline`     | -     | -                       | Compare against a baseline benchmark file   |
-| `-regression-threshold` | -     | `0.10` (10%)            | Threshold for flagging regressions          |
-| `-quiet`                | `-q`  | `false`                 | Suppress output to reduce measurement noise |
-| `-config`               | -     | `config/tuning…json`    | Tuning config (falls back to embedded)      |
-| `-sensor-id`            | -     | from `l1.sensor`        | Sensor ID                                   |
-| `-port`                 | -     | `0` (auto-detect)       | UDP port for LiDAR data                     |
-| `-output`               | -     | `.`                     | Output directory for benchmark JSON         |
-| `-progress`             | -     | `10`                    | Seconds between progress updates (0 = off)  |
+| Flag                          | Alias | Default                 | Description                                          |
+| ----------------------------- | ----- | ----------------------- | ---------------------------------------------------- |
+| `-pcap`                       | -     | (required)              | Path to PCAP file                                    |
+| `-start-seconds`              | -     | `0`                     | Capture offset at which to begin replay              |
+| `-duration-seconds`           | -     | `-1`                    | Replay duration (`-1` = remainder)                   |
+| `-benchmark-output`           | -     | `{pcap}_benchmark.json` | Output file for benchmark JSON results               |
+| `-compare-baseline`           | -     | -                       | Compare against a baseline benchmark file            |
+| `-regression-threshold`       | -     | `0.10` (10%)            | Threshold for flagging regressions                   |
+| `-quiet`                      | `-q`  | `false`                 | Suppress output to reduce measurement noise          |
+| `-config`                     | -     | `config/tuning…json`    | Tuning config (falls back to embedded)               |
+| `-sensor-id`                  | -     | from `l1.sensor`        | Sensor ID                                            |
+| `-port`                       | -     | `0` (auto-detect)       | UDP port for LiDAR data                              |
+| `-output`                     | -     | `.`                     | Output directory for benchmark JSON                  |
+| `-progress`                   | -     | `10`                    | Seconds between progress updates (0 = off)           |
+| `-profile`                    | -     | from `pipeline.profile` | Depth override: `l3-only`, `detect`, `track`, `full` |
+| `-repeat`                     | -     | `1`                     | Run N times and emit the median run by wall clock    |
+| `-max-frames-over-budget-pct` | -     | `1.0`                   | Share of frames allowed past the frame budget        |
 
 ### Example commands
 
@@ -124,6 +226,27 @@ Regression threshold: 10%
 =========================================
 ```
 
+**Baseline refused (not a regression):**
+
+```
+[BASELINE REFUSED] baseline workload mismatch: the baseline predates pipeline
+profiles and cannot state which layers it measured; the baseline carries no
+tuning fingerprint; frames 0 vs 832; foreground_points 0 vs 1626922;
+clusters 0 vs 14109
+Not reporting a regression: these runs did not measure the same workload.
+Regenerate the baseline for this profile before reading any comparison.
+```
+
+This is not a performance problem. The two runs measured different things, and any
+delta between them would be meaningless. Recapture the baseline for that profile.
+
+**Frame budget breached:**
+
+```
+[FRAME BUDGET] 40 frames (4.80%) exceeded the 98 ms budget, above the 1.00%
+allowance; worst frame 320.5 ms
+```
+
 **Performance improvement:**
 
 ```
@@ -133,10 +256,28 @@ Regression threshold: 10%
 
 ✓ Improvements:
   - wall_clock_ms: 1523 → 1287 (-15.5%)
-  - frames_per_second: 164.2 → 194.6 (+18.5%)
+  - cluster_time_ms: 612 → 388 (-36.6%)
 
 ===========================================
 ```
+
+### Which metrics are gated
+
+`wall_clock_ms`, `frame_time_avg_ms`, `frame_time_p95_ms`, `heap_alloc_bytes`,
+`total_alloc_bytes`, `cluster_time_ms`, `tracking_time_ms`.
+
+`frames_per_second` is recorded but **not** gated: it is frames divided by the same
+wall clock already gated, so including it reported one runner slowdown as two
+independent regressions.
+
+`heap_alloc_bytes` is live heap after a forced collection. Read without one it was
+whatever the heap happened to be mid-GC-cycle — five runs of identical code spanned
+18.8 to 40.0 MB. It now reads 17.0 MiB on every run of the full profile.
+
+A metric whose baseline is zero is compared, not skipped. Zero to non-zero is an
+unbounded increase and is reported as such. The old skip meant `cluster_time_ms` and
+`tracking_time_ms` — the two fields that would have exposed the June 2026 baseline —
+were the two never checked.
 
 ## Gold standard PCAP files
 
