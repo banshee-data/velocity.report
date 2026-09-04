@@ -32,6 +32,10 @@ func BenchMain(args []string) int {
 	fs.StringVar(&cfg.BenchmarkOutput, "benchmark-output", "", "Output file for benchmark JSON (default: {pcap}_benchmark.json)")
 	fs.StringVar(&cfg.CompareBaseline, "compare-baseline", "", "Compare against a baseline benchmark file")
 	fs.Float64Var(&cfg.RegressionThreshold, "regression-threshold", 0.10, "Threshold for flagging regressions (default: 0.10 = 10%)")
+	profileName := fs.String("profile", "", "Pipeline profile override: l3-only, detect, track, full (default: from config)")
+	fs.Float64Var(&cfg.MaxFramesOverBudgetPct, "max-frames-over-budget-pct", 1.0,
+		"Share of frames allowed to exceed pipeline.frame_budget_ms before the run fails")
+	fs.IntVar(&cfg.Repeats, "repeat", 1, "Run the benchmark N times and report the median run by wall clock")
 	fs.BoolVar(&cfg.Quiet, "quiet", false, "Suppress non-essential output to keep measurements clean")
 	fs.BoolVar(&cfg.Quiet, "q", false, "Suppress non-essential output (alias for -quiet)")
 	fs.Float64Var(&cfg.ProgressSecs, "progress", 10, "Seconds between progress updates during the PCAP read (0 = off)")
@@ -44,6 +48,7 @@ func BenchMain(args []string) int {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -benchmark-output base.json\n")
 		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -compare-baseline base.json -quiet\n")
+		fmt.Fprintf(os.Stderr, "  lidar-bench -pcap capture.pcapng -profile l3-only -repeat 5 -benchmark-output base.json\n")
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -59,6 +64,18 @@ func BenchMain(args []string) int {
 		return 1
 	}
 	cfg.Tuning = tuningCfg
+	if *profileName != "" {
+		profile, perr := config.ParseProfile(*profileName)
+		if perr != nil {
+			fmt.Fprintf(os.Stderr, "-profile: %v\n", perr)
+			return 2
+		}
+		cfg.Profile = profile
+	}
+	if cfg.Repeats < 1 {
+		fmt.Fprintln(os.Stderr, "-repeat must be at least 1")
+		return 2
+	}
 	if cfg.SensorID == "" {
 		cfg.SensorID = tuningCfg.GetSensor()
 	}

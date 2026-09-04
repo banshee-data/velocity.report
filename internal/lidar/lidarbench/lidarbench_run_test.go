@@ -205,7 +205,7 @@ func TestHandleBenchmarkOutputReportsUnwritableDestination(t *testing.T) {
 		Quiet:           true,
 	}
 
-	if code := handleBenchmarkOutput(cfg, &result{}, &PerformanceMetrics{}); code != 1 {
+	if code := handleBenchmarkOutput(cfg, &result{}, &PerformanceMetrics{}, nil); code != 1 {
 		t.Errorf("handleBenchmarkOutput = %d, want 1 for an unwritable destination", code)
 	}
 }
@@ -216,7 +216,7 @@ func TestHandleBenchmarkOutputDerivesFilenameFromPCAP(t *testing.T) {
 	dir := t.TempDir()
 	cfg := Config{PCAPFile: "/captures/kirk0.pcapng", OutputDir: dir, Quiet: true}
 
-	if code := handleBenchmarkOutput(cfg, &result{}, &PerformanceMetrics{}); code != 0 {
+	if code := handleBenchmarkOutput(cfg, &result{}, &PerformanceMetrics{}, nil); code != 0 {
 		t.Fatalf("handleBenchmarkOutput = %d, want 0", code)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "kirk0_benchmark.json")); err != nil {
@@ -228,7 +228,7 @@ func TestHandleBenchmarkOutputPrintsSummaryWhenNotQuiet(t *testing.T) {
 	dir := t.TempDir()
 	cfg := Config{PCAPFile: "/captures/kirk0.pcapng", OutputDir: dir}
 
-	if code := handleBenchmarkOutput(cfg, &result{}, &PerformanceMetrics{}); code != 0 {
+	if code := handleBenchmarkOutput(cfg, &result{}, &PerformanceMetrics{}, nil); code != 0 {
 		t.Errorf("handleBenchmarkOutput = %d, want 0", code)
 	}
 }
@@ -396,6 +396,7 @@ func TestCompareWithBaselineReportsImprovements(t *testing.T) {
 		WallClockMs:     100,
 		FramesPerSecond: 100,
 		HeapAllocBytes:  100,
+		TotalAllocBytes: 100,
 		ClusterTimeMs:   100,
 		TrackingTimeMs:  100,
 		FrameTimeStats:  FrameTimeStats{AvgMs: 100, P95Ms: 100},
@@ -411,6 +412,7 @@ func TestCompareWithBaselineReportsImprovements(t *testing.T) {
 		WallClockMs:     50,
 		FramesPerSecond: 200,
 		HeapAllocBytes:  50,
+		TotalAllocBytes: 50,
 		ClusterTimeMs:   50,
 		TrackingTimeMs:  50,
 		FrameTimeStats:  FrameTimeStats{AvgMs: 50, P95Ms: 50},
@@ -419,8 +421,10 @@ func TestCompareWithBaselineReportsImprovements(t *testing.T) {
 	if regressed {
 		t.Fatal("improved metrics were reported as a regression")
 	}
+	// Seven gated metrics, all halved. frames_per_second is not among them:
+	// it is derived from wall_clock_ms and would double-count.
 	if comparison == nil || len(comparison.Improvements) != 7 {
-		t.Fatalf("improvements = %+v, want all seven metrics", comparison)
+		t.Fatalf("improvements = %+v, want all seven gated metrics", comparison)
 	}
 }
 
@@ -514,19 +518,26 @@ func TestFrameBuilderNoOpMethods(t *testing.T) {
 func TestPrintBenchmarkSummary(t *testing.T) {
 	// Printed to stdout for the operator; exercised here to prove it formats
 	// a fully-populated metrics struct without panicking on zero values.
-	printBenchmarkSummary(&PerformanceMetrics{
-		WallClockMs:      1234,
-		FramesPerSecond:  19.8,
-		PacketsPerSecond: 1500,
-		FrameTimeStats: FrameTimeStats{
-			AvgMs: 1.5, P50Ms: 1.4, P95Ms: 2.2, P99Ms: 3.1, Samples: 200,
+	printBenchmarkSummary(&BenchmarkResult{
+		Profile:           "full",
+		TuningFingerprint: "abc123def456",
+		Metrics: PerformanceMetrics{
+			WallClockMs:      1234,
+			FramesPerSecond:  19.8,
+			PacketsPerSecond: 1500,
+			FrameTimeStats: FrameTimeStats{
+				AvgMs: 1.5, P50Ms: 1.4, P95Ms: 2.2, P99Ms: 3.1, Samples: 200,
+			},
+			PipelineTimeMs: 900, ClusterTimeMs: 300,
+			TrackingTimeMs: 200, ClassifyTimeMs: 100,
+			HeapAllocBytes: 5 << 20, TotalAllocBytes: 50 << 20,
+			NumGC: 7, GCPauseNs: 1_500_000,
+			Work:        WorkCounters{Frames: 200, ForegroundPoints: 4000, Clusters: 30, ConfirmedTracks: 4},
+			FrameBudget: FrameBudget{BudgetMs: 98, FramesOver: 2, FramesOverPct: 1.0, WorstMs: 120},
 		},
-		PipelineTimeMs: 900, ClusterTimeMs: 300,
-		TrackingTimeMs: 200, ClassifyTimeMs: 100,
-		HeapAllocBytes: 5 << 20, TotalAllocBytes: 50 << 20,
-		NumGC: 7, GCPauseNs: 1_500_000,
+		RepeatSpread: &RepeatSpread{Runs: 3, WallClockMs: []int64{1200, 1234, 1300}, MedianMs: 1234, SpreadPct: 8.3},
 	})
-	printBenchmarkSummary(&PerformanceMetrics{})
+	printBenchmarkSummary(&BenchmarkResult{})
 }
 
 func TestPrintComparisonSummary(t *testing.T) {
