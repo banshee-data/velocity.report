@@ -78,9 +78,11 @@
     }
   },
   "pipeline": {
+    "profile": "full",
     "buffer_timeout": "500ms",
     "min_frame_points": 1000,
     "flush_interval": "60s",
-    "background_flush": false
+    "background_flush": false,
+    "frame_budget_ms": 98
   }
 }

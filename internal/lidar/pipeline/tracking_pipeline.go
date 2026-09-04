@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -227,6 +228,15 @@ type TrackingPipelineConfig struct {
 	// Toggle at runtime via atomic store; the pipeline checks each frame.
 	BenchmarkMode *atomic.Bool
 
+	// Profile selects how far up the layer stack this pipeline runs. The
+	// zero value resolves to config.DefaultProfile (full), so a config built
+	// before profiles existed behaves exactly as it did.
+	//
+	// The gates land on boundaries the pipeline already had: each one is an
+	// early return that emits timing and publishes an empty frame, the same
+	// shape as the existing nil-dependency returns beside them.
+	Profile config.Profile
+
 	// DisableTrackPersistence, when non-nil and true, skips all DB writes
 	// (InsertTrack / InsertTrackObservation) for the frame. Use during
 	// analysis replays and parameter sweeps to avoid polluting the
@@ -248,6 +258,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	heightBandCeiling := cfg.HeightBandCeiling
 	removeGround := cfg.RemoveGround
 	sensorID := cfg.SensorID
+
+	// An unset profile means "everything", which is what every caller written
+	// before profiles existed intends.
+	profile := cfg.Profile
+	if profile == "" {
+		profile = config.DefaultProfile
+	}
 
 	// Get AnalysisRunManager from registry if not explicitly set
 	// This allows analysis runs to be started/stopped dynamically via webserver
@@ -523,6 +540,17 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Always log foreground extraction for tracking debugging
 		tracef("Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
+		// Profile gate: l3-only stops here. The background model has been
+		// updated and the foreground mask computed; nothing downstream of L3
+		// runs, which is the whole point of the profile.
+		if !profile.RunsLayer(4) {
+			if emitTiming != nil {
+				emitTiming(len(foregroundPoints), 0, 0)
+			}
+			publishEmptyFrame(frame)
+			return
+		}
+
 		// Stage 2: Transform to world coordinates
 		if ft != nil {
 			ft.Stage("transform")
@@ -621,6 +649,18 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Always log clustering for tracking debugging
 		tracef("Clustered into %d objects", len(clusters))
 
+		// Profile gate: detect stops here. Clusters exist for this frame but
+		// no tracker state is created and no track is ever persisted, which is
+		// the distinction that justifies the profile — the CPU saving over
+		// full is under 1%.
+		if !profile.RunsLayer(5) {
+			if emitTiming != nil {
+				emitTiming(len(foregroundPoints), len(clusters), 0)
+			}
+			publishEmptyFrame(frame)
+			return
+		}
+
 		// Stage 4: Track update
 		if ft != nil {
 			ft.Stage("track")
@@ -663,7 +703,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// Re-classify periodically as more observations accumulate.
 			// Run every 5 observations after the initial classification
 			// so the label improves as kinematic history grows.
-			if cfg.Classifier != nil && track.ObservationCount >= cfg.Classifier.MinObservations {
+			if profile.RunsLayer(6) && cfg.Classifier != nil && track.ObservationCount >= cfg.Classifier.MinObservations {
 				needsClassify := track.ObjectClass == "" ||
 					(track.ObservationCount%5 == 0)
 				if needsClassify {

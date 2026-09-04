@@ -49,6 +49,12 @@ func (c *L1Config) Validate() error {
 
 // Validate validates pipeline values.
 func (c *PipelineConfig) Validate() error {
+	if _, err := ParseProfile(c.Profile); err != nil {
+		return fmt.Errorf("profile: %w", err)
+	}
+	if c.FrameBudgetMs < 0 {
+		return fmt.Errorf("frame_budget_ms must be non-negative, got %v", c.FrameBudgetMs)
+	}
 	if _, err := time.ParseDuration(c.BufferTimeout); err != nil {
 		return fmt.Errorf("invalid buffer_timeout %q: %w", c.BufferTimeout, err)
 	}

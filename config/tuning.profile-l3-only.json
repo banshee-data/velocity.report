@@ -78,7 +78,7 @@
     }
   },
   "pipeline": {
-    "profile": "full",
+    "profile": "l3-only",
     "buffer_timeout": "500ms",
     "min_frame_points": 1000,
     "flush_interval": "60s",
