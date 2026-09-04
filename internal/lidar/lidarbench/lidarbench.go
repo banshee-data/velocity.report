@@ -337,7 +337,16 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 		return nil, nil, fmt.Errorf("load parser config: %w", err)
 	}
 	parser := parse.NewPandar40PParser(*parserConfig)
-	parser.SetTimestampMode(parse.TimestampModeSystemTime)
+	// Capture timestamps, not reception time. The benchmark is an offline
+	// replay, and L3's warm-up, freeze and settling windows are durations: fed
+	// system time they advance with how fast the machine happens to replay,
+	// which makes the whole measurement a function of the runner.
+	//
+	// This is what the live PCAP path already does (see the server's data
+	// source handler), and not doing it here is why the June 2026 baseline
+	// recorded nothing at all: a 30-second warm-up measured in CPU time can
+	// never elapse inside a five-second replay, so the grid never settled.
+	parser.SetTimestampMode(parse.TimestampModeLiDAR)
 
 	parseStart := time.Now()
 	res := &result{PCAPFile: cfg.PCAPFile}
@@ -583,7 +592,13 @@ func msSince(t time.Time) float64 { return float64(time.Since(t).Nanoseconds()) 
 func (fb *analysisFrameBuilder) processCurrentFrame() {
 	frameStart := time.Now()
 
-	mask, err := fb.bgManager.ProcessFramePolarWithMask(fb.points)
+	// Offline replay must pass the capture timestamp; the plain
+	// ProcessFramePolarWithMask stamps time.Now() and is documented as the
+	// live-caller entry point. Using it here made the workload depend on
+	// machine speed: the same capture measured on two CI runners 27% apart in
+	// wall clock produced foreground counts 11% apart and cluster counts 20%
+	// apart, which the baseline identity check then correctly refused.
+	mask, err := fb.bgManager.ProcessFramePolarWithMaskAt(fb.points, fb.frameStartTime)
 	if err != nil || mask == nil {
 		fb.frameTimes = append(fb.frameTimes, msSince(frameStart))
 		return
