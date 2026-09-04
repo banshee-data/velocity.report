@@ -378,3 +378,49 @@ func TestIdentityErrorMessage(t *testing.T) {
 		t.Errorf("message %q should list every reason, not just the first", msg)
 	}
 }
+
+// TestIdentityRefusesDifferentPlatform covers the hardware arm. A committed
+// local baseline is otherwise a trap: the next person to run the gate on a
+// different architecture reads timing noise as a regression.
+func TestIdentityRefusesDifferentPlatform(t *testing.T) {
+	baseline := comparableResult()
+	baseline.SystemInfo = SystemInfo{GOOS: "darwin", GOARCH: "arm64", NumCPU: 10}
+
+	current := comparableResult()
+	current.SystemInfo = SystemInfo{GOOS: "linux", GOARCH: "amd64", NumCPU: 4}
+
+	err := checkWorkloadIdentity(baseline, current)
+	if err == nil {
+		t.Fatal("a baseline from another platform was accepted")
+	}
+	if !strings.Contains(err.Error(), "platform") {
+		t.Errorf("refusal %q should name the platform mismatch", err)
+	}
+}
+
+// TestIdentityWarnsButAcceptsDifferentCPUCount checks the softer arm. A
+// different core count on the same platform shifts the numbers without making
+// the comparison meaningless, so it warns rather than refusing — otherwise
+// every runner-size change would demand a re-baseline.
+func TestIdentityWarnsButAcceptsDifferentCPUCount(t *testing.T) {
+	baseline := comparableResult()
+	baseline.SystemInfo = SystemInfo{GOOS: "linux", GOARCH: "amd64", NumCPU: 4, GoVersion: "go1.26.4"}
+
+	current := comparableResult()
+	current.SystemInfo = SystemInfo{GOOS: "linux", GOARCH: "amd64", NumCPU: 8, GoVersion: "go1.26.5"}
+
+	if err := checkWorkloadIdentity(baseline, current); err != nil {
+		t.Errorf("a CPU count or Go version change should warn, not refuse: %v", err)
+	}
+}
+
+// TestIdentitySkipsPlatformCheckWhenUnrecorded covers documents that carry no
+// system info, which hand-built fixtures and the oldest baselines hit.
+func TestIdentitySkipsPlatformCheckWhenUnrecorded(t *testing.T) {
+	baseline := comparableResult()
+	baseline.SystemInfo = SystemInfo{}
+
+	if err := checkWorkloadIdentity(baseline, comparableResult()); err != nil {
+		t.Errorf("missing system info should not by itself refuse: %v", err)
+	}
+}

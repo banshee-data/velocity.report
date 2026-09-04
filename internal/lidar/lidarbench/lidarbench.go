@@ -1029,6 +1029,27 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult) 
 		reasons = append(reasons, fmt.Sprintf("capture %s vs %s", baseline.PCAPFile, current.PCAPFile))
 	}
 
+	// Architecture is part of the workload identity, not a footnote. Timings
+	// from arm64 say nothing about amd64, and a committed local baseline is
+	// otherwise a trap for the next person to run the gate on a different
+	// machine. CPU count and Go version only warn: they shift the numbers
+	// without making the comparison meaningless.
+	if b, c := baseline.SystemInfo, current.SystemInfo; b.GOOS != "" || b.GOARCH != "" {
+		if b.GOOS != c.GOOS || b.GOARCH != c.GOARCH {
+			reasons = append(reasons, fmt.Sprintf("platform %s/%s vs %s/%s",
+				b.GOOS, b.GOARCH, c.GOOS, c.GOARCH))
+		} else {
+			if b.NumCPU != 0 && b.NumCPU != c.NumCPU {
+				log.Printf("Warning: baseline was captured on %d CPUs, this run has %d; timings are not directly comparable",
+					b.NumCPU, c.NumCPU)
+			}
+			if b.GoVersion != "" && b.GoVersion != c.GoVersion {
+				log.Printf("Warning: baseline was captured with %s, this run uses %s",
+					b.GoVersion, c.GoVersion)
+			}
+		}
+	}
+
 	reasons = append(reasons, workDifferences(baseline.Metrics.Work, current.Metrics.Work)...)
 
 	if len(reasons) > 0 {

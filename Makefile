@@ -115,6 +115,12 @@ help:
 	@echo "  coverage             Generate coverage reports for all components"
 	@echo "  loc-coverage-chart   Render LOC + coverage SVG to dist/loc-coverage.svg"
 	@echo ""
+	@echo "PERFORMANCE:"
+	@echo "  test-perf            Perf gate for one profile (PROFILE=full|l3-only|detect|track)"
+	@echo "  test-perf-all        Perf gate across every gated profile"
+	@echo "  perf-baseline        Capture a baseline for one profile (median of 5 runs)"
+	@echo "  perf-baseline-all    Capture baselines for every gated profile"
+	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
 	@echo "  migrate-down         Rollback one migration"
@@ -1454,13 +1460,24 @@ loc-coverage-chart:
 	@echo "Wrote dist/loc-coverage.svg"
 
 # Run performance regression test
+.PHONY: test-perf test-perf-all perf-baseline perf-baseline-all
+
 PERF_REGRESSION_THRESHOLD ?= 0.30
 
-test-perf:
-	@NAME="$${NAME:-kirk0}"; \
-	BASE_NAME="$${NAME%.*}"; \
-	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
-	echo "Target: $$BASE_NAME"; \
+# Profiles the perf gate runs. `detect` and `track` exist and are measurable
+# on demand, but are not gated: an unexercised gated profile is a set of
+# numbers nobody can explain when it moves. See docs/plans/lidar-pipeline-profiles-plan.md.
+PERF_GATED_PROFILES ?= full l3-only
+
+# Share of frames allowed past pipeline.frame_budget_ms before the run fails.
+PERF_MAX_OVER_BUDGET_PCT ?= 1.0
+
+# Repeats used when capturing a baseline. One sample on a shared runner is not
+# a measurement; the median of five is.
+PERF_BASELINE_REPEATS ?= 5
+
+# perf-pcap-path resolves NAME to a capture, honouring .pcapng then .pcap.
+define perf-resolve-pcap
 	if [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcapng" ]; then \
 		PCAP_FILE="internal/lidar/perf/pcap/$$BASE_NAME.pcapng"; \
 	elif [ -f "internal/lidar/perf/pcap/$$BASE_NAME.pcap" ]; then \
@@ -1468,11 +1485,20 @@ test-perf:
 	else \
 		echo "Error: PCAP file not found for $$BASE_NAME (.pcap or .pcapng)"; \
 		exit 1; \
-	fi; \
+	fi
+endef
+
+test-perf:
+	@NAME="$${NAME:-kirk0}"; \
+	BASE_NAME="$${NAME%.*}"; \
+	PROFILE="$${PROFILE:-full}"; \
+	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
+	echo "Target: $$BASE_NAME  profile: $$PROFILE"; \
+	$(perf-resolve-pcap); \
 	if [ "$$CI" = "true" ]; then \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-ci.json"; \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-ci.json"; \
 	else \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME.json"; \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE.json"; \
 	fi; \
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
@@ -1480,16 +1506,64 @@ test-perf:
 	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
 	EXIT_CODE=0; \
 	if [ ! -f "$$BASELINE_FILE" ]; then \
-		echo "Baseline not found at $$BASELINE_FILE. Creating new baseline..."; \
-		./lidar-bench -pcap "$$PCAP_FILE" -benchmark-output "$$BASELINE_FILE"; \
-		echo "Created baseline: $$BASELINE_FILE"; \
+		echo "No baseline at $$BASELINE_FILE."; \
+		echo "Capture one with: make perf-baseline PROFILE=$$PROFILE"; \
+		echo "Running the absolute frame-budget check only."; \
+		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+			-max-frames-over-budget-pct "$(PERF_MAX_OVER_BUDGET_PCT)" \
+			-benchmark-output "$${BASE_NAME}_$${PROFILE}_benchmark.json" || EXIT_CODE=$$?; \
 	else \
 		echo "Running performance comparison against $$BASELINE_FILE..."; \
-		./lidar-bench -pcap "$$PCAP_FILE" -compare-baseline "$$BASELINE_FILE" -regression-threshold "$(PERF_REGRESSION_THRESHOLD)" -quiet || EXIT_CODE=$$?; \
+		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+			-compare-baseline "$$BASELINE_FILE" \
+			-regression-threshold "$(PERF_REGRESSION_THRESHOLD)" \
+			-max-frames-over-budget-pct "$(PERF_MAX_OVER_BUDGET_PCT)" \
+			-benchmark-output "$${BASE_NAME}_$${PROFILE}_benchmark.json" -quiet || EXIT_CODE=$$?; \
 	fi; \
 	rm -f lidar-bench; \
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
+
+# Run the gate across every gated profile, reporting all failures rather than
+# stopping at the first: which profiles moved is the diagnostic.
+test-perf-all:
+	@EXIT_CODE=0; \
+	for profile in $(PERF_GATED_PROFILES); do \
+		echo ""; \
+		echo "=== perf gate: $$profile ==="; \
+		$(MAKE) --no-print-directory test-perf PROFILE=$$profile || EXIT_CODE=1; \
+	done; \
+	exit $$EXIT_CODE
+
+# Capture a baseline for one profile as the median of PERF_BASELINE_REPEATS
+# runs. Run this on the hardware the gate runs on: a baseline captured
+# elsewhere measures that other machine.
+perf-baseline:
+	@NAME="$${NAME:-kirk0}"; \
+	BASE_NAME="$${NAME%.*}"; \
+	PROFILE="$${PROFILE:-full}"; \
+	$(perf-resolve-pcap); \
+	if [ "$$CI" = "true" ]; then \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-ci.json"; \
+	else \
+		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE.json"; \
+	fi; \
+	./scripts/ensure-web-stub.sh; \
+	./scripts/ensure-docs-stub.sh; \
+	echo "Capturing $$PROFILE baseline from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
+	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
+	./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+		-repeat "$(PERF_BASELINE_REPEATS)" \
+		-max-frames-over-budget-pct 100 \
+		-benchmark-output "$$BASELINE_FILE"; \
+	rm -f lidar-bench; \
+	echo "Wrote $$BASELINE_FILE"
+
+# Capture baselines for every gated profile.
+perf-baseline-all:
+	@for profile in $(PERF_GATED_PROFILES); do \
+		$(MAKE) --no-print-directory perf-baseline PROFILE=$$profile || exit 1; \
+	done
 
 # =============================================================================
 # DATABASE MIGRATIONS

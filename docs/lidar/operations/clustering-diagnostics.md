@@ -135,8 +135,10 @@ Store baselines as checked-in JSON files:
 
 ```
 internal/lidar/perf/baseline/
-├── baseline-kirk0.json           # local Mac ARM64 baseline
-├── baseline-kirk0-ci.json        # CI (Linux x86_64) baseline
+├── baseline-kirk0-full.json      # local baseline, full profile
+├── baseline-kirk0-full-ci.json   # CI baseline, full profile
+├── baseline-kirk0-l3-only.json   # local baseline, l3-only profile
+├── baseline-kirk0-l3-only-ci.json # CI baseline, l3-only profile
 ├── baseline-kirk0-pi.json        # Raspberry Pi ARM64 baseline (manual)
 └── baseline-lidar_20Hz.json      # second fixture
 ```
