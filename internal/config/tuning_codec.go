@@ -58,6 +58,17 @@ func (c *L4Config) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+	// "none" disables the layer. It carries no parameter block, so it is
+	// resolved before the registry lookup rather than being registered as a
+	// pseudo-engine at every layer.
+	if engine == EngineNone {
+		if err := ensureNoEngineBlocks(raw, "l4"); err != nil {
+			return err
+		}
+		c.Engine = engine
+		return nil
+	}
+
 	spec, ok := engineRegistry[engine]
 	if !ok || spec.Layer != "l4" {
 		return fmt.Errorf("l4: unknown engine %q", engine)
@@ -100,6 +111,17 @@ func (c *L5Config) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+	// "none" disables the layer. It carries no parameter block, so it is
+	// resolved before the registry lookup rather than being registered as a
+	// pseudo-engine at every layer.
+	if engine == EngineNone {
+		if err := ensureNoEngineBlocks(raw, "l5"); err != nil {
+			return err
+		}
+		c.Engine = engine
+		return nil
+	}
+
 	spec, ok := engineRegistry[engine]
 	if !ok || spec.Layer != "l5" {
 		return fmt.Errorf("l5: unknown engine %q", engine)
@@ -127,6 +149,25 @@ func (c *L5Config) UnmarshalJSON(data []byte) error {
 		c.ImmCvCaRtsEvalV2 = block
 	}
 	return nil
+}
+
+// ensureNoEngineBlocks rejects parameter blocks alongside a disabled layer.
+// Carrying tuning for an engine that is switched off is the confusion this
+// whole mechanism exists to remove: the block would be read by nobody and
+// would still change the config fingerprint.
+func ensureNoEngineBlocks(raw map[string]json.RawMessage, path string) error {
+	var present []string
+	for key := range raw {
+		if key != "engine" {
+			present = append(present, key)
+		}
+	}
+	if len(present) == 0 {
+		return nil
+	}
+	sort.Strings(present)
+	return fmt.Errorf("%s: engine is %q but parameter blocks are present: %s",
+		path, EngineNone, strings.Join(present, ", "))
 }
 
 func parseObject(data []byte, path string) (map[string]json.RawMessage, error) {

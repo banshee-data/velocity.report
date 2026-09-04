@@ -66,10 +66,6 @@ type Config struct {
 	// embedded defaults, so the measured pipeline matches live observation.
 	Tuning *config.TuningConfig
 
-	// Profile overrides the tuning config's pipeline.profile for this run.
-	// Empty means "use the config", which is the normal case.
-	Profile config.Profile
-
 	BenchmarkOutput     string
 	CompareBaseline     string
 	RegressionThreshold float64
@@ -511,16 +507,15 @@ func newAnalysisFrameBuilder(cfg Config, res *result) *analysisFrameBuilder {
 	}
 }
 
-// benchProfile resolves the profile the benchmark should run, preferring an
-// explicit override so a single tuning file can be measured at several depths.
+// benchProfile reads the depth the benchmark will run from the tuning config's
+// engine selectors. A -profile flag reaches here by having already switched
+// layers off in that config, so there is one source of truth rather than a
+// flag and a config that can disagree.
 func benchProfile(cfg Config) config.Profile {
-	if cfg.Profile != "" {
-		return cfg.Profile
-	}
 	if cfg.Tuning != nil {
-		return cfg.Tuning.GetProfile()
+		return cfg.Tuning.Profile()
 	}
-	return config.DefaultProfile
+	return config.ProfileFull
 }
 
 func (fb *analysisFrameBuilder) AddPointsPolar(points []l2frames.PointPolar) {

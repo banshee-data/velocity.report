@@ -15,21 +15,41 @@ The `lidar-bench` tool measures the LiDAR L1–L6 tracking pipeline over a PCAP 
 
 ## Profiles
 
-A **profile** names how far up the layer stack the pipeline runs. It is set by
-`pipeline.profile` in the tuning config, overridden per run with `-profile`, and
-recorded in every benchmark document.
+A **profile** is a label for how far up the layer stack the pipeline runs. It is
+**not a config setting**. Each layer already carries an `engine` selector saying what
+runs there, and `"none"` is a legitimate answer:
 
-| Profile   | Runs                                                 | Gated | Why it exists                                                                    |
-| --------- | ---------------------------------------------------- | ----- | -------------------------------------------------------------------------------- |
-| `l3-only` | L3 background model, settling, region identification | yes   | Background and settling tuning in isolation; sensor health; constrained hardware |
-| `detect`  | + L4 world transform, ground removal, clustering     | no    | Cluster-level tuning with no tracker state and no track persistence              |
-| `track`   | + L5 Kalman tracking                                 | no    | Isolating classifier cost and behaviour                                          |
-| `full`    | + L6 classification, persistence, publish            | yes   | What ships. The default when `pipeline.profile` is absent.                       |
+```json
+"l4": { "engine": "none" },
+"l5": { "engine": "none" }
+```
 
-Each profile has a config in `config/tuning.profile-<name>.json`, generated from
-`config/tuning.defaults.json` and differing from it **only** in `pipeline.profile`.
-A test enforces that: two profiles are comparable only if the profile is the sole
-difference between them.
+That config runs L3 and stops. The profile is read off those selectors, so there is
+one source of truth for depth and nothing that can disagree with it. A disabled layer
+carries no parameter block at all — the codec rejects one — so the file shows the
+layer is inert rather than listing nine clustering parameters that have no effect.
+
+| Profile   | `l4.engine` | `l5.engine` | Gated | Why it exists                                                                    |
+| --------- | ----------- | ----------- | ----- | -------------------------------------------------------------------------------- |
+| `l3-only` | `none`      | `none`      | yes   | Background and settling tuning in isolation; sensor health; constrained hardware |
+| `detect`  | an engine   | `none`      | no    | Cluster-level tuning with no tracker state and no track persistence              |
+| `full`    | an engine   | an engine   | yes   | What ships. The default.                                                         |
+
+Profiles and engines stay orthogonal: `detect` running `hdbscan_adaptive_v1` is the
+same depth as `detect` running `dbscan_xy_v1`, and the profile label does not move.
+
+Ready-made configs live in `config/profiles/<name>.json`. They are derived, not
+authored: each is `config/tuning.defaults.json` with layers switched off, and a test
+asserts they match exactly that — two profiles are comparable only if depth is the
+sole difference between them. They sit outside `config/tuning*.json` because the
+key-order tooling requires those to carry every key, which a config with disabled
+layers deliberately does not.
+
+**Validation.** Disabled layers must form a suffix: `l5.engine` must be `none` when
+`l4.engine` is. Tracking cannot consume clusters that were never produced, so that is
+not a configuration with surprising behaviour, it is one with no coherent meaning,
+and it is rejected at load rather than discovered at runtime. That rule is what keeps
+the depths a closed set without enumerating the legal combinations anywhere.
 
 **Why `detect` exists.** It is 0.3% cheaper than `full` on an 83-second benchmark,
 which is not a reason to keep it. It holds no Kalman state and performs no track
@@ -37,10 +57,13 @@ persistence — neither shows up in a benchmark, and both matter to a Pi running
 weeks, where `max_tracks` state and per-frame DB writes accumulate. Do not optimise
 it away on the benchmark evidence alone.
 
-**Why only two are gated.** `detect` and `track` sit within run-to-run noise of
-`full` (measured at 9 615 / 9 623 / 9 644 ms against a ±4% spread). Gating them
-would produce three sets of numbers that move together and explain nothing. An
-unexercised gated profile is a set of numbers nobody can account for when it moves.
+**Why only two are gated.** `detect` sits within run-to-run noise of `full`. Gating it
+would produce a second set of numbers that moves with the first and explains nothing.
+An unexercised gated profile is a set of numbers nobody can account for when it moves.
+
+**Turning L6 off** is not currently expressible: L6 has no `engine` selector, and its
+one parameter lives in `l5.cv_kf_v1`. Giving L2 and L6 their own blocks is a schema
+v3 change tracked in the backlog; a `track` profile falls out of it for free.
 
 ## What makes two runs comparable
 
@@ -140,23 +163,23 @@ baseline measured a different workload.
 through `make test-perf`, which builds the tool and compares against the
 committed baseline.
 
-| Flag                          | Alias | Default                 | Description                                          |
-| ----------------------------- | ----- | ----------------------- | ---------------------------------------------------- |
-| `-pcap`                       | -     | (required)              | Path to PCAP file                                    |
-| `-start-seconds`              | -     | `0`                     | Capture offset at which to begin replay              |
-| `-duration-seconds`           | -     | `-1`                    | Replay duration (`-1` = remainder)                   |
-| `-benchmark-output`           | -     | `{pcap}_benchmark.json` | Output file for benchmark JSON results               |
-| `-compare-baseline`           | -     | -                       | Compare against a baseline benchmark file            |
-| `-regression-threshold`       | -     | `0.10` (10%)            | Threshold for flagging regressions                   |
-| `-quiet`                      | `-q`  | `false`                 | Suppress output to reduce measurement noise          |
-| `-config`                     | -     | `config/tuning…json`    | Tuning config (falls back to embedded)               |
-| `-sensor-id`                  | -     | from `l1.sensor`        | Sensor ID                                            |
-| `-port`                       | -     | `0` (auto-detect)       | UDP port for LiDAR data                              |
-| `-output`                     | -     | `.`                     | Output directory for benchmark JSON                  |
-| `-progress`                   | -     | `10`                    | Seconds between progress updates (0 = off)           |
-| `-profile`                    | -     | from `pipeline.profile` | Depth override: `l3-only`, `detect`, `track`, `full` |
-| `-repeat`                     | -     | `1`                     | Run N times and emit the median run by wall clock    |
-| `-max-frames-over-budget-pct` | -     | `1.0`                   | Share of frames allowed past the frame budget        |
+| Flag                          | Alias | Default                 | Description                                       |
+| ----------------------------- | ----- | ----------------------- | ------------------------------------------------- |
+| `-pcap`                       | -     | (required)              | Path to PCAP file                                 |
+| `-start-seconds`              | -     | `0`                     | Capture offset at which to begin replay           |
+| `-duration-seconds`           | -     | `-1`                    | Replay duration (`-1` = remainder)                |
+| `-benchmark-output`           | -     | `{pcap}_benchmark.json` | Output file for benchmark JSON results            |
+| `-compare-baseline`           | -     | -                       | Compare against a baseline benchmark file         |
+| `-regression-threshold`       | -     | `0.10` (10%)            | Threshold for flagging regressions                |
+| `-quiet`                      | `-q`  | `false`                 | Suppress output to reduce measurement noise       |
+| `-config`                     | -     | `config/tuning…json`    | Tuning config (falls back to embedded)            |
+| `-sensor-id`                  | -     | from `l1.sensor`        | Sensor ID                                         |
+| `-port`                       | -     | `0` (auto-detect)       | UDP port for LiDAR data                           |
+| `-output`                     | -     | `.`                     | Output directory for benchmark JSON               |
+| `-progress`                   | -     | `10`                    | Seconds between progress updates (0 = off)        |
+| `-profile`                    | -     | from the config         | Reduce depth to `l3-only` or `detect`             |
+| `-repeat`                     | -     | `1`                     | Run N times and emit the median run by wall clock |
+| `-max-frames-over-budget-pct` | -     | `1.0`                   | Share of frames allowed past the frame budget     |
 
 ### Example commands
 

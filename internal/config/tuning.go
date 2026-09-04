@@ -31,7 +31,6 @@ type L1Config struct {
 
 // PipelineConfig holds cross-cutting runtime settings already exposed pre-restructure.
 type PipelineConfig struct {
-	Profile         string  `json:"profile"`
 	BufferTimeout   string  `json:"buffer_timeout"`
 	MinFramePoints  int     `json:"min_frame_points"`
 	FlushInterval   string  `json:"flush_interval"`

@@ -8,12 +8,23 @@ import (
 	"strings"
 )
 
-// Profile names how far up the layer stack the pipeline runs. It is a closed
-// set rather than a cross-product of per-layer switches: independent depth
-// toggles would be eight combinations, most of them meaningless, and every one
-// of them a support surface. The per-layer `engine` selectors stay orthogonal
-// to this — a profile says which layers run, an engine says which algorithm
-// runs at a layer.
+// EngineNone disables a layer. It is an ordinary value of the `engine`
+// selector each layer already carries, because "what runs at this layer" is
+// the question that selector exists to answer, and "nothing" is a legitimate
+// answer to it.
+//
+// A disabled layer needs no parameter block: the codec requires only the
+// selected engine's block, so a config that switches L4 off stops carrying
+// nine clustering parameters that have no effect on it.
+const EngineNone = "none"
+
+// Profile is a *derived* label for how far up the layer stack a config runs.
+// It is not stored anywhere: the engine selectors are the configuration, and
+// this is read off them. Nothing can disagree with the config, because there
+// is nothing else that could.
+//
+// The label exists because baseline filenames, CI gate lists and operators all
+// need a short name for a depth — not because the depth needs a second home.
 type Profile string
 
 const (
@@ -23,25 +34,14 @@ const (
 	// health checks, and thermally constrained hardware.
 	ProfileL3Only Profile = "l3-only"
 
-	// ProfileDetect adds the L4 world transform, ground removal and
-	// clustering. It holds no Kalman state and performs no track
-	// persistence, which is what distinguishes it from `track` — the CPU
-	// saving over `full` is under 1% and is not the reason it exists.
+	// ProfileDetect adds L4: world transform, ground removal, clustering. It
+	// holds no Kalman state and persists no track, which is what
+	// distinguishes it — the CPU saving over full is under 1%.
 	ProfileDetect Profile = "detect"
 
-	// ProfileTrack adds L5 Kalman tracking but not L6 classification. It is
-	// a diagnostic profile for isolating classifier cost and behaviour; it
-	// holds the same tracker state as `full`.
-	ProfileTrack Profile = "track"
-
 	// ProfileFull runs the whole stack: L3 foreground, L4 clustering, L5
-	// tracking, L6 classification. This is what ships and it is the default
-	// when no profile is configured.
+	// tracking, L6 classification. This is what ships.
 	ProfileFull Profile = "full"
-
-	// DefaultProfile applies when `pipeline.profile` is absent, so every
-	// config written before profiles existed keeps its current behaviour.
-	DefaultProfile = ProfileFull
 
 	// DefaultFrameBudgetMs is the per-frame wall-clock ceiling. Beyond it a
 	// frame is counted as over budget — "alarm" or lag territory — because
@@ -50,58 +50,49 @@ const (
 	DefaultFrameBudgetMs = 98.0
 )
 
-// orderedProfiles lists the profiles by increasing depth. Order matters: it is
-// what makes RunsLayer a comparison rather than a switch.
-var orderedProfiles = []Profile{ProfileL3Only, ProfileDetect, ProfileTrack, ProfileFull}
+// orderedProfiles lists the profiles by increasing depth.
+var orderedProfiles = []Profile{ProfileL3Only, ProfileDetect, ProfileFull}
 
-// profileDepth maps each profile to the highest layer it runs.
-var profileDepth = map[Profile]int{
+// profileTopLayer maps each profile to the highest layer it runs. L6 has no
+// engine selector of its own, so it always follows L5 — see the backlog entry
+// on aligning the config schema with the layer model.
+var profileTopLayer = map[Profile]int{
 	ProfileL3Only: 3,
 	ProfileDetect: 4,
-	ProfileTrack:  5,
 	ProfileFull:   6,
 }
 
-// KnownProfiles returns the supported profile names in depth order.
+// KnownProfiles returns the supported profile labels in depth order.
 func KnownProfiles() []Profile {
 	out := make([]Profile, len(orderedProfiles))
 	copy(out, orderedProfiles)
 	return out
 }
 
-// ParseProfile resolves a configured profile name, treating empty as the
-// default so pre-profile configs keep working.
+// ParseProfile resolves a profile label, for CLI flags and CI gate lists.
 func ParseProfile(name string) (Profile, error) {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return DefaultProfile, nil
-	}
-	p := Profile(trimmed)
-	if _, ok := profileDepth[p]; !ok {
-		return "", fmt.Errorf("must be one of %s, got %q", profileNames(), trimmed)
+	p := Profile(strings.TrimSpace(name))
+	if _, ok := profileTopLayer[p]; !ok {
+		return "", fmt.Errorf("must be one of %s, got %q", profileNames(), name)
 	}
 	return p, nil
 }
 
 // RunsLayer reports whether the profile runs the given layer number, so stage
 // boundaries read as `if !profile.RunsLayer(4) { stop here }` rather than as a
-// list of profile names that has to be updated whenever one is added.
+// list of profile names that has to be revisited whenever one is added.
 func (p Profile) RunsLayer(layer int) bool {
-	depth, ok := profileDepth[p]
-	if !ok {
-		depth = profileDepth[DefaultProfile]
-	}
-	return layer <= depth
+	return layer <= p.TopLayer()
 }
 
-// TopLayer returns the highest layer number the profile runs, for logging and
-// diagnostics. An unknown profile reports the default's depth, matching
-// RunsLayer.
+// TopLayer returns the highest layer number the profile runs. An unrecognised
+// label reports the full depth, matching the permissive direction taken
+// elsewhere: a misread label must not silently switch the pipeline off.
 func (p Profile) TopLayer() int {
-	if depth, ok := profileDepth[p]; ok {
+	if depth, ok := profileTopLayer[p]; ok {
 		return depth
 	}
-	return profileDepth[DefaultProfile]
+	return profileTopLayer[ProfileFull]
 }
 
 // String satisfies fmt.Stringer.
@@ -115,14 +106,50 @@ func profileNames() string {
 	return strings.Join(names, ", ")
 }
 
-// GetProfile returns the resolved pipeline profile. An unparseable value
-// cannot reach here: Validate rejects it at load.
-func (c *TuningConfig) GetProfile() Profile {
-	p, err := ParseProfile(c.Pipeline.Profile)
-	if err != nil {
-		return DefaultProfile
+// Profile derives the depth label from the engine selectors. This is the only
+// place that mapping lives, and it reads the same configuration the pipeline
+// gates on.
+func (c *TuningConfig) Profile() Profile {
+	switch {
+	case c.L4.Engine == EngineNone:
+		return ProfileL3Only
+	case c.L5.Engine == EngineNone:
+		return ProfileDetect
+	default:
+		return ProfileFull
 	}
-	return p
+}
+
+// ApplyProfile switches layers off to reach the requested depth.
+//
+// It can only reduce depth. Raising it would need parameter blocks the config
+// does not carry — a config with `l4.engine: "none"` holds no clustering
+// parameters to turn back on — and inventing defaults there would produce a
+// run whose tuning nobody chose. A caller wanting more depth should point at a
+// config that has it.
+func (c *TuningConfig) ApplyProfile(p Profile) error {
+	if _, ok := profileTopLayer[p]; !ok {
+		return fmt.Errorf("unknown profile %q, must be one of %s", p, profileNames())
+	}
+	if current := c.Profile(); p.TopLayer() > current.TopLayer() {
+		return fmt.Errorf(
+			"cannot raise the profile from %s to %s: this config carries no engine block for the layers %s would run",
+			current, p, p)
+	}
+
+	if !p.RunsLayer(4) {
+		c.L4.Engine = EngineNone
+		c.L4.DbscanXyV1 = nil
+		c.L4.TwoStageMahalanobisV2 = nil
+		c.L4.HdbscanAdaptiveV1 = nil
+	}
+	if !p.RunsLayer(5) {
+		c.L5.Engine = EngineNone
+		c.L5.CvKfV1 = nil
+		c.L5.ImmCvCaV2 = nil
+		c.L5.ImmCvCaRtsEvalV2 = nil
+	}
+	return nil
 }
 
 // GetFrameBudgetMs returns the per-frame wall-clock ceiling in milliseconds,
@@ -150,12 +177,15 @@ func (c *TuningConfig) Fingerprint() string {
 	return hex.EncodeToString(sum[:])[:12]
 }
 
-// ProfileConfigPath is the conventional on-disk location of the tuning config
-// for a named profile. The profile configs are byte-identical to
-// tuning.defaults.json apart from `pipeline.profile`, which a test enforces.
+// ProfileConfigPath is the on-disk location of the tuning config for a named
+// profile. These live under config/profiles/ rather than beside
+// tuning.defaults.json because they are derived rather than authored: each is
+// the defaults with layers switched off, and a test asserts exactly that. The
+// key-order tooling treats config/tuning*.json as full configs that must carry
+// every key, which a config with disabled layers deliberately does not.
 func ProfileConfigPath(p Profile) string {
-	if p == DefaultProfile {
+	if p == ProfileFull {
 		return DefaultConfigPath
 	}
-	return fmt.Sprintf("config/tuning.profile-%s.json", p)
+	return fmt.Sprintf("config/profiles/%s.json", p)
 }

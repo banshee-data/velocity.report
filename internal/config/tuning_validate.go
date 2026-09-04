@@ -26,6 +26,26 @@ func (c *TuningConfig) Validate() error {
 	if err := c.Pipeline.Validate(); err != nil {
 		return fmt.Errorf("pipeline: %w", err)
 	}
+	if err := c.validateLayerDepth(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateLayerDepth enforces that disabled layers form a suffix: once a layer
+// is switched off, every layer above it must be too.
+//
+// This is what keeps the depth a closed set without enumerating the legal
+// combinations anywhere. Tracking cannot consume clusters that were never
+// produced, so `l4.engine: "none"` with a live L5 is not a configuration with
+// surprising behaviour — it is one with no coherent meaning, and it is
+// rejected at load rather than discovered at runtime.
+func (c *TuningConfig) validateLayerDepth() error {
+	if c.L4.Engine == EngineNone && c.L5.Engine != EngineNone {
+		return fmt.Errorf(
+			"l5.engine is %q but l4.engine is %q: a layer cannot run when the layer below it is disabled",
+			c.L5.Engine, EngineNone)
+	}
 	return nil
 }
 
@@ -49,9 +69,6 @@ func (c *L1Config) Validate() error {
 
 // Validate validates pipeline values.
 func (c *PipelineConfig) Validate() error {
-	if _, err := ParseProfile(c.Profile); err != nil {
-		return fmt.Errorf("profile: %w", err)
-	}
 	if c.FrameBudgetMs < 0 {
 		return fmt.Errorf("frame_budget_ms must be non-negative, got %v", c.FrameBudgetMs)
 	}
@@ -87,6 +104,9 @@ func (c *L3Config) Validate() error {
 
 // Validate validates the selected L4 engine and its block.
 func (c *L4Config) Validate() error {
+	if c.Engine == EngineNone {
+		return nil
+	}
 	switch c.Engine {
 	case "dbscan_xy_v1":
 		if c.DbscanXyV1 == nil {
@@ -110,6 +130,9 @@ func (c *L4Config) Validate() error {
 
 // Validate validates the selected L5 engine and its block.
 func (c *L5Config) Validate() error {
+	if c.Engine == EngineNone {
+		return nil
+	}
 	switch c.Engine {
 	case "cv_kf_v1":
 		if c.CvKfV1 == nil {

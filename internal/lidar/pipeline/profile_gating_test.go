@@ -10,9 +10,10 @@ import (
 )
 
 // profileTracker observes which stages a profile actually reached. It counts
-// the two calls that mark the L4→L5 and L5→L6 boundaries: RecordFrameStats is
-// made only once clustering has run, and UpdateClassification only once the
-// classifier has labelled a track.
+// the calls that mark the L4 and L5 boundaries — RecordFrameStats only after
+// clustering has run, UpdateClassification only after the classifier has
+// labelled a track — so a gate that fires at the wrong depth is visible rather
+// than inferred from timings.
 type profileTracker struct {
 	mockTrackerCov
 	classifyCalls int
@@ -75,7 +76,6 @@ func TestProfileGatesStopThePipelineAtTheRightLayer(t *testing.T) {
 	}{
 		{config.ProfileL3Only, false, false, false},
 		{config.ProfileDetect, true, false, false},
-		{config.ProfileTrack, true, true, false},
 		{config.ProfileFull, true, true, true},
 	}
 

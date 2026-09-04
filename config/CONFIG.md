@@ -131,7 +131,6 @@ parity between them.
     }
   },
   "pipeline": {
-    "profile": "full",
     "buffer_timeout": "500ms",
     "min_frame_points": 1000,
     "flush_interval": "60s",
@@ -294,7 +293,6 @@ Maths: [tracking-maths.md](../data/maths/tracking-maths.md)
 
 | Path                        | Type   | Primary consumer                                             | Notes                                                                            |
 | --------------------------- | ------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `pipeline.profile`          | string | [GetProfile](../internal/config/profile.go)                  | Layer depth: `l3-only`, `detect`, `track`, `full`. Default `full`.               |
 | `pipeline.buffer_timeout`   | string | [GetBufferTimeout](../internal/config/tuning_accessors.go)   | Frame assembly timeout.                                                          |
 | `pipeline.min_frame_points` | int    | [GetMinFramePoints](../internal/config/tuning_accessors.go)  | Minimum points required to process a frame.                                      |
 | `pipeline.flush_interval`   | string | [GetFlushInterval](../internal/config/tuning_accessors.go)   | Background snapshot cadence.                                                     |

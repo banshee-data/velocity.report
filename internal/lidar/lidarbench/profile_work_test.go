@@ -27,7 +27,11 @@ func TestProfileWorkCounters(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(string(tc.profile), func(t *testing.T) {
 			cfg := benchConfig(t)
-			cfg.Profile = tc.profile
+			tuning := config.MustLoadDefaultConfig()
+			if err := tuning.ApplyProfile(tc.profile); err != nil {
+				t.Fatalf("ApplyProfile(%s): %v", tc.profile, err)
+			}
+			cfg.Tuning = tuning
 
 			_, metrics, err := runBenchmark(cfg)
 			if err != nil {
@@ -94,26 +98,41 @@ func TestHeapAllocIsStableAcrossRuns(t *testing.T) {
 
 // TestBenchProfileResolution covers the override precedence: an explicit
 // -profile beats the config, and an absent one falls back to it.
-func TestBenchProfileResolution(t *testing.T) {
-	defaults := config.MustLoadDefaultConfig()
-
+// TestBenchProfileFollowsTheConfig checks the benchmark reads its depth from
+// the same engine selectors the pipeline gates on. A -profile flag reaches the
+// benchmark by having already disabled layers in this config, so there is no
+// second switch that could disagree with it.
+func TestBenchProfileFollowsTheConfig(t *testing.T) {
 	tests := []struct {
-		name string
-		cfg  Config
-		want config.Profile
+		name  string
+		apply config.Profile
+		want  config.Profile
 	}{
-		{"no config and no override", Config{}, config.DefaultProfile},
-		{"config only", Config{Tuning: defaults}, config.ProfileFull},
-		{"override beats config", Config{Tuning: defaults, Profile: config.ProfileL3Only}, config.ProfileL3Only},
-		{"override with no config", Config{Profile: config.ProfileDetect}, config.ProfileDetect},
+		{"defaults are full depth", "", config.ProfileFull},
+		{"reduced to detect", config.ProfileDetect, config.ProfileDetect},
+		{"reduced to l3-only", config.ProfileL3Only, config.ProfileL3Only},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := benchProfile(tc.cfg); got != tc.want {
+			tuning := config.MustLoadDefaultConfig()
+			if tc.apply != "" {
+				if err := tuning.ApplyProfile(tc.apply); err != nil {
+					t.Fatalf("ApplyProfile(%s): %v", tc.apply, err)
+				}
+			}
+			if got := benchProfile(Config{Tuning: tuning}); got != tc.want {
 				t.Errorf("benchProfile() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestBenchProfileWithoutConfigIsFull covers the arm where no tuning config
+// was loaded at all, which only tests and hand-built Configs hit.
+func TestBenchProfileWithoutConfigIsFull(t *testing.T) {
+	if got := benchProfile(Config{}); got != config.ProfileFull {
+		t.Errorf("benchProfile() = %q with no config, want %q", got, config.ProfileFull)
 	}
 }
 

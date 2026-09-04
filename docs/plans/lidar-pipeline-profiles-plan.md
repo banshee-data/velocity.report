@@ -161,6 +161,9 @@ orthogonal, and each with one implementation today.
 
 ### The profiles
 
+Superseded by the implementation note below: these are depths derived from the
+per-layer engine selectors, not values of a `pipeline.profile` key.
+
 | Profile   | Runs                                                   | Measured cost | Rationale                                                                                  |
 | --------- | ------------------------------------------------------ | ------------: | ------------------------------------------------------------------------------------------ |
 | `l3-only` | L3 background model, settling, region identification   |      5 228 ms | Background and settling tuning in isolation; sensor health; thermally-constrained hardware |
@@ -349,12 +352,36 @@ hardware.
 
 ### Implementation notes
 
-Four profiles were implemented rather than three. `track` was to be dropped as a
-name, on the evidence that it is 0.1% cheaper than `full` with identical tracker
-state — but the gate it needs is one more early return at a boundary that already
-existed, and it is genuinely useful for isolating classifier cost. The reasoning
-that mattered was about **gating**, not existence, and that is honoured:
-`PERF_GATED_PROFILES` is `full l3-only`, and `detect` and `track` are diagnostic.
+**The profile is derived, not stored.** This plan proposed `pipeline.profile` as a
+closed enum. That shipped first and was then removed, because it was a second
+mechanism answering a question the config already had one for: `l4.engine` says which
+clustering algorithm runs, and `pipeline.profile` said whether clustering happens at
+all. Neither could be read without the other, the depth lived in a Go lookup table
+rather than in the file, and an `l3-only` config still carried — and validation still
+_required_ — a fully populated `l4.dbscan_xy_v1` block whose nine parameters had no
+effect.
+
+What shipped instead: `engine: "none"` is a legal value of the selector each layer
+already has. A disabled layer carries no parameter block, the codec rejects one if
+present, and `TuningConfig.Profile()` reads the depth off the selectors. The label
+still exists for baseline filenames and gate lists, but it is computed, so it cannot
+disagree with what runs.
+
+The closed set survives as a validation rule rather than an enumeration: disabled
+layers must form a suffix, so `l4.engine: "none"` with a live L5 is rejected at load.
+Tracking cannot consume clusters that were never produced.
+
+**Three profiles, not four.** `track` needs an `l6.engine` selector to be expressible,
+and L6 has no config block at all — its one parameter squats in `l5.cv_kf_v1`. Adding
+required keys breaks the strict decoder, so that is a schema v3 change, tracked in the
+backlog alongside giving L2 a block and emptying the `pipeline` junk drawer. `track`
+falls out of that work for free. The evidence never argued for it anyway: 0.1% cheaper
+than `full` with identical tracker state.
+
+**Cost of the redesign.** Roughly thirty accessors dereference `ActiveCommon()`
+directly, so a disabled layer returning nil would panic at startup. `ActiveCommon()`
+returns a zero-valued block instead: a layer that does not run has no meaningful
+parameter values, and the stage that would read them never executes.
 
 The 98 ms frame budget arrived alongside this work rather than in the harness plan.
 It is the answer to a question no relative gate can address — whether the pipeline

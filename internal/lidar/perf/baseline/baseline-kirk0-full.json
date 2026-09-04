@@ -1,9 +1,9 @@
 {
   "version": "2.0",
-  "timestamp": "2026-09-04T01:09:43Z",
+  "timestamp": "2026-09-04T02:36:10Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "full",
-  "tuning_fingerprint": "c259fc967295",
+  "tuning_fingerprint": "851f30871291",
   "system_info": {
     "goos": "darwin",
     "goarch": "arm64",
@@ -12,51 +12,51 @@
     "commit_hash": "6d8c799e6c1a"
   },
   "metrics": {
-    "wall_clock_ms": 9639,
+    "wall_clock_ms": 10030,
     "frame_time_stats": {
-      "min_ms": 2.406125,
-      "max_ms": 114.963625,
-      "avg_ms": 8.826309412259617,
-      "p50_ms": 5.257041,
-      "p95_ms": 36.86425,
-      "p99_ms": 73.357208,
+      "min_ms": 2.376666,
+      "max_ms": 93.411083,
+      "avg_ms": 9.120161463942315,
+      "p50_ms": 5.368875,
+      "p95_ms": 37.837916,
+      "p99_ms": 75.018625,
       "samples": 832
     },
-    "frames_per_second": 86.31600788463534,
-    "packets_per_second": 15534.910260400458,
-    "points_per_second": 5952532.005394751,
-    "heap_alloc_bytes": 17877152,
-    "total_alloc_bytes": 17685777632,
+    "frames_per_second": 82.95114656031905,
+    "packets_per_second": 14929.312063808575,
+    "points_per_second": 5720484.147557328,
+    "heap_alloc_bytes": 17877848,
+    "total_alloc_bytes": 17685072640,
     "num_gc": 777,
-    "gc_pause_ns": 55418391,
-    "pipeline_time_ms": 9639,
-    "cluster_time_ms": 4300,
+    "gc_pause_ns": 61504844,
+    "pipeline_time_ms": 10030,
+    "cluster_time_ms": 4398,
     "tracking_time_ms": 48,
     "classify_time_ms": 47,
     "work": {
       "frames": 832,
-      "foreground_points": 1626782,
-      "background_points": 55749674,
-      "clusters": 14137,
+      "foreground_points": 1625567,
+      "background_points": 55750889,
+      "clusters": 14134,
       "confirmed_tracks": 5
     },
     "frame_budget": {
       "budget_ms": 98,
-      "frames_over": 1,
-      "frames_over_pct": 0.1201923076923077,
-      "worst_ms": 114.963625
+      "frames_over": 0,
+      "frames_over_pct": 0,
+      "worst_ms": 93.411083
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      9478,
-      9618,
-      9639,
-      9656,
-      9901
+      9662,
+      9793,
+      10030,
+      10137,
+      11031
     ],
-    "median_ms": 9639,
-    "spread_pct": 4.462966870647816
+    "median_ms": 10030,
+    "spread_pct": 14.168909128544815
   }
 }

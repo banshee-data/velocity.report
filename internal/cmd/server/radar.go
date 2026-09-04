@@ -653,13 +653,13 @@ func Main(args []string) int {
 				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:        tuningCfg.GetRemoveGround(),
-				Profile:             tuningCfg.GetProfile(),
+				Profile:             tuningCfg.Profile(),
 			}
 			// State the profile at startup unconditionally. A pipeline that is
 			// not running L4-L6 looks identical to a broken one from the
 			// outside — no detections — so the reason belongs in the log
 			// before anyone starts diagnosing the silence.
-			lidarProfile := tuningCfg.GetProfile()
+			lidarProfile := tuningCfg.Profile()
 			log.Printf("LiDAR pipeline profile: %s (runs L1-L%d)", lidarProfile, lidarProfile.TopLayer())
 			callback := pipelineConfig.NewFrameCallback()
 

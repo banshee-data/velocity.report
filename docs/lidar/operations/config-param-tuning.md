@@ -16,15 +16,15 @@ How to tune the LiDAR processing pipeline's configuration parameters at runtime,
 | Foreground/background | `noise_relative`, `closeness_multiplier`, `neighbor_confirmation_count`, `safety_margin_meters` | Detection sensitivity, false positives, empty-box risk |
 | Clustering            | `foreground_dbscan_eps`, `foreground_min_cluster_points`                                        | Fragmentation vs merge risk                            |
 | Tracking/association  | `gating_distance_squared`, `measurement_noise`, `process_noise_pos`, `process_noise_vel`        | ID stability, jitter, velocity alignment               |
-| Pipeline depth        | `pipeline.profile`, `pipeline.frame_budget_ms`                                                  | Which layers run at all; the per-frame lag threshold   |
+| Pipeline depth        | `l4.engine`, `l5.engine` set to `none`; `pipeline.frame_budget_ms`                              | Which layers run at all; the per-frame lag threshold   |
 
-`pipeline.profile` selects how far up the layer stack the pipeline runs —
-`l3-only`, `detect`, `track` or `full` (the default). Tuning the background model
-is faster and quieter under `l3-only`, which runs L3 and stops rather than paying
-for clustering on every frame. Ready-made configs are in
-`config/tuning.profile-<name>.json`. See
-[Performance regression testing](performance-regression-testing.md#profiles) for
-what each profile runs and costs.
+Setting a layer's `engine` to `none` switches that layer off, and the layers above
+it must be `none` too. That gives three depths — `l3-only`, `detect` and the default
+`full`. Tuning the background model is faster and quieter under `l3-only`, which runs
+L3 and stops rather than paying for clustering on every frame. Ready-made configs are
+in `config/profiles/`. See
+[Performance regression testing](performance-regression-testing.md#profiles) for what
+each depth runs and costs.
 
 ## 3. Apply runtime changes
 

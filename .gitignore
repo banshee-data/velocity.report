@@ -228,3 +228,12 @@ bin/grpc-probe
 /grpc-probe
 bin/typst
 bin/typst.exe
+
+# =============================================================================
+# LiDAR benchmark output
+# =============================================================================
+# `make test-perf` writes <capture>_<profile>_benchmark.json at the repo root
+# and removes it again outside CI. One escaped into the tree in #564; ignoring
+# the pattern stops the next one. Committed baselines live under
+# internal/lidar/perf/baseline/ and are not matched by this.
+*_benchmark.json

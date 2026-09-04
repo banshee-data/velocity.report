@@ -21,7 +21,6 @@ on:
           - full
           - l3-only
           - detect
-          - track
       capture:
         description: "Capture name under internal/lidar/perf/pcap"
         required: true

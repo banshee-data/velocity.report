@@ -32,7 +32,7 @@ func BenchMain(args []string) int {
 	fs.StringVar(&cfg.BenchmarkOutput, "benchmark-output", "", "Output file for benchmark JSON (default: {pcap}_benchmark.json)")
 	fs.StringVar(&cfg.CompareBaseline, "compare-baseline", "", "Compare against a baseline benchmark file")
 	fs.Float64Var(&cfg.RegressionThreshold, "regression-threshold", 0.10, "Threshold for flagging regressions (default: 0.10 = 10%)")
-	profileName := fs.String("profile", "", "Pipeline profile override: l3-only, detect, track, full (default: from config)")
+	profileName := fs.String("profile", "", "Reduce pipeline depth to l3-only or detect by disabling layers (default: whatever the config runs)")
 	fs.Float64Var(&cfg.MaxFramesOverBudgetPct, "max-frames-over-budget-pct", 1.0,
 		"Share of frames allowed to exceed pipeline.frame_budget_ms before the run fails")
 	fs.IntVar(&cfg.Repeats, "repeat", 1, "Run the benchmark N times and report the median run by wall clock")
@@ -70,7 +70,13 @@ func BenchMain(args []string) int {
 			fmt.Fprintf(os.Stderr, "-profile: %v\n", perr)
 			return 2
 		}
-		cfg.Profile = profile
+		// Apply to the config rather than carrying a parallel switch, so the
+		// fingerprint, the pipeline gates and the recorded profile all read
+		// the same configuration.
+		if perr := tuningCfg.ApplyProfile(profile); perr != nil {
+			fmt.Fprintf(os.Stderr, "-profile: %v\n", perr)
+			return 2
+		}
 	}
 	if cfg.Repeats < 1 {
 		fmt.Fprintln(os.Stderr, "-repeat must be at least 1")

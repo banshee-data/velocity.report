@@ -116,7 +116,7 @@ help:
 	@echo "  loc-coverage-chart   Render LOC + coverage SVG to dist/loc-coverage.svg"
 	@echo ""
 	@echo "PERFORMANCE:"
-	@echo "  test-perf            Perf gate for one profile (PROFILE=full|l3-only|detect|track)"
+	@echo "  test-perf            Perf gate for one profile (PROFILE=full|l3-only|detect)"
 	@echo "  test-perf-all        Perf gate across every gated profile"
 	@echo "  perf-baseline        Capture a baseline for one profile (median of 5 runs)"
 	@echo "  perf-baseline-all    Capture baselines for every gated profile"
@@ -1464,9 +1464,9 @@ loc-coverage-chart:
 
 PERF_REGRESSION_THRESHOLD ?= 0.30
 
-# Profiles the perf gate runs. `detect` and `track` exist and are measurable
-# on demand, but are not gated: an unexercised gated profile is a set of
-# numbers nobody can explain when it moves. See docs/plans/lidar-pipeline-profiles-plan.md.
+# Profiles the perf gate runs. `detect` is measurable on demand but not gated:
+# an unexercised gated profile is a set of numbers nobody can explain when it
+# moves. See docs/plans/lidar-pipeline-profiles-plan.md.
 PERF_GATED_PROFILES ?= full l3-only
 
 # Share of frames allowed past pipeline.frame_budget_ms before the run fails.

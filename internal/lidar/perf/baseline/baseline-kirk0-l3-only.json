@@ -1,9 +1,9 @@
 {
   "version": "2.0",
-  "timestamp": "2026-09-04T01:10:13Z",
+  "timestamp": "2026-09-04T02:36:44Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "l3-only",
-  "tuning_fingerprint": "c259fc967295",
+  "tuning_fingerprint": "ac5baadf4c32",
   "system_info": {
     "goos": "darwin",
     "goarch": "arm64",
@@ -12,31 +12,31 @@
     "commit_hash": "6d8c799e6c1a"
   },
   "metrics": {
-    "wall_clock_ms": 5118,
+    "wall_clock_ms": 5302,
     "frame_time_stats": {
-      "min_ms": 2.582167,
-      "max_ms": 16.297583,
-      "avg_ms": 3.410423787259615,
-      "p50_ms": 3.384583,
-      "p95_ms": 3.679,
-      "p99_ms": 4.579583,
+      "min_ms": 2.5755,
+      "max_ms": 16.545958,
+      "avg_ms": 3.501463473557691,
+      "p50_ms": 3.477708,
+      "p95_ms": 3.884583,
+      "p99_ms": 4.433,
       "samples": 832
     },
-    "frames_per_second": 162.56350136772176,
-    "packets_per_second": 29257.71785853849,
-    "points_per_second": 11210718.24931614,
-    "heap_alloc_bytes": 17849296,
-    "total_alloc_bytes": 16975746304,
-    "num_gc": 731,
-    "gc_pause_ns": 51977517,
-    "pipeline_time_ms": 5118,
+    "frames_per_second": 156.92191625801584,
+    "packets_per_second": 28242.36137306677,
+    "points_per_second": 10821662.768766504,
+    "heap_alloc_bytes": 17830328,
+    "total_alloc_bytes": 16974539072,
+    "num_gc": 735,
+    "gc_pause_ns": 53193355,
+    "pipeline_time_ms": 5302,
     "cluster_time_ms": 0,
     "tracking_time_ms": 0,
     "classify_time_ms": 0,
     "work": {
       "frames": 832,
-      "foreground_points": 2166349,
-      "background_points": 55210107,
+      "foreground_points": 2146889,
+      "background_points": 55229567,
       "clusters": 0,
       "confirmed_tracks": 0
     },
@@ -44,19 +44,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 16.297583
+      "worst_ms": 16.545958
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      5026,
-      5036,
-      5118,
-      5226,
-      5361
+      5134,
+      5206,
+      5302,
+      5420,
+      5525
     ],
-    "median_ms": 5118,
-    "spread_pct": 6.66534023079984
+    "median_ms": 5302,
+    "spread_pct": 7.6158940397351
   }
 }

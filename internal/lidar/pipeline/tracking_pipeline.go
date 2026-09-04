@@ -263,7 +263,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// before profiles existed intends.
 	profile := cfg.Profile
 	if profile == "" {
-		profile = config.DefaultProfile
+		profile = config.ProfileFull
 	}
 
 	// Get AnalysisRunManager from registry if not explicitly set
