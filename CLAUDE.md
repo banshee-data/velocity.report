@@ -85,7 +85,13 @@ make install-python   # Local dev Python tooling
 make proto-gen        # Regenerate Go + Swift protobuf stubs
 go run ./cmd/velocity report pdf --config report.json --db sensor_data.db --output ./reports
 make test-go-cov      # Go tests with coverage (→ coverage.html)
+make test-perf-all    # LiDAR perf gate across every gated profile
+make perf-baseline-all # Recapture perf baselines (median of 5 runs)
 ```
+
+A tuning change moves the config fingerprint, which makes the perf gate refuse the
+committed baselines rather than compare against them. Recapture in the same change:
+see [performance-regression-testing.md](docs/lidar/operations/performance-regression-testing.md).
 
 ## Architecture
 
@@ -149,6 +155,8 @@ For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented
 | L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI    |
 
 **`pipeline/`** is the composition root: it orchestrates L3–L6 and is the only package that imports from all layer packages; layer packages never import `pipeline/`.
+
+**Pipeline depth** is set by the per-layer `engine` selector in the tuning config: `"none"` disables a layer, and disabled layers must form a suffix (L5 cannot run without L4). That yields three depths — `l3-only`, `detect`, `full` — derived rather than configured separately, with ready-made configs in `config/profiles/`.
 
 Parameter tuning: `internal/lidar/sweep/`; combinatorial sweep, auto-tuner, and HINT (human-involved) tuner.
 

@@ -177,7 +177,7 @@ Three consequences, all binding:
    `adaptUnassociatedClusters`) so VRLOG recordings carry cluster-tagged points.
 4. Call `ExtractClusterFeatures` from the live path so `IntensityStd` and
    `VerticalSpread` carry real values.
-5. Benchmark against `internal/lidar/perf/baseline/baseline-kirk0.json`. A cap that
+5. Benchmark against `internal/lidar/perf/baseline/baseline-kirk0-full.json`. A cap that
    drops sustained frame rate below 10 Hz on target hardware is rejected; if the
    hot-path cost cannot be met, retention becomes analysis-and-replay-only, where
    throughput is not real-time bound.
