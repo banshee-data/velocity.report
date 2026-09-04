@@ -98,10 +98,24 @@ The comparator **refuses** to compare runs whose identity differs, and says whic
 field diverged. It does not emit a delta between incomparable things. A baseline
 with no `profile` or no `tuning_fingerprint` is refused outright.
 
-Work counters carry a 10% tolerance rather than requiring equality: L3's settling
-is wall-clock dependent, so counts drift slightly with replay speed. Measured drift
-across five repeats on one machine is under 0.01%; between profiles it is 33%,
-which the profile check catches first.
+Work counters carry a 10% tolerance rather than requiring equality, to absorb small
+genuine detection changes without demanding an emergency re-baseline. They are
+otherwise reproducible: the benchmark replays in **capture time**, so the same
+capture does the same work however fast the machine runs it. Two local runs produce
+identical foreground counts and cluster counts within 0.1%, and `l3-only` and `full`
+report the same foreground because L3 does the same work in both.
+
+That reproducibility is recent. The benchmark previously called
+`ProcessFramePolarWithMask`, which stamps `time.Now()` and is documented as the
+live-caller entry point, while feeding the parser system time rather than capture
+timestamps. L3's warm-up, freeze and settling windows are durations, so they advanced
+with machine speed: two CI runners 27% apart in wall clock produced foreground counts
+11% apart and cluster counts 20% apart, and `l3-only` and `full` disagreed by 33% on
+the same capture purely because one replays faster than the other.
+
+It is also why the June 2026 baseline recorded nothing at all. A 30-second warm-up
+measured in CPU time cannot elapse inside a five-second replay, so the grid never
+settled and no frame ever produced foreground.
 
 This is the check that was missing. The CI baseline committed in June 2026 recorded
 832 frames, **zero** foreground points and **zero** clusters — a pipeline whose

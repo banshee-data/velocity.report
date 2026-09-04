@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "timestamp": "2026-09-04T02:36:44Z",
+  "timestamp": "2026-09-04T05:37:56Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "l3-only",
   "tuning_fingerprint": "ac5baadf4c32",
@@ -12,31 +12,31 @@
     "commit_hash": "6d8c799e6c1a"
   },
   "metrics": {
-    "wall_clock_ms": 5302,
+    "wall_clock_ms": 5161,
     "frame_time_stats": {
-      "min_ms": 2.5755,
-      "max_ms": 16.545958,
-      "avg_ms": 3.501463473557691,
-      "p50_ms": 3.477708,
-      "p95_ms": 3.884583,
-      "p99_ms": 4.433,
+      "min_ms": 2.505625,
+      "max_ms": 16.738541,
+      "avg_ms": 3.439190186298075,
+      "p50_ms": 3.428375,
+      "p95_ms": 3.705709,
+      "p99_ms": 4.052125,
       "samples": 832
     },
-    "frames_per_second": 156.92191625801584,
-    "packets_per_second": 28242.36137306677,
-    "points_per_second": 10821662.768766504,
-    "heap_alloc_bytes": 17830328,
-    "total_alloc_bytes": 16974539072,
-    "num_gc": 735,
-    "gc_pause_ns": 53193355,
-    "pipeline_time_ms": 5302,
+    "frames_per_second": 161.20906801007558,
+    "packets_per_second": 29013.95078473164,
+    "points_per_second": 11117313.698895564,
+    "heap_alloc_bytes": 17851624,
+    "total_alloc_bytes": 16898688752,
+    "num_gc": 729,
+    "gc_pause_ns": 51087236,
+    "pipeline_time_ms": 5161,
     "cluster_time_ms": 0,
     "tracking_time_ms": 0,
     "classify_time_ms": 0,
     "work": {
       "frames": 832,
-      "foreground_points": 2146889,
-      "background_points": 55229567,
+      "foreground_points": 985224,
+      "background_points": 56391232,
       "clusters": 0,
       "confirmed_tracks": 0
     },
@@ -44,19 +44,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 16.545958
+      "worst_ms": 16.738541
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      5134,
-      5206,
-      5302,
-      5420,
-      5525
+      5114,
+      5119,
+      5161,
+      5166,
+      5184
     ],
-    "median_ms": 5302,
-    "spread_pct": 7.6158940397351
+    "median_ms": 5161,
+    "spread_pct": 1.368791552600704
   }
 }

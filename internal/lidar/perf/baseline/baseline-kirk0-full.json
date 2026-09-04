@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "timestamp": "2026-09-04T02:36:10Z",
+  "timestamp": "2026-09-04T05:37:26Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "full",
   "tuning_fingerprint": "851f30871291",
@@ -12,51 +12,51 @@
     "commit_hash": "6d8c799e6c1a"
   },
   "metrics": {
-    "wall_clock_ms": 10030,
+    "wall_clock_ms": 9127,
     "frame_time_stats": {
-      "min_ms": 2.376666,
-      "max_ms": 93.411083,
-      "avg_ms": 9.120161463942315,
-      "p50_ms": 5.368875,
-      "p95_ms": 37.837916,
-      "p99_ms": 75.018625,
+      "min_ms": 2.508666,
+      "max_ms": 94.503292,
+      "avg_ms": 8.239896388221155,
+      "p50_ms": 4.031958,
+      "p95_ms": 37.70175,
+      "p99_ms": 76.43475,
       "samples": 832
     },
-    "frames_per_second": 82.95114656031905,
-    "packets_per_second": 14929.312063808575,
-    "points_per_second": 5720484.147557328,
-    "heap_alloc_bytes": 17877848,
-    "total_alloc_bytes": 17685072640,
-    "num_gc": 777,
-    "gc_pause_ns": 61504844,
-    "pipeline_time_ms": 10030,
-    "cluster_time_ms": 4398,
-    "tracking_time_ms": 48,
-    "classify_time_ms": 47,
+    "frames_per_second": 91.15810233373506,
+    "packets_per_second": 16406.376684562285,
+    "points_per_second": 6286452.941820971,
+    "heap_alloc_bytes": 17852504,
+    "total_alloc_bytes": 17343071464,
+    "num_gc": 758,
+    "gc_pause_ns": 54429247,
+    "pipeline_time_ms": 9127,
+    "cluster_time_ms": 3894,
+    "tracking_time_ms": 9,
+    "classify_time_ms": 7,
     "work": {
       "frames": 832,
-      "foreground_points": 1625567,
-      "background_points": 55750889,
-      "clusters": 14134,
-      "confirmed_tracks": 5
+      "foreground_points": 985224,
+      "background_points": 56391232,
+      "clusters": 2862,
+      "confirmed_tracks": 25
     },
     "frame_budget": {
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 93.411083
+      "worst_ms": 94.503292
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      9662,
-      9793,
-      10030,
-      10137,
-      11031
+      9031,
+      9123,
+      9127,
+      9177,
+      9256
     ],
-    "median_ms": 10030,
-    "spread_pct": 14.168909128544815
+    "median_ms": 9127,
+    "spread_pct": 2.491418447569483
   }
 }
