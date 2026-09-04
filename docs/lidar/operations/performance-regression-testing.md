@@ -128,9 +128,21 @@ make perf-baseline-all
 ```
 
 Capture CI baselines on the runner, not locally — a local M1 run is roughly 1.4x
-faster, so a local baseline measures the wrong machine. Use the
-**📏 Capture Perf Baseline** workflow (`workflow_dispatch`), which uploads the
-result as an artifact for review in a pull request.
+faster, so a local baseline measures the wrong machine. The **📏 Capture Perf
+Baseline** workflow does it and uploads the result as an artifact to commit.
+
+It runs two ways. Dispatch it by hand (`workflow_dispatch`) to re-baseline on
+demand, choosing the profile, capture and repeat count. It also runs automatically
+on any pull request touching the perf harness, the tuning config or the committed
+baselines — which is exactly when a baseline needs recapturing, since a tuning
+change moves the fingerprint and the gate will refuse the old file. That automatic
+run is also the only way to capture before a merge: GitHub registers
+`workflow_dispatch` from the default branch alone, so a change that needs a fresh
+baseline cannot dispatch one until after it has landed, and it needs the baseline
+to land.
+
+Download the artifact, drop the `-ci` files into
+`internal/lidar/perf/baseline/`, and commit them in the same pull request.
 
 Under the Makefile, this is what runs:
 

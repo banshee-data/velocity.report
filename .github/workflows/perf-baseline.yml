@@ -7,8 +7,23 @@ name: 📏 Capture Perf Baseline
 # The result is uploaded as an artifact rather than committed. Committing a
 # baseline is a deliberate act — it redefines what "no regression" means — so
 # it goes through a pull request like any other change to the gate.
+#
+# It also runs on pull requests that touch the perf harness or the committed
+# baselines. That is the only way to capture on runner hardware before a merge:
+# GitHub registers workflow_dispatch from the default branch only, so a change
+# that needs a fresh baseline cannot dispatch one until after it has landed —
+# and it needs the baseline to land. Path-filtered, so ordinary pull requests
+# never pay for it.
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/perf-baseline.yml"
+      - "Makefile"
+      - "internal/cmd/lidar/**"
+      - "internal/config/**"
+      - "internal/lidar/lidarbench/**"
+      - "internal/lidar/perf/baseline/**"
   workflow_dispatch:
     inputs:
       profile:
@@ -41,7 +56,7 @@ permissions:
 
 jobs:
   capture:
-    name: "📏 Capture (${{ inputs.profile }})"
+    name: "📏 Capture (${{ inputs.profile || 'gated' }})"
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -68,13 +83,14 @@ jobs:
       - name: Capture baseline
         env:
           CI: "true"
-          NAME: ${{ inputs.capture }}
-          PERF_BASELINE_REPEATS: ${{ inputs.repeats }}
+          NAME: ${{ inputs.capture || 'kirk0' }}
+          PERF_BASELINE_REPEATS: ${{ inputs.repeats || '5' }}
+          PROFILE: ${{ inputs.profile || 'gated' }}
         run: |
-          if [ "${{ inputs.profile }}" = "gated" ]; then
+          if [ "$PROFILE" = "gated" ]; then
             make perf-baseline-all
           else
-            make perf-baseline PROFILE=${{ inputs.profile }}
+            make perf-baseline PROFILE="$PROFILE"
           fi
 
       - name: Show captured baselines
@@ -87,6 +103,6 @@ jobs:
       - name: Upload captured baselines
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: perf-baselines-${{ inputs.profile }}
+          name: perf-baselines-${{ inputs.profile || 'gated' }}
           path: internal/lidar/perf/baseline/baseline-*-ci.json
           if-no-files-found: error
