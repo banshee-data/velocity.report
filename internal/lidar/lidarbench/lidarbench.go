@@ -71,9 +71,32 @@ type Config struct {
 	RegressionThreshold float64
 
 	// MaxFramesOverBudgetPct is the share of frames allowed to exceed the
-	// per-frame budget before the run fails. It is a percentage, and it is
-	// checked whether or not a baseline is supplied.
-	MaxFramesOverBudgetPct float64
+	// per-frame budget before the run fails, as a percentage. Nil means the
+	// budget is not enforced.
+	//
+	// It is a pointer so that "unset" and "allow nothing" are different
+	// states. As a plain float the zero value read as the strictest possible
+	// setting, so every programmatic caller — the tests included — silently
+	// got zero tolerance. That is not a hypothetical: it failed CI, where a
+	// -race build with atomic coverage instrumentation puts 84% of frames
+	// past a budget the same code clears comfortably when built normally.
+	//
+	// The budget is a statement about production throughput on real
+	// hardware. An instrumented test binary cannot meet it and should not be
+	// asked to, so enforcement is opt-in here and switched on by the CLI,
+	// which is what the perf gate runs.
+	MaxFramesOverBudgetPct *float64
+
+	// WorkTolerance is the fraction by which a work counter may drift from
+	// the baseline before the runs are treated as different workloads. Zero
+	// selects DefaultWorkTolerance.
+	//
+	// It is a policy rather than a constant because how much drift is
+	// meaningful depends on the measurement. An uninstrumented full-capture
+	// run drifts under 0.01%; a bounded replay under -race drifts 20-40%,
+	// because L3 settling still carries wall-clock terms and a slower machine
+	// therefore settles at a different point in the capture.
+	WorkTolerance float64
 
 	// Repeats runs the benchmark this many times and reports the run whose
 	// wall clock is the median. One sample on a shared CI runner is not a
@@ -121,7 +144,10 @@ type WorkCounters struct {
 	ForegroundPoints int `json:"foreground_points"`
 	BackgroundPoints int `json:"background_points"`
 	Clusters         int `json:"clusters"`
-	ConfirmedTracks  int `json:"confirmed_tracks"`
+	// ConfirmedTracks is the peak concurrent confirmed-track count. It is
+	// reported but not used as workload identity: it is a single-digit number
+	// on a typical capture, where a proportional tolerance is meaningless.
+	ConfirmedTracks int `json:"confirmed_tracks"`
 }
 
 // FrameBudget records the per-frame wall-clock ceiling and how often the run
@@ -614,7 +640,12 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	atomic.AddInt64(&fb.trackTimeNs, time.Since(trackStart).Nanoseconds())
 
 	confirmed := fb.tracker.GetConfirmedTracks()
-	fb.res.ConfirmedTracks = len(confirmed)
+	// Peak concurrent confirmed tracks. Assigning each frame's count left the
+	// figure as whatever the final frame happened to hold, which described
+	// nothing about the run.
+	if n := len(confirmed); n > fb.res.ConfirmedTracks {
+		fb.res.ConfirmedTracks = n
+	}
 
 	if !fb.profile.RunsLayer(6) {
 		fb.frameTimes = append(fb.frameTimes, msSince(frameStart))
@@ -733,21 +764,28 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 
 	exitCode := 0
 
-	// The budget check runs first and runs unconditionally. It is the only
-	// check that does not need a baseline, and it answers the question a
-	// relative gate cannot: is the pipeline fast enough for the sensor?
-	if err := checkFrameBudget(metrics.FrameBudget, cfg.MaxFramesOverBudgetPct); err != nil {
-		fmt.Fprintf(os.Stderr, "\n[FRAME BUDGET] %v\n", err)
-		exitCode = 1
+	// The budget check needs no baseline, and answers the question a relative
+	// gate cannot: is the pipeline fast enough for the sensor? It runs only
+	// when an allowance is configured, because an instrumented build cannot
+	// meet a production throughput budget.
+	if cfg.MaxFramesOverBudgetPct != nil {
+		if err := checkFrameBudget(metrics.FrameBudget, *cfg.MaxFramesOverBudgetPct); err != nil {
+			fmt.Fprintf(os.Stderr, "\n[FRAME BUDGET] %v\n", err)
+			exitCode = 1
+		}
 	}
 
 	if cfg.CompareBaseline != "" {
 		baseline, err := readBaseline(cfg.CompareBaseline)
 		switch {
 		case err != nil:
-			log.Printf("Warning: %v", err)
+			// A comparison that was asked for and could not happen is a
+			// failure, not a warning. Warnings go through log, which -quiet
+			// sends to io.Discard, so this used to pass CI in silence.
+			fmt.Fprintf(os.Stderr, "\n[BASELINE UNREADABLE] %v\n", err)
+			exitCode = 1
 		default:
-			if idErr := checkWorkloadIdentity(baseline, &benchResult); idErr != nil {
+			if idErr := checkWorkloadIdentity(baseline, &benchResult, workTolerance(cfg)); idErr != nil {
 				fmt.Fprintf(os.Stderr, "\n[BASELINE REFUSED] %v\n", idErr)
 				fmt.Fprintf(os.Stderr,
 					"Not reporting a regression: these runs did not measure the same workload.\n"+
@@ -809,6 +847,15 @@ func readBaseline(path string) (*BenchmarkResult, error) {
 		return nil, fmt.Errorf("failed to parse baseline file: %w", err)
 	}
 	return &baseline, nil
+}
+
+// workTolerance resolves the configured work-counter tolerance, treating the
+// zero value as unset rather than as "allow no drift at all".
+func workTolerance(cfg Config) float64 {
+	if cfg.WorkTolerance <= 0 {
+		return DefaultWorkTolerance
+	}
+	return cfg.WorkTolerance
 }
 
 // tuningFingerprint returns the fingerprint of the config this run measured.
@@ -980,12 +1027,12 @@ func formatBytes(b uint64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-// workTolerance is the fraction by which a work counter may drift from the
-// baseline before the two runs are treated as different workloads. Counts are
-// deterministic for a given code, config and capture, so any movement is a
+// DefaultWorkTolerance is the fraction by which a work counter may drift from
+// the baseline before the two runs are treated as different workloads. Counts
+// are near-deterministic for a given code, config and capture, so movement is a
 // behaviour change; the tolerance exists so that a genuine but small detection
 // improvement does not have to be re-baselined as an emergency.
-const workTolerance = 0.10
+const DefaultWorkTolerance = 0.10
 
 // identityError reports that two benchmark runs are not comparable. It is
 // deliberately distinct from a regression: a regression says the pipeline got
@@ -1003,7 +1050,7 @@ func (e *identityError) Error() string {
 // baseline it compared against had recorded 832 frames, zero foreground points
 // and zero clusters, and every "regression" it reported was the cost of the
 // pipeline finally doing its job.
-func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult) error {
+func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult, tolerance float64) error {
 	var reasons []string
 
 	if baseline.Profile == "" {
@@ -1020,8 +1067,12 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult) 
 			baseline.TuningFingerprint, current.TuningFingerprint))
 	}
 
-	if baseline.PCAPFile != "" && current.PCAPFile != "" && baseline.PCAPFile != current.PCAPFile {
-		reasons = append(reasons, fmt.Sprintf("capture %s vs %s", baseline.PCAPFile, current.PCAPFile))
+	// Compare capture basenames. A benchmark document records the base name,
+	// but a baseline written by hand or by an older tool may carry a path,
+	// and "../perf/pcap/kirk0.pcapng vs kirk0.pcapng" is not a workload
+	// difference.
+	if b, c := filepath.Base(baseline.PCAPFile), filepath.Base(current.PCAPFile); baseline.PCAPFile != "" && current.PCAPFile != "" && b != c {
+		reasons = append(reasons, fmt.Sprintf("capture %s vs %s", b, c))
 	}
 
 	// Architecture is part of the workload identity, not a footnote. Timings
@@ -1045,7 +1096,7 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult) 
 		}
 	}
 
-	reasons = append(reasons, workDifferences(baseline.Metrics.Work, current.Metrics.Work)...)
+	reasons = append(reasons, workDifferences(baseline.Metrics.Work, current.Metrics.Work, tolerance)...)
 
 	if len(reasons) > 0 {
 		return &identityError{reasons: reasons}
@@ -1054,7 +1105,7 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult) 
 }
 
 // workDifferences reports the work counters that moved beyond tolerance.
-func workDifferences(baseline, current WorkCounters) []string {
+func workDifferences(baseline, current WorkCounters, tolerance float64) []string {
 	counters := []struct {
 		name     string
 		baseline int
@@ -1062,8 +1113,15 @@ func workDifferences(baseline, current WorkCounters) []string {
 	}{
 		{"frames", baseline.Frames, current.Frames},
 		{"foreground_points", baseline.ForegroundPoints, current.ForegroundPoints},
+		{"background_points", baseline.BackgroundPoints, current.BackgroundPoints},
 		{"clusters", baseline.Clusters, current.Clusters},
 	}
+
+	// confirmed_tracks is recorded but deliberately not compared. It is the
+	// peak concurrent track count — a single-digit number on this capture —
+	// where a 10% tolerance is meaningless and any ±1 would refuse the
+	// comparison. Making track counts a usable identity signal needs a
+	// cumulative measure rather than a peak; see the backlog.
 
 	var out []string
 	for _, c := range counters {
@@ -1075,7 +1133,7 @@ func workDifferences(baseline, current WorkCounters) []string {
 			continue
 		}
 		drift := math.Abs(float64(c.current-c.baseline)) / float64(c.baseline)
-		if drift > workTolerance {
+		if drift > tolerance {
 			out = append(out, fmt.Sprintf("%s %d vs %d (%+.1f%%)",
 				c.name, c.baseline, c.current, drift*100))
 		}

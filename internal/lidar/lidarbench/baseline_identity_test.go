@@ -31,7 +31,7 @@ func comparableResult() *BenchmarkResult {
 // TestIdentityAcceptsMatchingRuns establishes the baseline behaviour the other
 // cases deviate from: two runs of the same workload compare normally.
 func TestIdentityAcceptsMatchingRuns(t *testing.T) {
-	if err := checkWorkloadIdentity(comparableResult(), comparableResult()); err != nil {
+	if err := checkWorkloadIdentity(comparableResult(), comparableResult(), DefaultWorkTolerance); err != nil {
 		t.Errorf("identical workloads were refused: %v", err)
 	}
 }
@@ -53,7 +53,7 @@ func TestIdentityRefusesTheJune2026Baseline(t *testing.T) {
 		}},
 	}
 
-	err := checkWorkloadIdentity(stale, comparableResult())
+	err := checkWorkloadIdentity(stale, comparableResult(), DefaultWorkTolerance)
 	if err == nil {
 		t.Fatal("the stale baseline was accepted as comparable")
 	}
@@ -125,7 +125,7 @@ func TestIdentityRefusalReasons(t *testing.T) {
 			baseline := comparableResult()
 			tc.mutate(baseline)
 
-			err := checkWorkloadIdentity(baseline, comparableResult())
+			err := checkWorkloadIdentity(baseline, comparableResult(), DefaultWorkTolerance)
 			if err == nil {
 				t.Fatalf("expected a refusal for %s", tc.name)
 			}
@@ -145,7 +145,7 @@ func TestIdentityToleratesSmallWorkDrift(t *testing.T) {
 	// +5%, inside the 10% tolerance.
 	current.Metrics.Work.Clusters = 14_546
 
-	if err := checkWorkloadIdentity(baseline, current); err != nil {
+	if err := checkWorkloadIdentity(baseline, current, DefaultWorkTolerance); err != nil {
 		t.Errorf("a 5%% cluster drift was refused: %v", err)
 	}
 }
@@ -158,7 +158,7 @@ func TestIdentityRefusesJustBeyondTolerance(t *testing.T) {
 	// +15%, outside the 10% tolerance.
 	current.Metrics.Work.Clusters = 15_932
 
-	if err := checkWorkloadIdentity(baseline, current); err == nil {
+	if err := checkWorkloadIdentity(baseline, current, DefaultWorkTolerance); err == nil {
 		t.Error("a 15% cluster drift was accepted as the same workload")
 	}
 }
@@ -169,7 +169,7 @@ func TestIdentitySkipsCaptureCheckWhenUnnamed(t *testing.T) {
 	baseline := comparableResult()
 	baseline.PCAPFile = ""
 
-	if err := checkWorkloadIdentity(baseline, comparableResult()); err != nil {
+	if err := checkWorkloadIdentity(baseline, comparableResult(), DefaultWorkTolerance); err != nil {
 		t.Errorf("an unnamed capture should not by itself refuse the comparison: %v", err)
 	}
 }
@@ -389,7 +389,7 @@ func TestIdentityRefusesDifferentPlatform(t *testing.T) {
 	current := comparableResult()
 	current.SystemInfo = SystemInfo{GOOS: "linux", GOARCH: "amd64", NumCPU: 4}
 
-	err := checkWorkloadIdentity(baseline, current)
+	err := checkWorkloadIdentity(baseline, current, DefaultWorkTolerance)
 	if err == nil {
 		t.Fatal("a baseline from another platform was accepted")
 	}
@@ -409,7 +409,7 @@ func TestIdentityWarnsButAcceptsDifferentCPUCount(t *testing.T) {
 	current := comparableResult()
 	current.SystemInfo = SystemInfo{GOOS: "linux", GOARCH: "amd64", NumCPU: 8, GoVersion: "go1.26.5"}
 
-	if err := checkWorkloadIdentity(baseline, current); err != nil {
+	if err := checkWorkloadIdentity(baseline, current, DefaultWorkTolerance); err != nil {
 		t.Errorf("a CPU count or Go version change should warn, not refuse: %v", err)
 	}
 }
@@ -420,7 +420,7 @@ func TestIdentitySkipsPlatformCheckWhenUnrecorded(t *testing.T) {
 	baseline := comparableResult()
 	baseline.SystemInfo = SystemInfo{}
 
-	if err := checkWorkloadIdentity(baseline, comparableResult()); err != nil {
+	if err := checkWorkloadIdentity(baseline, comparableResult(), DefaultWorkTolerance); err != nil {
 		t.Errorf("missing system info should not by itself refuse: %v", err)
 	}
 }

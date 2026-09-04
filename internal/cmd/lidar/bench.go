@@ -33,8 +33,10 @@ func BenchMain(args []string) int {
 	fs.StringVar(&cfg.CompareBaseline, "compare-baseline", "", "Compare against a baseline benchmark file")
 	fs.Float64Var(&cfg.RegressionThreshold, "regression-threshold", 0.10, "Threshold for flagging regressions (default: 0.10 = 10%)")
 	profileName := fs.String("profile", "", "Reduce pipeline depth to l3-only or detect by disabling layers (default: whatever the config runs)")
-	fs.Float64Var(&cfg.MaxFramesOverBudgetPct, "max-frames-over-budget-pct", 1.0,
+	maxOverBudgetPct := fs.Float64("max-frames-over-budget-pct", 1.0,
 		"Share of frames allowed to exceed pipeline.frame_budget_ms before the run fails")
+	fs.Float64Var(&cfg.WorkTolerance, "work-tolerance", lidarbench.DefaultWorkTolerance,
+		"Fraction a work counter may drift from the baseline before the runs are treated as different workloads")
 	fs.IntVar(&cfg.Repeats, "repeat", 1, "Run the benchmark N times and report the median run by wall clock")
 	fs.BoolVar(&cfg.Quiet, "quiet", false, "Suppress non-essential output to keep measurements clean")
 	fs.BoolVar(&cfg.Quiet, "q", false, "Suppress non-essential output (alias for -quiet)")
@@ -64,6 +66,9 @@ func BenchMain(args []string) int {
 		return 1
 	}
 	cfg.Tuning = tuningCfg
+	// The CLI always enforces the budget: this is what the perf gate runs, on
+	// an uninstrumented binary that can actually meet it.
+	cfg.MaxFramesOverBudgetPct = maxOverBudgetPct
 	if *profileName != "" {
 		profile, perr := config.ParseProfile(*profileName)
 		if perr != nil {

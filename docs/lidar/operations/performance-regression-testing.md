@@ -46,12 +46,18 @@ layer is inert rather than listing nine clustering parameters that have no effec
 Profiles and engines stay orthogonal: `detect` running `hdbscan_adaptive_v1` is the
 same depth as `detect` running `dbscan_xy_v1`, and the profile label does not move.
 
-Ready-made configs live in `config/profiles/<name>.json`. They are derived, not
-authored: each is `config/tuning.defaults.json` with layers switched off, and a test
-asserts they match exactly that — two profiles are comparable only if depth is the
-sole difference between them. They sit outside `config/tuning*.json` because the
-key-order tooling requires those to carry every key, which a config with disabled
-layers deliberately does not.
+Ready-made configs live in `config/profiles/<name>.json` — but only for the reduced
+depths. **`full` has no file of its own: it is `config/tuning.defaults.json`**, since
+running every layer is what the defaults already describe. `ProfileConfigPath` in
+[internal/config/profile.go](../../../internal/config/profile.go) is the authority,
+and returns the defaults path for `full`.
+
+The reduced-depth configs are derived, not authored: each is
+`config/tuning.defaults.json` with layers switched off, and a test asserts they match
+exactly that — two profiles are comparable only if depth is the sole difference
+between them. They sit outside `config/tuning*.json` because the key-order tooling
+requires those to carry every key, which a config with disabled layers deliberately
+does not.
 
 **Validation.** Disabled layers must form a suffix: `l5.engine` must be `none` when
 `l4.engine` is. Tracking cannot consume clusters that were never produced, so that is

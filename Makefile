@@ -1551,12 +1551,19 @@ perf-baseline:
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
 	echo "Capturing $$PROFILE baseline from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
-	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench; \
-	./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
-		-repeat "$(PERF_BASELINE_REPEATS)" \
-		-max-frames-over-budget-pct 100 \
-		-benchmark-output "$$BASELINE_FILE"; \
+	EXIT_CODE=0; \
+	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench || EXIT_CODE=$$?; \
+	if [ $$EXIT_CODE -eq 0 ]; then \
+		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
+			-repeat "$(PERF_BASELINE_REPEATS)" \
+			-max-frames-over-budget-pct 100 \
+			-benchmark-output "$$BASELINE_FILE" || EXIT_CODE=$$?; \
+	fi; \
 	rm -f lidar-bench; \
+	if [ $$EXIT_CODE -ne 0 ]; then \
+		echo "Capture failed ($$EXIT_CODE); $$BASELINE_FILE not updated"; \
+		exit $$EXIT_CODE; \
+	fi; \
 	echo "Wrote $$BASELINE_FILE"
 
 # Capture baselines for every gated profile.
