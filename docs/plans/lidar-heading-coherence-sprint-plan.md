@@ -271,16 +271,18 @@ The "before" arm restores the pre-sprint behaviour: `obb_heading_lock_max_reject
 `min_associable_extent_metres: 0`, and `deleted_track_render_fade` back on the
 5 s grace period.
 
-| Metric                            | Before         | After                 | Change         |
-| --------------------------------- | -------------- | --------------------- | -------------- |
-| Median per-track course error     | **40.8°**      | **28.3° to 29.6°**    | **−28 %**      |
-| Locked share of live track-frames | 24.8 %         | 16.1 % to 16.6 %      | −34 %          |
-| Longest single lock run           | **70 frames**  | **20 frames**         | **−71 %**      |
-| Published `DELETED` track-frames  | 8,617 (54.0 %) | 951 (11.4 %)          | **−89 %**      |
-| Total published track-frames      | 15,970         | 8,377                 | −48 %          |
-| Tracks entering a sustained lock  | 63             | 53 to 58              | −11 %          |
-| Tracks trapped                    | 37 (20 %)      | 30 to 35 (16 to 19 %) | small          |
-| Fragmentation ratio               | 0.286          | 0.291 to 0.296        | slightly worse |
+| Metric                            | Before         | After         | Change         |
+| --------------------------------- | -------------- | ------------- | -------------- |
+| Median per-track course error     | **40.8°**      | **29.7°**     | **−27 %**      |
+| Locked share of live track-frames | 24.5 %         | 16.0 %        | −35 %          |
+| Longest single lock run           | **70 frames**  | **20 frames** | **−71 %**      |
+| Published `DELETED` track-frames  | 8,639 (53.9 %) | 942 (11.3 %)  | **−89 %**      |
+| Total published track-frames      | 16,034         | 8,309         | −48 %          |
+| Tracks entering a sustained lock  | 64             | 53            | −17 %          |
+| Tracks trapped                    | 38 (21 %)      | 31 (17 %)     | −18 %          |
+| Fragmentation ratio               | 0.301          | 0.313         | slightly worse |
+
+Both arms replay 601 frames. Every figure is reproducible to the digit.
 
 Four things this says that a single number would hide.
 
@@ -300,17 +302,30 @@ designed to detect a permanent ratchet and now conflates "never escapes" with
 track being lost for good, but it does not make the heading right. That is the
 case for D2.1, exactly where the plan put it.
 
-**Fragmentation got slightly worse, as intended.** The fragment guard leaves a
-scrap unassociated, so it seeds its own short-lived track instead of corrupting
-a vehicle's. A correct small track is a better outcome than a corrupted large
-one, but the ratio moves the wrong way and should not be read as a regression
-without that context.
+**Fragmentation got slightly worse, as intended, and the mechanism is
+confirmed.** The fragment guard leaves a scrap unassociated, so it seeds its
+own short-lived track instead of corrupting a vehicle's. The track census shows
+exactly that trade: four more tracks under half a second, and six _fewer_ tracks
+whose average bounding box is under half a metre, 53 down to 47. Six vehicle
+tracks that were previously shrunk to fragment size no longer are. The ratio
+moves the wrong way because it counts tracks, not correctness.
 
-**Run-to-run variance.** Two identical "after" runs gave 29.6° and 28.3° median,
-and 35 versus 30 trapped tracks. Frame assembly is not bit-deterministic, so
-the harness reproduces frame counts but not exact per-track outcomes. The
-signal here is 11° to 12° against roughly 1.3° of noise, which is comfortable,
-but a regression fixture (D2.5) will need a tolerance rather than an equality.
+**The harness was dropping frames, and now does not.** The first version of
+these figures varied run to run: 588 to 592 frames, medians between 28.3° and
+30.2°, trapped counts between 30 and 35. The cause was not frame assembly
+timing, which was the first guess and was wrong. `FrameBuilder` discards a
+frame when the callback channel is full, which is right for a live sensor and
+wrong here: the PCAP reader outruns clustering and tracking, so frames were
+lost at whatever rate the machine happened to impose. `pcapsplit` and the
+server's own analysis mode both call `SetBlockOnFrameChannel(true)` for this
+reason; the harness did not.
+
+With back-pressure enabled the harness is exactly reproducible: three
+consecutive runs agree on frame count, track count, every percentile, and the
+trapped count. Frame count also rose from about 588 to 601, so roughly 13
+frames per run were being silently discarded. The table above is the re-run,
+and the earlier conclusions survived unchanged because both arms were losing
+frames at the same rate.
 
 ### Day 2: axis coherence and an honest score
 
@@ -371,8 +386,11 @@ velocity lidar pcap-replay --pcap capture.pcap --output ./runs/after --compare-t
 
 Notes that matter for using it:
 
-- Sixty seconds of capture replays in about 12 seconds on an M-series Mac, so an
-  A/B is a two-minute loop rather than a scheduled job.
+- Sixty seconds of capture replays in about six seconds on an M-series Mac, so
+  an A/B is a two-minute loop rather than a scheduled job.
+- Back-pressure is on (`SetBlockOnFrameChannel`). Without it the PCAP reader
+  outruns the pipeline and frames are dropped at a machine-dependent rate,
+  which makes an A/B meaningless. With it, runs are reproducible to the digit.
 - The frame-rate throttle is off. It exists to stop a real-time replay flooding
   a live gRPC client, and dropping frames would make two runs disagree for
   reasons unrelated to the change under test.
