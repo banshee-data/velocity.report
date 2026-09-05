@@ -46,9 +46,7 @@ separate things happening at once:
 2. A second, frozen ghost box left by a deleted track, five seconds long.
 3. A live box and a fragment box on the same vehicle, moving differently.
 
-Tuning the smoother will not touch any of the three. Tightening the aspect-ratio
-lock, which is the open Fix D in the heading stability review, makes the first
-one worse.
+Tuning the smoother will not touch any of the three.
 
 ### 1.2 Track `trk_18952226`, frame by frame
 
@@ -87,12 +85,37 @@ would have noticed a box pointing 106° away from the direction of travel.
 
 ## 3. What the outstanding maths gives us
 
-| Proposal                                                                                                                  | Status                           | Use in this sprint                                                                                                                                              |
-| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [geometry-coherent-tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)                           | Proposal, costed L, 6 to 7 days  | Take §2.3 axis-selection likelihood test only. It is the escape hatch RC1 needs and is about 40 lines                                                           |
-| [obb-heading-stability-review](../../data/maths/proposals/20260222-obb-heading-stability-review.md)                       | Fixes B, C, G landed; Fix D open | **Do not land Fix D.** Tightening the lock threshold to 0.15 or 0.10 increases lock entry, and 59 % of locks are permanent. Record the measurement and close it |
-| [velocity-coherent-foreground-extraction](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | Proposal                         | Not in this sprint. Would give a PCA-independent heading signal                                                                                                 |
-| [lidar-state-estimation-plan](lidar-state-estimation-plan.md)                                                             | Draft, this PR                   | The near-edge measurement work supersedes the medoid. Out of scope for two days, but D1.4's metric is the gate it will be judged on                             |
+| Proposal                                                                                                                  | Status                                                                                           | Use in this sprint                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [geometry-coherent-tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)                           | Proposal, costed L. **Superseded as the structural reference** by its own 2026-09-05 declaration | Its §2.3 axis-selection test is still the cheapest escape from RC1, but its extent averaging and count-only uncertainty shrinkage are named as heuristics. Take the axis test; do not take the geometry model |
+| [obb-heading-stability-review](../../data/maths/proposals/20260222-obb-heading-stability-review.md)                       | Fixes B, C, G landed; Fix D open                                                                 | **Fix D is worth measuring, and this plan first said the opposite.** See the correction below. The review's own 2026-09-05 declaration also redirects new structural work to the visibility-aware review      |
+| [velocity-coherent-foreground-extraction](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | Proposal                                                                                         | Not in this sprint. Would give a PCA-independent heading signal                                                                                                                                               |
+| [lidar-state-estimation-plan](lidar-state-estimation-plan.md)                                                             | Draft, this PR                                                                                   | The near-edge measurement work supersedes the medoid. Out of scope for two days, but D1.4's metric is the gate it will be judged on                                                                           |
+
+#### Correction: the aspect-ratio lock threshold runs the other way
+
+An earlier revision of this plan recommended closing Fix D on the grounds that
+lowering `obb_aspect_ratio_lock_threshold` would increase lock entry. That is
+backwards. The guard locks when
+
+```text
+abs(L - W) / max(L, W) < threshold
+```
+
+so lowering the threshold makes the condition harder to satisfy and locks
+**fewer** clusters. A cluster at 0.20 locks at 0.25 but not at 0.15. The
+correction came from the incoming heading-review revision, and the code at
+[tracking_update.go](../../internal/lidar/l5tracks/tracking_update.go) confirms it.
+
+The measurement that prompted the recommendation still stands: lock entry is
+the failure mode, with 55 % of tracks locking and 65 % of those never releasing.
+The inference drawn from it was inverted. Lowering the threshold is a candidate
+remedy, not something to rule out, and with the deterministic harness it is a
+two-minute experiment rather than an argument.
+
+The review's own 2026-09-05 declaration adds a second caution: aspect ratio
+alone does not establish heading observability, so a threshold should be chosen
+against observable-yaw and turn-lag evidence rather than tuned for its own sake.
 
 ### 3.1 The one piece of D-04 worth taking now
 
@@ -107,6 +130,26 @@ This is the correct answer to a PCA axis swap, and unlike Guard 3 it always
 produces an answer, so it cannot deadlock. Taking the axis test alone, with a
 simple running mean rather than the full Bayesian state, is a half-day change
 that removes the ratchet.
+
+### 3.2 D2.1's design basis moved
+
+The incoming heading-review revision adds a declaration to both older proposals:
+D-04's Gaussian extent averages, count-only uncertainty shrinkage, and scalar
+angle blending are heuristics rather than a complete Bayesian geometry model,
+and new structural work should follow
+[the visibility-aware review](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
+instead. That review distinguishes an observed envelope from a physical body
+box, course from body yaw, and low fitting error from pose observability. It
+also corrects a statistical claim carried in D-04: a squared Mahalanobis
+threshold of 6.0 is not a 2.5-sigma test per dimension, because its coverage
+depends on the residual dimension.
+
+This does not cancel D2.1, but it narrows it. The axis-selection likelihood test
+is still the right cheap escape from Guard 3, because it always yields an answer
+and therefore cannot deadlock. What it must not do is drag in D-04's extent and
+uncertainty machinery on the way. Anything beyond the axis test should be
+designed against the visibility-aware review, which is a larger piece of work
+than this sprint.
 
 ## 4. Two-day plan
 
@@ -421,13 +464,13 @@ against this document will flag them. <!-- link-ignore -->
 - Dimension freeze and fragment capture (heading coherence D1.4, D1.5): while the heading is locked the tracker updates only height, so one bad frame's dimensions persist for the track's life; a 0.11 m by 0.08 m fragment was associated to a 4.33 m car and became its size for 28 frames. Project cluster extents onto the locked axes and refuse sub-0.5 m clusters as measurements for confirmed metre-scale tracks: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
 - Stop publishing deleted tracks (heading coherence D1.6): `deleted_track_grace_period` is an internal re-association window, but deleted tracks are streamed to clients with frozen state, and 45.8 % of all published track-frames in run `baf20f02` were ghosts. Exclude or flag them at the L9 adapter: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
 - Objective function rewards the defect (heading coherence D2.3): `HeadingJitter` carries a negative weight and a fully locked heading has near-zero jitter, so the auto-tuner scores locking as success; `ActiveTracks` carries a positive log-scale weight, so splitting one vehicle into two scores better than tracking it once. Zero the jitter term, add course alignment, and band the track count: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
-- Axis-selection likelihood test (heading coherence D2.1): take §2.3 of the geometry-coherent tracking proposal alone, choosing between the aligned and 90°-swapped interpretation of each OBB observation against a running dimension mean. Unlike Guard 3 it always yields an answer, so it cannot deadlock; replaces Guard 2 and demotes Guard 3 to a counter: [design doc](plans/lidar-heading-coherence-sprint-plan.md), [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M` {math}
+- Axis-selection likelihood test (heading coherence D2.1): take §2.3 of the geometry-coherent tracking proposal alone, choosing between the aligned and 90°-swapped interpretation of each OBB observation against a running dimension mean. Unlike Guard 3 it always yields an answer, so it cannot deadlock; replaces Guard 2 and demotes Guard 3 to a counter. Take the axis test only: that proposal's own 2026-09-05 declaration names its extent averaging and uncertainty shrinkage as heuristics and redirects structural work to the visibility-aware review: [design doc](plans/lidar-heading-coherence-sprint-plan.md), [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [visibility-aware review](../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md) `M` {math}
 - Shape-aware association gate (heading coherence D2.2): the gate is a 6 m position radius with no size term, which is how a fragment captures a car; 98.2 % of frames in run `baf20f02` contain a co-located track pair within 3 m. Add a dimension-consistency term to the assignment cost: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `M` {math}
 - Per-run alignment panel on the 8080 run page (heading coherence D2.4): course-alignment distribution, heading-source histogram, lock-run lengths and co-located-pair count on the existing Svelte run detail page, consuming the extended run API rather than adding an endpoint: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `M`
 
 **Close without merge**
 
-- Fix D of the OBB heading stability review, tightening `obb_aspect_ratio_lock_threshold` from 0.25 to 0.15 or 0.10, should be closed rather than validated. Measurement on run `baf20f02` shows lock entry is the failure mode, not lock absence: 55 % of tracks lock and 59 % of those never recover. Tightening the threshold increases lock entry: [design doc](plans/lidar-heading-coherence-sprint-plan.md)
+- Measure Fix D of the OBB heading stability review, lowering `obb_aspect_ratio_lock_threshold` from 0.25. The lock fires when `abs(L-W)/max(L,W) < threshold`, so a lower threshold locks **fewer** clusters, not more. Lock entry is the failure mode on run `baf20f02`, which makes this a candidate remedy rather than something to close. The deterministic replay harness makes it a two-minute experiment: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
 
 ## 7. Risks
 
