@@ -45,6 +45,8 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		lastX, lastY        float32
 		speeds              []float32
 		headings            []float32 // per-frame HeadingRad, for jitter
+		obbHeadings         []float32 // per-frame BBoxHeadingRad, for course alignment
+		live                []bool    // per-frame: track was not DELETED
 		xs, ys              []float32 // per-frame position, for alignment
 		vxs, vys            []float32 // per-frame velocity, for alignment
 		bboxL, bboxW, bboxH []float32
@@ -118,6 +120,8 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.lastY = t.Y
 				acc.speeds = append(acc.speeds, t.SpeedMps)
 				acc.headings = append(acc.headings, t.HeadingRad)
+				acc.obbHeadings = append(acc.obbHeadings, t.BBoxHeadingRad)
+				acc.live = append(acc.live, t.State != l9endpoints.TrackStateDeleted)
 				acc.xs = append(acc.xs, t.X)
 				acc.ys = append(acc.ys, t.Y)
 				acc.vxs = append(acc.vxs, t.VX)
@@ -175,6 +179,8 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		confirmedSpeedJitters []float64
 		confirmedAlignMeans   []float64
 		confirmedMisalignRats []float64
+		sampledCourseP50      []float64
+		sampledCourseP90      []float64
 	)
 
 	classDist := make(map[string]*classAccum)
@@ -187,33 +193,51 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		// §12.1 per-track implementable-now metrics
 		speedVar := speedVariance(acc.speeds)
 		headJitter := headingJitterDeg(acc.headings)
+		obbHeadJitter := headingJitterDeg(acc.obbHeadings)
 		speedJitter := speedJitterMps(acc.speeds)
 		alignMean, misalignRatio := alignmentMetrics(acc.xs, acc.ys, acc.vxs, acc.vys)
+		courseP50, courseP90, courseN := courseAlignmentMetrics(
+			acc.obbHeadings, acc.headings, acc.speeds, acc.live, CourseAlignmentMinSpeedMps)
+
+		// Course alignment is rolled up over every track that produced samples,
+		// not only those whose final state is confirmed. acc.state holds the
+		// last state seen, so a track that ran confirmed for sixty frames and
+		// was then deleted counts as deleted and would be dropped from every
+		// aggregate keyed on it. The sample gate (live frame, at or above
+		// CourseAlignmentMinSpeedMps) is the meaningful filter here.
+		if courseN > 0 {
+			sampledCourseP50 = append(sampledCourseP50, float64(courseP50))
+			sampledCourseP90 = append(sampledCourseP90, float64(courseP90))
+		}
 
 		td := TrackDetail{
-			TrackID:           id,
-			State:             trackStateName(acc.state),
-			ObjectClass:       acc.objectClass,
-			ClassConfidence:   acc.classConf,
-			ObservationCount:  acc.obsCount,
-			Hits:              acc.hits,
-			Misses:            acc.misses,
-			FirstSeenNs:       acc.firstSeen,
-			LastSeenNs:        acc.lastSeen,
-			DurationSecs:      dur,
-			AvgSpeedMps:       avgSpeed,
-			MaxSpeedMps:       acc.maxSpeed,
-			SpeedSamples:      acc.speeds,
-			SpeedVariance:     speedVar,
-			HeadingJitterDeg:  headJitter,
-			SpeedJitterMps:    speedJitter,
-			AlignmentMeanDeg:  alignMean,
-			MisalignmentRatio: misalignRatio,
-			StartX:            acc.firstX,
-			StartY:            acc.firstY,
-			EndX:              acc.lastX,
-			EndY:              acc.lastY,
-			TrackLengthMetres: acc.trackLengthM,
+			TrackID:               id,
+			State:                 trackStateName(acc.state),
+			ObjectClass:           acc.objectClass,
+			ClassConfidence:       acc.classConf,
+			ObservationCount:      acc.obsCount,
+			Hits:                  acc.hits,
+			Misses:                acc.misses,
+			FirstSeenNs:           acc.firstSeen,
+			LastSeenNs:            acc.lastSeen,
+			DurationSecs:          dur,
+			AvgSpeedMps:           avgSpeed,
+			MaxSpeedMps:           acc.maxSpeed,
+			SpeedSamples:          acc.speeds,
+			SpeedVariance:         speedVar,
+			HeadingJitterDeg:      headJitter,
+			OBBHeadingJitterDeg:   obbHeadJitter,
+			SpeedJitterMps:        speedJitter,
+			AlignmentMeanDeg:      alignMean,
+			MisalignmentRatio:     misalignRatio,
+			CourseAlignmentP50Deg: courseP50,
+			CourseAlignmentP90Deg: courseP90,
+			CourseAlignmentN:      courseN,
+			StartX:                acc.firstX,
+			StartY:                acc.firstY,
+			EndX:                  acc.lastX,
+			EndY:                  acc.lastY,
+			TrackLengthMetres:     acc.trackLengthM,
 			AvgBBox: BBoxDims{
 				Length: meanFloat32(acc.bboxL),
 				Width:  meanFloat32(acc.bboxW),
@@ -413,10 +437,13 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
 		}
 	}
-	if len(confirmedAlignMeans) > 0 || len(confirmedMisalignRats) > 0 {
+	if len(confirmedAlignMeans) > 0 || len(confirmedMisalignRats) > 0 || len(sampledCourseP50) > 0 {
 		report.TrackSummary.Alignment = &AlignmentSummary{
-			AlignmentMeanDeg:  computeDistStats(confirmedAlignMeans),
-			MisalignmentRatio: computeDistStats(confirmedMisalignRats),
+			AlignmentMeanDeg:      computeDistStats(confirmedAlignMeans),
+			MisalignmentRatio:     computeDistStats(confirmedMisalignRats),
+			CourseAlignmentP50Deg: computeDistStats(sampledCourseP50),
+			CourseAlignmentP90Deg: computeDistStats(sampledCourseP90),
+			CourseAlignmentTracks: len(sampledCourseP50),
 		}
 	}
 
@@ -604,6 +631,77 @@ func speedJitterMps(speeds []float32) float32 {
 		sumSq += d * d
 	}
 	return float32(math.Sqrt(sumSq / float64(len(speeds)-1)))
+}
+
+// CourseAlignmentMinSpeedMps is the speed below which course is not a
+// meaningful reference direction. Below it the velocity heading is dominated by
+// estimator noise, so comparing the box against it measures nothing.
+const CourseAlignmentMinSpeedMps = 2.0
+
+// courseAlignmentMetrics compares the oriented bounding box heading against the
+// direction of travel: the quantity that decides whether a rendered box points
+// where the vehicle is going.
+//
+// This is deliberately not alignmentMetrics. That function compares the Kalman
+// velocity against the displacement between two positions, so both of its
+// inputs describe motion and neither describes the box. A track whose box is
+// locked 106° away from its course scores perfectly on it.
+//
+// The angle is folded to [0, 90]. An oriented box axis is 180-periodic, so a
+// box pointing backwards along the direction of travel is correctly oriented,
+// and a length/width swap shows up as 90°.
+//
+// Samples are taken only where speed is at least minSpeed and the track was
+// live. Deleted tracks are excluded because their state is frozen at the moment
+// of deletion and would otherwise be counted once per grace-period frame.
+func courseAlignmentMetrics(obbHeadings, courseHeadings, speeds []float32, live []bool, minSpeed float32) (p50, p90 float32, samples int) {
+	n := len(obbHeadings)
+	if n == 0 || len(courseHeadings) != n || len(speeds) != n || len(live) != n {
+		return 0, 0, 0
+	}
+	angles := make([]float64, 0, n)
+	for i := 0; i < n; i++ {
+		if !live[i] || speeds[i] < minSpeed {
+			continue
+		}
+		angles = append(angles, foldAxisAngleDeg(float64(obbHeadings[i]-courseHeadings[i])))
+	}
+	if len(angles) == 0 {
+		return 0, 0, 0
+	}
+	sort.Float64s(angles)
+	return float32(percentileSorted(angles, 50)), float32(percentileSorted(angles, 90)), len(angles)
+}
+
+// foldAxisAngleDeg converts a signed angular difference in radians to degrees
+// in [0, 90], folding both the 180° direction ambiguity of an axis and the 90°
+// length/width swap.
+func foldAxisAngleDeg(diffRad float64) float64 {
+	d := math.Abs(diffRad) * 180 / math.Pi
+	d = math.Mod(d, 360)
+	if d > 180 {
+		d = 360 - d
+	}
+	if d > 90 {
+		d = 180 - d
+	}
+	return d
+}
+
+// percentileSorted returns the p-th percentile of an already-sorted slice using
+// nearest-rank. The caller must not pass an empty slice.
+func percentileSorted(sorted []float64, p float64) float64 {
+	if len(sorted) == 1 {
+		return sorted[0]
+	}
+	idx := int(p / 100 * float64(len(sorted)-1))
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(sorted) {
+		idx = len(sorted) - 1
+	}
+	return sorted[idx]
 }
 
 // alignmentMetrics computes the mean alignment angle (degrees) between the
