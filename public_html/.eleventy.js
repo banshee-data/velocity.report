@@ -100,6 +100,9 @@ module.exports = function (eleventyConfig) {
   // Copy static files directly to output
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
   eleventyConfig.addPassthroughCopy("src/js");
+  // Scene assets are exported binaries (gzipped NDJSON frames plus their
+  // index), not templates, so they are copied verbatim.
+  eleventyConfig.addPassthroughCopy("src/scenes/**/assets/**");
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through

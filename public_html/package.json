@@ -11,7 +11,8 @@
     "build": "npm-run-all --npm-path pnpm build:css build:eleventy",
     "build:css": "tailwindcss -i ./src/css/style.css -o ./_site/css/style.css --minify",
     "build:eleventy": "eleventy",
-    "clean": "rm -rf _site"
+    "clean": "rm -rf _site",
+    "test": "node --test \"src/js/__tests__/*.test.mjs\""
   },
   "keywords": [],
   "author": "Banshee, INC.",

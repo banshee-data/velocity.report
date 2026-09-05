@@ -1,0 +1,141 @@
+---
+layout: page.njk
+title: "SoMa 1: LiDAR scene — velocity.report"
+description: Eleven minutes of real traffic at a San Francisco intersection, measured by roadside LiDAR. Trajectories only — no cameras, no images, no number plates.
+---
+
+<style>
+  .scene-page__head { margin-bottom: 1.5rem; }
+  .scene-page__title { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.5rem; }
+  .scene-page__sub { font-size: 1.05rem; line-height: 1.5; margin: 0 0 0.75rem; opacity: 0.85; }
+  .scene-page__privacy { font-size: 0.9rem; line-height: 1.55; max-width: 62ch; opacity: 0.7; border-left: 2px solid currentColor; padding-left: 0.9rem; margin: 0; }
+
+  .scene-stage { position: relative; aspect-ratio: 16 / 9; width: 100%; border-radius: 4px; overflow: hidden; background: #0b1013; }
+  .scene-stage__canvas { display: block; width: 100%; height: 100%; }
+  .scene-stage__overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    margin: 0; padding: 1.5rem; text-align: center; color: #cfe3e8;
+    background: rgba(11, 16, 19, 0.9); font-size: 0.95rem; line-height: 1.5;
+  }
+  .scene-stage__overlay--error { color: #f0b48a; }
+  .scene-stage__overlay[hidden] { display: none; }
+
+  .scene-transport { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.85rem; flex-wrap: wrap; }
+  .scene-transport__button {
+    min-width: 5.5rem; padding: 0.45rem 1rem; border-radius: 3px; border: 1px solid currentColor;
+    background: transparent; font: inherit; font-weight: 600; cursor: pointer; color: inherit;
+  }
+  .scene-transport__button:hover { background: rgba(75, 192, 217, 0.12); }
+  .scene-transport__button:focus-visible,
+  .scene-transport__slider:focus-visible,
+  .scene-transport__rate select:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
+  .scene-transport__clock { font-variant-numeric: tabular-nums; font-size: 0.9rem; opacity: 0.8; min-width: 3.2rem; }
+  .scene-transport__slider { flex: 1 1 12rem; min-width: 8rem; accent-color: #4bc0d9; }
+  .scene-transport__rate select { font: inherit; padding: 0.3rem 0.4rem; border-radius: 3px; background: transparent; color: inherit; border: 1px solid currentColor; }
+  .scene-transport__stats { margin: 0.6rem 0 0; font-size: 0.88rem; opacity: 0.75; font-variant-numeric: tabular-nums; min-height: 1.3em; }
+
+  .scene-page__provenance { margin-top: 2rem; font-size: 0.9rem; line-height: 1.6; max-width: 68ch; }
+  .scene-page__provenance summary { cursor: pointer; font-weight: 600; }
+  .scene-page__provenance p { margin: 0.75rem 0 0; opacity: 0.8; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  @media (max-width: 640px) {
+    .scene-transport__clock { min-width: 2.8rem; }
+    .scene-transport__button { min-width: 4.5rem; }
+  }
+</style>
+
+<section class="max-w-6xl mx-auto scene-page">
+  <header class="scene-page__head">
+    <h1 class="scene-page__title" id="scene-title">SoMa 1</h1>
+    <p class="scene-page__sub">
+      <span id="scene-duration-label">Eleven minutes</span> of road users crossing a
+      San Francisco intersection, as a roadside LiDAR sensor measured them.
+    </p>
+    <p class="scene-page__privacy">
+      Every box below is a measurement, not a picture. This recording contains
+      derived trajectories only: position, size, heading and speed. There is no
+      camera on this sensor, so there is no image, face or number plate to publish.
+    </p>
+  </header>
+
+  <div class="scene-stage">
+    <canvas id="scene-canvas" class="scene-stage__canvas" width="960" height="540"></canvas>
+    <p id="scene-loading" class="scene-stage__overlay">Loading scene…</p>
+    <p id="scene-status" class="scene-stage__overlay scene-stage__overlay--error" hidden></p>
+  </div>
+
+  <div class="scene-transport">
+    <button id="scene-play" type="button" class="scene-transport__button">Play</button>
+    <span id="scene-clock" class="scene-transport__clock">00:00</span>
+    <input
+      id="scene-slider"
+      class="scene-transport__slider"
+      type="range"
+      min="0"
+      max="100"
+      step="0.1"
+      value="0"
+      aria-label="Seek through the recording"
+    />
+    <span id="scene-duration" class="scene-transport__clock">00:00</span>
+    <label class="scene-transport__rate">
+      <span class="sr-only">Playback speed</span>
+      <select id="scene-rate" aria-label="Playback speed">
+        <option value="0.5">0.5&times;</option>
+        <option value="1" selected>1&times;</option>
+        <option value="2">2&times;</option>
+        <option value="4">4&times;</option>
+      </select>
+    </label>
+  </div>
+
+  <p id="scene-stats" class="scene-transport__stats"></p>
+
+  <details class="scene-page__provenance">
+    <summary>How this was made</summary>
+    <p>
+      A Hesai Pandar40P recorded the street to a PCAP capture. The velocity.report
+      perception pipeline turned that into a VRLOG recording, which stays the
+      source of truth for what was analysed. <code>velocity scene export</code>
+      then wrote the static files this page fetches: gzipped NDJSON frames plus a
+      small index, served with no backend of any kind.
+    </p>
+    <p>
+      Playback follows the timestamps in the recording rather than a fixed frame
+      rate, because a LiDAR frame is one sensor rotation and the rotation rate
+      drifts.
+    </p>
+  </details>
+</section>
+
+<script type="module">
+  import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
+
+  const canvas = document.getElementById("scene-canvas");
+  const status = document.getElementById("scene-status");
+
+  mountScenePlayer({
+    canvas,
+    manifestURL: "{{ '/scenes/soma1/assets/manifest.json' | url }}",
+    ui: {
+      playToggle: document.getElementById("scene-play"),
+      slider: document.getElementById("scene-slider"),
+      clock: document.getElementById("scene-clock"),
+      duration: document.getElementById("scene-duration"),
+      rate: document.getElementById("scene-rate"),
+      stats: document.getElementById("scene-stats"),
+      status,
+      loading: document.getElementById("scene-loading"),
+      title: document.getElementById("scene-title"),
+    },
+  }).catch((err) => {
+    document.getElementById("scene-loading").hidden = true;
+    status.textContent = err?.message ?? "This scene could not be loaded.";
+    status.hidden = false;
+  });
+</script>
