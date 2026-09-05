@@ -30,6 +30,16 @@ type TrackingMetrics struct {
 	CourseAlignmentP50Deg  float32 `json:"course_alignment_p50_deg"`
 	CourseAlignmentP90Deg  float32 `json:"course_alignment_p90_deg"`
 	CourseAlignmentSamples int     `json:"course_alignment_samples"`
+
+	// Heading lock telemetry across active tracks. HeadingSourceFrames is
+	// keyed by HeadingSource.String(). LockTrappedTracks counts tracks that
+	// entered a sustained lock and never released it: the population whose
+	// boxes cannot recover their orientation.
+	HeadingSourceFrames  map[string]uint32 `json:"heading_source_frames,omitempty"`
+	LockedFrameRatio     float32           `json:"locked_frame_ratio"`
+	SustainedLockTracks  int               `json:"sustained_lock_tracks"`
+	LockTrappedTracks    int               `json:"lock_trapped_tracks"`
+	LongestLockRunFrames int               `json:"longest_lock_run_frames"`
 	// Speed jitter: RMS of frame-to-frame Kalman speed changes (m/s)
 	SpeedJitterMps float32 `json:"speed_jitter_mps"`
 	// Track fragmentation: fraction of created tracks that never confirmed [0, 1]
@@ -78,6 +88,12 @@ type TrackAlignmentMetrics struct {
 	CourseAlignmentP50Deg float32 `json:"course_alignment_p50_deg"`
 	CourseAlignmentP90Deg float32 `json:"course_alignment_p90_deg"`
 	CourseAlignmentN      int     `json:"course_alignment_n"`
+
+	// Heading lock telemetry. LockTrapped is the one to watch: the track
+	// entered a sustained lock and never released it.
+	HeadingLockedFrames int  `json:"heading_locked_frames"`
+	LongestLockRun      int  `json:"longest_lock_run"`
+	LockTrapped         bool `json:"lock_trapped"`
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -365,6 +381,8 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalSpeedJitterCount int
 	var courseHist [CourseAlignmentBins]uint64
 	var courseCount int
+	headingSourceFrames := make(map[string]uint32, HeadingSourceCount)
+	var totalSourceFrames, lockedFrames uint64
 
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
@@ -395,6 +413,21 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		}
 		courseCount += track.CourseAlignmentCount
 
+		for src, n := range track.HeadingSourceCounts {
+			headingSourceFrames[HeadingSource(src).String()] += n
+			totalSourceFrames += uint64(n)
+		}
+		lockedFrames += uint64(track.HeadingLockedFrames)
+		if track.EnteredSustainedLock {
+			metrics.SustainedLockTracks++
+		}
+		if track.HeadingLockTrapped() {
+			metrics.LockTrappedTracks++
+		}
+		if track.LongestLockRun > metrics.LongestLockRunFrames {
+			metrics.LongestLockRunFrames = track.LongestLockRun
+		}
+
 		if track.AlignmentSampleCount == 0 {
 			continue
 		}
@@ -423,11 +456,19 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			CourseAlignmentP50Deg: courseP50,
 			CourseAlignmentP90Deg: courseP90,
 			CourseAlignmentN:      track.CourseAlignmentCount,
+			HeadingLockedFrames:   track.HeadingLockedFrames,
+			LongestLockRun:        track.LongestLockRun,
+			LockTrapped:           track.HeadingLockTrapped(),
 		})
 	}
 
 	metrics.TotalAlignmentSamples = totalSamples
 	metrics.TotalMisaligned = totalMisaligned
+
+	if totalSourceFrames > 0 {
+		metrics.HeadingSourceFrames = headingSourceFrames
+		metrics.LockedFrameRatio = float32(float64(lockedFrames) / float64(totalSourceFrames))
+	}
 
 	// Fleet course alignment, pooled across every active track's histogram.
 	metrics.CourseAlignmentSamples = courseCount
