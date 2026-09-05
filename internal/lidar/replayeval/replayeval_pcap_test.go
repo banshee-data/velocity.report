@@ -65,29 +65,50 @@ func TestRunProducesAnalysableVRLOG(t *testing.T) {
 	}
 }
 
-// Two runs of the same capture with the same config must agree on frame count.
-// A harness whose output depends on wall-clock timing cannot support an A/B,
-// because the difference between arms would be indistinguishable from noise.
-func TestRunFrameCountIsStableAcrossRuns(t *testing.T) {
+// Two runs of the same capture with the same config must agree exactly, not
+// approximately. Without back-pressure on the frame channel the PCAP reader
+// outruns the pipeline and frames are dropped at a rate that depends on how
+// busy the machine is, so an A/B cannot separate the change under test from
+// the scheduler. This is the property that makes the harness usable at all.
+func TestRunIsDeterministic(t *testing.T) {
 	pcapPath := requireKirk0(t)
 	dir := t.TempDir()
 
-	var counts []int
+	type outcome struct {
+		frames  int
+		tracks  int
+		summary analysis.TrackSummary
+	}
+	var got []outcome
+
 	for i, name := range []string{"a", "b"} {
+		out := filepath.Join(dir, name)
 		res, err := Run(Config{
 			PCAPFile:        pcapPath,
-			OutDir:          filepath.Join(dir, name),
+			OutDir:          out,
 			SensorID:        "test-replay",
 			UDPPort:         2369,
-			DurationSeconds: 4,
+			DurationSeconds: 6,
 		})
 		if err != nil {
 			t.Fatalf("run %d: %v", i, err)
 		}
-		counts = append(counts, res.FramesRead)
+		rep, _, err := analysis.GenerateReport(out)
+		if err != nil {
+			t.Fatalf("run %d analyse: %v", i, err)
+		}
+		got = append(got, outcome{res.FramesRead, rep.TrackSummary.TotalTracks, rep.TrackSummary})
 	}
-	if counts[0] != counts[1] {
-		t.Fatalf("frame counts differ across identical runs: %d vs %d", counts[0], counts[1])
+
+	if got[0].frames != got[1].frames {
+		t.Fatalf("frame counts differ across identical runs: %d vs %d", got[0].frames, got[1].frames)
+	}
+	if got[0].tracks != got[1].tracks {
+		t.Fatalf("track counts differ across identical runs: %d vs %d", got[0].tracks, got[1].tracks)
+	}
+	if got[0].summary.FragmentationRatio != got[1].summary.FragmentationRatio {
+		t.Fatalf("fragmentation differs: %v vs %v",
+			got[0].summary.FragmentationRatio, got[1].summary.FragmentationRatio)
 	}
 }
 
