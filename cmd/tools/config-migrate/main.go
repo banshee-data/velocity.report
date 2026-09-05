@@ -18,6 +18,14 @@ var marshalIndent = json.MarshalIndent
 // with config/tuning.defaults.json.
 const defaultOBBHeadingLockMaxRejections = 5
 
+// defaultMinAssociableExtentMetres and defaultDeletedTrackRenderFade likewise
+// have no legacy counterpart. Keep them in step with
+// config/tuning.defaults.json.
+const (
+	defaultMinAssociableExtentMetres = 0.5
+	defaultDeletedTrackRenderFade    = "500ms"
+)
+
 type legacyTuningConfig struct {
 	BackgroundUpdateFraction         float64 `json:"background_update_fraction"`
 	ClosenessMultiplier              float64 `json:"closeness_multiplier"`
@@ -225,6 +233,8 @@ func migrateLegacyConfig(legacy legacyTuningConfig) *cfgpkg.TuningConfig {
 					// the heading-lock release and silently migrate a config
 					// back onto the Guard 3 ratchet.
 					OBBHeadingLockMaxRejections:      defaultOBBHeadingLockMaxRejections,
+					MinAssociableExtentMetres:        defaultMinAssociableExtentMetres,
+					DeletedTrackRenderFade:           defaultDeletedTrackRenderFade,
 					MaxTrackHistoryLength:            legacy.MaxTrackHistoryLength,
 					MaxSpeedHistoryLength:            legacy.MaxSpeedHistoryLength,
 					MergeSizeRatio:                   legacy.MergeSizeRatio,

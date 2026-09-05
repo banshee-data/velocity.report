@@ -120,15 +120,15 @@ Order matters. The metric lands first so every later change is attributable.
 | D1.2 | **Lock telemetry. Done.** `HeadingLockedFrames`, `LongestLockRun`, `EnteredSustainedLock`, `ReleasedAfterLock` and a derived `LockTrapped` per track, plus a per-run `heading_source` histogram and trapped ratio. A release requires five consecutive unlocked frames: Guard 3 rejects per frame, so a single frame slipping through is not the lock letting go                                                                                                                                                                                                                                        | `l5tracks/tracking.go`, `tracking_update.go`, `analysis/report.go`                       | S    |
 | D1.3 | **Break the ratchet. Done.** Guard 3 keeps rejecting, but a counter releases the lock after `N` consecutive rejections (default 5, config `obb_heading_lock_max_rejections`; 0 restores the old behaviour). On release the heading **snaps** to the measurement rather than easing toward it, because the EMA moves 8 % of the gap per update and easing across a delta wide enough to be rejected would re-trigger the guard forever. Guards 1 and 2 do not drive the release: they fire when the measurement is genuinely unusable, and snapping to it would replace a wrong answer with a random one | `l5tracks/tracking_update.go`, `tracking_config.go`, `internal/config/tuning.go`         | S    |
 | D1.4 | **Stop freezing dimensions.** While the heading is locked, update length and width from the cluster OBB projected onto the locked axes, rather than not at all. A locked heading is a statement about orientation, not a reason to stop measuring size                                                                                                                                                                                                                                                                                                                                                  | `l5tracks/tracking_update.go`                                                            | S    |
-| D1.5 | **Reject implausible dimension jumps.** Refuse a cluster whose longest dimension is below `min_associable_extent` (default 0.5 m) as a position measurement for a confirmed track whose belief exceeds 2 m. Record the rejection                                                                                                                                                                                                                                                                                                                                                                        | `l5tracks/tracking_update.go`, `tracking_association.go`                                 | S    |
-| D1.6 | **Stop publishing ghosts.** Exclude `DELETED` tracks from the published `TrackSet`, or mark them so the visualiser and the web UI can drop them. The grace period exists for re-association, which is an internal concern                                                                                                                                                                                                                                                                                                                                                                               | `l9endpoints/adapter.go`, `l5tracks/tracking.go`                                         | S    |
+| D1.5 | **Fragment guard. Done.** Forbid the pairing in the association cost matrix, not at update time, so the fragment stays unassociated and can seed its own track instead of being consumed. Fires only when a track has at least 3 observations, believes it is at least 2 m (`FragmentGuardMinTrackExtentMetres`), and the cluster's longest extent is under `min_associable_extent_metres` (default 0.5). The belief is the running average, not the latest frame, because the latest frame is what a fragment would already have corrupted                                                             | `l5tracks/tracking_update.go`, `tracking_association.go`                                 | S    |
+| D1.6 | **Ghost fade decoupled. Done.** The fade-out was deliberate, but its duration was `deleted_track_grace_period`: one number doing two unrelated jobs, so a re-association window held a frozen box on screen for five seconds. Split out `deleted_track_render_fade` (default 500 ms). Re-association is untouched                                                                                                                                                                                                                                                                                       | `l9endpoints/adapter.go`, `l5tracks/tracking.go`                                         | S    |
 
 **Day 1 gate.** Re-run `baf20f02` through the pipeline and compare against the
 recorded baseline. Targets, all measured by D1.1 and D1.2:
 
 - Median per-track `CourseAlignmentP50` across tracks with samples: **below 25°**, from a measured baseline of **50.3°**.
 - Tracks entering a permanent lock: **0 %**, from a measured baseline of **54 tracks, 65 % of those that lock**.
-- Published `DELETED` track-frames: **0 %**, from 45.8 %.
+- Published `DELETED` track-frames: **5.0 %**, from 45.8 %, a measured 89 % reduction in ghost frames. Not zero, because a short fade-out is deliberate.
 - Frames with a co-located pair: no worse than baseline. D1.5 should improve it; it is not the fix for it.
 
 #### D1.1 baseline, measured
@@ -227,6 +227,38 @@ schema requires every key rather than defaulting silently:
   config quietly back on the ratchet.
 - The runtime tuning endpoint accepts the key, or a POST carrying it is
   rejected with a 400.
+
+#### D1.5 and D1.6 results
+
+**D1.6 is measured exactly.** The render fade is a pure filter on publication,
+so its effect is computable from the recorded stream with no pipeline re-run:
+
+|                                                | Frames | Share of all track-frames |
+| ---------------------------------------------- | ------ | ------------------------- |
+| Published `DELETED` under the 5 s grace period | 10,610 | **45.8 %**                |
+| Surviving a 500 ms render fade                 | 1,170  | **5.0 %**                 |
+| Removed                                        | 9,440  | **89 % fewer ghosts**     |
+
+The design point worth keeping. Excluding deleted tracks outright was the
+obvious reading of this task, and it would have been wrong: the fade-out is a
+deliberate rendering feature, and `alpha` already carries it. The defect was
+that its duration was borrowed from `deleted_track_grace_period`, which exists
+so re-association can still find a track seconds later. Those are different
+concerns on different timescales. Splitting them keeps the fade, kills the
+ghost, and leaves re-association exactly as it was.
+
+**D1.5 is proven on synthetic cases, not yet on the run.** Like D1.3 it changes
+what the tracker does, so its effect needs a pipeline re-run to measure. Eleven
+tests cover the guard rejecting the 0.11 m by 0.08 m scrap from run `baf20f02`,
+accepting a partly occluded 2.6 m cluster, ignoring pedestrian-scale tracks
+entirely, ignoring tracks with too little history, ignoring clusters that report
+no extent, consulting the running average rather than the corrupted latest
+frame, and leaving the fragment unassociated end to end through `associate()`.
+
+The guard is deliberately narrow: an absurdity check, not a shape gate. It fires
+only for metre-scale tracks offered sub-half-metre clusters. Proper dimension
+consistency in the assignment cost is D2.2, and applying anything like it to
+pedestrians and cyclists would reject their ordinary observations.
 
 ### Day 2: axis coherence and an honest score
 

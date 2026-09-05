@@ -246,15 +246,31 @@ func (t *Tracker) GetAllTracks() []*TrackedObject {
 	return all
 }
 
-// GetRecentlyDeletedTracks returns deleted tracks still within the grace period.
-// Each returned TrackedObject is a shallow copy with a deep-copied History slice.
-// Used by the visualiser adapter for fade-out rendering.
+// GetDeletedTrackRenderFade returns how long a deleted track stays published
+// to clients. This is not the re-association grace period: see the field
+// comment on TrackerConfig.DeletedTrackRenderFade.
+func (t *Tracker) GetDeletedTrackRenderFade() time.Duration {
+	return t.Config.DeletedTrackRenderFade
+}
+
+// GetRecentlyDeletedTracks returns deleted tracks still within the render fade
+// window. Each returned TrackedObject is a shallow copy with a deep-copied
+// History slice. Used by the visualiser adapter for fade-out rendering.
+//
+// The window is the render fade, not the re-association grace period. A deleted
+// track's state is frozen at the moment of deletion, so every frame it is
+// published is a stationary box sitting where the object no longer is. Holding
+// that for the five-second grace period made 45.8 per cent of all published
+// track-frames in run baf20f02 stale, which both misleads the eye and corrupts
+// any metric computed over the recorded stream.
 func (t *Tracker) GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	gracePeriod := t.Config.DeletedTrackGracePeriod
-	gracePeriodNanos := int64(gracePeriod)
+	gracePeriodNanos := int64(t.Config.DeletedTrackRenderFade)
+	if gracePeriodNanos <= 0 {
+		return nil
+	}
 
 	deleted := make([]*TrackedObject, 0)
 	for _, track := range t.Tracks {
