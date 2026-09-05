@@ -96,6 +96,10 @@ The production pipeline uses four math-heavy layers:
 
 ### Proposals (not yet active; see [Roadmap](#prioritised-proposal-roadmap) below)
 
+- [Unified Scene Semantics and Temporal Regions](proposals/20260905-unified-scene-semantic-classification-maths.md):
+  Research proposal for one semantic vocabulary across L3–L7, calibrated evidence fusion,
+  object motion envelopes, and shared scene/track labelling with lineage controls.
+
 - [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md): **Partially Implemented**.
   Root cause analysis of spinning bounding boxes:
   PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches.
