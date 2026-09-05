@@ -8,6 +8,22 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	// CourseAlignmentBins is the number of histogram bins spanning [0, 90]
+	// degrees of course-alignment error. Twenty gives 4.5° resolution, which is
+	// finer than the quantity is trustworthy at a 5 Hz effective observation
+	// rate and cheap enough to keep per track.
+	CourseAlignmentBins = 20
+
+	// CourseAlignmentBinWidthDeg is the width of one bin, in degrees.
+	CourseAlignmentBinWidthDeg = 90.0 / CourseAlignmentBins
+
+	// CourseAlignmentMinSpeedMps is the speed below which course is not a
+	// meaningful reference direction: the velocity heading is dominated by
+	// estimator noise, so comparing the box against it measures nothing.
+	CourseAlignmentMinSpeedMps = 2.0
+)
+
 // TrackPoint represents a single point in a track's history.
 type TrackPoint struct {
 	X         float32
@@ -72,8 +88,26 @@ type TrackedObject struct {
 
 	// Heading Jitter Metrics
 	// Measures frame-to-frame OBB heading instability (spinning bounding boxes).
+	//
+	// Caution: a heading that never updates has zero jitter. This metric alone
+	// cannot distinguish a stable box from a locked one, so it must be read
+	// alongside CourseAlignment below, which measures whether the box is
+	// pointing the right way at all.
 	HeadingJitterSumSq float64 // Running sum of squared heading deltas (radians²)
 	HeadingJitterCount int     // Number of heading delta samples
+
+	// Course Alignment Metrics
+	// Measures the angle between the OBB heading and the direction of travel,
+	// folded to [0, 90]: 0 means the box is aligned with the course, 90 means
+	// it lies across it. An OBB is symmetric, so a 180° difference is the same
+	// physical box and folds to 0; a 90° difference is a length/width swap and
+	// is the worst case.
+	//
+	// Stored as a fixed-bin histogram rather than a sample slice so that the
+	// per-track cost stays constant on the Pi. Percentiles are recovered by
+	// CourseAlignmentPercentileDeg.
+	CourseAlignmentHist  [CourseAlignmentBins]uint32 // 5° bins over [0, 90]
+	CourseAlignmentCount int                         // Number of samples taken
 
 	// Speed Jitter Metrics
 	// Measures frame-to-frame Kalman speed instability (m/s).

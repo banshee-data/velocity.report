@@ -366,5 +366,73 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			track.OBBHeight = cluster.OBB.Height
 		}
 		track.LatestZ = cluster.OBB.CenterZ
+
+		// Sample course alignment against the heading this frame will publish,
+		// after every guard has had its say. Sampling before the update would
+		// measure an intermediate value no client ever sees.
+		track.SampleCourseAlignment()
 	}
+}
+
+// SampleCourseAlignment records the angle between the track's published OBB
+// heading and its direction of travel into the track's histogram.
+//
+// It is a no-op below CourseAlignmentMinSpeedMps, where the Kalman velocity
+// heading is noise rather than a course. That threshold is the reason this
+// metric is reported with a sample count: a track that never moved fast enough
+// contributes nothing and must not be read as perfectly aligned.
+func (t *TrackedObject) SampleCourseAlignment() {
+	speed := math.Sqrt(float64(t.VX*t.VX + t.VY*t.VY))
+	if speed < CourseAlignmentMinSpeedMps {
+		return
+	}
+	course := math.Atan2(float64(t.VY), float64(t.VX))
+	deg := FoldAxisAngleDeg(float64(t.OBBHeadingRad) - course)
+
+	bin := int(deg / CourseAlignmentBinWidthDeg)
+	if bin >= CourseAlignmentBins {
+		bin = CourseAlignmentBins - 1
+	}
+	if bin < 0 {
+		bin = 0
+	}
+	t.CourseAlignmentHist[bin]++
+	t.CourseAlignmentCount++
+}
+
+// FoldAxisAngleDeg converts a signed angular difference in radians to degrees
+// in [0, 90].
+//
+// Two foldings apply. An oriented bounding box is symmetric, so a heading
+// differing by 180° describes the same box and folds to 0. A difference of 90°
+// is a length/width axis swap, which is the worst case: the box lies across the
+// direction of travel rather than along it.
+func FoldAxisAngleDeg(diffRad float64) float64 {
+	d := math.Mod(math.Abs(diffRad)*180/math.Pi, 360)
+	if d > 180 {
+		d = 360 - d
+	}
+	if d > 90 {
+		d = 180 - d
+	}
+	return d
+}
+
+// CourseAlignmentPercentileDeg returns the p-th percentile of the track's
+// course-alignment histogram, in degrees, or (0, false) when the track has no
+// samples. The value is the upper edge of the containing bin, so it is accurate
+// to CourseAlignmentBinWidthDeg.
+func (t *TrackedObject) CourseAlignmentPercentileDeg(p float64) (float32, bool) {
+	if t.CourseAlignmentCount == 0 {
+		return 0, false
+	}
+	target := p / 100 * float64(t.CourseAlignmentCount)
+	cum := 0.0
+	for i, n := range t.CourseAlignmentHist {
+		cum += float64(n)
+		if cum >= target {
+			return float32(float64(i+1) * CourseAlignmentBinWidthDeg), true
+		}
+	}
+	return 90, true
 }
