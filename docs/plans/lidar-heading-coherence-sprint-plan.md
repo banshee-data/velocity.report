@@ -440,6 +440,14 @@ Notes that matter for using it:
 - Point clouds are omitted unless `--include-points` is passed. They are the
   bulk of the file: 45 s of the SoMa capture is 347 MB with them and 9.1 MB
   without.
+- Background settling needs a warm-up file. The settling period is five minutes
+  and the S2 captures are five-minute files, so a standalone replay measures a
+  background that is still converging. Replaying the contiguous predecessor
+  first and passing `--start-seconds 300` fixes it. Measured on one window:
+  median course error improves from 21.2° to 18.5°, fragmentation from 0.535 to
+  0.503, and the spurious-track count falls. `pcap-split` classifies which
+  segments are fully static, and only a static predecessor is a valid warm-up,
+  because a moving sensor leaves the wrong background behind.
 - Track persistence is disabled explicitly rather than by leaving the DB nil,
   so a future pipeline change that starts assuming a database fails loudly here
   instead of writing into the production store during an analysis run.
