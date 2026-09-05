@@ -370,24 +370,38 @@ so roughly 13 frames per run were being silently discarded. The table above is
 the re-run, and the earlier conclusions survived unchanged because both arms
 were losing frames at the same rate.
 
-**That claim does not hold at five minutes, and the first version of this
-section overstated it.** Replaying full S2 captures surfaced residual variation:
-a few tracks out of six hundred, and a few tenths of a degree on the mean. Part
-of it was the tracker, not the harness. `associate()` built its track list by
-ranging over a Go map, which randomises iteration order, so the cost matrix
-columns were permuted every frame and Hungarian assignment resolved ties
-differently between runs. Sorting the list fixed that and tightened the spread:
-the median course error now agrees exactly across runs where it previously
-differed by 0.8°.
+It did not hold at five minutes until two further defects were found, and the
+first version of this section claimed it did.
 
-Something smaller remains, upstream of the tracker. Frame count, duration, and
-frame content are identical between runs, but clusters per frame differ in the
-third decimal, so it originates in L3 or L4. No concurrency or map iteration is
-apparent in either, so it needs a proper hunt rather than a guess.
+**DBSCAN seeded its subsample from the wall clock.** `uniformSubsample` drew
+`time.Now().UnixNano()` when a frame exceeded `foreground_max_input_points`,
+which is 8,000. On a busy street about 5 % of frames cross that line: 64 of
+1,200 on the capture used to find this. Each drew a different subsample on
+every replay, and the differences cascaded through association into track
+counts and course-error percentiles. The seed is now derived from the point
+set itself, an FNV-1a hash over the coordinate bits, which preserves what the
+clock was there for (different frames still draw differently) while making
+identical input draw identically.
 
-The practical consequence is for D2.5. A regression fixture should either use a
-60 s window, where the output is exact, or assert tolerances at five minutes.
-It should not assert equality on a five-minute run.
+**`associate()` ordered its track list by Go map iteration.** The comment above
+it said "ordered"; Go randomises map iteration, so the cost matrix columns were
+permuted on every frame. The list is now sorted. Note the limit of that fix:
+track IDs are random UUIDs, so sorting by them stabilises order within a run
+but not across runs. Cross-run reproducibility comes from the assignment having
+a unique optimum, which held once the subsample stopped moving.
+
+The bisection that found the first one is worth recording, because the first
+guess was wrong twice. Frame counts and durations matched between runs, so the
+problem was not frame assembly. Clusters per frame differed, which looked like
+L3 or L4 evidence but was not: the VRLOG records only _unassociated_ clusters,
+so that figure is downstream of tracking. A probe running L1 to L4 with no
+tracker settled it in one measurement. Foreground point counts were identical
+to the point, so L1 to L3 were exonerated; cluster counts differed, so L4 was
+not.
+
+With both fixed, two five-minute replays of the same capture agree on every
+figure: frame count, track count, fragmentation, every percentile, the trapped
+count, and the longest lock run. A D2.5 regression fixture can assert equality.
 
 ### Day 2: axis coherence and an honest score
 
