@@ -195,6 +195,15 @@ func (p *Publisher) SetBackgroundManager(mgr BackgroundManagerInterface) {
 
 // SetRecorder sets the frame recorder for VRLOG recording.
 // The recorder will receive all frames published via Publish().
+//
+// The last foreground timestamp is deliberately left alone. A recording should
+// open with a background snapshot so a replay has a scene from its first frame,
+// and a snapshot inherits that timestamp rather than using wall-clock time. In
+// the settle-before-recording flow the settling pass has already swept the
+// whole capture, so the inherited timestamp can sit at the end of the range
+// the recording is about to cover. That leading snapshot is therefore not
+// ordered with the rotations around it; consumers that need a monotonic
+// timeline filter background frames out rather than trusting their timestamps.
 func (p *Publisher) SetRecorder(rec FrameRecorder) {
 	p.recorderMu.Lock()
 	defer p.recorderMu.Unlock()

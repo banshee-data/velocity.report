@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "soma1",
+  "title": "SoMa 1",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 3315,
+  "start_ns": "1765057341972888330",
+  "duration_sec": 662.774478,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_frames": 100,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "da0b461a1c975489ecb3118da3b306ace562018bac4ca180d39ec6737eaedc35",
+  "tuning_hash": "sha256:409f74b9bb45072df0768bf4b000a151a6d8f5d008f40d36ef41d769bad72427",
+  "build_version": "0.5.1-pre31",
+  "generated_at": "2026-09-05T13:49:22Z"
+}
