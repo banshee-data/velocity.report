@@ -73,6 +73,15 @@ type TrackerConfig struct {
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
 	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
 
+	// MinAssociableExtentMetres is the smallest cluster extent that may be
+	// associated with a metre-scale track. 0 disables the fragment guard.
+	MinAssociableExtentMetres float32
+
+	// DeletedTrackRenderFade is how long a deleted track is still published to
+	// clients, fading out. Separate from DeletedTrackGracePeriod, which governs
+	// internal re-association.
+	DeletedTrackRenderFade time.Duration
+
 	// History limits
 	MaxTrackHistoryLength int // Maximum position trail length
 	MaxSpeedHistoryLength int // Maximum speed history samples
@@ -120,6 +129,8 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
 		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
 		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
+		MinAssociableExtentMetres:        float32(l5cfg.MinAssociableExtentMetres),
+		DeletedTrackRenderFade:           mustParseDuration(l5cfg.DeletedTrackRenderFade),
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
 		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
 		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),
