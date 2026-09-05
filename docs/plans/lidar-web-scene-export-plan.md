@@ -26,17 +26,18 @@ view, regenerable at any time.
 
 ## Current state
 
-| Fact                     | Value                                                   | Source                                  |
-| ------------------------ | ------------------------------------------------------- | --------------------------------------- |
-| VRLOG layout             | `header.json`, `index.bin`, `frames/chunk_NNNN.pb`      | `VRLOG_FORMAT.md`                       |
-| Frame encoding on disk   | protobuf `FrameBundle`, length-prefixed                 | `recorder/proto_codec.go`               |
-| Chunk path is hard-coded | `fmt.Sprintf("chunk_%04d.pb", …)` at three call sites   | `recorder.go:228`, `:424`, `:720`       |
-| Existing JSON exporter   | PCAP → scene JSON, background + per-frame moving points | `cmd/tools/lidar-scene-extract/main.go` |
-| Existing JSON consumer   | three.js, static background + per-frame points          | `public_html/src/js/hero-scene.js`      |
-| Site build               | Eleventy, copies JS; no bundler, no TypeScript step     | `public_html/`                          |
-| Archive occupancy        | ~3 concurrent tracks, 4.41 s mean life                  | `sensor_data.db`, 119,738 tracks        |
-| Archive foreground       | median 1.49% of 69,532 pts = ~1,036 pts/frame           | 118 `segments.json` on `/Volumes/lidar` |
-| Rotation rate            | 9.95–10.03 Hz within a single capture                   | `segments.json` `frame_rate_10s`        |
+| Fact                     | Value                                                   | Source                                                           |
+| ------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| VRLOG layout             | `header.json`, `index.bin`, `frames/chunk_NNNN.pb`      | `VRLOG_FORMAT.md`                                                |
+| Frame encoding on disk   | protobuf `FrameBundle`, length-prefixed                 | `recorder/proto_codec.go`                                        |
+| Chunk path is hard-coded | `fmt.Sprintf("chunk_%04d.pb", …)` at three call sites   | `recorder.go:228`, `:424`, `:720`                                |
+| Existing JSON exporter   | PCAP → scene JSON, background + per-frame moving points | `cmd/tools/lidar-scene-extract/main.go`                          |
+| Existing JSON consumer   | three.js, static background + per-frame points          | `public_html/src/js/hero-scene.js`                               |
+| Site build               | Eleventy, copies JS; no bundler, no TypeScript step     | `public_html/`                                                   |
+| Archive occupancy        | ~3 concurrent tracks, 4.41 s mean life                  | `sensor_data.db`, 119,738 tracks                                 |
+| Archive foreground       | median 1.49% of 69,532 pts = ~1,036 pts/frame           | 118 `segments.json` on `/Volumes/lidar`                          |
+| Rotation rate            | 9.95–10.03 Hz within a single capture                   | `segments.json` `frame_rate_10s`                                 |
+| Reference capture        | `soma1-static-0.pcap`, 1.5 GiB, static sensor           | [reference-capture.md](../lidar/operations/reference-capture.md) |
 
 There is no export from VRLOG, no scene page, and no player. The JSON shape and
 its three.js consumer both already exist in prototype form.
@@ -128,7 +129,7 @@ part's own header already says:
 ```jsonc
 {
   "version": 1,
-  "site": { "id": "s2_sf_2", "title": "…" },
+  "site": { "id": "soma1", "title": "SoMa 1" },
   "parts": [
     { "url": "./part-000/", "start_seconds": 0 },
     { "url": "./part-001/", "start_seconds": 300 },
@@ -264,23 +265,28 @@ the existing perception path) and write web scene JSON.
 
 **Steps:**
 
-1. Choose the source site. `s2_sf_2` has the best coverage: 42 runs, 29 static
-   segments, 134 static minutes, median 1.49% foreground.
-2. Produce ~20 minutes as four ~5-minute parts through the deterministic replay
-   path; do not concatenate PCAPs to manufacture one large VRLOG.
+1. Use the reference capture, `soma1-static-0.pcap`. It is the longest real
+   recording with a matching VRLOG and a static sensor throughout; see
+   [reference-capture.md](../lidar/operations/reference-capture.md) for its
+   provenance and observed characteristics.
+2. Export the existing VRLOG for that capture. When a longer scene is wanted,
+   compose several parts through the manifest rather than concatenating PCAPs
+   to manufacture one large VRLOG.
 3. Export `tracks` for all parts, one `clip`, and a `background`.
 4. Commit the derived assets under `public_html/`; never the raw PCAPs.
 5. Publish through the existing Pages deployment.
-6. Document source PCAPs, run configuration, build SHA, the export command, and
-   the resulting asset sizes.
+6. Record source capture, run configuration, build version, export command and
+   resulting asset sizes in
+   [reference-capture.md](../lidar/operations/reference-capture.md).
 
 **Milestone:** v0.6.1
 
 ## Phasing
 
-**Phase 0 — one real scene.** Approximately 20 minutes from one static site,
-published through the existing velocity.report Pages deployment. `tracks` plus
-one `clip` and a `background`. The browser must render oriented boxes, play on
+**Phase 0 — one real scene.** The reference capture,
+[`soma1-static-0.pcap`](../lidar/operations/reference-capture.md), published
+through the existing velocity.report Pages deployment: 11 minutes at stride 2,
+1.2 MiB. `tracks` first, then a `clip` and a `background`. The browser must render oriented boxes, play on
 recorded timestamps, and seek across the whole recording with no backend, no
 database, and no separate repository. A small JSON manifest composes several
 recording parts into one timeline. No S2 metadata, archive importer, map or
@@ -324,8 +330,8 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 - [ ] Exporter tests: stride, rounding, timestamps unchanged, chunk rollover, gzip round-trip (`M`)
 - [ ] Reader tests: malformed input, bounds, seek at start / boundary / end (`M`)
 - [ ] `scene-player.js`: boxes, class colour, trails, transport (`L`)
-- [ ] Publish ~20 minutes from `s2_sf_2` through existing Pages (`M`)
-- [ ] Document sources, commands and measured asset sizes (`S`)
+- [x] Publish the reference capture through existing Pages (`M`) — 11 min, 1.2 MiB
+- [x] Document sources, commands and measured asset sizes (`S`) — [reference-capture.md](../lidar/operations/reference-capture.md)
 
 ### Deferred
 

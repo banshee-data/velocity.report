@@ -413,8 +413,9 @@ itself is built in Phase 0 and owned by the companion plan.
 
 **Phase 0 — one real scene.** Approximately 20 minutes from a single site,
 published through the **existing** velocity.report Pages deployment under
-`public_html/`. `s2_sf_2` is the candidate: 42 runs, 29 static segments, 134
-static minutes. Tracks plus one clip and a background. No S2 metadata, no
+`public_html/`. The source is the reference capture, `soma1-static-0.pcap`
+([provenance](../lidar/operations/reference-capture.md)); the `s2_sf_*` archive
+captures have no VRLOGs yet. Tracks plus one clip and a background. No S2 metadata, no
 archive importer, no catalogue database, no map, no separate repository. Owned
 by [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md); nothing in
 this plan is required to reach it. Phase 0 is complete when a public static URL
