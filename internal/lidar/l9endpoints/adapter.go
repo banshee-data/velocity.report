@@ -375,7 +375,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 	// clusters of stale red boxes around active objects.
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
-	gracePeriodNanos := float64(tracker.GetDeletedTrackGracePeriod())
+	// Fade over the render window, not the re-association grace period. The
+	// two were the same number, so a deleted track's frozen box sat on screen
+	// for five seconds while the real object drove out from under it.
+	fadeNanos := float64(tracker.GetDeletedTrackRenderFade())
 
 	for _, t := range deletedTracks {
 		// Skip tracks that never reached confirmed state.
@@ -384,7 +387,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 		}
 
 		elapsed := float64(nowNanos - t.EndUnixNanos)
-		alpha := float32(1.0 - elapsed/gracePeriodNanos)
+		alpha := float32(1.0)
+		if fadeNanos > 0 {
+			alpha = float32(1.0 - elapsed/fadeNanos)
+		}
 		if alpha < 0 {
 			alpha = 0
 		}
