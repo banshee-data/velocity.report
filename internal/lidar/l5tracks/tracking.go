@@ -22,6 +22,12 @@ const (
 	// meaningful reference direction: the velocity heading is dominated by
 	// estimator noise, so comparing the box against it measures nothing.
 	CourseAlignmentMinSpeedMps = 2.0
+
+	// SustainedLockFrames is how many consecutive locked frames count as a
+	// sustained heading lock, and equally how many consecutive unlocked frames
+	// count as a genuine release. Short locks are the guards doing their job on
+	// a single bad cluster; a sustained one that never releases is the trap.
+	SustainedLockFrames = 5
 )
 
 // TrackPoint represents a single point in a track's history.
@@ -108,6 +114,21 @@ type TrackedObject struct {
 	// CourseAlignmentPercentileDeg.
 	CourseAlignmentHist  [CourseAlignmentBins]uint32 // 5° bins over [0, 90]
 	CourseAlignmentCount int                         // Number of samples taken
+
+	// Heading Lock Telemetry
+	// The heading guards in tracking_update.go suppress the OBB heading update
+	// and record HeadingSourceLocked. Guard 3 compares each measurement against
+	// the *smoothed* heading, so once that has drifted more than 60° from the
+	// truth every correct measurement is rejected and the lock cannot release
+	// on its own. These counters exist to make that trap visible: a track that
+	// enters a sustained lock and never leaves it is the failure mode.
+	HeadingSourceCounts  [HeadingSourceCount]uint32 // Frames attributed to each source
+	HeadingLockedFrames  int                        // Total frames with the heading locked
+	CurrentLockRun       int                        // Consecutive locked frames, running
+	LongestLockRun       int                        // Longest consecutive locked run
+	currentUnlockRun     int                        // Consecutive unlocked frames, running
+	EnteredSustainedLock bool                       // Reached SustainedLockFrames consecutively
+	ReleasedAfterLock    bool                       // Ran unlocked for SustainedLockFrames after that
 
 	// Speed Jitter Metrics
 	// Measures frame-to-frame Kalman speed instability (m/s).

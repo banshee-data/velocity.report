@@ -347,6 +347,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		}
 
 		track.HeadingSource = headingSource
+		track.RecordHeadingSource(headingSource)
 
 		// Use cluster (DBSCAN) dimensions directly for per-frame rendering.
 		// The DBSCAN OBB dimensions are aligned with the current frame's PCA
@@ -398,6 +399,49 @@ func (t *TrackedObject) SampleCourseAlignment() {
 	}
 	t.CourseAlignmentHist[bin]++
 	t.CourseAlignmentCount++
+}
+
+// RecordHeadingSource attributes one frame to a heading source and maintains
+// the lock-run counters.
+//
+// The distinction that matters is between a lock and a trap. A few locked
+// frames are the guards suppressing one bad cluster, which is what they are
+// for. A sustained lock that never releases means Guard 3 is rejecting every
+// measurement because the smoothed heading it compares against has itself
+// drifted too far, and the track cannot recover. EnteredSustainedLock and
+// ReleasedAfterLock separate the two.
+func (t *TrackedObject) RecordHeadingSource(src HeadingSource) {
+	if src >= 0 && int(src) < HeadingSourceCount {
+		t.HeadingSourceCounts[src]++
+	}
+
+	if src == HeadingSourceLocked {
+		t.HeadingLockedFrames++
+		t.CurrentLockRun++
+		t.currentUnlockRun = 0
+		if t.CurrentLockRun > t.LongestLockRun {
+			t.LongestLockRun = t.CurrentLockRun
+		}
+		if t.CurrentLockRun >= SustainedLockFrames {
+			t.EnteredSustainedLock = true
+		}
+		return
+	}
+
+	t.CurrentLockRun = 0
+	t.currentUnlockRun++
+	// Only a run of unlocked frames counts as a release. A single frame that
+	// slips through between rejections is not the lock letting go.
+	if t.EnteredSustainedLock && t.currentUnlockRun >= SustainedLockFrames {
+		t.ReleasedAfterLock = true
+	}
+}
+
+// HeadingLockTrapped reports whether the track entered a sustained heading lock
+// and never released it. This is the population that sat a median 106° away
+// from its direction of travel in the reference run.
+func (t *TrackedObject) HeadingLockTrapped() bool {
+	return t.EnteredSustainedLock && !t.ReleasedAfterLock
 }
 
 // FoldAxisAngleDeg converts a signed angular difference in radians to degrees
