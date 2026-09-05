@@ -6,6 +6,7 @@ package replayeval
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/analysis"
@@ -118,6 +119,78 @@ func TestRunIsDeterministic(t *testing.T) {
 // warmup before any frame carries a cloud, costing about twenty seconds to
 // re-prove the same line. Verified manually instead: 45 s of the SoMa capture
 // records 347 MB with points against 9.1 MB without.
+
+// A recording that cannot say which code and parameters produced it is not
+// usable as an A/B arm. The live path takes provenance from the run-config
+// store in the database; there is none here, so it must be derived.
+func TestRunWritesProvenance(t *testing.T) {
+	pcapPath := requireKirk0(t)
+	out := filepath.Join(t.TempDir(), "prov")
+
+	if _, err := Run(Config{
+		PCAPFile: pcapPath, OutDir: out, SensorID: "test-replay",
+		UDPPort: 2369, DurationSeconds: 4,
+	}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	rep, _, err := analysis.GenerateReport(out)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	m := rep.Recording
+	if m.SourceType != "pcap" {
+		t.Fatalf("source_type = %q, want \"pcap\"", m.SourceType)
+	}
+	if m.PCAPPath != "kirk0.pcapng" {
+		t.Fatalf("pcap_path = %q, want the capture basename", m.PCAPPath)
+	}
+	if !strings.HasPrefix(m.ParamsHash, "sha256:") || len(m.ParamsHash) != 71 {
+		t.Fatalf("params_hash = %q, want a sha256: prefixed 64-char digest", m.ParamsHash)
+	}
+	if m.ConfigHash != m.ParamsHash {
+		t.Fatal("config_hash and params_hash should match: offline they are the same object")
+	}
+	if m.ParamSetType != "replay" {
+		t.Fatalf("param_set_type = %q, want \"replay\"", m.ParamSetType)
+	}
+	if m.BuildVersion == "" {
+		t.Fatal("build_version is empty")
+	}
+
+	// The composed parameters themselves must be recorded, not just hashed,
+	// or the hash identifies a config nobody can recover.
+	if _, err := os.Stat(filepath.Join(out, "execution_config.json")); err != nil {
+		t.Fatalf("execution_config.json missing: %v", err)
+	}
+}
+
+// Two runs with the same config must agree on the hash, and a changed config
+// must change it, or the hash cannot distinguish A from B.
+func TestProvenanceHashTracksConfig(t *testing.T) {
+	pcapPath := requireKirk0(t)
+	dir := t.TempDir()
+
+	hash := func(out string, cfgPath string) string {
+		if _, err := Run(Config{
+			PCAPFile: pcapPath, OutDir: out, SensorID: "test-replay",
+			UDPPort: 2369, DurationSeconds: 3, TuningFile: cfgPath,
+		}); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		rep, _, err := analysis.GenerateReport(out)
+		if err != nil {
+			t.Fatalf("analyse: %v", err)
+		}
+		return rep.Recording.ParamsHash
+	}
+
+	a := hash(filepath.Join(dir, "a"), "")
+	b := hash(filepath.Join(dir, "b"), "")
+	if a != b {
+		t.Fatalf("same config gave different hashes: %s vs %s", a, b)
+	}
+}
 
 // A port filter that matches nothing must be reported, not returned as a
 // successful empty run.
