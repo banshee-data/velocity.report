@@ -155,13 +155,16 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	// Build ordered list of active tracks.
 	//
 	// The sort is not cosmetic. Go randomises map iteration order, so without
-	// it the cost matrix columns are permuted on every frame and every run.
-	// Hungarian assignment then resolves ties and near-ties differently, one
-	// changed association cascades into the next frame, and two replays of the
-	// same capture diverge. Measured over five-minute S2 captures that showed
-	// up as a few tracks and a few tenths of a degree of course error moving
-	// between otherwise identical runs, which is enough to make a regression
-	// fixture impossible to write.
+	// it the cost matrix columns are permuted on every frame, and Hungarian
+	// assignment resolves ties differently from one frame to the next.
+	//
+	// Note what this does and does not guarantee. Track IDs are random UUIDs,
+	// so sorting by them gives a stable order within a run but an arbitrary one
+	// across runs. It removes per-frame churn; it is not a canonical ordering.
+	// Cross-run reproducibility comes from the assignment having a unique
+	// optimum, which held once the L4 subsample stopped being seeded from the
+	// clock. If tie-breaking ever becomes load-bearing, sort by a creation
+	// sequence number instead of by ID.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
