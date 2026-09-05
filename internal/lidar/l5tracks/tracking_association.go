@@ -2,6 +2,7 @@ package l5tracks
 
 import (
 	"math"
+	"sort"
 )
 
 // Internal numerical stability constants — not user-tunable.
@@ -152,12 +153,22 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
 
 	// Build ordered list of active tracks.
+	//
+	// The sort is not cosmetic. Go randomises map iteration order, so without
+	// it the cost matrix columns are permuted on every frame and every run.
+	// Hungarian assignment then resolves ties and near-ties differently, one
+	// changed association cascades into the next frame, and two replays of the
+	// same capture diverge. Measured over five-minute S2 captures that showed
+	// up as a few tracks and a few tenths of a degree of course error moving
+	// between otherwise identical runs, which is enough to make a regression
+	// fixture impossible to write.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
 			activeTrackIDs = append(activeTrackIDs, id)
 		}
 	}
+	sort.Strings(activeTrackIDs)
 
 	nClusters := len(clusters)
 	nTracks := len(activeTrackIDs)
