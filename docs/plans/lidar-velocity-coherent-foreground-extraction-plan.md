@@ -48,6 +48,32 @@
 - [ ] Reproducible baseline report generated from one command
 - [ ] Baseline includes precision/recall proxy, track duration, fragmentation rate, and throughput
 
+### S2 fixtures and the estimator boundary
+
+The September 2026 S2 captures provide the required multi-placement baseline.
+Use adjacent files as one continuous replay: the first five-minute file warms
+the background, and the second is the measured window. Three measured windows
+are recorded in [the state-estimation plan](lidar-state-estimation-plan.md#35-the-s2-captures-reproduce-the-limp-across-three-placements):
+
+| Placement | Warm-up file                        | Measured file                       | Moving tracks |
+| --------- | ----------------------------------- | ----------------------------------- | ------------: |
+| S2-1      | `s2-1_20260901130846_00005.pcap`    | `s2-1_20260901131346_00006.pcap`    |            60 |
+| S2-SF3    | `s2_sf_3_20260902134038_00006.pcap` | `s2_sf_3_20260902134538_00007.pcap` |           178 |
+| S2-SF4    | `s2_sf_4_20260902152749_00002.pcap` | `s2_sf_4_20260902153250_00003.pcap` |           149 |
+
+These captures also put a firm boundary around this plan. In the current
+pipeline, 52.2 % of the 387 moving tracks were estimated below 1 m wide, and
+22 of 192 tracks at 6 m/s or more had a local five-point lateral residual above
+0.5 m. Velocity-coherent clustering may improve continuity and reduce bad
+associations. It cannot turn a visible face into an object centre, nor can it
+recover an unseen vehicle width by averaging more face-thickness measurements.
+
+Phase 0 must therefore report the sub-metre-width rate and lateral-excursion
+rate beside fragmentation. A result may credit this plan only for improvements
+caused by clustering or continuity. The near-edge measurement and censored
+dimension belief remain owned by the state-estimation plan. Without that
+control, a smoother limp could be mistaken for a cured one.
+
 ---
 
 ## Phase 1: point-level velocity estimation
@@ -684,13 +710,14 @@ The `POST /api/lidar/merge-tracks` body contains `earlier_track_id` and `later_t
 
 These targets are hypotheses to validate against measured outcomes, not committed production guarantees.
 
-| Metric                                              | Target                |
-| --------------------------------------------------- | --------------------- |
-| Sparse-object recall (3–11 points)                  | +20% to +40% relative |
-| Track fragmentation rate                            | −10% to −25% relative |
-| Median track duration for boundary-crossing objects | +10% to +30% relative |
-| Additional false positives vs baseline              | <+10%                 |
-| Throughput regression at target frame rate          | <20%                  |
+| Metric                                              | Target                                                         |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| Sparse-object recall (3–11 points)                  | +20% to +40% relative                                          |
+| Track fragmentation rate                            | −10% to −25% relative                                          |
+| Median track duration for boundary-crossing objects | +10% to +30% relative                                          |
+| Additional false positives vs baseline              | <+10%                                                          |
+| Throughput regression at target frame rate          | <20%                                                           |
+| Sub-metre-width and lateral-excursion controls      | Report separately; no regression hidden by improved continuity |
 
 ---
 
