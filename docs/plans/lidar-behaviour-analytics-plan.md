@@ -302,9 +302,8 @@ Three rules govern denominators.
 ## 7. Metric framework
 
 The feature matrix in Section 8 lists what can be measured. This section states
-the rules that decide, for any given road user in any given passage, whether a
-listed metric may actually be emitted. Those rules are load-bearing: most of the
-matrix is inapplicable to most passages, and a framework that computes
+the rules that decide whether a metric may be emitted. Those rules are
+load-bearing: most of the matrix is inapplicable to most passages, and computing
 everything for everyone would be wrong far more often than right.
 
 ### 7.1 Road-user scope: three tiers
@@ -590,8 +589,7 @@ four-point differencing at 0.2 s spacing with a 0.05 m measurement gives about
 28 m/s³ of noise against a 1 to 5 m/s³ signal. Every jerk figure therefore
 carries its effective window, and the API refuses to return jerk when the
 passage is shorter than the window requires, or when the track is poorly
-observed. A jerk number without a bandwidth describes the filter, not the
-vehicle.
+observed.
 
 ### 8.3 Following behaviour
 
@@ -837,11 +835,11 @@ them.
 
 Statutory thresholds are jurisdiction-specific and belong in site configuration,
 not in code: 1.5 m in several EU jurisdictions, 3 ft in over half of US states,
-1.0 or 1.5 m speed-tiered in Western Australia. Compliance rates measured
-elsewhere are strikingly low, with observational work reporting roughly half of
-drivers meeting a 1.5 m requirement in one German city and lower rates in rural
-Austria, which means the _distribution_ is the interesting output and a
-pass-fail count discards most of it.
+1.0 or 1.5 m speed-tiered in Western Australia. Compliance measured elsewhere is
+poor: observational work reports roughly half of drivers meeting a 1.5 m
+requirement in one German city, and lower rates in rural Austria. The
+_distribution_ is therefore the output that matters. A pass-fail count discards
+most of what was measured, including how far short the failures fell.
 
 The analogous vehicle-to-pedestrian clearance is meaningful wherever pedestrians
 share carriageway space without a kerb separation, and meaningless where a kerb

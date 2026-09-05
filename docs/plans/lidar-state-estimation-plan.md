@@ -22,14 +22,14 @@
 
 ## 0. Principles
 
-Two principles govern every decision in this document. They are stated first
-because several later sections were revised specifically to satisfy them, and
-because a design that violates either is wrong regardless of its metrics.
+Two principles govern every decision in this document. They are stated here
+because several later sections were revised to satisfy them, and because a
+design that violates either one is wrong regardless of its metrics.
 
 ### 0.1 No black boxes
 
-For every derived state and every behavioural metric, the system must be able to
-say: what sensor evidence was observed; what physical state was estimated; which
+For every derived state and every behavioural metric, the system must report:
+what sensor evidence was observed; what physical state was estimated; which
 model and assumptions were applied; how uncertain that estimate was; how far the
 observation deviated from the estimate; why an observation was accepted,
 downweighted, rejected or marked ambiguous; and why a metric was emitted or
@@ -51,10 +51,10 @@ where retrospective estimation is permitted, subsequent observations.
 > probable physical state. We do not smooth trajectories merely to make them
 > appear physically plausible.
 
-This changes the vocabulary. Product-level language says **final trajectory
+This changes the vocabulary. Product-level language uses **final trajectory
 estimate**, **retrospectively refined estimate**, or **most probable physical
 path**. Algorithm names stay technical: Kalman filter, RTS smoother, fixed-lag
-smoother are precise and are retained where an algorithm is meant.
+smoother are precise and belong in contexts where an algorithm is meant.
 
 Both the observation and the estimate are preserved, so their disagreement stays
 inspectable. That is the mechanism that makes 0.1 enforceable rather than
@@ -78,14 +78,14 @@ only ever sit on a visible surface of the vehicle, so it carries a
 viewpoint-dependent offset of up to half the vehicle's width or length, and it
 hops discretely between faces as visibility changes.
 
-The consequence for sequencing is direct and it contradicts the current
+The consequence for sequencing is direct and contradicts the current
 recommendation in [pipeline-review-open-questions Q5](../../data/maths/pipeline-review-open-questions.md),
 which puts a constant-acceleration state extension and then an IMM at the front
 of the queue. **No estimator improvement applied to the current measurement can
 fix the reported problem.** A Kalman filter assumes zero-mean white measurement
 noise. This error is neither zero-mean nor white: it is a bias that is a smooth
 function of viewing geometry and stays correlated over tens of frames. CV, CA,
-CTRA, UKF and IMM all inherit it identically.
+CTRA, UKF and IMM all inherit it unchanged.
 
 The first increment is therefore an **observation model**, not an estimator.
 
@@ -127,8 +127,8 @@ flowchart TB
     style N fill:#fff2cc,stroke:#9a6b16
 ```
 
-The red node is where the reported defect originates. The amber node is where
-orientation is maintained outside the estimator that owns the rest of the state.
+The red node is where the reported defect originates. The amber node shows where
+orientation lives outside the estimator that owns the rest of the state.
 
 ### 1.2 Component inventory
 
@@ -283,7 +283,7 @@ model, no background-subtraction error, no dropped returns beyond the injected
 wedge. The points are then passed to the production `l4perception.DBSCAN` and
 the production `EstimateOBBFromCluster`.
 
-The prototype lives in the session scratchpad and should be promoted into
+The prototype lives in the session scratchpad. Promote it into
 `internal/lidar/l4perception` as the seed of the synthetic corpus in
 [Section 16](#16-evaluation-corpus). Caveats: the vehicle is a box, the road is
 flat, there is no ground return and no second object. These simplifications all
@@ -324,7 +324,7 @@ Three conclusions follow, and each of them changes a decision later in this plan
 **Filtering cannot fix it.** The error is deterministic given viewing geometry
 and correlated over tens of frames. It violates the zero-mean white-noise
 assumption that gives the Kalman filter its optimality. Every estimator in the
-comparison matrix inherits it unchanged.
+comparison matrix carries it forward unchanged.
 
 **Point count does not predict it.** Frame 13 has the most points in the pass,
 394, and carries the full -0.900 m bias. Frame 19 has 248 points and is nearly
@@ -480,7 +480,7 @@ gives the types and the field-by-field split.
 face of a vehicle you are looking at without knowing which vehicle it is. The
 ordering is therefore predict, associate on cheap track-agnostic geometry, then
 interpret the measurement against the chosen track, then gate on the interpreted
-likelihood. Association may interpret against several candidate tracks and
+likelihood. Association can interpret against several candidate tracks and
 compare, which is the same operation run more than once, not a different one.
 
 **Road-surface geometry is an explicit input, not an assumption.** It enters the
@@ -491,11 +491,11 @@ surface-relative. It is drawn as an input so that its absence is visible: with
 no surface model, the interpretation falls back to a stated planar assumption
 and records that it did. See Section 14.
 
-The prior still improves association, which settles the question of where state
-estimation, association and classification interact. A prediction unbiased by
-half a vehicle width is a better gate centre, and P4, the 56 % frame miss rate,
-is partly a gating problem. Expect association to improve as a side effect of
-fixing the measurement, and measure it.
+The prior still improves association and settles where state estimation,
+association and classification interact. A prediction unbiased by half a vehicle
+width is a better gate centre, and P4's 56 % frame miss rate is partly a gating
+problem. Association should improve as a side effect of fixing the measurement;
+measure it.
 
 ### 4.2 What stays where
 
@@ -870,12 +870,12 @@ can be compared against choices in another. Scale: `++` strong, `+` adequate,
 **Budget context for C7.** The CI baseline
 ([perf/baseline/baseline-kirk0-ci.json](../../internal/lidar/perf/baseline/baseline-kirk0-ci.json))
 records 5.04 ms mean and 7.81 ms p99 for the whole frame callback on 4-core
-amd64. The stage breakdown fields in that file are zero, so the tracker's share
-is not currently measured: **populating them is a Phase 0 task.** Assume a Pi 4
-is three to five times slower, giving roughly 15 to 25 ms per frame against a
+amd64. The stage breakdown fields there are zero, so the tracker's share
+is not measured: **populating them is a Phase 0 task.** A Pi 4
+is roughly three to five times slower, giving 15 to 25 ms per frame against a
 100 ms budget at 10 Hz. The tracker is a small part of that; clustering and
 background subtraction dominate. Estimator changes at 100 tracks are unlikely to
-be the constraint, and the plan should stop guessing and measure.
+be the constraint. Measure rather than guess.
 
 ## 7. Estimator matrix
 
@@ -899,22 +899,20 @@ below the table.
 solves the reported defect, because the defect is in the measurement. A reader
 who takes nothing else from Section 7 should take that.
 
-The IMM row earns its `+` on explainability rather than a minus. Mode
+The IMM row earns its `+` on explainability. Mode
 probabilities are genuinely auditable output: "the constant-acceleration mode
-carried 0.82 of the weight during braking" is a sentence a person can check. The
-cost is in mixing, mode-conditioned covariances and the interaction with gating,
-which is where IMM implementations usually go wrong.
+carried 0.82 of the weight during braking" is checkable. The cost lives in
+mixing, mode-conditioned covariances and the interaction with gating,
+which is where IMM implementations usually stumble.
 
 **Deferred, and why.** CTRV, CTRA and a stationary mode were scored in the
-previous draft and are removed from the decision surface here. All three depend
-on evidence that does not exist yet, and carrying them as live options implied a
-choice that is not actually open. CTRV and CTRA need turning to be a measured
-failure mode, which the current low-speed sites do not supply, and
-[Q5 of the pipeline review](../../data/maths/pipeline-review-open-questions.md)
-argues turning belongs to L7 corridor constraints rather than L5. A stationary
-mode is only meaningful inside an IMM, and 5,982 near-stationary tracks make it
-worth revisiting **at** G-EST-2, not before. Reinstate any of them when the
-residual record justifies it.
+previous draft and do not appear here. All three depend on evidence that does not
+exist, and treating them as live options would pretend a choice is open. CTRV and
+CTRA need turning to be a measured failure mode, which the current low-speed sites
+do not supply. [Q5 of the pipeline review](../../data/maths/pipeline-review-open-questions.md)
+places turning in L7 corridor constraints rather than L5. A stationary mode only
+makes sense inside an IMM, and 5,982 near-stationary tracks make it worth revisiting
+**at** G-EST-2, not before. Reinstate any when the residual record justifies it.
 
 ### 7.2 Filter algorithms
 
@@ -926,12 +924,12 @@ residual record justifies it.
 | Fixed-lag RTS        | any                     | Under 0.5 ms    | `+`  | `+`  | Backward pass over a bounded buffer                                                               |
 | Factor graph / batch | any                     | 10 to 100 ms    | `+`  | `--` | No maintained pure-Go sparse solver; a cgo dependency contradicts the static-binary build in D-26 |
 
-The factor-graph row is disqualified on C9 and C15 rather than on merit. Batch
-trajectory optimisation is the right tool for offline re-estimation over a whole
-track, and it would handle the corner-identity ambiguity in Section 3.3
-elegantly. It is not worth a new native dependency in a project that ships a
-fully static ARM64 binary. Revisit only if full-track RTS proves insufficient
-and a pure-Go sparse Cholesky becomes available.
+The factor-graph row is disqualified on C9 and C15, not on merit. Batch
+trajectory optimisation is the right offline tool for re-estimation over a whole
+track and would handle the corner-identity ambiguity in Section 3.3
+well. But a new native dependency does not fit a project shipping
+a fully static ARM64 binary. Revisit if full-track RTS proves insufficient
+and a pure-Go sparse Cholesky emerges.
 
 ### 7.3 Recommendation and gate
 
@@ -948,8 +946,7 @@ put heading in the state and also called the filter linear; those are
 incompatible, and Section 5.3 resolves it.
 
 Doing anything more in the first increment would confound the experiment. If the
-estimator and the measurement change together, a regression cannot be
-attributed.
+estimator and measurement change together, a regression cannot be attributed.
 
 Motion-class priors from Section 5.5 enter here as class-conditioned process
 noise and class-conditioned plausibility bounds. They change `Q` and the gate,
@@ -1219,12 +1216,12 @@ smoothness.
 > most probable physical state. We do not smooth trajectories merely to make
 > them appear physically plausible.
 
-Two consequences are testable rather than rhetorical, and both appear in the
+Two consequences are testable rather than rhetorical and appear in the
 gates below. A refinement pass that reduces residuals on straight-line traffic
-while also flattening a hard braking event has failed, however good its
-aggregate numbers look. And a refinement that changes a state without new
-evidence entering the window is a bug, not a feature: the revision magnitude is
-recorded per frame precisely so that this is detectable.
+while also flattening a hard braking event has failed, whatever its
+aggregate numbers. And a refinement that changes a state without new
+evidence entering the window is a bug: the revision magnitude is
+recorded per frame so this becomes detectable.
 
 | Strategy                           | Latency        | C1   | C4   | C12  | C7   | C9   | Note                                                                           |
 | ---------------------------------- | -------------- | ---- | ---- | ---- | ---- | ---- | ------------------------------------------------------------------------------ |
@@ -1243,9 +1240,9 @@ Produce **both** outputs, and never conflate them.
 | `fixed_lag` | Persisted per-frame estimate, behaviour metrics | 3 frames, about 300 ms | Once, when the lag window closes |
 | `final`     | Reports, PDF output, public analysis            | Track close            | Yes, on re-estimation            |
 
-The three are distinguished by `EstimatedState.Stage`. A report that quotes a
-speed must quote the `final` value, and the API must be able to say which stage
-a number came from. Reports built on the online estimate would be quoting a
+The three are distinguished by `EstimatedState.Stage`. A report that cites a
+speed must cite the `final` value, and the API must say which stage
+a number came from. Reports built on the online estimate would cite a
 number the system itself no longer believes.
 
 Each refined state records **what new evidence justified the revision**: which
@@ -1254,12 +1251,12 @@ magnitude of the resulting change. That record is what distinguishes evidence-
 driven revision from cosmetic smoothing, and it is the audit trail principle 0.1
 requires. A revision with an empty evidence set is a defect.
 
-The 300 ms window is chosen from the data, not from convention. At an effective
-5 Hz observation rate, three frames is 600 ms of wall time and typically two or
-three actual observations. The occlusion excursion measured in Section 3.2
-spanned three frames. A shorter window would not span it; a much longer one
+The 300 ms window comes from the data, not convention. At an effective
+5 Hz observation rate, three frames is 600 ms and typically two or
+three actual observations. The occlusion excursion in Section 3.2
+spans three frames. A shorter window would not span it; a much longer one
 delays the persisted record without adding information, because the smoother's
-gain decays quickly past the correlation time of the process noise.
+gain decays quickly past the process-noise correlation time.
 
 ### 10.2 Decision gate G-SMO-1
 
@@ -1306,9 +1303,9 @@ Estimated cost: the observation row is comparable to today's 161 bytes; the
 estimate row with a 21-element covariance is roughly 300 bytes; the residual row
 is roughly 120 bytes. At the observed production rate this is a **three to four
 times increase** on the LiDAR track storage, which is currently about 1.1 GB of
-the 15.8 GB database, so roughly plus 2 to 3 GB over a comparable period. That is
-affordable on a 64 GB card **only with retention policy**, so the policy is part
-of the schema, not an afterthought:
+the 15.8 GB database, or roughly plus 2 to 3 GB over a comparable period. That is
+affordable on a 64 GB card **only with retention policy**, so the policy belongs
+in the schema, not as an afterthought:
 
 | Data                                                              | Retention                                                                       |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -1318,11 +1315,11 @@ of the schema, not an afterthought:
 | Residuals                                                         | 30 days, plus indefinitely for corpus tracks                                    |
 | Detailed artifacts, retained point sets and per-face point counts | Analysis runs only, never the live path                                         |
 
-`lidar_track_observations` is retained unchanged during the transition and
-deprecated once the new tables carry the same information, so nothing that reads
+`lidar_track_observations` stays unchanged during the transition and
+is deprecated once the new tables hold the same data. Nothing that reads
 it breaks mid-migration. Its misleading contents, described in Section 1.6, are
-documented rather than silently corrected, because 3.5 M existing rows have
-already been interpreted as observations by anything that consumed them.
+documented rather than silently corrected: 3.5 M existing rows are
+already interpreted as observations by downstream code.
 
 ### 11.2 Reproducibility
 
@@ -1344,8 +1341,9 @@ stored observations through the current tracker reproduces the current
 
 ## 12. Abnormal motion and crash preservation
 
-The requirement is not a crash classifier. It is that the architecture must not
-make crashes invisible, and must retain enough evidence for a later classifier.
+This work does not build a crash classifier. The requirement is that the
+architecture must not make crashes invisible, and must retain enough evidence
+for a later one.
 
 ### 12.1 The failure mode to avoid
 
@@ -1372,16 +1370,16 @@ event. The estimator distinguishes these with two channels running in parallel:
 | Per-frame NIS gate                  | Single-frame anomaly     | `NIS > chi2(dim, 0.99)` downweights, does not exclude                                   |
 | Signed CUSUM on normalised residual | Sustained model mismatch | Accumulates signed residual per axis; fires when the cumulative sum exceeds a threshold |
 
-The CUSUM is the answer to the brief's question about telling a one-frame
-anomaly from a sustained behaviour change. A measurement anomaly produces a
+The CUSUM answers the brief's question: distinguishing a one-frame
+anomaly from sustained behaviour change. A measurement anomaly produces a
 large residual that reverses on the next frame, so the signed sum returns
 towards zero. A real manoeuvre produces same-sign residuals that accumulate. The
 sensor artefact in Section 3.2 reverses. Real braking does not.
 
 **Invariant 3: the model can declare itself invalid, without redefining what its
-fields mean.** When the CUSUM fires on multiple axes at once, or geometry
-residuals exceed the dimension prior by a large margin, or the anchor identity
-becomes unresolvable across consecutive frames, the estimator enters
+fields mean.** When the CUSUM fires on multiple axes, or geometry
+residuals exceed the dimension prior by a large margin, or anchor identity
+becomes unresolvable across frames, the estimator enters
 `model_invalid`: process noise inflated by an order of magnitude, dimension
 belief frozen rather than updated, the transition timestamped and logged.
 
@@ -1532,7 +1530,7 @@ the driving-impairment literature.
 
 ## 14. Coordinate frames and road-surface geometry
 
-The tracker currently has one frame. `TransformToWorld(foregroundPoints, nil,
+The tracker has one frame. `TransformToWorld(foregroundPoints, nil,
 sensorID)` passes a nil pose, so sensor and world coincide. That is tolerable
 for a single sensor on flat ground. It is not tolerable on a graded site, which
 is what defect P11 records.
@@ -1556,11 +1554,11 @@ it. Introducing it later is a pure relabelling of a rigid transform.
 
 ### 14.2 Separate road-user dynamics from road-surface geometry
 
-The temptation on hilly ground is to promote the road user to a full 3D dynamic
-model. Resist it. A car driving over a crest is not accelerating vertically in
-any sense that belongs in its motion model; the road moved. Mixing the two makes
-grade indistinguishable from object instability and puts an unobservable
-vertical dynamic state into a filter that cannot support it.
+The temptation on hills is to promote the road user to a full 3D dynamic
+model. Resist it. A car driving over a crest does not accelerate vertically in
+any sense relevant to its motion model; the road moves. Mixing the two makes
+grade indistinguishable from object instability and places an unobservable
+vertical dynamic state into a filter that cannot handle it.
 
 The separation is:
 
@@ -1571,8 +1569,8 @@ The separation is:
 | The object's vertical position | This plan, outside the dynamic state | Height of ground contact above the local surface, plus which surface was used            |
 
 Normal vertical motion caused by grade is therefore **not** an abnormal-motion
-signal, and Section 12's indicator table must never treat it as one. That is a
-concrete requirement on the class-conditioned thresholds, not a note.
+signal, and Section 12's indicator table must never treat it as such. This is a
+concrete requirement on the class-conditioned thresholds, not a suggestion.
 
 A curvilinear road-surface representation follows naturally:
 
@@ -1666,8 +1664,8 @@ visible when it happens.
 | **Invalidating conditions**     | The design is wrong, and should be reconsidered rather than patched, if: (a) the near-edge measurement fails to beat the OBB centre on real kirk0 data despite winning on synthetic data, which would mean real clusters lack a clean near face; (b) predicted heading proves too unreliable to select the visible face, making the observation model circular; (c) P4 turns out to be a clustering failure rather than a gating failure, in which case L4 is the correct place to spend the next increment; (d) retained points prove unaffordable in memory on a Pi 4 at realistic cluster counts |
 
 **The ordering principle**: a component enters the first implementation only
-when its dependencies exist and its acceptance criteria can be measured. IMM is
-excluded not because it is wrong but because the evidence needed to choose its
+when its dependencies exist and its acceptance criteria are measurable. IMM is
+excluded not because it is wrong but because the evidence to choose its
 modes does not yet exist. Once residuals are persisted, that evidence arrives
 as a by-product.
 
@@ -1685,11 +1683,11 @@ as a by-product.
 | `lidar-test-corpus-plan`                               | A proposed five-PCAP corpus                                            | Yes: this plan depends on it                                                               |
 | `/Volumes/lidar/lidar/seg/soma{0,1,2,3}-static-0.pcap` | 38 min of sensor-stationary capture across four placements, 2025-12-06 | **Yes: the real-data validation set for the measurement comparison, see 16.5**             |
 
-The VRLOG limitation is worth stating plainly, because it looks like a solution
-and is not. Replaying a VRLOG replays _decisions already made_. Comparing
-estimators requires replaying _observations_, which is exactly why the
-observation table in Section 11 is the gating dependency. Once it exists, an
-estimator comparison is a query, not a pipeline run.
+The VRLOG limitation deserves clarity because it looks like a solution and is
+not. Replaying a VRLOG replays _decisions already made_. Comparing
+estimators requires replaying _observations_, which is why the
+observation table in Section 11 gates everything. Once it exists, estimator
+comparison becomes a query, not a pipeline run.
 
 ### 16.2 Required coverage
 
@@ -1720,8 +1718,8 @@ The prototype in Section 3.1 is the seed. Promote it to
 - ground truth written alongside, so position, velocity and acceleration error
   are directly computable, which is impossible on real data.
 
-The rule from the brief holds and is worth restating: define the physics and
-inject controlled noise, rather than hand-writing expected values. A test that
+The rule from the brief holds and deserves restating: define the physics and
+inject controlled noise, rather than hand-write expected values. A test that
 asserts a hand-computed number tests the implementation against itself.
 
 ### 16.4 Partitioning
@@ -1759,15 +1757,14 @@ not useful here.
 | `soma3-static-0-1.pcap`            | see note      | see note       | see note      | see note     |
 | **Total**                          | **38 m 01 s** | **~22,810**    | **4,009,146** | **5,062 MB** |
 
-**Filenames and provenance.** The set was revised after the first draft. Three
-changes: `soma2-static-0` is dropped, because at 69 s against a 60 s settling
-duration it yields too few usable frames to be a meaningful partition;
-`soma1` and `soma3` were re-split and now carry a `-0-1` segment suffix; and
-`clar0-1.pcapng` is added, which matters more than the rest because it is a
-**different site**, not a fourth placement at the same one. Row values marked
-"see note" were measured on the superseded splits and must be re-measured
-before the partition below is fixed. `/Volumes/lidar` was not readable from the
-session that made this edit, so only `kirk0.pcapng` was re-verified on disk.
+**Filenames and provenance.** The set changed after the first draft. Three
+changes: `soma2-static-0` is dropped because at 69 s against 60 s settling
+it yields too few usable frames; `soma1` and `soma3` are re-split with a `-0-1`
+suffix; and `clar0-1.pcapng` is added. That one matters more than the rest: it is a
+**different site**, not a fourth placement. Row values marked "see note" come
+from the old splits and must be re-measured before the partition below is final.
+`/Volumes/lidar` was not readable in the session that made this edit, so only
+`kirk0.pcapng` was re-checked on disk.
 
 Verified as Hesai Pandar40P: 1266-byte UDP payloads, `192.168.100.202:10000 →
 192.168.100.151:2369`, 10.0 Hz with RPM 593 to 606. Same wire format and port as
@@ -1959,11 +1956,11 @@ E1 feeds gate G-GEO-1 and adds two conditions of its own.
 | E1.2 improvement                            | Near-edge p99 lateral residual is at least 50 % below medoid on the decision-gate recording                                                                                   |
 | E1.4 noise floor                            | Stationary-cluster spread is consistent with the Section 8 uncertainty model within a factor of two across range deciles                                                      |
 
-**A negative result is a real outcome, not a failure of the experiment.** If
-E1.1 shows no aspect-conditioned bias on real clusters, the synthetic model is
-unrepresentative, and Section 15's first invalidating condition has fired: real
+**A negative result is a real outcome, not a failure of the experiment.** If E1.1
+shows no aspect-conditioned bias on real clusters, the synthetic model is
+unrepresentative and Section 15's first invalidating condition fires: real
 clusters lack a clean near face, and the increment should be reconsidered rather
-than patched. Record that outcome with the same weight as a positive one.
+than patched. Treat that outcome with the same weight as a positive one.
 
 ### 16.6 Class-general and grade-aware test coverage
 
@@ -1985,12 +1982,11 @@ cars will make pedestrian behaviour look like failure.
 | Occlusion, cluster split, cluster merge | Occlusion                      | Group splitting and merging |
 | Collision-like abnormal motion          |                                |                             |
 
-The pedestrian cases matter most, because they are the ones a vehicle-shaped
-estimator gets wrong in the direction of false alarm. A 90-degree turn in place
+The pedestrian cases matter most, because a vehicle-shaped estimator gets them
+wrong in the direction of false alarm. A 90-degree turn in place
 and a direction reversal must both come through as ordinary motion for a
 `pedestrian` motion class, and both must raise model-validity flags for a
-`rigid_vehicle`. **A test that asserts only the first half is only half a
-test.**
+`rigid_vehicle`. **A test that asserts only the first half is only half a test.**
 
 #### Grade-aware scenarios
 
@@ -2006,17 +2002,18 @@ future-proofing:
 | Curved 3D path                             | Lateral offset is measured in the local surface frame; curvature is not contaminated by grade                                                                     |
 
 The uncertainty assertion is the one most likely to be skipped and most
-important to keep: at an ambiguous surface assignment, the correct behaviour is
-wider uncertainty, not a confident answer.
+critical to keep: at an ambiguous surface assignment, the right answer is
+wider uncertainty, not false confidence.
 
 #### Evaluation criteria, restated for classes
 
-Per principle 0.2, the estimator is not rewarded for smoothness. Each scenario is
+Per principle 0.2, the estimator earns no credit for smoothness. Each scenario is
 scored on physical trajectory error against known ground truth, uncertainty
-calibration, recovery after missed observations, responsiveness to genuine
-manoeuvres, false rejection of valid motion, and class-conditioned residual
-consistency. A pedestrian estimator that produces beautiful smooth paths through
-a 90-degree turn has failed the fourth and fifth of those.
+calibration, recovery after
+missed observations, responsiveness to genuine manoeuvres, false rejection of
+valid motion, and class-conditioned residual consistency. A pedestrian estimator
+that produces beautiful smooth paths through a 90-degree turn has failed the
+fourth and fifth.
 
 ## 17. Metrics for evaluating the estimator
 
@@ -2054,7 +2051,7 @@ gate in this plan includes it for that reason.
 
 ### 18.1 Extend, do not rebuild
 
-Substantial infrastructure exists and is unwired rather than absent.
+Substantial infrastructure already exists and is unwired, not absent.
 
 | Asset                                                                  | State                                                 | Action                                                                        |
 | ---------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -2065,10 +2062,9 @@ Substantial infrastructure exists and is unwired rather than absent.
 | macOS visualiser                                                       | Renders point clouds, boxes, trails                   | Add the overlays below                                                        |
 | `lidar-visualiser-trails-and-uncertainty-visualisation-plan`           | Proposed, covers uncertainty cones                    | Adopt as the delivery vehicle                                                 |
 
-The `adaptUnassociatedClusters` change is small and it is a prerequisite for all
-tuning work. Today it is impossible to see the observation and the estimate for
-the same object at the same time, which is the single most important view for
-this project.
+The `adaptUnassociatedClusters` change is small and is a prerequisite for all
+tuning work. Today the observation and estimate for the same object cannot be
+seen together, which is the single most important view for this project.
 
 ### 18.2 Minimum harness before tuning begins
 
@@ -2117,9 +2113,9 @@ Candidate signals the estimator should be able to emit:
 | Classification confidence              | Suppressed-metric count          |
 | Surface model used, or planar fallback | Grade at the track's location    |
 
-Every one of these already exists as a field in Sections 5.2 and 11, or falls
-out of them. That is the point: the observability plan should be able to consume
-the audit record rather than requiring new instrumentation.
+Every one exists as a field in Sections 5.2 and 11, or falls out of them. That is
+the point: the observability plan should consume the audit record rather than
+demand new instrumentation.
 
 ### 18.3 Delivery surface
 
@@ -2131,10 +2127,9 @@ establish the pattern.
 ## 19. Incremental roadmap
 
 The brief's phase order is broadly right, with one change: **instrumentation and
-the observation model must swap places with the simple state estimate.** There
-is no point standing up `Observation` and `EstimatedState` types before the
-measurement they carry is correct, and no point tuning an estimator whose input
-is biased.
+the observation model must swap places with the simple state estimate.** Stand up
+`Observation` and `EstimatedState` types after the measurement is correct, not
+before. Do not tune an estimator whose input is biased.
 
 | Phase | Goal                                              | Gate to enter          |
 | ----- | ------------------------------------------------- | ---------------------- |
@@ -2327,9 +2322,8 @@ Observations become immutable rows; estimates are versioned by
 
 **3. Which motion estimator should we implement first?**
 The one already running. Keep the linear constant-velocity Kalman filter and
-change its input. The measured evidence says the reported defect has no
-motion-model cause, so changing both at once would make the result
-unattributable.
+change its input. Evidence shows the reported defect has no motion-model cause,
+so changing both at once would make the result unattributable.
 
 **4. One model or an IMM?**
 IMM over {stationary, CV, CA} is the right end state, and the config schema
@@ -2415,14 +2409,14 @@ Jerk only from the smoothed acceleration of the fixed-lag or final estimate, at
 Phase 6. Never from position differences at any stage.
 
 **14. How can we calculate jerk without mostly measuring LiDAR noise?**
-You largely cannot, at the current sample rate, and the plan should say so.
+You largely cannot, at the current sample rate. Say so plainly.
 Four-point differencing at 0.2 s spacing with a 0.05 m measurement gives roughly
 28 m/s³ of noise against a 1 to 5 m/s³ signal. Getting to a usable 1 m/s³ needs
 roughly a 1 second smoothing window, which means sub-second jerk events are not
 resolvable. Therefore: jerk comes from the smoothed acceleration state, every
 reported figure carries its bandwidth, and the API refuses to report jerk for
-tracks shorter than the window. Raising the 43.6 % association rate would buy
-more here than any estimator change.
+tracks shorter than the window. Raising the 43.6 % association rate would pay
+more than any estimator change.
 
 **15. What changes to the current Go interfaces are required?**
 Three new interfaces, `MotionModel`, `MeasurementModel` and `UncertaintyModel`,
@@ -2440,12 +2434,12 @@ Small, and dominated by things other than the filter. Edge extraction is
 O(points per cluster) and shares work clustering already does. A 6-state filter
 is 216 multiply-accumulates per covariance step against 64 today: microseconds
 at 100 tracks. A 5-frame smoothing buffer is roughly 84 KB at 100 tracks. An IMM
-over three modes roughly triples the filter cost, still well under 1 ms. The
-real costs are point retention memory on a 4 GB Pi, and storage. Against a frame
-budget of 15 to 25 ms on a Pi 4, a 3 ms allowance for the whole change is
-comfortable. That said, the per-stage timing fields in the perf baseline are
-currently zero, so this is arithmetic rather than measurement: **populating them
-is a Phase 0 deliverable precisely so this answer can be replaced with data.**
+over three modes roughly triples the filter cost, still under 1 ms. The
+real costs are point retention memory on a 4 GB Pi and storage. Against a frame
+budget of 15 to 25 ms on a Pi 4, a 3 ms allowance for the whole change fits.
+But the per-stage timing fields in the perf baseline are
+currently zero, so this is arithmetic, not measurement: **populating them
+is a Phase 0 deliverable precisely to replace this answer with data.**
 
 **17. Which pieces should remain offline?**
 Online: measurement, association, filtering, residual computation, and the
@@ -2570,20 +2564,20 @@ manoeuvre-magnitude preservation, per 17.1.
 #### D2 conditions
 
 The stopgap is worth taking because it buys time for the rest of the plan to be
-done properly rather than under pressure. It is worth fencing for the same
-reason: it is an improvement to a quantity that is still not the vehicle centre.
+done properly rather than under pressure. Fencing it is equally important: it
+improves a quantity that is still not the vehicle centre.
 
 1. The OBB centre is **still a visible-surface artefact**, measured at 0.279 m
    mean bias and 0.565 m worst hop. It is not a fix, and shipping it must not be
    allowed to reduce the urgency of Phase 2.
-2. Validate on real data first, as part of E1.3, which is the cheapest of the
-   four tests and needs no fitted trajectory.
-3. Persist which measurement source produced each estimate. Without that, the
+2. Validate on real data first, as part of E1.3, the cheapest of the
+   four tests and needing no fitted trajectory.
+3. Persist which measurement source produced each estimate. Without it, the
    stopgap silently splits the historical record into two incomparable regimes,
-   which is the same class of error as the medoid fallback removed in Section 12.
+   the same class of error as the medoid fallback removed in Section 12.
 4. Re-baseline the regression numbers after it ships. The 0.676 m and 11.3 %
-   figures that G-GEO-1 is written against are medoid figures; leaving them in
-   place would make Phase 2 appear to clear a bar it has already been handed.
+   figures G-GEO-1 is written against are medoid figures. Leaving them in
+   place would make Phase 2 appear to clear a bar it already receives.
 
 ## 22. Changes introduced by this revision
 
