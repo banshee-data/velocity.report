@@ -20,8 +20,16 @@ type TrackingMetrics struct {
 	TotalMisaligned int `json:"total_misaligned"`
 	// Misalignment ratio: misaligned / total samples [0, 1]
 	MisalignmentRatio float32 `json:"misalignment_ratio"`
-	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees)
+	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees).
+	// A locked heading scores zero here, so read it with CourseAlignment below.
 	HeadingJitterDeg float32 `json:"heading_jitter_deg"`
+	// Course alignment percentiles pooled across active tracks (degrees,
+	// [0, 90]). Zero means every box points along its direction of travel;
+	// 90 means they lie across it. CourseAlignmentSamples is the pooled sample
+	// count, which is zero when nothing moved fast enough to measure.
+	CourseAlignmentP50Deg  float32 `json:"course_alignment_p50_deg"`
+	CourseAlignmentP90Deg  float32 `json:"course_alignment_p90_deg"`
+	CourseAlignmentSamples int     `json:"course_alignment_samples"`
 	// Speed jitter: RMS of frame-to-frame Kalman speed changes (m/s)
 	SpeedJitterMps float32 `json:"speed_jitter_mps"`
 	// Track fragmentation: fraction of created tracks that never confirmed [0, 1]
@@ -63,6 +71,13 @@ type TrackAlignmentMetrics struct {
 	MisalignedCount  int     `json:"misaligned_count"`
 	MisalignmentRate float32 `json:"misalignment_rate"`
 	SpeedMps         float32 `json:"speed_mps"`
+
+	// Course alignment: |OBB heading - direction of travel|, folded to [0, 90].
+	// CourseAlignmentN is zero for a track that never reached
+	// CourseAlignmentMinSpeedMps, in which case the percentiles mean nothing.
+	CourseAlignmentP50Deg float32 `json:"course_alignment_p50_deg"`
+	CourseAlignmentP90Deg float32 `json:"course_alignment_p90_deg"`
+	CourseAlignmentN      int     `json:"course_alignment_n"`
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -348,6 +363,8 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalJitterCount int
 	var totalSpeedJitterSumSq float64
 	var totalSpeedJitterCount int
+	var courseHist [CourseAlignmentBins]uint64
+	var courseCount int
 
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
@@ -369,6 +386,15 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			metrics.MaxOcclusionFrames = track.MaxOcclusionFrames
 		}
 
+		// Course alignment is accumulated before the early continue below:
+		// a track can have course samples without velocity/displacement
+		// alignment samples, and skipping it here would silently drop the
+		// tracks whose boxes are worst.
+		for i, n := range track.CourseAlignmentHist {
+			courseHist[i] += uint64(n)
+		}
+		courseCount += track.CourseAlignmentCount
+
 		if track.AlignmentSampleCount == 0 {
 			continue
 		}
@@ -382,20 +408,33 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			misalignmentRate = float32(track.AlignmentMisaligned) / float32(track.AlignmentSampleCount)
 		}
 
+		courseP50, _ := track.CourseAlignmentPercentileDeg(50)
+		courseP90, _ := track.CourseAlignmentPercentileDeg(90)
+
 		metrics.PerTrack = append(metrics.PerTrack, TrackAlignmentMetrics{
-			TrackID:          track.TrackID,
-			State:            string(track.TrackState),
-			SampleCount:      track.AlignmentSampleCount,
-			MeanAlignmentRad: track.AlignmentMeanRad,
-			MeanAlignmentDeg: track.AlignmentMeanRad * 180 / math.Pi,
-			MisalignedCount:  track.AlignmentMisaligned,
-			MisalignmentRate: misalignmentRate,
-			SpeedMps:         track.Speed(),
+			TrackID:               track.TrackID,
+			State:                 string(track.TrackState),
+			SampleCount:           track.AlignmentSampleCount,
+			MeanAlignmentRad:      track.AlignmentMeanRad,
+			MeanAlignmentDeg:      track.AlignmentMeanRad * 180 / math.Pi,
+			MisalignedCount:       track.AlignmentMisaligned,
+			MisalignmentRate:      misalignmentRate,
+			SpeedMps:              track.Speed(),
+			CourseAlignmentP50Deg: courseP50,
+			CourseAlignmentP90Deg: courseP90,
+			CourseAlignmentN:      track.CourseAlignmentCount,
 		})
 	}
 
 	metrics.TotalAlignmentSamples = totalSamples
 	metrics.TotalMisaligned = totalMisaligned
+
+	// Fleet course alignment, pooled across every active track's histogram.
+	metrics.CourseAlignmentSamples = courseCount
+	if courseCount > 0 {
+		metrics.CourseAlignmentP50Deg = courseHistPercentile(courseHist, courseCount, 50)
+		metrics.CourseAlignmentP90Deg = courseHistPercentile(courseHist, courseCount, 90)
+	}
 
 	if totalSamples > 0 {
 		metrics.MeanAlignmentRad = totalAngDiff / float32(totalSamples)
@@ -438,4 +477,19 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	}
 
 	return metrics
+}
+
+// courseHistPercentile returns the p-th percentile of a pooled course-alignment
+// histogram in degrees, as the upper edge of the containing bin. total must be
+// the sum of hist and greater than zero.
+func courseHistPercentile(hist [CourseAlignmentBins]uint64, total int, p float64) float32 {
+	target := p / 100 * float64(total)
+	cum := 0.0
+	for i, n := range hist {
+		cum += float64(n)
+		if cum >= target {
+			return float32(float64(i+1) * CourseAlignmentBinWidthDeg)
+		}
+	}
+	return 90
 }
