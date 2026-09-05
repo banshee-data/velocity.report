@@ -5,6 +5,12 @@
 - **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/CONFIG.md#config-to-maths-cross-reference)
 - **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)
 
+The [point annotation plan](lidar-point-annotation-and-object-dataset-plan.md) adds
+reviewed point masks and physical-object identities alongside existing track labels. The
+[three-day single-site demo](lidar-single-site-shape-demo-sprint-plan.md) supplies a
+small pilot pack, not a replacement for this multi-site corpus. Its partitions separate
+whole physical objects rather than adjacent frames.
+
 ## Goal
 
 Build a five-PCAP test corpus using the Hesai P40 sensor that covers

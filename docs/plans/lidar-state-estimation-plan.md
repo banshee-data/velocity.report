@@ -436,6 +436,53 @@ Section 1.5. The tuning hash for this run differs from production, so treat the
 absolute figure as run-specific rather than as a new baseline; the direction is
 consistent with defect P4 either way.
 
+### 3.5 The S2 captures reproduce the limp across three placements
+
+The September 2026 S2 captures add the replication the single `soma1` run could
+not provide. Three ten-minute streams were assembled from adjacent files at the
+same stationary placement. The first file supplied five minutes of background
+warm-up; measurements include only tracks born after the second file began.
+Each second file is classified as a fully static five-minute segment by
+`pcap-split`. Static still describes the sensor, not the traffic.
+
+The replay used the L1–L6 path in `lidar-bench` at commit `6d8c799e6`. A
+diagnostic collector retained the track history which the perf report normally
+discards. Moving means maximum estimated speed of at least 3 m/s. The excursion
+screen uses the local five-point straight-line fit specified in Section 1.5 and
+gate G-GEO-1, with the perpendicular residual measured at the centre point.
+
+| Measured file                       | Moving tracks | Width below 1.0 m | Width below 0.5 m | Tracks at least 6 m/s | Any local residual above 0.5 m | Local residual p99 |
+| ----------------------------------- | ------------: | ----------------: | ----------------: | --------------------: | -----------------------------: | -----------------: |
+| `s2-1_20260901131346_00006.pcap`    |            60 |       23 (38.3 %) |       11 (18.3 %) |                    20 |                     3 (15.0 %) |            0.310 m |
+| `s2_sf_3_20260902134538_00007.pcap` |           178 |      100 (56.2 %) |       52 (29.2 %) |                   100 |                    11 (11.0 %) |            0.346 m |
+| `s2_sf_4_20260902153250_00003.pcap` |           149 |       79 (53.0 %) |       44 (29.5 %) |                    72 |                     8 (11.1 %) |            0.338 m |
+| **Pooled**                          |       **387** |  **202 (52.2 %)** |  **107 (27.6 %)** |               **192** |                **22 (11.5 %)** |        **0.343 m** |
+
+The pooled 11.5 % excursion rate is effectively the 11.3 % production result in
+Section 1.5, now repeated on another day and at three sensor placements. More
+than half of moving tracks are still narrower than 1 m. The proportion changes
+with viewpoint, as the visible-face explanation predicts, but it does not
+disappear. This strengthens both recommendations: replace the medoid with an
+explicit visible-face measurement, and treat dimensions as censored evidence
+rather than averaging observed extents into an object size.
+
+Four replay windows are particularly useful for finding the visible symptom,
+the sideways step and correction operators describe as a limp. Offsets are from
+the named file, not from the temporary joined stream:
+
+| Capture-relative window                       | Maximum speed | Mean width | Maximum five-point lateral residual |
+| --------------------------------------------- | ------------: | ---------: | ----------------------------------: |
+| `s2-1_...00006.pcap`, +259.7 s to +263.8 s    |       6.4 m/s |     0.14 m |                              0.68 m |
+| `s2_sf_3_...00007.pcap`, +13.7 s to +17.8 s   |       6.3 m/s |     0.71 m |                              0.71 m |
+| `s2_sf_4_...00003.pcap`, +77.4 s to +84.8 s   |       9.9 m/s |     0.66 m |                              0.88 m |
+| `s2_sf_4_...00003.pcap`, +159.5 s to +165.8 s |       8.9 m/s |     0.83 m |                              0.72 m |
+
+These are candidate labelling windows, not ground truth. A turn, a merge, or a
+bad association can also produce a large local residual. Visual review should
+label what happened, then the observation dump required by E1 should decide
+whether the medoid moved with visible-face geometry. The screen tells us where
+to look; it does not get to appoint itself witness and judge.
+
 ## 4. Target architecture
 
 ### 4.1 Stage boundaries
@@ -1691,19 +1738,19 @@ comparison becomes a query, not a pipeline run.
 
 ### 16.2 Required coverage
 
-| Case                                    | Source                                                                       | Priority                                      |
-| --------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
-| Ordinary straight-line vehicles         | kirk0, abundant                                                              | Have                                          |
-| Near-stationary vehicles                | kirk0, 5,982 tracks                                                          | Have                                          |
-| Distant vehicles                        | kirk0, stratify by range                                                     | Have                                          |
-| Bounding-box lateral jumps              | 33 identified moving tracks with excursions over 0.5 m                       | **Have, and this is the regression set**      |
-| Partial occlusion and fragmentation     | Synthetic, controllable; plus labelled `truncated` and `disconnected` tracks | Mixed                                         |
-| Acceleration and braking                | Sparse: only 108 tracks above 10 m/s                                         | **Gap**: needs a higher-speed site            |
-| Turning and lane changes                | Not present at the current site                                              | **Gap**: corpus plan dependency               |
-| Viewpoint diversity for the same defect | soma0-3: four sensor placements, four aspect-angle distributions             | **Have, and it is the right axis, see 16.5**  |
-| Overlapping vehicles, merge and split   | `is_merge_candidate` and `is_split_candidate` flags exist                    | Partial                                       |
-| Pedestrians misassociated with vehicles | Labelled classes exist                                                       | Partial                                       |
-| Erratic or evasive motion               | None                                                                         | **Gap**: synthetic only, and label it as such |
+| Case                                    | Source                                                                         | Priority                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| Ordinary straight-line vehicles         | kirk0, abundant                                                                | Have                                                 |
+| Near-stationary vehicles                | kirk0, 5,982 tracks                                                            | Have                                                 |
+| Distant vehicles                        | kirk0, stratify by range                                                       | Have                                                 |
+| Bounding-box lateral jumps              | 33 identified moving tracks with excursions over 0.5 m                         | **Have, and this is the regression set**             |
+| Partial occlusion and fragmentation     | Synthetic, controllable; plus labelled `truncated` and `disconnected` tracks   | Mixed                                                |
+| Acceleration and braking                | Sparse: only 108 tracks above 10 m/s                                           | **Gap**: needs a higher-speed site                   |
+| Turning and lane changes                | Not present at the current site                                                | **Gap**: corpus plan dependency                      |
+| Viewpoint diversity for the same defect | soma0-3, plus three measured S2 placements with the same 11.5 % excursion rate | **Have, and it is the right axis, see 3.5 and 16.5** |
+| Overlapping vehicles, merge and split   | `is_merge_candidate` and `is_split_candidate` flags exist                      | Partial                                              |
+| Pedestrians misassociated with vehicles | Labelled classes exist                                                         | Partial                                              |
+| Erratic or evasive motion               | None                                                                           | **Gap**: synthetic only, and label it as such        |
 
 ### 16.3 Synthetic generation
 
@@ -1930,7 +1977,15 @@ is let a human find and mark the exact tracks and frames where the jump is
 visible. Those marks become the held-out regression cases; E1 itself then runs
 from the source captures.
 
-Note the two recordings were produced by different builds under different tuning
+The S2 windows in Section 3.5 now add four source-PCAP candidate cases and a
+three-placement replication set. Keep them outside the fixed partition until a
+manifest records the exact input hashes and joined-file order, and until the E1
+observation dump can distinguish face switching from turns, merges, and bad
+associations. Once those gates exist, reserve one whole S2 placement as held-out
+evidence. Do not tune on all three and then call the third one independent; the
+arithmetic would be correct and the experiment would not.
+
+Note the three recordings were produced by different builds under different tuning
 hashes, so they are not comparable to each other as evidence. Each is a source
 of individually labelled cases.
 
