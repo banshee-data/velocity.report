@@ -20,8 +20,30 @@ type TrackingMetrics struct {
 	TotalMisaligned int `json:"total_misaligned"`
 	// Misalignment ratio: misaligned / total samples [0, 1]
 	MisalignmentRatio float32 `json:"misalignment_ratio"`
-	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees)
+	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees).
+	// A locked heading scores zero here, so read it with CourseAlignment below.
 	HeadingJitterDeg float32 `json:"heading_jitter_deg"`
+	// Course alignment percentiles pooled across active tracks (degrees,
+	// [0, 90]). Zero means every box points along its direction of travel;
+	// 90 means they lie across it. CourseAlignmentSamples is the pooled sample
+	// count, which is zero when nothing moved fast enough to measure.
+	CourseAlignmentP50Deg  float32 `json:"course_alignment_p50_deg"`
+	CourseAlignmentP90Deg  float32 `json:"course_alignment_p90_deg"`
+	CourseAlignmentSamples int     `json:"course_alignment_samples"`
+
+	// Heading lock telemetry across active tracks. HeadingSourceFrames is
+	// keyed by HeadingSource.String(). LockTrappedTracks counts tracks that
+	// entered a sustained lock and never released it: the population whose
+	// boxes cannot recover their orientation.
+	HeadingSourceFrames  map[string]uint32 `json:"heading_source_frames,omitempty"`
+	LockedFrameRatio     float32           `json:"locked_frame_ratio"`
+	SustainedLockTracks  int               `json:"sustained_lock_tracks"`
+	LockTrappedTracks    int               `json:"lock_trapped_tracks"`
+	LongestLockRunFrames int               `json:"longest_lock_run_frames"`
+	// LockReleases counts how often the rejection counter forced a heading
+	// lock to release. Zero across a whole run with the release armed means
+	// either no track ever hit the trap, or the release is misconfigured.
+	LockReleases int `json:"lock_releases"`
 	// Speed jitter: RMS of frame-to-frame Kalman speed changes (m/s)
 	SpeedJitterMps float32 `json:"speed_jitter_mps"`
 	// Track fragmentation: fraction of created tracks that never confirmed [0, 1]
@@ -63,6 +85,20 @@ type TrackAlignmentMetrics struct {
 	MisalignedCount  int     `json:"misaligned_count"`
 	MisalignmentRate float32 `json:"misalignment_rate"`
 	SpeedMps         float32 `json:"speed_mps"`
+
+	// Course alignment: |OBB heading - direction of travel|, folded to [0, 90].
+	// CourseAlignmentN is zero for a track that never reached
+	// CourseAlignmentMinSpeedMps, in which case the percentiles mean nothing.
+	CourseAlignmentP50Deg float32 `json:"course_alignment_p50_deg"`
+	CourseAlignmentP90Deg float32 `json:"course_alignment_p90_deg"`
+	CourseAlignmentN      int     `json:"course_alignment_n"`
+
+	// Heading lock telemetry. LockTrapped is the one to watch: the track
+	// entered a sustained lock and never released it.
+	HeadingLockedFrames int  `json:"heading_locked_frames"`
+	LongestLockRun      int  `json:"longest_lock_run"`
+	LockTrapped         bool `json:"lock_trapped"`
+	LockReleases        int  `json:"lock_releases"`
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -210,15 +246,31 @@ func (t *Tracker) GetAllTracks() []*TrackedObject {
 	return all
 }
 
-// GetRecentlyDeletedTracks returns deleted tracks still within the grace period.
-// Each returned TrackedObject is a shallow copy with a deep-copied History slice.
-// Used by the visualiser adapter for fade-out rendering.
+// GetDeletedTrackRenderFade returns how long a deleted track stays published
+// to clients. This is not the re-association grace period: see the field
+// comment on TrackerConfig.DeletedTrackRenderFade.
+func (t *Tracker) GetDeletedTrackRenderFade() time.Duration {
+	return t.Config.DeletedTrackRenderFade
+}
+
+// GetRecentlyDeletedTracks returns deleted tracks still within the render fade
+// window. Each returned TrackedObject is a shallow copy with a deep-copied
+// History slice. Used by the visualiser adapter for fade-out rendering.
+//
+// The window is the render fade, not the re-association grace period. A deleted
+// track's state is frozen at the moment of deletion, so every frame it is
+// published is a stationary box sitting where the object no longer is. Holding
+// that for the five-second grace period made 45.8 per cent of all published
+// track-frames in run baf20f02 stale, which both misleads the eye and corrupts
+// any metric computed over the recorded stream.
 func (t *Tracker) GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	gracePeriod := t.Config.DeletedTrackGracePeriod
-	gracePeriodNanos := int64(gracePeriod)
+	gracePeriodNanos := int64(t.Config.DeletedTrackRenderFade)
+	if gracePeriodNanos <= 0 {
+		return nil
+	}
 
 	deleted := make([]*TrackedObject, 0)
 	for _, track := range t.Tracks {
@@ -348,6 +400,10 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalJitterCount int
 	var totalSpeedJitterSumSq float64
 	var totalSpeedJitterCount int
+	var courseHist [CourseAlignmentBins]uint64
+	var courseCount int
+	headingSourceFrames := make(map[string]uint32, HeadingSourceCount)
+	var totalSourceFrames, lockedFrames uint64
 
 	for _, track := range t.Tracks {
 		if track.TrackState == TrackDeleted {
@@ -369,6 +425,31 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			metrics.MaxOcclusionFrames = track.MaxOcclusionFrames
 		}
 
+		// Course alignment is accumulated before the early continue below:
+		// a track can have course samples without velocity/displacement
+		// alignment samples, and skipping it here would silently drop the
+		// tracks whose boxes are worst.
+		for i, n := range track.CourseAlignmentHist {
+			courseHist[i] += uint64(n)
+		}
+		courseCount += track.CourseAlignmentCount
+
+		for src, n := range track.HeadingSourceCounts {
+			headingSourceFrames[HeadingSource(src).String()] += n
+			totalSourceFrames += uint64(n)
+		}
+		lockedFrames += uint64(track.HeadingLockedFrames)
+		if track.EnteredSustainedLock {
+			metrics.SustainedLockTracks++
+		}
+		if track.HeadingLockTrapped() {
+			metrics.LockTrappedTracks++
+		}
+		if track.LongestLockRun > metrics.LongestLockRunFrames {
+			metrics.LongestLockRunFrames = track.LongestLockRun
+		}
+		metrics.LockReleases += track.HeadingLockReleases
+
 		if track.AlignmentSampleCount == 0 {
 			continue
 		}
@@ -382,20 +463,42 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			misalignmentRate = float32(track.AlignmentMisaligned) / float32(track.AlignmentSampleCount)
 		}
 
+		courseP50, _ := track.CourseAlignmentPercentileDeg(50)
+		courseP90, _ := track.CourseAlignmentPercentileDeg(90)
+
 		metrics.PerTrack = append(metrics.PerTrack, TrackAlignmentMetrics{
-			TrackID:          track.TrackID,
-			State:            string(track.TrackState),
-			SampleCount:      track.AlignmentSampleCount,
-			MeanAlignmentRad: track.AlignmentMeanRad,
-			MeanAlignmentDeg: track.AlignmentMeanRad * 180 / math.Pi,
-			MisalignedCount:  track.AlignmentMisaligned,
-			MisalignmentRate: misalignmentRate,
-			SpeedMps:         track.Speed(),
+			TrackID:               track.TrackID,
+			State:                 string(track.TrackState),
+			SampleCount:           track.AlignmentSampleCount,
+			MeanAlignmentRad:      track.AlignmentMeanRad,
+			MeanAlignmentDeg:      track.AlignmentMeanRad * 180 / math.Pi,
+			MisalignedCount:       track.AlignmentMisaligned,
+			MisalignmentRate:      misalignmentRate,
+			SpeedMps:              track.Speed(),
+			CourseAlignmentP50Deg: courseP50,
+			CourseAlignmentP90Deg: courseP90,
+			CourseAlignmentN:      track.CourseAlignmentCount,
+			HeadingLockedFrames:   track.HeadingLockedFrames,
+			LongestLockRun:        track.LongestLockRun,
+			LockTrapped:           track.HeadingLockTrapped(),
+			LockReleases:          track.HeadingLockReleases,
 		})
 	}
 
 	metrics.TotalAlignmentSamples = totalSamples
 	metrics.TotalMisaligned = totalMisaligned
+
+	if totalSourceFrames > 0 {
+		metrics.HeadingSourceFrames = headingSourceFrames
+		metrics.LockedFrameRatio = float32(float64(lockedFrames) / float64(totalSourceFrames))
+	}
+
+	// Fleet course alignment, pooled across every active track's histogram.
+	metrics.CourseAlignmentSamples = courseCount
+	if courseCount > 0 {
+		metrics.CourseAlignmentP50Deg = courseHistPercentile(courseHist, courseCount, 50)
+		metrics.CourseAlignmentP90Deg = courseHistPercentile(courseHist, courseCount, 90)
+	}
 
 	if totalSamples > 0 {
 		metrics.MeanAlignmentRad = totalAngDiff / float32(totalSamples)
@@ -438,4 +541,19 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	}
 
 	return metrics
+}
+
+// courseHistPercentile returns the p-th percentile of a pooled course-alignment
+// histogram in degrees, as the upper edge of the containing bin. total must be
+// the sum of hist and greater than zero.
+func courseHistPercentile(hist [CourseAlignmentBins]uint64, total int, p float64) float32 {
+	target := p / 100 * float64(total)
+	cum := 0.0
+	for i, n := range hist {
+		cum += float64(n)
+		if cum >= target {
+			return float32(float64(i+1) * CourseAlignmentBinWidthDeg)
+		}
+	}
+	return 90
 }

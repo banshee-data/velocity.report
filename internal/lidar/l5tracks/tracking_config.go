@@ -26,7 +26,27 @@ const (
 	HeadingSourceVelocity     HeadingSource = 1 // Disambiguated using Kalman velocity
 	HeadingSourceDisplacement HeadingSource = 2 // Disambiguated using position displacement
 	HeadingSourceLocked       HeadingSource = 3 // Heading locked (aspect ratio guard or jump rejection)
+
+	// HeadingSourceCount is the number of heading sources, for sizing
+	// per-source counters. Keep it one past the last source above.
+	HeadingSourceCount = 4
 )
+
+// String names a heading source for diagnostics and JSON keys.
+func (h HeadingSource) String() string {
+	switch h {
+	case HeadingSourcePCA:
+		return "pca"
+	case HeadingSourceVelocity:
+		return "velocity"
+	case HeadingSourceDisplacement:
+		return "displacement"
+	case HeadingSourceLocked:
+		return "locked"
+	default:
+		return "unknown"
+	}
+}
 
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
@@ -51,6 +71,16 @@ type TrackerConfig struct {
 	MinPointsForPCA             int     // Minimum cluster points for PCA heading
 	OBBHeadingSmoothingAlpha    float32 // EMA smoothing factor for OBB heading [0,1]
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
+	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
+
+	// MinAssociableExtentMetres is the smallest cluster extent that may be
+	// associated with a metre-scale track. 0 disables the fragment guard.
+	MinAssociableExtentMetres float32
+
+	// DeletedTrackRenderFade is how long a deleted track is still published to
+	// clients, fading out. Separate from DeletedTrackGracePeriod, which governs
+	// internal re-association.
+	DeletedTrackRenderFade time.Duration
 
 	// History limits
 	MaxTrackHistoryLength int // Maximum position trail length
@@ -98,6 +128,9 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
 		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
 		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
+		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
+		MinAssociableExtentMetres:        float32(l5cfg.MinAssociableExtentMetres),
+		DeletedTrackRenderFade:           mustParseDuration(l5cfg.DeletedTrackRenderFade),
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
 		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
 		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),

@@ -4,6 +4,12 @@
 - **Layers:** L9 Endpoints, L10 Clients
 - **Canonical:** [qc-enhancements-overview.md](../ui/visualiser/qc-enhancements-overview.md)
 
+Point-level reference data has a separate
+[annotation and object-dataset contract](lidar-point-annotation-and-object-dataset-plan.md), with a
+[three-day demo slice](lidar-single-site-shape-demo-sprint-plan.md). Run-track identity remains the
+unit for this QC workflow; human point masks use stable physical-object identities that can span
+predicted track splits and reruns.
+
 ## Scope
 
 This document defines the shared architecture for the following feature designs:

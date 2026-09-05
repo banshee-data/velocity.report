@@ -4,6 +4,8 @@
 - **Layers:** L6 Objects ([l6objects](../../internal/lidar/l6objects))
 - **Related:** [Tracking Maths](tracking-maths.md)
 
+- **Research extension:** [Unified scene semantics and temporal regions](proposals/20260905-unified-scene-semantic-classification-maths.md) proposes a shared vocabulary and evidence contract for regions, tracks, and persistent scene objects. It does not change the current classifier described here.
+
 ## 1. Purpose
 
 Classification assigns a semantic label to each tracked object using

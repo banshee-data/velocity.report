@@ -362,6 +362,15 @@ func (c *L5Common) Validate() error {
 	if c.OBBHeadingSmoothingAlpha < 0 || c.OBBHeadingSmoothingAlpha > 1 {
 		return fmt.Errorf("obb_heading_smoothing_alpha must be in [0, 1], got %f", c.OBBHeadingSmoothingAlpha)
 	}
+	if c.MinAssociableExtentMetres < 0 {
+		return fmt.Errorf("min_associable_extent_metres must be non-negative, got %f", c.MinAssociableExtentMetres)
+	}
+	if _, err := time.ParseDuration(c.DeletedTrackRenderFade); err != nil {
+		return fmt.Errorf("deleted_track_render_fade must be a valid duration, got %q: %w", c.DeletedTrackRenderFade, err)
+	}
+	if c.OBBHeadingLockMaxRejections < 0 {
+		return fmt.Errorf("obb_heading_lock_max_rejections must be non-negative, got %d", c.OBBHeadingLockMaxRejections)
+	}
 	if c.OBBAspectRatioLockThreshold < 0 {
 		return fmt.Errorf("obb_aspect_ratio_lock_threshold must be non-negative, got %f", c.OBBAspectRatioLockThreshold)
 	}

@@ -13,6 +13,19 @@ import (
 var exit = os.Exit
 var marshalIndent = json.MarshalIndent
 
+// defaultOBBHeadingLockMaxRejections is the shipped default for the heading
+// lock release, which has no counterpart in the legacy schema. Keep it in step
+// with config/tuning.defaults.json.
+const defaultOBBHeadingLockMaxRejections = 5
+
+// defaultMinAssociableExtentMetres and defaultDeletedTrackRenderFade likewise
+// have no legacy counterpart. Keep them in step with
+// config/tuning.defaults.json.
+const (
+	defaultMinAssociableExtentMetres = 0.5
+	defaultDeletedTrackRenderFade    = "500ms"
+)
+
 type legacyTuningConfig struct {
 	BackgroundUpdateFraction         float64 `json:"background_update_fraction"`
 	ClosenessMultiplier              float64 `json:"closeness_multiplier"`
@@ -199,22 +212,29 @@ func migrateLegacyConfig(legacy legacyTuningConfig) *cfgpkg.TuningConfig {
 			Engine: "cv_kf_v1",
 			CvKfV1: &cfgpkg.L5CvKfV1{
 				L5Common: cfgpkg.L5Common{
-					GatingDistanceSquared:            legacy.GatingDistanceSquared,
-					ProcessNoisePos:                  legacy.ProcessNoisePos,
-					ProcessNoiseVel:                  legacy.ProcessNoiseVel,
-					MeasurementNoise:                 legacy.MeasurementNoise,
-					OcclusionCovInflation:            legacy.OcclusionCovInflation,
-					HitsToConfirm:                    legacy.HitsToConfirm,
-					MaxMisses:                        legacy.MaxMisses,
-					MaxMissesConfirmed:               legacy.MaxMissesConfirmed,
-					MaxTracks:                        legacy.MaxTracks,
-					MaxReasonableSpeedMps:            legacy.MaxReasonableSpeedMps,
-					MaxPositionJumpMetres:            legacy.MaxPositionJumpMeters,
-					MaxPredictDt:                     legacy.MaxPredictDt,
-					MaxCovarianceDiag:                legacy.MaxCovarianceDiag,
-					MinPointsForPCA:                  legacy.MinPointsForPCA,
-					OBBHeadingSmoothingAlpha:         legacy.OBBHeadingSmoothingAlpha,
-					OBBAspectRatioLockThreshold:      legacy.OBBAspectRatioLockThreshold,
+					GatingDistanceSquared:       legacy.GatingDistanceSquared,
+					ProcessNoisePos:             legacy.ProcessNoisePos,
+					ProcessNoiseVel:             legacy.ProcessNoiseVel,
+					MeasurementNoise:            legacy.MeasurementNoise,
+					OcclusionCovInflation:       legacy.OcclusionCovInflation,
+					HitsToConfirm:               legacy.HitsToConfirm,
+					MaxMisses:                   legacy.MaxMisses,
+					MaxMissesConfirmed:          legacy.MaxMissesConfirmed,
+					MaxTracks:                   legacy.MaxTracks,
+					MaxReasonableSpeedMps:       legacy.MaxReasonableSpeedMps,
+					MaxPositionJumpMetres:       legacy.MaxPositionJumpMeters,
+					MaxPredictDt:                legacy.MaxPredictDt,
+					MaxCovarianceDiag:           legacy.MaxCovarianceDiag,
+					MinPointsForPCA:             legacy.MinPointsForPCA,
+					OBBHeadingSmoothingAlpha:    legacy.OBBHeadingSmoothingAlpha,
+					OBBAspectRatioLockThreshold: legacy.OBBAspectRatioLockThreshold,
+					// Not present in the legacy schema. Carry the shipped
+					// default rather than the zero value, which would disable
+					// the heading-lock release and silently migrate a config
+					// back onto the Guard 3 ratchet.
+					OBBHeadingLockMaxRejections:      defaultOBBHeadingLockMaxRejections,
+					MinAssociableExtentMetres:        defaultMinAssociableExtentMetres,
+					DeletedTrackRenderFade:           defaultDeletedTrackRenderFade,
 					MaxTrackHistoryLength:            legacy.MaxTrackHistoryLength,
 					MaxSpeedHistoryLength:            legacy.MaxSpeedHistoryLength,
 					MergeSizeRatio:                   legacy.MergeSizeRatio,

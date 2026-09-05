@@ -459,6 +459,14 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 				trackerCfg.OBBHeadingSmoothingAlpha = float32(l5.OBBHeadingSmoothingAlpha)
 			case "l5.cv_kf_v1.obb_aspect_ratio_lock_threshold":
 				trackerCfg.OBBAspectRatioLockThreshold = float32(l5.OBBAspectRatioLockThreshold)
+			case "l5.cv_kf_v1.obb_heading_lock_max_rejections":
+				trackerCfg.OBBHeadingLockMaxRejections = l5.OBBHeadingLockMaxRejections
+			case "l5.cv_kf_v1.min_associable_extent_metres":
+				trackerCfg.MinAssociableExtentMetres = float32(l5.MinAssociableExtentMetres)
+			case "l5.cv_kf_v1.deleted_track_render_fade":
+				if d, err := time.ParseDuration(l5.DeletedTrackRenderFade); err == nil {
+					trackerCfg.DeletedTrackRenderFade = d
+				}
 			case "l5.cv_kf_v1.max_track_history_length":
 				trackerCfg.MaxTrackHistoryLength = l5.MaxTrackHistoryLength
 			case "l5.cv_kf_v1.max_speed_history_length":

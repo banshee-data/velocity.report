@@ -71,6 +71,16 @@ mock_serial_port*
 velocity-deploy*
 velocity-report-*
 
+# Built tool binaries dropped in the repo root by `make build-*`.
+/lidar-bench
+/pcap-split
+/settling-eval
+
+# Local analysis scratch: throwaway Go tools written against a recording to
+# answer one question. Findings belong in a plan or in internal/lidar/analysis,
+# not here. Ignored so they do not trip `gofmt -l` in the lint gate.
+/.scratch-analysis/
+
 # =============================================================================
 # Pi Image Build (pi-gen)
 # =============================================================================
