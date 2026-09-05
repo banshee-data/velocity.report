@@ -40,6 +40,10 @@ type TrackingMetrics struct {
 	SustainedLockTracks  int               `json:"sustained_lock_tracks"`
 	LockTrappedTracks    int               `json:"lock_trapped_tracks"`
 	LongestLockRunFrames int               `json:"longest_lock_run_frames"`
+	// LockReleases counts how often the rejection counter forced a heading
+	// lock to release. Zero across a whole run with the release armed means
+	// either no track ever hit the trap, or the release is misconfigured.
+	LockReleases int `json:"lock_releases"`
 	// Speed jitter: RMS of frame-to-frame Kalman speed changes (m/s)
 	SpeedJitterMps float32 `json:"speed_jitter_mps"`
 	// Track fragmentation: fraction of created tracks that never confirmed [0, 1]
@@ -94,6 +98,7 @@ type TrackAlignmentMetrics struct {
 	HeadingLockedFrames int  `json:"heading_locked_frames"`
 	LongestLockRun      int  `json:"longest_lock_run"`
 	LockTrapped         bool `json:"lock_trapped"`
+	LockReleases        int  `json:"lock_releases"`
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -427,6 +432,7 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		if track.LongestLockRun > metrics.LongestLockRunFrames {
 			metrics.LongestLockRunFrames = track.LongestLockRun
 		}
+		metrics.LockReleases += track.HeadingLockReleases
 
 		if track.AlignmentSampleCount == 0 {
 			continue
@@ -459,6 +465,7 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			HeadingLockedFrames:   track.HeadingLockedFrames,
 			LongestLockRun:        track.LongestLockRun,
 			LockTrapped:           track.HeadingLockTrapped(),
+			LockReleases:          track.HeadingLockReleases,
 		})
 	}
 

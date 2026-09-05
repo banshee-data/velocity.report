@@ -71,6 +71,7 @@ type TrackerConfig struct {
 	MinPointsForPCA             int     // Minimum cluster points for PCA heading
 	OBBHeadingSmoothingAlpha    float32 // EMA smoothing factor for OBB heading [0,1]
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
+	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
 
 	// History limits
 	MaxTrackHistoryLength int // Maximum position trail length
@@ -118,6 +119,7 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
 		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
 		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
+		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
 		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
 		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),
