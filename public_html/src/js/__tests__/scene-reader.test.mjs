@@ -5,7 +5,7 @@
 
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { gzipSync } from "node:zlib";
+import { gzipSync, gunzipSync } from "node:zlib";
 
 import { PartReader, SceneSession, SceneError } from "../scene-reader.js";
 
@@ -57,13 +57,24 @@ function makePart({ chunks = 2, perChunk = 4, uneven = false } = {}) {
   };
 }
 
-function bodyStream(buf) {
-  return new ReadableStream({
-    start(c) {
-      c.enqueue(new Uint8Array(buf));
-      c.close();
+/** A minimal Response stand-in exposing what the reader actually uses. */
+function chunkResponse(buf) {
+  const bytes = new Uint8Array(buf);
+  return {
+    ok: true,
+    status: 200,
+    async arrayBuffer() {
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     },
-  });
+    get body() {
+      return new ReadableStream({
+        start(c) {
+          c.enqueue(bytes);
+          c.close();
+        },
+      });
+    },
+  };
 }
 
 /** Installs a fetch stub serving the given parts, keyed by path fragment. */
@@ -79,7 +90,7 @@ function installFetch(parts, { manifest = null, fail = new Set() } = {}) {
       if (u.endsWith("header.json")) return { ok: true, status: 200, json: async () => part.header };
       if (u.endsWith("index.json")) return { ok: true, status: 200, json: async () => part.index };
       const m = u.match(/frames\/(chunk_\d+\.ndjson\.gz)$/);
-      if (m && part.files[m[1]]) return { ok: true, status: 200, body: bodyStream(part.files[m[1]]) };
+      if (m && part.files[m[1]]) return chunkResponse(part.files[m[1]]);
     }
     return { ok: false, status: 404, statusText: "Not Found" };
   };
@@ -149,12 +160,25 @@ describe("PartReader", () => {
     await assert.rejects(() => r.loadChunk(0), /chunk_0000/);
   });
 
-  test("rejects a chunk that is not gzip", async () => {
+  test("rejects a chunk that is neither gzip nor NDJSON", async () => {
+    // Content without the gzip magic number is treated as already-decompressed
+    // NDJSON, so garbage now fails at parsing rather than at decompression.
     const part = makePart();
-    part.files["chunk_0000.ndjson.gz"] = Buffer.from("this is not gzip");
+    part.files["chunk_0000.ndjson.gz"] = Buffer.from("this is not a frame");
     installFetch({ "/p0/": part });
     const r = await new PartReader("https://example.test/p0/").open();
-    await assert.rejects(() => r.loadChunk(0), /not valid gzip/);
+    await assert.rejects(() => r.loadChunk(0), /malformed frame/);
+  });
+
+  test("rejects a chunk with the gzip magic number but corrupt body", async () => {
+    const part = makePart();
+    const bad = Buffer.from(gzipSync("{}"));
+    bad[10] = 0x00;
+    bad[11] = 0xff;
+    part.files["chunk_0000.ndjson.gz"] = bad;
+    installFetch({ "/p0/": part });
+    const r = await new PartReader("https://example.test/p0/").open();
+    await assert.rejects(() => r.loadChunk(0), /could not be decompressed/);
   });
 
   test("rejects a frame with no timestamp", async () => {
@@ -286,5 +310,32 @@ describe("SceneSession", () => {
     const end = await s.frameAt(s.duration);
     assert.equal(end.partIndex, 1);
     assert.ok(end.frame, "end frame resolves");
+  });
+});
+
+describe("chunk transport", () => {
+  // A .gz asset may arrive already decompressed, because some hosts label it
+  // with Content-Encoding: gzip and the browser expands it before JS runs.
+  // The same file must work either way.
+  test("reads a chunk the host already decompressed", async () => {
+    const part = makePart({ chunks: 1, perChunk: 4 });
+    const plain = Buffer.from(
+      gunzipSync(part.files["chunk_0000.ndjson.gz"]),
+    );
+    part.files["chunk_0000.ndjson.gz"] = plain;
+    installFetch({ "/p0/": part });
+
+    const r = await new PartReader("https://example.test/p0/").open();
+    const frames = await r.loadChunk(0);
+    assert.equal(frames.length, 4, "plain NDJSON should parse without decompression");
+    assert.equal(frames[0].f, 0);
+  });
+
+  test("reads a chunk the host served as opaque gzip", async () => {
+    installFetch({ "/p0/": makePart({ chunks: 1, perChunk: 4 }) });
+    const r = await new PartReader("https://example.test/p0/").open();
+    const frames = await r.loadChunk(0);
+    assert.equal(frames.length, 4);
+    assert.equal(frames[0].f, 0);
   });
 });

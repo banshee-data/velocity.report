@@ -56,7 +56,12 @@ type Header struct {
 	DroppedNonMonotonic int `json:"dropped_non_monotonic,omitempty"`
 
 	ChunkEncoding string `json:"chunk_encoding"`
-	ChunkFrames   int    `json:"chunk_frames"`
+
+	// ChunkSeconds is the target span of one chunk file. Actual spans vary,
+	// because a chunk closes on the first frame past the target and a dense
+	// scene can close one early on the frame ceiling. index.json carries the
+	// real bounds; this is the intent, not a guarantee.
+	ChunkSeconds float64 `json:"chunk_seconds"`
 
 	CoordinateFrame CoordinateFrame `json:"coordinate_frame"`
 

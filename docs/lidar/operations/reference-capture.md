@@ -104,8 +104,9 @@ Result, as committed:
 | ------------------ | ------------------------------------------------------------------ |
 | Frames retained    | 3,315 — every second rotation of 6,630                             |
 | Duration           | 662.8 s                                                            |
-| Chunks             | 34 (100 retained frames each)                                      |
-| Size on disk       | 1,262,561 bytes (1.2 MiB), 112 KB per minute                       |
+| Chunks             | 12 (60 s each, so chunk N is minute N)                             |
+| Size on disk       | 1,243,098 bytes (1.2 MiB), 110 KB per minute                       |
+| Chunk size         | 101 KB mean, 200 KB largest                                        |
 | Source fingerprint | `da0b461a1c975489ecb3118da3b306ace562018bac4ca180d39ec6737eaedc35` |
 
 The source fingerprint in `header.json` hashes the VRLOG's `header.json` and
@@ -113,6 +114,14 @@ The source fingerprint in `header.json` hashes the VRLOG's `header.json` and
 from. It is not the capture's SHA-256.
 
 Stride counts rotations, not records, so 3,315 is exactly half of 6,630.
+
+Chunks are cut by duration rather than frame count, so a boundary means the same
+thing at any stride and a chunk listing is legible. Compression is not the
+reason: measured on this capture, 60 s chunks are 1.4% smaller than 20 s ones
+and a single whole-recording chunk only 2.0%, because NDJSON frames are so
+self-similar that gzip's window saturates within a few frames. The trade is
+fetch granularity against file count. A short remainder chunk at the end is
+expected whenever the recording does not divide evenly.
 
 The export omits background snapshots. A recording deliberately opens with one
 so a replay has a scene from its first frame, and a snapshot inherits the most

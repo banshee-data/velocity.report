@@ -219,12 +219,14 @@ func TestExportRekeysTrackIDsLocally(t *testing.T) {
 func TestExportChunkRollover(t *testing.T) {
 	src := writeVRLOG(t, evenTimestamps(25))
 	out := filepath.Join(t.TempDir(), "out")
-	res, err := Export(Options{VRLOGPath: src, OutDir: out, ChunkFrames: 10})
+	// Frames are 100 ms apart, so a 1 s target closes a chunk every 11 frames
+	// (the first frame past the span closes it).
+	res, err := Export(Options{VRLOGPath: src, OutDir: out, ChunkSeconds: 1.0})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	if res.Chunks != 3 {
-		t.Errorf("got %d chunks, want 3 (10+10+5)", res.Chunks)
+	if res.Chunks < 2 {
+		t.Errorf("got %d chunks, want several for 25 frames at a 1 s target", res.Chunks)
 	}
 	var idx ChunkIndex
 	b, err := os.ReadFile(filepath.Join(out, "index.json"))
@@ -234,12 +236,22 @@ func TestExportChunkRollover(t *testing.T) {
 	if err := json.Unmarshal(b, &idx); err != nil {
 		t.Fatalf("unmarshal index: %v", err)
 	}
-	if len(idx.Chunks) != 3 {
-		t.Fatalf("index lists %d chunks, want 3", len(idx.Chunks))
+	if len(idx.Chunks) != res.Chunks {
+		t.Fatalf("index lists %d chunks, result reported %d", len(idx.Chunks), res.Chunks)
 	}
-	if idx.Chunks[0].Frames != 10 || idx.Chunks[2].Frames != 5 {
-		t.Errorf("chunk frame counts = %d,%d,%d; want 10,10,5",
-			idx.Chunks[0].Frames, idx.Chunks[1].Frames, idx.Chunks[2].Frames)
+	total := 0
+	for _, c := range idx.Chunks {
+		total += c.Frames
+	}
+	if total != res.Header.FrameCount {
+		t.Errorf("index accounts for %d frames, header says %d", total, res.Header.FrameCount)
+	}
+	// Every chunk but the last should cover about the target span.
+	for i, c := range idx.Chunks[:len(idx.Chunks)-1] {
+		span := float64(c.EndUs-c.StartUs) / 1e6
+		if span < 0.8 || span > 1.3 {
+			t.Errorf("chunk %d spans %.2f s, want about the 1 s target", i, span)
+		}
 	}
 	// Index timestamps must bracket their chunk and advance across chunks.
 	for i, c := range idx.Chunks {
@@ -484,5 +496,41 @@ func TestExportOmitsBackgroundSnapshots(t *testing.T) {
 	frames := readFrames(t, out)
 	if frames[0].TimeUs != 0 {
 		t.Errorf("first frame t %d us, want 0", frames[0].TimeUs)
+	}
+}
+
+// Chunks are cut by duration so a boundary means the same thing at any stride.
+// A fixed frame count would make a chunk half as long when the stride halves.
+func TestChunkSpanIsIndependentOfStride(t *testing.T) {
+	src := writeVRLOG(t, evenTimestamps(200)) // 100 ms apart => 20 s of frames
+
+	spans := map[int]float64{}
+	for _, stride := range []int{1, 2, 4} {
+		out := filepath.Join(t.TempDir(), "out")
+		res, err := Export(Options{
+			VRLOGPath: src, OutDir: out, Stride: stride, ChunkSeconds: 5.0,
+		})
+		if err != nil {
+			t.Fatalf("stride %d: %v", stride, err)
+		}
+		var idx ChunkIndex
+		b, err := os.ReadFile(filepath.Join(out, "index.json"))
+		if err != nil {
+			t.Fatalf("read index: %v", err)
+		}
+		if err := json.Unmarshal(b, &idx); err != nil {
+			t.Fatalf("unmarshal index: %v", err)
+		}
+		first := idx.Chunks[0]
+		spans[stride] = float64(first.EndUs-first.StartUs) / 1e6
+		if res.Header.ChunkSeconds != 5.0 {
+			t.Errorf("stride %d: header chunk_seconds = %v, want 5", stride, res.Header.ChunkSeconds)
+		}
+	}
+	for stride, span := range spans {
+		if span < 4.5 || span > 5.5 {
+			t.Errorf("stride %d: first chunk spans %.2f s, want about 5 s regardless of stride",
+				stride, span)
+		}
 	}
 }

@@ -47,7 +47,7 @@ func exportMain(args []string) int {
 	fs.IntVar(&opts.Stride, "stride", 1, "Retain every Nth source frame (a retention interval, not a frame rate)")
 	fs.IntVar(&opts.StartFrame, "start-frame", 0, "First source frame to read")
 	fs.IntVar(&opts.FrameCount, "frame-count", 0, "Source frames to read (0 = to the end)")
-	fs.IntVar(&opts.ChunkFrames, "chunk-frames", sceneexport.DefaultChunkFrames, "Retained frames per chunk file")
+	fs.Float64Var(&opts.ChunkSeconds, "chunk-seconds", sceneexport.DefaultChunkSeconds, "Target span of one chunk file in seconds")
 	fs.StringVar(&opts.Site, "site", "", "Site identifier recorded in the export header")
 	fs.StringVar(&opts.Title, "title", "", "Human-readable scene title")
 	fs.IntVar(&opts.MaxPointsPerFrame, "max-points", 0, "Cap foreground points per frame in a clip export (0 = uncapped)")

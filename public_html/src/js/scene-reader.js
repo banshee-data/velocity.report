@@ -165,12 +165,23 @@ export class PartReader {
         throw new SceneError(`${name} returned ${res.status} ${res.statusText}`);
       }
 
+      // Some static hosts and CDNs label a .gz file with
+      // Content-Encoding: gzip, which makes the browser decompress it before
+      // JS sees the body. Others serve it as opaque bytes. Sniff the gzip
+      // magic number rather than trusting either, so the same asset works on
+      // both without a server-side content-negotiation dance.
       let text;
       try {
-        const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
-        text = await new Response(stream).text();
+        const raw = new Uint8Array(await res.arrayBuffer());
+        const isGzip = raw.length > 1 && raw[0] === 0x1f && raw[1] === 0x8b;
+        if (isGzip) {
+          const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"));
+          text = await new Response(stream).text();
+        } else {
+          text = new TextDecoder().decode(raw);
+        }
       } catch (err) {
-        throw new SceneError(`${name} is not valid gzip data`, err);
+        throw new SceneError(`${name} could not be decompressed`, err);
       }
 
       const frames = [];
