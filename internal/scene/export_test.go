@@ -375,3 +375,114 @@ func TestEncodeBase36(t *testing.T) {
 		}
 	}
 }
+
+// A recording interleaves background snapshots with sensor rotations. Stride
+// counts rotations, because that is what a frame rate is about; letting
+// snapshot placement decide which rotations survive would make the retained
+// interval depend on when the background model happened to fire.
+func TestExportStrideCountsRotationsNotRecords(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "mixed.vrlog")
+	rec, err := recorder.NewRecorder(dir, "hesai-pandar40p")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	// 10 rotations with a snapshot injected after every third one.
+	var wantTimes []int64
+	rotation := 0
+	for i := 0; i < 10; i++ {
+		ts := baseNs + int64(i)*100_000_000
+		if i > 0 && i%3 == 0 {
+			if err := rec.Record(&l9endpoints.FrameBundle{
+				FrameID: uint64(1000 + i), TimestampNanos: ts - 1,
+				SensorID: "hesai-pandar40p", FrameType: l9endpoints.FrameTypeBackground,
+			}); err != nil {
+				t.Fatalf("record background: %v", err)
+			}
+		}
+		if err := rec.Record(&l9endpoints.FrameBundle{
+			FrameID: uint64(i), TimestampNanos: ts, SensorID: "hesai-pandar40p",
+			FrameType: l9endpoints.FrameTypeForeground,
+			Tracks: &l9endpoints.TrackSet{Tracks: []l9endpoints.Track{{
+				TrackID: "t0", State: l9endpoints.TrackStateConfirmed, X: 1, Y: 2, Z: 0.8,
+			}}},
+		}); err != nil {
+			t.Fatalf("record rotation: %v", err)
+		}
+		if rotation%2 == 0 {
+			wantTimes = append(wantTimes, ts)
+		}
+		rotation++
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	out := filepath.Join(t.TempDir(), "out")
+	res, err := Export(Options{VRLOGPath: dir, OutDir: out, Stride: 2})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if res.Header.FrameCount != 5 {
+		t.Errorf("retained %d frames, want 5 (10 rotations at stride 2)", res.Header.FrameCount)
+	}
+
+	frames := readFrames(t, out)
+	for i, f := range frames {
+		wantUs := (wantTimes[i] - wantTimes[0]) / 1000
+		if f.TimeUs != wantUs {
+			t.Errorf("frame %d: t %d us, want %d (every second rotation)", i, f.TimeUs, wantUs)
+		}
+	}
+}
+
+// Background snapshots are pipeline state, not observations, and carry an
+// inherited timestamp that can sit outside the rotations around them.
+func TestExportOmitsBackgroundSnapshots(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "bg.vrlog")
+	rec, err := recorder.NewRecorder(dir, "hesai-pandar40p")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+	// A recording opens with a snapshot stamped from the end of the capture,
+	// which is what the settle-before-recording flow produces.
+	if err := rec.Record(&l9endpoints.FrameBundle{
+		FrameID: 9999, TimestampNanos: baseNs + 900_000_000_000,
+		SensorID: "hesai-pandar40p", FrameType: l9endpoints.FrameTypeBackground,
+	}); err != nil {
+		t.Fatalf("record background: %v", err)
+	}
+	for i := 0; i < 6; i++ {
+		if err := rec.Record(&l9endpoints.FrameBundle{
+			FrameID: uint64(i), TimestampNanos: baseNs + int64(i)*100_000_000,
+			SensorID: "hesai-pandar40p", FrameType: l9endpoints.FrameTypeForeground,
+		}); err != nil {
+			t.Fatalf("record rotation: %v", err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	out := filepath.Join(t.TempDir(), "out")
+	res, err := Export(Options{VRLOGPath: dir, OutDir: out})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if res.Header.FrameCount != 6 {
+		t.Errorf("retained %d frames, want 6 rotations with the snapshot omitted", res.Header.FrameCount)
+	}
+	// The leading snapshot must not register as a timestamp problem; it is
+	// simply not an observation.
+	if res.DroppedNonMonotonic != 0 {
+		t.Errorf("dropped %d frames as non-monotonic; a snapshot should be omitted, not fought",
+			res.DroppedNonMonotonic)
+	}
+	if res.Header.DurationSec <= 0 {
+		t.Errorf("duration %.3f s, want positive", res.Header.DurationSec)
+	}
+	frames := readFrames(t, out)
+	if frames[0].TimeUs != 0 {
+		t.Errorf("first frame t %d us, want 0", frames[0].TimeUs)
+	}
+}

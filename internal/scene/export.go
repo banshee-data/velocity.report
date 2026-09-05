@@ -149,6 +149,7 @@ func Export(opts Options) (*Result, error) {
 		retained         int
 		skipped          int
 		nonMonotonic     int
+		rotationsSeen    int
 		firstNs, lastNs  int64
 		sourceFramesRead int
 	)
@@ -188,13 +189,18 @@ func Export(opts Options) (*Result, error) {
 		}
 		sourceFramesRead++
 
-		if (idx-start)%opts.Stride != 0 {
-			continue
-		}
-
 		frame, ok := projectFrame(fb, opts, keys)
 		if !ok {
 			skipped++
+			continue
+		}
+
+		// Stride counts rotations, not records. Applying it to the raw record
+		// index would let interleaved background snapshots shift which
+		// rotations survive, so "every second rotation" would not be true.
+		rotationIdx := rotationsSeen
+		rotationsSeen++
+		if rotationIdx%opts.Stride != 0 {
 			continue
 		}
 
@@ -226,6 +232,19 @@ func Export(opts Options) (*Result, error) {
 
 	if err := w.close(); err != nil {
 		return nil, err
+	}
+
+	// Reconcile against the recording's own rotation count. A VRLOG written
+	// before that field existed reports zero, and a bounded export covers only
+	// part of the recording, so neither is treated as a disagreement.
+	wholeRecording := start == 0 && end == total
+	if src.RotationFrames > 0 && wholeRecording {
+		if uint64(rotationsSeen) != src.RotationFrames {
+			return nil, fmt.Errorf(
+				"%s: read %d rotations but the header declares %d; "+
+					"the recording and its index disagree and must not be published",
+				opts.VRLOGPath, rotationsSeen, src.RotationFrames)
+		}
 	}
 	if retained == 0 {
 		return nil, fmt.Errorf("no frames retained from %s: nothing to publish", opts.VRLOGPath)
@@ -291,6 +310,16 @@ func Export(opts Options) (*Result, error) {
 // publishing.
 func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (Frame, bool) {
 	if fb == nil || fb.TimestampNanos == 0 {
+		return Frame{}, false
+	}
+	// Background snapshots are pipeline state, not observations of the street,
+	// and they are not sensor rotations. They also carry an inherited
+	// timestamp that can sit outside the range of the rotations around them —
+	// a recording opens with one so a replay has a scene from frame zero, and
+	// after a settling pass that timestamp is the end of the capture. Skipping
+	// them keeps the exported timeline monotonic and the frame count equal to
+	// the recording's rotation count.
+	if fb.FrameType == l9endpoints.FrameTypeBackground {
 		return Frame{}, false
 	}
 	// Absolute nanoseconds at this point; Export rebases to relative

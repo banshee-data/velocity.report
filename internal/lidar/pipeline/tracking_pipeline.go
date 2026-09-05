@@ -331,6 +331,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
+		// Count the rotation here, before any stage can return early. A frame
+		// is one sensor rotation whether or not it yields clusters, so an
+		// empty street must still advance the count; otherwise the run record
+		// undercounts exactly the quiet frames the VRLOG does record, and the
+		// two can never be reconciled.
+		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
+			runManager.RecordFrame(frame.StartTimestamp.UnixNano())
+		}
+
 		// Route frame completion to trace log to keep main log quiet during normal runs.
 		tracef("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
 			frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
@@ -640,9 +649,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			cfg.Tracker.RecordFrameStats(len(filteredPoints), clusteredPointCount)
 		}
 
-		// Record clusters for analysis run if active
+		// Record clusters for analysis run if active. The frame itself was
+		// already counted on entry.
 		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
-			runManager.RecordFrame(frame.StartTimestamp.UnixNano())
 			runManager.RecordClusters(len(clusters))
 		}
 

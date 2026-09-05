@@ -43,15 +43,33 @@ The VRLOG used for the published scene, and its run record in `sensor_data.db`:
 | Tracks persisted | 2,038, all confirmed                                   |
 | Status           | `completed`                                            |
 
-### Frame-count discrepancy
+### Frame counts
 
-The run record reports **7,939 frames over 632.7 s**; the VRLOG header reports
-**6,846 frames over 662.9 s**. The recording holds fewer frames than the run
-processed, which is the frame-retention problem described in
-[`VRLOG_RUN_COMPARISON_2026_03_10.md`](../../../data/explore/vrlog-analysis-runs/VRLOG_RUN_COMPARISON_2026_03_10.md)
-§2.1. Treat the VRLOG as authoritative for what can be replayed and exported,
-and do not expect a run record's frame count to match its recording until that
-is fixed.
+This recording predates the header's rotation count, so its numbers have to be
+derived by reading it:
+
+| Frame type           | Count     |
+| -------------------- | --------- |
+| Foreground           | 6,604     |
+| Empty placeholder    | 26        |
+| **Sensor rotations** | **6,630** |
+| Background snapshot  | 216       |
+| Total records        | 6,846     |
+
+6,630 rotations over 662.9 s is 10.00 Hz, which matches the sensor. The
+recording is internally consistent.
+
+The run record's **7,939 frames over 632.7 s** is not: that is 12.55 Hz, which
+a Pandar40P cannot produce. The run over-counted, because the pipeline recorded
+a frame only on the clustering path while three earlier stages could return
+first; a run that re-entered those paths counted unevenly against the rotations
+the recorder saw. Both sides now count one rotation per rotation, and new
+recordings carry `rotation_frames` in the header so the two are directly
+comparable without reading every chunk.
+
+Do not compare a run record's frame count with `total_frames`: that figure
+counts background snapshots too, because it indexes `index.bin`. Compare it
+with `rotation_frames`.
 
 ## Observed characteristics
 
@@ -84,20 +102,24 @@ Result, as committed:
 
 | Property           | Value                                                              |
 | ------------------ | ------------------------------------------------------------------ |
-| Frames retained    | 3,422 of 6,846 source (stride 2)                                   |
-| Dropped            | 1 frame, non-monotonic timestamp                                   |
-| Duration           | 662.7 s                                                            |
-| Chunks             | 35 (100 retained frames each)                                      |
-| Size on disk       | 1,257,388 bytes (1.2 MiB), 111 KB per minute                       |
+| Frames retained    | 3,315 — every second rotation of 6,630                             |
+| Duration           | 662.8 s                                                            |
+| Chunks             | 34 (100 retained frames each)                                      |
+| Size on disk       | 1,262,561 bytes (1.2 MiB), 112 KB per minute                       |
 | Source fingerprint | `da0b461a1c975489ecb3118da3b306ace562018bac4ca180d39ec6737eaedc35` |
 
 The source fingerprint in `header.json` hashes the VRLOG's `header.json` and
 `index.bin`, so a published asset can always be traced to the recording it came
 from. It is not the capture's SHA-256.
 
-The single dropped frame is the wall-clock stamp the recorder writes on the
-opening frame; see [`VRLOG_FORMAT.md`](../../../data/structures/VRLOG_FORMAT.md)
-and the export guard in `internal/scene/export.go`.
+Stride counts rotations, not records, so 3,315 is exactly half of 6,630.
+
+The export omits background snapshots. A recording deliberately opens with one
+so a replay has a scene from its first frame, and a snapshot inherits the most
+recent foreground timestamp; after a settling pass that timestamp is the end of
+the capture, so the opening snapshot is not ordered with the rotations around
+it. It is pipeline state rather than an observation, and skipping it keeps the
+exported timeline monotonic.
 
 ## Related
 
