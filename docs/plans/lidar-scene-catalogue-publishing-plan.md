@@ -3,7 +3,7 @@
 - **Status:** Draft
 - **Layers:** Cross-cutting (LiDAR pipeline, database, CLI, CI, web)
 - **Target:** v0.6.x; turn 122 GB of stranded daily-driver captures into a statically served map of San Francisco scenes
-- **Companion plans:** [lidar-vrlog-web-profile-plan](lidar-vrlog-web-profile-plan.md) owns the export format; [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md) owns S2 conventions
+- **Companion plans:** [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) owns the export format; [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md) owns S2 conventions
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md) for all S2 conventions
 
 ## Motivation
@@ -63,7 +63,7 @@ None of the 118 volume runs are imported: `source_path LIKE '%s2%'` returns zero
 ### Corrections to the companion plan
 
 Three assumptions in
-[lidar-vrlog-web-profile-plan](lidar-vrlog-web-profile-plan.md)
+[lidar-web-scene-export-plan](lidar-web-scene-export-plan.md)
 came from `VRLOG_RUN_COMPARISON_2026_03_10.md` and are contradicted by the live
 database. That document is stale and should not be cited for these facts again.
 
@@ -102,38 +102,43 @@ quarantine any run whose observation timestamps fall outside its capture window.
 
 ### 1. Two asset tiers
 
-Both tiers are **web profiles of the existing VRLOG format** — same directory
-layout, same `FrameBundle` protobuf, filtered by the `FrameType` values the
-format already defines. No new wire format is introduced; see
-[lidar-vrlog-web-profile-plan](lidar-vrlog-web-profile-plan.md).
-Sizes measured through `recorder.Record`, gzip at best compression, against this
-archive's occupancy (~3 concurrent tracks) and foreground fraction (1.49%).
+Both tiers are **JSON scene exports derived from a recorded VRLOG**, which
+remains the source of truth. The browser needs no protobuf runtime, no bundler
+and no database. Format owned by
+[lidar-web-scene-export-plan](lidar-web-scene-export-plan.md).
+Sizes measured over 600 frames with realistic per-track variation, gzip at best
+compression, against this archive's occupancy (~3 concurrent tracks) and
+foreground fraction (1.49%).
 
-| Tier           | Profile      | Window | Rate  | Size (gzip) | Per site              |
-| -------------- | ------------ | ------ | ----- | ----------- | --------------------- |
-| **Clip**       | `clip`       | 30 s   | 10 Hz | ~3.8 MB     | 1 clip                |
-| **Segment**    | `tracks`     | 20 min | 5 Hz  | ~462 KB     | all available footage |
-| **Background** | `background` | once   | —     | ~214 KB     | 1                     |
+| Tier           | Export       | Window | Stride | Size (gzip) | Per site              |
+| -------------- | ------------ | ------ | ------ | ----------- | --------------------- |
+| **Clip**       | `clip`       | 30 s   | 1      | ~2.51 MB    | 1 clip                |
+| **Segment**    | `tracks`     | 20 min | 2      | ~388 KB     | all available footage |
+| **Background** | `background` | once   | —      | ~200 KB     | 1                     |
 
-Measured rates: `tracks` at 3 concurrent is 46.2 KB/min gzip at 10 Hz, halved to
-23.1 KB/min by the 5 Hz stride. `clip` at 1,036 points/frame is 7,725 KB/min
-gzip. A purpose-built int16 encoding measured 3.7–5.8× smaller; that saving was
-weighed and rejected rather than maintain a second schema.
+Measured rates: `tracks` at 3 concurrent is 38.8 KB/min gzip at 2 dp rounding,
+halved by stride 2. `clip` at 1,036 points/frame is 2.51 MB per 30 s. Rounding
+to 1 cm is the dominant lever — unrounded float64 costs 3× — and at 2 dp JSON
+is 16% smaller than protobuf for tracks and 34% smaller for clips.
+
+**Stride is not a frame rate.** `stride 2` means retain every second source
+frame. Captures measure 9.95–10.03 Hz within a single file, so playback is
+driven by recorded timestamps, never a fixed interval.
 
 Budget at today's six sites is about 37 MB all-in. The design matters because it
 scales:
 
 | Scale                          | Backgrounds | Clips  | Segments | Total    | % of 1 GB    |
 | ------------------------------ | ----------- | ------ | -------- | -------- | ------------ |
-| 6 sites, all available footage | 1.3 MB      | 23 MB  | 13 MB    | 37 MB    | 4%           |
-| 50 sites, 8 segments each      | 11 MB       | 190 MB | 185 MB   | 386 MB   | 38%          |
-| 133 sites, 8 segments each     | 28 MB       | 505 MB | 492 MB   | 1,025 MB | at the limit |
-| 200 sites, 8 segments each     | 43 MB       | 760 MB | 739 MB   | 1,542 MB | shard repos  |
+| 1 site (Phase 0), 20 min       | 0.2 MB      | 2.5 MB | 0.4 MB   | 3.1 MB   | <1%          |
+| 6 sites, all available footage | 1.2 MB      | 15 MB  | 11 MB    | 27 MB    | 3%           |
+| 50 sites, 8 segments each      | 10 MB       | 126 MB | 155 MB   | 291 MB   | 28%          |
+| 176 sites, 8 segments each     | 35 MB       | 442 MB | 546 MB   | 1,023 MB | at the limit |
 
 Clips are roughly half the projection at every scale. The ceiling arrives near
-**133 sites per catalogue repository**; the response is another repository, which
-buys another 1 GB _and_ another 100 GB of monthly bandwidth. It is not a reason
-to invent a format.
+**176 sites**; the response is another Pages site, which buys another 1 GB _and_
+another 100 GB of monthly bandwidth. Phase 0 fits in under 1% of a single site's
+budget, so none of this constrains the first milestone.
 
 ### 2. Canonical filesystem layout
 
@@ -154,12 +159,12 @@ previous one.
       static/<base>-static-<i>-s2-l10-<tok>.pcap
       vrlog/<base>-<i>.vrlog/                  # only for selected clip windows
       export/
-        background.web.vrlog/                  # profile=background, ~214 KB
-        clip-<i>.web.vrlog/                    # profile=clip, 30 s, 10 Hz
-        segment-<i>.web.vrlog/                 # profile=tracks, 20 min, 5 Hz
-          header.json                          # carries profile + source SHA
-          index.bin                            # unchanged 24-byte entries
-          frames/chunk_NNNN.pb.gz              # 100 frames per chunk
+        background/                            # ~200 KB, once per site
+        clip-<i>/                              # 30 s foreground points
+        segment-<i>/                           # 20 min tracks, stride 2
+          header.json                          # export kind, stride, source SHA
+          index.json                           # chunk start timestamps
+          frames/chunk_NNNN.ndjson.gz          # 100 frames per chunk, ~7.7 KB
 ```
 
 Only **static** segments carry an `s2-l10-<token>` filename tag, per the S2
@@ -252,34 +257,36 @@ markers.
 
 ### 5. Export contract
 
-One new subcommand. It reads a recorded VRLOG and writes another VRLOG — the
-same format, narrowed to a profile. Nothing is invented; the recorded run stays
-the single source of truth for what was analysed.
+One subcommand, rebuilt from the existing `lidar-scene-extract` flow so it
+accepts a recorded VRLOG as well as a PCAP. It writes JSON; the recorded VRLOG
+stays the single source of truth for what was analysed.
 
 ```text
 velocity scene export \
-    --vrlog <path.vrlog> \
-    --profile tracks|clip|background \
+    --vrlog <path.vrlog> | --pcap <path.pcap> \
+    --export tracks|clip|background \
     --start-frame <n> --frame-count <n> \
     --stride <n> \
     --out <dir>
 ```
 
-Invariants every profile must hold:
+Invariants every export must hold:
 
 - Refuse any source whose recorded frame count disagrees with its capture's
   rotation count. A published asset that cannot be regenerated is not evidence.
-- Re-key track identifiers to be **segment-local**, never reused across
-  segments or sites.
-- Write `profile`, `frame_stride`, `chunk_encoding` and `source_vrlog_sha256`
+- Re-key track identifiers **per part**, never reused across parts or sites.
+- Round positions and dimensions to 2 dp; **never round timestamps** — they are
+  the playback clock.
+- Write `export`, `frame_stride`, `chunk_encoding` and `source_vrlog_sha256`
   into `header.json`, so an export always names the run it came from.
 - Content-address the output by SHA-256 and register it in
   `lidar_scene_exports`.
 
-Because the output is a VRLOG, every existing tool already reads it:
-`vrlog-analyse` produces an analysis report for a published segment, and the
-replayer opens one without modification. The full profile definition lives in
-[lidar-vrlog-web-profile-plan](lidar-vrlog-web-profile-plan.md).
+The output is a derived artefact, **not** a VRLOG variant: `vrlog-analyse` and
+the replayer read the recorded VRLOG only, and the plan makes no claim otherwise.
+The replayer hard-codes `chunk_%04d.pb` at three call sites, so a compressed or
+renamed chunk would not be found by it. Full definition in
+[lidar-web-scene-export-plan](lidar-web-scene-export-plan.md).
 
 ### 6. Clip selection
 
@@ -345,29 +352,23 @@ implementation, so they can start once the spec is written.
 **Depends on:** surveyed coordinates for step 4 only.
 **Milestone:** v0.6.0
 
-### Workstream 3: Web profile export (backend agent)
+### Workstream 3: Scene export at archive scale (backend agent)
 
-**Summary:** Narrow a recorded VRLOG into a servable VRLOG. No new format.
+**Summary:** Take the Phase 0 exporter and run it over the archive. The exporter
+itself is built in Phase 0 and owned by the companion plan.
 
 **Steps:**
 
-1. Add the web profile section to `data/structures/VRLOG_FORMAT.md`: the three
-   profiles, the `header.json` additions, the 100-frame chunk policy, gzip
-   framing, and the rule that `profile` absent means a recorded VRLOG.
-   **This section unblocks W4 and W5.**
-2. Add a recorder option for web chunk size and gzip chunk output.
-3. Implement profile filtering as a `FrameBundle` transform plus frame striding;
-   re-key track identifiers to segment-local values.
-4. Implement `velocity scene export` with the contract in § Design 5.
-5. Implement the interest scorer and `velocity scene rank`.
-6. Add `proto-gen-ts` so the browser decodes the same schema as Go and Swift,
-   with a drift gate in CI.
-7. Round-trip test: export, replay the export, assert frame count, track count
-   and kinematics match the source at the chosen stride.
+1. Batch export across imported captures, keyed by `capture_id`.
+2. Implement the interest scorer and `velocity scene rank` for clip selection.
+3. Register every produced asset in `lidar_scene_exports` with its SHA-256,
+   frame range and interest score.
+4. Re-export detection: skip assets whose source SHA and export settings are
+   unchanged.
 
-**Interfaces owned:** the profile definition, the export CLI, `proto-gen-ts`.
-**Depends on:** W2 migrations; W1 for `capture_id`.
-**Milestone:** v0.6.1
+**Interfaces owned:** batch export, the scorer, the export registry contract.
+**Depends on:** Phase 0 exporter; W2 migrations; W1 for `capture_id`.
+**Milestone:** v0.6.2
 
 ### Workstream 4: Catalogue repository and CI (infra agent)
 
@@ -410,17 +411,30 @@ implementation, so they can start once the spec is written.
 
 ## Phasing
 
-**Phase 0 — prove the chain (six runs).** One representative run per site, end
-to end: split → import → export all three tiers → catalogue → map. Six sites,
-about 18 MB of assets. Every workstream ships its first vertical slice. Nothing
-scales until a site page renders from a real capture.
+**Phase 0 — one real scene.** Approximately 20 minutes from a single site,
+published through the **existing** velocity.report Pages deployment under
+`public_html/`. `s2_sf_2` is the candidate: 42 runs, 29 static segments, 134
+static minutes. Tracks plus one clip and a background. No S2 metadata, no
+archive importer, no catalogue database, no map, no separate repository. Owned
+by [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md); nothing in
+this plan is required to reach it. Phase 0 is complete when a public static URL
+renders that site from published static assets.
 
-**Phase 1 — scale to the archive.** All 118 runs through split and import;
-tracks-only pipeline pass; segments for all available footage; two ranked clips
-per site.
+Everything below is deliberately behind that milestone. The one-site viewer
+produces the real numbers — asset sizes, fetch and decode latency, whether a
+tracks-only scene is spatially readable — that say how much of this machinery is
+justified.
 
-**Phase 2 — scale to the network.** The 200-site coverage design in the
-companion plan, once sensor deployments exist.
+**Phase 1 — the other five sites.** Split and import the archive; capture
+registry and export registry populated; segments for all available footage; one
+ranked clip per site. This is where the workstreams below start.
+
+**Phase 2 — geographic index and map.** Surveyed origins, S2 tagging, the map
+view, and the catalogue repository, once there is more than one site to place on
+a map.
+
+**Phase 3 — archive and network scale.** The 200-site coverage design, once
+sensor deployments exist.
 
 ## Dependencies
 
@@ -457,24 +471,23 @@ companion plan, once sensor deployments exist.
 - [ ] W2: migration `000040_scene_exports` (`S`)
 - [ ] W2: migration `000041_s2_columns` (`S`)
 - [ ] W2: S2 derivation helpers and conformance check (`M`)
-- [ ] W3: web profile section in `VRLOG_FORMAT.md` (`S`) — unblocks W4 and W5
-- [ ] W3: recorder web chunk size and gzip chunk output (`M`)
-- [ ] W3: profile filtering, frame striding, segment-local re-keying (`M`)
-- [ ] W3: `velocity scene export` (`M`)
+- [ ] W3: batch export across imported captures, keyed by `capture_id` (`M`)
 - [ ] W3: interest scorer and `velocity scene rank` (`M`)
-- [ ] W3: `proto-gen-ts` target and CI drift gate (`M`)
-- [ ] W3: export/replay round-trip test (`S`)
+- [ ] W3: export registry writes and re-export detection (`S`)
 - [ ] W4: catalogue repo, build, PR checks, Pages deploy (`M`)
 - [ ] W5: map view with site markers and L10 context (`M`)
-- [ ] W5: clip player and segment scrubber (`L`)
-- [ ] Phase 0 gate: one site page rendering from a real capture (`S`)
+
+Phase 0 has its own checklist in
+[lidar-web-scene-export-plan](lidar-web-scene-export-plan.md); none of the items
+above are required to reach it.
 
 ### Deferred
 
-- [ ] Full-cloud VRLOG publishing: 556 MB/min, 4× larger than the source PCAP. Never ship this profile
-- [ ] Purpose-built int16 encoding: 3.7–5.8× smaller than the web profile, rejected as a second schema. Revisit only if repository sharding stops being sufficient
-- [ ] Brotli chunk encoding: 17% smaller than gzip, but `DecompressionStream` supports `br` only on Chromium
-- [ ] Cross-segment track association: deliberately not built; breaks the segment-local identity invariant
+- [ ] Full-cloud publishing: 556 MB/min, 4× larger than the source PCAP. Never ship it
+- [ ] Protobuf in the browser: JSON at 2 dp measured smaller and needs no toolchain
+- [ ] Brotli chunk encoding: ~17% smaller than gzip, but `DecompressionStream` supports `br` only on Chromium
+- [ ] SQLite catalogue index: a JSON manifest is sufficient at the scales projected here. The 1.1 M-row track query surface is a separate question, revisited when someone actually needs it
+- [ ] Cross-part track association: deliberately not built; breaks the per-part identity invariant
 - [ ] Background as polygons rather than points: superseded by [lidar-l7-scene-plan](lidar-l7-scene-plan.md)
 
 ### Accepted residuals (no action planned)
