@@ -363,12 +363,31 @@ lost at whatever rate the machine happened to impose. `pcapsplit` and the
 server's own analysis mode both call `SetBlockOnFrameChannel(true)` for this
 reason; the harness did not.
 
-With back-pressure enabled the harness is exactly reproducible: three
-consecutive runs agree on frame count, track count, every percentile, and the
-trapped count. Frame count also rose from about 588 to 601, so roughly 13
-frames per run were being silently discarded. The table above is the re-run,
-and the earlier conclusions survived unchanged because both arms were losing
-frames at the same rate.
+With back-pressure enabled the harness is exactly reproducible at this length:
+three consecutive 60 s runs agree on frame count, track count, every
+percentile, and the trapped count. Frame count also rose from about 588 to 601,
+so roughly 13 frames per run were being silently discarded. The table above is
+the re-run, and the earlier conclusions survived unchanged because both arms
+were losing frames at the same rate.
+
+**That claim does not hold at five minutes, and the first version of this
+section overstated it.** Replaying full S2 captures surfaced residual variation:
+a few tracks out of six hundred, and a few tenths of a degree on the mean. Part
+of it was the tracker, not the harness. `associate()` built its track list by
+ranging over a Go map, which randomises iteration order, so the cost matrix
+columns were permuted every frame and Hungarian assignment resolved ties
+differently between runs. Sorting the list fixed that and tightened the spread:
+the median course error now agrees exactly across runs where it previously
+differed by 0.8°.
+
+Something smaller remains, upstream of the tracker. Frame count, duration, and
+frame content are identical between runs, but clusters per frame differ in the
+third decimal, so it originates in L3 or L4. No concurrency or map iteration is
+apparent in either, so it needs a proper hunt rather than a guess.
+
+The practical consequence is for D2.5. A regression fixture should either use a
+60 s window, where the output is exact, or assert tolerances at five minutes.
+It should not assert equality on a five-minute run.
 
 ### Day 2: axis coherence and an honest score
 
