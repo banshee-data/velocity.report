@@ -16,6 +16,9 @@ package replayeval
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -35,7 +38,23 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
+
+// sha256Sum is a small helper so the provenance block reads in one line.
+func sha256Sum(b []byte) []byte {
+	sum := sha256.Sum256(b)
+	return sum[:]
+}
+
+// schemaVersionOrUnknown reports the tuning config's parameter schema version,
+// or "unknown" when the loaded config does not carry one.
+func schemaVersionOrUnknown(cfg *config.TuningConfig) string {
+	if cfg == nil {
+		return "unknown"
+	}
+	return fmt.Sprintf("v%d", cfg.Version)
+}
 
 // Config holds the parameters for an offline perception replay.
 type Config struct {
@@ -179,6 +198,30 @@ func Run(cfg Config) (*Result, error) {
 	}
 	pub := &recordingPublisher{rec: rec, dropPoints: !cfg.IncludePoints}
 	adapter := l9endpoints.NewFrameAdapter(cfg.SensorID)
+
+	// Provenance. Without it a recording cannot say which code and which
+	// parameters produced it, which is the one thing an A/B corpus has to be
+	// able to answer. The live path takes these from the run-config store in
+	// the database; there is no database here, so they are derived from the
+	// tuning file actually loaded and from the build stamp.
+	paramsJSON, err := json.Marshal(tuningCfg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal tuning config for provenance: %w", err)
+	}
+	paramsHash := "sha256:" + hex.EncodeToString(sha256Sum(paramsJSON))
+
+	rec.SetDeterministicConfig(
+		"",         // no run-config row exists offline
+		"",         // nor a param-set row
+		paramsHash, // config and params are the same object here
+		paramsHash,
+		schemaVersionOrUnknown(tuningCfg),
+		"replay", // distinguishes these from effective/requested run configs
+		version.Version,
+		version.GitSHA,
+		paramsJSON,
+	)
+	rec.SetProvenance("pcap", filepath.Base(cfg.PCAPFile), paramsHash, 0)
 
 	// --- Pipeline ---
 	// The frame-rate throttle is left off. It exists to stop a real-time

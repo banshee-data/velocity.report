@@ -154,3 +154,23 @@ func TestPublisherIgnoresNonBundle(t *testing.T) {
 		t.Fatalf("recorded = %d, want 0", p.recorded)
 	}
 }
+
+func TestSchemaVersionOrUnknown(t *testing.T) {
+	if got := schemaVersionOrUnknown(nil); got != "unknown" {
+		t.Fatalf("nil config gave %q, want \"unknown\"", got)
+	}
+}
+
+func TestSha256SumIsStable(t *testing.T) {
+	a := sha256Sum([]byte("velocity"))
+	b := sha256Sum([]byte("velocity"))
+	if len(a) != 32 {
+		t.Fatalf("digest length %d, want 32", len(a))
+	}
+	if string(a) != string(b) {
+		t.Fatal("digest is not stable across calls")
+	}
+	if string(a) == string(sha256Sum([]byte("velocity "))) {
+		t.Fatal("digest does not distinguish different input")
+	}
+}
