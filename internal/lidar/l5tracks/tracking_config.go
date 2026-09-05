@@ -26,7 +26,27 @@ const (
 	HeadingSourceVelocity     HeadingSource = 1 // Disambiguated using Kalman velocity
 	HeadingSourceDisplacement HeadingSource = 2 // Disambiguated using position displacement
 	HeadingSourceLocked       HeadingSource = 3 // Heading locked (aspect ratio guard or jump rejection)
+
+	// HeadingSourceCount is the number of heading sources, for sizing
+	// per-source counters. Keep it one past the last source above.
+	HeadingSourceCount = 4
 )
+
+// String names a heading source for diagnostics and JSON keys.
+func (h HeadingSource) String() string {
+	switch h {
+	case HeadingSourcePCA:
+		return "pca"
+	case HeadingSourceVelocity:
+		return "velocity"
+	case HeadingSourceDisplacement:
+		return "displacement"
+	case HeadingSourceLocked:
+		return "locked"
+	default:
+		return "unknown"
+	}
+}
 
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {

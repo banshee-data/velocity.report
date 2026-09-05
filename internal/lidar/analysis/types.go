@@ -72,8 +72,32 @@ type TrackSummary struct {
 	Occlusion          *OcclusionSummary `json:"occlusion"`
 
 	// Implementable-now aggregate blocks (§12.1)
-	Jitter    *JitterSummary    `json:"jitter,omitempty"`
-	Alignment *AlignmentSummary `json:"alignment,omitempty"`
+	Jitter      *JitterSummary      `json:"jitter,omitempty"`
+	Alignment   *AlignmentSummary   `json:"alignment,omitempty"`
+	HeadingLock *HeadingLockSummary `json:"heading_lock,omitempty"`
+}
+
+// HeadingLockSummary reports how often the heading guards suppressed the OBB
+// update, and how many tracks never recovered from it.
+type HeadingLockSummary struct {
+	// SourceFrames counts track-frames by heading source: pca, velocity,
+	// displacement, locked.
+	SourceFrames map[string]int `json:"source_frames"`
+	// LockedFrameRatio is locked track-frames over all track-frames. [0, 1]
+	LockedFrameRatio float64 `json:"locked_frame_ratio"`
+	// SustainedLockTracks entered a lock of at least SustainedLockFrames.
+	SustainedLockTracks int `json:"sustained_lock_tracks"`
+	// TrappedTracks entered a sustained lock and never released it. This is
+	// the number that matters: those boxes cannot recover their orientation,
+	// because Guard 3 compares each measurement against a smoothed heading
+	// that has itself drifted outside the rejection band.
+	TrappedTracks int `json:"trapped_tracks"`
+	// TrappedRatio is TrappedTracks over tracks with any heading source data.
+	TrappedRatio float64 `json:"trapped_ratio"`
+	// LongestLockRunFrames is the worst single run seen in the recording.
+	LongestLockRunFrames int `json:"longest_lock_run_frames"`
+	// Tracks is the population the ratios are taken over.
+	Tracks int `json:"tracks"`
 }
 
 // JitterSummary captures aggregate RMS jitter across confirmed tracks.
@@ -147,6 +171,13 @@ type TrackDetail struct {
 	CourseAlignmentP50Deg float32 `json:"course_alignment_p50_deg"`
 	CourseAlignmentP90Deg float32 `json:"course_alignment_p90_deg"`
 	CourseAlignmentN      int     `json:"course_alignment_n"`
+
+	// Heading lock telemetry. LockTrapped is the one to watch: the track
+	// entered a sustained heading lock and never released it, so its box could
+	// not recover its orientation for the rest of the track's life.
+	HeadingLockedFrames int  `json:"heading_locked_frames"`
+	LongestLockRun      int  `json:"longest_lock_run"`
+	LockTrapped         bool `json:"lock_trapped"`
 
 	StartX            float32 `json:"start_x"`
 	StartY            float32 `json:"start_y"`
