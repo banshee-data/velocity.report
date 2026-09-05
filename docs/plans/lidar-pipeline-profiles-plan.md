@@ -1,6 +1,6 @@
 # LiDAR pipeline profiles (v0.5.2)
 
-- **Status:** Draft
+- **Status:** Implemented (v0.5.2) in #566; CI baselines outstanding
 - **Layers:** LiDAR pipeline (L3–L6), tuning config, perf-regression CI
 - **Target:** v0.5.2; the perf gate cannot be re-armed until a baseline can say which workload it measured
 - **Companion plans:** [lidar-performance-measurement-harness-plan](lidar-performance-measurement-harness-plan.md), [lidar-clock-abstraction-and-time-domain-model-plan](lidar-clock-abstraction-and-time-domain-model-plan.md) <!-- link-ignore -->
@@ -160,6 +160,9 @@ them a support surface. Per-layer `engine` selectors stay exactly as they are �
 orthogonal, and each with one implementation today.
 
 ### The profiles
+
+Superseded by the implementation note below: these are depths derived from the
+per-layer engine selectors, not values of a `pipeline.profile` key.
 
 | Profile   | Runs                                                   | Measured cost | Rationale                                                                                  |
 | --------- | ------------------------------------------------------ | ------------: | ------------------------------------------------------------------------------------------ |
@@ -325,20 +328,73 @@ hardware.
 - [x] Establish that `heap_alloc_bytes` is GC-phase noise and that one collection fixes it (F3)
 - [x] Confirm the engine selector exists but is unwired, and that 5 of 8 engines are config-only
 
+- [x] Item 1: stabilise the heap metric — `runtime.GC()` before the closing read;
+      `heap_alloc_bytes` now reads 17.0 MiB on every run of the full profile
+- [x] Item 2: workload identity in the baseline — `profile`, `tuning_fingerprint`,
+      `metrics.work` and platform, with the comparator refusing rather than
+      emitting a delta; the zero-baseline skip removed
+- [x] Item 3: the profile enum and stage gating — gated in both
+      `tracking_pipeline.go` and `analysisFrameBuilder`, with a per-profile
+      stage-counter test in each
+- [x] Item 5: document the profiles
+
 ### Outstanding
 
-- [ ] Item 1: stabilise the heap metric (`S`)
-- [ ] Item 2: workload identity in the baseline (`S`)
-- [ ] Item 3: the profile enum and stage gating (`M`)
-- [ ] Item 4: cut the new baselines (`S`, gated on #565)
-- [ ] Item 5: document the profiles (`S`)
+- [ ] Item 4: commit the CI baselines for `full` and `l3-only` (`S`). Local
+      baselines are committed. The 📏 Capture Perf Baseline workflow now runs on
+      pull requests touching the perf harness or tuning config — it had to, since
+      `workflow_dispatch` is registered from the default branch alone, so a change
+      needing a fresh baseline could not dispatch one until after it landed and it
+      needed the baseline to land. What remains is downloading that run's artifact
+      and committing the two `-ci` files. Until they exist the gate runs the
+      absolute frame-budget check alone, which is a real gate rather than a skip
 
 ### Deferred
 
 - [ ] Runtime dispatch on the per-layer `engine` selector: five registered engines have no implementation, and wiring dispatch for absent algorithms would invent a support surface rather than use one
 - [ ] Pi-hardware profile baselines: covered by the hardware-baseline scheme in [lidar-performance-measurement-harness-plan](lidar-performance-measurement-harness-plan.md) <!-- link-ignore -->
 
+### Implementation notes
+
+**The profile is derived, not stored.** This plan proposed `pipeline.profile` as a
+closed enum. That shipped first and was then removed, because it was a second
+mechanism answering a question the config already had one for: `l4.engine` says which
+clustering algorithm runs, and `pipeline.profile` said whether clustering happens at
+all. Neither could be read without the other, the depth lived in a Go lookup table
+rather than in the file, and an `l3-only` config still carried — and validation still
+_required_ — a fully populated `l4.dbscan_xy_v1` block whose nine parameters had no
+effect.
+
+What shipped instead: `engine: "none"` is a legal value of the selector each layer
+already has. A disabled layer carries no parameter block, the codec rejects one if
+present, and `TuningConfig.Profile()` reads the depth off the selectors. The label
+still exists for baseline filenames and gate lists, but it is computed, so it cannot
+disagree with what runs.
+
+The closed set survives as a validation rule rather than an enumeration: disabled
+layers must form a suffix, so `l4.engine: "none"` with a live L5 is rejected at load.
+Tracking cannot consume clusters that were never produced.
+
+**Three profiles, not four.** `track` needs an `l6.engine` selector to be expressible,
+and L6 has no config block at all — its one parameter squats in `l5.cv_kf_v1`. Adding
+required keys breaks the strict decoder, so that is a schema v3 change, tracked in the
+backlog alongside giving L2 a block and emptying the `pipeline` junk drawer. `track`
+falls out of that work for free. The evidence never argued for it anyway: 0.1% cheaper
+than `full` with identical tracker state.
+
+**Cost of the redesign.** Roughly thirty accessors dereference `ActiveCommon()`
+directly, so a disabled layer returning nil would panic at startup. `ActiveCommon()`
+returns a zero-valued block instead: a layer that does not run has no meaningful
+parameter values, and the stage that would read them never executes.
+
+The 98 ms frame budget arrived alongside this work rather than in the harness plan.
+It is the answer to a question no relative gate can address — whether the pipeline
+keeps up with a 10 Hz sensor at all — and `kirk0` is exactly 10.0 Hz (83.183 s,
+832 frames), so the budget is 2 ms inside the frame interval.
+
 ### Accepted residuals (no action planned)
 
-- [ ] `track` as a named profile: 0.1% cheaper than `full` with identical tracker state; the distinction is not a load characteristic anyone would deploy on
+- [ ] Work counters are not bit-exact across runs: L3 settling is wall-clock
+      dependent (F5), so counts drift with replay speed. Measured at under 0.01%
+      across five repeats, against a 10% identity tolerance
 - [ ] Wall-clock variance on `full` (±4% across repeats): inherent to a wall-clock throughput metric, and the reason the 30% gate threshold is not tightened

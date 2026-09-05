@@ -134,7 +134,8 @@ parity between them.
     "buffer_timeout": "500ms",
     "min_frame_points": 1000,
     "flush_interval": "60s",
-    "background_flush": false
+    "background_flush": false,
+    "frame_budget_ms": 98
   }
 }
 ```
@@ -290,9 +291,10 @@ Maths: [tracking-maths.md](../data/maths/tracking-maths.md)
 
 ### Pipeline
 
-| Path                        | Type   | Primary consumer                                             | Notes                                       |
-| --------------------------- | ------ | ------------------------------------------------------------ | ------------------------------------------- |
-| `pipeline.buffer_timeout`   | string | [GetBufferTimeout](../internal/config/tuning_accessors.go)   | Frame assembly timeout.                     |
-| `pipeline.min_frame_points` | int    | [GetMinFramePoints](../internal/config/tuning_accessors.go)  | Minimum points required to process a frame. |
-| `pipeline.flush_interval`   | string | [GetFlushInterval](../internal/config/tuning_accessors.go)   | Background snapshot cadence.                |
-| `pipeline.background_flush` | bool   | [GetBackgroundFlush](../internal/config/tuning_accessors.go) | Background snapshot master switch.          |
+| Path                        | Type   | Primary consumer                                             | Notes                                                                            |
+| --------------------------- | ------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `pipeline.buffer_timeout`   | string | [GetBufferTimeout](../internal/config/tuning_accessors.go)   | Frame assembly timeout.                                                          |
+| `pipeline.min_frame_points` | int    | [GetMinFramePoints](../internal/config/tuning_accessors.go)  | Minimum points required to process a frame.                                      |
+| `pipeline.flush_interval`   | string | [GetFlushInterval](../internal/config/tuning_accessors.go)   | Background snapshot cadence.                                                     |
+| `pipeline.background_flush` | bool   | [GetBackgroundFlush](../internal/config/tuning_accessors.go) | Background snapshot master switch.                                               |
+| `pipeline.frame_budget_ms`  | float  | [GetFrameBudgetMs](../internal/config/profile.go)            | Per-frame wall-clock ceiling; frames beyond it count as over budget. Default 98. |

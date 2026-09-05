@@ -65,6 +65,11 @@ func TestBenchMainRunsBenchmarkOverFixture(t *testing.T) {
 		"-benchmark-output", out,
 		"-port", "0",
 		"-duration-seconds", "10",
+		// The frame budget is a production-throughput assertion and this test
+		// binary runs under -race with coverage instrumentation, several times
+		// slower than the binary the perf gate measures. Enforcing it here
+		// would assert something about the test harness, not the pipeline.
+		"-max-frames-over-budget-pct", "100",
 		"-quiet",
 	})
 	if code != 0 {

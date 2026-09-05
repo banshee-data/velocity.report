@@ -457,7 +457,12 @@ jobs:
         run: go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench
 
       - name: Run performance benchmark
-        run: make test-perf
+        # Gates every profile in PERF_GATED_PROFILES (full, l3-only) and
+        # reports all of them rather than stopping at the first failure:
+        # which profiles moved is the diagnostic. l3-only isolates
+        # background-model regressions from clustering noise for ~5 s of
+        # extra runtime.
+        run: make test-perf-all
 
       - name: Upload benchmark results
         if: always()
