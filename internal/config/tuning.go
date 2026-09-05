@@ -138,22 +138,28 @@ type L5Config struct {
 
 // L5Common contains fields shared by all L5 engines.
 type L5Common struct {
-	GatingDistanceSquared            float64 `json:"gating_distance_squared"`
-	ProcessNoisePos                  float64 `json:"process_noise_pos"`
-	ProcessNoiseVel                  float64 `json:"process_noise_vel"`
-	MeasurementNoise                 float64 `json:"measurement_noise"`
-	OcclusionCovInflation            float64 `json:"occlusion_cov_inflation"`
-	HitsToConfirm                    int     `json:"hits_to_confirm"`
-	MaxMisses                        int     `json:"max_misses"`
-	MaxMissesConfirmed               int     `json:"max_misses_confirmed"`
-	MaxTracks                        int     `json:"max_tracks"`
-	MaxReasonableSpeedMps            float64 `json:"max_reasonable_speed_mps"`
-	MaxPositionJumpMetres            float64 `json:"max_position_jump_metres"`
-	MaxPredictDt                     float64 `json:"max_predict_dt"`
-	MaxCovarianceDiag                float64 `json:"max_covariance_diag"`
-	MinPointsForPCA                  int     `json:"min_points_for_pca"`
-	OBBHeadingSmoothingAlpha         float64 `json:"obb_heading_smoothing_alpha"`
-	OBBAspectRatioLockThreshold      float64 `json:"obb_aspect_ratio_lock_threshold"`
+	GatingDistanceSquared       float64 `json:"gating_distance_squared"`
+	ProcessNoisePos             float64 `json:"process_noise_pos"`
+	ProcessNoiseVel             float64 `json:"process_noise_vel"`
+	MeasurementNoise            float64 `json:"measurement_noise"`
+	OcclusionCovInflation       float64 `json:"occlusion_cov_inflation"`
+	HitsToConfirm               int     `json:"hits_to_confirm"`
+	MaxMisses                   int     `json:"max_misses"`
+	MaxMissesConfirmed          int     `json:"max_misses_confirmed"`
+	MaxTracks                   int     `json:"max_tracks"`
+	MaxReasonableSpeedMps       float64 `json:"max_reasonable_speed_mps"`
+	MaxPositionJumpMetres       float64 `json:"max_position_jump_metres"`
+	MaxPredictDt                float64 `json:"max_predict_dt"`
+	MaxCovarianceDiag           float64 `json:"max_covariance_diag"`
+	MinPointsForPCA             int     `json:"min_points_for_pca"`
+	OBBHeadingSmoothingAlpha    float64 `json:"obb_heading_smoothing_alpha"`
+	OBBAspectRatioLockThreshold float64 `json:"obb_aspect_ratio_lock_threshold"`
+	// OBBHeadingLockMaxRejections releases the heading lock after this many
+	// consecutive Guard 3 rejections. Guard 3 compares each measurement against
+	// the smoothed heading, so once that has drifted outside the rejection band
+	// the lock is self-sustaining. Zero disables the release, restoring the
+	// original ratchet.
+	OBBHeadingLockMaxRejections      int     `json:"obb_heading_lock_max_rejections"`
 	MaxTrackHistoryLength            int     `json:"max_track_history_length"`
 	MaxSpeedHistoryLength            int     `json:"max_speed_history_length"`
 	MergeSizeRatio                   float64 `json:"merge_size_ratio"`

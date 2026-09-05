@@ -114,14 +114,14 @@ that removes the ratchet.
 
 Order matters. The metric lands first so every later change is attributable.
 
-| #    | Task                                                                                                                                                                                                                                                                                                                                                                                      | Files                                                                                    | Size |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
-| D1.1 | **Course-alignment metric. Done.** Per-frame \|OBB heading − course\| folded to **[0, 90]**, not [0, 180]: an OBB is symmetric, so a box pointing backwards along the course is correctly oriented and folds to 0, while a 90° length/width swap is the worst case. Held as a 20-bin histogram per track so the cost is constant on the Pi. Sampled only on live frames at or above 2 m/s | `l5tracks/tracking.go`, `tracking_metrics.go`, `analysis/types.go`, `analysis/report.go` | S    |
-| D1.2 | **Lock telemetry. Done.** `HeadingLockedFrames`, `LongestLockRun`, `EnteredSustainedLock`, `ReleasedAfterLock` and a derived `LockTrapped` per track, plus a per-run `heading_source` histogram and trapped ratio. A release requires five consecutive unlocked frames: Guard 3 rejects per frame, so a single frame slipping through is not the lock letting go                          | `l5tracks/tracking.go`, `tracking_update.go`, `analysis/report.go`                       | S    |
-| D1.3 | **Break the ratchet.** Guard 3 keeps rejecting, but a rejection counter releases the lock after `N` consecutive rejections (default 5, config `obb_heading_lock_max_rejections`). On release, accept the measurement and reset the smoothed heading to it rather than easing toward it                                                                                                    | `l5tracks/tracking_update.go`, `tracking_config.go`, `internal/config/tuning.go`         | S    |
-| D1.4 | **Stop freezing dimensions.** While the heading is locked, update length and width from the cluster OBB projected onto the locked axes, rather than not at all. A locked heading is a statement about orientation, not a reason to stop measuring size                                                                                                                                    | `l5tracks/tracking_update.go`                                                            | S    |
-| D1.5 | **Reject implausible dimension jumps.** Refuse a cluster whose longest dimension is below `min_associable_extent` (default 0.5 m) as a position measurement for a confirmed track whose belief exceeds 2 m. Record the rejection                                                                                                                                                          | `l5tracks/tracking_update.go`, `tracking_association.go`                                 | S    |
-| D1.6 | **Stop publishing ghosts.** Exclude `DELETED` tracks from the published `TrackSet`, or mark them so the visualiser and the web UI can drop them. The grace period exists for re-association, which is an internal concern                                                                                                                                                                 | `l9endpoints/adapter.go`, `l5tracks/tracking.go`                                         | S    |
+| #    | Task                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Files                                                                                    | Size |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
+| D1.1 | **Course-alignment metric. Done.** Per-frame \|OBB heading − course\| folded to **[0, 90]**, not [0, 180]: an OBB is symmetric, so a box pointing backwards along the course is correctly oriented and folds to 0, while a 90° length/width swap is the worst case. Held as a 20-bin histogram per track so the cost is constant on the Pi. Sampled only on live frames at or above 2 m/s                                                                                                                                                                                                               | `l5tracks/tracking.go`, `tracking_metrics.go`, `analysis/types.go`, `analysis/report.go` | S    |
+| D1.2 | **Lock telemetry. Done.** `HeadingLockedFrames`, `LongestLockRun`, `EnteredSustainedLock`, `ReleasedAfterLock` and a derived `LockTrapped` per track, plus a per-run `heading_source` histogram and trapped ratio. A release requires five consecutive unlocked frames: Guard 3 rejects per frame, so a single frame slipping through is not the lock letting go                                                                                                                                                                                                                                        | `l5tracks/tracking.go`, `tracking_update.go`, `analysis/report.go`                       | S    |
+| D1.3 | **Break the ratchet. Done.** Guard 3 keeps rejecting, but a counter releases the lock after `N` consecutive rejections (default 5, config `obb_heading_lock_max_rejections`; 0 restores the old behaviour). On release the heading **snaps** to the measurement rather than easing toward it, because the EMA moves 8 % of the gap per update and easing across a delta wide enough to be rejected would re-trigger the guard forever. Guards 1 and 2 do not drive the release: they fire when the measurement is genuinely unusable, and snapping to it would replace a wrong answer with a random one | `l5tracks/tracking_update.go`, `tracking_config.go`, `internal/config/tuning.go`         | S    |
+| D1.4 | **Stop freezing dimensions.** While the heading is locked, update length and width from the cluster OBB projected onto the locked axes, rather than not at all. A locked heading is a statement about orientation, not a reason to stop measuring size                                                                                                                                                                                                                                                                                                                                                  | `l5tracks/tracking_update.go`                                                            | S    |
+| D1.5 | **Reject implausible dimension jumps.** Refuse a cluster whose longest dimension is below `min_associable_extent` (default 0.5 m) as a position measurement for a confirmed track whose belief exceeds 2 m. Record the rejection                                                                                                                                                                                                                                                                                                                                                                        | `l5tracks/tracking_update.go`, `tracking_association.go`                                 | S    |
+| D1.6 | **Stop publishing ghosts.** Exclude `DELETED` tracks from the published `TrackSet`, or mark them so the visualiser and the web UI can drop them. The grace period exists for re-association, which is an internal concern                                                                                                                                                                                                                                                                                                                                                                               | `l9endpoints/adapter.go`, `l5tracks/tracking.go`                                         | S    |
 
 **Day 1 gate.** Re-run `baf20f02` through the pipeline and compare against the
 recorded baseline. Targets, all measured by D1.1 and D1.2:
@@ -197,6 +197,36 @@ independently in Section 1.
 This is the same defect as RC4 seen from a second direction. Ghost frames do not
 only mislead the eye in the visualiser, they corrupt any metric computed over
 the recorded stream.
+
+#### D1.3 status
+
+The mechanism is proven on synthetic sequences that reproduce the trap exactly:
+a confirmed track whose smoothed heading sits 90° from its course, fed correct
+measurements. With the release disabled it stays above 80° of course error
+forever; with the release armed it converges below 5°. Nine tests cover the
+release firing, not firing early, resetting on an accepted update, snapping
+rather than easing, restoring dimension updates, and staying out of the way of
+Guards 1 and 2. The two pre-existing Guard 3 tests still pass, so the guard's
+legitimate job is intact.
+
+**The end-to-end number is not yet measured.** A VRLOG replays decisions already
+made, so it cannot re-run the estimator: confirming the fix on `baf20f02`
+requires re-running the pipeline over the source PCAP, which is present at
+`sensor_data/lidar/static/s2_sf_4_20260902153250_00003.pcap`. The only routes
+are a second server instance on spare ports or a new headless harness built on
+`server.DirectBackend`. Both compete with the live recording for CPU, so it is
+a decision rather than a step. This is the same limitation Section 5 records
+about VRLOG, arriving exactly where the plan said it would.
+
+Three things the change had to touch beyond the guard, all because the config
+schema requires every key rather than defaulting silently:
+
+- `config/tuning.{defaults,example,optimised}.json` gain the key.
+- `config-migrate` writes the shipped default when migrating a legacy config.
+  The zero value disables the release, so a migration would otherwise put a
+  config quietly back on the ratchet.
+- The runtime tuning endpoint accepts the key, or a POST carrying it is
+  rejected with a 400.
 
 ### Day 2: axis coherence and an honest score
 

@@ -253,6 +253,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 		if updateHeading {
 			newOBBHeading := cluster.OBB.HeadingRad
+			snappedHeading := false
 
 			// Disambiguate PCA heading using velocity direction.
 			// PCA gives the axis of maximum variance but has 180° ambiguity.
@@ -334,14 +335,47 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				// characteristic of PCA axis swaps where the principal and
 				// perpendicular axes exchange. Real objects do not rotate
 				// 90° in a single frame at traffic-monitoring distances.
+				//
+				// The rejection is measured against the *smoothed* heading, and
+				// that is what makes it dangerous on its own. Once the smoothed
+				// value has itself drifted more than 60° from the truth, every
+				// correct measurement lands inside the rejection band and is
+				// thrown away, so the lock sustains itself and the box never
+				// recovers. On the reference run 65 % of locked tracks never
+				// released, sitting a median 60° from their direction of travel.
+				//
+				// The rejection counter is the escape. After
+				// OBBHeadingLockMaxRejections consecutive rejections we stop
+				// believing the smoothed heading and accept the measurement.
 				absDelta := math.Abs(headingDelta)
 				if absDelta > math.Pi/3 && absDelta < 2*math.Pi/3 {
-					updateHeading = false
-					headingSource = HeadingSourceLocked
+					track.HeadingRejectionRun++
+					maxRej := t.Config.OBBHeadingLockMaxRejections
+					if maxRej > 0 && track.HeadingRejectionRun >= maxRej {
+						// Release. Snap rather than ease: the EMA moves 8 % of
+						// the gap per update, so easing across a delta that is
+						// wide enough to be rejected would keep re-triggering
+						// the guard and never converge.
+						track.OBBHeadingRad = newOBBHeading
+						track.HeadingRejectionRun = 0
+						track.HeadingLockReleases++
+						snappedHeading = true
+						headingSource = HeadingSourceVelocity
+						if !disambiguated {
+							headingSource = HeadingSourcePCA
+						}
+					} else {
+						updateHeading = false
+						headingSource = HeadingSourceLocked
+					}
+				} else {
+					track.HeadingRejectionRun = 0
 				}
 			}
 
-			if updateHeading {
+			// A snap has already set the heading; smoothing it again would undo
+			// the release it was meant to achieve.
+			if updateHeading && !snappedHeading {
 				track.OBBHeadingRad = l4perception.SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, t.Config.OBBHeadingSmoothingAlpha)
 			}
 		}

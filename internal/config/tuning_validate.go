@@ -333,6 +333,9 @@ func (c *L5Common) Validate() error {
 	if c.OBBHeadingSmoothingAlpha < 0 || c.OBBHeadingSmoothingAlpha > 1 {
 		return fmt.Errorf("obb_heading_smoothing_alpha must be in [0, 1], got %f", c.OBBHeadingSmoothingAlpha)
 	}
+	if c.OBBHeadingLockMaxRejections < 0 {
+		return fmt.Errorf("obb_heading_lock_max_rejections must be non-negative, got %d", c.OBBHeadingLockMaxRejections)
+	}
 	if c.OBBAspectRatioLockThreshold < 0 {
 		return fmt.Errorf("obb_aspect_ratio_lock_threshold must be non-negative, got %f", c.OBBAspectRatioLockThreshold)
 	}
