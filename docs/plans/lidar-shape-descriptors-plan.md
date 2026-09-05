@@ -7,6 +7,14 @@
 - **Canonical:** [data/maths/clustering-maths.md](../../data/maths/clustering-maths.md) (single source of truth)
 - **Related:** [Classification maths](../../data/maths/classification-maths.md), [Paper-vs-implementation gap analysis](../../data/maths/paper-implementation-gap-analysis.md)
 
+The [point annotation plan](lidar-point-annotation-and-object-dataset-plan.md) adds
+human-reviewed object membership and immutable point references. The
+[three-day single-site demo](lidar-single-site-shape-demo-sprint-plan.md) selects a
+small descriptor subset for JSON class scoring. It keeps registration evidence
+separate from classification features.
+Annotation packs retain scene context. A capped cluster sample alone is not a
+complete reference mask.
+
 ## Motivation
 
 The classifier decides between eight classes using a bounding box and a speed. It
