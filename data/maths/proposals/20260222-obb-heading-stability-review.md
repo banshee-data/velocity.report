@@ -13,6 +13,14 @@
 
 ## 1. Problem statement
 
+**Research declaration (2026-09-05):** The diagnosis below describes the inspected
+historical baseline. The active heading sprint has since changed guard release and replay
+tooling. For new structural work, use the
+[visibility-aware mathematical review](20260905-visibility-aware-object-tracking-research.md).
+In particular, distinguish an observed envelope from a physical body box, course from body
+yaw, and low fitting error from pose observability. Proposed fixes below are not shipping
+status declarations.
+
 Tracked object bounding boxes **spin** visibly as vehicles move through the
 scene. The boxes should remain relatively stable (aligned to the object's
 physical shape), even though individual LiDAR points shift frame to frame.
@@ -247,9 +255,10 @@ This avoids the axis-mixing problem because the tracker-level 90° heading
 jump rejection (Guard 3) prevents sudden relabelling of axes, and dimensions
 are only updated when heading and dimensions are known to be consistent.
 
-**Impact:** Per-frame box dimensions match the DBSCAN cluster dimensions
-exactly, producing boxes that capture all cluster points. Dimensions remain
-anisotropic for elongated objects instead of converging towards a square.
+**Impact:** Per-frame dimensions preserve the observed cluster's anisotropy. They do not
+guarantee containment when combined with a differently oriented smoothed heading or a
+filtered centre. A coherent observed envelope requires reprojection at its published pose;
+an estimated physical body box instead needs a visibility-aware shape belief.
 
 **Effort:** Small; localised change in tracker update.
 
@@ -266,29 +275,29 @@ displacement between the last two positions. If that displacement exceeds
 0.1 m (10 cm minimum), derive `refHeading = atan2(dy, dx)` and use it for
 disambiguation.
 
-As a fallback when both speed and displacement are insufficient (truly
-stationary object), lock heading to the previous smoothed value (do not
-update).
+When both speed and displacement are insufficient, motion supplies no useful heading
+evidence. Holding the previous value is a proposed fallback, not a statement that the
+historical baseline implemented it. Reliable geometry may still constrain stationary yaw.
 
 **Impact:** Reduces heading oscillation for slow-moving objects.
 
 **Effort:** Small; localised change in tracker heading update block.
 
-### Fix d: tighten aspect-ratio lock threshold (addresses §2.2)
+### Fix d: review the aspect-ratio lock tradeoff (addresses §2.2)
 
-**Problem:** Threshold 0.25 permits near-square clusters to update heading.
+**Problem:** Aspect ratio alone does not establish heading observability.
 
-**Fix:** Reduce `obb_aspect_ratio_lock_threshold` from 0.25 to 0.15 or lower.
-This locks heading for any cluster where the length/width difference is less
-than 15% of the longest dimension.
+**Correction:** The lock condition is `abs(L-W)/max(L,W) < threshold`. Reducing
+`obb_aspect_ratio_lock_threshold` from 0.25 to 0.15 locks fewer clusters. A ratio of
+0.20 locks at 0.25 but not at 0.15. Select a threshold using observable-yaw and turn-lag
+tests; this review no longer recommends that unvalidated default change.
 
-**Impact:** Fewer spurious heading updates from near-square clusters.
+**Impact:** A higher threshold rejects more ambiguous geometry, but may increase turn lag.
 
 **Effort:** Config-only change; no code modification.
 
-**Risk:** Setting this too tight suppresses legitimate heading updates for
-vehicles viewed at angles where the cross-section appears near-square.
-Validate against replay data.
+**Risk:** Either direction trades measurement acceptance against persistence of an old
+heading. Validate against labelled turns and changing visible support, not jitter alone.
 
 ### Fix e: renderer uses per-frame (or smoothed) dimensions consistently (addresses §2.4)
 
@@ -364,9 +373,11 @@ cluster OBB inspection before geometry-coherent tracking (D-04).
 
 ### 7.2 Replay evaluation
 
-- Run existing `.vrlog` captures through the pipeline with and without fixes.
-- Measure heading jitter RMS (already tracked in
-  `HeadingJitterSumSq`/`HeadingJitterCount`).
+- Rerun the source PCAP for perception A/B. VRLOG playback displays recorded decisions;
+  it is not, by itself, a rerun of the source perception pipeline.
+- Report output heading steps separately from raw-to-smoothed innovation. The historical
+  `HeadingJitterSumSq`/`HeadingJitterCount` accumulators describe the latter and cannot
+  alone establish output jitter or heading accuracy.
 - Record per-track `heading_source` and compare `obb_aspect_ratio_lock_threshold`
   values (`0.25`, `0.15`, `0.10`) on the same replay pack before changing the
   default.

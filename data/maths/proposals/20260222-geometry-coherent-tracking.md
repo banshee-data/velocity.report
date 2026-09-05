@@ -1,6 +1,6 @@
 # Geometry-Coherent track state for stable bounding boxes
 
-- **Status:** Proposal Math (Not Active in Current Runtime)
+- **Status:** Historical proposal; mathematical assumptions revised, not active runtime
 - **Related:**
 
 - [OBB heading stability review](20260222-obb-heading-stability-review.md): current guards
@@ -10,6 +10,13 @@
 ---
 
 ## 1. Problem statement
+
+**Research declaration (2026-09-05):** This document preserves the original D-04 design.
+Its Gaussian extent averages, count-only uncertainty shrinkage, and scalar angle blending
+are heuristics, not a complete Bayesian geometry model. New implementation should follow
+[the visibility-aware review](20260905-visibility-aware-object-tracking-research.md),
+especially its censored-evidence, observability, correlation, and angle contracts. The
+guard description below is a historical baseline, not a current-branch status report.
 
 The current LiDAR tracking system computes oriented bounding boxes (OBB) from Principal Component Analysis (PCA) on each frame's cluster points independently (`l4perception/obb.go`). To address instability, four guards are applied in the tracker update path (`l5tracks/tracking_update.go`):
 
@@ -117,7 +124,9 @@ $$
 - If $d_{\text{swapped}} < d_{\text{aligned}}$: accept $\mathbf{z}_{\text{swapped}}$
 - If $\min(d_{\text{aligned}}, d_{\text{swapped}}) > d_{\text{threshold}}$: reject as outlier
 
-The threshold $d_{\text{threshold}}$ gates outlier observations (e.g., $d_{\text{threshold}} = 6.0$ corresponds to ~2.5σ in each dimension).
+The threshold $d_{\text{threshold}}$ gates outlier observations. A squared Mahalanobis
+threshold of 6.0 is not a 2.5-sigma test in each dimension: its coverage depends on the
+residual dimension and the validity of the assumed distribution.
 
 ### 2.4 Exponential moving average update
 
