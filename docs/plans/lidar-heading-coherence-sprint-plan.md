@@ -260,6 +260,58 @@ only for metre-scale tracks offered sub-half-metre clusters. Proper dimension
 consistency in the assignment cost is D2.2, and applying anything like it to
 pedestrians and cyclists would reject their ordinary observations.
 
+### Day 1 gate: measured
+
+The headless harness (Section 5.2) makes this a controlled experiment: both
+arms replay the same PCAP through the same binary, differing only in the tuning
+file. Comparing against the original `baf20f02` VRLOG would not have been valid,
+because that was recorded through the live server with `MaxFrameRate: 25`.
+
+The "before" arm restores the pre-sprint behaviour: `obb_heading_lock_max_rejections: 0`,
+`min_associable_extent_metres: 0`, and `deleted_track_render_fade` back on the
+5 s grace period.
+
+| Metric                            | Before         | After                 | Change         |
+| --------------------------------- | -------------- | --------------------- | -------------- |
+| Median per-track course error     | **40.8°**      | **28.3° to 29.6°**    | **−28 %**      |
+| Locked share of live track-frames | 24.8 %         | 16.1 % to 16.6 %      | −34 %          |
+| Longest single lock run           | **70 frames**  | **20 frames**         | **−71 %**      |
+| Published `DELETED` track-frames  | 8,617 (54.0 %) | 951 (11.4 %)          | **−89 %**      |
+| Total published track-frames      | 15,970         | 8,377                 | −48 %          |
+| Tracks entering a sustained lock  | 63             | 53 to 58              | −11 %          |
+| Tracks trapped                    | 37 (20 %)      | 30 to 35 (16 to 19 %) | small          |
+| Fragmentation ratio               | 0.286          | 0.291 to 0.296        | slightly worse |
+
+Four things this says that a single number would hide.
+
+**The course error is the outcome metric, and it moved 28 %.** That is the
+quantity the whole sprint exists to reduce, and it is now measured rather than
+argued.
+
+**The trapped count barely moved, and that is a metric artefact rather than a
+failed fix.** `LockTrapped` requires five consecutive unlocked frames to clear.
+Once the release starts breaking locks, tracks lock and unlock repeatedly, so
+the flag stays set even though the ratchet is gone. The direct evidence that it
+is gone is the longest lock run collapsing from 70 frames to 20. The metric was
+designed to detect a permanent ratchet and now conflates "never escapes" with
+"escapes and re-locks"; it needs splitting before it is used as a gate.
+
+**Twenty frames of locked heading is still two seconds.** The release stops a
+track being lost for good, but it does not make the heading right. That is the
+case for D2.1, exactly where the plan put it.
+
+**Fragmentation got slightly worse, as intended.** The fragment guard leaves a
+scrap unassociated, so it seeds its own short-lived track instead of corrupting
+a vehicle's. A correct small track is a better outcome than a corrupted large
+one, but the ratio moves the wrong way and should not be read as a regression
+without that context.
+
+**Run-to-run variance.** Two identical "after" runs gave 29.6° and 28.3° median,
+and 35 versus 30 trapped tracks. Frame assembly is not bit-deterministic, so
+the harness reproduces frame counts but not exact per-track outcomes. The
+signal here is 11° to 12° against roughly 1.3° of noise, which is comfortable,
+but a regression fixture (D2.5) will need a tolerance rather than an equality.
+
 ### Day 2: axis coherence and an honest score
 
 | #    | Task                                                                                                                                                                                                                                                                               | Files                                                                                       | Size |
@@ -278,21 +330,58 @@ with no regression in acceptance rate.
 
 Most of what is needed already exists and is pointed at the wrong quantity.
 
-| Component                              | State                                                               | Change                                                                                                                               |
-| -------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `analysis.GenerateReport(vrlogPath)`   | Exists, produces `AnalysisReport` with per-track detail             | Add the D1.1 and D1.2 fields                                                                                                         |
-| `analysis.CompareReports(a, b, out)`   | Exists, produces `ComparisonReport` with `QualityDelta`             | Add course alignment to `QualityDelta`                                                                                               |
-| `sweep` objective and runner           | Exists, scores `HeadingJitterDeg`                                   | D2.3                                                                                                                                 |
-| HINT tuner                             | Exists, human-in-the-loop labelling                                 | Use unchanged for D2.1 A/B. It is the right tool for judging whether a box looks right, which is the actual acceptance question here |
-| `/api/lidar/runs/{id}` and `/evaluate` | Exists, already consumed by the Svelte run page                     | No new endpoint needed; extend the payload                                                                                           |
-| Web run detail page                    | Exists at `web/src/routes/lidar/runs`                               | D2.4 adds a panel                                                                                                                    |
-| macOS visualiser                       | Has `showHeadingSource` colouring in the renderer with no UI toggle | Out of scope, but the toggle is nearly free and would pay for itself immediately                                                     |
+| Component                              | State                                                                | Change                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `analysis.GenerateReport(vrlogPath)`   | Exists, produces `AnalysisReport` with per-track detail              | Add the D1.1 and D1.2 fields                                                                                                         |
+| `analysis.CompareReports(a, b, out)`   | Exists, produces `ComparisonReport` with `QualityDelta`              | Add course alignment to `QualityDelta`                                                                                               |
+| `sweep` objective and runner           | Exists, scores `HeadingJitterDeg`                                    | D2.3                                                                                                                                 |
+| HINT tuner                             | Exists, human-in-the-loop labelling                                  | Use unchanged for D2.1 A/B. It is the right tool for judging whether a box looks right, which is the actual acceptance question here |
+| `/api/lidar/runs/{id}` and `/evaluate` | Exists, already consumed by the Svelte run page                      | No new endpoint needed; extend the payload                                                                                           |
+| Web run detail page                    | Exists at `web/src/routes/lidar/runs`                                | D2.4 adds a panel                                                                                                                    |
+| macOS visualiser                       | Has `showHeadingSource` colouring in the renderer with no UI toggle  | Out of scope, but the toggle is nearly free and would pay for itself immediately                                                     |
+| Headless PCAP replay                   | **Built:** `internal/lidar/replayeval`, `velocity lidar pcap-replay` | See 5.2. This is what makes a tracker change measurable at all                                                                       |
 
 Three throwaway analysers were written against the recorded stream to produce
 Section 1 and live in `.scratch-analysis/`. They read `FrameBundle` records
 directly and touch nothing. The useful parts are the co-location detector and
 the lock-trap detector; both should be folded into `analysis` as part of D1.1
 and D1.2 rather than kept as scripts.
+
+### 5.2 The headless replay harness
+
+`internal/lidar/replayeval`, exposed as `velocity lidar pcap-replay`, replays a
+PCAP through the full L1 to L6 pipeline and records a VRLOG. No server, no
+database, no listening port.
+
+It exists because of the limitation Section 5 records: a VRLOG stores the
+decisions the pipeline already made, so replaying one shows what the old code
+concluded rather than what the new code would conclude. Measuring a change to
+L4, L5, or L6 means re-running perception over the packets, and the only route
+to that was the live server's replay endpoint.
+
+The output is a VRLOG directory, so nothing downstream needed changing:
+`analysis.GenerateReport` for metrics, `analysis.CompareReports` for A/B, and
+the macOS visualiser for looking at it. `--compare-to` runs all three in one
+command.
+
+```bash
+velocity lidar pcap-replay --pcap capture.pcap --output ./runs/before --config before.json
+velocity lidar pcap-replay --pcap capture.pcap --output ./runs/after --compare-to ./runs/before
+```
+
+Notes that matter for using it:
+
+- Sixty seconds of capture replays in about 12 seconds on an M-series Mac, so an
+  A/B is a two-minute loop rather than a scheduled job.
+- The frame-rate throttle is off. It exists to stop a real-time replay flooding
+  a live gRPC client, and dropping frames would make two runs disagree for
+  reasons unrelated to the change under test.
+- Point clouds are omitted unless `--include-points` is passed. They are the
+  bulk of the file: 45 s of the SoMa capture is 347 MB with them and 9.1 MB
+  without.
+- Track persistence is disabled explicitly rather than by leaving the DB nil,
+  so a future pipeline change that starts assuming a database fails loudly here
+  instead of writing into the production store during an analysis run.
 
 ### 5.1 Why not the 8081 UI
 
