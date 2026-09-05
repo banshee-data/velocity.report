@@ -1337,3 +1337,88 @@ export async function reloadSerialConfig(): Promise<SerialReloadResult> {
 	}
 	return res.json();
 }
+
+/**
+ * A publishable LiDAR scene: the index entry giving a recording a place, a
+ * time and a name.
+ *
+ * `latitude`/`longitude` are optional overrides. Leave them empty and the
+ * scene inherits its linked site's position; `effective_*` and
+ * `position_source` report what the server resolved, so a caller placing a map
+ * marker never has to work out where the number came from.
+ */
+export interface Scene {
+	scene_id: string;
+	site_id: number | null;
+	title: string;
+	description: string | null;
+
+	latitude: number | null;
+	longitude: number | null;
+	effective_latitude?: number | null;
+	effective_longitude?: number | null;
+	position_source?: 'scene' | 'site' | 'none';
+
+	captured_start_ns: number | null;
+	captured_end_ns: number | null;
+	duration_secs: number | null;
+	/** RFC 3339 rendering of the capture window, for display and editing. */
+	captured_start?: string | null;
+	captured_end?: string | null;
+
+	source_capture: string | null;
+	source_vrlog_sha256: string | null;
+	frame_count: number | null;
+	frame_stride: number | null;
+
+	asset_path: string | null;
+	published: boolean;
+
+	created_at: string;
+	updated_at: string;
+}
+
+export async function getScenes(): Promise<Scene[]> {
+	const res = await fetch(`${API_BASE}/scenes`);
+	if (!res.ok) throw apiError('Could not load scenes', res.status);
+	return res.json();
+}
+
+export async function getScene(sceneId: string): Promise<Scene> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`);
+	if (!res.ok) throw apiError('Could not load scene', res.status);
+	return res.json();
+}
+
+/** Surfaces the server's own message, which explains what to fix. */
+async function sceneError(res: Response, fallback: string): Promise<Error> {
+	const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+	return new Error(data.error || `${fallback}: ${res.status}`);
+}
+
+export async function createScene(scene: Partial<Scene>): Promise<Scene> {
+	const res = await fetch(`${API_BASE}/scenes`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(scene)
+	});
+	if (!res.ok) throw await sceneError(res, 'Could not create scene');
+	return res.json();
+}
+
+export async function updateScene(sceneId: string, scene: Partial<Scene>): Promise<Scene> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(scene)
+	});
+	if (!res.ok) throw await sceneError(res, 'Could not update scene');
+	return res.json();
+}
+
+export async function deleteScene(sceneId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw await sceneError(res, 'Could not delete scene');
+}

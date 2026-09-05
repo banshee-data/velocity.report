@@ -30,7 +30,19 @@ function makePart({ chunks = 2, perChunk = 4, uneven = false } = {}) {
           f: frameNo,
           t: us,
           tr: [
-            { id: "0", x: frameNo, y: 0, z: 0.8, spd: 5, hdg: 0, l: 4.4, w: 1.8, h: 1.5, bh: 0, c: "car" },
+            {
+              id: "0",
+              x: frameNo,
+              y: 0,
+              z: 0.8,
+              spd: 5,
+              hdg: 0,
+              l: 4.4,
+              w: 1.8,
+              h: 1.5,
+              bh: 0,
+              c: "car",
+            },
           ],
         }),
       );
@@ -39,7 +51,9 @@ function makePart({ chunks = 2, perChunk = 4, uneven = false } = {}) {
       // Real rotations are not uniform: 198, 200, 202 ms.
       us += uneven ? STEP_US + (i % 3) * 2_000 - 2_000 : STEP_US;
     }
-    files[`chunk_${String(c).padStart(4, "0")}.ndjson.gz`] = gzipSync(lines.join("\n") + "\n");
+    files[`chunk_${String(c).padStart(4, "0")}.ndjson.gz`] = gzipSync(
+      lines.join("\n") + "\n",
+    );
     index.chunks.push({ c, n: perChunk, t0, t1 });
   }
 
@@ -64,7 +78,10 @@ function chunkResponse(buf) {
     ok: true,
     status: 200,
     async arrayBuffer() {
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      );
     },
     get body() {
       return new ReadableStream({
@@ -81,14 +98,17 @@ function chunkResponse(buf) {
 function installFetch(parts, { manifest = null, fail = new Set() } = {}) {
   globalThis.fetch = async (url) => {
     const u = String(url);
-    if (fail.has(u)) return { ok: false, status: 500, statusText: "Server Error" };
+    if (fail.has(u))
+      return { ok: false, status: 500, statusText: "Server Error" };
     if (manifest && u.endsWith("manifest.json")) {
       return { ok: true, status: 200, json: async () => manifest };
     }
     for (const [prefix, part] of Object.entries(parts)) {
       if (!u.includes(prefix)) continue;
-      if (u.endsWith("header.json")) return { ok: true, status: 200, json: async () => part.header };
-      if (u.endsWith("index.json")) return { ok: true, status: 200, json: async () => part.index };
+      if (u.endsWith("header.json"))
+        return { ok: true, status: 200, json: async () => part.header };
+      if (u.endsWith("index.json"))
+        return { ok: true, status: 200, json: async () => part.index };
       const m = u.match(/frames\/(chunk_\d+\.ndjson\.gz)$/);
       if (m && part.files[m[1]]) return chunkResponse(part.files[m[1]]);
     }
@@ -98,7 +118,9 @@ function installFetch(parts, { manifest = null, fail = new Set() } = {}) {
 
 const origFetch = globalThis.fetch;
 beforeEach(() => {
-  globalThis.window = { location: { href: "https://example.test/scenes/demo/" } };
+  globalThis.window = {
+    location: { href: "https://example.test/scenes/demo/" },
+  };
 });
 afterEach(() => {
   globalThis.fetch = origFetch;
@@ -113,7 +135,10 @@ describe("PartReader", () => {
     assert.equal(r.frameCount, 15);
     assert.equal(r.startUs, 0);
     assert.equal(r.endUs, 14 * STEP_US);
-    assert.ok(Math.abs(r.durationSec - 2.8) < 1e-9, `duration ${r.durationSec}`);
+    assert.ok(
+      Math.abs(r.durationSec - 2.8) < 1e-9,
+      `duration ${r.durationSec}`,
+    );
   });
 
   test("keeps absolute capture time as a string, out of Number's range", async () => {
@@ -131,14 +156,20 @@ describe("PartReader", () => {
     const part = makePart();
     part.index.chunks = [];
     installFetch({ "/p0/": part });
-    await assert.rejects(() => new PartReader("https://example.test/p0/").open(), SceneError);
+    await assert.rejects(
+      () => new PartReader("https://example.test/p0/").open(),
+      SceneError,
+    );
   });
 
   test("rejects a malformed chunk entry", async () => {
     const part = makePart();
     part.index.chunks[0] = { c: "nope", n: 4, t0: 1, t1: 2 };
     installFetch({ "/p0/": part });
-    await assert.rejects(() => new PartReader("https://example.test/p0/").open(), /malformed/);
+    await assert.rejects(
+      () => new PartReader("https://example.test/p0/").open(),
+      /malformed/,
+    );
   });
 
   test("rejects a chunk that ends before it starts", async () => {
@@ -154,7 +185,9 @@ describe("PartReader", () => {
   test("surfaces a useful error when a chunk fails to load", async () => {
     installFetch(
       { "/p0/": makePart() },
-      { fail: new Set(["https://example.test/p0/frames/chunk_0000.ndjson.gz"]) },
+      {
+        fail: new Set(["https://example.test/p0/frames/chunk_0000.ndjson.gz"]),
+      },
     );
     const r = await new PartReader("https://example.test/p0/").open();
     await assert.rejects(() => r.loadChunk(0), /chunk_0000/);
@@ -183,7 +216,9 @@ describe("PartReader", () => {
 
   test("rejects a frame with no timestamp", async () => {
     const part = makePart();
-    part.files["chunk_0000.ndjson.gz"] = gzipSync(JSON.stringify({ f: 0, tr: [] }) + "\n");
+    part.files["chunk_0000.ndjson.gz"] = gzipSync(
+      JSON.stringify({ f: 0, tr: [] }) + "\n",
+    );
     installFetch({ "/p0/": part });
     const r = await new PartReader("https://example.test/p0/").open();
     await assert.rejects(() => r.loadChunk(0), /no timestamp/);
@@ -194,7 +229,11 @@ describe("PartReader", () => {
     const r = await new PartReader("https://example.test/p0/").open();
 
     assert.equal(r.chunkIndexForOffset(0), 0, "start of recording");
-    assert.equal(r.chunkIndexForOffset(-1e9), 0, "before the start clamps to first");
+    assert.equal(
+      r.chunkIndexForOffset(-1e9),
+      0,
+      "before the start clamps to first",
+    );
     assert.equal(r.chunkIndexForOffset(7 * STEP_US), 1, "inside chunk 1");
     assert.equal(r.chunkIndexForOffset(19 * STEP_US), 3, "end of recording");
     assert.equal(r.chunkIndexForOffset(1e12), 3, "past the end clamps to last");
@@ -205,13 +244,19 @@ describe("PartReader", () => {
     const r = await new PartReader("https://example.test/p0/").open();
 
     assert.equal((await r.frameAtOffset(3 * STEP_US)).f, 3, "exact hit");
-    assert.equal((await r.frameAtOffset(3 * STEP_US + STEP_US / 2)).f, 3, "between frames takes the earlier");
+    assert.equal(
+      (await r.frameAtOffset(3 * STEP_US + STEP_US / 2)).f,
+      3,
+      "between frames takes the earlier",
+    );
     assert.equal((await r.frameAtOffset(0)).f, 0, "first frame");
     assert.equal((await r.frameAtOffset(9 * STEP_US)).f, 9, "last frame");
   });
 
   test("handles uneven frame intervals", async () => {
-    installFetch({ "/p0/": makePart({ chunks: 2, perChunk: 5, uneven: true }) });
+    installFetch({
+      "/p0/": makePart({ chunks: 2, perChunk: 5, uneven: true }),
+    });
     const r = await new PartReader("https://example.test/p0/").open();
 
     const frames = await r.loadChunk(0);
@@ -259,7 +304,9 @@ describe("SceneSession", () => {
 
   test("composes parts into one timeline using their own durations", async () => {
     installFetch(twoParts(), { manifest });
-    const s = await new SceneSession("https://example.test/scenes/demo/manifest.json").open();
+    const s = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
 
     assert.equal(s.parts.length, 2);
     assert.equal(s.title, "Demo Street");
@@ -269,14 +316,19 @@ describe("SceneSession", () => {
   test("rejects a manifest with no parts", async () => {
     installFetch(twoParts(), { manifest: { version: 1, site: {}, parts: [] } });
     await assert.rejects(
-      () => new SceneSession("https://example.test/scenes/demo/manifest.json").open(),
+      () =>
+        new SceneSession(
+          "https://example.test/scenes/demo/manifest.json",
+        ).open(),
       /no parts/,
     );
   });
 
   test("maps scene time across the part boundary", async () => {
     installFetch(twoParts(), { manifest });
-    const s = await new SceneSession("https://example.test/scenes/demo/manifest.json").open();
+    const s = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
 
     assert.equal(s.locate(0).partIndex, 0, "start");
     assert.equal(s.locate(0.5).partIndex, 0, "mid part 0");
@@ -286,18 +338,26 @@ describe("SceneSession", () => {
 
   test("clamps seeks outside the timeline", async () => {
     installFetch(twoParts(), { manifest });
-    const s = await new SceneSession("https://example.test/scenes/demo/manifest.json").open();
+    const s = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
 
     const before = s.locate(-10);
     assert.equal(before.partIndex, 0);
     assert.equal(before.us, s.parts[0].startUs);
 
-    assert.equal(s.locate(9999).partIndex, 1, "past the end stays in the last part");
+    assert.equal(
+      s.locate(9999).partIndex,
+      1,
+      "past the end stays in the last part",
+    );
   });
 
   test("frameAt resolves at start, boundary and end", async () => {
     installFetch(twoParts(), { manifest });
-    const s = await new SceneSession("https://example.test/scenes/demo/manifest.json").open();
+    const s = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
 
     const start = await s.frameAt(0);
     assert.equal(start.partIndex, 0);
@@ -319,15 +379,17 @@ describe("chunk transport", () => {
   // The same file must work either way.
   test("reads a chunk the host already decompressed", async () => {
     const part = makePart({ chunks: 1, perChunk: 4 });
-    const plain = Buffer.from(
-      gunzipSync(part.files["chunk_0000.ndjson.gz"]),
-    );
+    const plain = Buffer.from(gunzipSync(part.files["chunk_0000.ndjson.gz"]));
     part.files["chunk_0000.ndjson.gz"] = plain;
     installFetch({ "/p0/": part });
 
     const r = await new PartReader("https://example.test/p0/").open();
     const frames = await r.loadChunk(0);
-    assert.equal(frames.length, 4, "plain NDJSON should parse without decompression");
+    assert.equal(
+      frames.length,
+      4,
+      "plain NDJSON should parse without decompression",
+    );
     assert.equal(frames[0].f, 0);
   });
 

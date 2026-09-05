@@ -84,10 +84,14 @@ export class PartReader {
         typeof c.t0 !== "number" ||
         typeof c.t1 !== "number"
       ) {
-        throw new SceneError(`${this.baseURL}index.json has a malformed chunk entry`);
+        throw new SceneError(
+          `${this.baseURL}index.json has a malformed chunk entry`,
+        );
       }
       if (c.t1 < c.t0) {
-        throw new SceneError(`${this.baseURL}index.json chunk ${c.c} ends before it starts`);
+        throw new SceneError(
+          `${this.baseURL}index.json chunk ${c.c} ends before it starts`,
+        );
       }
     }
 
@@ -162,7 +166,9 @@ export class PartReader {
         throw new SceneError(`Could not reach ${name}`, err);
       }
       if (!res.ok) {
-        throw new SceneError(`${name} returned ${res.status} ${res.statusText}`);
+        throw new SceneError(
+          `${name} returned ${res.status} ${res.statusText}`,
+        );
       }
 
       // Some static hosts and CDNs label a .gz file with
@@ -175,7 +181,9 @@ export class PartReader {
         const raw = new Uint8Array(await res.arrayBuffer());
         const isGzip = raw.length > 1 && raw[0] === 0x1f && raw[1] === 0x8b;
         if (isGzip) {
-          const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"));
+          const stream = new Blob([raw])
+            .stream()
+            .pipeThrough(new DecompressionStream("gzip"));
           text = await new Response(stream).text();
         } else {
           text = new TextDecoder().decode(raw);
@@ -278,7 +286,9 @@ export class SceneSession {
 
     const base = new URL(this.manifestURL, window.location.href);
     this.parts = await Promise.all(
-      manifest.parts.map((p) => new PartReader(new URL(p.url, base).href).open()),
+      manifest.parts.map((p) =>
+        new PartReader(new URL(p.url, base).href).open(),
+      ),
     );
 
     // Durations come from each part's own index, so the manifest cannot drift

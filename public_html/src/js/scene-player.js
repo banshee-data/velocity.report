@@ -41,11 +41,19 @@ class TrackVisual {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geo),
-      new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: 0.95 }),
+      new THREE.LineBasicMaterial({
+        color: colour,
+        transparent: true,
+        opacity: 0.95,
+      }),
     );
     this.fill = new THREE.Mesh(
       geo,
-      new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.22 }),
+      new THREE.MeshBasicMaterial({
+        color: colour,
+        transparent: true,
+        opacity: 0.22,
+      }),
     );
     scene.add(this.edges);
     scene.add(this.fill);
@@ -59,7 +67,11 @@ class TrackVisual {
     this.trailGeo.setDrawRange(0, 0);
     this.trail = new THREE.Line(
       this.trailGeo,
-      new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: 0.7 }),
+      new THREE.LineBasicMaterial({
+        color: colour,
+        transparent: true,
+        opacity: 0.7,
+      }),
     );
     scene.add(this.trail);
   }
@@ -189,7 +201,11 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     grid.position.set(cx, ground, cz);
     origin.position.y = ground + 0.02;
 
-    camera.position.set(cx + span * 0.28, ground + span * 0.42, cz + span * 0.62);
+    camera.position.set(
+      cx + span * 0.28,
+      ground + span * 0.42,
+      cz + span * 0.62,
+    );
     camera.lookAt(cx, ground + 1, cz);
     // Fog starts beyond the framed area so it adds depth without dimming the
     // objects the viewer came to see.
@@ -279,7 +295,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         const fastest = speeds.length ? Math.max(...speeds) : 0;
         ui.stats.textContent =
           `${n} tracked ${n === 1 ? "object" : "objects"}` +
-          (fastest > 0 ? ` · fastest ${(fastest * MPS_TO_MPH).toFixed(0)} mph` : "");
+          (fastest > 0
+            ? ` · fastest ${(fastest * MPS_TO_MPH).toFixed(0)} mph`
+            : "");
       }
     } catch (err) {
       reportError(err);
@@ -295,12 +313,18 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     if (ui.clock) ui.clock.textContent = formatClock(state.seconds);
     if (ui.playToggle) {
       ui.playToggle.textContent = state.playing ? "Pause" : "Play";
-      ui.playToggle.setAttribute("aria-label", state.playing ? "Pause" : "Play");
+      ui.playToggle.setAttribute(
+        "aria-label",
+        state.playing ? "Pause" : "Play",
+      );
     }
   }
 
   function reportError(err) {
-    const msg = err instanceof SceneError ? err.message : "Something went wrong loading this scene.";
+    const msg =
+      err instanceof SceneError
+        ? err.message
+        : "Something went wrong loading this scene.";
     if (ui.status) {
       ui.status.textContent = msg;
       ui.status.hidden = false;
@@ -369,7 +393,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   if (ui.loading) ui.loading.hidden = true;
 
   // Respect a reduced-motion preference by not auto-playing.
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const reduced = window.matchMedia?.(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
   if (!reduced) {
     state.playing = true;
     syncUI();
