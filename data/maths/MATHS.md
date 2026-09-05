@@ -96,6 +96,9 @@ The production pipeline uses four math-heavy layers:
 
 ### Proposals (not yet active; see [Roadmap](#prioritised-proposal-roadmap) below)
 
+- [Unified Scene Semantics and Temporal Regions](proposals/20260905-unified-scene-semantic-classification-maths.md):
+  Research proposal for one semantic vocabulary across L3–L7, calibrated evidence fusion,
+  object motion envelopes, and shared scene/track labelling with lineage controls.
 - [Resolution-Limited Vehicle Taxonomy and Explainable Retrieval](proposals/20260922-vehicle-taxonomy-resolution-maths.md):
   Uncertainty model combining sensor, within-model and prototype error; diagonal Mahalanobis
   retrieval over generated prototypes; exact per-dimension attribution and margin decomposition;
