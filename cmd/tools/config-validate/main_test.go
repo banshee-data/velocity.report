@@ -83,6 +83,7 @@ func TestRun(t *testing.T) {
 				"min_points_for_pca": 4,
 				"obb_heading_smoothing_alpha": 0.08,
 				"obb_aspect_ratio_lock_threshold": 0.25,
+				"obb_heading_lock_max_rejections": 5,
 				"max_track_history_length": 200,
 				"max_speed_history_length": 100,
 				"merge_size_ratio": 2.5,

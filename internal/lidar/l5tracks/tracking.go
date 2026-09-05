@@ -129,6 +129,8 @@ type TrackedObject struct {
 	currentUnlockRun     int                        // Consecutive unlocked frames, running
 	EnteredSustainedLock bool                       // Reached SustainedLockFrames consecutively
 	ReleasedAfterLock    bool                       // Ran unlocked for SustainedLockFrames after that
+	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
+	HeadingLockReleases  int                        // Times the rejection counter forced a release
 
 	// Speed Jitter Metrics
 	// Measures frame-to-frame Kalman speed instability (m/s).
