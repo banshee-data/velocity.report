@@ -117,7 +117,7 @@ Order matters. The metric lands first so every later change is attributable.
 | #    | Task                                                                                                                                                                                                                                                                                                                                                                                      | Files                                                                                    | Size |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
 | D1.1 | **Course-alignment metric. Done.** Per-frame \|OBB heading − course\| folded to **[0, 90]**, not [0, 180]: an OBB is symmetric, so a box pointing backwards along the course is correctly oriented and folds to 0, while a 90° length/width swap is the worst case. Held as a 20-bin histogram per track so the cost is constant on the Pi. Sampled only on live frames at or above 2 m/s | `l5tracks/tracking.go`, `tracking_metrics.go`, `analysis/types.go`, `analysis/report.go` | S    |
-| D1.2 | **Lock telemetry.** Add `HeadingLockedFrames`, `LongestLockRun`, and `LockReleased bool` per track. Emit `heading_source` histogram per run                                                                                                                                                                                                                                               | `l5tracks/tracking.go`, `tracking_update.go`, `analysis/report.go`                       | S    |
+| D1.2 | **Lock telemetry. Done.** `HeadingLockedFrames`, `LongestLockRun`, `EnteredSustainedLock`, `ReleasedAfterLock` and a derived `LockTrapped` per track, plus a per-run `heading_source` histogram and trapped ratio. A release requires five consecutive unlocked frames: Guard 3 rejects per frame, so a single frame slipping through is not the lock letting go                          | `l5tracks/tracking.go`, `tracking_update.go`, `analysis/report.go`                       | S    |
 | D1.3 | **Break the ratchet.** Guard 3 keeps rejecting, but a rejection counter releases the lock after `N` consecutive rejections (default 5, config `obb_heading_lock_max_rejections`). On release, accept the measurement and reset the smoothed heading to it rather than easing toward it                                                                                                    | `l5tracks/tracking_update.go`, `tracking_config.go`, `internal/config/tuning.go`         | S    |
 | D1.4 | **Stop freezing dimensions.** While the heading is locked, update length and width from the cluster OBB projected onto the locked axes, rather than not at all. A locked heading is a statement about orientation, not a reason to stop measuring size                                                                                                                                    | `l5tracks/tracking_update.go`                                                            | S    |
 | D1.5 | **Reject implausible dimension jumps.** Refuse a cluster whose longest dimension is below `min_associable_extent` (default 0.5 m) as a position measurement for a confirmed track whose belief exceeds 2 m. Record the rejection                                                                                                                                                          | `l5tracks/tracking_update.go`, `tracking_association.go`                                 | S    |
@@ -127,7 +127,7 @@ Order matters. The metric lands first so every later change is attributable.
 recorded baseline. Targets, all measured by D1.1 and D1.2:
 
 - Median per-track `CourseAlignmentP50` across tracks with samples: **below 25°**, from a measured baseline of **50.3°**.
-- Tracks entering a permanent lock: **0 %**, from 32 %.
+- Tracks entering a permanent lock: **0 %**, from a measured baseline of **54 tracks, 65 % of those that lock**.
 - Published `DELETED` track-frames: **0 %**, from 45.8 %.
 - Frames with a co-located pair: no worse than baseline. D1.5 should improve it; it is not the fix for it.
 
@@ -161,6 +161,42 @@ Two defects surfaced while wiring it up, both fixed in the same change:
    rolls up over every track that produced samples instead, which is 55. The
    existing jitter and alignment aggregates still have this flaw and are
    understated; worth a follow-up, out of scope here.
+
+#### D1.2 baseline, measured
+
+Over the 239 tracks in `baf20f02` that lived at least five live frames, which is
+the minimum for a sustained lock to be detectable:
+
+| Statistic                         | Value                            |
+| --------------------------------- | -------------------------------- |
+| Tracks entering a sustained lock  | **83 (35 %)**                    |
+| ...that never released it         | **54, or 65 % of locked tracks** |
+| Locked share of live track-frames | **33.7 %**                       |
+| Longest single lock run           | **152 frames, 15.2 s**           |
+
+And the link the ratchet fix rests on. Splitting the tracks that produced course
+samples by whether they were trapped:
+
+| Population                | Tracks | Median course error |
+| ------------------------- | ------ | ------------------- |
+| Trapped in a heading lock | 24     | **60.1°**           |
+| Not trapped               | 31     | **38.5°**           |
+
+The lock costs about 22° of median course error. That is the measured case for
+D1.3, and it is now a number that will move when the ratchet is broken.
+
+**A third defect, found here.** The offline reconstruction initially counted
+`DELETED` ghost frames. Those frames carry heading source `pca` rather than the
+lock the track died in, so fifty frames of ghost turn a track that was trapped
+for its whole life into a clean one: the trapped population read 11 % of locked
+tracks instead of 65 %. Lock stats now skip non-live frames. The corroboration
+is exact: excluding them dropped the `pca` frame count from 15,069 to 4,459, a
+difference of 10,610, against the 10,610 `DELETED` track-frames counted
+independently in Section 1.
+
+This is the same defect as RC4 seen from a second direction. Ghost frames do not
+only mislead the eye in the visualiser, they corrupt any metric computed over
+the recorded stream.
 
 ### Day 2: axis coherence and an honest score
 

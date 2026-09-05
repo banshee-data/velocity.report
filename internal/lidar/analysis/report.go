@@ -47,6 +47,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		headings            []float32 // per-frame HeadingRad, for jitter
 		obbHeadings         []float32 // per-frame BBoxHeadingRad, for course alignment
 		live                []bool    // per-frame: track was not DELETED
+		headingSources      []int     // per-frame HeadingSource, for lock runs
 		xs, ys              []float32 // per-frame position, for alignment
 		vxs, vys            []float32 // per-frame velocity, for alignment
 		bboxL, bboxW, bboxH []float32
@@ -122,6 +123,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.headings = append(acc.headings, t.HeadingRad)
 				acc.obbHeadings = append(acc.obbHeadings, t.BBoxHeadingRad)
 				acc.live = append(acc.live, t.State != l9endpoints.TrackStateDeleted)
+				acc.headingSources = append(acc.headingSources, t.HeadingSource)
 				acc.xs = append(acc.xs, t.X)
 				acc.ys = append(acc.ys, t.Y)
 				acc.vxs = append(acc.vxs, t.VX)
@@ -181,6 +183,13 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		confirmedMisalignRats []float64
 		sampledCourseP50      []float64
 		sampledCourseP90      []float64
+		headingSourceFrames   = make(map[string]int, headingSourceCount)
+		totalSourceFrames     int
+		totalLockedFrames     int
+		sustainedLockTracks   int
+		lockTrappedTracks     int
+		longestLockRun        int
+		tracksWithSources     int
 	)
 
 	classDist := make(map[string]*classAccum)
@@ -194,6 +203,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		speedVar := speedVariance(acc.speeds)
 		headJitter := headingJitterDeg(acc.headings)
 		obbHeadJitter := headingJitterDeg(acc.obbHeadings)
+		locks := computeLockStats(acc.headingSources, acc.live)
 		speedJitter := speedJitterMps(acc.speeds)
 		alignMean, misalignRatio := alignmentMetrics(acc.xs, acc.ys, acc.vxs, acc.vys)
 		courseP50, courseP90, courseN := courseAlignmentMetrics(
@@ -208,6 +218,28 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		if courseN > 0 {
 			sampledCourseP50 = append(sampledCourseP50, float64(courseP50))
 			sampledCourseP90 = append(sampledCourseP90, float64(courseP90))
+		}
+
+		for src, n := range locks.sourceCounts {
+			headingSourceFrames[headingSourceName(src)] += n
+			totalSourceFrames += n
+		}
+		totalLockedFrames += locks.lockedFrames
+		if locks.longestLockRun > longestLockRun {
+			longestLockRun = locks.longestLockRun
+		}
+		// Ratios are taken over tracks that lived long enough for a sustained
+		// lock to be detectable. Most tracks in a run are short-lived tentative
+		// ones that never had the chance to lock, and including them would
+		// dilute the figure into meaninglessness.
+		if locks.assessable() {
+			tracksWithSources++
+			if locks.sustained {
+				sustainedLockTracks++
+			}
+			if locks.trapped() {
+				lockTrappedTracks++
+			}
 		}
 
 		td := TrackDetail{
@@ -227,6 +259,9 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			SpeedVariance:         speedVar,
 			HeadingJitterDeg:      headJitter,
 			OBBHeadingJitterDeg:   obbHeadJitter,
+			HeadingLockedFrames:   locks.lockedFrames,
+			LongestLockRun:        locks.longestLockRun,
+			LockTrapped:           locks.trapped(),
 			SpeedJitterMps:        speedJitter,
 			AlignmentMeanDeg:      alignMean,
 			MisalignmentRatio:     misalignRatio,
@@ -437,6 +472,17 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
 		}
 	}
+	if totalSourceFrames > 0 && tracksWithSources > 0 {
+		report.TrackSummary.HeadingLock = &HeadingLockSummary{
+			SourceFrames:         headingSourceFrames,
+			LockedFrameRatio:     float64(totalLockedFrames) / float64(totalSourceFrames),
+			SustainedLockTracks:  sustainedLockTracks,
+			TrappedTracks:        lockTrappedTracks,
+			TrappedRatio:         safeRatio(lockTrappedTracks, tracksWithSources),
+			LongestLockRunFrames: longestLockRun,
+			Tracks:               tracksWithSources,
+		}
+	}
 	if len(confirmedAlignMeans) > 0 || len(confirmedMisalignRats) > 0 || len(sampledCourseP50) > 0 {
 		report.TrackSummary.Alignment = &AlignmentSummary{
 			AlignmentMeanDeg:      computeDistStats(confirmedAlignMeans),
@@ -638,6 +684,104 @@ func speedJitterMps(speeds []float32) float32 {
 // estimator noise, so comparing the box against it measures nothing.
 const CourseAlignmentMinSpeedMps = 2.0
 
+// SustainedLockFrames is how many consecutive locked frames count as a
+// sustained heading lock, and equally how many consecutive unlocked frames
+// count as a genuine release. It mirrors l5tracks.SustainedLockFrames.
+const SustainedLockFrames = 5
+
+// Heading source values as recorded in the stream. These mirror
+// l5tracks.HeadingSource; the constant is duplicated rather than imported to
+// keep analysis free of a dependency on the tracker.
+const (
+	headingSourcePCA          = 0
+	headingSourceVelocity     = 1
+	headingSourceDisplacement = 2
+	headingSourceLocked       = 3
+	headingSourceCount        = 4
+)
+
+func headingSourceName(src int) string {
+	switch src {
+	case headingSourcePCA:
+		return "pca"
+	case headingSourceVelocity:
+		return "velocity"
+	case headingSourceDisplacement:
+		return "displacement"
+	case headingSourceLocked:
+		return "locked"
+	default:
+		return "unknown"
+	}
+}
+
+// lockStats summarises a track's heading-source sequence.
+type lockStats struct {
+	lockedFrames   int
+	longestLockRun int
+	sustained      bool
+	released       bool
+	liveFrames     int
+	sourceCounts   [headingSourceCount]int
+}
+
+// assessable reports whether the track lived long enough for a sustained lock
+// to be detectable at all. A track shorter than the lock window cannot be
+// classified either way, and counting it in the denominator understates the
+// problem.
+func (l lockStats) assessable() bool { return l.liveFrames >= SustainedLockFrames }
+
+// trapped reports a track that entered a sustained lock and never released it:
+// the failure Guard 3 produces when the smoothed heading it compares against
+// has itself drifted beyond the rejection band.
+func (l lockStats) trapped() bool { return l.sustained && !l.released }
+
+// computeLockStats walks a track's recorded heading sources and recovers the
+// lock-run structure. It is the offline twin of TrackedObject's running
+// counters, and must agree with them: the live tracker and a replay of the same
+// run are the two sides of every A/B comparison.
+//
+// Non-live frames are skipped, and that is not a detail. A deleted track keeps
+// being published for the grace period with its state frozen, and those frames
+// carry heading source PCA rather than the lock the track died in. Counting
+// them lets fifty ghost frames masquerade as a release, which turns a track
+// that was trapped for its whole life into a clean one. On the reference run
+// that alone moved the trapped population from 59% of locked tracks to 11%.
+//
+// live may be nil or shorter than sources, in which case the missing entries
+// are treated as live.
+func computeLockStats(sources []int, live []bool) lockStats {
+	var st lockStats
+	lockRun, unlockRun := 0, 0
+	for i, src := range sources {
+		if i < len(live) && !live[i] {
+			continue
+		}
+		st.liveFrames++
+		if src >= 0 && src < headingSourceCount {
+			st.sourceCounts[src]++
+		}
+		if src == headingSourceLocked {
+			st.lockedFrames++
+			lockRun++
+			unlockRun = 0
+			if lockRun > st.longestLockRun {
+				st.longestLockRun = lockRun
+			}
+			if lockRun >= SustainedLockFrames {
+				st.sustained = true
+			}
+			continue
+		}
+		lockRun = 0
+		unlockRun++
+		if st.sustained && unlockRun >= SustainedLockFrames {
+			st.released = true
+		}
+	}
+	return st
+}
+
 // courseAlignmentMetrics compares the oriented bounding box heading against the
 // direction of travel: the quantity that decides whether a rendered box points
 // where the vehicle is going.
@@ -744,4 +888,12 @@ func alignmentMetrics(xs, ys, vxs, vys []float32) (meanDeg float32, misalignRati
 		return 0, 0
 	}
 	return float32(sumAngle / float64(nValid)), float32(nMisalign) / float32(nValid)
+}
+
+// safeRatio divides a by b, returning zero when b is zero.
+func safeRatio(a, b int) float64 {
+	if b == 0 {
+		return 0
+	}
+	return float64(a) / float64(b)
 }
