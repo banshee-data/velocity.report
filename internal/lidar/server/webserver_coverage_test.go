@@ -5966,6 +5966,8 @@ func TestCov7_HandleTuningParams_POST_ExtendedTrackerFields(t *testing.T) {
 				"obb_heading_smoothing_alpha":         0.8,
 				"obb_aspect_ratio_lock_threshold":     1.5,
 				"obb_heading_lock_max_rejections":     5,
+				"min_associable_extent_metres":        0.5,
+				"deleted_track_render_fade":           "500ms",
 				"max_track_history_length":            200,
 				"max_speed_history_length":            100,
 				"merge_size_ratio":                    0.5,

@@ -1170,6 +1170,9 @@ func (m *mockTrackerCov) AdvanceMisses(timestamp time.Time) {
 func (m *mockTrackerCov) GetDeletedTrackGracePeriod() time.Duration {
 	return 5 * time.Second
 }
+func (m *mockTrackerCov) GetDeletedTrackRenderFade() time.Duration {
+	return 500 * time.Millisecond
+}
 func (m *mockTrackerCov) UpdateConfig(fn func(*l5tracks.TrackerConfig)) {
 	// no-op in mock
 }

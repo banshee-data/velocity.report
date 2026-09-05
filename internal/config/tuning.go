@@ -159,7 +159,15 @@ type L5Common struct {
 	// the smoothed heading, so once that has drifted outside the rejection band
 	// the lock is self-sustaining. Zero disables the release, restoring the
 	// original ratchet.
-	OBBHeadingLockMaxRejections      int     `json:"obb_heading_lock_max_rejections"`
+	OBBHeadingLockMaxRejections int `json:"obb_heading_lock_max_rejections"`
+	// MinAssociableExtentMetres is the smallest cluster extent that may be
+	// associated with a metre-scale track. Zero disables the fragment guard.
+	MinAssociableExtentMetres float64 `json:"min_associable_extent_metres"`
+	// DeletedTrackRenderFade is how long a deleted track is still published
+	// to clients, fading out. It is deliberately separate from
+	// DeletedTrackGracePeriod, which governs internal re-association and is
+	// far too long to hold a frozen box on screen.
+	DeletedTrackRenderFade           string  `json:"deleted_track_render_fade"`
 	MaxTrackHistoryLength            int     `json:"max_track_history_length"`
 	MaxSpeedHistoryLength            int     `json:"max_speed_history_length"`
 	MergeSizeRatio                   float64 `json:"merge_size_ratio"`

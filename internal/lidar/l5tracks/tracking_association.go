@@ -182,6 +182,20 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		costMatrix[ci] = make([]float32, nTracks)
 		for tj, trackID := range activeTrackIDs {
 			track := t.Tracks[trackID]
+
+			// Fragment guard: the gate is otherwise a 6 m radius on position
+			// alone, with nothing to stop a scrap of a cluster capturing a
+			// vehicle-sized track. On run baf20f02 a 0.11 m by 0.08 m cluster
+			// was associated to a track carrying a 4.33 m car and became its
+			// dimensions for the next 28 frames. Forbid the pairing here
+			// rather than refusing it at update time, so the fragment stays
+			// unassociated and can seed its own track.
+			if t.isFragmentFor(track, clusters[ci]) {
+				costMatrix[ci][tj] = float32(hungarianlnf)
+				track.FragmentPairingsRejected++
+				continue
+			}
+
 			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
 			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > t.Config.GatingDistanceSquared {
 				costMatrix[ci][tj] = float32(hungarianlnf)
@@ -294,4 +308,58 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	dist2 := dx*dx*invS00 + dx*dy*(invS01+invS10) + dy*dy*invS11
 
 	return dist2
+}
+
+// FragmentGuardMinTrackExtentMetres is the size belief above which a track is
+// treated as representing a metre-scale object, and so protected from being
+// captured by a scrap of a cluster.
+//
+// The guard is deliberately confined to that population. A pedestrian or
+// cyclist track legitimately carries an extent of well under a metre, and its
+// clusters vary by a similar amount frame to frame, so applying a small-cluster
+// rule there would reject ordinary observations. Vehicles do not shrink to a
+// tenth of their length between frames.
+const FragmentGuardMinTrackExtentMetres = 2.0
+
+// isFragmentFor reports whether a cluster is too small to be a plausible
+// observation of the given track.
+//
+// This is a narrow absurdity check, not a shape gate. It only fires when a
+// track already believes it is looking at something metre-scale and the cluster
+// on offer is smaller than MinAssociableExtentMetres. Proper dimension
+// consistency in the assignment cost is a separate, larger change.
+//
+// The track's belief is its running average extent rather than the latest
+// frame's, because the latest frame is exactly the value a fragment would have
+// corrupted.
+func (t *Tracker) isFragmentFor(track *TrackedObject, cluster WorldCluster) bool {
+	minExtent := t.Config.MinAssociableExtentMetres
+	if minExtent <= 0 {
+		return false
+	}
+
+	// Only guard tracks that have seen enough to have a belief worth trusting,
+	// and that believe they are metre-scale.
+	if track.ObservationCount < 3 {
+		return false
+	}
+	belief := track.BoundingBoxLengthAvg
+	if track.BoundingBoxWidthAvg > belief {
+		belief = track.BoundingBoxWidthAvg
+	}
+	if belief < FragmentGuardMinTrackExtentMetres {
+		return false
+	}
+
+	extent := cluster.BoundingBoxLength
+	if cluster.BoundingBoxWidth > extent {
+		extent = cluster.BoundingBoxWidth
+	}
+	// A cluster reporting no extent at all carries no evidence either way;
+	// leave it to the distance gate rather than inventing a rejection.
+	if extent <= 0 {
+		return false
+	}
+
+	return extent < minExtent
 }

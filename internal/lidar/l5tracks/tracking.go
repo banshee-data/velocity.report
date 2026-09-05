@@ -132,6 +132,11 @@ type TrackedObject struct {
 	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
 	HeadingLockReleases  int                        // Times the rejection counter forced a release
 
+	// FragmentPairingsRejected counts cluster/track pairings forbidden by the
+	// fragment guard in associate(). It is per evaluated pairing per frame, not
+	// per frame, so it indicates pressure rather than a count of lost frames.
+	FragmentPairingsRejected int
+
 	// Speed Jitter Metrics
 	// Measures frame-to-frame Kalman speed instability (m/s).
 	SpeedJitterSumSq float64 // Running sum of squared speed deltas ((m/s)²)
