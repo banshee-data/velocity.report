@@ -220,6 +220,17 @@ func Run(cfg Config) (*Result, error) {
 		FrameChCapacity: 32,
 	})
 
+	// Back-pressure instead of frame dropping. In the default mode the
+	// FrameBuilder discards a frame when the callback channel is full, which
+	// is correct for a live sensor and fatal here: the PCAP reader outruns
+	// clustering and tracking, so frames are lost at a rate that depends on
+	// how busy the machine is. Two runs of the same capture then disagree for
+	// reasons unrelated to whatever is being tested, and the absolute figures
+	// describe a timing-dependent subset of the capture rather than the
+	// capture. pcapsplit and the server's own analysis mode both set this for
+	// the same reason.
+	fb.SetBlockOnFrameChannel(true)
+
 	log.Printf("replaying %s (port %d) through the perception pipeline", cfg.PCAPFile, cfg.UDPPort)
 	replayErr := network.ReadPCAPFile(
 		context.Background(),
