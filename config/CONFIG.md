@@ -33,6 +33,15 @@ The runtime rejects:
 
 ## Usage
 
+The experimental heading path is selected by `l5.cv_kf_v1.obb_axis_coherence_enabled`
+(or the corresponding `l5.imm_cv_ca_v2` field). It defaults to `false` in all shipped tuning
+files. Existing version-2 files must add this required boolean; the strict loader does not
+silently assume it. Runtime tuning accepts the same field and reports its effective value.
+Switching paths clears the candidate's observed-support reference; use a fresh replay for A/B.
+When enabled, published box dimensions are a conservative envelope of the fresh measured OBB
+at the filtered centre and heading, not a reconstructed vehicle body. See the
+[D2 experiment contract](../docs/plans/lidar-heading-d2-implementation-report.md).
+
 ```bash
 ./velocity-report --enable-lidar
 ./velocity-report --config config/tuning.example.json --enable-lidar

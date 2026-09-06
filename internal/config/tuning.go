@@ -161,6 +161,9 @@ type L5Common struct {
 	// the lock is self-sustaining. Zero disables the release, restoring the
 	// original ratchet.
 	OBBHeadingLockMaxRejections int `json:"obb_heading_lock_max_rejections"`
+	// OBBAxisCoherenceEnabled selects the experimental axial observation path.
+	// False retains the production guards for controlled A/B comparisons.
+	OBBAxisCoherenceEnabled bool `json:"obb_axis_coherence_enabled"`
 	// MinAssociableExtentMetres is the smallest cluster extent that may be
 	// associated with a metre-scale track. Zero disables the fragment guard.
 	MinAssociableExtentMetres float64 `json:"min_associable_extent_metres"`

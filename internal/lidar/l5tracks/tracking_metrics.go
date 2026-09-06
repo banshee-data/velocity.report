@@ -20,8 +20,9 @@ type TrackingMetrics struct {
 	TotalMisaligned int `json:"total_misaligned"`
 	// Misalignment ratio: misaligned / total samples [0, 1]
 	MisalignmentRatio float32 `json:"misalignment_ratio"`
-	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees).
-	// A locked heading scores zero here, so read it with CourseAlignment below.
+	// Heading jitter: RMS raw-to-smoothed OBB innovations on accepted updates.
+	// This is not published output-step jitter and differs between heading paths.
+	// A locked heading adds no evidence; read it with course and lock diagnostics.
 	HeadingJitterDeg float32 `json:"heading_jitter_deg"`
 	// Course alignment percentiles pooled across active tracks (degrees,
 	// [0, 90]). Zero means every box points along its direction of travel;
@@ -100,12 +101,14 @@ type TrackAlignmentMetrics struct {
 
 	// Heading lock telemetry. LockTrapped is the one to watch: the track
 	// entered a sustained lock and never released it.
-	HeadingLockedFrames int    `json:"heading_locked_frames"`
-	LongestLockRun      int    `json:"longest_lock_run"`
-	LockTrapped         bool   `json:"lock_trapped"`
-	LockOutcome         string `json:"lock_outcome"`
-	LockEpisodes        int    `json:"lock_episodes"`
-	LockReleases        int    `json:"lock_releases"`
+	HeadingLockedFrames int                 `json:"heading_locked_frames"`
+	LongestLockRun      int                 `json:"longest_lock_run"`
+	LockTrapped         bool                `json:"lock_trapped"`
+	LockOutcome         string              `json:"lock_outcome"`
+	TerminalLockOutcome string              `json:"terminal_lock_outcome"`
+	HeadingEpisodes     HeadingEpisodeState `json:"heading_episodes"`
+	LockEpisodes        int                 `json:"lock_episodes"`
+	LockReleases        int                 `json:"lock_releases"`
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -494,6 +497,8 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			LongestLockRun:        track.LongestLockRun,
 			LockTrapped:           track.HeadingLockTrapped(),
 			LockOutcome:           string(track.HeadingLockOutcomeFor()),
+			TerminalLockOutcome:   track.HeadingEpisodes.Outcome(),
+			HeadingEpisodes:       track.HeadingEpisodes,
 			LockEpisodes:          track.LockEpisodes,
 			LockReleases:          track.HeadingLockReleases,
 		})

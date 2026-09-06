@@ -5974,14 +5974,14 @@ func TestCov7_HandleTuningParams_POST_ExtendedTrackerFields(t *testing.T) {
 	body, _ := json.Marshal(map[string]interface{}{
 		"l5": map[string]interface{}{
 			"cv_kf_v1": map[string]interface{}{
-				"max_reasonable_speed_mps":            50.0,
-				"max_position_jump_metres":            5.0,
-				"max_predict_dt":                      0.5,
-				"max_covariance_diag":                 100.0,
-				"min_points_for_pca":                  3,
-				"obb_heading_smoothing_alpha":         0.8,
-				"obb_aspect_ratio_lock_threshold":     1.5,
-				"obb_heading_lock_max_rejections":     5,
+				"max_reasonable_speed_mps":        50.0,
+				"max_position_jump_metres":        5.0,
+				"max_predict_dt":                  0.5,
+				"max_covariance_diag":             100.0,
+				"min_points_for_pca":              3,
+				"obb_heading_smoothing_alpha":     0.8,
+				"obb_aspect_ratio_lock_threshold": 1.5,
+				"obb_heading_lock_max_rejections": 5, "obb_axis_coherence_enabled": false,
 				"min_associable_extent_metres":        0.5,
 				"deleted_track_render_fade":           "500ms",
 				"max_track_history_length":            200,

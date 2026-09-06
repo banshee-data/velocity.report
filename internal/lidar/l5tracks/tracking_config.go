@@ -32,12 +32,20 @@ const (
 	// the recorded stream: a VRLOG carries heading source per frame, and
 	// without this a forced release is indistinguishable from an ordinary
 	// unlocked frame on replay.
-	HeadingSourceReleased HeadingSource = 4
+	HeadingSourceReleased     HeadingSource = 4
+	HeadingSourceAxis         HeadingSource = 5 // Supported axis interpretation, not directed body yaw
+	HeadingSourceAmbiguous    HeadingSource = 6 // Competing axis interpretations remain unresolved
+	HeadingSourceInsufficient HeadingSource = 7 // Missing or invalid heading geometry
 
 	// HeadingSourceCount is the number of heading sources, for sizing
 	// per-source counters. Keep it one past the last source above.
-	HeadingSourceCount = 5
+	HeadingSourceCount = 8
 )
+
+// IsLocked reports a decision that did not accept a measured heading.
+func (h HeadingSource) IsLocked() bool {
+	return h == HeadingSourceLocked || h == HeadingSourceAmbiguous || h == HeadingSourceInsufficient
+}
 
 // String names a heading source for diagnostics and JSON keys.
 func (h HeadingSource) String() string {
@@ -52,6 +60,12 @@ func (h HeadingSource) String() string {
 		return "locked"
 	case HeadingSourceReleased:
 		return "released"
+	case HeadingSourceAxis:
+		return "axis"
+	case HeadingSourceAmbiguous:
+		return "ambiguous"
+	case HeadingSourceInsufficient:
+		return "insufficient"
 	default:
 		return "unknown"
 	}
@@ -81,6 +95,7 @@ type TrackerConfig struct {
 	OBBHeadingSmoothingAlpha    float32 // EMA smoothing factor for OBB heading [0,1]
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
 	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
+	OBBAxisCoherenceEnabled     bool    // Experimental axis selection and coherent observed envelope
 
 	// MinAssociableExtentMetres is the smallest cluster extent that may be
 	// associated with a metre-scale track. 0 disables the fragment guard.
@@ -138,6 +153,7 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
 		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
 		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
+		OBBAxisCoherenceEnabled:          l5cfg.OBBAxisCoherenceEnabled,
 		MinAssociableExtentMetres:        float32(l5cfg.MinAssociableExtentMetres),
 		DeletedTrackRenderFade:           mustParseDuration(l5cfg.DeletedTrackRenderFade),
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,

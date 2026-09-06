@@ -213,6 +213,11 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		}
 	}
 
+	if t.Config.OBBAxisCoherenceEnabled {
+		t.updateAxisHeading(track, cluster)
+		return
+	}
+
 	// Update OBB heading with temporal smoothing.
 	// Guards:
 	//   1. Skip heading update when cluster has too few points for reliable PCA.
@@ -442,11 +447,15 @@ func (t *TrackedObject) SampleCourseAlignment() {
 // drifted too far, and the track cannot recover. EnteredSustainedLock and
 // ReleasedAfterLock separate the two.
 func (t *TrackedObject) RecordHeadingSource(src HeadingSource) {
+	t.HeadingEpisodes.Observe(src, t.EndUnixNanos)
+	if src < 0 || int(src) >= HeadingSourceCount {
+		return
+	}
 	if src >= 0 && int(src) < HeadingSourceCount {
 		t.HeadingSourceCounts[src]++
 	}
 
-	if src == HeadingSourceLocked {
+	if src.IsLocked() {
 		t.HeadingLockedFrames++
 		if t.CurrentLockRun == 0 {
 			t.LockEpisodes++

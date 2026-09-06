@@ -3,6 +3,7 @@ package analysis
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"io"
 	"math"
 	"os"
@@ -61,9 +62,12 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		objectClass         string
 		classConf           float32
 		obsCount            int
+		headingEpisodes     l5tracks.HeadingEpisodeState
 		trackLengthM        float32
 	}
 	tracks := make(map[string]*trackAccum)
+	everConfirmed := make(map[string]bool)
+	coLocation := &CoLocationSummary{RadiusMetres: 3}
 
 	frameCount := 0
 	for {
@@ -75,6 +79,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			return nil, "", fmt.Errorf("read frame %d: %w", frameCount, err)
 		}
 		frameCount++
+		coLocation.ScoredFrames++
 		frameTimestamps = append(frameTimestamps, frame.TimestampNanos)
 
 		// Point cloud stats
@@ -99,6 +104,24 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 
 		// Track stats
 		if ts := frame.Tracks; ts != nil {
+			liveFrame, pairFrame := false, false
+			for i, a := range ts.Tracks {
+				if a.State == l9endpoints.TrackStateDeleted {
+					continue
+				}
+				liveFrame = true
+				for _, b := range ts.Tracks[i+1:] {
+					if b.State != l9endpoints.TrackStateDeleted && a.TrackID != b.TrackID && math.Hypot(float64(a.X-b.X), float64(a.Y-b.Y)) <= coLocation.RadiusMetres {
+						pairFrame = true
+					}
+				}
+			}
+			if liveFrame {
+				coLocation.LiveFrames++
+			}
+			if pairFrame {
+				coLocation.PairFrames++
+			}
 			n := len(ts.Tracks)
 			totalTrackCount += int64(n)
 			if n > 0 {
@@ -107,6 +130,9 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 
 			for i := range ts.Tracks {
 				t := &ts.Tracks[i]
+				if t.State == l9endpoints.TrackStateConfirmed {
+					everConfirmed[t.TrackID] = true
+				}
 				acc, ok := tracks[t.TrackID]
 				if !ok {
 					acc = &trackAccum{
@@ -117,6 +143,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 					tracks[t.TrackID] = acc
 				}
 				acc.lastSeen = t.LastSeenNanos
+				// Coasting and deleted publications repeat a decision, not evidence.
+				if t.State != l9endpoints.TrackStateDeleted && t.ObservationCount > acc.obsCount {
+					acc.headingEpisodes.Observe(l5tracks.HeadingSource(t.HeadingSource), t.LastSeenNanos)
+				}
 				acc.lastX = t.X
 				acc.lastY = t.Y
 				acc.speeds = append(acc.speeds, t.SpeedMps)
@@ -168,36 +198,47 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 
 	// Collect summary accumulators for confirmed tracks
 	var (
-		confirmedObsCounts    []float64
-		confirmedDurations    []float64
-		confirmedLengths      []float64
-		totalOcclusions       int
-		maxOccCountGlobal     int
-		sumOcclusionCount     float64
-		confirmedCount        int
-		tentativeCount        int
-		deletedCount          int
-		confirmedHeadJitters  []float64
-		confirmedSpeedJitters []float64
-		confirmedAlignMeans   []float64
-		confirmedMisalignRats []float64
-		sampledCourseP50      []float64
-		sampledCourseP90      []float64
-		headingSourceFrames   = make(map[string]int, headingSourceCount)
-		totalSourceFrames     int
-		totalLockedFrames     int
-		sustainedLockTracks   int
-		neverRecoveredTracks  int
-		relockedTracks        int
-		releasedTracks        int
-		totalForcedReleases   int
-		longestLockRun        int
-		tracksWithSources     int
+		confirmedObsCounts                                                         []float64
+		confirmedDurations                                                         []float64
+		confirmedLengths                                                           []float64
+		totalOcclusions                                                            int
+		maxOccCountGlobal                                                          int
+		sumOcclusionCount                                                          float64
+		confirmedCount                                                             int
+		tentativeCount                                                             int
+		deletedCount                                                               int
+		confirmedHeadJitters                                                       []float64
+		confirmedSpeedJitters                                                      []float64
+		confirmedAlignMeans                                                        []float64
+		confirmedMisalignRats                                                      []float64
+		sampledCourseP50                                                           []float64
+		sampledCourseP90                                                           []float64
+		headingSourceFrames                                                        = make(map[string]int, headingSourceCount)
+		totalSourceFrames                                                          int
+		totalLockedFrames                                                          int
+		sustainedLockTracks                                                        int
+		neverRecoveredTracks                                                       int
+		relockedTracks                                                             int
+		releasedTracks                                                             int
+		totalForcedReleases                                                        int
+		longestLockRun                                                             int
+		tracksWithSources                                                          int
+		terminalUnrecovered, terminalCensored, terminalRecovered, terminalAssessed int
 	)
 
 	classDist := make(map[string]*classAccum)
 
 	for id, acc := range tracks {
+		switch acc.headingEpisodes.Outcome() {
+		case "unrecovered":
+			terminalUnrecovered++
+			terminalAssessed++
+		case "censored":
+			terminalCensored++
+		case "recovered":
+			terminalRecovered++
+			terminalAssessed++
+		}
 		dur := float64(acc.lastSeen-acc.firstSeen) / 1e9
 
 		avgSpeed := meanFloat32(acc.speeds)
@@ -253,6 +294,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 
 		td := TrackDetail{
 			TrackID:               id,
+			EverConfirmed:         everConfirmed[id],
 			State:                 trackStateName(acc.state),
 			ObjectClass:           acc.objectClass,
 			ClassConfidence:       acc.classConf,
@@ -274,6 +316,8 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			LockOutcome:           locks.outcome(),
 			LockTrapped:           locks.trapped(),
 			ForcedReleases:        locks.releases,
+			TerminalLockOutcome:   acc.headingEpisodes.Outcome(),
+			HeadingEpisodes:       acc.headingEpisodes,
 			SpeedJitterMps:        speedJitter,
 			AlignmentMeanDeg:      alignMean,
 			MisalignmentRatio:     misalignRatio,
@@ -441,6 +485,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			BuildGitSHA:         header.BuildGitSHA,
 		},
 		FrameSummary: FrameSummary{
+			CoLocation:                  coLocation,
 			TotalFrames:                 frameCount,
 			FramesWithTracks:            framesWithTracks,
 			FramesWithClusters:          framesWithClusters,
@@ -496,6 +541,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			ForcedReleases:       totalForcedReleases,
 			LongestLockRunFrames: longestLockRun,
 			Tracks:               tracksWithSources,
+			TerminalUnrecovered:  terminalUnrecovered,
+			TerminalCensored:     terminalCensored,
+			TerminalRecovered:    terminalRecovered,
+			TerminalAssessed:     terminalAssessed,
 		}
 	}
 	if len(confirmedAlignMeans) > 0 || len(confirmedMisalignRats) > 0 || len(sampledCourseP50) > 0 {
@@ -713,7 +762,7 @@ const (
 	headingSourceDisplacement = 2
 	headingSourceLocked       = 3
 	headingSourceReleased     = 4
-	headingSourceCount        = 5
+	headingSourceCount        = l5tracks.HeadingSourceCount
 )
 
 func headingSourceName(src int) string {
@@ -728,6 +777,12 @@ func headingSourceName(src int) string {
 		return "locked"
 	case headingSourceReleased:
 		return "released"
+	case int(l5tracks.HeadingSourceAxis):
+		return "axis"
+	case int(l5tracks.HeadingSourceAmbiguous):
+		return "ambiguous"
+	case int(l5tracks.HeadingSourceInsufficient):
+		return "insufficient"
 	default:
 		return "unknown"
 	}
@@ -804,7 +859,7 @@ func computeLockStats(sources []int, live []bool) lockStats {
 		if src == headingSourceReleased {
 			st.releases++
 		}
-		if src == headingSourceLocked {
+		if l5tracks.HeadingSource(src).IsLocked() {
 			st.lockedFrames++
 			if lockRun == 0 {
 				st.episodes++
