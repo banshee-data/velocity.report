@@ -6,6 +6,8 @@
 
 import * as THREE from "three";
 import { SceneSession, SceneError } from "./scene-reader.js";
+import { createSceneCamera, VANTAGE_PRESETS } from "./scene-camera.js";
+import { createTimelineStrip } from "./scene-timeline.js";
 
 // Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
 // X, up becomes Y, and north becomes -Z to keep the frame right-handed.
@@ -148,9 +150,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x0b1013, 60, 190);
 
-  const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 1200);
+  const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
 
-  const grid = new THREE.GridHelper(160, 32, 0x3f5a66, 0x24363f);
+  const grid = new THREE.GridHelper(160, 32, 0x2c4049, 0x1c2b32);
   scene.add(grid);
 
   // A ring at the sensor origin gives the viewer a fixed reference point. The
@@ -163,15 +165,82 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   scene.add(origin);
 
   /**
-   * Frames the camera and ground plane from the data rather than assuming a
-   * layout. Sensor height, mounting angle and the span of the observed area
-   * differ per site, so hard-coded values only ever suit one recording.
+   * Loads the static background: one settled snapshot of the street with
+   * nothing moving in it.
+   *
+   * Boxes floating in empty space are hard to read as a place. The background
+   * is what makes a trajectory legible as "along the kerb" rather than "over
+   * there somewhere". It is optional: a scene without one still plays.
    */
-  function fitToObservations(frames) {
+  async function loadBackground(url) {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const raw = new Uint8Array(await res.arrayBuffer());
+    const isGzip = raw.length > 1 && raw[0] === 0x1f && raw[1] === 0x8b;
+    const text = isGzip
+      ? await new Response(
+          new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip")),
+        ).text()
+      : new TextDecoder().decode(raw);
+    const bg = JSON.parse(text);
+    if (!Array.isArray(bg.points) || bg.points.length === 0) return null;
+
+    const positions = new Float32Array(bg.points.length * 3);
+    const colours = new Float32Array(bg.points.length * 3);
+    let maxConf = 1;
+    for (const p of bg.points) if (p[3] > maxConf) maxConf = p[3];
+
+    bg.points.forEach((p, i) => {
+      positions[i * 3] = toSceneX(p[0]);
+      positions[i * 3 + 1] = toSceneY(p[2]);
+      positions[i * 3 + 2] = toSceneZ(p[1]);
+      // Confidence is how often the cell was seen. Fading the least certain
+      // returns keeps transient clutter from reading as solid structure.
+      // Kept deliberately dim and cool: the background says where the street
+      // is, and it should lose every contrast fight with the coloured boxes,
+      // which are what the reader came to look at.
+      const c = 0.1 + 0.26 * Math.min(1, (p[3] || 0) / maxConf);
+      colours[i * 3] = c * 0.55;
+      colours[i * 3 + 1] = c * 0.72;
+      colours[i * 3 + 2] = c;
+    });
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(colours, 3));
+    const cloud = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({
+        size: 0.11,
+        vertexColors: true,
+        sizeAttenuation: true,
+      }),
+    );
+    scene.add(cloud);
+    return bg;
+  }
+
+  /**
+   * Frames the view from the background where there is one, and from the
+   * tracks otherwise. Sensor height, mounting angle and the span of the
+   * observed area differ per site, so hard-coded values only ever suit one
+   * recording.
+   */
+  function boundsFromBackground(bg) {
+    const span = Math.max(bg.max_x - bg.min_x, bg.max_y - bg.min_y, 20);
+    return {
+      centerX: toSceneX((bg.min_x + bg.max_x) / 2),
+      centerZ: toSceneZ((bg.min_y + bg.max_y) / 2),
+      groundY: toSceneY(bg.ground_z ?? bg.min_z),
+      span: Math.min(span, 140),
+    };
+  }
+
+  function boundsFromFrames(frames) {
     const xs = [];
     const zs = [];
     const bases = [];
-
     for (const f of frames) {
       for (const t of f.tr ?? []) {
         xs.push(toSceneX(t.x));
@@ -179,7 +248,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         bases.push(toSceneY(t.z) - (t.h || 0) / 2);
       }
     }
-    if (!bases.length) return;
+    if (!bases.length) return { centerX: 0, centerZ: 0, groundY: 0, span: 60 };
 
     // Percentiles, not extremes. A stray bird or a distant noise cluster would
     // otherwise pull the camera so far back that the street itself is a few
@@ -188,28 +257,25 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       const sorted = [...arr].sort((a, b) => a - b);
       return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
     };
-    const ground = pct(bases, 0.05);
     const x0 = pct(xs, 0.05);
     const x1 = pct(xs, 0.95);
     const z0 = pct(zs, 0.05);
     const z1 = pct(zs, 0.95);
+    return {
+      centerX: (x0 + x1) / 2,
+      centerZ: (z0 + z1) / 2,
+      groundY: pct(bases, 0.05),
+      span: Math.max(x1 - x0, z1 - z0, 20),
+    };
+  }
 
-    const cx = (x0 + x1) / 2;
-    const cz = (z0 + z1) / 2;
-    const span = Math.max(x1 - x0, z1 - z0, 20);
-
-    grid.position.set(cx, ground, cz);
-    origin.position.y = ground + 0.02;
-
-    camera.position.set(
-      cx + span * 0.28,
-      ground + span * 0.42,
-      cz + span * 0.62,
-    );
-    camera.lookAt(cx, ground + 1, cz);
+  function applyBounds(b) {
+    grid.position.set(b.centerX, b.groundY, b.centerZ);
+    origin.position.y = b.groundY + 0.02;
     // Fog starts beyond the framed area so it adds depth without dimming the
     // objects the viewer came to see.
-    scene.fog = new THREE.Fog(0x0b1013, span * 1.6, span * 4.5);
+    scene.fog = new THREE.Fog(0x0b1013, b.span * 1.8, b.span * 5);
+    sceneCamera.frame(b);
   }
 
   function resize() {
@@ -224,20 +290,32 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   window.addEventListener("resize", resize);
   resize();
 
+  const sceneCamera = createSceneCamera({ camera, element: canvas, THREE });
+
   const session = await new SceneSession(manifestURL).open();
 
-  // Fit from the opening chunk, which is already fetched for the first frame.
+  const background = ui.backgroundURL
+    ? await loadBackground(ui.backgroundURL).catch(() => null)
+    : null;
+
+  let bounds;
   try {
     const first = session.parts[0];
-    fitToObservations(await first.loadChunk(first.chunks[0].c));
+    bounds = background
+      ? boundsFromBackground(background)
+      : boundsFromFrames(await first.loadChunk(first.chunks[0].c));
   } catch {
-    // A scene that cannot be measured still renders; the default view applies.
-    camera.position.set(60, 45, 75);
-    camera.lookAt(0, 0, 0);
+    bounds = { centerX: 0, centerZ: 0, groundY: 0, span: 60 };
   }
+  applyBounds(bounds);
+  sceneCamera.applyPreset("overview");
 
   const visuals = new Map();
   let currentPart = -1;
+
+  function render() {
+    renderer.render(scene, camera);
+  }
 
   function renderFrame(frame, partIndex) {
     // Track identifiers are export-local, so they carry no meaning across a
@@ -291,10 +369,25 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       if (!frame) return;
       const n = renderFrame(frame, partIndex);
       if (ui.stats) {
-        const speeds = (frame.tr ?? []).map((t) => t.spd ?? 0);
+        const tracks = frame.tr ?? [];
+        const speeds = tracks.map((t) => t.spd ?? 0);
         const fastest = speeds.length ? Math.max(...speeds) : 0;
+        // Named by mode rather than totalled, because "14 on foot" says
+        // something about a street that "14 objects" does not.
+        let vehicle = 0;
+        let person = 0;
+        let cycle = 0;
+        for (const t of tracks) {
+          if (t.c === "car" || t.c === "bus" || t.c === "truck") vehicle++;
+          else if (t.c === "pedestrian") person++;
+          else if (t.c === "cyclist" || t.c === "motorcyclist") cycle++;
+        }
+        const parts = [];
+        if (vehicle) parts.push(`${vehicle} vehicle${vehicle > 1 ? "s" : ""}`);
+        if (person) parts.push(`${person} on foot`);
+        if (cycle) parts.push(`${cycle} cycling`);
         ui.stats.textContent =
-          `${n} tracked ${n === 1 ? "object" : "objects"}` +
+          (parts.length ? parts.join(" · ") : `${n} tracked`) +
           (fastest > 0
             ? ` · fastest ${(fastest * MPS_TO_MPH).toFixed(0)} mph`
             : "");
@@ -307,6 +400,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   }
 
   function syncUI() {
+    strip?.setPlayhead(state.seconds);
     if (ui.slider && document.activeElement !== ui.slider) {
       ui.slider.value = String(state.seconds);
     }
@@ -383,6 +477,64 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") state.lastWall = 0;
   });
+
+  // --- viewport controls ---------------------------------------------------
+
+  if (ui.presets) {
+    for (const preset of VANTAGE_PRESETS) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "scene-chip";
+      btn.textContent = preset.label;
+      btn.dataset.preset = preset.id;
+      btn.setAttribute("aria-pressed", String(preset.id === "overview"));
+      btn.addEventListener("click", () => {
+        const active = sceneCamera.applyPreset(preset.id);
+        for (const el of ui.presets.querySelectorAll("[data-preset]")) {
+          el.setAttribute("aria-pressed", String(el.dataset.preset === active));
+        }
+        render();
+      });
+      ui.presets.appendChild(btn);
+    }
+  }
+
+  if (ui.modeToggle) {
+    const setMode = (mode) => {
+      const active = sceneCamera.setMode(mode);
+      for (const el of ui.modeToggle.querySelectorAll("[data-mode]")) {
+        el.setAttribute("aria-pressed", String(el.dataset.mode === active));
+      }
+    };
+    for (const el of ui.modeToggle.querySelectorAll("[data-mode]")) {
+      el.addEventListener("click", () => setMode(el.dataset.mode));
+    }
+    setMode("orbit");
+  }
+
+  // --- timeline annotation -------------------------------------------------
+
+  let strip = null;
+  if (ui.timelineCanvas && ui.timelineURL) {
+    try {
+      const res = await fetch(ui.timelineURL);
+      if (res.ok) {
+        strip = createTimelineStrip({
+          canvas: ui.timelineCanvas,
+          summary: await res.json(),
+          duration: session.duration,
+          onSeek: (seconds) => {
+            state.seconds = seconds;
+            void show(seconds);
+            syncUI();
+          },
+        });
+      }
+    } catch {
+      // A scene without a summary still plays; the strip is an aid, not a
+      // prerequisite.
+    }
+  }
 
   if (ui.duration) ui.duration.textContent = formatClock(session.duration);
   if (ui.title) ui.title.textContent = session.title;

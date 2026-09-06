@@ -5,13 +5,26 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
 ---
 
 <style>
-  .scene-page__head { margin-bottom: 1.5rem; }
-  .scene-page__title { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.5rem; }
-  .scene-page__sub { font-size: 1.05rem; line-height: 1.5; margin: 0 0 0.75rem; opacity: 0.85; }
-  .scene-page__privacy { font-size: 0.9rem; line-height: 1.55; max-width: 62ch; opacity: 0.7; border-left: 2px solid currentColor; padding-left: 0.9rem; margin: 0; }
+  .scene-page__head { margin-bottom: 1rem; }
+  .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+  .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
+  .scene-page__more {
+    background: none; border: 0; padding: 0; font: inherit; color: #4bc0d9;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .scene-page__more:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; border-radius: 2px; }
+  .scene-page__privacy {
+    font-size: 0.9rem; line-height: 1.55; max-width: 62ch; opacity: 0.75;
+    border-left: 2px solid currentColor; padding-left: 0.9rem; margin: 0.75rem 0 0;
+  }
+  .scene-page__privacy[hidden] { display: none; }
 
-  .scene-stage { position: relative; aspect-ratio: 16 / 9; width: 100%; border-radius: 4px; overflow: hidden; background: #0b1013; }
-  .scene-stage__canvas { display: block; width: 100%; height: 100%; }
+  .scene-stage { position: relative; aspect-ratio: 16 / 10; width: 100%; border-radius: 4px; overflow: hidden; background: #0b1013; }
+  @media (min-width: 768px) { .scene-stage { aspect-ratio: 16 / 9; } }
+  .scene-stage__canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  .scene-stage__canvas:active { cursor: grabbing; }
+  .scene-stage__canvas:focus-visible { outline: 2px solid #4bc0d9; outline-offset: -2px; }
+  .scene-stage__tools { position: absolute; top: 0.6rem; right: 0.6rem; display: flex; gap: 0.4rem; }
   .scene-stage__overlay {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     margin: 0; padding: 1.5rem; text-align: center; color: #cfe3e8;
@@ -20,32 +33,51 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
   .scene-stage__overlay--error { color: #f0b48a; }
   .scene-stage__overlay[hidden] { display: none; }
 
-  .scene-transport { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.85rem; flex-wrap: wrap; }
+  .scene-chip {
+    font: inherit; font-size: 0.78rem; padding: 0.32rem 0.62rem; border-radius: 999px;
+    border: 1px solid rgba(207, 227, 232, 0.28); background: rgba(11, 16, 19, 0.72);
+    color: #cfe3e8; cursor: pointer; white-space: nowrap; line-height: 1.2;
+  }
+  .scene-chip[aria-pressed="true"] { background: #4bc0d9; border-color: #4bc0d9; color: #06222a; font-weight: 600; }
+  .scene-chip:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
+  .scene-toggle { display: flex; gap: 0.3rem; }
+
+  .scene-vantage { display: flex; gap: 0.4rem; margin-top: 0.6rem; overflow-x: auto; padding-bottom: 0.2rem; }
+
+  .scene-timeline { margin-top: 0.75rem; }
+  .scene-timeline__canvas {
+    display: block; width: 100%; height: 64px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.03); cursor: pointer;
+  }
+  .scene-timeline__key {
+    display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.4rem;
+    font-size: 0.72rem; opacity: 0.75;
+  }
+  .scene-timeline__key span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .scene-timeline__key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .scene-timeline__key i.scene-timeline__line { height: 2px; width: 14px; border-radius: 0; }
+
+  .scene-transport { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; flex-wrap: wrap; }
   .scene-transport__button {
-    min-width: 5.5rem; padding: 0.45rem 1rem; border-radius: 3px; border: 1px solid currentColor;
+    min-width: 5rem; padding: 0.45rem 1rem; border-radius: 3px; border: 1px solid currentColor;
     background: transparent; font: inherit; font-weight: 600; cursor: pointer; color: inherit;
   }
   .scene-transport__button:hover { background: rgba(75, 192, 217, 0.12); }
   .scene-transport__button:focus-visible,
   .scene-transport__slider:focus-visible,
   .scene-transport__rate select:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
-  .scene-transport__clock { font-variant-numeric: tabular-nums; font-size: 0.9rem; opacity: 0.8; min-width: 3.2rem; }
-  .scene-transport__slider { flex: 1 1 12rem; min-width: 8rem; accent-color: #4bc0d9; }
+  .scene-transport__clock { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.8; min-width: 3.2rem; }
+  .scene-transport__slider { flex: 1 1 10rem; min-width: 7rem; accent-color: #4bc0d9; }
   .scene-transport__rate select { font: inherit; padding: 0.3rem 0.4rem; border-radius: 3px; background: transparent; color: inherit; border: 1px solid currentColor; }
-  .scene-transport__stats { margin: 0.6rem 0 0; font-size: 0.88rem; opacity: 0.75; font-variant-numeric: tabular-nums; min-height: 1.3em; }
+  .scene-transport__stats { margin: 0.5rem 0 0; font-size: 0.86rem; opacity: 0.8; font-variant-numeric: tabular-nums; min-height: 1.3em; }
 
-  .scene-page__provenance { margin-top: 2rem; font-size: 0.9rem; line-height: 1.6; max-width: 68ch; }
+  .scene-page__provenance { margin-top: 1.75rem; font-size: 0.88rem; line-height: 1.6; max-width: 68ch; }
   .scene-page__provenance summary { cursor: pointer; font-weight: 600; }
-  .scene-page__provenance p { margin: 0.75rem 0 0; opacity: 0.8; }
+  .scene-page__provenance p { margin: 0.7rem 0 0; opacity: 0.8; }
 
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
-  }
-
-  @media (max-width: 640px) {
-    .scene-transport__clock { min-width: 2.8rem; }
-    .scene-transport__button { min-width: 4.5rem; }
   }
 </style>
 
@@ -53,20 +85,52 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
   <header class="scene-page__head">
     <h1 class="scene-page__title" id="scene-title">SoMa 1</h1>
     <p class="scene-page__sub">
-      <span id="scene-duration-label">Eleven minutes</span> of road users crossing a
-      San Francisco intersection, as a roadside LiDAR sensor measured them.
+      Eleven minutes of a San Francisco street, measured by roadside LiDAR.
+      <button type="button" class="scene-page__more" id="scene-about-toggle" aria-expanded="false" aria-controls="scene-about">
+        What am I looking at?
+      </button>
     </p>
-    <p class="scene-page__privacy">
-      Every box below is a measurement, not a picture. This recording contains
-      derived trajectories only: position, size, heading and speed. There is no
-      camera on this sensor, so there is no image, face or number plate to publish.
+    <p class="scene-page__privacy" id="scene-about" hidden>
+      Every box is a measurement, not a picture. The grey points are the street
+      itself, recorded once with nothing moving through it. The coloured boxes
+      are road users: position, size, heading and speed. There is no camera on
+      this sensor, so there is no image, face or number plate to publish.
     </p>
   </header>
 
   <div class="scene-stage">
-    <canvas id="scene-canvas" class="scene-stage__canvas" width="960" height="540"></canvas>
+    <canvas
+      id="scene-canvas"
+      class="scene-stage__canvas"
+      width="960"
+      height="540"
+      tabindex="0"
+      aria-label="3D scene. Drag to look around, pinch to zoom, arrow keys to orbit."
+    ></canvas>
+
+    <div class="scene-stage__tools" role="group" aria-label="Viewport controls">
+      <div class="scene-toggle" id="scene-mode" role="group" aria-label="Drag behaviour">
+        <button type="button" class="scene-chip" data-mode="orbit" aria-pressed="true">Rotate</button>
+        <button type="button" class="scene-chip" data-mode="pan" aria-pressed="false">Pan</button>
+      </div>
+    </div>
+
     <p id="scene-loading" class="scene-stage__overlay">Loading scene…</p>
     <p id="scene-status" class="scene-stage__overlay scene-stage__overlay--error" hidden></p>
+  </div>
+
+  <div class="scene-vantage" id="scene-presets" role="group" aria-label="Vantage points"></div>
+
+  <div class="scene-timeline">
+    <canvas id="scene-timeline" class="scene-timeline__canvas" height="64"
+      aria-label="Traffic over time. Click or drag to seek."></canvas>
+    <div class="scene-timeline__key">
+      <span><i style="background:#4bc0d9"></i>Vehicles</span>
+      <span><i style="background:#f25f5c"></i>On foot</span>
+      <span><i style="background:#9ad14b"></i>Cycling</span>
+      <span><i style="background:#3d4a52"></i>Unclassified</span>
+      <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Peak speed</span>
+    </div>
   </div>
 
   <div class="scene-transport">
@@ -102,8 +166,8 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
       A Hesai Pandar40P recorded the street to a PCAP capture. The velocity.report
       perception pipeline turned that into a VRLOG recording, which stays the
       source of truth for what was analysed. <code>velocity scene export</code>
-      then wrote the static files this page fetches: gzipped NDJSON frames plus a
-      small index, served with no backend of any kind.
+      then wrote the static files this page fetches: gzipped NDJSON frames, a
+      background snapshot and a timeline summary, served with no backend.
     </p>
     <p>
       Playback follows the timestamps in the recording rather than a fixed frame
@@ -116,13 +180,26 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
 <script type="module">
   import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
 
-  const canvas = document.getElementById("scene-canvas");
+  const base = "{{ '/scenes/soma1/assets' | url }}";
   const status = document.getElementById("scene-status");
 
+  const about = document.getElementById("scene-about");
+  const aboutToggle = document.getElementById("scene-about-toggle");
+  aboutToggle.addEventListener("click", () => {
+    const open = about.hidden;
+    about.hidden = !open;
+    aboutToggle.setAttribute("aria-expanded", String(open));
+  });
+
   mountScenePlayer({
-    canvas,
-    manifestURL: "{{ '/scenes/soma1/assets/manifest.json' | url }}",
+    canvas: document.getElementById("scene-canvas"),
+    manifestURL: `${base}/manifest.json`,
     ui: {
+      backgroundURL: `${base}/background/background.json.gz`,
+      timelineURL: `${base}/part-000/timeline.json`,
+      timelineCanvas: document.getElementById("scene-timeline"),
+      presets: document.getElementById("scene-presets"),
+      modeToggle: document.getElementById("scene-mode"),
       playToggle: document.getElementById("scene-play"),
       slider: document.getElementById("scene-slider"),
       clock: document.getElementById("scene-clock"),

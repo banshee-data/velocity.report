@@ -57,6 +57,10 @@ type Options struct {
 	Title string
 	// MaxPointsPerFrame caps the foreground cloud in a clip export. 0 = uncapped.
 	MaxPointsPerFrame int
+	// VoxelMetres downsamples a background export. 0 uses the default.
+	VoxelMetres float64
+	// BucketSeconds is the timeline summary resolution. 0 uses the default.
+	BucketSeconds float64
 }
 
 // Result reports what an export produced.
@@ -69,6 +73,8 @@ type Result struct {
 	// DroppedNonMonotonic counts frames discarded because their timestamp did
 	// not advance past the previous retained frame.
 	DroppedNonMonotonic int
+	// PointCount is the number of points a background export wrote.
+	PointCount int
 }
 
 // maxNonMonotonic is the tolerance for out-of-order frames: one, or 0.1% of
@@ -159,6 +165,9 @@ func Export(opts Options) (*Result, error) {
 	// enough for trail continuity inside this part; making them local means a
 	// trajectory cannot be linked across parts or sites.
 	keys := newTrackKeyer()
+	// The timeline summary is folded in during this same pass, so annotating
+	// the scrubber costs no extra read of the recording.
+	timeline := newTimelineAccumulator(opts.BucketSeconds)
 
 	var (
 		retained         int
@@ -191,6 +200,7 @@ func Export(opts Options) (*Result, error) {
 		// Rebase to microseconds from the first retained frame so the value is
 		// exact in a browser.
 		f.TimeUs = (absNs - firstNs) / 1000
+		timeline.observe(f)
 		return w.write(f)
 	}
 
@@ -307,6 +317,9 @@ func Export(opts Options) (*Result, error) {
 		Version: FormatVersion,
 		Chunks:  w.entries,
 	}); err != nil {
+		return nil, err
+	}
+	if err := timeline.write(opts.OutDir); err != nil {
 		return nil, err
 	}
 

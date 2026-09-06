@@ -153,3 +153,65 @@ type ManifestPart struct {
 	StartSeconds float64 `json:"start_seconds"`
 	Background   string  `json:"background,omitempty"`
 }
+
+// BackgroundExport is the static scene: one settled snapshot of the street with
+// nothing moving in it. Written as a single file rather than chunks, because a
+// viewer fetches it once and keeps it.
+type BackgroundExport struct {
+	Version int    `json:"version"`
+	Site    string `json:"site,omitempty"`
+	Title   string `json:"title,omitempty"`
+
+	// VoxelMetres is the downsampling grid applied before export. Background is
+	// context rather than measurement, so it is thinned harder than a clip.
+	VoxelMetres float64 `json:"voxel_metres"`
+	PointCount  int     `json:"point_count"`
+
+	// Bounds let a viewer frame the scene before decoding every point.
+	MinX float64 `json:"min_x"`
+	MaxX float64 `json:"max_x"`
+	MinY float64 `json:"min_y"`
+	MaxY float64 `json:"max_y"`
+	MinZ float64 `json:"min_z"`
+	MaxZ float64 `json:"max_z"`
+
+	// GroundZ is the estimated road surface, taken as a low percentile of Z so
+	// a stray return under the sensor does not drag it down.
+	GroundZ float64 `json:"ground_z"`
+
+	SourceVRLOGSHA256 string `json:"source_vrlog_sha256,omitempty"`
+	GeneratedAt       string `json:"generated_at"`
+
+	// Points are [x, y, z, intensity], rounded to 2 dp like every other export.
+	Points [][4]float64 `json:"points"`
+}
+
+// TimelineSummary annotates a scene's timeline so a viewer can show where
+// something is happening without decoding every chunk first.
+type TimelineSummary struct {
+	Version       int              `json:"version"`
+	BucketSeconds float64          `json:"bucket_seconds"`
+	DurationSec   float64          `json:"duration_sec"`
+	Buckets       []TimelineBucket `json:"buckets"`
+
+	// Peaks across the whole scene, so a viewer can scale its axes without a
+	// second pass.
+	MaxTotal float64 `json:"max_total"`
+	MaxSpeed float64 `json:"max_speed"`
+}
+
+// TimelineBucket aggregates one slice of wall-clock time.
+//
+// Counts are mean concurrent objects rather than totals, so a bucket's height
+// means the same thing whatever the bucket length or frame stride. Modes are
+// split because a street busy with people reads very differently from one busy
+// with cars, and a single "objects" number hides that.
+type TimelineBucket struct {
+	StartSec float64 `json:"t"`
+	Vehicle  float64 `json:"veh"`
+	Person   float64 `json:"ped"`
+	Cycle    float64 `json:"cyc"`
+	Other    float64 `json:"oth"`
+	MaxSpeed float64 `json:"spd"`
+	Frames   int     `json:"n"`
+}

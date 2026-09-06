@@ -51,6 +51,8 @@ func exportMain(args []string) int {
 	fs.StringVar(&opts.Site, "site", "", "Site identifier recorded in the export header")
 	fs.StringVar(&opts.Title, "title", "", "Human-readable scene title")
 	fs.IntVar(&opts.MaxPointsPerFrame, "max-points", 0, "Cap foreground points per frame in a clip export (0 = uncapped)")
+	fs.Float64Var(&opts.VoxelMetres, "voxel", sceneexport.DefaultBackgroundVoxel, "Downsampling grid for a background export, in metres")
+	fs.Float64Var(&opts.BucketSeconds, "bucket-seconds", sceneexport.DefaultBucketSeconds, "Timeline summary resolution in seconds")
 
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
@@ -80,7 +82,11 @@ func exportMain(args []string) int {
 		return 2
 	}
 
-	res, err := sceneexport.Export(opts)
+	export := sceneexport.Export
+	if opts.Kind == sceneexport.KindBackground {
+		export = sceneexport.ExportBackground
+	}
+	res, err := export(opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "scene export failed: %v\n", err)
 		return 1
@@ -88,15 +94,25 @@ func exportMain(args []string) int {
 
 	fmt.Printf("wrote %s\n", filepath.Clean(opts.OutDir))
 	fmt.Printf("  export        %s\n", res.Header.Export)
-	fmt.Printf("  frames        %d retained from %d source (stride %d)\n",
-		res.Header.FrameCount, res.SourceFrames, res.Header.FrameStride)
-	fmt.Printf("  duration      %.1f s\n", res.Header.DurationSec)
+
+	// A background export is a single snapshot: frame counts, stride and
+	// duration describe nothing about it.
+	if res.Header.Export != sceneexport.KindBackground {
+		fmt.Printf("  frames        %d retained from %d source (stride %d)\n",
+			res.Header.FrameCount, res.SourceFrames, res.Header.FrameStride)
+		fmt.Printf("  duration      %.1f s\n", res.Header.DurationSec)
+	}
 	if res.DroppedNonMonotonic > 0 {
 		fmt.Printf("  dropped       %d frame(s) with non-monotonic timestamps\n", res.DroppedNonMonotonic)
 	}
-	fmt.Printf("  chunks        %d\n", res.Chunks)
+	if res.PointCount > 0 {
+		fmt.Printf("  points        %d\n", res.PointCount)
+	}
+	if res.Header.Export != sceneexport.KindBackground {
+		fmt.Printf("  chunks        %d\n", res.Chunks)
+	}
 	fmt.Printf("  bytes on disk %d (%.1f KB)\n", res.BytesOnDisk, float64(res.BytesOnDisk)/1024)
-	if res.Header.FrameCount > 0 {
+	if res.Header.Export != sceneexport.KindBackground && res.Header.DurationSec > 0 {
 		fmt.Printf("  per minute    %.1f KB\n",
 			float64(res.BytesOnDisk)/1024/(res.Header.DurationSec/60))
 	}
