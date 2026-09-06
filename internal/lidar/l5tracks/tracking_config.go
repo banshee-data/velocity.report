@@ -26,10 +26,17 @@ const (
 	HeadingSourceVelocity     HeadingSource = 1 // Disambiguated using Kalman velocity
 	HeadingSourceDisplacement HeadingSource = 2 // Disambiguated using position displacement
 	HeadingSourceLocked       HeadingSource = 3 // Heading locked (aspect ratio guard or jump rejection)
+	// HeadingSourceReleased marks the frame on which the rejection counter
+	// forced a locked heading to release and snap to the measurement. It is a
+	// distinct source rather than a counter so that the event survives into
+	// the recorded stream: a VRLOG carries heading source per frame, and
+	// without this a forced release is indistinguishable from an ordinary
+	// unlocked frame on replay.
+	HeadingSourceReleased HeadingSource = 4
 
 	// HeadingSourceCount is the number of heading sources, for sizing
 	// per-source counters. Keep it one past the last source above.
-	HeadingSourceCount = 4
+	HeadingSourceCount = 5
 )
 
 // String names a heading source for diagnostics and JSON keys.
@@ -43,6 +50,8 @@ func (h HeadingSource) String() string {
 		return "displacement"
 	case HeadingSourceLocked:
 		return "locked"
+	case HeadingSourceReleased:
+		return "released"
 	default:
 		return "unknown"
 	}

@@ -88,17 +88,23 @@ func TestSustainedLockThatReleasesIsNotTrapped(t *testing.T) {
 // One frame slipping through between rejections is not the lock letting go.
 // Without this the trapped population would be badly undercounted: Guard 3
 // rejects per-frame, so a single unlocked frame is common inside a long trap.
-func TestSingleUnlockedFrameIsNotARelease(t *testing.T) {
+func TestSingleUnlockedFrameIsRelocked(t *testing.T) {
 	seq := rep(HeadingSourceLocked, 20)
 	seq = append(seq, HeadingSourceVelocity)
 	seq = append(seq, rep(HeadingSourceLocked, 20)...)
 	tr := recordSources(seq...)
 
 	if tr.ReleasedAfterLock {
-		t.Fatal("a single unlocked frame counted as a release")
+		t.Fatal("a single unlocked frame counted as a clean release")
 	}
-	if !tr.HeadingLockTrapped() {
-		t.Fatal("track with one interrupted lock is not reported as trapped")
+	if tr.HeadingLockTrapped() {
+		t.Fatal("a lock that broke was still reported as never recovered")
+	}
+	if got := tr.HeadingLockOutcomeFor(); got != HeadingLockRelocked {
+		t.Fatalf("outcome = %q, want relocked", got)
+	}
+	if tr.LockEpisodes != 2 {
+		t.Fatalf("episodes = %d, want 2", tr.LockEpisodes)
 	}
 	if tr.LongestLockRun != 20 {
 		t.Fatalf("longest run = %d, want 20", tr.LongestLockRun)
@@ -162,5 +168,37 @@ func TestGetTrackingMetricsRollsUpLockTelemetry(t *testing.T) {
 	}
 	if m.HeadingSourceFrames["locked"] != 30 || m.HeadingSourceFrames["velocity"] != 30 {
 		t.Fatalf("source frames = %v, want 30 locked and 30 velocity", m.HeadingSourceFrames)
+	}
+}
+
+func TestHeadingLockOutcomes(t *testing.T) {
+	cases := []struct {
+		name string
+		seq  []HeadingSource
+		want HeadingLockOutcome
+	}{
+		{"never locked", rep(HeadingSourceVelocity, 40), HeadingLockNone},
+		{"locked forever", rep(HeadingSourceLocked, 40), HeadingLockNeverRecovered},
+		{"clean release", append(rep(HeadingSourceLocked, 20), rep(HeadingSourceVelocity, 10)...), HeadingLockReleased},
+		{"short lock only", rep(HeadingSourceLocked, SustainedLockFrames-1), HeadingLockNone},
+	}
+	for _, c := range cases {
+		if got := recordSources(c.seq...).HeadingLockOutcomeFor(); got != c.want {
+			t.Fatalf("%s: outcome = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// A forced release is its own heading source so the event reaches a recording.
+func TestReleasedSourceCountsAsRecovery(t *testing.T) {
+	seq := append(rep(HeadingSourceLocked, 20), HeadingSourceReleased)
+	seq = append(seq, rep(HeadingSourceVelocity, 10)...)
+	tr := recordSources(seq...)
+
+	if tr.HeadingLockOutcomeFor() != HeadingLockReleased {
+		t.Fatalf("outcome = %q, want released", tr.HeadingLockOutcomeFor())
+	}
+	if tr.HeadingSourceCounts[HeadingSourceReleased] != 1 {
+		t.Fatalf("released frames = %d, want 1", tr.HeadingSourceCounts[HeadingSourceReleased])
 	}
 }

@@ -87,13 +87,27 @@ type HeadingLockSummary struct {
 	LockedFrameRatio float64 `json:"locked_frame_ratio"`
 	// SustainedLockTracks entered a lock of at least SustainedLockFrames.
 	SustainedLockTracks int `json:"sustained_lock_tracks"`
-	// TrappedTracks entered a sustained lock and never released it. This is
-	// the number that matters: those boxes cannot recover their orientation,
-	// because Guard 3 compares each measurement against a smoothed heading
-	// that has itself drifted outside the rejection band.
-	TrappedTracks int `json:"trapped_tracks"`
-	// TrappedRatio is TrappedTracks over tracks with any heading source data.
+	// NeverRecoveredTracks locked and never unlocked again. This is the true
+	// ratchet, and the population that should be empty once the rejection
+	// release is armed. It is the narrow reading of "trapped": a track that
+	// breaks free and re-locks is counted under RelockedTracks instead,
+	// because the two call for different fixes.
+	NeverRecoveredTracks int `json:"never_recovered_tracks"`
+	// RelockedTracks broke free of a sustained lock and locked again without
+	// ever holding a clean run of unlocked frames. The ratchet is gone; the
+	// underlying heading ambiguity is not.
+	RelockedTracks int `json:"relocked_tracks"`
+	// ReleasedTracks held SustainedLockFrames or more consecutive unlocked
+	// frames after their lock.
+	ReleasedTracks int `json:"released_tracks"`
+	// TrappedRatio is NeverRecoveredTracks over tracks with enough live frames
+	// to assess.
 	TrappedRatio float64 `json:"trapped_ratio"`
+	// ForcedReleases counts frames on which the rejection counter forced a
+	// locked heading to snap to the measurement. Zero across a whole run with
+	// the release armed means either nothing hit the trap, or the release is
+	// misconfigured.
+	ForcedReleases int `json:"forced_releases"`
 	// LongestLockRunFrames is the worst single run seen in the recording.
 	LongestLockRunFrames int `json:"longest_lock_run_frames"`
 	// Tracks is the population the ratios are taken over.
@@ -172,12 +186,15 @@ type TrackDetail struct {
 	CourseAlignmentP90Deg float32 `json:"course_alignment_p90_deg"`
 	CourseAlignmentN      int     `json:"course_alignment_n"`
 
-	// Heading lock telemetry. LockTrapped is the one to watch: the track
-	// entered a sustained heading lock and never released it, so its box could
-	// not recover its orientation for the rest of the track's life.
-	HeadingLockedFrames int  `json:"heading_locked_frames"`
-	LongestLockRun      int  `json:"longest_lock_run"`
-	LockTrapped         bool `json:"lock_trapped"`
+	// Heading lock telemetry. LockOutcome is the one to watch: "none",
+	// "never_recovered" (the ratchet), "relocked", or "released".
+	// LockTrapped is kept as the narrow never-recovered case.
+	HeadingLockedFrames int    `json:"heading_locked_frames"`
+	LongestLockRun      int    `json:"longest_lock_run"`
+	LockEpisodes        int    `json:"lock_episodes"`
+	LockOutcome         string `json:"lock_outcome"`
+	LockTrapped         bool   `json:"lock_trapped"`
+	ForcedReleases      int    `json:"forced_releases"`
 
 	StartX            float32 `json:"start_x"`
 	StartY            float32 `json:"start_y"`

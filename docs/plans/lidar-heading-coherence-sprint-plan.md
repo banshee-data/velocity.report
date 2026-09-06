@@ -162,7 +162,7 @@ Order matters. The metric lands first so every later change is attributable.
 | D1.1 | **Course-alignment metric. Done.** Per-frame \|OBB heading − course\| folded to **[0, 90]**, not [0, 180]: an OBB is symmetric, so a box pointing backwards along the course is correctly oriented and folds to 0, while a 90° length/width swap is the worst case. Held as a 20-bin histogram per track so the cost is constant on the Pi. Sampled only on live frames at or above 2 m/s                                                                                                                                                                                                               | `l5tracks/tracking.go`, `tracking_metrics.go`, `analysis/types.go`, `analysis/report.go` | S    |
 | D1.2 | **Lock telemetry. Done.** `HeadingLockedFrames`, `LongestLockRun`, `EnteredSustainedLock`, `ReleasedAfterLock` and a derived `LockTrapped` per track, plus a per-run `heading_source` histogram and trapped ratio. A release requires five consecutive unlocked frames: Guard 3 rejects per frame, so a single frame slipping through is not the lock letting go                                                                                                                                                                                                                                        | `l5tracks/tracking.go`, `tracking_update.go`, `analysis/report.go`                       | S    |
 | D1.3 | **Break the ratchet. Done.** Guard 3 keeps rejecting, but a counter releases the lock after `N` consecutive rejections (default 5, config `obb_heading_lock_max_rejections`; 0 restores the old behaviour). On release the heading **snaps** to the measurement rather than easing toward it, because the EMA moves 8 % of the gap per update and easing across a delta wide enough to be rejected would re-trigger the guard forever. Guards 1 and 2 do not drive the release: they fire when the measurement is genuinely unusable, and snapping to it would replace a wrong answer with a random one | `l5tracks/tracking_update.go`, `tracking_config.go`, `internal/config/tuning.go`         | S    |
-| D1.4 | **Stop freezing dimensions.** While the heading is locked, update length and width from the cluster OBB projected onto the locked axes, rather than not at all. A locked heading is a statement about orientation, not a reason to stop measuring size                                                                                                                                                                                                                                                                                                                                                  | `l5tracks/tracking_update.go`                                                            | S    |
+| D1.4 | **Stop freezing dimensions. Deferred until after D2.1, deliberately.** Releasing a lock already unfreezes dimensions (D1.3), so the worst case is bounded. What remains is the frozen size _during_ a lock, and D2.1 replaces Guards 2 and 3 with the axis-selection test, which changes what a lock is and which axes there are to project onto. Building the projection first would mean building it twice. The evidence that it still matters is kept: the worst capture in the corpus holds a 416-frame lock, 41 seconds of a box carrying whatever size it locked with                             | `l5tracks/tracking_update.go`                                                            | S    |
 | D1.5 | **Fragment guard. Done.** Forbid the pairing in the association cost matrix, not at update time, so the fragment stays unassociated and can seed its own track instead of being consumed. Fires only when a track has at least 3 observations, believes it is at least 2 m (`FragmentGuardMinTrackExtentMetres`), and the cluster's longest extent is under `min_associable_extent_metres` (default 0.5). The belief is the running average, not the latest frame, because the latest frame is what a fragment would already have corrupted                                                             | `l5tracks/tracking_update.go`, `tracking_association.go`                                 | S    |
 | D1.6 | **Ghost fade decoupled. Done.** The fade-out was deliberate, but its duration was `deleted_track_grace_period`: one number doing two unrelated jobs, so a re-association window held a frozen box on screen for five seconds. Split out `deleted_track_render_fade` (default 500 ms). Re-association is untouched                                                                                                                                                                                                                                                                                       | `l9endpoints/adapter.go`, `l5tracks/tracking.go`                                         | S    |
 
@@ -402,6 +402,42 @@ not.
 With both fixed, two five-minute replays of the same capture agree on every
 figure: frame count, track count, fragmentation, every percentile, the trapped
 count, and the longest lock run. A D2.5 regression fixture can assert equality.
+
+#### Pre-D2.1: what the split actually showed
+
+`LockTrapped` conflated two outcomes, and splitting it three ways refuted the
+reason I gave for keeping the metric. The guess was that the trapped count
+stayed flat because tracks escape and re-lock, never accumulating the clean run
+a release needs. Measured on the reference window:
+
+| Outcome                     | Tracks         |
+| --------------------------- | -------------- |
+| Entered a sustained lock    | 102 of 353     |
+| ...never recovered          | **45 (13 %)**  |
+| ...broke free and re-locked | **2**          |
+| ...released cleanly         | **55**         |
+| Forced releases fired       | **130 frames** |
+
+Two. Not the explanation. The release mechanism is working hard, 130 times on
+one five-minute window, and 55 tracks escape cleanly because of it. What stayed
+flat is a different population entirely.
+
+The 45 that never recover are not locked by Guard 3. The rejection counter only
+counts Guard 3 rejections, because Guards 1 and 2 fire when the cluster is
+genuinely unusable and snapping to it would replace a wrong answer with a
+random one. A track locked by too few points or by a near-square aspect ratio
+therefore never accumulates a rejection and is never released.
+
+That is a better problem to have, and it points straight at D2.1. The
+axis-selection test replaces Guard 2, which is the ambiguity half of that
+population. Guard 1 is honest: with too few points for PCA there is no heading
+to recover, and the answer is to say so rather than to invent one.
+
+The forced release also needed to survive into a recording. It is now its own
+heading source, `released`, rather than a counter on the live tracker, because
+a VRLOG carries heading source per frame and a counter would not replay. The
+Swift renderer falls back to the PCA colour for values it does not know, so the
+addition is safe ahead of any visualiser change.
 
 ### Day 2: axis coherence and an honest score
 

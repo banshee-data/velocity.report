@@ -360,10 +360,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 						track.HeadingRejectionRun = 0
 						track.HeadingLockReleases++
 						snappedHeading = true
-						headingSource = HeadingSourceVelocity
-						if !disambiguated {
-							headingSource = HeadingSourcePCA
-						}
+						headingSource = HeadingSourceReleased
 					} else {
 						updateHeading = false
 						headingSource = HeadingSourceLocked
@@ -451,6 +448,9 @@ func (t *TrackedObject) RecordHeadingSource(src HeadingSource) {
 
 	if src == HeadingSourceLocked {
 		t.HeadingLockedFrames++
+		if t.CurrentLockRun == 0 {
+			t.LockEpisodes++
+		}
 		t.CurrentLockRun++
 		t.currentUnlockRun = 0
 		if t.CurrentLockRun > t.LongestLockRun {
@@ -464,18 +464,64 @@ func (t *TrackedObject) RecordHeadingSource(src HeadingSource) {
 
 	t.CurrentLockRun = 0
 	t.currentUnlockRun++
-	// Only a run of unlocked frames counts as a release. A single frame that
-	// slips through between rejections is not the lock letting go.
-	if t.EnteredSustainedLock && t.currentUnlockRun >= SustainedLockFrames {
-		t.ReleasedAfterLock = true
+	if t.EnteredSustainedLock {
+		// Any unlocked frame after a sustained lock means the lock broke. This
+		// is the weaker of the two conditions and the one that distinguishes a
+		// ratchet from a lock that merely recurs.
+		t.RecoveredAfterLock = true
+		// A run of unlocked frames is a clean release. A single frame slipping
+		// through between rejections is not the lock letting go.
+		if t.currentUnlockRun >= SustainedLockFrames {
+			t.ReleasedAfterLock = true
+		}
 	}
 }
 
-// HeadingLockTrapped reports whether the track entered a sustained heading lock
-// and never released it. This is the population that sat a median 106° away
-// from its direction of travel in the reference run.
+// HeadingLockOutcome names what became of a track's heading lock.
+//
+// The original single "trapped" flag conflated two different things once the
+// rejection release started breaking locks. A track that escapes and re-locks
+// repeatedly never accumulates the consecutive unlocked frames a clean release
+// needs, so it read as trapped even though the ratchet was gone. Judging a
+// change to the guard stack needs the three cases kept apart.
+type HeadingLockOutcome string
+
+const (
+	// HeadingLockNone means the track never entered a sustained lock.
+	HeadingLockNone HeadingLockOutcome = "none"
+	// HeadingLockNeverRecovered means the heading locked and never unlocked
+	// again for the rest of the track's life. This is the true ratchet, and
+	// the population that should be empty once the release is armed.
+	HeadingLockNeverRecovered HeadingLockOutcome = "never_recovered"
+	// HeadingLockRelocked means the lock broke but re-formed without ever
+	// holding a clean run of unlocked frames. The ratchet is gone; the
+	// underlying heading ambiguity is not.
+	HeadingLockRelocked HeadingLockOutcome = "relocked"
+	// HeadingLockReleased means the track held SustainedLockFrames or more
+	// consecutive unlocked frames after its lock.
+	HeadingLockReleased HeadingLockOutcome = "released"
+)
+
+// HeadingLockOutcomeFor classifies the track's heading-lock history.
+func (t *TrackedObject) HeadingLockOutcomeFor() HeadingLockOutcome {
+	switch {
+	case !t.EnteredSustainedLock:
+		return HeadingLockNone
+	case !t.RecoveredAfterLock:
+		return HeadingLockNeverRecovered
+	case !t.ReleasedAfterLock:
+		return HeadingLockRelocked
+	default:
+		return HeadingLockReleased
+	}
+}
+
+// HeadingLockTrapped reports a track whose heading locked and never unlocked
+// again. It is deliberately the narrow reading: a track that breaks free and
+// re-locks is reported as relocked, not trapped, because the two call for
+// different fixes.
 func (t *TrackedObject) HeadingLockTrapped() bool {
-	return t.EnteredSustainedLock && !t.ReleasedAfterLock
+	return t.HeadingLockOutcomeFor() == HeadingLockNeverRecovered
 }
 
 // FoldAxisAngleDeg converts a signed angular difference in radians to degrees

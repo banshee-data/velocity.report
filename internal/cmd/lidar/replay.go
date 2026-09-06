@@ -139,10 +139,11 @@ func printReplaySummary(r *analysis.AnalysisReport) {
 			a.CourseAlignmentTracks, derefFloat(d.P50), d.Avg, d.Max)
 	}
 	if hl := ts.HeadingLock; hl != nil {
-		fmt.Printf("heading lock: %d of %d tracks sustained, %d trapped (%.0f%%), longest run %d frames\n",
-			hl.SustainedLockTracks, hl.Tracks, hl.TrappedTracks, 100*hl.TrappedRatio,
-			hl.LongestLockRunFrames)
-		fmt.Printf("locked share of live track-frames: %.1f%%\n", 100*hl.LockedFrameRatio)
+		fmt.Printf("heading lock: %d of %d sustained -> %d never recovered (%.0f%%), %d relocked, %d released\n",
+			hl.SustainedLockTracks, hl.Tracks, hl.NeverRecoveredTracks, 100*hl.TrappedRatio,
+			hl.RelockedTracks, hl.ReleasedTracks)
+		fmt.Printf("locked share %.1f%%, longest run %d frames, %d forced releases\n",
+			100*hl.LockedFrameRatio, hl.LongestLockRunFrames, hl.ForcedReleases)
 	}
 }
 
