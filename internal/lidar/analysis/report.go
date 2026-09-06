@@ -532,6 +532,9 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 	if totalSourceFrames > 0 && tracksWithSources > 0 {
 		report.TrackSummary.HeadingLock = &HeadingLockSummary{
 			SourceFrames:         headingSourceFrames,
+			AcceptedFrames:       totalSourceFrames - totalLockedFrames,
+			HeldFrames:           totalLockedFrames,
+			AcceptanceRatio:      float64(totalSourceFrames-totalLockedFrames) / float64(totalSourceFrames),
 			LockedFrameRatio:     float64(totalLockedFrames) / float64(totalSourceFrames),
 			SustainedLockTracks:  sustainedLockTracks,
 			NeverRecoveredTracks: neverRecoveredTracks,
@@ -753,39 +756,23 @@ const CourseAlignmentMinSpeedMps = 2.0
 // count as a genuine release. It mirrors l5tracks.SustainedLockFrames.
 const SustainedLockFrames = 5
 
-// Heading source values as recorded in the stream. These mirror
-// l5tracks.HeadingSource; the constant is duplicated rather than imported to
-// keep analysis free of a dependency on the tracker.
+// Heading source values as recorded in the stream. The names and the held /
+// accepted classification come straight from l5tracks, which this package
+// already imports: a second copy of the table only drifts from the first.
 const (
-	headingSourcePCA          = 0
-	headingSourceVelocity     = 1
-	headingSourceDisplacement = 2
-	headingSourceLocked       = 3
-	headingSourceReleased     = 4
+	headingSourcePCA          = int(l5tracks.HeadingSourcePCA)
+	headingSourceVelocity     = int(l5tracks.HeadingSourceVelocity)
+	headingSourceDisplacement = int(l5tracks.HeadingSourceDisplacement)
+	headingSourceLocked       = int(l5tracks.HeadingSourceLocked)
+	headingSourceReleased     = int(l5tracks.HeadingSourceReleased)
 	headingSourceCount        = l5tracks.HeadingSourceCount
 )
 
 func headingSourceName(src int) string {
-	switch src {
-	case headingSourcePCA:
-		return "pca"
-	case headingSourceVelocity:
-		return "velocity"
-	case headingSourceDisplacement:
-		return "displacement"
-	case headingSourceLocked:
-		return "locked"
-	case headingSourceReleased:
-		return "released"
-	case int(l5tracks.HeadingSourceAxis):
-		return "axis"
-	case int(l5tracks.HeadingSourceAmbiguous):
-		return "ambiguous"
-	case int(l5tracks.HeadingSourceInsufficient):
-		return "insufficient"
-	default:
+	if src < 0 || src >= headingSourceCount {
 		return "unknown"
 	}
+	return l5tracks.HeadingSource(src).String()
 }
 
 // lockStats summarises a track's heading-source sequence.
@@ -856,7 +843,9 @@ func computeLockStats(sources []int, live []bool) lockStats {
 		if src >= 0 && src < headingSourceCount {
 			st.sourceCounts[src]++
 		}
-		if src == headingSourceReleased {
+		// Both paths mark a forced release with a source rather than a counter
+		// so the event survives into the recording; count either of them.
+		if src == headingSourceReleased || src == int(l5tracks.HeadingSourceAxisReleased) {
 			st.releases++
 		}
 		if l5tracks.HeadingSource(src).IsLocked() {

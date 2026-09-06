@@ -451,9 +451,7 @@ func (t *TrackedObject) RecordHeadingSource(src HeadingSource) {
 	if src < 0 || int(src) >= HeadingSourceCount {
 		return
 	}
-	if src >= 0 && int(src) < HeadingSourceCount {
-		t.HeadingSourceCounts[src]++
-	}
+	t.HeadingSourceCounts[src]++
 
 	if src.IsLocked() {
 		t.HeadingLockedFrames++

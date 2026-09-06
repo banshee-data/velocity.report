@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
@@ -143,13 +144,47 @@ func printReplaySummary(r *analysis.AnalysisReport) {
 			a.CourseAlignmentTracks, derefFloat(d.P50), d.Avg, d.Max)
 	}
 	if hl := ts.HeadingLock; hl != nil {
+		// Acceptance leads, and course error is printed next to it. The two
+		// heading paths name their accepted frames differently, so acceptance
+		// is what compares between them; and a course error measured over half
+		// as many frames is not the same claim as one measured over all of them.
+		fmt.Printf("heading acceptance %.1f%% (%d accepted, %d held of %d frames)\n",
+			100*hl.AcceptanceRatio, hl.AcceptedFrames, hl.HeldFrames,
+			hl.AcceptedFrames+hl.HeldFrames)
+		printAbstentionReasons(hl.SourceFrames, hl.HeldFrames)
 		fmt.Printf("legacy lifetime heading lock: %d of %d sustained -> %d never recovered (%.0f%%), %d relocked, %d released\n",
 			hl.SustainedLockTracks, hl.Tracks, hl.NeverRecoveredTracks, 100*hl.TrappedRatio,
 			hl.RelockedTracks, hl.ReleasedTracks)
-		fmt.Printf("locked share %.1f%%, longest run %d frames, %d forced releases\n",
-			100*hl.LockedFrameRatio, hl.LongestLockRunFrames, hl.ForcedReleases)
+		fmt.Printf("longest run %d frames, %d forced releases\n",
+			hl.LongestLockRunFrames, hl.ForcedReleases)
 		fmt.Printf("terminal measurement episodes: %d unrecovered, %d recovered, %d censored (%d assessed)\n",
 			hl.TerminalUnrecovered, hl.TerminalRecovered, hl.TerminalCensored, hl.TerminalAssessed)
+	}
+}
+
+// printAbstentionReasons breaks the held frames down by why the estimator
+// declined. A near-square observation, one that fits no interpretation, and a
+// tie between two need different fixes, so a single held total cannot be acted
+// on. Only the reasons actually present are printed.
+func printAbstentionReasons(sources map[string]int, held int) {
+	if held == 0 {
+		return
+	}
+	reasons := []struct{ key, label string }{
+		{"locked", "guard-locked"},
+		{"axis_square", "no distinguishable axis"},
+		{"axis_no_fit", "fits neither interpretation"},
+		{"ambiguous", "interpretations tied"},
+		{"insufficient", "geometry missing or invalid"},
+	}
+	parts := make([]string, 0, len(reasons))
+	for _, r := range reasons {
+		if n := sources[r.key]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%s %d (%.0f%%)", r.label, n, 100*float64(n)/float64(held)))
+		}
+	}
+	if len(parts) > 0 {
+		fmt.Printf("  held because: %s\n", strings.Join(parts, ", "))
 	}
 }
 

@@ -32,19 +32,42 @@ const (
 	// the recorded stream: a VRLOG carries heading source per frame, and
 	// without this a forced release is indistinguishable from an ordinary
 	// unlocked frame on replay.
-	HeadingSourceReleased     HeadingSource = 4
-	HeadingSourceAxis         HeadingSource = 5 // Supported axis interpretation, not directed body yaw
-	HeadingSourceAmbiguous    HeadingSource = 6 // Competing axis interpretations remain unresolved
-	HeadingSourceInsufficient HeadingSource = 7 // Missing or invalid heading geometry
+	HeadingSourceReleased HeadingSource = 4
+	HeadingSourceAxis     HeadingSource = 5 // Supported axis interpretation, not directed body yaw
+	// HeadingSourceAmbiguous means the aligned and swapped interpretations
+	// scored too closely to separate. This is the genuine quarter-turn
+	// ambiguity, and forcing a winner here is not an improvement.
+	HeadingSourceAmbiguous    HeadingSource = 6
+	HeadingSourceInsufficient HeadingSource = 7 // Missing or invalid geometry, or too few points
+	// The two abstentions below were previously reported as ambiguous too.
+	// They are separated because they call for different fixes: a near-square
+	// observation carries no axis to recover, whereas an observation that
+	// matches neither interpretation indicts the support reference.
+	HeadingSourceAxisSquare HeadingSource = 8 // No distinguishable long axis
+	HeadingSourceAxisNoFit  HeadingSource = 9 // Neither interpretation fits the support reference
+	// HeadingSourceAxisReleased marks the frame on which a sustained run of
+	// abstentions re-seeded the support reference and snapped the heading to
+	// the observation. As with HeadingSourceReleased it is a source rather
+	// than a counter so the event survives into a recording.
+	HeadingSourceAxisReleased HeadingSource = 10
 
 	// HeadingSourceCount is the number of heading sources, for sizing
 	// per-source counters. Keep it one past the last source above.
-	HeadingSourceCount = 8
+	HeadingSourceCount = 11
 )
 
-// IsLocked reports a decision that did not accept a measured heading.
+// IsLocked reports a decision that held the previous heading instead of
+// accepting a measured one. The complement is the acceptance rate, which is
+// the figure to compare across heading paths: the guard path and the axis
+// path label their accepted frames differently, so held share alone is not
+// like for like between them.
 func (h HeadingSource) IsLocked() bool {
-	return h == HeadingSourceLocked || h == HeadingSourceAmbiguous || h == HeadingSourceInsufficient
+	switch h {
+	case HeadingSourceLocked, HeadingSourceAmbiguous, HeadingSourceInsufficient,
+		HeadingSourceAxisSquare, HeadingSourceAxisNoFit:
+		return true
+	}
+	return false
 }
 
 // String names a heading source for diagnostics and JSON keys.
@@ -66,6 +89,12 @@ func (h HeadingSource) String() string {
 		return "ambiguous"
 	case HeadingSourceInsufficient:
 		return "insufficient"
+	case HeadingSourceAxisSquare:
+		return "axis_square"
+	case HeadingSourceAxisNoFit:
+		return "axis_no_fit"
+	case HeadingSourceAxisReleased:
+		return "axis_released"
 	default:
 		return "unknown"
 	}

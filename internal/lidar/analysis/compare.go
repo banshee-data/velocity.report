@@ -272,6 +272,11 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 		comparison.QualityDelta.CourseAlignmentP50 = &DeltaPair{A: a, B: b, Delta: b - a}
 	}
 	aLock, bLock := reportA.TrackSummary.HeadingLock, reportB.TrackSummary.HeadingLock
+	if aLock != nil && bLock != nil &&
+		aLock.AcceptedFrames+aLock.HeldFrames > 0 && bLock.AcceptedFrames+bLock.HeldFrames > 0 {
+		a, b := aLock.AcceptanceRatio, bLock.AcceptanceRatio
+		comparison.QualityDelta.HeadingAcceptanceRatio = &DeltaPair{A: a, B: b, Delta: b - a}
+	}
 	if aLock != nil && bLock != nil && aLock.TerminalAssessed > 0 && bLock.TerminalAssessed > 0 {
 		a := float64(aLock.TerminalUnrecovered) / float64(aLock.TerminalAssessed)
 		b := float64(bLock.TerminalUnrecovered) / float64(bLock.TerminalAssessed)

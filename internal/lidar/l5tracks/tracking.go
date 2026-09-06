@@ -74,6 +74,7 @@ type TrackedObject struct {
 	OBBHeight                      float32 // Latest frame bounding box height (metres)
 	axisReferenceL, axisReferenceW float32 // Previous accepted observed support, not body dimensions
 	AxisScoreGap                   float32 // Heuristic cost margin, not calibrated confidence
+	AxisAbstentionRun              int     // Consecutive axis-path abstentions, running
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -215,6 +216,7 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
 		for _, track := range t.Tracks {
 			track.axisReferenceL, track.axisReferenceW, track.AxisScoreGap = 0, 0, 0
+			track.AxisAbstentionRun = 0
 		}
 	}
 }
