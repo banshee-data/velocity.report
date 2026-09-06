@@ -4,16 +4,20 @@
 // parts of a recording instead of scrubbing blindly through eleven minutes of
 // mostly-quiet street.
 //
-// Traffic is split by mode because a road busy with people reads nothing like
-// one busy with cars, and a single "objects" curve hides exactly that. Peak
-// speed is overlaid as a line, since the busiest moment and the fastest one are
-// rarely the same moment.
+// Traffic diverges from a zero line: people and bikes above it, vehicles below.
+// A road busy with people reads nothing like one busy with cars, and stacking
+// them into one total hides exactly that. Peak speed is overlaid as a line,
+// since the busiest moment and the fastest one are rarely the same one.
+//
+// Unclassified returns are deliberately not drawn. They outnumber everything
+// else at some sites, and plotting them would bury the modes the strip exists
+// to compare.
 
 /** Matches the class colours used for the boxes, so the strip reads as the same scene. */
 export const MODE_COLOURS = {
-  vehicle: "#4bc0d9",
-  person: "#f25f5c",
-  cycle: "#9ad14b",
+  vehicle: "#f2504b",
+  person: "#4b9df2",
+  cycle: "#6fd14b",
   other: "#3d4a52",
 };
 
@@ -32,7 +36,12 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
   const buckets = summary?.buckets ?? [];
   const bucketSeconds = summary?.bucket_seconds ?? 5;
   // A near-empty scene would otherwise scale its noise to full height.
-  const maxTotal = Math.max(summary?.max_total ?? 0, 1);
+  // The taller of the two directions sets the scale, so neither half clips and
+  // a bar means the same count whichever way it points.
+  const peakSide = Math.max(
+    1,
+    ...buckets.map((b) => Math.max((b.ped ?? 0) + (b.cyc ?? 0), b.veh ?? 0)),
+  );
   const maxSpeed = Math.max(summary?.max_speed ?? 0, 1);
   const span = duration || buckets.length * bucketSeconds || 1;
 
@@ -45,7 +54,7 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
 
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const w = canvas.clientWidth || 600;
-    const h = canvas.clientHeight || 64;
+    const h = canvas.clientHeight || 72;
     if (canvas.width !== w * ratio || canvas.height !== h * ratio) {
       canvas.width = w * ratio;
       canvas.height = h * ratio;
@@ -54,45 +63,62 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.clearRect(0, 0, w, h);
 
     const barW = Math.max(1, w / Math.max(buckets.length, 1));
-
-    // Stacked volume, quietest mode at the bottom so the modes a reader
-    // cares about sit against the baseline where they are easiest to compare.
-    const order = ["other", "cycle", "person", "vehicle"];
-    const keyFor = {
-      other: "oth",
-      cycle: "cyc",
-      person: "ped",
-      vehicle: "veh",
-    };
+    // Zero sits in the middle. People and bikes grow upwards, vehicles
+    // downwards, so the two halves of a street's traffic can be compared
+    // against each other rather than stacked into one indistinct total.
+    const mid = Math.round(h / 2);
+    const halfH = mid - 4;
+    // One shared scale for both directions, so a bar's length means the same
+    // number of objects whichever way it points.
+    const scale = halfH / peakSide;
 
     buckets.forEach((b, i) => {
       const x = i * barW;
-      let y = h;
-      for (const mode of order) {
-        const v = b[keyFor[mode]] ?? 0;
+      const barWidth = Math.max(barW - 0.5, 0.5);
+
+      // Upward: people, then bikes stacked above them.
+      let up = mid;
+      for (const [key, mode] of [
+        ["ped", "person"],
+        ["cyc", "cycle"],
+      ]) {
+        const v = b[key] ?? 0;
         if (v <= 0) continue;
-        const barH = (v / maxTotal) * (h - 12);
+        const barH = v * scale;
         ctx.fillStyle = MODE_COLOURS[mode];
-        ctx.globalAlpha = mode === "other" ? 0.35 : 0.9;
-        ctx.fillRect(x, y - barH, Math.max(barW - 0.5, 0.5), barH);
-        y -= barH;
+        ctx.fillRect(x, up - barH, barWidth, barH);
+        up -= barH;
+      }
+
+      // Downward: vehicles.
+      const veh = b.veh ?? 0;
+      if (veh > 0) {
+        ctx.fillStyle = MODE_COLOURS.vehicle;
+        ctx.fillRect(x, mid, barWidth, veh * scale);
       }
     });
-    ctx.globalAlpha = 1;
 
-    // Peak speed as a line: the fastest moment is rarely the busiest one.
+    // Peak speed over the vehicle half, since speed is a property of the
+    // traffic below the line.
     ctx.beginPath();
     ctx.strokeStyle = SPEED_COLOUR;
     ctx.lineWidth = 1.5;
     buckets.forEach((b, i) => {
       const x = i * barW + barW / 2;
-      const y = h - 10 - ((b.spd ?? 0) / maxSpeed) * (h - 20);
+      const y = mid + 3 + ((b.spd ?? 0) / maxSpeed) * (halfH - 4);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
 
-    // Playhead
+    // The zero line last, so it reads on top of everything.
+    ctx.strokeStyle = "rgba(207, 227, 232, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, mid + 0.5);
+    ctx.lineTo(w, mid + 0.5);
+    ctx.stroke();
+
     const px = (playhead / span) * w;
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
@@ -110,7 +136,6 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
       ctx.stroke();
     }
   }
-
   function secondsAt(clientX) {
     const rect = canvas.getBoundingClientRect();
     // A hidden or collapsed strip has no width; dividing by it would send

@@ -116,20 +116,25 @@ type Frame struct {
 // what a renderer needs and nothing else; covariance, lifecycle counters and
 // internal quality metrics are dropped.
 type TrackJSON struct {
-	ID      string  `json:"id"`
-	X       float64 `json:"x"`
-	Y       float64 `json:"y"`
-	Z       float64 `json:"z"`
-	VX      float64 `json:"vx"`
-	VY      float64 `json:"vy"`
-	Speed   float64 `json:"spd"`
-	Heading float64 `json:"hdg"`
-	Length  float64 `json:"l"`
-	Width   float64 `json:"w"`
-	Height  float64 `json:"h"`
-	BoxYaw  float64 `json:"bh"`
-	Class   string  `json:"c,omitempty"`
-	Conf    float64 `json:"cf,omitempty"`
+	ID    string  `json:"id"`
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+	Z     float64 `json:"z"`
+	VX    float64 `json:"vx"`
+	VY    float64 `json:"vy"`
+	Speed float64 `json:"spd"`
+	// MaxSpeed is the track's peak so far, not this frame's. The pipeline
+	// carries it as a running maximum, so a label built from it shows what the
+	// object has done up to the moment on screen rather than an instant that
+	// may already have passed.
+	MaxSpeed float64 `json:"mspd,omitempty"`
+	Heading  float64 `json:"hdg"`
+	Length   float64 `json:"l"`
+	Width    float64 `json:"w"`
+	Height   float64 `json:"h"`
+	BoxYaw   float64 `json:"bh"`
+	Class    string  `json:"c,omitempty"`
+	Conf     float64 `json:"cf,omitempty"`
 }
 
 // Manifest composes several exported parts into one logical timeline. It

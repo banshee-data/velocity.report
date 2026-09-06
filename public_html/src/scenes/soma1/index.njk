@@ -25,6 +25,14 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
   .scene-stage__canvas:active { cursor: grabbing; }
   .scene-stage__canvas:focus-visible { outline: 2px solid #4bc0d9; outline-offset: -2px; }
   .scene-stage__tools { position: absolute; top: 0.6rem; right: 0.6rem; display: flex; gap: 0.4rem; }
+  .scene-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .scene-label {
+    position: absolute; transform: translate(-50%, -100%);
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.01em;
+    padding: 0.1rem 0.32rem; border-radius: 2px; white-space: nowrap;
+    background: rgba(11, 16, 19, 0.78); color: #ffd7d4;
+    border: 1px solid rgba(242, 80, 75, 0.55);
+  }
   .scene-stage__overlay {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     margin: 0; padding: 1.5rem; text-align: center; color: #cfe3e8;
@@ -56,6 +64,11 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
   .scene-timeline__key span { display: inline-flex; align-items: center; gap: 0.3rem; }
   .scene-timeline__key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
   .scene-timeline__key i.scene-timeline__line { height: 2px; width: 14px; border-radius: 0; }
+  .scene-timeline__axis {
+    opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.62rem; font-weight: 600;
+  }
+  .scene-timeline__canvas { height: 76px; }
 
   .scene-transport { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; flex-wrap: wrap; }
   .scene-transport__button {
@@ -108,6 +121,8 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
       aria-label="3D scene. Drag to look around, pinch to zoom, arrow keys to orbit."
     ></canvas>
 
+    <div class="scene-stage__labels" id="scene-labels" aria-hidden="true"></div>
+
     <div class="scene-stage__tools" role="group" aria-label="Viewport controls">
       <div class="scene-toggle" id="scene-mode" role="group" aria-label="Drag behaviour">
         <button type="button" class="scene-chip" data-mode="orbit" aria-pressed="true">Rotate</button>
@@ -125,10 +140,11 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
     <canvas id="scene-timeline" class="scene-timeline__canvas" height="64"
       aria-label="Traffic over time. Click or drag to seek."></canvas>
     <div class="scene-timeline__key">
-      <span><i style="background:#4bc0d9"></i>Vehicles</span>
-      <span><i style="background:#f25f5c"></i>On foot</span>
-      <span><i style="background:#9ad14b"></i>Cycling</span>
-      <span><i style="background:#3d4a52"></i>Unclassified</span>
+      <span class="scene-timeline__axis">Above</span>
+      <span><i style="background:#4b9df2"></i>On foot</span>
+      <span><i style="background:#6fd14b"></i>Cycling</span>
+      <span class="scene-timeline__axis">Below</span>
+      <span><i style="background:#f2504b"></i>Vehicles</span>
       <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Peak speed</span>
     </div>
   </div>
@@ -196,6 +212,7 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
     manifestURL: `${base}/manifest.json`,
     ui: {
       backgroundURL: `${base}/background/background.json.gz`,
+      labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
       presets: document.getElementById("scene-presets"),

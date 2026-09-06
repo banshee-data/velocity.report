@@ -103,8 +103,12 @@ export function createSceneCamera({ camera, element, THREE }) {
     const scale = state.distance * 0.0016;
     const sinA = Math.sin(state.azimuth);
     const cosA = Math.cos(state.azimuth);
-    target.x -= (dx * cosA - dy * sinA) * scale;
-    target.z += (dx * sinA + dy * cosA) * scale;
+    // Vertical drag moves the target along the ground away from or towards the
+    // camera. Both axes are signed so the scene tracks the finger: drag up and
+    // the ground goes up the screen, rather than the camera going up and the
+    // ground appearing to fall.
+    target.x -= (dx * cosA + dy * sinA) * scale;
+    target.z -= (-dx * sinA + dy * cosA) * scale;
     apply();
   }
 

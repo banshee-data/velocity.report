@@ -19,12 +19,14 @@ const MPS_TO_MPH = 2.236936;
 
 /** Class colours. Anything unrecognised falls back to `default`. */
 const CLASS_COLOUR = {
-  car: 0x4bc0d9,
-  bus: 0xf2a65a,
-  truck: 0xf2a65a,
-  cyclist: 0x9ad14b,
-  motorcyclist: 0x9ad14b,
-  pedestrian: 0xf25f5c,
+  // Red for vehicles, blue for people, green for bikes. The same three read
+  // across the scene and the timeline strip, so a colour means one thing.
+  car: 0xf2504b,
+  bus: 0xf2504b,
+  truck: 0xf2504b,
+  pedestrian: 0x4b9df2,
+  cyclist: 0x6fd14b,
+  motorcyclist: 0x6fd14b,
   bird: 0xb08bd4,
   dynamic: 0x8899a6,
   noise: 0x55606b,
@@ -315,6 +317,84 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   function render() {
     renderer.render(scene, camera);
+    positionLabels();
+  }
+
+  // Speed labels are HTML positioned over the canvas rather than sprites: text
+  // stays crisp at any zoom, and no texture is allocated per track.
+  const labels = new Map();
+
+  function labelFor(id) {
+    let el = labels.get(id);
+    if (!el) {
+      el = document.createElement("span");
+      el.className = "scene-label";
+      ui.labelLayer.appendChild(el);
+      labels.set(id, el);
+    }
+    return el;
+  }
+
+  const projected = new THREE.Vector3();
+
+  /** Vertical gap to keep between two labels before one is nudged. */
+  const LABEL_ROW_PX = 15;
+
+  function positionLabels() {
+    if (!ui.labelLayer) return;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
+    const placed = [];
+    for (const [id, el] of labels) {
+      const v = visuals.get(id);
+      if (!v || !v.edges.visible) {
+        el.style.display = "none";
+        continue;
+      }
+      projected.copy(v.edges.position);
+      projected.y += (v.edges.scale.y ?? 1) / 2 + 0.6;
+      projected.project(camera);
+
+      // Behind the camera, or off screen: nothing useful to place.
+      if (
+        projected.z > 1 ||
+        Math.abs(projected.x) > 1.1 ||
+        Math.abs(projected.y) > 1.1
+      ) {
+        el.style.display = "none";
+        continue;
+      }
+      placed.push({
+        el,
+        x: ((projected.x + 1) / 2) * w,
+        y: ((1 - projected.y) / 2) * h,
+        // Depth decides who keeps the true position when two labels collide.
+        depth: projected.z,
+      });
+    }
+
+    // Vehicles queued at a junction project to nearly the same point, so their
+    // labels land on top of each other and none can be read. Nearest first,
+    // then push any later label that would overlap up into a free row.
+    placed.sort((a, b) => a.depth - b.depth);
+    const taken = [];
+    for (const p of placed) {
+      let y = p.y;
+      let guard = 0;
+      while (
+        guard++ < 12 &&
+        taken.some(
+          (t) => Math.abs(t.y - y) < LABEL_ROW_PX && Math.abs(t.x - p.x) < 46,
+        )
+      ) {
+        y -= LABEL_ROW_PX;
+      }
+      taken.push({ x: p.x, y });
+      p.el.style.display = "block";
+      p.el.style.left = `${p.x}px`;
+      p.el.style.top = `${y}px`;
+    }
   }
 
   function renderFrame(frame, partIndex) {
@@ -323,6 +403,8 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     if (partIndex !== currentPart) {
       for (const v of visuals.values()) v.dispose(scene);
       visuals.clear();
+      for (const el of labels.values()) el.remove();
+      labels.clear();
       currentPart = partIndex;
     }
 
@@ -335,14 +417,30 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         visuals.set(t.id, v);
       }
       v.update(t);
+
+      // Only vehicles are labelled. A number over every pedestrian would bury
+      // the scene, and speed is the thing a street asks about cars.
+      if (
+        ui.labelLayer &&
+        (t.c === "car" || t.c === "bus" || t.c === "truck")
+      ) {
+        // The track's peak so far, not this instant's, which may already have
+        // passed by the time the box is on screen.
+        const mph = (t.mspd ?? t.spd ?? 0) * MPS_TO_MPH;
+        if (mph >= 1) {
+          labelFor(t.id).textContent = `${Math.round(mph)} mph`;
+        }
+      }
     }
     for (const [id, v] of visuals) {
       if (!seen.has(id)) {
         v.dispose(scene);
         visuals.delete(id);
+        labels.get(id)?.remove();
+        labels.delete(id);
       }
     }
-    renderer.render(scene, camera);
+    render();
     return seen.size;
   }
 

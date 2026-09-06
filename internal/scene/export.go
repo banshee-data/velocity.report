@@ -363,20 +363,21 @@ func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (
 					continue
 				}
 				out.Tracks = append(out.Tracks, TrackJSON{
-					ID:      keys.local(t.TrackID),
-					X:       round2(t.X),
-					Y:       round2(t.Y),
-					Z:       round2(t.Z),
-					VX:      round2(t.VX),
-					VY:      round2(t.VY),
-					Speed:   round2(t.SpeedMps),
-					Heading: round3(t.HeadingRad),
-					Length:  round2(t.BBoxLength),
-					Width:   round2(t.BBoxWidth),
-					Height:  round2(t.BBoxHeight),
-					BoxYaw:  round3(t.BBoxHeadingRad),
-					Class:   t.ObjectClass,
-					Conf:    round2(t.ClassConfidence),
+					ID:       keys.local(t.TrackID),
+					X:        round2(t.X),
+					Y:        round2(t.Y),
+					Z:        round2(t.Z),
+					VX:       round2(t.VX),
+					VY:       round2(t.VY),
+					Speed:    round2(t.SpeedMps),
+					MaxSpeed: round2(t.MaxSpeedMps),
+					Heading:  round3(t.HeadingRad),
+					Length:   round2(t.BBoxLength),
+					Width:    round2(t.BBoxWidth),
+					Height:   round2(t.BBoxHeight),
+					BoxYaw:   round3(t.BBoxHeadingRad),
+					Class:    t.ObjectClass,
+					Conf:     round2(t.ClassConfidence),
 				})
 			}
 		}
