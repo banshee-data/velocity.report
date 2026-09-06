@@ -65,11 +65,6 @@ type Header struct {
 
 	CoordinateFrame CoordinateFrame `json:"coordinate_frame"`
 
-	// Vantages are the named viewpoints a viewer offers. They come from the
-	// recording unless the publisher overrides them, so a scene arrives
-	// already knowing which way its street runs.
-	Vantages []Vantage `json:"vantages,omitempty"`
-
 	// Provenance. SourceVRLOGSHA256 hashes the source header.json + index.bin
 	// so an export can always be traced back to the run that produced it.
 	SourceVRLOGSHA256 string `json:"source_vrlog_sha256,omitempty"`

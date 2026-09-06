@@ -2,15 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { resolve } from '$app/paths';
-	import {
-		createScene,
-		getScene,
-		getSites,
-		updateScene,
-		type Scene,
-		type Site,
-		type Vantage
-	} from '$lib/api';
+	import { createScene, getScene, getSites, updateScene, type Scene, type Site } from '$lib/api';
 	import { mdiContentSave, mdiArrowLeft } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -44,48 +36,6 @@
 	};
 
 	let resolvedPosition = '';
-
-	// Named viewpoints. Kept as a working array so a row can be added, edited or
-	// removed without round-tripping through JSON on every keystroke.
-	let vantages: Vantage[] = [];
-	let pasteText = '';
-	let pasteError = '';
-
-	function addVantage() {
-		vantages = [
-			...vantages,
-			{ id: '', label: '', azimuth_deg: 0, polar_deg: 68, zoom: 0.8, offset_x: 0, offset_y: 0 }
-		];
-	}
-
-	function removeVantage(index: number) {
-		vantages = vantages.filter((_, i) => i !== index);
-	}
-
-	/**
-	 * Accepts the numbers the public viewer's "Copy this view" button produces,
-	 * so framing an angle by eye and recording it here is one paste rather than
-	 * six transcribed decimals.
-	 */
-	function applyPastedView(index: number) {
-		pasteError = '';
-		try {
-			const parsed = JSON.parse(pasteText);
-			const row = vantages[index];
-			vantages[index] = {
-				...row,
-				azimuth_deg: Number(parsed.azimuth_deg ?? row.azimuth_deg),
-				polar_deg: Number(parsed.polar_deg ?? row.polar_deg),
-				zoom: Number(parsed.zoom ?? row.zoom),
-				offset_x: Number(parsed.offset_x ?? row.offset_x ?? 0),
-				offset_y: Number(parsed.offset_y ?? row.offset_y ?? 0)
-			};
-			vantages = [...vantages];
-			pasteText = '';
-		} catch {
-			pasteError = 'That is not the view JSON the viewer copies.';
-		}
-	}
 
 	onMount(async () => {
 		try {
@@ -136,7 +86,6 @@
 			asset_path: scene.asset_path ?? '',
 			published: scene.published
 		};
-		vantages = scene.vantages ?? parseVantages(scene.vantages_json);
 		resolvedPosition =
 			scene.effective_latitude != null && scene.effective_longitude != null
 				? `${scene.effective_latitude.toFixed(5)}, ${scene.effective_longitude.toFixed(5)} (${scene.position_source})`
@@ -160,15 +109,6 @@
 	}
 
 	/** The server stores the list as a string; tolerate either shape. */
-	function parseVantages(raw: string | null | undefined): Vantage[] {
-		if (!raw) return [];
-		try {
-			const parsed = JSON.parse(raw);
-			return Array.isArray(parsed) ? parsed : [];
-		} catch {
-			return [];
-		}
-	}
 
 	function numberOrNull(v: string): number | null {
 		const t = v.trim();
@@ -200,10 +140,9 @@
 				frame_count: numberOrNull(form.frame_count),
 				frame_stride: numberOrNull(form.frame_stride),
 				asset_path: textOrNull(form.asset_path),
-				published: form.published,
+				published: form.published
 				// An empty list means "inherit from the recording", which differs
 				// from a list the publisher deliberately emptied.
-				vantages: vantages.length ? vantages : undefined
 			};
 
 			const saved = isNew ? await createScene(payload) : await updateScene(sceneId, payload);
@@ -396,118 +335,6 @@
 						/>
 					</label>
 				</div>
-			</fieldset>
-
-			<fieldset class="space-y-3">
-				<legend class="mb-2 font-medium">Vantage points</legend>
-				<p class="text-surface-content/60 text-xs">
-					Named viewpoints the viewer offers. Label them for the street, not the compass:
-					&ldquo;Eastbound Howard&rdquo; tells a reader what they are looking along; &ldquo;From
-					east&rdquo; does not. Geometry is relative to the scene&rsquo;s own framing, so a saved
-					viewpoint survives the export being regenerated. Leave the list empty to use whatever the
-					recording carries.
-				</p>
-
-				{#if vantages.length}
-					<label class="block">
-						<span class="mb-1 block text-sm">Paste a view from the viewer</span>
-						<div class="flex gap-2">
-							<input
-								class="border-surface-content/25 flex-1 rounded border bg-transparent px-3 py-2 font-mono text-xs"
-								bind:value={pasteText}
-								placeholder={'{"azimuth_deg":270,"polar_deg":72,"zoom":0.7,...}'}
-							/>
-						</div>
-						{#if pasteError}
-							<span class="text-danger mt-1 block text-xs">{pasteError}</span>
-						{:else}
-							<span class="text-surface-content/60 mt-1 block text-xs">
-								Frame the angle in the public viewer, press &ldquo;Copy this view&rdquo;, paste
-								here, then apply it to a row.
-							</span>
-						{/if}
-					</label>
-				{/if}
-
-				{#each vantages as vantage, i (i)}
-					<div class="border-surface-content/20 rounded border p-3">
-						<div class="mb-2 grid grid-cols-2 gap-2">
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">ID</span>
-								<input
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 font-mono text-xs"
-									bind:value={vantage.id}
-									placeholder="eb-howard"
-								/>
-							</label>
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">Label</span>
-								<input
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 text-xs"
-									bind:value={vantage.label}
-									placeholder="Eastbound Howard"
-								/>
-							</label>
-						</div>
-						<div class="grid grid-cols-5 gap-2">
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">Bearing&deg;</span>
-								<input
-									type="number"
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 font-mono text-xs"
-									bind:value={vantage.azimuth_deg}
-								/>
-							</label>
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">Angle&deg;</span>
-								<input
-									type="number"
-									min="0"
-									max="90"
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 font-mono text-xs"
-									bind:value={vantage.polar_deg}
-								/>
-							</label>
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">Zoom</span>
-								<input
-									type="number"
-									step="0.05"
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 font-mono text-xs"
-									bind:value={vantage.zoom}
-								/>
-							</label>
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">X&nbsp;m</span>
-								<input
-									type="number"
-									step="0.5"
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 font-mono text-xs"
-									bind:value={vantage.offset_x}
-								/>
-							</label>
-							<label class="block">
-								<span class="text-surface-content/70 mb-1 block text-xs">Y&nbsp;m</span>
-								<input
-									type="number"
-									step="0.5"
-									class="border-surface-content/25 w-full rounded border bg-transparent px-2 py-1 font-mono text-xs"
-									bind:value={vantage.offset_y}
-								/>
-							</label>
-						</div>
-						<div class="mt-2 flex gap-2">
-							<Button size="sm" type="button" on:click={() => applyPastedView(i)}>
-								Apply pasted view
-							</Button>
-							<Button size="sm" color="danger" type="button" on:click={() => removeVantage(i)}>
-								Remove
-							</Button>
-						</div>
-					</div>
-				{/each}
-
-				<Button size="sm" type="button" on:click={addVantage}>Add vantage point</Button>
 			</fieldset>
 
 			<fieldset class="space-y-3">

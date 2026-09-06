@@ -48,11 +48,6 @@ type Scene struct {
 	AssetPath *string `json:"asset_path"`
 	Published bool    `json:"published"`
 
-	// Vantages is the named-viewpoint list, as raw JSON so the database layer
-	// does not need to know the shape the scene package defines. NULL means
-	// "use whatever the recording carries".
-	VantagesJSON *string `json:"vantages_json"`
-
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -62,7 +57,7 @@ const sceneColumns = `
 	s.latitude, s.longitude,
 	s.captured_start_ns, s.captured_end_ns, s.duration_secs,
 	s.source_capture, s.source_vrlog_sha256, s.frame_count, s.frame_stride,
-	s.asset_path, s.published, s.vantages_json, s.created_at, s.updated_at,
+	s.asset_path, s.published, s.created_at, s.updated_at,
 	site.latitude, site.longitude`
 
 // scanScene reads one row and resolves the effective position and timestamps.
@@ -78,7 +73,7 @@ func scanScene(scan func(dest ...any) error) (*Scene, error) {
 		&sc.Latitude, &sc.Longitude,
 		&sc.CapturedStartNs, &sc.CapturedEndNs, &sc.DurationSecs,
 		&sc.SourceCapture, &sc.SourceVRLOGSHA256, &sc.FrameCount, &sc.FrameStride,
-		&sc.AssetPath, &published, &sc.VantagesJSON, &createdAt, &updatedAt,
+		&sc.AssetPath, &published, &createdAt, &updatedAt,
 		&siteLat, &siteLng,
 	); err != nil {
 		return nil, err
@@ -165,13 +160,13 @@ func (db *DB) CreateScene(ctx context.Context, sc *Scene) error {
 			latitude, longitude,
 			captured_start_ns, captured_end_ns, duration_secs,
 			source_capture, source_vrlog_sha256, frame_count, frame_stride,
-			asset_path, published, vantages_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			asset_path, published
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		sc.SceneID, sc.SiteID, sc.Title, sc.Description,
 		sc.Latitude, sc.Longitude,
 		sc.CapturedStartNs, sc.CapturedEndNs, sc.DurationSecs,
 		sc.SourceCapture, sc.SourceVRLOGSHA256, sc.FrameCount, sc.FrameStride,
-		sc.AssetPath, published, sc.VantagesJSON)
+		sc.AssetPath, published)
 	if err != nil {
 		return fmt.Errorf("create scene %q: %w", sc.SceneID, err)
 	}
@@ -192,13 +187,13 @@ func (db *DB) UpdateScene(ctx context.Context, sc *Scene) (bool, error) {
 			captured_start_ns = ?, captured_end_ns = ?, duration_secs = ?,
 			source_capture = ?, source_vrlog_sha256 = ?,
 			frame_count = ?, frame_stride = ?,
-			asset_path = ?, published = ?, vantages_json = ?
+			asset_path = ?, published = ?
 		WHERE scene_id = ?`,
 		sc.SiteID, sc.Title, sc.Description,
 		sc.Latitude, sc.Longitude,
 		sc.CapturedStartNs, sc.CapturedEndNs, sc.DurationSecs,
 		sc.SourceCapture, sc.SourceVRLOGSHA256, sc.FrameCount, sc.FrameStride,
-		sc.AssetPath, published, sc.VantagesJSON, sc.SceneID)
+		sc.AssetPath, published, sc.SceneID)
 	if err != nil {
 		return false, fmt.Errorf("update scene %q: %w", sc.SceneID, err)
 	}

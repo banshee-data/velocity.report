@@ -330,11 +330,16 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   const session = await new SceneSession(manifestURL).open();
 
   /**
-   * Reads an optional vantages.json sitting beside the scene's assets.
+   * Reads the scene's vantages.json.
    *
-   * Accepts a bare array or an object with a "vantages" key, matching what
-   * `velocity scene export --vantages` will read. Missing or malformed is not
-   * fatal: the scene still plays on whatever the export baked in.
+   * This one file is where a scene's viewpoints live — not the part header,
+   * not the recording, not the scene index. One writable copy means there is
+   * never a question of which one the publisher meant, and an edit here is the
+   * whole of the change. Accepts a bare array or an object with a "vantages"
+   * key, matching `velocity scene vantages`.
+   *
+   * A scene that ships no file, or a file that cannot be read, falls back to
+   * compass bearings: worth less than "Eastbound Howard", but still true.
    */
   async function loadVantages(url) {
     try {
@@ -350,18 +355,8 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
   }
 
-  // Vantages come from the scene itself, so a recording that knows its street
-  // offers "Eastbound Howard" rather than "From east". A scene that names none
-  // falls back to compass bearings.
-  //
-  // A vantages.json beside the assets outranks the export header. The header is
-  // what the export baked in and what travels with a download; the sidecar is
-  // what an editor changes, and needing an eleven-minute re-export to see an
-  // angle move is what stops anyone from adjusting one at all. Re-export to
-  // make a change permanent.
-  const sidecar = ui.vantagesURL ? await loadVantages(ui.vantagesURL) : null;
   const vantages = sceneCamera.setVantages(
-    sidecar ?? session.parts[0]?.header?.vantages,
+    ui.vantagesURL ? await loadVantages(ui.vantagesURL) : null,
   );
 
   const background = ui.backgroundURL

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/scene"
 )
 
 // sceneIDPattern constrains a scene identifier to what is safe in a URL and a
@@ -39,10 +38,6 @@ type sceneRequest struct {
 
 	AssetPath *string `json:"asset_path"`
 	Published bool    `json:"published"`
-
-	// Vantages is the named-viewpoint list. Sent as structured JSON rather than
-	// a string so an editor cannot store something the viewer will choke on.
-	Vantages []scene.Vantage `json:"vantages"`
 }
 
 // handleScenes routes scene requests. URL forms are /api/scenes and
@@ -235,22 +230,6 @@ func sceneFromRequest(req sceneRequest, id string) (*db.Scene, string) {
 		duration = &d
 	}
 
-	// Vantages are validated here rather than at render time, because a broken
-	// viewpoint list makes a published scene unusable and the person who can
-	// fix it is the one filling in this form.
-	var vantagesJSON *string
-	if len(req.Vantages) > 0 {
-		if problem := scene.ValidateVantages(req.Vantages); problem != "" {
-			return nil, problem
-		}
-		encoded, err := json.Marshal(req.Vantages)
-		if err != nil {
-			return nil, "Vantages could not be encoded"
-		}
-		str := string(encoded)
-		vantagesJSON = &str
-	}
-
 	return &db.Scene{
 		SceneID:           id,
 		SiteID:            req.SiteID,
@@ -267,7 +246,6 @@ func sceneFromRequest(req sceneRequest, id string) (*db.Scene, string) {
 		FrameStride:       req.FrameStride,
 		AssetPath:         req.AssetPath,
 		Published:         req.Published,
-		VantagesJSON:      vantagesJSON,
 	}, ""
 }
 

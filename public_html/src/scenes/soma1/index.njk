@@ -223,8 +223,7 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
     manifestURL: `${base}/manifest.json`,
     ui: {
       backgroundURL: `${base}/background/background.json.gz`,
-      // Edited by hand to adjust an angle; overrides whatever the export baked
-      // into the part header, so a change shows up on reload.
+      // The one place this scene's viewpoints live. Edit the file, reload.
       vantagesURL: `${base}/vantages.json`,
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,

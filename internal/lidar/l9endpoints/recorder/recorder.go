@@ -95,15 +95,6 @@ type LogHeader struct {
 	ParamSetType  string  `json:"param_set_type,omitempty"` // effective/requested/legacy
 	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report version that wrote this
 	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA that wrote this
-
-	// Vantages are named viewpoints on this scene, carried with the recording
-	// so a publisher does not have to rediscover which way the street runs.
-	// Set at record time when the geometry is known in advance; a later editor
-	// may override them without touching the recording.
-	//
-	// Kept as raw JSON so the recorder does not depend on the scene package,
-	// which sits downstream of it.
-	Vantages json.RawMessage `json:"vantages,omitempty"`
 }
 
 // IndexEntry is an entry in the seek index.
@@ -333,17 +324,6 @@ func (r *Recorder) FrameCount() uint64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.frameCount
-}
-
-// SetVantages records named viewpoints in the header. Call before Close.
-//
-// The value is stored verbatim, so a caller that already has the encoded form
-// (from a config file, or copied from another recording) can pass it straight
-// through without a decode-and-re-encode round trip that could reorder keys.
-func (r *Recorder) SetVantages(raw json.RawMessage) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.header.Vantages = raw
 }
 
 // SetProvenance sets recording-time provenance fields on the header.

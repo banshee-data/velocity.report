@@ -36,11 +36,11 @@
   {
     "id": "sb-5th",
     "label": "Southbound 5th",
-    "azimuth_deg": 0,
-    "polar_deg": 72,
-    "zoom": 0.7,
-    "offset_x": 0,
-    "offset_y": -8
+    "azimuth_deg": 300,
+    "polar_deg": 60,
+    "zoom": 0.25,
+    "offset_x": -29,
+    "offset_y": 15
   },
   {
     "id": "top",

@@ -11,12 +11,19 @@ import (
 	sceneexport "github.com/banshee-data/velocity.report/internal/scene"
 )
 
-const usage = `Usage: velocity scene export --vrlog DIR --out DIR [options]
+const usage = `Usage:
+  velocity scene export   --vrlog DIR --out DIR [options]
+  velocity scene vantages FILE
 
-Write a static, browser-servable JSON view of a recorded VRLOG. The recorded
-VRLOG remains the source of truth; an export is a derived view of it.
+export   Write a static, browser-servable JSON view of a recorded VRLOG. The
+         recorded VRLOG remains the source of truth; an export is a derived
+         view of it.
 
-Options:
+vantages Check a scene's vantages.json before publishing it. Vantages live in
+         that one file at the scene root, beside manifest.json — an export
+         neither reads nor writes them.
+
+Export options:
 `
 
 // Main routes the `scene` subcommands. args is everything after the command word.
@@ -28,6 +35,8 @@ func Main(args []string) int {
 	switch args[0] {
 	case "export":
 		return exportMain(args[1:])
+	case "vantages":
+		return vantagesMain(args[1:])
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return 0
@@ -54,8 +63,6 @@ func exportMain(args []string) int {
 	fs.IntVar(&opts.MaxPointsPerFrame, "max-points", 0, "Cap foreground points per frame in a clip export (0 = uncapped)")
 	fs.Float64Var(&opts.VoxelMetres, "voxel", sceneexport.DefaultBackgroundVoxel, "Downsampling grid for a background export, in metres")
 	fs.Float64Var(&opts.BucketSeconds, "bucket-seconds", sceneexport.DefaultBucketSeconds, "Timeline summary resolution in seconds")
-	vantagePath := fs.String("vantages", "", "JSON file of named viewpoints, overriding any the recording carries")
-
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
 		fs.PrintDefaults()
@@ -88,15 +95,6 @@ func exportMain(args []string) int {
 	if opts.Kind == sceneexport.KindBackground {
 		export = sceneexport.ExportBackground
 	}
-	if *vantagePath != "" {
-		list, err := sceneexport.LoadVantages(*vantagePath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			return 2
-		}
-		opts.Vantages = list
-	}
-
 	res, err := export(opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "scene export failed: %v\n", err)
@@ -105,13 +103,6 @@ func exportMain(args []string) int {
 
 	fmt.Printf("wrote %s\n", filepath.Clean(opts.OutDir))
 	fmt.Printf("  export        %s\n", res.Header.Export)
-	if n := len(res.Header.Vantages); n > 0 {
-		names := make([]string, 0, n)
-		for _, v := range res.Header.Vantages {
-			names = append(names, v.Label)
-		}
-		fmt.Printf("  vantages      %d (%s)\n", n, strings.Join(names, ", "))
-	}
 
 	// A background export is a single snapshot: frame counts, stride and
 	// duration describe nothing about it.
@@ -133,6 +124,37 @@ func exportMain(args []string) int {
 	if res.Header.Export != sceneexport.KindBackground && res.Header.DurationSec > 0 {
 		fmt.Printf("  per minute    %.1f KB\n",
 			float64(res.BytesOnDisk)/1024/(res.Header.DurationSec/60))
+	}
+	return 0
+}
+
+// vantagesMain checks a scene's vantages.json.
+//
+// Vantages are hand-edited between exports, so the failure this guards against
+// is a typo published to a live scene: the viewer would quietly fall back to
+// compass bearings and label an intersection wrongly rather than say anything.
+func vantagesMain(args []string) int {
+	if len(args) != 1 || strings.HasPrefix(args[0], "-") {
+		fmt.Fprintf(os.Stderr, "Usage: velocity scene vantages FILE\n\n"+
+			"FILE is a scene's %s, at the scene root beside manifest.json.\n",
+			sceneexport.VantagesFile)
+		return 2
+	}
+
+	list, err := sceneexport.LoadVantages(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("%s: %d vantage(s)\n", filepath.Clean(args[0]), len(list))
+	for _, v := range list {
+		fmt.Printf("  %-14s %s  bearing %g deg, angle %g deg, zoom %g",
+			v.ID, v.Label, v.AzimuthDeg, v.PolarDeg, v.Zoom)
+		if v.OffsetX != 0 || v.OffsetY != 0 {
+			fmt.Printf(", offset %g/%g m", v.OffsetX, v.OffsetY)
+		}
+		fmt.Println()
 	}
 	return 0
 }

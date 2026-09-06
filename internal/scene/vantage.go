@@ -9,6 +9,20 @@ import (
 	"strings"
 )
 
+// VantagesFile is the one place a scene's vantages are written.
+//
+// It sits at the scene root beside manifest.json, because vantages describe a
+// place rather than a run: a scene split into several parts has one set of
+// viewpoints, not one per part. Nothing else stores them. The exporter does
+// not copy them into a part header, the recorder does not bake them into a
+// VRLOG, and the scene index does not keep a column of them, because a second
+// copy is a copy that drifts and the viewer would then have to guess which one
+// the publisher meant.
+//
+// The viewer's "Copy this view" button emits exactly one entry of this file,
+// so framing an angle by eye and pasting the result is the editing loop.
+const VantagesFile = "vantages.json"
+
 // Vantage is a named viewpoint on a scene.
 //
 // A compass bearing is a poor label for a street: "from north" tells a reader
@@ -41,9 +55,9 @@ type Vantage struct {
 
 var vantageIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,47}$`)
 
-// DefaultVantages are used when a recording names none. They are compass
-// bearings because that is all that can be known without someone who has
-// stood at the junction.
+// DefaultVantages are what the viewer falls back to when a scene ships no
+// vantages.json. They are compass bearings because that is all that can be
+// known without someone who has stood at the junction.
 func DefaultVantages() []Vantage {
 	return []Vantage{
 		{ID: "overview", Label: "Overview", AzimuthDeg: 45, PolarDeg: 55, Zoom: 1.0},

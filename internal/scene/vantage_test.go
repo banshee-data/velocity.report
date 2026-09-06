@@ -1,7 +1,9 @@
 package scene
 
 import (
+	"bytes"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,42 +107,61 @@ func TestLoadVantagesAcceptsArrayOrWrapper(t *testing.T) {
 	}
 }
 
-// Precedence: a publisher's override beats the recording, which beats defaults.
-func TestResolveVantagesPrecedence(t *testing.T) {
-	override := []Vantage{{ID: "custom", Label: "Custom", PolarDeg: 60, Zoom: 1}}
-	recorded, _ := json.Marshal([]Vantage{{ID: "recorded", Label: "Recorded", PolarDeg: 60, Zoom: 1}})
+// Vantages belong in exactly one file, so these guard against a second copy
+// coming back. A second copy is one that drifts, and the viewer would then
+// have to guess which one the publisher meant — which is precisely the bug
+// that made an edited vantages.json look like it did nothing.
+func TestExportWritesNoVantagesAnywhere(t *testing.T) {
+	src := writeVRLOG(t, evenTimestamps(12))
+	out := filepath.Join(t.TempDir(), "out")
+	if _, err := Export(Options{VRLOGPath: src, OutDir: out, Site: "s", Title: "T"}); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
 
-	if got := resolveVantages(override, recorded); got[0].ID != "custom" {
-		t.Errorf("override should win, got %q", got[0].ID)
-	}
-	if got := resolveVantages(nil, recorded); got[0].ID != "recorded" {
-		t.Errorf("the recording should be used when there is no override, got %q", got[0].ID)
-	}
-	if got := resolveVantages(nil, nil); len(got) != len(DefaultVantages()) {
-		t.Errorf("a scene naming none should fall back to compass defaults, got %d", len(got))
-	}
-	// A corrupt list in the recording must not publish a broken viewer.
-	if got := resolveVantages(nil, json.RawMessage(`[{"id":"BAD ID","label":""}]`)); got[0].ID != "overview" {
-		t.Errorf("an invalid recorded list should fall back, got %q", got[0].ID)
+	err := filepath.WalkDir(out, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		// Chunk files are gzipped frame data; only the plain JSON siblings
+		// could plausibly carry configuration.
+		if !strings.HasSuffix(path, ".json") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(bytes.ToLower(raw), []byte("vantage")) {
+			rel, _ := filepath.Rel(out, path)
+			t.Errorf("%s carries vantages; %s at the scene root is the only place they belong",
+				rel, VantagesFile)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestExportCarriesVantages(t *testing.T) {
-	src := writeVRLOG(t, evenTimestamps(10))
-	out := filepath.Join(t.TempDir(), "out")
-	want := []Vantage{
-		{ID: "eb-howard", Label: "Eastbound Howard", AzimuthDeg: 270, PolarDeg: 72, Zoom: 0.7, OffsetX: 8},
-	}
-	res, err := Export(Options{VRLOGPath: src, OutDir: out, Vantages: want})
+func TestRecordingCarriesNoVantages(t *testing.T) {
+	// A VRLOG records what the sensor measured. A viewpoint is a presentation
+	// choice about a place, so baking one into the recording would put a
+	// second, staler copy inside the file the project calls its source of
+	// truth.
+	src := writeVRLOG(t, evenTimestamps(6))
+	raw, err := os.ReadFile(filepath.Join(src, "header.json"))
 	if err != nil {
-		t.Fatalf("Export: %v", err)
+		t.Fatal(err)
 	}
-	if len(res.Header.Vantages) != 1 || res.Header.Vantages[0].Label != "Eastbound Howard" {
-		t.Fatalf("export header vantages = %+v", res.Header.Vantages)
+	if bytes.Contains(bytes.ToLower(raw), []byte("vantage")) {
+		t.Errorf("the VRLOG header carries vantages:\n%s", raw)
 	}
+}
 
-	h := readHeader(t, out)
-	if len(h.Vantages) != 1 || h.Vantages[0].OffsetX != 8 {
-		t.Errorf("vantages did not survive the round trip: %+v", h.Vantages)
+func TestVantagesFileIsNamedOnce(t *testing.T) {
+	// The viewer fetches this name and the CLI reports it. Renaming it in one
+	// place and not the other is the kind of drift the constant exists to stop.
+	if VantagesFile != "vantages.json" {
+		t.Errorf("VantagesFile = %q; the published viewer fetches vantages.json", VantagesFile)
 	}
 }
