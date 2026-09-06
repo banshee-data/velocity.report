@@ -41,7 +41,8 @@ type TrackPoint struct {
 type TrackedObject struct {
 	// Identity + shared measurement fields (persisted to both lidar_tracks
 	// and lidar_run_tracks)
-	TrackID string
+	TrackID          string
+	CreationSequence int64 // Deterministic association ordering; UUID remains public identity
 	TrackMeasurement
 
 	// Lifecycle counters
@@ -68,9 +69,11 @@ type TrackedObject struct {
 	HeadingSource HeadingSource // Source of the current heading (for debug rendering)
 
 	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
-	OBBLength float32 // Latest frame bounding box length (metres)
-	OBBWidth  float32 // Latest frame bounding box width (metres)
-	OBBHeight float32 // Latest frame bounding box height (metres)
+	OBBLength                      float32 // Latest frame bounding box length (metres)
+	OBBWidth                       float32 // Latest frame bounding box width (metres)
+	OBBHeight                      float32 // Latest frame bounding box height (metres)
+	axisReferenceL, axisReferenceW float32 // Previous accepted observed support, not body dimensions
+	AxisScoreGap                   float32 // Heuristic cost margin, not calibrated confidence
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -133,6 +136,7 @@ type TrackedObject struct {
 	LockEpisodes         int                        // Number of distinct lock runs
 	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
 	HeadingLockReleases  int                        // Times the rejection counter forced a release
+	HeadingEpisodes      HeadingEpisodeState        // Terminal episode, unlike the lifetime flags above
 
 	// FragmentPairingsRejected counts cluster/track pairings forbidden by the
 	// fragment guard in associate(). It is per evaluated pairing per frame, not
@@ -206,7 +210,13 @@ type DebugCollector interface {
 func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	previousAxisMode := t.Config.OBBAxisCoherenceEnabled
 	fn(&t.Config)
+	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
+		for _, track := range t.Tracks {
+			track.axisReferenceL, track.axisReferenceW, track.AxisScoreGap = 0, 0, 0
+		}
+	}
 }
 
 // GetConfig returns a snapshot of the tracker's current configuration
@@ -445,7 +455,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	t.NextTrackID++
 
 	track := &TrackedObject{
-		TrackID: trackID,
+		TrackID:          trackID,
+		CreationSequence: t.NextTrackID,
 		TrackMeasurement: TrackMeasurement{
 			SensorID:             cluster.SensorID,
 			TrackState:           TrackTentative,
@@ -498,6 +509,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	}
 
 	t.Tracks[trackID] = track
+	if t.Config.OBBAxisCoherenceEnabled {
+		t.updateAxisHeading(track, cluster)
+	} else {
+		track.HeadingEpisodes.Observe(track.HeadingSource, nowNanos)
+	}
 	t.TracksCreated++
 	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
 		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)

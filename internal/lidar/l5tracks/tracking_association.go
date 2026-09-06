@@ -158,20 +158,22 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	// it the cost matrix columns are permuted on every frame, and Hungarian
 	// assignment resolves ties differently from one frame to the next.
 	//
-	// Note what this does and does not guarantee. Track IDs are random UUIDs,
-	// so sorting by them gives a stable order within a run but an arbitrary one
-	// across runs. It removes per-frame churn; it is not a canonical ordering.
-	// Cross-run reproducibility comes from the assignment having a unique
-	// optimum, which held once the L4 subsample stopped being seeded from the
-	// clock. If tie-breaking ever becomes load-bearing, sort by a creation
-	// sequence number instead of by ID.
+	// Creation order makes tied costs independent of random public UUIDs.
+	// Cross-run reproducibility still requires deterministic input/cluster order.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
 			activeTrackIDs = append(activeTrackIDs, id)
 		}
 	}
-	sort.Strings(activeTrackIDs)
+	sort.Slice(activeTrackIDs, func(i, j int) bool {
+		a, b := t.Tracks[activeTrackIDs[i]], t.Tracks[activeTrackIDs[j]]
+		if a.CreationSequence != b.CreationSequence {
+			return a.CreationSequence < b.CreationSequence
+		}
+		// Hand-built/legacy tracks may not have a sequence. Runtime-created tracks do.
+		return activeTrackIDs[i] < activeTrackIDs[j]
+	})
 
 	nClusters := len(clusters)
 	nTracks := len(activeTrackIDs)

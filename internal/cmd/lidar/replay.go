@@ -26,6 +26,8 @@ func ReplayEvalMain(args []string) int {
 	udpPort := fs.Int("port", 0, "UDP port for LiDAR data (0 = auto-detect from the capture)")
 	startSeconds := fs.Float64("start-seconds", 0, "Start replay at this capture offset in seconds")
 	durationSeconds := fs.Float64("duration-seconds", 0, "Replay duration in seconds (0 = remaining capture)")
+	warmupSeconds := fs.Float64("warmup-seconds", 0, "Process this prefix before start-seconds without recording it; retain background and tracker state")
+	requireSettled := fs.Bool("require-settled", false, "Fail unless the background is settled before the first scored frame")
 	includePoints := fs.Bool("include-points", false, "Record the point cloud (much larger output; needed only for the visualiser)")
 	progress := fs.Int("progress-frames", 200, "Log progress every N frames (0 = off)")
 	analyse := fs.Bool("analyse", true, "Generate analysis.json in the output directory")
@@ -86,6 +88,8 @@ Examples:
 		UDPPort:         port,
 		StartSeconds:    *startSeconds,
 		DurationSeconds: *durationSeconds,
+		WarmupSeconds:   *warmupSeconds,
+		RequireSettled:  *requireSettled,
 		IncludePoints:   *includePoints,
 		ProgressEvery:   *progress,
 	})
@@ -95,7 +99,7 @@ Examples:
 	}
 
 	fmt.Printf("recorded %d frames (%d with no tracks) in %s\n",
-		result.FramesRead, result.FramesEmpty, result.Elapsed.Round(time.Millisecond))
+		result.FramesRecorded, result.FramesEmpty, result.Elapsed.Round(time.Millisecond))
 	fmt.Printf("vrlog: %s\n", result.VRLOGPath)
 
 	if !*analyse && *compareTo == "" {
@@ -139,11 +143,13 @@ func printReplaySummary(r *analysis.AnalysisReport) {
 			a.CourseAlignmentTracks, derefFloat(d.P50), d.Avg, d.Max)
 	}
 	if hl := ts.HeadingLock; hl != nil {
-		fmt.Printf("heading lock: %d of %d sustained -> %d never recovered (%.0f%%), %d relocked, %d released\n",
+		fmt.Printf("legacy lifetime heading lock: %d of %d sustained -> %d never recovered (%.0f%%), %d relocked, %d released\n",
 			hl.SustainedLockTracks, hl.Tracks, hl.NeverRecoveredTracks, 100*hl.TrappedRatio,
 			hl.RelockedTracks, hl.ReleasedTracks)
 		fmt.Printf("locked share %.1f%%, longest run %d frames, %d forced releases\n",
 			100*hl.LockedFrameRatio, hl.LongestLockRunFrames, hl.ForcedReleases)
+		fmt.Printf("terminal measurement episodes: %d unrecovered, %d recovered, %d censored (%d assessed)\n",
+			hl.TerminalUnrecovered, hl.TerminalRecovered, hl.TerminalCensored, hl.TerminalAssessed)
 	}
 }
 

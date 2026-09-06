@@ -1,11 +1,17 @@
 # LiDAR heading coherence sprint plan
 
-- **Status:** Draft (two-day sprint), evidence gathered from run `baf20f02`
+- **Status:** In progress; D2.1/D1.4 experimental path implemented, acceptance open
 - **Layers:** L4 Perception, L5 Tracks, L8 Analytics, L9 Endpoints, web UI
 - **Target:** v0.5.2; a two-day slice, not the full geometry rewrite
 - **Evidence run:** `baf20f02-075b-4041-9860-ff090754f94f`, 600 frames, 60 s, 346 distinct tracks, build `6d8c799e6`
 - **Canonical maths:** [obb-heading-stability-review](../../data/maths/proposals/20260222-obb-heading-stability-review.md), [geometry-coherent-tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 - **Related plans:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [lidar-analysis-run-infrastructure-plan](lidar-analysis-run-infrastructure-plan.md)
+
+The [D2 implementation report](lidar-heading-d2-implementation-report.md) records the current
+default-off axis/envelope path, objective changes, frozen fixture, and warmed A/B. It supersedes
+the implementation instructions below: axis selection may abstain, its extent reference is an
+observed-support heuristic, and course remains an opt-in diagnostic. D2.2 and D2.4 are not
+implemented. The candidate does not yet pass the physical-heading or identity gate.
 
 The D2 readiness declaration in the
 [root-checkout review](lidar-heading-d2-readiness-review.md) records the implementation
