@@ -11,6 +11,14 @@ quarter-turn axis swaps and publishes an internally consistent observed envelope
 first same-capture comparison is mixed. A lower median course error is not enough to approve
 a physical heading estimator. No change here merges the two named tracks into one object.
 
+Once abstentions were attributed and the unbounded hold was bounded, the comparison stopped
+being mixed and became negative: acceptance 11.7 points lower and median course error 5.8
+degrees worse than the baseline. The breakdown says why, and it is not the axis test. Four
+frames in 1207 are the quarter-turn ambiguity; 92% of abstentions are observations that fit
+neither interpretation of the support reference. The blocker is the reference, so the next
+move is the visibility-aware extent model, not further tuning of the axis gates. See
+[Abstention attribution, the release valve, and a re-measured A/B](#abstention-attribution-the-release-valve-and-a-re-measured-ab).
+
 ## Delivered boundary
 
 | Item | Implemented                                                                                                                                                          | Still required for acceptance                                                               |
@@ -135,3 +143,80 @@ foreground containment, extent inflation, identity splits, and heading error tog
 on `kirk0` and another static site before considering default enablement. Add D2.2 separately
 so association changes cannot conceal a heading regression. The face-aware model remains the
 structural successor, not a claim that this heuristic has already implemented it.
+
+## Abstention attribution, the release valve, and a re-measured A/B
+
+Three changes were made on top of the slice above, in response to the first A/B
+being undecidable rather than merely mixed.
+
+| #   | Change                                                                                                                        | Why                                                                                                                       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Split the single `ambiguous` source into `axis_square`, `axis_no_fit`, and `ambiguous` (tie), each recorded in the stream     | Three situations with three different fixes shared one label, so "investigate the held population" had no way to proceed  |
+| 2   | Added a bounded release on the axis path: after `obb_heading_lock_max_rejections` abstentions, re-seed the reference and snap | The axis path emitted no forced releases at all and held for up to 106 frames, reinstating the D1.3 ratchet in a new form |
+| 3   | Report heading **acceptance** with the frames behind it, in the summary, the comparison, and the CLI                          | The two paths label accepted frames differently, so held share compared a change of vocabulary with a change of behaviour |
+
+The release grows the reference only. An under-seeded reference and a fragment
+give the same signal — a long run of observations that fit nothing — and are
+separated by direction, because occlusion removes points and never adds them.
+An observation larger on both axes is evidence the reference was the partial
+view; a smaller one is a partial view or a scrap and may not redefine the
+object. A square or invalid observation advances the run but cannot fire it,
+and a tie never fires it: both interpretations fit, and choosing one on a timer
+manufactures a decision the evidence does not support. Setting the rejection
+limit to zero restores the unbounded hold so the valve itself can be A/B'd.
+
+The same capture and window were replayed with the same warm-up and settling
+gate. The baseline arm reproduced the frozen evidence to the digit (41 tracks,
+4 confirmed, fragmentation 0.439, median 42.3 degrees, 948 accepted of 1207),
+which is the determinism claim holding across a rebuild.
+
+| Diagnostic                    |     Baseline | Candidate, frozen evidence | Candidate, with 1–3 |
+| ----------------------------- | -----------: | -------------------------: | ------------------: |
+| Heading acceptance            |        78.5% |                      46.2% |               66.9% |
+| Accepted / held frames        |    948 / 259 |                  558 / 649 |           807 / 400 |
+| Median per-track course error | 42.3 degrees |               35.6 degrees |        48.1 degrees |
+| Mean per-track median         | 39.8 degrees |               40.6 degrees |        37.5 degrees |
+| Longest held run              |    20 frames |                 106 frames |           32 frames |
+| Forced releases               |           14 |                          0 |                   4 |
+| Eligible moving tracks        |           11 |                         11 |                  11 |
+
+The valve does what it was built to do. The longest hold falls from 106 frames
+to 32, held frames fall from 649 to 400, and four releases are enough to do it,
+because each one frees a track for the rest of its life.
+
+It does not make the candidate better. Median course error is now 5.8 degrees
+worse than the baseline, not 6.7 degrees better, and acceptance is still 11.7
+points lower. The earlier median was measured with the reference stuck; letting
+the estimator act on more frames revealed that the headings it was holding back
+were not being held back for nothing. Neither figure supports enabling the flag.
+
+### What the breakdown settles
+
+| Reason the candidate declined | Frames | Share of held |
+| ----------------------------- | -----: | ------------: |
+| Fits neither interpretation   |    370 |           92% |
+| No distinguishable axis       |     25 |            6% |
+| Interpretations tied          |      4 |            1% |
+| Geometry missing or invalid   |      1 |            0% |
+
+Four frames in 1207 are the quarter-turn ambiguity. D2.1 exists to resolve that
+ambiguity, and on this capture it is almost never asked to. Ninety-two per cent
+of the time the observation matches neither interpretation of the support
+reference, which is not an axis problem: it is the reference being wrong.
+
+That relocates the blocker. The axis test cannot be evaluated on its merits
+while the quantity it compares against disagrees with the observation nine
+times out of ten, and no adjustment to the cost ceiling, the score gap, or the
+aspect floor changes that — those gates are deciding almost nothing here. The
+support reference is a running mean of raw extents, which the geometry proposal
+already labels a heuristic and the visibility-aware review says must be
+separated from membership evidence. This measurement is the case for doing that
+before tuning D2.1 further.
+
+The release valve inherits the same weakness, and it should be recorded as a
+known risk rather than discovered later: re-seeding from an observation larger
+on both axes cannot distinguish an under-seeded reference from a merged
+cluster, and co-location runs at 46.5% of frames in this window. Growing to a
+merge would adopt an oversized reference with the same confidence as a correct
+correction. Bounding the hold was still worth doing — an unbounded one has no
+recovery at all — but the valve is a floor under the failure, not a fix for it.

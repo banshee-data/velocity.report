@@ -13,6 +13,13 @@ the implementation instructions below: axis selection may abstain, its extent re
 observed-support heuristic, and course remains an opt-in diagnostic. D2.2 and D2.4 are not
 implemented. The candidate does not yet pass the physical-heading or identity gate.
 
+Its re-measured A/B also settles where D2.1 is actually blocked. With abstentions attributed
+by reason, 92% of them are observations matching neither interpretation of the support
+reference, and only 4 frames in 1207 are the quarter-turn ambiguity the axis test was written
+to resolve. Tuning the cost ceiling, score gap, or aspect floor cannot move that, because
+those gates decide almost nothing on this capture. Take the support reference to the
+visibility-aware extent model before spending further effort on the axis test itself.
+
 The D2 readiness declaration in the
 [root-checkout review](lidar-heading-d2-readiness-review.md) records the implementation
 boundary at `9b5525ab3` and supersedes conflicting D2 instructions below. Fix the
