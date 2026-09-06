@@ -14,14 +14,20 @@ const MIN_POLAR = 0.05; // just above the horizon
 const MAX_POLAR = Math.PI / 2 - 0.02; // never below the ground plane
 const MIN_DISTANCE = 3;
 
-/** Named viewpoints. Azimuth is the compass bearing the camera looks *from*. */
-export const VANTAGE_PRESETS = [
-  { id: "overview", label: "Overview", azimuth: 45, polar: 55, zoom: 1.0 },
-  { id: "north", label: "From north", azimuth: 0, polar: 68, zoom: 0.85 },
-  { id: "east", label: "From east", azimuth: 90, polar: 68, zoom: 0.85 },
-  { id: "south", label: "From south", azimuth: 180, polar: 68, zoom: 0.85 },
-  { id: "west", label: "From west", azimuth: 270, polar: 68, zoom: 0.85 },
-  { id: "top", label: "Overhead", azimuth: 0, polar: 2, zoom: 0.95 },
+/**
+ * Fallback viewpoints, used only when a scene names none.
+ *
+ * Compass bearings say nothing about a street. A recording that knows its own
+ * geometry ships labels like "Eastbound Howard" instead, and those arrive in
+ * the export header rather than being hardcoded here.
+ */
+export const DEFAULT_VANTAGES = [
+  { id: "overview", label: "Overview", azimuth_deg: 45, polar_deg: 55, zoom: 1.0 },
+  { id: "north", label: "From north", azimuth_deg: 0, polar_deg: 68, zoom: 0.85 },
+  { id: "east", label: "From east", azimuth_deg: 90, polar_deg: 68, zoom: 0.85 },
+  { id: "south", label: "From south", azimuth_deg: 180, polar_deg: 68, zoom: 0.85 },
+  { id: "west", label: "From west", azimuth_deg: 270, polar_deg: 68, zoom: 0.85 },
+  { id: "top", label: "Overhead", azimuth_deg: 0, polar_deg: 2, zoom: 0.95 },
 ];
 
 const deg = (d) => (d * Math.PI) / 180;
@@ -49,6 +55,12 @@ export function createSceneCamera({ camera, element, THREE }) {
   let minDistance = MIN_DISTANCE;
   let maxDistance = 600;
 
+  // The framing a vantage's offsets are measured from. Offsets are relative so
+  // a saved viewpoint survives the export being regenerated with a different
+  // background or a shifted observed area.
+  const home = { x: 0, z: 0, y: 0, span: 100 };
+  let vantages = DEFAULT_VANTAGES;
+
   function apply() {
     state.polar = Math.min(MAX_POLAR, Math.max(MIN_POLAR, state.polar));
     state.distance = Math.min(
@@ -70,6 +82,10 @@ export function createSceneCamera({ camera, element, THREE }) {
    * presets and limits are relative to.
    */
   function frame({ centerX, centerZ, groundY, span }) {
+    home.x = centerX;
+    home.z = centerZ;
+    home.y = groundY;
+    home.span = span;
     target.set(centerX, groundY, centerZ);
     const fov = deg(camera.fov);
     // Pull back far enough that the span fits the narrower screen axis.
@@ -82,13 +98,32 @@ export function createSceneCamera({ camera, element, THREE }) {
   }
 
   function applyPreset(id) {
-    const preset =
-      VANTAGE_PRESETS.find((p) => p.id === id) ?? VANTAGE_PRESETS[0];
-    state.azimuth = deg(preset.azimuth);
-    state.polar = deg(preset.polar);
-    state.distance = state.baseDistance * preset.zoom;
+    const v = vantages.find((p) => p.id === id) ?? vantages[0];
+    if (!v) return null;
+    state.azimuth = deg(v.azimuth_deg ?? 0);
+    state.polar = deg(v.polar_deg ?? 55);
+    state.distance = state.baseDistance * (v.zoom || 1);
+    // Offsets shift the look-at point across the ground, so a vantage can
+    // centre on one approach rather than the middle of the junction.
+    target.set(home.x + (v.offset_x ?? 0), home.y, home.z + (v.offset_y ?? 0));
     apply();
-    return preset.id;
+    return v.id;
+  }
+
+  /**
+   * Describes the current view in the same shape a vantage is stored in, so a
+   * reader who has framed a useful angle can hand those numbers to whoever
+   * edits the scene rather than describing it in prose.
+   */
+  function currentVantage() {
+    const round = (n, p = 1) => Math.round(n * 10 ** p) / 10 ** p;
+    return {
+      azimuth_deg: round(((state.azimuth * 180) / Math.PI + 360) % 360),
+      polar_deg: round((state.polar * 180) / Math.PI),
+      zoom: round(state.distance / (state.baseDistance || 1), 2),
+      offset_x: round(target.x - home.x),
+      offset_y: round(target.z - home.z),
+    };
   }
 
   function orbit(dx, dy) {
@@ -236,6 +271,14 @@ export function createSceneCamera({ camera, element, THREE }) {
   return {
     frame,
     applyPreset,
+    currentVantage,
+    setVantages(list) {
+      vantages = Array.isArray(list) && list.length ? list : DEFAULT_VANTAGES;
+      return vantages;
+    },
+    get vantages() {
+      return vantages;
+    },
     setMode(mode) {
       state.mode = mode === "pan" ? "pan" : "orbit";
       return state.mode;

@@ -50,7 +50,14 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
   .scene-chip:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
   .scene-toggle { display: flex; gap: 0.3rem; }
 
-  .scene-vantage { display: flex; gap: 0.4rem; margin-top: 0.6rem; overflow-x: auto; padding-bottom: 0.2rem; }
+  .scene-vantage-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.6rem; }
+  .scene-vantage { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; flex: 1 1 auto; }
+  .scene-chip--ghost { flex: 0 0 auto; opacity: 0.75; border-style: dashed; }
+  .scene-vantage__output {
+    display: block; margin-top: 0.4rem; font-family: ui-monospace, monospace;
+    font-size: 0.68rem; opacity: 0.8; word-break: break-all;
+  }
+  .scene-vantage__output[hidden] { display: none; }
 
   .scene-timeline { margin-top: 0.75rem; }
   .scene-timeline__canvas {
@@ -134,7 +141,11 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
     <p id="scene-status" class="scene-stage__overlay scene-stage__overlay--error" hidden></p>
   </div>
 
-  <div class="scene-vantage" id="scene-presets" role="group" aria-label="Vantage points"></div>
+  <div class="scene-vantage-row">
+    <div class="scene-vantage" id="scene-presets" role="group" aria-label="Vantage points"></div>
+    <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture">Copy this view</button>
+  </div>
+  <output class="scene-vantage__output" id="scene-capture-out" hidden></output>
 
   <div class="scene-timeline">
     <canvas id="scene-timeline" class="scene-timeline__canvas" height="64"
@@ -217,6 +228,8 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
       timelineCanvas: document.getElementById("scene-timeline"),
       presets: document.getElementById("scene-presets"),
       modeToggle: document.getElementById("scene-mode"),
+      captureView: document.getElementById("scene-capture"),
+      captureOutput: document.getElementById("scene-capture-out"),
       playToggle: document.getElementById("scene-play"),
       slider: document.getElementById("scene-slider"),
       clock: document.getElementById("scene-clock"),

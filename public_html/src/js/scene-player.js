@@ -6,7 +6,7 @@
 
 import * as THREE from "three";
 import { SceneSession, SceneError } from "./scene-reader.js";
-import { createSceneCamera, VANTAGE_PRESETS } from "./scene-camera.js";
+import { createSceneCamera } from "./scene-camera.js";
 import { createTimelineStrip } from "./scene-timeline.js";
 
 // Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
@@ -296,6 +296,11 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   const session = await new SceneSession(manifestURL).open();
 
+  // Vantages come from the scene itself, so a recording that knows its street
+  // offers "Eastbound Howard" rather than "From east". A scene that names none
+  // falls back to compass bearings.
+  const vantages = sceneCamera.setVantages(session.parts[0]?.header?.vantages);
+
   const background = ui.backgroundURL
     ? await loadBackground(ui.backgroundURL).catch(() => null)
     : null;
@@ -310,7 +315,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     bounds = { centerX: 0, centerZ: 0, groundY: 0, span: 60 };
   }
   applyBounds(bounds);
-  sceneCamera.applyPreset("overview");
+  sceneCamera.applyPreset(vantages[0]?.id);
 
   const visuals = new Map();
   let currentPart = -1;
@@ -579,15 +584,16 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   // --- viewport controls ---------------------------------------------------
 
   if (ui.presets) {
-    for (const preset of VANTAGE_PRESETS) {
+    ui.presets.replaceChildren();
+    for (const vantage of vantages) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "scene-chip";
-      btn.textContent = preset.label;
-      btn.dataset.preset = preset.id;
-      btn.setAttribute("aria-pressed", String(preset.id === "overview"));
+      btn.textContent = vantage.label;
+      btn.dataset.preset = vantage.id;
+      btn.setAttribute("aria-pressed", String(vantage.id === vantages[0].id));
       btn.addEventListener("click", () => {
-        const active = sceneCamera.applyPreset(preset.id);
+        const active = sceneCamera.applyPreset(vantage.id);
         for (const el of ui.presets.querySelectorAll("[data-preset]")) {
           el.setAttribute("aria-pressed", String(el.dataset.preset === active));
         }
@@ -595,6 +601,30 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       });
       ui.presets.appendChild(btn);
     }
+  }
+
+  // Framing a useful angle is easy; describing it to whoever edits the scene
+  // is not. This hands over the exact numbers a vantage is stored in.
+  if (ui.captureView) {
+    ui.captureView.addEventListener("click", async () => {
+      const v = sceneCamera.currentVantage();
+      const text = JSON.stringify(v);
+      let copied = false;
+      try {
+        await navigator.clipboard?.writeText(text);
+        copied = true;
+      } catch {
+        // Clipboard access is often refused; the numbers are shown either way.
+      }
+      if (ui.captureOutput) {
+        ui.captureOutput.textContent = text;
+        ui.captureOutput.hidden = false;
+      }
+      ui.captureView.textContent = copied ? "Copied" : "Copy failed — shown below";
+      setTimeout(() => {
+        ui.captureView.textContent = "Copy this view";
+      }, 2200);
+    });
   }
 
   if (ui.modeToggle) {

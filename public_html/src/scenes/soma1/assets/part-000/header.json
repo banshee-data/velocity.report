@@ -14,8 +14,56 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
+  "vantages": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "azimuth_deg": 45,
+      "polar_deg": 55,
+      "zoom": 1
+    },
+    {
+      "id": "eb-howard",
+      "label": "Eastbound Howard",
+      "azimuth_deg": 270,
+      "polar_deg": 72,
+      "zoom": 0.7,
+      "offset_x": 8
+    },
+    {
+      "id": "wb-howard",
+      "label": "Westbound Howard",
+      "azimuth_deg": 90,
+      "polar_deg": 72,
+      "zoom": 0.7,
+      "offset_x": -8
+    },
+    {
+      "id": "nb-5th",
+      "label": "Northbound 5th",
+      "azimuth_deg": 180,
+      "polar_deg": 72,
+      "zoom": 0.7,
+      "offset_y": 8
+    },
+    {
+      "id": "sb-5th",
+      "label": "Southbound 5th",
+      "azimuth_deg": 0,
+      "polar_deg": 72,
+      "zoom": 0.7,
+      "offset_y": -8
+    },
+    {
+      "id": "top",
+      "label": "Overhead",
+      "azimuth_deg": 0,
+      "polar_deg": 2,
+      "zoom": 0.95
+    }
+  ],
   "source_vrlog_sha256": "da0b461a1c975489ecb3118da3b306ace562018bac4ca180d39ec6737eaedc35",
   "tuning_hash": "sha256:409f74b9bb45072df0768bf4b000a151a6d8f5d008f40d36ef41d769bad72427",
   "build_version": "0.5.1-pre31",
-  "generated_at": "2026-09-06T02:20:59Z"
+  "generated_at": "2026-09-06T02:54:17Z"
 }
