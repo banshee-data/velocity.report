@@ -22,11 +22,41 @@ const MIN_DISTANCE = 3;
  * the export header rather than being hardcoded here.
  */
 export const DEFAULT_VANTAGES = [
-  { id: "overview", label: "Overview", azimuth_deg: 45, polar_deg: 55, zoom: 1.0 },
-  { id: "north", label: "From north", azimuth_deg: 0, polar_deg: 68, zoom: 0.85 },
-  { id: "east", label: "From east", azimuth_deg: 90, polar_deg: 68, zoom: 0.85 },
-  { id: "south", label: "From south", azimuth_deg: 180, polar_deg: 68, zoom: 0.85 },
-  { id: "west", label: "From west", azimuth_deg: 270, polar_deg: 68, zoom: 0.85 },
+  {
+    id: "overview",
+    label: "Overview",
+    azimuth_deg: 45,
+    polar_deg: 55,
+    zoom: 1.0,
+  },
+  {
+    id: "north",
+    label: "From north",
+    azimuth_deg: 0,
+    polar_deg: 68,
+    zoom: 0.85,
+  },
+  {
+    id: "east",
+    label: "From east",
+    azimuth_deg: 90,
+    polar_deg: 68,
+    zoom: 0.85,
+  },
+  {
+    id: "south",
+    label: "From south",
+    azimuth_deg: 180,
+    polar_deg: 68,
+    zoom: 0.85,
+  },
+  {
+    id: "west",
+    label: "From west",
+    azimuth_deg: 270,
+    polar_deg: 68,
+    zoom: 0.85,
+  },
   { id: "top", label: "Overhead", azimuth_deg: 0, polar_deg: 2, zoom: 0.95 },
 ];
 

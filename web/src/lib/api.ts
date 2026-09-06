@@ -1347,6 +1347,25 @@ export async function reloadSerialConfig(): Promise<SerialReloadResult> {
  * `position_source` report what the server resolved, so a caller placing a map
  * marker never has to work out where the number came from.
  */
+/**
+ * A named viewpoint on a scene.
+ *
+ * Geometry is relative to the scene's own framing, not world coordinates, so a
+ * saved viewpoint survives the export being regenerated. `azimuth_deg` is the
+ * bearing the camera looks from; `polar_deg` is the angle down from vertical
+ * (0 overhead, 90 at ground level); offsets shift the look-at point across the
+ * ground in metres.
+ */
+export interface Vantage {
+	id: string;
+	label: string;
+	azimuth_deg: number;
+	polar_deg: number;
+	zoom: number;
+	offset_x?: number;
+	offset_y?: number;
+}
+
 export interface Scene {
 	scene_id: string;
 	site_id: number | null;
@@ -1373,6 +1392,10 @@ export interface Scene {
 
 	asset_path: string | null;
 	published: boolean;
+	/** Named viewpoints. Empty means "use whatever the recording carries". */
+	vantages?: Vantage[];
+	/** Server-side storage form; read-only for callers. */
+	vantages_json?: string | null;
 
 	created_at: string;
 	updated_at: string;

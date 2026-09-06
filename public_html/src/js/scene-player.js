@@ -620,7 +620,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         ui.captureOutput.textContent = text;
         ui.captureOutput.hidden = false;
       }
-      ui.captureView.textContent = copied ? "Copied" : "Copy failed — shown below";
+      ui.captureView.textContent = copied
+        ? "Copied"
+        : "Copy failed — shown below";
       setTimeout(() => {
         ui.captureView.textContent = "Copy this view";
       }, 2200);
