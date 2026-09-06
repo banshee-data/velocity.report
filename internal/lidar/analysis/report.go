@@ -187,7 +187,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		totalSourceFrames     int
 		totalLockedFrames     int
 		sustainedLockTracks   int
-		lockTrappedTracks     int
+		neverRecoveredTracks  int
+		relockedTracks        int
+		releasedTracks        int
+		totalForcedReleases   int
 		longestLockRun        int
 		tracksWithSources     int
 	)
@@ -232,13 +235,19 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		// lock to be detectable. Most tracks in a run are short-lived tentative
 		// ones that never had the chance to lock, and including them would
 		// dilute the figure into meaninglessness.
+		totalForcedReleases += locks.releases
 		if locks.assessable() {
 			tracksWithSources++
 			if locks.sustained {
 				sustainedLockTracks++
 			}
-			if locks.trapped() {
-				lockTrappedTracks++
+			switch locks.outcome() {
+			case "never_recovered":
+				neverRecoveredTracks++
+			case "relocked":
+				relockedTracks++
+			case "released":
+				releasedTracks++
 			}
 		}
 
@@ -261,7 +270,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			OBBHeadingJitterDeg:   obbHeadJitter,
 			HeadingLockedFrames:   locks.lockedFrames,
 			LongestLockRun:        locks.longestLockRun,
+			LockEpisodes:          locks.episodes,
+			LockOutcome:           locks.outcome(),
 			LockTrapped:           locks.trapped(),
+			ForcedReleases:        locks.releases,
 			SpeedJitterMps:        speedJitter,
 			AlignmentMeanDeg:      alignMean,
 			MisalignmentRatio:     misalignRatio,
@@ -477,8 +489,11 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			SourceFrames:         headingSourceFrames,
 			LockedFrameRatio:     float64(totalLockedFrames) / float64(totalSourceFrames),
 			SustainedLockTracks:  sustainedLockTracks,
-			TrappedTracks:        lockTrappedTracks,
-			TrappedRatio:         safeRatio(lockTrappedTracks, tracksWithSources),
+			NeverRecoveredTracks: neverRecoveredTracks,
+			RelockedTracks:       relockedTracks,
+			ReleasedTracks:       releasedTracks,
+			TrappedRatio:         safeRatio(neverRecoveredTracks, tracksWithSources),
+			ForcedReleases:       totalForcedReleases,
 			LongestLockRunFrames: longestLockRun,
 			Tracks:               tracksWithSources,
 		}
@@ -697,7 +712,8 @@ const (
 	headingSourceVelocity     = 1
 	headingSourceDisplacement = 2
 	headingSourceLocked       = 3
-	headingSourceCount        = 4
+	headingSourceReleased     = 4
+	headingSourceCount        = 5
 )
 
 func headingSourceName(src int) string {
@@ -710,6 +726,8 @@ func headingSourceName(src int) string {
 		return "displacement"
 	case headingSourceLocked:
 		return "locked"
+	case headingSourceReleased:
+		return "released"
 	default:
 		return "unknown"
 	}
@@ -720,9 +738,27 @@ type lockStats struct {
 	lockedFrames   int
 	longestLockRun int
 	sustained      bool
+	recovered      bool
 	released       bool
 	liveFrames     int
+	episodes       int
+	releases       int
 	sourceCounts   [headingSourceCount]int
+}
+
+// outcome classifies the track's heading-lock history. It mirrors
+// l5tracks.TrackedObject.HeadingLockOutcomeFor.
+func (l lockStats) outcome() string {
+	switch {
+	case !l.sustained:
+		return "none"
+	case !l.recovered:
+		return "never_recovered"
+	case !l.released:
+		return "relocked"
+	default:
+		return "released"
+	}
 }
 
 // assessable reports whether the track lived long enough for a sustained lock
@@ -731,10 +767,14 @@ type lockStats struct {
 // problem.
 func (l lockStats) assessable() bool { return l.liveFrames >= SustainedLockFrames }
 
-// trapped reports a track that entered a sustained lock and never released it:
-// the failure Guard 3 produces when the smoothed heading it compares against
-// has itself drifted beyond the rejection band.
-func (l lockStats) trapped() bool { return l.sustained && !l.released }
+// trapped reports a track whose heading locked and never unlocked again: the
+// failure Guard 3 produces when the smoothed heading it compares against has
+// itself drifted beyond the rejection band.
+//
+// This is the narrow reading. A track that breaks free and re-locks counts as
+// relocked, because the two call for different fixes: the first says the
+// ratchet is still there, the second says the heading is ambiguous.
+func (l lockStats) trapped() bool { return l.outcome() == "never_recovered" }
 
 // computeLockStats walks a track's recorded heading sources and recovers the
 // lock-run structure. It is the offline twin of TrackedObject's running
@@ -761,8 +801,14 @@ func computeLockStats(sources []int, live []bool) lockStats {
 		if src >= 0 && src < headingSourceCount {
 			st.sourceCounts[src]++
 		}
+		if src == headingSourceReleased {
+			st.releases++
+		}
 		if src == headingSourceLocked {
 			st.lockedFrames++
+			if lockRun == 0 {
+				st.episodes++
+			}
 			lockRun++
 			unlockRun = 0
 			if lockRun > st.longestLockRun {
@@ -775,8 +821,11 @@ func computeLockStats(sources []int, live []bool) lockStats {
 		}
 		lockRun = 0
 		unlockRun++
-		if st.sustained && unlockRun >= SustainedLockFrames {
-			st.released = true
+		if st.sustained {
+			st.recovered = true
+			if unlockRun >= SustainedLockFrames {
+				st.released = true
+			}
 		}
 	}
 	return st

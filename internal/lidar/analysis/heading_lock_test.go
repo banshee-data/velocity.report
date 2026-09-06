@@ -51,16 +51,63 @@ func TestComputeLockStatsTrapped(t *testing.T) {
 	}
 }
 
-func TestComputeLockStatsSingleUnlockedFrameIsNotARelease(t *testing.T) {
+// A single unlocked frame is not a clean release, but it does mean the lock
+// broke. That distinction is the whole point of the three-way outcome: the
+// ratchet is gone, the heading ambiguity is not.
+func TestComputeLockStatsSingleUnlockedFrameIsRelocked(t *testing.T) {
 	seq := srcRep(headingSourceLocked, 20)
 	seq = append(seq, headingSourceVelocity)
 	seq = append(seq, srcRep(headingSourceLocked, 20)...)
 	got := computeLockStats(seq, nil)
+
 	if got.released {
-		t.Fatal("a single unlocked frame counted as a release")
+		t.Fatal("a single unlocked frame counted as a clean release")
 	}
-	if !got.trapped() {
-		t.Fatal("interrupted lock not reported as trapped")
+	if got.trapped() {
+		t.Fatal("a lock that broke was still reported as never recovered")
+	}
+	if got.outcome() != "relocked" {
+		t.Fatalf("outcome = %q, want \"relocked\"", got.outcome())
+	}
+	if got.episodes != 2 {
+		t.Fatalf("episodes = %d, want 2", got.episodes)
+	}
+}
+
+func TestComputeLockStatsOutcomes(t *testing.T) {
+	cases := []struct {
+		name string
+		seq  []int
+		want string
+	}{
+		{"never locked", srcRep(headingSourceVelocity, 40), "none"},
+		{"locked forever", srcRep(headingSourceLocked, 40), "never_recovered"},
+		{"clean release", append(srcRep(headingSourceLocked, 20), srcRep(headingSourceVelocity, 10)...), "released"},
+		{"short lock only", srcRep(headingSourceLocked, SustainedLockFrames-1), "none"},
+	}
+	for _, c := range cases {
+		if got := computeLockStats(c.seq, nil).outcome(); got != c.want {
+			t.Fatalf("%s: outcome = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// The forced release is a distinct heading source so that it survives into a
+// recording. Without it a replay cannot tell a forced snap from an ordinary
+// unlocked frame.
+func TestComputeLockStatsCountsForcedReleases(t *testing.T) {
+	seq := srcRep(headingSourceLocked, 10)
+	seq = append(seq, headingSourceReleased)
+	seq = append(seq, srcRep(headingSourceVelocity, 10)...)
+	seq = append(seq, srcRep(headingSourceLocked, 10)...)
+	seq = append(seq, headingSourceReleased)
+
+	got := computeLockStats(seq, nil)
+	if got.releases != 2 {
+		t.Fatalf("releases = %d, want 2", got.releases)
+	}
+	if got.outcome() != "released" {
+		t.Fatalf("outcome = %q, want \"released\"", got.outcome())
 	}
 }
 
@@ -146,8 +193,11 @@ func trackerLockReference(sources []int) lockStats {
 		}
 		lockRun = 0
 		unlockRun++
-		if st.sustained && unlockRun >= SustainedLockFrames {
-			st.released = true
+		if st.sustained {
+			st.recovered = true
+			if unlockRun >= SustainedLockFrames {
+				st.released = true
+			}
 		}
 	}
 	return st

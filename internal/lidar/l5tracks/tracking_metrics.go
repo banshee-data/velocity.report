@@ -35,11 +35,16 @@ type TrackingMetrics struct {
 	// keyed by HeadingSource.String(). LockTrappedTracks counts tracks that
 	// entered a sustained lock and never released it: the population whose
 	// boxes cannot recover their orientation.
-	HeadingSourceFrames  map[string]uint32 `json:"heading_source_frames,omitempty"`
-	LockedFrameRatio     float32           `json:"locked_frame_ratio"`
-	SustainedLockTracks  int               `json:"sustained_lock_tracks"`
-	LockTrappedTracks    int               `json:"lock_trapped_tracks"`
-	LongestLockRunFrames int               `json:"longest_lock_run_frames"`
+	HeadingSourceFrames map[string]uint32 `json:"heading_source_frames,omitempty"`
+	LockedFrameRatio    float32           `json:"locked_frame_ratio"`
+	SustainedLockTracks int               `json:"sustained_lock_tracks"`
+	// LockTrappedTracks is the narrow never-recovered case: locked and never
+	// unlocked again. Tracks that break free and re-lock are counted under
+	// LockRelockedTracks, because the two call for different fixes.
+	LockTrappedTracks    int `json:"lock_trapped_tracks"`
+	LockRelockedTracks   int `json:"lock_relocked_tracks"`
+	LockReleasedTracks   int `json:"lock_released_tracks"`
+	LongestLockRunFrames int `json:"longest_lock_run_frames"`
 	// LockReleases counts how often the rejection counter forced a heading
 	// lock to release. Zero across a whole run with the release armed means
 	// either no track ever hit the trap, or the release is misconfigured.
@@ -95,10 +100,12 @@ type TrackAlignmentMetrics struct {
 
 	// Heading lock telemetry. LockTrapped is the one to watch: the track
 	// entered a sustained lock and never released it.
-	HeadingLockedFrames int  `json:"heading_locked_frames"`
-	LongestLockRun      int  `json:"longest_lock_run"`
-	LockTrapped         bool `json:"lock_trapped"`
-	LockReleases        int  `json:"lock_releases"`
+	HeadingLockedFrames int    `json:"heading_locked_frames"`
+	LongestLockRun      int    `json:"longest_lock_run"`
+	LockTrapped         bool   `json:"lock_trapped"`
+	LockOutcome         string `json:"lock_outcome"`
+	LockEpisodes        int    `json:"lock_episodes"`
+	LockReleases        int    `json:"lock_releases"`
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -442,8 +449,13 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		if track.EnteredSustainedLock {
 			metrics.SustainedLockTracks++
 		}
-		if track.HeadingLockTrapped() {
+		switch track.HeadingLockOutcomeFor() {
+		case HeadingLockNeverRecovered:
 			metrics.LockTrappedTracks++
+		case HeadingLockRelocked:
+			metrics.LockRelockedTracks++
+		case HeadingLockReleased:
+			metrics.LockReleasedTracks++
 		}
 		if track.LongestLockRun > metrics.LongestLockRunFrames {
 			metrics.LongestLockRunFrames = track.LongestLockRun
@@ -481,6 +493,8 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 			HeadingLockedFrames:   track.HeadingLockedFrames,
 			LongestLockRun:        track.LongestLockRun,
 			LockTrapped:           track.HeadingLockTrapped(),
+			LockOutcome:           string(track.HeadingLockOutcomeFor()),
+			LockEpisodes:          track.LockEpisodes,
 			LockReleases:          track.HeadingLockReleases,
 		})
 	}
