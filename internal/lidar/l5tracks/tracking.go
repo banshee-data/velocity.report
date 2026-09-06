@@ -128,7 +128,9 @@ type TrackedObject struct {
 	LongestLockRun       int                        // Longest consecutive locked run
 	currentUnlockRun     int                        // Consecutive unlocked frames, running
 	EnteredSustainedLock bool                       // Reached SustainedLockFrames consecutively
+	RecoveredAfterLock   bool                       // Any unlocked frame after a sustained lock
 	ReleasedAfterLock    bool                       // Ran unlocked for SustainedLockFrames after that
+	LockEpisodes         int                        // Number of distinct lock runs
 	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
 	HeadingLockReleases  int                        // Times the rejection counter forced a release
 
