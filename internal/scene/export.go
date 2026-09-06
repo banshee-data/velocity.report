@@ -61,6 +61,9 @@ type Options struct {
 	VoxelMetres float64
 	// BucketSeconds is the timeline summary resolution. 0 uses the default.
 	BucketSeconds float64
+	// Vantages overrides the named viewpoints carried by the recording. Nil
+	// keeps whatever the recording holds.
+	Vantages []Vantage
 }
 
 // Result reports what an export produced.
@@ -302,6 +305,7 @@ func Export(opts Options) (*Result, error) {
 			ReferenceFrame: src.CoordinateFrame.ReferenceFrame,
 		},
 		DroppedNonMonotonic: nonMonotonic,
+		Vantages:            resolveVantages(opts.Vantages, src.Vantages),
 		TuningHash:          src.TuningHash,
 		BuildVersion:        src.BuildVersion,
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
@@ -559,4 +563,25 @@ func dirBytes(dir string) int64 {
 		return nil
 	})
 	return n
+}
+
+// resolveVantages decides which named viewpoints an export carries.
+//
+// An explicit override wins, because a publisher editing a scene knows more
+// than whoever configured the sensor. Otherwise the recording's own list is
+// used. A recording that names none falls back to compass bearings, which are
+// at least true even if they say nothing about the street.
+func resolveVantages(override []Vantage, recorded json.RawMessage) []Vantage {
+	if len(override) > 0 {
+		return override
+	}
+	if len(recorded) > 0 {
+		var list []Vantage
+		if err := json.Unmarshal(recorded, &list); err == nil && len(list) > 0 {
+			if problem := ValidateVantages(list); problem == "" {
+				return list
+			}
+		}
+	}
+	return DefaultVantages()
 }

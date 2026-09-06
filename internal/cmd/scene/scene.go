@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	sceneexport "github.com/banshee-data/velocity.report/internal/scene"
 )
@@ -53,6 +54,7 @@ func exportMain(args []string) int {
 	fs.IntVar(&opts.MaxPointsPerFrame, "max-points", 0, "Cap foreground points per frame in a clip export (0 = uncapped)")
 	fs.Float64Var(&opts.VoxelMetres, "voxel", sceneexport.DefaultBackgroundVoxel, "Downsampling grid for a background export, in metres")
 	fs.Float64Var(&opts.BucketSeconds, "bucket-seconds", sceneexport.DefaultBucketSeconds, "Timeline summary resolution in seconds")
+	vantagePath := fs.String("vantages", "", "JSON file of named viewpoints, overriding any the recording carries")
 
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
@@ -86,6 +88,15 @@ func exportMain(args []string) int {
 	if opts.Kind == sceneexport.KindBackground {
 		export = sceneexport.ExportBackground
 	}
+	if *vantagePath != "" {
+		list, err := sceneexport.LoadVantages(*vantagePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 2
+		}
+		opts.Vantages = list
+	}
+
 	res, err := export(opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "scene export failed: %v\n", err)
@@ -94,6 +105,13 @@ func exportMain(args []string) int {
 
 	fmt.Printf("wrote %s\n", filepath.Clean(opts.OutDir))
 	fmt.Printf("  export        %s\n", res.Header.Export)
+	if n := len(res.Header.Vantages); n > 0 {
+		names := make([]string, 0, n)
+		for _, v := range res.Header.Vantages {
+			names = append(names, v.Label)
+		}
+		fmt.Printf("  vantages      %d (%s)\n", n, strings.Join(names, ", "))
+	}
 
 	// A background export is a single snapshot: frame counts, stride and
 	// duration describe nothing about it.
