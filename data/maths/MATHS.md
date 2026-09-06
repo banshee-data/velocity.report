@@ -108,8 +108,12 @@ The production pipeline uses four math-heavy layers:
   with `0.15` / `0.10` kept as replay candidates. Fixes E/F remain optional diagnostic
   work and should not expand the guard stack before geometry-coherent tracking.
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md):
-  Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood
-  test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
+  Historical D-04 hypothesis-selection proposal. Its extent averages and count-only
+  uncertainty are superseded for new work by the visibility-aware contract below.
+- [Visibility-aware object tracking](proposals/20260905-visibility-aware-object-tracking-research.md):
+  Mathematical review of the seeded tracker: censored dimensions, surface observability,
+  correlated shape memory, course/body-yaw distinctions, and falsifiable evaluation.
+  Includes declarations for the active heading sprint; no runtime validation is claimed.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md):
   Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence,
   low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol.
@@ -135,27 +139,27 @@ The production pipeline uses four math-heavy layers:
 ## Prioritised proposal roadmap
 
 Work items drawn from the proposals above, ordered by user-visible impact and
-dependency readiness. Each item can be implemented independently, but earlier
-items improve later ones.
+dependency readiness. Verify each item's evidence and interface requirements before
+implementation; the surface-tracking extension has dependencies beyond a box-only heuristic.
 
 ### P1: geometry-coherent track state _(highest priority)_
 
-**Source:** [geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
-**Layer:** L5 tracking
-**Status:** Proposal, not started
-**Effort:** L (6–7 days)
-**Dependencies:** None (works standalone; enhanced by P2)
+**Source:** [visibility-aware review](proposals/20260905-visibility-aware-object-tracking-research.md)
+and [original D-04](proposals/20260222-geometry-coherent-tracking.md)
+**Layer:** L4 observation contract, L5 tracking, L6 class readout
+**Status:** Research proposal; active guard work is separate
+**Effort:** Original box-only estimate was 6–7 days; surface extension requires re-scoping
+**Dependencies:** Box hypotheses can use existing observations; surface tracking needs
+retained points, capture-time/calibration contracts, visibility evidence, and labelled tests.
 
-Replaces the reactive OBB guards (aspect-ratio lock, 90° jump rejection,
-dimension sync) with a single Bayesian geometry model per track. Each frame's
-PCA observation is tested in both axis interpretations; the interpretation with
-the lower Mahalanobis residual wins. Uncertainty shrinks with observations,
-shape classification modulates heading trust, and motion coupling provides a
-heading prior when velocity data is available.
+Compare coherent axis hypotheses while retaining ambiguity. Partial extents are not full
+dimension samples, repeated views are not automatically independent information, and course
+does not identify body yaw. The small seeded demo tests these contracts before adaptive shape
+learning or a production guard replacement. Its uncertainty remains diagnostic until calibrated.
 
-**Why first:** Directly fixes the most visible user-facing problem (bounding
-boxes that spin, change shape, or fail to capture all cluster points). No
-upstream changes required.
+**Why first:** It addresses the reported instability at its observation model, but improvement
+must be demonstrated against held-out pose, membership, and identity evidence. An attractive
+box or a lower jitter score alone does not prove that the physical state is more accurate.
 
 **Guard-stack note:** Geometry-coherent tracking still supersedes the current
 OBB guard stack. Pre-P1 work should stay limited to threshold validation,

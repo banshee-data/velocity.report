@@ -7,6 +7,13 @@
 - **Canonical maths:** [obb-heading-stability-review](../../data/maths/proposals/20260222-obb-heading-stability-review.md), [geometry-coherent-tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 - **Related plans:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [lidar-analysis-run-infrastructure-plan](lidar-analysis-run-infrastructure-plan.md)
 
+The D2 readiness declaration in the
+[root-checkout review](lidar-heading-d2-readiness-review.md) records the implementation
+boundary at `9b5525ab3` and supersedes conflicting D2 instructions below. Fix the
+warm-up/scoring boundary, episode-outcome semantics, and comparison fields first.
+D2.1 must allow ambiguity rather than always choosing an axis. Historical measurements
+remain below; they are not proof that the Day 1 or Day 2 acceptance gates have passed.
+
 > **Scope.** Two days of work to stop boxes pointing the wrong way, stop one
 > vehicle being drawn as two, and put a per-run rotation and alignment metric in
 > front of a human. It deliberately does not implement the full Bayesian

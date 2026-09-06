@@ -15,6 +15,14 @@ separate from classification features.
 Annotation packs retain scene context. A capped cluster sample alone is not a
 complete reference mask.
 
+The [visibility-aware review][visibility-research]
+adds a mathematical boundary: descriptors of retained returns describe visible support,
+not necessarily intrinsic whole-object geometry. Record aspect, range, and support validity.
+Surface normals and finite edges can inform registration observability; global eigenvalue
+ratios alone supply neither correspondence nor calibrated pose uncertainty.
+
+[visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
+
 ## Motivation
 
 The classifier decides between eight classes using a bounding box and a speed. It

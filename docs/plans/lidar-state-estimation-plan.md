@@ -22,6 +22,15 @@
 
 ## 0. Principles
 
+**Research declaration (2026-09-05):** The
+[visibility-aware review][visibility-research]
+refines the mathematical contract for this plan. Separate motion, orientation, and geometry
+beliefs do not imply independent errors: shape uncertainty must propagate into pose, and
+shared observations or priors must not be counted twice. Partial spans are noisy censored
+evidence. Course is not body-yaw truth, and a regularised fit is not necessarily observable.
+
+[visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
+
 Two principles govern every decision in this document. They are stated here
 because several later sections were revised to satisfy them, and because a
 design that violates either one is wrong regardless of its metrics.
@@ -1147,8 +1156,11 @@ drags the estimate sideways.
 The governing insight survives from the previous draft and is worth restating,
 because everything else follows from it:
 
-> A partial visible extent is a **lower bound** on the physical dimension, not a
-> noisy sample of it.
+> With correct membership and axes, a partial visible extent is **lower-bound
+> evidence** about the physical dimension, not an ordinary full-dimension sample.
+
+Noise, axis error, and contamination make this an uncertain constraint, not an
+irreversible hard floor. The estimator must retain those assumptions explicitly.
 
 That single asymmetry rules out a running mean, which the current code uses
 (`BoundingBoxLengthAvg` and siblings, defect P7). A mean over partial views
@@ -1167,10 +1179,10 @@ admissible for width and inadmissible for length in the same instant.
 
 | Frame condition                                                                          | Length evidence                                 | Width evidence           | Rationale                                                                                          |
 | ---------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
-| Both end faces visible                                                                   | **Admit as measurement**                        | n/a                      | The extent is the dimension, up to measurement noise                                               |
-| Both lateral faces visible                                                               | n/a                                             | **Admit as measurement** | Rare from a single monostatic sensor; treat as high value when it occurs                           |
+| Reliable physical endpoints span the longitudinal axis                                   | **Admit as measurement**                        | n/a                      | Requires endpoint support, not simultaneous visibility of opposing faces                           |
+| Reliable physical endpoints span the lateral axis                                        | n/a                                             | **Admit as measurement** | Distinguish a physical boundary from a sampling or FOV boundary                                    |
 | One face plus a resolved opposite edge                                                   | Admit, downweighted                             | Admit, downweighted      | The far edge is inferred, so sigma is inflated                                                     |
-| One face only                                                                            | **Admit as lower bound only**                   | Same                     | Raises the floor, can never lower the estimate                                                     |
+| One face only                                                                            | **Admit as uncertain lower bound only**         | Same                     | Does not independently measure the unseen full dimension                                           |
 | Cluster truncated at the FOV boundary                                                    | Reject                                          | Reject                   | The extent is an artefact of the sensor boundary                                                   |
 | `Fragmented` set                                                                         | Reject                                          | Reject                   | The cluster is part of an object, so its extent is meaningless as a dimension                      |
 | Merge suspected: extent far above the current belief and the neighbour distance is small | **Reject**                                      | Reject                   | This is the ratchet failure mode; see 9.2.3                                                        |
@@ -1180,31 +1192,23 @@ admissible for width and inadmissible for length in the same instant.
 
 #### 9.2.2 The estimator
 
-A bounded, class-prior-anchored quantile estimator, in three parts:
+Use a revisable, uncertainty-bearing dimension belief. Begin with a declared
+class or human seed prior. Admit reliably supported full spans as two-sided
+measurements; admit partial spans as uncertain interval constraints or an
+explicitly justified censored-observation likelihood. Retain evidence provenance
+so an association revision can remove its contribution.
 
-```
-prior:       class-conditioned (L, W, H) with generous sigma, from 5.5
-lower bound: running maximum over admissible lower-bound frames
-estimate:    robust upper quantile (default: 80th percentile) over admissible
-             measurement frames, clamped below by the lower bound and clamped
-             above by the class prior plus k sigma
-```
+The previous 80th-percentile, running-maximum, and hard-clamp recipe was a
+heuristic, not a derived Bayesian estimator. A lower-bound observation exceeding
+the class range is model/evidence conflict, not a reason to choose whichever
+clamp executes last. Class priors remain fallible and revisable.
 
-The upper clamp is what defeats the ratchet: a merged cluster that survives the
-admissibility filter still cannot push the length past the class prior's
-plausible range. The lower clamp preserves the physical fact that the object is
-at least as big as the largest thing we have cleanly seen.
-
-The quantile rather than the maximum is deliberate. The maximum is the maximum
-likelihood estimator for a uniform-noise lower bound, and it is also maximally
-sensitive to the one bad frame that got through. The 80th percentile costs a
-little bias, which the lower-bound clamp then removes, and buys robustness.
-
-Sigma comes from the spread of the admissible measurement frames and from the
-count of them, and it is floored by the class prior's sigma until enough
-admissible frames exist. **It is never zero, and never below the class prior
-floor**, because a dimension estimated from a handful of views of one aspect is
-not precisely known regardless of how consistent those views were.
+For the three-day demo, fixed seed geometry with explicit uncertainty is an
+acceptable boundary; adaptive dimensions are not required. Any later adaptive
+estimator must account for shared pose error and repeated views. Frame count
+alone cannot justify shrinking sigma. Independent informative views may beat
+the prior sigma; an irreducible floor instead represents calibration/model error
+and unresolved geometry. See Sections 6 and 7 of the visibility-aware review.
 
 #### 9.2.3 Preventing permanent inflation
 
@@ -1212,7 +1216,8 @@ Three defences, because this is the failure that would quietly poison every
 downstream clearance measurement:
 
 1. **Admissibility** rejects the frame, per 9.2.1.
-2. **The class prior clamp** bounds anything that gets through.
+2. **A soft class prior and explicit conflict state** flag implausible evidence
+   without silently forcing the object into a possibly wrong class range.
 3. **Revisability.** The dimension belief is recomputed from the retained
    admissible-frame record rather than updated in place, so a frame later
    reclassified as a merge, for example by the split and merge detection in
@@ -1224,11 +1229,12 @@ Dimension sigma is exposed downstream, not just the point estimate. The
 behaviour plan's clearance uncertainty is dominated by it, so a plan that
 publishes only the estimate would silently mislead the metric that matters most.
 
-The full Bayesian treatment is worked out in
-[the geometry-coherent proposal](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
-and should be adopted if the quantile approach proves insufficient. Its axis
-selection by likelihood is complementary rather than alternative: it decides
-_which_ extent is length, and 9.2.2 decides what to do with it.
+The original
+[geometry-coherent proposal](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
+motivates competing axis hypotheses, but its extent averages and count-based
+uncertainty are not a full Bayesian treatment. The visibility-aware review
+supplies the revised contract: axis identity, censoring, association, and pose
+uncertainty are coupled rather than independent sequential truths.
 
 ### 9.3 Decision gate G-GEO-1
 

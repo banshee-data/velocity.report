@@ -15,11 +15,13 @@ trail with the current tracker on one site.
   [Test corpus](lidar-test-corpus-plan.md)
 
 **Mathematical contract:** Follow the
-[visibility-aware review](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md).
+[visibility-aware review][visibility-research].
 Low registration error is not pose certainty. The bounded tracker must test perturbed,
 re-matched pose alternatives, identify prior-dominated directions, and avoid counting
 cached points or a motion prior twice as independent evidence. Human membership masks do
 not provide temporal point correspondences.
+
+[visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
 
 ## 1. What will be demonstrable
 
@@ -41,9 +43,11 @@ sprint now includes the committed headless PCAP replay harness and reports Day 1
 Those results were read, not independently reproduced here. The mathematical review
 separates reported proxy improvements from the remaining accuracy and identity gates.
 
-The active execution document is `docs/plans/lidar-heading-coherence-sprint-plan.md` on that
-branch; it is not present in this planning worktree. Integrate this plan there after
-reconciling the live changes. Do not copy older runtime files over the active agent's work.
+This plan is now integrated into the root checkout. The
+[active heading sprint](lidar-heading-coherence-sprint-plan.md) and its
+[D2 readiness review](lidar-heading-d2-readiness-review.md) record subsequent work at
+`9b5525ab3`, including unresolved warm-up and episode-metric contracts. Do not treat the
+earlier planning snapshot as the current implementation boundary.
 
 The sprint uses the existing renderer and playback controls, a local annotation pack, and an
 offline tracker. It does not depend on finishing the full QC workbench, a new database schema,

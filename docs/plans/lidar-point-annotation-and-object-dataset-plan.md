@@ -23,6 +23,14 @@ classification, or claim to recover surfaces the sensor never recorded. A select
 observed return, not a permanent landmark on the vehicle: point identities do not persist
 across scans, but the annotated object identity does.
 
+The [visibility-aware review][visibility-research]
+defines the estimator contract. Keep membership evidence, uncertain seed dimensions, and
+physical pose reference labels separate. A mask does not certify unseen dimensions or
+cross-frame point correspondence. Future reviewed masks must not enter a causal evaluation;
+report assisted corrections separately from unassisted predictions.
+
+[visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
+
 ## 2. Existing work and the missing contract
 
 The current label APIs annotate run tracks and replay time spans. Migration
