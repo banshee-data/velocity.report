@@ -96,9 +96,22 @@ type HeadingLockSummary struct {
 	TerminalRecovered   int `json:"terminal_recovered"`
 	TerminalAssessed    int `json:"terminal_assessed"`
 	// SourceFrames counts track-frames by heading source: pca, velocity,
-	// displacement, locked.
+	// displacement, locked, released, axis, ambiguous, insufficient,
+	// axis_square, axis_no_fit, axis_released.
 	SourceFrames map[string]int `json:"source_frames"`
-	// LockedFrameRatio is locked track-frames over all track-frames. [0, 1]
+	// AcceptanceRatio is track-frames on which a measurement set the heading,
+	// over all track-frames. [0, 1]
+	//
+	// This is the figure to compare between the guard path and the axis path.
+	// Held share is not: the two paths label their accepted frames differently
+	// (pca / velocity / displacement against axis), so reading one path's
+	// locked count against the other's counts a change of vocabulary as a
+	// change of behaviour. Acceptance shares one definition across both.
+	AcceptanceRatio float64 `json:"acceptance_ratio"`
+	// AcceptedFrames and HeldFrames are the counts behind AcceptanceRatio.
+	AcceptedFrames int `json:"accepted_frames"`
+	HeldFrames     int `json:"held_frames"`
+	// LockedFrameRatio is held track-frames over all track-frames. [0, 1]
 	LockedFrameRatio float64 `json:"locked_frame_ratio"`
 	// SustainedLockTracks entered a lock of at least SustainedLockFrames.
 	SustainedLockTracks int `json:"sustained_lock_tracks"`
@@ -338,6 +351,11 @@ type MatchedPairSpeed struct {
 // QualityDelta is §8.5.
 type QualityDelta struct {
 	CoLocatedFrameRatio *DeltaPair `json:"co_located_frame_ratio,omitempty"`
+	// HeadingAcceptanceRatio is the like-for-like figure across heading paths.
+	// Read it beside CourseAlignmentP50: a lower course error measured over
+	// far fewer accepted frames is not the same result as a lower one measured
+	// over the same frames, and the pair says which happened.
+	HeadingAcceptanceRatio *DeltaPair `json:"heading_acceptance_ratio,omitempty"`
 	// Nil means one arm lacks eligible evidence; it must not be scored as zero.
 	CourseAlignmentP50       *DeltaPair `json:"course_alignment_p50,omitempty"`
 	TerminalUnrecoveredRatio *DeltaPair `json:"terminal_unrecovered_ratio,omitempty"`

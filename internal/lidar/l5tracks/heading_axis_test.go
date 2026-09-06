@@ -49,12 +49,16 @@ func TestAxisAbstainsAndPreservesReference(t *testing.T) {
 			tk := axisTestTracker()
 			tr := tk.initTrack(elongatedCluster(0, 0, 0), 1e9)
 			c := elongatedCluster(0, 0, 80)
-			source := HeadingSourceAmbiguous
+			var source HeadingSource
 			switch kind {
 			case "square":
 				c.OBB.Length, c.OBB.Width = 2, 2
+				source = HeadingSourceAxisSquare
 			case "fragment":
 				c.OBB.Length, c.OBB.Width = .11, .08
+				// Smaller than the reference, so the release must not fire:
+				// a scrap cannot redefine the object it broke off.
+				source = HeadingSourceAxisNoFit
 			case "few_points":
 				c.PointsCount = 1
 				source = HeadingSourceInsufficient
@@ -209,5 +213,124 @@ func TestAssociationUsesCreationSequenceInsteadOfUUID(t *testing.T) {
 	}
 	if assign("a", "z") != assign("z", "a") {
 		t.Fatal("tied assignment depends on UUID")
+	}
+}
+
+// axisSizedCluster is elongatedCluster with the observed extents overridden, for
+// the cases where the reference and the observation must disagree on size.
+func axisSizedCluster(l, w float32, headingDeg float64) WorldCluster {
+	c := elongatedCluster(0, 0, headingDeg)
+	c.BoundingBoxLength, c.BoundingBoxWidth = l, w
+	c.OBB.Length, c.OBB.Width = l, w
+	return c
+}
+
+// An under-seeded reference must not trap the track for the rest of its life.
+// Occlusion only removes points, so an observation larger on both axes is
+// evidence that the reference, not the observation, was the partial view.
+func TestAxisReleasesUnderSeededReference(t *testing.T) {
+	tk := axisTestTracker()
+	tr := tk.initTrack(axisSizedCluster(1, .4, 0), 1e9)
+	if tr.axisReferenceL != 1 || tr.axisReferenceW != .4 {
+		t.Fatalf("seed reference = %vx%v, want 1x0.4", tr.axisReferenceL, tr.axisReferenceW)
+	}
+
+	full := axisSizedCluster(4.5, 1.9, 0)
+	maxRun := tk.Config.OBBHeadingLockMaxRejections
+	for i := 0; i < maxRun-1; i++ {
+		tk.update(tr, full, int64(i+2)*1e9)
+	}
+	if tr.HeadingSource != HeadingSourceAxisNoFit {
+		t.Fatalf("source = %q before the run completes, want axis_no_fit", tr.HeadingSource)
+	}
+	if tr.HeadingLockReleases != 0 {
+		t.Fatal("released before the abstention run reached the threshold")
+	}
+
+	tk.update(tr, full, int64(maxRun+1)*1e9)
+	if tr.HeadingSource != HeadingSourceAxisReleased {
+		t.Fatalf("source = %q at the threshold, want axis_released", tr.HeadingSource)
+	}
+	if tr.axisReferenceL != 4.5 || tr.axisReferenceW != 1.9 {
+		t.Fatalf("reference = %vx%v after release, want 4.5x1.9", tr.axisReferenceL, tr.axisReferenceW)
+	}
+	if tr.HeadingLockReleases != 1 {
+		t.Fatalf("releases = %d, want 1", tr.HeadingLockReleases)
+	}
+
+	// The point of releasing is that measurement resumes.
+	tk.update(tr, full, int64(maxRun+2)*1e9)
+	if tr.HeadingSource != HeadingSourceAxis {
+		t.Fatalf("source = %q after release, want axis", tr.HeadingSource)
+	}
+	if tr.HeadingEpisodes.Outcome() == "unrecovered" {
+		t.Fatal("release left the episode unrecovered")
+	}
+}
+
+// The release must never fire on a tie. Both interpretations fit, and choosing
+// one on a timer invents a decision the evidence does not support.
+func TestAxisTieNeverReleases(t *testing.T) {
+	tk := axisTestTracker()
+	tr := tk.initTrack(axisSizedCluster(2, 1.8, 0), 1e9)
+	turned := axisSizedCluster(2, 1.8, 45)
+	for i := 0; i < 20; i++ {
+		tk.update(tr, turned, int64(i+2)*1e9)
+	}
+	if tr.HeadingSource != HeadingSourceAmbiguous {
+		t.Fatalf("source = %q, want ambiguous", tr.HeadingSource)
+	}
+	if tr.HeadingLockReleases != 0 {
+		t.Fatalf("releases = %d on a tie, want 0", tr.HeadingLockReleases)
+	}
+	if tr.OBBHeadingRad != 0 {
+		t.Fatalf("heading moved to %v on a tie, want 0", tr.OBBHeadingRad)
+	}
+}
+
+// Disabling the release restores the unbounded hold, so an A/B can measure it.
+func TestAxisReleaseDisabled(t *testing.T) {
+	tk := axisTestTracker()
+	tk.Config.OBBHeadingLockMaxRejections = 0
+	tr := tk.initTrack(axisSizedCluster(1, .4, 0), 1e9)
+	full := axisSizedCluster(4.5, 1.9, 0)
+	for i := 0; i < 30; i++ {
+		tk.update(tr, full, int64(i+2)*1e9)
+	}
+	if tr.HeadingLockReleases != 0 || tr.HeadingSource != HeadingSourceAxisNoFit {
+		t.Fatalf("released with the valve disabled: source=%q releases=%d",
+			tr.HeadingSource, tr.HeadingLockReleases)
+	}
+	if tr.AxisAbstentionRun != 30 {
+		t.Fatalf("abstention run = %d, want 30", tr.AxisAbstentionRun)
+	}
+}
+
+// Acceptance, not held share, is the figure that compares across paths.
+func TestAxisSourceClassification(t *testing.T) {
+	held := []HeadingSource{
+		HeadingSourceLocked, HeadingSourceAmbiguous, HeadingSourceInsufficient,
+		HeadingSourceAxisSquare, HeadingSourceAxisNoFit,
+	}
+	accepted := []HeadingSource{
+		HeadingSourcePCA, HeadingSourceVelocity, HeadingSourceDisplacement,
+		HeadingSourceReleased, HeadingSourceAxis, HeadingSourceAxisReleased,
+	}
+	for _, s := range held {
+		if !s.IsLocked() {
+			t.Fatalf("%q should count as held", s)
+		}
+	}
+	for _, s := range accepted {
+		if s.IsLocked() {
+			t.Fatalf("%q should count as accepted", s)
+		}
+		if s.String() == "unknown" {
+			t.Fatalf("source %d has no name", s)
+		}
+	}
+	if len(held)+len(accepted) != HeadingSourceCount {
+		t.Fatalf("classified %d sources, but HeadingSourceCount is %d",
+			len(held)+len(accepted), HeadingSourceCount)
 	}
 }
