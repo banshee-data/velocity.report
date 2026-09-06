@@ -21,6 +21,14 @@ new replay and lock-telemetry findings. The earlier inspection below is retained
 
 [d2-review]: ../../../docs/plans/lidar-heading-d2-readiness-review.md
 
+**Implementation boundary:** The [D2 experiment report][d2-experiment] now records an
+implemented, default-off axial selector and observed-envelope projection. Its cost scales and
+score gap are heuristics, not likelihood calibration or posterior confidence. Its running
+support reference is not the body-local surface model proposed here. The warmed comparison is
+mixed, so neither this proposal nor the physical-heading acceptance gate is validated by it.
+
+[d2-experiment]: ../../../docs/plans/lidar-heading-d2-implementation-report.md
+
 Keep the small seeded tracker as an experiment, but add observability checks before treating
 its trail as an estimate of physical motion. Point-to-point registration is a comparator; it is
 not a licence to infer certainty from a low residual. A visibility-aware surface model is the
@@ -60,7 +68,7 @@ complete algorithm, losses, calibration, or benchmark results.
 
 ## 3. State, coordinates, and the object reference point
 
-Let a recorded sensor return be \(p^S_{ti}\), sensor-to-world transform be \(E_t\), and
+Let a recorded sensor return be \(p^S\_{ti}\), sensor-to-world transform be \(E_t\), and
 body-to-world pose be \(T_t\). Then:
 
 $$
@@ -266,8 +274,8 @@ refinement.
 ## 6. Temporal priors, smoothing, and correlated shape memory
 
 Use capture-time intervals. A Cartesian CV prediction and a local angular-rate prediction are
-separate possible components: \(c^-_t=c_{t-1}+v_{t-1}\Delta t\) and
-\(\psi^-_t=\psi_{t-1}+\omega_{t-1}\Delta t\). The rate may be weakly known; do not assume a
+separate possible components: \(c^-_t=c_{t-1}+v*{t-1}\Delta t\) and
+\(\psi^-\_t=\psi*{t-1}+\omega\_{t-1}\Delta t\). The rate may be weakly known; do not assume a
 turning model is already implemented. Specify process noise and gap handling in time units.
 
 For a continuous white-acceleration position/velocity model, one-axis discretisation is:
@@ -310,7 +318,7 @@ not create two independent measurements. Retain sample provenance and pose revis
 contribution.
 
 For equal-variance errors with common pairwise correlation \(r\), the variance of their mean is
-\(\sigma^2[1+(n-1)r]/n\). An illustrative effective count is \(n_{\rm eff}=n/[1+(n-1)r]\): 100
+\(\sigma^2[1+(n-1)r]/n\). An illustrative effective count is \(n\_{\rm eff}=n/[1+(n-1)r]\): 100
 repeats with \(r=0.9\) carry about 1.11 independent samples. This illustration is not a fitted
 correlation model for our sensor. It disproves unconditional \(1/\sqrt n\) confidence growth as
 a geometry-learning rule.
@@ -370,7 +378,7 @@ unresolved directions; repeated partial views alone do not justify reducing them
 
 ### 7.3 Class scores remain inspectable, not self-confirming
 
-For class \(k\), a small JSON model can store feature centres \(\mu_{kj}\), scales \(s_{kj}\),
+For class \(k\), a small JSON model can store feature centres \(\mu*{kj}\), scales \(s*{kj}\),
 and weights. Score valid features by robust normalised residuals and expose each contribution.
 Require minimum discriminative support, not merely a low average over whatever features remain.
 Report abstention and compare classes on a compatible feature domain.

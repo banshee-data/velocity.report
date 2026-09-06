@@ -159,6 +159,7 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			l5.MinPointsForPCA = trackerCfg.MinPointsForPCA
 			l5.OBBHeadingSmoothingAlpha = roundTo6(float64(trackerCfg.OBBHeadingSmoothingAlpha))
 			l5.OBBAspectRatioLockThreshold = roundTo6(float64(trackerCfg.OBBAspectRatioLockThreshold))
+			l5.OBBAxisCoherenceEnabled = trackerCfg.OBBAxisCoherenceEnabled
 			l5.MaxTrackHistoryLength = trackerCfg.MaxTrackHistoryLength
 			l5.MaxSpeedHistoryLength = trackerCfg.MaxSpeedHistoryLength
 			l5.MergeSizeRatio = roundTo6(float64(trackerCfg.MergeSizeRatio))
@@ -461,6 +462,8 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 				trackerCfg.OBBAspectRatioLockThreshold = float32(l5.OBBAspectRatioLockThreshold)
 			case "l5.cv_kf_v1.obb_heading_lock_max_rejections":
 				trackerCfg.OBBHeadingLockMaxRejections = l5.OBBHeadingLockMaxRejections
+			case "l5.cv_kf_v1.obb_axis_coherence_enabled":
+				trackerCfg.OBBAxisCoherenceEnabled = l5.OBBAxisCoherenceEnabled
 			case "l5.cv_kf_v1.min_associable_extent_metres":
 				trackerCfg.MinAssociableExtentMetres = float32(l5.MinAssociableExtentMetres)
 			case "l5.cv_kf_v1.deleted_track_render_fade":

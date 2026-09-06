@@ -20,7 +20,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -75,6 +77,12 @@ type Config struct {
 	// means the whole capture.
 	StartSeconds    float64
 	DurationSeconds float64
+	// WarmupSeconds processes this much of the same capture before StartSeconds.
+	// It does not record that prefix. Background and tracker state carry over.
+	WarmupSeconds float64
+	// RequireSettled fails if the grid is not settled at the scoring boundary.
+	// This checks grid convergence, not whether the sensor was physically static.
+	RequireSettled bool
 	// IncludePoints records the point cloud in the VRLOG. This dominates the
 	// output size, so it is off unless the recording is meant for the
 	// visualiser rather than for metrics.
@@ -85,25 +93,29 @@ type Config struct {
 
 // Result summarises a completed replay.
 type Result struct {
-	VRLOGPath   string
-	FramesRead  int
-	FramesEmpty int
-	Elapsed     time.Duration
-	TuningFile  string
-	SensorID    string
-	SourcePCAP  string
+	VRLOGPath      string
+	FramesRead     int
+	FramesEmpty    int
+	FramesRecorded int
+	WarmupFrames   int
+	Elapsed        time.Duration
+	TuningFile     string
+	SensorID       string
+	SourcePCAP     string
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
 // It stands in for the gRPC publisher, which is the only reason the pipeline
 // normally needs a server to produce a VRLOG.
 type recordingPublisher struct {
-	rec         *recorder.Recorder
-	mu          sync.Mutex
-	recorded    int
-	writeErr    error
-	dropPoints  bool
-	emptyFrames int
+	rec              *recorder.Recorder
+	mu               sync.Mutex
+	recorded         int
+	writeErr         error
+	dropPoints       bool
+	emptyFrames      int
+	recordAfterNanos int64
+	warmupFrames     int
 }
 
 func (p *recordingPublisher) Publish(frame interface{}) {
@@ -113,6 +125,10 @@ func (p *recordingPublisher) Publish(frame interface{}) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if bundle.TimestampNanos < p.recordAfterNanos {
+		p.warmupFrames++
+		return
+	}
 	if p.writeErr != nil {
 		return
 	}
@@ -144,6 +160,22 @@ func Run(cfg Config) (*Result, error) {
 	if cfg.OutDir == "" {
 		return nil, fmt.Errorf("OutDir is required")
 	}
+	for _, v := range []float64{cfg.StartSeconds, cfg.DurationSeconds, cfg.WarmupSeconds} {
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) >= float64(math.MaxInt64)/1e9 {
+			return nil, fmt.Errorf("replay windows must be finite representable seconds")
+		}
+	}
+	if cfg.StartSeconds < 0 || cfg.WarmupSeconds < 0 || cfg.WarmupSeconds > cfg.StartSeconds || (cfg.DurationSeconds < 0 && cfg.DurationSeconds != -1) {
+		return nil, fmt.Errorf("invalid replay window: require start >= warmup >= 0 and duration >= -1")
+	}
+	if cfg.DurationSeconds > 0 && cfg.DurationSeconds+cfg.WarmupSeconds >= float64(math.MaxInt64)/1e9 {
+		return nil, fmt.Errorf("processing window exceeds representable duration")
+	}
+	if entries, err := os.ReadDir(cfg.OutDir); err == nil && len(entries) != 0 {
+		return nil, fmt.Errorf("output directory must be empty: %s", cfg.OutDir)
+	} else if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("inspect output directory: %w", err)
+	}
 	if cfg.SensorID == "" {
 		cfg.SensorID = "pcap-replay"
 	}
@@ -157,6 +189,21 @@ func Run(cfg Config) (*Result, error) {
 	tuningCfg, err := config.LoadTuningConfigOrEmbedded(cfg.TuningFile, radarassets.TuningDefaults)
 	if err != nil {
 		return nil, fmt.Errorf("load tuning config %s: %w", cfg.TuningFile, err)
+	}
+	packets, err := network.CountPCAPPackets(cfg.PCAPFile, cfg.UDPPort)
+	if err != nil {
+		return nil, fmt.Errorf("inspect capture: %w", err)
+	}
+	if packets.Count == 0 {
+		return nil, fmt.Errorf("capture has no packets on UDP port %d", cfg.UDPPort)
+	}
+	scoreStart := packets.FirstTimestampNs + int64(cfg.StartSeconds*1e9)
+	if scoreStart < packets.FirstTimestampNs || scoreStart > packets.LastTimestampNs {
+		return nil, fmt.Errorf("scoring window starts outside capture")
+	}
+	pcapHash, err := fileSHA256(cfg.PCAPFile)
+	if err != nil {
+		return nil, fmt.Errorf("hash capture: %w", err)
 	}
 
 	if err := os.MkdirAll(cfg.OutDir, 0o755); err != nil {
@@ -196,7 +243,7 @@ func Run(cfg Config) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create recorder: %w", err)
 	}
-	pub := &recordingPublisher{rec: rec, dropPoints: !cfg.IncludePoints}
+	pub := &recordingPublisher{rec: rec, dropPoints: !cfg.IncludePoints, recordAfterNanos: scoreStart}
 	adapter := l9endpoints.NewFrameAdapter(cfg.SensorID)
 
 	// Provenance. Without it a recording cannot say which code and which
@@ -246,11 +293,23 @@ func Run(cfg Config) (*Result, error) {
 	pipelineCallback := pipeCfg.NewFrameCallback()
 
 	var frameCount int
+	var boundaryChecked, settledAtBoundary bool
 	frameCallback := func(frame *l2frames.LiDARFrame) {
 		if frame == nil {
 			return
 		}
 		frameCount++
+		// Check before consuming the first scored frame: the scored observation
+		// cannot itself be used to certify its own warm-up.
+		if !boundaryChecked && frame.StartTimestamp.UnixNano() >= scoreStart {
+			boundaryChecked = true
+			settledAtBoundary = bgMgr.IsSettlingComplete()
+			if cfg.RequireSettled && !settledAtBoundary {
+				pub.mu.Lock()
+				pub.writeErr = fmt.Errorf("background not settled at scoring boundary")
+				pub.mu.Unlock()
+			}
+		}
 		pipelineCallback(frame)
 		if cfg.ProgressEvery > 0 && frameCount%cfg.ProgressEvery == 0 {
 			log.Printf("frame=%d recorded=%d", frameCount, pub.recorded)
@@ -275,6 +334,10 @@ func Run(cfg Config) (*Result, error) {
 	fb.SetBlockOnFrameChannel(true)
 
 	log.Printf("replaying %s (port %d) through the perception pipeline", cfg.PCAPFile, cfg.UDPPort)
+	processingDuration := cfg.DurationSeconds
+	if processingDuration > 0 {
+		processingDuration += cfg.WarmupSeconds
+	}
 	replayErr := network.ReadPCAPFile(
 		context.Background(),
 		cfg.PCAPFile,
@@ -282,8 +345,8 @@ func Run(cfg Config) (*Result, error) {
 		parser,
 		fb,
 		nil, nil,
-		cfg.StartSeconds,
-		cfg.DurationSeconds,
+		cfg.StartSeconds-cfg.WarmupSeconds,
+		processingDuration,
 		0, 0, nil,
 	)
 
@@ -302,14 +365,55 @@ func Run(cfg Config) (*Result, error) {
 	if pub.recorded == 0 {
 		return nil, fmt.Errorf("replay produced no frames: check the UDP port filter (%d) and the capture window", cfg.UDPPort)
 	}
+	parserJSON, err := json.Marshal(parserCfg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal calibration: %w", err)
+	}
+	manifest := map[string]interface{}{
+		"schema_version": 1, "source_sha256": pcapHash, "source_basename": filepath.Base(cfg.PCAPFile),
+		"source_first_ns": packets.FirstTimestampNs, "source_last_ns": packets.LastTimestampNs,
+		"processing_start_seconds": cfg.StartSeconds - cfg.WarmupSeconds,
+		"scoring_start_seconds":    cfg.StartSeconds, "scoring_start_ns": scoreStart,
+		"scoring_duration_seconds": cfg.DurationSeconds, "warmup_seconds": cfg.WarmupSeconds,
+		"tracker_boundary_policy": "retain", "settled_at_boundary": settledAtBoundary,
+		"require_settled": cfg.RequireSettled, "sensor_id": cfg.SensorID, "udp_port": cfg.UDPPort,
+		"include_points": cfg.IncludePoints, "params_sha256": paramsHash,
+		"calibration_sha256": "sha256:" + hex.EncodeToString(sha256Sum(parserJSON)),
+		"build_version":      version.Version, "build_git_sha": version.GitSHA,
+		"build_stamped":    version.GitSHA != "" && version.GitSHA != "unknown" && version.GitSHA != "dev",
+		"frames_processed": frameCount, "frames_recorded": pub.recorded, "warmup_frames": pub.warmupFrames,
+		"warmup_static_verified": false,
+	}
+	manifestJSON, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal replay manifest: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.OutDir, "replay_manifest.json"), append(manifestJSON, '\n'), 0644); err != nil {
+		return nil, fmt.Errorf("write replay manifest: %w", err)
+	}
 
 	return &Result{
-		VRLOGPath:   filepath.Clean(cfg.OutDir),
-		FramesRead:  frameCount,
-		FramesEmpty: pub.emptyFrames,
-		Elapsed:     time.Since(start),
-		TuningFile:  cfg.TuningFile,
-		SensorID:    cfg.SensorID,
-		SourcePCAP:  cfg.PCAPFile,
+		VRLOGPath:      filepath.Clean(cfg.OutDir),
+		FramesRead:     frameCount,
+		FramesEmpty:    pub.emptyFrames,
+		FramesRecorded: pub.recorded,
+		WarmupFrames:   pub.warmupFrames,
+		Elapsed:        time.Since(start),
+		TuningFile:     cfg.TuningFile,
+		SensorID:       cfg.SensorID,
+		SourcePCAP:     cfg.PCAPFile,
 	}, nil
+}
+
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
 }
