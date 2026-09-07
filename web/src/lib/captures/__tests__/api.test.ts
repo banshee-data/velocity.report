@@ -3,13 +3,16 @@
  */
 import {
 	cancelCaptureJob,
+	clearReplayCaseLocation,
 	createReplayCaseFromCaptures,
 	getCaptureFiles,
 	getCaptureJobs,
 	getCapturePeriods,
 	getCaptureRoots,
 	getCaptureSessions,
+	getSceneMap,
 	scanCaptureRoots,
+	setReplayCaseLocation,
 	setCaptureSessionLabel,
 	startCaptureMotionPass
 } from '$lib/api';
@@ -192,5 +195,86 @@ describe('createReplayCaseFromCaptures', () => {
 		await expect(
 			createReplayCaseFromCaptures({ sensor_id: 's', pcap_files: ['a.pcap'] })
 		).rejects.toThrow(/replay case/i);
+	});
+});
+
+describe('setReplayCaseLocation', () => {
+	it('sends only the position, never tokens', async () => {
+		// The S2 family is derived server-side with Parent. A family assembled
+		// by a client could disagree with itself.
+		fetchMock.mockReturnValue(
+			ok({ location: { s2_l10_token: '808581', s2_l10_display: '80858-1' } })
+		);
+		await setReplayCaseLocation('case-1', {
+			origin_lat: 37.7987,
+			origin_lon: -122.4073,
+			geographic_source: 'surveyed'
+		});
+		const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
+		expect(body).toEqual({
+			origin_lat: 37.7987,
+			origin_lon: -122.4073,
+			geographic_source: 'surveyed'
+		});
+		expect(Object.keys(body).some((k) => k.startsWith('s2_'))).toBe(false);
+	});
+
+	it('returns the derived location', async () => {
+		fetchMock.mockReturnValue(
+			ok({
+				location: {
+					s2_l10_token: '808581',
+					s2_l10_display: '80858-1',
+					s2_l13_display: '80858-004',
+					s2_l16_display: '80858-0f3f'
+				}
+			})
+		);
+		const loc = await setReplayCaseLocation('case-1', { origin_lat: 37.8, origin_lon: -122.4 });
+		expect(loc.s2_l10_display).toBe('80858-1');
+		expect(loc.s2_l16_display).toBe('80858-0f3f');
+	});
+
+	it('surfaces the server reason for a rejected position', async () => {
+		fetchMock.mockReturnValue(
+			fail(400, { error: 'geoindex: no usable WGS84 position: 0,0 is an absent fix' })
+		);
+		await expect(setReplayCaseLocation('case-1', { origin_lat: 0, origin_lon: 0 })).rejects.toThrow(
+			/absent fix/
+		);
+	});
+});
+
+describe('clearReplayCaseLocation', () => {
+	it('deletes the location', async () => {
+		fetchMock.mockReturnValue(ok({}));
+		await clearReplayCaseLocation('case-1');
+		expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'DELETE' });
+		expect(lastUrl()).toContain('/location');
+	});
+});
+
+describe('getSceneMap', () => {
+	it('returns the sites', async () => {
+		fetchMock.mockReturnValue(
+			ok({
+				sites: [{ s2_l10_token: '808581', s2_l10_display: '80858-1', case_count: 2, cases: [] }],
+				site_count: 1,
+				case_count: 2,
+				coarse_level: 10,
+				fine_level: 13,
+				precise_level: 16
+			})
+		);
+		const map = await getSceneMap();
+		expect(map.site_count).toBe(1);
+		// The levels are reported so the page need not hard-code them.
+		expect(map.coarse_level).toBe(10);
+		expect(map.precise_level).toBe(16);
+	});
+
+	it('throws on a failure', async () => {
+		fetchMock.mockReturnValue(fail(503));
+		await expect(getSceneMap()).rejects.toThrow();
 	});
 });

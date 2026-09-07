@@ -11,6 +11,7 @@
 	import {
 		cancelCaptureJob,
 		createReplayCaseFromCaptures,
+		setReplayCaseLocation,
 		getCaptureFiles,
 		getCaptureJobs,
 		getCapturePeriods,
@@ -78,6 +79,13 @@
 
 	let labelDraft = '';
 	let jobPoll: ReturnType<typeof setInterval> | null = null;
+
+	// Where the capture was taken. A static segment is only useful as a scene
+	// once it has a place, and this is the moment the operator knows it.
+	let originLat = '';
+	let originLon = '';
+	let geoSource = 'operator';
+	let locationNote: string | null = null;
 
 	$: activeRoot = roots.find((r) => r.root_id === selectedRootId) ?? roots[0] ?? null;
 	$: visibleSessions = activeRoot
@@ -234,6 +242,7 @@
 		creating = true;
 		createError = null;
 		createdMessage = null;
+		locationNote = null;
 		try {
 			const created = await createReplayCaseFromCaptures({
 				sensor_id: caseSensorId,
@@ -242,6 +251,27 @@
 				session_id: expandedSessionId ?? undefined
 			});
 			createdMessage = `Created ${created.replay_case_id} over ${verdict.files.length} capture${verdict.files.length === 1 ? '' : 's'}.`;
+
+			// The position is recorded against the case once it exists, so a
+			// bad fix cannot stop the case being created — it can be corrected
+			// afterwards without losing the selection's work.
+			const lat = Number(originLat);
+			const lon = Number(originLon);
+			if (originLat.trim() !== '' && originLon.trim() !== '') {
+				try {
+					const loc = await setReplayCaseLocation(created.replay_case_id, {
+						origin_lat: lat,
+						origin_lon: lon,
+						geographic_source: geoSource
+					});
+					createdMessage += ` Located at ${loc.s2_l10_display} (L10) · ${loc.s2_l13_display} (L13) · ${loc.s2_l16_display} (L16).`;
+				} catch (e) {
+					locationNote =
+						e instanceof Error
+							? `Case created, but the location was not recorded: ${e.message}`
+							: 'Case created, but the location was not recorded.';
+				}
+			}
 			selectedFileIds = [];
 		} catch (e) {
 			createError = e instanceof Error ? e.message : 'Could not create the replay case.';
@@ -310,9 +340,14 @@
 				case is a window over a session, which may span several capture files.
 			</p>
 		</div>
-		<a href={resolve('/lidar/replay-cases')} class="text-primary text-sm hover:underline">
-			Replay cases →
-		</a>
+		<div class="flex shrink-0 gap-4">
+			<a href={resolve('/lidar/scene-map')} class="text-primary text-sm hover:underline">
+				Scene map →
+			</a>
+			<a href={resolve('/lidar/replay-cases')} class="text-primary text-sm hover:underline">
+				Replay cases →
+			</a>
+		</div>
 	</header>
 
 	<!-- Volume state -->
@@ -653,6 +688,31 @@
 												{creating ? 'Creating…' : 'Create replay case'}
 											</Button>
 										</div>
+
+										<div class="mt-2 flex flex-wrap items-center gap-2">
+											<span class="text-surface-content/50 text-xs">Captured at</span>
+											<input
+												class="border-surface-300 bg-surface-100 w-32 rounded border px-2 py-1 font-mono text-xs"
+												placeholder="latitude"
+												bind:value={originLat}
+											/>
+											<input
+												class="border-surface-300 bg-surface-100 w-32 rounded border px-2 py-1 font-mono text-xs"
+												placeholder="longitude"
+												bind:value={originLon}
+											/>
+											<select
+												class="border-surface-300 bg-surface-100 rounded border px-2 py-1 text-xs"
+												bind:value={geoSource}
+											>
+												<option value="operator">entered by hand</option>
+												<option value="surveyed">surveyed site origin</option>
+												<option value="fix">fix from the capture</option>
+											</select>
+											<span class="text-surface-content/40 text-xs">
+												optional — indexes the case as an S2 site on the scene map
+											</span>
+										</div>
 									{:else}
 										<p class="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{verdict.reason}</p>
 									{/if}
@@ -665,6 +725,11 @@
 									{#if createdMessage}
 										<p class="mt-2 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
 											{createdMessage}
+										</p>
+									{/if}
+									{#if locationNote}
+										<p class="mt-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
+											{locationNote}
 										</p>
 									{/if}
 								</div>

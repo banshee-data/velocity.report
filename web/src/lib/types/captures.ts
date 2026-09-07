@@ -139,3 +139,78 @@ export interface PeriodsResponse {
 	static_seconds: number;
 	motion_seconds: number;
 }
+
+/**
+ * Geographic identity, per docs/lidar/architecture/geographic-indexing.md.
+ *
+ * The canonical tokens are the identifiers — what is stored, indexed and
+ * exchanged. The family displays are derived presentation: they carry one
+ * hyphen at the family boundary, may appear in UI and logs, and must never be
+ * sent back as a key or used to address anything.
+ */
+export interface CaseLocation {
+	origin_lat: number;
+	origin_lon: number;
+	/** Canonical S2 tokens. L10 is the site, L13 the deployment, L16 the sensor position. */
+	s2_l10_token: string;
+	s2_l13_token: string;
+	s2_l16_token: string;
+	/** Family displays, derived by the server on read. Presentation only. */
+	s2_l10_display: string;
+	s2_l13_display: string;
+	s2_l16_display: string;
+	/** surveyed | operator | fix */
+	geographic_source?: string;
+	/** located | unavailable */
+	geographic_status: string;
+}
+
+export const GEO_LOCATED = 'located';
+export const GEO_UNAVAILABLE = 'unavailable';
+
+/** How a position was established. */
+export const GEO_SOURCES = ['surveyed', 'operator', 'fix'] as const;
+export type GeoSource = (typeof GEO_SOURCES)[number];
+
+/** One replay case as the scene map lists it. */
+export interface SceneSiteCase {
+	replay_case_id: string;
+	description?: string;
+	sensor_id?: string;
+	s2_l13_token: string;
+	s2_l13_display: string;
+	s2_l16_token: string;
+	s2_l16_display: string;
+	origin_lat: number;
+	origin_lon: number;
+	created_at_ns: number;
+}
+
+/**
+ * One place captures were taken. A site is an L10 cell, so many visits to one
+ * junction collapse into a single entry.
+ */
+export interface SceneSite {
+	s2_l10_token: string;
+	s2_l10_display: string;
+	centre_lat: number;
+	centre_lon: number;
+	sw_lat: number;
+	sw_lon: number;
+	ne_lat: number;
+	ne_lon: number;
+	case_count: number;
+	/** Distinct finer cells: deployments, and sensor positions within them. */
+	l13_count: number;
+	l16_count: number;
+	cases: SceneSiteCase[];
+}
+
+export interface SceneMapResponse {
+	sites: SceneSite[];
+	site_count: number;
+	case_count: number;
+	coarse_level: number;
+	fine_level: number;
+	precise_level: number;
+}

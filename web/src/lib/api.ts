@@ -1575,3 +1575,50 @@ export async function createReplayCaseFromCaptures(request: {
 	}
 	return res.json();
 }
+
+// Geographic identity of located replay cases
+
+import type { CaseLocation, SceneMapResponse } from '$lib/types/captures';
+
+/**
+ * setReplayCaseLocation records where a case was captured.
+ *
+ * Only the position is sent. The S2 tokens are derived server-side with
+ * Parent — a family assembled by a client could disagree with itself, which is
+ * a provenance error rather than something to reconcile.
+ */
+export async function setReplayCaseLocation(
+	replayCaseId: string,
+	location: { origin_lat: number; origin_lon: number; geographic_source?: string }
+): Promise<CaseLocation> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}/location`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(location)
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = (await res.json())?.error ?? '';
+		} catch {
+			// A non-JSON body leaves the status to speak for itself.
+		}
+		throw apiError(detail || 'Could not record the capture location', res.status);
+	}
+	const data = await res.json();
+	return data.location;
+}
+
+export async function clearReplayCaseLocation(replayCaseId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}/location`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw apiError('Could not clear the capture location', res.status);
+}
+
+/** getSceneMap returns every located site and the cases captured there. */
+export async function getSceneMap(): Promise<SceneMapResponse> {
+	const res = await fetch(`${API_BASE}/lidar/scene-map`);
+	if (!res.ok) throw apiError('Could not load the scene map', res.status);
+	return res.json();
+}

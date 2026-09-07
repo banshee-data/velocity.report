@@ -40,6 +40,11 @@ type ReplayCase struct {
 	// came from an indexed session. Both advisory.
 	SessionID      string `json:"session_id,omitempty"`
 	SourcePeriodID string `json:"source_period_id,omitempty"`
+
+	// Location is where the capture was taken, when a position has been
+	// accepted. Populated by the handlers that load it; the family displays it
+	// carries are derived on read and never stored.
+	Location *CaseLocation `json:"location,omitempty"`
 }
 
 // ReplayCaseStore provides persistence for LiDAR evaluation replay cases.

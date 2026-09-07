@@ -195,6 +195,13 @@
         , recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
         , session_id TEXT
         , source_period_id TEXT
+        , origin_lat REAL
+        , origin_lon REAL
+        , s2_l10_token TEXT
+        , s2_l13_token TEXT
+        , s2_l16_token TEXT
+        , geographic_source TEXT
+        , geographic_status TEXT NOT NULL DEFAULT 'unavailable'
         , CHECK (
           pcap_start_secs IS NULL
        OR pcap_start_secs >= 0
@@ -840,6 +847,12 @@ CREATE INDEX idx_lidar_replay_case_files_case ON lidar_replay_case_files (replay
 CREATE INDEX idx_lidar_replay_case_files_capture ON lidar_replay_case_files (capture_file_id);
 
 CREATE INDEX idx_lidar_replay_cases_session ON lidar_replay_cases (session_id);
+
+CREATE INDEX idx_lidar_replay_cases_s2_l10 ON lidar_replay_cases (s2_l10_token);
+
+CREATE INDEX idx_lidar_replay_cases_s2_l13 ON lidar_replay_cases (s2_l13_token);
+
+CREATE INDEX idx_lidar_replay_cases_s2_l16 ON lidar_replay_cases (s2_l16_token);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

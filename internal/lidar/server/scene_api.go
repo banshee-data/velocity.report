@@ -82,6 +82,14 @@ func (ws *Server) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 		} else {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
+	case "location":
+		// /api/lidar/scenes/{scene_id}/location
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodDelete:
+			ws.handleSetCaseLocation(w, r, sceneID)
+		default:
+			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
 	case "evaluations":
 		// /api/lidar/scenes/{scene_id}/evaluations
 		switch r.Method {
@@ -239,6 +247,11 @@ func (ws *Server) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID
 		opsf("Warning: could not load captures for replay case %s: %v", sceneID, err)
 	} else {
 		scene.Files = files
+	}
+	if loc, err := store.CaseLocationOf(sceneID); err != nil {
+		opsf("Warning: could not load the location of replay case %s: %v", sceneID, err)
+	} else {
+		scene.Location = loc
 	}
 
 	ws.writeJSON(w, http.StatusOK, scene)
