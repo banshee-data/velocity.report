@@ -206,3 +206,74 @@ func TestRunRejectsEmptyResult(t *testing.T) {
 		t.Fatal("a run that produced no frames returned success")
 	}
 }
+
+// A malformed tuning file is refused rather than silently falling back to the
+// embedded defaults, which would run the experiment with parameters nobody
+// asked for.
+func TestRunRejectsAMalformedTuningFile(t *testing.T) {
+	pcapPath := requireKirk0(t)
+	bad := filepath.Join(t.TempDir(), "tuning.json")
+	if err := os.WriteFile(bad, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Run(Config{
+		PCAPFile: pcapPath, OutDir: filepath.Join(t.TempDir(), "out"),
+		TuningFile: bad, UDPPort: 2369, DurationSeconds: 1,
+	})
+	if err == nil {
+		t.Fatal("ran with an unparseable tuning file")
+	}
+}
+
+// Progress logging is opt-in and must not change the result.
+func TestRunLogsProgressWithoutAffectingOutput(t *testing.T) {
+	pcapPath := requireKirk0(t)
+	res, err := Run(Config{
+		PCAPFile: pcapPath, OutDir: filepath.Join(t.TempDir(), "out"),
+		UDPPort: 2369, DurationSeconds: 2, ProgressEvery: 1,
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if res.FramesRecorded == 0 {
+		t.Fatal("progress logging produced no frames")
+	}
+}
+
+// A window too short to assemble a frame is an error, not an empty recording
+// that later looks like a run with nothing in it.
+func TestRunRefusesAWindowTooShortForAFrame(t *testing.T) {
+	pcapPath := requireKirk0(t)
+	_, err := Run(Config{
+		PCAPFile: pcapPath, OutDir: filepath.Join(t.TempDir(), "out"),
+		UDPPort: 2369, DurationSeconds: 0.001,
+	})
+	if err == nil {
+		t.Fatal("a window too short to hold a frame produced a recording")
+	}
+	if !strings.Contains(err.Error(), "no frames") {
+		t.Fatalf("error does not explain the empty result: %v", err)
+	}
+}
+
+// An output directory that cannot be created is reported before any capture is
+// read.
+func TestRunReportsAnUncreatableOutputDirectory(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root; permission bits do not apply")
+	}
+	pcapPath := requireKirk0(t)
+	parent := t.TempDir()
+	if err := os.Chmod(parent, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
+
+	_, err := Run(Config{
+		PCAPFile: pcapPath, OutDir: filepath.Join(parent, "out"),
+		UDPPort: 2369, DurationSeconds: 1,
+	})
+	if err == nil {
+		t.Fatal("ran with an output directory that could not be created")
+	}
+}
