@@ -2,9 +2,12 @@
   {
     "id": "overview",
     "label": "Overview",
-    "azimuth_deg": 45,
-    "polar_deg": 55,
-    "zoom": 0.25
+    "azimuth_deg": 91.9,
+    "polar_deg": 66.7,
+    "zoom": 0.18,
+    "offset_x": 25,
+    "offset_y": -19.6,
+    "fly": false
   },
   {
     "id": "eb-howard",
@@ -47,6 +50,7 @@
     "label": "Overhead",
     "azimuth_deg": 30,
     "polar_deg": 3,
-    "zoom": 0.5
+    "zoom": 0.5,
+    "fly": false
   }
 ]

@@ -85,6 +85,8 @@ export function normaliseVantages(list) {
       azimuth_deg: (((Number(v.azimuth_deg) || 0) % 360) + 360) % 360,
       polar_deg: Number(v.polar_deg) || 0,
       zoom: Number(v.zoom) || 1,
+      // Absent means "join the flight"; only an explicit false opts out.
+      fly: v.fly !== false,
     });
   }
   return out;
@@ -100,8 +102,18 @@ export function normaliseVantages(list) {
  * @param {() => void} [opts.onChange] fired whenever the camera moves. The
  *   player draws on demand rather than every frame, so without this a drag on
  *   a paused scene would change the camera and never be seen.
+ * @param {() => void} [opts.onUserInput] fired when a person moves the camera,
+ *   as opposed to the drone flight doing it. Something has to give way, and it
+ *   is not going to be the person: a drag overwritten 16 ms later reads as a
+ *   broken control.
  */
-export function createSceneCamera({ camera, element, THREE, onChange }) {
+export function createSceneCamera({
+  camera,
+  element,
+  THREE,
+  onChange,
+  onUserInput,
+}) {
   const target = new THREE.Vector3(0, 0, 0);
 
   const state = {
@@ -159,8 +171,12 @@ export function createSceneCamera({ camera, element, THREE, onChange }) {
     apply();
   }
 
-  function applyPreset(id) {
-    const v = vantages.find((p) => p.id === id) ?? vantages[0];
+  /**
+   * Moves to a viewpoint. Takes a vantage-shaped object rather than an id,
+   * because the drone flies through positions that lie between two named
+   * vantages and so have no id of their own.
+   */
+  function applyVantage(v) {
     if (!v) return null;
     state.azimuth = deg(v.azimuth_deg ?? 0);
     state.polar = deg(v.polar_deg ?? 55);
@@ -169,7 +185,12 @@ export function createSceneCamera({ camera, element, THREE, onChange }) {
     // centre on one approach rather than the middle of the junction.
     target.set(home.x + (v.offset_x ?? 0), home.y, home.z + (v.offset_y ?? 0));
     apply();
-    return v.id;
+    return v.id ?? null;
+  }
+
+  function applyPreset(id) {
+    const v = vantages.find((p) => p.id === id) ?? vantages[0];
+    return v ? applyVantage(v) : null;
   }
 
   /**
@@ -236,6 +257,7 @@ export function createSceneCamera({ camera, element, THREE, onChange }) {
   }
 
   function onPointerDown(e) {
+    onUserInput?.();
     // Same reasoning as the timeline strip: capture helps a drag continue
     // outside the canvas, but must not be able to abort the gesture.
     try {
@@ -284,6 +306,7 @@ export function createSceneCamera({ camera, element, THREE, onChange }) {
   }
 
   function onWheel(e) {
+    onUserInput?.();
     zoom(e.deltaY > 0 ? 1.1 : 0.9);
     e.preventDefault();
   }
@@ -324,6 +347,7 @@ export function createSceneCamera({ camera, element, THREE, onChange }) {
       default:
         return;
     }
+    onUserInput?.();
     e.preventDefault();
   }
   element.addEventListener("keydown", onKeyDown);
@@ -333,6 +357,7 @@ export function createSceneCamera({ camera, element, THREE, onChange }) {
   return {
     frame,
     applyPreset,
+    applyVantage,
     currentVantage,
     setVantages(list) {
       const clean = normaliseVantages(list);

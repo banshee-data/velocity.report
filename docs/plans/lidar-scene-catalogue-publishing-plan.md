@@ -417,7 +417,10 @@ itself is built in Phase 0 and owned by the companion plan.
    seek, looping playback, client-derived trails, class colouring, track
    inspector.
 4. Vantage chips from the site's `vantages.json`, labelled for the street
-   ("Eastbound Howard"), not the compass.
+   ("Eastbound Howard"), not the compass. A virtual drone sweeps one orbit
+   fitted to those vantages at constant speed, on by default, landing whenever
+   a reader picks a viewpoint or moves the camera:
+   [web scene export §10](lidar-web-scene-export-plan.md#10-the-camera-flies-itself).
 5. Deep links by site, segment and frame.
 6. Honour `prefers-reduced-motion`; verify at mobile widths.
 

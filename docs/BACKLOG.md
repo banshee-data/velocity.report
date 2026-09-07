@@ -142,8 +142,9 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Web scene export Phase 0 **delivered on branch**: `velocity scene export`
   writes gzipped NDJSON tracks, clip and background exports from a recorded
   VRLOG; `public_html/src/scenes/soma1/` plays the reference capture with a
-  background point cloud, orbit/pan camera, named vantages, an annotated
-  timeline that doubles as the scrubber, looping playback and 1x-16x rates.
+  background point cloud, orbit/pan camera, named vantages, a constant-speed
+  drone orbit fitted to them, an annotated timeline that doubles as the
+  scrubber, looping playback and 1x-16x rates.
   Remaining: re-export soma1 so the published assets come from the current
   exporter: [design doc](plans/lidar-web-scene-export-plan.md) `S`
 - Web scene export Phase 1: the other five sites in the `80858-1` family.

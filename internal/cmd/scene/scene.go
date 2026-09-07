@@ -4,8 +4,10 @@ package scene
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	sceneexport "github.com/banshee-data/velocity.report/internal/scene"
@@ -148,13 +150,63 @@ func vantagesMain(args []string) int {
 	}
 
 	fmt.Printf("%s: %d vantage(s)\n", filepath.Clean(args[0]), len(list))
+	flight := make([]sceneexport.Vantage, 0, len(list))
 	for _, v := range list {
 		fmt.Printf("  %-14s %s  bearing %g deg, angle %g deg, zoom %g",
 			v.ID, v.Label, v.AzimuthDeg, v.PolarDeg, v.Zoom)
 		if v.OffsetX != 0 || v.OffsetY != 0 {
 			fmt.Printf(", offset %g/%g m", v.OffsetX, v.OffsetY)
 		}
+		if !v.InFlight() {
+			fmt.Print("  [not flown]")
+		} else {
+			flight = append(flight, v)
+		}
 		fmt.Println()
+	}
+
+	// The viewer fits one circle to the eligible vantages and sweeps it at a
+	// constant rate. Printing the fit is the only way to see what the drone
+	// will actually do without watching it for forty seconds — in particular
+	// how far it passes from each vantage, which is where a mismatched
+	// elevation or zoom shows up.
+	sort.Slice(flight, func(i, j int) bool { return flight[i].AzimuthDeg < flight[j].AzimuthDeg })
+	if len(flight) < 2 {
+		fmt.Printf("\nflyby: none; %d vantage(s) eligible, and a circuit needs two\n", len(flight))
+		return 0
+	}
+
+	var polar, zoom, offX, offY float64
+	for _, v := range flight {
+		polar += v.PolarDeg
+		zoom += v.Zoom
+		offX += v.OffsetX
+		offY += v.OffsetY
+	}
+	n := float64(len(flight))
+	polar, zoom, offX, offY = polar/n, zoom/n, offX/n, offY/n
+
+	names := make([]string, 0, len(flight))
+	for _, v := range flight {
+		names = append(names, v.Label)
+	}
+	fmt.Printf("\nflyby: one circle through %s, and round again\n", strings.Join(names, ", "))
+	fmt.Printf("  orbit         angle %.4g deg, zoom %.4g, offset %.4g/%.4g m\n", polar, zoom, offX, offY)
+
+	var worst float64
+	var worstID string
+	for _, v := range flight {
+		// How far the fitted circle passes from this vantage. Bearing is not
+		// counted: the sweep hits every bearing exactly.
+		d := math.Abs(v.PolarDeg-polar) + math.Abs(v.OffsetX-offX) + math.Abs(v.OffsetY-offY)
+		if d > worst {
+			worst, worstID = d, v.ID
+		}
+	}
+	if worst < 1e-9 {
+		fmt.Println("  fit           exact: every flown vantage sits on the circle")
+	} else {
+		fmt.Printf("  fit           %s is furthest off the circle\n", worstID)
 	}
 	return 0
 }

@@ -258,6 +258,47 @@ between two unrelated moments.
 Speeds are 1x, 4x, 8x and 16x. The frame-step clamp is on wall time, not scene
 time, so 16x stays 16x and only a stalled frame is bounded.
 
+### 10. The camera flies itself
+
+A junction seen from one fixed three-quarter angle reads as a diagram. Seen
+from a slow circle it reads as a place, and the same traffic is shown from
+every approach without anyone touching a control. So the viewer opens with a
+**virtual drone** on, circling on its own clock — it keeps turning while
+playback is paused, and does not fly at sixteen times the speed when the
+recording does.
+
+The vantages are treated as **points on a circle, not stations to stop at**.
+Flying vantage-to-vantage means accelerating, arriving, holding and setting off
+again once per approach, and every one of those is a jolt. Instead one orbit is
+fitted to the eligible vantages — a plain mean of their elevation, distance and
+centre — and swept at a constant rate: no stops, no easing, no change of tilt
+or zoom, one continuous turn at about 9 degrees a second, 40 seconds a lap.
+
+The fit passes through every vantage's bearing exactly and through the vantage
+itself only as closely as a single circle can. That is the trade, and it is
+worth it: for a junction surveyed from four equivalent approaches the mean _is_
+each of them, and `velocity scene vantages` reports the fit so a mismatched
+elevation shows up before publication rather than as a lurch on the live page.
+
+Two kinds of vantage are wrong to average into an orbit, so a scene marks them
+`"fly": false`: an overhead plan view would flatten the circle onto the ground,
+and a wide establishing shot would push it out past the scene. Everything else
+joins by default.
+
+The controls follow from one rule — a person always outranks the drone:
+
+| Action                                      | Effect                                             |
+| ------------------------------------------- | -------------------------------------------------- |
+| Picking a vantage                           | Lands the drone, holds that view                   |
+| Dragging, pinching, or an arrow key         | Lands the drone where the camera stands            |
+| The **Fly** switch, left of the vantage bar | Takes off again from the bearing already on screen |
+
+Landing never moves the camera, and taking off resumes at the current bearing
+rather than wherever the flight clock had drifted, so neither transition cuts
+to an unrelated view. A drag that is overwritten by the next animation frame
+reads as a broken control, which is why the camera reports human input
+separately from its own motion.
+
 ## Scope
 
 ### Item 1: Export command
@@ -388,6 +429,7 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 - [x] Named vantages in one file, with guards against a second store (`M`) — §8
 - [x] Background point cloud, orbit/pan camera, mode toggle, timeline annotation (`M`)
 - [x] Looping playback, single timeline, keyboard scrubbing (`S`) — §9
+- [x] Constant-speed drone orbit, on by default, with a Fly switch (`M`) — §10
 - [x] Publish the reference capture through existing Pages (`M`) — 11 min, 1.2 MiB
 - [x] Document sources, commands and measured asset sizes (`S`) — [reference-capture.md](../lidar/operations/reference-capture.md)
 

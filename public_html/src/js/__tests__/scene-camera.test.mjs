@@ -437,6 +437,84 @@ describe("scene camera", () => {
     );
   });
 
+  // The drone flies through positions between two named vantages, so the
+  // camera has to accept a viewpoint that answers to no chip.
+  describe("applying a viewpoint that has no id", () => {
+    test("an unnamed vantage still moves the camera", () => {
+      const { camera, cam } = setup();
+      cam.applyPreset("north");
+      const before = camera.position.x;
+      assert.equal(
+        cam.applyVantage({ azimuth_deg: 90, polar_deg: 68, zoom: 0.85 }),
+        null,
+        "a vantage with no id should report none",
+      );
+      assert.notEqual(camera.position.x, before);
+    });
+
+    test("applying nothing is a no-op rather than a throw", () => {
+      const { cam } = setup();
+      assert.equal(cam.applyVantage(null), null);
+    });
+  });
+
+  // Something has to give way when a person grabs a camera the drone is
+  // flying, and it is not going to be the person.
+  describe("telling a person's input apart from the drone's", () => {
+    function withInput() {
+      const camera = fakeCamera();
+      const element = fakeElement();
+      const inputs = [];
+      const cam = createSceneCamera({
+        camera,
+        element,
+        THREE: { Vector3 },
+        onUserInput: () => inputs.push(1),
+      });
+      cam.frame({ centerX: 0, centerZ: 0, groundY: 0, span: 100 });
+      return { cam, element, inputs };
+    }
+
+    for (const [what, act] of [
+      ["a drag", (cam, el) => drag(el, 30, 10)],
+      ["the wheel", (cam, el) => el.fire("wheel", { deltaY: -1 })],
+      ["an arrow key", (cam, el) => el.fire("keydown", { key: "ArrowLeft" })],
+    ]) {
+      test(`${what} reports a person`, () => {
+        const { cam, element, inputs } = withInput();
+        act(cam, element);
+        assert.ok(inputs.length > 0, `${what} did not report user input`);
+      });
+    }
+
+    test("a key that does not move the camera is left alone", () => {
+      const { element, inputs } = withInput();
+      element.fire("keydown", { key: "Tab" });
+      assert.equal(inputs.length, 0, "Tab should not land the drone");
+    });
+
+    test("the drone's own moves do not report a person", () => {
+      const { cam, inputs } = withInput();
+      cam.applyVantage({ azimuth_deg: 200, polar_deg: 60, zoom: 0.3 });
+      cam.applyPreset("south");
+      assert.equal(inputs.length, 0, "the flight would land itself");
+    });
+  });
+
+  test("the flight opt-out survives normalising", () => {
+    const { cam } = setup();
+    const list = cam.setVantages([
+      { id: "a", label: "A" },
+      { id: "b", label: "B", fly: false },
+    ]);
+    assert.equal(
+      list[0].fly,
+      true,
+      "absent means the vantage joins the flight",
+    );
+    assert.equal(list[1].fly, false);
+  });
+
   test("arrow keys orbit for anyone not using a pointer", () => {
     const { camera, cam, element } = setup();
     cam.applyPreset("north");

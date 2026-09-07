@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { SceneSession, SceneError } from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
 import { createTimelineStrip } from "./scene-timeline.js";
+import { createSceneFlight } from "./scene-flight.js";
 
 // Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
 // X, up becomes Y, and north becomes -Z to keep the frame right-handed.
@@ -298,6 +299,13 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     sceneCamera.frame(b);
   }
 
+  // Drone state. Declared up here because the camera's own input callback
+  // lands the drone, and that callback is wired before the flight is built.
+  let flight = null;
+  let flying = false;
+  let flightSeconds = 0;
+  let setFlying = () => {};
+
   // The scene is drawn on demand, not every animation frame, so anything that
   // changes what the view should look like has to say so. Camera moves are the
   // main one: without this a drag on a paused scene would move the camera and
@@ -325,6 +333,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     element: canvas,
     THREE,
     onChange: markDirty,
+    // Touching the camera lands the drone. Anything else means a drag is
+    // undone by the next animation frame.
+    onUserInput: () => setFlying(false),
   });
 
   const session = await new SceneSession(manifestURL).open();
@@ -373,7 +384,18 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     bounds = { centerX: 0, centerZ: 0, groundY: 0, span: 60 };
   }
   applyBounds(bounds);
-  sceneCamera.applyPreset(vantages[0]?.id);
+
+  // One constant-speed orbit fitted to the scene's vantages, on its own clock
+  // so it keeps turning while playback is paused. A scene with fewer than two
+  // eligible vantages gets a still view and no switch: one point does not
+  // describe a circuit anybody asked for.
+  flight = createSceneFlight({ vantages });
+  const canFly = flight.path.length > 1;
+
+  // Open on the orbit when there is one, rather than on the first vantage.
+  // Placing the camera at a named viewpoint and then handing it to the drone
+  // shows a jump on the first frame, which is a poor thing to open with.
+  sceneCamera.applyVantage(canFly ? flight.sample(0) : vantages[0]);
 
   const visuals = new Map();
   let currentPart = -1;
@@ -519,8 +541,8 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   const state = {
     seconds: 0,
     playing: false,
-    rate: 1,
-    lastWall: 0,
+    // Read from the markup so the selector is the one place the default lives.
+    rate: Number(ui.rate?.value) || 1,
     pending: false,
   };
 
@@ -613,11 +635,24 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   // advances four seconds — bounded, and what 16x means.
   const MAX_WALL_STEP_SEC = 0.25;
 
+  /** Wall clock of the previous animation frame; 0 means "no delta yet". */
+  let lastWall = 0;
+
   function loop(now) {
+    const raw = lastWall ? (now - lastWall) / 1000 : 0;
+    const wallDt = Math.min(Math.max(raw, 0), MAX_WALL_STEP_SEC);
+    lastWall = now;
+
+    // The drone runs on wall time, not scene time, so it keeps circling while
+    // playback is paused and does not fly at sixteen times the speed when the
+    // recording does.
+    if (flying && flight) {
+      flightSeconds += wallDt;
+      sceneCamera.applyVantage(flight.sample(flightSeconds));
+    }
+
     if (state.playing) {
-      const raw = state.lastWall ? (now - state.lastWall) / 1000 : 0;
-      const dt = Math.min(Math.max(raw, 0), MAX_WALL_STEP_SEC);
-      state.lastWall = now;
+      const dt = wallDt;
       state.seconds += dt * state.rate;
       // Wrap rather than stop. A scene is a loop of street, not a film with an
       // ending, and eleven minutes in, whoever is still watching wants the
@@ -645,7 +680,6 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   if (ui.playToggle) {
     ui.playToggle.addEventListener("click", () => {
       state.playing = !state.playing;
-      state.lastWall = 0;
       syncUI();
     });
   }
@@ -656,10 +690,35 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   }
   // Returning to a hidden tab should resume, not skip ahead.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") state.lastWall = 0;
+    if (document.visibilityState === "visible") lastWall = 0;
   });
 
   // --- viewport controls ---------------------------------------------------
+
+  /** Marks one chip as the active viewpoint, or none while the drone flies. */
+  function markPreset(id) {
+    for (const el of ui.presets?.querySelectorAll("[data-preset]") ?? []) {
+      el.setAttribute("aria-pressed", String(el.dataset.preset === id));
+    }
+  }
+
+  /**
+   * Starts or lands the drone.
+   *
+   * Landing leaves the camera exactly where it is: the point of touching a
+   * control is to keep what you were looking at. Taking off resumes at the
+   * bearing already on screen rather than wherever the flight clock had
+   * drifted to, so the view carries on turning instead of cutting elsewhere.
+   */
+  setFlying = (next) => {
+    if (next === flying) return;
+    flying = next && canFly;
+    if (flying) {
+      flightSeconds = flight.phaseFor(sceneCamera.currentVantage().azimuth_deg);
+      markPreset(null);
+    }
+    if (ui.flyToggle) ui.flyToggle.setAttribute("aria-checked", String(flying));
+  };
 
   if (ui.presets) {
     ui.presets.replaceChildren();
@@ -669,17 +728,33 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       btn.className = "scene-chip";
       btn.textContent = vantage.label;
       btn.dataset.preset = vantage.id;
-      btn.setAttribute("aria-pressed", String(vantage.id === vantages[0].id));
+      btn.setAttribute("aria-pressed", "false");
       btn.addEventListener("click", () => {
-        const active = sceneCamera.applyPreset(vantage.id);
-        for (const el of ui.presets.querySelectorAll("[data-preset]")) {
-          el.setAttribute("aria-pressed", String(el.dataset.preset === active));
-        }
+        // Picking a viewpoint is a request to stay there, so the drone lands.
+        setFlying(false);
+        markPreset(sceneCamera.applyPreset(vantage.id));
         // No render() here: moving the camera marks the view dirty and the
         // next animation frame draws it, paused or not.
       });
       ui.presets.appendChild(btn);
     }
+  }
+
+  if (ui.flyToggle) {
+    // A scene with fewer than two eligible vantages has nowhere to fly, and a
+    // switch that cannot do anything is worse than no switch.
+    ui.flyToggle.hidden = !canFly;
+    ui.flyToggle.addEventListener("click", () => setFlying(!flying));
+  }
+
+  // The drone is on by default: a still three-quarter view of a junction says
+  // less than a slow circle of it, and nobody has to find a control to get it.
+  if (canFly) {
+    flying = true;
+    flightSeconds = 0;
+    ui.flyToggle?.setAttribute("aria-checked", "true");
+  } else {
+    markPreset(vantages[0]?.id);
   }
 
   // Framing a useful angle is easy; describing it to whoever edits the scene

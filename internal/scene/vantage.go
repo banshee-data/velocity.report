@@ -51,7 +51,17 @@ type Vantage struct {
 	// approach rather than the middle of the junction.
 	OffsetX float64 `json:"offset_x,omitempty"`
 	OffsetY float64 `json:"offset_y,omitempty"`
+
+	// Fly opts a vantage into or out of the viewer's drone circuit, which
+	// visits the eligible ones in bearing order. Absent means yes: a vantage
+	// worth naming is usually worth flying past. A pointer so that "not
+	// mentioned" and "explicitly excluded" stay distinguishable, which is what
+	// lets the checker report the flight a scene will actually make.
+	Fly *bool `json:"fly,omitempty"`
 }
+
+// InFlight reports whether this vantage joins the drone circuit.
+func (v *Vantage) InFlight() bool { return v.Fly == nil || *v.Fly }
 
 var vantageIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,47}$`)
 
