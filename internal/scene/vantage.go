@@ -126,6 +126,12 @@ func LoadVantages(path string) ([]Vantage, error) {
 		}
 		list = wrapper.Vantages
 	}
+	// A file that was explicitly named but yields nothing is almost always a
+	// mistyped key. Falling back to compass defaults there would publish the
+	// wrong labels and say nothing about why.
+	if len(list) == 0 {
+		return nil, fmt.Errorf("%s contains no vantages; expected an array or a \"vantages\" key", path)
+	}
 	if problem := ValidateVantages(list); problem != "" {
 		return nil, fmt.Errorf("%s: %s", path, problem)
 	}
