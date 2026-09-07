@@ -362,6 +362,9 @@ func (c *L5Common) Validate() error {
 	if c.OBBHeadingSmoothingAlpha < 0 || c.OBBHeadingSmoothingAlpha > 1 {
 		return fmt.Errorf("obb_heading_smoothing_alpha must be in [0, 1], got %f", c.OBBHeadingSmoothingAlpha)
 	}
+	if c.AssociationExtentCostWeight < 0 {
+		return fmt.Errorf("association_extent_cost_weight must be non-negative, got %f", c.AssociationExtentCostWeight)
+	}
 	if c.MinAssociableExtentMetres < 0 {
 		return fmt.Errorf("min_associable_extent_metres must be non-negative, got %f", c.MinAssociableExtentMetres)
 	}

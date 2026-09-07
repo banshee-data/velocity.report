@@ -167,6 +167,11 @@ type L5Common struct {
 	// MinAssociableExtentMetres is the smallest cluster extent that may be
 	// associated with a metre-scale track. Zero disables the fragment guard.
 	MinAssociableExtentMetres float64 `json:"min_associable_extent_metres"`
+	// AssociationExtentCostWeight scales a bounded extent-compatibility term
+	// in the association cost, and converts the fragment guard from a
+	// forbidden pairing into a finite penalty. Zero keeps the hard guard, so
+	// association changes can be measured separately from heading changes.
+	AssociationExtentCostWeight float64 `json:"association_extent_cost_weight"`
 	// DeletedTrackRenderFade is how long a deleted track is still published
 	// to clients, fading out. It is deliberately separate from
 	// DeletedTrackGracePeriod, which governs internal re-association and is
