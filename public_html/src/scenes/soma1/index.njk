@@ -177,10 +177,10 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
     <label class="scene-transport__rate">
       <span class="sr-only">Playback speed</span>
       <select id="scene-rate" aria-label="Playback speed">
-        <option value="0.5">0.5&times;</option>
         <option value="1" selected>1&times;</option>
-        <option value="2">2&times;</option>
         <option value="4">4&times;</option>
+        <option value="8">8&times;</option>
+        <option value="16">16&times;</option>
       </select>
     </label>
   </div>
@@ -223,6 +223,9 @@ description: Eleven minutes of real traffic at a San Francisco intersection, mea
     manifestURL: `${base}/manifest.json`,
     ui: {
       backgroundURL: `${base}/background/background.json.gz`,
+      // Edited by hand to adjust an angle; overrides whatever the export baked
+      // into the part header, so a change shows up on reload.
+      vantagesURL: `${base}/vantages.json`,
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),

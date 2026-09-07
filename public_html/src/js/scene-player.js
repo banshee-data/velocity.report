@@ -298,6 +298,15 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     sceneCamera.frame(b);
   }
 
+  // The scene is drawn on demand, not every animation frame, so anything that
+  // changes what the view should look like has to say so. Camera moves are the
+  // main one: without this a drag on a paused scene would move the camera and
+  // never be seen.
+  let viewDirty = false;
+  const markDirty = () => {
+    viewDirty = true;
+  };
+
   function resize() {
     const w = canvas.clientWidth || 960;
     const h = canvas.clientHeight || 540;
@@ -305,19 +314,55 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      markDirty();
     }
   }
   window.addEventListener("resize", resize);
   resize();
 
-  const sceneCamera = createSceneCamera({ camera, element: canvas, THREE });
+  const sceneCamera = createSceneCamera({
+    camera,
+    element: canvas,
+    THREE,
+    onChange: markDirty,
+  });
 
   const session = await new SceneSession(manifestURL).open();
+
+  /**
+   * Reads an optional vantages.json sitting beside the scene's assets.
+   *
+   * Accepts a bare array or an object with a "vantages" key, matching what
+   * `velocity scene export --vantages` will read. Missing or malformed is not
+   * fatal: the scene still plays on whatever the export baked in.
+   */
+  async function loadVantages(url) {
+    try {
+      // no-cache, because this is the file someone edits to adjust an angle.
+      // A cached copy would make every edit look like it did nothing.
+      const res = await fetch(url, { cache: "no-cache" });
+      if (!res.ok) return null;
+      const body = await res.json();
+      const list = Array.isArray(body) ? body : body?.vantages;
+      return Array.isArray(list) && list.length ? list : null;
+    } catch {
+      return null;
+    }
+  }
 
   // Vantages come from the scene itself, so a recording that knows its street
   // offers "Eastbound Howard" rather than "From east". A scene that names none
   // falls back to compass bearings.
-  const vantages = sceneCamera.setVantages(session.parts[0]?.header?.vantages);
+  //
+  // A vantages.json beside the assets outranks the export header. The header is
+  // what the export baked in and what travels with a download; the sidecar is
+  // what an editor changes, and needing an eleven-minute re-export to see an
+  // angle move is what stops anyone from adjusting one at all. Re-export to
+  // make a change permanent.
+  const sidecar = ui.vantagesURL ? await loadVantages(ui.vantagesURL) : null;
+  const vantages = sceneCamera.setVantages(
+    sidecar ?? session.parts[0]?.header?.vantages,
+  );
 
   const background = ui.backgroundURL
     ? await loadBackground(ui.backgroundURL).catch(() => null)
@@ -553,15 +598,17 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   // Playback advances on wall-clock delta scaled by rate, and the frame shown
   // is whichever the recording says belongs at that instant. Frame intervals
   // are not uniform, so no fixed tick is assumed anywhere.
-  // The longest step playback will take in one frame. requestAnimationFrame
+  // The most *wall* time one frame may account for. requestAnimationFrame
   // stops while a tab is hidden, so the first frame after returning can carry
   // an arbitrarily large delta; without a clamp the playhead would jump.
-  const MAX_STEP_SEC = 0.25;
+  // The scene-time step is this times the rate, so at 16x a stalled frame
+  // advances four seconds — bounded, and what 16x means.
+  const MAX_WALL_STEP_SEC = 0.25;
 
   function loop(now) {
     if (state.playing) {
       const raw = state.lastWall ? (now - state.lastWall) / 1000 : 0;
-      const dt = Math.min(Math.max(raw, 0), MAX_STEP_SEC);
+      const dt = Math.min(Math.max(raw, 0), MAX_WALL_STEP_SEC);
       state.lastWall = now;
       state.seconds += dt * state.rate;
       if (state.seconds >= session.duration) {
@@ -570,6 +617,13 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       }
       void show(state.seconds);
       syncUI();
+    }
+    // Redraw for anything that changed the view without changing the frame:
+    // an orbit, a pan, a zoom, a resize. This is what keeps the viewport live
+    // while playback is paused.
+    if (viewDirty) {
+      viewDirty = false;
+      render();
     }
     requestAnimationFrame(loop);
   }
@@ -617,7 +671,8 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         for (const el of ui.presets.querySelectorAll("[data-preset]")) {
           el.setAttribute("aria-pressed", String(el.dataset.preset === active));
         }
-        render();
+        // No render() here: moving the camera marks the view dirty and the
+        // next animation frame draws it, paused or not.
       });
       ui.presets.appendChild(btn);
     }

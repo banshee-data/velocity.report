@@ -4,7 +4,11 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { createSceneCamera } from "../scene-camera.js";
+import {
+  createSceneCamera,
+  DEFAULT_VANTAGES,
+  normaliseVantages,
+} from "../scene-camera.js";
 
 class Vector3 {
   constructor(x = 0, y = 0, z = 0) {
@@ -55,9 +59,15 @@ function fakeElement() {
 function setup() {
   const camera = fakeCamera();
   const element = fakeElement();
-  const cam = createSceneCamera({ camera, element, THREE: { Vector3 } });
+  const moves = [];
+  const cam = createSceneCamera({
+    camera,
+    element,
+    THREE: { Vector3 },
+    onChange: () => moves.push(1),
+  });
   cam.frame({ centerX: 0, centerZ: 0, groundY: 0, span: 100 });
-  return { camera, element, cam };
+  return { camera, element, cam, moves };
 }
 
 /** Drags one pointer by (dx, dy) from the centre. */
@@ -322,6 +332,109 @@ describe("scene camera", () => {
     ]) {
       assert.ok(element.has(type), `no ${type} handler registered`);
     }
+  });
+
+  // The player draws on demand rather than every animation frame, so a camera
+  // that moves silently is a camera that does nothing while playback is
+  // paused. Every gesture must announce itself.
+  describe("announcing that the view moved", () => {
+    for (const [what, act] of [
+      ["a drag", (cam, el) => drag(el, 40, 0)],
+      ["the wheel", (cam, el) => el.fire("wheel", { deltaY: -1 })],
+      ["an arrow key", (cam, el) => el.fire("keydown", { key: "ArrowLeft" })],
+      ["a preset", (cam) => cam.applyPreset("south")],
+      [
+        "framing",
+        (cam) => cam.frame({ centerX: 3, centerZ: 4, groundY: 0, span: 40 }),
+      ],
+    ]) {
+      test(`${what} reports a change`, () => {
+        const { cam, element, moves } = setup();
+        const before = moves.length;
+        act(cam, element);
+        assert.ok(
+          moves.length > before,
+          `${what} moved the camera without saying so; a paused scene would not redraw`,
+        );
+      });
+    }
+
+    test("a pan while paused reports a change", () => {
+      const { cam, element, moves } = setup();
+      cam.setMode("pan");
+      const before = moves.length;
+      drag(element, 0, -50);
+      assert.ok(moves.length > before, "pan did not report a change");
+    });
+
+    test("the camera works without an onChange listener", () => {
+      const camera = fakeCamera();
+      const element = fakeElement();
+      const cam = createSceneCamera({ camera, element, THREE: { Vector3 } });
+      cam.frame({ centerX: 0, centerZ: 0, groundY: 0, span: 100 });
+      assert.doesNotThrow(() => drag(element, 20, 20));
+    });
+  });
+
+  // These come from a JSON file someone edits by hand between exports.
+  describe("normalising a hand-edited vantage list", () => {
+    test("an entry with no id is dropped, not rendered as undefined", () => {
+      const out = normaliseVantages([
+        { label: "Nameless", azimuth_deg: 10 },
+        { id: "  ", label: "Blank" },
+        { id: "keeps", label: "Keeps" },
+      ]);
+      assert.deepEqual(
+        out.map((v) => v.id),
+        ["keeps"],
+      );
+    });
+
+    test("a duplicate id keeps the first, so no chip is unreachable", () => {
+      const out = normaliseVantages([
+        { id: "a", label: "First" },
+        { id: "a", label: "Second" },
+      ]);
+      assert.equal(out.length, 1);
+      assert.equal(out[0].label, "First");
+    });
+
+    test("a bearing outside 0-360 wraps the way it was meant", () => {
+      const [neg, over] = normaliseVantages([
+        { id: "a", azimuth_deg: -90 },
+        { id: "b", azimuth_deg: 450 },
+      ]);
+      assert.equal(neg.azimuth_deg, 270);
+      assert.equal(over.azimuth_deg, 90);
+    });
+
+    test("a missing label falls back to the id, and zoom to 1", () => {
+      const [v] = normaliseVantages([{ id: "eb-howard", polar_deg: 70 }]);
+      assert.equal(v.label, "eb-howard");
+      assert.equal(v.zoom, 1);
+    });
+
+    test("offsets survive normalising", () => {
+      const [v] = normaliseVantages([
+        { id: "a", label: "A", offset_x: 8, offset_y: -3 },
+      ]);
+      assert.equal(v.offset_x, 8);
+      assert.equal(v.offset_y, -3);
+    });
+
+    test("anything that is not a list yields nothing", () => {
+      for (const input of [null, undefined, {}, "nope", 7]) {
+        assert.deepEqual(normaliseVantages(input), []);
+      }
+    });
+  });
+
+  test("a list of unusable entries falls back to the defaults", () => {
+    const { cam } = setup();
+    assert.equal(
+      cam.setVantages([{ label: "no id" }]).length,
+      DEFAULT_VANTAGES.length,
+    );
   });
 
   test("arrow keys orbit for anyone not using a pointer", () => {

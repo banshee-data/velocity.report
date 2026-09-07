@@ -63,14 +63,45 @@ export const DEFAULT_VANTAGES = [
 const deg = (d) => (d * Math.PI) / 180;
 
 /**
+ * Cleans a hand-written vantage list, mirroring the exporter's Normalise.
+ *
+ * These arrive from a JSON file someone edits by hand, so an entry may be
+ * missing a label or carry a bearing of -90. An entry with no id is dropped
+ * rather than rendered, because the id is what marks a chip active and two
+ * unnamed entries would both answer to `undefined`.
+ */
+export function normaliseVantages(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const v of list) {
+    const id = String(v?.id ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      ...v,
+      id,
+      label: String(v.label ?? "").trim() || id,
+      azimuth_deg: (((Number(v.azimuth_deg) || 0) % 360) + 360) % 360,
+      polar_deg: Number(v.polar_deg) || 0,
+      zoom: Number(v.zoom) || 1,
+    });
+  }
+  return out;
+}
+
+/**
  * Drives a three.js camera in spherical coordinates around a ground target.
  *
  * @param {object} opts
  * @param {import('three').PerspectiveCamera} opts.camera
  * @param {HTMLElement} opts.element surface that receives the gestures
  * @param {object} opts.THREE the three module, passed in so this file imports nothing
+ * @param {() => void} [opts.onChange] fired whenever the camera moves. The
+ *   player draws on demand rather than every frame, so without this a drag on
+ *   a paused scene would change the camera and never be seen.
  */
-export function createSceneCamera({ camera, element, THREE }) {
+export function createSceneCamera({ camera, element, THREE, onChange }) {
   const target = new THREE.Vector3(0, 0, 0);
 
   const state = {
@@ -105,6 +136,7 @@ export function createSceneCamera({ camera, element, THREE }) {
       target.z + state.distance * sinP * Math.cos(state.azimuth),
     );
     camera.lookAt(target);
+    onChange?.();
   }
 
   /**
@@ -303,7 +335,8 @@ export function createSceneCamera({ camera, element, THREE }) {
     applyPreset,
     currentVantage,
     setVantages(list) {
-      vantages = Array.isArray(list) && list.length ? list : DEFAULT_VANTAGES;
+      const clean = normaliseVantages(list);
+      vantages = clean.length ? clean : DEFAULT_VANTAGES;
       return vantages;
     },
     get vantages() {
