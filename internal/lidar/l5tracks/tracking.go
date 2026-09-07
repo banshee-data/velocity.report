@@ -2,6 +2,7 @@ package l5tracks
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -142,6 +143,12 @@ type TrackedObject struct {
 	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
 	HeadingLockReleases  int                        // Times the rejection counter forced a release
 	HeadingEpisodes      HeadingEpisodeState        // Terminal episode, unlike the lifetime flags above
+
+	// Residuals and Association are Phase 0 filter-consistency instrumentation:
+	// what the observation disagreed with the prediction about, and how often
+	// there was an observation at all. See residuals.go.
+	Residuals   ResidualBands
+	Association AssociationBands
 
 	// FragmentPairingsRejected counts cluster/track pairings forbidden by the
 	// fragment guard in associate(). It is per evaluated pairing per frame, not
@@ -420,9 +427,14 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// Step 4b: Update empty box accumulators.
 	// Count active tracks not matched to any cluster this frame.
 	activeCount := int64(0)
-	for _, track := range t.Tracks {
+	for trackID, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
 			activeCount++
+			// Phase 0: association rate by speed band. Recorded for every
+			// live track each frame, matched or not, so the denominator is
+			// frames the track existed for rather than frames it was seen in.
+			speed := float32(math.Hypot(float64(track.VX), float64(track.VY)))
+			track.Association.Observe(speed, matchedTracks[trackID])
 		}
 	}
 	matchedCount := int64(len(matchedTracks))

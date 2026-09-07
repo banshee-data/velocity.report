@@ -39,6 +39,11 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	invS10 := -S10 / det
 	invS11 := S00 / det
 
+	// Filter-consistency instrumentation. Taken here because the innovation is
+	// still measured against the prediction, and the inverse covariance the
+	// gain needs is exactly what NIS needs.
+	track.Residuals.Observe(yX, yY, track.VX, track.VY, invS00, invS01, invS10, invS11)
+
 	// Kalman gain K = P * H^T * S^-1
 	// K is 4x2 matrix
 	// K[i,0] = P[i,0]*invS00 + P[i,1]*invS10

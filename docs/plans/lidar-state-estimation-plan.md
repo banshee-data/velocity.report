@@ -2002,6 +2002,52 @@ tracks extracted into the held-out partition.
 
 **Gate to Phase 1.** Baseline reproducible across two runs to within 2 %.
 
+#### Phase 0 baseline, measured
+
+Residual and NIS instrumentation is wired into the tracker and published as
+`tracking_baseline.json` beside each replay recording. Two warmed, settled windows on the
+s2 site, default tuning:
+
+| Capture      | Speed band | n   | Lateral RMS | Longitudinal RMS | Mean NIS  | Over 95% bound | Association |
+| ------------ | ---------- | --- | ----------- | ---------------- | --------- | -------------- | ----------- |
+| `s2_sf_4`    | 0–2 m/s    | 144 | n/a         | 0.147 m          | **0.18**  | 0.0%           | 73.0%       |
+| `s2_sf_4`    | 2–5 m/s    | 94  | 0.280 m     | 0.172 m          | **0.55**  | 0.0%           | 86.4%       |
+| `s2-1_00006` | 0–2 m/s    | 26  | n/a         | 0.564 m          | **0.79**  | 7.7%           | 47.2%       |
+| `s2-1_00006` | 2–5 m/s    | 2   | 1.082 m     | 0.923 m          | **20.02** | 100.0%         | 100.0%      |
+| `s2-1_00006` | 5–10 m/s   | 15  | 0.335 m     | 0.498 m          | **3.16**  | 13.3%          | 72.7%       |
+
+A consistent two-dimensional filter holds mean NIS near 2 and puts about 5% of observations
+above the chi-squared bound. Neither capture does, and they miss in opposite directions: the
+dense slow capture runs at a fifth to a quarter of the expected value, while the faster
+capture exceeds it above 5 m/s. Underconfident where observations are frequent and slow,
+overconfident where they are sparse and fast.
+
+That is the case for Phase 3's observation-conditioned uncertainty stated as evidence rather
+than as an assumption, and it is a stronger case than "the scalar is too large" would have
+been: no single fixed value can be right for both ends of this range, so retuning the constant
+cannot fix it.
+
+Four things bound the claim. The 2–5 m/s row on `s2-1_00006` is two observations, so its NIS
+of 20 is one event and not a distribution; the 5–10 m/s row is fifteen. Both captures are one
+site. NIS is accumulated only over accepted associations, so the gate has already removed the
+largest innovations and the figures are biased low — which makes the high-speed exceedance
+more convincing than the low-speed shortfall, not less. And NIS rises when the motion model is
+wrong as well as when the noise model is, so a manoeuvring vehicle inflates it without the
+fixed scalar being at fault.
+
+The lateral column is absent below 2 m/s by construction: the direction of travel there is
+estimator noise, so decomposing against it would rotate the innovation by a random angle.
+Reporting the magnitude longitudinally and leaving lateral empty is deliberate, and the
+`decomposed` count in the JSON says which rows carry a lateral measurement at all.
+
+Reproducibility: the baseline is identical across repeat runs of the same window, against the
+gate's 2% allowance. Per-track accumulators are summed in creation order rather than map
+order, because float addition is not associative and a baseline that moves between identical
+runs cannot be compared with itself.
+
+Still outstanding for the phase: per-stage frame time on a Pi 4, which needs the hardware, and
+the 33 jump tracks extracted into the held-out partition.
+
 ### Phase 1: observation model and persistence
 
 **Goal.** A correct, immutable, replayable record of what the sensor saw.

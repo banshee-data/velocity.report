@@ -392,6 +392,14 @@ func Run(cfg Config) (*Result, error) {
 		return nil, fmt.Errorf("write replay manifest: %w", err)
 	}
 
+	// Phase 0 baseline. These are the tracker's own residuals and association
+	// rates, which a VRLOG cannot carry: it records the estimates the pipeline
+	// published, not what they disagreed with the observations about. Written
+	// beside the recording so a baseline can be compared run to run.
+	if err := writeTrackingBaseline(cfg.OutDir, tracker.GetTrackingMetrics()); err != nil {
+		return nil, err
+	}
+
 	return &Result{
 		VRLOGPath:      filepath.Clean(cfg.OutDir),
 		FramesRead:     frameCount,
@@ -416,4 +424,32 @@ func fileSHA256(path string) (string, error) {
 		return "", err
 	}
 	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// TrackingBaseline is the Phase 0 filter-consistency baseline for one run.
+type TrackingBaseline struct {
+	SchemaVersion int                               `json:"schema_version"`
+	Residuals     []l5tracks.ResidualBandSummary    `json:"residual_bands"`
+	Association   []l5tracks.AssociationBandSummary `json:"association_bands"`
+}
+
+// writeTrackingBaseline records the residual and association bands beside the
+// recording.
+//
+// It holds only live tracks: a deleted track's accumulators stop when it dies,
+// and rolling them in would mix a track's whole life into a window it was only
+// partly present for.
+func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
+	b, err := json.MarshalIndent(TrackingBaseline{
+		SchemaVersion: 1,
+		Residuals:     m.Residuals,
+		Association:   m.Association,
+	}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal tracking baseline: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "tracking_baseline.json"), append(b, '\n'), 0644); err != nil {
+		return fmt.Errorf("write tracking baseline: %w", err)
+	}
+	return nil
 }
