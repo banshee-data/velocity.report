@@ -1,6 +1,9 @@
 # LiDAR shape descriptors and cluster point retention
 
-- **Status:** Draft
+This plan retains bounded cluster evidence and derives inspectable features from it. It keeps
+descriptors of visible returns distinct from claims about an object's unseen shape.
+
+- **Status:** Proposed; live point-retention and descriptor pipeline not implemented
 - **Layers:** L4 Perception, L6 Objects, L9 Endpoints, storage
 - **Target:** v0.5.2-v0.5.4; point retention and the descriptor set are prerequisites for the classification scorecard's feature work and for any candidate model above the current bbox cascade.
 - **Companion plans:** [lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md), [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-av-lidar-integration-plan.md](lidar-av-lidar-integration-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md)
@@ -48,6 +51,11 @@ Nothing can be built until points survive clustering, which is why point retenti
 leads this plan.
 
 ## Current state
+
+The heading branch's content-seeded DBSCAN input subsampling improves repeatability; it does
+not implement the retained per-cluster point product below. Uncommitted annotation packs are
+an offline evidence source, not live descriptor extraction. The JSON class scorer and
+body-local shape tracker remain follow-on demo work.
 
 | Fact                                                                                                                            | Evidence                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |

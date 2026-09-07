@@ -1,6 +1,9 @@
 # LiDAR state estimation plan
 
-- **Status:** Draft (investigation)
+This plan corrects viewpoint-dependent position measurements before extending the motion filter.
+It defines the evidence, storage contracts, and acceptance gates for a physical trajectory.
+
+- **Status:** In progress: heading/evaluation foundations delivered; corrected measurement and acceptance gates outstanding
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
 - **Target:** v0.5.x through v0.7.x; the observation model lands first, the estimator follows behind measurable gates
 - **Consumed by:** [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) (Phases 6 and 7; every behaviour metric depends on the final trajectory this plan produces)
@@ -21,6 +24,19 @@
 > observation coverage and uncertainty.
 
 ## 0. Principles
+
+**Branch delivery declaration:** The [branch audit](lidar-state-estimation-branch-audit.md)
+separates the committed heading sprint from this plan's original Phases 0–2. Axial heading,
+extent-reference, and association experiments do not replace the medoid position measurement.
+The immutable observation store, grade-aware measurement model, E1 report, and G-GEO-1 gate
+remain outstanding at the audited commit. Later uncommitted annotation work is tracked
+separately; a point-mask sidecar is not the production observation store.
+
+**Controlling decisions:** Phases 2–3 use Option A: `[x, y, vx, vy]`, a 4×4 covariance,
+and a separate uncertainty-bearing orientation belief. Six-state Option B is deferred,
+not a storage requirement. G-PER-1 is the Phase 1 exit gate; it does not block building the
+observation collector. Behaviour methods may be developed against fixtures immediately,
+but production emission remains gated on G-SMO-1. These decisions govern the roadmap and Q&A.
 
 **Research declaration (2026-09-05):** The
 [visibility-aware review][visibility-research]
@@ -604,12 +620,11 @@ By that test, several fields in the previous draft's `Observation` were
 misplaced: `AspectRad`, `VisibleFaces`, `Edges`, `SigmaRadial` and
 `SigmaTangential` all require a prediction. They move.
 
-Applying the same test to today's code produces the familiar uncomfortable
-result. `OBBHeadingRad` is neither observation nor estimate: it is an EMA over
-frames with three heuristic guards, stored on the track and consumed as though
-it were a measurement. Per-frame `OBBLength` and `OBBWidth` are observations of
-_visible extent_, not of vehicle dimensions, though the code treats them as the
-latter.
+By this definition, the track's `OBBHeadingRad` is a derived heading estimate, not an
+independent observation. The current guarded smoother and default-off axis candidate do not
+give it calibrated uncertainty. Raw cluster extents describe visible support; published
+track extents may also include temporal processing or projection into the filtered heading.
+Neither product alone certifies physical vehicle dimensions. Keep those origins distinct.
 
 **Why this matters concretely.** Two estimator versions must be able to consume
 the same stored evidence and legitimately disagree, without either of them
@@ -617,128 +632,33 @@ rewriting the evidence. That is what makes the offline estimator comparison in
 Section 11.2 a query rather than a re-run, and it is what makes Experiment E1
 possible at all.
 
-### 5.2 Proposed Go types
+### 5.2 Proposed evidence and interpretation contracts
 
-```go
-package l5tracks // or a new l4bobserve package; see Section 4.1
+These are proposed data contracts, not implemented structs. Evidence is immutable;
+interpretations are derived and versioned. Persist units and model identities explicitly.
 
-// ---------------------------------------------------------------------------
-// Immutable evidence
-// ---------------------------------------------------------------------------
+| Record                    | Fields                                                                                        | Contract                                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Detection identity        | `ObservationID`, `SensorID`, `FrameID`, `ClusterID`                                           | Identify one track-independent detection and its source                                                                      |
+| Detection timing          | `CaptureUnixNanos`, `FrameUnixNanos`                                                          | Signed 64-bit capture nanoseconds; retain the cluster time separately from frame start                                       |
+| Raw geometry              | `MedoidX/Y/Z`, `OBB`, `Points`                                                                | Unmodified L4 geometry and a bounded retained point sample; never replace these with a filtered state                        |
+| Candidate primitives      | `CandidatePlanes`, `CandidateEdges`                                                           | Track-independent fits; object-face names are assigned only by an interpretation                                             |
+| Sensor-relative support   | `RangeMetres`, `BearingRad`, `ElevationRad`, `AngularExtentRad`, `PointCount`, `PointDensity` | Density is points per square metre of apparent frontal area; support does not certify unseen extent                          |
+| Detection quality         | `NearestNeighbourM`, `Fragmented`, `GroundClipped`, `IntensityMean`                           | Track-agnostic quality; ground clipping records contact with the filtering boundary                                          |
+| Sensor noise              | `SigmaRange`, `SigmaTangential`                                                               | Sensor/support noise only; track-conditioned uncertainty belongs in the interpretation                                       |
+| Edge measurement          | `Face`, `Offset`, `Sigma`, `Support`, `Truncated`                                             | Signed offset in metres from the track origin along a face normal; uncertainty, supporting points, and clipping              |
+| Interpretation identity   | `ObservationID`, `TrackID`, `EstimatorID`, `ObsModelID`, `ParamHash`                          | Recomputable mapping of one observation to one candidate track and model version                                             |
+| Interpretation prediction | `PredictedX/Y`, `PredictedHeadingRad`, `PredictedHeadingSigma`                                | Preserve the prediction used to select faces so the decision can be audited                                                  |
+| Interpreted geometry      | `AspectRad`, `VisibleFaces`, `Edges`                                                          | Track-conditioned aspect and face hypotheses; near-side, far-side, leading, and trailing are labels, not direct sensor facts |
+| Filter input              | `Z`, `R`, `Dimension`                                                                         | Measurement vector, covariance in the declared frame, and dimension; one visible face may constrain only one axis            |
+| Surface context           | `SurfaceModelID`, `PlanarFallback`                                                            | Identify the road surface used or declare the planar fallback                                                                |
+| Decision                  | `Disposition`, `Reason`                                                                       | Accepted, rejected, downweighted, or ambiguous outcome with a reason                                                         |
 
-// DetectionObservation is everything one frame says about one detection,
-// computed with no reference to any track, prediction or estimator. It is
-// written once and never revised. It is the unit of replay and the unit of
-// reproducibility.
-type DetectionObservation struct {
-    ObservationID int64
-    SensorID      string
-    FrameID       string
-    ClusterID     int64
-
-    // Timing. CaptureUnixNanos is the cluster's own capture time, not the
-    // frame start: see defect P9.
-    CaptureUnixNanos int64
-    FrameUnixNanos   int64
-
-    // Raw cluster geometry, unmodified from L4.
-    MedoidX, MedoidY, MedoidZ float64
-    OBB                       l4perception.OrientedBoundingBox
-
-    // Retained points, bounded per cluster; see the shape-descriptors plan.
-    Points []l4perception.WorldPoint
-
-    // Candidate geometric primitives fitted without a track prior: planes and
-    // edges found in the cluster, unlabelled. Which of them is "the near side
-    // face" is an interpretation, not an observation.
-    CandidatePlanes []PlanePrimitive
-    CandidateEdges  []EdgePrimitive
-
-    // Sensor-relative quantities. All computable from the sensor origin alone.
-    RangeMetres      float64
-    BearingRad       float64
-    ElevationRad     float64
-    AngularExtentRad float64
-    PointCount       int
-    PointDensity     float64 // points per square metre of apparent frontal area
-
-    // Neighbourhood and quality, all track-agnostic.
-    NearestNeighbourM float64
-    Fragmented        bool
-    GroundClipped     bool // the height band touched this cluster: see P11
-    IntensityMean     float64
-
-    // Sensor-frame measurement noise, which depends only on range, angular
-    // resolution and point support. The track-conditioned part of the
-    // covariance lives in the interpretation.
-    SigmaRange      float64
-    SigmaTangential float64
-}
-
-// ---------------------------------------------------------------------------
-// Derived, versioned interpretation
-// ---------------------------------------------------------------------------
-
-// VisibleFace records which faces of the object the sensor could see, under a
-// predicted pose. This is an interpretation: the same points imply different
-// faces under different predicted headings.
-type VisibleFace uint8
-
-const (
-    FaceNearSide VisibleFace = 1 << iota
-    FaceFarSide
-    FaceLeading
-    FaceTrailing
-)
-
-// EdgeMeasurement is one observed face plane expressed as a signed offset along
-// the face normal, in the object-local frame implied by the predicted pose.
-type EdgeMeasurement struct {
-    Face      VisibleFace
-    Offset    float64 // metres from track origin along the face normal
-    Sigma     float64
-    Support   int  // points contributing
-    Truncated bool // face extent clipped by the cluster boundary
-}
-
-// MeasurementInterpretation is what a DetectionObservation means as a
-// measurement of one candidate track, under one object model and one estimator
-// version. It is derived, disposable and versioned. Recomputing it from stored
-// observations must be exact.
-type MeasurementInterpretation struct {
-    ObservationID int64
-    TrackID       string
-    EstimatorID   string
-    ObsModelID    string // observation-model version, distinct from estimator
-    ParamHash     string
-
-    // The prediction this interpretation was made against, recorded so the
-    // interpretation can be audited without replaying the filter.
-    PredictedX, PredictedY float64
-    PredictedHeadingRad    float64
-    PredictedHeadingSigma  float64
-
-    // Track-conditioned geometry.
-    AspectRad    float64 // sensor bearing relative to predicted heading
-    VisibleFaces VisibleFace
-    Edges        []EdgeMeasurement
-
-    // The measurement actually handed to the filter, and its dimension. The
-    // dimension varies with what was observed: a frame showing only the near
-    // lateral face constrains one axis, not two. See Section 9.1.
-    Z         []float64   // measurement vector
-    R         [][]float64 // measurement covariance, track frame
-    Dimension int
-
-    // Road-surface context used, or the fallback that was applied instead.
-    SurfaceModelID string // empty when the planar fallback was used
-    PlanarFallback bool
-
-    // Why this interpretation exists and what happened to it.
-    Disposition Disposition
-    Reason      string
-}
-```
+`DetectionObservation` is the immutable replay unit. `MeasurementInterpretation` may be
+recomputed against another prediction without changing that evidence. A visible-face set may
+carry several hypotheses; it must not fabricate a far-side observation simply because that
+label exists. Coordinates, offsets, covariance layout, and primitive-fit versions must be
+declared by the observation/model schema before implementation.
 
 `EstimatedState`, `Residuals` and the estimator interfaces follow in 5.4 and
 5.5, after the state parameterisation is settled, because their shapes depend on
@@ -923,15 +843,14 @@ can be compared against choices in another. Scale: `++` strong, `+` adequate,
 | C14 | Testable and visualisable                                      |
 | C15 | Migration risk                                                 |
 
-**Budget context for C7.** The CI baseline
-([perf/baseline/baseline-kirk0-ci.json](../../internal/lidar/perf/baseline/baseline-kirk0-ci.json))
-records 5.04 ms mean and 7.81 ms p99 for the whole frame callback on 4-core
-amd64. The stage breakdown fields there are zero, so the tracker's share
-is not measured: **populating them is a Phase 0 task.** A Pi 4
-is roughly three to five times slower, giving 15 to 25 ms per frame against a
-100 ms budget at 10 Hz. The tracker is a small part of that; clustering and
-background subtraction dominate. Estimator changes at 100 tracks are unlikely to
-be the constraint. Measure rather than guess.
+**Budget context for C7.** The retired `baseline-kirk0-ci.json` cannot establish a
+processing budget: it measured a degenerate pipeline with no foreground detections, as
+recorded in the [development log](../DEVLOG.md#september-3-2026---perf-gate-rebuilt-a-baseline-that-states-what-it-measured).
+The replacement [full-pipeline baseline](../../internal/lidar/perf/baseline/baseline-kirk0-full.json)
+records its own build, tuning fingerprint, machine, and non-zero stage totals. It is a
+historical Darwin arm64 measurement, not a current Pi 4 result. Phase 0 must still publish
+the current branch's per-stage budget on the target hardware; do not scale the retired
+numbers into a hardware-performance claim.
 
 ## 7. Estimator matrix
 
@@ -1098,19 +1017,28 @@ heuristics in `Tracker.Update`.
 Adaptive uncertainty ships only when all of the following hold on the
 decision-gate partition:
 
-| Check                                                     | Threshold                                               |
-| --------------------------------------------------------- | ------------------------------------------------------- |
-| NIS mean over all accepted observations                   | Within `[0.7, 1.4]` times the state dimension           |
-| NIS chi-squared goodness of fit                           | Not rejected at p = 0.01                                |
-| NIS mean stratified by range decile                       | No decile outside `[0.5, 2.0]` times the overall mean   |
-| NIS mean stratified by point-count decile                 | Same bound                                              |
-| NIS mean stratified by aspect-angle octant                | Same bound. **This is the check the naive model fails** |
-| Genuine manoeuvres falsely gated                          | Under 1 % on the labelled manoeuvre set                 |
-| Frames to recover after a synthetic occlusion of 5 frames | Under 3                                                 |
+| Check                                                                             | Threshold                                                        |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| NIS mean over eligible pre-gate observations, separately by measurement dimension | Within `[0.7, 1.4]` times the measurement dimension `m`          |
+| NIS chi-squared goodness of fit                                                   | Not rejected at p = 0.01                                         |
+| Mean normalised NIS (`NIS/m`) stratified by range decile                          | No decile outside `[0.5, 2.0]` times the overall normalised mean |
+| Mean normalised NIS stratified by point-count decile                              | Same bound                                                       |
+| Mean normalised NIS stratified by aspect-angle octant                             | Same bound; tests aspect-dependent miscalibration                |
+| Genuine manoeuvres falsely gated                                                  | Under 1 % on the labelled manoeuvre set                          |
+| Frames to recover after a synthetic occlusion of 5 frames                         | Under 3                                                          |
 
 The stratified checks matter more than the aggregate. A model can hit a perfect
 aggregate NIS while being badly wrong at both ends of the range envelope, with
 the errors cancelling.
+
+For an innovation of measurement dimension `m`, whitening gives `E[rᵀS⁻¹r] = m`.
+Use separate 1D and 2D strata and compare normalised NIS (`NIS/m`) across range,
+point-count, and aspect strata. Record eligible observations before the innovation gate;
+retain accepted-only statistics separately because gating truncates their distribution.
+Define eligibility and association provenance before calibration, rather than selecting
+the observations that make a chosen noise model pass. The chi-squared check requires the
+stated Gaussian model and correct measurement association; a pooled fit across different
+measurement dimensions is not that test.
 
 ## 9. Geometry matrix
 
@@ -1386,11 +1314,13 @@ everything else.
 
 ### 11.3 Decision gate G-PER-1
 
-The observation table ships before any estimator change. Specifically, Phase 1
-does not begin until observations for at least one full week of live operation
-plus the full kirk0 replay are stored and a round-trip test passes: replaying
-stored observations through the current tracker reproduces the current
-`lidar_track_observations` output to within floating-point tolerance.
+G-PER-1 is the **exit gate for Phase 1**, before promoting a changed measurement model.
+Phase 1 builds and deploys the observation collector with the baseline tracker unchanged.
+It passes only after at least one full week of live observations plus the full kirk0 replay
+are stored and a round-trip test reproduces the current `lidar_track_observations` output
+within floating-point tolerance. Offline Phase 2 development may use available observations
+while this evidence accumulates; production promotion must wait. The week is a calendar-time
+requirement, not an obstacle to implementing the collector that satisfies it.
 
 ## 12. Abnormal motion and crash preservation
 
@@ -1447,16 +1377,12 @@ silent fallback principle 0.1 forbids.
 
 The correct behaviour when the physical pose cannot be estimated is to say so:
 
-```text
-EstimatedState:
-    ModelValid    = false
-    PoseConfidence = degraded          // or unavailable
-    X, Y          = last believed physical pose, coasted, with inflated covariance
-    Covariance     = large and honest
-
-DetectionObservation:
-    MedoidX, MedoidY = still recorded, still available, still labelled a medoid
-```
+| Product               | Required behaviour when physical pose is unsupported                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Estimate validity     | Mark the physical model invalid and pose confidence degraded or unavailable                                  |
+| Estimated position    | Coast the last physical pose with uncertainty propagated by the declared model; do not substitute the medoid |
+| Covariance            | Reflect the loss of information; do not retain an unjustifiably narrow bound                                 |
+| Immutable observation | Retain the raw medoid under its observation identity and source label                                        |
 
 The raw medoid remains available to anyone who wants it, under its own name, in
 the immutable observation where it always lived. What does not happen is a field
@@ -2081,22 +2007,22 @@ fourth and fifth.
 Reported for every candidate at every gate, aggregate and worst-case, and
 stratified by range decile, point-count decile, aspect octant and manoeuvre type.
 
-| Metric                                  | Definition                                                                                      | Direction                   |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------- |
-| Lateral residual against local line fit | p50, p95, p99, max, per track and pooled                                                        | Lower                       |
-| Excursion rate                          | Fraction of tracks with any lateral excursion over 0.5 m                                        | Lower                       |
-| Position error                          | Against synthetic ground truth only                                                             | Lower                       |
-| Velocity and acceleration error         | Against synthetic ground truth only                                                             | Lower                       |
-| NIS distribution                        | Mean, chi-squared fit, and stratified means                                                     | Towards the state dimension |
-| Innovation whiteness                    | Lag-1 autocorrelation of normalised innovation                                                  | Towards zero                |
-| Track fragmentation                     | Pipeline tracks per ground-truth track                                                          | Lower, floor at 1.0         |
-| Detection rate                          | `GroundTruthEvaluator`                                                                          | Higher                      |
-| Observation association rate            | Fraction of sensor frames where a live track is matched. **Currently 43.6 % for moving tracks** | Higher                      |
-| False manoeuvre rejection               | Fraction of labelled genuine manoeuvres whose peak magnitude is attenuated by over 15 %         | Lower                       |
-| Occlusion recovery                      | Frames to return within 1-sigma after a synthetic occlusion                                     | Lower                       |
-| Lateral acceleration plausibility       | Fraction of frames exceeding 8 m/s², which is beyond dry-road adhesion                          | Lower, but never zero       |
-| Frame time                              | Mean and p99 for the tracking stage specifically, on Pi 4                                       | Lower                       |
-| Parameter sensitivity                   | Change in each headline metric for a ±20 % change in each parameter                             | Lower                       |
+| Metric                                  | Definition                                                                                      | Direction                         |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------- |
+| Lateral residual against local line fit | p50, p95, p99, max, per track and pooled                                                        | Lower                             |
+| Excursion rate                          | Fraction of tracks with any lateral excursion over 0.5 m                                        | Lower                             |
+| Position error                          | Against synthetic ground truth only                                                             | Lower                             |
+| Velocity and acceleration error         | Against synthetic ground truth only                                                             | Lower                             |
+| NIS distribution                        | Pre-gate mean, chi-squared fit, and stratified means by measurement dimension                   | Towards measurement dimension `m` |
+| Innovation whiteness                    | Lag-1 autocorrelation of normalised innovation                                                  | Towards zero                      |
+| Track fragmentation                     | Pipeline tracks per ground-truth track                                                          | Lower, floor at 1.0               |
+| Detection rate                          | `GroundTruthEvaluator`                                                                          | Higher                            |
+| Observation association rate            | Fraction of sensor frames where a live track is matched. **Currently 43.6 % for moving tracks** | Higher                            |
+| False manoeuvre rejection               | Fraction of labelled genuine manoeuvres whose peak magnitude is attenuated by over 15 %         | Lower                             |
+| Occlusion recovery                      | Frames to return within 1-sigma after a synthetic occlusion                                     | Lower                             |
+| Lateral acceleration plausibility       | Fraction of frames exceeding 8 m/s², which is beyond dry-road adhesion                          | Lower, but never zero             |
+| Frame time                              | Mean and p99 for the tracking stage specifically, on Pi 4                                       | Lower                             |
+| Parameter sensitivity                   | Change in each headline metric for a ±20 % change in each parameter                             | Lower                             |
 
 ### 17.1 On smoothness
 
@@ -2114,14 +2040,14 @@ gate in this plan includes it for that reason.
 
 Substantial infrastructure already exists and is unwired, not absent.
 
-| Asset                                                                  | State                                                 | Action                                                                        |
-| ---------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `debug.DebugCollector` with innovations, gating ellipses, predictions  | Implemented, never enabled: the pipeline passes `nil` | **Wire it.** Phase 0, one line plus a config flag                             |
-| Proto `DebugOverlaySet` with association candidates, gating, residuals | Defined, never populated                              | Populate from the collector                                                   |
-| `Track.covariance_4x4` in the FrameBundle                              | Populated and streamed                                | Extend to the 6-state upper triangle                                          |
-| `adaptUnassociatedClusters`                                            | **Drops the observation for every tracked object**    | Change to emit both, tagged, so observation and estimate are visible together |
-| macOS visualiser                                                       | Renders point clouds, boxes, trails                   | Add the overlays below                                                        |
-| `lidar-visualiser-trails-and-uncertainty-visualisation-plan`           | Proposed, covers uncertainty cones                    | Adopt as the delivery vehicle                                                 |
+| Asset                                                                  | State                                                 | Action                                                                                                                                  |
+| ---------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `debug.DebugCollector` with innovations, gating ellipses, predictions  | Implemented, never enabled: the pipeline passes `nil` | **Wire it.** Phase 0, one line plus a config flag                                                                                       |
+| Proto `DebugOverlaySet` with association candidates, gating, residuals | Defined, never populated                              | Populate from the collector                                                                                                             |
+| `Track.covariance_4x4` in the FrameBundle                              | Populated and streamed                                | Retain for Option A; add separate orientation uncertainty and explicit model/version fields before any future state-dimension extension |
+| `adaptUnassociatedClusters`                                            | **Drops the observation for every tracked object**    | Change to emit both, tagged, so observation and estimate are visible together                                                           |
+| macOS visualiser                                                       | Renders point clouds, boxes, trails                   | Add the overlays below                                                                                                                  |
+| `lidar-visualiser-trails-and-uncertainty-visualisation-plan`           | Proposed, covers uncertainty cones                    | Adopt as the delivery vehicle                                                                                                           |
 
 The `adaptUnassociatedClusters` change is small and is a prerequisite for all
 tuning work. Today the observation and estimate for the same object cannot be
@@ -2187,22 +2113,22 @@ establish the pattern.
 
 ## 19. Incremental roadmap
 
-The brief's phase order is broadly right, with one change: **instrumentation and
-the observation model must swap places with the simple state estimate.** Stand up
-`Observation` and `EstimatedState` types after the measurement is correct, not
-before. Do not tune an estimator whose input is biased.
+Instrument the current filter first, then build immutable observations and persistence in
+Phase 1. Phase 2 introduces measurement interpretations and versioned estimates while changing
+the measurement input. A larger motion state is not a prerequisite for either phase. Do not
+tune a new estimator to compensate for the known biased input.
 
-| Phase | Goal                                              | Gate to enter          |
-| ----- | ------------------------------------------------- | ---------------------- |
-| 0     | Instrumentation and measurement of the status quo | None                   |
-| 1     | Observation model and observation persistence     | G-PER-1                |
-| 2     | Corrected measurement into the existing filter    | G-GEO-1                |
-| 3     | Adaptive uncertainty and residual statistics      | G-UNC-1                |
-| 4     | Motion model extension                            | G-EST-1                |
-| 5     | Smoothing                                         | G-SMO-1                |
-| 6     | Behaviour analytics → behaviour plan              | G-SMO-1 passed         |
-| 7     | Roadway context → behaviour plan                  | Site frame and map, L7 |
-| 8     | Abnormal-motion evidence surface                  | Phase 4 complete       |
+| Phase | Goal                                              | Prerequisite and promotion/exit gate                                                                                  |
+| ----- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 0     | Instrumentation and measurement of the status quo | None                                                                                                                  |
+| 1     | Observation model and observation persistence     | Phase 0 baseline; exits through G-PER-1                                                                               |
+| 2     | Corrected measurement into the existing filter    | Observation data for development; G-PER-1 before promotion; exits through G-GEO-1                                     |
+| 3     | Adaptive uncertainty and residual statistics      | G-GEO-1; exits through G-UNC-1                                                                                        |
+| 4     | Motion model extension                            | Corrected/calibrated residual record; CA promotion through G-EST-1                                                    |
+| 5     | Smoothing                                         | G-GEO-1; exits through G-SMO-1; does not require CA                                                                   |
+| 6     | Behaviour analytics → behaviour plan              | Analytical-fixture development may start now; production emission requires G-SMO-1                                    |
+| 7     | Roadway context → behaviour plan                  | Fixture development may start now; production also requires a validated site frame/map and applicable behaviour gates |
+| 8     | Abnormal-motion evidence surface                  | Phase 4 complete                                                                                                      |
 
 ### Phase 0: instrumentation
 
@@ -2273,8 +2199,8 @@ measure before enabling by default.
 **Files.** `l5tracks/tracking_update.go`, `tracking_association.go`; new
 `l5tracks/measurement_model.go`; `l5tracks/tracking.go` for the heading state.
 
-**Types.** `MeasurementModel` with a near-edge implementation; `EstimatedState`
-with heading; `Residuals`; the geometry belief.
+**Contracts.** `MeasurementModel` with a near-edge implementation; a four-state CV
+`EstimatedState`, separate orientation belief and variance; `Residuals`; the geometry belief.
 
 **Tests.** The synthetic pass from Section 3 as a regression test with an
 asserted bound. The 33 real jump tracks as a regression set. A lane-change
@@ -2312,11 +2238,13 @@ stratified gates, and ship behind a config flag with the fixed model retained.
 
 **Goal.** Handle acceleration and, if the evidence supports it, turning.
 
-**Files.** `l5tracks/motion_model.go`; new engine blocks in `internal/config`;
-`config/tuning.defaults.json` gains an `imm_cv_ca_v2` defaults block.
+**Files.** `l5tracks/motion_model.go`; versioned CA engine/configuration contracts in
+`internal/config` and `config/tuning.defaults.json` after the residual gate justifies them.
+An IMM block is a separate follow-on, not required for the first CA increment.
 
-**Tests.** Synthetic braking and turning trajectories with ground truth. Mode
-probability stability assertions.
+**Tests.** Synthetic braking and turning trajectories with ground truth, covariance
+consistency, and baseline compatibility. Mode-probability assertions apply only if a later
+multi-model estimator is implemented.
 
 **Risks.** IMM tuning is genuinely hard, and a badly tuned IMM is worse than CV.
 Mitigation: CA ships first and alone; IMM only behind the deferred gate in 7.3.
@@ -2345,9 +2273,10 @@ it.
 
 Owned by [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md),
 which splits them into 6A single-track kinematics, 6B pairwise interactions,
-6C empirical-path behaviour, and 7 roadway-context metrics. Both are gated on
-G-SMO-1 from this plan: behaviour metrics read the `final` estimate, so they
-cannot begin before smoothing produces one.
+6C empirical-path behaviour, and 7 roadway-context metrics. Implementation and tests may
+begin immediately against analytical trajectories or fixture estimate streams. Production
+emission from LiDAR tracks is gated on G-SMO-1: those metrics consume the `final` estimate
+and must not turn today's raw or biased tracks into behavioural claims.
 
 Phase 7 additionally requires the site frame and a map, per
 [lidar-l7-scene-plan](lidar-l7-scene-plan.md). The empirical path prior from
@@ -2365,19 +2294,20 @@ distinguish it from a measurement anomaly.
 ## 20. Answers to the specific questions
 
 **1. What should be the canonical state representation for a vehicle?**
-Pose and motion in polar form, `[x, y, psi, v, a, omega]` with a 6x6 covariance,
-plus a **separately maintained** geometry belief `{L, W, H}` each with its own
-sigma and observation count, plus the visible-face code for the current frame.
-Persist the full six-element layout from the start so storage does not churn;
-pin `a` and `omega` to zero in the first estimator. Heading must be in the state
-rather than an EMA beside it, because the observation model needs a predicted,
-uncertainty-bearing orientation to decide which face it is looking at.
+For Phases 2–3, use Option A from Sections 5.3 and 7.3: Cartesian CV state
+`[x, y, vx, vy]` with a 4×4 covariance. Maintain orientation and its variance separately,
+alongside the geometry belief, support, and visible-face interpretation. The observation
+model needs a predicted orientation, not necessarily an orientation element inside the
+motion filter. Persist an explicit state-model discriminator and the matching covariance;
+do not reserve a fictitious six-element runtime state by pinning acceleration and yaw rate
+to zero. The nonlinear six-state Option B remains a separately gated future model.
 
 **2. What is an observation versus an estimated quantity?**
 An observation is computable from one frame's points with no reference to track
-history. Everything else is estimated. By that rule, today's `OBBHeadingRad` is
-neither, and per-frame `OBBLength` and `OBBWidth` are observations of _visible
-extent_, not of vehicle dimensions, though the code treats them as the latter.
+history. Track-conditioned interpretations and temporal estimates are separate derived
+products. `OBBHeadingRad` is a heading estimate without calibrated uncertainty. Raw cluster
+extents describe visible support; projected or smoothed track extents are derived products,
+not independent measurements of whole-body dimensions.
 Observations become immutable rows; estimates are versioned by
 `(estimator_id, stage)`.
 
@@ -2387,8 +2317,9 @@ change its input. Evidence shows the reported defect has no motion-model cause,
 so changing both at once would make the result unattributable.
 
 **4. One model or an IMM?**
-IMM over {stationary, CV, CA} is the right end state, and the config schema
-already anticipates it with `imm_cv_ca_v2`. It is the wrong starting point,
+IMM over {stationary, CV, CA} is a candidate follow-on, and the config schema
+already anticipates it with `imm_cv_ca_v2`. A schema selector is not a working estimator.
+It is not the starting point,
 because the evidence needed to choose and tune its modes does not exist yet.
 G-EST-1 and the deferred-gate table in 7.3 define what evidence would justify it. Note that
 5,982 near-stationary tracks in the database make a stationary mode more
@@ -2491,16 +2422,14 @@ working through the transition. `WorldCluster` needs retained points and its
 already-computed `TSUnixNanos` actually used.
 
 **16. How much CPU and memory overhead should we expect?**
-Small, and dominated by things other than the filter. Edge extraction is
-O(points per cluster) and shares work clustering already does. A 6-state filter
-is 216 multiply-accumulates per covariance step against 64 today: microseconds
-at 100 tracks. A 5-frame smoothing buffer is roughly 84 KB at 100 tracks. An IMM
-over three modes roughly triples the filter cost, still under 1 ms. The
-real costs are point retention memory on a 4 GB Pi and storage. Against a frame
-budget of 15 to 25 ms on a Pi 4, a 3 ms allowance for the whole change fits.
-But the per-stage timing fields in the perf baseline are
-currently zero, so this is arithmetic, not measurement: **populating them
-is a Phase 0 deliverable precisely to replace this answer with data.**
+Not yet established on the target hardware. Option A retains the four-state filter;
+edge extraction is O(points per cluster), and bounded point retention and persistence
+are the main new costs to measure. The roughly 84 KB estimate for a five-frame smoothing
+buffer at 100 tracks is a design calculation, not a measured allocation profile.
+The replacement historical benchmark has non-zero stage totals, but does not establish
+this branch's Pi 4 budget. Phase 0 must publish current per-stage time and peak memory
+against the 100 ms frame interval at 10 Hz. Six-state or IMM cost claims belong to their
+future model evaluations, not this increment.
 
 **17. Which pieces should remain offline?**
 Online: measurement, association, filtering, residual computation, and the
@@ -2512,7 +2441,7 @@ than one pass, is offline.
 
 **18. What is the smallest useful first implementation?**
 Retain cluster points and per-cluster timestamps. Add the near-edge measurement
-with a dimension prior and put heading in the state. Persist observations,
+with a dimension prior and a separate uncertainty-bearing orientation belief. Persist observations,
 estimates and residuals with an estimator identity. Keep the CV filter, keep the
 association logic, keep the lifecycle. Ship nothing else. That is the full
 content of Section 15, and it targets exactly the reported defect: a measured

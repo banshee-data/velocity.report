@@ -1,6 +1,9 @@
 # LiDAR test corpus plan
 
-- **Status:** Proposed
+This plan builds independently labelled captures across varied road geometry and traffic.
+More files help only when their provenance, usable windows, and coverage are recorded.
+
+- **Status:** Partial capture and fixture groundwork; five-site labelled corpus not complete
 - **Layers:** Cross-cutting
 - **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/CONFIG.md#config-to-maths-cross-reference)
 - **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)
@@ -19,8 +22,13 @@ tuning defaults and detect overfitting to a single site.
 
 ## Problem
 
-All provisional config defaults were tuned on kirk0: a single capture
-at one site. The overfitting risk is real:
+The original provisional defaults were tuned on kirk0. The heading branch now records
+additional S2 experiments and a frozen recorded-output fixture, but those do not establish
+five-site diversity or independent labels. The site names below are collection targets, not
+an inventory of every available PCAP. Reconcile newly gathered S2 files by source digest,
+site, settled scoring duration, and physical-object partition before marking coverage complete.
+
+The original overfitting risks remain relevant:
 
 - Road geometry: kirk0 may be flat; sloped-road defaults are untested.
 - Traffic mix: kirk0 may over-represent one vehicle class.
