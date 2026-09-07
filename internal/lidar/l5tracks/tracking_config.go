@@ -137,6 +137,10 @@ type TrackerConfig struct {
 	// associated with a metre-scale track. 0 disables the fragment guard.
 	MinAssociableExtentMetres float32
 
+	// AssociationExtentCostWeight scales the bounded extent-compatibility term
+	// in the association cost. 0 keeps the hard fragment guard instead.
+	AssociationExtentCostWeight float32
+
 	// DeletedTrackRenderFade is how long a deleted track is still published to
 	// clients, fading out. Separate from DeletedTrackGracePeriod, which governs
 	// internal re-association.
@@ -191,6 +195,7 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
 		OBBAxisCoherenceEnabled:          l5cfg.OBBAxisCoherenceEnabled,
 		MinAssociableExtentMetres:        float32(l5cfg.MinAssociableExtentMetres),
+		AssociationExtentCostWeight:      float32(l5cfg.AssociationExtentCostWeight),
 		DeletedTrackRenderFade:           mustParseDuration(l5cfg.DeletedTrackRenderFade),
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
 		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,

@@ -466,6 +466,8 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 				trackerCfg.OBBAxisCoherenceEnabled = l5.OBBAxisCoherenceEnabled
 			case "l5.cv_kf_v1.min_associable_extent_metres":
 				trackerCfg.MinAssociableExtentMetres = float32(l5.MinAssociableExtentMetres)
+			case "l5.cv_kf_v1.association_extent_cost_weight":
+				trackerCfg.AssociationExtentCostWeight = float32(l5.AssociationExtentCostWeight)
 			case "l5.cv_kf_v1.deleted_track_render_fade":
 				if d, err := time.ParseDuration(l5.DeletedTrackRenderFade); err == nil {
 					trackerCfg.DeletedTrackRenderFade = d
