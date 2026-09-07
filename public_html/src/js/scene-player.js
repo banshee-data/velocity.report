@@ -460,14 +460,19 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
   }
 
+  /** Drops every box, trail and label. Used at a part change and at a wrap. */
+  function resetVisuals() {
+    for (const v of visuals.values()) v.dispose(scene);
+    visuals.clear();
+    for (const el of labels.values()) el.remove();
+    labels.clear();
+  }
+
   function renderFrame(frame, partIndex) {
     // Track identifiers are export-local, so they carry no meaning across a
     // part boundary. Drop all visuals rather than let a trail jump sites.
     if (partIndex !== currentPart) {
-      for (const v of visuals.values()) v.dispose(scene);
-      visuals.clear();
-      for (const el of labels.values()) el.remove();
-      labels.clear();
+      resetVisuals();
       currentPart = partIndex;
     }
 
@@ -564,8 +569,16 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   function syncUI() {
     strip?.setPlayhead(state.seconds);
-    if (ui.slider && document.activeElement !== ui.slider) {
-      ui.slider.value = String(state.seconds);
+    // The strip is a slider to a screen reader, so it has to say where it is.
+    if (ui.timelineCanvas) {
+      ui.timelineCanvas.setAttribute(
+        "aria-valuenow",
+        String(Math.round(state.seconds)),
+      );
+      ui.timelineCanvas.setAttribute(
+        "aria-valuetext",
+        `${formatClock(state.seconds)} of ${formatClock(session.duration)}`,
+      );
     }
     if (ui.clock) ui.clock.textContent = formatClock(state.seconds);
     if (ui.playToggle) {
@@ -606,9 +619,15 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       const dt = Math.min(Math.max(raw, 0), MAX_WALL_STEP_SEC);
       state.lastWall = now;
       state.seconds += dt * state.rate;
+      // Wrap rather than stop. A scene is a loop of street, not a film with an
+      // ending, and eleven minutes in, whoever is still watching wants the
+      // next pass rather than a dead playhead and a button to press.
       if (state.seconds >= session.duration) {
-        state.seconds = session.duration;
-        state.playing = false;
+        state.seconds = 0;
+        // Trails are per-track state built up frame by frame. Carrying them
+        // over the wrap would draw a line from the last vehicle of the
+        // recording to the first.
+        resetVisuals();
       }
       void show(state.seconds);
       syncUI();
@@ -623,16 +642,6 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     requestAnimationFrame(loop);
   }
 
-  if (ui.slider) {
-    ui.slider.min = "0";
-    ui.slider.max = String(session.duration);
-    ui.slider.step = "0.1";
-    ui.slider.addEventListener("input", () => {
-      state.seconds = Number(ui.slider.value);
-      void show(state.seconds);
-      if (ui.clock) ui.clock.textContent = formatClock(state.seconds);
-    });
-  }
   if (ui.playToggle) {
     ui.playToggle.addEventListener("click", () => {
       state.playing = !state.playing;
@@ -724,6 +733,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
           summary: await res.json(),
           duration: session.duration,
           onSeek: (seconds) => {
+            // A jump is not continuous motion, so the trails leading up to the
+            // old position describe nothing about the new one.
+            resetVisuals();
             state.seconds = seconds;
             void show(seconds);
             syncUI();

@@ -149,6 +149,7 @@ previous one.
 ```text
 /Volumes/lidar/lidar/s2/
   <site>_<yyyymmddThhmmss>_<seq>.pcap          # immutable daily driver
+  vantages.json                                # named viewpoints, per site
   derived/
     <capture-sha12>/
       segments.json                            # existing analysis, copied in
@@ -170,6 +171,13 @@ previous one.
 Only **static** segments carry an `s2-l10-<token>` filename tag, per the S2
 style guide: a motion segment may cross cells and must not claim one. The
 canonical L10 token is used in paths; the `80858-1` family display never is.
+
+`vantages.json` sits at the **site** level, above `derived/`, because a named
+viewpoint describes a junction rather than a capture: every recording at 5th
+and Howard looks eastbound along Howard from the same angle. A published scene
+serves its site's file; nothing copies it into an export, and no other store
+holds one. See
+[web scene export §8](lidar-web-scene-export-plan.md#8-a-scenes-vantages-live-in-exactly-one-file).
 
 ### 3. Database indexing
 
@@ -281,6 +289,9 @@ Invariants every export must hold:
   into `header.json`, so an export always names the run it came from.
 - Content-address the output by SHA-256 and register it in
   `lidar_scene_exports`.
+- Write **no vantages**. They belong to the site, in one `vantages.json`, and a
+  per-export copy is a copy that drifts. `velocity scene vantages FILE` checks
+  one; the exporter neither reads nor writes them.
 
 The output is a derived artefact, **not** a VRLOG variant: `vrlog-analyse` and
 the replayer read the recorded VRLOG only, and the plan makes no claim otherwise.
@@ -400,10 +411,15 @@ itself is built in Phase 0 and owned by the companion plan.
    show L10 cell boundaries as context using the existing `tools/s2-hilbert`
    assets.
 2. Site page: background + clip player (30 s, point cloud) and a segment list.
-3. Segment scrubber: frame-accurate seek, playback rate, client-derived trails
-   with adjustable length, class colouring, track inspector.
-4. Deep links by site, segment and frame.
-5. Honour `prefers-reduced-motion`; verify at mobile widths.
+3. Segment scrubber: the annotated timeline **is** the scrubber — traffic by
+   mode diverging from a zero line, peak speed, playhead, keyboard scrubbing —
+   with play/pause and rate (1x/4x/8x/16x) either side of it. Frame-accurate
+   seek, looping playback, client-derived trails, class colouring, track
+   inspector.
+4. Vantage chips from the site's `vantages.json`, labelled for the street
+   ("Eastbound Howard"), not the compass.
+5. Deep links by site, segment and frame.
+6. Honour `prefers-reduced-motion`; verify at mobile widths.
 
 **Interfaces owned:** viewer, map, `index.db` read schema.
 **Depends on:** W3 step 1 (spec) only; can develop against fixtures.

@@ -1,6 +1,6 @@
 # Web scene export (v0.6.x)
 
-- **Status:** Draft
+- **Status:** Phase 0 delivered; Phase 1 not started
 - **Layers:** LiDAR pipeline (L9 endpoints), Web frontend, CI
 - **Target:** v0.6.x; publish one real recorded scene on the existing velocity.report Pages site, then generalise
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns ingest, indexing and archive-scale publishing
@@ -39,8 +39,10 @@ view, regenerable at any time.
 | Rotation rate            | 9.95–10.03 Hz within a single capture                   | `segments.json` `frame_rate_10s`                                 |
 | Reference capture        | `soma1-static-0.pcap`, 1.5 GiB, static sensor           | [reference-capture.md](../lidar/operations/reference-capture.md) |
 
-There is no export from VRLOG, no scene page, and no player. The JSON shape and
-its three.js consumer both already exist in prototype form.
+Phase 0 has since landed: `velocity scene export` reads a VRLOG,
+`public_html/src/scenes/soma1/` is a published page, and `scene-reader.js`,
+`scene-camera.js`, `scene-timeline.js` and `scene-player.js` are the browser
+side. The paragraph this replaced said none of that existed.
 
 ## Findings
 
@@ -204,6 +206,58 @@ and numeric ranges. Downloaded data is untrusted input.
   published headers or manifests.
 - Clips are 30 seconds and disjoint, not a continuous movement record.
 
+### 8. A scene's vantages live in exactly one file
+
+A vantage is a named viewpoint: `azimuth_deg`, `polar_deg`, `zoom`, and an
+offset across the ground, all relative to the scene's own framing so a saved
+angle survives a re-export. The labels are the point — "Eastbound Howard" tells
+a reader what they are looking along, "From east" does not.
+
+They are stored in **`vantages.json` at the scene root**, beside
+`manifest.json`, and nowhere else. Vantages describe a place rather than a run,
+so a scene split into several parts has one set of them, not one per part.
+
+Four stores existed briefly, and the arrangement failed exactly as duplication
+does: the viewer preferred the export header, so editing `vantages.json` looked
+like it did nothing. Two of the four were never even wired up —
+`Recorder.SetVantages` had no callers, and nothing copied the scene index's
+column into an export, so editing that column in the web editor changed nothing
+a visitor could see while looking authoritative.
+
+| Former store                 | Why it is gone                                                                   |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| Export part `header.json`    | Per-part copy of a scene-level fact; the viewer chose between it and the file    |
+| VRLOG `header.json`          | A recording holds what the sensor measured; a viewpoint is a presentation choice |
+| `lidar_scenes.vantages_json` | Never reached a published page (dropped in migration 41)                         |
+
+The editing loop is the viewer itself: frame an angle, press **Copy this view**,
+paste the JSON it emits into `vantages.json`. `velocity scene vantages FILE`
+checks one before it is published, because a typo otherwise falls back to
+compass bearings and mislabels an intersection without saying so.
+
+Guards in both languages fail if a second store returns: an export writes no
+vantages into any JSON it produces, a recording carries none, the scene table
+has no such column, the player reads no header field and holds no fallback
+chain, and no published asset but `vantages.json` mentions them.
+
+### 9. Transport: one timeline, and it loops
+
+The annotated strip **is** the scrubber. It carries traffic by mode diverging
+from a zero line, peak speed, and the playhead; a bare range input underneath
+said less and took more room, so the transport is `Play`, clock, strip,
+duration, speed, in one row. Because a canvas answers to no keyboard by
+default, the strip takes `role="slider"` and handles arrows, Page, Home and
+End — the range input was the only pointer-free way to scrub and that could not
+be silently dropped.
+
+Playback wraps at the end rather than stopping. A scene is a loop of street,
+not a film with an ending. Trails are dropped at the wrap and at any seek,
+since a trail is accumulated motion and carrying one across a jump draws a line
+between two unrelated moments.
+
+Speeds are 1x, 4x, 8x and 16x. The frame-step clamp is on wall time, not scene
+time, so 16x stays 16x and only a stalled frame is bounded.
+
 ## Scope
 
 ### Item 1: Export command
@@ -319,22 +373,29 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 
 ### Outstanding
 
-- [ ] Generalise the scene exporter to accept a VRLOG input (`M`)
-- [ ] `tracks` export: NDJSON, 2 dp, gzip chunks, index (`M`)
-- [ ] `clip` and `background` exports (`M`)
-- [ ] Per-part track-ID re-keying (`S`)
-- [ ] `SceneReader`: fetch, decompress, parse, cache, prefetch (`M`)
-- [ ] `SceneSession`: multi-part timeline and boundary handling (`M`)
-- [ ] Binary-search seek at chunk and frame level (`S`)
-- [ ] Committed fixture with non-uniform frame intervals (`S`)
-- [ ] Exporter tests: stride, rounding, timestamps unchanged, chunk rollover, gzip round-trip (`M`)
-- [ ] Reader tests: malformed input, bounds, seek at start / boundary / end (`M`)
-- [ ] `scene-player.js`: boxes, class colour, trails, transport (`L`)
+- [ ] Phase 1: the other five sites, once the surveyed coordinates arrive (`M`)
+- [ ] Re-export soma1 from the VRLOG so the published assets carry the current exporter's output (`S`)
+- [x] Generalise the scene exporter to accept a VRLOG input (`M`)
+- [x] `tracks` export: NDJSON, 2 dp, gzip chunks, index (`M`)
+- [x] `clip` and `background` exports (`M`)
+- [x] Per-part track-ID re-keying (`S`)
+- [x] `SceneReader`: fetch, decompress, parse, cache, prefetch (`M`)
+- [x] `SceneSession`: multi-part timeline and boundary handling (`M`)
+- [x] Binary-search seek at chunk and frame level (`S`)
+- [x] Exporter tests: stride, rounding, timestamps unchanged, chunk rollover, gzip round-trip (`M`)
+- [x] Reader tests: malformed input, bounds, seek at start / boundary / end (`M`)
+- [x] `scene-player.js`: boxes, class colour, trails, transport (`L`)
+- [x] Named vantages in one file, with guards against a second store (`M`) — §8
+- [x] Background point cloud, orbit/pan camera, mode toggle, timeline annotation (`M`)
+- [x] Looping playback, single timeline, keyboard scrubbing (`S`) — §9
 - [x] Publish the reference capture through existing Pages (`M`) — 11 min, 1.2 MiB
 - [x] Document sources, commands and measured asset sizes (`S`) — [reference-capture.md](../lidar/operations/reference-capture.md)
 
 ### Deferred
 
+- [ ] Committed fixture with non-uniform frame intervals: exporter tests build
+      their VRLOGs through the real recorder, which already exercises uneven
+      timestamps, so a checked-in binary fixture would add weight without cover
 - [ ] Protobuf in the browser: JSON at 2 dp is smaller here and needs no toolchain
 - [ ] Brotli chunks: ~17% smaller, but `DecompressionStream` supports `br` only on Chromium
 - [ ] Compressed-chunk VRLOG variant: the replayer hard-codes `chunk_%04d.pb`; the web export is a separate artefact instead

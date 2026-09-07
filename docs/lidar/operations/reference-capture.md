@@ -98,6 +98,23 @@ velocity scene export \
     --stride 2 --site soma1 --title "SoMa 1"
 ```
 
+The background snapshot and the named viewpoints are separate steps, because
+neither is per-part:
+
+```bash
+velocity scene export \
+    --vrlog /Users/david/code/sensor_data/lidar/vrlog/f84105d8-b3be-416f-8809-551ef6bfce10 \
+    --out   public_html/src/scenes/soma1/assets/background \
+    --export background
+
+velocity scene vantages public_html/src/scenes/soma1/assets/vantages.json
+```
+
+`vantages.json` is hand-written and sits at the scene root beside
+`manifest.json`; the exporter neither reads nor writes it, and nothing else
+stores a copy. To add one, frame the angle in the published viewer, press
+**Copy this view**, and paste the JSON it emits.
+
 Result, as committed:
 
 | Property           | Value                                                              |

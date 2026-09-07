@@ -4,34 +4,34 @@
     "label": "Overview",
     "azimuth_deg": 45,
     "polar_deg": 55,
-    "zoom": 1.0
+    "zoom": 0.25
   },
   {
     "id": "eb-howard",
     "label": "Eastbound Howard",
-    "azimuth_deg": 270,
-    "polar_deg": 72,
-    "zoom": 0.7,
-    "offset_x": 8,
-    "offset_y": 0
+    "azimuth_deg": 210,
+    "polar_deg": 60,
+    "zoom": 0.25,
+    "offset_x": -32,
+    "offset_y": 18
   },
   {
     "id": "wb-howard",
     "label": "Westbound Howard",
-    "azimuth_deg": 90,
-    "polar_deg": 72,
-    "zoom": 0.7,
-    "offset_x": -8,
-    "offset_y": 0
+    "azimuth_deg": 30,
+    "polar_deg": 60,
+    "zoom": 0.25,
+    "offset_x": -32,
+    "offset_y": 18
   },
   {
     "id": "nb-5th",
     "label": "Northbound 5th",
-    "azimuth_deg": 180,
-    "polar_deg": 72,
-    "zoom": 0.7,
-    "offset_x": 0,
-    "offset_y": 8
+    "azimuth_deg": 120,
+    "polar_deg": 60,
+    "zoom": 0.25,
+    "offset_x": -32,
+    "offset_y": 18
   },
   {
     "id": "sb-5th",
@@ -39,8 +39,8 @@
     "azimuth_deg": 300,
     "polar_deg": 60,
     "zoom": 0.25,
-    "offset_x": -29,
-    "offset_y": 15
+    "offset_x": -32,
+    "offset_y": 18
   },
   {
     "id": "top",

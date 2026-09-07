@@ -52,7 +52,7 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const ratio = Math.min(globalThis.devicePixelRatio || 1, 2);
     const w = canvas.clientWidth || 600;
     const h = canvas.clientHeight || 72;
     if (canvas.width !== w * ratio || canvas.height !== h * ratio) {
@@ -151,6 +151,47 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     return buckets[Math.min(Math.max(i, 0), buckets.length - 1)] ?? null;
   }
 
+  /**
+   * Steps the playhead from the keyboard.
+   *
+   * The strip replaced a range input, which was the only way to scrub without
+   * a pointer. A canvas answers to nothing by default, so the keys have to be
+   * put back by hand or the transport becomes mouse-only.
+   */
+  function onKeyDown(e) {
+    const fine = 1;
+    const coarse = Math.max(10, span / 20);
+    let next = playhead;
+    switch (e.key) {
+      case "ArrowLeft":
+        next -= e.shiftKey ? coarse : fine;
+        break;
+      case "ArrowRight":
+        next += e.shiftKey ? coarse : fine;
+        break;
+      case "PageUp":
+        next -= coarse;
+        break;
+      case "PageDown":
+        next += coarse;
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = span;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    onSeek?.(Math.min(span, Math.max(0, next)));
+  }
+  canvas.addEventListener("keydown", onKeyDown);
+
+  canvas.setAttribute("aria-valuemin", "0");
+  canvas.setAttribute("aria-valuemax", String(Math.round(span)));
+
   canvas.style.touchAction = "none";
   canvas.addEventListener("pointerdown", (e) => {
     // Capture is an optimisation for dragging past the strip's edge, not a
@@ -173,7 +214,10 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     hover = null;
     draw();
   });
-  window.addEventListener("resize", draw);
+  // Guarded rather than assumed: the strip is unit-tested outside a browser,
+  // and a module that only works next to a global is a module that cannot be
+  // tested without one.
+  globalThis.addEventListener?.("resize", draw);
 
   draw();
 
