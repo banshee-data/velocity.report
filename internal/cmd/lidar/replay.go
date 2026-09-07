@@ -63,6 +63,10 @@ Examples:
 	}
 
 	if err := fs.Parse(args); err != nil {
+		// -h is a request that succeeded, not a usage error.
+		if err == flag.ErrHelp {
+			return 0
+		}
 		return 2
 	}
 	if *pcapFile == "" {
