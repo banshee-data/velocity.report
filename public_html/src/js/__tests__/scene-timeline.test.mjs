@@ -15,7 +15,7 @@ function fakeCanvas({ width = 600 } = {}) {
     { canvas: null },
     {
       get: (t, k) =>
-        k in t ? t[k] : typeof k === "string" ? t[k] ?? noop : undefined,
+        k in t ? t[k] : typeof k === "string" ? (t[k] ?? noop) : undefined,
       set: (t, k, v) => ((t[k] = v), true),
     },
   );
