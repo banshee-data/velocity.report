@@ -4,7 +4,6 @@
 package pcapsplit
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -123,12 +122,8 @@ func Analyse(cfg SplitConfig) (*Analysis, error) {
 	// Wrap the frame builder so the scan pass captures motor RPM (reported per
 	// packet via SetMotorSpeed); point assembly still flows to the real builder.
 	sb := &statsBuilder{inner: fb}
-	if err := network.ReadPCAPFile(
-		context.Background(), cfg.PCAPFile, cfg.UDPPort,
-		parser, sb, reader, nil,
-		cfg.StartSeconds, cfg.DurationSeconds, 0, 0, nil,
-	); err != nil {
-		return nil, fmt.Errorf("pcap replay: %w", err)
+	if err := replayForAnalysis(cfg, parser, sb, reader); err != nil {
+		return nil, err
 	}
 
 	// Drain the FrameBuilder so every frame callback completes.
@@ -216,6 +211,16 @@ type statsBuilder struct {
 
 func (b *statsBuilder) AddPointsPolar(points []l2frames.PointPolar) {
 	b.inner.AddPointsPolar(points)
+}
+
+// DropNextFrame forwards the seam drop to the wrapped builder. Without this
+// passthrough the wrapper would hide the capability from ReadPCAPSequence and
+// every join would keep its straddling revolution.
+func (b *statsBuilder) DropNextFrame() bool {
+	if seamAware, ok := b.inner.(interface{ DropNextFrame() bool }); ok {
+		return seamAware.DropNextFrame()
+	}
+	return false
 }
 
 func (b *statsBuilder) SetMotorSpeed(rpm uint16) {

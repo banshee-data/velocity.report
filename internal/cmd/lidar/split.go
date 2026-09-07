@@ -22,7 +22,8 @@ func SplitMain(args []string) int {
 
 	fs := flag.NewFlagSet("velocity-lidar-pcap-split", flag.ContinueOnError)
 	configPath := fs.String("config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
-	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Input PCAP/PCAPNG file (required)")
+	var pcapFiles multiFlag
+	fs.Var(&pcapFiles, "pcap", "Input PCAP/PCAPNG file (required). Repeat to analyse several rolling captures as one continuous stream.")
 	fs.Float64Var(&cfg.StartSeconds, "start-seconds", cfg.StartSeconds, "Start replay at this capture offset in seconds")
 	fs.Float64Var(&cfg.DurationSeconds, "duration-seconds", cfg.DurationSeconds, "Replay duration in seconds (0 or -1 = remaining capture)")
 	fs.StringVar(&cfg.OutputDir, "output", ".", "Output directory for segments and metadata")
@@ -40,6 +41,8 @@ func SplitMain(args []string) int {
 	fs.BoolVar(&cfg.Stats10s, "stats-10s", false, "Print per-10s frame-rate buckets (grep-friendly)")
 	fs.StringVar(&cfg.TimelineUnits, "timeline-units", "seconds", "Breakdown time columns: seconds, frames, or timestamp")
 	fs.StringVar(&cfg.MotionJSONPath, "motion-json", "", "Write the motion/static timeline to this JSON file")
+	var segments multiFlag
+	fs.Var(&segments, "segment", "Write only this segment, by the label the summary prints (e.g. static-5). Repeat for several; default writes all.")
 	fs.BoolVar(&cfg.Verbose, "verbose", false, "Verbose logging")
 
 	fs.Usage = func() {
@@ -49,6 +52,10 @@ func SplitMain(args []string) int {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  velocity lidar pcap-split --pcap capture.pcapng --output ./segments\n")
 		fmt.Fprintf(os.Stderr, "  velocity lidar pcap-split --pcap capture.pcapng --settling-sec 30 --export-json --export-metrics\n")
+		fmt.Fprintf(os.Stderr, "  velocity lidar pcap-split --pcap roll_00002.pcap --pcap roll_00003.pcap --dry-run\n")
+		fmt.Fprintf(os.Stderr, "\nSeveral --pcap flags analyse the captures as one continuous stream, which\n")
+		fmt.Fprintf(os.Stderr, "keeps the background model settled across the file boundaries. Analysing\n")
+		fmt.Fprintf(os.Stderr, "each file separately restarts that model and reports the settling as motion.\n")
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -66,11 +73,18 @@ func SplitMain(args []string) int {
 	if cfg.SensorID == "" {
 		cfg.SensorID = tuningCfg.GetSensor()
 	}
-	if cfg.PCAPFile == "" {
+	if len(pcapFiles) == 0 {
 		fmt.Fprintln(os.Stderr, "error: --pcap is required")
 		fs.Usage()
 		return 2
 	}
+	// The first capture names the run: output prefixes, the summary header and
+	// the timeline's file field all refer to it.
+	cfg.PCAPFile = pcapFiles[0]
+	if len(pcapFiles) > 1 {
+		cfg.PCAPFiles = pcapFiles
+	}
+	cfg.SelectSegments = segments
 	cfg.UDPPort = resolveUDPPort(cfg.UDPPort, cfg.PCAPFile)
 	if cfg.UDPPort < 0 {
 		return 1

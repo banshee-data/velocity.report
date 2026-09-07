@@ -274,6 +274,29 @@ extent recorded for the old bytes says nothing about the new ones.
 
 **Milestone:** v0.6.0. Items 1-5 must land first; this is the last phase, not the first.
 
+## Field validation: `s2_sf_3` files 2-9 (broadway_columbus)
+
+Eight rolling captures, 2026-09-02 13:20:37 to 13:56:07, replayed as one 35m 31s stream. The
+run confirms the premise of this plan and shows what per-file analysis costs.
+
+**Per-file analysis manufactures motion at every file head.** Files 3 and 6 each opened with
+about 14 seconds of "motion" in the existing per-file output. That is the background model
+settling from scratch, not the sensor moving. In the joined run the boundary between files 5 and
+6 (13:40:38) falls in the middle of `static-4`, which runs 13:40:14 to 13:46:36 unbroken.
+
+**Per-file analysis also misses real motion.** File 7 was reported 100% static per-file. The
+joined run finds a genuine 25-second motion event at 13:46:35, inside it. With the model settled
+across the preceding half hour the disturbance is detectable; against a model still warming up
+inside that one file, it is not.
+
+**The last static segment spans a file boundary**, which is the case that motivated the plan.
+`static-5` runs 13:47:00.580 to 13:54:30.011 (7m 29s): it begins 82 seconds into file 7, crosses
+the boundary into file 8, and ends 231 seconds in. No per-file analysis can produce it as one
+segment, and before this work the only way to obtain it was to `mergecap` the pair first.
+
+Extracted with `--segment static-5`: 809,100 packets, 1.07 GB, 4,494 frames at a steady 10.0 Hz.
+Re-analysing the extract classifies it as one static segment of 7m 29s with no motion.
+
 ## Dependencies
 
 - `pcapsplit.BuildTimeline` and `CountPCAPPackets` are reused as-is; a change to either
@@ -306,6 +329,9 @@ extent recorded for the old bytes says nothing about the new ones.
 - [x] Item 3: `internal/lidar/capindex` (scan, drift, session derivation, indexer),
       migration 039, `CaptureStore`, repeatable `--lidar-capture-root`, and the
       `/api/lidar/capture/*` endpoints
+- [x] `velocity lidar pcap-split` accepts a repeatable `--pcap` and analyses the captures as
+      one joined stream, plus `--segment` to write one stretch rather than the whole session.
+      Validated against `s2_sf_3` files 2-9 — see the note below
 
 ### Outstanding
 
