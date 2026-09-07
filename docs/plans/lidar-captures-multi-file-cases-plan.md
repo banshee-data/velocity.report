@@ -244,6 +244,18 @@ extent recorded for the old bytes says nothing about the new ones.
 
 **Milestone:** v0.6.0.
 
+**Landed per session, not per file.** Steps 2 and 4 above said one job per capture file. The
+field validation above measured what that costs: per-file classification invented a ~14 second
+motion period at the head of two files and missed a real 25 second one inside a third it called
+wholly static, and it cannot express a static stretch spanning a boundary at all. A per-file job
+would have written all three errors into the database as fact. Jobs therefore run over a
+session, joined, and periods are session-scoped.
+
+Concurrency defaults to one. A motion pass is bounded by reading 700 MB captures off a single
+external volume, so a second worker halves the throughput of the first and finishes no sooner.
+Requesting a pass for a session that already has one queued or running returns the existing job
+rather than a second.
+
 ### Item 5: replay case ↔ file association
 
 **Summary:** Make a replay case reference an ordered set of files and a session window.
@@ -297,6 +309,17 @@ segment, and before this work the only way to obtain it was to `mergecap` the pa
 Extracted with `--segment static-5`: 809,100 packets, 1.07 GB, 4,494 frames at a steady 10.0 Hz.
 Re-analysing the extract classifies it as one static segment of 7m 29s with no motion.
 
+### Index verification against the field volume
+
+A metadata-only scan of `/Volumes/lidar/lidar/s2` indexed 189 captures in 15 seconds, correctly
+skipping the `analysis/` and `pcap_split_analysis_*` directories the tooling writes beside them.
+A second scan of the unchanged volume reported no drift, in 15 seconds, with no file reads —
+which is the two-phase design's whole claim.
+
+Probing all 189 extents would take about an hour of reading, so the probe → session →
+motion-pass path is covered by unit and API tests plus the joined CLI run over the same eight
+captures reported above, rather than by a full pass over the volume.
+
 ## Dependencies
 
 - `pcapsplit.BuildTimeline` and `CountPCAPPackets` are reused as-is; a change to either
@@ -333,10 +356,13 @@ Re-analysing the extract classifies it as one static segment of 7m 29s with no m
       one joined stream, plus `--segment` to write one stretch rather than the whole session.
       Validated against `s2_sf_3` files 2-9 — see the note below
 
+- [x] Item 4: `internal/lidar/capjobs` runner, migration 040, session-scoped motion periods,
+      and the motion-pass / jobs / periods endpoints
+- [x] Item 5: migration 041 with `lidar_replay_case_files` and the backfill, `ReplayCase.Files`,
+      sequence validation at authoring time, and a case replay driven from its whole file list
+
 ### Outstanding
 
-- [ ] Item 4: motion pass job runner and persisted periods (`M`)
-- [ ] Item 5: replay case ↔ file association and migration (`M`)
 - [ ] Item 6: Captures page, timeline, slide-over (`L`)
 
 ### Deferred

@@ -32,7 +32,15 @@ func setupTestEvaluationDB(t *testing.T) *sql.DB {
 			sensor_id TEXT NOT NULL,
 			pcap_file TEXT NOT NULL,
 			created_at_ns INTEGER NOT NULL
-		)
+		);
+
+	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
+		replay_case_id TEXT NOT NULL,
+		ordinal INTEGER NOT NULL,
+		capture_file_id TEXT,
+		pcap_file TEXT NOT NULL,
+		PRIMARY KEY (replay_case_id, ordinal)
+	)
 	`)
 	if err != nil {
 		t.Fatalf("failed to create lidar_replay_cases table: %v", err)

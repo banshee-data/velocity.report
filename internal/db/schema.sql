@@ -27,6 +27,22 @@
         , snapshot_reason TEXT
           );
 
+   CREATE TABLE lidar_capture_jobs (
+          job_id TEXT PRIMARY KEY
+        , kind TEXT NOT NULL
+        , session_id TEXT
+        , root_id TEXT
+        , state TEXT NOT NULL DEFAULT 'queued'
+        , progress_current INTEGER NOT NULL DEFAULT 0
+        , progress_total INTEGER NOT NULL DEFAULT 0
+        , detail TEXT NOT NULL DEFAULT ''
+        , error TEXT NOT NULL DEFAULT ''
+        , queued_at_ns INTEGER NOT NULL
+        , started_at_ns INTEGER
+        , finished_at_ns INTEGER
+        , CHECK (state IN ('queued', 'running', 'completed', 'failed', 'cancelled'))
+          );
+
    CREATE TABLE lidar_capture_roots (
           root_id TEXT PRIMARY KEY
         , path TEXT NOT NULL UNIQUE
@@ -77,6 +93,25 @@
         , size_bytes INTEGER NOT NULL DEFAULT 0
         , derived_at_ns INTEGER NOT NULL
         , FOREIGN KEY (root_id) REFERENCES lidar_capture_roots (root_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE lidar_capture_motion_periods (
+          period_id TEXT PRIMARY KEY
+        , session_id TEXT NOT NULL
+        , ordinal INTEGER NOT NULL
+        , period_type TEXT NOT NULL
+        , label TEXT NOT NULL DEFAULT ''
+        , start_ns INTEGER NOT NULL
+        , end_ns INTEGER NOT NULL
+        , duration_ns INTEGER NOT NULL
+        , start_secs REAL NOT NULL
+        , end_secs REAL NOT NULL
+        , start_frame INTEGER
+        , end_frame INTEGER
+        , created_at_ns INTEGER NOT NULL
+        , CHECK (period_type IN ('motion', 'static'))
+        , FOREIGN KEY (session_id) REFERENCES lidar_capture_sessions (session_id) ON DELETE CASCADE
+        , UNIQUE (session_id, ordinal)
           );
 
    CREATE TABLE lidar_clusters (
@@ -158,6 +193,8 @@
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
         , recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
+        , session_id TEXT
+        , source_period_id TEXT
         , CHECK (
           pcap_start_secs IS NULL
        OR pcap_start_secs >= 0
@@ -167,6 +204,15 @@
        OR pcap_duration_secs >= 0
           )
         , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE SET NULL
+          );
+
+   CREATE TABLE lidar_replay_case_files (
+          replay_case_id TEXT NOT NULL
+        , ordinal INTEGER NOT NULL
+        , capture_file_id TEXT
+        , pcap_file TEXT NOT NULL
+        , PRIMARY KEY (replay_case_id, ordinal)
+        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_replay_evaluations" (
@@ -780,3 +826,92 @@ CREATE INDEX idx_lidar_capture_files_session ON lidar_capture_files (session_id)
 CREATE INDEX idx_lidar_capture_files_start ON lidar_capture_files (first_packet_ns);
 
 CREATE INDEX idx_lidar_capture_sessions_root ON lidar_capture_sessions (root_id, start_ns);
+
+CREATE INDEX idx_lidar_capture_motion_periods_session ON lidar_capture_motion_periods (session_id, start_ns);
+
+CREATE INDEX idx_lidar_capture_motion_periods_type ON lidar_capture_motion_periods (period_type);
+
+CREATE INDEX idx_lidar_capture_jobs_state ON lidar_capture_jobs (state, queued_at_ns);
+
+CREATE INDEX idx_lidar_capture_jobs_session ON lidar_capture_jobs (session_id, queued_at_ns);
+
+CREATE INDEX idx_lidar_replay_case_files_case ON lidar_replay_case_files (replay_case_id, ordinal);
+
+CREATE INDEX idx_lidar_replay_case_files_capture ON lidar_replay_case_files (capture_file_id);
+
+CREATE INDEX idx_lidar_replay_cases_session ON lidar_replay_cases (session_id);
+
+-- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
+   INSERT OR IGNORE INTO "radar_serial_config" (
+          "id"
+        , "port_path"
+        , "baud_rate"
+        , "data_bits"
+        , "stop_bits"
+        , "parity"
+        , "enabled"
+        , "sensor_model"
+          )
+   VALUES (1, '/dev/ttySC1', 19200, 8, 1, 'N', 1, 'ops243-a');
+
+   INSERT OR IGNORE INTO "site" (
+          "id"
+        , "name"
+        , "location"
+        , "description"
+        , "surveyor"
+        , "contact"
+        , "address"
+        , "latitude"
+        , "longitude"
+        , "map_angle"
+        , "include_map"
+        , "site_description"
+        , "bbox_ne_lat"
+        , "bbox_ne_lng"
+        , "bbox_sw_lat"
+        , "bbox_sw_lng"
+        , "map_svg_data"
+        , "radar_svg_x"
+        , "radar_svg_y"
+          )
+   VALUES (
+          1
+        , 'Sample Site — Update Me'
+        , 'A Street Near You'
+        , 'A placeholder site with very real speeds'
+        , 'Sir Veyor'
+        , 'veyor@example.com'
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+        , 0
+        , 'This is a sample site. It exists because every system needs a starting point, and someone has to go first. Replace these details with your actual survey location, your actual surveyor name, and a description of where the radar is pointed and why. The data is real even if this description is not.'
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+          );
+
+   INSERT OR IGNORE INTO "site_config_periods" (
+          "id"
+        , "site_id"
+        , "effective_start_unix"
+        , "effective_end_unix"
+        , "is_active"
+        , "notes"
+        , "cosine_error_angle"
+          )
+   VALUES (
+          1
+        , 1
+        , 1773500966.0
+        , NULL
+        , 1
+        , 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
+        , 0.5
+          );

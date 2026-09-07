@@ -122,6 +122,10 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"GET /api/lidar/capture/sessions", ws.handleCaptureSessions},
 		{"GET /api/lidar/capture/files", ws.handleCaptureFiles},
 		{"POST /api/lidar/capture/session/label", ws.handleCaptureSessionLabel},
+		{"POST /api/lidar/capture/motion-pass", ws.handleCaptureMotionPass},
+		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
+		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
+		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},
 	}
 
 	// Chart API routes (structured JSON data for frontend charts)

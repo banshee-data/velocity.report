@@ -13,6 +13,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/api"
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -69,7 +70,10 @@ type Server struct {
 	// from process configuration and never from a request: the safe-directory
 	// boundary is only a boundary while the set of readable roots is fixed
 	// outside the API. The UI selects among these; it cannot add one.
-	captureRoots    []string
+	captureRoots []string
+	// captureRunner drains the capture job queue. Nil until StartCaptureJobs
+	// runs, and left nil when the server has no database to queue work in.
+	captureRunner   *capjobs.Runner
 	vrlogSafeDir    string // Safe directory for VRLOG file access
 	packetForwarder *network.PacketForwarder
 	tuningConfigMu  sync.RWMutex
@@ -411,6 +415,13 @@ func (ws *Server) Start(ctx context.Context) error {
 		}
 	}
 	ws.dataSourceMu.Unlock()
+
+	// Drain the capture job queue for as long as the server runs. A motion
+	// pass reads gigabytes and takes minutes, so it cannot run inside a
+	// request; this is where that work actually happens.
+	if err := ws.StartCaptureJobs(ctx); err != nil {
+		opsf("Warning: capture job runner did not start: %v", err)
+	}
 
 	// Start server in a goroutine so it doesn't block
 	go func() {

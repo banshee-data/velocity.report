@@ -30,6 +30,16 @@ type ReplayCase struct {
 	RecommendedParams        json.RawMessage `json:"recommended_params,omitempty"`
 	CreatedAtNs              int64           `json:"created_at_ns"`
 	UpdatedAtNs              *int64          `json:"updated_at_ns,omitempty"`
+
+	// Files is the ordered set of captures the case covers. A case whose
+	// window spans a file boundary needs more than one, and PCAPFile above is
+	// the read-only projection of the first for clients that predate this.
+	// Populated by the handlers that load it; not a stored column.
+	Files []ReplayCaseFile `json:"files,omitempty"`
+	// SessionID and SourcePeriodID record where the case was cut from, when it
+	// came from an indexed session. Both advisory.
+	SessionID      string `json:"session_id,omitempty"`
+	SourcePeriodID string `json:"source_period_id,omitempty"`
 }
 
 // ReplayCaseStore provides persistence for LiDAR evaluation replay cases.
