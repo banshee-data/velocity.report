@@ -4,14 +4,17 @@
 package lidar
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/analysis"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
@@ -117,6 +120,7 @@ Examples:
 		return 1
 	}
 	fmt.Printf("analysis: %s\n", reportPath)
+	printTrackingBaseline(result.VRLOGPath)
 	printReplaySummary(report)
 
 	if *compareTo == "" {
@@ -209,4 +213,65 @@ func derefFloat(p *float64) float64 {
 		return 0
 	}
 	return *p
+}
+
+// printTrackingBaseline shows the Phase 0 filter-consistency figures written
+// beside the recording.
+//
+// MeanNIS is the one to read first. A consistent two-dimensional filter holds
+// it near 2 and puts about 5% of observations above the chi-squared bound. A
+// mean well above 2 says the filter is overconfident — reality surprises it
+// more often than its covariance allows — which is what a single fixed
+// measurement noise across all ranges and aspects would produce. It is not
+// proof of that on its own: a wrong motion model raises NIS too, and a
+// manoeuvring vehicle raises it without anything being broken.
+func printTrackingBaseline(dir string) {
+	b, err := os.ReadFile(filepath.Join(dir, "tracking_baseline.json"))
+	if err != nil {
+		return
+	}
+	var baseline replayeval.TrackingBaseline
+	if err := json.Unmarshal(b, &baseline); err != nil {
+		return
+	}
+	if len(baseline.Residuals) == 0 {
+		return
+	}
+
+	fmt.Printf("\nfilter consistency by speed band (mean NIS near 2 is consistent):\n")
+	fmt.Printf("  %-10s %8s %10s %10s %9s %8s %9s\n",
+		"speed m/s", "n", "lat RMS", "lon RMS", "lat bias", "NIS", "over 95%")
+	for _, r := range baseline.Residuals {
+		lateralRMS, lateralBias := fmt.Sprintf("%.3fm", r.LateralRMSMetres), fmt.Sprintf("%.3fm", r.LateralBiasMetres)
+		if r.Decomposed == 0 {
+			// Too slow for a direction of travel, so there is no lateral
+			// component to report. Saying so beats printing a zero.
+			lateralRMS, lateralBias = "n/a", "n/a"
+		}
+		fmt.Printf("  %-10s %8d %10s %9.3fm %9s %8.2f %8.1f%%\n",
+			bandLabel(r.SpeedFloorMps), r.Count,
+			lateralRMS, r.LongitudinalRMSMetres, lateralBias,
+			r.MeanNIS, 100*r.NISExceedanceRatio)
+	}
+	if len(baseline.Association) > 0 {
+		fmt.Printf("association rate by speed band:\n")
+		for _, a := range baseline.Association {
+			fmt.Printf("  %-10s %d matched, %d missed (%.1f%%)\n",
+				bandLabel(a.SpeedFloorMps), a.Matched, a.Missed, 100*a.Rate)
+		}
+	}
+}
+
+// bandLabel names a band by its floor, since the top one is open-ended.
+func bandLabel(floor float32) string {
+	for i, edge := range l5tracks.ResidualSpeedBands {
+		if edge != floor {
+			continue
+		}
+		if i+1 < len(l5tracks.ResidualSpeedBands) {
+			return fmt.Sprintf("%g-%g", floor, l5tracks.ResidualSpeedBands[i+1])
+		}
+		return fmt.Sprintf("%g+", floor)
+	}
+	return fmt.Sprintf("%g", floor)
 }

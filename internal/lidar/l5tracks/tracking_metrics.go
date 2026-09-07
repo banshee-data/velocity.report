@@ -2,6 +2,7 @@ package l5tracks
 
 import (
 	"math"
+	"sort"
 	"time"
 )
 
@@ -20,6 +21,14 @@ type TrackingMetrics struct {
 	TotalMisaligned int `json:"total_misaligned"`
 	// Misalignment ratio: misaligned / total samples [0, 1]
 	MisalignmentRatio float32 `json:"misalignment_ratio"`
+	// Residuals and Association are the Phase 0 filter-consistency baseline,
+	// pooled across live tracks and banded by speed. Read MeanNIS first: a
+	// consistent two-dimensional filter holds it near 2, and a fixed scalar
+	// measurement noise that is wrong shows up there before it shows up
+	// anywhere a person would notice.
+	Residuals   []ResidualBandSummary    `json:"residual_bands,omitempty"`
+	Association []AssociationBandSummary `json:"association_bands,omitempty"`
+
 	// Heading jitter: RMS raw-to-smoothed OBB innovations on accepted updates.
 	// This is not published output-step jitter and differs between heading paths.
 	// A locked heading adds no evidence; read it with course and lock diagnostics.
@@ -411,14 +420,34 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalSpeedJitterSumSq float64
 	var totalSpeedJitterCount int
 	var courseHist [CourseAlignmentBins]uint64
+	var residuals ResidualBands
+	var association AssociationBands
 	var courseCount int
 	headingSourceFrames := make(map[string]uint32, HeadingSourceCount)
 	var totalSourceFrames, lockedFrames uint64
 
-	for _, track := range t.Tracks {
+	// Sum in a fixed order. Floating-point addition is not associative, so
+	// map iteration order alone moves the run-level totals in their last bits,
+	// and a baseline that shifts between identical runs cannot be compared
+	// against itself.
+	orderedIDs := make([]string, 0, len(t.Tracks))
+	for id := range t.Tracks {
+		orderedIDs = append(orderedIDs, id)
+	}
+	sort.Slice(orderedIDs, func(i, j int) bool {
+		a, b := t.Tracks[orderedIDs[i]], t.Tracks[orderedIDs[j]]
+		if a.CreationSequence != b.CreationSequence {
+			return a.CreationSequence < b.CreationSequence
+		}
+		return orderedIDs[i] < orderedIDs[j]
+	})
+	for _, id := range orderedIDs {
+		track := t.Tracks[id]
 		if track.TrackState == TrackDeleted {
 			continue
 		}
+		residuals.Add(track.Residuals)
+		association.Add(track.Association)
 		metrics.ActiveTracks++
 
 		// Accumulate heading jitter across all active tracks
@@ -558,6 +587,9 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	if metrics.ActiveTracks > 0 {
 		metrics.MeanOcclusionCount = float32(metrics.TotalOcclusions) / float32(metrics.ActiveTracks)
 	}
+
+	metrics.Residuals = residuals.Summarise()
+	metrics.Association = association.Summarise()
 
 	return metrics
 }
