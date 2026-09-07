@@ -1,31 +1,30 @@
 # LiDAR heading coherence sprint plan
 
-- **Status:** In progress; D2.1/D1.4 experimental path implemented, acceptance open
+This sprint addresses heading locks, fragment assignments, and misleading evaluation signals.
+Historical capture results remain below; the delivery ledger separates them from current gates.
+
+- **Status:** Most mechanisms implemented; D2.4 UI and physical acceptance remain open
 - **Layers:** L4 Perception, L5 Tracks, L8 Analytics, L9 Endpoints, web UI
 - **Target:** v0.5.2; a two-day slice, not the full geometry rewrite
 - **Evidence run:** `baf20f02-075b-4041-9860-ff090754f94f`, 600 frames, 60 s, 346 distinct tracks, build `6d8c799e6`
 - **Canonical maths:** [obb-heading-stability-review](../../data/maths/proposals/20260222-obb-heading-stability-review.md), [geometry-coherent-tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 - **Related plans:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [lidar-analysis-run-infrastructure-plan](lidar-analysis-run-infrastructure-plan.md)
 
-The [D2 implementation report](lidar-heading-d2-implementation-report.md) records the current
-default-off axis/envelope path, objective changes, frozen fixture, and warmed A/B. It supersedes
-the implementation instructions below: axis selection may abstain, its extent reference is an
-observed-support heuristic, and course remains an opt-in diagnostic. D2.2 and D2.4 are not
-implemented. The candidate does not yet pass the physical-heading or identity gate.
+The [D2 implementation report](lidar-heading-d2-implementation-report.md) controls the current
+mathematical contract at `c863b09cb`. D2.1/D1.4 use an abstaining axis selector, a corroborated
+lower-bound extent histogram, and a freshly projected observed envelope. D2.2's bounded
+association cost is implemented. The axis path is disabled by default and the association
+weight is zero; neither has passed the physical-heading or identity gate. D2.4 UI is absent.
 
-Its re-measured A/B also settles where D2.1 is actually blocked. With abstentions attributed
-by reason, 92% of them are observations matching neither interpretation of the support
-reference, and only 4 frames in 1207 are the quarter-turn ambiguity the axis test was written
-to resolve. Tuning the cost ceiling, score gap, or aspect floor cannot move that, because
-those gates decide almost nothing on this capture. Take the support reference to the
-visibility-aware extent model before spending further effort on the axis test itself.
+The earlier finding that 92% of abstentions matched neither support interpretation motivated
+the extent revision in `42265394c`; it is not a diagnosis of the current histogram model.
+Later two-capture comparisons remain mixed and use changing eligible populations. Course
+alignment is an opt-in diagnostic, not body-yaw truth or permission to enable the candidate.
 
-The D2 readiness declaration in the
-[root-checkout review](lidar-heading-d2-readiness-review.md) records the implementation
-boundary at `9b5525ab3` and supersedes conflicting D2 instructions below. Fix the
-warm-up/scoring boundary, episode-outcome semantics, and comparison fields first.
-D2.1 must allow ambiguity rather than always choosing an axis. Historical measurements
-remain below; they are not proof that the Day 1 or Day 2 acceptance gates have passed.
+The [readiness review](lidar-heading-d2-readiness-review.md) preserves the pre-implementation
+inspection at `9b5525ab3`. Warm-up/scoring boundaries, episode outcomes, comparison fields,
+and a recorded-output fixture have since landed. Human identity and observable-yaw references
+remain missing. Section 6 is the current task ledger; Sections 1–2 preserve the original run.
 
 > **Scope.** Two days of work to stop boxes pointing the wrong way, stop one
 > vehicle being drawn as two, and put a per-run rotation and alignment metric in
@@ -89,6 +88,11 @@ unchanged, for a further 25 frames.
 
 ## 2. Root causes
 
+These are diagnoses of build `6d8c799e6`, not claims that every defect remains in the current
+branch. In particular, RC3's original six-metre reading was incorrect: the gate is a squared
+Mahalanobis threshold whose physical extent depends on covariance. Proximity alone also does
+not prove duplicate identity. Current remedies and remaining evidence gates are in Section 6.
+
 | ID  | Cause                                                                                                                                                                                                                                                                     | Evidence                                                  | Fix in this sprint |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------ |
 | RC1 | **Guard 3 is a one-way ratchet.** It rejects any heading delta between 60° and 120° measured against the _smoothed_ heading. Once the smoothed heading is more than 60° from truth, every correct measurement is rejected as an axis swap, and nothing can ever unlock it | 59 % of locked tracks never release; median residual 106° | Yes, D1.3          |
@@ -145,11 +149,10 @@ test between two interpretations of each observation:
 - aligned: `(L_obs, W_obs, θ_obs)`
 - swapped: `(W_obs, L_obs, θ_obs + π/2)`
 
-Pick whichever is more consistent with the track's current belief, then update.
-This is the correct answer to a PCA axis swap, and unlike Guard 3 it always
-produces an answer, so it cannot deadlock. Taking the axis test alone, with a
-simple running mean rather than the full Bayesian state, is a half-day change
-that removes the ratchet.
+Choose an interpretation only when support and score separation justify it. Otherwise abstain
+and record the reason; forcing an answer is not a recovery mechanism. The initial running
+mean has been replaced by a corroborated lower-bound histogram. Neither reference is a
+calibrated whole-body shape posterior. Recovery and turn lag still require measured gates.
 
 ### 3.2 D2.1's design basis moved
 
@@ -164,12 +167,10 @@ also corrects a statistical claim carried in D-04: a squared Mahalanobis
 threshold of 6.0 is not a 2.5-sigma test per dimension, because its coverage
 depends on the residual dimension.
 
-This does not cancel D2.1, but it narrows it. The axis-selection likelihood test
-is still the right cheap escape from Guard 3, because it always yields an answer
-and therefore cannot deadlock. What it must not do is drag in D-04's extent and
-uncertainty machinery on the way. Anything beyond the axis test should be
-designed against the visibility-aware review, which is a larger piece of work
-than this sprint.
+This narrows D2.1 to a bounded, abstaining compatibility test. Its scores are heuristic costs,
+not calibrated likelihoods, and its reference cannot establish unseen geometry. Structural
+extensions must follow the visibility-aware review. The full observation-conditioned shape
+and uncertainty model remains larger than this sprint.
 
 ## 4. Two-day plan
 
@@ -461,17 +462,21 @@ addition is safe ahead of any visualiser change.
 
 ### Day 2: axis coherence and an honest score
 
+The table records the revised task contracts, not outstanding implementation for every row.
+Section 6 records delivery and acceptance separately.
+
 | #    | Task                                                                                                                                                                                                                                                                               | Files                                                                                       | Size |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---- |
-| D2.1 | **Axis-selection likelihood test.** Implement §2.3 of the geometry proposal against a running length and width mean per track. Replaces Guard 2 and demotes Guard 3 to a diagnostic counter. Keep the old path behind a config flag for A/B                                        | `l5tracks/tracking_update.go`, `tracking_config.go`                                         | M    |
+| D2.1 | **Abstaining axis compatibility.** Compare aligned and swapped interpretations against corroborated visible-support bounds. Preserve the baseline behind a default-off candidate flag; report ambiguous and unsupported observations separately                                    | `l5tracks/heading_axis.go`, `heading_extent.go`, `tracking_update.go`                       | M    |
 | D2.2 | **Shape-aware association gate.** Extend the gate cost with a dimension-consistency term so a fragment does not win a confirmed track on position alone. Position stays the dominant term                                                                                          | `l5tracks/tracking_association.go`                                                          | M    |
-| D2.3 | **Fix the objective.** Set `HeadingJitter` weight to zero and add `CourseAlignment` with a negative weight. Change `ActiveTracks` from a reward to a band, penalising both too few and implausibly many. Document why in the objective godoc                                       | `sweep/objective.go`, `sweep/runner.go`                                                     | S    |
+| D2.3 | **Fix the objective.** Remove pathological heading-jitter and active-count rewards. Keep course alignment opt-in; a zero course weight does not establish physical-heading accuracy. Score lock episodes and missing metric evidence explicitly                                    | `sweep/objective.go`, `sweep/runner.go`                                                     | S    |
 | D2.4 | **Per-run alignment UI on 8080.** New Svelte panel on the existing run detail page: course-alignment distribution, heading-source histogram, lock-run distribution, and a co-located-pair count. Consumes the extended `AnalysisReport` through the run API the page already calls | `web/src/routes/lidar/runs/+page.svelte`, `web/src/lib/types/lidar.ts`, `analysis/types.go` | M    |
-| D2.5 | **Regression fixture.** Freeze a 200-frame excerpt of `baf20f02` covering the `18952226` and `04e4ebd5` overlap as a test fixture, and assert the Day 1 gate numbers in Go                                                                                                         | `l5tracks/tracking_coverage_test.go`, `analysis/testdata`                                   | M    |
+| D2.5 | **Regression and reference fixtures.** Retain the frozen recorded-output excerpt and warmed replay provenance. Add independent physical-object identities and observable-yaw labels; recorded tracker output alone cannot assert physical correctness                              | `analysis/testdata`, replay evaluation and reference datasets                               | M    |
 
-**Day 2 gate.** The A/B comparison in `analysis.CompareReports` shows the new
-path equal or better on course alignment, fragmentation, and co-located pairs,
-with no regression in acceptance rate.
+**Day 2 gate, still open.** Compare both configurations on the same frozen physical objects
+and capture window. Require no acceptance regression, improved identity/fragmentation
+evidence, and observable body-yaw/turn-lag accuracy. Report course alignment and co-located
+pairs as proxies alongside eligibility changes, not as substitutes for those reference gates.
 
 ## 5. Harness
 
@@ -548,26 +553,24 @@ The run detail work belongs in the Svelte app, which already calls
 `/api/lidar/runs` through the Vite proxy and already renders run tracks. D2.4
 extends a page that exists rather than adding a second place to look.
 
-## 6. Backlog entries
+## 6. Current delivery and remaining work
 
-Copy-ready lines for `docs/BACKLOG.md`, in release order. Their link paths
-are relative to `docs/BACKLOG.md`, not to this file, so a link checker run
-against this document will flag them. <!-- link-ignore -->
+The original task breakdown is retained in Section 4. Do not copy historical task wording
+into the backlog as though no implementation exists.
 
-**v0.5.2**
+| Work                                                 | Current state                                                                   | Remaining gate                                                                    |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| D1.1–D1.3: course, locks, release                    | Implemented on the baseline path                                                | Physical-heading acceptance is separate from course diagnostics                   |
+| D1.5–D1.6: fragment guard and ghost fade             | Implemented; D2.2 optionally replaces the hard fragment refusal                 | Verify identity behaviour and client rendering on reviewed cases                  |
+| D1.4 and D2.1: observed envelope and axial selection | Implemented behind the disabled axis flag, with a corroborated extent reference | Labelled containment, physical yaw, partial-view and manoeuvre checks             |
+| D2.2: extent association cost                        | Implemented; weight zero by default                                             | Same-object evaluation independent of predicted UUIDs                             |
+| D2.3: evaluation/objective                           | Implemented diagnostics, missing-evidence handling, optional count band         | Calibrated site/window references; no course-only promotion                       |
+| D2.4: run panel                                      | Not implemented                                                                 | Course, source/acceptance, lock and overlap diagnostics on the existing run page  |
+| D2.5: regression evidence                            | Frozen recorded-output fixture and replay provenance implemented                | Reviewed masks/poses, multi-capture acceptance, and human-reviewable before/after |
+| Guard 2 threshold experiment                         | Optional baseline comparison remains open                                       | Lowering the aspect threshold locks fewer clusters; measure rather than assume    |
 
-- Heading lock ratchet release (heading coherence D1.3): Guard 3 rejects any 60° to 120° heading delta against the _smoothed_ heading, so once the smoothed heading drifts past 60° from truth every correct measurement is rejected and the lock is permanent; 59 % of locked tracks in run `baf20f02` never release, sitting at a median 106° from their direction of travel. Add a rejection counter that releases the lock and snaps to the measurement: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
-- Course-alignment metric and lock telemetry (heading coherence D1.1, D1.2): nothing in the system measures whether a bounding box points where the vehicle is going. `AlignmentMeanRad` compares Kalman velocity against displacement, both of which are motion. Add per-track \|OBB heading − course\| percentiles, heading-source histograms and lock-run lengths to `AnalysisReport`: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
-- Dimension freeze and fragment capture (heading coherence D1.4, D1.5): while the heading is locked the tracker updates only height, so one bad frame's dimensions persist for the track's life; a 0.11 m by 0.08 m fragment was associated to a 4.33 m car and became its size for 28 frames. Project cluster extents onto the locked axes and refuse sub-0.5 m clusters as measurements for confirmed metre-scale tracks: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
-- Stop publishing deleted tracks (heading coherence D1.6): `deleted_track_grace_period` is an internal re-association window, but deleted tracks are streamed to clients with frozen state, and 45.8 % of all published track-frames in run `baf20f02` were ghosts. Exclude or flag them at the L9 adapter: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
-- Objective function rewards the defect (heading coherence D2.3): `HeadingJitter` carries a negative weight and a fully locked heading has near-zero jitter, so the auto-tuner scores locking as success; `ActiveTracks` carries a positive log-scale weight, so splitting one vehicle into two scores better than tracking it once. Zero the jitter term, add course alignment, and band the track count: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
-- Axis-selection likelihood test (heading coherence D2.1): take §2.3 of the geometry-coherent tracking proposal alone, choosing between the aligned and 90°-swapped interpretation of each OBB observation against a running dimension mean. Unlike Guard 3 it always yields an answer, so it cannot deadlock; replaces Guard 2 and demotes Guard 3 to a counter. Take the axis test only: that proposal's own 2026-09-05 declaration names its extent averaging and uncertainty shrinkage as heuristics and redirects structural work to the visibility-aware review: [design doc](plans/lidar-heading-coherence-sprint-plan.md), [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [visibility-aware review](../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md) `M` {math}
-- Shape-aware association gate (heading coherence D2.2): the gate is a 6 m position radius with no size term, which is how a fragment captures a car; 98.2 % of frames in run `baf20f02` contain a co-located track pair within 3 m. Add a dimension-consistency term to the assignment cost: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `M` {math}
-- Per-run alignment panel on the 8080 run page (heading coherence D2.4): course-alignment distribution, heading-source histogram, lock-run lengths and co-located-pair count on the existing Svelte run detail page, consuming the extended run API rather than adding an endpoint: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `M`
-
-**Close without merge**
-
-- Measure Fix D of the OBB heading stability review, lowering `obb_aspect_ratio_lock_threshold` from 0.25. The lock fires when `abs(L-W)/max(L,W) < threshold`, so a lower threshold locks **fewer** clusters, not more. Lock entry is the failure mode on run `baf20f02`, which makes this a candidate remedy rather than something to close. The deterministic replay harness makes it a two-minute experiment: [design doc](plans/lidar-heading-coherence-sprint-plan.md) `S`
+The annotation backend is work in progress, not the D2.4 client or D2.5 reference truth.
+The [branch audit](lidar-state-estimation-branch-audit.md) owns the current cross-plan sequence.
 
 ## 7. Risks
 

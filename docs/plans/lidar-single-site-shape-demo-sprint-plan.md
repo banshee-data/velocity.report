@@ -4,7 +4,7 @@ This sprint demonstrates one vehicle remaining one object as its visible surface
 pairs reviewed point masks with a small, inspectable shape model and compares the resulting
 trail with the current tracker on one site.
 
-- **Status:** Proposed; implementation not started by this plan
+- **Status:** Backend groundwork in progress; end-to-end demo and acceptance not delivered
 - **Layers:** Offline analysis, L4 Perception, L5 Tracks, L6 Objects, L10 Clients
 - **Scope:** Three engineering days, one site, one annotation client, seeded rigid-vehicle
   tracking
@@ -38,16 +38,17 @@ rollout, or automatic make/model recognition is required.
 
 ## 2. Starting branch and dependencies
 
-Planning re-inspected root branch `dd/docs/state-est` at `6a9b6ebf6`. Its heading-coherence
-sprint now includes the committed headless PCAP replay harness and reports Day 1 A/B results.
-Those results were read, not independently reproduced here. The mathematical review
-separates reported proxy improvements from the remaining accuracy and identity gates.
+The original planning inspections at `6a9b6ebf6` and `9b5525ab3` predate the delivered
+warm-up/scoring boundary, episode metrics, D2.1/D1.4 candidate, and D2.2 experiment. The
+[implementation report](lidar-heading-d2-implementation-report.md) records the current
+committed boundary at `c863b09cb`. Heading and association candidates remain disabled by
+default; proxy improvements have not passed physical acceptance.
 
-This plan is now integrated into the root checkout. The
-[active heading sprint](lidar-heading-coherence-sprint-plan.md) and its
-[D2 readiness review](lidar-heading-d2-readiness-review.md) record subsequent work at
-`9b5525ab3`, including unresolved warm-up and episode-metric contracts. Do not treat the
-earlier planning snapshot as the current implementation boundary.
+Uncommitted annotation pack/export/sidecar work provides part of Day 1's backend. It does not
+deliver selection UI, safe revision history, JSON model fitting, seeded shape tracking, or
+the model-inspection panel. The [branch audit](lidar-state-estimation-branch-audit.md)
+estimates 4–7 further engineer-days for a dependable minimum loop, plus 4–8 operator-hours.
+Three days remains a demonstration timebox, not a claim that the full scorecard fits or passes.
 
 The sprint uses the existing renderer and playback controls, a local annotation pack, and an
 offline tracker. It does not depend on finishing the full QC workbench, a new database schema,
@@ -60,7 +61,9 @@ tuning surface.
   digest.
 - Candidate: run `baf20f02-075b-4041-9860-ff090754f94f`, sourced from
   `s2_sf_4_20260902153250_00003.pcap`. The PCAP was found in the root checkout's sibling
-  `sensor_data/lidar/static` directory; do not rely on the unavailable `/Volumes/lidar` mount.
+  `sensor_data/lidar/static` directory at the earlier inspection. Re-check availability of
+  the user's `/Volumes/lidar/lidar/s2/` source; an earlier missing mount is not a permanent
+  absence declaration. Pin whichever source is actually used by digest.
 - Verify point-bearing frames, capture ordering, calibration, and annotation coverage. Use the
   source pack unchanged for A/B; reproduce settling and completion barriers for any PCAP rerun.
 - Confirm the visualiser builds on the demo machine. Do not count an old app bundle as this

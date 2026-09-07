@@ -1,9 +1,17 @@
 # Velocity-Coherent foreground extraction
 
-- **Status:** Implementation In Progress (Core Phases 1–5 Simplified; Phases 0, 6–7 Pending)
+This plan explores temporal point motion as a second foreground signal. Its archived prototype
+is design evidence, not the foreground extractor running on this branch.
+
+- **Status:** Deferred integration; simplified prototype archived and unmerged
 - **Layers:** L3 Grid, L4 Perception
 - **Plan Version:** 2.0
 - **Canonical:** [velocity-foreground-extraction.md](../lidar/architecture/velocity-foreground-extraction.md)
+
+Phase checklists and prototype results below describe `archive/vc-prototype-391`, unless
+explicitly labelled as current runtime. They must not be counted as delivered phases of this
+PR. Reimplementation, integration, and validation remain open; the corrected-measurement
+state-estimation work does not depend on this extractor.
 
 - **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); the active clustering is DBSCAN in [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go). No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications, preserved out-of-tree at tag `archive/vc-prototype-391`; see [Implementation Notes](#implementation-notes-january-2026) for detail.
   > The mathematical model and parameter tradeoffs are also documented in:

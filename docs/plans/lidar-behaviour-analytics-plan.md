@@ -1,6 +1,9 @@
 # LiDAR road-user behaviour analytics plan
 
-- **Status:** Draft (specification)
+This plan defines explainable road-user measurements and their suppression rules. Methods may
+be developed against reference trajectories now; production results wait for validated final estimates.
+
+- **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Target:** v0.7.x onward; every phase here is gated on smoothing landing in the estimation plan
 - **Depends on:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns Phases 0 to 5 and Phase 8; this plan owns Phases 6 and 7)
@@ -1068,230 +1071,44 @@ The remaining roadway context, lane centrelines, stop lines, crossings and
 conflict regions, belongs to [lidar-l7-scene-plan](lidar-l7-scene-plan.md) and
 is the reason Phase 7 exists.
 
-### 10.2 Proposed types
+### 10.2 Proposed field contracts
 
 Adapted to repository conventions rather than copied: track identifiers are
 **strings** (`trk_<uuid>`, per `TrackedObject.TrackID`), not integers;
 timestamps are `TSUnixNanos int64`; analytics uses `float64`; JSON tags are
 snake case.
 
-```go
-package l8behaviour // new, under internal/lidar/
+The following are proposed field contracts, not implemented storage or API types. Numeric
+measurements, categorical outcomes, support state, and provenance remain distinct.
 
-// ---------------------------------------------------------------------------
-// Uncertainty: not always a scalar
-// ---------------------------------------------------------------------------
+| Record                     | Fields                                                                                                                  | Contract                                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Uncertainty                | `kind`, `sigma`, `lower`, `upper`, `coverage`, `method`, `samples`                                                      | Kind is none, symmetric sigma, coverage interval, or hard bounds. Optional endpoints are absent when unknown, not zero |
+| Uncertainty scope          | `track_local`, `shared_sensor`, `shared_geometry`                                                                       | Preserve separate contributions so common-mode cancellation is not guessed from a total sigma                          |
+| Version provenance         | `estimate_stage`, `estimator_id`, `obs_model_id`, `method_id`, `geometry_id`, `param_hash`                              | Production uses final estimates; keep estimator, observation, behaviour/threshold, and map versions distinct           |
+| Input provenance           | `contributing_track_ids`, `first_unix_nanos`, `last_unix_nanos`, `observed_frames`, `coasted_frames`, `planar_fallback` | Record exactly which evidence and fallback contributed                                                                 |
+| Numeric measurement        | `name`, `value`, `unit`, `uncertainty`, `suppressed`, `reason`                                                          | Either a meaningful value or suppression with a closed-vocabulary reason; never a misleading zero                      |
+| Numeric context            | `benchmark`, `percentile`, `opportunity_seconds`, `provenance`                                                          | Benchmark/percentile may be absent; rate denominators count observed support only                                      |
+| Categorical outcome        | `name`, `value`, `confidence`, `derived_from`, `threshold_set`, `suppressed`, `reason`, `provenance`                    | Retain the numeric evidence. Category confidence is not measurement uncertainty                                        |
+| Passage identity/class     | `track_id`, `site_id`, `sensor_id`, `motion_class`, `class_label`, `class_confidence`                                   | One road user traversing one site, not a driver profile; class confidence gates applicability                          |
+| Passage evidence           | `start_unix_nanos`, `end_unix_nanos`, `observed_path_metres`, `support_seconds`, `measurements`, `outcomes`             | Store duration by support state alongside all results                                                                  |
+| Interaction classification | `posterior`, `map`, `confidence`, `conflict_angle_rad`, `path_overlap`, `relative_speed_mps`                            | Retain class uncertainty and optional classification evidence, not only the winning label                              |
+| Interaction identity/time  | `event_id`, `primary_track_id`, `secondary_track_id`, `start_unix_nanos`, `end_unix_nanos`                              | Primary/secondary name geometric roles, never fault                                                                    |
+| Interaction geometry       | `conflict_x`, `conflict_y`, `conflict_angle_rad`, `conflict_from_map`, `surface_continuous`                             | Distinguish a mapped region from intersecting observed paths; retain grade-discontinuity status                        |
+| Interaction results        | `classification`, `measurements`, `outcomes`, `worst_support`                                                           | Record the worst support state of either party during the interval                                                     |
+| Exposure window            | `track_id`, `kind`, `seconds`, `start_unix_nanos`, `end_unix_nanos`                                                     | Explicit opportunity denominator; count observed seconds only                                                          |
 
-// UncertaintyKind selects the representation. See 9.3: forcing every metric
-// into a symmetric sigma misreports the ratios and the extrema.
-type UncertaintyKind uint8
+| Vocabulary          | Allowed meanings                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Propagation method  | Analytic, linearised, sigma-point, or Monte Carlo; sampled methods record sample count                        |
+| Observation support | Observed, coasted, occluded-inferred, missed-unknown, cluster-merged, cluster-split, or outside field of view |
+| Interaction type    | Following, crossing, merging, overtaking, or opposing, with a distribution over candidates                    |
+| Exposure kind       | Free-flow, valid following, yielding opportunity, or overtaking                                               |
 
-const (
-    UncertaintyNone UncertaintyKind = iota
-    UncertaintySigma                 // symmetric, approximately Gaussian
-    UncertaintyInterval              // asymmetric, with a stated coverage
-    UncertaintyBounds                // hard lower and/or upper bound
-)
-
-// PropagationMethod records how the uncertainty was obtained, because an
-// analytic bound and a 200-sample Monte Carlo interval deserve different trust.
-type PropagationMethod string
-
-const (
-    PropagationAnalytic   PropagationMethod = "analytic"
-    PropagationLinearised PropagationMethod = "linearised"
-    PropagationSigmaPoint PropagationMethod = "sigma_point"
-    PropagationMonteCarlo PropagationMethod = "monte_carlo"
-)
-
-type Uncertainty struct {
-    Kind   UncertaintyKind   `json:"kind"`
-    Sigma  float64           `json:"sigma,omitempty"`
-    Lower  *float64          `json:"lower,omitempty"`
-    Upper  *float64          `json:"upper,omitempty"`
-    Coverage float64         `json:"coverage,omitempty"` // e.g. 0.90 for a 5th-95th interval
-    Method PropagationMethod `json:"method"`
-    Samples int              `json:"samples,omitempty"`
-
-    // Contributions by scope, per 9.4. Carried separately from the start so
-    // that common-mode cancellation can be introduced later without
-    // reinterpreting stored values.
-    TrackLocal     float64 `json:"track_local,omitempty"`
-    SharedSensor   float64 `json:"shared_sensor,omitempty"`
-    SharedGeometry float64 `json:"shared_geometry,omitempty"`
-}
-
-// ---------------------------------------------------------------------------
-// Provenance
-// ---------------------------------------------------------------------------
-
-// Provenance answers "why should I believe this number?" for every result.
-// Four version axes, because a result can change for four independent reasons.
-type Provenance struct {
-    EstimateStage string `json:"estimate_stage"` // must be "final" for production
-    EstimatorID   string `json:"estimator_id"`
-    ObsModelID    string `json:"obs_model_id"`
-    MethodID      string `json:"method_id"`      // behaviour method and threshold set
-    GeometryID    string `json:"geometry_id,omitempty"` // road/map geometry version
-    ParamHash     string `json:"param_hash"`
-
-    // What was actually used.
-    ContributingTrackIDs []string `json:"contributing_track_ids"`
-    FirstUnixNanos       int64    `json:"first_unix_nanos"`
-    LastUnixNanos        int64    `json:"last_unix_nanos"`
-    ObservedFrames       int      `json:"observed_frames"`
-    CoastedFrames        int      `json:"coasted_frames"`
-    PlanarFallback       bool     `json:"planar_fallback"`
-}
-
-// ---------------------------------------------------------------------------
-// Results: numeric and categorical are different things
-// ---------------------------------------------------------------------------
-
-// SuppressionReason is a closed vocabulary; see 7.2.
-type SuppressionReason string
-
-// BehaviourMeasurement is a numeric result. Either Value is meaningful, or
-// Suppressed is set and Reason explains why. Never both, never neither.
-type BehaviourMeasurement struct {
-    Name  string  `json:"name"`
-    Value float64 `json:"value"`
-    Unit  string  `json:"unit"`
-
-    Uncertainty Uncertainty `json:"uncertainty"`
-
-    Suppressed bool              `json:"suppressed"`
-    Reason     SuppressionReason `json:"reason,omitempty"`
-
-    Benchmark  *Benchmark `json:"benchmark,omitempty"`
-    Percentile *float64   `json:"percentile,omitempty"`
-
-    // Exposure denominator for rate-form metrics, counting only `observed`
-    // support per 7.3.
-    OpportunitySeconds float64 `json:"opportunity_seconds,omitempty"`
-
-    Provenance Provenance `json:"provenance"`
-}
-
-// BehaviourOutcome is a categorical result. It never replaces its evidence:
-// DerivedFrom names the measurements that produced it, and they are stored.
-type BehaviourOutcome struct {
-    Name  string `json:"name"`  // e.g. "stop_outcome"
-    Value string `json:"value"` // e.g. "rolling_stop"
-
-    // Confidence in the categorisation itself, distinct from the uncertainty
-    // of the measurements behind it.
-    Confidence float64 `json:"confidence"`
-
-    // The measurements this outcome was derived from, by name, and the
-    // threshold set that mapped them to a category.
-    DerivedFrom  []string `json:"derived_from"`
-    ThresholdSet string   `json:"threshold_set"`
-
-    Suppressed bool              `json:"suppressed"`
-    Reason     SuppressionReason `json:"reason,omitempty"`
-
-    Provenance Provenance `json:"provenance"`
-}
-
-// ---------------------------------------------------------------------------
-// Passages and interactions
-// ---------------------------------------------------------------------------
-
-// ObservationSupport is the per-instant support state; see 7.3.
-type ObservationSupport string
-
-const (
-    SupportObserved         ObservationSupport = "observed"
-    SupportCoasted          ObservationSupport = "coasted"
-    SupportOccludedInferred ObservationSupport = "occluded_inferred"
-    SupportMissedUnknown    ObservationSupport = "missed_unknown"
-    SupportClusterMerged    ObservationSupport = "cluster_merged"
-    SupportClusterSplit     ObservationSupport = "cluster_split"
-    SupportOutOfFOV         ObservationSupport = "out_of_fov"
-)
-
-// PassageSummary is the per-track behavioural record: one road user, one
-// traverse of one site. Deliberately not called a driver profile.
-type PassageSummary struct {
-    TrackID  string `json:"track_id"`
-    SiteID   int64  `json:"site_id"`
-    SensorID string `json:"sensor_id"`
-
-    // Motion class drives applicability, per 7.1. Confidence is carried so a
-    // low-confidence class can gate class-specific metrics.
-    MotionClass     string  `json:"motion_class"`
-    ClassLabel      string  `json:"class_label"`
-    ClassConfidence float64 `json:"class_confidence"`
-
-    StartUnixNanos int64 `json:"start_unix_nanos"`
-    EndUnixNanos   int64 `json:"end_unix_nanos"`
-
-    ObservedPathMetres float64 `json:"observed_path_metres"`
-    SupportSeconds     map[ObservationSupport]float64 `json:"support_seconds"`
-
-    Measurements []BehaviourMeasurement `json:"measurements"`
-    Outcomes     []BehaviourOutcome     `json:"outcomes"`
-}
-
-// InteractionType is classified with a posterior, not asserted; see 7.5.
-type InteractionType string
-
-const (
-    InteractionFollowing InteractionType = "following"
-    InteractionCrossing  InteractionType = "crossing"
-    InteractionMerging   InteractionType = "merging"
-    InteractionOvertake  InteractionType = "overtake"
-    InteractionOpposing  InteractionType = "opposing"
-)
-
-type InteractionClassification struct {
-    Posterior  map[InteractionType]float64 `json:"posterior"`
-    MAP        InteractionType             `json:"map"`
-    Confidence float64                     `json:"confidence"`
-
-    // Evidence retained so a surprising suppression can be explained.
-    ConflictAngleRad *float64 `json:"conflict_angle_rad,omitempty"`
-    PathOverlap      *float64 `json:"path_overlap,omitempty"`
-    RelativeSpeedMps *float64 `json:"relative_speed_mps,omitempty"`
-}
-
-// InteractionEvent is a pairwise encounter. Primary and Secondary name roles in
-// the geometry, not fault.
-type InteractionEvent struct {
-    EventID          string `json:"event_id"`
-    PrimaryTrackID   string `json:"primary_track_id"`
-    SecondaryTrackID string `json:"secondary_track_id"`
-
-    Classification InteractionClassification `json:"classification"`
-
-    StartUnixNanos int64 `json:"start_unix_nanos"`
-    EndUnixNanos   int64 `json:"end_unix_nanos"`
-
-    // Conflict geometry. ConflictFromMap distinguishes a named, persistent
-    // region from one derived by intersecting two observed paths.
-    ConflictX, ConflictY *float64 `json:"conflict_x,omitempty"`
-    ConflictAngleRad     *float64 `json:"conflict_angle_rad,omitempty"`
-    ConflictFromMap      bool     `json:"conflict_from_map"`
-    SurfaceContinuous    bool     `json:"surface_continuous"` // false across a grade discontinuity: see 9.4
-
-    Measurements []BehaviourMeasurement `json:"measurements"`
-    Outcomes     []BehaviourOutcome     `json:"outcomes"`
-
-    // Worst support state across both parties during the measured interval.
-    WorstSupport ObservationSupport `json:"worst_support"`
-}
-
-// ExposureWindow is an opportunity denominator, stored explicitly so a rate can
-// be audited and recomputed. Seconds counts `observed` support only.
-type ExposureWindow struct {
-    TrackID        string  `json:"track_id"`
-    Kind           string  `json:"kind"` // "free_flow", "valid_following", "yield_opportunity", "overtake"
-    Seconds        float64 `json:"seconds"`
-    StartUnixNanos int64   `json:"start_unix_nanos"`
-    EndUnixNanos   int64   `json:"end_unix_nanos"`
-}
-```
+The proposed package is `internal/lidar/l8behaviour/`. Track IDs remain strings;
+capture timestamps remain signed 64-bit nanoseconds; numerical analytics uses double
+precision. Payload names above retain the intended snake-case wire contract without fixing
+a premature implementation layout.
 
 Five departures from the sketch in the brief, each deliberate.
 
