@@ -36,10 +36,10 @@
     ALTER TABLE lidar_replay_cases
       ADD COLUMN s2_l16_token TEXT;
 
--- How the position was established: 'surveyed' for a configured site origin
--- 'operator' for one entered by hand, 'fix' for one taken from the capture.
-
-            , ALTER TABLE lidar_replay_cases
+-- How the position was established. A surveyed value comes from a configured
+-- site origin. An operator value was entered by hand. A fix was taken from the
+-- capture itself.
+    ALTER TABLE lidar_replay_cases
       ADD COLUMN geographic_source TEXT;
 
     ALTER TABLE lidar_replay_cases

@@ -29,12 +29,15 @@ func setupGeoDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("read migration 042: %v", err)
 	}
-	for _, stmt := range splitSQLStatements(string(schema)) {
-		if _, err := db.Exec(stmt); err != nil &&
-			!strings.Contains(err.Error(), "duplicate column") &&
-			!strings.Contains(err.Error(), "already exists") {
-			t.Fatalf("apply migration 042 statement %q: %v", firstLine(stmt), err)
-		}
+	// Applied strictly, as one script, exactly as the migration runner does.
+	//
+	// An earlier version of this fixture split the file and tolerated
+	// "duplicate column" errors, and that tolerance hid a genuine fault: the
+	// SQL formatter had mangled a comment into a stray comma, and the shipped
+	// migration would not apply to any database. Being lenient here meant the
+	// test passed while the product was broken.
+	if _, err := db.Exec(string(schema)); err != nil {
+		t.Fatalf("apply migration 042: %v", err)
 	}
 	return db
 }
