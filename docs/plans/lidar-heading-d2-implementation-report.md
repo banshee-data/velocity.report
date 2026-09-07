@@ -1,23 +1,34 @@
 # Heading D2 implementation and experiment
 
+This report separates the current experimental tracker from earlier A/B revisions and the
+physical-heading and identity evidence still needed to enable it.
+
 - **Status:** Experimental implementation delivered; rollout and physical acceptance open
-- **Scope:** D2.5, D2.3, D2.1, and D1.4 on root branch `dd/docs/state-est`
+- **Scope:** D1.4 and D2.1–D2.3/D2.5 on root branch `dd/docs/state-est`; D2.4 remains open
 - **Related:** [Sprint](lidar-heading-coherence-sprint-plan.md), [Readiness review](lidar-heading-d2-readiness-review.md), [Visibility-aware maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
 
 ## Decision
 
-Keep `obb_axis_coherence_enabled` off by default. The implementation resolves supported
-quarter-turn axis swaps and publishes an internally consistent observed envelope, but the
-first same-capture comparison is mixed. A lower median course error is not enough to approve
-a physical heading estimator. No change here merges the two named tracks into one object.
+Keep `obb_axis_coherence_enabled` false and `association_extent_cost_weight` zero by
+default. The current committed experiment is the corroborated extent belief from
+`42265394c` plus the bounded association term from `c863b09cb`. It is not the original
+running-mean reference or a validated physical-geometry estimator.
 
-Once abstentions were attributed and the unbounded hold was bounded, the comparison stopped
-being mixed and became negative: acceptance 11.7 points lower and median course error 5.8
-degrees worse than the baseline. The breakdown says why, and it is not the axis test. Four
-frames in 1207 are the quarter-turn ambiguity; 92% of abstentions are observations that fit
-neither interpretation of the support reference. The blocker is the reference, so the next
-move is the visibility-aware extent model, not further tuning of the axis gates. See
-[Abstention attribution, the release valve, and a re-measured A/B](#abstention-attribution-the-release-valve-and-a-re-measured-ab).
+| Evidence revision                | What changed                                                           | Current interpretation                                       |
+| -------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Initial D2 slice, `c73f9be77`    | Symmetric extent cost and slowly updated support mean                  | Historical baseline; replaced                                |
+| Attribution/release, `71d590d1f` | Distinct abstentions, conditional reference release, acceptance metric | Retained mechanisms; the reference was subsequently replaced |
+| Extent belief, `42265394c`       | Corroborated lower-bound histogram; aspect and excess costs separated  | Current committed axial reference                            |
+| D2.2, `c863b09cb`                | Bounded association extent cost and box-overlap diagnostic             | Implemented, default disabled; not a proven identity fix     |
+
+The latest two-capture association comparison is inconclusive: overlap candidates fall,
+but course errors move in opposite directions and eligible track populations differ.
+Physical-object reference masks are the next dependency. Annotation pack/export work exists
+as uncommitted backend work at the inspected snapshot; neither a painting client nor labelled
+acceptance is complete. See the [branch audit](lidar-state-estimation-branch-audit.md).
+
+Sections headed “Historical” preserve the earlier experiment and its configuration.
+They must not be read as the current algorithm or as evidence that a later model passed.
 
 ## Delivered boundary
 
@@ -28,34 +39,43 @@ move is the visibility-aware extent model, not further tuning of the axis gates.
 | D2.1 | Default-off aligned/swapped axial cost test, separate pre-update support reference, ambiguity/insufficiency sources, deterministic creation-order tie-breaking       | Robustness across view changes and calibrated evidence; no posterior-confidence claim       |
 | D1.4 | Fresh measured OBB projected at the published filtered centre and heading, without recursive envelope feedback                                                       | Foreground-mask coverage and physical-size validation; it is not body reconstruction        |
 
-D2.2 association compatibility and D2.4 visualiser work remain separate. JSON class models,
-body-local surfaces, and the annotation interface are not implemented by this slice.
+D2.2 association compatibility is implemented as a disabled experiment, as detailed below.
+D2.4 visualiser work remains open. JSON class models, body-local surfaces, and the annotation
+selection interface are not implemented by this slice.
 
-## Mathematical contract
+## Current mathematical contract
 
-The candidate evaluates `(L, W, theta)` and `(W, L, theta + pi/2)`. Angular residuals use
-`atan2(sin(2 delta), cos(2 delta))/2`, so reversing travel does not label the front of a car.
-The cost is the sum of squared log-extent residuals scaled by 0.35 plus a weak angular
-continuity term, weighted by 0.25 with a pi/4 scale. Acceptance requires cost at most 16,
-a best-versus-alternative gap of at least 2, sufficient points, and relative aspect difference
-at least 0.10. These constants are bounded experimental heuristics, not measured noise.
+Compare `(L, W, theta)` with `(W, L, theta + pi/2)` against the pre-update extent belief.
+The axial residual is `atan2(sin(2 delta), cos(2 delta))/2`: it does not identify the front
+of a vehicle. The cost combines log-aspect disagreement (scale 0.5), positive log-excess
+above the believed spans (scale 0.30), and weak angular continuity (weight 0.25, scale pi/4).
+Acceptance requires cost at most 16, margin at least 2, relative aspect difference at least
+0.10, sufficient points, and the declared visible-support floor (0.30 of the believed length).
+These are experimental heuristics, not calibrated likelihoods.
 
-The first supported observation seeds a separate observed-support reference. Accepted support
-within 85–115% of each reference dimension updates it with weight 0.1. Other observations do
-not revise it. This prevents gross fragment updates, but gradual partial-view drift remains
-possible. A reference seeded from a partial view can also become misleading. Neither the
-reference nor its score gap is a physical dimension estimate or confidence interval.
+The reference uses 0.25-metre bins over spans below 16 metres and the largest span reached
+by three admitted observations; fewer observations use the available support. Gross out-of-range
+spans count as conflicts. Known merge candidates do not revise an established belief.
+Lower observed spans are compatible with censoring; they are not complete physical dimensions.
+Correct body-axis and membership interpretation remains an assumption. A sustained merge can
+still corroborate an inflated extent, so this is not a complete outlier or visibility model.
 
-Supported decisions feed an axial exponential smoother using the configured alpha. The old
-Guard 3 does not reject an accepted candidate because the smoother lags. Ambiguous and
-insufficient decisions retain the heading and record distinct sources. Missing/invalid geometry
-retains the last box as stale evidence; it does not invent a new envelope.
+Accepted headings feed the axial smoother. Abstentions distinguish invalid/insufficient geometry,
+near-square support, too little visible support, no fit, and tied interpretations. The release
+mechanism is conditional, not a universal timeout: it must not pick a tied axis or re-seed from
+a scrap merely because time passed. Belief support/conflicts and view provenance still need a
+durable diagnostic contract; no posterior-confidence claim is warranted.
 
-For valid geometry, each new half-extent is the support of the raw observed rectangle on the
-published axis plus the absolute centre offset on that axis. All four measured OBB corners
-are therefore enclosed at the filtered centre. The preceding published envelope is never an
-input. This can make the output larger, especially during turns or centre lag; containment
-does not make it an accurate physical vehicle box.
+For valid input, D1.4 projects the fresh measured OBB at the published filtered centre and
+heading. Each output half-extent includes the observed rectangle's support and the centre
+offset on that axis. The previous envelope is never an input. Missing geometry leaves stale
+box evidence; valid projection can enlarge a box during turning or centre lag. Neither case
+reconstructs the unseen vehicle body.
+
+D2.2 adds a bounded asymmetric extent penalty to geometrically admissible associations,
+capped at a quarter of the configured gating threshold. Position remains dominant. Turning
+this term on replaces the narrow hard fragment refusal; it does not itself establish
+membership or correct the medoid position measurement.
 
 ## Measurement contract
 
@@ -91,7 +111,7 @@ Historical fragmentation still uses final-state counts; it is not a labelled spl
 Regenerate old analysis reports when using these new fields; a same-version cached report
 may lack them.
 
-## Same-capture A/B
+## Historical initial same-capture A/B
 
 The original `s2_sf_4_20260902153250_00003.pcap` was replayed on 6 September 2026 using the
 current default tuning, with only the axis flag changed. Source SHA-256 is
@@ -137,14 +157,14 @@ files, above the required 98%. A repeated candidate run reproduced frame/track s
 the speed histogram; the evidence file records the UUID-independent per-track comparison.
 These checks do not replace a visualiser or physical-device test.
 
-Next, label the turning car's point membership and axial pose independently of the predicted
+The remaining gate is to label the turning car's point membership and axial pose independently of the predicted
 UUIDs. Review the candidate's rejected views and initial partial-view reference, then evaluate
 foreground containment, extent inflation, identity splits, and heading error together. Repeat
-on `kirk0` and another static site before considering default enablement. Add D2.2 separately
-so association changes cannot conceal a heading regression. The face-aware model remains the
+on `kirk0` and another static site before considering default enablement. Evaluate the implemented
+D2.2 term separately so association changes cannot conceal a heading regression. The face-aware model remains the
 structural successor, not a claim that this heuristic has already implemented it.
 
-## Abstention attribution, the release valve, and a re-measured A/B
+## Historical abstention attribution, release valve, and re-measured A/B
 
 Three changes were made on top of the slice above, in response to the first A/B
 being undecidable rather than merely mixed.

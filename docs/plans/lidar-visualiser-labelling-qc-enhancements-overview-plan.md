@@ -1,6 +1,9 @@
 # Labelling + QC enhancements (features 1, 2, 3, 5, 7, 8, 10)
 
-- **Status:** Proposed (February 2026)
+This roadmap makes track-level quality review explainable and auditable. Point membership
+annotation is a separate workflow, even where the two share playback and display controls.
+
+- **Status:** Proposed; the seven-feature suite is not delivered by this branch
 - **Layers:** L9 Endpoints, L10 Clients
 - **Canonical:** [qc-enhancements-overview.md](../ui/visualiser/qc-enhancements-overview.md)
 

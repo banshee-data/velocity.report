@@ -1,5 +1,8 @@
 # Heading coherence: D2 readiness and handoff
 
+This review preserves the evaluation defects that shaped D2 and distinguishes their subsequent
+implementation from the physical reference evidence still missing.
+
 - **Status:** Implementation slice delivered; candidate acceptance remains open
 - **Scope:** Root checkout `dd/docs/state-est`; original inspection at `9b5525ab3`
 - **Related:** [Heading sprint](lidar-heading-coherence-sprint-plan.md), [Visibility-aware
@@ -9,14 +12,20 @@
 
 ## Current implementation declaration
 
-The sections below preserve the pre-implementation review. D2.5's recorded-output fixture
-and replay boundary, D2.3's diagnostic/objective plumbing, and the default-off D2.1/D1.4
-candidate are now implemented on top of `4d3bc0fe5`. The
-[implementation and experiment report](lidar-heading-d2-implementation-report.md) supersedes
-statements below that these mechanisms are absent. D2.2 association work and D2.4 UI remain
-outstanding. The first warmed A/B is mixed; it does not justify enabling the candidate.
+The numbered sections below preserve the pre-implementation review at `9b5525ab3`; their
+absence claims and “first/then” sequence are historical, not the current task backlog.
+D2.5's fixture/replay boundary, D2.3's diagnostic/objective plumbing, and the default-off
+D2.1/D1.4 candidate are implemented. `42265394c` replaces the initial support mean with a
+corroborated extent histogram; `c863b09cb` adds D2.2's bounded association cost, weight zero
+by default. The [implementation report](lidar-heading-d2-implementation-report.md) controls
+the current contract. D2.4 UI, independent identity/observable-yaw references, and physical
+acceptance remain open. Later A/B results are mixed and do not justify enabling the candidate.
 
-## 1. Decision
+Annotation pack/export/sidecar code is uncommitted backend work at this inspection. It is not
+a delivered paint interface or an adjudicated dataset. The
+[branch audit](lidar-state-estimation-branch-audit.md) records the remaining integrity gates.
+
+## 1. Historical decision
 
 Proceed with a bounded axis-coherence experiment, not a full geometry estimator. First repair
 the evaluation contract: warm-up, lock episodes, comparison fields, and a meaningful reference
@@ -36,7 +45,7 @@ reports 45 never-recovered tracks, two classified as relocked, 55 released, and 
 forced-release frames. These are reported experiments, not reruns in this review. Their windows
 and populations differ; do not combine them into one before/after result.
 
-## 2. Gaps to close before judging D2
+## 2. Historical gaps that shaped D2
 
 ### 2.1 Warm-up is not implemented by the documented start offset
 
@@ -113,7 +122,7 @@ source-content identity, processing/scoring windows, warm-up provenance, calibra
 and effective replay options to the experiment manifest. A tuning hash is not a complete
 experiment identity, and an unstamped build must be flagged.
 
-## 3. Revised D2 sequence
+## 3. Historical revised D2 sequence
 
 | Order | Item                    | Bounded next delivery                                                                                                         | Exit evidence                                                                                  |
 | ----- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -154,17 +163,17 @@ car. D2.2 is not yet the full face-aware tracker or learned class model.
 
 ## 4. Documentation precedence
 
-This review supersedes the sprint's current instructions where they say that D2.1 must always
-choose an axis, that a raw dimension mean is a physical shape belief, that the association
-threshold is a six-metre radius, or that start-offset skipping warms the grid. It also
-qualifies the earlier causal interpretations of fragmentation and lock recovery. Preserve
-measured tables and their provenance; do not silently rewrite them as new results.
+This review corrected the sprint's earlier always-select rule, physical interpretation of a
+raw dimension mean, six-metre gate interpretation, and start-offset warm-up claim. Those
+corrections are now incorporated in the sprint's current declaration. The implementation
+report controls the latest algorithm; this review remains the rationale for its evaluation
+contract. Preserve measured tables and their provenance rather than rewriting them as new results.
 
 The three-day annotation/shape demo remains a separate bounded experiment. Its point masks,
 body-local shape cache, and JSON descriptors can proceed on a frozen dataset while D2
 stabilises the online comparison. Adaptive shape estimation is not required to finish D2.1.
 
-## 5. Transfer and validation
+## 5. Historical transfer and validation
 
 The original documentation commit was already present in the root history. Seven remaining
 documentation-file updates were merged from the `7c2f` worktree into the root checkout. Root

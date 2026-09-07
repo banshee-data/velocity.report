@@ -4,7 +4,7 @@ This plan lets a person mark the returns belonging to one physical object and fo
 identity through a recording. It separates human evidence from tracker output so a split track
 does not split the reference vehicle as well.
 
-- **Status:** Proposed
+- **Status:** Backend work in progress; annotation UI and dataset acceptance remain proposed
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, L10 Clients, offline analysis
 - **Related:** [Three-day demo](lidar-single-site-shape-demo-sprint-plan.md),
   [Shape descriptors](lidar-shape-descriptors-plan.md),
@@ -32,6 +32,14 @@ report assisted corrections separately from unassisted predictions.
 [visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
 
 ## 2. Existing work and the missing contract
+
+At the inspected root snapshot (`c863b09cb` plus uncommitted work),
+`internal/lidar/annotation/` and the LiDAR CLI contain pack/export, digest, point-index,
+reference-object, and sidecar groundwork. This is not committed delivery or a completed
+operator workflow. No lasso/brush/depth-slab interface was found. Atomic sidecar replacement
+does not yet provide stale-revision rejection or recoverable revision history; both must
+pass before substantial human annotation starts. The requirements below remain acceptance
+contracts unless explicitly covered by tested implementation.
 
 The current label APIs annotate run tracks and replay time spans. Migration
 `000033_replay_annotations_and_eval_integrity.up.sql` provides replay annotations independent
