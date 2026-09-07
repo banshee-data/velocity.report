@@ -4,103 +4,94 @@ This sprint demonstrates one vehicle remaining one object as its visible surface
 pairs reviewed point masks with a small, inspectable shape model and compares the resulting
 trail with the current tracker on one site.
 
-- **Status:** Backend groundwork in progress; end-to-end demo and acceptance not delivered
+- **Status:** Backend slice committed; end-to-end demo and acceptance not delivered
+- **Canonical:** [Visibility-aware tracking contract](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
 - **Layers:** Offline analysis, L4 Perception, L5 Tracks, L6 Objects, L10 Clients
-- **Scope:** Three engineering days, one site, one annotation client, seeded rigid-vehicle
-  tracking
-- **Related:** [Annotation contract](lidar-point-annotation-and-object-dataset-plan.md),
-  [Shape descriptors](lidar-shape-descriptors-plan.md),
-  [State estimation](lidar-state-estimation-plan.md),
-  [Geometry proposal D-04](../../data/maths/proposals/20260222-geometry-coherent-tracking.md),
-  [Test corpus](lidar-test-corpus-plan.md)
+- **Scope:** Three engineering days, one site, one annotation client, seeded rigid-vehicle tracking
+- **Related:** [Annotation contract](lidar-point-annotation-and-object-dataset-plan.md), [Shape descriptors](lidar-shape-descriptors-plan.md), [State estimation](lidar-state-estimation-plan.md), [Geometry proposal D-04](../../data/maths/proposals/20260222-geometry-coherent-tracking.md), [Test corpus](lidar-test-corpus-plan.md)
 
 **Mathematical contract:** Follow the
-[visibility-aware review][visibility-research].
-Low registration error is not pose certainty. The bounded tracker must test perturbed,
-re-matched pose alternatives, identify prior-dominated directions, and avoid counting
-cached points or a motion prior twice as independent evidence. Human membership masks do
-not provide temporal point correspondences.
+[visibility-aware review][visibility-research]. Low registration error is not pose certainty. The
+bounded tracker must test perturbed, re-matched pose alternatives, identify prior-dominated
+directions, and avoid counting cached points or a motion prior twice as independent evidence. Human
+membership masks do not provide temporal point correspondences.
 
 [visibility-research]: ../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md
 
 ## 1. What will be demonstrable
 
-An operator opens a frozen VRLOG excerpt, marks an object with a lasso and depth slab, and
-corrects its membership in later keyframes. Replay shows the observed points, accumulated
-object-local shape, estimated body box, and trail. A descriptor panel explains why a compact
-JSON model favours a chosen shape class or abstains. Baseline and candidate can be compared at
-the same capture time.
+An operator opens a frozen VRLOG excerpt, marks an object with a lasso and depth slab, and corrects
+its membership in later keyframes. Replay shows the observed points, accumulated object-local
+shape, estimated body box, and trail. A descriptor panel explains why a compact JSON model favours
+a chosen shape class or abstains. Baseline and candidate can be compared at the same capture time.
 
-This is a research demo, not a three-day promise to solve classification, occlusion, and
-tracking everywhere. Delivery is the working annotation-to-evaluation loop; an improved
-held-out trajectory is a separate measured outcome. No large neural weights, production
-rollout, or automatic make/model recognition is required.
+This is a research demo, not a three-day promise to solve classification, occlusion, and tracking
+everywhere. Delivery is the working annotation-to-evaluation loop; an improved held-out
+trajectory is a separate measured outcome. No large neural weights, production rollout, or
+automatic make/model recognition is required.
 
 ## 2. Starting branch and dependencies
 
 The original planning inspections at `6a9b6ebf6` and `9b5525ab3` predate the delivered
 warm-up/scoring boundary, episode metrics, D2.1/D1.4 candidate, and D2.2 experiment. The
 [implementation report](lidar-heading-d2-implementation-report.md) records the current
-committed boundary at `c863b09cb`. Heading and association candidates remain disabled by
+heading/association boundary at `c863b09cb`. Heading and association candidates remain disabled by
 default; proxy improvements have not passed physical acceptance.
 
-Uncommitted annotation pack/export/sidecar work provides part of Day 1's backend. It does not
-deliver selection UI, safe revision history, JSON model fitting, seeded shape tracking, or
-the model-inspection panel. The [branch audit](lidar-state-estimation-branch-audit.md)
-estimates 4–7 further engineer-days for a dependable minimum loop, plus 4–8 operator-hours.
-Three days remains a demonstration timebox, not a claim that the full scorecard fits or passes.
+Annotation pack/export/sidecar work committed in `71c3a46d7`, with CLI coverage extended in
+`6252be7f2`, provides part of Day 1's backend. It does not deliver selection UI, safe revision
+history, JSON model fitting, seeded shape tracking, or the model-inspection panel. The
+[branch audit](lidar-state-estimation-branch-audit.md) estimates 4–7 further engineer-days for a
+dependable minimum loop, plus 4–8 operator-hours. Three days remains a demonstration timebox, not a
+claim that the full scorecard fits or passes.
 
-The sprint uses the existing renderer and playback controls, a local annotation pack, and an
-offline tracker. It does not depend on finishing the full QC workbench, a new database schema,
-all descriptor families, an IMM, or per-point velocity extraction. Do not broaden the live
-tuning surface.
+The sprint uses the existing renderer and playback controls, a local annotation
+pack, and an offline tracker. It does not depend on finishing the full QC workbench,
+a new database schema, all descriptor families, an IMM, or per-point velocity
+extraction. Do not broaden the live tuning surface.
 
 ### Day-zero readiness, within the first two hours of Day 1
 
-- Select one accessible site and pin a recording, source PCAP if available, config, and build
-  digest.
+- Select one accessible site and pin a recording, source PCAP if
+  available, config, and build digest.
 - Candidate: run `baf20f02-075b-4041-9860-ff090754f94f`, sourced from
   `s2_sf_4_20260902153250_00003.pcap`. The PCAP was found in the root checkout's sibling
-  `sensor_data/lidar/static` directory at the earlier inspection. Re-check availability of
-  the user's `/Volumes/lidar/lidar/s2/` source; an earlier missing mount is not a permanent
-  absence declaration. Pin whichever source is actually used by digest.
+  `sensor_data/lidar/static` directory at the earlier inspection. Re-check availability of the
+  user's `/Volumes/lidar/lidar/s2/` source; an earlier missing mount is not a permanent absence
+  declaration. Pin whichever source is actually used by digest.
 - Verify point-bearing frames, capture ordering, calibration, and annotation coverage. Use the
   source pack unchanged for A/B; reproduce settling and completion barriers for any PCAP rerun.
-- Confirm the visualiser builds on the demo machine. Do not count an old app bundle as this
-  build.
+- Confirm the visualiser builds on the demo machine. Do not count an old app bundle as this build.
 - Identify at least two actual shape families at the site. Box trucks, buses, and a verified
   vehicle platform are candidates, not a promise that the selected minute contains them.
 
-If raw-scene retention is unavailable, use recorded foreground and label the demo accordingly.
-If the selected site lacks two families, demonstrate tracking for one family plus unknown
-distractors and mark multi-class validation deferred. Do not invent examples or substitute
-another site silently.
+If raw-scene retention is unavailable, use recorded foreground and label the demo
+accordingly. If the selected site lacks two families, demonstrate tracking for one
+family plus unknown distractors and mark multi-class validation deferred. Do not invent
+examples or substitute another site silently.
 
 ## 3. Dataset and operator budget
 
-Target 12 distinct objects across two supported families, with at least six per family. Assign
-three per family to model fitting, one to tuning, and two to held-out evaluation: 6/2/4 objects
-in total. This is a demo sample, not enough for a general accuracy claim. Freeze the split
-before fitting.
+Target 12 distinct objects across two supported families, with at least six per family.
+Assign three per family to model fitting, one to tuning, and two to held-out
+evaluation: 6/2/4 objects in total. This is a demo sample, not enough for a general
+accuracy claim. Freeze the split before fitting.
 
 Review about eight keyframes per object, roughly 96 masks, prioritising approach, closest pass,
-departure, turns, sparse views, and overlap with another object. Include the reported split
-vehicle as a regression case, with both predicted IDs mapped to one human identity only after
-inspection. Reserve about four hours of operator review in addition to the engineering budget;
-record actual annotation time. If one person does both jobs, cut stretch work rather than skip
-review.
+departure, turns, sparse views, and overlap with another object. Include the reported split vehicle
+as a regression case, with both predicted IDs mapped to one human identity only after inspection.
+Reserve about four hours of operator review in addition to the engineering budget; record actual
+annotation time. If one person does both jobs, cut stretch work rather than skip review.
 
-Each object needs a reviewed seed box with a stated physical-extent uncertainty. Later masks
-remain evaluation-only during unassisted tracking. Annotate pose at a smaller set of reviewable
-keyframes for trail/heading checks; record unobservable front/rear direction instead of
-guessing it.
+Each object needs a reviewed seed box with a stated physical-extent uncertainty. Later masks remain
+evaluation-only during unassisted tracking. Annotate pose at a smaller set of reviewable keyframes
+for trail/heading checks; record unobservable front/rear direction instead of guessing it.
 
 ## 4. A small model, not a hidden checkpoint
 
-Ship a versioned JSON parameter file, with a proposed 64 KiB limit per shape family. It
-contains named values only. Point clouds, per-track shape caches, masks, and descriptors are
-dataset/runtime state stored separately; small model parameters do not make those data
-disappear.
+Ship a versioned JSON parameter file, with a proposed 64 KiB limit per shape family. It contains
+named values only. Point clouds, per-track shape caches, masks, and descriptors are dataset/runtime
+state stored separately; small model parameters do not make those data disappear.
 
 | Parameter group   | Contents                                                                                       |
 | ----------------- | ---------------------------------------------------------------------------------------------- |
@@ -112,22 +103,20 @@ disappear.
 | Validity envelope | Point support, range, viewpoint support, and expected rigid-body assumptions                   |
 | Reproducibility   | Training object IDs, split digest, feature formula version, and fitting tool version           |
 
-Fit descriptor centres and scales on fitting objects only; tune thresholds on the tuning
-partition. Use a small robust distance score over valid features, normalised by available
-feature weight. Abstain on insufficient support or poor fit. Expose each feature's contribution
-in the inspector. Class scores are not calibrated probabilities unless calibration is
-separately demonstrated.
+Fit descriptor centres and scales on fitting objects only; tune thresholds on the tuning partition.
+Use a small robust distance score over valid features, normalised by available feature weight.
+Abstain on insufficient support or poor fit. Expose each feature's contribution in the inspector.
+Class scores are not calibrated probabilities unless calibration is separately demonstrated.
 
-Initial physical dimensions come from reviewed seed priors, not means of partially visible
-extents. Class scoring and single-object tracking are independent: a seeded vehicle can be
-tracked while its class remains unknown. No object is rejected solely because a template says
-it should look different.
+Initial physical dimensions come from reviewed seed priors, not means of partially
+visible extents. Class scoring and single-object tracking are independent: a seeded
+vehicle can be tracked while its class remains unknown. No object is rejected solely
+because a template says it should look different.
 
 ## 5. Descriptors and evidence to add
 
-The existing eigenvalue and height-distribution plan helps class scoring. Registration also
-needs local correspondences and observability; a global descriptor cannot replace the point
-cloud.
+The existing eigenvalue and height-distribution plan helps class scoring. Registration also needs
+local correspondences and observability; a global descriptor cannot replace the point cloud.
 
 | Evidence/descriptor                                                          | Purpose                                                          | Sprint priority                                               |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -146,59 +135,55 @@ All descriptors carry support count, range, frame/pose provenance, and validity.
 features from human masks for the oracle experiment and predicted masks for the actual demo.
 Preserve both results. Do not use a smoothed predicted heading to define the reference heading.
 
-FPFH describes local relationships using points and normals; it is a useful non-neural
-candidate for difficult correspondence, but adds neighbourhood and normal-estimation costs.
-Sparse or planar car returns may not distinguish positions along a face. Test it before adding
-a native dependency.
+FPFH describes local relationships using points and normals; it is a useful non-neural candidate
+for difficult correspondence, but adds neighbourhood and normal-estimation costs. Sparse or planar
+car returns may not distinguish positions along a face. Test it before adding a native dependency.
 [PCL documentation](https://pointclouds.org/documentation/tutorials/fpfh_estimation.html)
 
 Intensity statistics remain optional and sensor-specific. Reflection, range, and incidence can
-change them. Do not make operator identity or a vehicle subtype depend on uncalibrated
-intensity.
+change them. Do not make operator identity or a vehicle subtype depend on uncalibrated intensity.
 
 ## 6. Tracking comparator and trail contract
 
-Mandatory candidate: a small offline, SOTracker-inspired baseline, not a claimed reproduction.
-Use a supplied seed, a motion-seeded crop of surrounding points, bounded XY/yaw registration on
-a declared locally planar road, a robust correspondence loss, and a bounded accumulated shape.
-Hold seed dimensions as an uncertain prior for this demo; full visibility-aware dimension
-learning is D-04 follow-on work. Keep vertical reference fixed or ground-conditioned and flag
-grade violations.
+Mandatory candidate: a small offline, SOTracker-inspired baseline, not a claimed reproduction. Use
+a supplied seed, a motion-seeded crop of surrounding points, bounded XY/yaw registration on a
+declared locally planar road, a robust correspondence loss, and a bounded accumulated shape. Hold
+seed dimensions as an uncertain prior for this demo; full visibility-aware dimension learning is
+D-04 follow-on work. Keep vertical reference fixed or ground-conditioned and flag grade violations.
 
-Solve against the previous accepted surface and a bounded earlier shape cache. Do not align
-only consecutive medoids. Reject ambiguous/low-overlap updates, coast with growing uncertainty,
-and stop after a declared gap. One long planar side cannot fully constrain translation along
-that side. The proposal path must show this uncertainty rather than inventing motion.
+Solve against the previous accepted surface and a bounded earlier shape cache. Do not align only
+consecutive medoids. Reject ambiguous/low-overlap updates, coast with growing uncertainty, and stop
+after a declared gap. One long planar side cannot fully constrain translation along that side. The
+proposal path must show this uncertainty rather than inventing motion.
 
-Update the cache only after the pose passes its quality gate. Proposed cap: 4,096 voxelled
-points per object and a three-frame recent buffer, with configurable voxel size and
-deterministic eviction. Retain contributing sample references so a bad update can be removed.
-Keep sensor points and object-local points separate; test coordinate transforms and angle wrap
-explicitly.
+Update the cache only after the pose passes its quality gate. Proposed cap: 4,096 voxelled points
+per object and a three-frame recent buffer, with configurable voxel size and deterministic
+eviction. Retain contributing sample references so a bad update can be removed. Keep sensor points
+and object-local points separate; test coordinate transforms and angle wrap explicitly.
 
-The reference SOTracker algorithm combines registration, accumulated shape, and motion priors
-and uses an optimisation solver rather than a neural checkpoint. Its motion constraints and
-sampling assumptions still need validation on turning, stationary-sensor data.
+The reference SOTracker algorithm combines registration, accumulated shape, and motion priors and
+uses an optimisation solver rather than a neural checkpoint. Its motion constraints and sampling
+assumptions still need validation on turning, stationary-sensor data.
 [Paper](https://arxiv.org/html/2103.06028v2)
 
-The upstream implementation is an optional offline comparator. Time-box dependency, licence,
-and custom-loader investigation to two hours within Day 2. Pin the source revision and record
-any adaptations. If reuse terms or dependencies are unresolved, do not vendor or distribute it;
-continue with the clearly named local baseline. Neither downloading Waymo data nor converting
-our captures into a complete Waymo dataset is required by the documented custom-loader API.
+The upstream implementation is an optional offline comparator. Time-box dependency, licence, and
+custom-loader investigation to two hours within Day 2. Pin the source revision and record any
+adaptations. If reuse terms or dependencies are unresolved, do not vendor or distribute it;
+continue with the clearly named local baseline. Neither downloading Waymo data nor converting our
+captures into a complete Waymo dataset is required by the documented custom-loader API.
 [Upstream API](https://github.com/tusen-ai/LiDAR_SOT)
 
 Trail samples carry capture time, physical reference point, body yaw, uncertainty/quality, and
-observed versus predicted status. Draw gaps and rejected updates explicitly. The comparison
-uses the same reference-point convention, or labels incompatible curves separately. No cosmetic
-spline may count as tracking improvement. A retrospective view, if added later, must be
-labelled separately from causal output and cannot read held-out annotations.
+observed versus predicted status. Draw gaps and rejected updates explicitly. The comparison uses
+the same reference-point convention, or labels incompatible curves separately. No cosmetic spline
+may count as tracking improvement. A retrospective view, if added later, must be labelled
+separately from causal output and cannot read held-out annotations.
 
 ## 7. Three-day execution budget
 
 One implementer, 24 engineering hours, plus the operator budget above. These are planning
-allocations, not benchmarked implementation estimates. The minimum slice has no full paint
-brush, server writes, production integration, or native upstream port.
+allocations, not benchmarked implementation estimates. The minimum slice has no full paint brush,
+server writes, production integration, or native upstream port.
 
 | Day | Budget and work                                                                                                                         | Deliverable and gate                                                                                                 |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -206,27 +191,26 @@ brush, server writes, production integration, or native upstream port.
 | 2   | 2 h descriptors and JSON scorer; up to 2 h upstream feasibility; remaining 4 h or more on local seeded registration and diagnostics     | One track produces a candidate trail and bounded shape; ambiguous updates are visible; operator reviews corpus masks |
 | 3   | 2 h synchronized baseline/candidate overlay and inspector; 3 h held-out evaluation; 2 h regression checks; 1 h demo notes and packaging | Reproducible one-site demo with all test objects, failures, intervention counts, and measured timings                |
 
-If Day 1 misses its gate, Day 2 starts with fixing source identity/annotation, not tracker
-tuning. Cut upstream execution first, then the longitudinal profile and proposal propagation.
-The brush, multi-part templates, automatic face labels, and web parity are stretch work from
-the outset. Do not cut exact mask persistence, split integrity, uncertainty flags, or held-out
-evaluation.
+If Day 1 misses its gate, Day 2 starts with fixing source identity/annotation, not tracker tuning.
+Cut upstream execution first, then the longitudinal profile and proposal propagation. The brush,
+multi-part templates, automatic face labels, and web parity are stretch work from the outset. Do
+not cut exact mask persistence, split integrity, uncertainty flags, or held-out evaluation.
 
 ### Implementation seams
 
-- Export/validation: existing VRLOG reader and offline tools; reuse the active replay harness
-  only after its completion/config parity is verified. Add synthetic point-bearing fixtures.
-- Annotation: macOS `MetalRenderer`, point-cloud models, and labelling state; a local pack
-  provider reuses the renderer without adding a second full viewer or mutating the live stream.
-- Model/analysis: isolated offline package and fixture-backed feature calculator; no production
-  L5 default change. Keep model fitting outside the held-out evaluator.
-- Display: current trail renderer plus an imported candidate result layer keyed by sample
-  identity. A toggle is sufficient; a second application or dashboard is not.
+- Export/validation: existing VRLOG reader and offline tools; reuse the active replay harness only
+  after its completion/config parity is verified. Add synthetic point-bearing fixtures.
+- Annotation: macOS `MetalRenderer`, point-cloud models, and labelling state; a local pack provider
+  reuses the renderer without adding a second full viewer or mutating the live stream.
+- Model/analysis: isolated offline package and fixture-backed feature calculator; no production L5
+  default change. Keep model fitting outside the held-out evaluator.
+- Display: current trail renderer plus an imported candidate result layer keyed by sample identity.
+  A toggle is sufficient; a second application or dashboard is not.
 
 ## 8. Acceptance scorecard
 
-Thresholds below are proposed demo gates, fixed before opening test results. Failing a gate is
-a reported result, not permission to relabel the test set or omit a difficult track.
+Thresholds below are proposed demo gates, fixed before opening test results. Failing a gate is a
+reported result, not permission to relabel the test set or omit a difficult track.
 
 | Area             | Gate or required report                                                                                                                                                 |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -242,28 +226,26 @@ a reported result, not permission to relabel the test set or omit a difficult tr
 | Shape            | Held-out observed-surface distance and view coverage; no complete-shape Chamfer score against a model fitted to the same frames                                         |
 | Reproducibility  | Model/split/source/config hashes and a rerunnable export-to-report command sequence; identical selected memberships on rerun                                            |
 
-Keep observed and predicted trail errors distinct. Bootstrap or uncertainty summaries, if
-produced, resample whole objects, not adjacent frames. Include the entire test partition even
-when a track fails early. No unlabelled region is scored as known background.
+Keep observed and predicted trail errors distinct. Bootstrap or uncertainty summaries, if produced,
+resample whole objects, not adjacent frames. Include the entire test partition even when a track
+fails early. No unlabelled region is scored as known background.
 
 Define the baseline membership rule before scoring. Prefer retained cluster-to-point
-associations; if unavailable, use a documented point-in-published-box proxy and call it that.
-Apply the same recorded point domain and uncertain-point exclusions to both methods. Do not
-present box containment as measured DBSCAN membership or compare candidate full-scene recall
-against a foreground-only truth.
+associations; if unavailable, use a documented point-in-published-box proxy and call it
+that. Apply the same recorded point domain and uncertain-point exclusions to both methods.
+Do not present box containment as measured DBSCAN membership or compare candidate
+full-scene recall against a foreground-only truth.
 
 ## 9. What follows the demo
 
-Promote the annotation/source contract before expanding the algorithm. Then add depth-aware
-brush selection, reviewed propagation, surface primitives, and a visibility-conditioned shape
-likelihood. Extend the model from a cuboid to named body parts only when held-out surface
-evidence supports it.
+Promote the annotation/source contract before expanding the algorithm. Then add depth-aware brush
+selection, reviewed propagation, surface primitives, and a visibility-conditioned shape likelihood.
+Extend the model from a cuboid to named body parts only when held-out surface evidence supports it.
 
-Reconcile D2.1's proposed running dimension mean with state-est's partial-extent treatment.
-D2.2 must compare a fragment to expected visible support, not demand full-object dimensions in
-every scan. D1.4 may update a displayed envelope but must not silently update physical shape
-truth. Course alignment remains a diagnostic, not the objective that defines correct body
-orientation.
+Reconcile D2.1's proposed running dimension mean with state-est's partial-extent treatment. D2.2
+must compare a fragment to expected visible support, not demand full-object dimensions in every
+scan. D1.4 may update a displayed envelope but must not silently update physical shape truth.
+Course alignment remains a diagnostic, not the objective that defines correct body orientation.
 
-The demo does not satisfy the multi-site corpus gate or prove real-time performance on a Pi.
-Those remain separate decisions with separate measurements.
+The demo does not satisfy the multi-site corpus gate or prove real-time performance on a Pi. Those
+remain separate decisions with separate measurements.
