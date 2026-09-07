@@ -42,6 +42,7 @@ function colourFor(cls) {
 /** One rendered track: a box, its edges, and a trail line. */
 class TrackVisual {
   constructor(scene, colour) {
+    this.colour = colour;
     const geo = new THREE.BoxGeometry(1, 1, 1);
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geo),
@@ -78,6 +79,22 @@ class TrackVisual {
       }),
     );
     scene.add(this.trail);
+  }
+
+  /**
+   * Repaints the box, its fill and its trail together.
+   *
+   * The classifier refines a track as observations accumulate, so an object
+   * often starts unclassified and only later becomes a car. Colouring once at
+   * creation left those vehicles grey for their whole life, which is most of
+   * them at a site where unclassified returns outnumber cars five to one.
+   */
+  setColour(colour) {
+    if (colour === this.colour) return;
+    this.colour = colour;
+    this.edges.material.color.setHex(colour);
+    this.fill.material.color.setHex(colour);
+    this.trail.material.color.setHex(colour);
   }
 
   update(t) {
@@ -199,12 +216,13 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       positions[i * 3 + 2] = toSceneZ(p[1]);
       // Confidence is how often the cell was seen. Fading the least certain
       // returns keeps transient clutter from reading as solid structure.
-      // Kept deliberately dim and cool: the background says where the street
-      // is, and it should lose every contrast fight with the coloured boxes,
-      // which are what the reader came to look at.
+      // Dim and near-neutral. Dim because the background should lose every
+      // contrast fight with the coloured boxes; neutral because it used to be
+      // blue, which is now the colour of a pedestrian - a tinted background
+      // would have people disappearing into the street they walk on.
       const c = 0.1 + 0.26 * Math.min(1, (p[3] || 0) / maxConf);
-      colours[i * 3] = c * 0.55;
-      colours[i * 3 + 1] = c * 0.72;
+      colours[i * 3] = c * 0.94;
+      colours[i * 3 + 1] = c * 0.96;
       colours[i * 3 + 2] = c;
     });
 
@@ -421,6 +439,8 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         v = new TrackVisual(scene, colourFor(t.c));
         visuals.set(t.id, v);
       }
+      // Re-applied every frame: a track's class can change under it.
+      v.setColour(colourFor(t.c));
       v.update(t);
 
       // Only vehicles are labelled. A number over every pedestrian would bury

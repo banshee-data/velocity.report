@@ -1,10 +1,10 @@
 // Tests for the orbit camera. THREE is injected, so no browser or GPU is
 // needed — only a Vector3 stand-in and an element that records listeners.
 
-import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 
-import { createSceneCamera, DEFAULT_VANTAGES as VANTAGE_PRESETS } from "../scene-camera.js";
+import { createSceneCamera } from "../scene-camera.js";
 
 class Vector3 {
   constructor(x = 0, y = 0, z = 0) {
@@ -91,7 +91,7 @@ describe("scene camera", () => {
 
   test("every preset keeps the camera above the ground", () => {
     const { camera, cam } = setup();
-    for (const p of VANTAGE_PRESETS) {
+    for (const p of DEFAULT_VANTAGES) {
       cam.applyPreset(p.id);
       assert.ok(
         camera.position.y > 0,
@@ -118,7 +118,107 @@ describe("scene camera", () => {
 
   test("an unknown preset falls back rather than throwing", () => {
     const { cam } = setup();
-    assert.equal(cam.applyPreset("nowhere"), VANTAGE_PRESETS[0].id);
+    assert.equal(cam.applyPreset("nowhere"), DEFAULT_VANTAGES[0].id);
+  });
+
+  // A scene that knows its street ships labels like "Eastbound Howard"; the
+  // camera must use those rather than its compass fallbacks.
+  test("a scene's own vantages replace the defaults", () => {
+    const { cam } = setup();
+    const list = cam.setVantages([
+      {
+        id: "eb-howard",
+        label: "Eastbound Howard",
+        azimuth_deg: 270,
+        polar_deg: 72,
+        zoom: 0.7,
+      },
+    ]);
+    assert.equal(list.length, 1);
+    assert.equal(cam.applyPreset("eb-howard"), "eb-howard");
+    assert.equal(cam.vantages[0].label, "Eastbound Howard");
+  });
+
+  test("an empty vantage list falls back to the defaults", () => {
+    const { cam } = setup();
+    assert.equal(cam.setVantages([]).length, DEFAULT_VANTAGES.length);
+    assert.equal(cam.setVantages(undefined).length, DEFAULT_VANTAGES.length);
+  });
+
+  // Offsets let a vantage centre on one approach rather than the middle of the
+  // junction, and are relative so they survive a re-export.
+  test("offsets shift where the camera looks", () => {
+    const { camera, cam } = setup();
+    cam.setVantages([
+      { id: "a", label: "A", azimuth_deg: 0, polar_deg: 70, zoom: 0.8 },
+      {
+        id: "b",
+        label: "B",
+        azimuth_deg: 0,
+        polar_deg: 70,
+        zoom: 0.8,
+        offset_x: 20,
+        offset_y: 0,
+      },
+    ]);
+
+    cam.applyPreset("a");
+    const plain = camera.position.x;
+    cam.applyPreset("b");
+    assert.ok(
+      Math.abs(camera.position.x - plain - 20) < 0.001,
+      `an x offset of 20 should move the view 20 m, got ${(camera.position.x - plain).toFixed(2)}`,
+    );
+  });
+
+  // Framing an angle by eye is easy; transcribing it is not. The captured
+  // numbers must round-trip back to the same view.
+  test("the current view can be captured and reapplied", () => {
+    const { camera, cam } = setup();
+    cam.setVantages([
+      {
+        id: "start",
+        label: "Start",
+        azimuth_deg: 135,
+        polar_deg: 64,
+        zoom: 0.6,
+        offset_x: 5,
+        offset_y: -3,
+      },
+    ]);
+    cam.applyPreset("start");
+    const before = {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    };
+
+    const captured = cam.currentVantage();
+    assert.ok(
+      Math.abs(captured.azimuth_deg - 135) < 0.5,
+      `bearing ${captured.azimuth_deg}`,
+    );
+    assert.ok(
+      Math.abs(captured.polar_deg - 64) < 0.5,
+      `angle ${captured.polar_deg}`,
+    );
+    assert.ok(
+      Math.abs(captured.offset_x - 5) < 0.2,
+      `offset x ${captured.offset_x}`,
+    );
+    assert.ok(
+      Math.abs(captured.offset_y - -3) < 0.2,
+      `offset y ${captured.offset_y}`,
+    );
+
+    cam.setVantages([{ id: "again", label: "Again", ...captured }]);
+    cam.applyPreset("again");
+    for (const axis of ["x", "y", "z"]) {
+      assert.ok(
+        Math.abs(camera.position[axis] - before[axis]) < 0.6,
+        `${axis} drifted on round trip: ${before[axis].toFixed(2)} then ${camera.position[axis].toFixed(2)}`,
+      );
+    }
   });
 
   // Direct manipulation: the ground should travel with the finger. Dragging
