@@ -137,11 +137,13 @@ func (s *ReplayCaseStore) CaseLocationOf(replayCaseID string) (*CaseLocation, er
 	return loc, nil
 }
 
-// SceneSite is one place captures were taken, as the scene map shows it.
+// SceneSite is one area captures were taken in, as the scene map shows it.
 //
-// A site is an L10 cell. Grouping by it is what turns a list of cases into a
-// map of junctions: many visits to one corner collapse into one entry, and the
-// finer cells inside it say how many distinct deployments it holds.
+// The grouping is the L10 cell, which is district-scale — about 12 km by 8 km
+// at San Francisco's latitude. That is the archive-scale roll-up, not a
+// junction: the junction is the L16 cell, and L16Count is how many of them the
+// area holds. A single entry covering several distinct sites is expected and
+// is why the finer counts are carried alongside.
 type SceneSite struct {
 	L10Token   string `json:"s2_l10_token"`
 	L10Display string `json:"s2_l10_display"`
@@ -156,8 +158,9 @@ type SceneSite struct {
 	NorthEastLon float64 `json:"ne_lon"`
 
 	CaseCount int `json:"case_count"`
-	// L13Count and L16Count are how many distinct finer cells the site holds:
-	// deployments, and sensor positions within them.
+	// L13Count is how many neighbourhood cells the area holds and L16Count how
+	// many sites — the latter is the count an operator reads as "places we have
+	// captured here".
 	L13Count int `json:"l13_count"`
 	L16Count int `json:"l16_count"`
 
@@ -179,10 +182,10 @@ type SceneSiteCase struct {
 	CreatedAtNs  int64   `json:"created_at_ns"`
 }
 
-// SceneSites returns every located site, coarsest grouping first.
+// SceneSites returns every located area, coarsest grouping first.
 //
 // This is the scene map: one entry per L10 cell, each linking to the cases
-// captured there.
+// captured there and counting the distinct sites inside it.
 func (s *ReplayCaseStore) SceneSites() ([]SceneSite, error) {
 	rows, err := s.db.Query(`
 		SELECT replay_case_id, COALESCE(description, ''), sensor_id,

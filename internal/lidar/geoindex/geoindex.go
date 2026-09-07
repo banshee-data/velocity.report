@@ -24,10 +24,21 @@ import (
 
 // The S2 levels velocity.report indexes at.
 //
-// Coarse is the site: an L10 cell is roughly a kilometre across and is what
-// groups captures taken at one junction over many visits. Fine locates a
-// deployment within it. Precise distinguishes two sensors at one junction —
-// opposite corners of an intersection fall in different L16 cells.
+// Measured at San Francisco's latitude, where cells are near their nominal
+// size, one cell spans roughly:
+//
+//	L10   11.6 km × 8.0 km   92 km²     a district
+//	L13    1.4 km × 1.0 km    1.4 km²   a neighbourhood
+//	L16     181 m ×  125 m    0.02 km²  a junction and its approaches
+//
+// So Precise is the site — the level at which one deployment is one cell.
+// Fine groups the sites in a neighbourhood, and Coarse is the archive-scale
+// roll-up the style guide uses for filesystem areas.
+//
+// Cells shrink towards the poles, so treat these as the order of magnitude
+// rather than a guarantee. Two sensors on opposite corners of one intersection
+// are tens of metres apart and will usually share an L16 cell; distinguishing
+// them needs a finer level than anything indexed here.
 const (
 	LevelCoarse  = 10
 	LevelFine    = 13

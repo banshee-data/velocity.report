@@ -2,11 +2,11 @@
 	/**
 	 * Scene map — every place captures have been taken.
 	 *
-	 * A site is an S2 L10 cell, roughly a kilometre across, so many visits to
-	 * one junction collapse into a single entry however many replay cases they
-	 * produced. Within a site, L13 counts deployments and L16 counts sensor
-	 * positions: two sensors on opposite corners of one intersection fall in
-	 * different L16 cells and are visibly two things.
+	 * Rows group by the S2 L10 cell, which is district-scale: about 12 km by
+	 * 8 km at San Francisco's latitude. That is the archive-scale roll-up, not
+	 * a junction. The junction is the L16 cell — roughly 180 m across — so a
+	 * row's site count is what answers "how many places have we captured
+	 * here", and one row may well hold several.
 	 *
 	 * Canonical tokens are the identifiers. What is shown is the family
 	 * display, which carries one hyphen at the family boundary and is
@@ -39,7 +39,7 @@
 		expanded = expanded === site.s2_l10_token ? null : site.s2_l10_token;
 	}
 
-	/** A rough span for the site cell, for the operator's sense of scale. */
+	/** A rough north-south span for the area cell, for a sense of scale. */
 	function spanMetres(site: SceneSite): number {
 		const latMetres = (site.ne_lat - site.sw_lat) * 111_320;
 		return Math.round(latMetres);
@@ -59,8 +59,9 @@
 		<div>
 			<h1 class="text-surface-content text-2xl font-semibold">Scene map</h1>
 			<p class="text-surface-content/60 mt-1 text-sm">
-				Every place captures have been taken, grouped by S2 cell. A site is one L10 cell — about a
-				kilometre across — so repeat visits to a junction are one entry.
+				Every place captures have been taken, grouped by S2 area. An area is one L10 cell, about 12
+				km across — the archive-scale roll-up. The sites inside it are L16 cells, roughly 180 m
+				across, which is a junction and its approaches.
 			</p>
 		</div>
 		<a href={resolve('/lidar/captures')} class="text-primary text-sm hover:underline">Captures →</a>
@@ -74,7 +75,7 @@
 		<p class="text-surface-content/50 py-8 text-center text-sm">Loading the scene map…</p>
 	{:else if !map || map.site_count === 0}
 		<div class="border-surface-300 rounded border border-dashed p-8 text-center">
-			<h2 class="text-surface-content mb-1 text-lg">No located sites yet</h2>
+			<h2 class="text-surface-content mb-1 text-lg">No located captures yet</h2>
 			<p class="text-surface-content/60 mx-auto max-w-lg text-sm">
 				A site appears here once a replay case is labelled with where it was captured. Label one
 				from the <a href={resolve('/lidar/captures')} class="text-primary hover:underline"
@@ -84,12 +85,12 @@
 		</div>
 	{:else}
 		<div class="text-surface-content/60 mb-3 text-sm">
-			{map.site_count} site{map.site_count === 1 ? '' : 's'} · {map.case_count} located case{map.case_count ===
+			{map.site_count} area{map.site_count === 1 ? '' : 's'} · {map.case_count} located case{map.case_count ===
 			1
 				? ''
 				: 's'}
 			<span class="text-surface-content/40">
-				· sites are L{map.coarse_level}, deployments L{map.fine_level}, sensor positions L{map.precise_level}
+				· areas are L{map.coarse_level}, neighbourhoods L{map.fine_level}, sites L{map.precise_level}
 			</span>
 		</div>
 
@@ -97,12 +98,12 @@
 			<div
 				class="border-surface-300 bg-surface-200 text-surface-content/60 flex items-center gap-3 border-b px-3 py-2 text-xs"
 			>
-				<span class="w-32">Site</span>
+				<span class="w-32">Area</span>
 				<span class="flex-1">Centre</span>
 				<span class="w-20 text-right">Span</span>
 				<span class="w-16 text-right">Cases</span>
-				<span class="w-24 text-right">Deployments</span>
-				<span class="w-20 text-right">Sensors</span>
+				<span class="w-28 text-right">Neighbourhoods</span>
+				<span class="w-16 text-right">Sites</span>
 			</div>
 
 			{#each map.sites as site (site.s2_l10_token)}
@@ -121,8 +122,8 @@
 							~{spanMetres(site).toLocaleString()} m
 						</span>
 						<span class="text-surface-content/70 w-16 text-right text-xs">{site.case_count}</span>
-						<span class="text-surface-content/70 w-24 text-right text-xs">{site.l13_count}</span>
-						<span class="text-surface-content/70 w-20 text-right text-xs">{site.l16_count}</span>
+						<span class="text-surface-content/70 w-28 text-right text-xs">{site.l13_count}</span>
+						<span class="text-surface-content/70 w-16 text-right text-xs">{site.l16_count}</span>
 					</button>
 
 					{#if expanded === site.s2_l10_token}

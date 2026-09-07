@@ -14,9 +14,11 @@
 --   L13.Parent(10) = L10. They are derived together with Parent and written
 --   together, so a row cannot hold a family that disagrees with itself.
 --
--- L10 is the site — roughly a kilometre across, and what groups captures taken
--- at one junction over many visits. L13 locates a deployment inside it. L16
--- distinguishes two sensors at one junction, which fall in different cells.
+-- Measured at San Francisco's latitude one cell spans roughly: L10 11.6 km by
+-- 8.0 km — a district; L13 1.4 km by 1.0 km — a neighbourhood; L16 181 m by
+-- 125 m — a junction and its approaches. So L16 is the site, L13 groups the
+-- sites in a neighbourhood, and L10 is the archive-scale roll-up the style
+-- guide uses for filesystem areas.
 --
 -- Everything here is nullable. A capture without accepted WGS84 provenance is
 -- the ordinary case, not a defect: it keeps its sensor-local artefacts and

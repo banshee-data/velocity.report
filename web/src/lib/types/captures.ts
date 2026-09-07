@@ -151,7 +151,11 @@ export interface PeriodsResponse {
 export interface CaseLocation {
 	origin_lat: number;
 	origin_lon: number;
-	/** Canonical S2 tokens. L10 is the site, L13 the deployment, L16 the sensor position. */
+	/**
+	 * Canonical S2 tokens. L16 is the site — a junction and its approaches,
+	 * about 180 m across. L13 is the neighbourhood around it and L10 the
+	 * district, which is the archive-scale roll-up.
+	 */
 	s2_l10_token: string;
 	s2_l13_token: string;
 	s2_l16_token: string;
@@ -187,8 +191,9 @@ export interface SceneSiteCase {
 }
 
 /**
- * One place captures were taken. A site is an L10 cell, so many visits to one
- * junction collapse into a single entry.
+ * One area captures were taken in. The grouping is the L10 cell, which is
+ * district-scale, so an entry may cover several distinct sites; l16_count is
+ * how many it holds.
  */
 export interface SceneSite {
 	s2_l10_token: string;
@@ -200,7 +205,7 @@ export interface SceneSite {
 	ne_lat: number;
 	ne_lon: number;
 	case_count: number;
-	/** Distinct finer cells: deployments, and sensor positions within them. */
+	/** Distinct finer cells: neighbourhoods, and the sites within them. */
 	l13_count: number;
 	l16_count: number;
 	cases: SceneSiteCase[];
