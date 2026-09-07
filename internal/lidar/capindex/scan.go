@@ -90,7 +90,18 @@ func Scan(root string) ([]File, error) {
 		if relErr != nil {
 			return nil
 		}
-		entryInfo, infoErr := d.Info()
+		// A capture reached through a link is indexed at the target's size, not
+		// the length of the link text, so os.Stat rather than d.Info. But it is
+		// only indexed at all when the target is still inside the root: replay
+		// resolves symlinks before its own containment check, so a link
+		// escaping the root names a capture the index could list and replay
+		// could never open. Listing what cannot be used is worse than omitting
+		// it. Traversal itself remains WalkDir, which does not follow directory
+		// links, so no loop is possible.
+		if !withinRoot(root, path) {
+			return nil
+		}
+		entryInfo, infoErr := os.Stat(path)
 		if infoErr != nil {
 			return nil
 		}
@@ -114,6 +125,25 @@ func Scan(root string) ([]File, error) {
 
 	sort.Slice(files, func(i, j int) bool { return files[i].RelPath < files[j].RelPath })
 	return files, nil
+}
+
+// withinRoot reports whether a path, with every symlink resolved, still lies
+// inside the root. It mirrors the containment check replay performs before
+// opening a capture, so the index and replay agree on what is reachable.
+func withinRoot(root, path string) bool {
+	rootReal, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return false
+	}
+	pathReal, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(rootReal, pathReal)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // excludedDirs are subdirectories a capture tool or this system writes beside

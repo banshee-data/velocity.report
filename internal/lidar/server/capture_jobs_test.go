@@ -246,3 +246,30 @@ func TestStartCaptureJobsWithoutADatabaseIsHarmless(t *testing.T) {
 		t.Error("a runner was started with nothing to queue work in")
 	}
 }
+
+func TestSessionUDPPortPrefersWhatTheIndexObserved(t *testing.T) {
+	// The port this process listens on and the port a capture was recorded on
+	// differ whenever the captures came from elsewhere. The probe already
+	// established which is right, so the pass must not second-guess it.
+	port := 2369
+	files := []sqlite.CaptureFile{
+		{RelPath: "a.pcap"},
+		{RelPath: "b.pcap", UDPPort: &port},
+	}
+	if got := sessionUDPPort(files, 12369); got != 2369 {
+		t.Errorf("sessionUDPPort = %d, want the observed 2369", got)
+	}
+}
+
+func TestSessionUDPPortFallsBackToTheConfiguredPort(t *testing.T) {
+	zero := 0
+	for _, files := range [][]sqlite.CaptureFile{
+		nil,
+		{{RelPath: "a.pcap"}},
+		{{RelPath: "a.pcap", UDPPort: &zero}},
+	} {
+		if got := sessionUDPPort(files, 2369); got != 2369 {
+			t.Errorf("sessionUDPPort(%v) = %d, want the configured 2369", files, got)
+		}
+	}
+}

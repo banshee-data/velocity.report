@@ -286,6 +286,19 @@ rather than a second.
 
 **Milestone:** v0.6.0. Items 1-5 must land first; this is the last phase, not the first.
 
+**The old route is kept, not redirected.** Step 1 said to redirect `/lidar/replay-cases`. That
+page still owns case editing — description, reference run, recommended parameters — which
+Captures does not cover, so redirecting it would have deleted working functionality to satisfy a
+line in a plan. The nav label moves to Captures and the two pages link to each other instead.
+They answer different questions: Captures is what is on disk, Replay Cases is what has been
+authored from it.
+
+The page's own arithmetic lives in `web/src/lib/captures/timeline.ts` rather than in the
+components, so band positions, seam grading and the coverage layout are tested directly. The
+seam tolerances are duplicated there deliberately, to show an operator the verdict before they
+commit; the server remains the authority, and a case it refuses is refused whatever the page
+said.
+
 ## Field validation: `s2_sf_3` files 2-9 (broadway_columbus)
 
 Eight rolling captures, 2026-09-02 13:20:37 to 13:56:07, replayed as one 35m 31s stream. The
@@ -319,6 +332,23 @@ which is the two-phase design's whole claim.
 Probing all 189 extents would take about an hour of reading, so the probe → session →
 motion-pass path is covered by unit and API tests plus the joined CLI run over the same eight
 captures reported above, rather than by a full pass over the volume.
+
+### Three ways to learn a capture's port, reduced to one
+
+Verifying item 6 against the field volume found the same defect three times. The capture probe,
+the motion pass and case validation each asked libpcap for a capture's packet extent, and each
+assumed the port this process listens on. A capture recorded elsewhere — which is most of them,
+once a volume is carried between sites — matched nothing, and the failure read as an empty
+capture rather than as the wrong question.
+
+`velocity lidar pcap-split` had always sniffed the port from the capture itself. All three
+callers now go through one prober that tries the configured port and falls back to sniffing, and
+the motion pass uses the port the index recorded rather than asking again.
+
+The same verification found that following symlinks during a scan, which had just been added so
+a linked capture reported its target's size rather than the length of the link text, let the
+index list captures replay would refuse: replay resolves symlinks before its own containment
+check. The scan now applies that same check, so the index lists exactly what replay can open.
 
 ## Dependencies
 
@@ -361,9 +391,13 @@ captures reported above, rather than by a full pass over the volume.
 - [x] Item 5: migration 041 with `lidar_replay_case_files` and the backfill, `ReplayCase.Files`,
       sequence validation at authoring time, and a case replay driven from its whole file list
 
+- [x] Item 6: `/lidar/captures` — coverage timeline, session list with motion strips and
+      capture rows, root and scan controls, motion-pass jobs with live progress, and case
+      authoring from a selection with its joins graded before commit
+
 ### Outstanding
 
-- [ ] Item 6: Captures page, timeline, slide-over (`L`)
+- [ ] _(none; the plan's six items are complete)_
 
 ### Deferred
 

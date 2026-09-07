@@ -392,3 +392,101 @@ func TestSessionsOnNoUsableFiles(t *testing.T) {
 func fileNameFor(i int) string {
 	return "s2_sf_3_" + string(rune('a'+i)) + ".pcap"
 }
+
+func TestScanResolvesSymlinksInsideTheRoot(t *testing.T) {
+	// A link within the root names a capture replay can open, so it is indexed
+	// — at the target's size, not the length of the link text, which would put
+	// a nonsense size in the index and a nonsense content tag with it.
+	root := t.TempDir()
+	target := writeCapture(t, root, "captures/real.pcap", 4096, 1)
+	if err := os.Symlink(target, filepath.Join(root, "linked.pcap")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	files, err := Scan(root)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("Scan found %v, want the capture and its link", files)
+	}
+	for _, f := range files {
+		if f.SizeBytes != 4096 {
+			t.Errorf("%s size = %d, want the target's 4096", f.RelPath, f.SizeBytes)
+		}
+		if f.ContentTag == "" {
+			t.Errorf("%s has no content tag", f.RelPath)
+		}
+	}
+}
+
+func TestScanSkipsSymlinksEscapingTheRoot(t *testing.T) {
+	// Replay resolves symlinks before its own containment check, so a link out
+	// of the root names a capture the index could list and replay could never
+	// open. Listing what cannot be used is worse than omitting it.
+	dir := t.TempDir()
+	outside := filepath.Join(dir, "outside")
+	root := filepath.Join(dir, "root")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	target := writeCapture(t, outside, "elsewhere.pcap", 4096, 1)
+	writeCapture(t, root, "inside.pcap", 4096, 2)
+	if err := os.Symlink(target, filepath.Join(root, "escape.pcap")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	files, err := Scan(root)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(files) != 1 || files[0].RelPath != "inside.pcap" {
+		t.Errorf("Scan returned %+v, want only the capture inside the root", files)
+	}
+}
+
+func TestScanSkipsABrokenSymlink(t *testing.T) {
+	root := t.TempDir()
+	writeCapture(t, root, "inside.pcap", 1024, 1)
+	if err := os.Symlink(filepath.Join(root, "absent.pcap"), filepath.Join(root, "dangling.pcap")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	files, err := Scan(root)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(files) != 1 || files[0].RelPath != "inside.pcap" {
+		t.Errorf("Scan returned %+v, want only the real capture", files)
+	}
+}
+
+func TestScanDoesNotFollowDirectorySymlinks(t *testing.T) {
+	// WalkDir does not descend through a directory link, which is what keeps a
+	// loop impossible now that file metadata is resolved.
+	dir := t.TempDir()
+	realDir := filepath.Join(dir, "real")
+	root := filepath.Join(dir, "root")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	writeCapture(t, realDir, "hidden.pcap", 1024, 1)
+	writeCapture(t, root, "direct.pcap", 1024, 2)
+	if err := os.Symlink(realDir, filepath.Join(root, "elsewhere")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	files, err := Scan(root)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(files) != 1 || files[0].RelPath != "direct.pcap" {
+		t.Errorf("Scan returned %+v, want only the directly held capture", files)
+	}
+}

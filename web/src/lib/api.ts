@@ -1422,3 +1422,156 @@ export async function deleteScene(sceneId: string): Promise<void> {
 	});
 	if (!res.ok) throw await sceneError(res, 'Could not delete scene');
 }
+
+// Capture index API
+//
+// The capture index records what is on the configured capture volumes, what
+// changed since the last look, and which files form a continuous session.
+
+import type {
+	CaptureFile,
+	CaptureJob,
+	CaptureRoot,
+	CaptureSession,
+	PeriodsResponse,
+	ScanResponse
+} from '$lib/types/captures';
+
+export async function getCaptureRoots(): Promise<CaptureRoot[]> {
+	const res = await fetch(`${API_BASE}/lidar/capture/roots`);
+	if (!res.ok) throw apiError('Could not load capture volumes', res.status);
+	const data = await res.json();
+	return data.roots || [];
+}
+
+/**
+ * scanCaptureRoots re-indexes the configured volumes.
+ *
+ * probe defaults to true, which reads every new or changed capture in full to
+ * learn its packet extent. That is minutes per volume on a first scan, so a
+ * caller wanting a quick listing passes false and probes later.
+ */
+export async function scanCaptureRoots(options?: {
+	rootId?: string;
+	probe?: boolean;
+}): Promise<ScanResponse> {
+	const params = new URLSearchParams();
+	if (options?.rootId) params.set('root_id', options.rootId);
+	if (options?.probe === false) params.set('probe', 'false');
+	const url = `${API_BASE}/lidar/capture/scan${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url, { method: 'POST' });
+	if (!res.ok) throw apiError('Could not scan the capture volumes', res.status);
+	return res.json();
+}
+
+export async function getCaptureSessions(rootId?: string): Promise<CaptureSession[]> {
+	const params = new URLSearchParams();
+	if (rootId) params.set('root_id', rootId);
+	const url = `${API_BASE}/lidar/capture/sessions${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw apiError('Could not load capture sessions', res.status);
+	const data = await res.json();
+	return data.sessions || [];
+}
+
+export async function getCaptureFiles(options?: {
+	rootId?: string;
+	sessionId?: string;
+}): Promise<CaptureFile[]> {
+	const params = new URLSearchParams();
+	if (options?.sessionId) params.set('session_id', options.sessionId);
+	else if (options?.rootId) params.set('root_id', options.rootId);
+	const url = `${API_BASE}/lidar/capture/files${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw apiError('Could not load capture files', res.status);
+	const data = await res.json();
+	return data.files || [];
+}
+
+export async function getCapturePeriods(sessionId: string): Promise<PeriodsResponse> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/periods?session_id=${encodeURIComponent(sessionId)}`
+	);
+	if (!res.ok) throw apiError('Could not load the motion timeline', res.status);
+	return res.json();
+}
+
+export async function startCaptureMotionPass(sessionId: string): Promise<CaptureJob> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/motion-pass?session_id=${encodeURIComponent(sessionId)}`,
+		{ method: 'POST' }
+	);
+	if (!res.ok) throw apiError('Could not queue the motion pass', res.status);
+	const data = await res.json();
+	return data.job;
+}
+
+export async function getCaptureJobs(options?: {
+	sessionId?: string;
+	limit?: number;
+}): Promise<CaptureJob[]> {
+	const params = new URLSearchParams();
+	if (options?.sessionId) params.set('session_id', options.sessionId);
+	if (options?.limit) params.set('limit', String(options.limit));
+	const url = `${API_BASE}/lidar/capture/jobs${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw apiError('Could not load capture jobs', res.status);
+	const data = await res.json();
+	return data.jobs || [];
+}
+
+export async function cancelCaptureJob(jobId: string): Promise<void> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/jobs/cancel?job_id=${encodeURIComponent(jobId)}`,
+		{ method: 'POST' }
+	);
+	if (!res.ok) throw apiError('Could not cancel the job', res.status);
+}
+
+export async function setCaptureSessionLabel(
+	sessionId: string,
+	label: string,
+	sensorId?: string
+): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/capture/session/label`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ session_id: sessionId, label, sensor_id: sensorId ?? '' })
+	});
+	if (!res.ok) throw apiError('Could not name the session', res.status);
+}
+
+/**
+ * createReplayCaseFromCaptures creates a case covering an ordered set of
+ * captures.
+ *
+ * The offsets are measured from the start of the whole sequence, not of any one
+ * capture: a case describes a stretch of a site visit, and where the capture
+ * tool happened to roll its output is not part of that description. The server
+ * refuses a set whose captures do not abut.
+ */
+export async function createReplayCaseFromCaptures(request: {
+	sensor_id: string;
+	pcap_files: string[];
+	pcap_start_secs?: number;
+	pcap_duration_secs?: number;
+	description?: string;
+	session_id?: string;
+	source_period_id?: string;
+}): Promise<LidarReplayCase> {
+	const res = await fetch(`${API_BASE}/lidar/scenes`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = (await res.json())?.error ?? '';
+		} catch {
+			// A non-JSON body leaves the status to speak for itself.
+		}
+		throw apiError(detail || 'Could not create the replay case', res.status);
+	}
+	return res.json();
+}

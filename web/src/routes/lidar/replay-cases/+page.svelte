@@ -15,6 +15,7 @@
 		updateLidarReplayCase
 	} from '$lib/api';
 	import type { AnalysisRun, LidarReplayCase } from '$lib/types/lidar';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -282,7 +283,9 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Replay Cases</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Manage replay cases for ground truth labelling and parameter tuning
+					Manage replay cases for ground truth labelling and parameter tuning. To build one from a
+					session's captures, start on
+					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>.
 				</p>
 			</div>
 			<div class="flex gap-2">

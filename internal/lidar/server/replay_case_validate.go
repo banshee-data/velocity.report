@@ -39,19 +39,22 @@ func (ws *Server) captureExtent(requested, resolved string) (sqlite.CaseSequence
 		return indexed, nil
 	}
 
-	count, err := countPCAPPackets(resolved, ws.udpPort)
+	// The same prober the index uses, so a capture recorded on another port is
+	// read the same way here as it is there. Three callers reaching for the
+	// packet extent must not each decide the port question differently.
+	extent, err := probeExtent(resolved, ws.udpPort)
 	if err != nil {
 		return sqlite.CaseSequenceExtent{}, fmt.Errorf("probing %s: %w", requested, err)
 	}
-	if count.Count == 0 {
+	if extent.PacketCount == 0 {
 		return sqlite.CaseSequenceExtent{}, fmt.Errorf(
-			"%s contains no packets on UDP port %d", requested, ws.udpPort)
+			"%s contains no LiDAR packets", requested)
 	}
 	return sqlite.CaseSequenceExtent{
 		PCAPFile:    requested,
-		FirstPacket: time.Unix(0, count.FirstTimestampNs),
-		LastPacket:  time.Unix(0, count.LastTimestampNs),
-		PacketCount: count.Count,
+		FirstPacket: time.Unix(0, extent.FirstPacketNs),
+		LastPacket:  time.Unix(0, extent.LastPacketNs),
+		PacketCount: extent.PacketCount,
 	}, nil
 }
 

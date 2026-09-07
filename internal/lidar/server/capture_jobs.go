@@ -128,7 +128,11 @@ func (ws *Server) runMotionPass(ctx context.Context, job capjobs.Job, report fun
 	report(capjobs.Progress{Current: 0, Total: int64(len(paths)),
 		Detail: fmt.Sprintf("joining %d captures", len(paths))})
 
-	periods, err := sessionMotionPassFunc(ctx, paths, ws.udpPort, ws.snapshotTuningConfig(),
+	// Use the port the index recorded for these captures rather than the one
+	// this process listens on. They differ whenever captures were recorded
+	// elsewhere, and the probe already established which is right.
+	periods, err := sessionMotionPassFunc(ctx, paths, sessionUDPPort(files, ws.udpPort),
+		ws.snapshotTuningConfig(),
 		func(current, total int64, detail string) {
 			report(capjobs.Progress{Current: current, Total: total, Detail: detail})
 		})
@@ -142,6 +146,19 @@ func (ws *Server) runMotionPass(ctx context.Context, job capjobs.Job, report fun
 	report(capjobs.Progress{Current: int64(len(paths)), Total: int64(len(paths)),
 		Detail: fmt.Sprintf("%d periods", len(periods))})
 	return nil
+}
+
+// sessionUDPPort is the port the session's captures were recorded on, as the
+// index observed it, falling back to the configured port when the index has
+// nothing to say. The first probed answer wins: a session is one continuous
+// recording from one sensor, so its captures do not disagree.
+func sessionUDPPort(files []sqlite.CaptureFile, fallback int) int {
+	for _, f := range files {
+		if f.UDPPort != nil && *f.UDPPort > 0 {
+			return *f.UDPPort
+		}
+	}
+	return fallback
 }
 
 // resolveCapturePath joins a root-relative path to its configured root and

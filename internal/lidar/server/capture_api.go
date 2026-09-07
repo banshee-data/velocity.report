@@ -278,16 +278,12 @@ func writeCaptureJSON(w http.ResponseWriter, payload any) {
 // can supply one without libpcap.
 var captureProber capindex.Prober = defaultCaptureProber
 
-// defaultCaptureProber counts a capture's packets to obtain its extent.
+// probeExtent obtains a capture's packet-time extent. It is the single way
+// this package learns one — the index, the motion pass and case validation all
+// go through it — and a variable so tests can supply extents without libpcap.
+var probeExtent = probeCaptureExtent
+
+// defaultCaptureProber is the indexer's view of probeExtent.
 func defaultCaptureProber(absPath string, udpPort int) (capindex.Extent, error) {
-	result, err := countPCAPPackets(absPath, udpPort)
-	if err != nil {
-		return capindex.Extent{}, err
-	}
-	return capindex.Extent{
-		FirstPacketNs: result.FirstTimestampNs,
-		LastPacketNs:  result.LastTimestampNs,
-		PacketCount:   result.Count,
-		UDPPort:       udpPort,
-	}, nil
+	return probeExtent(absPath, udpPort)
 }

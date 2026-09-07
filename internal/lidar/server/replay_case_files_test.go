@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/capindex"
 )
 
 // caseServer builds a server whose safe directory holds the named captures,
@@ -22,15 +22,16 @@ func caseServer(t *testing.T, gap time.Duration, names ...string) *Server {
 	for i, n := range names {
 		index[n] = i
 	}
-	original := countPCAPPackets
-	t.Cleanup(func() { countPCAPPackets = original })
-	countPCAPPackets = func(path string, _ int) (network.PCAPCountResult, error) {
+	original := probeExtent
+	t.Cleanup(func() { probeExtent = original })
+	probeExtent = func(path string, _ int) (capindex.Extent, error) {
 		i := index[pathTail(path)]
 		start := base.Add(time.Duration(i) * (5*time.Minute + gap))
-		return network.PCAPCountResult{
-			Count:            540000,
-			FirstTimestampNs: start.UnixNano(),
-			LastTimestampNs:  start.Add(5 * time.Minute).UnixNano(),
+		return capindex.Extent{
+			PacketCount:   540000,
+			FirstPacketNs: start.UnixNano(),
+			LastPacketNs:  start.Add(5 * time.Minute).UnixNano(),
+			UDPPort:       2369,
 		}, nil
 	}
 	return ws
@@ -77,11 +78,11 @@ func TestValidateCaseFilesPrefersTheIndexOverProbing(t *testing.T) {
 	// authoring a case from the Captures page a minute-long wait per file.
 	ws, _ := scannedSession(t, "a.pcap", "b.pcap")
 	probed := 0
-	original := countPCAPPackets
-	t.Cleanup(func() { countPCAPPackets = original })
-	countPCAPPackets = func(string, int) (network.PCAPCountResult, error) {
+	original := probeExtent
+	t.Cleanup(func() { probeExtent = original })
+	probeExtent = func(string, int) (capindex.Extent, error) {
 		probed++
-		return network.PCAPCountResult{}, nil
+		return capindex.Extent{}, nil
 	}
 
 	extent, ok := ws.indexedExtent("a.pcap")
