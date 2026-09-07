@@ -8,6 +8,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/cmd/device"
 	"github.com/banshee-data/velocity.report/internal/cmd/lidar"
+	scenecmd "github.com/banshee-data/velocity.report/internal/cmd/scene"
 	"github.com/banshee-data/velocity.report/internal/cmd/server"
 	"github.com/banshee-data/velocity.report/internal/cmd/tune"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -18,6 +19,7 @@ var (
 	deviceMain   = device.Main
 	lidarMain    = lidar.Main
 	tuneMain     = tune.Main
+	sceneMain    = scenecmd.Main
 	printVersion = version.Print
 )
 
@@ -32,6 +34,7 @@ Namespaces:
   lidar     LiDAR capture diagnostics: pcap-split, settling-eval
   data      Database operations: migrate, transits, sql
   report    Generate PDF reports: pdf
+  scene     Export a recorded VRLOG as static web assets: export
   tune      Parameter tuning: sweep
   version   Print version information
   help      Show this help
@@ -77,6 +80,8 @@ func Dispatch(prog string, args []string) int {
 		}
 		fmt.Fprintln(os.Stderr, "usage: velocity report pdf ...")
 		return 2
+	case "scene":
+		return sceneMain(args[1:])
 	case "tune":
 		if len(args) >= 2 && args[1] == "sweep" {
 			return tuneMain(args[2:])

@@ -25,20 +25,22 @@ seekable replay, labelling, and offline analysis.
 
 JSON object written when the recorder closes. Contains log-level metadata.
 
-| Field              | Type    | Description                                                            |
-| ------------------ | ------- | ---------------------------------------------------------------------- |
-| `version`          | string  | Format version (currently `"0.5"`)                                     |
-| `created_ns`       | int64   | Wall-clock creation time (Unix nanoseconds)                            |
-| `sensor_id`        | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
-| `total_frames`     | uint64  | Total number of frames in the recording                                |
-| `start_ns`         | int64   | Timestamp of the first frame (Unix nanoseconds)                        |
-| `end_ns`           | int64   | Timestamp of the last frame (Unix nanoseconds)                         |
-| `coordinate_frame` | object  | Coordinate frame metadata (see below)                                  |
-| `source_type`      | string  | Recording source: `"live"`, `"pcap"`, `"synthetic"` (omitted if empty) |
-| `pcap_path`        | string  | Original PCAP filename, basename only (omitted if empty)               |
-| `playback_rate`    | float64 | Configured replay speed multiplier (omitted if 0)                      |
-| `tuning_hash`      | string  | SHA-256 hex digest of the tuning config JSON (omitted if empty)        |
-| `build_version`    | string  | velocity.report version that created the recording                     |
+| Field               | Type    | Description                                                            |
+| ------------------- | ------- | ---------------------------------------------------------------------- |
+| `version`           | string  | Format version (currently `"0.5"`)                                     |
+| `created_ns`        | int64   | Wall-clock creation time (Unix nanoseconds)                            |
+| `sensor_id`         | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
+| `total_frames`      | uint64  | Total records written; equals the number of `index.bin` entries        |
+| `rotation_frames`   | uint64  | Sensor rotations only: foreground, full and empty frames               |
+| `background_frames` | uint64  | Background snapshots. `total_frames` = rotations + snapshots           |
+| `start_ns`          | int64   | Timestamp of the first frame (Unix nanoseconds)                        |
+| `end_ns`            | int64   | Timestamp of the last frame (Unix nanoseconds)                         |
+| `coordinate_frame`  | object  | Coordinate frame metadata (see below)                                  |
+| `source_type`       | string  | Recording source: `"live"`, `"pcap"`, `"synthetic"` (omitted if empty) |
+| `pcap_path`         | string  | Original PCAP filename, basename only (omitted if empty)               |
+| `playback_rate`     | float64 | Configured replay speed multiplier (omitted if 0)                      |
+| `tuning_hash`       | string  | SHA-256 hex digest of the tuning config JSON (omitted if empty)        |
+| `build_version`     | string  | velocity.report version that created the recording                     |
 
 ### Planned S2 provenance extension
 
@@ -238,8 +240,24 @@ For a PCAP file producing _N_ sensor rotations within the configured duration
 window:
 
 ```
-VRLOG total_frames == N   (always)
+VRLOG rotation_frames == N   (always)
 ```
+
+**Use `rotation_frames`, not `total_frames`, for this comparison.**
+`total_frames` counts every record so that it matches `index.bin`, and a
+recording also stores background snapshots, which are pipeline state rather
+than observations of the street. A recording deliberately opens with one so a
+replay has a scene from its first frame. Comparing `total_frames` with a source
+rotation count, or with an analysis run's frame count, will always disagree by
+the number of snapshots.
+
+Background snapshots inherit the most recent foreground timestamp rather than
+using wall-clock time. In the settle-before-recording flow the settling pass has
+already swept the capture, so the opening snapshot can carry a timestamp from
+the end of the range the recording covers. Snapshots are therefore not ordered
+with the rotations around them; a consumer that needs a monotonic timeline
+filters them out rather than trusting their timestamps. `start_ns` and `end_ns`
+are already derived from rotations only.
 
 This invariant holds regardless of playback speed, motor RPM, background model
 configuration, or pipeline processing latency. Inter-frame intervals vary

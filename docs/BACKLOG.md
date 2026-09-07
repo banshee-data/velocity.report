@@ -137,6 +137,26 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Accessibility primitives baked in: focus-ring tokens, prefers-reduced-motion handling, theme parity assertions (dark/light), colour-blind-safe palette validation via axe + manual review. Pulls forward the [accessibility testing](ui/design-review-and-improvement.md#72-no-accessibility-testing-medium) item from 0.7.0. `S`
 - VelocityVisualiser palette parity: shared palette constants between web and macOS visualiser so 3D scene point/track/box colours track the same tokens; light-mode 3D scene piggybacks on this. `S`
 
+### v0.6.3 - Web scene publishing (063)
+
+- Web scene export Phase 0 **delivered on branch**: `velocity scene export`
+  writes gzipped NDJSON tracks, clip and background exports from a recorded
+  VRLOG; `public_html/src/scenes/soma1/` plays the reference capture with a
+  background point cloud, orbit/pan camera, named vantages, a constant-speed
+  drone orbit fitted to them, an annotated timeline that doubles as the
+  scrubber, looping playback and 1x-16x rates.
+  Remaining: re-export soma1 so the published assets come from the current
+  exporter: [design doc](plans/lidar-web-scene-export-plan.md) `S`
+- Web scene export Phase 1: the other five sites in the `80858-1` family.
+  Blocked on the surveyed WGS84 coordinates for `s2-1` and `s2_sf_2`–`s2_sf_6`,
+  which also block S2 tagging and every map marker:
+  [design doc](plans/lidar-web-scene-export-plan.md),
+  [catalogue plan](plans/lidar-scene-catalogue-publishing-plan.md) `M`
+- Scene catalogue at archive scale: ingest the multi-gigabyte daily drivers,
+  split motion from static, index captures and segments, and build the map
+  people land on. Five workstreams sized for parallel agents:
+  [design doc](plans/lidar-scene-catalogue-publishing-plan.md) `XL`
+
 ## 07x Rebel realm ⛰️
 
 ### v0.7.0 - United frontend (070)

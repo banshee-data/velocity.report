@@ -56,12 +56,27 @@ var (
 
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
-	Version         string `json:"version"`
-	CreatedNs       int64  `json:"created_ns"`
-	SensorID        string `json:"sensor_id"`
-	TotalFrames     uint64 `json:"total_frames"`
-	StartNs         int64  `json:"start_ns"`
-	EndNs           int64  `json:"end_ns"`
+	Version   string `json:"version"`
+	CreatedNs int64  `json:"created_ns"`
+	SensorID  string `json:"sensor_id"`
+
+	// TotalFrames is every record written, and therefore every entry in
+	// index.bin. It is the count a reader seeks against.
+	TotalFrames uint64 `json:"total_frames"`
+
+	// RotationFrames counts sensor rotations only: foreground, full and
+	// empty placeholder frames. Background snapshots are pipeline state, not
+	// observations of the street, so they are excluded. This is the count
+	// that must equal the analysis run's frame count and the source PCAP's
+	// rotation count; TotalFrames cannot, because it also counts snapshots.
+	RotationFrames uint64 `json:"rotation_frames"`
+
+	// BackgroundFrames counts background snapshots. TotalFrames is always
+	// RotationFrames + BackgroundFrames.
+	BackgroundFrames uint64 `json:"background_frames"`
+
+	StartNs         int64 `json:"start_ns"`
+	EndNs           int64 `json:"end_ns"`
 	CoordinateFrame struct {
 		FrameID        string `json:"frame_id"`
 		ReferenceFrame string `json:"reference_frame"`
@@ -103,9 +118,11 @@ type Recorder struct {
 	chunkOffset     uint32
 	framesInChunk   int // frames written to the current chunk
 
-	frameCount uint64
-	startNs    int64
-	endNs      int64
+	frameCount      uint64
+	rotationFrames  uint64
+	backgroundCount uint64
+	startNs         int64
+	endNs           int64
 
 	mu     sync.Mutex
 	closed bool
@@ -158,7 +175,10 @@ func (r *Recorder) Record(frame *l9endpoints.FrameBundle) error {
 	// Track timestamps — only from foreground/full frames.  Background
 	// frames may carry wall-clock timestamps that contaminate the VRLOG
 	// time range when recording a PCAP replay.
-	if frame.FrameType != l9endpoints.FrameTypeBackground {
+	if frame.FrameType == l9endpoints.FrameTypeBackground {
+		r.backgroundCount++
+	} else {
+		r.rotationFrames++
 		if r.startNs == 0 {
 			r.startNs = frame.TimestampNanos
 		}
@@ -256,6 +276,8 @@ func (r *Recorder) Close() error {
 
 	// Write header
 	r.header.TotalFrames = r.frameCount
+	r.header.RotationFrames = r.rotationFrames
+	r.header.BackgroundFrames = r.backgroundCount
 	r.header.StartNs = r.startNs
 	r.header.EndNs = r.endNs
 

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "soma1",
+    "title": "SoMa 1"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "//": "Scopes src/js to ES modules. These files are loaded by the browser with <script type=\"module\">; this marker lets Node's test runner import them the same way. The site's own build config (.eleventy.js) stays CommonJS.",
+  "type": "module"
+}
