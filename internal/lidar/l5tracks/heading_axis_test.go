@@ -354,3 +354,40 @@ func TestAxisSourceClassification(t *testing.T) {
 			len(held)+len(accepted), HeadingSourceCount)
 	}
 }
+
+// A track whose very first observation is square has nothing to seed a belief
+// from, and must not invent one from an ambiguous shape.
+func TestAxisSquareFirstObservationSeedsNothing(t *testing.T) {
+	tk := axisTestTracker()
+	tr := tk.initTrack(axisSizedCluster(2, 2, 0), 1e9)
+
+	if tr.HeadingSource != HeadingSourceAxisSquare {
+		t.Fatalf("source = %q, want axis_square", tr.HeadingSource)
+	}
+	if tr.lengthBelief.Support != 0 || tr.widthBelief.Support != 0 {
+		t.Fatal("a square first view seeded a belief")
+	}
+}
+
+// The release grows the belief or does nothing. An observation that fits
+// nothing but is not larger is a fragment or a partial view, and re-seeding
+// from it would shrink the object to the scrap.
+func TestAxisReleaseRefusesToShrink(t *testing.T) {
+	tk := axisTestTracker()
+	tr := tk.initTrack(axisSizedCluster(4.5, 1.9, 0), 1e9)
+	// Long enough to pass the visible-support floor, small enough to fit
+	// neither interpretation, and smaller than the belief on both axes.
+	odd := axisSizedCluster(2.5, 0.1, 0)
+	for i := 0; i < 3*tk.Config.OBBHeadingLockMaxRejections; i++ {
+		tk.update(tr, odd, int64(i+2)*1e9)
+	}
+	if tr.HeadingSource != HeadingSourceAxisNoFit {
+		t.Fatalf("source = %q, want axis_no_fit", tr.HeadingSource)
+	}
+	if tr.HeadingLockReleases != 0 {
+		t.Fatalf("released %d times onto a smaller observation", tr.HeadingLockReleases)
+	}
+	if !nearBelief(tr.lengthBelief.Estimate(), 4.5) {
+		t.Fatalf("belief shrank to %.2f", tr.lengthBelief.Estimate())
+	}
+}

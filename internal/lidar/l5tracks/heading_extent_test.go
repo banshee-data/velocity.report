@@ -77,8 +77,8 @@ func TestBeliefReportsConflictInsteadOfClamping(t *testing.T) {
 
 func TestBeliefWithoutSupportEstimatesNothing(t *testing.T) {
 	var b extentBelief
-	if b.Estimate() != 0 || b.Spread() != 0 {
-		t.Fatalf("empty belief claimed %.2f +/- %.2f", b.Estimate(), b.Spread())
+	if b.Estimate() != 0 {
+		t.Fatalf("empty belief claimed %.2f", b.Estimate())
 	}
 	// Zero and negative spans are not evidence either.
 	observeAll(&b, 0, -1)
@@ -92,19 +92,6 @@ func TestBeliefFloorsTinyReturns(t *testing.T) {
 	observeAll(&b, 0.01, 0.02, 0.01)
 	if got := b.Estimate(); got != extentBeliefMinMetres {
 		t.Fatalf("estimate = %.3f, want the %.2f floor", got, extentBeliefMinMetres)
-	}
-}
-
-// Spread separates views that agree from views that do not. It is a dispersion
-// indicator; the test asserts the ordering, not a calibrated value.
-func TestBeliefSpreadTracksDisagreement(t *testing.T) {
-	var agree, disagree extentBelief
-	observeAll(&agree, 4.5, 4.5, 4.4, 4.6, 4.5, 4.5, 4.5, 4.4, 4.5, 4.6)
-	observeAll(&disagree, 1.0, 4.5, 1.5, 4.4, 0.8, 4.6, 2.0, 4.5, 1.2, 4.5)
-
-	if disagree.Spread() <= agree.Spread() {
-		t.Fatalf("spread did not separate agreement (%.2f) from disagreement (%.2f)",
-			agree.Spread(), disagree.Spread())
 	}
 }
 
@@ -134,5 +121,14 @@ func TestBeliefGrowsOnLargerEvidence(t *testing.T) {
 	}
 	if b.Estimate() > 4.5+extentBeliefBinMetres {
 		t.Fatalf("estimate %.2f overshot the largest span observed", b.Estimate())
+	}
+}
+
+// Estimate guards against a belief whose support and histogram disagree, which
+// only a corrupted struct can produce. It reports nothing rather than panicking.
+func TestBeliefEstimateGuardsInconsistentState(t *testing.T) {
+	b := extentBelief{Support: 3} // support without any recorded spans
+	if got := b.Estimate(); got != 0 {
+		t.Fatalf("estimate = %v from an empty histogram, want 0", got)
 	}
 }

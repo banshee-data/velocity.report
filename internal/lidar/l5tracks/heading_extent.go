@@ -115,33 +115,3 @@ func (b *extentBelief) Estimate() float32 {
 	}
 	return 0
 }
-
-// Spread is the gap between the median and the 95th percentile of observed
-// spans: wide when views disagree, narrow when they agree. It indicates
-// dispersion of the evidence and is not a calibrated standard deviation.
-func (b *extentBelief) Spread() float32 {
-	if b.Support == 0 {
-		return 0
-	}
-	return b.quantile(0.95) - b.quantile(0.50)
-}
-
-// quantile returns the centre of the bin holding the given quantile.
-func (b *extentBelief) quantile(q float64) float32 {
-	if b.Support == 0 {
-		return 0
-	}
-	target := q * float64(b.Support)
-	cumulative := 0.0
-	for i, count := range b.hist {
-		cumulative += float64(count)
-		if cumulative >= target {
-			centre := (float32(i) + 0.5) * extentBeliefBinMetres
-			if centre < extentBeliefMinMetres {
-				return extentBeliefMinMetres
-			}
-			return centre
-		}
-	}
-	return extentBeliefMaxMetres - extentBeliefBinMetres/2
-}
