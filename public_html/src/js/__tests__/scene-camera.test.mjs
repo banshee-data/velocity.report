@@ -4,7 +4,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { createSceneCamera, VANTAGE_PRESETS } from "../scene-camera.js";
+import { createSceneCamera, DEFAULT_VANTAGES as VANTAGE_PRESETS } from "../scene-camera.js";
 
 class Vector3 {
   constructor(x = 0, y = 0, z = 0) {
