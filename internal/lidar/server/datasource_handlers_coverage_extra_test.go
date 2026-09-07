@@ -64,6 +64,7 @@ func (s *stubReplayFrameBuilder) blockCalls() []bool {
 func restoreDatasourceHandlerSeams() func() {
 	origCount := countPCAPPackets
 	origRead := readPCAPFile
+	origReadSequence := readPCAPSequence
 	origReadRealtime := readPCAPFileRealtime
 	origNewForegroundForwarder := newForegroundForwarder
 	origAbsPath := absPath
@@ -73,6 +74,7 @@ func restoreDatasourceHandlerSeams() func() {
 	return func() {
 		countPCAPPackets = origCount
 		readPCAPFile = origRead
+		readPCAPSequence = origReadSequence
 		readPCAPFileRealtime = origReadRealtime
 		newForegroundForwarder = origNewForegroundForwarder
 		absPath = origAbsPath

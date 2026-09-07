@@ -73,6 +73,12 @@ type FrameBuilder struct {
 	azimuthTolerance float64     // tolerance for azimuth wrap detection (default: 10°)
 	minFramePoints   int         // minimum points required for valid frame
 
+	// Capture-file join handling for multi-file replay. dropStraddling marks
+	// the revolution in flight as one that spans a join too wide to stitch, so
+	// it is discarded at the next frame boundary instead of being emitted.
+	dropStraddling    bool
+	straddlingDropped atomic.Uint64 // revolutions discarded at a join
+
 	// UDP sequence tracking for completeness
 	lastSequence     uint32             // last processed UDP sequence
 	sequenceGaps     map[uint32]bool    // detected sequence gaps
@@ -321,6 +327,9 @@ func (fb *FrameBuilder) addPointsDualInternal(points []Point, polar []PointPolar
 				tracef("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
 					reason, fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
+			// finalizeCurrentFrame honours a pending straddling-join drop, so
+			// the revolution spanning the join is discarded here rather than
+			// emitted as a frame assembled from two distant moments.
 			fb.finalizeCurrentFrame()
 			fb.startNewFrame(point.Timestamp, arrivalNow)
 		}

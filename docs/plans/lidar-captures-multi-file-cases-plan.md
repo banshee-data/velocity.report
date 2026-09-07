@@ -1,6 +1,6 @@
 # LiDAR captures: multi-file replay cases (v0.6.0)
 
-- **Status:** Draft
+- **Status:** Active
 - **Layers:** Cross-cutting (LiDAR L1 ingest, Go API, database, Svelte frontend)
 - **Target:** v0.6.0; the field workflow now produces many 5-minute PCAPs per site visit, and
   a replay case that can only name one file cannot describe a static period that straddles a
@@ -184,6 +184,20 @@ session-relative window into per-file read steps.
 
 **Milestone:** v0.6.0.
 
+**Landed with two constraints.** Multi-file replay requires `analysis` speed mode: realtime and
+scaled replay pace packets against a single file's own clock, and crossing a join there needs a
+sequence-aware variant of `ReadPCAPFileRealtime`. A multi-file request in either mode is refused
+rather than silently replaying only the first file.
+
+The second constraint is a finding. In `kirk0.pcapng` the payload clock does not advance across
+a gap in the capture the way the pcap timestamps do, so the frame builder sees a continuous
+point stream either side of 400 ms of missing packets and cannot itself tell anything is wrong.
+That validates the design — the drop is decided from capture-time sequencing at plan time, never
+inferred downstream — but it means the integration test asserts the cost of a join (exactly one
+revolution, only when marked) rather than the discarded revolution's shape, which is asserted in
+the L2 unit tests where it can be constructed deterministically. Whether that clock behaviour is
+a property of this capture or of the parser's LiDAR timestamp mode is worth its own look.
+
 ### Item 3: capture index and roots
 
 **Summary:** Persist what is on the volume, and detect what changed since the last scan.
@@ -266,12 +280,15 @@ session-relative window into per-file read steps.
 
 ### Complete
 
-- [ ] _(nothing yet; this plan is Draft)_
+- [x] Item 1: `internal/lidar/capseq` sequencing core — ordering, seam grading, windowed
+      planning; 98.1% statement coverage, no libpcap dependency
+- [x] Item 2: `ReadPCAPSequence`, the L2 `DropNextFrame` hook, `ReplayConfig.ReplayFiles`, and
+      the server's `buildReplaySequence`; sequencing proven transparent against `kirk0.pcapng`
+      (a capture cut in two and replayed as a sequence yields identical frames and points to the
+      uncut original)
 
 ### Outstanding
 
-- [ ] Item 1: `internal/lidar/capseq` sequencing core (`M`)
-- [ ] Item 2: `ReadPCAPSequence` and the L2 frame-drop hook (`M`)
 - [ ] Item 3: capture index, repeatable roots, drift report (`L`)
 - [ ] Item 4: motion pass job runner and persisted periods (`M`)
 - [ ] Item 5: replay case ↔ file association and migration (`M`)
@@ -279,6 +296,9 @@ session-relative window into per-file read steps.
 
 ### Deferred
 
+- [ ] Sequence-aware realtime replay: `ReadPCAPFileRealtime` paces packets against one file's
+      clock, so the visualiser's realtime and scaled modes stay single-file. Needed only when
+      someone wants to watch a multi-file case play back at wall-clock speed
 - [ ] Cut-point review and split-commit UI: depends on all six items; own plan once item 6 lands
 - [ ] L1 health-check suite (packet loss, timestamp monotonicity, dual-return consistency):
       the mockup shows it, but it is a separate diagnostic surface from sequencing
