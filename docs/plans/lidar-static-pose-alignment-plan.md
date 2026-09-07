@@ -1,5 +1,8 @@
 # Hesai LIDAR 7DOF track production - future AV integration
 
+This deferred specification explores three-dimensional tracking and AV-compatible box output. It
+does not define the motion state required for the current fixed-site correction.
+
 - **Status:** DEFERRED - See Simplification Notes Below
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects
 - **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualisation
@@ -8,9 +11,16 @@
 - **AV Compatibility:** Aligned with AV industry standard labelling specifications
 - **Canonical:** [static-pose-alignment.md](../lidar/operations/static-pose-alignment.md)
 
+**State-model boundary:** Six-state and 6×6 references below describe a future Cartesian
+3D state `[x, y, z, vx, vy, vz]`, not the current four-state planar CV filter or the separate
+nonlinear Option B in the [state-estimation plan](lidar-state-estimation-plan.md). They are not
+prerequisites for that plan's Phases 1–3. Preserve model identity and covariance dimension when
+this deferred extension is revisited; do not widen today's persisted state in advance.
+
 ---
 
-> **Simplification rationale, gap analysis, and benefits:** see [static-pose-alignment.md](../lidar/operations/static-pose-alignment.md).
+> **Simplification rationale, gap analysis, and benefits:** see
+> [static pose alignment](../lidar/operations/static-pose-alignment.md).
 
 ---
 
@@ -18,7 +28,7 @@
 
 This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
-### Phase 1: read hesai pCAP/Live → 7DOF tracks (current release)
+### Phase 1: read Hesai PCAP/live → 7DOF tracks (deferred target)
 
 **Goal:** Process Hesai Pandar40P data and produce 7-DOF bounding box tracks
 
@@ -50,8 +60,8 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 1. Ingest AV dataset labels (see av-lidar-integration-plan.md Phase 2)
 2. Combine AV dataset + Hesai sequences for training
-3. Train object classifier supporting AV industry standard taxonomy
-   (see §11 of [classification-maths.md](../../data/maths/classification-maths.md)
+3. Train object classifier supporting AV industry standard taxonomy (see §11
+   of [classification-maths.md](../../data/maths/classification-maths.md)
    for the full three-way mapping):
    - **Priority 0 (Core):** Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist
    - **Priority 1 (Safety):** Bicycle, Motorcycle, Ground Animal, Bird
@@ -200,17 +210,14 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 - Add `sensor_centroid_x` (REAL) to `lidar_clusters`
 - Add `sensor_centroid_y` (REAL) to `lidar_clusters`
 - Add `sensor_centroid_z` (REAL) to `lidar_clusters`
-- Add `pose_id` (INTEGER) to `lidar_track_obs`
-  **Rollback Script:**
+- Add `pose_id` (INTEGER) to `lidar_track_obs` **Rollback Script:**
 
 -- Migration: 000012_add_pose_references.down.sql
 
-DROP INDEX IF EXISTS idx_lidar_track_obs_pose;
-DROP INDEX IF EXISTS idx_lidar_clusters_pose;
+DROP INDEX IF EXISTS idx_lidar_track_obs_pose; DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
--- SQLite doesn't support DROP COLUMN directly in older versions
--- For rollback, we'd need to recreate tables without these columns
--- For now, leaving columns is acceptable (they're just NULL)
+-- SQLite doesn't support DROP COLUMN directly in older versions -- For rollback, we'd need to
+recreate tables without these columns -- For now, leaving columns is acceptable (they're just NULL)
 
 ### Phase 2: Go struct updates
 
@@ -363,8 +370,7 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 - Stationary: use PCA heading
 - Compute oriented bounding box (7-variable format)
 - Store pose reference (static identity for now)
-- Store observation with 7-variable format
-  **For Static Sensors:**
+- Store observation with 7-variable format **For Static Sensors:**
 
 - ✅ Z position from cluster centroids (not just ground plane)
 - ✅ Heading from velocity (moving) or PCA (stationary)
@@ -434,7 +440,8 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 **Files Changed:**
 
-- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) (load static pose at startup, populate pose_id)
+- [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) (load
+  static pose at startup, populate pose_id)
 - `internal/lidar/track_store.go` (add GetCurrentPoses, InsertPose if missing)
 - `internal/lidar/track_store_test.go` (test pose loading)
 
@@ -469,9 +476,12 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
   **Test 2: Static Pose Population**
 
 - Start system with new code: `./velocity-report --lidar-sensor-id=test-01`
-- Verify static pose created: `sqlite3 sensor_data.db "SELECT * FROM sensor_poses WHERE sensor_id='test-01';"`
-- Verify clusters reference pose: `sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_clusters WHERE pose_id IS NOT NULL;"`
-- Verify observations reference pose: `sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NOT NULL;"`
+- Verify static pose created:
+  `sqlite3 sensor_data.db "SELECT * FROM sensor_poses WHERE sensor_id='test-01';"`
+- Verify clusters reference pose:
+  `sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_clusters WHERE pose_id IS NOT NULL;"`
+- Verify observations reference pose:
+  `sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NOT NULL;"`
   **Test 3: Tracking Accuracy (Unchanged)**
 
 ## Process test PCAP with known tracks: `./pcap-analyse --pcap test-data/static-capture.pcap --output results/`
@@ -511,11 +521,8 @@ The following are **explicitly NOT included** in this release:
 
 **Total Effort:** 5-8 days (1-2 weeks)
 
-Week 1:
-Day 1-2: PR #1 - Database schema updates
-Day 3-4: PR #2 - Go struct updates
-Day 5-6: PR #3 - Populate static pose references
-Day 7-8: Testing and documentation
+Week 1: Day 1-2: PR #1 - Database schema updates Day 3-4: PR #2 - Go struct updates Day 5-6: PR
+#3 - Populate static pose references Day 7-8: Testing and documentation
 **Dependencies:** None (all changes are additive)
 
 **Risk:** Very low (backward compatible, no functional changes)
@@ -565,13 +572,15 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 
 4. **Verify:**
 
-- Check static pose created: `sqlite3 /var/lib/velocity-report/sensor_data.db "SELECT * FROM sensor_poses;"`
+- Check static pose created:
+  `sqlite3 /var/lib/velocity-report/sensor_data.db "SELECT * FROM sensor_poses;"`
 - Check tracking works: `curl http://localhost:8082/api/lidar/tracks`
 
 **Rollback Plan:**
 
 - Stop service: `sudo systemctl stop velocity-report`
-- Restore backup: `cp /var/lib/velocity-report/sensor_data.db.backup /var/lib/velocity-report/sensor_data.db`
+- Restore backup:
+  `cp /var/lib/velocity-report/sensor_data.db.backup /var/lib/velocity-report/sensor_data.db`
 - Restore old binary: `sudo cp velocity-report.old /usr/local/bin/velocity-report`
 - Start service: `sudo systemctl start velocity-report`
 
@@ -580,7 +589,9 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 ## Related documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
-- **Current Tracking:** [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md) (existing implementation)
+- **Current Tracking:**
+  [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md)
+  (existing implementation)
 - **Schema:** [../../internal/db/schema.sql](../../internal/db/schema.sql) (database structure)
 
 ---
@@ -644,7 +655,8 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 
 **Tasks:**
 
-- [ ] Implement `ComputeOrientedBBox(points []WorldPoint, heading float32) (length, width, height float32)`
+- [ ] Implement
+      `ComputeOrientedBBox(points []WorldPoint, heading float32) (length, width, height float32)`
 - [ ] Rotate points to box-aligned frame using heading
 - [ ] Compute min/max along heading (length) and perpendicular (width)
 - [ ] Store bbox_length, bbox_width, bbox_height, bbox_heading in database
@@ -724,9 +736,8 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 
 - Ingest AV dataset labels (see av-lidar-integration-plan.md)
 - Train classifier on AV + Hesai data
-- Support full AV industry standard taxonomy with priority focus
-  (see §11 of [classification-maths.md](../../data/maths/classification-maths.md)
-  for the three-way mapping):
+- Support full AV industry standard taxonomy with priority focus (see §11 of
+  [classification-maths.md](../../data/maths/classification-maths.md) for the three-way mapping):
   - P0: Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist
   - P1: Bicycle, Motorcycle, Ground Animal, Bird
   - P2: Sign, Pole, Traffic Light, Construction Cone

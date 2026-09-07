@@ -1,32 +1,31 @@
 # LiDAR test corpus plan
 
-This plan builds independently labelled captures across varied road geometry and traffic.
-More files help only when their provenance, usable windows, and coverage are recorded.
+This plan builds independently labelled captures across varied road geometry and traffic. More
+files help only when their provenance, usable windows, and coverage are recorded.
 
 - **Status:** Partial capture and fixture groundwork; five-site labelled corpus not complete
 - **Layers:** Cross-cutting
 - **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/CONFIG.md#config-to-maths-cross-reference)
 - **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)
 
-The [point annotation plan](lidar-point-annotation-and-object-dataset-plan.md) adds
-reviewed point masks and physical-object identities alongside existing track labels. The
-[three-day single-site demo](lidar-single-site-shape-demo-sprint-plan.md) supplies a
-small pilot pack, not a replacement for this multi-site corpus. Its partitions separate
-whole physical objects rather than adjacent frames.
+The [point annotation plan](lidar-point-annotation-and-object-dataset-plan.md) adds reviewed
+point masks and physical-object identities alongside existing track labels. The
+[three-day single-site demo](lidar-single-site-shape-demo-sprint-plan.md) supplies a small
+pilot pack, not a replacement for this multi-site corpus. Its partitions separate whole
+physical objects rather than adjacent frames.
 
 ## Goal
 
-Build a five-PCAP test corpus using the Hesai P40 sensor that covers
-enough road geometry, traffic class, and scene diversity to validate
-tuning defaults and detect overfitting to a single site.
+Build a five-PCAP test corpus using the Hesai P40 sensor that covers enough road geometry, traffic
+class, and scene diversity to validate tuning defaults and detect overfitting to a single site.
 
 ## Problem
 
-The original provisional defaults were tuned on kirk0. The heading branch now records
-additional S2 experiments and a frozen recorded-output fixture, but those do not establish
-five-site diversity or independent labels. The site names below are collection targets, not
-an inventory of every available PCAP. Reconcile newly gathered S2 files by source digest,
-site, settled scoring duration, and physical-object partition before marking coverage complete.
+The original provisional defaults were tuned on kirk0. The heading branch now records additional S2
+experiments and a frozen recorded-output fixture, but those do not establish five-site diversity or
+independent labels. The site names below are collection targets, not an inventory of every
+available PCAP. Reconcile newly gathered S2 files by source digest, site, settled scoring duration,
+and physical-object partition before marking coverage complete.
 
 The original overfitting risks remain relevant:
 
@@ -37,9 +36,9 @@ The original overfitting risks remain relevant:
 
 ## Corpus specification
 
-All captures use the **Hesai P40** sensor to control for sensor-specific
-noise characteristics. Each site needs ≥ 20 manually labelled tracks
-covering the major classes (car, truck, cyclist, pedestrian at minimum).
+All captures use the **Hesai P40** sensor to control for sensor-specific noise
+characteristics. Each site needs ≥ 20 manually labelled tracks covering the major classes
+(car, truck, cyclist, pedestrian at minimum).
 
 | #   | Name      | Site description                          | Validates                                           | Duration | Status     |
 | --- | --------- | ----------------------------------------- | --------------------------------------------------- | -------- | ---------- |
@@ -53,12 +52,9 @@ covering the major classes (car, truck, cyclist, pedestrian at minimum).
 
 - Each site should exercise a different failure mode of the current
   pipeline (see pipeline review Q1, Q5, Q11).
-- At least two sites should have visible kerbs for ground-plane
-  validation.
-- At least one site should have pedestrians and cyclists for
-  classification validation.
-- At least one site should have vehicles at > 20 m/s for high-speed
-  tracking validation.
+- At least two sites should have visible kerbs for ground-plane validation.
+- At least one site should have pedestrians and cyclists for classification validation.
+- At least one site should have vehicles at > 20 m/s for high-speed tracking validation.
 
 ### Capture requirements
 
@@ -66,8 +62,7 @@ covering the major classes (car, truck, cyclist, pedestrian at minimum).
 - Duration: ≥ 5 minutes of continuous traffic (≥ 3,000 frames)
 - Format: PCAP-NG (`.pcapng`)
 - Storage: Git LFS under [internal/lidar/perf/pcap/](../../internal/lidar/perf/pcap)
-- GPS: Record GPS fix alongside capture (for geo-referencing, not for
-  pipeline processing)
+- GPS: Record GPS fix alongside capture (for geo-referencing, not for pipeline processing)
 
 ### Labelling requirements
 
@@ -76,32 +71,27 @@ Per PCAP, create a labelled reference analysis run:
 - ≥ 20 vehicle tracks with `user_label` = "car" or "truck"
 - ≥ 5 cyclist tracks with `user_label` = "cyclist" (where present)
 - ≥ 5 pedestrian tracks with `user_label` = "pedestrian" (where present)
-- Labels stored in `lidar_run_tracks.user_label` and `quality_label`
-  fields via the
+- Labels stored in `lidar_run_tracks.user_label` and `quality_label` fields via the
   [track-labelling UI](lidar-track-labelling-auto-aware-tuning-plan.md)
-- Scene `reference_run_id` set to this run for
-  `GroundTruthEvaluator` comparison
+- Scene `reference_run_id` set to this run for `GroundTruthEvaluator` comparison
 
 ## Usage
 
 ### Parameter sweep validation
 
-The config optimisation plan sweeps each provisional key across all five
-PCAPs simultaneously. A default value is only promoted from "provisional"
-to "empirical" when it performs within 10% of optimal across all five
-sites.
+The config optimisation plan sweeps each provisional key across all five PCAPs
+simultaneously. A default value is only promoted from "provisional" to "empirical" when it
+performs within 10% of optimal across all five sites.
 
 ### Regression testing
 
-The performance measurement harness runs `make test-perf` on each PCAP
-in the corpus. Per-site and aggregate metrics are reported. Regressions
-on any site block the release.
+The performance measurement harness runs `make test-perf` on each PCAP in the corpus. Per-site and
+aggregate metrics are reported. Regressions on any site block the release.
 
 ### Algorithm comparison
 
-Experiment proposals (e.g. velocity-coherent vs baseline) run both
-configurations on all five PCAPs and report per-site and aggregate
-results.
+Experiment proposals (e.g. velocity-coherent vs baseline) run both configurations on all five PCAPs
+and report per-site and aggregate results.
 
 ## Schedule
 
@@ -116,15 +106,15 @@ results.
 
 ## Non-goals
 
-- Multi-sensor corpus (different LiDAR models): deferred until
-  single-sensor defaults are validated
-- Weather variation within the initial corpus: one clear-weather
-  capture per site; weather studies are a future extension
+- Multi-sensor corpus (different LiDAR models): deferred until single-sensor defaults are validated
+- Weather variation within the initial corpus: one clear-weather capture per
+  site; weather studies are a future extension
 - Synthetic PCAPs: all captures must be real-world data
 
 ## References
 
 - [Pipeline review Q11](../../data/maths/pipeline-review-open-questions.md): overfitting analysis
-- [Config evidence levels](../../config/CONFIG.md#config-to-maths-cross-reference): evidence classification and sweep experiments
+- [Config evidence levels](../../config/CONFIG.md#config-to-maths-cross-reference):
+  evidence classification and sweep experiments
 - [Performance harness plan](lidar-performance-measurement-harness-plan.md): CI integration
 - [Parameter tuning plan](lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

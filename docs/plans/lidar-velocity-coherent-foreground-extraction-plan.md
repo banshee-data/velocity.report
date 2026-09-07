@@ -1,25 +1,35 @@
 # Velocity-Coherent foreground extraction
 
-This plan explores temporal point motion as a second foreground signal. Its archived prototype
-is design evidence, not the foreground extractor running on this branch.
+This plan explores temporal point motion as a second foreground signal. Its archived prototype is
+design evidence, not the foreground extractor running on this branch.
 
 - **Status:** Deferred integration; simplified prototype archived and unmerged
 - **Layers:** L3 Grid, L4 Perception
 - **Plan Version:** 2.0
 - **Canonical:** [velocity-foreground-extraction.md](../lidar/architecture/velocity-foreground-extraction.md)
 
-Phase checklists and prototype results below describe `archive/vc-prototype-391`, unless
-explicitly labelled as current runtime. They must not be counted as delivered phases of this
-PR. Reimplementation, integration, and validation remain open; the corrected-measurement
+Phase checklists and prototype results below describe `archive/vc-prototype-391`, unless explicitly
+labelled as current runtime. They must not be counted as delivered phases of this PR.
+Reimplementation, integration, and validation remain open; the corrected-measurement
 state-estimation work does not depend on this extractor.
 
-- **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); the active clustering is DBSCAN in [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go). No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications, preserved out-of-tree at tag `archive/vc-prototype-391`; see [Implementation Notes](#implementation-notes-january-2026) for detail.
-  > The mathematical model and parameter tradeoffs are also documented in:
-  > [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+- **Note:** This is the living design document and implementation checklist. The active foreground
+  extractor is `ProcessFramePolarWithMask` in
+  [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); the active
+  clustering is DBSCAN in
+  [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go). No
+  `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype
+  implementations with simplifications, preserved out-of-tree at tag `archive/vc-prototype-391`;
+  see [Implementation Notes](#implementation-notes-january-2026) for detail.
+
+The [mathematical proposal][vc-maths] documents the model and parameter tradeoffs.
+
+[vc-maths]: ../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md
 
 ---
 
-> **Problem statement, core concept, algorithm overview, and acceptance metrics:** see [velocity-foreground-extraction.md](../lidar/architecture/velocity-foreground-extraction.md).
+> **Problem statement, core concept, algorithm overview, and acceptance metrics:** see
+> [velocity foreground extraction](../lidar/architecture/velocity-foreground-extraction.md).
 
 ## Scope
 
@@ -46,7 +56,8 @@ state-estimation work does not depend on this extractor.
 
 ### Checklist
 
-- [ ] Define evaluation datasets (PCAP segments: dense traffic, sparse/distant traffic, occlusion-heavy)
+- [ ] Define evaluation datasets (PCAP segments: dense traffic,
+      sparse/distant traffic, occlusion-heavy)
 - [ ] Add baseline metrics capture for current pipeline
 - [ ] Add benchmark harness for frame throughput and memory
 - [ ] Lock acceptance report format for side-by-side comparisons
@@ -58,10 +69,12 @@ state-estimation work does not depend on this extractor.
 
 ### S2 fixtures and the estimator boundary
 
-The September 2026 S2 captures provide the required multi-placement baseline.
-Use adjacent files as one continuous replay: the first five-minute file warms
-the background, and the second is the measured window. Three measured windows
-are recorded in [the state-estimation plan](lidar-state-estimation-plan.md#35-the-s2-captures-reproduce-the-limp-across-three-placements):
+The September 2026 S2 captures provide the required multi-placement baseline. Use adjacent files as
+one continuous replay: the first five-minute file warms the background, and the second is the
+measured window. Three measured windows are recorded in
+[the state-estimation plan][s2-windows]:
+
+[s2-windows]: lidar-state-estimation-plan.md#35-the-s2-captures-reproduce-the-limp-across-three-placements
 
 | Placement | Warm-up file                        | Measured file                       | Moving tracks |
 | --------- | ----------------------------------- | ----------------------------------- | ------------: |
@@ -69,18 +82,16 @@ are recorded in [the state-estimation plan](lidar-state-estimation-plan.md#35-th
 | S2-SF3    | `s2_sf_3_20260902134038_00006.pcap` | `s2_sf_3_20260902134538_00007.pcap` |           178 |
 | S2-SF4    | `s2_sf_4_20260902152749_00002.pcap` | `s2_sf_4_20260902153250_00003.pcap` |           149 |
 
-These captures also put a firm boundary around this plan. In the current
-pipeline, 52.2 % of the 387 moving tracks were estimated below 1 m wide, and
-22 of 192 tracks at 6 m/s or more had a local five-point lateral residual above
-0.5 m. Velocity-coherent clustering may improve continuity and reduce bad
-associations. It cannot turn a visible face into an object centre, nor can it
-recover an unseen vehicle width by averaging more face-thickness measurements.
+These captures also put a firm boundary around this plan. In the current pipeline, 52.2 % of the
+387 moving tracks were estimated below 1 m wide, and 22 of 192 tracks at 6 m/s or more had a local
+five-point lateral residual above 0.5 m. Velocity-coherent clustering may improve continuity and
+reduce bad associations. It cannot turn a visible face into an object centre, nor can it recover an
+unseen vehicle width by averaging more face-thickness measurements.
 
-Phase 0 must therefore report the sub-metre-width rate and lateral-excursion
-rate beside fragmentation. A result may credit this plan only for improvements
-caused by clustering or continuity. The near-edge measurement and censored
-dimension belief remain owned by the state-estimation plan. Without that
-control, a smoother limp could be mistaken for a cured one.
+Phase 0 must therefore report the sub-metre-width rate and lateral-excursion rate beside
+fragmentation. A result may credit this plan only for improvements caused by clustering or
+continuity. The near-edge measurement and censored dimension belief remain owned by the
+state-estimation plan. Without that control, a smoother limp could be mistaken for a cured one.
 
 ---
 
@@ -102,12 +113,16 @@ control, a smoother limp could be mistaken for a cured one.
 | `CorrespondingPointIdx` | int     | Index in previous frame (−1 if none) |
 | `TimestampNanos`        | int64   | Point timestamp                      |
 
-**`EstimatePointVelocities` function** — computes per-point velocities from frame correspondence. Accepts `currentFrame`, `previousFrame` (both `[]WorldPoint`), `prevVelocities` (`[]PointVelocity`), `dtSeconds` (float64), and `config` (VelocityEstimationConfig). Returns `[]PointVelocity`.
+**`EstimatePointVelocities` function** — computes per-point velocities from frame
+correspondence. Accepts `currentFrame`, `previousFrame` (both `[]WorldPoint`),
+`prevVelocities` (`[]PointVelocity`), `dtSeconds` (float64), and `config`
+(VelocityEstimationConfig). Returns `[]PointVelocity`.
 
 Algorithm:
 
 1. Build 3D spatial index for previous frame using `config.SearchRadius`
-2. For each current point, optionally back-project search position using median local velocity from `prevVelocities`
+2. For each current point, optionally back-project search position using
+   median local velocity from `prevVelocities`
 3. Query previous-frame candidates within `SearchRadius`
 4. If no candidates: confidence 0, index −1
 5. Otherwise, `selectBestCorrespondence` by combined position + velocity consistency
@@ -123,9 +138,11 @@ Velocity confidence is computed based on:
 
 **`computeVelocityConfidence` function** — combines three factors:
 
-1. **Spatial proximity score**: $e^{-d / r}$ where $d$ is spatial distance and $r$ is `SearchRadius`
+1. **Spatial proximity score**: $e^{-d / r}$ where $d$ is spatial
+   distance and $r$ is `SearchRadius`
 2. **Velocity plausibility score**: $1 - v / v_{\max}$; returns 0 if $v > v_{\max}$
-3. **Neighbour consistency score**: $e^{-\sigma^2 / \tau}$ where $\sigma^2$ is neighbour velocity variance and $\tau$ is `VelocityVarianceThreshold`
+3. **Neighbour consistency score**: $e^{-\sigma^2 / \tau}$ where $\sigma^2$ is neighbour velocity
+   variance and $\tau$ is `VelocityVarianceThreshold`
 
 Final confidence is the product of all three scores, cast to float32.
 
@@ -170,7 +187,8 @@ Group points that are both **spatially close** and **moving together** (similar 
 
 Standard DBSCAN operates in 3D (x, y, z). We extend to 6D: (x, y, z, vx, vy, vz).
 
-The key insight is that **two points belong to the same object if they are close in position AND have similar velocities**.
+The key insight is that **two points belong to the same object if they are close
+in position AND have similar velocities**.
 
 **`VelocityCoherentCluster` struct:**
 
@@ -187,7 +205,8 @@ The key insight is that **two points belong to the same object if they are close
 | `IntensityMean`                    | float32 | Mean intensity                   |
 | `TSUnixNanos`                      | int64   | Timestamp                        |
 
-**`DBSCAN6D` function** — clusters points in position-velocity space. Accepts `[]PointVelocity` and `Clustering6DConfig`, returns `[]VelocityCoherentCluster`. Algorithm:
+**`DBSCAN6D` function** — clusters points in position-velocity space. Accepts `[]PointVelocity` and
+`Clustering6DConfig`, returns `[]VelocityCoherentCluster`. Algorithm:
 
 1. Build 6D spatial index with separate `PositionEps` and `VelocityEps`
 2. For each unvisited point, run 6D region query (position + velocity)
@@ -197,7 +216,10 @@ The key insight is that **two points belong to the same object if they are close
 
 ### 6D distance metric
 
-**`Distance6D` function** — computes weighted distance in position-velocity space. Calculates Euclidean 3D position distance and Euclidean 3D velocity distance separately, then returns `positionWeight * positionDist + velocityWeight * velocityDist` (typically weights 1.0 and 2.0 respectively, making velocity more important).
+**`Distance6D` function** — computes weighted distance in position-velocity space. Calculates
+Euclidean 3D position distance and Euclidean 3D velocity distance separately, then returns
+`positionWeight * positionDist + velocityWeight * velocityDist` (typically weights 1.0 and 2.0
+respectively, making velocity more important).
 
 ### Minimum cluster size reduction
 
@@ -249,17 +271,26 @@ Extend track lifetimes to capture:
 
 ### Pre-Tail detection: velocity-predicted entry
 
-When a new cluster appears, we check if it matches the predicted position of an object that should be entering the field of view based on its extrapolated trajectory from previous sparse observations.
+When a new cluster appears, we check if it matches the predicted position of an
+object that should be entering the field of view based on its extrapolated
+trajectory from previous sparse observations.
 
-**`PredictedEntryZone` struct** — fields: `PredictedX, PredictedY` (extrapolated position), `VelocityX, VelocityY` (velocity vector), `UncertaintyRadius` (grows with time), `SourceTrackID`, `PredictionTimeNanos`, `FramesSinceObservation`.
+**`PredictedEntryZone` struct** — fields: `PredictedX, PredictedY` (extrapolated position),
+`VelocityX, VelocityY` (velocity vector), `UncertaintyRadius` (grows with time), `SourceTrackID`,
+`PredictionTimeNanos`, `FramesSinceObservation`.
 
-**`PreTailDetector` struct** — maintains `EntryZones` ([]PredictedEntryZone), `FieldOfViewBoundary` (PolygonBoundary), and `Config` (PreTailConfig).
+**`PreTailDetector` struct** — maintains `EntryZones` ([]PredictedEntryZone), `FieldOfViewBoundary`
+(PolygonBoundary), and `Config` (PreTailConfig).
 
-**`PreTailDetector.Update` method** — for each entry zone, searches new clusters near the predicted entry point. If distance < `UncertaintyRadius` and velocity matches above `MinVelocityMatchScore`, creates a `TrackAssociation` with type `AssociationPreTail` linking the cluster to the source track.
+**`PreTailDetector.Update` method** — for each entry zone, searches new clusters near the
+predicted entry point. If distance < `UncertaintyRadius` and velocity matches above
+`MinVelocityMatchScore`, creates a `TrackAssociation` with type `AssociationPreTail`
+linking the cluster to the source track.
 
 ### Post-Tail continuation: prediction window
 
-Instead of deleting tracks after `MaxMisses` frames, we continue predicting their position and attempt to recover them when points reappear.
+Instead of deleting tracks after `MaxMisses` frames, we continue predicting their position and
+attempt to recover them when points reappear.
 
 **`PostTailConfig` struct:**
 
@@ -269,12 +300,15 @@ Instead of deleting tracks after `MaxMisses` frames, we continue predicting thei
 | `MaxUncertaintyRadius`  | float64 | 10.0 m  | Abandon track beyond this radius                  |
 | `MinRecoveryConfidence` | float32 | 0.5     | Minimum confidence to recover                     |
 
-**`ContinuePostTail` method** — on `VelocityCoherentTracker`. For deleted/missing tracks with known velocity:
+**`ContinuePostTail` method** — on `VelocityCoherentTracker`. For
+deleted/missing tracks with known velocity:
 
 1. Compute frames since last observation; return nil if > `MaxPredictionFrames`
 2. Predict current position: $x_{pred} = x_{last} + v_x \cdot \Delta t$
-3. Grow uncertainty: $r = r_{base} + n_{frames} \cdot r_{growth}$; return nil if > `MaxUncertaintyRadius`
-4. Return `PredictedPosition` with track ID, predicted coordinates, velocity, uncertainty, and frame gap
+3. Grow uncertainty: $r = r_{base} + n_{frames} \cdot r_{growth}$;
+   return nil if > `MaxUncertaintyRadius`
+4. Return `PredictedPosition` with track ID, predicted
+   coordinates, velocity, uncertainty, and frame gap
 
 ### Extended track state machine
 
@@ -350,7 +384,8 @@ Instead of deleting tracks after `MaxMisses` frames, we continue predicting thei
 
 ### Objective
 
-Maintain track identity even when point count drops to ~3 points, using velocity coherence as the primary confirmation signal.
+Maintain track identity even when point count drops to ~3 points, using velocity
+coherence as the primary confirmation signal.
 
 ### Sparse track criteria
 
@@ -363,14 +398,16 @@ Maintain track identity even when point count drops to ~3 points, using velocity
 | `MaxVelocityVarianceForSparse`   | float64 | 0.5 m/s | Velocity must closely match existing track |
 | `MaxSpatialSpreadForSparse`      | float64 | 2.0 m   | Max bounding box dimension                 |
 
-**`IsSparseTrackValid` function** — checks whether a sparse cluster can maintain track identity. Returns `(valid bool, confidence float32)`. Validation gates (all must pass):
+**`IsSparseTrackValid` function** — checks whether a sparse cluster can maintain track identity.
+Returns `(valid bool, confidence float32)`. Validation gates (all must pass):
 
 1. Point count ≥ `MinPointsAbsolute`
 2. Velocity confidence ≥ threshold
 3. Velocity difference from existing track ≤ `MaxVelocityVarianceForSparse`
 4. Spatial spread ≤ threshold
 
-Confidence score: `velocityMatchScore × pointScore × velocityConfidence` where `pointScore` scales 3–10 points to 0.3–1.0.
+Confidence score: `velocityMatchScore × pointScore × velocityConfidence` where
+`pointScore` scales 3–10 points to 0.3–1.0.
 
 ### Graceful degradation strategy
 
@@ -383,7 +420,8 @@ As point count decreases, we progressively tighten velocity constraints:
 | 3-5         | ±0.5 m/s           | ±0.5 m            | Strict velocity match required |
 | <3          | N/A                | N/A               | Rely on prediction only        |
 
-**`adaptiveTolerances` method** — returns `(velTol, spatialTol float64)` based on point count, matching the table above. Returns (0, 0) for <3 points (prediction only).
+**`adaptiveTolerances` method** — returns `(velTol, spatialTol float64)` based on point count,
+matching the table above. Returns (0, 0) for <3 points (prediction only).
 
 ### Checklist
 
@@ -429,7 +467,10 @@ Reconnect track fragments that were split due to:
 | `HasNaturalEntry` | bool            | Started from sensor boundary        |
 | `HasNaturalExit`  | bool            | Ended at sensor boundary            |
 
-**`DetectFragments` function** — iterates tracks with ≥2 history points. Computes entry/exit velocities from first/last two history points. Checks if entry/exit positions are near the `sensorBoundary` (within 2.0 m) to set `HasNaturalEntry`/`HasNaturalExit` flags. Returns `[]TrackFragment`.
+**`DetectFragments` function** — iterates tracks with ≥2 history points. Computes
+entry/exit velocities from first/last two history points. Checks if entry/exit
+positions are near the `sensorBoundary` (within 2.0 m) to set
+`HasNaturalEntry`/`HasNaturalExit` flags. Returns `[]TrackFragment`.
 
 ### Fragment matching algorithm
 
@@ -442,22 +483,26 @@ Reconnect track fragments that were split due to:
 | `MaxVelocityDifferenceMs` | float64 | 2.0     | Velocity difference at junction |
 | `MinAlignmentScore`       | float32 | 0.7     | Minimum overall score           |
 
-**`MergeCandidatePair` struct** — links two `*TrackFragment` records with `PositionScore`, `VelocityScore`, `TrajectoryScore`, and `OverallScore` (all float32).
+**`MergeCandidatePair` struct** — links two `*TrackFragment` records with `PositionScore`,
+`VelocityScore`, `TrajectoryScore`, and `OverallScore` (all float32).
 
-**`FindMergeCandidates` function** — sorts fragments by start time, then for each pair where the earlier track has a non-natural exit and the later track has a non-natural entry:
+**`FindMergeCandidates` function** — sorts fragments by start time, then for each pair where the
+earlier track has a non-natural exit and the later track has a non-natural entry:
 
 1. Check time gap is in range (0, `MaxTimeGapSeconds`]
 2. Predict earlier track’s position at `later.StartNanos` using exit velocity
 3. Check position error ≤ `MaxPositionErrorMeters`
 4. Check velocity difference ≤ `MaxVelocityDifferenceMs`
-5. Compute scores: `posScore = 1 − posError/maxError`, `velScore = 1 − velDiff/maxDiff`, `trajectoryScore` from alignment function
+5. Compute scores: `posScore = 1 − posError/maxError`, `velScore = 1 − velDiff/maxDiff`,
+   `trajectoryScore` from alignment function
 6. `overallScore = (posScore + velScore + trajectoryScore) / 3`; accept if ≥ `MinAlignmentScore`
 
 ### Merge execution
 
 **`MergeTrackFragments` function** — combines two `*TrackedObject` records into one:
 
-- Keeps earlier track’s ID; lifecycle spans both fragments (`FirstUnixNanos` from earlier, `LastUnixNanos` from later)
+- Keeps earlier track’s ID; lifecycle spans both fragments (`FirstUnixNanos`
+  from earlier, `LastUnixNanos` from later)
 - Kalman state (position, velocity, covariance) taken from the later track (most recent)
 - Aggregate statistics summed: `Hits`, `ObservationCount`
 - History arrays concatenated; if gap is >0 and <5 s, interpolated points are inserted
@@ -487,7 +532,8 @@ Reconnect track fragments that were split due to:
 
 - [ ] Create `internal/lidar/velocity_coherent_tracker.go`
 - [ ] Create dual extraction orchestration path (parallel source processing)
-- [ ] Add storage schema for velocity-coherent clusters/tracks (see [Database Schema Extensions](#database-schema-extensions))
+- [ ] Add storage schema for velocity-coherent clusters/tracks (see
+      [Database Schema Extensions](#database-schema-extensions))
 - [ ] Add API source selector (`background_subtraction`, `velocity_coherent`, `all`)
 - [ ] Add migration and rollback notes
 
@@ -571,9 +617,12 @@ Reconnect track fragments that were split due to:
 
 For efficient frame-to-frame correspondence:
 
-**`FrameHistory`** — ring buffer of recent frames (fields: `Frames []PointVelocityFrame`, `Capacity int`, `WriteIndex int`). `Add` overwrites at `WriteIndex` and advances mod `Capacity`. `Previous(offset)` returns the frame `offset` steps before the most recent, or nil if out of range.
+**`FrameHistory`** — ring buffer of recent frames (fields: `Frames []PointVelocityFrame`,
+`Capacity int`, `WriteIndex int`). `Add` overwrites at `WriteIndex` and advances mod `Capacity`.
+`Previous(offset)` returns the frame `offset` steps before the most recent, or nil if out of range.
 
-**`PointVelocityFrame`** — holds `Points []PointVelocity`, `Timestamp time.Time`, and `SpatialIndex *SpatialIndex6D` for efficient neighbourhood queries.
+**`PointVelocityFrame`** — holds `Points []PointVelocity`, `Timestamp time.Time`, and
+`SpatialIndex *SpatialIndex6D` for efficient neighbourhood queries.
 
 ---
 
@@ -598,21 +647,30 @@ Both track sources are:
 3. **Comparable in dashboards** for performance evaluation
 4. **Compatible with the same downstream analysis** (speed summaries, classification, etc.)
 
-The API accepts a `source` query parameter: `GET /api/lidar/tracks?source=background_subtraction`, `GET /api/lidar/tracks?source=velocity_coherent`, or `GET /api/lidar/tracks?source=all` (returns both with source labels).
+The API accepts a `source` query parameter:
+`GET /api/lidar/tracks?source=background_subtraction`,
+`GET /api/lidar/tracks?source=velocity_coherent`, or
+`GET /api/lidar/tracks?source=all` (returns both with source labels).
 
-`TrackSource` is a string constant: either `"background_subtraction"` or `"velocity_coherent"`. `TrackWithSource` wraps a `TrackedObject` with its `Source` label.
+`TrackSource` is a string constant: either `"background_subtraction"` or `"velocity_coherent"`.
+`TrackWithSource` wraps a `TrackedObject` with its `Source` label.
 
 ### Parallel processing path
 
-The velocity-coherent extraction runs **alongside** the existing background-subtraction system, not replacing it:
+The velocity-coherent extraction runs **alongside** the existing
+background-subtraction system, not replacing it:
 
 **`DualExtractionPipeline.ProcessFrame`** runs three parallel paths:
 
-1. **Path 1 — Background subtraction:** Apply background mask to polar points → extract foreground → transform to world frame → standard DBSCAN (MinPts=12)
-2. **Path 2 — Velocity-coherent extraction:** Transform _all_ polar points to world frame (no background filter) → estimate per-point velocities → 6D DBSCAN (MinPts=3)
-3. **Path 3 — Merge:** Take union of both cluster sets using `mergeClusterSets` with a configurable merge threshold
+1. **Path 1 — Background subtraction:** Apply background mask to polar points → extract foreground
+   → transform to world frame → standard DBSCAN (MinPts=12)
+2. **Path 2 — Velocity-coherent extraction:** Transform _all_ polar points to world frame (no
+   background filter) → estimate per-point velocities → 6D DBSCAN (MinPts=3)
+3. **Path 3 — Merge:** Take union of both cluster sets using
+   `mergeClusterSets` with a configurable merge threshold
 
-The tracker is updated with the merged cluster set. The returned `FrameResult` includes `BackgroundClusters`, `VelocityCoherentClusters`, `MergedClusters`, and `ActiveTracks`.
+The tracker is updated with the merged cluster set. The returned `FrameResult` includes
+`BackgroundClusters`, `VelocityCoherentClusters`, `MergedClusters`, and `ActiveTracks`.
 
 ### REST API extensions
 
@@ -625,7 +683,8 @@ The tracker is updated with the merged cluster set. The returned `FrameResult` i
 | GET    | `/api/lidar/merge-candidates`                   | Detected fragment merge opportunities         |
 | POST   | `/api/lidar/merge-tracks`                       | Manually merge two track fragments            |
 
-The `POST /api/lidar/merge-tracks` body contains `earlier_track_id` and `later_track_id` (both strings).
+The `POST /api/lidar/merge-tracks` body contains
+`earlier_track_id` and `later_track_id` (both strings).
 
 ---
 
@@ -716,7 +775,8 @@ The `POST /api/lidar/merge-tracks` body contains `earlier_track_id` and `later_t
 
 ## Acceptance metrics
 
-These targets are hypotheses to validate against measured outcomes, not committed production guarantees.
+These targets are hypotheses to validate against measured
+outcomes, not committed production guarantees.
 
 | Metric                                              | Target                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------- |
@@ -743,7 +803,8 @@ These targets are hypotheses to validate against measured outcomes, not committe
 ## Dependencies
 
 - Stable world-frame transform quality from existing pose pipeline
-- Representative replay datasets with known corner cases (dense traffic, sparse/distant traffic, occlusion-heavy)
+- Representative replay datasets with known corner cases (dense traffic,
+  sparse/distant traffic, occlusion-heavy)
 - Dashboard/query support for dual-source comparison
 
 ---
@@ -765,9 +826,13 @@ These targets are hypotheses to validate against measured outcomes, not committe
 
 ### A. point correspondence optimisation
 
-Given frames $F_{n-1}$ and $F_n$, find optimal point correspondences $C: F_{n-1} \to F_n$ that minimise:
+Given frames $F_{n-1}$ and $F_n$, find optimal point
+correspondences $C: F_{n-1} \to F_n$ that minimise:
 
-$$L(C) = \sum_{i \in F_n} \left[ w_{\text{pos}} \cdot d_{\text{pos}}(i, C(i)) + w_{\text{vel}} \cdot d_{\text{vel}}(i, C(i)) \right]$$
+$$
+L(C) = \sum_{i \in F_n} \left[ w_{\text{pos}} \cdot d_{\text{pos}}(i, C(i))
++ w_{\text{vel}} \cdot d_{\text{vel}}(i, C(i)) \right]
+$$
 
 Where:
 
@@ -779,7 +844,10 @@ Where:
 
 For points $p = (x, y, z, v_x, v_y, v_z)$ and $q = (x', y', z', v_x', v_y', v_z')$:
 
-$$D_{6D}(p, q) = \sqrt{ \alpha(\Delta x^2 + \Delta y^2 + \Delta z^2) + \beta(\Delta v_x^2 + \Delta v_y^2 + \Delta v_z^2) }$$
+$$
+D_{6D}(p, q) = \sqrt{ \alpha(\Delta x^2 + \Delta y^2 + \Delta z^2)
++ \beta(\Delta v_x^2 + \Delta v_y^2 + \Delta v_z^2) }
+$$
 
 Where:
 
@@ -791,7 +859,10 @@ Where:
 
 For fragments $A$ (ending at $t_1$) and $B$ (starting at $t_2$), compute trajectory alignment:
 
-$$S_{\text{trajectory}} = \cos(\theta_{\text{exit}}, \theta_{\text{entry}}) \cdot \exp\!\left(\frac{-|v_{\text{exit}} - v_{\text{entry}}|}{\sigma_v}\right)$$
+$$
+S_{\text{trajectory}} = \cos(\theta_{\text{exit}}, \theta_{\text{entry}})
+\cdot \exp\!\left(\frac{-|v_{\text{exit}} - v_{\text{entry}}|}{\sigma_v}\right)
+$$
 
 Where:
 
@@ -843,7 +914,7 @@ The prototype implementation applies practical simplifications for the traffic m
 
 ### Key implementation files (prototype)
 
-Paths are relative to `internal/lidar/` at tag `archive/vc-prototype-391`. None of these files exist
+Paths below are relative to `internal/lidar/` at tag `archive/vc-prototype-391`. None exists
 on `main`; see [Prototype source (archived)](#prototype-source-archived) for how to read them.
 
 | Phase       | Design Section | Implementation File               | Lines      | Tests      |

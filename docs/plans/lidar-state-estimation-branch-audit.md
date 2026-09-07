@@ -1,33 +1,37 @@
 # State-estimation branch delivery audit
 
+This audit separates delivered heading foundations from the original corrected-measurement core,
+and records which conflicting plan declarations have been reconciled.
+
 - **Status:** Reviewed snapshot; original corrected-measurement core remains outstanding
-- **Scope:** PR #559, root checkout `dd/docs/state-est`, committed head `c863b09cb`
+- **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
+- **Scope:** PR #559, root checkout `dd/docs/state-est`; original audit `c863b09cb`, recovery refresh `6252be7f2`
 - **Related:** [State estimation](lidar-state-estimation-plan.md), [Heading experiment](lidar-heading-d2-implementation-report.md), [Annotation](lidar-point-annotation-and-object-dataset-plan.md)
 
 ## Decision
 
 This branch contains substantial heading-stability and evaluation work, but it has not yet
-delivered the original position-measurement correction. Treat Phases 0–2 of the state-estimation
-plan as the minimum core needed to call this a substantial implementation of that plan.
-Do not substitute a lower course-error statistic, an annotation exporter, or a new motion filter
-for that correction.
+delivered the original position-measurement correction. Treat Phases 0–2 of the
+state-estimation plan as the minimum core needed to call this a substantial implementation
+of that plan. Do not substitute a lower course-error statistic, an annotation exporter, or
+a new motion filter for that correction.
 
 My effort-weighted planning assessment is approximately **20–30% of that Phases 0–2 core**
 implemented, and **10–20% of the whole estimation programme** (Phases 0–5 and 8). The heading
 sprint's mechanisms are much further along, approximately **75–85% implemented**, but its
 physical-heading and identity acceptance gates remain open. These are judgement ranges, not
-checkbox counts or measured productivity. None of the five named estimation gates
-G-PER-1, G-GEO-1, G-UNC-1, G-EST-1, and G-SMO-1 has an evidenced pass in this audit.
+checkbox counts or measured productivity. None of the five named estimation gates G-PER-1, G-GEO-1,
+G-UNC-1, G-EST-1, and G-SMO-1 has an evidenced pass in this audit.
 
 The audit covers all **11 plan files changed by the PR**, their relevant code and dependencies.
-Appendix A inventories all **121 tracked plan files** present at the snapshot. The other 110
-are listed by declared status only: they are not silently charged to this PR, and their status
-labels have not been re-certified by this audit.
+Appendix A inventories all **121 tracked plan files** present at the snapshot. The other 110 are
+listed by declared status only: they are not silently charged to this PR, and their status labels
+have not been re-certified by this audit.
 
 ## Recovery and other-agent progress
 
-The earlier interrupted work is present in the root history. It does not need another transfer
-or cherry-pick. These commits are already included in PR #559:
+The earlier interrupted work is present in the root history. It does not need another transfer or
+cherry-pick. These commits are already included in PR #559:
 
 | Commit                   | Delivery                                                                                                              | Boundary                                               |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -37,56 +41,61 @@ or cherry-pick. These commits are already included in PR #559:
 | `42265394c`              | Replaced raw extent mean with corroborated lower-bound histogram; separated aspect choice from excess-span cost       | Heuristic support belief, not calibrated body geometry |
 | `c863b09cb`              | D2.2 bounded extent association cost and overlapping-box candidate metric                                             | Weight remains zero; identity truth still missing      |
 
-The other agent reports warmed two-capture comparisons in the heading report. The revised
-extent candidate changes median course error from 42.3 to 37.3 degrees and from 36.3 to
-10.7 degrees, but acceptance remains roughly 23 percentage points lower. The D2.2 comparison
-reduces overlapping-box frames from 68 to 62 of 200 and from 84 to 47 of 400, while course
-moves in opposite directions and the eligible track populations change. Those are the other
-agent's recorded experiments, not fresh A/B reruns by this audit. Overlapping boxes are
-duplicate candidates, not verified duplicate identities.
+The other agent reports warmed two-capture comparisons in the heading report. The revised extent
+candidate changes median course error from 42.3 to 37.3 degrees and from 36.3 to 10.7 degrees,
+but acceptance remains roughly 23 percentage points lower. The D2.2 comparison reduces
+overlapping-box frames from 68 to 62 of 200 and from 84 to 47 of 400, while course moves in
+opposite directions and the eligible track populations change. Those are the other agent's
+recorded experiments, not fresh A/B reruns by this audit. Overlapping boxes are duplicate
+candidates, not verified duplicate identities.
 
-Uncommitted work was present and changing during inspection:
+The following work was uncommitted during the original inspection and is now in the local history,
+five commits ahead of the inspected remote PR head:
 
-- `internal/lidar/annotation/`: immutable point packs, digest validation, exact point-index
-  membership, coverage declarations, separate reference objects, reviewed/proposed sidecars,
-  export, and tests.
+- `internal/lidar/annotation/`: immutable point packs, digest validation, exact
+  point-index membership, coverage declarations, separate reference objects,
+  reviewed/proposed sidecars, export, and tests.
 - `internal/cmd/lidar/annotation.go`, its tests, and CLI routing: `annotation-export`.
-- Further extent-belief and axis-test edits. These are not included in the committed-head
-  percentage or the remote CI result.
+- Further extent-belief and axis-test edits, committed in `8ef28262d`.
+
+The annotation backend landed in `71c3a46d7`; `6252be7f2` adds CLI/replay error-path tests and
+nil-writer guards. `c27f582b4` preserves the interrupted documentation pass and `b42d1fcad`
+preserves the config documentation repair. None needs another transfer. These local commits are not
+certified by the older remote CI result. The original effort ranges remain approximate and are not
+recalculated merely because WIP became committed.
 
 The annotation slice is useful Day 1 groundwork, not a finished annotation client. No
-lasso/brush/slab workflow, descriptor fitting, seeded shape tracker, or model-inspection panel
-was found in the PR's client changes. Before using sidecars for substantial human work,
-finish stale-revision rejection and recoverable revision history: the inspected save path
-atomically replaces one file but does not compare the submitted revision with the stored one.
+lasso/brush/slab workflow, descriptor fitting, seeded shape tracker, or model-inspection panel was
+found in the PR's client changes. Before using sidecars for substantial human work, finish
+stale-revision rejection and recoverable revision history: the inspected save path atomically
+replaces one file but does not compare the submitted revision with the stored one.
 
-The separate task **Explore LiDAR semantic segmentation** completed a read-only root
-integration check. Its proposal and index links are already included via `e4d7546a3`; it
-reported no missing transfer. Its region-colouring assessment is a proposal, not a renderer
-implementation. Current VRLOG background snapshots lack the necessary cell-to-region mapping
-and region revision contract.
+The separate task **Explore LiDAR semantic segmentation** completed a read-only root integration
+check. Its proposal and index links are already included via `e4d7546a3`; it reported no missing
+transfer. Its region-colouring assessment is a proposal, not a renderer implementation. Current
+VRLOG background snapshots lack the necessary cell-to-region mapping and region revision contract.
 
 ## What the runtime proves about the original core
 
 1. [The Kalman update](../../internal/lidar/l5tracks/tracking_update.go#L9) still takes
    `cluster.CentroidX/Y`; [cluster construction](../../internal/lidar/l4perception/cluster.go#L493)
    still defines that position as a medoid. Association uses the same centroid. The approved
-   OBB-centre stopgap in state-estimation decision D2 is therefore not implemented. That D2 is
-   a different identifier from the heading sprint's D2.x tasks.
-2. [Ground removal](../../internal/lidar/l4perception/ground.go#L18) remains a flat height band.
-   The coarse regional surface, gradient evidence, and `GroundClipped` observation field
-   required for P11/E1 were not found.
+   OBB-centre stopgap in state-estimation decision D2 is therefore not implemented. That D2 is a
+   different identifier from the heading sprint's D2.x tasks.
+2. [Ground removal](../../internal/lidar/l4perception/ground.go#L18) remains a flat height
+   band. The coarse regional surface, gradient evidence, and `GroundClipped` observation
+   field required for P11/E1 were not found.
 3. [The live pipeline](../../internal/lidar/pipeline/tracking_pipeline.go#L676) still updates the
    tracker with frame-start time rather than a per-cluster measurement-time contract. Its
    persistence path writes filtered state and lifetime aggregates into observation rows.
 4. No production `l4bobserve`, `DetectionObservation`, `MeasurementInterpretation`,
-   `measurement_model.go`, new immutable observation store, estimate/residual tables, or
-   smoother implementation was found.
-5. Debug collection exists but the pipeline still passes nil to the visualiser adapter.
-   Stage timing infrastructure and a non-zero historical benchmark exist; this is not proof
-   of a current residual/NIS baseline or the required Pi 4 budget.
-6. Cluster `SamplePoints` is declared, but the planned bounded retained-point population and
-   live descriptor computation remain absent. Content-seeded DBSCAN input subsampling solves
+   `measurement_model.go`, new immutable observation store, estimate/residual
+   tables, or smoother implementation was found.
+5. Debug collection exists but the pipeline still passes nil to the visualiser adapter. Stage
+   timing infrastructure and a non-zero historical benchmark exist; this is not proof of a current
+   residual/NIS baseline or the required Pi 4 budget.
+6. Cluster `SamplePoints` is declared, but the planned bounded retained-point population and live
+   descriptor computation remain absent. Content-seeded DBSCAN input subsampling solves
    reproducibility; it is not the retained per-cluster point product.
 
 ## State-estimation phase rundown
@@ -94,7 +103,7 @@ and region revision contract.
 | Phase                           | Current delivery                                                                                           | Remaining acceptance work                                                                                                                                                     |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0: instrumentation              | Partial: deterministic replay, source provenance, heading diagnostics, existing performance infrastructure | Wire collector/associated observations; lateral residuals and association failures by speed/cause; NIS inputs; Pi timings; 33 held-out jump tracks; repeat baseline within 2% |
-| 1: observations and persistence | Contracts documented; annotation pack WIP is adjacent, not production observation storage                  | Bounded cluster retention, capture times, immutable observation schema/store/replay, observation/estimate separation, P11 surface and clipping metadata                       |
+| 1: observations and persistence | Contracts documented; committed annotation pack is adjacent, not production observation storage            | Bounded cluster retention, capture times, immutable observation schema/store/replay, observation/estimate separation, P11 surface and clipping metadata                       |
 | 2: corrected measurement        | Reusable heading/extent experiments exist; no position-measurement change                                  | E1, OBB-centre stopgap with source identity, near-edge interpretation/fallback, shape-to-position uncertainty, estimate/residual persistence, full G-GEO-1                    |
 | 3: adaptive uncertainty         | Fixed scalar measurement noise remains                                                                     | Observation-conditioned anisotropic uncertainty; residual/NIS calibration by range, support and aspect; genuine-manoeuvre rejection gate                                      |
 | 4: motion extension             | Existing CV is usable; reserved engine/config seams are not CA/IMM delivery                                | Persist 5,000 moving-track residual histories, demonstrate acceleration-specific CV failure, then offline CA and G-EST-1                                                      |
@@ -102,12 +111,12 @@ and region revision contract.
 | 8: abnormal-motion evidence     | Heading reasons are useful but not the required residual/mode/evidence record                              | Preserve innovations, rejected observations, model/mode changes and discontinuities; query/display synthetic impact evidence without classifying crashes                      |
 
 G-GEO-1 requires at least a 50% p99 lateral-residual reduction, excursions above 0.5 m on fewer
-than 4% of moving tracks, no detection/fragmentation regression above 5%, and preservation of
-at least 90% of genuine lateral manoeuvre magnitude. A course-angle A/B does not test these.
+than 4% of moving tracks, no detection/fragmentation regression above 5%, and preservation of at
+least 90% of genuine lateral manoeuvre magnitude. A course-angle A/B does not test these.
 
-The 33 jump-track corpus, E1's signed aspect/range-conditioned residuals, and the near-edge
-position update are the highest-value missing work. Adding CA/IMM first would leave the
-documented biased input unchanged.
+The 33 jump-track corpus, E1's signed aspect/range-conditioned residuals, and the
+near-edge position update are the highest-value missing work. Adding CA/IMM first would
+leave the documented biased input unchanged.
 
 ## All branch-changed plans
 
@@ -116,9 +125,9 @@ documented biased input unchanged.
 | [State estimation](lidar-state-estimation-plan.md)                                    | Core implementation incomplete; detailed phases above                                          | Core Phases 0–2: 13.5–22 engineer-days including shared reference/acceptance work below                                                                                                    |
 | [Behaviour analytics](lidar-behaviour-analytics-plan.md)                              | Specification, no branch implementation of the planned behaviour layer                         | Fixture-based work can start now; production emission waits for G-SMO-1. 6A 3–5 d; 6B 4–7 d; 6C 3–5 d plus weeks of passage data; context/VRU increment 5–10 d plus map/encounter evidence |
 | [Heading sprint](lidar-heading-coherence-sprint-plan.md)                              | Day 1 and most Day 2 mechanisms delivered; experimental paths disabled                         | D2.4 panel 1–2 d; labelled multi-capture gate 1–3 d once reference data exist; further algorithm work depends on failures                                                                  |
-| [D2 implementation report](lidar-heading-d2-implementation-report.md)                 | Evidence ledger with successive, incompatible model revisions                                  | Consolidate current contract and experiment precedence, 0.5 d; do not delete historical results                                                                                            |
-| [D2 readiness review](lidar-heading-d2-readiness-review.md)                           | Historical audit plus an out-of-date current declaration                                       | Point to current D2.2 and annotation state, 0.25 d; not a separate implementation backlog                                                                                                  |
-| [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)                 | Pack/export/sidecar groundwork in uncommitted WIP; no selection UI                             | Finish integrity/revisions 0.5–1 d; minimum lasso/slab workflow 1–2 d; integration/evaluation another 0.5–1 d                                                                              |
+| [D2 implementation report](lidar-heading-d2-implementation-report.md)                 | Current contract consolidated; earlier model revisions labelled historical                     | Documentary reconciliation complete; physical acceptance remains open                                                                                                                      |
+| [D2 readiness review](lidar-heading-d2-readiness-review.md)                           | Historical audit with refreshed current declaration                                            | Documentary reconciliation complete; not a separate implementation backlog                                                                                                                 |
+| [Point annotation](lidar-point-annotation-and-object-dataset-plan.md)                 | Backend pack/export/sidecar slice committed; no selection UI                                   | Finish integrity/revisions 0.5–1 d; minimum lasso/slab workflow 1–2 d; integration/evaluation another 0.5–1 d                                                                              |
 | [Shape descriptors](lidar-shape-descriptors-plan.md)                                  | Deterministic subsampling prerequisite only; planned descriptor pipeline absent                | Retention/live extraction 1–2 d; feature families/validity 1–2 d; persistence/aggregation/export 1–2 d; range envelope 1–2 d                                                               |
 | [Single-site demo](lidar-single-site-shape-demo-sprint-plan.md)                       | Part of Day 1 backend underway; no demonstrated end-to-end loop                                | 4–7 engineer-days remaining for dependable minimum loop, plus 4–8 operator-hours; three days is a stretch timebox, not an acceptance guarantee                                             |
 | [Test corpus](lidar-test-corpus-plan.md)                                              | More captures and a frozen recorded-output fixture, not the required five-site labelled corpus | Existing-data manifest/partition/label/baseline integration 2–4 d plus operator review; missing site capture is additional calendar time                                                   |
@@ -127,16 +136,16 @@ documented biased input unchanged.
 
 These rows overlap. Do not sum them: annotation, corpus, replay, descriptor retention, and
 evaluation are shared dependencies. Existing unchanged plans for L7, static pose, classification,
-performance, and QC subfeatures remain useful contracts, not additional implicit PR scope.
-The original D-04's 6–7-day estimate describes its historical heuristic design; it is not an
-estimate for this entire programme or the later visibility-aware model.
+performance, and QC subfeatures remain useful contracts, not additional implicit PR scope. The
+original D-04's 6–7-day estimate describes its historical heuristic design; it is not an estimate
+for this entire programme or the later visibility-aware model.
 
 ## Recommended PR completion scope and estimate
 
-One engineer-day means eight focused implementation/test hours. Estimates include ordinary
-unit/integration tests and documentation, exclude unexpected research redirection, and assume
-local captures and a working demo Mac are available. They are new planning estimates, not
-observed timings.
+One engineer-day means eight focused implementation/test hours. Estimates include
+ordinary unit/integration tests and documentation, exclude unexpected research
+redirection, and assume local captures and a working demo Mac are available. They are new
+planning estimates, not observed timings.
 
 | Work package, in dependency order                   | Remaining effort | Exit                                                                                                                    |
 | --------------------------------------------------- | ---------------: | ----------------------------------------------------------------------------------------------------------------------- |
@@ -149,89 +158,98 @@ observed timings.
 
 Total: **13.5–22 engineer-days**, approximately **3–5 working weeks for one implementer**,
 plus roughly 1–2 days of human reference review. A coordinated two-engineer effort could
-target approximately 10–15 working days by splitting reference/UI work from observation/storage
-work, but the dependency chain and evidence gates remain. This is a staffing estimate, not
-a request to start more agents.
+target approximately 10–15 working days by splitting reference/UI work from
+observation/storage work, but the dependency chain and evidence gates remain. This is a
+staffing estimate, not a request to start more agents.
 
-G-PER-1 explicitly asks for a full week of live observations. That is at least seven calendar
-days after the collector is deployable, even if code is produced quickly; overlap it with
-offline E1 work where possible. Missing graded/VRU captures and physical-device access can
-extend the schedule. Failed G-GEO-1 results require investigation, not a promised date.
+G-PER-1 explicitly asks for a full week of live observations. That is at least seven calendar days
+after the collector is deployable, even if code is produced quickly; overlap it with offline E1
+work where possible. Missing graded/VRU captures and physical-device access can extend the
+schedule. Failed G-GEO-1 results require investigation, not a promised date.
 
-After the core: allow **3–5 d for Phase 3**, **3–5 d for Phase 4's CA increment**,
-**3–5 d for Phase 5**, and **2–3 d for Phase 8**, conditional on their gates. That places the
-whole estimation programme at roughly **25–40 additional engineer-days** from this snapshot,
-excluding behaviour analytics, full L7, semantic segmentation, IMM, and new field collection.
-The 5,000-track CA gate is traffic-volume dependent, not just development time.
+After the core: allow **3–5 d for Phase 3**, **3–5 d for Phase 4's CA increment**, **3–5 d for
+Phase 5**, and **2–3 d for Phase 8**, conditional on their gates. That places the whole estimation
+programme at roughly **25–40 additional engineer-days** from this snapshot, excluding behaviour
+analytics, full L7, semantic segmentation, IMM, and new field collection. The 5,000-track CA gate
+is traffic-volume dependent, not just development time.
 
-For this PR, finish A–F. Keep adaptive uncertainty, CA, RTS, behaviour, and full scene semantics
-as explicit follow-ons unless the PR is deliberately expanded again. A smaller merge today
-should be described as heading/evaluation foundations, not completion of state estimation.
+For this PR, finish A–F. Keep adaptive uncertainty, CA, RTS, behaviour, and full scene semantics as
+explicit follow-ons unless the PR is deliberately expanded again. A smaller merge today should be
+described as heading/evaluation foundations, not completion of state estimation.
 
-## Required plan revisions and declarations
+## Reconciliation ledger
 
-1. **Current versus historical D2 maths:** The heading report's opening cost/EMA description
-   and its later extent-belief section describe different implementations. Declare the latest
-   model at the top; label earlier sections by commit. The readiness review still says D2.2
-   is outstanding, while `c863b09cb` implements its bounded experiment.
-2. **Uncertainty language:** Corroborated lower bounds are not a calibrated shape posterior.
-   Publish extent support/conflicts and viewpoint/assignment evidence before attributing
-   confidence. Short visible spans are lower-bound evidence only under a valid body-axis and
-   membership interpretation.
-3. **Phase gate cycle:** Section 11.3 says Phase 1 cannot begin until the observation store has
-   collected a week, but Phase 1 builds that store. Make G-PER-1 an exit/production-promotion
-   gate for Phase 1, not a prohibition on implementing it. Preserve the week-long evidence
-   requirement.
-4. **NIS normalisation:** G-UNC-1 uses state dimension. For innovation `r` in `m` measurement
-   dimensions, whitening gives `E[rᵀS⁻¹r] = m`, not the dynamic-state dimension. Specify 1D
-   versus 2D measurement strata and pre-gate versus accepted-only samples before calibration;
-   acceptance censoring changes the tested distribution.
-5. **State dimension and behaviour gates:** Section 20 still leads with a six-element polar
-   state despite Sections 5.3/7.3 selecting four-state Cartesian CV plus separate orientation.
-   Section 19 still says behaviour work cannot begin before smoothing, contrary to the
-   behaviour plan's explicit permission for fixture-based development. Production emission
-   remains gated.
-6. **Annotation completeness:** Change “not started” to backend WIP only after its commit.
-   A successful export is not the Day 1 UI gate. Add stale-revision rejection, recoverable
-   history, and test-set isolation before calling the dataset workflow ready.
-7. **Descriptor and archived-prototype status:** Content-seeded input subsampling does not
-   complete cluster retention. The velocity-coherent plan's “Implementation In Progress”
-   header conflicts with its archived/unmerged prototype appendix.
-8. **Corpus and budgets:** Reconcile newly gathered S2 placements with the five-site diversity
-   matrix; publish usable settled durations and object-level partitions. Retired zero-detection
-   benchmark numbers must not justify current hardware budgets.
+The interrupted documentation pass is recovered in `c27f582b4`; the remaining reconciliation is
+recorded in this working-tree revision against local head `6252be7f2`. “Resolved” below means the
+documents now agree, not that the proposed runtime or acceptance gate is delivered.
 
-The state-estimation header and budget paragraph have been corrected during this recovery.
-The larger specification revisions above are proposed, not silently enacted in the other
-agent's active implementation.
+| Conflict                                                       | Resolution                                                                                                                                                                                                               | Remaining runtime or evidence gate                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Four-state versus six-state guidance                           | Resolved: Phases 2–3 retain Cartesian CV `[x, y, vx, vy]` and 4×4 covariance, with separate orientation uncertainty. Q&A, transport, and roadmap agree. Future 3D and nonlinear six-state models are explicitly separate | Versioned observation/estimate persistence and orientation uncertainty remain planned                 |
+| G-PER-1 prevented building its own collector                   | Resolved: Phase 1 can build and deploy the collector; G-PER-1 is its exit/production-promotion gate                                                                                                                      | A week of live evidence plus deterministic replay round-trip                                          |
+| Behaviour development blocked by smoothing                     | Resolved: analytical-fixture development can proceed; production emission still requires G-SMO-1                                                                                                                         | Corrected final trajectories, support and applicable context gates                                    |
+| NIS normalised by dynamic-state dimension                      | Resolved: use measurement dimension `m`, separate 1D/2D pre-gate samples, and stratify normalised NIS                                                                                                                    | Eligibility/association provenance and empirical uncertainty calibration                              |
+| D2 running mean and forced axis selection presented as current | Resolved: current report declares corroborated lower-bound histogram, attributed abstention, and conditional release. Earlier experiments are labelled historical                                                        | Bounds and scores remain heuristics, not a calibrated body-shape posterior                            |
+| D2.2 both implemented and outstanding                          | Resolved: bounded association experiment is implemented, default weight zero; D2.4 UI remains open                                                                                                                       | Independent physical-object identities, observed body yaw, and held-out acceptance                    |
+| Annotation labelled not started or uncommitted                 | Resolved: backend committed in `71c3a46d7`; CLI coverage extended in `6252be7f2`                                                                                                                                         | Stale-revision rejection, recoverable history, selection UI, and reviewed datasets                    |
+| Descriptor retention confused with DBSCAN subsampling          | Resolved: repeatability prerequisite and offline annotation packs are not live retained-cluster descriptors                                                                                                              | Live point retention, validity-aware features, and JSON model/scorer                                  |
+| Velocity-coherent prototype labelled active implementation     | Resolved: archived/unmerged prototype status controls its historical phase checklists                                                                                                                                    | Reimplementation/integration only if reprioritised                                                    |
+| Three days presented as complete demo delivery                 | Resolved: three days is a timebox; dependable minimum loop remains estimated at 4–7 engineer-days plus operator review                                                                                                   | End-to-end operator and held-out evaluation gates                                                     |
+| New captures mistaken for a completed corpus                   | Surfaced prominently: file count does not establish site diversity or independent labels                                                                                                                                 | Digest/site/window inventory, settled durations, physical-object partitions and missing site coverage |
+| Implementation snippets in plans                               | Resolved in the scoped plans: Go structures and schema-like examples replaced by field-contract tables and prose; equations, diagrams and replay commands retained                                                       | Contracts still require implementation and verification                                               |
+| Hardware budget inferred from a retired baseline               | Resolved: historical benchmark is labelled historical and not extrapolated into a current Pi budget                                                                                                                      | Current target-device timing and non-zero detection workload                                          |
+
+The current-plan scope is the original 11 PR plans, this audit, and narrow state-model declarations
+in the two related deferred 3D plans. Appendix A preserves the original `c863b09cb` inventory; its
+old status strings are explicitly historical, not current labels. No source code, test
+implementation, recorded experiment result, or DEVLOG history was changed by this reconciliation.
+
+Recovery/config/link repair and conflicting-document reconciliation are locally complete, with
+the unrelated strict-hygiene exception recorded below. This closes the documentary portion of
+work package A, not packages B–F or acceptance of the other agent's annotation implementation.
 
 ## Validation and merge readiness
 
-At the inspected remote head, [PR #559](https://github.com/banshee-data/velocity.report/pull/559)
-is open and not draft. Go lint/build/core/LiDAR/integration tests, static build/smoke, and patch
-coverage checks passed. Two remote checks failed:
+The remote [PR #559](https://github.com/banshee-data/velocity.report/pull/559) remains open at
+`c863b09cb`; local head is `6252be7f2`, five commits ahead. Remote Go lint/build/core/LiDAR/
+integration tests, static build/smoke, and patch coverage passed on that older head. Two
+remote checks still show failure:
 
 - [Config key order](https://github.com/banshee-data/velocity.report/actions/runs/34076617864):
   the documentation example lacked five new L5 keys.
-- [Relative links](https://github.com/banshee-data/velocity.report/actions/runs/34076617793):
-  11 links in the heading sprint's backlog templates used the wrong base, and the state plan
-  linked a retired CI baseline.
+- [Dead links and stale paths](https://github.com/banshee-data/velocity.report/actions/runs/34076617793):
+  11 heading-sprint links had the wrong base and the state plan linked a retired CI baseline.
 
-This recovery adds the five documentation keys, rebases those links, and replaces the retired
-budget reference without claiming a new benchmark. These are local edits, not a pushed CI pass.
-After these edits, `make check-config-order`, the full repository relative-link check, and
-`git diff --check` pass locally.
+Those repairs are preserved locally in `c27f582b4` and `b42d1fcad`. The final reconciliation
+is a documentation-only working-tree change. Nothing was pushed or committed by this resumed
+pass, so the remote failures must not be described as a green CI rerun.
 
-Fresh PCAP-tagged tests passed for L5, analysis, annotation, and the LiDAR CLI during the audit.
-The annotation package was uncommitted at execution; the other agent continued editing
-afterwards, so that pass does not certify later edits. Earlier race/coverage and A/B results
-remain attributed to their corresponding earlier snapshot. No current physical-device test,
-current full-branch coverage rerun, or new two-capture algorithm acceptance is claimed here.
+Current local checks:
+
+| Check                                                    | Result and scope                                                                                                                                               |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key order                                         | Pass, including all three checked config/documentation representations                                                                                         |
+| Relative Markdown links                                  | Pass, full repository                                                                                                                                          |
+| Backtick paths                                           | Pass, full repository                                                                                                                                          |
+| Prettier, header metadata, British spelling, prose width | Pass, all 14 scoped plans; prose within the checker's 99-column limit                                                                                          |
+| Implementation-code audit                                | No Go/SQL/JSON/schema implementation blocks remain in the scoped plans; equations, diagrams and operational replay commands retained                           |
+| Whitespace diff                                          | `git diff --check` passes                                                                                                                                      |
+| Focused PCAP-tagged Go suites                            | L5 tracking, analysis, annotation and LiDAR CLI pass on `6252be7f2` during this resumed pass                                                                   |
+| Strict repository plan hygiene                           | One remaining failure outside this reconciliation: `s2-geographic-indexing-plan.md` lacks canonical metadata; all 14 scoped plans have valid canonical targets |
+
+The strict plan-hygiene check is broader than CI's advisory report; the unrelated metadata
+failure is not hidden or charged as a state-estimation implementation gap. Shared canonical
+targets generate advisory notes, not completion claims.
+
+The focused tests do not certify full-branch coverage, the complete CI matrix, physical-device
+timing, the annotation operator workflow, or new two-capture acceptance. Earlier race/coverage
+and A/B results remain attributed to their own snapshots. All physical accuracy gates stay open.
 
 ## Appendix A: complete plan-file inventory
 
-Declared status only for unchanged files; “PR” marks one of the 11 plans changed at the
-audited head. Missing canonical metadata is recorded as missing, not inferred complete.
+Historical declarations at `c863b09cb` only; “PR” marks one of the original 11 changed plans.
+These status strings are preserved as audit evidence and are not the current declarations
+after reconciliation. Missing canonical metadata was recorded as missing, not inferred complete.
 
 | Plan                                                                                                                                             | Branch scope | Declared status at snapshot                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
