@@ -69,12 +69,16 @@ type TrackedObject struct {
 	HeadingSource HeadingSource // Source of the current heading (for debug rendering)
 
 	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
-	OBBLength                      float32 // Latest frame bounding box length (metres)
-	OBBWidth                       float32 // Latest frame bounding box width (metres)
-	OBBHeight                      float32 // Latest frame bounding box height (metres)
-	axisReferenceL, axisReferenceW float32 // Previous accepted observed support, not body dimensions
-	AxisScoreGap                   float32 // Heuristic cost margin, not calibrated confidence
-	AxisAbstentionRun              int     // Consecutive axis-path abstentions, running
+	OBBLength         float32 // Latest frame bounding box length (metres)
+	OBBWidth          float32 // Latest frame bounding box width (metres)
+	OBBHeight         float32 // Latest frame bounding box height (metres)
+	AxisScoreGap      float32 // Heuristic cost margin, not calibrated confidence
+	AxisAbstentionRun int     // Consecutive axis-path abstentions, running
+
+	// Extent beliefs: revisable lower-bound estimates of the object's body
+	// dimensions, built from confidently assigned observations only. They are
+	// deliberately not running means of raw spans; see heading_extent.go.
+	lengthBelief, widthBelief extentBelief
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -215,8 +219,8 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	fn(&t.Config)
 	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
 		for _, track := range t.Tracks {
-			track.axisReferenceL, track.axisReferenceW, track.AxisScoreGap = 0, 0, 0
-			track.AxisAbstentionRun = 0
+			track.lengthBelief, track.widthBelief = extentBelief{}, extentBelief{}
+			track.AxisScoreGap, track.AxisAbstentionRun = 0, 0
 		}
 	}
 }

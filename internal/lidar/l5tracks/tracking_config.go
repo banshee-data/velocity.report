@@ -50,10 +50,15 @@ const (
 	// the observation. As with HeadingSourceReleased it is a source rather
 	// than a counter so the event survives into a recording.
 	HeadingSourceAxisReleased HeadingSource = 10
+	// HeadingSourceAxisLowSupport marks a view showing too little of the
+	// believed long axis to orient the box. Extent alone cannot refuse it — a
+	// short span is consistent with any longer object — so this is the floor
+	// that does.
+	HeadingSourceAxisLowSupport HeadingSource = 11
 
 	// HeadingSourceCount is the number of heading sources, for sizing
 	// per-source counters. Keep it one past the last source above.
-	HeadingSourceCount = 11
+	HeadingSourceCount = 12
 )
 
 // IsLocked reports a decision that held the previous heading instead of
@@ -64,7 +69,7 @@ const (
 func (h HeadingSource) IsLocked() bool {
 	switch h {
 	case HeadingSourceLocked, HeadingSourceAmbiguous, HeadingSourceInsufficient,
-		HeadingSourceAxisSquare, HeadingSourceAxisNoFit:
+		HeadingSourceAxisSquare, HeadingSourceAxisNoFit, HeadingSourceAxisLowSupport:
 		return true
 	}
 	return false
@@ -95,6 +100,8 @@ func (h HeadingSource) String() string {
 		return "axis_no_fit"
 	case HeadingSourceAxisReleased:
 		return "axis_released"
+	case HeadingSourceAxisLowSupport:
+		return "axis_low_support"
 	default:
 		return "unknown"
 	}

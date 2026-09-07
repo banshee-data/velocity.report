@@ -220,3 +220,76 @@ cluster, and co-location runs at 46.5% of frames in this window. Growing to a
 merge would adopt an oversized reference with the same confidence as a correct
 correction. Bounding the hold was still worth doing — an unbounded one has no
 recovery at all — but the valve is a floor under the failure, not a fix for it.
+
+## Extent beliefs: completing the D2.1 declaration
+
+The D2.1 declaration in the visibility-aware review requires selecting rectangle
+representations "against a revisable, uncertainty-bearing geometry belief" and says plainly:
+"Do not promote running raw extent means to physical dimensions." The first implementation did
+exactly that, and the abstention breakdown above is what it cost.
+
+§7.1 of the same document names the mechanism. A LiDAR return is censored evidence: occlusion,
+range falloff and grazing incidence remove points and nothing adds them, so an observed span
+is a lower bound on the dimension and says nothing about how much larger it might be. "A
+running mean of partial widths shrinks the car. A raw maximum ratchets upwards on
+contamination."
+
+Three changes follow from that.
+
+**The reference is now a corroborated maximum, not a mean.** Accepted spans go into a fixed-bin
+histogram per axis, and the estimate is the largest span several observations have reached,
+clamped to a road-user range. A quantile was tried first and rejected on measurement: it tracks
+how often a span is seen rather than how large it is, so with a minority of good views it can
+sit below the mean it was meant to replace. A span beyond the range is recorded as a conflict
+rather than clamped, and a cluster already flagged as a probable merge is refused as evidence.
+
+**The cost is split.** Aspect agreement decides which axis, because the two interpretations
+differ by twice the observation's own log-aspect: a square view carries no signal and an
+elongated one carries plenty, which is correct in both cases. Excess over the belief decides
+whether the observation is admissible at all. Observing less than the belief now costs nothing,
+because that is what occlusion does. Conflating the two is what rejected legitimate partial
+views.
+
+**A visible-support floor replaces extent as the defence against scraps.** Extent alone cannot
+refuse a fragment — a short span is consistent with any longer object — so a view showing less
+than a fixed fraction of the believed long axis abstains with its own reason instead.
+
+### Measured on two captures
+
+Same warmed windows, `--require-settled`, only the axis flag changed.
+
+| Diagnostic              | s2_sf_4 baseline | s2_sf_4 candidate | s2-1_00006 baseline | s2-1_00006 candidate |
+| ----------------------- | ---------------: | ----------------: | ------------------: | -------------------: |
+| Median per-track course |         42.3 deg |      **37.3 deg** |            36.3 deg |         **10.7 deg** |
+| Mean per-track median   |         39.8 deg |          39.2 deg |            33.2 deg |         **19.0 deg** |
+| Heading acceptance      |            78.5% |             55.0% |               77.8% |                54.9% |
+| Longest held run        |        20 frames |        131 frames |           35 frames |            90 frames |
+| Eligible moving tracks  |               11 |                11 |                  10 |                   10 |
+
+This is the first time the candidate has beaten the baseline on course error under honest
+measurement, and it does so on both captures rather than one. On the reference capture the
+abstentions it was aimed at halved: observations fitting neither interpretation fell from 92%
+of held frames to 34%.
+
+It is still not ready to enable. Acceptance is roughly 23 points below the baseline on both
+captures, and the longest held run rose rather than fell. The abstentions did not disappear so
+much as move to more honest reasons:
+
+| Reason held                      | s2_sf_4 | s2-1_00006 |
+| -------------------------------- | ------: | ---------: |
+| Fits neither interpretation      |     34% |        51% |
+| Too little of the object visible |     36% |        18% |
+| Interpretations tied             |     28% |        29% |
+| No distinguishable axis          |      2% |         2% |
+
+Ties and low support are the two the release valve deliberately will not act on, which is why
+the longest hold grew: a tie means both interpretations fit, and a scrap has no axis to seed
+from. Neither can be resolved by extent evidence at all, which is the point §7.1 makes about
+the thin side return carrying almost no information about full width. Resolving them needs
+membership and surface evidence, which is D2.2. The remaining no-fit population is the part
+still attributable to the belief itself.
+
+Two open items follow, both recorded rather than guessed at: the visible-support fraction and
+the corroboration count are unswept constants chosen on argument, not measurement; and the
+beliefs are not yet surfaced in the recorded stream, so an over-estimating belief and a
+genuinely occluded view are not distinguishable offline.

@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+// nearBelief compares against a binned estimate, which lands on a bin centre.
+func nearBelief(got, want float32) bool {
+	d := got - want
+	return d > -extentBeliefBinMetres && d < extentBeliefBinMetres
+}
+
 func axisTestTracker() *Tracker {
 	c := DefaultTrackerConfig()
 	c.OBBAxisCoherenceEnabled = true
@@ -16,11 +22,13 @@ func axisTestTracker() *Tracker {
 
 func TestAxisModeToggleClearsObservedReference(t *testing.T) {
 	tr := NewTracker(DefaultTrackerConfig())
-	obj := &TrackedObject{axisReferenceL: 4, axisReferenceW: 2, AxisScoreGap: 8}
+	obj := &TrackedObject{AxisScoreGap: 8}
+	obj.lengthBelief.Observe(4)
+	obj.widthBelief.Observe(2)
 	tr.Tracks["car"] = obj
 	tr.UpdateConfig(func(c *TrackerConfig) { c.OBBAxisCoherenceEnabled = true })
-	if obj.axisReferenceL != 0 || obj.axisReferenceW != 0 || obj.AxisScoreGap != 0 {
-		t.Fatal("stale reference survived mode switch")
+	if obj.lengthBelief.Estimate() != 0 || obj.widthBelief.Estimate() != 0 || obj.AxisScoreGap != 0 {
+		t.Fatal("stale belief survived mode switch")
 	}
 }
 
@@ -56,9 +64,11 @@ func TestAxisAbstainsAndPreservesReference(t *testing.T) {
 				source = HeadingSourceAxisSquare
 			case "fragment":
 				c.OBB.Length, c.OBB.Width = .11, .08
-				// Smaller than the reference, so the release must not fire:
-				// a scrap cannot redefine the object it broke off.
-				source = HeadingSourceAxisNoFit
+				// Extent alone cannot refuse a scrap: a short span is
+				// consistent with any longer object. The visible-support
+				// floor is what refuses it, and the release cannot fire on
+				// that reason, so the scrap never redefines the object.
+				source = HeadingSourceAxisLowSupport
 			case "few_points":
 				c.PointsCount = 1
 				source = HeadingSourceInsufficient
@@ -75,8 +85,11 @@ func TestAxisAbstainsAndPreservesReference(t *testing.T) {
 			if tr.HeadingSource != source || tr.OBBHeadingRad != 0 {
 				t.Fatalf("invented heading: %+v", tr)
 			}
-			if tr.axisReferenceL != 4.5 || tr.axisReferenceW != 1.9 {
-				t.Fatal("partial views changed reference")
+			// Dimension-update acceptance is separate from membership: none of
+			// these views may revise what the track believes it is.
+			if tr.lengthBelief.Support != 1 || tr.widthBelief.Support != 1 {
+				t.Fatalf("partial views revised the belief: L=%d W=%d",
+					tr.lengthBelief.Support, tr.widthBelief.Support)
 			}
 			if tr.HeadingEpisodes.Outcome() != "unrecovered" {
 				t.Fatal("ambiguity missing from episode telemetry")
@@ -124,19 +137,24 @@ func TestAxisCostMarginAndReferenceUpdate(t *testing.T) {
 	c.OBB.Length = 4.6
 	c.OBB.Width = 1.95
 	tk.update(tr, c, 2e9)
-	if tr.axisReferenceL <= 4.5 {
-		t.Fatal("comparable support was not revisable")
+	if tr.HeadingSource != HeadingSourceAxis || tr.lengthBelief.Support != 2 {
+		t.Fatalf("comparable support was not admitted: source=%q support=%d",
+			tr.HeadingSource, tr.lengthBelief.Support)
 	}
-	tr.axisReferenceL, tr.axisReferenceW = 2.1, 1.9
-	c.OBB.Length, c.OBB.Width = 2.2, 1.8
-	tk.update(tr, c, 3e9)
-	if tr.HeadingSource != HeadingSourceAmbiguous {
-		t.Fatal("near-tied alternatives forced a winner")
+
+	// A near-square object against a near-square belief: the two
+	// interpretations cannot be separated, and must not be.
+	square := axisTestTracker()
+	sq := square.initTrack(axisSizedCluster(2, 1.8, 0), 1e9)
+	square.update(sq, axisSizedCluster(2, 1.8, 45), 2e9)
+	if sq.HeadingSource != HeadingSourceAmbiguous {
+		t.Fatalf("near-tied alternatives forced a winner: %q", sq.HeadingSource)
 	}
-	tr.axisReferenceL = 0
-	tk.update(tr, elongatedCluster(0, 0, 20), 4e9)
-	if tr.HeadingSource != HeadingSourceAxis {
-		t.Fatal("missing reference did not reseed")
+
+	fresh := axisTestTracker()
+	ft := fresh.initTrack(elongatedCluster(0, 0, 20), 1e9)
+	if ft.HeadingSource != HeadingSourceAxis || ft.lengthBelief.Support != 1 {
+		t.Fatal("first observation did not seed the belief")
 	}
 }
 
@@ -184,7 +202,7 @@ func TestFiniteOBBAndInitialInsufficientSupport(t *testing.T) {
 	c := elongatedCluster(0, 0, 0)
 	c.PointsCount = 0
 	tr := tk.initTrack(c, time.Now().UnixNano())
-	if tr.HeadingSource != HeadingSourceInsufficient || tr.axisReferenceL != 0 {
+	if tr.HeadingSource != HeadingSourceInsufficient || tr.lengthBelief.Support != 0 {
 		t.Fatal("invalid seed promoted")
 	}
 	if !HeadingSourceAmbiguous.IsLocked() || !HeadingSourceInsufficient.IsLocked() || HeadingSourceAxis.IsLocked() {
@@ -231,8 +249,9 @@ func axisSizedCluster(l, w float32, headingDeg float64) WorldCluster {
 func TestAxisReleasesUnderSeededReference(t *testing.T) {
 	tk := axisTestTracker()
 	tr := tk.initTrack(axisSizedCluster(1, .4, 0), 1e9)
-	if tr.axisReferenceL != 1 || tr.axisReferenceW != .4 {
-		t.Fatalf("seed reference = %vx%v, want 1x0.4", tr.axisReferenceL, tr.axisReferenceW)
+	if !nearBelief(tr.lengthBelief.Estimate(), 1) || !nearBelief(tr.widthBelief.Estimate(), .4) {
+		t.Fatalf("seed belief = %vx%v, want about 1x0.4",
+			tr.lengthBelief.Estimate(), tr.widthBelief.Estimate())
 	}
 
 	full := axisSizedCluster(4.5, 1.9, 0)
@@ -251,8 +270,9 @@ func TestAxisReleasesUnderSeededReference(t *testing.T) {
 	if tr.HeadingSource != HeadingSourceAxisReleased {
 		t.Fatalf("source = %q at the threshold, want axis_released", tr.HeadingSource)
 	}
-	if tr.axisReferenceL != 4.5 || tr.axisReferenceW != 1.9 {
-		t.Fatalf("reference = %vx%v after release, want 4.5x1.9", tr.axisReferenceL, tr.axisReferenceW)
+	if !nearBelief(tr.lengthBelief.Estimate(), 4.5) || !nearBelief(tr.widthBelief.Estimate(), 1.9) {
+		t.Fatalf("belief = %vx%v after release, want about 4.5x1.9",
+			tr.lengthBelief.Estimate(), tr.widthBelief.Estimate())
 	}
 	if tr.HeadingLockReleases != 1 {
 		t.Fatalf("releases = %d, want 1", tr.HeadingLockReleases)
@@ -310,7 +330,7 @@ func TestAxisReleaseDisabled(t *testing.T) {
 func TestAxisSourceClassification(t *testing.T) {
 	held := []HeadingSource{
 		HeadingSourceLocked, HeadingSourceAmbiguous, HeadingSourceInsufficient,
-		HeadingSourceAxisSquare, HeadingSourceAxisNoFit,
+		HeadingSourceAxisSquare, HeadingSourceAxisNoFit, HeadingSourceAxisLowSupport,
 	}
 	accepted := []HeadingSource{
 		HeadingSourcePCA, HeadingSourceVelocity, HeadingSourceDisplacement,
