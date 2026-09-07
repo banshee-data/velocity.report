@@ -1,10 +1,8 @@
 package annotation
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"math"
 	"sort"
 	"time"
 )
@@ -46,8 +44,8 @@ const (
 )
 
 // Completeness states whether a mask claims to hold every visible return of
-// the object in that sample. Only a complete mask supports counting the
-// unassigned returns around it as negatives.
+// the object in that sample. Even a complete object mask does not establish
+// background negatives: that needs an explicitly exhaustively reviewed ROI.
 type MaskCompleteness string
 
 const (
@@ -143,6 +141,13 @@ type Sidecar struct {
 	PackDigest string `json:"pack_digest"`
 	Revision   int    `json:"revision"`
 	UpdatedUTC string `json:"updated_utc"`
+	// Change describes this save, separately from the provenance of each mask.
+	Change Provenance `json:"change,omitempty"`
+	// RestoredFrom identifies undo/redo without rewriting the old revision.
+	RestoredFrom int `json:"restored_from,omitempty"`
+	// baseDigest is the optimistic concurrency token obtained by loading the
+	// exact saved bytes. It also catches edits made outside this writer.
+	baseDigest string
 
 	Objects         []Object              `json:"objects"`
 	Masks           []FrameMask           `json:"masks"`
@@ -164,6 +169,9 @@ func NewSidecar(p *Pack) *Sidecar {
 // before every write and after every read, because an invalid sidecar that
 // loads is worse than one that refuses: it produces plausible numbers.
 func (s *Sidecar) Validate(p *Pack) error {
+	if s.Revision < 1 || s.Revision == math.MaxInt {
+		return fmt.Errorf("invalid sidecar revision %d", s.Revision)
+	}
 	if s.SchemaVersion != SidecarSchemaVersion {
 		return fmt.Errorf("sidecar schema version %d, this build reads %d", s.SchemaVersion, SidecarSchemaVersion)
 	}
@@ -193,7 +201,19 @@ func (s *Sidecar) Validate(p *Pack) error {
 	// claiming the same return is a conflict for a person to resolve, not
 	// something to average away.
 	claimed := make(map[int]map[int]string)
+	seenMasks := make(map[struct {
+		object string
+		sample int
+	}]bool)
 	for i, m := range s.Masks {
+		key := struct {
+			object string
+			sample int
+		}{m.ObjectID, m.SampleID}
+		if seenMasks[key] {
+			return fmt.Errorf("duplicate mask for object %q sample %d", m.ObjectID, m.SampleID)
+		}
+		seenMasks[key] = true
 		if !known[m.ObjectID] {
 			return fmt.Errorf("mask %d references unknown object %q", i, m.ObjectID)
 		}
@@ -311,49 +331,4 @@ func (s *Sidecar) ReviewedMasks() []FrameMask {
 		}
 	}
 	return out
-}
-
-// SaveSidecar validates and writes the document beside its pack, through a
-// temporary file and an atomic rename so a crash cannot truncate the only copy
-// of a morning's labelling.
-func SaveSidecar(p *Pack, s *Sidecar) error {
-	s.Canonicalise()
-	if err := s.Validate(p); err != nil {
-		return fmt.Errorf("refusing to write an invalid sidecar: %w", err)
-	}
-	s.UpdatedUTC = time.Now().UTC().Format(time.RFC3339)
-
-	b, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal sidecar: %w", err)
-	}
-	final := filepath.Join(p.Dir, sidecarFile)
-	tmp := final + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o644); err != nil {
-		return fmt.Errorf("write sidecar: %w", err)
-	}
-	if err := os.Rename(tmp, final); err != nil {
-		return fmt.Errorf("commit sidecar: %w", err)
-	}
-	return nil
-}
-
-// LoadSidecar reads and validates the document for a pack. A pack with no
-// sidecar yet returns a fresh empty one rather than an error.
-func LoadSidecar(p *Pack) (*Sidecar, error) {
-	b, err := os.ReadFile(filepath.Join(p.Dir, sidecarFile))
-	if os.IsNotExist(err) {
-		return NewSidecar(p), nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read sidecar: %w", err)
-	}
-	var s Sidecar
-	if err := json.Unmarshal(b, &s); err != nil {
-		return nil, fmt.Errorf("parse sidecar: %w", err)
-	}
-	if err := s.Validate(p); err != nil {
-		return nil, fmt.Errorf("sidecar does not match this pack: %w", err)
-	}
-	return &s, nil
 }
