@@ -9,7 +9,8 @@
     "goarch": "arm64",
     "num_cpu": 8,
     "go_version": "go1.26.5",
-    "commit_hash": "6d8c799e6c1a"
+    "commit_hash": "6d8c799e6c1a",
+    "host_class": "mac"
   },
   "metrics": {
     "wall_clock_ms": 5161,
