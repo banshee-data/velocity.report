@@ -1,5 +1,6 @@
 import type { CaptureFile, CaptureSession, MotionPeriod } from '$lib/types/captures';
 import {
+	clockTicks,
 	coverageRows,
 	fileBoundaries,
 	formatClock,
@@ -11,9 +12,11 @@ import {
 	isReplayable,
 	jobProgressPercent,
 	nsToDate,
+	periodTrim,
 	probedFiles,
 	sessionShare,
-	toBands
+	toBands,
+	trimWindow
 } from '../timeline';
 
 const SEC = 1_000_000_000;
@@ -313,6 +316,37 @@ describe('formatClock', () => {
 	});
 });
 
+describe('clockTicks', () => {
+	it('lays seconds-scale ticks across a short clip', () => {
+		expect(clockTicks(BASE, BASE + 40 * SEC)).toEqual([
+			{ at: 7.5, label: '13:20:40' },
+			{ at: 32.5, label: '13:20:50' },
+			{ at: 57.49999999999999, label: '13:21:00' },
+			{ at: 82.5, label: '13:21:10' }
+		]);
+	});
+
+	it('lays minute-scale ticks across an hour, without seconds', () => {
+		expect(clockTicks(BASE, BASE + 3600 * SEC)).toEqual([
+			{ at: 15.638888888888888, label: '13:30' },
+			{ at: 40.63888888888889, label: '13:45' },
+			{ at: 65.63888888888889, label: '14:00' },
+			{ at: 90.63888888888889, label: '14:15' }
+		]);
+	});
+
+	it('reports nothing for a zero or negative span', () => {
+		expect(clockTicks(BASE, BASE)).toEqual([]);
+		expect(clockTicks(BASE, BASE - 1)).toEqual([]);
+	});
+
+	it('still places at least one tick on a short session', () => {
+		// 5 minutes is short enough that a coarse interval could overshoot the
+		// span entirely; the strip should never show zero real times.
+		expect(clockTicks(BASE, BASE + 300 * SEC).length).toBeGreaterThan(0);
+	});
+});
+
 describe('nsToDate', () => {
 	it('converts epoch nanoseconds', () => {
 		expect(nsToDate(BASE).getHours()).toBe(13);
@@ -372,6 +406,45 @@ describe('sessionShare', () => {
 
 	it('reports a zero share for a session with no timeline yet', () => {
 		expect(sessionShare([]).staticShare).toBe(0);
+	});
+});
+
+describe('periodTrim', () => {
+	it('offsets from the selection start, not the file the period falls in', () => {
+		// A static period beginning 45s into the selection, inside a file whose
+		// own first packet is at BASE — the file starts with motion the case
+		// must exclude.
+		const trim = periodTrim(period('static', 'static-0', 45, 345), BASE);
+		expect(trim.startSecs).toBeCloseTo(45);
+		expect(trim.durationSecs).toBeCloseTo(300);
+	});
+
+	it('never goes negative when the period starts at the selection start', () => {
+		const trim = periodTrim(period('static', 'static-0', 0, 120), BASE);
+		expect(trim.startSecs).toBe(0);
+		expect(trim.durationSecs).toBeCloseTo(120);
+	});
+});
+
+describe('trimWindow', () => {
+	it('resolves an open-ended trim to the sequence start plus the offset', () => {
+		expect(trimWindow(BASE, '45', '')).toEqual({ startNs: BASE + 45 * SEC, endNs: null });
+	});
+
+	it('resolves a bounded trim to a start and end', () => {
+		expect(trimWindow(BASE, '45', '300')).toEqual({
+			startNs: BASE + 45 * SEC,
+			endNs: BASE + 345 * SEC
+		});
+	});
+
+	it('treats a blank start as zero', () => {
+		expect(trimWindow(BASE, '', '120')).toEqual({ startNs: BASE, endNs: BASE + 120 * SEC });
+	});
+
+	it('returns null for unparseable input, a transient state while typing', () => {
+		expect(trimWindow(BASE, 'abc', '')).toBeNull();
+		expect(trimWindow(BASE, '10', 'abc')).toBeNull();
 	});
 });
 

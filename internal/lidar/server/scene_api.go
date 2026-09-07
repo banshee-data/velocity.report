@@ -223,6 +223,7 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scene.Files = caseFiles
+	scene.FileCount = len(caseFiles)
 	scene.SessionID = req.SessionID
 	scene.SourcePeriodID = req.SourcePeriodID
 	ws.writeJSON(w, http.StatusCreated, scene)

@@ -36,6 +36,10 @@ type ReplayCase struct {
 	// the read-only projection of the first for clients that predate this.
 	// Populated by the handlers that load it; not a stored column.
 	Files []ReplayCaseFile `json:"files,omitempty"`
+	// FileCount is len(Files) without loading it — every list and get scan
+	// carries this, so a list view can say "5 captures" without a per-row
+	// fetch of the file list itself. Always at least 1.
+	FileCount int `json:"file_count"`
 	// SessionID and SourcePeriodID record where the case was cut from, when it
 	// came from an indexed session. Both advisory.
 	SessionID      string `json:"session_id,omitempty"`
@@ -75,6 +79,11 @@ func (s *ReplayCaseStore) replayCaseSelectColumns() []string {
 		"created_at_ns",
 		"updated_at_ns",
 		"recommended_param_set_id",
+		// A case predating the file list has no lidar_replay_case_files rows;
+		// it still names one capture via pcap_file, so the count floors at 1
+		// rather than reporting a file-less case.
+		`COALESCE(NULLIF((SELECT COUNT(*) FROM lidar_replay_case_files
+			WHERE replay_case_id = lidar_replay_cases.replay_case_id), 0), 1)`,
 	}
 }
 
@@ -96,6 +105,7 @@ func scanReplayCase(scanner interface{ Scan(dest ...any) error }) (*ReplayCase, 
 		&scene.CreatedAtNs,
 		&updatedAtNs,
 		&recommendedParamSetID,
+		&scene.FileCount,
 	}
 
 	if err := scanner.Scan(dests...); err != nil {

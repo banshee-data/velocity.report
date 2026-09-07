@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		mdiArchiveOutline,
 		mdiBookOpenPageVariantOutline,
 		mdiChartBoxOutline,
 		mdiCog,
@@ -108,6 +109,12 @@
 				text="Captures"
 				icon={mdiMovieOpen}
 				path="/app/lidar/captures"
+				currentUrl={page.url}
+			/>
+			<NavItem
+				text="Replay Cases"
+				icon={mdiArchiveOutline}
+				path="/app/lidar/replay-cases"
 				currentUrl={page.url}
 			/>
 			<NavItem

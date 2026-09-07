@@ -87,6 +87,65 @@ export function toBands(periods: MotionPeriod[], startNs: number, endNs: number)
 	return bands;
 }
 
+/** "Nice" tick intervals, in milliseconds, from one second to a day. */
+const NICE_TICK_INTERVALS_MS = [
+	1000,
+	5000,
+	10_000,
+	15_000,
+	30_000,
+	60_000,
+	2 * 60_000,
+	3 * 60_000,
+	5 * 60_000,
+	10 * 60_000,
+	15 * 60_000,
+	30 * 60_000,
+	60 * 60_000,
+	2 * 60 * 60_000,
+	3 * 60 * 60_000,
+	6 * 60 * 60_000,
+	12 * 60 * 60_000,
+	24 * 60 * 60_000
+];
+
+/** One labelled mark on a wall-clock axis. */
+export interface ClockTick {
+	/** Percentage from the left edge, 0-100. */
+	at: number;
+	label: string;
+}
+
+/**
+ * clockTicks lays a wall-clock axis across [startNs, endNs], choosing the
+ * coarsest "nice" interval (1s, 5s, 10s, ... up to a day) that still gives at
+ * least minCount marks, so a 40-second static clip and an hours-long session
+ * both read as real times of day rather than only the two endpoints.
+ */
+export function clockTicks(startNs: number, endNs: number, minCount = 4): ClockTick[] {
+	const span = endNs - startNs;
+	if (span <= 0) return [];
+	const spanMs = span / NS_PER_MS;
+
+	let intervalMs = NICE_TICK_INTERVALS_MS[0];
+	for (const candidate of NICE_TICK_INTERVALS_MS) {
+		intervalMs = candidate;
+		if (spanMs / candidate <= minCount) break;
+	}
+
+	const startMs = startNs / NS_PER_MS;
+	const endMs = endNs / NS_PER_MS;
+	const first = Math.ceil(startMs / intervalMs) * intervalMs;
+	const withSeconds = intervalMs < 60_000;
+
+	const ticks: ClockTick[] = [];
+	for (let t = first; t <= endMs; t += intervalMs) {
+		const ns = t * NS_PER_MS;
+		ticks.push({ at: ((ns - startNs) / span) * 100, label: formatClock(ns, withSeconds) });
+	}
+	return ticks;
+}
+
 /** A file boundary drawn as a tick on a session strip. */
 export interface BoundaryTick {
 	/** Percentage from the left edge. */
@@ -352,6 +411,65 @@ export function sessionShare(periods: MotionPeriod[]): {
 		motionSecs: motionNs / NS_PER_SEC,
 		staticShare: total > 0 ? staticNs / total : 0
 	};
+}
+
+/** The start offset and duration a case should carry, in seconds. */
+export interface PeriodTrim {
+	startSecs: number;
+	durationSecs: number;
+}
+
+/**
+ * periodTrim is the pcap_start_secs/pcap_duration_secs a case should be given
+ * when it is cut from a motion period, so the case excludes any leading
+ * motion in the first selected capture rather than replaying it.
+ *
+ * selectPeriod (the caller) picks every capture the period overlaps, which for
+ * the first static stretch after the sensor stops moving usually means the
+ * first file starts with motion before the period itself begins. The offset
+ * is measured from the selection's own first packet — not from local file
+ * boundaries — because that is what the server's pcap_start_secs already
+ * means for a multi-file case.
+ */
+export function periodTrim(
+	period: { start_ns: number; end_ns: number },
+	sequenceStartNs: number
+): PeriodTrim {
+	return {
+		startSecs: Math.max(0, (period.start_ns - sequenceStartNs) / NS_PER_SEC),
+		durationSecs: Math.max(0, (period.end_ns - period.start_ns) / NS_PER_SEC)
+	};
+}
+
+/** The wall-clock window a start/duration trim resolves to. */
+export interface TrimWindow {
+	startNs: number;
+	/** null when no duration is set — the trim runs to the end of the selection. */
+	endNs: number | null;
+}
+
+/**
+ * trimWindow resolves the case-builder's start/duration text fields against
+ * the selection's own first packet, so an operator sees the real wall-clock
+ * window a trim produces before creating the case rather than only the raw
+ * seconds they typed.
+ *
+ * Returns null for text that does not parse as a number, which is a state the
+ * inputs can hold transiently while being edited.
+ */
+export function trimWindow(
+	sequenceStartNs: number,
+	startSecsText: string,
+	durationSecsText: string
+): TrimWindow | null {
+	const startSecs = startSecsText.trim() === '' ? 0 : Number(startSecsText);
+	if (!Number.isFinite(startSecs)) return null;
+	const startNs = sequenceStartNs + startSecs * NS_PER_SEC;
+
+	if (durationSecsText.trim() === '') return { startNs, endNs: null };
+	const durationSecs = Number(durationSecsText);
+	if (!Number.isFinite(durationSecs)) return null;
+	return { startNs, endNs: startNs + durationSecs * NS_PER_SEC };
 }
 
 /** jobProgressPercent is a job's completion, 0-100, or null when unknowable. */

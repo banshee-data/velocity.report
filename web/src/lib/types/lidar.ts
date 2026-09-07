@@ -1,6 +1,8 @@
 // src/lib/types/lidar.ts
 // TypeScript type definitions for LiDAR tracking system
 
+import type { CaseLocation } from '$lib/types/captures';
+
 /**
  * Track represents a tracked object in the LiDAR system.
  */
@@ -259,6 +261,13 @@ export type QualityLabel =
 	| 'disconnected';
 
 /** LidarReplayCase represents a PCAP-based evaluation environment */
+/** One capture in a replay case's ordered file list. */
+export interface ReplayCaseFile {
+	ordinal: number;
+	capture_file_id?: string;
+	pcap_file: string;
+}
+
 export interface LidarReplayCase {
 	replay_case_id: string;
 	sensor_id: string;
@@ -275,6 +284,15 @@ export interface LidarReplayCase {
 	recommended_params?: Record<string, unknown>;
 	created_at_ns: number;
 	updated_at_ns?: number;
+	/** How many captures the case covers — always at least 1. */
+	file_count: number;
+	/** The case's captures in order. Only populated by a single-case fetch. */
+	files?: ReplayCaseFile[];
+	/** Where the case was cut from, when it came from an indexed session. */
+	session_id?: string;
+	source_period_id?: string;
+	/** Where the capture was taken, when a position has been accepted. */
+	location?: CaseLocation;
 }
 
 /** Analysis run with track snapshots */

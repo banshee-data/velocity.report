@@ -9,6 +9,7 @@
 	import {
 		createLidarReplayCase,
 		deleteLidarReplayCase,
+		getLidarReplayCase,
 		getLidarReplayCases,
 		getLidarRuns,
 		scanPcapFiles,
@@ -79,13 +80,27 @@
 		}
 	}
 
-	function selectScene(scene: LidarReplayCase) {
+	async function selectScene(scene: LidarReplayCase) {
+		// The list only carries file_count, not the file list itself — fetch
+		// the full case so a scene with several joined captures shows all of
+		// them rather than only the first (pcap_file, the legacy projection).
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;
 		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
+
+		try {
+			const full = await getLidarReplayCase(scene.replay_case_id);
+			if (selectedScene?.replay_case_id === full.replay_case_id) {
+				selectedScene = full;
+			}
+		} catch {
+			// The row's own fields already cover the common case; the detail
+			// fetch only adds the file list and location, so failing quietly
+			// leaves the panel usable rather than blocking on a second load.
+		}
 	}
 
 	function deselectScene() {
@@ -525,6 +540,9 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>PCAP File</th
 								>
+								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
+									>Files</th
+								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Ref. Run</th
 								>
@@ -553,6 +571,18 @@
 									</td>
 									<td class="text-surface-content/70 max-w-[200px] truncate px-4 py-3 text-sm">
 										{scene.pcap_file}
+									</td>
+									<td class="px-4 py-3 text-right text-sm">
+										{#if scene.file_count > 1}
+											<span
+												class="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-700"
+												title="{scene.file_count} captures joined into one recording"
+											>
+												{scene.file_count} joined
+											</span>
+										{:else}
+											<span class="text-surface-content/40">1</span>
+										{/if}
 									</td>
 									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
 										{scene.reference_run_id ? scene.reference_run_id.substring(0, 8) : '-'}
@@ -634,13 +664,49 @@
 					</div>
 
 					<div>
-						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
-							>PCAP File</label
-						>
-						<div class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-sm">
-							{selectedScene.pcap_file}
-						</div>
+						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium">
+							{selectedScene.files && selectedScene.files.length > 1
+								? `Captures (${selectedScene.files.length}, joined)`
+								: 'PCAP File'}
+						</label>
+						{#if selectedScene.files && selectedScene.files.length > 1}
+							<ol class="border-surface-content/10 space-y-1 rounded border p-2">
+								{#each selectedScene.files as f (f.ordinal)}
+									<li class="text-surface-content/70 flex items-center gap-2 font-mono text-xs">
+										<span class="text-surface-content/40 w-5 shrink-0 text-right"
+											>{f.ordinal + 1}.</span
+										>
+										<span class="truncate">{f.pcap_file}</span>
+									</li>
+								{/each}
+							</ol>
+							<p class="text-surface-content/40 mt-1 text-xs">
+								Replayed in order, as one continuous recording. No unioned file is written.
+							</p>
+						{:else}
+							<div
+								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-sm"
+							>
+								{selectedScene.pcap_file}
+							</div>
+						{/if}
 					</div>
+
+					{#if selectedScene.location}
+						<div>
+							<div class="text-surface-content/70 mb-1 block text-sm font-medium">Captured at</div>
+							<div
+								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-xs"
+							>
+								{selectedScene.location.origin_lat.toFixed(5)}, {selectedScene.location.origin_lon.toFixed(
+									5
+								)}
+								<span class="text-surface-content/40 ml-2">
+									L16 {selectedScene.location.s2_l16_display}
+								</span>
+							</div>
+						</div>
+					{/if}
 
 					<div>
 						<label for="edit-sensor" class="text-surface-content/70 mb-1 block text-sm font-medium"
