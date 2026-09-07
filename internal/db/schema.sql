@@ -27,6 +27,58 @@
         , snapshot_reason TEXT
           );
 
+   CREATE TABLE lidar_capture_roots (
+          root_id TEXT PRIMARY KEY
+        , path TEXT NOT NULL UNIQUE
+        , label TEXT NOT NULL DEFAULT ''
+        , enabled INTEGER NOT NULL DEFAULT 1
+        , last_scan_at_ns INTEGER
+        , last_scan_state TEXT NOT NULL DEFAULT 'never'
+        , last_scan_error TEXT NOT NULL DEFAULT ''
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER NOT NULL
+        , CHECK (last_scan_state IN ('never', 'ok', 'unreachable', 'error'))
+          );
+
+   CREATE TABLE lidar_capture_files (
+          capture_file_id TEXT PRIMARY KEY
+        , root_id TEXT NOT NULL
+        , rel_path TEXT NOT NULL
+        , size_bytes INTEGER NOT NULL
+        , modified_at_ns INTEGER NOT NULL
+        , content_tag TEXT NOT NULL DEFAULT ''
+        , first_packet_ns INTEGER
+        , last_packet_ns INTEGER
+        , packet_count INTEGER
+        , udp_port INTEGER
+        , probe_state TEXT NOT NULL DEFAULT 'pending'
+        , probe_error TEXT NOT NULL DEFAULT ''
+        , probed_at_ns INTEGER
+        , present INTEGER NOT NULL DEFAULT 1
+        , first_seen_at_ns INTEGER NOT NULL
+        , last_seen_at_ns INTEGER NOT NULL
+        , session_id TEXT
+        , CHECK (probe_state IN ('pending', 'ok', 'failed'))
+        , FOREIGN KEY (root_id) REFERENCES lidar_capture_roots (root_id) ON DELETE CASCADE
+        , UNIQUE (root_id, rel_path)
+          );
+
+   CREATE TABLE lidar_capture_sessions (
+          session_id TEXT PRIMARY KEY
+        , root_id TEXT NOT NULL
+        , label TEXT NOT NULL DEFAULT ''
+        , sensor_id TEXT NOT NULL DEFAULT ''
+        , file_count INTEGER NOT NULL DEFAULT 0
+        , start_ns INTEGER NOT NULL
+        , end_ns INTEGER NOT NULL
+        , covered_ns INTEGER NOT NULL DEFAULT 0
+        , lost_ns INTEGER NOT NULL DEFAULT 0
+        , worst_seam TEXT NOT NULL DEFAULT 'seamless'
+        , size_bytes INTEGER NOT NULL DEFAULT 0
+        , derived_at_ns INTEGER NOT NULL
+        , FOREIGN KEY (root_id) REFERENCES lidar_capture_roots (root_id) ON DELETE CASCADE
+          );
+
    CREATE TABLE lidar_clusters (
           lidar_cluster_id INTEGER PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -719,77 +771,12 @@ CREATE TRIGGER update_lidar_scenes_timestamp AFTER
 
 END;
 
--- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
-   INSERT OR IGNORE INTO "radar_serial_config" (
-          "id"
-        , "port_path"
-        , "baud_rate"
-        , "data_bits"
-        , "stop_bits"
-        , "parity"
-        , "enabled"
-        , "sensor_model"
-          )
-   VALUES (1, '/dev/ttySC1', 19200, 8, 1, 'N', 1, 'ops243-a');
+CREATE INDEX idx_lidar_capture_roots_enabled ON lidar_capture_roots (enabled);
 
-   INSERT OR IGNORE INTO "site" (
-          "id"
-        , "name"
-        , "location"
-        , "description"
-        , "surveyor"
-        , "contact"
-        , "address"
-        , "latitude"
-        , "longitude"
-        , "map_angle"
-        , "include_map"
-        , "site_description"
-        , "bbox_ne_lat"
-        , "bbox_ne_lng"
-        , "bbox_sw_lat"
-        , "bbox_sw_lng"
-        , "map_svg_data"
-        , "radar_svg_x"
-        , "radar_svg_y"
-          )
-   VALUES (
-          1
-        , 'Sample Site — Update Me'
-        , 'A Street Near You'
-        , 'A placeholder site with very real speeds'
-        , 'Sir Veyor'
-        , 'veyor@example.com'
-        , NULL
-        , NULL
-        , NULL
-        , NULL
-        , 0
-        , 'This is a sample site. It exists because every system needs a starting point, and someone has to go first. Replace these details with your actual survey location, your actual surveyor name, and a description of where the radar is pointed and why. The data is real even if this description is not.'
-        , NULL
-        , NULL
-        , NULL
-        , NULL
-        , NULL
-        , NULL
-        , NULL
-          );
+CREATE INDEX idx_lidar_capture_files_root ON lidar_capture_files (root_id, present);
 
-   INSERT OR IGNORE INTO "site_config_periods" (
-          "id"
-        , "site_id"
-        , "effective_start_unix"
-        , "effective_end_unix"
-        , "is_active"
-        , "notes"
-        , "cosine_error_angle"
-          )
-   VALUES (
-          1
-        , 1
-        , 1773500966.0
-        , NULL
-        , 1
-        , 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
-        , 0.5
-          );
+CREATE INDEX idx_lidar_capture_files_session ON lidar_capture_files (session_id);
+
+CREATE INDEX idx_lidar_capture_files_start ON lidar_capture_files (first_packet_ns);
+
+CREATE INDEX idx_lidar_capture_sessions_root ON lidar_capture_sessions (root_id, start_ns);

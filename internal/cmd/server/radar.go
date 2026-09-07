@@ -161,10 +161,22 @@ var (
 	lidarFGFwdPort = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir   = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	// Repeatable. Capture roots are the volumes the capture index scans; the
+	// web UI selects among them and cannot add one, which is what keeps the
+	// safe-directory boundary a boundary. --lidar-pcap-dir is always a root, so
+	// omitting this leaves an existing deployment unchanged.
+	lidarCaptureRoots captureRootList
 	// Visualiser gRPC streaming (M2)
 	lidarForwardMode = serveFlags.String("lidar-forward-mode", "lidarview", "Forward mode: lidarview (UDP only), grpc (gRPC only), or both (UDP + gRPC)")
 	lidarGRPCListen  = serveFlags.String("lidar-grpc-listen", "localhost:50051", "gRPC server listen address for visualiser streaming")
 )
+
+// A flag.Value cannot be registered inside a var block the way the scalar flags
+// above are, so the repeatable capture-root flag is bound here.
+func init() {
+	serveFlags.Var(&lidarCaptureRoots, "lidar-capture-root",
+		"Capture volume to index; repeat for several. --lidar-pcap-dir is always one.")
+}
 
 // Transit worker options (compute radar_data -> radar_data_transits)
 var (
@@ -723,6 +735,7 @@ func Main(args []string) int {
 			Parser:            parser,
 			FrameBuilder:      frameBuilder,
 			PCAPSafeDir:       *lidarPCAPDir,
+			CaptureRoots:      lidarCaptureRoots,
 			VRLogSafeDir: func() string {
 				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
 				if err != nil {

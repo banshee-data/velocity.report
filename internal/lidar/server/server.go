@@ -65,10 +65,15 @@ type Server struct {
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
 	pcapSafeDir       string // Safe directory for PCAP file access
-	vrlogSafeDir      string // Safe directory for VRLOG file access
-	packetForwarder   *network.PacketForwarder
-	tuningConfigMu    sync.RWMutex
-	tuningConfig      *cfgpkg.TuningConfig
+	// captureRoots are the capture volumes the operator configured. They come
+	// from process configuration and never from a request: the safe-directory
+	// boundary is only a boundary while the set of readable roots is fixed
+	// outside the API. The UI selects among these; it cannot add one.
+	captureRoots    []string
+	vrlogSafeDir    string // Safe directory for VRLOG file access
+	packetForwarder *network.PacketForwarder
+	tuningConfigMu  sync.RWMutex
+	tuningConfig    *cfgpkg.TuningConfig
 
 	// UDP listener lifecycle (live data source)
 	udpListenerConfig network.UDPListenerConfig
@@ -229,6 +234,10 @@ type Config struct {
 	FrameBuilder      network.FrameBuilder
 	Classifier        *l6objects.TrackClassifier
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
+	// CaptureRoots are additional capture volumes to index. PCAPSafeDir is
+	// always treated as a root, so leaving this empty keeps existing
+	// deployments unchanged.
+	CaptureRoots      []string
 	VRLogSafeDir      string // Safe directory for VRLOG file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
@@ -322,6 +331,7 @@ func NewServer(config Config) *Server {
 		frameBuilder:      config.FrameBuilder,
 		classifier:        config.Classifier,
 		pcapSafeDir:       config.PCAPSafeDir,
+		captureRoots:      normaliseCaptureRoots(config.PCAPSafeDir, config.CaptureRoots),
 		vrlogSafeDir:      vrlogSafeDir,
 		packetForwarder:   config.PacketForwarder,
 		tuningConfig:      cloneTuningConfig(config.TuningConfig),

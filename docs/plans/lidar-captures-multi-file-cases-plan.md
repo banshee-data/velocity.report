@@ -209,10 +209,27 @@ a property of this capture or of the parser's LiDAR timestamp mode is worth its 
 3. Indexer: walk each root, stat, digest, probe extents with `CountPCAPPackets`, upsert.
 4. Session derivation from extents using `capseq` tolerances.
 5. Drift report: new on disk, missing from disk, digest mismatch.
-6. API: `GET /api/lidar/capture/roots`, `POST /api/lidar/capture/roots/{id}/scan`,
-   `GET /api/lidar/capture/sessions`, `GET /api/lidar/capture/files`.
+6. API: `GET /api/lidar/capture/roots`, `POST /api/lidar/capture/scan`,
+   `GET /api/lidar/capture/sessions`, `GET /api/lidar/capture/files`,
+   `POST /api/lidar/capture/session/label`.
 
 **Milestone:** v0.6.0.
+
+**Landed as a two-phase scan.** The original step 3 folded stat, digest and extent probe into
+one walk. Measured against the field volume that is untenable: probing an extent means reading
+every byte, and `/Volumes/lidar/lidar/s2` holds 195 captures of roughly 700 MB. A scan that
+probed them all would run for hours and would re-run on every look.
+
+So a scan is cheap metadata — path, size, mtime, and a content tag over the file's first and
+last mebibyte plus its length — and the extent probe is scoped to the files that scan found new
+or materially changed. A volume that has not moved costs one walk and no reads. The content tag
+is deliberately not a whole-file checksum: hashing 700 MB per file on every scan buys nothing
+that size and mtime do not already give, except against deliberate tampering, while it does
+catch the failure that actually happens, which is a capture truncated or rewritten in place.
+
+A file that was merely touched — copying a volume moves every mtime without changing a byte —
+keeps the extent it already has. One whose size or tag moved has its probe reset, because an
+extent recorded for the old bytes says nothing about the new ones.
 
 ### Item 4: motion pass as a job
 
@@ -286,10 +303,12 @@ a property of this capture or of the parser's LiDAR timestamp mode is worth its 
       the server's `buildReplaySequence`; sequencing proven transparent against `kirk0.pcapng`
       (a capture cut in two and replayed as a sequence yields identical frames and points to the
       uncut original)
+- [x] Item 3: `internal/lidar/capindex` (scan, drift, session derivation, indexer),
+      migration 039, `CaptureStore`, repeatable `--lidar-capture-root`, and the
+      `/api/lidar/capture/*` endpoints
 
 ### Outstanding
 
-- [ ] Item 3: capture index, repeatable roots, drift report (`L`)
 - [ ] Item 4: motion pass job runner and persisted periods (`M`)
 - [ ] Item 5: replay case ↔ file association and migration (`M`)
 - [ ] Item 6: Captures page, timeline, slide-over (`L`)
