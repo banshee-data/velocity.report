@@ -23,7 +23,10 @@ const defaultOBBHeadingLockMaxRejections = 5
 // config/tuning.defaults.json.
 const (
 	defaultMinAssociableExtentMetres = 0.5
-	defaultDeletedTrackRenderFade    = "500ms"
+	// Off by default: the hard fragment guard stays until the soft cost is
+	// measured against it.
+	defaultAssociationExtentCostWeight = 0.0
+	defaultDeletedTrackRenderFade      = "500ms"
 )
 
 type legacyTuningConfig struct {
@@ -234,6 +237,7 @@ func migrateLegacyConfig(legacy legacyTuningConfig) *cfgpkg.TuningConfig {
 					// back onto the Guard 3 ratchet.
 					OBBHeadingLockMaxRejections:      defaultOBBHeadingLockMaxRejections,
 					MinAssociableExtentMetres:        defaultMinAssociableExtentMetres,
+					AssociationExtentCostWeight:      defaultAssociationExtentCostWeight,
 					DeletedTrackRenderFade:           defaultDeletedTrackRenderFade,
 					MaxTrackHistoryLength:            legacy.MaxTrackHistoryLength,
 					MaxSpeedHistoryLength:            legacy.MaxSpeedHistoryLength,

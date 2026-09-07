@@ -143,6 +143,10 @@ func printReplaySummary(r *analysis.AnalysisReport) {
 		fmt.Printf("course alignment over %d tracks: median %.1f, avg %.1f, max %.1f deg\n",
 			a.CourseAlignmentTracks, derefFloat(d.P50), d.Avg, d.Max)
 	}
+	if co := r.FrameSummary.CoLocation; co != nil && co.ScoredFrames > 0 {
+		fmt.Printf("co-located pairs %d/%d frames, overlapping boxes %d/%d (duplicate-identity candidates)\n",
+			co.PairFrames, co.ScoredFrames, co.OverlapFrames, co.ScoredFrames)
+	}
 	if hl := ts.HeadingLock; hl != nil {
 		// Acceptance leads, and course error is printed next to it. The two
 		// heading paths name their accepted frames differently, so acceptance

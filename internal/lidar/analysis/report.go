@@ -104,15 +104,26 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 
 		// Track stats
 		if ts := frame.Tracks; ts != nil {
-			liveFrame, pairFrame := false, false
+			liveFrame, pairFrame, overlapFrame := false, false, false
 			for i, a := range ts.Tracks {
 				if a.State == l9endpoints.TrackStateDeleted {
 					continue
 				}
 				liveFrame = true
 				for _, b := range ts.Tracks[i+1:] {
-					if b.State != l9endpoints.TrackStateDeleted && a.TrackID != b.TrackID && math.Hypot(float64(a.X-b.X), float64(a.Y-b.Y)) <= coLocation.RadiusMetres {
+					if b.State == l9endpoints.TrackStateDeleted || a.TrackID == b.TrackID {
+						continue
+					}
+					separation := math.Hypot(float64(a.X-b.X), float64(a.Y-b.Y))
+					if separation <= coLocation.RadiusMetres {
 						pairFrame = true
+					}
+					// Two physical objects cannot share a space. Overlapping
+					// boxes are the duplicate-identity signal; mere proximity
+					// is not.
+					longest := math.Max(float64(a.BBoxLength), float64(b.BBoxLength))
+					if longest > 0 && separation < longest/2 {
+						overlapFrame = true
 					}
 				}
 			}
@@ -121,6 +132,9 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			}
 			if pairFrame {
 				coLocation.PairFrames++
+			}
+			if overlapFrame {
+				coLocation.OverlapFrames++
 			}
 			n := len(ts.Tracks)
 			totalTrackCount += int64(n)

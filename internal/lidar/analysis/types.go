@@ -68,6 +68,17 @@ type CoLocationSummary struct {
 	ScoredFrames int     `json:"scored_frames"`
 	LiveFrames   int     `json:"live_frames"`
 	PairFrames   int     `json:"pair_frames"`
+	// OverlapFrames counts frames holding two live tracks whose centres are
+	// closer than half the longer box: the boxes intersect.
+	//
+	// This is the duplicate-identity signal, and it is deliberately reported
+	// apart from PairFrames. Proximity is not duplication — two vehicles can
+	// queue a metre apart, and counting that as a split flatters any change
+	// that merely spreads tracks out. Two distinct physical objects cannot
+	// occupy the same space, so overlap is evidence of one object carrying two
+	// identities. It remains a candidate signal rather than proof: the boxes
+	// are estimates, and an inflated box can overlap its neighbour honestly.
+	OverlapFrames int `json:"overlap_frames"`
 }
 
 // TrackSummary is §4 in the spec.

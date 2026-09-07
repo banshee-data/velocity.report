@@ -293,3 +293,59 @@ Two open items follow, both recorded rather than guessed at: the visible-support
 the corroboration count are unswept constants chosen on argument, not measurement; and the
 beliefs are not yet surfaced in the recorded stream, so an over-estimating belief and a
 genuinely occluded view are not distinguishable offline.
+
+## D2.2: a bounded shape term in association
+
+The D2.2 declaration asks to "compare observations with expected visible support, distinguish
+membership acceptance from dimension-update acceptance, and measure duplicate identities
+separately from proximity." The readiness review adds the case that matters: "A 0.11-metre
+fragment may belong to the car even though it cannot measure the car's full size."
+
+That distinction is now available. D1.5's fragment guard forbids the pairing outright, which
+protects dimensions at the association gate and leaves the scrap free to seed a second track on
+the same vehicle — the split-car symptom this sprint started from. Extent beliefs defend
+dimensions where they are formed instead, admitting evidence only from confidently assigned,
+well-supported observations, so the gate no longer has to.
+
+Behind `association_extent_cost_weight` (default 0, which keeps the hard guard), the guard
+becomes a bounded penalty added to the assignment cost. It is asymmetric for the same reason
+the axis cost is: a cluster smaller than the belief is what occlusion produces on every pass
+and is charged lightly, while a cluster larger than it needs a wrong belief or a merge. The
+term is capped at a quarter of the gating threshold, so position remains the dominant term and
+the shape cost can never push a pairing out of the gate on its own.
+
+Duplicate identities are now measured apart from proximity. `pair_frames` counts tracks within
+three metres, which is not duplication: vehicles queue. `overlap_frames` counts frames where
+two live boxes intersect, and two physical objects cannot share a space. It remains a candidate
+signal, because the boxes are estimates and an inflated box can overlap its neighbour honestly.
+
+### Measured, and inconclusive
+
+| Diagnostic              | s2_sf_4 base | s2_sf_4 D2.2 | s2-1_00006 base | s2-1_00006 D2.2 |
+| ----------------------- | -----------: | -----------: | --------------: | --------------: |
+| Overlapping-box frames  |       68/200 |   **62/200** |          84/400 |      **47/400** |
+| Co-located pair frames  |       93/200 |       93/200 |         131/400 |          94/400 |
+| Median per-track course |     42.3 deg |     52.9 deg |        36.3 deg |        21.2 deg |
+| Mean per-track median   |     39.8 deg |     43.9 deg |        33.2 deg |        30.0 deg |
+| Heading acceptance      |        78.5% |        79.4% |           77.8% |           80.6% |
+| Eligible moving tracks  |           11 |           10 |              10 |               9 |
+
+What the two captures agree on: duplicate-identity candidates fall, by 9% on one capture and
+44% on the other, which is the effect the term was built for, and acceptance rises slightly on
+both because scraps no longer strand themselves in short-lived tracks.
+
+What they disagree on is course error, which moves in opposite directions. The medians look
+dramatic — 10.6 degrees worse on one, 15.1 better on the other — but the eligible population
+changed in both arms, from 11 tracks to 10 and from 10 to 9. With samples that small, dropping
+one track moves a median by that much on its own. The mean of per-track medians, which is less
+sensitive to which tracks are present, moves by 4.1 degrees the wrong way and 3.2 the right
+way. The disagreement survives the more stable statistic, so it is real, but the magnitudes are
+not what the medians imply.
+
+So the mechanism is delivered and the duplicate measurement is delivered, and the weight stays
+at zero. A change that reduces duplicate identities on both captures while moving course error
+in opposite directions has not earned a default, and the reason it cannot be settled here is
+the one the readiness review already named: without a physical-object annotation independent of
+the predicted track UUIDs, a track appearing or disappearing from the eligible population
+changes the comparison as much as the tracker does. That annotation is the next thing this
+workstream needs, ahead of any further tuning of these constants.
