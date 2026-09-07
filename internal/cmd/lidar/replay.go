@@ -173,18 +173,26 @@ func printAbstentionReasons(sources map[string]int, held int) {
 	reasons := []struct{ key, label string }{
 		{"locked", "guard-locked"},
 		{"axis_square", "no distinguishable axis"},
+		{"axis_low_support", "too little of the object visible"},
 		{"axis_no_fit", "fits neither interpretation"},
 		{"ambiguous", "interpretations tied"},
 		{"insufficient", "geometry missing or invalid"},
 	}
-	parts := make([]string, 0, len(reasons))
+	parts, accounted := make([]string, 0, len(reasons)), 0
 	for _, r := range reasons {
 		if n := sources[r.key]; n > 0 {
+			accounted += n
 			parts = append(parts, fmt.Sprintf("%s %d (%.0f%%)", r.label, n, 100*float64(n)/float64(held)))
 		}
 	}
 	if len(parts) > 0 {
 		fmt.Printf("  held because: %s\n", strings.Join(parts, ", "))
+	}
+	// The reasons partition the held frames. A shortfall means a source was
+	// added without being named here, and the breakdown would quietly mislead.
+	if accounted != held {
+		fmt.Printf("  WARNING: %d held frames unaccounted for; a heading source is missing from this breakdown\n",
+			held-accounted)
 	}
 }
 
