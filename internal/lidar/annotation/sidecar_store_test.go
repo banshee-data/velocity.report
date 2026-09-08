@@ -137,6 +137,29 @@ func TestLegacySidecarMigratesWithoutLosingBytes(t *testing.T) {
 	}
 }
 
+func TestExhaustedRevisionDoesNotWriteUnreadableHead(t *testing.T) {
+	p := synthPack(t)
+	s := NewSidecar(p)
+	s.Revision = math.MaxInt - 1
+	b, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p.Dir, sidecarFile), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err = LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveSidecar(p, s); err == nil {
+		t.Fatal("exhausted revision saved")
+	}
+	if !bytes.Equal(b, readSaved(t, p)) {
+		t.Fatal("exhaustion changed head")
+	}
+}
+
 func TestConcurrentSessionsCannotLoseAnEdit(t *testing.T) {
 	p := synthPack(t)
 	sessions := []*Sidecar{NewSidecar(p), NewSidecar(p)}
