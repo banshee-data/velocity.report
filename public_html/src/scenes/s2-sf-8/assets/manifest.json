@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "s2-sf-8",
+    "title": "s2-sf-8"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

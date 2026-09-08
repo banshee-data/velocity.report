@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "s2-sf-4",
+  "title": "s2-sf-4",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 4994,
+  "start_ns": "1788387809585836300",
+  "duration_sec": 998.597169,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "f3552edfbb989ec8b598b447ba664bde4408f156c0d0bea0852d7923b3a78cbb",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-08T20:11:25Z"
+}
