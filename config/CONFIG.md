@@ -279,6 +279,16 @@ Maths: [clustering-maths.md](../data/maths/clustering-maths.md),
 
 Maths: [tracking-maths.md](../data/maths/tracking-maths.md)
 
+The heading experiment's additional keys remain explicit, including disabled candidates:
+
+| Path                                          | Type    | Primary consumer                                                  | Notes                                                    |
+| --------------------------------------------- | ------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `l5.cv_kf_v1.obb_axis_coherence_enabled`      | bool    | [Heading axis](../internal/lidar/l5tracks/heading_axis.go)        | Default-off axial interpretation candidate.              |
+| `l5.cv_kf_v1.obb_heading_lock_max_rejections` | int     | [Heading update](../internal/lidar/l5tracks/tracking_update.go)   | Bounds heading lock rejection streaks.                   |
+| `l5.cv_kf_v1.min_associable_extent_metres`    | float64 | [Association](../internal/lidar/l5tracks/tracking_association.go) | Minimum usable extent for association.                   |
+| `l5.cv_kf_v1.association_extent_cost_weight`  | float64 | [Association](../internal/lidar/l5tracks/tracking_association.go) | Default-zero extent penalty; experimental.               |
+| `l5.cv_kf_v1.deleted_track_render_fade`       | string  | [Tracker config](../internal/lidar/l5tracks/tracking.go)          | Duration for deleted-track rendering, not a measurement. |
+
 | Path                                              | Type    | Primary consumer                                                              | Notes                                                                                        |
 | ------------------------------------------------- | ------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `l5.engine`                                       | string  | [(\*L5Config).ActiveCommon](../internal/config/tuning_accessors.go)           | Active L5 engine.                                                                            |

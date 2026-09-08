@@ -28,8 +28,8 @@ correspondence nor calibrated pose uncertainty.
 ## Motivation
 
 The classifier decides between eight classes using a bounding box and a speed. It never
-sees the shape of the object it is classifying, because the points that describe that shape
-are discarded before the cluster leaves L4.
+uses a shape descriptor from the cluster. Offline retention now preserves sampled evidence, but
+the live classifier still consumes existing track features rather than those points.
 
 That limit is already visible in the runtime: truck and motorcyclist are commented out of the
 cascade in
@@ -55,30 +55,30 @@ VRLOG codec, and gRPC. This does not deliver live descriptors or a production ob
 The committed annotation packs remain a separate source domain: retained cluster samples are not
 annotation point indices. The JSON class scorer and body-local shape tracker remain follow-on work.
 
-| Fact                                                                                                                            | Evidence                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Cluster member points are discarded inside `computeClusterMetrics`, one call after DBSCAN produces them                         | `l4perception/cluster.go`, `buildClusters` → `computeClusterMetrics` |
-| `WorldCluster.SamplePoints` is declared and never assigned outside tests                                                        | `l4perception/types.go`                                              |
-| proto `Cluster.sample_points` is declared and never assigned                                                                    | `proto/velocity_visualiser/v1/visualiser.proto`                      |
-| `ExtractClusterFeatures(cluster, points)` is never called in production; the live path uses `ExtractTrackFeatures`              | `l6objects/features.go`, `pipeline/tracking_pipeline.go`             |
-| `IntensityStd` and `VerticalSpread` are therefore always zero in shipped output                                                 | `l6objects/features.go`                                              |
-| `ExportTrackPointCloud` returns an empty slice: _"PolarPoints will be populated when point cloud storage is integrated"_        | `adapters/track_export.go`                                           |
-| `SummarizeTrainingDataset.TotalPoints` is never populated: _"TODO: Add point count when point cloud storage is integrated"_     | `l6objects/quality.go`                                               |
-| No table in any migration holds point data; the only BLOBs are the background grid and a site map SVG                           | `internal/db/migrations/`                                            |
-| PCA is 2D over X-Y only; the smaller eigenvalue is a commented-out line and neither eigenvalue is retained                      | `l4perception/obb.go`                                                |
-| No linearity, planarity, sphericity, omnivariance, anisotropy, eigenentropy or curvature computation exists anywhere            | Repository-wide search                                               |
-| VRLOG can carry points but is foreground-only under split streaming, records no cluster id per point, and is off for sweep runs | `l9endpoints/adapter.go`, `sweep/runner.go`                          |
+| Fact                                                                                                                            | Evidence                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Cluster members survive under a default-off offline retention cap                                                               | `l4perception/cluster.go`, `buildClusters`                            |
+| `SamplePoints` and `RetainedPoints` are populated when offline retention is enabled                                             | `l4perception/cluster.go`                                             |
+| proto `Cluster.sample_points` is populated through adapter, storage codec, and gRPC                                             | `l9endpoints/adapter.go`, `recorder/proto_codec.go`, `grpc_frames.go` |
+| `ExtractClusterFeatures(cluster, points)` is never called in production; the live path uses `ExtractTrackFeatures`              | `l6objects/features.go`, `pipeline/tracking_pipeline.go`              |
+| `IntensityStd` and `VerticalSpread` are therefore always zero in shipped output                                                 | `l6objects/features.go`                                               |
+| `ExportTrackPointCloud` returns an empty slice: _"PolarPoints will be populated when point cloud storage is integrated"_        | `adapters/track_export.go`                                            |
+| `SummarizeTrainingDataset.TotalPoints` is never populated: _"TODO: Add point count when point cloud storage is integrated"_     | `l6objects/quality.go`                                                |
+| No table in any migration holds point data; the only BLOBs are the background grid and a site map SVG                           | `internal/db/migrations/`                                             |
+| PCA is 2D over X-Y only; the smaller eigenvalue is a commented-out line and neither eigenvalue is retained                      | `l4perception/obb.go`                                                 |
+| No linearity, planarity, sphericity, omnivariance, anisotropy, eigenentropy or curvature computation exists anywhere            | Repository-wide search                                                |
+| VRLOG can carry points but is foreground-only under split streaming, records no cluster id per point, and is off for sweep runs | `l9endpoints/adapter.go`, `sweep/runner.go`                           |
 
 ## Findings
 
-| Area                      | Current state                                                                         | Severity | Release view      |
-| ------------------------- | ------------------------------------------------------------------------------------- | -------- | ----------------- |
-| Point retention           | Points destroyed at the earliest possible stage; three declared fields never assigned | High     | Phase 1, v0.5.2   |
-| Dead point-dependent code | Two feature fields permanently zero; two exported helpers unreachable                 | High     | Phase 1, v0.5.2   |
-| 3D shape description      | Absent entirely; only a 2D heading survives from the covariance                       | High     | Phase 2, v0.5.3   |
-| Retroactive recovery      | VRLOG is the only source and needs offline re-clustering to attribute points          | Medium   | Accepted residual |
-| Range envelope            | Undefined; DBSCAN `MinPts` is 5 and returns fall below that beyond ~40 m              | High     | Phase 4, v0.5.3   |
-| Hot-path cost             | Retention adds allocation at 10 Hz on constrained hardware                            | Medium   | Phase 1 gate      |
+| Area                      | Current state                                                                | Severity | Release view      |
+| ------------------------- | ---------------------------------------------------------------------------- | -------- | ----------------- |
+| Point retention           | Bounded offline retention implemented; live enablement and Pi budget open    | High     | Phase 1, v0.5.2   |
+| Dead point-dependent code | Two feature fields permanently zero; two exported helpers unreachable        | High     | Phase 1, v0.5.2   |
+| 3D shape description      | Absent entirely; only a 2D heading survives from the covariance              | High     | Phase 2, v0.5.3   |
+| Retroactive recovery      | VRLOG is the only source and needs offline re-clustering to attribute points | Medium   | Accepted residual |
+| Range envelope            | Undefined; DBSCAN `MinPts` is 5 and returns fall below that beyond ~40 m     | High     | Phase 4, v0.5.3   |
+| Hot-path cost             | Retention adds allocation at 10 Hz on constrained hardware                   | Medium   | Phase 1 gate      |
 
 ## Design / approach
 
@@ -255,23 +255,23 @@ Three consequences, all binding:
 
 ## Risks
 
-| Risk                                                     | Likelihood | Impact | Mitigation                                                                              |
-| -------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------------------------- |
-| Point retention regresses hot-path throughput            | Medium     | High   | Configurable cap plus a benchmark gate; fall back to analysis-mode-only retention       |
-| Descriptor change shifts OBB heading and breaks replay   | Low        | High   | 3D covariance is additive; heading path untouched; golden replay test is the gate       |
-| Descriptors computed on too few points read as confident | High       | High   | Validity flags, explicit fallback path, mandatory range stratification                  |
-| Storage growth from per-observation descriptor rows      | Medium     | Medium | Store aggregates on tracks; per-observation JSON only in analysis runs                  |
-| Descriptor set grows without evidence any of it helps    | Medium     | Medium | Phase 4 measures per-descriptor separability; drop descriptors that do not earn a place |
+| Risk                                                     | Likelihood                                                                | Impact | Mitigation                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| Point retention                                          | Bounded offline retention implemented; live enablement and Pi budget open | High   | Phase 1, v0.5.2                                                                         |
+| Descriptor change shifts OBB heading and breaks replay   | Low                                                                       | High   | 3D covariance is additive; heading path untouched; golden replay test is the gate       |
+| Descriptors computed on too few points read as confident | High                                                                      | High   | Validity flags, explicit fallback path, mandatory range stratification                  |
+| Storage growth from per-observation descriptor rows      | Medium                                                                    | Medium | Store aggregates on tracks; per-observation JSON only in analysis runs                  |
+| Descriptor set grows without evidence any of it helps    | Medium                                                                    | Medium | Phase 4 measures per-descriptor separability; drop descriptors that do not earn a place |
 
 ## Checklist
 
 ### Outstanding
 
-- [ ] Phase 1: `max_sample_points` tuning key and config wiring (`S`)
-- [ ] Phase 1: populate `WorldCluster.SamplePoints` with a capped, content-seeded subsample (`M`)
-- [ ] Phase 1: content-derived seed helper, replacing time-seeded
-      selection on the retention path (`S`)
-- [ ] Phase 1: populate proto `Cluster.sample_points` in the adapter (`S`)
+- [x] Phase 1: `max_sample_points` tuning key and offline replay wiring (`S`)
+- [x] Phase 1: populate `WorldCluster.SamplePoints` with capped, content-seeded offline retention (`M`)
+- [x] Phase 1: reuse the content-derived sampler on the retention path (`S`)
+- [ ] Phase 1: live retention enablement after target-device budget validation (`S`)
+- [x] Phase 1: carry proto `Cluster.sample_points` through adapter, VRLOG, and gRPC (`S`)
 - [ ] Phase 1: call `ExtractClusterFeatures` on the live path (`S`)
 - [ ] Phase 1: throughput benchmark against the kirk0 baseline (`S`)
 - [ ] Phase 2: `ShapeFeatures` and analytic 3×3 eigen solution in `l4perception/shape.go` (`M`)
