@@ -102,6 +102,7 @@ type L4Common struct {
 	ForegroundDBSCANEps        float64 `json:"foreground_dbscan_eps"`
 	ForegroundMinClusterPoints int     `json:"foreground_min_cluster_points"`
 	ForegroundMaxInputPoints   int     `json:"foreground_max_input_points"`
+	MaxSamplePoints            int     `json:"max_sample_points"` // 0 disables retained cluster evidence
 	HeightBandFloor            float64 `json:"height_band_floor"`
 	HeightBandCeiling          float64 `json:"height_band_ceiling"`
 	RemoveGround               bool    `json:"remove_ground"`
