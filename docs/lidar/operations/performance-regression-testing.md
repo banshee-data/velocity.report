@@ -187,8 +187,8 @@ answer.
 
 The Pi rows are the gap. Until the device runs the gate on a schedule, "fast enough" is
 asserted rather than measured, and every committed number describes hardware the product does
-not ship on. Running `make test-perf-all` on a Pi produces its cell's baselines and answers
-the budget question directly; nothing prevents it but the automation.
+not ship on. The [Pi benchmark runbook](pi-benchmark-runbook.md) is the manual procedure;
+nothing prevents making it scheduled but the automation.
 
 ### Capturing and recapturing
 
@@ -686,6 +686,7 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 
 ## See also
 
+- [Pi benchmark runbook](pi-benchmark-runbook.md): step-by-step capture of the `pi` matrix cell — the only one that can answer "fast enough"
 - [PCAP Analysis Mode](pcap-analysis-mode.md): scan, motion stats, and splits via `pcap-split`
 - [LiDAR Architecture](../architecture/LIDAR_ARCHITECTURE.md): Pipeline architecture
 - [Foreground Tracking Plan](../architecture/foreground-tracking.md): Algorithm details

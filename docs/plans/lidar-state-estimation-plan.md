@@ -33,6 +33,19 @@ immutable observation store, grade-aware measurement model, E1 report, and G-GEO
 outstanding at the audited commit. The committed annotation backend is tracked separately; a
 point-mask sidecar is not the production observation store.
 
+**Recovery checkpoint:** Phase 0 now has scoring-window residual/association accumulators and an
+offline `--include-debug` path through the pipeline, VRLOG storage, replay, and gRPC conversion.
+Diagnostic bundles retain associated raw cluster boxes beside track estimates. Schema 2 baselines
+exclude warm-up and retain ended tracks' contributions; schema 1 results below are historical and
+not population-compatible. Empty published frames count as missed opportunities without changing
+the existing tracker lifecycle policy. Accepted-only NIS remains selection-censored.
+
+Phase 1 has started with default-off, bounded cluster retention and a copy-isolated
+`l4bobserve.DetectionObservation` boundary. This is not the observation store, a surface fit, or a
+changed measurement model. The Pi timing/memory gate remains open. The original 33-track list and
+database snapshot are unavailable: a reproducible replacement review queue must be labelled and
+partitioned before it can become held-out reference evidence. Do not call those 33 tracks labelled.
+
 **Controlling decisions:** Phases 2–3 use Option A: `[x, y, vx, vy]`, a 4×4 covariance,
 and a separate uncertainty-bearing orientation belief. Six-state Option B is deferred, not a
 storage requirement. G-PER-1 is the Phase 1 exit gate; it does not block building the observation
@@ -206,6 +219,16 @@ fields that are running aggregates, quality counters and rendering hints. The me
 
 **This section is canonical.** The behaviour plan cites these figures rather than restating
 them, so a re-measurement updates one place.
+
+**Provenance limitation:** these aggregate measurements are historical. Neither the original
+33-track list nor its database snapshot can be recovered from the available material. The current
+database has grown, so a new extraction cannot silently inherit the original population or claim.
+The replacement extractor is [lidar-jump-candidates.py](../../scripts/lidar-jump-candidates.py):
+it records the ordered input-row digest, method version, thresholds, candidate IDs, and peak
+timestamps. Its five-point time-domain fit includes the centre point and uses future samples; this
+is an attenuated, non-causal anomaly proxy, not physical motion truth. It excludes gaps above 0.3 s,
+requires lifetime maximum speed at least 6 m/s and local fit speed at least 2 m/s, and queues
+excursions above 0.5 m. Review causes and group physical-object episodes before freezing partitions.
 
 Sample: `sensor_data.db`, 55,315 tracks and 3,526,860 observations.
 
@@ -801,7 +824,7 @@ weak, `--` disqualifying for this project.
 budget: it measured a degenerate pipeline with no foreground detections, as recorded in the
 [development log][retired-baseline-note].
 The replacement
-[full-pipeline baseline](../../internal/lidar/perf/baseline/baseline-kirk0-full.json) records its
+[full-pipeline Mac baseline](../../internal/lidar/perf/baseline/baseline-kirk0-full-mac.json) records its
 own build, tuning fingerprint, machine, and non-zero stage totals. It is a historical Darwin arm64
 measurement, not a current Pi 4 result. Phase 0 must still publish the current branch's per-stage
 budget on the target hardware; do not scale the retired numbers into a hardware-performance claim.
@@ -1996,17 +2019,21 @@ distribution. Stage timings are non-zero.
 
 **Risks.** Low. Mostly enabling code that already exists.
 
-**Acceptance.** Baseline published for: lateral residual distribution by speed band,
-association rate by speed band, per-stage frame time on Pi 4, and the 33 regression
-tracks extracted into the held-out partition.
+**Acceptance.** Baseline published for lateral residual summaries by speed band, association rate
+by predicted-speed band, per-stage frame time on Pi 4, and a reviewed, frozen replacement for the
+lost 33-track regression set. Current accumulators report count, RMS, bias, mean NIS, and exceedance;
+they do not yet retain residual quantiles or an empirical distribution.
 
-**Gate to Phase 1.** Baseline reproducible across two runs to within 2 %.
+**Gate to Phase 1.** Baseline reproducible across two runs to within 2 %. The warmed kirk0 regression
+test now compares schema 2 baseline bytes across two identical runs. This permits additive Phase 1
+development; it does not close Pi acceptance or the missing reviewed-reference gate.
 
-#### Phase 0 baseline, measured
+#### Historical Phase 0 baseline, schema 1
 
-Residual and NIS instrumentation is wired into the tracker and published as
-`tracking_baseline.json` beside each replay recording. Two warmed, settled windows on the
-s2 site, default tuning:
+The other agent's `dbe670bf3` added residual/NIS instrumentation and recorded the following two
+S2 windows. Its schema 1 writer pooled surviving tracks' lifetime accumulators: warm-up could enter
+the totals, and ended tracks disappeared. Keep this table as historical evidence only. New
+`tracking_baseline.json` files use schema 2 scoring-window accumulators and require a fresh comparison.
 
 | Capture      | Speed band | n   | Lateral RMS | Longitudinal RMS | Mean NIS  | Over 95% bound | Association |
 | ------------ | ---------- | --- | ----------- | ---------------- | --------- | -------------- | ----------- |
@@ -2016,16 +2043,10 @@ s2 site, default tuning:
 | `s2-1_00006` | 2–5 m/s    | 2   | 1.082 m     | 0.923 m          | **20.02** | 100.0%         | 100.0%      |
 | `s2-1_00006` | 5–10 m/s   | 15  | 0.335 m     | 0.498 m          | **3.16**  | 13.3%          | 72.7%       |
 
-A consistent two-dimensional filter holds mean NIS near 2 and puts about 5% of observations
-above the chi-squared bound. Neither capture does, and they miss in opposite directions: the
-dense slow capture runs at a fifth to a quarter of the expected value, while the faster
-capture exceeds it above 5 m/s. Underconfident where observations are frequent and slow,
-overconfident where they are sparse and fast.
-
-That is the case for Phase 3's observation-conditioned uncertainty stated as evidence rather
-than as an assumption, and it is a stronger case than "the scalar is too large" would have
-been: no single fixed value can be right for both ends of this range, so retuning the constant
-cannot fix it.
+For an uncensored, correctly associated two-dimensional Gaussian innovation, mean NIS is 2 and
+the nominal exceedance is 5%. These accepted-only, survivor-selected samples do not satisfy that
+sampling contract. They motivate stratified investigation; they do not prove that a fixed scalar
+cannot work, or distinguish measurement noise from motion-model error.
 
 Four things bound the claim. The 2–5 m/s row on `s2-1_00006` is two observations, so its NIS
 of 20 is one event and not a distribution; the 5–10 m/s row is fifteen. Both captures are one
@@ -2040,17 +2061,22 @@ estimator noise, so decomposing against it would rotate the innovation by a rand
 Reporting the magnitude longitudinally and leaving lateral empty is deliberate, and the
 `decomposed` count in the JSON says which rows carry a lateral measurement at all.
 
-Reproducibility: the baseline is identical across repeat runs of the same window, against the
-gate's 2% allowance. Per-track accumulators are summed in creation order rather than map
-order, because float addition is not associative and a baseline that moves between identical
-runs cannot be compared with itself.
-
-Still outstanding for the phase: per-stage frame time on a Pi 4, which needs the hardware, and
-the 33 jump tracks extracted into the held-out partition.
+The other agent reported identical schema 1 repeats; that does not certify schema 2. The current
+warmed kirk0 test independently asserts exact schema 2 repeatability, including non-empty residual
+bands and saved/reopened debug overlays and cluster samples. Wider S2 replication, residual
+distribution storage, per-stage Pi 4 timing, and reviewed replacement-track partitioning remain open.
 
 ### Phase 1: observation model and persistence
 
 **Goal.** A correct, immutable, replayable record of what the sensor saw.
+
+**Started, not complete.** L4 now retains content-seeded samples when the offline replay config sets
+`l4.dbscan_xy_v1.max_sample_points` above zero, capped at 1024. Zero remains the default. Retention
+copies acquisition times and intensity into `RetainedPoints`; XYZ samples also reach VRLOG. The
+new observation boundary owns copies of raw geometry and keeps frame-start and cluster-capture
+time distinct. Its snapshot is an initial in-memory contract, not a stable database schema or a
+claim that the live pipeline writes observations. Primitive fits, fixed-covariance interpretation,
+write-once SQLite storage/replay, source/calibration identity, P11, and G-PER-1 remain next.
 
 **Files.** New `internal/lidar/l4bobserve/`; `l4perception/cluster.go` for
 point retention and per-cluster timestamps; new
@@ -2441,8 +2467,12 @@ architecture; it does not relitigate findings.
 
 ### Outstanding
 
-- [ ] Phase 0: wire the debug collector; populate per-stage timings; publish the baseline
-- [ ] Phase 0: extract the 33 jump tracks into the held-out partition
+- [x] Phase 0: wire opt-in offline diagnostics through saved/reopened VRLOG and gRPC
+- [x] Phase 0: scoring-window speed-banded summaries and a repeat-run regression test
+- [ ] Phase 0: residual distributions, wider capture replication, and current Pi per-stage timings
+- [ ] Phase 0: review and freeze replacement candidates; original 33 IDs are unavailable
+- [x] Phase 1 start: bounded offline cluster retention and copy-isolated observation boundary
+- [ ] Phase 1: immutable store/replay, primitive fits, surface/clipping context, and G-PER-1
 - [ ] Experiment E1 on the soma static captures (Section 16.5),
       starting with the cheap E1.3 smoke test
 - [ ] Run `velocity lidar settling-eval` on all four soma files and publish

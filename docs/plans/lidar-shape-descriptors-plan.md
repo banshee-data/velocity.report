@@ -48,10 +48,12 @@ Nothing can be built until points survive clustering, which is why point retenti
 
 ## Current state
 
-The heading branch's content-seeded DBSCAN input subsampling improves repeatability; it does not
-implement the retained per-cluster point product below. The committed annotation packs are an
-offline evidence source, not live descriptor extraction. The JSON class scorer and body-local
-shape tracker remain follow-on demo work.
+The recovery increment implements default-off offline cluster retention, reusing the heading
+branch's content-seeded sampler. `max_sample_points` accepts 0–1024; zero disables retention.
+Acquisition times and intensity survive in memory, and XYZ samples now pass through the adapter,
+VRLOG codec, and gRPC. This does not deliver live descriptors or a production observation store.
+The committed annotation packs remain a separate source domain: retained cluster samples are not
+annotation point indices. The JSON class scorer and body-local shape tracker remain follow-on work.
 
 | Fact                                                                                                                            | Evidence                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -87,17 +89,11 @@ converge well before a cluster's full point count. Retain a capped, deterministi
 cluster, with the cap exposed as a tuning key under the active L4 engine block so it can be raised
 for offline analysis and lowered for constrained deployment.
 
-Determinism matters more than sample size: replay must reproduce descriptors exactly. The existing
-`uniformSubsample` in `l4perception/cluster.go` **cannot be reused** for this. It seeds from
-`time.Now().UnixNano()` mixed with a monotonic counter, deliberately, so that "consecutive calls
-within the same nanosecond still produce distinct subsamples". Retention therefore needs a
-content-derived seed — frame id, cluster id and sensor id hashed together — so the same input
-reproduces the same sample on every replay.
-
-That choice exposes a pre-existing problem rather than creating one: the same non-deterministic
-subsample already runs ahead of DBSCAN whenever a frame exceeds `foreground_max_input_points`
-(default 8000), which makes clustering itself irreproducible on busy frames. Recorded as a separate
-item below; this plan must not inherit the behaviour.
+Determinism matters: replay must reproduce descriptors exactly. `uniformSubsample` now seeds from
+the ordered coordinate content rather than wall time. The previous prohibition on reusing it is
+obsolete. Both DBSCAN input capping and per-cluster retention use this deterministic function;
+retention additionally copies the result so later buffer reuse cannot alter stored evidence.
+This is input-order determinism, not invariance to point permutation or a temporal correspondence.
 
 ### Descriptors in SQLite, points in VRLOG
 
@@ -190,7 +186,8 @@ Three consequences, all binding:
    `adaptUnassociatedClusters`) so VRLOG recordings carry cluster-tagged points.
 4. Call `ExtractClusterFeatures` from the live path so
    `IntensityStd` and `VerticalSpread` carry real values.
-5. Benchmark against `internal/lidar/perf/baseline/baseline-kirk0-full.json`. A cap that drops
+5. Benchmark against the matching host-class baseline, including
+   `internal/lidar/perf/baseline/baseline-kirk0-full-mac.json` for Mac checks. A cap that drops
    sustained frame rate below 10 Hz on target hardware is rejected; if the hot-path cost cannot be
    met, retention becomes analysis-and-replay-only, where throughput is not real-time bound.
 
