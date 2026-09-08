@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"sort"
 	"time"
@@ -92,6 +93,9 @@ func saveSidecar(p *Pack, s *Sidecar, restoredFrom int) error {
 		if _, err := root.Stat(revisionDir); !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("current annotation missing but history exists or is unreadable")
 		}
+	}
+	if parent >= math.MaxInt-1 {
+		return fmt.Errorf("annotation revision space exhausted")
 	}
 	next.Revision = parent + 1
 	next.UpdatedUTC = time.Now().UTC().Format(time.RFC3339Nano)
