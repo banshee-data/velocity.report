@@ -19,12 +19,12 @@ const (
 	kirkhamLng  = -122.4694
 )
 
-// setupGeoDB applies the replay-case fixture plus migrations 042 and 043.
+// setupGeoDB applies the replay-case fixture plus migrations 045 and 046.
 func setupGeoDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db := setupCaseFilesDB(t)
-	applyMigrationScript(t, db, "000042_replay_case_geography.up.sql")
-	applyMigrationScript(t, db, "000043_lidar_sites.up.sql")
+	applyMigrationScript(t, db, "000045_replay_case_geography.up.sql")
+	applyMigrationScript(t, db, "000046_lidar_sites.up.sql")
 	return db
 }
 

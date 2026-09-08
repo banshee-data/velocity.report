@@ -6,7 +6,7 @@
 -- L16 token itself, consistent with that guide's rule that only the
 -- canonical token is an identifier.
 --
--- This separates two things migration 42 conflated in one lat/lon pair on the
+-- This separates two things migration 45 conflated in one lat/lon pair on the
 -- case: the sensor pose (origin_lat/origin_lon on lidar_replay_cases — where
 -- the car was for one visit, which moves visit to visit) and a site's own
 -- canonical pose (here — a fixed point such as the midpoint of the

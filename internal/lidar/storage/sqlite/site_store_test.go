@@ -89,15 +89,15 @@ func TestSetCanonicalPoseWithNoLabelLeavesTheExistingOne(t *testing.T) {
 	}
 }
 
-// TestMigration043BackfillsSitesForAlreadyLocatedCases guards the upgrade
-// path: a deployment that already has located replay cases from migration 42
-// must not lose that data when 43 introduces sites — every located case
+// TestMigration046BackfillsSitesForAlreadyLocatedCases guards the upgrade
+// path: a deployment that already has located replay cases from migration 45
+// must not lose that data when 46 introduces sites — every located case
 // should come out the other side naming a site.
-func TestMigration043BackfillsSitesForAlreadyLocatedCases(t *testing.T) {
+func TestMigration046BackfillsSitesForAlreadyLocatedCases(t *testing.T) {
 	db := setupCaseFilesDB(t)
-	applyMigrationScript(t, db, "000042_replay_case_geography.up.sql")
+	applyMigrationScript(t, db, "000045_replay_case_geography.up.sql")
 
-	// Simulate a pre-43 deployment: located via raw SQL, exactly the shape
+	// Simulate a pre-46 deployment: located via raw SQL, exactly the shape
 	// SetCaseLocation wrote before site_id existed.
 	store := NewReplayCaseStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
@@ -110,7 +110,7 @@ func TestMigration043BackfillsSitesForAlreadyLocatedCases(t *testing.T) {
 		t.Fatalf("simulate pre-43 located case: %v", err)
 	}
 
-	applyMigrationScript(t, db, "000043_lidar_sites.up.sql")
+	applyMigrationScript(t, db, "000046_lidar_sites.up.sql")
 
 	var siteID string
 	if err := db.QueryRow(`SELECT site_id FROM lidar_replay_cases WHERE replay_case_id = 'case-1'`).

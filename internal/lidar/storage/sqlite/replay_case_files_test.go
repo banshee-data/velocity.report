@@ -15,7 +15,7 @@ func setupCaseFilesDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db := setupTestSceneDB(t)
 	migration := filepath.Join("..", "..", "..", "db", "migrations",
-		"000041_replay_case_files.up.sql")
+		"000044_replay_case_files.up.sql")
 	schema, err := os.ReadFile(migration)
 	if err != nil {
 		t.Fatalf("read migration 041: %v", err)

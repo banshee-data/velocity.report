@@ -25,7 +25,7 @@ func setupCaptureDB(t *testing.T) *sql.DB {
 	t.Cleanup(func() { db.Close() })
 
 	migration := filepath.Join("..", "..", "..", "db", "migrations",
-		"000039_create_lidar_capture_index.up.sql")
+		"000042_create_lidar_capture_index.up.sql")
 	schema, err := os.ReadFile(migration)
 	if err != nil {
 		t.Fatalf("read migration: %v", err)

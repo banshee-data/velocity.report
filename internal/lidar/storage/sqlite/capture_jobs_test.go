@@ -15,7 +15,7 @@ func setupJobsDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db := setupCaptureDB(t)
 	migration := filepath.Join("..", "..", "..", "db", "migrations",
-		"000040_create_lidar_capture_jobs.up.sql")
+		"000043_create_lidar_capture_jobs.up.sql")
 	schema, err := os.ReadFile(migration)
 	if err != nil {
 		t.Fatalf("read migration 040: %v", err)
