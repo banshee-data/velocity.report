@@ -437,6 +437,8 @@ func TestCommonAndVariantValidateErrors(t *testing.T) {
 		{"eps", func(cfg *L4Common) { cfg.ForegroundDBSCANEps = 0 }, "foreground_dbscan_eps must be positive"},
 		{"min points", func(cfg *L4Common) { cfg.ForegroundMinClusterPoints = 0 }, "foreground_min_cluster_points must be >= 1"},
 		{"max input", func(cfg *L4Common) { cfg.ForegroundMaxInputPoints = 0 }, "foreground_max_input_points must be >= 1"},
+		{"negative retained sample", func(cfg *L4Common) { cfg.MaxSamplePoints = -1 }, "max_sample_points must be between 0 and 1024"},
+		{"oversized retained sample", func(cfg *L4Common) { cfg.MaxSamplePoints = 1025 }, "max_sample_points must be between 0 and 1024"},
 		{"height band", func(cfg *L4Common) { cfg.HeightBandFloor = 2; cfg.HeightBandCeiling = 1 }, "height_band_floor must be <= height_band_ceiling"},
 		{"max diameter", func(cfg *L4Common) { cfg.MaxClusterDiameter = 0 }, "max_cluster_diameter must be positive"},
 		{"min diameter", func(cfg *L4Common) { cfg.MinClusterDiameter = 0 }, "min_cluster_diameter must be positive"},
@@ -672,9 +674,9 @@ func TestStrictEngineUnmarshalAndHelpers(t *testing.T) {
 
 	t.Run("l4 variants", func(t *testing.T) {
 		cases := []string{
-			`{"engine":"dbscan_xy_v1","dbscan_xy_v1":{"foreground_dbscan_eps":0.8,"foreground_min_cluster_points":5,"foreground_max_input_points":8000,"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true,"max_cluster_diameter":12,"min_cluster_diameter":0.05,"max_cluster_aspect_ratio":15}}`,
-			`{"engine":"two_stage_mahalanobis_v2","two_stage_mahalanobis_v2":{"foreground_dbscan_eps":0.8,"foreground_min_cluster_points":5,"foreground_max_input_points":8000,"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true,"max_cluster_diameter":12,"min_cluster_diameter":0.05,"max_cluster_aspect_ratio":15,"velocity_coherence_gate":1,"min_velocity_confidence":0.5}}`,
-			`{"engine":"hdbscan_adaptive_v1","hdbscan_adaptive_v1":{"foreground_dbscan_eps":0.8,"foreground_min_cluster_points":5,"foreground_max_input_points":8000,"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true,"max_cluster_diameter":12,"min_cluster_diameter":0.05,"max_cluster_aspect_ratio":15,"min_cluster_size":4,"min_samples":2}}`,
+			`{"engine":"dbscan_xy_v1","dbscan_xy_v1":{"foreground_dbscan_eps":0.8,"foreground_min_cluster_points":5,"foreground_max_input_points":8000,"max_sample_points":0,"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true,"max_cluster_diameter":12,"min_cluster_diameter":0.05,"max_cluster_aspect_ratio":15}}`,
+			`{"engine":"two_stage_mahalanobis_v2","two_stage_mahalanobis_v2":{"foreground_dbscan_eps":0.8,"foreground_min_cluster_points":5,"foreground_max_input_points":8000,"max_sample_points":0,"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true,"max_cluster_diameter":12,"min_cluster_diameter":0.05,"max_cluster_aspect_ratio":15,"velocity_coherence_gate":1,"min_velocity_confidence":0.5}}`,
+			`{"engine":"hdbscan_adaptive_v1","hdbscan_adaptive_v1":{"foreground_dbscan_eps":0.8,"foreground_min_cluster_points":5,"foreground_max_input_points":8000,"max_sample_points":0,"height_band_floor":-2.8,"height_band_ceiling":1.5,"remove_ground":true,"max_cluster_diameter":12,"min_cluster_diameter":0.05,"max_cluster_aspect_ratio":15,"min_cluster_size":4,"min_samples":2}}`,
 		}
 		for _, raw := range cases {
 			var cfg L4Config
