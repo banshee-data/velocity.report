@@ -202,6 +202,11 @@ type Tracker struct {
 
 	// DebugCollector captures algorithm internals for visualisation (optional)
 	DebugCollector DebugCollector
+	// Window baselines outlive individual tracks and exclude warm-up when reset
+	// at the scoring boundary. Per-track lifetime metrics remain unchanged.
+	baselineEnabled     bool
+	baselineResiduals   ResidualBands
+	baselineAssociation AssociationBands
 
 	mu sync.RWMutex
 }
@@ -255,6 +260,9 @@ func (t *Tracker) Reset() {
 	t.ClusteredPoints = 0
 	t.EmptyBoxFrames = 0
 	t.TotalBoxFrames = 0
+	t.baselineEnabled = false
+	t.baselineResiduals = ResidualBands{}
+	t.baselineAssociation = AssociationBands{}
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -323,6 +331,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	for clusterIdx, trackID := range associations {
 		if trackID != "" {
 			track := t.Tracks[trackID]
+			t.observeBaselineAssociation(track, true)
 			t.update(track, clusters[clusterIdx], nowNanos)
 			track.Hits++
 			track.Misses = 0
@@ -373,6 +382,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	deletedThisFrame := 0
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
+			t.observeBaselineAssociation(track, false)
 			track.Misses++
 			track.Hits = 0
 			track.OcclusionCount++
@@ -574,6 +584,7 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 		if track.TrackState == TrackDeleted {
 			continue
 		}
+		t.observeBaselineAssociation(track, false)
 		track.Misses++
 		track.Hits = 0
 

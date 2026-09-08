@@ -3,7 +3,71 @@ package l5tracks
 import (
 	"math"
 	"testing"
+	"time"
 )
+
+func TestWindowBaselineExcludesWarmupAndSurvivesTrackDeletion(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.MaxMisses = 1
+	cfg.MaxMissesConfirmed = 1
+	tracker := NewTracker(cfg)
+	now := time.Unix(100, 0)
+	cluster := WorldCluster{ClusterID: 1, CentroidX: 10, CentroidY: 3, PointsCount: 20}
+	tracker.Update([]WorldCluster{cluster}, now)
+	tracker.Update([]WorldCluster{cluster}, now.Add(100*time.Millisecond))
+	if len(tracker.GetWindowBaseline().Residuals) != 0 {
+		t.Fatal("warm-up was counted before the window opened")
+	}
+	var track *TrackedObject
+	for _, v := range tracker.Tracks {
+		track = v
+	}
+	before := track.ObservationCount
+	tracker.BeginTrackingBaseline()
+	if track.ObservationCount != before {
+		t.Fatal("begin reset tracker state")
+	}
+	tracker.Update([]WorldCluster{cluster}, now.Add(200*time.Millisecond))
+	got := tracker.GetWindowBaseline()
+	if len(got.Residuals) != 1 || got.Residuals[0].Count != 1 || got.Association[0].Matched != 1 {
+		t.Fatalf("scoring window = %+v", got)
+	}
+	tracker.Update(nil, now.Add(300*time.Millisecond))
+	if track.TrackState != TrackDeleted {
+		t.Fatal("expected terminal miss")
+	}
+	delete(tracker.Tracks, track.TrackID)
+	got = tracker.GetWindowBaseline()
+	if got.Residuals[0].Count != 1 || got.Association[0].Missed != 1 {
+		t.Fatalf("terminal contribution lost: %+v", got)
+	}
+	tracker.BeginTrackingBaseline()
+	if len(tracker.GetWindowBaseline().Residuals) != 0 || len(tracker.GetWindowBaseline().Association) != 0 {
+		t.Fatal("new window inherited old counts")
+	}
+}
+
+func TestWindowBaselineCountsEmptyFramesAndResetDisablesIt(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.MaxMisses = 1
+	tracker := NewTracker(cfg)
+	now := time.Unix(100, 0)
+	tracker.Update([]WorldCluster{{ClusterID: 1, CentroidX: 10, PointsCount: 20}}, now)
+	tracker.RecordBaselineEmptyFrame() // Disabled during warm-up.
+	tracker.BeginTrackingBaseline()
+	tracker.RecordBaselineEmptyFrame()
+	tracker.AdvanceMisses(now.Add(time.Second))
+	tracker.RecordBaselineEmptyFrame() // Deleted tracks are not opportunities.
+	tracker.AdvanceMisses(now.Add(2 * time.Second))
+	got := tracker.GetWindowBaseline()
+	if len(got.Association) != 1 || got.Association[0].Missed != 2 || got.Association[0].Matched != 0 {
+		t.Fatalf("empty/terminal frame denominator: %+v", got)
+	}
+	tracker.Reset()
+	if tracker.baselineEnabled || len(tracker.GetWindowBaseline().Association) != 0 {
+		t.Fatal("Reset retained baseline")
+	}
+}
 
 // identity inverse covariance, so NIS reduces to the squared innovation
 // magnitude and the arithmetic is checkable by hand.

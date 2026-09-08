@@ -60,6 +60,9 @@ type WorldCluster struct {
 	// Optional in-memory only fields (not persisted to schema)
 	SamplePoints [][3]float32         // for debugging/thumbnails
 	OBB          *OrientedBoundingBox // Oriented bounding box (computed via PCA)
+	// RetainedPoints preserve acquisition times and intensities for observation
+	// research. They are sampled cluster members, not annotation point indices.
+	RetainedPoints []WorldPoint
 }
 
 // PointPolar is a backward-compatible alias for the canonical definition in l2frames.

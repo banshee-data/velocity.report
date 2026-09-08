@@ -16,7 +16,9 @@ import "math"
 // NIS, the normalised innovation squared, is the filter grading its own
 // uncertainty. For a two-dimensional position measurement a consistent filter
 // produces NIS values following a chi-squared distribution with two degrees of
-// freedom, so their mean sits at 2. A mean well above 2 means the filter is
+// freedom before association selection, so their mean sits at 2. Accepted-only
+// samples here are censored by gating and cannot directly certify calibration.
+// For an uncensored sample, a mean well above 2 means the filter is
 // overconfident: reality surprises it more often than its covariance predicts,
 // which for a fixed scalar noise is what range and partial visibility would
 // do. A mean well below 2 means it is underconfident and discarding
@@ -42,6 +44,55 @@ var ResidualSpeedBands = [...]float32{0, 2, 5, 10, 15}
 
 // ResidualBandCount is the number of speed bands.
 const ResidualBandCount = len(ResidualSpeedBands)
+
+// observeBaselineAssociation counts each pre-existing active track once, before
+// correction or deletion. Caller holds t.mu. Births are not opportunities;
+// terminal misses and frames without usable foreground are.
+func (t *Tracker) observeBaselineAssociation(track *TrackedObject, matched bool) {
+	if t.baselineEnabled {
+		speed := float32(math.Hypot(float64(track.VX), float64(track.VY)))
+		t.baselineAssociation.Observe(speed, matched)
+	}
+}
+
+// BeginTrackingBaseline starts a fresh measurement window without resetting
+// tracks, predictions, background state, or lifetime diagnostic accumulators.
+func (t *Tracker) BeginTrackingBaseline() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.baselineEnabled = true
+	t.baselineResiduals = ResidualBands{}
+	t.baselineAssociation = AssociationBands{}
+}
+
+// RecordBaselineEmptyFrame records an emitted frame with no usable detections.
+// It does not change the existing lifecycle policy (the pipeline currently
+// publishes such frames without updating tracks). Caller must not also Update
+// or AdvanceMisses for the same frame.
+func (t *Tracker) RecordBaselineEmptyFrame() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.baselineEnabled {
+		return
+	}
+	for _, track := range t.Tracks {
+		if track.TrackState != TrackDeleted {
+			t.observeBaselineAssociation(track, false)
+		}
+	}
+}
+
+// GetWindowBaseline includes observations made during the window even if their
+// tracks have subsequently been deleted or pruned. NIS remains accepted-only,
+// not an uncensored calibration sample.
+func (t *Tracker) GetWindowBaseline() TrackingMetrics {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return TrackingMetrics{
+		Residuals:   t.baselineResiduals.Summarise(),
+		Association: t.baselineAssociation.Summarise(),
+	}
+}
 
 // residualBand returns the band index for a speed.
 func residualBand(speed float32) int {
