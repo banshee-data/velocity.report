@@ -35,7 +35,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
@@ -156,6 +155,10 @@ func (p *recordingPublisher) Publish(frame interface{}) {
 // that starts assuming a DB fails loudly here instead of writing into the
 // production store during an analysis run.
 func Run(cfg Config) (*Result, error) {
+	return run(cfg, defaultRuntime())
+}
+
+func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	start := time.Now()
 
 	if cfg.PCAPFile == "" {
@@ -205,7 +208,7 @@ func Run(cfg Config) (*Result, error) {
 	if scoreStart < packets.FirstTimestampNs || scoreStart > packets.LastTimestampNs {
 		return nil, fmt.Errorf("scoring window starts outside capture")
 	}
-	pcapHash, err := fileSHA256(cfg.PCAPFile)
+	pcapHash, err := runtime.hashFile(cfg.PCAPFile)
 	if err != nil {
 		return nil, fmt.Errorf("hash capture: %w", err)
 	}
@@ -215,7 +218,7 @@ func Run(cfg Config) (*Result, error) {
 	}
 
 	// --- L1: parser ---
-	parserCfg, err := parse.LoadPandar40PConfig()
+	parserCfg, err := runtime.loadParser()
 	if err != nil {
 		return nil, fmt.Errorf("load parser config: %w", err)
 	}
@@ -223,17 +226,9 @@ func Run(cfg Config) (*Result, error) {
 	elevations := parse.ElevationsFromConfig(parserCfg)
 
 	// --- L3: background model ---
-	bgConfig := l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
-	if err := bgConfig.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid background config: %w", err)
-	}
-	const rings, azBins = 40, 1800
-	bgMgr := l3grid.NewBackgroundManagerDI(cfg.SensorID, rings, azBins, bgConfig.ToBackgroundParams(), nil)
-	if bgMgr == nil {
-		return nil, fmt.Errorf("failed to create BackgroundManager")
-	}
-	if err := bgMgr.SetRingElevations(elevations); err != nil {
-		return nil, fmt.Errorf("set ring elevations: %w", err)
+	bgMgr, err := runtime.background(cfg.SensorID, tuningCfg, elevations)
+	if err != nil {
+		return nil, err
 	}
 	bgMgr.SetSourcePath(cfg.PCAPFile)
 
@@ -243,10 +238,13 @@ func Run(cfg Config) (*Result, error) {
 		tuningCfg.GetMinObservationsForClassification())
 
 	// --- Recorder + publisher ---
-	rec, err := recorder.NewRecorder(cfg.OutDir, cfg.SensorID)
+	rec, err := runtime.newRecorder(cfg.OutDir, cfg.SensorID)
 	if err != nil {
 		return nil, fmt.Errorf("create recorder: %w", err)
 	}
+	// Close also on provenance failures before frame processing begins. Recorder
+	// Close is idempotent; the explicit close below still reports finalisation errors.
+	defer rec.Close()
 	pub := &recordingPublisher{rec: rec, dropPoints: !cfg.IncludePoints, recordAfterNanos: scoreStart}
 	adapter := l9endpoints.NewFrameAdapter(cfg.SensorID)
 
@@ -255,7 +253,7 @@ func Run(cfg Config) (*Result, error) {
 	// able to answer. The live path takes these from the run-config store in
 	// the database; there is no database here, so they are derived from the
 	// tuning file actually loaded and from the build stamp.
-	paramsJSON, err := json.Marshal(tuningCfg)
+	paramsJSON, err := runtime.marshal(tuningCfg)
 	if err != nil {
 		return nil, fmt.Errorf("marshal tuning config for provenance: %w", err)
 	}
@@ -365,7 +363,7 @@ func Run(cfg Config) (*Result, error) {
 	// Drain before closing the recorder, or the tail of the capture is lost.
 	fb.Close()
 
-	if cerr := rec.Close(); cerr != nil && replayErr == nil {
+	if cerr := runtime.closeRecorder(rec); cerr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("close recording: %w", cerr)
 	}
 	if replayErr != nil {
@@ -377,7 +375,7 @@ func Run(cfg Config) (*Result, error) {
 	if pub.recorded == 0 {
 		return nil, fmt.Errorf("replay produced no frames: check the UDP port filter (%d) and the capture window", cfg.UDPPort)
 	}
-	parserJSON, err := json.Marshal(parserCfg)
+	parserJSON, err := runtime.marshal(parserCfg)
 	if err != nil {
 		return nil, fmt.Errorf("marshal calibration: %w", err)
 	}
@@ -396,19 +394,18 @@ func Run(cfg Config) (*Result, error) {
 		"frames_processed": frameCount, "frames_recorded": pub.recorded, "warmup_frames": pub.warmupFrames,
 		"warmup_static_verified": false,
 	}
-	manifestJSON, err := json.MarshalIndent(manifest, "", "  ")
+	manifestJSON, err := runtime.marshalIndent(manifest, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal replay manifest: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg.OutDir, "replay_manifest.json"), append(manifestJSON, '\n'), 0644); err != nil {
+	if err := runtime.writeFile(filepath.Join(cfg.OutDir, "replay_manifest.json"), append(manifestJSON, '\n'), 0644); err != nil {
 		return nil, fmt.Errorf("write replay manifest: %w", err)
 	}
 
-	// Phase 0 baseline. These are the tracker's own residuals and association
-	// rates, which a VRLOG cannot carry: it records the estimates the pipeline
-	// published, not what they disagreed with the observations about. Written
-	// beside the recording so a baseline can be compared run to run.
-	if err := writeTrackingBaseline(cfg.OutDir, tracker.GetWindowBaseline()); err != nil {
+	// Phase 0 scoring-window aggregates include empty frames and ended tracks.
+	// Debug VRLOGs also carry individual innovations, but not these banded NIS
+	// and association summaries. Keep the population declaration beside the run.
+	if err := runtime.writeBaseline(cfg.OutDir, tracker.GetWindowBaseline()); err != nil {
 		return nil, err
 	}
 

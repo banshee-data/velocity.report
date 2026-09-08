@@ -2,12 +2,28 @@ package replayeval
 
 import (
 	"errors"
+	"math"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
+
+func TestTrackingBaselineWriteErrors(t *testing.T) {
+	if err := writeTrackingBaseline(t.TempDir(), l5tracks.TrackingMetrics{Residuals: []l5tracks.ResidualBandSummary{{MeanNIS: math.NaN()}}}); err == nil || !strings.Contains(err.Error(), "marshal tracking baseline") {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "tracking_baseline.json"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTrackingBaseline(dir, l5tracks.TrackingMetrics{}); err == nil || !strings.Contains(err.Error(), "write tracking baseline") {
+		t.Fatal(err)
+	}
+}
 
 func TestRunRequiresPCAPFile(t *testing.T) {
 	_, err := Run(Config{OutDir: t.TempDir()})

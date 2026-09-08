@@ -4,6 +4,7 @@
 package lidar
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -80,6 +81,16 @@ func TestReplayEvalRecordsAndAnalyses(t *testing.T) {
 	}
 	if _, _, err := analysis.GenerateReport(out); err != nil {
 		t.Fatalf("the run did not produce an analysable recording: %v", err)
+	}
+	b, err := os.ReadFile(filepath.Join(out, "replay_manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		IncludeDebug bool `json:"include_debug"`
+	}
+	if err := json.Unmarshal(b, &manifest); err != nil || !manifest.IncludeDebug {
+		t.Fatalf("debug flag lost: %v", err)
 	}
 
 	// A second run compared against the first exercises the comparison path.
