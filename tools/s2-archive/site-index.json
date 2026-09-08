@@ -1,0 +1,447 @@
+[
+  {
+    "site": "s01",
+    "day": "2026-09-01",
+    "start": "2026-09-01T12:59:22.752867-07:00",
+    "clock": "12:59",
+    "minutes": 19.2,
+    "fragments": 1,
+    "captures": [
+      "s2-1_20260901124845_00001.pcap"
+    ],
+    "map_mark": "12:55",
+    "where": "Haight / Divisadero",
+    "lat": 37.7715,
+    "lon": -122.4375,
+    "position_confidence": "low",
+    "published_as": null
+  },
+  {
+    "site": "s02",
+    "day": "2026-09-01",
+    "start": "2026-09-01T13:27:25.196424-07:00",
+    "clock": "1:27",
+    "minutes": 21.7,
+    "fragments": 1,
+    "captures": [
+      "s2-1_20260901124845_00001.pcap"
+    ],
+    "map_mark": "1:25",
+    "where": "Market near Church / Duboce",
+    "lat": 37.769,
+    "lon": -122.429,
+    "position_confidence": "low",
+    "published_as": null
+  },
+  {
+    "site": "s03",
+    "day": "2026-09-01",
+    "start": "2026-09-01T13:59:33.731163-07:00",
+    "clock": "1:59",
+    "minutes": 20.2,
+    "fragments": 1,
+    "captures": [
+      "s2-1_20260901124845_00001.pcap"
+    ],
+    "map_mark": "1:55",
+    "where": "NoPa, Fell / Oak near Divisadero",
+    "lat": 37.774,
+    "lon": -122.4375,
+    "position_confidence": "low",
+    "published_as": null
+  },
+  {
+    "site": "s04",
+    "day": "2026-09-01",
+    "start": "2026-09-01T14:33:21.213325-07:00",
+    "clock": "2:33",
+    "minutes": 20.9,
+    "fragments": 1,
+    "captures": [
+      "s2-1_20260901124845_00001.pcap"
+    ],
+    "map_mark": "2:30",
+    "where": "Laurel Heights / Presidio Heights, California St",
+    "lat": 37.786,
+    "lon": -122.447,
+    "position_confidence": "low",
+    "published_as": null
+  },
+  {
+    "site": "s05",
+    "day": "2026-09-01",
+    "start": "2026-09-01T15:10:31.646959-07:00",
+    "clock": "3:10",
+    "minutes": 18.6,
+    "fragments": 1,
+    "captures": [
+      "s2-1_20260901124845_00001.pcap"
+    ],
+    "map_mark": "3:05",
+    "where": "near the green/purple boundary; assigned to 9/1 on time, not position",
+    "lat": null,
+    "lon": null,
+    "position_confidence": "low (day inferred from time, mark sits on the region edge)",
+    "published_as": null
+  },
+  {
+    "site": "s06",
+    "day": "2026-09-01",
+    "start": "2026-09-01T15:46:36.580590-07:00",
+    "clock": "3:46",
+    "minutes": 21.8,
+    "fragments": 1,
+    "captures": [
+      "s2-1_20260901124845_00001.pcap"
+    ],
+    "map_mark": "3:40",
+    "where": "Western Addition, Golden Gate Avenue",
+    "lat": 37.779,
+    "lon": -122.43,
+    "position_confidence": "low",
+    "published_as": null
+  },
+  {
+    "site": "s07",
+    "day": "2026-09-02",
+    "start": "2026-09-02T09:38:22.219220-07:00",
+    "clock": "9:38",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_2_20260902093822_00003.pcap",
+      "s2_sf_2_20260902094322_00004.pcap",
+      "s2_sf_2_20260902094823_00005.pcap",
+      "s2_sf_2_20260902095323_00006.pcap"
+    ],
+    "map_mark": "9:37",
+    "where": "Cow Hollow, Union Street west of Fillmore",
+    "lat": 37.7975,
+    "lon": -122.436,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s08",
+    "day": "2026-09-02",
+    "start": "2026-09-02T10:03:24.602530-07:00",
+    "clock": "10:03",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_2_20260902100324_00008.pcap",
+      "s2_sf_2_20260902100825_00009.pcap",
+      "s2_sf_2_20260902101325_00010.pcap",
+      "s2_sf_2_20260902101826_00011.pcap"
+    ],
+    "map_mark": "10:00",
+    "where": "Marina Boulevard, west end near Baker",
+    "lat": 37.8055,
+    "lon": -122.4445,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s09",
+    "day": "2026-09-02",
+    "start": "2026-09-02T10:28:27.366603-07:00",
+    "clock": "10:28",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_2_20260902102827_00013.pcap",
+      "s2_sf_2_20260902103327_00014.pcap",
+      "s2_sf_2_20260902103828_00015.pcap",
+      "s2_sf_2_20260902104328_00016.pcap"
+    ],
+    "map_mark": "10:28",
+    "where": "Marina Boulevard near Fillmore",
+    "lat": 37.8065,
+    "lon": -122.436,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s10",
+    "day": "2026-09-02",
+    "start": "2026-09-02T10:58:30.258816-07:00",
+    "clock": "10:58",
+    "minutes": 38.8,
+    "fragments": 8,
+    "captures": [
+      "s2_sf_2_20260902105830_00019.pcap",
+      "s2_sf_2_20260902110330_00020.pcap",
+      "s2_sf_2_20260902110830_00021.pcap",
+      "s2_sf_2_20260902111331_00022.pcap",
+      "s2_sf_2_20260902111831_00023.pcap",
+      "s2_sf_2_20260902112331_00024.pcap",
+      "s2_sf_2_20260902112832_00025.pcap",
+      "s2_sf_2_20260902113332_00026.pcap"
+    ],
+    "map_mark": "10:55",
+    "where": "Union Street near Van Ness",
+    "lat": 37.7985,
+    "lon": -122.424,
+    "position_confidence": "medium",
+    "published_as": "s2-sf-2"
+  },
+  {
+    "site": "s11",
+    "day": "2026-09-02",
+    "start": "2026-09-02T11:53:34.547768-07:00",
+    "clock": "11:53",
+    "minutes": 18.4,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_2_20260902115334_00030.pcap",
+      "s2_sf_2_20260902115835_00031.pcap",
+      "s2_sf_2_20260902120335_00032.pcap",
+      "s2_sf_2_20260902120836_00033.pcap"
+    ],
+    "map_mark": "11:50",
+    "where": "Fisherman's Wharf, Jefferson Street near Hyde",
+    "lat": 37.807,
+    "lon": -122.42,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s12",
+    "day": "2026-09-02",
+    "start": "2026-09-02T12:35:17.164539-07:00",
+    "clock": "12:35",
+    "minutes": 15.9,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_2_20260902123517_00002.pcap",
+      "s2_sf_2_20260902124017_00003.pcap",
+      "s2_sf_2_20260902124518_00004.pcap",
+      "s2_sf_2_20260902125018_00005.pcap"
+    ],
+    "map_mark": "12:36",
+    "where": "Bay Street towards the Embarcadero",
+    "lat": 37.8055,
+    "lon": -122.41,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s13",
+    "day": "2026-09-02",
+    "start": "2026-09-02T13:20:36.986210-07:00",
+    "clock": "1:20",
+    "minutes": 12.7,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_3_20260902132037_00002.pcap",
+      "s2_sf_3_20260902132537_00003.pcap",
+      "s2_sf_3_20260902133037_00004.pcap"
+    ],
+    "map_mark": "1:15",
+    "where": "Broadway below Telegraph Hill, near Sansome",
+    "lat": 37.798,
+    "lon": -122.402,
+    "position_confidence": "medium",
+    "published_as": "broadway-columbus"
+  },
+  {
+    "site": "s14",
+    "day": "2026-09-02",
+    "start": "2026-09-02T13:37:17.485806-07:00",
+    "clock": "1:37",
+    "minutes": 17.2,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_3_20260902133538_00005.pcap",
+      "s2_sf_3_20260902134038_00006.pcap",
+      "s2_sf_3_20260902134538_00007.pcap",
+      "s2_sf_3_20260902135038_00008.pcap"
+    ],
+    "map_mark": null,
+    "where": null,
+    "lat": null,
+    "lon": null,
+    "position_confidence": "no mark matched",
+    "published_as": "s2-sf-3"
+  },
+  {
+    "site": "s15",
+    "day": "2026-09-02",
+    "start": "2026-09-02T15:22:49.666945-07:00",
+    "clock": "3:22",
+    "minutes": 20.2,
+    "fragments": 5,
+    "captures": [
+      "s2_sf_4_20260902152249_00001.pcap",
+      "s2_sf_4_20260902152749_00002.pcap",
+      "s2_sf_4_20260902153250_00003.pcap",
+      "s2_sf_4_20260902153750_00004.pcap",
+      "s2_sf_4_20260902154250_00005.pcap"
+    ],
+    "map_mark": "3:25",
+    "where": "Nob Hill / Chinatown edge",
+    "lat": null,
+    "lon": null,
+    "position_confidence": "unread",
+    "published_as": "s2-sf-4"
+  },
+  {
+    "site": "s16",
+    "day": "2026-09-03",
+    "start": "2026-09-03T10:35:52.823348-07:00",
+    "clock": "10:35",
+    "minutes": 11.7,
+    "fragments": 3,
+    "captures": [
+      "s2_sf_6_20260903103552_00008.pcap",
+      "s2_sf_6_20260903104053_00009.pcap",
+      "s2_sf_6_20260903104553_00010.pcap"
+    ],
+    "map_mark": "10:35",
+    "where": "Van Ness near Market, Civic Center",
+    "lat": 37.7755,
+    "lon": -122.419,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s17",
+    "day": "2026-09-03",
+    "start": "2026-09-03T11:05:55.344702-07:00",
+    "clock": "11:05",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_6_20260903110555_00014.pcap",
+      "s2_sf_6_20260903111055_00015.pcap",
+      "s2_sf_6_20260903111555_00016.pcap",
+      "s2_sf_6_20260903112056_00017.pcap"
+    ],
+    "map_mark": "11:00",
+    "where": "Geary near Larkin",
+    "lat": 37.786,
+    "lon": -122.4165,
+    "position_confidence": "low",
+    "published_as": null
+  },
+  {
+    "site": "s18",
+    "day": "2026-09-03",
+    "start": "2026-09-03T11:35:56.633007-07:00",
+    "clock": "11:35",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_6_20260903113556_00020.pcap",
+      "s2_sf_6_20260903114056_00021.pcap",
+      "s2_sf_6_20260903114557_00022.pcap",
+      "s2_sf_6_20260903115058_00023.pcap"
+    ],
+    "map_mark": "11:35",
+    "where": "Bush Street near Kearny",
+    "lat": 37.791,
+    "lon": -122.4045,
+    "position_confidence": "medium",
+    "published_as": "s2-sf-6"
+  },
+  {
+    "site": "s19",
+    "day": "2026-09-03",
+    "start": "2026-09-03T13:17:48.154812-07:00",
+    "clock": "1:17",
+    "minutes": 20.2,
+    "fragments": 6,
+    "captures": [
+      "s2_sf_7_20260903131748_00001.pcap",
+      "s2_sf_7_20260903132248_00002.pcap",
+      "s2_sf_7_20260903132748_00003.pcap",
+      "s2_sf_7_20260903133249_00004.pcap",
+      "s2_sf_7_20260903133749_00005.pcap"
+    ],
+    "map_mark": null,
+    "where": null,
+    "lat": null,
+    "lon": null,
+    "position_confidence": "no mark matched",
+    "published_as": "s2-sf-7"
+  },
+  {
+    "site": "s20",
+    "day": "2026-09-03",
+    "start": "2026-09-03T14:10:35.676682-07:00",
+    "clock": "2:10",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_8_20260903141035_00005.pcap",
+      "s2_sf_8_20260903141536_00006.pcap",
+      "s2_sf_8_20260903142036_00007.pcap",
+      "s2_sf_8_20260903142536_00008.pcap"
+    ],
+    "map_mark": "2:07",
+    "where": "Financial District, Battery near Pine",
+    "lat": 37.793,
+    "lon": -122.4,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s21",
+    "day": "2026-09-03",
+    "start": "2026-09-03T14:40:37.854069-07:00",
+    "clock": "2:40",
+    "minutes": 12.2,
+    "fragments": 3,
+    "captures": [
+      "s2_sf_8_20260903144037_00011.pcap",
+      "s2_sf_8_20260903144538_00012.pcap",
+      "s2_sf_8_20260903145038_00013.pcap"
+    ],
+    "map_mark": "2:40",
+    "where": "Rincon Hill, Folsom near Beale",
+    "lat": 37.789,
+    "lon": -122.3915,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s22",
+    "day": "2026-09-03",
+    "start": "2026-09-03T15:20:41.034128-07:00",
+    "clock": "3:20",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_8_20260903152041_00019.pcap",
+      "s2_sf_8_20260903152541_00020.pcap",
+      "s2_sf_8_20260903153041_00021.pcap",
+      "s2_sf_8_20260903153542_00022.pcap"
+    ],
+    "map_mark": "3:20",
+    "where": "SoMa, Folsom near 2nd",
+    "lat": 37.7855,
+    "lon": -122.397,
+    "position_confidence": "medium",
+    "published_as": null
+  },
+  {
+    "site": "s23",
+    "day": "2026-09-03",
+    "start": "2026-09-03T15:50:43.642189-07:00",
+    "clock": "3:50",
+    "minutes": 20.0,
+    "fragments": 4,
+    "captures": [
+      "s2_sf_8_20260903155043_00025.pcap",
+      "s2_sf_8_20260903155544_00026.pcap",
+      "s2_sf_8_20260903160045_00027.pcap",
+      "s2_sf_8_20260903160545_00028.pcap"
+    ],
+    "map_mark": "3:45",
+    "where": "SoMa, Mission near 8th",
+    "lat": 37.779,
+    "lon": -122.413,
+    "position_confidence": "medium",
+    "published_as": "s2-sf-8"
+  }
+]

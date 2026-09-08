@@ -1,0 +1,193 @@
+{
+  "comment": [
+    "Positions read by eye from the field map photograph, by locating each X",
+    "against the street labels printed around it. These are approximate: the",
+    "paper is photographed at an angle and a mark covers a couple of blocks, so",
+    "treat each as the neighbourhood rather than the junction. Confidence says",
+    "how much street context was legible around the mark, not how close the",
+    "reading is to a survey.",
+    "",
+    "Day is inferred from the highlighted region and confirmed by the recording",
+    "window: purple marks are all afternoon and 9/1 recorded 12:48-16:41; green",
+    "spans the morning and 9/2 recorded from 09:14; the eastern marks match the",
+    "times detected on 9/3 almost exactly."
+  ],
+  "marks": [
+    {
+      "day": "2026-09-02",
+      "clock": "9:37",
+      "where": "Cow Hollow, Union Street west of Fillmore",
+      "lat": 37.7975,
+      "lon": -122.436,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "10:00",
+      "where": "Marina Boulevard, west end near Baker",
+      "lat": 37.8055,
+      "lon": -122.4445,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "10:28",
+      "where": "Marina Boulevard near Fillmore",
+      "lat": 37.8065,
+      "lon": -122.436,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "10:55",
+      "where": "Union Street near Van Ness",
+      "lat": 37.7985,
+      "lon": -122.424,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "11:50",
+      "where": "Fisherman's Wharf, Jefferson Street near Hyde",
+      "lat": 37.807,
+      "lon": -122.42,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "12:36",
+      "where": "Bay Street towards the Embarcadero",
+      "lat": 37.8055,
+      "lon": -122.41,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "1:15",
+      "where": "Broadway below Telegraph Hill, near Sansome",
+      "lat": 37.798,
+      "lon": -122.402,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "3:05",
+      "where": "near the green/purple boundary; assigned to 9/1 on time, not position",
+      "lat": null,
+      "lon": null,
+      "confidence": "low (day inferred from time, mark sits on the region edge)"
+    },
+    {
+      "day": "2026-09-02",
+      "clock": "3:25",
+      "where": "Nob Hill / Chinatown edge",
+      "lat": null,
+      "lon": null,
+      "confidence": "unread"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "10:35",
+      "where": "Van Ness near Market, Civic Center",
+      "lat": 37.7755,
+      "lon": -122.419,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "11:00",
+      "where": "Geary near Larkin",
+      "lat": 37.786,
+      "lon": -122.4165,
+      "confidence": "low"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "11:35",
+      "where": "Bush Street near Kearny",
+      "lat": 37.791,
+      "lon": -122.4045,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "1:15",
+      "where": "Front / Davis near Broadway, north waterfront",
+      "lat": 37.7975,
+      "lon": -122.3985,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "2:07",
+      "where": "Financial District, Battery near Pine",
+      "lat": 37.793,
+      "lon": -122.4,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "2:40",
+      "where": "Rincon Hill, Folsom near Beale",
+      "lat": 37.789,
+      "lon": -122.3915,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "3:20",
+      "where": "SoMa, Folsom near 2nd",
+      "lat": 37.7855,
+      "lon": -122.397,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-03",
+      "clock": "3:45",
+      "where": "SoMa, Mission near 8th",
+      "lat": 37.779,
+      "lon": -122.413,
+      "confidence": "medium"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "12:55",
+      "where": "Haight / Divisadero",
+      "lat": 37.7715,
+      "lon": -122.4375,
+      "confidence": "low"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "1:25",
+      "where": "Market near Church / Duboce",
+      "lat": 37.769,
+      "lon": -122.429,
+      "confidence": "low"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "1:55",
+      "where": "NoPa, Fell / Oak near Divisadero",
+      "lat": 37.774,
+      "lon": -122.4375,
+      "confidence": "low"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "2:30",
+      "where": "Laurel Heights / Presidio Heights, California St",
+      "lat": 37.786,
+      "lon": -122.447,
+      "confidence": "low"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "3:40",
+      "where": "Western Addition, Golden Gate Avenue",
+      "lat": 37.779,
+      "lon": -122.43,
+      "confidence": "low"
+    }
+  ]
+}
