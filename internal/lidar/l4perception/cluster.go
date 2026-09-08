@@ -234,6 +234,9 @@ type DBSCANParams struct {
 	// is applied to keep runtime bounded. Zero or negative disables the
 	// cap. Typical value: 8000.
 	MaxInputPoints int
+	// MaxSamplePoints bounds retained evidence per accepted cluster. Zero is
+	// disabled; production defaults remain off pending the Pi memory gate.
+	MaxSamplePoints int
 }
 
 // DefaultDBSCANParams returns DBSCAN parameters loaded from the canonical
@@ -255,6 +258,7 @@ func DBSCANParamsFromTuning(l4cfg *config.L4DbscanXyV1) DBSCANParams {
 		Eps:                   l4cfg.ForegroundDBSCANEps,
 		MinPts:                l4cfg.ForegroundMinClusterPoints,
 		MaxInputPoints:        l4cfg.ForegroundMaxInputPoints,
+		MaxSamplePoints:       l4cfg.MaxSamplePoints,
 		MaxClusterDiameter:    l4cfg.MaxClusterDiameter,
 		MinClusterDiameter:    l4cfg.MinClusterDiameter,
 		MaxClusterAspectRatio: l4cfg.MaxClusterAspectRatio,
@@ -483,6 +487,16 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int, params D
 			continue
 		}
 
+		if params.MaxSamplePoints > 0 {
+			// uniformSubsample is now content-seeded and leaves input unchanged.
+			// Copy even an uncapped result so evidence owns its storage.
+			capPoints := min(params.MaxSamplePoints, 1024)
+			cluster.RetainedPoints = append([]WorldPoint(nil), uniformSubsample(clusterPoints, capPoints)...)
+			cluster.SamplePoints = make([][3]float32, len(cluster.RetainedPoints))
+			for i, p := range cluster.RetainedPoints {
+				cluster.SamplePoints[i] = [3]float32{float32(p.X), float32(p.Y), float32(p.Z)}
+			}
+		}
 		clusters = append(clusters, cluster)
 	}
 
