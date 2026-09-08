@@ -204,16 +204,16 @@ fields that are running aggregates, quality counters and rendering hints. The me
 
 ### 1.4 Direct answers to the inspection questions
 
-| Question                                   | Finding                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Where are raw observations retained?       | Nowhere. `lidar_clusters` exists but `InsertCluster` has no caller and the table holds **0 rows**. `WorldCluster.SamplePoints` is declared and never assigned outside tests. Cluster member points are discarded inside `computeClusterMetrics`.                                                                                                                                                     |
-| Can a track's historical state be revised? | No. `History` is append-only `[]TrackPoint` capped at 200 entries, and rows in `lidar_track_observations` are written once per frame with `INSERT OR REPLACE`. There is no versioning, no estimator identity, and no re-run path.                                                                                                                                                                    |
-| What timestamps are used?                  | `Tracker.Update` receives a single `frame.StartTimestamp` for **all** clusters in the frame. Per-cluster capture time is computed as `points[0].Timestamp` and stored in `WorldCluster.TSUnixNanos`, then discarded. Per-point time exists in `PointPolar.Timestamp`. A 10 Hz spin means up to 100 ms of unmodelled intra-frame time offset, which is about 1.3 m of along-track position at 13 m/s. |
-| What coordinate systems?                   | One. `TransformToWorld(foregroundPoints, nil, sensorID)` at [tracking_pipeline.go:469](../../internal/lidar/pipeline/tracking_pipeline.go) passes a **nil pose**, so the identity transform applies and the "world frame" is the sensor frame. The `Pose` type and a pose table design exist and are unused by the live pipeline.                                                                    |
-| Is orientation available?                  | Yes, but outside the estimator. `OBBHeadingRad` is a per-frame PCA axis passed through velocity or displacement disambiguation, three rejection guards, and an EMA with alpha 0.08. It is not part of the state vector, has no covariance, and cannot be predicted forward.                                                                                                                          |
-| Per-frame or whole-track dimensions?       | Both, inconsistently. `OBBLength/Width/Height` are instantaneous; `BoundingBoxLengthAvg/WidthAvg/HeightAvg` are running means over the track. Neither is a dimension estimate with uncertainty, and the running mean is contaminated by partially observed frames.                                                                                                                                   |
-| What confidence information exists?        | Track-level only: `ObjectConfidence`, `QualityScore`, alignment and jitter aggregates, merge and split flags. Nothing per frame. `P` exists in memory and reaches the visualiser but is never persisted.                                                                                                                                                                                             |
-| What point data survives clustering?       | Only `PointsCount`, `HeightP95`, `IntensityMean`. Everything geometric is gone by the time the tracker sees a cluster.                                                                                                                                                                                                                                                                               |
+| Question                                   | Finding                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Where are raw observations retained?       | Default-off offline L4 retention keeps bounded evidence; `l4bobserve` owns isolated snapshots. No production immutable observation store is wired.                                                                                                                                                                                |
+| Can a track's historical state be revised? | No. `History` is append-only `[]TrackPoint` capped at 200 entries, and rows in `lidar_track_observations` are written once per frame with `INSERT OR REPLACE`. There is no versioning, no estimator identity, and no re-run path.                                                                                                 |
+| What timestamps are used?                  | The tracker still uses frame-start time for all clusters. First-member capture time survives in `TSUnixNanos`; retained evidence keeps per-point time. An effective measurement-time and deskew contract remain open.                                                                                                             |
+| What coordinate systems?                   | One. `TransformToWorld(foregroundPoints, nil, sensorID)` at [tracking_pipeline.go:469](../../internal/lidar/pipeline/tracking_pipeline.go) passes a **nil pose**, so the identity transform applies and the "world frame" is the sensor frame. The `Pose` type and a pose table design exist and are unused by the live pipeline. |
+| Is orientation available?                  | Yes, but outside the estimator. `OBBHeadingRad` is a per-frame PCA axis passed through velocity or displacement disambiguation, three rejection guards, and an EMA with alpha 0.08. It is not part of the state vector, has no covariance, and cannot be predicted forward.                                                       |
+| Per-frame or whole-track dimensions?       | Both, inconsistently. `OBBLength/Width/Height` are instantaneous; `BoundingBoxLengthAvg/WidthAvg/HeightAvg` are running means over the track. Neither is a dimension estimate with uncertainty, and the running mean is contaminated by partially observed frames.                                                                |
+| What confidence information exists?        | Track-level only: `ObjectConfidence`, `QualityScore`, alignment and jitter aggregates, merge and split flags. Nothing per frame. `P` exists in memory and reaches the visualiser but is never persisted.                                                                                                                          |
+| What point data survives clustering?       | Scalar features and OBB survive. Opt-in offline retention adds bounded XYZ, intensity, and acquisition time. XYZ samples reach VRLOG; per-point acquisition metadata is not yet persisted there.                                                                                                                                  |
 
 ### 1.5 Measured facts from the production database
 
@@ -226,9 +226,11 @@ database has grown, so a new extraction cannot silently inherit the original pop
 The replacement extractor is [lidar-jump-candidates.py](../../scripts/lidar-jump-candidates.py):
 it records the ordered input-row digest, method version, thresholds, candidate IDs, and peak
 timestamps. Its five-point time-domain fit includes the centre point and uses future samples; this
-is an attenuated, non-causal anomaly proxy, not physical motion truth. It excludes gaps above 0.3 s,
+is an attenuated, non-causal anomaly proxy, not physical motion truth. It excludes gaps above
+0.3 s,
 requires lifetime maximum speed at least 6 m/s and local fit speed at least 2 m/s, and queues
-excursions above 0.5 m. Review causes and group physical-object episodes before freezing partitions.
+excursions above 0.5 m. Review causes and group physical-object episodes before freezing
+partitions.
 
 Sample: `sensor_data.db`, 55,315 tracks and 3,526,860 observations.
 
@@ -824,7 +826,8 @@ weak, `--` disqualifying for this project.
 budget: it measured a degenerate pipeline with no foreground detections, as recorded in the
 [development log][retired-baseline-note].
 The replacement
-[full-pipeline Mac baseline](../../internal/lidar/perf/baseline/baseline-kirk0-full-mac.json) records its
+[full-pipeline Mac baseline](../../internal/lidar/perf/baseline/baseline-kirk0-full-mac.json)
+records its
 own build, tuning fingerprint, machine, and non-zero stage totals. It is a historical Darwin arm64
 measurement, not a current Pi 4 result. Phase 0 must still publish the current branch's per-stage
 budget on the target hardware; do not scale the retired numbers into a hardware-performance claim.
@@ -1578,19 +1581,19 @@ comparison becomes a query, not a pipeline run.
 
 ### 16.2 Required coverage
 
-| Case                                    | Source                                                                         | Priority                                             |
-| --------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| Ordinary straight-line vehicles         | kirk0, abundant                                                                | Have                                                 |
-| Near-stationary vehicles                | kirk0, 5,982 tracks                                                            | Have                                                 |
-| Distant vehicles                        | kirk0, stratify by range                                                       | Have                                                 |
-| Bounding-box lateral jumps              | 33 identified moving tracks with excursions over 0.5 m                         | **Have, and this is the regression set**             |
-| Partial occlusion and fragmentation     | Synthetic, controllable; plus labelled `truncated` and `disconnected` tracks   | Mixed                                                |
-| Acceleration and braking                | Sparse: only 108 tracks above 10 m/s                                           | **Gap**: needs a higher-speed site                   |
-| Turning and lane changes                | Not present at the current site                                                | **Gap**: corpus plan dependency                      |
-| Viewpoint diversity for the same defect | soma0-3, plus three measured S2 placements with the same 11.5 % excursion rate | **Have, and it is the right axis, see 3.5 and 16.5** |
-| Overlapping vehicles, merge and split   | `is_merge_candidate` and `is_split_candidate` flags exist                      | Partial                                              |
-| Pedestrians misassociated with vehicles | Labelled classes exist                                                         | Partial                                              |
-| Erratic or evasive motion               | None                                                                           | **Gap**: synthetic only, and label it as such        |
+| Case                                    | Source                                                                                  | Priority                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Ordinary straight-line vehicles         | kirk0, abundant                                                                         | Have                                                         |
+| Near-stationary vehicles                | kirk0, 5,982 tracks                                                                     | Have                                                         |
+| Distant vehicles                        | kirk0, stratify by range                                                                | Have                                                         |
+| Bounding-box lateral jumps              | Historical aggregate found 33 tracks above 0.5 m; original IDs and snapshot unavailable | **Replacement candidates extracted; review and freeze open** |
+| Partial occlusion and fragmentation     | Synthetic, controllable; plus labelled `truncated` and `disconnected` tracks            | Mixed                                                        |
+| Acceleration and braking                | Sparse: only 108 tracks above 10 m/s                                                    | **Gap**: needs a higher-speed site                           |
+| Turning and lane changes                | Not present at the current site                                                         | **Gap**: corpus plan dependency                              |
+| Viewpoint diversity for the same defect | soma0-3, plus three measured S2 placements with the same 11.5 % excursion rate          | **Have, and it is the right axis, see 3.5 and 16.5**         |
+| Overlapping vehicles, merge and split   | `is_merge_candidate` and `is_split_candidate` flags exist                               | Partial                                                      |
+| Pedestrians misassociated with vehicles | Labelled classes exist                                                                  | Partial                                                      |
+| Erratic or evasive motion               | None                                                                                    | **Gap**: synthetic only, and label it as such                |
 
 ### 16.3 Synthetic generation
 
@@ -1610,11 +1613,11 @@ tests the implementation against itself.
 
 ### 16.4 Partitioning
 
-| Partition           | Content                                                                          | Rule                                                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Development         | 60 % of kirk0 by time, plus all synthetic                                        | Free to tune against                                                                                                         |
-| Decision gate       | 20 % of kirk0, plus the second corpus site when it exists                        | Gates only, no tuning; re-run on every gate evaluation                                                                       |
-| Held-out regression | 20 % of kirk0, plus the 33 identified jump tracks, plus every labelled manoeuvre | **Touched only to confirm a shipped change.** Any tuning against this partition invalidates it, and the partition is rebuilt |
+| Partition           | Content                                                                    | Rule                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Development         | 60 % of kirk0 by time, plus all synthetic                                  | Free to tune against                                                                                                             |
+| Decision gate       | 20 % of kirk0, plus the second corpus site when it exists                  | Gates only, no tuning; re-run on every gate evaluation                                                                           |
+| Held-out regression | 20 % of kirk0, reviewed replacement jump episodes, and labelled manoeuvres | **Touched only to confirm a shipped change.** Tuning invalidates this partition; group physical-object episodes before freezing. |
 
 Partition by time, not by track, so that a scene's background
 state does not leak across partitions.
@@ -1759,7 +1762,7 @@ Honouring the rule that tuning and evaluation never share a recording:
 | `soma1-static-0-1`          | Development and tuning | Fully static, no motion segment to complicate settling                                                   |
 | `soma3-static-0-1`          | Decision gate          | The largest; re-run on every gate evaluation, never tuned against                                        |
 | `soma0-static-0`, `clar0-1` | Held-out regression    | `clar0-1` is the only genuinely different site, which makes it the strongest held-out evidence available |
-| `kirk0`                     | Baseline continuity    | Retained so results stay comparable with the existing perf baseline and the 33 labelled jump tracks      |
+| `kirk0`                     | Baseline continuity    | Preserves comparison with host-class performance baselines, not the original 33-track identities.        |
 
 Cross-check the assignment against the settling-eval output from step 3: if soma0 or soma2
 yields too few usable frames to be a meaningful regression set, promote a time-partitioned tail
@@ -1916,14 +1919,14 @@ gate in this plan includes it for that reason.
 
 Substantial infrastructure already exists and is unwired, not absent.
 
-| Asset                                                                  | State                                                 | Action                                                                                                                                  |
-| ---------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `debug.DebugCollector` with innovations, gating ellipses, predictions  | Implemented, never enabled: the pipeline passes `nil` | **Wire it.** Phase 0, one line plus a config flag                                                                                       |
-| Proto `DebugOverlaySet` with association candidates, gating, residuals | Defined, never populated                              | Populate from the collector                                                                                                             |
-| `Track.covariance_4x4` in the FrameBundle                              | Populated and streamed                                | Retain for Option A; add separate orientation uncertainty and explicit model/version fields before any future state-dimension extension |
-| `adaptUnassociatedClusters`                                            | **Drops the observation for every tracked object**    | Change to emit both, tagged, so observation and estimate are visible together                                                           |
-| macOS visualiser                                                       | Renders point clouds, boxes, trails                   | Add the overlays below                                                                                                                  |
-| `lidar-visualiser-trails-and-uncertainty-visualisation-plan`           | Proposed, covers uncertainty cones                    | Adopt as the delivery vehicle                                                                                                           |
+| Asset                                                                  | State                                                           | Action                                                                                                                                  |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `debug.DebugCollector` with innovations, gating ellipses, predictions  | Opt-in offline pipeline, VRLOG, and gRPC conversion implemented | Wider capture validation and live enablement remain separate.                                                                           |
+| Proto `DebugOverlaySet` with association candidates, gating, residuals | Defined, never populated                                        | Populate from the collector                                                                                                             |
+| `Track.covariance_4x4` in the FrameBundle                              | Populated and streamed                                          | Retain for Option A; add separate orientation uncertainty and explicit model/version fields before any future state-dimension extension |
+| `adaptUnassociatedClusters`                                            | **Drops the observation for every tracked object**              | Change to emit both, tagged, so observation and estimate are visible together                                                           |
+| macOS visualiser                                                       | Renders point clouds, boxes, trails                             | Add the overlays below                                                                                                                  |
+| `lidar-visualiser-trails-and-uncertainty-visualisation-plan`           | Proposed, covers uncertainty cones                              | Adopt as the delivery vehicle                                                                                                           |
 
 The `adaptUnassociatedClusters` change is small and is a prerequisite for all tuning work.
 Today the observation and estimate for the same object cannot be seen together, which is the
@@ -2021,10 +2024,12 @@ distribution. Stage timings are non-zero.
 
 **Acceptance.** Baseline published for lateral residual summaries by speed band, association rate
 by predicted-speed band, per-stage frame time on Pi 4, and a reviewed, frozen replacement for the
-lost 33-track regression set. Current accumulators report count, RMS, bias, mean NIS, and exceedance;
+lost 33-track regression set. Current accumulators report count, RMS, bias, mean NIS, and
+exceedance;
 they do not yet retain residual quantiles or an empirical distribution.
 
-**Gate to Phase 1.** Baseline reproducible across two runs to within 2 %. The warmed kirk0 regression
+**Gate to Phase 1.** Baseline reproducible across two runs to within 2 %. The warmed kirk0
+regression
 test now compares schema 2 baseline bytes across two identical runs. This permits additive Phase 1
 development; it does not close Pi acceptance or the missing reviewed-reference gate.
 
@@ -2033,7 +2038,8 @@ development; it does not close Pi acceptance or the missing reviewed-reference g
 The other agent's `dbe670bf3` added residual/NIS instrumentation and recorded the following two
 S2 windows. Its schema 1 writer pooled surviving tracks' lifetime accumulators: warm-up could enter
 the totals, and ended tracks disappeared. Keep this table as historical evidence only. New
-`tracking_baseline.json` files use schema 2 scoring-window accumulators and require a fresh comparison.
+`tracking_baseline.json` files use schema 2 scoring-window accumulators and require a fresh
+comparison.
 
 | Capture      | Speed band | n   | Lateral RMS | Longitudinal RMS | Mean NIS  | Over 95% bound | Association |
 | ------------ | ---------- | --- | ----------- | ---------------- | --------- | -------------- | ----------- |
@@ -2064,13 +2070,15 @@ Reporting the magnitude longitudinally and leaving lateral empty is deliberate, 
 The other agent reported identical schema 1 repeats; that does not certify schema 2. The current
 warmed kirk0 test independently asserts exact schema 2 repeatability, including non-empty residual
 bands and saved/reopened debug overlays and cluster samples. Wider S2 replication, residual
-distribution storage, per-stage Pi 4 timing, and reviewed replacement-track partitioning remain open.
+distribution storage, per-stage Pi 4 timing, and reviewed replacement-track partitioning
+remain open.
 
 ### Phase 1: observation model and persistence
 
 **Goal.** A correct, immutable, replayable record of what the sensor saw.
 
-**Started, not complete.** L4 now retains content-seeded samples when the offline replay config sets
+**Started, not complete.** L4 now retains content-seeded samples when the offline replay
+config sets
 `l4.dbscan_xy_v1.max_sample_points` above zero, capped at 1024. Zero remains the default. Retention
 copies acquisition times and intensity into `RetainedPoints`; XYZ samples also reach VRLOG. The
 new observation boundary owns copies of raw geometry and keeps frame-start and cluster-capture
@@ -2082,9 +2090,11 @@ write-once SQLite storage/replay, source/calibration identity, P11, and G-PER-1 
 point retention and per-cluster timestamps; new
 `storage/sqlite/observation_store.go`; migration for `lidar_observations`.
 
-**Types.** `DetectionObservation`, `PlanePrimitive`, `EdgePrimitive`, `UncertaintyModel` with a
-fixed-covariance implementation only. `MeasurementInterpretation` is defined but not yet populated:
-Phase 1 stores evidence, Phase 2 interprets it.
+**Type contract.** `DetectionObservation` has an initial in-memory implementation.
+`PlanePrimitive`,
+`EdgePrimitive`, and a fixed-covariance `UncertaintyModel` remain to be implemented.
+`MeasurementInterpretation` is specified here but is not yet a Go type: Phase 1 stores evidence,
+Phase 2 interprets it.
 
 **Also in Phase 1: the P11 remedy.** Ground removal moves from a band on absolute sensor-frame Z to
 a band on height above a coarse per-region surface fitted from the settled L3 background, and every
@@ -2117,8 +2127,8 @@ sample, and measure before enabling by default.
 **Contracts.** `MeasurementModel` with a near-edge implementation; a four-state CV
 `EstimatedState`, separate orientation belief and variance; `Residuals`; the geometry belief.
 
-**Tests.** The synthetic pass from Section 3 as a regression test with an asserted bound. The 33
-real jump tracks as a regression set. A lane-change synthetic asserting magnitude preservation.
+**Tests.** The synthetic pass from Section 3 with an asserted bound, plus
+reviewed replacement jump episodes and a synthetic lane change asserting magnitude preservation.
 
 **Migration.** `lidar_track_estimates` and `lidar_track_residuals` created.
 
@@ -2405,7 +2415,7 @@ appears as a headline metric, only paired with manoeuvre-magnitude preservation,
 | Q5  | What is the real memory cost of point retention on a Pi 4 at peak cluster counts?                                                                | Instrument peak retained bytes across a full kirk0 replay at production DBSCAN parameters                                                                        | Phase 1                                                             |
 | Q6  | Does the dimension prior converge fast enough to be useful on short tracks?                                                                      | Distribution of frames to reach a stable length estimate, by class and range                                                                                     | Phase 2                                                             |
 | Q7  | Is acceleration observable at all at the effective 5 Hz rate, or does the CA state just absorb noise?                                            | Offline CA against synthetic braking with known ground truth, swept over sample rate                                                                             | G-EST-1                                                             |
-| Q8  | Are the 33 identified jump tracks all the same phenomenon?                                                                                       | Manual review against the per-track inspector, classified by cause                                                                                               | Phase 0                                                             |
+| Q8  | Do replacement jump candidates represent the same phenomenon?                                                                                    | Review by cause against point-cloud evidence, then freeze physical-object episodes. Original 33 IDs are unavailable.                                             | Phase 0                                                             |
 | Q9  | Does kirk0 overfit? The site has 108 tracks above 10 m/s out of 26,732                                                                           | Partly answered by the soma captures: four viewpoints, but one site, one day, one road class. Acceleration, braking and turning conclusions stay provisional     | G-EST-1, G-EST-3, Phase 6                                           |
 
 ### 21.1 Decisions taken
@@ -2480,7 +2490,7 @@ architecture; it does not relitigate findings.
 - [ ] Write the soma manifest: SHA-256 per file plus split parameters
 - [ ] Experiment Q3, cluster timestamps, cheap and possibly high value
 - [ ] Promote the synthetic scene prototype into `internal/lidar/l4perception/synthscene`
-- [ ] Change `adaptUnassociatedClusters` to emit observation and estimate together
+- [x] Emit associated raw clusters beside estimates in opt-in diagnostic bundles
 - [ ] Fix the three lifetime-aggregate fields written into `lidar_track_observations`
 - [x] Decide Q10: OBB centre as an immediate stopgap. **Accepted**, see 21.1 D2
 - [ ] Implement D2: switch the measurement source to the OBB centre, behind a recorded source field

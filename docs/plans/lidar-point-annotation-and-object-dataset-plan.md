@@ -33,7 +33,8 @@ a causal evaluation; report assisted corrections separately from unassisted pred
 The root contains pack/export, digest, point-index, reference-object, and sidecar groundwork.
 Revision safety landed in `a8481872d`, with a final overflow guard and API documentation in this
 recovery increment. Saves reject stale revisions and changed source bytes, serialise local writers,
-archive exact prior bytes, and restore history as a new revision. Failed saves preserve the caller's
+archive exact prior bytes, and restore history as a new revision. Failed saves preserve the
+caller's
 dirty state. See the [storage contract](../../internal/lidar/annotation/README.md).
 
 This is a backend slice, not a completed operator workflow. No lasso/brush/depth-slab interface or

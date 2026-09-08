@@ -16,7 +16,7 @@ state-estimation plan as the minimum core needed to call this a substantial impl
 of that plan. Do not substitute a lower course-error statistic, an annotation exporter, or
 a new motion filter for that correction.
 
-My effort-weighted planning assessment is approximately **20–30% of that Phases 0–2 core**
+At the original snapshot, the effort-weighted assessment was **20–30% of the Phases 0–2 core**
 implemented, and **10–20% of the whole estimation programme** (Phases 0–5 and 8). The heading
 sprint's mechanisms are much further along, approximately **75–85% implemented**, but its
 physical-heading and identity acceptance gates remain open. These are judgement ranges, not
@@ -30,10 +30,54 @@ have not been re-certified by this audit.
 
 ## Recovery and other-agent progress
 
-### Follow-on recovery checkpoint
+### Current remaining-work map
 
-The latest inspected other-agent commits are `dbe670bf3` (speed-banded residual/NIS baselines) and
-`b8a752dc8` (separate Pi/Mac/CI performance baselines). Their work is present in the root. Annotation
+The root was rechecked at `c323fc439`, after the other agent committed the recovered code, repaired
+the strict config fixtures/import, and refreshed Mac baselines. This checkpoint is current; later
+original inspection tables preserve their historical scope. No Pi result follows from the Mac
+refresh or the new [Pi runbook](../lidar/operations/pi-benchmark-runbook.md).
+
+| Area                 | Delivered                                                                                                                | Still required                                                                                                                         | Approximate further effort                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Recovery and CI      | Recovered files committed; config/document parity repaired; runtime failure tests added                                  | Finish current validation and review; remote CI must run on the resulting commit                                                       | Less than 1 day if checks remain green                     |
+| Reference annotation | Immutable packs, revision conflicts, exact history, restore, and source validation                                       | Selection UI, operator provenance/dirty navigation, reviewed masks/physical identities, frozen splits                                  | 2–4 engineer-days plus operator review                     |
+| Phase 0              | Scoring-window summaries, debug overlays, VRLOG round-trip, kirk0 repeat test, candidate extractor, host-class baselines | Residual distributions, fresh S2 schema 2 repeats, reviewed replacement episodes, current Pi timing                                    | 0.5–1.5 local days plus hardware/review                    |
+| Phase 1              | Default-off bounded retention, acquisition-time evidence, copy-isolated observation boundary                             | Source/calibration identity, write-once store/replay, primitive fits, coarse surface and clipping context, G-PER-1                     | 3–5 engineer-days; live observation week adds elapsed time |
+| Phase 2 and E1       | Heading/extent candidates and evaluation tools; no position-measurement correction                                       | E1 strata, source-labelled OBB stopgap, near-edge interpretation/fallback, uncertainty propagation, estimate/residual storage, G-GEO-1 | 4–6 engineer-days                                          |
+| Core acceptance      | Repeatable local tooling and explicit gates                                                                              | Held-out geometry/manoeuvre/identity results, Pi checks, rollback and handoff                                                          | 1–2 engineer-days                                          |
+
+These ranges overlap through shared corpus and acceptance work; do not count every gate twice.
+The remaining core is roughly **11–19 engineer-days**, not a completed three-day sprint. This is
+a planning estimate, not observed throughput. Phase 3 uncertainty, Phase 4 motion extension,
+Phase 5 smoothing, and Phase 8 evidence surfaces remain follow-on work. No new pass is claimed for
+G-PER-1, G-GEO-1, G-UNC-1, G-EST-1, or G-SMO-1.
+
+Next order: review the recovered increment, then define source/calibration identity and the
+additive immutable observation store. Wire collection and prove replay equality before
+changing the measurement. Build the annotation UI and review corpus alongside that work; test
+the P11 surface remedy before accepting near-edge geometry results.
+
+The replacement extractor produced **2,136 unreviewed candidates from 662,499 rows**, with 254,201
+eligible five-point windows. The ordered input-row SHA-256 is
+`5c228f7d93002334992e35d567fe7ff666200994229f3a6552b53b78ec18d050`.
+This is a queue from the expanded database, not the lost 33 IDs, a frozen input snapshot, or
+physical truth. Retain the local manifest and source snapshot before annotating; review a
+stratified subset by cause and group complete physical-object episodes before assigning splits.
+
+**Local validation:** the real-PCAP changed-file gate passes at the unchanged 98% threshold;
+`replayeval.go` reaches 99.3% and its per-run runtime boundary reaches 100%. Targeted race checks
+pass for annotation, retained evidence, tracker, pipeline, and replay failure handling. Config
+parity/order, scoped links, prose width, metadata, spelling, formatting, and diff checks pass.
+The full Go suite passes on rerun. Its first run failed the benchmark heap-stability assertion
+at 5.9% drift against a 5% limit; three isolated repeats passed without changing the threshold.
+Keep that variability visible: it is not a Pi result or proof of load-independent heap stability.
+Remote CI has not been re-run on these final uncommitted edits.
+
+### Earlier follow-on recovery checkpoint
+
+The earlier checkpoint covered `dbe670bf3` (speed-banded residual/NIS baselines) and
+`b8a752dc8` (separate Pi/Mac/CI performance baselines). Their work is present in the root.
+Annotation
 revision storage is also committed in `a8481872d`; local recovery adds its final overflow guard.
 
 This follow-on corrects the baseline population to the scoring window, wires diagnostics and
@@ -41,7 +85,8 @@ associated raw cluster boxes through storage/replay/streaming, and starts bounde
 plus the `l4bobserve` evidence boundary. It supersedes the absence claims in the original snapshot
 below, not its historical experiment results. The original 33-track IDs and source snapshot are
 unavailable. Replacement extraction is an unreviewed queue, not a recovered or labelled test set.
-The [state-estimation checkpoint](lidar-state-estimation-plan.md#0-principles) controls current gates.
+The [state-estimation checkpoint](lidar-state-estimation-plan.md#0-principles) controls
+current gates.
 
 The remaining Phase 1 work is primitive extraction, explicit source/calibration identity, additive
 write-once observation storage and replay, surface/clipping context, and G-PER-1. Pi acceptance is
@@ -159,7 +204,7 @@ performance, and QC subfeatures remain useful contracts, not additional implicit
 original D-04's 6–7-day estimate describes its historical heuristic design; it is not an estimate
 for this entire programme or the later visibility-aware model.
 
-## Recommended PR completion scope and estimate
+## Original PR completion estimate, retained for comparison
 
 One engineer-day means eight focused implementation/test hours. Estimates include
 ordinary unit/integration tests and documentation, exclude unexpected research

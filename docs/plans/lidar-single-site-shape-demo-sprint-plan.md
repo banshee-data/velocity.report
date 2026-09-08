@@ -39,8 +39,9 @@ heading/association boundary at `c863b09cb`. Heading and association candidates 
 default; proxy improvements have not passed physical acceptance.
 
 Annotation pack/export/sidecar work committed in `71c3a46d7`, with CLI coverage extended in
-`6252be7f2`, provides part of Day 1's backend. It does not deliver selection UI, safe revision
-history, JSON model fitting, seeded shape tracking, or the model-inspection panel. The
+`6252be7f2`, provides part of Day 1's backend. Revision rejection, recoverable history, and
+restore-as-new-revision are now implemented; selection UI, JSON model fitting, seeded shape
+tracking, and the model-inspection panel remain open. The
 [branch audit](lidar-state-estimation-branch-audit.md) estimates 4–7 further engineer-days for a
 dependable minimum loop, plus 4–8 operator-hours. Three days remains a demonstration timebox, not a
 claim that the full scorecard fits or passes.
