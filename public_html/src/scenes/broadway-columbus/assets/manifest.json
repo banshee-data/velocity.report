@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "broadway-columbus",
+    "title": "Broadway & Columbus"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}
