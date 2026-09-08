@@ -1104,7 +1104,7 @@ dev-go:
 
 dev-go-lidar:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag --lidar-pcap-dir=/Volumes/lidar/lidar/)
 
 dev-go-lidar-trace:
 	@$(MAKE) ensure-dev-web-build
