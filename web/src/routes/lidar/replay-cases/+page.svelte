@@ -8,6 +8,7 @@
 	import type { PcapFileInfo } from '$lib/api';
 	import {
 		createLidarReplayCase,
+		createReplayCaseFromCaptures,
 		deleteLidarReplayCase,
 		getLidarReplayCase,
 		getLidarReplayCases,
@@ -254,34 +255,31 @@
 		}
 	}
 
-	async function handleBulkCreate() {
+	async function handleCreateFromSelection() {
 		if (selectedFiles.size === 0) return;
 		bulkCreating = true;
 		scanError = null;
-		let created = 0;
-		for (const path of selectedFiles) {
-			try {
-				const desc = path.replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
-				const scene = await createLidarReplayCase({
-					sensor_id: newSensorId,
-					pcap_file: path,
-					description: desc
-				});
-				scenes = [...scenes, scene];
-				created++;
-			} catch (e) {
-				scanError = `Failed after ${created} replay cases: ${e instanceof Error ? e.message : String(e)}`;
-				break;
-			}
-		}
-		if (!scanError) {
+		// Filename order: sequential capture names (…_00001.pcap, …_00002.pcap)
+		// sort correctly this way, which is what a join needs — the server
+		// checks the packets themselves abut, but the order they are offered in
+		// is this array's.
+		const paths = [...selectedFiles].sort();
+		const label = paths[0].replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
+		try {
+			const scene = await createReplayCaseFromCaptures({
+				sensor_id: newSensorId,
+				pcap_files: paths,
+				description: paths.length > 1 ? `${label} (${paths.length} joined)` : label
+			});
+			scenes = [...scenes, scene];
 			showScanPanel = false;
 			selectedFiles = new SvelteSet();
-		}
-		bulkCreating = false;
-		// Refresh to pick up in_use flags
-		if (created > 0) {
+			// Refresh to pick up in_use flags.
 			await loadScenes();
+		} catch (e) {
+			scanError = e instanceof Error ? e.message : 'Could not create the replay case.';
+		} finally {
+			bulkCreating = false;
 		}
 	}
 
@@ -455,12 +453,14 @@
 									variant="fill"
 									color="primary"
 									size="sm"
-									on:click={handleBulkCreate}
+									on:click={handleCreateFromSelection}
 									disabled={bulkCreating}
 								>
 									{bulkCreating
 										? 'Creating...'
-										: `Add ${selectedFiles.size} Selected as Replay Cases`}
+										: selectedFiles.size > 1
+											? `Join ${selectedFiles.size} Selected into One Replay Case`
+											: 'Add Selected as a Replay Case'}
 								</Button>
 							{/if}
 						</div>

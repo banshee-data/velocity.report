@@ -15,6 +15,12 @@ type Indexed struct {
 	// Present is false for a file the index has seen before but that was gone
 	// at the last scan.
 	Present bool
+	// NeedsProbe is true when the store has no successful extent for this
+	// file yet — pending because a metadata-only pass added it, or failed on
+	// an earlier attempt. A scan alone does not clear this: only a probe
+	// does, so a file can be Unchanged (identical on disk to what is
+	// indexed) and still need one.
+	NeedsProbe bool
 }
 
 // ChangeKind says how a file on disk differs from what the index holds.

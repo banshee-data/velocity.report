@@ -187,7 +187,7 @@ func (s *CaptureStore) MarkScanned(rootID, state, scanErr string) error {
 // detection wants.
 func (s *CaptureStore) IndexedFiles(rootID string) ([]capindex.Indexed, error) {
 	rows, err := s.db.Query(`
-		SELECT rel_path, size_bytes, modified_at_ns, content_tag, present
+		SELECT rel_path, size_bytes, modified_at_ns, content_tag, present, probe_state
 		  FROM lidar_capture_files WHERE root_id = ? ORDER BY rel_path`, rootID)
 	if err != nil {
 		return nil, fmt.Errorf("list indexed files: %w", err)
@@ -199,11 +199,13 @@ func (s *CaptureStore) IndexedFiles(rootID string) ([]capindex.Indexed, error) {
 		var f capindex.Indexed
 		var modNs int64
 		var present int
-		if err := rows.Scan(&f.RelPath, &f.SizeBytes, &modNs, &f.ContentTag, &present); err != nil {
+		var probeState string
+		if err := rows.Scan(&f.RelPath, &f.SizeBytes, &modNs, &f.ContentTag, &present, &probeState); err != nil {
 			return nil, fmt.Errorf("scan indexed file: %w", err)
 		}
 		f.ModifiedAt = time.Unix(0, modNs)
 		f.Present = present != 0
+		f.NeedsProbe = probeState != ProbeStateOK
 		out = append(out, f)
 	}
 	return out, rows.Err()

@@ -151,6 +151,44 @@ func TestIndexerRefreshProbesOnlyWhatChanged(t *testing.T) {
 	}
 }
 
+func TestIndexerProbesUnchangedFilesThatWereNeverProbed(t *testing.T) {
+	// The bug this guards: a quick, metadata-only scan indexes every file with
+	// no prober attached, so nothing about them ever counts as "changed" on a
+	// later scan-and-probe pass. Drift alone would leave every one of them
+	// pending forever — this is what stillPending is for.
+	store := newMemStore()
+	ix, _ := probeRoot(t, store, nil, "a.pcap", "b.pcap")
+	if _, err := ix.Refresh(context.Background()); err != nil {
+		t.Fatalf("metadata-only Refresh: %v", err)
+	}
+
+	// Feed the index back what the metadata-only pass wrote — still needing a
+	// probe, since none ran.
+	store.indexed = nil
+	for _, f := range store.applied {
+		store.indexed = append(store.indexed, Indexed{
+			RelPath: f.RelPath, SizeBytes: f.SizeBytes,
+			ModifiedAt: f.ModifiedAt, ContentTag: f.ContentTag,
+			Present: true, NeedsProbe: true,
+		})
+	}
+
+	ix.Probe = okProbe(scanBase)
+	res, err := ix.Refresh(context.Background())
+	if err != nil {
+		t.Fatalf("scan-and-probe Refresh: %v", err)
+	}
+	if res.Drift.Any() {
+		t.Errorf("the filesystem did not move, so this should report no drift: %s", res.Drift.Summary())
+	}
+	if res.Probed != 2 {
+		t.Errorf("Probed = %d, want 2 — drift alone must not gate a file still awaiting its first probe", res.Probed)
+	}
+	if len(store.probes) != 2 {
+		t.Errorf("recorded %d probes, want 2", len(store.probes))
+	}
+}
+
 func TestIndexerRecordsAnUnreachableRoot(t *testing.T) {
 	// An unmounted volume must be visibly unmounted, not an empty listing that
 	// reads as an empty volume.
@@ -296,6 +334,41 @@ func TestDriftSummary(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("summary %q does not contain %q", got, want)
 		}
+	}
+}
+
+func TestStillPending(t *testing.T) {
+	known := []Indexed{
+		{RelPath: "probed.pcap", Present: true, NeedsProbe: false},
+		{RelPath: "pending.pcap", Present: true, NeedsProbe: true},
+		{RelPath: "gone.pcap", Present: false, NeedsProbe: true}, // absent last scan; Added handles it if it returns
+	}
+	found := []File{{RelPath: "probed.pcap"}, {RelPath: "pending.pcap"}, {RelPath: "new.pcap"}}
+
+	got := stillPending(known, found)
+	if len(got) != 1 || got[0] != "pending.pcap" {
+		t.Errorf("stillPending = %v, want just [pending.pcap]", got)
+	}
+}
+
+func TestProbeChangedDoesNotDoubleProbeAChangedPendingFile(t *testing.T) {
+	// A file can be both Changed (its bytes moved) and, per the index,
+	// NeedsProbe — the two lists must not queue it twice.
+	store := newMemStore()
+	ix, _ := probeRoot(t, store, okProbe(scanBase), "a.pcap")
+
+	var probeCalls int
+	ix.Probe = func(string, int) (Extent, error) {
+		probeCalls++
+		return Extent{FirstPacketNs: 1, LastPacketNs: 2, PacketCount: 1}, nil
+	}
+	drift := Drift{Changed: []Change{{RelPath: "a.pcap", Kind: ChangeResized}}}
+	probed, failed, err := ix.probeChanged(context.Background(), drift, []string{"a.pcap"})
+	if err != nil {
+		t.Fatalf("probeChanged: %v", err)
+	}
+	if probeCalls != 1 || probed != 1 || failed != 0 {
+		t.Errorf("probeCalls=%d probed=%d failed=%d, want 1,1,0", probeCalls, probed, failed)
 	}
 }
 

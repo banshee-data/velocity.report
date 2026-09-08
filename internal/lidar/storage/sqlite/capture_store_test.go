@@ -149,6 +149,14 @@ func TestCaptureStoreApplyScanRoundTrips(t *testing.T) {
 	if d := capindex.DiffScan(indexedNow, found); d.Any() {
 		t.Errorf("re-scanning an unchanged root reported drift: %+v", d)
 	}
+	// Neither file has been probed yet, so a no-drift rescan must still leave
+	// them selectable for probing — the bug where "Scan and probe" silently
+	// probed nothing for an already-indexed, never-probed volume.
+	for _, f := range indexedNow {
+		if !f.NeedsProbe {
+			t.Errorf("%s reports NeedsProbe=false before any probe ran", f.RelPath)
+		}
+	}
 }
 
 func TestCaptureStoreApplyScanResetsProbeOnlyWhenBytesMoved(t *testing.T) {
@@ -196,6 +204,21 @@ func TestCaptureStoreApplyScanResetsProbeOnlyWhenBytesMoved(t *testing.T) {
 	}
 	if got := byPath["resized.pcap"]; got.ProbeState != ProbeStatePending || got.FirstPacketNs != nil {
 		t.Errorf("a resized file kept a stale extent: state=%q first=%v", got.ProbeState, got.FirstPacketNs)
+	}
+
+	afterRescan, err := store.IndexedFiles(root.RootID)
+	if err != nil {
+		t.Fatalf("IndexedFiles (after rescan): %v", err)
+	}
+	needsProbe := map[string]bool{}
+	for _, f := range afterRescan {
+		needsProbe[f.RelPath] = f.NeedsProbe
+	}
+	if needsProbe["touched.pcap"] {
+		t.Error("touched.pcap kept its extent and should not need reprobing")
+	}
+	if !needsProbe["resized.pcap"] {
+		t.Error("resized.pcap lost its extent and should need reprobing")
 	}
 }
 

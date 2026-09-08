@@ -71,11 +71,12 @@ type Indexer struct {
 }
 
 // Refresh scans the root, records what changed, and probes the files that need
-// it.
+// it: those the scan found new or materially changed, plus any already
+// indexed that have never been successfully probed (see stillPending).
 //
 // Probing is where the time goes — it reads every byte of every new capture —
-// so it is scoped to files the scan found to be new or changed. A volume that
-// has not moved since the last look costs one walk and no reads.
+// so a volume that has not moved since the last look, and was fully probed
+// then, costs one walk and no reads on a later pass.
 func (ix *Indexer) Refresh(ctx context.Context) (Result, error) {
 	var result Result
 
@@ -107,7 +108,7 @@ func (ix *Indexer) Refresh(ctx context.Context) (Result, error) {
 	}
 
 	if ix.Probe != nil {
-		probed, failed, probeErr := ix.probeChanged(ctx, result.Drift)
+		probed, failed, probeErr := ix.probeChanged(ctx, result.Drift, stillPending(known, found))
 		result.Probed, result.ProbeFailed = probed, failed
 		if probeErr != nil {
 			result.State = StateError
@@ -124,18 +125,52 @@ func (ix *Indexer) Refresh(ctx context.Context) (Result, error) {
 	return result, nil
 }
 
+// stillPending is the files a scan found no drift for that nonetheless have
+// no successful probe on record — a metadata-only pass indexed them, or an
+// earlier probe attempt failed, and neither leaves any trace in Drift, whose
+// Added/Changed/Missing describe how the filesystem moved, not what the store
+// already knows. Left out of probeChanged's target list, such a file would
+// stay pending forever: nothing about it ever "changes" again once the
+// filesystem stops moving.
+func stillPending(known []Indexed, found []File) []string {
+	needsProbe := make(map[string]bool, len(known))
+	for _, k := range known {
+		if k.Present && k.NeedsProbe {
+			needsProbe[k.RelPath] = true
+		}
+	}
+	var stale []string
+	for _, f := range found {
+		if needsProbe[f.RelPath] {
+			stale = append(stale, f.RelPath)
+		}
+	}
+	return stale
+}
+
 // probeChanged obtains extents for the files a scan found new or materially
-// changed. A file that cannot be probed records why and does not stop the pass:
-// one corrupt capture on a volume of two hundred should not cost the rest.
-func (ix *Indexer) probeChanged(ctx context.Context, drift Drift) (probed, failed int, err error) {
-	targets := make([]string, 0, len(drift.Added)+len(drift.Changed))
+// changed, plus any stillPending files this pass rediscovered unchanged. A
+// file that cannot be probed records why and does not stop the pass: one
+// corrupt capture on a volume of two hundred should not cost the rest.
+func (ix *Indexer) probeChanged(ctx context.Context, drift Drift, pending []string) (probed, failed int, err error) {
+	seen := make(map[string]bool, len(drift.Added)+len(drift.Changed)+len(pending))
+	targets := make([]string, 0, len(drift.Added)+len(drift.Changed)+len(pending))
+	add := func(rel string) {
+		if !seen[rel] {
+			seen[rel] = true
+			targets = append(targets, rel)
+		}
+	}
 	for _, a := range drift.Added {
-		targets = append(targets, a.RelPath)
+		add(a.RelPath)
 	}
 	for _, c := range drift.Changed {
 		if c.NeedsProbe() {
-			targets = append(targets, c.RelPath)
+			add(c.RelPath)
 		}
+	}
+	for _, rel := range pending {
+		add(rel)
 	}
 
 	for i, rel := range targets {
