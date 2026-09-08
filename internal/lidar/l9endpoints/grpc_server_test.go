@@ -1172,14 +1172,13 @@ func TestFrameBundleToProto_DebugNotConverted(t *testing.T) {
 	}
 
 	req := &pb.StreamRequest{
-		IncludeDebug: true, // Even when requested, Debug is not converted (not implemented)
+		IncludeDebug: true,
 	}
 
 	pbFrame := frameBundleToProto(frame, req)
 
-	// Debug conversion is not implemented - verify it's nil
-	if pbFrame.Debug != nil {
-		t.Error("expected nil Debug (not yet implemented in frameBundleToProto)")
+	if pbFrame.Debug == nil || len(pbFrame.Debug.AssociationCandidates) != 1 || !pbFrame.Debug.AssociationCandidates[0].Accepted {
+		t.Error("requested debug association was not preserved")
 	}
 }
 
