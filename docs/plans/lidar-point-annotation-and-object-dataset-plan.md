@@ -4,7 +4,7 @@ This plan lets a person mark the returns belonging to one physical object and fo
 identity through a recording. It separates human evidence from tracker output so a split track
 does not split the reference vehicle as well.
 
-- **Status:** Backend slice committed; revision safety, annotation UI, and dataset acceptance open
+- **Status:** Revision-safe backend implemented; annotation UI and dataset acceptance open
 - **Canonical:** [Visibility-aware tracking contract](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, L10 Clients, offline analysis
 - **Related:** [Three-day demo](lidar-single-site-shape-demo-sprint-plan.md), [Shape descriptors](lidar-shape-descriptors-plan.md), [State estimation](lidar-state-estimation-plan.md), [Test corpus](lidar-test-corpus-plan.md), [Labelling and QC](lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
@@ -30,12 +30,16 @@ a causal evaluation; report assisted corrections separately from unassisted pred
 
 ## 2. Existing work and the missing contract
 
-At the inspected root snapshot `6252be7f2`, `internal/lidar/annotation/` and the LiDAR CLI contain
-committed pack/export, digest, point-index, reference-object, and sidecar groundwork from
-`71c3a46d7`. This is a backend slice, not a completed operator workflow. No lasso/brush/depth-slab
-interface was found. Atomic sidecar replacement does not yet provide stale-revision rejection or
-recoverable revision history; both must pass before substantial human annotation starts. The
-requirements below remain acceptance contracts unless explicitly covered by tested implementation.
+The root contains pack/export, digest, point-index, reference-object, and sidecar groundwork.
+Revision safety landed in `a8481872d`, with a final overflow guard and API documentation in this
+recovery increment. Saves reject stale revisions and changed source bytes, serialise local writers,
+archive exact prior bytes, and restore history as a new revision. Failed saves preserve the caller's
+dirty state. See the [storage contract](../../internal/lidar/annotation/README.md).
+
+This is a backend slice, not a completed operator workflow. No lasso/brush/depth-slab interface or
+stroke-level undo is delivered. Operator provenance collection, dirty-navigation handling, and a
+reviewed independent dataset freeze remain open. Requirements below are acceptance contracts unless
+explicitly covered by tested implementation; automatic proposals remain unreviewed after restore.
 
 The current label APIs annotate run tracks and replay time spans. Migration
 `000033_replay_annotations_and_eval_integrity.up.sql` provides replay annotations independent of an

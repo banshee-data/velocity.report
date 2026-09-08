@@ -30,6 +30,26 @@ have not been re-certified by this audit.
 
 ## Recovery and other-agent progress
 
+### Follow-on recovery checkpoint
+
+The latest inspected other-agent commits are `dbe670bf3` (speed-banded residual/NIS baselines) and
+`b8a752dc8` (separate Pi/Mac/CI performance baselines). Their work is present in the root. Annotation
+revision storage is also committed in `a8481872d`; local recovery adds its final overflow guard.
+
+This follow-on corrects the baseline population to the scoring window, wires diagnostics and
+associated raw cluster boxes through storage/replay/streaming, and starts bounded offline retention
+plus the `l4bobserve` evidence boundary. It supersedes the absence claims in the original snapshot
+below, not its historical experiment results. The original 33-track IDs and source snapshot are
+unavailable. Replacement extraction is an unreviewed queue, not a recovered or labelled test set.
+The [state-estimation checkpoint](lidar-state-estimation-plan.md#0-principles) controls current gates.
+
+The remaining Phase 1 work is primitive extraction, explicit source/calibration identity, additive
+write-once observation storage and replay, surface/clipping context, and G-PER-1. Pi acceptance is
+still open. Neither this observation boundary nor the annotation sidecar changes the current
+medoid measurement, four-state filter, or tracker timing policy.
+
+### Original inspection record
+
 The earlier interrupted work is present in the root history. It does not need another transfer or
 cherry-pick. These commits are already included in PR #559:
 
@@ -66,9 +86,8 @@ recalculated merely because WIP became committed.
 
 The annotation slice is useful Day 1 groundwork, not a finished annotation client. No
 lasso/brush/slab workflow, descriptor fitting, seeded shape tracker, or model-inspection panel was
-found in the PR's client changes. Before using sidecars for substantial human work, finish
-stale-revision rejection and recoverable revision history: the inspected save path atomically
-replaces one file but does not compare the submitted revision with the stored one.
+found in the PR's client changes. At that inspection, stale-revision rejection and recoverable
+history were missing. The follow-on checkpoint above closes that backend gap, not the client work.
 
 The separate task **Explore LiDAR semantic segmentation** completed a read-only root integration
 check. Its proposal and index links are already included via `e4d7546a3`; it reported no missing
