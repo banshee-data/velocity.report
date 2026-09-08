@@ -177,6 +177,9 @@ func TestSceneMapEndpointGroupsSites(t *testing.T) {
 		t.Fatalf("scene map = %d: %s", rec.Code, rec.Body.String())
 	}
 	payload := decodeCaseBody(t, rec)
+	if payload["area_count"] != float64(1) {
+		t.Fatalf("area_count = %v, want 1", payload["area_count"])
+	}
 	if payload["site_count"] != float64(1) {
 		t.Fatalf("site_count = %v, want 1", payload["site_count"])
 	}
@@ -184,10 +187,15 @@ func TestSceneMapEndpointGroupsSites(t *testing.T) {
 	if payload["coarse_level"] != float64(geoindex.LevelCoarse) {
 		t.Errorf("coarse_level = %v, want %d", payload["coarse_level"], geoindex.LevelCoarse)
 	}
-	site := payload["sites"].([]any)[0].(map[string]any)
-	if !strings.Contains(site["s2_l10_display"].(string), "-") {
-		t.Errorf("site display %v is not a family display", site["s2_l10_display"])
+	area := payload["areas"].([]any)[0].(map[string]any)
+	if !strings.Contains(area["s2_l10_display"].(string), "-") {
+		t.Errorf("area display %v is not a family display", area["s2_l10_display"])
 	}
+	sites := area["sites"].([]any)
+	if len(sites) != 1 {
+		t.Fatalf("area holds %d sites, want 1", len(sites))
+	}
+	site := sites[0].(map[string]any)
 	if len(site["cases"].([]any)) != 1 {
 		t.Error("the site does not link to its case")
 	}

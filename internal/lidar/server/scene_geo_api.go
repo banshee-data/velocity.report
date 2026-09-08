@@ -80,30 +80,34 @@ func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, 
 	})
 }
 
-// handleSceneMap returns every located site and the cases captured there.
+// handleSceneMap returns every area captures have been taken in, each holding
+// the sites within it and the cases captured at each one.
 //
 // GET /api/lidar/scene-map
 //
-// A site is an L10 cell, so many visits to one junction collapse into one
-// entry. Each carries the cell's centre and bounds, so a map can draw the site
-// rather than only pin a position inside it.
+// An area is an L10 cell, district-scale, so it typically holds several
+// distinct sites (L16 cells — a junction and its approaches). Each area
+// carries its cell's centre and bounds, so a map can draw it rather than only
+// pin a position inside it.
 func (ws *Server) handleSceneMap(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "no database configured")
 		return
 	}
-	sites, err := sqlite.NewReplayCaseStore(ws.db).SceneSites()
+	areas, err := sqlite.NewReplayCaseStore(ws.db).SceneAreas()
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var cases int
-	for _, s := range sites {
-		cases += s.CaseCount
+	var cases, sites int
+	for _, a := range areas {
+		cases += a.CaseCount
+		sites += len(a.Sites)
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]any{
-		"sites":         sites,
-		"site_count":    len(sites),
+		"areas":         areas,
+		"area_count":    len(areas),
+		"site_count":    sites,
 		"case_count":    cases,
 		"coarse_level":  geoindex.LevelCoarse,
 		"fine_level":    geoindex.LevelFine,

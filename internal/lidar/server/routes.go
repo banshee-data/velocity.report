@@ -216,6 +216,10 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
 	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
 
+	// Site API routes (canonical pose for a located site, e.g. a surveyed
+	// intersection midpoint) — distinct from a case's own sensor pose.
+	mux.HandleFunc("/api/lidar/sites/", ws.withDB(ws.handleSiteByToken))
+
 }
 
 // setupRoutes configures the HTTP routes and handlers for the lidar-only

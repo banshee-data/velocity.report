@@ -202,6 +202,7 @@
         , s2_l16_token TEXT
         , geographic_source TEXT
         , geographic_status TEXT NOT NULL DEFAULT 'unavailable'
+        , site_id TEXT REFERENCES lidar_sites (site_id) ON DELETE SET NULL
         , CHECK (
           pcap_start_secs IS NULL
        OR pcap_start_secs >= 0
@@ -354,6 +355,22 @@
           )
         , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
         , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
+          );
+
+   CREATE TABLE IF NOT EXISTS "lidar_sites" (
+          site_id TEXT PRIMARY KEY
+        , s2_l13_token TEXT NOT NULL
+        , s2_l10_token TEXT NOT NULL
+        , label TEXT
+        , canonical_lat REAL
+        , canonical_lon REAL
+          -- How the canonical pose was set: surveyed or operator. Never a fix —
+          -- a canonical pose is by definition not one sensor's reading taken on
+          -- one visit.
+
+        , canonical_source TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_tracks" (
@@ -853,6 +870,12 @@ CREATE INDEX idx_lidar_replay_cases_s2_l10 ON lidar_replay_cases (s2_l10_token);
 CREATE INDEX idx_lidar_replay_cases_s2_l13 ON lidar_replay_cases (s2_l13_token);
 
 CREATE INDEX idx_lidar_replay_cases_s2_l16 ON lidar_replay_cases (s2_l16_token);
+
+CREATE INDEX idx_lidar_sites_l13 ON lidar_sites (s2_l13_token);
+
+CREATE INDEX idx_lidar_sites_l10 ON lidar_sites (s2_l10_token);
+
+CREATE INDEX idx_lidar_replay_cases_site_id ON lidar_replay_cases (site_id);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

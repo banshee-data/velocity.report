@@ -1578,7 +1578,7 @@ export async function createReplayCaseFromCaptures(request: {
 
 // Geographic identity of located replay cases
 
-import type { CaseLocation, SceneMapResponse } from '$lib/types/captures';
+import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '$lib/types/captures';
 
 /**
  * setReplayCaseLocation records where a case was captured.
@@ -1616,9 +1616,42 @@ export async function clearReplayCaseLocation(replayCaseId: string): Promise<voi
 	if (!res.ok) throw apiError('Could not clear the capture location', res.status);
 }
 
-/** getSceneMap returns every located site and the cases captured there. */
+/** getSceneMap returns every area captures have been taken in, with the sites
+ * and cases within each. */
 export async function getSceneMap(): Promise<SceneMapResponse> {
 	const res = await fetch(`${API_BASE}/lidar/scene-map`);
 	if (!res.ok) throw apiError('Could not load the scene map', res.status);
+	return res.json();
+}
+
+/**
+ * setSiteCanonicalPose records a site's fixed position — a surveyed or
+ * hand-entered point such as the midpoint of the intersection — distinct
+ * from any one case's sensor pose. An empty label leaves whatever the site
+ * is already labelled.
+ */
+export async function setSiteCanonicalPose(
+	l16Token: string,
+	pose: {
+		canonical_lat: number;
+		canonical_lon: number;
+		canonical_source: SiteSource;
+		label?: string;
+	}
+): Promise<LidarSite> {
+	const res = await fetch(`${API_BASE}/lidar/sites/${l16Token}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(pose)
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = (await res.json())?.error ?? '';
+		} catch {
+			// A non-JSON body leaves the status to speak for itself.
+		}
+		throw apiError(detail || "Could not record the site's canonical pose", res.status);
+	}
 	return res.json();
 }

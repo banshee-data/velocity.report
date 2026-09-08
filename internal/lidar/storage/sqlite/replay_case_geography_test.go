@@ -19,27 +19,33 @@ const (
 	kirkhamLng  = -122.4694
 )
 
-// setupGeoDB applies the replay-case fixture plus migration 042.
+// setupGeoDB applies the replay-case fixture plus migrations 042 and 043.
 func setupGeoDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db := setupCaseFilesDB(t)
-	migration := filepath.Join("..", "..", "..", "db", "migrations",
-		"000042_replay_case_geography.up.sql")
-	schema, err := os.ReadFile(migration)
-	if err != nil {
-		t.Fatalf("read migration 042: %v", err)
-	}
-	// Applied strictly, as one script, exactly as the migration runner does.
-	//
-	// An earlier version of this fixture split the file and tolerated
-	// "duplicate column" errors, and that tolerance hid a genuine fault: the
-	// SQL formatter had mangled a comment into a stray comma, and the shipped
-	// migration would not apply to any database. Being lenient here meant the
-	// test passed while the product was broken.
-	if _, err := db.Exec(string(schema)); err != nil {
-		t.Fatalf("apply migration 042: %v", err)
-	}
+	applyMigrationScript(t, db, "000042_replay_case_geography.up.sql")
+	applyMigrationScript(t, db, "000043_lidar_sites.up.sql")
 	return db
+}
+
+// applyMigrationScript applies one migration file strictly, as one script,
+// exactly as the migration runner does.
+//
+// An earlier version of this fixture split a migration and tolerated
+// "duplicate column" errors, and that tolerance hid a genuine fault: the SQL
+// formatter had mangled a comment into a stray comma, and the shipped
+// migration would not apply to any database. Being lenient here meant the
+// test passed while the product was broken.
+func applyMigrationScript(t *testing.T, db *sql.DB, filename string) {
+	t.Helper()
+	path := filepath.Join("..", "..", "..", "db", "migrations", filename)
+	schema, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migration %s: %v", filename, err)
+	}
+	if _, err := db.Exec(string(schema)); err != nil {
+		t.Fatalf("apply migration %s: %v", filename, err)
+	}
 }
 
 func TestSetCaseLocationDerivesTheFamily(t *testing.T) {
@@ -193,14 +199,16 @@ func TestClearCaseLocation(t *testing.T) {
 	}
 }
 
-func TestSceneSitesGroupsByCoarseCell(t *testing.T) {
+func TestSceneAreasGroupsByCoarseCell(t *testing.T) {
 	// The scene map's whole job: many visits to one junction collapse into one
-	// site, and two junctions stay apart.
+	// site, and two junctions stay apart. Two junctions many km apart also
+	// stay in separate areas.
 	store := NewReplayCaseStore(setupGeoDB(t))
 	for _, id := range []string{"case-1", "case-2", "case-3"} {
 		insertCase(t, store, id, id+".pcap")
 	}
-	// Two at Broadway a few metres apart, one across town.
+	// Two at Broadway a few metres apart — one site, two visits — plus one
+	// across town in its own area.
 	if _, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
 		t.Fatalf("SetCaseLocation: %v", err)
 	}
@@ -211,46 +219,49 @@ func TestSceneSitesGroupsByCoarseCell(t *testing.T) {
 		t.Fatalf("SetCaseLocation: %v", err)
 	}
 
-	sites, err := store.SceneSites()
+	areas, err := store.SceneAreas()
 	if err != nil {
-		t.Fatalf("SceneSites: %v", err)
+		t.Fatalf("SceneAreas: %v", err)
 	}
-	if len(sites) != 2 {
-		t.Fatalf("got %d sites, want 2 junctions", len(sites))
+	if len(areas) != 2 {
+		t.Fatalf("got %d areas, want 2 junctions' worth", len(areas))
 	}
 
-	var broadway *SceneSite
-	for i := range sites {
-		if sites[i].CaseCount == 2 {
-			broadway = &sites[i]
+	var broadway *SceneArea
+	for i := range areas {
+		if areas[i].CaseCount == 2 {
+			broadway = &areas[i]
 		}
 	}
 	if broadway == nil {
-		t.Fatal("no site holds the two Broadway cases")
+		t.Fatal("no area holds the two Broadway cases")
 	}
 	if broadway.L10Display == "" || !strings.Contains(broadway.L10Display, "-") {
-		t.Errorf("site display %q is not a family display", broadway.L10Display)
+		t.Errorf("area display %q is not a family display", broadway.L10Display)
 	}
-	if len(broadway.Cases) != 2 {
-		t.Errorf("site lists %d cases, want 2", len(broadway.Cases))
+	if len(broadway.Sites) != 1 {
+		t.Fatalf("area holds %d sites, want 1 — the two cases are metres apart", len(broadway.Sites))
+	}
+	if len(broadway.Sites[0].Cases) != 2 {
+		t.Errorf("site lists %d cases, want 2", len(broadway.Sites[0].Cases))
 	}
 	// The cell's bounds must contain the positions it groups.
 	if broadwayLat < broadway.SouthWestLat || broadwayLat > broadway.NorthEastLat {
-		t.Errorf("site bounds do not contain the capture latitude")
+		t.Errorf("area bounds do not contain the capture latitude")
 	}
 	if broadwayLng < broadway.SouthWestLon || broadwayLng > broadway.NorthEastLon {
-		t.Errorf("site bounds do not contain the capture longitude")
+		t.Errorf("area bounds do not contain the capture longitude")
 	}
 }
 
-func TestSceneSitesCountsDistinctFinerCells(t *testing.T) {
-	// A site's finer counts say how many deployments and sensor positions it
-	// holds, which is what distinguishes one visit from ten.
+func TestSceneAreasCountsDistinctSites(t *testing.T) {
+	// An area's site count says how many distinct junctions it holds, which
+	// is what distinguishes one visit repeated from two different places.
 	store := NewReplayCaseStore(setupGeoDB(t))
 	for _, id := range []string{"case-1", "case-2"} {
 		insertCase(t, store, id, id+".pcap")
 	}
-	// The same position twice: one deployment, one sensor position.
+	// The same position twice: one site, two visits.
 	if _, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
 		t.Fatalf("SetCaseLocation: %v", err)
 	}
@@ -258,22 +269,25 @@ func TestSceneSitesCountsDistinctFinerCells(t *testing.T) {
 		t.Fatalf("SetCaseLocation: %v", err)
 	}
 
-	sites, err := store.SceneSites()
+	areas, err := store.SceneAreas()
 	if err != nil {
-		t.Fatalf("SceneSites: %v", err)
+		t.Fatalf("SceneAreas: %v", err)
 	}
-	if len(sites) != 1 {
-		t.Fatalf("got %d sites, want 1", len(sites))
+	if len(areas) != 1 {
+		t.Fatalf("got %d areas, want 1", len(areas))
 	}
-	if sites[0].CaseCount != 2 {
-		t.Errorf("case count = %d, want 2", sites[0].CaseCount)
+	if areas[0].CaseCount != 2 {
+		t.Errorf("case count = %d, want 2", areas[0].CaseCount)
 	}
-	if sites[0].L16Count != 1 {
-		t.Errorf("precise cell count = %d, want 1 for one sensor position", sites[0].L16Count)
+	if len(areas[0].Sites) != 1 {
+		t.Errorf("site count = %d, want 1 for one junction visited twice", len(areas[0].Sites))
+	}
+	if areas[0].Sites[0].L16Token == "" {
+		t.Error("site carries no L16 token")
 	}
 }
 
-func TestSceneSitesOmitsUnlocatedCases(t *testing.T) {
+func TestSceneAreasOmitsUnlocatedCases(t *testing.T) {
 	store := NewReplayCaseStore(setupGeoDB(t))
 	insertCase(t, store, "located", "a.pcap")
 	insertCase(t, store, "unlocated", "b.pcap")
@@ -281,25 +295,91 @@ func TestSceneSitesOmitsUnlocatedCases(t *testing.T) {
 		t.Fatalf("SetCaseLocation: %v", err)
 	}
 
-	sites, err := store.SceneSites()
+	areas, err := store.SceneAreas()
 	if err != nil {
-		t.Fatalf("SceneSites: %v", err)
+		t.Fatalf("SceneAreas: %v", err)
 	}
-	if len(sites) != 1 || sites[0].CaseCount != 1 {
-		t.Fatalf("got %+v, want only the located case", sites)
+	if len(areas) != 1 || areas[0].CaseCount != 1 {
+		t.Fatalf("got %+v, want only the located case", areas)
 	}
-	if sites[0].Cases[0].ReplayCaseID != "located" {
-		t.Errorf("site lists %q, want the located case", sites[0].Cases[0].ReplayCaseID)
+	if areas[0].Sites[0].Cases[0].ReplayCaseID != "located" {
+		t.Errorf("site lists %q, want the located case", areas[0].Sites[0].Cases[0].ReplayCaseID)
 	}
 }
 
-func TestSceneSitesOnAnEmptyDatabase(t *testing.T) {
+func TestSceneAreasOnAnEmptyDatabase(t *testing.T) {
 	store := NewReplayCaseStore(setupGeoDB(t))
-	sites, err := store.SceneSites()
+	areas, err := store.SceneAreas()
 	if err != nil {
-		t.Fatalf("SceneSites: %v", err)
+		t.Fatalf("SceneAreas: %v", err)
 	}
-	if len(sites) != 0 {
-		t.Errorf("got %d sites, want none", len(sites))
+	if len(areas) != 0 {
+		t.Errorf("got %d areas, want none", len(areas))
+	}
+}
+
+func TestSetCaseLocationLinksTheCaseToItsSite(t *testing.T) {
+	// "A scene should be at a site": locating a case must both create the
+	// site (if this is the first visit) and record which one the case is at.
+	store := NewReplayCaseStore(setupGeoDB(t))
+	insertCase(t, store, "case-1", "a.pcap")
+
+	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	if err != nil {
+		t.Fatalf("SetCaseLocation: %v", err)
+	}
+	if loc.SiteID != loc.L16Token {
+		t.Errorf("location site_id = %q, want the L16 token %q", loc.SiteID, loc.L16Token)
+	}
+
+	sites := NewSiteStore(store.db)
+	site, err := sites.ByToken(loc.L16Token)
+	if err != nil {
+		t.Fatalf("ByToken: %v", err)
+	}
+	if site.L13Token != loc.L13Token || site.L10Token != loc.L10Token {
+		t.Errorf("site ancestors %+v do not match the case's own tokens", site)
+	}
+	if site.CanonicalLat != nil {
+		t.Error("a freshly created site should have no canonical pose yet")
+	}
+
+	// A second case at the same junction shares the site rather than
+	// duplicating it.
+	insertCase(t, store, "case-2", "b.pcap")
+	loc2, err := store.SetCaseLocation("case-2", broadwayLat, broadwayLng, "")
+	if err != nil {
+		t.Fatalf("SetCaseLocation: %v", err)
+	}
+	if loc2.SiteID != loc.SiteID {
+		t.Errorf("second visit got site %q, want the same site %q", loc2.SiteID, loc.SiteID)
+	}
+}
+
+func TestClearCaseLocationLeavesTheSiteInPlace(t *testing.T) {
+	// Unlocating a case must not delete a site other cases, or an
+	// already-set canonical pose, may still depend on.
+	store := NewReplayCaseStore(setupGeoDB(t))
+	insertCase(t, store, "case-1", "a.pcap")
+	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	if err != nil {
+		t.Fatalf("SetCaseLocation: %v", err)
+	}
+
+	if err := store.ClearCaseLocation("case-1"); err != nil {
+		t.Fatalf("ClearCaseLocation: %v", err)
+	}
+
+	got, err := store.CaseLocationOf("case-1")
+	if err != nil {
+		t.Fatalf("CaseLocationOf: %v", err)
+	}
+	if got != nil {
+		t.Errorf("a cleared case still reports a location: %+v", got)
+	}
+
+	sites := NewSiteStore(store.db)
+	if _, err := sites.ByToken(loc.SiteID); err != nil {
+		t.Errorf("the site should survive clearing the case: %v", err)
 	}
 }

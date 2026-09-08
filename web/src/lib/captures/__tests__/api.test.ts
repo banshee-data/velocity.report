@@ -14,6 +14,7 @@ import {
 	scanCaptureRoots,
 	setReplayCaseLocation,
 	setCaptureSessionLabel,
+	setSiteCanonicalPose,
 	startCaptureMotionPass
 } from '$lib/api';
 
@@ -255,10 +256,26 @@ describe('clearReplayCaseLocation', () => {
 });
 
 describe('getSceneMap', () => {
-	it('returns the sites', async () => {
+	it('returns the areas, each holding its sites', async () => {
 		fetchMock.mockReturnValue(
 			ok({
-				sites: [{ s2_l10_token: '808581', s2_l10_display: '80858-1', case_count: 2, cases: [] }],
+				areas: [
+					{
+						s2_l10_token: '808581',
+						s2_l10_display: '80858-1',
+						case_count: 2,
+						neighbourhood_count: 1,
+						sites: [
+							{
+								s2_l16_token: '8085800c',
+								s2_l13_token: '80858004',
+								s2_l10_token: '808581',
+								cases: []
+							}
+						]
+					}
+				],
+				area_count: 1,
 				site_count: 1,
 				case_count: 2,
 				coarse_level: 10,
@@ -267,7 +284,8 @@ describe('getSceneMap', () => {
 			})
 		);
 		const map = await getSceneMap();
-		expect(map.site_count).toBe(1);
+		expect(map.area_count).toBe(1);
+		expect(map.areas[0].sites[0].s2_l16_token).toBe('8085800c');
 		// The levels are reported so the page need not hard-code them.
 		expect(map.coarse_level).toBe(10);
 		expect(map.precise_level).toBe(16);
@@ -276,5 +294,32 @@ describe('getSceneMap', () => {
 	it('throws on a failure', async () => {
 		fetchMock.mockReturnValue(fail(503));
 		await expect(getSceneMap()).rejects.toThrow();
+	});
+});
+
+describe('setSiteCanonicalPose', () => {
+	it('PUTs the pose to the site by token', async () => {
+		fetchMock.mockReturnValue(
+			ok({ s2_l16_token: '8085800c', canonical_lat: 37.79875, canonical_lon: -122.40735 })
+		);
+		const site = await setSiteCanonicalPose('8085800c', {
+			canonical_lat: 37.79875,
+			canonical_lon: -122.40735,
+			canonical_source: 'surveyed'
+		});
+		expect(site.canonical_lat).toBe(37.79875);
+		expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT' });
+		expect(lastUrl()).toContain('/sites/8085800c');
+	});
+
+	it('throws with the server detail on a failure', async () => {
+		fetchMock.mockReturnValue(fail(404, { error: 'no site at this token yet' }));
+		await expect(
+			setSiteCanonicalPose('nope', {
+				canonical_lat: 0,
+				canonical_lon: 0,
+				canonical_source: 'operator'
+			})
+		).rejects.toThrow(/no site at this token yet/);
 	});
 });

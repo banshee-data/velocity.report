@@ -149,6 +149,11 @@ export interface PeriodsResponse {
  * sent back as a key or used to address anything.
  */
 export interface CaseLocation {
+	/**
+	 * The case's own sensor pose: where the car was for this one visit. Free
+	 * to differ from the site's canonical pose, and from another case's visit
+	 * to the same site.
+	 */
 	origin_lat: number;
 	origin_lon: number;
 	/**
@@ -163,6 +168,8 @@ export interface CaseLocation {
 	s2_l10_display: string;
 	s2_l13_display: string;
 	s2_l16_display: string;
+	/** The site this case is at — equal to s2_l16_token. */
+	site_id: string;
 	/** surveyed | operator | fix */
 	geographic_source?: string;
 	/** located | unavailable */
@@ -172,30 +179,51 @@ export interface CaseLocation {
 export const GEO_LOCATED = 'located';
 export const GEO_UNAVAILABLE = 'unavailable';
 
-/** How a position was established. */
+/** How a case's sensor pose was established. */
 export const GEO_SOURCES = ['surveyed', 'operator', 'fix'] as const;
 export type GeoSource = (typeof GEO_SOURCES)[number];
 
-/** One replay case as the scene map lists it. */
-export interface SceneSiteCase {
+/** How a site's canonical pose was established — never a fix: a canonical
+ * pose is by definition not one sensor's reading on one visit. */
+export const SITE_SOURCES = ['surveyed', 'operator'] as const;
+export type SiteSource = (typeof SITE_SOURCES)[number];
+
+/** One replay case as a site lists it — its own sensor pose for that visit. */
+export interface SiteCase {
 	replay_case_id: string;
 	description?: string;
 	sensor_id?: string;
-	s2_l13_token: string;
-	s2_l13_display: string;
-	s2_l16_token: string;
-	s2_l16_display: string;
 	origin_lat: number;
 	origin_lon: number;
 	created_at_ns: number;
 }
 
 /**
- * One area captures were taken in. The grouping is the L10 cell, which is
- * district-scale, so an entry may cover several distinct sites; l16_count is
- * how many it holds.
+ * A site is one L16 cell: a junction and its approaches, about 180 m across.
+ * It exists once any case has been located there, and its own canonical pose
+ * — a fixed point such as the midpoint of the intersection — is separate from
+ * any one case's sensor pose, and unset until someone (a surveyor or an
+ * operator) records it deliberately.
  */
-export interface SceneSite {
+export interface LidarSite {
+	s2_l16_token: string;
+	s2_l13_token: string;
+	s2_l10_token: string;
+	label?: string;
+	canonical_lat?: number;
+	canonical_lon?: number;
+	/** surveyed | operator — absent when no canonical pose has been set. */
+	canonical_source?: string;
+	created_at_ns: number;
+	updated_at_ns?: number;
+	cases: SiteCase[];
+}
+
+/**
+ * One area captures were taken in. The grouping is the L10 cell, which is
+ * district-scale, so an entry typically holds several distinct sites.
+ */
+export interface SceneArea {
 	s2_l10_token: string;
 	s2_l10_display: string;
 	centre_lat: number;
@@ -205,14 +233,14 @@ export interface SceneSite {
 	ne_lat: number;
 	ne_lon: number;
 	case_count: number;
-	/** Distinct finer cells: neighbourhoods, and the sites within them. */
-	l13_count: number;
-	l16_count: number;
-	cases: SceneSiteCase[];
+	/** Distinct L13 cells within the area. */
+	neighbourhood_count: number;
+	sites: LidarSite[];
 }
 
 export interface SceneMapResponse {
-	sites: SceneSite[];
+	areas: SceneArea[];
+	area_count: number;
 	site_count: number;
 	case_count: number;
 	coarse_level: number;
