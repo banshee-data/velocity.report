@@ -33,6 +33,7 @@ func ReplayEvalMain(args []string) int {
 	warmupSeconds := fs.Float64("warmup-seconds", 0, "Process this prefix before start-seconds without recording it; retain background and tracker state")
 	requireSettled := fs.Bool("require-settled", false, "Fail unless the background is settled before the first scored frame")
 	includePoints := fs.Bool("include-points", false, "Record the point cloud (much larger output; needed only for the visualiser)")
+	includeDebug := fs.Bool("include-debug", false, "Record raw cluster boxes, associations, predictions, and innovations beside track estimates")
 	progress := fs.Int("progress-frames", 200, "Log progress every N frames (0 = off)")
 	analyse := fs.Bool("analyse", true, "Generate analysis.json in the output directory")
 	compareTo := fs.String("compare-to", "", "Path to a baseline VRLOG; writes an A/B comparison against it")
@@ -99,6 +100,7 @@ Examples:
 		WarmupSeconds:   *warmupSeconds,
 		RequireSettled:  *requireSettled,
 		IncludePoints:   *includePoints,
+		IncludeDebug:    *includeDebug,
 		ProgressEvery:   *progress,
 	})
 	if err != nil {
@@ -218,13 +220,9 @@ func derefFloat(p *float64) float64 {
 // printTrackingBaseline shows the Phase 0 filter-consistency figures written
 // beside the recording.
 //
-// MeanNIS is the one to read first. A consistent two-dimensional filter holds
-// it near 2 and puts about 5% of observations above the chi-squared bound. A
-// mean well above 2 says the filter is overconfident — reality surprises it
-// more often than its covariance allows — which is what a single fixed
-// measurement noise across all ranges and aspects would produce. It is not
-// proof of that on its own: a wrong motion model raises NIS too, and a
-// manoeuvring vehicle raises it without anything being broken.
+// Accepted-only NIS is censored by association and cannot certify uncertainty
+// calibration. The uncensored two-dimensional reference mean is 2; disagreement
+// may reflect association selection, motion error, or measurement noise.
 func printTrackingBaseline(dir string) {
 	b, err := os.ReadFile(filepath.Join(dir, "tracking_baseline.json"))
 	if err != nil {
@@ -238,7 +236,8 @@ func printTrackingBaseline(dir string) {
 		return
 	}
 
-	fmt.Printf("\nfilter consistency by speed band (mean NIS near 2 is consistent):\n")
+	fmt.Printf("\nfilter diagnostics by speed band (accepted-only NIS; not a calibration verdict):\n")
+	fmt.Printf("  schema %d; population: %s\n", baseline.SchemaVersion, baseline.Population)
 	fmt.Printf("  %-10s %8s %10s %10s %9s %8s %9s\n",
 		"speed m/s", "n", "lat RMS", "lon RMS", "lat bias", "NIS", "over 95%")
 	for _, r := range baseline.Residuals {
