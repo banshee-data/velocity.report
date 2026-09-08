@@ -129,6 +129,7 @@ func TestRun(t *testing.T) {
 		"max_cluster_diameter": 12.0,
 		"min_cluster_diameter": 0.05,
 		"max_cluster_aspect_ratio": 15.0,
+		"max_sample_points":        0,
 		"max_reasonable_speed_mps": 30.0,
 		"max_position_jump_meters": 5.0,
 		"max_predict_dt": 0.5,

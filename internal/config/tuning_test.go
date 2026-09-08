@@ -155,7 +155,8 @@ func TestLoadTuningConfigRejectsMissingSelectedEngineBlock(t *testing.T) {
       "remove_ground": true,
       "max_cluster_diameter": 12.0,
       "min_cluster_diameter": 0.05,
-      "max_cluster_aspect_ratio": 15.0
+      "max_cluster_aspect_ratio": 15.0,
+      "max_sample_points": 0
     }
   },
   "l5": {
@@ -271,7 +272,8 @@ func TestLoadTuningConfigRejectsLegacySpellings(t *testing.T) {
       "remove_ground": true,
       "max_cluster_diameter": 12.0,
       "min_cluster_diameter": 0.05,
-      "max_cluster_aspect_ratio": 15.0
+      "max_cluster_aspect_ratio": 15.0,
+      "max_sample_points": 0
     }
   },
   "l5": {
