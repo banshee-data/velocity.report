@@ -20,7 +20,7 @@ cycler==0.12.1
     # via matplotlib
 drawsvg==2.4.2
     # via -r requirements.in
-fonttools==4.63.0
+fonttools==4.64.0
     # via
     #   -r requirements.in
     #   matplotlib
@@ -79,7 +79,7 @@ pyyaml==6.0.3
     # via -r requirements.in
 requests==2.34.2
     # via -r requirements.in
-ruff==0.16.5
+ruff==0.16.6
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
