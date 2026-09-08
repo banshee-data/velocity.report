@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -524,10 +525,14 @@ func (m *mockVisualiserPublisher) Publish(frame interface{}) {
 type mockVisualiserAdapter struct {
 	adaptCalls      int
 	adaptEmptyCalls int
+	debugFrames     []*debug.DebugFrame
 }
 
 func (m *mockVisualiserAdapter) AdaptFrame(frame *l2frames.LiDARFrame, foregroundMask []bool, clusters []l4perception.WorldCluster, tracker l5tracks.TrackerInterface, debugFrame interface{}) interface{} {
 	m.adaptCalls++
+	if df, ok := debugFrame.(*debug.DebugFrame); ok && df != nil {
+		m.debugFrames = append(m.debugFrames, df)
+	}
 	return struct{}{}
 }
 
@@ -641,6 +646,9 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 	visPub := &mockVisualiserPublisher{}
 	visAdapter := &mockVisualiserAdapter{}
 	lidarView := &mockLidarViewAdapter{}
+	collector := debug.NewDebugCollector()
+	collector.SetEnabled(true)
+	tracker.DebugCollector = collector
 
 	cfg := &TrackingPipelineConfig{
 		SensorID:            sensorID,
@@ -650,6 +658,7 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 		VisualiserPublisher: visPub,
 		VisualiserAdapter:   visAdapter,
 		LidarViewAdapter:    lidarView,
+		DebugCollector:      collector,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -663,6 +672,17 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 
 	t.Logf("Visualiser: publishCalls=%d, adaptCalls=%d, lidarViewCalls=%d",
 		visPub.publishCalls, visAdapter.adaptCalls, lidarView.calls)
+	if len(visAdapter.debugFrames) == 0 || len(visAdapter.debugFrames) != visAdapter.adaptCalls {
+		t.Fatal("collector not published")
+	}
+	if collector.Emit() != nil {
+		t.Fatal("collector retained a published frame")
+	}
+	for i := 1; i < len(visAdapter.debugFrames); i++ {
+		if visAdapter.debugFrames[i] == visAdapter.debugFrames[i-1] {
+			t.Fatal("collector reused mutable frame")
+		}
+	}
 }
 
 // TestTrackingPipelineConfig_LidarViewOnly tests LidarView-only mode (no gRPC adapter).

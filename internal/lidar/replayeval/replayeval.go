@@ -31,6 +31,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -87,6 +88,9 @@ type Config struct {
 	// output size, so it is off unless the recording is meant for the
 	// visualiser rather than for metrics.
 	IncludePoints bool
+	// IncludeDebug records predictions, innovations, associations, and raw
+	// cluster boxes alongside track estimates. Disabled by default.
+	IncludeDebug bool
 	// ProgressEvery logs a line every N frames. Zero disables progress logs.
 	ProgressEvery int
 }
@@ -289,6 +293,13 @@ func Run(cfg Config) (*Result, error) {
 		HeightBandFloor:         tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:       tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:            tuningCfg.GetRemoveGround(),
+		MaxSamplePoints:         tuningCfg.L4.ActiveCommon().MaxSamplePoints,
+	}
+	if cfg.IncludeDebug {
+		collector := debug.NewDebugCollector()
+		collector.SetEnabled(true)
+		tracker.DebugCollector = collector
+		pipeCfg.DebugCollector = collector
 	}
 	pipelineCallback := pipeCfg.NewFrameCallback()
 
@@ -303,6 +314,7 @@ func Run(cfg Config) (*Result, error) {
 		// cannot itself be used to certify its own warm-up.
 		if !boundaryChecked && frame.StartTimestamp.UnixNano() >= scoreStart {
 			boundaryChecked = true
+			tracker.BeginTrackingBaseline()
 			settledAtBoundary = bgMgr.IsSettlingComplete()
 			if cfg.RequireSettled && !settledAtBoundary {
 				pub.mu.Lock()
@@ -377,7 +389,7 @@ func Run(cfg Config) (*Result, error) {
 		"scoring_duration_seconds": cfg.DurationSeconds, "warmup_seconds": cfg.WarmupSeconds,
 		"tracker_boundary_policy": "retain", "settled_at_boundary": settledAtBoundary,
 		"require_settled": cfg.RequireSettled, "sensor_id": cfg.SensorID, "udp_port": cfg.UDPPort,
-		"include_points": cfg.IncludePoints, "params_sha256": paramsHash,
+		"include_points": cfg.IncludePoints, "include_debug": cfg.IncludeDebug, "params_sha256": paramsHash,
 		"calibration_sha256": "sha256:" + hex.EncodeToString(sha256Sum(parserJSON)),
 		"build_version":      version.Version, "build_git_sha": version.GitSHA,
 		"build_stamped":    version.GitSHA != "" && version.GitSHA != "unknown" && version.GitSHA != "dev",
@@ -396,7 +408,7 @@ func Run(cfg Config) (*Result, error) {
 	// rates, which a VRLOG cannot carry: it records the estimates the pipeline
 	// published, not what they disagreed with the observations about. Written
 	// beside the recording so a baseline can be compared run to run.
-	if err := writeTrackingBaseline(cfg.OutDir, tracker.GetTrackingMetrics()); err != nil {
+	if err := writeTrackingBaseline(cfg.OutDir, tracker.GetWindowBaseline()); err != nil {
 		return nil, err
 	}
 
@@ -428,22 +440,28 @@ func fileSHA256(path string) (string, error) {
 
 // TrackingBaseline is the Phase 0 filter-consistency baseline for one run.
 type TrackingBaseline struct {
-	SchemaVersion int                               `json:"schema_version"`
-	Residuals     []l5tracks.ResidualBandSummary    `json:"residual_bands"`
-	Association   []l5tracks.AssociationBandSummary `json:"association_bands"`
+	SchemaVersion         int                               `json:"schema_version"`
+	Population            string                            `json:"population"`
+	NISSelection          string                            `json:"nis_selection"`
+	AssociationPopulation string                            `json:"association_population"`
+	Residuals             []l5tracks.ResidualBandSummary    `json:"residual_bands"`
+	Association           []l5tracks.AssociationBandSummary `json:"association_bands"`
 }
 
 // writeTrackingBaseline records the residual and association bands beside the
 // recording.
 //
-// It holds only live tracks: a deleted track's accumulators stop when it dies,
-// and rolling them in would mix a track's whole life into a window it was only
-// partly present for.
+// It includes the scoring window only, retaining contributions after tracks
+// die. Schema 1 pooled surviving tracks' lifetimes, including warm-up, and is
+// not population-compatible with this baseline.
 func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
 	b, err := json.MarshalIndent(TrackingBaseline{
-		SchemaVersion: 1,
-		Residuals:     m.Residuals,
-		Association:   m.Association,
+		SchemaVersion:         2,
+		Population:            "scoring_window_including_terminated_tracks",
+		NISSelection:          "accepted_associations_only",
+		AssociationPopulation: "preexisting_active_tracks_including_empty_frames_and_terminal_misses",
+		Residuals:             m.Residuals,
+		Association:           m.Association,
 	}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal tracking baseline: %w", err)

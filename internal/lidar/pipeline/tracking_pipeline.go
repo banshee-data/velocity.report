@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -162,6 +163,14 @@ type TrackingPipelineConfig struct {
 	VisualiserAdapter   VisualiserAdapter          // Optional: adapter for gRPC
 	LidarViewAdapter    LidarViewAdapter           // Optional: adapter for UDP forwarding
 
+	// DebugCollector is shared with the tracker at construction, before callbacks
+	// start. Its lifecycle belongs to this serial callback; do not toggle it or
+	// share it across pipelines while processing frames.
+	DebugCollector *debug.DebugCollector
+	// MaxSamplePoints opts an offline caller into bounded cluster evidence.
+	// Live callers leave this at zero until the target-device budget is measured.
+	MaxSamplePoints int
+
 	// MaxFrameRate caps the rate at which frames are fully processed through
 	// the tracking pipeline. When frames arrive faster than this rate (e.g.
 	// during PCAP catch-up bursts), excess frames are dropped after background
@@ -302,6 +311,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// than loading from disk on every frame. The per-frame overrides
 	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
+	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 
 	// Pipeline performance tracing state.
 	const slowFrameThresholdMs = 50.0  // emit diagf alert when frame exceeds this
@@ -319,6 +329,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// otherwise skip Publish().
 	hasVisualiser := !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher)
 	publishEmptyFrame := func(frame *l2frames.LiDARFrame) {
+		if baseline, ok := cfg.Tracker.(interface{ RecordBaselineEmptyFrame() }); ok && !isNilInterface(baseline) {
+			baseline.RecordBaselineEmptyFrame()
+		}
 		if !hasVisualiser {
 			return
 		}
@@ -682,7 +695,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
+		var debugFrame *debug.DebugFrame
+		if cfg.DebugCollector != nil {
+			// The adapter assigns the enclosing bundle's frame ID on publication.
+			cfg.DebugCollector.BeginFrame(0)
+		}
 		cfg.Tracker.Update(clusters, frame.StartTimestamp)
+		if cfg.DebugCollector != nil {
+			debugFrame = cfg.DebugCollector.Emit()
+		}
 
 		// Stage 5: Classify and persist confirmed tracks
 		if ft != nil {
@@ -801,10 +822,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("publish")
 		}
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
-			// Adapt frame to FrameBundle
-			// Note: Debug collector is integrated in Tracker but requires explicit enablement
-			// via Tracker.SetDebugCollector(). Pass nil here as debug collection is optional.
-			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, nil)
+			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, debugFrame)
 
 			// Publish to gRPC stream
 			cfg.VisualiserPublisher.Publish(frameBundle)

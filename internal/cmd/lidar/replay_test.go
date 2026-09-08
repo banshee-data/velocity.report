@@ -4,11 +4,31 @@
 package lidar
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/analysis"
 )
+
+func TestTrackingBaselineDisplayAndBandLabels(t *testing.T) {
+	dir := t.TempDir()
+	silence(t, func() int { printTrackingBaseline(dir); return 0 })
+	for _, data := range []string{
+		"invalid", `{}`,
+		`{"schema_version":2,"population":"scoring_window_including_terminated_tracks","residual_bands":[{"speed_floor_mps":0,"count":1},{"speed_floor_mps":15,"count":2,"decomposed":2}],"association_bands":[{"speed_floor_mps":15,"matched":2,"missed":1,"rate":0.6667}]}`,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, "tracking_baseline.json"), []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+		silence(t, func() int { printTrackingBaseline(dir); return 0 })
+	}
+	for floor, want := range map[float32]string{0: "0-2", 2: "2-5", 5: "5-10", 10: "10-15", 15: "15+", 7: "7"} {
+		if got := bandLabel(floor); got != want {
+			t.Fatalf("%g: %s, want %s", floor, got, want)
+		}
+	}
+}
 
 func TestReplayEvalFlagHandling(t *testing.T) {
 	cases := map[string]struct {
@@ -52,6 +72,7 @@ func TestReplayEvalRecordsAndAnalyses(t *testing.T) {
 	code := silence(t, func() int {
 		return ReplayEvalMain([]string{
 			"--pcap", src, "--output", out, "--progress-frames", "0",
+			"--include-debug",
 		})
 	})
 	if code != 0 {

@@ -3,9 +3,12 @@
 package replayeval
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/analysis"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +21,7 @@ func TestWarmupPrefixAndScoringManifest(t *testing.T) {
 	cfg := config.MustLoadDefaultConfig()
 	cfg.L3.EmaBaselineV1.WarmupDurationNanos = 100000000
 	cfg.L3.EmaBaselineV1.WarmupMinFrames = 1
+	cfg.L4.DbscanXyV1.MaxSamplePoints = 16
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -26,7 +30,8 @@ func TestWarmupPrefixAndScoringManifest(t *testing.T) {
 	if err := os.WriteFile(tuning, data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	r, err := Run(Config{PCAPFile: p, OutDir: out, TuningFile: tuning, UDPPort: 2369, StartSeconds: 3, WarmupSeconds: 3, DurationSeconds: 2, RequireSettled: true})
+	runCfg := Config{PCAPFile: p, OutDir: out, TuningFile: tuning, UDPPort: 2369, StartSeconds: 20, WarmupSeconds: 20, DurationSeconds: 10, RequireSettled: true, IncludeDebug: true}
+	r, err := Run(runCfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,6 +58,59 @@ func TestWarmupPrefixAndScoringManifest(t *testing.T) {
 	}
 	if rep.Recording.StartNs < m.ScoreStart || m.ProcessingStart != 0 || !m.Settled || m.Policy != "retain" || !strings.HasPrefix(m.Hash, "sha256:") {
 		t.Fatalf("bad boundary: %+v", m)
+	}
+	reader, err := recorder.NewReplayer(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	debugCount, sampleCount := 0, 0
+	for {
+		frame, err := reader.ReadFrame()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if frame.Debug != nil {
+			debugCount++
+			if frame.Debug.FrameID != frame.FrameID {
+				t.Fatal("debug frame identity mismatch")
+			}
+		}
+		if frame.Clusters != nil {
+			for _, c := range frame.Clusters.Clusters {
+				if len(c.SamplePoints) > 0 {
+					sampleCount++
+				}
+			}
+		}
+	}
+	if debugCount == 0 || sampleCount == 0 {
+		t.Fatalf("missing recorded evidence: debug=%d samples=%d", debugCount, sampleCount)
+	}
+	baseline, err := os.ReadFile(filepath.Join(out, "tracking_baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var measured TrackingBaseline
+	if err := json.Unmarshal(baseline, &measured); err != nil {
+		t.Fatal(err)
+	}
+	if measured.SchemaVersion != 2 || measured.Population == "" || measured.NISSelection != "accepted_associations_only" || measured.AssociationPopulation == "" || len(measured.Residuals) == 0 {
+		t.Fatalf("invalid scoring baseline: %+v", measured)
+	}
+	runCfg.OutDir = filepath.Join(t.TempDir(), "repeat")
+	if _, err := Run(runCfg); err != nil {
+		t.Fatal(err)
+	}
+	repeat, err := os.ReadFile(filepath.Join(runCfg.OutDir, "tracking_baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(baseline, repeat) {
+		t.Fatalf("repeat baseline changed:\n%s\n%s", baseline, repeat)
 	}
 }
 
