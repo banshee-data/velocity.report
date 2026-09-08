@@ -28,6 +28,54 @@
         "source": "operator"
       },
       "position_note": "Hand-entered to the junction, not surveyed. Replace with a measured fix when one is taken; the S2 tokens re-derive from it."
+    },
+    {
+      "id": "s2-sf-2",
+      "title": "s2-sf-2",
+      "page": "/scenes/s2-sf-2/",
+      "summary": "33 minutes of a static roadside recording.",
+      "position": null,
+      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+    },
+    {
+      "id": "s2-sf-3",
+      "title": "s2-sf-3",
+      "page": "/scenes/s2-sf-3/",
+      "summary": "13 minutes of a static roadside recording.",
+      "position": null,
+      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+    },
+    {
+      "id": "s2-sf-4",
+      "title": "s2-sf-4",
+      "page": "/scenes/s2-sf-4/",
+      "summary": "17 minutes of a static roadside recording.",
+      "position": null,
+      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+    },
+    {
+      "id": "s2-sf-6",
+      "title": "s2-sf-6",
+      "page": "/scenes/s2-sf-6/",
+      "summary": "19 minutes of a static roadside recording.",
+      "position": null,
+      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+    },
+    {
+      "id": "s2-sf-7",
+      "title": "s2-sf-7",
+      "page": "/scenes/s2-sf-7/",
+      "summary": "13 minutes of a static roadside recording.",
+      "position": null,
+      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+    },
+    {
+      "id": "s2-sf-8",
+      "title": "s2-sf-8",
+      "page": "/scenes/s2-sf-8/",
+      "summary": "19 minutes of a static roadside recording.",
+      "position": null,
+      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
     }
   ]
 }
