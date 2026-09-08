@@ -104,6 +104,7 @@ parity between them.
       "foreground_dbscan_eps": 0.8,
       "foreground_min_cluster_points": 5,
       "foreground_max_input_points": 8000,
+      "max_sample_points": 0,
       "height_band_floor": -2.8,
       "height_band_ceiling": 1.5,
       "remove_ground": true,
@@ -260,18 +261,19 @@ Maths: [background-grid-settling-maths.md](../data/maths/background-grid-settlin
 Maths: [clustering-maths.md](../data/maths/clustering-maths.md),
 [ground-plane-maths.md](../data/maths/ground-plane-maths.md)
 
-| Path                                            | Type    | Primary consumer                                                        | Notes                                  |
-| ----------------------------------------------- | ------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| `l4.engine`                                     | string  | [(\*L4Config).ActiveCommon](../internal/config/tuning_accessors.go)     | Active L4 engine.                      |
-| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | [GetForegroundDBSCANEps](../internal/config/tuning_accessors.go)        | DBSCAN epsilon.                        |
-| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | [GetForegroundMinClusterPoints](../internal/config/tuning_accessors.go) | DBSCAN min points.                     |
-| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | [GetForegroundMaxInputPoints](../internal/config/tuning_accessors.go)   | DBSCAN input cap.                      |
-| `l4.dbscan_xy_v1.height_band_floor`             | float64 | [GetHeightBandFloor](../internal/config/tuning_accessors.go)            | Lower Z filter bound.                  |
-| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | [GetHeightBandCeiling](../internal/config/tuning_accessors.go)          | Upper Z filter bound.                  |
-| `l4.dbscan_xy_v1.remove_ground`                 | bool    | [GetRemoveGround](../internal/config/tuning_accessors.go)               | Ground filter master switch.           |
-| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | [GetMaxClusterDiameter](../internal/config/tuning_accessors.go)         | Maximum accepted cluster diameter.     |
-| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | [GetMinClusterDiameter](../internal/config/tuning_accessors.go)         | Minimum accepted cluster diameter.     |
-| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | [GetMaxClusterAspectRatio](../internal/config/tuning_accessors.go)      | Maximum accepted cluster aspect ratio. |
+| Path                                            | Type    | Primary consumer                                                        | Notes                                                                                                          |
+| ----------------------------------------------- | ------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `l4.engine`                                     | string  | [(\*L4Config).ActiveCommon](../internal/config/tuning_accessors.go)     | Active L4 engine.                                                                                              |
+| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | [GetForegroundDBSCANEps](../internal/config/tuning_accessors.go)        | DBSCAN epsilon.                                                                                                |
+| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | [GetForegroundMinClusterPoints](../internal/config/tuning_accessors.go) | DBSCAN min points.                                                                                             |
+| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | [GetForegroundMaxInputPoints](../internal/config/tuning_accessors.go)   | DBSCAN input cap.                                                                                              |
+| `l4.dbscan_xy_v1.max_sample_points`             | int     | [DBSCANParamsFromTuning](../internal/lidar/l4perception/cluster.go)     | Offline replay evidence cap per cluster, 0–1024; default 0 disables retention. Not yet a live runtime setting. |
+| `l4.dbscan_xy_v1.height_band_floor`             | float64 | [GetHeightBandFloor](../internal/config/tuning_accessors.go)            | Lower Z filter bound.                                                                                          |
+| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | [GetHeightBandCeiling](../internal/config/tuning_accessors.go)          | Upper Z filter bound.                                                                                          |
+| `l4.dbscan_xy_v1.remove_ground`                 | bool    | [GetRemoveGround](../internal/config/tuning_accessors.go)               | Ground filter master switch.                                                                                   |
+| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | [GetMaxClusterDiameter](../internal/config/tuning_accessors.go)         | Maximum accepted cluster diameter.                                                                             |
+| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | [GetMinClusterDiameter](../internal/config/tuning_accessors.go)         | Minimum accepted cluster diameter.                                                                             |
+| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | [GetMaxClusterAspectRatio](../internal/config/tuning_accessors.go)      | Maximum accepted cluster aspect ratio.                                                                         |
 
 ### L5
 
