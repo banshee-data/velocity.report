@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -22,6 +24,58 @@ func TestHandlePCAPStartSettleBeforeRecordingRequiresAnalysisMode(t *testing.T) 
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("requires analysis_mode=true")) {
+		t.Fatalf("response = %s", rec.Body.String())
+	}
+}
+
+func TestHandlePCAPStartRequiresAFileOrASequence(t *testing.T) {
+	ws := NewServer(Config{SensorID: "sensor-1"})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-1",
+		bytes.NewBufferString(`{"analysis_mode":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	ws.handlePCAPStart(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("pcap_files")) {
+		t.Fatalf("the error should name both spellings; got %s", rec.Body.String())
+	}
+}
+
+// A sequence is replayed against one continuous clock, which realtime and
+// scaled playback cannot do — they pace packets against a single file's own
+// timestamps. Reaching that refusal also proves pcap_files arrived in the
+// replay config, since the guard is keyed on the sequence being longer than one.
+func TestHandlePCAPStartRejectsASequenceOutsideAnalysisMode(t *testing.T) {
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	for _, name := range []string{"part-a.pcap", "part-b.pcap"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), testPCAPHeader, 0o644); err != nil {
+			t.Fatalf("WriteFile(): %v", err)
+		}
+	}
+
+	ws := NewServer(Config{
+		Address:     ":0",
+		Stats:       NewPacketStats(),
+		SensorID:    "sensor-sequence",
+		PCAPSafeDir: tmpDir,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-sequence",
+		bytes.NewBufferString(
+			`{"pcap_files":["part-a.pcap","part-b.pcap"],"analysis_mode":false,"speed_mode":"realtime"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	ws.handlePCAPStart(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("multi-file replay requires")) {
 		t.Fatalf("response = %s", rec.Body.String())
 	}
 }
