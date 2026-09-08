@@ -1940,7 +1940,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-s2-composite test-s2-hilbert
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -1954,6 +1954,13 @@ render-s2-hilbert: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
 	@pnpm run --silent s2-hilbert:composite
 	@echo "✓ Assets written to $(S2_HILBERT_DIR)/generated/"
+
+# Regenerate the published scene map and the data the scenes page reads. Both
+# derive from public_html/scene-sites.json, where a position is hand-entered.
+render-scene-map: install-s2-hilbert
+	@echo "Generating the scene map from scene-sites.json..."
+	@pnpm run --silent s2-hilbert:scene-map
+	@echo "✓ Scene map and scene data written to public_html/src/"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."

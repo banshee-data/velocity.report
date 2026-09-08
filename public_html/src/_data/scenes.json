@@ -1,0 +1,52 @@
+{
+  "generated_by": "tools/s2-hilbert/generate-scene-map.mjs",
+  "levels": {
+    "area": 10,
+    "neighbourhood": 13,
+    "site": 16
+  },
+  "located_count": 1,
+  "unlocated_count": 1,
+  "sites": [
+    {
+      "id": "soma1",
+      "title": "SoMa 1",
+      "page": "/scenes/soma1/",
+      "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street.",
+      "located": false,
+      "position": null,
+      "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
+      "cells": null
+    },
+    {
+      "id": "broadway-columbus",
+      "title": "Broadway & Columbus",
+      "page": "/scenes/broadway-columbus/",
+      "summary": "A North Beach junction, recorded from a static roadside sensor.",
+      "located": true,
+      "position": {
+        "lat": 37.7987,
+        "lon": -122.4073,
+        "source": "operator"
+      },
+      "position_note": "Hand-entered to the junction, not surveyed. Replace with a measured fix when one is taken; the S2 tokens re-derive from it.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580f4",
+          "display": "80858-0f4",
+          "level": 13
+        },
+        "site": {
+          "token": "808580f3f",
+          "display": "80858-0f3f",
+          "level": 16
+        }
+      }
+    }
+  ]
+}

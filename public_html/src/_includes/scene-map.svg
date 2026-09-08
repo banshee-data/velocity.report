@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="100%" role="img" aria-labelledby="scene-map-title scene-map-desc" class="scene-map">
+  <title id="scene-map-title">Published LiDAR scenes</title>
+  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Broadway &amp; Columbus in S2 cell 80858-0f4.</desc>
+  <style>
+  .scene-map__frame { fill: none; stroke: currentColor; stroke-opacity: 0.18; }
+  .scene-map__area { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-opacity: 0.35; stroke-dasharray: 6 5; }
+  .scene-map__area-label { fill: currentColor; fill-opacity: 0.55; font-size: 13px; }
+  .scene-map__cell { fill: #34d399; fill-opacity: 0.16; stroke: #059669; stroke-width: 2; }
+  .scene-map__marker { fill: #059669; stroke: #ffffff; stroke-width: 2; }
+  .scene-map__title { fill: currentColor; font-size: 15px; font-weight: 600; }
+  .scene-map__token { fill: currentColor; fill-opacity: 0.7; font-size: 12.5px; }
+  .scene-map__scale { stroke: currentColor; stroke-opacity: 0.6; }
+  .scene-map__scale-label { fill: currentColor; fill-opacity: 0.7; font-size: 12px; }
+  @media (prefers-color-scheme: dark) {
+    .scene-map__cell { fill: #34d399; fill-opacity: 0.2; stroke: #34d399; }
+    .scene-map__marker { fill: #34d399; stroke: #0b1013; }
+  }
+</style>
+  <rect class="scene-map__frame" x="1" y="1" width="898" height="458" rx="4"/>
+  <g>
+    <polygon class="scene-map__area" points="-224.14,-634.99 -224.14,1004.93 1317.12,405.70 1317.12,-1235.24"><title>S2 area cell 80858-1</title></polygon>
+    <polygon class="scene-map__cell" points="353.68,164.96 353.68,370.00 546.32,295.06 546.32,90.00"><title>S2 cell 80858-0f4</title></polygon>
+  </g>
+  <g>
+    <g class="scene-map__site">
+      <circle class="scene-map__marker" cx="446.31" cy="251.84" r="6"/>
+      <text class="scene-map__title" x="446.31" y="235.84" text-anchor="middle">Broadway &amp; Columbus</text>
+      <text class="scene-map__token" x="446.31" y="275.84" text-anchor="middle">80858-0f4</text>
+    </g>
+  </g>
+  <g>
+    <line class="scene-map__scale" x1="28" y1="432" x2="221.34" y2="432" stroke-width="2"/>
+    <line class="scene-map__scale" x1="28" y1="428" x2="28" y2="436" stroke-width="2"/>
+    <line class="scene-map__scale" x1="221.34" y1="428" x2="221.34" y2="436" stroke-width="2"/>
+    <text class="scene-map__scale-label" x="28" y="423">1 km</text>
+  </g>
+</svg>

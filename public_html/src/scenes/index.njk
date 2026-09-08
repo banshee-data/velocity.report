@@ -1,0 +1,80 @@
+---
+layout: page.njk
+title: "LiDAR scenes — velocity.report"
+description: Every published LiDAR scene, placed in the S2 cell that indexes it. Trajectories only — no cameras, no images, no number plates.
+---
+
+<style>
+  .scenes__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+  .scenes__sub { font-size: 1rem; line-height: 1.45; margin: 0 0 1.25rem; opacity: 0.85; max-width: 68ch; }
+
+  .scenes__map { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.6rem; }
+  .scenes__map svg { display: block; }
+  .scenes__mapnote { font-size: 0.85rem; opacity: 0.7; margin: 0 0 1.75rem; max-width: 68ch; }
+
+  .scenes__list { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 0 0 1.5rem; padding: 0; list-style: none; }
+  @media (min-width: 760px) { .scenes__list { grid-template-columns: 1fr 1fr; } }
+
+  .scene-card { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 1rem 1.1rem; }
+  .scene-card__name { font-size: 1.15rem; font-weight: 640; margin: 0 0 0.3rem; }
+  .scene-card__name a { text-decoration: none; }
+  .scene-card__name a:hover { text-decoration: underline; }
+  .scene-card__summary { margin: 0 0 0.7rem; font-size: 0.95rem; line-height: 1.5; opacity: 0.85; }
+  .scene-card__cells { margin: 0; font-size: 0.85rem; line-height: 1.7; }
+  .scene-card__cells dt { display: inline; opacity: 0.65; }
+  .scene-card__cells dd { display: inline; margin: 0 0.9rem 0 0.3rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .scene-card__unlocated { margin: 0; font-size: 0.85rem; line-height: 1.55; opacity: 0.7; }
+
+  .scenes__index { font-size: 0.9rem; line-height: 1.6; opacity: 0.8; max-width: 68ch; }
+  .scenes__index code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+
+<section class="max-w-6xl mx-auto">
+  <h1 class="scenes__title">LiDAR scenes</h1>
+  <p class="scenes__sub">
+    Each scene is a real recording of a street, published as trajectories: position,
+    size, heading and speed, and nothing that could identify anybody. The map places
+    every scene in the S2 cell that indexes it, drawn from the cell's own geometry
+    rather than a third-party map tile.
+  </p>
+
+  <div class="scenes__map">
+    {% include "scene-map.svg" %}
+  </div>
+  <p class="scenes__mapnote">
+    The cell drawn around each scene is its S2 level {{ scenes.levels.neighbourhood }} cell,
+    about a kilometre across — close to the grain at which a junction is worth
+    indexing. The coarser level {{ scenes.levels.area }} area is roughly eight times
+    wider in each direction, so it frames the view rather than appearing in it;
+    both tokens are listed with each scene below.
+  </p>
+
+  <ul class="scenes__list">
+    {% for site in scenes.sites %}
+      <li class="scene-card">
+        <h2 class="scene-card__name"><a href="{{ site.page | url }}">{{ site.title }}</a></h2>
+        {% if site.summary %}<p class="scene-card__summary">{{ site.summary }}</p>{% endif %}
+        {% if site.located %}
+          <dl class="scene-card__cells">
+            <dt>Site</dt><dd>{{ site.cells.site.display }}</dd>
+            <dt>Neighbourhood</dt><dd>{{ site.cells.neighbourhood.display }}</dd>
+            <dt>Area</dt><dd>{{ site.cells.area.display }}</dd>
+          </dl>
+        {% else %}
+          <p class="scene-card__unlocated">
+            Not on the map: {{ site.position_note }}
+          </p>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <p class="scenes__index">
+    The cells come from <a href="https://s2geometry.io/">S2</a>, which divides the
+    globe into a hierarchy of cells and names each one with a token. A token is
+    shown here as <code>80858-0f4</code>, hyphenated only to make the shared prefix
+    easy to compare; the hyphen carries no meaning and the canonical token is
+    <code>808580f4</code>. Every token on this page is derived from the scene's
+    recorded position, so a cell and the position it indexes cannot disagree.
+  </p>
+</section>

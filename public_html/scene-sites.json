@@ -1,0 +1,33 @@
+{
+  "comment": [
+    "Hand-authored source for the published scene map. Positions are surveyed or",
+    "operator-entered inputs and are the only geographic fact written by hand.",
+    "S2 tokens are never written here: they are derived from the position by",
+    "tools/s2-hilbert/generate-scene-map.mjs, per",
+    "docs/lidar/architecture/geographic-indexing.md. A site with no accepted",
+    "position keeps position: null and is listed as unsurveyed rather than",
+    "guessed at."
+  ],
+  "sites": [
+    {
+      "id": "soma1",
+      "title": "SoMa 1",
+      "page": "/scenes/soma1/",
+      "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street.",
+      "position": null,
+      "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured."
+    },
+    {
+      "id": "broadway-columbus",
+      "title": "Broadway & Columbus",
+      "page": "/scenes/broadway-columbus/",
+      "summary": "A North Beach junction, recorded from a static roadside sensor.",
+      "position": {
+        "lat": 37.7987,
+        "lon": -122.4073,
+        "source": "operator"
+      },
+      "position_note": "Hand-entered to the junction, not surveyed. Replace with a measured fix when one is taken; the S2 tokens re-derive from it."
+    }
+  ]
+}
