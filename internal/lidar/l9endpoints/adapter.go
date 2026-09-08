@@ -75,7 +75,10 @@ func (a *FrameAdapter) AdaptFrame(
 	// (e.g. pedestrians walking together) are preserved.
 	if len(clusters) > 0 {
 		var associations []string
-		if tracker != nil {
+		// Diagnostic bundles retain raw observations beside estimated tracks.
+		// Association candidates link them without conflating their geometry.
+		df, diagnostic := debugFrame.(*debug.DebugFrame)
+		if tracker != nil && !(diagnostic && df != nil) {
 			associations = tracker.GetLastAssociations()
 		}
 		bundle.Clusters = a.adaptUnassociatedClusters(clusters, associations, frame.StartTimestamp)
@@ -84,6 +87,9 @@ func (a *FrameAdapter) AdaptFrame(
 	// M6: Adapt debug overlays if provided
 	if debugFrame != nil {
 		bundle.Debug = a.adaptDebugFrame(debugFrame, frame.StartTimestamp)
+		if bundle.Debug != nil {
+			bundle.Debug.FrameID = bundle.FrameID
+		}
 	}
 
 	// Track performance
@@ -247,6 +253,7 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []l4perception.Wo
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+			SamplePoints:   flattenSamplePoints(wc.SamplePoints),
 		}
 
 		// Include OBB if computed
@@ -291,10 +298,22 @@ func (a *FrameAdapter) adaptClusters(worldClusters []l4perception.WorldCluster, 
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+			SamplePoints:   flattenSamplePoints(wc.SamplePoints),
 		}
 	}
 
 	return cs
+}
+
+func flattenSamplePoints(points [][3]float32) []float32 {
+	if len(points) == 0 {
+		return nil
+	}
+	flat := make([]float32, 0, len(points)*3)
+	for _, p := range points {
+		flat = append(flat, p[:]...)
+	}
+	return flat
 }
 
 // adaptTracks converts TrackedObjects to the canonical Track format.
