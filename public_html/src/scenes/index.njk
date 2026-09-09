@@ -10,6 +10,8 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
 
   .scenes__map { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.6rem; }
   .scenes__map svg { display: block; }
+  #scene-map { height: 520px; border-radius: 3px; }
+  #scene-map .leaflet-popup-content { font-size: 0.9rem; }
   .scenes__mapnote { font-size: 0.85rem; opacity: 0.7; margin: 0 0 1.75rem; max-width: 68ch; }
 
   .scenes__list { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 0 0 1.5rem; padding: 0; list-style: none; }
@@ -35,23 +37,36 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
   <h1 class="scenes__title">LiDAR scenes</h1>
   <p class="scenes__sub">
     Each scene is a real recording of a street, published as trajectories: position,
-    size, heading and speed, and nothing that could identify anybody. The map places
-    every scene in the S2 cell that indexes it, drawn from the cell's own geometry
-    rather than a third-party map tile.
+    size, heading and speed, and nothing that could identify anybody. The map marks
+    every site the sensor has stood at; click a point to open its survey.
   </p>
 
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <div class="scenes__map">
-    {% include "scene-map.svg" %}
+    <div id="scene-map" data-tile-key="{{ site.thunderforest_api_key }}">
+      {# Fallback for a visitor with no JavaScript, and what the page shows
+         before the tiles arrive: the self-contained cell diagram, which needs
+         no third-party request at all. #}
+      {% include "scene-map.svg" %}
+    </div>
   </div>
+  {# The site list travels in a script block, not an attribute: a place name
+     with an apostrophe in it — Fisherman's Wharf — ends a quoted attribute
+     early, and the JSON arrives truncated. #}
+  <script type="application/json" id="scene-map-data">{{ scenes.sites | dump | safe }}</script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="{{ '/js/scene-map.js' | url }}"></script>
   <p class="scenes__mapnote">
     {{ scenes.published_count }} of the {{ scenes.recorded_count }} sites here have a
     published recording; the rest are places the sensor has been, shown so the map
     answers where it has been rather than only what there is to watch.
-    The cell drawn around each scene is its S2 level {{ scenes.levels.neighbourhood }} cell,
-    about a kilometre across — close to the grain at which a junction is worth
-    indexing. The coarser level {{ scenes.levels.area }} area is roughly eight times
-    wider in each direction, so it frames the view rather than appearing in it;
-    both tokens are listed with each scene below.
+    Each point is one recorded site. Click it for the name and, where there is a
+    recording, a link to it. Points carry no labels on the map: at this zoom a
+    label covers the street it stands on, and the street is the thing worth
+    seeing. Every site's S2 level {{ scenes.levels.neighbourhood }} and level
+    {{ scenes.levels.area }} tokens are listed with it below.
   </p>
 
   <ul class="scenes__list">
