@@ -98,6 +98,8 @@ quarantine any run whose observation timestamps fall outside its capture window.
 | Timestamp domain         | Mixed wall-clock and PCAP nanoseconds in observations                | High     | Importer validates against the capture window and quarantines     |
 | Track ID reuse           | Unique in DB, but not segment-local for publishing                   | Medium   | Re-key to segment-local on export, per the privacy invariant      |
 | Settling pass scope      | `settle_before_recording` settles over the whole recording window    | Blocker  | Bound it to a prefix; it currently learns the traffic as background |
+| Paced multi-file replay  | Was refused outside analysis mode, pinning every scene to it         | Resolved | A sequence shares one pacing clock and crosses joins losslessly     |
+| Backoff feedback loop    | Yield is subtracted from elapsed time, so sleeping froze the deficit | Resolved | 2 ms yield and a cooldown; the frame channel is the real backpressure |
 
 ### Why the published scenes look empty
 
@@ -153,24 +155,36 @@ Everything from 0.5x down is the same run to within noise. Realtime is close but
 drops 4 % of frames, the pipeline running at about 1.07x realtime on this
 capture. So 0.5x is the rate to publish at: the first one on the plateau.
 
-### The multi-file replay is pinned to the worst setting
+### The multi-file replay was pinned to the worst setting — resolved
 
-`datasource_handlers.go:537` refuses a multi-file replay in any mode but
-analysis, because realtime and scaled pace packets against a single file's clock
-and cannot cross a join. The refusal is honest, but every published scene is a
-three- to seven-capture sequence, so every one of them is forced into the only
-mode that drops three quarters of its frames.
+`datasource_handlers.go` refused a multi-file replay in any mode but analysis,
+because realtime and scaled paced packets against a single file's clock and
+could not cross a join. Every published scene is a three- to seven-capture
+sequence, so every one was forced into the only mode that drops three quarters
+of its frames.
 
-The way through without changing that reader is to stop asking a replay to do the
-joining. `velocity lidar pcap-split` takes repeated `--pcap` flags, analyses them
-as one continuous stream and, outside `--dry-run`, **writes each segment as a
-single PCAP**. A static stretch written that way is one file, which a scaled
-single-file replay accepts. That also retires the "no segment PCAPs were written"
-finding above, which has been open since this plan was drafted.
+A sequence now shares one pacing clock: the first step fixes the origin and
+every later step measures against it, so elapsed capture and elapsed wall time
+run continuously through a join. Measured across four captures and two joins, a
+420 s window records 4201 frames at 10.0 Hz — full retention, no gap at the
+seam, and moving tracks live straight across it.
 
-Re-publishing is therefore: write each static stretch as one PCAP, replay it at
-0.5x with settling off, and export. Not a re-export, and not a re-replay of the
-capture sequence.
+Two pacing defects surfaced doing it, both of which made a replay slower the
+further behind it fell:
+
+- Overriding the step's start threshold with the sequence origin also moved its
+  **end** threshold, so later steps ended before they began and a 120 s window
+  recorded 60. Pacing now keeps an origin distinct from window selection.
+- The backoff caused the lag it responded to. Its yield is subtracted from
+  elapsed wall time, so sleeping never reduced the measured deficit and only
+  spent the throughput that could have closed it: 20 packets per second against
+  a target of 925, with the machine at 24% CPU. The yield is now 2 ms rather
+  than 50, and is suppressed for a minute after a deficit is written off. The
+  real backpressure was always the frame channel, which blocks the reader when
+  the pipeline is full.
+
+So re-publishing is a re-replay at 0.5x with settling off, straight from the
+capture list. Writing each stretch as a single PCAP first is no longer needed.
 
 ## Design / approach
 
