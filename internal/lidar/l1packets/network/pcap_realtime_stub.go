@@ -29,6 +29,7 @@ type RealtimeReplayConfig struct {
 	PacketOffset        uint64
 	TotalPackets        uint64
 	OnProgress          func(currentPacket, totalPackets uint64)
+	PacingAnchor        *PacingAnchor
 }
 
 // ReadPCAPFileRealtime is a stub that returns an error when pcap support is not compiled in.

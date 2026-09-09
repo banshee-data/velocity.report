@@ -63,6 +63,11 @@ type RealtimeReplayConfig struct {
 	// OnProgress is called periodically during replay with the current
 	// packet index and total packet count, enabling seek-bar updates.
 	OnProgress func(currentPacket, totalPackets uint64)
+
+	// PacingAnchor shares one pacing clock across the files of a sequence, so
+	// a join does not reset the pacer and produce a catch-up burst. Nil means
+	// this file keeps its own clock, which is what a single-file replay wants.
+	PacingAnchor *PacingAnchor
 }
 
 const (
@@ -122,11 +127,10 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	startTime := time.Now()
 	warmupRemaining := config.WarmupPackets
 	var backoffCount int64
-	var inBackoff bool                // Track backoff state for recovery logging
-	var maxBehindBy time.Duration     // Peak pipeline lag observed
-	var backoffPacketStart int        // Packet count when current backoff sequence started
-	var totalBackoffPackets int       // Total packets processed during backoff sequences
-	var cumulativeYield time.Duration // Total time spent sleeping in backoff
+	var inBackoff bool            // Track backoff state for recovery logging
+	var maxBehindBy time.Duration // Peak pipeline lag observed
+	var backoffPacketStart int    // Packet count when current backoff sequence started
+	var totalBackoffPackets int   // Total packets processed during backoff sequences
 
 	// Diagnostic: track cumulative time spent in processing phases
 	var cumulativeParseTime time.Duration  // ParsePacket time
@@ -137,8 +141,15 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	// Offset-based seek: skip packets until we reach PacketOffset
 	skippingToOffset := config.PacketOffset > 0
 
+	var cumulativeYield time.Duration // Total time spent sleeping in backoff, carried across a sequence
 	var firstPacketTime time.Time
 	replayStartTime := time.Now()
+	// A sequence step that is not the first inherits the origin fixed by the
+	// first, so elapsed capture and wall time both continue across the join.
+	if config.PacingAnchor.Anchored() {
+		replayStartTime = config.PacingAnchor.WallStart
+		cumulativeYield = config.PacingAnchor.CumulativeYield
+	}
 	var startThreshold time.Time
 	var endThreshold time.Time
 	skippingToStart := config.StartSeconds > 0
@@ -203,8 +214,15 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				} else {
 					// When no start offset, use first packet time as the baseline
 					startThreshold = firstPacketTime
-					// Reset replay start time for accurate pacing when not skipping
-					replayStartTime = time.Now()
+					// Reset replay start time for accurate pacing when not
+					// skipping — unless a sequence already fixed the origin,
+					// in which case this file continues it.
+					if !config.PacingAnchor.Anchored() {
+						replayStartTime = time.Now()
+					}
+				}
+				if config.PacingAnchor.Anchored() {
+					startThreshold = config.PacingAnchor.CaptureStart
 				}
 				if config.DurationSeconds > 0 {
 					// Duration is always relative to the effective start threshold
@@ -221,8 +239,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			if skippingToStart {
 				skippingToStart = false
 				diagf("PCAP replay: started at %.2fs offset", config.StartSeconds)
-				replayStartTime = time.Now() // Reset start time for accurate speed reporting
+				if !config.PacingAnchor.Anchored() {
+					replayStartTime = time.Now() // Reset start time for accurate speed reporting
+				}
 			}
+			// Fix the sequence origin on the first packet actually played, so
+			// every later step measures against this one.
+			config.PacingAnchor.Anchor(startThreshold, replayStartTime)
 
 			// Stop if we've reached the end threshold
 			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
@@ -323,6 +346,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						return ctx.Err()
 					case <-time.After(yield):
 						cumulativeYield += yield
+						config.PacingAnchor.AddYield(yield)
 					}
 				} else if inBackoff {
 					// waitTime is between -threshold and 0: still slightly behind

@@ -527,16 +527,6 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	// half way through a twenty-minute replay.
 	var plan *replayPlan
 	if len(replayCfg.ReplayFiles) > 1 {
-		if replayCfg.SpeedMode != "analysis" {
-			// Realtime and scaled replay pace packets against one file's own
-			// clock; crossing a join there needs its own sequence-aware reader.
-			// Refusing is honest, where silently replaying only the first file
-			// would look like success.
-			ws.resetFailedPCAPStartState()
-			return &switchError{status: http.StatusBadRequest, err: fmt.Errorf(
-				"multi-file replay requires speed mode \"analysis\"; %q replays a single file",
-				replayCfg.SpeedMode)}
-		}
 		builtPlan, planErr := ws.buildReplaySequence(
 			replayCfg.ReplayFiles, replayCfg.StartSeconds, replayCfg.DurationSeconds)
 		if planErr != nil {
@@ -834,7 +824,27 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 				OnProgress:      onProgress,
 			}
 
-			err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			if plan != nil {
+				// A paced sequence reads the same way a paced single file
+				// does, one clock shared across the joins, so the ordered
+				// list plays as one stream.
+				res, seqErr := readPCAPSequence(ctx, plan.Steps, network.SequenceReplayConfig{
+					UDPPort:      ws.udpPort,
+					Parser:       ws.parser,
+					FrameBuilder: ws.frameBuilder,
+					Stats:        ws.stats,
+					Forwarder:    ws.packetForwarder,
+					OnProgress:   onProgress,
+					Paced:        config,
+				})
+				if seqErr == nil && res.FramesDropped > 0 {
+					diagf("PCAP sequence: dropped %d revolution(s) straddling capture-file joins",
+						res.FramesDropped)
+				}
+				err = seqErr
+			} else {
+				err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			}
 		}
 		if fb := getReplayFrameBuilder(sensorID); fb != nil {
 			if drainer, ok := fb.(replayCallbackDrainer); ok {

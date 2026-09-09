@@ -52,30 +52,45 @@ func launchServer(t *testing.T, sensorID string, names ...string) *Server {
 	return ws
 }
 
-func TestStartPCAPLockedRefusesMultiFileOutsideAnalysisMode(t *testing.T) {
-	// Realtime and scaled replay pace packets against one file's clock. Silently
-	// replaying only the first file would look like success, so the request is
-	// refused instead.
+func TestStartPCAPLockedPacesAMultiFileSequence(t *testing.T) {
+	// Realtime and scaled used to be refused here, because each file's pacing
+	// clock restarted at the join and the reader sprinted through the next
+	// file's opening to catch up. The sequence now shares one clock, so a
+	// paced multi-file replay is accepted and the rate is passed through.
 	t.Cleanup(restoreDatasourceHandlerSeams())
-	ws := launchServer(t, "multi-realtime", "a.pcap", "b.pcap")
+	ws := launchServer(t, "multi-scaled", "a.pcap", "b.pcap")
+
+	var mu sync.Mutex
+	var gotSpeed float64
+	var gotSteps int
+	readPCAPSequence = func(_ context.Context, steps []capseq.ReadStep,
+		cfg network.SequenceReplayConfig) (network.SequenceResult, error) {
+		mu.Lock()
+		gotSpeed = cfg.Paced.SpeedMultiplier
+		gotSteps = len(steps)
+		mu.Unlock()
+		return network.SequenceResult{StepsCompleted: len(steps)}, nil
+	}
 
 	err := ws.startPCAPLockedWithConfig("a.pcap", ReplayConfig{
 		ReplayFiles:     []string{"a.pcap", "b.pcap"},
-		SpeedMode:       "realtime",
+		SpeedMode:       "scaled",
+		SpeedRatio:      0.5,
 		DurationSeconds: -1,
 	})
-	if err == nil {
-		t.Fatal("multi-file realtime replay accepted, want an error")
+	if err != nil {
+		t.Fatalf("paced multi-file replay refused: %v", err)
 	}
-	for _, want := range []string{"analysis", "realtime"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not mention %q", err, want)
-		}
+	waitForPCAPDone(t, ws)
+
+	mu.Lock()
+	speed, steps := gotSpeed, gotSteps
+	mu.Unlock()
+	if steps != 2 {
+		t.Errorf("sequence read %d step(s), want 2", steps)
 	}
-	// The refusal must release the replay slot, or the next request sees a
-	// spurious conflict.
-	if state := ws.PipelineState(); state.Source == SourceModePCAP {
-		t.Error("a refused multi-file start left the PCAP slot claimed")
+	if speed != 0.5 {
+		t.Errorf("SpeedMultiplier = %v, want 0.5: the requested rate did not reach the reader", speed)
 	}
 }
 

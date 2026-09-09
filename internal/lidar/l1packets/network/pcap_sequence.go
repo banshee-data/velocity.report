@@ -37,6 +37,19 @@ type SequenceReplayConfig struct {
 	// sequence rather than per file, so a caller can drive one progress bar.
 	// total is zero when any step's packet count is unknown.
 	OnProgress func(current, total uint64)
+
+	// Paced carries everything a paced replay needs — speed, sensor, the
+	// foreground forwarder, background manager and debug ranges — as the
+	// template each step is read with.
+	//
+	// Its SpeedMultiplier decides whether the sequence is paced at all: zero
+	// reads as fast as the pipeline accepts packets, which is what an analysis
+	// run wants. Above zero, every step is paced against one shared clock so a
+	// join does not reset the pacer — see PacingAnchor.
+	//
+	// The per-step fields are owned by the sequence and overwritten:
+	// StartSeconds, DurationSeconds, TotalPackets, OnProgress and PacingAnchor.
+	Paced RealtimeReplayConfig
 }
 
 // SequenceResult reports what a sequence replay did.
@@ -54,6 +67,10 @@ type SequenceResult struct {
 // error wrapping — can be exercised without libpcap, which the real
 // ReadPCAPFile requires. Production code never reassigns it.
 var stepReader = ReadPCAPFile
+
+// stepReaderRealtime reads one paced step. Indirected for the same reason as
+// stepReader: the sequencing logic is testable without libpcap.
+var stepReaderRealtime = ReadPCAPFileRealtime
 
 // ReadPCAPSequence replays an ordered list of capture files as one continuous
 // packet stream.
@@ -87,6 +104,14 @@ func ReadPCAPSequence(ctx context.Context, steps []capseq.ReadStep, cfg Sequence
 
 	seamAware, _ := cfg.FrameBuilder.(SeamAwareFrameBuilder)
 
+	// One anchor for the whole sequence. The first step fixes the origin; the
+	// rest measure against it, so elapsed capture time and elapsed wall time
+	// both run continuously through every join.
+	var anchor *PacingAnchor
+	if cfg.Paced.SpeedMultiplier > 0 {
+		anchor = &PacingAnchor{}
+	}
+
 	var completed uint64
 	for i, step := range steps {
 		// Honour cancellation between steps as well as inside them, so a stop
@@ -114,11 +139,30 @@ func ReadPCAPSequence(ctx context.Context, steps []capseq.ReadStep, cfg Sequence
 			}
 		}
 
-		if err := stepReader(ctx, step.Path, cfg.UDPPort, cfg.Parser, cfg.FrameBuilder,
-			cfg.Stats, cfg.Forwarder, step.StartSecs, step.DurationSecs, 0,
-			step.PacketCount, onProgress); err != nil {
+		var stepErr error
+		if anchor != nil {
+			// Start from the caller's template so a paced sequence keeps the
+			// forwarders, background manager and debug ranges a paced single
+			// file would have had, then set what belongs to this step.
+			paced := cfg.Paced
+			paced.StartSeconds = step.StartSecs
+			paced.DurationSeconds = step.DurationSecs
+			paced.TotalPackets = step.PacketCount
+			paced.OnProgress = onProgress
+			paced.PacingAnchor = anchor
+			if paced.PacketForwarder == nil {
+				paced.PacketForwarder = cfg.Forwarder
+			}
+			stepErr = stepReaderRealtime(ctx, step.Path, cfg.UDPPort, cfg.Parser,
+				cfg.FrameBuilder, cfg.Stats, paced)
+		} else {
+			stepErr = stepReader(ctx, step.Path, cfg.UDPPort, cfg.Parser, cfg.FrameBuilder,
+				cfg.Stats, cfg.Forwarder, step.StartSecs, step.DurationSecs, 0,
+				step.PacketCount, onProgress)
+		}
+		if stepErr != nil {
 			return result, fmt.Errorf("network: replaying step %d of %d (%s): %w",
-				i+1, len(steps), step.Path, err)
+				i+1, len(steps), step.Path, stepErr)
 		}
 
 		completed += step.PacketCount

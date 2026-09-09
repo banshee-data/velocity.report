@@ -49,7 +49,7 @@ func TestHandlePCAPStartRequiresAFileOrASequence(t *testing.T) {
 // scaled playback cannot do — they pace packets against a single file's own
 // timestamps. Reaching that refusal also proves pcap_files arrived in the
 // replay config, since the guard is keyed on the sequence being longer than one.
-func TestHandlePCAPStartRejectsASequenceOutsideAnalysisMode(t *testing.T) {
+func TestHandlePCAPStartAcceptsAPacedSequence(t *testing.T) {
 	tmpDir := resolveSymlinks(t, t.TempDir())
 	for _, name := range []string{"part-a.pcap", "part-b.pcap"} {
 		if err := os.WriteFile(filepath.Join(tmpDir, name), testPCAPHeader, 0o644); err != nil {
@@ -72,11 +72,35 @@ func TestHandlePCAPStartRejectsASequenceOutsideAnalysisMode(t *testing.T) {
 
 	ws.handlePCAPStart(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	// A paced sequence is no longer refused: the reader shares one pacing clock
+	// across the joins, so realtime and scaled can cross them. Whatever else
+	// this fixture fails on, it must not fail on the speed mode.
+	if bytes.Contains(rec.Body.Bytes(), []byte("multi-file replay requires")) {
+		t.Fatalf("a paced sequence was refused: %s", rec.Body.String())
 	}
-	if !bytes.Contains(rec.Body.Bytes(), []byte("multi-file replay requires")) {
-		t.Fatalf("response = %s", rec.Body.String())
+}
+
+func TestSequenceSpeedMultiplierMapsTheModes(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  ReplayConfig
+		want float64
+	}{
+		{"analysis reads as fast as the pipeline allows", ReplayConfig{SpeedMode: "analysis"}, 0},
+		{"an unset mode is analysis", ReplayConfig{}, 0},
+		{"realtime paces at one", ReplayConfig{SpeedMode: "realtime"}, 1},
+		{"scaled carries its ratio", ReplayConfig{SpeedMode: "scaled", SpeedRatio: 0.5}, 0.5},
+		// Falling back to analysis here would hand a caller who asked to slow
+		// down the fastest replay there is — the opposite of the request.
+		{"scaled without a ratio falls back to realtime, not to analysis",
+			ReplayConfig{SpeedMode: "scaled"}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sequenceSpeedMultiplier(tc.cfg); got != tc.want {
+				t.Errorf("sequenceSpeedMultiplier() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

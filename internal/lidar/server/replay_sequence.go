@@ -107,3 +107,24 @@ func (ws *Server) buildReplaySequence(files []string, startSecs, durationSecs fl
 	}
 	return plan, nil
 }
+
+// sequenceSpeedMultiplier maps a replay's speed mode onto the multiplier the
+// sequence reader paces with. Analysis mode returns zero, meaning "as fast as
+// the pipeline accepts packets"; realtime is 1.0; scaled carries its ratio.
+//
+// Scaled with a non-positive ratio is treated as realtime rather than as
+// analysis, because a caller asking for a paced replay and getting the
+// fastest possible one would be the opposite of what they asked for.
+func sequenceSpeedMultiplier(cfg ReplayConfig) float64 {
+	switch cfg.SpeedMode {
+	case "analysis", "":
+		return 0
+	case "scaled":
+		if cfg.SpeedRatio > 0 {
+			return cfg.SpeedRatio
+		}
+		return 1.0
+	default:
+		return 1.0
+	}
+}
