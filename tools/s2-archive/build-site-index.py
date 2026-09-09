@@ -132,15 +132,30 @@ def stitch(segments, bridge):
     return [s for s in sites if (s["end"] - s["start"]) >= MIN_SITE]
 
 
+# Which day a continuous analysis covers is read from its directory name, not
+# assumed. Both trees grow as blocks are re-analysed, and a day that has been
+# run continuously but is still read per file would otherwise be counted twice.
+CONTINUOUS_DAYS = {"20260901"}
+
+
+def day_of(path):
+    """The recording day a continuous analysis directory covers."""
+    return os.path.basename(os.path.dirname(path))[:8]
+
+
 # 9/1: analysed here as one stream, so its segments already span the day.
-continuous = sorted(glob.glob(os.path.join(CONTINUOUS, "*", "*segments.json")))
+continuous = [
+    p
+    for p in sorted(glob.glob(os.path.join(CONTINUOUS, "*", "*segments.json")))
+    if day_of(p) in CONTINUOUS_DAYS
+]
 day_one = stitch(load(continuous), BRIDGE_SECONDS) if continuous else []
 
-# 9/2 and 9/3: the archive's per-file analysis, stitched back together.
+# Every other day: the archive's per-file analysis, stitched back together.
 per_file = [
     p
     for p in sorted(glob.glob(os.path.join(PER_FILE, "*", "segments.json")))
-    if "_202609010" not in p and "_202609011" not in p
+    if not any(f"_{day}" in p for day in CONTINUOUS_DAYS)
 ]
 later = stitch(load(per_file), BRIDGE_SECONDS)
 

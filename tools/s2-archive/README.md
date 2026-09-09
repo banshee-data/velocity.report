@@ -16,6 +16,13 @@ everything else here produces or feeds it.
 | `build-site-index.py` | Stitches the segment analysis and attaches positions.              |
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.        |
 
+The published scene map reads this index. Each scene export is joined to a site
+by the wall clock in its header and inherits that site's position, so a mark
+corrected here moves the marker, the cell and the token on `/scenes/` once
+`make render-scene-map` has run. A scene the archive does not cover, or whose
+map reading is known to be wrong, is positioned in
+`public_html/scene-overrides.json` instead, and the override wins.
+
 ## The two analyses, and why they differ
 
 `velocity lidar pcap-split` classifies a capture into motion and static
