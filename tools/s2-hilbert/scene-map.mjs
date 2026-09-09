@@ -253,15 +253,45 @@ export function renderSceneMapSvg(model, options = {}) {
   }
   lines.push("  </g>", "  <g>");
 
+  // Labels are placed one marker at a time, taking the first candidate that
+  // does not overlap a label already placed. Two sites in adjoining cells sit
+  // close enough on screen that fixed offsets put one name across another, and
+  // an unreadable name is worse than a displaced one.
+  const placed = [];
+  // Boxes are inflated before the test: two names that merely touch read as one
+  // run of text, so they need clear air between them rather than bare
+  // non-overlap.
+  const GAP = 14;
+  const overlaps = (a, b) =>
+    a.x - GAP < b.x + b.width &&
+    b.x - GAP < a.x + a.width &&
+    a.y - 4 < b.y + b.height &&
+    b.y - 4 < a.y + a.height;
+
   for (const marker of map.markers) {
-    // Title above the marker, token below it. Stacking both above put the
-    // token on the circle it was naming.
-    const labelY = marker.y - 16;
+    const titleWidth = marker.title.length * 7.6;
+    const tokenWidth = marker.display.length * 7.2;
+    // Above the marker first, then below, then progressively further out.
+    const candidates = [-30, 34, -62, 66, -94, 98];
+    let titleY = marker.y + candidates[0];
+    for (const offset of candidates) {
+      const top = marker.y + offset;
+      const boxes = [
+        { x: marker.x - titleWidth / 2, y: top - 12, width: titleWidth, height: 15 },
+        { x: marker.x - tokenWidth / 2, y: top + 3, width: tokenWidth, height: 15 },
+      ];
+      if (!boxes.some((box) => placed.some((other) => overlaps(box, other)))) {
+        titleY = top;
+        placed.push(...boxes);
+        break;
+      }
+    }
+
     lines.push(
       `    <g class="scene-map__site">`,
       `      <circle class="scene-map__marker" cx="${marker.x.toFixed(2)}" cy="${marker.y.toFixed(2)}" r="6"/>`,
-      `      <text class="scene-map__title" x="${marker.x.toFixed(2)}" y="${labelY.toFixed(2)}" text-anchor="middle">${escapeText(marker.title)}</text>`,
-      `      <text class="scene-map__token" x="${marker.x.toFixed(2)}" y="${(marker.y + 24).toFixed(2)}" text-anchor="middle">${escapeText(marker.display)}</text>`,
+      `      <text class="scene-map__title" x="${marker.x.toFixed(2)}" y="${titleY.toFixed(2)}" text-anchor="middle">${escapeText(marker.title)}</text>`,
+      `      <text class="scene-map__token" x="${marker.x.toFixed(2)}" y="${(titleY + 15).toFixed(2)}" text-anchor="middle">${escapeText(marker.display)}</text>`,
       `    </g>`,
     );
   }

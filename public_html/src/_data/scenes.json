@@ -5,8 +5,8 @@
     "neighbourhood": 13,
     "site": 16
   },
-  "located_count": 1,
-  "unlocated_count": 7,
+  "located_count": 4,
+  "unlocated_count": 4,
   "sites": [
     {
       "id": "soma1",
@@ -53,10 +53,30 @@
       "title": "s2-sf-2",
       "page": "/scenes/s2-sf-2/",
       "summary": "33 minutes of a static roadside recording.",
-      "located": false,
-      "position": null,
-      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map.",
-      "cells": null
+      "located": true,
+      "position": {
+        "lat": 37.7985,
+        "lon": -122.424,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Union Street near Van Ness), matched to this recording by time. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580ec",
+          "display": "80858-0ec",
+          "level": 13
+        },
+        "site": {
+          "token": "808580e81",
+          "display": "80858-0e81",
+          "level": 16
+        }
+      }
     },
     {
       "id": "s2-sf-3",
@@ -83,10 +103,30 @@
       "title": "s2-sf-6",
       "page": "/scenes/s2-sf-6/",
       "summary": "19 minutes of a static roadside recording.",
-      "located": false,
-      "position": null,
-      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map.",
-      "cells": null
+      "located": true,
+      "position": {
+        "lat": 37.791,
+        "lon": -122.4045,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Bush Street near Kearny), matched to this recording by time. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "8085808c",
+          "display": "80858-08c",
+          "level": 13
+        },
+        "site": {
+          "token": "8085808bd",
+          "display": "80858-08bd",
+          "level": 16
+        }
+      }
     },
     {
       "id": "s2-sf-7",
@@ -103,10 +143,30 @@
       "title": "s2-sf-8",
       "page": "/scenes/s2-sf-8/",
       "summary": "19 minutes of a static roadside recording.",
-      "located": false,
-      "position": null,
-      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map.",
-      "cells": null
+      "located": true,
+      "position": {
+        "lat": 37.779,
+        "lon": -122.413,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (SoMa, Mission near 8th), matched to this recording by time. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "8085809c",
+          "display": "80858-09c",
+          "level": 13
+        },
+        "site": {
+          "token": "8085809b5",
+          "display": "80858-09b5",
+          "level": 16
+        }
+      }
     }
   ]
 }

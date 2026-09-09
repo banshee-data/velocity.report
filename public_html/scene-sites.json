@@ -34,8 +34,12 @@
       "title": "s2-sf-2",
       "page": "/scenes/s2-sf-2/",
       "summary": "33 minutes of a static roadside recording.",
-      "position": null,
-      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+      "position": {
+        "lat": 37.7985,
+        "lon": -122.424,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Union Street near Van Ness), matched to this recording by time. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey."
     },
     {
       "id": "s2-sf-3",
@@ -58,8 +62,12 @@
       "title": "s2-sf-6",
       "page": "/scenes/s2-sf-6/",
       "summary": "19 minutes of a static roadside recording.",
-      "position": null,
-      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+      "position": {
+        "lat": 37.791,
+        "lon": -122.4045,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Bush Street near Kearny), matched to this recording by time. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey."
     },
     {
       "id": "s2-sf-7",
@@ -74,8 +82,12 @@
       "title": "s2-sf-8",
       "page": "/scenes/s2-sf-8/",
       "summary": "19 minutes of a static roadside recording.",
-      "position": null,
-      "position_note": "Not yet located. The capture prefix names the deployment, not a place; give it a position and a name to put it on the map."
+      "position": {
+        "lat": 37.779,
+        "lon": -122.413,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (SoMa, Mission near 8th), matched to this recording by time. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey."
     }
   ]
 }
