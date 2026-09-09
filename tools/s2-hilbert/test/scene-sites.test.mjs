@@ -129,12 +129,12 @@ test("a scene is named for its place once it is joined, not for the capture pref
   assert.equal(sites[0].title, "Union Street near Van Ness");
 });
 
-test("a scene whose site has no readable mark keeps the prefix rather than inventing a name", () => {
+test("a scene whose site has no readable mark says so rather than showing the capture prefix", () => {
   const { sites } = buildSceneSites({
     scenes: [at("2026-09-02T13:41:32-07:00", 780, "s2-sf-3", "s2-sf-3")],
     index: INDEX,
   });
-  assert.equal(sites[0].title, "s2-sf-3");
+  assert.match(sites[0].title, /^Unnamed site,/);
 });
 
 test("a scene's identity is the site's, so a page cannot be keyed by capture prefix", () => {

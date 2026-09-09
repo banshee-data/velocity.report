@@ -114,7 +114,15 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
       // joined to a site the place is known, so prefer it: "Bush Street near
       // Kearny" over "s2-sf-6". The prefix is the last resort, for a site whose
       // field mark could not be read at all.
-      const title = over.title ?? site?.where ?? scene.title ?? scene.id;
+      // The capture prefix is never a title: it names the deployment the files
+      // came from, not the place, and six sites shared one. A site with no
+      // readable field mark says so instead of borrowing the prefix.
+      const title =
+        over.title ??
+        site?.where ??
+        (site
+          ? `Unnamed site, ${site.day} ${site.clock}`
+          : (scene.title ?? scene.id));
 
       return {
         // Identity is the site's, which comes from the field mark. A scene
