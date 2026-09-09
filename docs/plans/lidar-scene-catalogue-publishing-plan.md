@@ -128,6 +128,28 @@ that only `lidarbench` reads. Settling has to cover a prefix long enough to
 converge the far field and no longer; settling over the whole window is a
 guarantee that nothing which moves survives it.
 
+Playback rate was the other suspect, since the warm-up and freeze windows are
+gated on `time.Since(bm.StartTime)` — wall clock, not capture clock — so a fast
+replay compresses far more of the recording into them. Swept over a 180 s window
+of that capture with settling off, it turns out to matter barely at all:
+
+| Playback  | Frames | Clusters/frame | Moving/frame | Median mover life | Wall  |
+| --------- | ------ | -------------- | ------------ | ----------------- | ----- |
+| realtime  | 1724   | 16.18          | 14.0         | 9.6 s             | 192 s |
+| 0.5x      | 1792   | 16.79          | 14.1         | 9.7 s             | 365 s |
+| 0.2x      | 1792   | 16.82          | 14.1         | 9.8 s             | 917 s |
+| 0.1x      | 1792   | 16.80          | 14.1         | 9.8 s             | 1813 s |
+
+Everything from 0.5x down is the same run to within noise. Realtime is the only
+outlier and only because it drops 3.8% of frames — the pipeline runs at about
+1.07x realtime on this capture, so it cannot quite keep up. Below 0.5x the extra
+wall clock buys nothing.
+
+So 0.5x is the rate to publish at: the fastest one on the plateau, and lossless.
+Against the same capture recorded the old way — settling on, analysis speed —
+it is 16.79 clusters per frame against 1.03, and a median moving-track life of
+9.7 s against 3.4 s. The rate is worth 4%; the settling is worth sixteenfold.
+
 Re-publishing is therefore a re-replay, not a re-export.
 
 ## Design / approach
