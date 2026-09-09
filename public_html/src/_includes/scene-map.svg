@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="100%" role="img" aria-labelledby="scene-map-title scene-map-desc" class="scene-map">
   <title id="scene-map-title">Published LiDAR scenes</title>
-  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Broadway &amp; Columbus in S2 cell 80858-0f4; s2-sf-2 in S2 cell 80858-0ec; s2-sf-6 in S2 cell 80858-08c; s2-sf-8 in S2 cell 80858-09c.</desc>
+  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: s2-sf-2 in S2 cell 80858-0ec; Broadway &amp; Columbus in S2 cell 80858-0f4; s2-sf-6 in S2 cell 80858-08c; s2-sf-8 in S2 cell 80858-09c.</desc>
   <style>
   .scene-map__frame { fill: none; stroke: currentColor; stroke-opacity: 0.18; }
   .scene-map__area { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-opacity: 0.35; stroke-dasharray: 6 5; }
@@ -19,31 +19,31 @@
   <rect class="scene-map__frame" x="1" y="1" width="898" height="458" rx="4"/>
   <g>
     <polygon class="scene-map__area" points="238.51,-175.35 238.51,424.87 802.63,205.55 802.63,-395.05"><title>S2 area cell 80858-1</title></polygon>
-    <polygon class="scene-map__cell" points="450.00,117.44 450.00,192.48 520.51,165.05 520.51,90.00"><title>S2 cell 80858-0f4</title></polygon>
     <polygon class="scene-map__cell" points="379.49,144.88 379.49,219.92 450.00,192.48 450.00,117.44"><title>S2 cell 80858-0ec</title></polygon>
+    <polygon class="scene-map__cell" points="450.00,117.44 450.00,192.48 520.51,165.05 520.51,90.00"><title>S2 cell 80858-0f4</title></polygon>
     <polygon class="scene-map__cell" points="450.00,192.48 450.00,267.53 520.51,240.10 520.51,165.05"><title>S2 cell 80858-08c</title></polygon>
     <polygon class="scene-map__cell" points="379.49,294.96 379.49,370.00 450.00,342.57 450.00,267.53"><title>S2 cell 80858-09c</title></polygon>
   </g>
   <g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="483.90" cy="149.23" r="6"/>
-      <text class="scene-map__title" x="483.90" y="119.23" text-anchor="middle">Broadway &amp; Columbus</text>
-      <text class="scene-map__token" x="483.90" y="134.23" text-anchor="middle">80858-0f4</text>
+      <circle class="scene-map__marker" cx="379.95" cy="150.81" r="6"/>
+      <text class="scene-map__title" x="379.95" y="120.81" text-anchor="middle">s2-sf-2</text>
+      <text class="scene-map__token" x="379.95" y="135.81" text-anchor="middle">80858-0ec</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="379.95" cy="150.81" r="6"/>
-      <text class="scene-map__title" x="379.95" y="184.81" text-anchor="middle">s2-sf-2</text>
-      <text class="scene-map__token" x="379.95" y="199.81" text-anchor="middle">80858-0ec</text>
+      <circle class="scene-map__marker" cx="483.90" cy="149.23" r="6"/>
+      <text class="scene-map__title" x="483.90" y="183.23" text-anchor="middle">Broadway &amp; Columbus</text>
+      <text class="scene-map__token" x="483.90" y="198.23" text-anchor="middle">80858-0f4</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="501.33" cy="209.89" r="6"/>
-      <text class="scene-map__title" x="501.33" y="179.89" text-anchor="middle">s2-sf-6</text>
-      <text class="scene-map__token" x="501.33" y="194.89" text-anchor="middle">80858-08c</text>
+      <text class="scene-map__title" x="501.33" y="243.89" text-anchor="middle">s2-sf-6</text>
+      <text class="scene-map__token" x="501.33" y="258.89" text-anchor="middle">80858-08c</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="448.42" cy="304.40" r="6"/>
-      <text class="scene-map__title" x="448.42" y="274.40" text-anchor="middle">s2-sf-8</text>
-      <text class="scene-map__token" x="448.42" y="289.40" text-anchor="middle">80858-09c</text>
+      <text class="scene-map__title" x="448.42" y="338.40" text-anchor="middle">s2-sf-8</text>
+      <text class="scene-map__token" x="448.42" y="353.40" text-anchor="middle">80858-09c</text>
     </g>
   </g>
   <g>

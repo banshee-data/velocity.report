@@ -1955,12 +1955,14 @@ render-s2-hilbert: install-s2-hilbert
 	@pnpm run --silent s2-hilbert:composite
 	@echo "✓ Assets written to $(S2_HILBERT_DIR)/generated/"
 
-# Regenerate the published scene map and the data the scenes page reads. Both
-# derive from public_html/scene-sites.json, where a position is hand-entered.
+# Regenerate scene-sites.json, the published scene map, and the data the scenes
+# page reads. All three derive: each export is joined to an archive site by the
+# clock in its header, and takes that site's position. The hand-authored inputs
+# are tools/s2-archive/map-marks.json and public_html/scene-overrides.json.
 render-scene-map: install-s2-hilbert
-	@echo "Generating the scene map from scene-sites.json..."
+	@echo "Deriving scene-sites.json and the scene map..."
 	@pnpm run --silent s2-hilbert:scene-map
-	@echo "✓ Scene map and scene data written to public_html/src/"
+	@echo "✓ scene-sites.json, scene map and scene data written"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
