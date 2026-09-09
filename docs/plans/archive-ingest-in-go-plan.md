@@ -64,7 +64,7 @@ holds periods.
 | Area                    | Current state                                                                      | Severity | Release view                                                      |
 | ----------------------- | ---------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
 | Per-file classification | Each file restarts the background model; its settling is reported as motion        | Blocker  | Classify per recording block, which `sessionMotionPass` does      |
-| Site truncation         | 3 of 23 sites end early where the motion gap exceeds the stitcher's 180 s bridge   | High     | Disappears once classification is continuous                      |
+| Site truncation         | 3 of 23 sites end early where a motion gap exceeds the stitcher's 180 s bridge      | High     | Two are the artefact; one is a real event the bridge cannot judge  |
 | Bridge constant         | 180 s recovers the expected site count; 300 s merges genuinely separate sites      | High     | A tuned constant with no principled value; delete it, not tune it |
 | Capture attribution     | `MotionPeriod` records times and frames, no captures; the JSON records none either | High     | Periods must name the captures they span                          |
 | Recording blocks        | A day is not one stream: 9/1 restarts at 16:29 after a 176 s gap, sequence resets  | Medium   | Session derivation must split there, and be verified to           |
@@ -81,6 +81,16 @@ a threshold compensating for an artefact rather than measuring anything.
 
 9/1, classified here as continuous streams, needed no stitching at all: six
 static stretches of 18 to 22 minutes, one per site.
+
+The three short sites separate along the same line. s13 (9/2 13:20) and s21 (9/3
+14:40) are truncated by motion gaps of 241 s and 221 s that each straddle a file
+boundary, and the part on the far side — 99 s and 50 s, beginning at the new
+file's first packet — is settling, not motion. Take it out and the real gaps are
+141 s and 171 s, inside the bridge. s16 (9/3 10:35) is different: its 202 s gap
+sits wholly inside one capture, well after that file's model had settled, so it
+is a real motion event mid-site. Continuous classification fixes the first two by
+construction. The third is a judgement no bridge constant can make, and is the
+case for `--min-captures` reporting rather than silently repairing.
 
 ## Design / approach
 
@@ -237,3 +247,5 @@ index.
 - [ ] The per-file `segments.json` on the drive stays as history; nothing reads it
 - [ ] Positions read from a photograph are accurate to a few hundred metres, and
       are a starting point for a survey rather than one
+- [ ] A real motion event mid-site still splits it; `--min-captures` reports the
+      short period rather than the classifier guessing the two halves are one
