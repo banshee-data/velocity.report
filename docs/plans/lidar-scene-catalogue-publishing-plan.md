@@ -97,6 +97,38 @@ quarantine any run whose observation timestamps fall outside its capture window.
 | Export tooling           | No scene export path from VRLOG                                      | High     | New `velocity scene export`; narrows VRLOG, adds no format        |
 | Timestamp domain         | Mixed wall-clock and PCAP nanoseconds in observations                | High     | Importer validates against the capture window and quarantines     |
 | Track ID reuse           | Unique in DB, but not segment-local for publishing                   | Medium   | Re-key to segment-local on export, per the privacy invariant      |
+| Settling pass scope      | `settle_before_recording` settles over the whole recording window    | Blocker  | Bound it to a prefix; it currently learns the traffic as background |
+
+### Why the published scenes look empty
+
+Seven of the eight published scenes show about one moving object at a time, so
+the street reads as empty with occasional flicker. The trails themselves are
+sound — a tracked vehicle in those scenes runs a median 59 m over 3 s, further
+than in `soma1` — and the exporter reproduces its source faithfully, which
+`internal/scene/export_continuity_test.go` now pins. There are simply almost no
+detections to track.
+
+The cause is `settle_before_recording`. It runs a first pass to settle the
+background model and then records a second, and both passes cover **the same
+window** (`datasource_handlers.go`, `runPass(nil)`). So the model is trained on
+the entire recording, every vehicle in it included, and by the time the recorded
+pass begins that traffic is background and is suppressed.
+
+Measured on `s2_sf_4_20260902153250_00003.pcap`, the same capture both ways:
+
+| Run                                        | Clusters / frame |
+| ------------------------------------------ | ---------------- |
+| Cold model, current build (`lidar-bench`)  | **19.6**         |
+| 2026-09-06, cold, build 0.5.1-pre31        | 11.0             |
+| 2026-09-08 batch, settled first            | **1.0**          |
+
+A twentyfold suppression, with no code change between the runs that touches the
+pipeline — the tuning sets differ only by unset L5 fields and a `frame_budget_ms`
+that only `lidarbench` reads. Settling has to cover a prefix long enough to
+converge the far field and no longer; settling over the whole window is a
+guarantee that nothing which moves survives it.
+
+Re-publishing is therefore a re-replay, not a re-export.
 
 ## Design / approach
 
