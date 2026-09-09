@@ -7,12 +7,15 @@
     "minutes": 19.2,
     "fragments": 1,
     "captures": [
-      "s2-1_20260901124845_00001.pcap"
+      "s2-1_20260901125845_00003.pcap",
+      "s2-1_20260901130345_00004.pcap",
+      "s2-1_20260901130846_00005.pcap",
+      "s2-1_20260901131346_00006.pcap"
     ],
-    "map_mark": "12:35",
-    "where": "Ashbury at Downey, Haight-Ashbury (given by the operator)",
-    "lat": 37.769,
-    "lon": -122.445,
+    "map_mark": "12:55",
+    "where": "Haight by Divisadero",
+    "lat": 37.7712,
+    "lon": -122.4372,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
@@ -24,13 +27,18 @@
     "minutes": 21.7,
     "fragments": 1,
     "captures": [
-      "s2-1_20260901124845_00001.pcap"
+      "s2-1_20260901132347_00008.pcap",
+      "s2-1_20260901132847_00009.pcap",
+      "s2-1_20260901133348_00010.pcap",
+      "s2-1_20260901133848_00011.pcap",
+      "s2-1_20260901134348_00012.pcap",
+      "s2-1_20260901134849_00013.pcap"
     ],
     "map_mark": "1:25",
-    "where": "Market near Church / Duboce",
-    "lat": 37.769,
-    "lon": -122.429,
-    "position_confidence": "low",
+    "where": "Pierce at Haight",
+    "lat": 37.7718,
+    "lon": -122.4338,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
@@ -41,13 +49,17 @@
     "minutes": 20.2,
     "fragments": 1,
     "captures": [
-      "s2-1_20260901124845_00001.pcap"
+      "s2-1_20260901135850_00015.pcap",
+      "s2-1_20260901140350_00016.pcap",
+      "s2-1_20260901140851_00017.pcap",
+      "s2-1_20260901141351_00018.pcap",
+      "s2-1_20260901141851_00019.pcap"
     ],
     "map_mark": "1:55",
-    "where": "NoPa, Fell / Oak near Divisadero",
-    "lat": 37.774,
-    "lon": -122.4375,
-    "position_confidence": "low",
+    "where": "Fulton at Divisadero",
+    "lat": 37.7768,
+    "lon": -122.4381,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
@@ -58,13 +70,18 @@
     "minutes": 20.9,
     "fragments": 1,
     "captures": [
-      "s2-1_20260901124845_00001.pcap"
+      "s2-1_20260901142853_00021.pcap",
+      "s2-1_20260901143353_00022.pcap",
+      "s2-1_20260901143854_00023.pcap",
+      "s2-1_20260901144354_00024.pcap",
+      "s2-1_20260901144855_00025.pcap",
+      "s2-1_20260901145355_00026.pcap"
     ],
     "map_mark": "2:30",
-    "where": "Laurel Heights / Presidio Heights, California St",
-    "lat": 37.786,
-    "lon": -122.447,
-    "position_confidence": "low",
+    "where": "California between Leon and Baker",
+    "lat": 37.7875,
+    "lon": -122.4446,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
@@ -75,13 +92,17 @@
     "minutes": 18.6,
     "fragments": 1,
     "captures": [
-      "s2-1_20260901124845_00001.pcap"
+      "s2-1_20260901150856_00029.pcap",
+      "s2-1_20260901151357_00030.pcap",
+      "s2-1_20260901151857_00031.pcap",
+      "s2-1_20260901152358_00032.pcap",
+      "s2-1_20260901152858_00033.pcap"
     ],
     "map_mark": "3:05",
-    "where": "near the green/purple boundary; assigned to 9/1 on time, not position",
-    "lat": null,
-    "lon": null,
-    "position_confidence": "low (day inferred from time, mark sits on the region edge)",
+    "where": "Broadway at Gough",
+    "lat": 37.7952,
+    "lon": -122.4269,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
@@ -92,13 +113,17 @@
     "minutes": 21.8,
     "fragments": 1,
     "captures": [
-      "s2-1_20260901124845_00001.pcap"
+      "s2-1_20260901154400_00036.pcap",
+      "s2-1_20260901154900_00037.pcap",
+      "s2-1_20260901155401_00038.pcap",
+      "s2-1_20260901155901_00039.pcap",
+      "s2-1_20260901160401_00040.pcap"
     ],
     "map_mark": "3:40",
-    "where": "Western Addition, Golden Gate Avenue",
-    "lat": 37.779,
-    "lon": -122.43,
-    "position_confidence": "low",
+    "where": "Laguna at Eddy",
+    "lat": 37.7821,
+    "lon": -122.4274,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {

@@ -37,6 +37,19 @@ genuinely separate sites.
 static stretches of 18 to 22 minutes with no stitching needed. Rerunning 9/2 and
 9/3 the same way would remove the need to bridge them.
 
+## Which captures a site spans
+
+A per-file analysis names its one capture and nothing else. A continuous
+analysis reports the whole block as one stream: it lists every capture in
+`config.pcap_files` but attributes no segment to any of them, and its top-level
+`input_file` is only the first. Reading that field per segment credits a whole
+day to one capture, which is why 9/1 first came out as six single-capture
+sites. Consecutive captures abut, so each one covers the clock from its own
+start to the next one's, and a segment spans whichever of those it overlaps.
+
+A site is roughly twenty minutes, which is four or more five-minute captures.
+Fewer than four means the period was truncated, not that the site was short.
+
 ## Positions are approximate
 
 `map-marks.json` holds positions read by eye from a photograph of a hand-marked

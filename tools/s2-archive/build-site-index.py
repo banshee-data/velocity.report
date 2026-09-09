@@ -39,21 +39,76 @@ def parse(ts):
     )
 
 
+CAPTURE_NAME = re.compile(r"_(?P<stamp>\d{14})_\d+\.pcap$")
+
+
+def capture_spans(names, stream_end):
+    """When did each capture in a stream run.
+
+    A continuous analysis reports one stream, so its segments carry offsets into
+    that stream and no filename. Consecutive captures abut, so each one covers
+    the clock from its own start to the next one's — which is enough to say
+    which captures a segment crossed.
+    """
+    starts = []
+    for name in names:
+        match = CAPTURE_NAME.search(name)
+        if match:
+            starts.append(
+                (
+                    datetime.strptime(match["stamp"], "%Y%m%d%H%M%S"),
+                    os.path.basename(name),
+                )
+            )
+    starts.sort()
+    spans = []
+    for index, (start, name) in enumerate(starts):
+        end = starts[index + 1][0] if index + 1 < len(starts) else stream_end
+        spans.append((start, end, name))
+    return spans
+
+
 def load(paths):
     out = []
     for path in paths:
         with open(path) as fh:
             doc = json.load(fh)
+        segments = doc.get("segments", [])
+        if not segments:
+            continue
+
+        # A per-file analysis names its one capture; a continuous one lists them
+        # all in the config and attributes nothing, so the captures a segment
+        # crossed have to be recovered from the clock.
+        listed = doc.get("config", {}).get("pcap_files") or []
+        spans = []
+        if len(listed) > 1:
+            last_end = max(parse(s["end_time"]) for s in segments).replace(tzinfo=None)
+            spans = capture_spans(listed, last_end)
         source = os.path.basename(doc.get("input_file", ""))
-        for segment in doc.get("segments", []):
+
+        for segment in segments:
+            start, end = parse(segment["start_time"]), parse(segment["end_time"])
+            if spans:
+                naive_start, naive_end = start.replace(tzinfo=None), end.replace(
+                    tzinfo=None
+                )
+                covered = [
+                    name
+                    for (span_start, span_end, name) in spans
+                    if span_start < naive_end and naive_start < span_end
+                ]
+            else:
+                covered = [source] if source else []
             out.append(
                 {
                     "type": segment["type"],
-                    "start": parse(segment["start_time"]),
-                    "end": parse(segment["end_time"]),
+                    "start": start,
+                    "end": end,
                     "start_secs": segment["start_secs"],
                     "end_secs": segment["end_secs"],
                     "file": source,
+                    "captures": covered,
                 }
             )
     return sorted(out, key=lambda s: s["start"])
@@ -141,7 +196,7 @@ for number, site in enumerate(sites, 1):
             "clock": site["start"].strftime("%I:%M").lstrip("0"),
             "minutes": round(minutes, 1),
             "fragments": len(site["parts"]),
-            "captures": sorted({p["file"] for p in site["parts"] if p["file"]}),
+            "captures": sorted({c for p in site["parts"] for c in p["captures"]}),
             "map_mark": mark["clock"] if mark else None,
             "where": mark["where"] if mark else None,
             "lat": mark["lat"] if mark else None,
