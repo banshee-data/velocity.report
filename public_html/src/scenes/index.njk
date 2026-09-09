@@ -24,6 +24,8 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
   .scene-card__cells dt { display: inline; opacity: 0.65; }
   .scene-card__cells dd { display: inline; margin: 0 0.9rem 0 0.3rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .scene-card__unlocated { margin: 0; font-size: 0.85rem; line-height: 1.55; opacity: 0.7; }
+  .scene-card--recorded { border-style: dashed; }
+  .scene-card__tag { font-size: 0.75rem; font-weight: 500; opacity: 0.6; white-space: nowrap; }
 
   .scenes__index { font-size: 0.9rem; line-height: 1.6; opacity: 0.8; max-width: 68ch; }
   .scenes__index code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -42,6 +44,9 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
     {% include "scene-map.svg" %}
   </div>
   <p class="scenes__mapnote">
+    {{ scenes.published_count }} of the {{ scenes.recorded_count }} sites here have a
+    published recording; the rest are places the sensor has been, shown so the map
+    answers where it has been rather than only what there is to watch.
     The cell drawn around each scene is its S2 level {{ scenes.levels.neighbourhood }} cell,
     about a kilometre across — close to the grain at which a junction is worth
     indexing. The coarser level {{ scenes.levels.area }} area is roughly eight times
@@ -51,8 +56,11 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
 
   <ul class="scenes__list">
     {% for site in scenes.sites %}
-      <li class="scene-card">
-        <h2 class="scene-card__name"><a href="{{ site.page | url }}">{{ site.title }}</a></h2>
+      <li class="scene-card{% if not site.published %} scene-card--recorded{% endif %}">
+        <h2 class="scene-card__name">
+          {% if site.page %}<a href="{{ site.page | url }}">{{ site.title }}</a>
+          {% else %}{{ site.title }} <span class="scene-card__tag">recorded, not published</span>{% endif %}
+        </h2>
         {% if site.summary %}<p class="scene-card__summary">{{ site.summary }}</p>{% endif %}
         {% if site.located %}
           <dl class="scene-card__cells">

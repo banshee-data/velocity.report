@@ -19,7 +19,11 @@ import {
   LEVEL_NEIGHBOURHOOD,
   LEVEL_SITE,
 } from "./scene-map.mjs";
-import { buildSceneSites, sceneStartMs } from "./scene-sites.mjs";
+import {
+  buildSceneSites,
+  sceneStartMs,
+  unpublishedSites,
+} from "./scene-sites.mjs";
 
 const TOOL_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIRECTORY, "..", "..");
@@ -97,10 +101,18 @@ export async function generateSceneSites() {
 
 export async function generateSceneMap() {
   const source = await generateSceneSites();
-  const sites = source.sites ?? [];
-  if (sites.length === 0) {
+  const scenes = (source.sites ?? []).map((site) => ({
+    ...site,
+    published: true,
+  }));
+  if (scenes.length === 0) {
     throw new Error(`${path.relative(REPO_ROOT, SOURCE)} lists no sites.`);
   }
+
+  // Every recorded site goes on the map, not only the published ones, so the
+  // map answers "where has this been?" rather than "what can I watch?".
+  const index = JSON.parse(await readFile(SITE_INDEX, "utf8"));
+  const sites = [...scenes, ...unpublishedSites({ index, scenes })];
 
   const model = buildSceneMapModel({ sites });
   const svg = renderSceneMapSvg(model);
@@ -116,10 +128,14 @@ export async function generateSceneMap() {
     },
     located_count: model.located.length,
     unlocated_count: model.sites.length - model.located.length,
+    published_count: model.sites.filter((s) => s.published).length,
+    recorded_count: model.sites.length,
     sites: model.sites.map((site) => ({
       id: site.id,
       title: site.title,
       page: site.page,
+      published: site.published === true,
+      archive_site: site.archive_site ?? null,
       summary: site.summary ?? "",
       located: site.located,
       position: site.position ?? null,

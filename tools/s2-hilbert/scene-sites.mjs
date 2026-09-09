@@ -145,3 +145,30 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
     sites,
   };
 }
+
+/**
+ * Every recorded site, as map entries.
+ *
+ * The map exists to show where the sensor has been, which is a larger set than
+ * where a scene has been published: 23 sites were recorded and a handful are
+ * published. A site already covered by a published scene is left to that scene,
+ * so nothing is drawn twice; the rest come through unpublished, with no page to
+ * link to and no summary claiming a recording anyone can watch.
+ */
+export function unpublishedSites({ index, scenes }) {
+  const claimed = new Set(scenes.map((s) => s.archive_site).filter(Boolean));
+  return index
+    .filter((site) => !claimed.has(site.site))
+    .filter((site) => site.lat !== null && site.lon !== null)
+    .map((site) => ({
+      id: `site-${site.site}`,
+      title: site.where ?? site.site,
+      page: null,
+      summary: `${site.minutes.toFixed(0)} minutes recorded on ${site.day}, not yet published.`,
+      archive_site: site.site,
+      published: false,
+      position: { lat: site.lat, lon: site.lon, source: "operator" },
+      position_note: `Read from the field map (${site.where}). Neighbourhood-level; replace with a survey.`,
+      position_source: "archive-index",
+    }));
+}
