@@ -128,29 +128,49 @@ that only `lidarbench` reads. Settling has to cover a prefix long enough to
 converge the far field and no longer; settling over the whole window is a
 guarantee that nothing which moves survives it.
 
-Playback rate was the other suspect, since the warm-up and freeze windows are
-gated on `time.Since(bm.StartTime)` — wall clock, not capture clock — so a fast
-replay compresses far more of the recording into them. Swept over a 180 s window
-of that capture with settling off, it turns out to matter barely at all:
+Playback rate is the larger cause, not settling. The warm-up and freeze windows
+are gated on `time.Since(bm.StartTime)` — wall clock, not capture clock — so the
+faster a replay runs, the more of the recording falls inside them. Swept over a
+180 s window of that capture, holding settling off:
 
-| Playback  | Frames | Clusters/frame | Moving/frame | Median mover life | Wall  |
-| --------- | ------ | -------------- | ------------ | ----------------- | ----- |
-| realtime  | 1724   | 16.18          | 14.0         | 9.6 s             | 192 s |
-| 0.5x      | 1792   | 16.79          | 14.1         | 9.7 s             | 365 s |
-| 0.2x      | 1792   | 16.82          | 14.1         | 9.8 s             | 917 s |
-| 0.1x      | 1792   | 16.80          | 14.1         | 9.8 s             | 1813 s |
+| Replay              | Pipeline frames | VRLOG frames | Clusters/frame | Moving/frame | Median mover life | Max    | Wall   |
+| ------------------- | --------------- | ------------ | -------------- | ------------ | ----------------- | ------ | ------ |
+| analysis (settle ON) | 1801           | —            | 1.03           | —            | —                 | —      | ~26 s  |
+| analysis            | 1801            | 416 (23 %)   | 2.00           | 7.7          | 3.5 s             | 10.2 s | 43 s   |
+| realtime            | 1801            | 1724 (96 %)  | 16.18          | 14.0         | 9.6 s             | 95.4 s | 192 s  |
+| 0.5x                | 1801            | 1792 (99.6 %)| 16.79          | 14.1         | 9.7 s             | 89.8 s | 365 s  |
+| 0.2x                | 1801            | 1792         | 16.82          | 14.1         | 9.8 s             | 96.1 s | 917 s  |
+| 0.1x                | 1801            | 1792         | 16.80          | 14.1         | 9.8 s             | 89.8 s | 1813 s |
 
-Everything from 0.5x down is the same run to within noise. Realtime is the only
-outlier and only because it drops 3.8% of frames — the pipeline runs at about
-1.07x realtime on this capture, so it cannot quite keep up. Below 0.5x the extra
-wall clock buys nothing.
+Analysis mode fails twice over. The pipeline finds an eighth of the clusters,
+because the wall-clock warm-up covers most of a run that takes 43 s to replay
+180 s of street. And the recorder then keeps **23 % of the frames it was given** —
+416 of 1801 — so the VRLOG is a 2.3 Hz sample of a 10 Hz recording, despite the
+blocking frame channel that is supposed to make the mapping 1:1. Together they
+are the flicker.
 
-So 0.5x is the rate to publish at: the fastest one on the plateau, and lossless.
-Against the same capture recorded the old way — settling on, analysis speed —
-it is 16.79 clusters per frame against 1.03, and a median moving-track life of
-9.7 s against 3.4 s. The rate is worth 4%; the settling is worth sixteenfold.
+Everything from 0.5x down is the same run to within noise. Realtime is close but
+drops 4 % of frames, the pipeline running at about 1.07x realtime on this
+capture. So 0.5x is the rate to publish at: the first one on the plateau.
 
-Re-publishing is therefore a re-replay, not a re-export.
+### The multi-file replay is pinned to the worst setting
+
+`datasource_handlers.go:537` refuses a multi-file replay in any mode but
+analysis, because realtime and scaled pace packets against a single file's clock
+and cannot cross a join. The refusal is honest, but every published scene is a
+three- to seven-capture sequence, so every one of them is forced into the only
+mode that drops three quarters of its frames.
+
+The way through without changing that reader is to stop asking a replay to do the
+joining. `velocity lidar pcap-split` takes repeated `--pcap` flags, analyses them
+as one continuous stream and, outside `--dry-run`, **writes each segment as a
+single PCAP**. A static stretch written that way is one file, which a scaled
+single-file replay accepts. That also retires the "no segment PCAPs were written"
+finding above, which has been open since this plan was drafted.
+
+Re-publishing is therefore: write each static stretch as one PCAP, replay it at
+0.5x with settling off, and export. Not a re-export, and not a re-replay of the
+capture sequence.
 
 ## Design / approach
 
