@@ -135,3 +135,46 @@ func TestSequenceStaysUnpacedForAnalysis(t *testing.T) {
 		t.Errorf("unpaced reader saw %d steps, want 2", unpaced)
 	}
 }
+
+// TestPacedStepsKeepTheirOwnWindow guards a regression: sharing a pacing origin
+// across a sequence must not share the window with it.
+//
+// The anchor answers "when did the sequence start playing", which the pacer
+// needs. A step's StartSeconds and DurationSeconds answer "which part of this
+// file do we want", which is per file. Conflating them made every step after
+// the first measure its end against the sequence's start, so the end threshold
+// was already in the past and the step returned on its first packet — a replay
+// that asked for 120 s of street and recorded 60.
+func TestPacedStepsKeepTheirOwnWindow(t *testing.T) {
+	steps := []capseq.ReadStep{
+		{Path: "a.pcap", StartSecs: 240, DurationSecs: 60, PacketCount: 10},
+		{Path: "b.pcap", StartSecs: 0, DurationSecs: 60, PacketCount: 10},
+		{Path: "c.pcap", StartSecs: 0, DurationSecs: 30, PacketCount: 10},
+	}
+
+	var got []RealtimeReplayConfig
+	restore := stepReaderRealtime
+	stepReaderRealtime = func(_ context.Context, _ string, _ int, _ Parser, _ FrameBuilder,
+		_ PacketStatsInterface, cfg RealtimeReplayConfig) error {
+		got = append(got, cfg)
+		return nil
+	}
+	defer func() { stepReaderRealtime = restore }()
+
+	if _, err := ReadPCAPSequence(context.Background(), steps,
+		SequenceReplayConfig{Paced: RealtimeReplayConfig{SpeedMultiplier: 0.5}}); err != nil {
+		t.Fatalf("ReadPCAPSequence: %v", err)
+	}
+	if len(got) != len(steps) {
+		t.Fatalf("read %d steps, want %d", len(got), len(steps))
+	}
+	for i, step := range steps {
+		if got[i].StartSeconds != step.StartSecs {
+			t.Errorf("step %d StartSeconds = %v, want %v", i, got[i].StartSeconds, step.StartSecs)
+		}
+		if got[i].DurationSeconds != step.DurationSecs {
+			t.Errorf("step %d DurationSeconds = %v, want %v: a step must keep its own window",
+				i, got[i].DurationSeconds, step.DurationSecs)
+		}
+	}
+}

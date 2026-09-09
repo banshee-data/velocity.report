@@ -144,6 +144,11 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	var cumulativeYield time.Duration // Total time spent sleeping in backoff, carried across a sequence
 	var firstPacketTime time.Time
 	replayStartTime := time.Now()
+	// pacingStart is the capture instant the pacer measures elapsed capture
+	// time from. It is deliberately not startThreshold: that selects this
+	// file's window and each step of a sequence has its own, whereas the pacer
+	// needs the one origin the whole sequence shares.
+	var pacingStart time.Time
 	// A sequence step that is not the first inherits the origin fixed by the
 	// first, so elapsed capture and wall time both continue across the join.
 	if config.PacingAnchor.Anchored() {
@@ -221,9 +226,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						replayStartTime = time.Now()
 					}
 				}
-				if config.PacingAnchor.Anchored() {
-					startThreshold = config.PacingAnchor.CaptureStart
-				}
+
 				if config.DurationSeconds > 0 {
 					// Duration is always relative to the effective start threshold
 					endThreshold = startThreshold.Add(time.Duration(config.DurationSeconds * float64(time.Second)))
@@ -246,6 +249,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// Fix the sequence origin on the first packet actually played, so
 			// every later step measures against this one.
 			config.PacingAnchor.Anchor(startThreshold, replayStartTime)
+			if pacingStart.IsZero() {
+				if config.PacingAnchor.Anchored() {
+					pacingStart = config.PacingAnchor.CaptureStart
+				} else {
+					pacingStart = startThreshold
+				}
+			}
 
 			// Stop if we've reached the end threshold
 			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
@@ -277,7 +287,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// and cause track breaks from dropped frames.
 			if config.SpeedMultiplier < 100 && firstPacketTime != captureTime {
 				// How much PCAP time has elapsed since the effective start?
-				pcapElapsed := captureTime.Sub(startThreshold)
+				pcapElapsed := captureTime.Sub(pacingStart)
 				// How much wall clock time should have elapsed at this speed?
 				targetWallElapsed := time.Duration(float64(pcapElapsed) / config.SpeedMultiplier)
 				// How much wall clock time has actually elapsed?
