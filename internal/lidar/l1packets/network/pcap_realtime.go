@@ -89,6 +89,22 @@ const (
 	// pcapBackoffMaxYield caps the per-packet yield to avoid stalling replay.
 	pcapBackoffMaxYield = 50 * time.Millisecond
 
+	// pcapPacingForgiveThreshold is the deficit beyond which the pacer stops
+	// trying to make up lost time and paces from where it is instead.
+	//
+	// Yielding cannot recover a large deficit. Each yield is subtracted from
+	// elapsed wall time — deliberately, so that sleeping does not itself read
+	// as lateness — which means the measured deficit is frozen while the yield
+	// is being served. Past a certain size the replay therefore yields the
+	// maximum on every packet forever and advances at the yield rate: observed
+	// at 18 packets per second against a target of 925, still 139 s behind
+	// after 116,800 consecutive backoffs.
+	//
+	// Pacing exists to stop catch-up bursts flooding the frame builder, not to
+	// hold a replay to a total duration. So when the deficit is past saving,
+	// forgive it and keep pacing from here.
+	pcapPacingForgiveThreshold = 30 * time.Second
+
 	// pcapStartupGracePeriod suppresses backoff during initial pipeline warm-up.
 	// The background grid and tracker need a few seconds to initialise; the
 	// extra processing time would otherwise trigger spurious backoff entries
@@ -322,6 +338,16 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					// without a full stop and avoids the positive feedback
 					// loop (slow frame → burst → more slow frames).
 					behindBy := -waitTime
+					if behindBy > pcapPacingForgiveThreshold {
+						// Forgive the deficit: charge it to the yield account,
+						// which is what elapsed wall time is measured against,
+						// so the next comparison starts level.
+						cumulativeYield += behindBy
+						config.PacingAnchor.AddYield(behindBy)
+						opsf("PCAP pacing: %.1fs behind is past recovering by yielding; "+
+							"pacing from here instead", behindBy.Seconds())
+						continue
+					}
 					yield := behindBy / 4 // 25% of lag as yield
 					if yield > pcapBackoffMaxYield {
 						yield = pcapBackoffMaxYield
