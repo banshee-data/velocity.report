@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "nob-hill-chinatown",
+    "title": "s2-sf-4"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}
