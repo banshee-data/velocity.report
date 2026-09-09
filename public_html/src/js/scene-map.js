@@ -13,25 +13,29 @@
  */
 const SF = [37.7749, -122.4194];
 
-function tileLayer(L, key) {
-  // OpenCycleMap is Thunderforest's layer and wants an API key; without one it
-  // serves a watermarked tile. Standard OSM needs no key, so it is what an
-  // unconfigured site gets rather than a map covered in "API key required".
-  if (key) {
-    return L.tileLayer(
-      `https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=${key}`,
-      {
-        maxZoom: 19,
-        attribution:
-          'Maps &copy; <a href="https://www.thunderforest.com/">Thunderforest</a>, ' +
-          'Data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      },
-    );
-  }
-  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
+// Must match the zooms fetch-basemap.mjs caches; asking for a zoom outside
+// them shows empty grid.
+const MIN_ZOOM = 12;
+const MAX_ZOOM = 16;
+
+function tileLayer(L) {
+  // Tiles are served from this site's own assets, cached at build time by
+  // tools/s2-hilbert/fetch-basemap.mjs. That is the same bargain the report
+  // map already strikes: fetch once, deliberately, and serve every reader
+  // from our own origin afterwards. A reader looking at where a sensor stood
+  // does not hand their address to a tile server to do it.
+  //
+  // Attribution is still required and still shown: the data is OpenStreetMap's
+  // under ODbL whoever serves the bytes.
+  return L.tileLayer("/img/tiles/{z}/{x}/{y}.png", {
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    // Only the cached window exists. Without this a pan past the edge asks
+    // for tiles that were never fetched and paints broken images.
+    noWrap: true,
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+      "contributors, cached locally",
   });
 }
 
@@ -57,7 +61,7 @@ function popup(site) {
   return wrap;
 }
 
-export function initSceneMap(container, sites, apiKey) {
+export function initSceneMap(container, sites) {
   const L = window.L;
   if (!L || !container) return null;
 
@@ -65,8 +69,12 @@ export function initSceneMap(container, sites, apiKey) {
   if (located.length === 0) return null;
 
   container.textContent = "";
-  const map = L.map(container, { scrollWheelZoom: false }).setView(SF, 13);
-  tileLayer(L, apiKey).addTo(map);
+  const map = L.map(container, {
+    scrollWheelZoom: false,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+  }).setView(SF, 13);
+  tileLayer(L).addTo(map);
 
   const bounds = [];
   for (const site of located) {

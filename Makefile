@@ -1940,7 +1940,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert cache-basemap
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -1959,6 +1959,14 @@ render-s2-hilbert: install-s2-hilbert
 # page reads. All three derive: each export is joined to an archive site by the
 # clock in its header, and takes that site's position. The hand-authored inputs
 # are tools/s2-archive/map-marks.json and public_html/scene-overrides.json.
+# Cache the basemap tiles the scene map draws on, into the site's own assets.
+# Fetched once and skipped when present, so a rebuild costs nothing. Tiles are
+# gitignored: they are OpenStreetMap's to serve and ours only to cache, and the
+# point of caching them is that a visitor's address never reaches a tile server.
+cache-basemap: install-s2-hilbert
+	@echo "Caching basemap tiles (once; cached on disk)..."
+	@pnpm run --silent s2-hilbert:basemap
+
 render-scene-map: install-s2-hilbert
 	@echo "Deriving scene-sites.json and the scene map..."
 	@pnpm run --silent s2-hilbert:scene-map

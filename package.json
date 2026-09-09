@@ -8,7 +8,8 @@
     "s2-hilbert:assets": "node tools/s2-hilbert/generate-assets.mjs",
     "test:s2-hilbert": "node --test tools/s2-hilbert/test/*.test.mjs",
     "s2-hilbert:composite": "node tools/s2-hilbert/generate-composite.mjs",
-    "s2-hilbert:scene-map": "node tools/s2-hilbert/generate-scene-map.mjs"
+    "s2-hilbert:scene-map": "node tools/s2-hilbert/generate-scene-map.mjs",
+    "s2-hilbert:basemap": "node tools/s2-hilbert/fetch-basemap.mjs"
   },
   "devDependencies": {
     "prettier": "3.8.3",
