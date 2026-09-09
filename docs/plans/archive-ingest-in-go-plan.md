@@ -66,6 +66,7 @@ holds periods.
 | Per-file classification | Each file restarts the background model; its settling is reported as motion        | Blocker  | Classify per recording block, which `sessionMotionPass` does      |
 | Site truncation         | 3 of 23 sites end early where a motion gap exceeds the stitcher's 180 s bridge      | High     | Two are the artefact; one is a real event the bridge cannot judge  |
 | Bridge constant         | 180 s recovers the expected site count; 300 s merges genuinely separate sites      | High     | A tuned constant with no principled value; delete it, not tune it |
+| Settling on long streams | A 27-capture stream misses a stop the per-file run finds, and lags the rest by ~4 min | High     | Re-derive the settling parameters for stream-length input          |
 | Capture attribution     | `MotionPeriod` records times and frames, no captures; the JSON records none either | High     | Periods must name the captures they span                          |
 | Recording blocks        | A day is not one stream: 9/1 restarts at 16:29 after a 176 s gap, sequence resets  | Medium   | Session derivation must split there, and be verified to           |
 | Validity                | Nothing asserts a site is plausible; a 12-minute "20-minute site" passes silently  | Medium   | A site spanning fewer than four captures is a defect, not a site  |
@@ -91,6 +92,23 @@ sits wholly inside one capture, well after that file's model had settled, so it
 is a real motion event mid-site. Continuous classification fixes the first two by
 construction. The third is a judgement no bridge constant can make, and is the
 case for `--min-captures` reporting rather than silently repairing.
+
+That expectation is only half borne out. Re-running 9/3's morning block as one
+27-capture stream does **not** reproduce the per-file result: it reports two
+static stretches where three were recorded, each beginning about four minutes
+after the per-file analysis puts the stop, and it swallows the 10:35 site
+(s16) into a single 68-minute opening motion. The operator's field map records a
+10:35 site, so the per-file analysis is closer to the truth there and the
+continuous run has a failure mode of its own — a long drive before the first
+stop leaves the background model matched to motion, and it is slow to re-converge
+when the platform finally stops.
+
+Continuous classification is still the right default, because it removes an
+artefact that is definitely wrong. But it is not a free win: the settling
+parameters were chosen for a per-file run and have not been re-derived for a
+two-hour stream. Workstream 2 must compare both classifications against the
+field map on all three days before the per-file output is retired, not assume
+the continuous one supersedes it.
 
 ## Design / approach
 
@@ -177,6 +195,8 @@ letting a short period pass as a location worth publishing.
    with `--min-captures` and `--json`.
 4. Verify session derivation splits on recorder restarts, with a test built from
    the 9/1 shape: sequence reset plus a gap of a few minutes.
+5. Compare continuous against per-file classification on all three days, scored
+   against the field map, before the per-file output stops being an input.
 
 **Milestone:** v0.6.0
 
@@ -236,6 +256,7 @@ index.
 - [ ] W2: `velocity lidar classify --root`, resumable (`M`)
 - [ ] W2: `velocity lidar sites --root --min-captures --json` (`M`)
 - [ ] W2: session derivation splits on recorder restart, with a 9/1-shaped test (`M`)
+- [ ] W2: score continuous against per-file on all three days before retiring per-file (`M`)
 - [ ] W3: static period references a site; tokens derive from the site pose (`M`)
 - [ ] W3: one-shot import of read positions into sites (`S`)
 - [ ] W3: scene publication reads the site pose (`S`)

@@ -140,10 +140,10 @@
       "s2_sf_2_20260902095323_00006.pcap"
     ],
     "map_mark": "9:37",
-    "where": "Cow Hollow, Union Street west of Fillmore",
-    "lat": 37.7975,
-    "lon": -122.436,
-    "position_confidence": "medium",
+    "where": "Lombard at Broderick",
+    "lat": 37.799,
+    "lon": -122.444,
+    "position_confidence": "high",
     "published_as": null
   },
   {
@@ -160,9 +160,9 @@
       "s2_sf_2_20260902101826_00011.pcap"
     ],
     "map_mark": "10:00",
-    "where": "Marina Boulevard, west end near Baker",
-    "lat": 37.8055,
-    "lon": -122.4445,
+    "where": "Marina Boulevard at Broderick",
+    "lat": 37.8053,
+    "lon": -122.4455,
     "position_confidence": "medium",
     "published_as": null
   },
