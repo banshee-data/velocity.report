@@ -117,3 +117,19 @@ test("a scene with no site at all is unsurveyed rather than unlocated", () => {
   assert.equal(sites[0].archive_site, null);
   assert.match(sites[0].position_note, /Not surveyed/);
 });
+
+test("a scene is named for its place once it is joined, not for the capture prefix", () => {
+  const { sites } = buildSceneSites({
+    scenes: [at("2026-09-02T10:59:10-07:00", 2004, "s2-sf-2", "s2-sf-2")],
+    index: INDEX,
+  });
+  assert.equal(sites[0].title, "Union Street near Van Ness");
+});
+
+test("a scene whose site has no readable mark keeps the prefix rather than inventing a name", () => {
+  const { sites } = buildSceneSites({
+    scenes: [at("2026-09-02T13:41:32-07:00", 780, "s2-sf-3", "s2-sf-3")],
+    index: INDEX,
+  });
+  assert.equal(sites[0].title, "s2-sf-3");
+});

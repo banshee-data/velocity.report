@@ -110,9 +110,15 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
         source = "archive-index";
       }
 
+      // A capture prefix names the deployment, not a place. Once a scene is
+      // joined to a site the place is known, so prefer it: "Bush Street near
+      // Kearny" over "s2-sf-6". The prefix is the last resort, for a site whose
+      // field mark could not be read at all.
+      const title = over.title ?? site?.where ?? scene.title ?? scene.id;
+
       return {
         id: scene.id,
-        title: over.title ?? scene.title ?? scene.id,
+        title,
         page: `/scenes/${scene.id}/`,
         summary: over.summary ?? derivedSummary(scene),
         archive_site: site ? site.site : null,
