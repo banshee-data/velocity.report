@@ -15,11 +15,15 @@
       "title": "SoMa 1",
       "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street."
     },
-    "broadway-columbus": {
+    "broadway-telegraph-hill": {
       "title": "Broadway & Columbus",
       "summary": "A North Beach junction, recorded from a static roadside sensor.",
-      "position": { "lat": 37.7987, "lon": -122.4073, "source": "operator" },
-      "position_note": "Hand-entered to the junction, not surveyed. This recording is the same session as archive site s13, whose field mark was read about 600 m away as 'Broadway near Sansome'; the junction name is the better fix, so it overrides the mark. Replace with a measured position when one is taken."
+      "position": {
+        "lat": 37.7987,
+        "lon": -122.4073,
+        "source": "operator"
+      },
+      "position_note": "Hand-entered to the junction, not surveyed. The field mark for this site reads 'Broadway below Telegraph Hill, near Sansome', which is about 600 m from where the sensor actually stood; the junction name is the better fix and overrides it. Correcting the mark would rename this scene."
     }
   }
 }

@@ -117,9 +117,12 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
       const title = over.title ?? site?.where ?? scene.title ?? scene.id;
 
       return {
-        id: scene.id,
+        // Identity is the site's, which comes from the field mark. A scene
+        // directory is named for it, so a scene and the site it records cannot
+        // drift apart or be keyed two different ways.
+        id: site ? site.id : scene.id,
         title,
-        page: `/scenes/${scene.id}/`,
+        page: `/scenes/${site ? site.id : scene.id}/`,
         summary: over.summary ?? derivedSummary(scene),
         archive_site: site ? site.site : null,
         position,
@@ -161,7 +164,7 @@ export function unpublishedSites({ index, scenes }) {
     .filter((site) => !claimed.has(site.site))
     .filter((site) => site.lat !== null && site.lon !== null)
     .map((site) => ({
-      id: `site-${site.site}`,
+      id: site.id,
       title: site.where ?? site.site,
       page: null,
       summary: `${site.minutes.toFixed(0)} minutes recorded on ${site.day}, not yet published.`,

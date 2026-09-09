@@ -23,9 +23,9 @@
       "cells": null
     },
     {
-      "id": "s2-sf-2",
+      "id": "union-van-ness",
       "title": "Union Street near Van Ness",
-      "page": "/scenes/s2-sf-2/",
+      "page": "/scenes/union-van-ness/",
       "published": true,
       "archive_site": "s10",
       "summary": "33 minutes of a static roadside recording.",
@@ -55,9 +55,9 @@
       }
     },
     {
-      "id": "broadway-columbus",
+      "id": "broadway-telegraph-hill",
       "title": "Broadway & Columbus",
-      "page": "/scenes/broadway-columbus/",
+      "page": "/scenes/broadway-telegraph-hill/",
       "published": true,
       "archive_site": "s13",
       "summary": "A North Beach junction, recorded from a static roadside sensor.",
@@ -67,7 +67,7 @@
         "lon": -122.4073,
         "source": "operator"
       },
-      "position_note": "Hand-entered to the junction, not surveyed. This recording is the same session as archive site s13, whose field mark was read about 600 m away as 'Broadway near Sansome'; the junction name is the better fix, so it overrides the mark. Replace with a measured position when one is taken.",
+      "position_note": "Hand-entered to the junction, not surveyed. The field mark for this site reads 'Broadway below Telegraph Hill, near Sansome', which is about 600 m from where the sensor actually stood; the junction name is the better fix and overrides it. Correcting the mark would rename this scene.",
       "cells": {
         "area": {
           "token": "808581",
@@ -87,9 +87,9 @@
       }
     },
     {
-      "id": "s2-sf-3",
+      "id": "unrecognised-0902-1337",
       "title": "s2-sf-3",
-      "page": "/scenes/s2-sf-3/",
+      "page": "/scenes/unrecognised-0902-1337/",
       "published": true,
       "archive_site": "s14",
       "summary": "13 minutes of a static roadside recording.",
@@ -99,9 +99,9 @@
       "cells": null
     },
     {
-      "id": "s2-sf-4",
+      "id": "nob-hill-chinatown",
       "title": "Nob Hill / Chinatown edge",
-      "page": "/scenes/s2-sf-4/",
+      "page": "/scenes/nob-hill-chinatown/",
       "published": true,
       "archive_site": "s15",
       "summary": "17 minutes of a static roadside recording.",
@@ -111,9 +111,9 @@
       "cells": null
     },
     {
-      "id": "s2-sf-6",
+      "id": "bush-kearny",
       "title": "Bush Street near Kearny",
-      "page": "/scenes/s2-sf-6/",
+      "page": "/scenes/bush-kearny/",
       "published": true,
       "archive_site": "s18",
       "summary": "19 minutes of a static roadside recording.",
@@ -143,9 +143,9 @@
       }
     },
     {
-      "id": "s2-sf-7",
+      "id": "unrecognised-0903-1317",
       "title": "s2-sf-7",
-      "page": "/scenes/s2-sf-7/",
+      "page": "/scenes/unrecognised-0903-1317/",
       "published": true,
       "archive_site": "s19",
       "summary": "13 minutes of a static roadside recording.",
@@ -155,9 +155,9 @@
       "cells": null
     },
     {
-      "id": "s2-sf-8",
+      "id": "soma-mission-8th",
       "title": "SoMa, Mission near 8th",
-      "page": "/scenes/s2-sf-8/",
+      "page": "/scenes/soma-mission-8th/",
       "published": true,
       "archive_site": "s23",
       "summary": "19 minutes of a static roadside recording.",
@@ -187,7 +187,7 @@
       }
     },
     {
-      "id": "site-s01",
+      "id": "haight-divisadero",
       "title": "Haight by Divisadero",
       "page": null,
       "published": false,
@@ -219,7 +219,7 @@
       }
     },
     {
-      "id": "site-s02",
+      "id": "pierce-haight",
       "title": "Pierce at Haight",
       "page": null,
       "published": false,
@@ -251,7 +251,7 @@
       }
     },
     {
-      "id": "site-s03",
+      "id": "fulton-divisadero",
       "title": "Fulton at Divisadero",
       "page": null,
       "published": false,
@@ -283,7 +283,7 @@
       }
     },
     {
-      "id": "site-s04",
+      "id": "california-leon-baker",
       "title": "California between Leon and Baker",
       "page": null,
       "published": false,
@@ -315,7 +315,7 @@
       }
     },
     {
-      "id": "site-s05",
+      "id": "broadway-gough",
       "title": "Broadway at Gough",
       "page": null,
       "published": false,
@@ -347,7 +347,7 @@
       }
     },
     {
-      "id": "site-s06",
+      "id": "laguna-eddy",
       "title": "Laguna at Eddy",
       "page": null,
       "published": false,
@@ -379,7 +379,7 @@
       }
     },
     {
-      "id": "site-s07",
+      "id": "lombard-broderick",
       "title": "Lombard at Broderick",
       "page": null,
       "published": false,
@@ -411,7 +411,7 @@
       }
     },
     {
-      "id": "site-s08",
+      "id": "marina-broderick",
       "title": "Marina Boulevard at Broderick",
       "page": null,
       "published": false,
@@ -443,7 +443,7 @@
       }
     },
     {
-      "id": "site-s09",
+      "id": "marina-fillmore",
       "title": "Marina Boulevard near Fillmore",
       "page": null,
       "published": false,
@@ -475,7 +475,7 @@
       }
     },
     {
-      "id": "site-s11",
+      "id": "fisherman-s-wharf",
       "title": "Fisherman's Wharf, Jefferson Street near Hyde",
       "page": null,
       "published": false,
@@ -507,7 +507,7 @@
       }
     },
     {
-      "id": "site-s12",
+      "id": "bay-embarcadero",
       "title": "Bay Street towards the Embarcadero",
       "page": null,
       "published": false,
@@ -539,7 +539,7 @@
       }
     },
     {
-      "id": "site-s16",
+      "id": "van-ness-market",
       "title": "Van Ness near Market, Civic Center",
       "page": null,
       "published": false,
@@ -571,7 +571,7 @@
       }
     },
     {
-      "id": "site-s17",
+      "id": "geary-larkin",
       "title": "Geary near Larkin",
       "page": null,
       "published": false,
@@ -603,7 +603,7 @@
       }
     },
     {
-      "id": "site-s20",
+      "id": "financial-district-battery",
       "title": "Financial District, Battery near Pine",
       "page": null,
       "published": false,
@@ -635,7 +635,7 @@
       }
     },
     {
-      "id": "site-s21",
+      "id": "rincon-hill-folsom",
       "title": "Rincon Hill, Folsom near Beale",
       "page": null,
       "published": false,
@@ -667,7 +667,7 @@
       }
     },
     {
-      "id": "site-s22",
+      "id": "soma-folsom-2nd",
       "title": "SoMa, Folsom near 2nd",
       "page": null,
       "published": false,

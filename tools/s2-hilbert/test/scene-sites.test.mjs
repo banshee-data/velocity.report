@@ -6,6 +6,7 @@ import { buildSceneSites, matchSite, sceneStartMs } from "../scene-sites.mjs";
 const INDEX = [
   {
     site: "s10",
+    id: "union-van-ness",
     start: "2026-09-02T10:58:30.258816-07:00",
     where: "Union Street near Van Ness",
     lat: 37.7985,
@@ -13,6 +14,7 @@ const INDEX = [
   },
   {
     site: "s14",
+    id: "unrecognised-0902-1337",
     start: "2026-09-02T13:37:20.000000-07:00",
     where: null,
     lat: null,
@@ -20,6 +22,7 @@ const INDEX = [
   },
   {
     site: "s23",
+    id: "soma-mission-8th",
     start: "2026-09-03T15:50:43.000000-07:00",
     where: "SoMa, Mission near 8th",
     lat: 37.779,
@@ -68,7 +71,7 @@ test("a scene takes its position from the site, so correcting a mark moves it", 
   });
   assert.equal(scene.position_source, "archive-index");
   assert.match(scene.summary, /^33 minutes/);
-  assert.equal(scene.page, "/scenes/s2-sf-2/");
+  assert.equal(scene.page, "/scenes/union-van-ness/");
 });
 
 test("an override beats the site, so a survey is not overwritten by a map reading", () => {
@@ -132,4 +135,29 @@ test("a scene whose site has no readable mark keeps the prefix rather than inven
     index: INDEX,
   });
   assert.equal(sites[0].title, "s2-sf-3");
+});
+
+test("a scene's identity is the site's, so a page cannot be keyed by capture prefix", () => {
+  // The scene arrives named for the deployment its captures came from. That
+  // name is not a place and collides — six sites shared "s2_sf_2" — so the
+  // site's own id, slugged from the field mark, replaces it.
+  const { sites } = buildSceneSites({
+    scenes: [at("2026-09-02T10:59:10-07:00", 2004, "s2-sf-2", "s2-sf-2")],
+    index: INDEX,
+  });
+  assert.equal(sites[0].id, "union-van-ness");
+  assert.equal(sites[0].page, "/scenes/union-van-ness/");
+  assert.equal(
+    sites[0].archive_site,
+    "s10",
+    "the ordinal is still recorded, as display order",
+  );
+});
+
+test("a recording with no site keeps its own id rather than inventing one", () => {
+  const { sites } = buildSceneSites({
+    scenes: [at("2025-12-06T13:42:21-08:00", 662, "soma1", "soma1")],
+    index: INDEX,
+  });
+  assert.equal(sites[0].id, "soma1");
 });
