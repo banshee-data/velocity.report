@@ -70,14 +70,6 @@
       "confidence": "medium"
     },
     {
-      "day": "2026-09-01",
-      "clock": "3:05",
-      "where": "near the green/purple boundary; assigned to 9/1 on time, not position",
-      "lat": null,
-      "lon": null,
-      "confidence": "low (day inferred from time, mark sits on the region edge)"
-    },
-    {
       "day": "2026-09-02",
       "clock": "3:25",
       "where": "Nob Hill / Chinatown edge",
@@ -152,7 +144,7 @@
     {
       "day": "2026-09-01",
       "clock": "12:35",
-      "where": "Ashbury at Downey, Haight-Ashbury (given by the operator)",
+      "where": "Ashbury at Downey",
       "lat": 37.769,
       "lon": -122.445,
       "confidence": "operator-named intersection; coordinate approximate to the block",
@@ -160,35 +152,51 @@
     },
     {
       "day": "2026-09-01",
+      "clock": "12:55",
+      "where": "Haight by Divisadero",
+      "lat": 37.7712,
+      "lon": -122.4372,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "day": "2026-09-01",
       "clock": "1:25",
-      "where": "Market near Church / Duboce",
-      "lat": 37.769,
-      "lon": -122.429,
-      "confidence": "low"
+      "where": "Pierce at Haight",
+      "lat": 37.7718,
+      "lon": -122.4338,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
       "day": "2026-09-01",
       "clock": "1:55",
-      "where": "NoPa, Fell / Oak near Divisadero",
-      "lat": 37.774,
-      "lon": -122.4375,
-      "confidence": "low"
+      "where": "Fulton at Divisadero",
+      "lat": 37.7768,
+      "lon": -122.4381,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
       "day": "2026-09-01",
       "clock": "2:30",
-      "where": "Laurel Heights / Presidio Heights, California St",
-      "lat": 37.786,
-      "lon": -122.447,
-      "confidence": "low"
+      "where": "California between Leon and Baker",
+      "lat": 37.7875,
+      "lon": -122.4446,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "day": "2026-09-01",
+      "clock": "3:05",
+      "where": "Broadway at Gough",
+      "lat": 37.7952,
+      "lon": -122.4269,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
       "day": "2026-09-01",
       "clock": "3:40",
-      "where": "Western Addition, Golden Gate Avenue",
-      "lat": 37.779,
-      "lon": -122.43,
-      "confidence": "low"
+      "where": "Laguna at Eddy",
+      "lat": 37.7821,
+      "lon": -122.4274,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     }
   ]
 }
