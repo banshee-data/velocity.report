@@ -10,10 +10,17 @@
     "Day is inferred from the highlighted region and confirmed by the recording",
     "window: purple marks are all afternoon and 9/1 recorded 12:48-16:41; green",
     "spans the morning and 9/2 recorded from 09:14; the eastern marks match the",
-    "times detected on 9/3 almost exactly."
+    "times detected on 9/3 almost exactly.",
+    "",
+    "Each mark carries a stable id, slugged from the intersection name. That id",
+    "is the site's identity everywhere downstream: the site index, the scene",
+    "pages and their URLs. It is stable because it is derived from the place,",
+    "unlike the positional s01..s23 keys it replaces, which shifted whenever a",
+    "site was added or reclassified."
   ],
   "marks": [
     {
+      "id": "lombard-broderick",
       "day": "2026-09-02",
       "clock": "9:37",
       "where": "Lombard at Broderick",
@@ -22,6 +29,7 @@
       "confidence": "high"
     },
     {
+      "id": "marina-broderick",
       "day": "2026-09-02",
       "clock": "10:00",
       "where": "Marina Boulevard at Broderick",
@@ -30,6 +38,7 @@
       "confidence": "medium"
     },
     {
+      "id": "marina-fillmore",
       "day": "2026-09-02",
       "clock": "10:28",
       "where": "Marina Boulevard near Fillmore",
@@ -38,6 +47,7 @@
       "confidence": "medium"
     },
     {
+      "id": "union-van-ness",
       "day": "2026-09-02",
       "clock": "10:55",
       "where": "Union Street near Van Ness",
@@ -46,6 +56,7 @@
       "confidence": "medium"
     },
     {
+      "id": "fisherman-s-wharf",
       "day": "2026-09-02",
       "clock": "11:50",
       "where": "Fisherman's Wharf, Jefferson Street near Hyde",
@@ -54,6 +65,7 @@
       "confidence": "medium"
     },
     {
+      "id": "bay-embarcadero",
       "day": "2026-09-02",
       "clock": "12:36",
       "where": "Bay Street towards the Embarcadero",
@@ -62,6 +74,7 @@
       "confidence": "medium"
     },
     {
+      "id": "broadway-telegraph-hill",
       "day": "2026-09-02",
       "clock": "1:15",
       "where": "Broadway below Telegraph Hill, near Sansome",
@@ -70,6 +83,7 @@
       "confidence": "medium"
     },
     {
+      "id": "nob-hill-chinatown",
       "day": "2026-09-02",
       "clock": "3:25",
       "where": "Nob Hill / Chinatown edge",
@@ -78,6 +92,7 @@
       "confidence": "unread"
     },
     {
+      "id": "van-ness-market",
       "day": "2026-09-03",
       "clock": "10:35",
       "where": "Van Ness near Market, Civic Center",
@@ -86,6 +101,7 @@
       "confidence": "medium"
     },
     {
+      "id": "geary-larkin",
       "day": "2026-09-03",
       "clock": "11:00",
       "where": "Geary near Larkin",
@@ -94,6 +110,7 @@
       "confidence": "low"
     },
     {
+      "id": "bush-kearny",
       "day": "2026-09-03",
       "clock": "11:35",
       "where": "Bush Street near Kearny",
@@ -102,6 +119,7 @@
       "confidence": "medium"
     },
     {
+      "id": "front-davis-broadway",
       "day": "2026-09-03",
       "clock": "1:15",
       "where": "Front / Davis near Broadway, north waterfront",
@@ -110,6 +128,7 @@
       "confidence": "medium"
     },
     {
+      "id": "financial-district-battery",
       "day": "2026-09-03",
       "clock": "2:07",
       "where": "Financial District, Battery near Pine",
@@ -118,6 +137,7 @@
       "confidence": "medium"
     },
     {
+      "id": "rincon-hill-folsom",
       "day": "2026-09-03",
       "clock": "2:40",
       "where": "Rincon Hill, Folsom near Beale",
@@ -126,6 +146,7 @@
       "confidence": "medium"
     },
     {
+      "id": "soma-folsom-2nd",
       "day": "2026-09-03",
       "clock": "3:20",
       "where": "SoMa, Folsom near 2nd",
@@ -134,6 +155,7 @@
       "confidence": "medium"
     },
     {
+      "id": "soma-mission-8th",
       "day": "2026-09-03",
       "clock": "3:45",
       "where": "SoMa, Mission near 8th",
@@ -142,6 +164,7 @@
       "confidence": "medium"
     },
     {
+      "id": "ashbury-downey",
       "day": "2026-09-01",
       "clock": "12:35",
       "where": "Ashbury at Downey",
@@ -151,6 +174,7 @@
       "note": "Named by the operator, not read from the map. The static period detected for this site begins 12:58:38; recording started 12:48, so 12:35 is likely arrival rather than the start of the stationary stretch \u2014 every other 9/1 mark sits within four minutes of its detected start."
     },
     {
+      "id": "haight-divisadero",
       "day": "2026-09-01",
       "clock": "12:55",
       "where": "Haight by Divisadero",
@@ -159,6 +183,7 @@
       "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
+      "id": "pierce-haight",
       "day": "2026-09-01",
       "clock": "1:25",
       "where": "Pierce at Haight",
@@ -167,6 +192,7 @@
       "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
+      "id": "fulton-divisadero",
       "day": "2026-09-01",
       "clock": "1:55",
       "where": "Fulton at Divisadero",
@@ -175,6 +201,7 @@
       "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
+      "id": "california-leon-baker",
       "day": "2026-09-01",
       "clock": "2:30",
       "where": "California between Leon and Baker",
@@ -183,6 +210,7 @@
       "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
+      "id": "broadway-gough",
       "day": "2026-09-01",
       "clock": "3:05",
       "where": "Broadway at Gough",
@@ -191,6 +219,7 @@
       "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
+      "id": "laguna-eddy",
       "day": "2026-09-01",
       "clock": "3:40",
       "where": "Laguna at Eddy",

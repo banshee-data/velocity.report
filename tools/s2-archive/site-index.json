@@ -1,5 +1,6 @@
 [
   {
+    "id": "haight-divisadero",
     "site": "s01",
     "day": "2026-09-01",
     "start": "2026-09-01T12:59:22.752867-07:00",
@@ -20,6 +21,7 @@
     "published_as": null
   },
   {
+    "id": "pierce-haight",
     "site": "s02",
     "day": "2026-09-01",
     "start": "2026-09-01T13:27:25.196424-07:00",
@@ -42,6 +44,7 @@
     "published_as": null
   },
   {
+    "id": "fulton-divisadero",
     "site": "s03",
     "day": "2026-09-01",
     "start": "2026-09-01T13:59:33.731163-07:00",
@@ -63,6 +66,7 @@
     "published_as": null
   },
   {
+    "id": "california-leon-baker",
     "site": "s04",
     "day": "2026-09-01",
     "start": "2026-09-01T14:33:21.213325-07:00",
@@ -85,6 +89,7 @@
     "published_as": null
   },
   {
+    "id": "broadway-gough",
     "site": "s05",
     "day": "2026-09-01",
     "start": "2026-09-01T15:10:31.646959-07:00",
@@ -106,6 +111,7 @@
     "published_as": null
   },
   {
+    "id": "laguna-eddy",
     "site": "s06",
     "day": "2026-09-01",
     "start": "2026-09-01T15:46:36.580590-07:00",
@@ -127,6 +133,7 @@
     "published_as": null
   },
   {
+    "id": "lombard-broderick",
     "site": "s07",
     "day": "2026-09-02",
     "start": "2026-09-02T09:38:22.219220-07:00",
@@ -147,6 +154,7 @@
     "published_as": null
   },
   {
+    "id": "marina-broderick",
     "site": "s08",
     "day": "2026-09-02",
     "start": "2026-09-02T10:03:24.602530-07:00",
@@ -167,6 +175,7 @@
     "published_as": null
   },
   {
+    "id": "marina-fillmore",
     "site": "s09",
     "day": "2026-09-02",
     "start": "2026-09-02T10:28:27.366603-07:00",
@@ -187,6 +196,7 @@
     "published_as": null
   },
   {
+    "id": "union-van-ness",
     "site": "s10",
     "day": "2026-09-02",
     "start": "2026-09-02T10:58:30.258816-07:00",
@@ -211,6 +221,7 @@
     "published_as": "s2-sf-2"
   },
   {
+    "id": "fisherman-s-wharf",
     "site": "s11",
     "day": "2026-09-02",
     "start": "2026-09-02T11:53:34.547768-07:00",
@@ -231,6 +242,7 @@
     "published_as": null
   },
   {
+    "id": "bay-embarcadero",
     "site": "s12",
     "day": "2026-09-02",
     "start": "2026-09-02T12:35:17.164539-07:00",
@@ -251,6 +263,7 @@
     "published_as": null
   },
   {
+    "id": "broadway-telegraph-hill",
     "site": "s13",
     "day": "2026-09-02",
     "start": "2026-09-02T13:20:36.986210-07:00",
@@ -270,6 +283,7 @@
     "published_as": "broadway-columbus"
   },
   {
+    "id": "unrecognised-0902-1337",
     "site": "s14",
     "day": "2026-09-02",
     "start": "2026-09-02T13:37:17.485806-07:00",
@@ -290,6 +304,7 @@
     "published_as": "s2-sf-3"
   },
   {
+    "id": "nob-hill-chinatown",
     "site": "s15",
     "day": "2026-09-02",
     "start": "2026-09-02T15:22:49.666945-07:00",
@@ -311,6 +326,7 @@
     "published_as": "s2-sf-4"
   },
   {
+    "id": "van-ness-market",
     "site": "s16",
     "day": "2026-09-03",
     "start": "2026-09-03T10:35:52.823348-07:00",
@@ -330,6 +346,7 @@
     "published_as": null
   },
   {
+    "id": "geary-larkin",
     "site": "s17",
     "day": "2026-09-03",
     "start": "2026-09-03T11:05:55.344702-07:00",
@@ -350,6 +367,7 @@
     "published_as": null
   },
   {
+    "id": "bush-kearny",
     "site": "s18",
     "day": "2026-09-03",
     "start": "2026-09-03T11:35:56.633007-07:00",
@@ -370,6 +388,7 @@
     "published_as": "s2-sf-6"
   },
   {
+    "id": "unrecognised-0903-1317",
     "site": "s19",
     "day": "2026-09-03",
     "start": "2026-09-03T13:17:48.154812-07:00",
@@ -391,6 +410,7 @@
     "published_as": "s2-sf-7"
   },
   {
+    "id": "financial-district-battery",
     "site": "s20",
     "day": "2026-09-03",
     "start": "2026-09-03T14:10:35.676682-07:00",
@@ -411,6 +431,7 @@
     "published_as": null
   },
   {
+    "id": "rincon-hill-folsom",
     "site": "s21",
     "day": "2026-09-03",
     "start": "2026-09-03T14:40:37.854069-07:00",
@@ -430,6 +451,7 @@
     "published_as": null
   },
   {
+    "id": "soma-folsom-2nd",
     "site": "s22",
     "day": "2026-09-03",
     "start": "2026-09-03T15:20:41.034128-07:00",
@@ -450,6 +472,7 @@
     "published_as": null
   },
   {
+    "id": "soma-mission-8th",
     "site": "s23",
     "day": "2026-09-03",
     "start": "2026-09-03T15:50:43.642189-07:00",

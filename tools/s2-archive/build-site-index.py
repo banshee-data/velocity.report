@@ -205,6 +205,15 @@ for number, site in enumerate(sites, 1):
     minutes = (site["end"] - site["start"]).total_seconds() / 60
     index.append(
         {
+            # Identity comes from the field mark, which is named for the place
+            # and so survives a site being added, dropped or reclassified. The
+            # ordinal below is display order, not identity, and must not be
+            # used as a key: it shifts whenever the set changes.
+            "id": (
+                mark["id"]
+                if mark
+                else f"unrecognised-{site['start'].strftime('%m%d-%H%M')}"
+            ),
             "site": f"s{number:02d}",
             "day": site["start"].strftime("%Y-%m-%d"),
             "start": site["start"].isoformat(),
