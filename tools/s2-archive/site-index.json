@@ -9,11 +9,11 @@
     "captures": [
       "s2-1_20260901124845_00001.pcap"
     ],
-    "map_mark": "12:55",
-    "where": "Haight / Divisadero",
-    "lat": 37.7715,
-    "lon": -122.4375,
-    "position_confidence": "low",
+    "map_mark": "12:35",
+    "where": "Ashbury at Downey, Haight-Ashbury (given by the operator)",
+    "lat": 37.769,
+    "lon": -122.445,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
