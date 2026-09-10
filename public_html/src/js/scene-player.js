@@ -4,6 +4,8 @@
 // drives playback from the recorded frame timestamps. It owns rendering only;
 // fetching, decoding and seeking live in scene-reader.js.
 
+import { northOverhead, updateCompass } from "./scene-compass.js";
+import { mountSceneDev } from "./scene-dev.js";
 import * as THREE from "three";
 import { SceneSession, SceneError } from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
@@ -343,6 +345,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   window.addEventListener("resize", resize);
   resize();
 
+  let northAzimuthDeg = ui.northAzimuthDeg;
   const sceneCamera = createSceneCamera({
     camera,
     element: canvas,
@@ -383,8 +386,11 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   // A scene's own vantages win; the camera falls back to its compass views,
   // labelled truthfully where the operator measured where north is.
+  const authoredVantages = ui.vantagesURL
+    ? await loadVantages(ui.vantagesURL)
+    : null;
   const vantages = sceneCamera.setVantages(
-    ui.vantagesURL ? await loadVantages(ui.vantagesURL) : null,
+    authoredVantages,
     ui.northAzimuthDeg,
   );
 
@@ -419,6 +425,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   let currentPart = -1;
 
   function render() {
+    updateCompass(ui.compass, sceneCamera.currentVantage(), northAzimuthDeg);
     renderer.render(scene, camera);
     positionLabels();
   }
@@ -777,13 +784,51 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   // Framing a useful angle is easy; describing it to whoever edits the scene
   // is not. This hands over the exact numbers a vantage is stored in.
+  ui.compass?.addEventListener("click", () => {
+    setFlying(false);
+    sceneCamera.applyVantage(
+      northOverhead(sceneCamera.currentVantage(), northAzimuthDeg),
+    );
+    markPreset(null);
+  });
+  mountSceneDev({
+    panel: ui.devPanel,
+    captureView: ui.captureView,
+    siteId: ui.siteId,
+    gridAzimuthDeg: ui.gridAzimuthDeg,
+    northAzimuthDeg: ui.northAzimuthDeg,
+    onTop: () => {
+      setFlying(false);
+      sceneCamera.applyVantage({ azimuth_deg: 0, polar_deg: 0, zoom: 0.85 });
+      markPreset(null);
+    },
+    onChange: (angles) => {
+      const updatedVantages = sceneCamera.setVantages(
+        authoredVantages,
+        angles.north_azimuth_deg,
+      );
+      for (const button of ui.presets?.querySelectorAll("[data-preset]") ??
+        []) {
+        const vantage = updatedVantages.find(
+          (v) => v.id === button.dataset.preset,
+        );
+        if (vantage) button.textContent = vantage.label;
+      }
+      grid.rotation.y = -((angles.grid_azimuth_deg ?? 0) * Math.PI) / 180;
+      northAzimuthDeg = angles.north_azimuth_deg;
+      render();
+    },
+  });
+
   if (ui.captureView) {
     ui.captureView.addEventListener("click", async () => {
       const v = sceneCamera.currentVantage();
       const text = JSON.stringify(v);
       let copied = false;
       try {
-        await navigator.clipboard?.writeText(text);
+        if (!navigator.clipboard?.writeText)
+          throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(text);
         copied = true;
       } catch {
         // Clipboard access is often refused; the numbers are shown either way.

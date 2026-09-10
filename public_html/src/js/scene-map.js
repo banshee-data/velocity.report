@@ -6,11 +6,11 @@
  * thing worth seeing — so the name lives in the popup, one click away, and
  * the list below the map carries the full set.
  *
- * Tiles come from a third party, which is a privacy cost the rest of this
- * project does not pay: a visitor's IP reaches the tile server on every pan.
- * The map is therefore built only when the page asks for it, and the fallback
- * is the self-contained SVG that needs no network at all.
+ * Street tiles are local. Bike mode adds CyclOSM's hosted cycling overlay;
+ * the mode control can remove it without moving the map or its survey markers.
  */
+import { mountMapMode } from "./scene-map-mode.js";
+
 const SF = [37.7749, -122.4194];
 
 // Must match the zooms fetch-basemap.mjs caches; asking for a zoom outside
@@ -28,6 +28,7 @@ function tileLayer(L) {
   // Attribution is still required and still shown: the data is OpenStreetMap's
   // under ODbL whoever serves the bytes.
   return L.tileLayer("/img/tiles/{z}/{x}/{y}.png", {
+    className: "scene-map-basemap",
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
     // Only the cached window exists. Without this a pan past the edge asks
@@ -143,6 +144,19 @@ export function initSceneMap(container, sites) {
     map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
   };
   frame();
+  let storage;
+  try {
+    storage = window.localStorage;
+  } catch {
+    /* Private browsing. */
+  }
+  mountMapMode({
+    L,
+    map,
+    storage,
+    controls: document.getElementById("scene-map-mode"),
+    status: document.getElementById("scene-map-mode-status"),
+  });
   // Once more after layout and webfonts settle, which can change the height.
   window.requestAnimationFrame(frame);
   window.addEventListener("load", frame, { once: true });

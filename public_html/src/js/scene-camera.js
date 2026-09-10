@@ -10,7 +10,7 @@
 // guessing between orbit and pan from a single contact is how a viewer ends up
 // somewhere it cannot get back from.
 
-const MIN_POLAR = 0.05; // just above the horizon
+const MIN_POLAR = 0; // allow a true overhead view
 const MAX_POLAR = Math.PI / 2 - 0.02; // never below the ground plane
 const MIN_DISTANCE = 3;
 
@@ -207,6 +207,13 @@ export function createSceneCamera({
       target.x + state.distance * sinP * Math.sin(state.azimuth),
       target.y + state.distance * Math.cos(state.polar),
       target.z + state.distance * sinP * Math.cos(state.azimuth),
+    );
+    // A ground-plane heading supplies a stable screen-up vector even at the
+    // pole, where the usual world-up vector is parallel to the viewing ray.
+    camera.up?.set(
+      -Math.cos(state.polar) * Math.sin(state.azimuth),
+      sinP,
+      -Math.cos(state.polar) * Math.cos(state.azimuth),
     );
     camera.lookAt(target);
     onChange?.();

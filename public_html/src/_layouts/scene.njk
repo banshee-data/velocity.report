@@ -8,6 +8,11 @@ layout: page.njk
 #}
 
 <style>
+  .scene-dev[hidden], #scene-capture[hidden] { display: none; }
+  .scene-dev { margin-top: 1rem; padding: 0.8rem; border: 1px solid #2c4049; }
+  .scene-dev label { display: block; margin: 0.5rem 0; }
+  .scene-dev input { width: 7rem; color: #cfe3e8; background: #0b1013; border: 1px solid #2c4049; padding: 0.3rem; }
+  .scene-dev p { font-size: 0.85rem; }
   .scene-page__head { margin-bottom: 1rem; }
   .scene-page__up { margin: 0 0 0.5rem; font-size: 0.9rem; }
   .scene-page__up a { text-decoration: none; opacity: 0.75; }
@@ -31,6 +36,14 @@ layout: page.njk
   .scene-stage__canvas:active { cursor: grabbing; }
   .scene-stage__canvas:focus-visible { outline: 2px solid #4bc0d9; outline-offset: -2px; }
   .scene-stage__tools { position: absolute; top: 0.6rem; right: 0.6rem; display: flex; gap: 0.4rem; }
+  .scene-compass {
+    position: absolute; right: 0.65rem; bottom: 0.65rem; width: 76px; height: 76px;
+    border: 1px solid #2c4049; border-radius: 50%; padding: 0;
+    background: rgba(11, 16, 19, 0.85); color: #4bc0d9; cursor: pointer;
+  }
+  .scene-compass:hover { border-color: #4bc0d9; }
+  .scene-compass:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 3px; }
+  .scene-compass svg { display: block; width: 100%; height: 100%; }
   .scene-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .scene-label {
     position: absolute; transform: translate(-50%, -100%);
@@ -159,6 +172,19 @@ layout: page.njk
       </div>
     </div>
 
+    <button type="button" id="scene-compass" class="scene-compass" aria-label="Overhead view (north unmeasured; using sensor zero)">
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <g data-compass-tilt transform="translate(40 40)">
+          <circle r="27" fill="none" stroke="#607780" stroke-width="1.5" />
+          <g data-compass-bearing>
+            <text data-compass-label x="0" y="-29" text-anchor="middle" fill="currentColor" font-size="10" font-weight="700">N?</text>
+            <path d="M0 -23 L9 10 L0 5 L-9 10 Z" fill="currentColor" />
+            <path d="M0 23 L6 9 L0 12 L-6 9 Z" fill="#607780" />
+          </g>
+        </g>
+      </svg>
+    </button>
+
     <p id="scene-loading" class="scene-stage__overlay">Loading scene…</p>
     <p id="scene-status" class="scene-stage__overlay scene-stage__overlay--error" hidden></p>
   </div>
@@ -172,9 +198,21 @@ layout: page.njk
       aria-checked="true"
     >Fly</button>
     <div class="scene-vantage" id="scene-presets" role="group" aria-label="Vantage points"></div>
-    <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture">Copy this view</button>
+    <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
   </div>
   <output class="scene-vantage__output" id="scene-capture-out" hidden></output>
+
+  <fieldset id="scene-dev" class="scene-dev" hidden>
+    <legend>Developer alignment</legend>
+    <p>Align the grid with the kerbs, then set true north independently. The corner compass points north. Blank means unmeasured.</p>
+    <label>Grid offset (degrees) <input type="number" step="any" name="grid_azimuth_deg"></label>
+    <label>Sensor zero clockwise from north (degrees) <input type="number" step="any" name="north_azimuth_deg"></label>
+    <button type="button" class="scene-chip" data-action="top">Align from above</button>
+    <button type="button" class="scene-chip" data-action="reset">Reset preview</button>
+    <button type="button" class="scene-chip" data-action="save">Save to map marks…</button>
+    <p>Select <code>tools/s2-archive/map-marks.json</code> in your checkout to save. Rebuild the site index and scene map afterwards.</p>
+    <output class="scene-vantage__output" aria-live="polite"></output>
+  </fieldset>
 
   <div class="scene-transport">
     <button id="scene-play" type="button" class="scene-transport__button">Play</button>
@@ -250,6 +288,9 @@ layout: page.njk
     canvas: document.getElementById("scene-canvas"),
     manifestURL: `${base}/manifest.json`,
     ui: {
+      siteId: "{{ sceneId }}",
+      compass: document.getElementById("scene-compass"),
+      devPanel: document.getElementById("scene-dev"),
       backgroundURL: `${base}/background/background.json.gz`,
       // The one place this scene's viewpoints live. Edit the file, reload.
       vantagesURL: `${base}/vantages.json`,
@@ -258,8 +299,8 @@ layout: page.njk
       // grid; northAzimuthDeg says where true north lies. They are separate
       // measurements: one is a property of the street, the other of how the
       // tripod was set down, and neither follows from the other.
-      gridAzimuthDeg: {{ gridAzimuthDeg | default("null", true) }},
-      northAzimuthDeg: {{ northAzimuthDeg | default("null", true) }},
+      gridAzimuthDeg: {{ gridAzimuthDeg if gridAzimuthDeg is number else "null" }},
+      northAzimuthDeg: {{ northAzimuthDeg if northAzimuthDeg is number else "null" }},
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
