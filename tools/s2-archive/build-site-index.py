@@ -327,6 +327,9 @@ for number, site in enumerate(sites, 1):
             "lat": mark["lat"] if mark else None,
             "lon": mark["lon"] if mark else None,
             "position_confidence": mark["confidence"] if mark else "no mark matched",
+            # Optional operator-measured angles; see map-marks.json.
+            "grid_azimuth_deg": (mark or {}).get("grid_azimuth_deg"),
+            "north_azimuth_deg": (mark or {}).get("north_azimuth_deg"),
             "published_as": next(
                 (
                     scene

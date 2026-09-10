@@ -16,7 +16,23 @@
     "is the site's identity everywhere downstream: the site index, the scene",
     "pages and their URLs. It is stable because it is derived from the place,",
     "unlike the positional s01..s23 keys it replaces, which shifted whenever a",
-    "site was added or reclassified."
+    "site was added or reclassified.",
+    "",
+    "Two angles may be given per mark, both in degrees, both optional:",
+    "",
+    "  grid_azimuth_deg  The sensor's zero azimuth measured against the street",
+    "                    grid at this junction. It rotates the ground grid the",
+    "                    viewer draws so the squares line up with the kerbs",
+    "                    instead of with the sensor's mounting. A property of",
+    "                    the street, so it is shared by every site on the same",
+    "                    grid and changes where the grid does.",
+    "",
+    "  north_azimuth_deg The sensor's zero azimuth measured clockwise from true",
+    "                    north. A property of how the tripod was set down, so it",
+    "                    is different at every site even on one street.",
+    "",
+    "They answer different questions and neither can be derived from the other:",
+    "the first makes the scene legible, the second makes it navigable."
   ],
   "marks": [
     {

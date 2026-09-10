@@ -12,9 +12,11 @@
     ],
     "map_mark": "12:35",
     "where": "Ashbury at Downey",
-    "lat": 37.769,
-    "lon": -122.445,
+    "lat": 37.7638,
+    "lon": -122.4466,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -36,6 +38,8 @@
     "lat": 37.7712,
     "lon": -122.4372,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "haight-divisadero"
   },
   {
@@ -59,6 +63,8 @@
     "lat": 37.7718,
     "lon": -122.4338,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "pierce-haight"
   },
   {
@@ -81,6 +87,8 @@
     "lat": 37.7768,
     "lon": -122.4381,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "fulton-divisadero"
   },
   {
@@ -104,6 +112,8 @@
     "lat": 37.7875,
     "lon": -122.4446,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "california-leon-baker"
   },
   {
@@ -126,6 +136,8 @@
     "lat": 37.7952,
     "lon": -122.4269,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "broadway-gough"
   },
   {
@@ -148,6 +160,8 @@
     "lat": 37.7821,
     "lon": -122.4274,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "laguna-eddy"
   },
   {
@@ -169,6 +183,8 @@
     "lat": 37.799,
     "lon": -122.444,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "lombard-broderick"
   },
   {
@@ -190,6 +206,8 @@
     "lat": 37.8053,
     "lon": -122.4455,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -211,6 +229,8 @@
     "lat": 37.8057,
     "lon": -122.4351,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -236,6 +256,8 @@
     "lat": 37.8004,
     "lon": -122.4313,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "lombard-laguna"
   },
   {
@@ -257,6 +279,8 @@
     "lat": 37.8059,
     "lon": -122.4181,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -278,6 +302,8 @@
     "lat": 37.8067,
     "lon": -122.4061,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -302,6 +328,8 @@
     "lat": 37.7978,
     "lon": -122.4065,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "columbus-broadway"
   },
   {
@@ -324,6 +352,8 @@
     "lat": 37.7912,
     "lon": -122.4225,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -346,6 +376,8 @@
     "lat": 37.7991,
     "lon": -122.3976,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "embarcadero-broadway"
   },
   {
@@ -366,6 +398,8 @@
     "lat": 37.7798,
     "lon": -122.4218,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -387,6 +421,8 @@
     "lat": 37.7855,
     "lon": -122.4164,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -408,6 +444,8 @@
     "lat": 37.7901,
     "lon": -122.409,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "bush-powell"
   },
   {
@@ -430,6 +468,8 @@
     "lat": 37.791,
     "lon": -122.3899,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "embarcadero-folsom"
   },
   {
@@ -451,6 +491,8 @@
     "lat": 37.7897,
     "lon": -122.3974,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -473,6 +515,8 @@
     "lat": 37.7868,
     "lon": -122.3881,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -494,6 +538,8 @@
     "lat": 37.7837,
     "lon": -122.3986,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": null
   },
   {
@@ -515,6 +561,8 @@
     "lat": 37.7798,
     "lon": -122.4069,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "grid_azimuth_deg": null,
+    "north_azimuth_deg": null,
     "published_as": "howard-6th"
   }
 ]
