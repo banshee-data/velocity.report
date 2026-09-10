@@ -200,7 +200,11 @@ def replay_stretch(scene):
     if not wait_for_idle(budget):
         raise RuntimeError(f"replay did not finish within {budget / 60:.0f} min")
 
-    row = newest_run(files[0])
+    # By basename, not by the path we asked with. The server resolves what it
+    # is given before recording it — a capture reached through a symlink is
+    # recorded at its real location — so matching the request path finds
+    # nothing and the replay looks as though it never happened.
+    row = newest_run(os.path.basename(files[0]))
     if not row:
         raise RuntimeError("no run record for the sequence")
     run_id, status, vrlog = row
