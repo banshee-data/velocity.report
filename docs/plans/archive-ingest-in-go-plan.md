@@ -7,6 +7,8 @@
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md) for S2 conventions
 - **Open investigation:** [continuous-classification-brief](continuous-classification-brief.md) — why a continuous run reports more motion than a per-file one, which Workstream 2 waits on
 
+Implementation references below describe [PR #569](https://github.com/banshee-data/velocity.report/pull/569) and its local archive experiments. Capture indexing, session classification, and multi-file replay remain branch work until that PR merges. This investigation document does not announce those capabilities as shipped.
+
 ## Motivation
 
 Indexing the 189 captures on `/Volumes/lidar/lidar/s2` currently runs through
@@ -28,7 +30,7 @@ drive.
 
 ## Current state
 
-### Already in Go, and correct
+### Implemented on the Captures branch
 
 | Capability                           | Where                                                |
 | ------------------------------------ | ---------------------------------------------------- |
@@ -56,22 +58,22 @@ so the background model stays settled across file boundaries. It is the same
 ### On the drive, and should be retired
 
 `s2/analysis/` holds 142 per-file `segments.json` — the artefact that forces the
-stitching. `s2/analysis-continuous/` holds the correct per-block output produced
+stitching. `s2/analysis-continuous/` holds the experimental per-block output produced
 while writing this plan. Neither should be an input to anything once the index
 holds periods.
 
 ## Findings
 
-| Area                    | Current state                                                                      | Severity | Release view                                                      |
-| ----------------------- | ---------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
-| Per-file classification | Each file restarts the background model; its settling is reported as motion        | Blocker  | Classify per recording block, which `sessionMotionPass` does      |
-| Site truncation         | 3 of 23 sites end early where a motion gap exceeds the stitcher's 180 s bridge      | High     | Two are the artefact; one is a real event the bridge cannot judge  |
-| Bridge constant         | 180 s recovers the expected site count; 300 s merges genuinely separate sites      | High     | A tuned constant with no principled value; delete it, not tune it |
-| Settling on long streams | A 27-capture stream misses a stop the per-file run finds, and lags the rest by ~4 min | High     | Re-derive the settling parameters for stream-length input          |
-| Capture attribution     | `MotionPeriod` records times and frames, no captures; the JSON records none either | High     | Periods must name the captures they span                          |
-| Recording blocks        | A day is not one stream: 9/1 restarts at 16:29 after a 176 s gap, sequence resets  | Medium   | Session derivation must split there, and be verified to           |
-| Validity                | Nothing asserts a site is plausible; a 12-minute "20-minute site" passes silently  | Medium   | A site spanning fewer than four captures is a defect, not a site  |
-| Position provenance     | Positions live in a JSON beside a script, not against the thing they locate        | Medium   | A period's site carries its own position, per the site model      |
+| Area                     | Current state                                                                         | Severity | Release view                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
+| Per-file classification  | Each file restarts the background model; its settling is reported as motion           | Blocker  | Classify per recording block, which `sessionMotionPass` does      |
+| Site truncation          | 3 of 23 sites end early where a motion gap exceeds the stitcher's 180 s bridge        | High     | Two are the artefact; one is a real event the bridge cannot judge |
+| Bridge constant          | 180 s recovers the expected site count; 300 s merges genuinely separate sites         | High     | A tuned constant with no principled value; delete it, not tune it |
+| Settling on long streams | A 27-capture stream misses a stop the per-file run finds, and lags the rest by ~4 min | High     | Re-derive the settling parameters for stream-length input         |
+| Capture attribution      | `MotionPeriod` records times and frames, no captures; the JSON records none either    | High     | Periods must name the captures they span                          |
+| Recording blocks         | A day is not one stream: 9/1 restarts at 16:29 after a 176 s gap, sequence resets     | Medium   | Session derivation must split there, and be verified to           |
+| Validity                 | Nothing asserts a site is plausible; a 12-minute "20-minute site" passes silently     | Medium   | A site spanning fewer than four captures is a defect, not a site  |
+| Position provenance      | Positions live in a JSON beside a script, not against the thing they locate           | Medium   | A period's site carries its own position, per the site model      |
 
 ### Evidence for the classification defect
 

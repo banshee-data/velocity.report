@@ -7,6 +7,8 @@
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
 - **Companion:** [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the parameters this brief keeps running into
 
+Implementation references below describe [PR #569](https://github.com/banshee-data/velocity.report/pull/569) and its local archive experiments. Capture indexing, session classification, and multi-file replay remain branch work until that PR merges. This investigation document does not announce those capabilities as shipped.
+
 ## The question
 
 Analysing a recording block as one continuous stream is supposed to be strictly
@@ -20,10 +22,10 @@ task is to find out why before the per-file output stops being an input.
 Same binary, same parameters — `--settling-sec 75 --motion-trigger-sec 5
 --max-motion-gap-sec 45 --min-segment-sec 10` — on two recording blocks:
 
-| Block                 | Captures | Static  | Opening motion | Sites found | Sites recorded |
-| --------------------- | -------- | ------- | -------------- | ----------- | -------------- |
-| 9/1 block0 (222 min)  | 45       | 55.0 %  | 10.6 min       | 6           | 6              |
-| 9/3 block0 (132 min)  | 27       | 25.5 %  | **68.4 min**   | 2           | 3              |
+| Block                | Captures | Static | Opening motion | Sites found | Sites recorded |
+| -------------------- | -------- | ------ | -------------- | ----------- | -------------- |
+| 9/1 block0 (222 min) | 45       | 55.0 % | 10.6 min       | 6           | 6              |
+| 9/3 block0 (132 min) | 27       | 25.5 % | **68.4 min**   | 2           | 3              |
 
 For comparison, the archive's own per-file analysis of whole days: 9/2 is 56.2 %
 static, 9/3 is 44.1 %. The protocol was the same on all three days — drive to a
@@ -112,14 +114,14 @@ It changes the config hash and nothing else.
 
 ## Where things are
 
-| Thing                          | Path                                                     |
-| ------------------------------ | -------------------------------------------------------- |
-| Classifier                     | `internal/lidar/pcapsplit`                               |
-| Background model               | `internal/lidar/l3grid`                                  |
-| Session-level caller           | `server.sessionMotionPass` (`capture_motion_pcap.go`)    |
-| Per-file analysis (the archive) | `/Volumes/lidar/lidar/s2/analysis/*/segments.json`       |
-| Continuous runs so far          | `/Volumes/lidar/lidar/s2/analysis-continuous/`           |
-| Site index and field marks      | `tools/s2-archive/`                                      |
+| Thing                           | Path                                                  |
+| ------------------------------- | ----------------------------------------------------- |
+| Classifier                      | `internal/lidar/pcapsplit`                            |
+| Background model                | `internal/lidar/l3grid`                               |
+| Session-level caller            | `server.sessionMotionPass` (`capture_motion_pcap.go`) |
+| Per-file analysis (the archive) | `/Volumes/lidar/lidar/s2/analysis/*/segments.json`    |
+| Continuous runs so far          | `/Volumes/lidar/lidar/s2/analysis-continuous/`        |
+| Site index and field marks      | `tools/s2-archive/`                                   |
 
 A 27-capture block takes about 20 minutes of wall clock to analyse, and a
 45-capture block about 32, so a parameter sweep is an afternoon rather than a

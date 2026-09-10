@@ -5,6 +5,8 @@
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
 - **Companion:** [static-sensor-nudge-tolerance-plan](static-sensor-nudge-tolerance-plan.md) is one case this must not break; [continuous-classification-brief](continuous-classification-brief.md) is the open question about stream length
 
+Implementation references below describe [PR #569](https://github.com/banshee-data/velocity.report/pull/569) and its local archive experiments. Capture indexing, session classification, and multi-file replay remain branch work until that PR merges. This investigation document does not announce those capabilities as shipped.
+
 ## Why
 
 Every parameter that decides what counts as motion was chosen against
@@ -12,11 +14,11 @@ five-minute files and has never been swept. The archive has since shown three
 separate ways they are wrong, and each was patched where it surfaced rather
 than at the parameter that caused it:
 
-| Symptom                                               | Patched as                                       |
-| ----------------------------------------------------- | ------------------------------------------------ |
-| Settling at a file boundary read as motion            | Discount motion starting at a capture's first packet |
-| A site split by a 241 s gap, 99 s of it settling      | The same discount, capped to gaps near the bridge |
-| A nudged tripod read as three stops and two drives    | Not patched; the junction is simply absent        |
+| Symptom                                            | Patched as                                           |
+| -------------------------------------------------- | ---------------------------------------------------- |
+| Settling at a file boundary read as motion         | Discount motion starting at a capture's first packet |
+| A site split by a 241 s gap, 99 s of it settling   | The same discount, capped to gaps near the bridge    |
+| A nudged tripod read as three stops and two drives | Not patched; the junction is simply absent           |
 
 Three patches on the same underlying fault. The bridge constant of 180 s is the
 clearest sign: it recovers exactly the expected site count on two days, and 300
@@ -25,17 +27,17 @@ compensating for something rather than measuring it.
 
 ## Parameters in scope
 
-| Parameter                       | Current | Chosen when                        |
-| ------------------------------- | ------- | ---------------------------------- |
-| `--settling-sec`                | 75      | Files were five minutes long       |
-| `--motion-trigger-sec`          | 5       | Untested against nudges            |
-| `--max-motion-gap-sec`          | 45      | Untested                           |
-| `--min-segment-sec`             | 10      | Untested                           |
-| `MIN_SITE` (index)              | 10 min  | Assumes a twenty-minute protocol   |
-| `BRIDGE_SECONDS` (index)        | 180     | Tuned to recover a known site count |
-| `DISCOUNT_CEILING` (index)      | 300     | Chosen to stop a discount cascade  |
-| `SafetyMarginMetres`            | —       | Background tolerance; never swept  |
-| `ClosenessSensitivityMultiplier` | —      | Background tolerance; never swept  |
+| Parameter                        | Current | Chosen when                         |
+| -------------------------------- | ------- | ----------------------------------- |
+| `--settling-sec`                 | 75      | Files were five minutes long        |
+| `--motion-trigger-sec`           | 5       | Untested against nudges             |
+| `--max-motion-gap-sec`           | 45      | Untested                            |
+| `--min-segment-sec`              | 10      | Untested                            |
+| `MIN_SITE` (index)               | 10 min  | Assumes a twenty-minute protocol    |
+| `BRIDGE_SECONDS` (index)         | 180     | Tuned to recover a known site count |
+| `DISCOUNT_CEILING` (index)       | 300     | Chosen to stop a discount cascade   |
+| `SafetyMarginMetres`             | —       | Background tolerance; never swept   |
+| `ClosenessSensitivityMultiplier` | —       | Background tolerance; never swept   |
 
 The last two are the interesting ones. Everything above them is a threshold on
 a decision the background model has already made; if the model tolerates a
@@ -71,9 +73,9 @@ this and best on segment count.
 
 ## Risks
 
-| Risk                                                        | Mitigation                                                     |
-| ----------------------------------------------------------- | -------------------------------------------------------------- |
-| Tuning to 24 marks overfits one campaign                     | Hold out a day; tune on two, score on the third                |
-| The marks are hand-read and a few minutes out                | Score on matching within tolerance, never on exact times       |
-| A sweep across the whole archive is expensive                | Sweep on one day, confirm the winner on all three              |
-| Better classification changes published scene boundaries     | Scenes are derived; re-export is cheap and the VRLOGs are kept |
+| Risk                                                     | Mitigation                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------- |
+| Tuning to 24 marks overfits one campaign                 | Hold out a day; tune on two, score on the third                |
+| The marks are hand-read and a few minutes out            | Score on matching within tolerance, never on exact times       |
+| A sweep across the whole archive is expensive            | Sweep on one day, confirm the winner on all three              |
+| Better classification changes published scene boundaries | Scenes are derived; re-export is cheap and the VRLOGs are kept |

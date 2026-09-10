@@ -5,6 +5,8 @@
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
 - **Companion:** [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the wider sweep
 
+Implementation references below describe [PR #569](https://github.com/banshee-data/velocity.report/pull/569) and its local archive experiments. Capture indexing, session classification, and multi-file replay remain branch work until that PR merges. This investigation document does not announce those capabilities as shipped.
+
 ## What happened
 
 The 9/2 recording at van Ness and Sacramento produced no site. The classifier
@@ -79,8 +81,8 @@ side effect. Plus a yes or no on whether the parallax is worth keeping.
 
 ## Risks
 
-| Risk                                                | Mitigation                                                        |
-| --------------------------------------------------- | ----------------------------------------------------------------- |
-| A tolerance wide enough for nudges hides real drift  | Score against the field map: no day may change its site count      |
-| Rigid-transform estimation is itself new machinery   | Only needed offline for the measurement, not in the live pipeline  |
+| Risk                                                 | Mitigation                                                                    |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| A tolerance wide enough for nudges hides real drift  | Score against the field map: no day may change its site count                 |
+| Rigid-transform estimation is itself new machinery   | Only needed offline for the measurement, not in the live pipeline             |
 | The nudges are larger than assumed and nothing helps | Then the episode is genuinely three short stops; publish it as one and say so |
