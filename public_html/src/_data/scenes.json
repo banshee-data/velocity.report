@@ -19,8 +19,8 @@
           "page": "/scenes/ashbury-downey/",
           "summary": "20 minutes of a static roadside recording.",
           "archive_site": "s01",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 3,
+          "north_azimuth_deg": 8,
           "position": {
             "lat": 37.7638,
             "lon": -122.4466,
@@ -143,8 +143,8 @@
           "page": "/scenes/haight-divisadero/",
           "summary": "19 minutes of a static roadside recording.",
           "archive_site": "s02",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 1,
+          "north_azimuth_deg": 101,
           "position": {
             "lat": 37.7712,
             "lon": -122.4372,
@@ -267,8 +267,8 @@
           "page": "/scenes/pierce-haight/",
           "summary": "21 minutes of a static roadside recording.",
           "archive_site": "s03",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 0,
+          "north_azimuth_deg": 11,
           "position": {
             "lat": 37.7718,
             "lon": -122.4338,
@@ -391,8 +391,8 @@
           "page": "/scenes/fulton-divisadero/",
           "summary": "20 minutes of a static roadside recording.",
           "archive_site": "s04",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 1,
+          "north_azimuth_deg": 101,
           "position": {
             "lat": 37.7768,
             "lon": -122.4381,
@@ -515,8 +515,8 @@
           "page": "/scenes/california-leon-baker/",
           "summary": "20 minutes of a static roadside recording.",
           "archive_site": "s05",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 1,
+          "north_azimuth_deg": 101,
           "position": {
             "lat": 37.7875,
             "lon": -122.4446,
@@ -1631,8 +1631,8 @@
           "page": "/scenes/columbus-broadway/",
           "summary": "33 minutes of a static roadside recording.",
           "archive_site": "s14",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 27,
+          "north_azimuth_deg": 35,
           "position": {
             "lat": 37.7978,
             "lon": -122.4065,
@@ -1744,6 +1744,130 @@
                 {
                   "lat": 37.798958950926384,
                   "lng": -122.40566739399554
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "van-ness-sacramento",
+          "title": "van Ness at Sacramento",
+          "page": "/scenes/van-ness-sacramento/",
+          "summary": "20 minutes of a static roadside recording.",
+          "archive_site": "s15",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7912,
+            "lon": -122.4225,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580ec",
+              "display": "80858-0ec",
+              "level": 13
+            },
+            "site": {
+              "token": "808580ead",
+              "display": "80858-0ead",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580ec",
+              "displayToken": "80858-0ec",
+              "cellId": "9260949959857930240",
+              "level": 13,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.79623152485433,
+                "lng": -122.41841076132413
+              },
+              "vertices": [
+                {
+                  "lat": 37.79925273784067,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.78972621066264,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.79320958952867,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.80273641430219,
+                  "lng": -122.41274723330986
+                }
+              ]
+            },
+            "site": {
+              "token": "808580ead",
+              "displayToken": "80858-0ead",
+              "cellId": "9260949954757656576",
+              "level": 16,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.79097487144745,
+                "lng": -122.42195031124628
+              },
+              "vertices": [
+                {
+                  "lat": 37.79135257900944,
+                  "lng": -122.42265820691146
+                },
+                {
+                  "lat": 37.79016168973136,
+                  "lng": -122.42265820691146
+                },
+                {
+                  "lat": 37.790597152599375,
+                  "lng": -122.42124241080766
+                },
+                {
+                  "lat": 37.791788046531416,
+                  "lng": -122.42124241080766
                 }
               ]
             }
@@ -1879,8 +2003,8 @@
           "page": "/scenes/franklin-mcallister/",
           "summary": "11 minutes of a static roadside recording.",
           "archive_site": "s17",
-          "grid_azimuth_deg": null,
-          "north_azimuth_deg": null,
+          "grid_azimuth_deg": 4,
+          "north_azimuth_deg": 192,
           "position": {
             "lat": 37.7798,
             "lon": -122.4218,
@@ -2864,128 +2988,6 @@
               ]
             }
           }
-        },
-        {
-          "id": "van-ness-sacramento",
-          "title": "van Ness at Sacramento",
-          "page": null,
-          "summary": "21 minutes recorded on 2026-09-02, not yet published.",
-          "archive_site": "s15",
-          "published": false,
-          "position": {
-            "lat": 37.7912,
-            "lon": -122.4225,
-            "source": "operator"
-          },
-          "position_note": "Read from the field map (van Ness at Sacramento). Neighbourhood-level; replace with a survey.",
-          "position_source": "archive-index",
-          "located": true,
-          "cells": {
-            "area": {
-              "token": "808581",
-              "display": "80858-1",
-              "level": 10
-            },
-            "neighbourhood": {
-              "token": "808580ec",
-              "display": "80858-0ec",
-              "level": 13
-            },
-            "site": {
-              "token": "808580ead",
-              "display": "80858-0ead",
-              "level": 16
-            }
-          },
-          "geometry": {
-            "area": {
-              "token": "808581",
-              "displayToken": "80858-1",
-              "cellId": "9260950045757276160",
-              "level": 10,
-              "orientation": 2,
-              "centre": {
-                "lat": 37.81574491744131,
-                "lng": -122.40141926154602
-              },
-              "vertices": [
-                {
-                  "lat": 37.83989307823828,
-                  "lng": -122.44672381753844
-                },
-                {
-                  "lat": 37.7637007140889,
-                  "lng": -122.44672381753844
-                },
-                {
-                  "lat": 37.791550516508984,
-                  "lng": -122.35609518371197
-                },
-                {
-                  "lat": 37.86776186404841,
-                  "lng": -122.35609518371197
-                }
-              ]
-            },
-            "neighbourhood": {
-              "token": "808580ec",
-              "displayToken": "80858-0ec",
-              "cellId": "9260949959857930240",
-              "level": 13,
-              "orientation": 1,
-              "centre": {
-                "lat": 37.79623152485433,
-                "lng": -122.41841076132413
-              },
-              "vertices": [
-                {
-                  "lat": 37.79925273784067,
-                  "lng": -122.42407398392055
-                },
-                {
-                  "lat": 37.78972621066264,
-                  "lng": -122.42407398392055
-                },
-                {
-                  "lat": 37.79320958952867,
-                  "lng": -122.41274723330986
-                },
-                {
-                  "lat": 37.80273641430219,
-                  "lng": -122.41274723330986
-                }
-              ]
-            },
-            "site": {
-              "token": "808580ead",
-              "displayToken": "80858-0ead",
-              "cellId": "9260949954757656576",
-              "level": 16,
-              "orientation": 1,
-              "centre": {
-                "lat": 37.79097487144745,
-                "lng": -122.42195031124628
-              },
-              "vertices": [
-                {
-                  "lat": 37.79135257900944,
-                  "lng": -122.42265820691146
-                },
-                {
-                  "lat": 37.79016168973136,
-                  "lng": -122.42265820691146
-                },
-                {
-                  "lat": 37.790597152599375,
-                  "lng": -122.42124241080766
-                },
-                {
-                  "lat": 37.791788046531416,
-                  "lng": -122.42124241080766
-                }
-              ]
-            }
-          }
         }
       ]
     },
@@ -3012,7 +3014,7 @@
       ]
     }
   ],
-  "published_count": 24,
+  "published_count": 25,
   "recorded_count": 25,
   "sites": [
     {
@@ -4009,6 +4011,76 @@
       }
     },
     {
+      "id": "van-ness-sacramento",
+      "title": "van Ness at Sacramento",
+      "page": "/scenes/van-ness-sacramento/",
+      "published": true,
+      "archive_site": "s15",
+      "summary": "20 minutes of a static roadside recording.",
+      "located": true,
+      "position": {
+        "lat": 37.7912,
+        "lon": -122.4225,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580ec",
+          "display": "80858-0ec",
+          "level": 13
+        },
+        "site": {
+          "token": "808580ead",
+          "display": "80858-0ead",
+          "level": 16
+        }
+      },
+      "cell_geometry": {
+        "area": [
+          {
+            "lat": 37.83989307823828,
+            "lng": -122.44672381753844
+          },
+          {
+            "lat": 37.7637007140889,
+            "lng": -122.44672381753844
+          },
+          {
+            "lat": 37.791550516508984,
+            "lng": -122.35609518371197
+          },
+          {
+            "lat": 37.86776186404841,
+            "lng": -122.35609518371197
+          }
+        ],
+        "neighbourhood": [
+          {
+            "lat": 37.79925273784067,
+            "lng": -122.42407398392055
+          },
+          {
+            "lat": 37.78972621066264,
+            "lng": -122.42407398392055
+          },
+          {
+            "lat": 37.79320958952867,
+            "lng": -122.41274723330986
+          },
+          {
+            "lat": 37.80273641430219,
+            "lng": -122.41274723330986
+          }
+        ]
+      }
+    },
+    {
       "id": "embarcadero-broadway",
       "title": "Embarcadero at Broadway",
       "page": "/scenes/embarcadero-broadway/",
@@ -4634,76 +4706,6 @@
           {
             "lat": 37.78716355152709,
             "lng": -122.40141926154602
-          }
-        ]
-      }
-    },
-    {
-      "id": "van-ness-sacramento",
-      "title": "van Ness at Sacramento",
-      "page": null,
-      "published": false,
-      "archive_site": "s15",
-      "summary": "21 minutes recorded on 2026-09-02, not yet published.",
-      "located": true,
-      "position": {
-        "lat": 37.7912,
-        "lon": -122.4225,
-        "source": "operator"
-      },
-      "position_note": "Read from the field map (van Ness at Sacramento). Neighbourhood-level; replace with a survey.",
-      "cells": {
-        "area": {
-          "token": "808581",
-          "display": "80858-1",
-          "level": 10
-        },
-        "neighbourhood": {
-          "token": "808580ec",
-          "display": "80858-0ec",
-          "level": 13
-        },
-        "site": {
-          "token": "808580ead",
-          "display": "80858-0ead",
-          "level": 16
-        }
-      },
-      "cell_geometry": {
-        "area": [
-          {
-            "lat": 37.83989307823828,
-            "lng": -122.44672381753844
-          },
-          {
-            "lat": 37.7637007140889,
-            "lng": -122.44672381753844
-          },
-          {
-            "lat": 37.791550516508984,
-            "lng": -122.35609518371197
-          },
-          {
-            "lat": 37.86776186404841,
-            "lng": -122.35609518371197
-          }
-        ],
-        "neighbourhood": [
-          {
-            "lat": 37.79925273784067,
-            "lng": -122.42407398392055
-          },
-          {
-            "lat": 37.78972621066264,
-            "lng": -122.42407398392055
-          },
-          {
-            "lat": 37.79320958952867,
-            "lng": -122.41274723330986
-          },
-          {
-            "lat": 37.80273641430219,
-            "lng": -122.41274723330986
           }
         ]
       }

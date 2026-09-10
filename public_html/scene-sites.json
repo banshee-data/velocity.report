@@ -31,8 +31,8 @@
       "page": "/scenes/ashbury-downey/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s01",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 8,
       "position": {
         "lat": 37.7638,
         "lon": -122.4466,
@@ -47,8 +47,8 @@
       "page": "/scenes/haight-divisadero/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s02",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101,
       "position": {
         "lat": 37.7712,
         "lon": -122.4372,
@@ -63,8 +63,8 @@
       "page": "/scenes/pierce-haight/",
       "summary": "21 minutes of a static roadside recording.",
       "archive_site": "s03",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 0,
+      "north_azimuth_deg": 11,
       "position": {
         "lat": 37.7718,
         "lon": -122.4338,
@@ -79,8 +79,8 @@
       "page": "/scenes/fulton-divisadero/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s04",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101,
       "position": {
         "lat": 37.7768,
         "lon": -122.4381,
@@ -95,8 +95,8 @@
       "page": "/scenes/california-leon-baker/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s05",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101,
       "position": {
         "lat": 37.7875,
         "lon": -122.4446,
@@ -239,14 +239,30 @@
       "page": "/scenes/columbus-broadway/",
       "summary": "33 minutes of a static roadside recording.",
       "archive_site": "s14",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 27,
+      "north_azimuth_deg": 35,
       "position": {
         "lat": 37.7978,
         "lon": -122.4065,
         "source": "operator"
       },
       "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "van-ness-sacramento",
+      "title": "van Ness at Sacramento",
+      "page": "/scenes/van-ness-sacramento/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s15",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
+      "position": {
+        "lat": 37.7912,
+        "lon": -122.4225,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     },
     {
@@ -271,8 +287,8 @@
       "page": "/scenes/franklin-mcallister/",
       "summary": "11 minutes of a static roadside recording.",
       "archive_site": "s17",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 4,
+      "north_azimuth_deg": 192,
       "position": {
         "lat": 37.7798,
         "lon": -122.4218,

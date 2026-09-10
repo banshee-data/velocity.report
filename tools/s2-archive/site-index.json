@@ -15,8 +15,8 @@
     "lat": 37.7638,
     "lon": -122.4466,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 3,
+    "north_azimuth_deg": 8,
     "published_as": "ashbury-downey"
   },
   {
@@ -38,8 +38,8 @@
     "lat": 37.7712,
     "lon": -122.4372,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 1,
+    "north_azimuth_deg": 101,
     "published_as": "haight-divisadero"
   },
   {
@@ -63,8 +63,8 @@
     "lat": 37.7718,
     "lon": -122.4338,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 0,
+    "north_azimuth_deg": 11,
     "published_as": "pierce-haight"
   },
   {
@@ -87,8 +87,8 @@
     "lat": 37.7768,
     "lon": -122.4381,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 1,
+    "north_azimuth_deg": 101,
     "published_as": "fulton-divisadero"
   },
   {
@@ -112,8 +112,8 @@
     "lat": 37.7875,
     "lon": -122.4446,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 1,
+    "north_azimuth_deg": 101,
     "published_as": "california-leon-baker"
   },
   {
@@ -328,8 +328,8 @@
     "lat": 37.7978,
     "lon": -122.4065,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 27,
+    "north_azimuth_deg": 35,
     "published_as": "columbus-broadway"
   },
   {
@@ -354,7 +354,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "van-ness-sacramento"
   },
   {
     "id": "embarcadero-broadway",
@@ -398,8 +398,8 @@
     "lat": 37.7798,
     "lon": -122.4218,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 4,
+    "north_azimuth_deg": 192,
     "published_as": "franklin-mcallister"
   },
   {

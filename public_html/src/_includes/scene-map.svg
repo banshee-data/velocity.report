@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="100%" role="img" aria-labelledby="scene-map-title scene-map-desc" class="scene-map">
   <title id="scene-map-title">Published LiDAR scenes</title>
-  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Ashbury at Downey in S2 cell 80858-0ac; Haight at Divisadero in S2 cell 80858-0ac; Pierce at Haight in S2 cell 80858-0a4; Fulton at Divisadero in S2 cell 80858-0b4; California between Leon and Baker in S2 cell 80858-0cc; Broadway at Gough in S2 cell 80858-0c4; Laguna at Eddy in S2 cell 80858-0bc; Lombard at Broderick in S2 cell 80858-0d4; Marina at Broderick in S2 cell 80858-12c; Marina between Webster and Beach in S2 cell 80858-124; Lombard at Laguna in S2 cell 80858-0dc; Columbus at North Point in S2 cell 80858-0e4; Embarcadero at Bay in S2 cell 80858-0fc; Columbus at Broadway in S2 cell 80858-0f4; Embarcadero at Broadway in S2 cell 80858-05c; Franklin at McAllister in S2 cell 80858-09c; Hyde at O'Farrell in S2 cell 80858-094; Bush at Powell in S2 cell 80858-08c; Embarcadero at Folsom in S2 cell 80858-06c; 1st at Mission in S2 cell 80858-064; Embarcadero at Bryant in S2 cell 80858-074; 3rd at Folsom in S2 cell 80858-07c; Howard at 6th in S2 cell 80858-084; van Ness at Sacramento in S2 cell 80858-0ec.</desc>
+  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Ashbury at Downey in S2 cell 80858-0ac; Haight at Divisadero in S2 cell 80858-0ac; Pierce at Haight in S2 cell 80858-0a4; Fulton at Divisadero in S2 cell 80858-0b4; California between Leon and Baker in S2 cell 80858-0cc; Broadway at Gough in S2 cell 80858-0c4; Laguna at Eddy in S2 cell 80858-0bc; Lombard at Broderick in S2 cell 80858-0d4; Marina at Broderick in S2 cell 80858-12c; Marina between Webster and Beach in S2 cell 80858-124; Lombard at Laguna in S2 cell 80858-0dc; Columbus at North Point in S2 cell 80858-0e4; Embarcadero at Bay in S2 cell 80858-0fc; Columbus at Broadway in S2 cell 80858-0f4; van Ness at Sacramento in S2 cell 80858-0ec; Embarcadero at Broadway in S2 cell 80858-05c; Franklin at McAllister in S2 cell 80858-09c; Hyde at O'Farrell in S2 cell 80858-094; Bush at Powell in S2 cell 80858-08c; Embarcadero at Folsom in S2 cell 80858-06c; 1st at Mission in S2 cell 80858-064; Embarcadero at Bryant in S2 cell 80858-074; 3rd at Folsom in S2 cell 80858-07c; Howard at 6th in S2 cell 80858-084.</desc>
   <style>
   .scene-map__frame { fill: none; stroke: currentColor; stroke-opacity: 0.18; }
   .scene-map__area { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-opacity: 0.35; stroke-dasharray: 6 5; }
@@ -32,6 +32,7 @@
     <polygon class="scene-map__cell" points="404.08,138.85 404.08,187.71 449.98,169.84 449.98,120.98"><title>S2 cell 80858-0e4</title></polygon>
     <polygon class="scene-map__cell" points="449.98,120.98 449.98,169.84 495.88,151.98 495.88,103.12"><title>S2 cell 80858-0fc</title></polygon>
     <polygon class="scene-map__cell" points="449.98,169.84 449.98,218.70 495.88,200.84 495.88,151.98"><title>S2 cell 80858-0f4</title></polygon>
+    <polygon class="scene-map__cell" points="404.08,187.71 404.08,236.56 449.98,218.70 449.98,169.84"><title>S2 cell 80858-0ec</title></polygon>
     <polygon class="scene-map__cell" points="495.88,151.98 495.88,200.84 541.80,182.99 541.80,134.12"><title>S2 cell 80858-05c</title></polygon>
     <polygon class="scene-map__cell" points="404.08,285.42 404.08,334.28 449.98,316.42 449.98,267.56"><title>S2 cell 80858-09c</title></polygon>
     <polygon class="scene-map__cell" points="404.08,236.56 404.08,285.42 449.98,267.56 449.98,218.70"><title>S2 cell 80858-094</title></polygon>
@@ -41,7 +42,6 @@
     <polygon class="scene-map__cell" points="541.80,231.86 541.80,280.72 587.71,262.88 587.71,214.01"><title>S2 cell 80858-074</title></polygon>
     <polygon class="scene-map__cell" points="495.88,249.71 495.88,298.57 541.80,280.72 541.80,231.86"><title>S2 cell 80858-07c</title></polygon>
     <polygon class="scene-map__cell" points="449.98,267.56 449.98,316.42 495.88,298.57 495.88,249.71"><title>S2 cell 80858-084</title></polygon>
-    <polygon class="scene-map__cell" points="404.08,187.71 404.08,236.56 449.98,218.70 449.98,169.84"><title>S2 cell 80858-0ec</title></polygon>
   </g>
   <g>
     <g class="scene-map__site">
@@ -115,6 +115,11 @@
       <text class="scene-map__token" x="475.29" y="244.16" text-anchor="middle">80858-0f4</text>
     </g>
     <g class="scene-map__site">
+      <circle class="scene-map__marker" cx="410.45" cy="229.01" r="6"/>
+      <text class="scene-map__title" x="410.45" y="199.01" text-anchor="middle">van Ness at Sacramento</text>
+      <text class="scene-map__token" x="410.45" y="214.01" text-anchor="middle">80858-0ec</text>
+    </g>
+    <g class="scene-map__site">
       <circle class="scene-map__marker" cx="511.36" cy="188.49" r="6"/>
       <text class="scene-map__title" x="511.36" y="94.49" text-anchor="middle">Embarcadero at Broadway</text>
       <text class="scene-map__token" x="511.36" y="109.49" text-anchor="middle">80858-05c</text>
@@ -158,11 +163,6 @@
       <circle class="scene-map__marker" cx="473.67" cy="287.46" r="6"/>
       <text class="scene-map__title" x="473.67" y="257.46" text-anchor="middle">Howard at 6th</text>
       <text class="scene-map__token" x="473.67" y="272.46" text-anchor="middle">80858-084</text>
-    </g>
-    <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="410.45" cy="229.01" r="6"/>
-      <text class="scene-map__title" x="410.45" y="199.01" text-anchor="middle">van Ness at Sacramento</text>
-      <text class="scene-map__token" x="410.45" y="214.01" text-anchor="middle">80858-0ec</text>
     </g>
   </g>
   <g>
