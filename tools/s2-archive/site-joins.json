@@ -1,0 +1,28 @@
+{
+  "comment": [
+    "Spans the operator asserts are one site, which the classifier reads as",
+    "several. Hand-authored, like map-marks.json, and for the same reason: it",
+    "records something only the person who was there can know.",
+    "",
+    "The case this exists for is a nudged tripod. A sensor on a camping chair",
+    "gets bumped; it moves a few centimetres and then stands still again. The",
+    "classifier sees the displacement and calls it motion, which is what it",
+    "calls a car driving between junctions, and a twenty-minute survey is",
+    "discarded as three short stops.",
+    "",
+    "This is a stopgap and should be deleted. Whether a nudge belongs inside a",
+    "static period is a question about the background model's tolerance, not",
+    "about a list of exceptions: see",
+    "docs/plans/static-sensor-nudge-tolerance-plan.md. Every entry here is a",
+    "case the classifier ought to get right on its own."
+  ],
+  "joins": [
+    {
+      "day": "2026-09-02",
+      "from": "14:27:14",
+      "to": "14:48:23",
+      "why": "Tripod stood on a camping chair and was nudged a few times. The sensor moved centimetres, not streets; the operator was parked at this junction throughout.",
+      "asserted_by": "operator"
+    }
+  ]
+}

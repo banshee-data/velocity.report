@@ -26,6 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PER_FILE = "/Volumes/lidar/lidar/s2/analysis"
 CONTINUOUS = "/Volumes/lidar/lidar/s2/analysis-continuous"
 MARKS = os.path.join(HERE, "map-marks.json")
+JOINS = os.path.join(HERE, "site-joins.json")
 OUT = os.path.join(HERE, "site-index.json")
 
 BRIDGE_SECONDS = 180
@@ -157,12 +158,48 @@ def real_gap_seconds(segments, first, second):
     return total
 
 
+def load_joins():
+    """Spans the operator says are one site, whatever the classifier read.
+
+    Only the person at the junction knows the tripod was nudged rather than
+    driven away. Until the background model can tell the difference, that
+    knowledge has to arrive from outside — see the nudge-tolerance plan.
+    """
+    if not os.path.exists(JOINS):
+        return []
+    with open(JOINS) as fh:
+        spans = json.load(fh).get("joins", [])
+    return [
+        (
+            datetime.fromisoformat(f"{span['day']}T{span['from']}"),
+            datetime.fromisoformat(f"{span['day']}T{span['to']}"),
+        )
+        for span in spans
+    ]
+
+
+JOIN_SPANS = load_joins()
+
+
+def asserted_together(first, second):
+    """Do both stretches fall inside one span the operator joined?"""
+    for start, end in JOIN_SPANS:
+        a = first["end"].replace(tzinfo=None)
+        b = second["start"].replace(tzinfo=None)
+        if start <= a <= end and start <= b <= end:
+            return True
+    return False
+
+
 def stitch(segments, bridge):
     sites, current = [], None
     for segment in segments:
         if segment["type"] != "static":
             continue
-        if current and real_gap_seconds(segments, current, segment) <= bridge:
+        if current and (
+            asserted_together(current, segment)
+            or real_gap_seconds(segments, current, segment) <= bridge
+        ):
             current["end"] = segment["end"]
             current["parts"].append(segment)
         else:
@@ -203,6 +240,9 @@ per_file = [
 later = stitch(load(per_file), BRIDGE_SECONDS)
 
 sites = sorted(day_one + later, key=lambda s: s["start"])
+
+# Every segment from both analyses, for attributing a site's captures below.
+all_segments = load(continuous) + load(per_file)
 
 with open(MARKS) as fh:
     marks = json.load(fh)["marks"]
@@ -269,7 +309,19 @@ for number, site in enumerate(sites, 1):
             "clock": site["start"].strftime("%I:%M").lstrip("0"),
             "minutes": round(minutes, 1),
             "fragments": len(site["parts"]),
-            "captures": sorted({c for p in site["parts"] for c in p["captures"]}),
+            # Every capture the site's span touches, not only the ones its
+            # static stretches fall in. A site joined across a nudge contains
+            # motion segments too, and their captures sit between the static
+            # ones — omit them and the replay is handed files 1, 4 and 5 and
+            # refuses them, correctly, as not one continuous stream.
+            "captures": sorted(
+                {
+                    capture
+                    for segment in all_segments
+                    if segment["start"] < site["end"] and site["start"] < segment["end"]
+                    for capture in segment["captures"]
+                }
+            ),
             "map_mark": mark["clock"] if mark else None,
             "where": mark["where"] if mark else None,
             "lat": mark["lat"] if mark else None,

@@ -305,8 +305,30 @@
     "published_as": "columbus-broadway"
   },
   {
-    "id": "embarcadero-broadway",
+    "id": "van-ness-sacramento",
     "site": "s15",
+    "day": "2026-09-02",
+    "start": "2026-09-02T14:27:14.678856-07:00",
+    "clock": "2:27",
+    "minutes": 21.1,
+    "fragments": 3,
+    "captures": [
+      "s2_sf_4_20260902142714_00001.pcap",
+      "s2_sf_4_20260902143214_00002.pcap",
+      "s2_sf_4_20260902143715_00003.pcap",
+      "s2_sf_4_20260902144215_00004.pcap",
+      "s2_sf_4_20260902144716_00005.pcap"
+    ],
+    "map_mark": "2:25",
+    "where": "van Ness at Sacramento",
+    "lat": 37.7912,
+    "lon": -122.4225,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "published_as": null
+  },
+  {
+    "id": "embarcadero-broadway",
+    "site": "s16",
     "day": "2026-09-02",
     "start": "2026-09-02T15:22:49.666945-07:00",
     "clock": "3:22",
@@ -328,7 +350,7 @@
   },
   {
     "id": "franklin-mcallister",
-    "site": "s16",
+    "site": "s17",
     "day": "2026-09-03",
     "start": "2026-09-03T10:35:52.823348-07:00",
     "clock": "10:35",
@@ -348,7 +370,7 @@
   },
   {
     "id": "hyde-ofarrell",
-    "site": "s17",
+    "site": "s18",
     "day": "2026-09-03",
     "start": "2026-09-03T11:05:55.344702-07:00",
     "clock": "11:05",
@@ -369,7 +391,7 @@
   },
   {
     "id": "bush-powell",
-    "site": "s18",
+    "site": "s19",
     "day": "2026-09-03",
     "start": "2026-09-03T11:35:56.633007-07:00",
     "clock": "11:35",
@@ -390,7 +412,7 @@
   },
   {
     "id": "embarcadero-folsom",
-    "site": "s19",
+    "site": "s20",
     "day": "2026-09-03",
     "start": "2026-09-03T13:17:48.154812-07:00",
     "clock": "1:17",
@@ -412,7 +434,7 @@
   },
   {
     "id": "1st-mission",
-    "site": "s20",
+    "site": "s21",
     "day": "2026-09-03",
     "start": "2026-09-03T14:10:35.676682-07:00",
     "clock": "2:10",
@@ -433,7 +455,7 @@
   },
   {
     "id": "embarcadero-bryant",
-    "site": "s21",
+    "site": "s22",
     "day": "2026-09-03",
     "start": "2026-09-03T14:40:37.854069-07:00",
     "clock": "2:40",
@@ -455,7 +477,7 @@
   },
   {
     "id": "3rd-folsom",
-    "site": "s22",
+    "site": "s23",
     "day": "2026-09-03",
     "start": "2026-09-03T15:20:41.034128-07:00",
     "clock": "3:20",
@@ -476,7 +498,7 @@
   },
   {
     "id": "howard-6th",
-    "site": "s23",
+    "site": "s24",
     "day": "2026-09-03",
     "start": "2026-09-03T15:50:43.642189-07:00",
     "clock": "3:50",

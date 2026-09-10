@@ -5,6 +5,7 @@
 - **Parent plan:** [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), Workstream 2
 - **Blocks:** retiring the per-file `segments.json` on the archive volume
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
+- **Companion:** [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the parameters this brief keeps running into
 
 ## The question
 
