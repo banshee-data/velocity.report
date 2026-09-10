@@ -20,6 +20,70 @@
   ],
   "marks": [
     {
+      "id": "ashbury-downey",
+      "day": "2026-09-01",
+      "clock": "12:35",
+      "where": "Ashbury at Downey",
+      "lat": 37.769,
+      "lon": -122.445,
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "note": "Named by the operator, not read from the map. The static period detected for this site begins 12:58:38; recording started 12:48, so 12:35 is likely arrival rather than the start of the stationary stretch \u2014 every other 9/1 mark sits within four minutes of its detected start."
+    },
+    {
+      "id": "haight-divisadero",
+      "day": "2026-09-01",
+      "clock": "12:55",
+      "where": "Haight at Divisadero",
+      "lat": 37.7712,
+      "lon": -122.4372,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "pierce-haight",
+      "day": "2026-09-01",
+      "clock": "1:25",
+      "where": "Pierce at Haight",
+      "lat": 37.7718,
+      "lon": -122.4338,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "fulton-divisadero",
+      "day": "2026-09-01",
+      "clock": "1:55",
+      "where": "Fulton at Divisadero",
+      "lat": 37.7768,
+      "lon": -122.4381,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "california-leon-baker",
+      "day": "2026-09-01",
+      "clock": "2:30",
+      "where": "California between Leon and Baker",
+      "lat": 37.7875,
+      "lon": -122.4446,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "broadway-gough",
+      "day": "2026-09-01",
+      "clock": "3:05",
+      "where": "Broadway at Gough",
+      "lat": 37.7952,
+      "lon": -122.4269,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "laguna-eddy",
+      "day": "2026-09-01",
+      "clock": "3:40",
+      "where": "Laguna at Eddy",
+      "lat": 37.7821,
+      "lon": -122.4274,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
       "id": "lombard-broderick",
       "day": "2026-09-02",
       "clock": "9:37",
@@ -110,131 +174,68 @@
       "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "geary-larkin",
+      "id": "hyde-ofarrell",
       "day": "2026-09-03",
       "clock": "11:00",
-      "where": "Geary near Larkin",
-      "lat": 37.786,
-      "lon": -122.4165,
-      "confidence": "low"
+      "where": "Hyde at O'Farrell",
+      "lat": 37.7855,
+      "lon": -122.4164,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "bush-kearny",
+      "id": "bush-powell",
       "day": "2026-09-03",
       "clock": "11:35",
-      "where": "Bush Street near Kearny",
-      "lat": 37.791,
-      "lon": -122.4045,
-      "confidence": "medium"
+      "where": "Bush at Powell",
+      "lat": 37.7901,
+      "lon": -122.409,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "front-davis-broadway",
+      "id": "embarcadero-folsom",
       "day": "2026-09-03",
       "clock": "1:15",
-      "where": "Front / Davis near Broadway, north waterfront",
-      "lat": 37.7975,
-      "lon": -122.3985,
-      "confidence": "medium"
+      "where": "Embarcadero at Folsom",
+      "lat": 37.791,
+      "lon": -122.3899,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "financial-district-battery",
+      "id": "1st-mission",
       "day": "2026-09-03",
       "clock": "2:07",
-      "where": "Financial District, Battery near Pine",
-      "lat": 37.793,
-      "lon": -122.4,
-      "confidence": "medium"
+      "where": "1st at Mission",
+      "lat": 37.7897,
+      "lon": -122.3974,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "rincon-hill-folsom",
+      "id": "embarcadero-bryant",
       "day": "2026-09-03",
       "clock": "2:40",
-      "where": "Rincon Hill, Folsom near Beale",
-      "lat": 37.789,
-      "lon": -122.3915,
-      "confidence": "medium"
+      "where": "Embarcadero at Bryant",
+      "lat": 37.7868,
+      "lon": -122.3881,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "soma-folsom-2nd",
+      "id": "3rd-folsom",
       "day": "2026-09-03",
       "clock": "3:20",
-      "where": "SoMa, Folsom near 2nd",
-      "lat": 37.7855,
-      "lon": -122.397,
-      "confidence": "medium"
+      "where": "3rd at Folsom",
+      "lat": 37.7837,
+      "lon": -122.3986,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "soma-mission-8th",
+      "id": "howard-6th",
       "day": "2026-09-03",
       "clock": "3:45",
-      "where": "SoMa, Mission near 8th",
-      "lat": 37.779,
-      "lon": -122.413,
-      "confidence": "medium"
-    },
-    {
-      "id": "ashbury-downey",
-      "day": "2026-09-01",
-      "clock": "12:35",
-      "where": "Ashbury at Downey",
-      "lat": 37.769,
-      "lon": -122.445,
+      "where": "Howard at 6th",
+      "lat": 37.7798,
+      "lon": -122.4069,
       "confidence": "operator-named intersection; coordinate approximate to the block",
-      "note": "Named by the operator, not read from the map. The static period detected for this site begins 12:58:38; recording started 12:48, so 12:35 is likely arrival rather than the start of the stationary stretch \u2014 every other 9/1 mark sits within four minutes of its detected start."
-    },
-    {
-      "id": "haight-divisadero",
-      "day": "2026-09-01",
-      "clock": "12:55",
-      "where": "Haight by Divisadero",
-      "lat": 37.7712,
-      "lon": -122.4372,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
-    },
-    {
-      "id": "pierce-haight",
-      "day": "2026-09-01",
-      "clock": "1:25",
-      "where": "Pierce at Haight",
-      "lat": 37.7718,
-      "lon": -122.4338,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
-    },
-    {
-      "id": "fulton-divisadero",
-      "day": "2026-09-01",
-      "clock": "1:55",
-      "where": "Fulton at Divisadero",
-      "lat": 37.7768,
-      "lon": -122.4381,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
-    },
-    {
-      "id": "california-leon-baker",
-      "day": "2026-09-01",
-      "clock": "2:30",
-      "where": "California between Leon and Baker",
-      "lat": 37.7875,
-      "lon": -122.4446,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
-    },
-    {
-      "id": "broadway-gough",
-      "day": "2026-09-01",
-      "clock": "3:05",
-      "where": "Broadway at Gough",
-      "lat": 37.7952,
-      "lon": -122.4269,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
-    },
-    {
-      "id": "laguna-eddy",
-      "day": "2026-09-01",
-      "clock": "3:40",
-      "where": "Laguna at Eddy",
-      "lat": 37.7821,
-      "lon": -122.4274,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "note": "RIP Tess Rothstein 2019-03-08"
     }
   ]
 }
