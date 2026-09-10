@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "california-leon-baker",
+    "title": "California between Leon and Baker"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}
