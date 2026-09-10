@@ -218,7 +218,7 @@
     "lat": 37.8004,
     "lon": -122.4313,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": "union-van-ness"
+    "published_as": "lombard-laguna"
   },
   {
     "id": "columbus-north-point",
@@ -284,7 +284,7 @@
     "lat": 37.7978,
     "lon": -122.4065,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": "broadway-telegraph-hill"
+    "published_as": "columbus-broadway"
   },
   {
     "id": "embarcadero-broadway",
@@ -306,7 +306,7 @@
     "lat": 37.7991,
     "lon": -122.3976,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": "nob-hill-chinatown"
+    "published_as": "embarcadero-broadway"
   },
   {
     "id": "franklin-mcallister",
@@ -368,7 +368,7 @@
     "lat": 37.7901,
     "lon": -122.409,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": "bush-kearny"
+    "published_as": "bush-powell"
   },
   {
     "id": "unrecognised-0903-1317",
@@ -475,6 +475,6 @@
     "lat": 37.7798,
     "lon": -122.4069,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": "soma-mission-8th"
+    "published_as": "howard-6th"
   }
 ]
