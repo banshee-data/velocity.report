@@ -114,12 +114,55 @@ def load(paths):
     return sorted(out, key=lambda s: s["start"])
 
 
+# A motion segment starting within this many seconds of its capture's first
+# packet is the background model settling, not the platform moving.
+SETTLING_TOLERANCE = 1.0
+
+# The largest raw gap a settling discount may be applied to. Beyond this the
+# gap is a drive, whatever the analysis restarts inside it.
+DISCOUNT_CEILING = 300.0
+
+
+def settling_artefact(segment):
+    """Is this 'motion' just a per-file analysis restarting its background model?
+
+    A per-file run rebuilds the model at every capture boundary and reports the
+    settling as motion. Such a segment always begins at its file's first packet;
+    real motion almost never does, because the platform does not start moving at
+    the exact instant a capture rolls over.
+    """
+    return segment["type"] == "motion" and segment["start_secs"] < SETTLING_TOLERANCE
+
+
+def real_gap_seconds(segments, first, second):
+    """The motion between two static stretches, discounting settling artefacts.
+
+    Bridging on the raw gap punishes a site for the analysis's own restarts. On
+    9/2 the stretch at 13:20 was cut from the one at 13:37 by 241 s of "motion",
+    99 s of which was the model settling at the start of capture 5. The real
+    gap is 141 s, inside the bridge, and the two are one site — which is what
+    the 35-minute recording of that junction shows.
+    """
+    total = (second["start"] - first["end"]).total_seconds()
+    # A drive between junctions crosses several capture boundaries and would
+    # collect a discount at each, so discounting is only allowed to rescue a
+    # gap that was nearly short enough already. Without this ceiling 9/2 fell
+    # from nine sites to five: the discounts added up and merged real drives.
+    if total > DISCOUNT_CEILING:
+        return total
+    for segment in segments:
+        if segment["start"] >= first["end"] and segment["end"] <= second["start"]:
+            if settling_artefact(segment):
+                total -= (segment["end"] - segment["start"]).total_seconds()
+    return total
+
+
 def stitch(segments, bridge):
     sites, current = [], None
     for segment in segments:
         if segment["type"] != "static":
             continue
-        if current and (segment["start"] - current["end"]).total_seconds() <= bridge:
+        if current and real_gap_seconds(segments, current, segment) <= bridge:
             current["end"] = segment["end"]
             current["parts"].append(segment)
         else:
