@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "hyde-ofarrell",
+  "title": "Hyde at O'Farrell",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5802,
+  "start_ns": "1788458795048720330",
+  "duration_sec": 1160.19987497,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "2183ec678eea38215b22a5b8d59db4c68ec6130526dd0c6d2d9cb74691be35d8",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T14:31:30Z"
+}

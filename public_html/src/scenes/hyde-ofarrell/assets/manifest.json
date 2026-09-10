@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "hyde-ofarrell",
+    "title": "Hyde at O'Farrell"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

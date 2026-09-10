@@ -1,12 +1,12 @@
 {
   "version": 1,
   "export": "tracks",
-  "site": "broadway-columbus",
-  "title": "Broadway \u0026 Columbus",
+  "site": "columbus-broadway",
+  "title": "Columbus at Broadway",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 10752,
-  "start_ns": "1788380417286250330",
-  "duration_sec": 2150.123767,
+  "frame_count": 9972,
+  "start_ns": "1788380476686565330",
+  "duration_sec": 1994.125442,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,8 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "f1903e91aab57c139ceaef360d9d2c69d7fed156227dbd679f8b21de74bebf9b",
+  "source_vrlog_sha256": "766b26a725de821e52dfcb55f83f4fc132ae5c7eba21a1a29114c7143747c3f0",
   "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
   "build_version": "0.5.1-pre32",
-  "generated_at": "2026-09-08T04:46:59Z"
+  "generated_at": "2026-09-10T13:25:56Z"
 }
