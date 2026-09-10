@@ -237,6 +237,14 @@ export async function generateSceneMap() {
       position: site.position ?? null,
       position_note: site.position_note ?? "",
       cells: site.cells ?? null,
+      // The cell outlines the map draws. Tokens name a cell; only the vertices
+      // let a viewer see where it actually falls on the street.
+      cell_geometry: site.geometry
+        ? {
+            area: site.geometry.area?.vertices ?? null,
+            neighbourhood: site.geometry.neighbourhood?.vertices ?? null,
+          }
+        : null,
     })),
   };
 

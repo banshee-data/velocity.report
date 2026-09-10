@@ -76,6 +76,43 @@ export function initSceneMap(container, sites) {
   }).setView(SF, 13);
   tileLayer(L).addTo(map);
 
+  // S2 cells first, so the markers sit above them. Leaflet draws overlays in
+  // the order they are added, and a filled cell added later covers the points
+  // it is meant to frame — which is why the outlines appeared for an instant
+  // at load and then vanished under the layer above them.
+  //
+  // One outline per cell, not per site: twenty-four sites share four
+  // neighbourhood cells and a single area cell, and drawing the same square
+  // twenty-four times stacks its stroke into a solid band.
+  const drawn = new Set();
+  for (const level of ["area", "neighbourhood"]) {
+    for (const site of located) {
+      const ring = site.cell_geometry?.[level];
+      const token = site.cells?.[level]?.token;
+      if (!ring || !token || drawn.has(token)) continue;
+      drawn.add(token);
+      const area = level === "area";
+      L.polygon(
+        ring.map((v) => [v.lat, v.lng]),
+        {
+          color: area ? "#c05621" : "#1c6fd6",
+          weight: area ? 1.5 : 1,
+          opacity: area ? 0.65 : 0.5,
+          fill: false,
+          dashArray: area ? "6 4" : "3 3",
+          interactive: false,
+        },
+      )
+        .addTo(map)
+        .bindTooltip(
+          `${site.cells[level].display} (level ${site.cells[level].level})`,
+          {
+            sticky: true,
+          },
+        );
+    }
+  }
+
   const bounds = [];
   for (const site of located) {
     const at = [site.position.lat, site.position.lon];

@@ -9,6 +9,9 @@ layout: page.njk
 
 <style>
   .scene-page__head { margin-bottom: 1rem; }
+  .scene-page__up { margin: 0 0 0.5rem; font-size: 0.9rem; }
+  .scene-page__up a { text-decoration: none; opacity: 0.75; }
+  .scene-page__up a:hover { text-decoration: underline; opacity: 1; }
   .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
   .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
   .scene-page__more {
@@ -117,6 +120,11 @@ layout: page.njk
 
 <section class="max-w-6xl mx-auto scene-page">
   <header class="scene-page__head">
+    <nav class="scene-page__up" aria-label="Breadcrumb">
+      <a href="{{ '/scenes/' | url }}">
+        <span aria-hidden="true">&larr;</span> All LiDAR scenes
+      </a>
+    </nav>
     <h1 class="scene-page__title" id="scene-title">{{ sceneName }}</h1>
     <p class="scene-page__sub">
       {{ sceneIntro }}
