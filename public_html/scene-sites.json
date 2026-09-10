@@ -24,6 +24,48 @@
       "position_source": null
     },
     {
+      "id": "haight-divisadero",
+      "title": "Haight by Divisadero",
+      "page": "/scenes/haight-divisadero/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s01",
+      "position": {
+        "lat": 37.7712,
+        "lon": -122.4372,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Haight by Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "pierce-haight",
+      "title": "Pierce at Haight",
+      "page": "/scenes/pierce-haight/",
+      "summary": "21 minutes of a static roadside recording.",
+      "archive_site": "s02",
+      "position": {
+        "lat": 37.7718,
+        "lon": -122.4338,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "fulton-divisadero",
+      "title": "Fulton at Divisadero",
+      "page": "/scenes/fulton-divisadero/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s03",
+      "position": {
+        "lat": 37.7768,
+        "lon": -122.4381,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
       "id": "union-van-ness",
       "title": "Union Street near Van Ness",
       "page": "/scenes/union-van-ness/",
@@ -52,21 +94,11 @@
       "position_source": "override"
     },
     {
-      "id": "unrecognised-0902-1337",
-      "title": "Unnamed site, 2026-09-02 1:37",
-      "page": "/scenes/unrecognised-0902-1337/",
-      "summary": "13 minutes of a static roadside recording.",
-      "archive_site": "s14",
-      "position": null,
-      "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
-      "position_source": "archive-index"
-    },
-    {
       "id": "nob-hill-chinatown",
       "title": "Nob Hill / Chinatown edge",
       "page": "/scenes/nob-hill-chinatown/",
-      "summary": "17 minutes of a static roadside recording.",
-      "archive_site": "s15",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s14",
       "position": null,
       "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
       "position_source": "archive-index"
@@ -76,7 +108,7 @@
       "title": "Bush Street near Kearny",
       "page": "/scenes/bush-kearny/",
       "summary": "19 minutes of a static roadside recording.",
-      "archive_site": "s18",
+      "archive_site": "s17",
       "position": {
         "lat": 37.791,
         "lon": -122.4045,
@@ -89,8 +121,8 @@
       "id": "unrecognised-0903-1317",
       "title": "Unnamed site, 2026-09-03 1:17",
       "page": "/scenes/unrecognised-0903-1317/",
-      "summary": "13 minutes of a static roadside recording.",
-      "archive_site": "s19",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s18",
       "position": null,
       "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
       "position_source": "archive-index"
@@ -100,7 +132,7 @@
       "title": "SoMa, Mission near 8th",
       "page": "/scenes/soma-mission-8th/",
       "summary": "19 minutes of a static roadside recording.",
-      "archive_site": "s23",
+      "archive_site": "s22",
       "position": {
         "lat": 37.779,
         "lon": -122.413,

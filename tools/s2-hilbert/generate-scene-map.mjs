@@ -36,6 +36,28 @@ const SITE_INDEX = path.join(
   "s2-archive",
   "site-index.json",
 );
+
+/**
+ * The page for one scene.
+ *
+ * Written from the scene's own record rather than kept by hand, because it was
+ * kept by hand and drifted. Renaming the directories to the site ids left every
+ * page still declaring sceneId "s2-sf-2" — the capture prefix the rename set
+ * out to remove — and a newly exported scene had no page at all, so its assets
+ * sat published behind a 404.
+ */
+function scenePage(site, minutes) {
+  const whole = Math.round(minutes);
+  return `---
+layout: scene.njk
+title: "${site.title}: LiDAR scene — velocity.report"
+description: ${whole} minutes of a San Francisco street, measured by roadside LiDAR. Trajectories only — no cameras, no images, no number plates.
+sceneId: ${site.id}
+sceneName: ${site.title}
+sceneIntro: ${whole} minutes of a San Francisco street, measured by roadside LiDAR.
+---
+`;
+}
 const DATA_OUTPUT = path.join(
   REPO_ROOT,
   "public_html",
@@ -143,6 +165,32 @@ export async function generateSceneMap() {
       cells: site.cells ?? null,
     })),
   };
+
+  // Every published scene gets its page rewritten from the data above, so a
+  // page cannot name a scene something the index does not.
+  for (const site of model.sites) {
+    if (!site.published) continue;
+    const dir = path.join(SCENES_DIR, site.id);
+    try {
+      await readFile(
+        path.join(dir, "assets", "part-000", "header.json"),
+        "utf8",
+      );
+    } catch {
+      continue; // no export yet, so nothing to publish a page for
+    }
+    const header = JSON.parse(
+      await readFile(
+        path.join(dir, "assets", "part-000", "header.json"),
+        "utf8",
+      ),
+    );
+    await writeFile(
+      path.join(dir, "index.njk"),
+      scenePage(site, (header.duration_sec ?? 0) / 60),
+      "utf8",
+    );
+  }
 
   await mkdir(path.dirname(DATA_OUTPUT), { recursive: true });
   await mkdir(path.dirname(SVG_OUTPUT), { recursive: true });

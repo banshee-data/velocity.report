@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="100%" role="img" aria-labelledby="scene-map-title scene-map-desc" class="scene-map">
   <title id="scene-map-title">Published LiDAR scenes</title>
-  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Union Street near Van Ness in S2 cell 80858-0ec; Broadway &amp; Columbus in S2 cell 80858-0f4; Bush Street near Kearny in S2 cell 80858-08c; SoMa, Mission near 8th in S2 cell 80858-09c; Haight by Divisadero in S2 cell 80858-0ac; Pierce at Haight in S2 cell 80858-0a4; Fulton at Divisadero in S2 cell 80858-0b4; California between Leon and Baker in S2 cell 80858-0cc; Broadway at Gough in S2 cell 80858-0c4; Laguna at Eddy in S2 cell 80858-0bc; Lombard at Broderick in S2 cell 80858-0d4; Marina Boulevard at Broderick in S2 cell 80858-12c; Marina Boulevard near Fillmore in S2 cell 80858-12c; Fisherman's Wharf, Jefferson Street near Hyde in S2 cell 80858-0e4; Bay Street towards the Embarcadero in S2 cell 80858-0fc; Van Ness near Market, Civic Center in S2 cell 80858-09c; Geary near Larkin in S2 cell 80858-094; Financial District, Battery near Pine in S2 cell 80858-064; Rincon Hill, Folsom near Beale in S2 cell 80858-07c; SoMa, Folsom near 2nd in S2 cell 80858-07c.</desc>
+  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Haight by Divisadero in S2 cell 80858-0ac; Pierce at Haight in S2 cell 80858-0a4; Fulton at Divisadero in S2 cell 80858-0b4; Union Street near Van Ness in S2 cell 80858-0ec; Broadway &amp; Columbus in S2 cell 80858-0f4; Bush Street near Kearny in S2 cell 80858-08c; SoMa, Mission near 8th in S2 cell 80858-09c; California between Leon and Baker in S2 cell 80858-0cc; Broadway at Gough in S2 cell 80858-0c4; Laguna at Eddy in S2 cell 80858-0bc; Lombard at Broderick in S2 cell 80858-0d4; Marina Boulevard at Broderick in S2 cell 80858-12c; Marina Boulevard near Fillmore in S2 cell 80858-12c; Fisherman's Wharf, Jefferson Street near Hyde in S2 cell 80858-0e4; Bay Street towards the Embarcadero in S2 cell 80858-0fc; Van Ness near Market, Civic Center in S2 cell 80858-09c; Geary near Larkin in S2 cell 80858-094; Financial District, Battery near Pine in S2 cell 80858-064; Rincon Hill, Folsom near Beale in S2 cell 80858-07c; SoMa, Folsom near 2nd in S2 cell 80858-07c.</desc>
   <style>
   .scene-map__frame { fill: none; stroke: currentColor; stroke-opacity: 0.18; }
   .scene-map__area { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-opacity: 0.35; stroke-dasharray: 6 5; }
@@ -19,13 +19,13 @@
   <rect class="scene-map__frame" x="1" y="1" width="898" height="458" rx="4"/>
   <g>
     <polygon class="scene-map__area" points="329.61,-39.99 329.61,370.00 714.93,220.19 714.93,-190.05"><title>S2 area cell 80858-1</title></polygon>
+    <polygon class="scene-map__cell" points="329.61,318.75 329.61,370.00 377.75,351.26 377.75,300.00"><title>S2 cell 80858-0ac</title></polygon>
+    <polygon class="scene-map__cell" points="377.75,300.00 377.75,351.26 425.91,332.52 425.91,281.26"><title>S2 cell 80858-0a4</title></polygon>
+    <polygon class="scene-map__cell" points="329.61,267.50 329.61,318.75 377.75,300.00 377.75,248.75"><title>S2 cell 80858-0b4</title></polygon>
     <polygon class="scene-map__cell" points="425.91,178.75 425.91,230.01 474.06,211.27 474.06,160.00"><title>S2 cell 80858-0ec</title></polygon>
     <polygon class="scene-map__cell" points="474.06,160.00 474.06,211.27 522.23,192.53 522.23,141.26"><title>S2 cell 80858-0f4</title></polygon>
     <polygon class="scene-map__cell" points="474.06,211.27 474.06,262.53 522.23,243.79 522.23,192.53"><title>S2 cell 80858-08c</title></polygon>
     <polygon class="scene-map__cell" points="425.91,281.26 425.91,332.52 474.06,313.79 474.06,262.53"><title>S2 cell 80858-09c</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,318.75 329.61,370.00 377.75,351.26 377.75,300.00"><title>S2 cell 80858-0ac</title></polygon>
-    <polygon class="scene-map__cell" points="377.75,300.00 377.75,351.26 425.91,332.52 425.91,281.26"><title>S2 cell 80858-0a4</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,267.50 329.61,318.75 377.75,300.00 377.75,248.75"><title>S2 cell 80858-0b4</title></polygon>
     <polygon class="scene-map__cell" points="329.61,216.25 329.61,267.50 377.75,248.75 377.75,197.50"><title>S2 cell 80858-0cc</title></polygon>
     <polygon class="scene-map__cell" points="377.75,197.50 377.75,248.75 425.91,230.01 425.91,178.75"><title>S2 cell 80858-0c4</title></polygon>
     <polygon class="scene-map__cell" points="377.75,248.75 377.75,300.00 425.91,281.26 425.91,230.01"><title>S2 cell 80858-0bc</title></polygon>
@@ -38,6 +38,21 @@
     <polygon class="scene-map__cell" points="522.23,243.79 522.23,295.06 570.39,276.33 570.39,225.07"><title>S2 cell 80858-07c</title></polygon>
   </g>
   <g>
+    <g class="scene-map__site">
+      <circle class="scene-map__marker" cx="370.10" cy="329.67" r="6"/>
+      <text class="scene-map__title" x="370.10" y="299.67" text-anchor="middle">Haight by Divisadero</text>
+      <text class="scene-map__token" x="370.10" y="314.67" text-anchor="middle">80858-0ac</text>
+    </g>
+    <g class="scene-map__site">
+      <circle class="scene-map__marker" cx="384.55" cy="326.44" r="6"/>
+      <text class="scene-map__title" x="384.55" y="360.44" text-anchor="middle">Pierce at Haight</text>
+      <text class="scene-map__token" x="384.55" y="375.44" text-anchor="middle">80858-0a4</text>
+    </g>
+    <g class="scene-map__site">
+      <circle class="scene-map__marker" cx="366.27" cy="299.54" r="6"/>
+      <text class="scene-map__title" x="366.27" y="237.54" text-anchor="middle">Fulton at Divisadero</text>
+      <text class="scene-map__token" x="366.27" y="252.54" text-anchor="middle">80858-0b4</text>
+    </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="426.22" cy="182.80" r="6"/>
       <text class="scene-map__title" x="426.22" y="152.80" text-anchor="middle">Union Street near Van Ness</text>
@@ -55,23 +70,8 @@
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="472.99" cy="287.71" r="6"/>
-      <text class="scene-map__title" x="472.99" y="321.71" text-anchor="middle">SoMa, Mission near 8th</text>
-      <text class="scene-map__token" x="472.99" y="336.71" text-anchor="middle">80858-09c</text>
-    </g>
-    <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="370.10" cy="329.67" r="6"/>
-      <text class="scene-map__title" x="370.10" y="363.67" text-anchor="middle">Haight by Divisadero</text>
-      <text class="scene-map__token" x="370.10" y="378.67" text-anchor="middle">80858-0ac</text>
-    </g>
-    <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="384.55" cy="326.44" r="6"/>
-      <text class="scene-map__title" x="384.55" y="424.44" text-anchor="middle">Pierce at Haight</text>
-      <text class="scene-map__token" x="384.55" y="439.44" text-anchor="middle">80858-0a4</text>
-    </g>
-    <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="366.27" cy="299.54" r="6"/>
-      <text class="scene-map__title" x="366.27" y="237.54" text-anchor="middle">Fulton at Divisadero</text>
-      <text class="scene-map__token" x="366.27" y="252.54" text-anchor="middle">80858-0b4</text>
+      <text class="scene-map__title" x="472.99" y="257.71" text-anchor="middle">SoMa, Mission near 8th</text>
+      <text class="scene-map__token" x="472.99" y="272.71" text-anchor="middle">80858-09c</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="338.64" cy="241.98" r="6"/>
@@ -90,8 +90,8 @@
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="341.19" cy="180.11" r="6"/>
-      <text class="scene-map__title" x="341.19" y="278.11" text-anchor="middle">Lombard at Broderick</text>
-      <text class="scene-map__token" x="341.19" y="293.11" text-anchor="middle">80858-0d4</text>
+      <text class="scene-map__title" x="341.19" y="150.11" text-anchor="middle">Lombard at Broderick</text>
+      <text class="scene-map__token" x="341.19" y="165.11" text-anchor="middle">80858-0d4</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="334.81" cy="146.21" r="6"/>
@@ -115,8 +115,8 @@
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="447.48" cy="306.54" r="6"/>
-      <text class="scene-map__title" x="447.48" y="276.54" text-anchor="middle">Van Ness near Market, Civic Center</text>
-      <text class="scene-map__token" x="447.48" y="291.54" text-anchor="middle">80858-09c</text>
+      <text class="scene-map__title" x="447.48" y="404.54" text-anchor="middle">Van Ness near Market, Civic Center</text>
+      <text class="scene-map__token" x="447.48" y="419.54" text-anchor="middle">80858-09c</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="458.11" cy="250.05" r="6"/>
@@ -130,8 +130,8 @@
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="564.40" cy="233.91" r="6"/>
-      <text class="scene-map__title" x="564.40" y="203.91" text-anchor="middle">Rincon Hill, Folsom near Beale</text>
-      <text class="scene-map__token" x="564.40" y="218.91" text-anchor="middle">80858-07c</text>
+      <text class="scene-map__title" x="564.40" y="331.91" text-anchor="middle">Rincon Hill, Folsom near Beale</text>
+      <text class="scene-map__token" x="564.40" y="346.91" text-anchor="middle">80858-07c</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="541.02" cy="252.74" r="6"/>

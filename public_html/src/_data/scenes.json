@@ -6,9 +6,9 @@
     "site": 16
   },
   "located_count": 20,
-  "unlocated_count": 4,
-  "published_count": 8,
-  "recorded_count": 24,
+  "unlocated_count": 3,
+  "published_count": 10,
+  "recorded_count": 23,
   "sites": [
     {
       "id": "soma1",
@@ -21,6 +21,102 @@
       "position": null,
       "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
       "cells": null
+    },
+    {
+      "id": "haight-divisadero",
+      "title": "Haight by Divisadero",
+      "page": "/scenes/haight-divisadero/",
+      "published": true,
+      "archive_site": "s01",
+      "summary": "19 minutes of a static roadside recording.",
+      "located": true,
+      "position": {
+        "lat": 37.7712,
+        "lon": -122.4372,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Haight by Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580ac",
+          "display": "80858-0ac",
+          "level": 13
+        },
+        "site": {
+          "token": "808580a8d",
+          "display": "80858-0a8d",
+          "level": 16
+        }
+      }
+    },
+    {
+      "id": "pierce-haight",
+      "title": "Pierce at Haight",
+      "page": "/scenes/pierce-haight/",
+      "published": true,
+      "archive_site": "s02",
+      "summary": "21 minutes of a static roadside recording.",
+      "located": true,
+      "position": {
+        "lat": 37.7718,
+        "lon": -122.4338,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580a4",
+          "display": "80858-0a4",
+          "level": 13
+        },
+        "site": {
+          "token": "808580a67",
+          "display": "80858-0a67",
+          "level": 16
+        }
+      }
+    },
+    {
+      "id": "fulton-divisadero",
+      "title": "Fulton at Divisadero",
+      "page": "/scenes/fulton-divisadero/",
+      "published": true,
+      "archive_site": "s03",
+      "summary": "20 minutes of a static roadside recording.",
+      "located": true,
+      "position": {
+        "lat": 37.7768,
+        "lon": -122.4381,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580b4",
+          "display": "80858-0b4",
+          "level": 13
+        },
+        "site": {
+          "token": "808580b03",
+          "display": "80858-0b03",
+          "level": 16
+        }
+      }
     },
     {
       "id": "union-van-ness",
@@ -87,24 +183,12 @@
       }
     },
     {
-      "id": "unrecognised-0902-1337",
-      "title": "Unnamed site, 2026-09-02 1:37",
-      "page": "/scenes/unrecognised-0902-1337/",
-      "published": true,
-      "archive_site": "s14",
-      "summary": "13 minutes of a static roadside recording.",
-      "located": false,
-      "position": null,
-      "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
-      "cells": null
-    },
-    {
       "id": "nob-hill-chinatown",
       "title": "Nob Hill / Chinatown edge",
       "page": "/scenes/nob-hill-chinatown/",
       "published": true,
-      "archive_site": "s15",
-      "summary": "17 minutes of a static roadside recording.",
+      "archive_site": "s14",
+      "summary": "19 minutes of a static roadside recording.",
       "located": false,
       "position": null,
       "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
@@ -115,7 +199,7 @@
       "title": "Bush Street near Kearny",
       "page": "/scenes/bush-kearny/",
       "published": true,
-      "archive_site": "s18",
+      "archive_site": "s17",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -147,8 +231,8 @@
       "title": "Unnamed site, 2026-09-03 1:17",
       "page": "/scenes/unrecognised-0903-1317/",
       "published": true,
-      "archive_site": "s19",
-      "summary": "13 minutes of a static roadside recording.",
+      "archive_site": "s18",
+      "summary": "20 minutes of a static roadside recording.",
       "located": false,
       "position": null,
       "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
@@ -159,7 +243,7 @@
       "title": "SoMa, Mission near 8th",
       "page": "/scenes/soma-mission-8th/",
       "published": true,
-      "archive_site": "s23",
+      "archive_site": "s22",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -182,102 +266,6 @@
         "site": {
           "token": "8085809b5",
           "display": "80858-09b5",
-          "level": 16
-        }
-      }
-    },
-    {
-      "id": "haight-divisadero",
-      "title": "Haight by Divisadero",
-      "page": null,
-      "published": false,
-      "archive_site": "s01",
-      "summary": "19 minutes recorded on 2026-09-01, not yet published.",
-      "located": true,
-      "position": {
-        "lat": 37.7712,
-        "lon": -122.4372,
-        "source": "operator"
-      },
-      "position_note": "Read from the field map (Haight by Divisadero). Neighbourhood-level; replace with a survey.",
-      "cells": {
-        "area": {
-          "token": "808581",
-          "display": "80858-1",
-          "level": 10
-        },
-        "neighbourhood": {
-          "token": "808580ac",
-          "display": "80858-0ac",
-          "level": 13
-        },
-        "site": {
-          "token": "808580a8d",
-          "display": "80858-0a8d",
-          "level": 16
-        }
-      }
-    },
-    {
-      "id": "pierce-haight",
-      "title": "Pierce at Haight",
-      "page": null,
-      "published": false,
-      "archive_site": "s02",
-      "summary": "22 minutes recorded on 2026-09-01, not yet published.",
-      "located": true,
-      "position": {
-        "lat": 37.7718,
-        "lon": -122.4338,
-        "source": "operator"
-      },
-      "position_note": "Read from the field map (Pierce at Haight). Neighbourhood-level; replace with a survey.",
-      "cells": {
-        "area": {
-          "token": "808581",
-          "display": "80858-1",
-          "level": 10
-        },
-        "neighbourhood": {
-          "token": "808580a4",
-          "display": "80858-0a4",
-          "level": 13
-        },
-        "site": {
-          "token": "808580a67",
-          "display": "80858-0a67",
-          "level": 16
-        }
-      }
-    },
-    {
-      "id": "fulton-divisadero",
-      "title": "Fulton at Divisadero",
-      "page": null,
-      "published": false,
-      "archive_site": "s03",
-      "summary": "20 minutes recorded on 2026-09-01, not yet published.",
-      "located": true,
-      "position": {
-        "lat": 37.7768,
-        "lon": -122.4381,
-        "source": "operator"
-      },
-      "position_note": "Read from the field map (Fulton at Divisadero). Neighbourhood-level; replace with a survey.",
-      "cells": {
-        "area": {
-          "token": "808581",
-          "display": "80858-1",
-          "level": 10
-        },
-        "neighbourhood": {
-          "token": "808580b4",
-          "display": "80858-0b4",
-          "level": 13
-        },
-        "site": {
-          "token": "808580b03",
-          "display": "80858-0b03",
           "level": 16
         }
       }
@@ -543,7 +531,7 @@
       "title": "Van Ness near Market, Civic Center",
       "page": null,
       "published": false,
-      "archive_site": "s16",
+      "archive_site": "s15",
       "summary": "12 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -575,7 +563,7 @@
       "title": "Geary near Larkin",
       "page": null,
       "published": false,
-      "archive_site": "s17",
+      "archive_site": "s16",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -607,7 +595,7 @@
       "title": "Financial District, Battery near Pine",
       "page": null,
       "published": false,
-      "archive_site": "s20",
+      "archive_site": "s19",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -639,8 +627,8 @@
       "title": "Rincon Hill, Folsom near Beale",
       "page": null,
       "published": false,
-      "archive_site": "s21",
-      "summary": "12 minutes recorded on 2026-09-03, not yet published.",
+      "archive_site": "s20",
+      "summary": "23 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.789,
@@ -671,7 +659,7 @@
       "title": "SoMa, Folsom near 2nd",
       "page": null,
       "published": false,
-      "archive_site": "s22",
+      "archive_site": "s21",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
