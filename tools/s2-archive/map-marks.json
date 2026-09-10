@@ -24,8 +24,8 @@
       "day": "2026-09-01",
       "clock": "12:35",
       "where": "Ashbury at Downey",
-      "lat": 37.769,
-      "lon": -122.445,
+      "lat": 37.7638,
+      "lon": -122.4466,
       "confidence": "operator-named intersection; coordinate approximate to the block",
       "note": "Named by the operator, not read from the map. The static period detected for this site begins 12:58:38; recording started 12:48, so 12:35 is likely arrival rather than the start of the stationary stretch \u2014 every other 9/1 mark sits within four minutes of its detected start."
     },
