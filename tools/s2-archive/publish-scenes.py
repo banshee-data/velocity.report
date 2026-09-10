@@ -295,11 +295,18 @@ def main():
     scenes = []
     for entry in index:
         captures = sorted(entry["captures"])
-        stamp = captures[0].rsplit("_", 2)[-2]
-        offset = (
-            datetime.fromisoformat(entry["start"]).replace(tzinfo=None)
-            - datetime.strptime(stamp, "%Y%m%d%H%M%S")
-        ).total_seconds()
+        # A rolling capture carries its start in its name, and a site usually
+        # begins partway into its first one. A capture named any other way —
+        # a single recording of one junction, kept outside the rolling set —
+        # has no stamp to read, and its site begins where the file does.
+        try:
+            stamp = captures[0].rsplit("_", 2)[-2]
+            offset = (
+                datetime.fromisoformat(entry["start"]).replace(tzinfo=None)
+                - datetime.strptime(stamp, "%Y%m%d%H%M%S")
+            ).total_seconds()
+        except (IndexError, ValueError):
+            offset = 0.0
         scenes.append(
             {
                 "site": entry["id"],
