@@ -138,6 +138,22 @@
       "position_source": "archive-index"
     },
     {
+      "id": "marina-broderick",
+      "title": "Marina at Broderick",
+      "page": "/scenes/marina-broderick/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s09",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
+      "position": {
+        "lat": 37.8053,
+        "lon": -122.4455,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Marina at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
       "id": "lombard-laguna",
       "title": "Lombard at Laguna",
       "page": "/scenes/lombard-laguna/",

@@ -76,8 +76,9 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
     Each point is one recorded site. Click it for the name and, where there is a
     recording, a link to it. Points carry no labels on the map: at this zoom a
     label covers the street it stands on, and the street is the thing worth
-    seeing. Every site's S2 level {{ scenes.levels.neighbourhood }} and level
-    {{ scenes.levels.area }} tokens are listed with it below.
+    seeing. Each site is listed below with its S2 level
+    {{ scenes.levels.neighbourhood }} cell, about a kilometre across, under a
+    heading for the level {{ scenes.levels.area }} area that contains it.
   </p>
 
   {% for area in scenes.areas %}
@@ -101,11 +102,14 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
               {% else %}{{ site.title }}{% endif %}
             </h2>
             {% if site.located %}
-              {# The area is the heading above; repeating it on every card said
-                 nothing, since every card under one heading shares it. #}
+              {# The area is the heading above, and the level 16 site cell is
+                 finer than a hand-read position can justify: those coordinates
+                 are good to a few hundred metres and a level 16 cell is about
+                 180 across, so the token would look more exact than the thing
+                 it names. Level 13 is the grain the map draws and the grain
+                 the position supports. #}
               <dl class="scene-card__cells">
-                <dt>Site</dt><dd>{{ site.cells.site.display }}</dd>
-                <dt>Nbhd</dt><dd>{{ site.cells.neighbourhood.display }}</dd>
+                <dt>L13</dt><dd>{{ site.cells.neighbourhood.display }}</dd>
               </dl>
             {% endif %}
             {% if not site.published %}
