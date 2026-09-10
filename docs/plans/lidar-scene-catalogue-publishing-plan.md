@@ -87,18 +87,18 @@ quarantine any run whose observation timestamps fall outside its capture window.
 
 ## Findings
 
-| Area                     | Current state                                                        | Severity | Release view                                                      |
-| ------------------------ | -------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
-| Site → position          | No WGS84 fix anywhere in split output; `site` has 2 rows, disk has 6 | Blocker  | Hand-survey the six prefixes; it is the only unblocking input     |
-| Split bytes              | `segments.json` exists but no segment PCAPs were written             | High     | Re-run `pcap-split` in writing mode; reuse existing analysis JSON |
-| Background source        | `s2_sf_5` and `s2_sf_6` have zero static segments                    | High     | No background for two sites; relax detection or accept cloud-only |
-| Capture registry         | No table maps a PCAP file to a site, run, or S2 cell                 | Blocker  | New `lidar_capture_files` / `lidar_capture_segments`              |
-| Published-asset registry | Nothing records what has been exported or published                  | High     | New `lidar_scene_exports`                                         |
-| Export tooling           | No scene export path from VRLOG                                      | High     | New `velocity scene export`; narrows VRLOG, adds no format        |
-| Timestamp domain         | Mixed wall-clock and PCAP nanoseconds in observations                | High     | Importer validates against the capture window and quarantines     |
-| Track ID reuse           | Unique in DB, but not segment-local for publishing                   | Medium   | Re-key to segment-local on export, per the privacy invariant      |
-| Settling pass scope      | `settle_before_recording` settles over the whole recording window    | Blocker  | Bound it to a prefix; it currently learns the traffic as background |
-| Paced multi-file replay  | Was refused outside analysis mode, pinning every scene to it         | Resolved | A sequence shares one pacing clock and crosses joins losslessly     |
+| Area                     | Current state                                                        | Severity | Release view                                                          |
+| ------------------------ | -------------------------------------------------------------------- | -------- | --------------------------------------------------------------------- |
+| Site → position          | No WGS84 fix anywhere in split output; `site` has 2 rows, disk has 6 | Blocker  | Hand-survey the six prefixes; it is the only unblocking input         |
+| Split bytes              | `segments.json` exists but no segment PCAPs were written             | High     | Re-run `pcap-split` in writing mode; reuse existing analysis JSON     |
+| Background source        | `s2_sf_5` and `s2_sf_6` have zero static segments                    | High     | No background for two sites; relax detection or accept cloud-only     |
+| Capture registry         | No table maps a PCAP file to a site, run, or S2 cell                 | Blocker  | New `lidar_capture_files` / `lidar_capture_segments`                  |
+| Published-asset registry | Nothing records what has been exported or published                  | High     | New `lidar_scene_exports`                                             |
+| Export tooling           | No scene export path from VRLOG                                      | High     | New `velocity scene export`; narrows VRLOG, adds no format            |
+| Timestamp domain         | Mixed wall-clock and PCAP nanoseconds in observations                | High     | Importer validates against the capture window and quarantines         |
+| Track ID reuse           | Unique in DB, but not segment-local for publishing                   | Medium   | Re-key to segment-local on export, per the privacy invariant          |
+| Settling pass scope      | `settle_before_recording` settles over the whole recording window    | Blocker  | Bound it to a prefix; it currently learns the traffic as background   |
+| Paced multi-file replay  | Was refused outside analysis mode, pinning every scene to it         | Resolved | A sequence shares one pacing clock and crosses joins losslessly       |
 | Backoff feedback loop    | Yield is subtracted from elapsed time, so sleeping froze the deficit | Resolved | 2 ms yield and a cooldown; the frame channel is the real backpressure |
 
 ### Why the published scenes look empty
@@ -118,11 +118,11 @@ pass begins that traffic is background and is suppressed.
 
 Measured on `s2_sf_4_20260902153250_00003.pcap`, the same capture both ways:
 
-| Run                                        | Clusters / frame |
-| ------------------------------------------ | ---------------- |
-| Cold model, current build (`lidar-bench`)  | **19.6**         |
-| 2026-09-06, cold, build 0.5.1-pre31        | 11.0             |
-| 2026-09-08 batch, settled first            | **1.0**          |
+| Run                                       | Clusters / frame |
+| ----------------------------------------- | ---------------- |
+| Cold model, current build (`lidar-bench`) | **19.6**         |
+| 2026-09-06, cold, build 0.5.1-pre31       | 11.0             |
+| 2026-09-08 batch, settled first           | **1.0**          |
 
 A twentyfold suppression, with no code change between the runs that touches the
 pipeline — the tuning sets differ only by unset L5 fields and a `frame_budget_ms`
@@ -135,14 +135,14 @@ are gated on `time.Since(bm.StartTime)` — wall clock, not capture clock — so
 faster a replay runs, the more of the recording falls inside them. Swept over a
 180 s window of that capture, holding settling off:
 
-| Replay              | Pipeline frames | VRLOG frames | Clusters/frame | Moving/frame | Median mover life | Max    | Wall   |
-| ------------------- | --------------- | ------------ | -------------- | ------------ | ----------------- | ------ | ------ |
-| analysis (settle ON) | 1801           | —            | 1.03           | —            | —                 | —      | ~26 s  |
-| analysis            | 1801            | 416 (23 %)   | 2.00           | 7.7          | 3.5 s             | 10.2 s | 43 s   |
-| realtime            | 1801            | 1724 (96 %)  | 16.18          | 14.0         | 9.6 s             | 95.4 s | 192 s  |
-| 0.5x                | 1801            | 1792 (99.6 %)| 16.79          | 14.1         | 9.7 s             | 89.8 s | 365 s  |
-| 0.2x                | 1801            | 1792         | 16.82          | 14.1         | 9.8 s             | 96.1 s | 917 s  |
-| 0.1x                | 1801            | 1792         | 16.80          | 14.1         | 9.8 s             | 89.8 s | 1813 s |
+| Replay               | Pipeline frames | VRLOG frames  | Clusters/frame | Moving/frame | Median mover life | Max    | Wall   |
+| -------------------- | --------------- | ------------- | -------------- | ------------ | ----------------- | ------ | ------ |
+| analysis (settle ON) | 1801            | —             | 1.03           | —            | —                 | —      | ~26 s  |
+| analysis             | 1801            | 416 (23 %)    | 2.00           | 7.7          | 3.5 s             | 10.2 s | 43 s   |
+| realtime             | 1801            | 1724 (96 %)   | 16.18          | 14.0         | 9.6 s             | 95.4 s | 192 s  |
+| 0.5x                 | 1801            | 1792 (99.6 %) | 16.79          | 14.1         | 9.7 s             | 89.8 s | 365 s  |
+| 0.2x                 | 1801            | 1792          | 16.82          | 14.1         | 9.8 s             | 96.1 s | 917 s  |
+| 0.1x                 | 1801            | 1792          | 16.80          | 14.1         | 9.8 s             | 89.8 s | 1813 s |
 
 Analysis mode fails twice over. The pipeline finds an eighth of the clusters,
 because the wall-clock warm-up covers most of a run that takes 43 s to replay

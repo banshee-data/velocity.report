@@ -136,10 +136,8 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
         // Operator-measured angles, in degrees, either of which may be absent.
         // The first turns the viewer's ground grid onto the street grid; the
         // second says where true north is. See map-marks.json.
-        grid_azimuth_deg:
-          over.grid_azimuth_deg ?? site?.grid_azimuth_deg ?? null,
-        north_azimuth_deg:
-          over.north_azimuth_deg ?? site?.north_azimuth_deg ?? null,
+        grid_azimuth_deg: site?.grid_azimuth_deg ?? null,
+        north_azimuth_deg: site?.north_azimuth_deg ?? null,
         position,
         position_note: note,
         position_source: source,

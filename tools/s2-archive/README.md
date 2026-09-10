@@ -78,3 +78,42 @@ python3 tools/s2-archive/deployments.py        # recording blocks from filenames
 The scripts read the local archive at `/Volumes/lidar/lidar/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.
 
 `build-site-index.py` reads both analysis trees, the field marks, the operator joins, and any locally available scene headers. It writes only `site-index.json`. `deployments.py` prints a filename-based grouping; its eleven-minute grouping threshold is not the production replay continuity policy. The publishing launcher remains with PR #569 because it requires the new multi-file replay API.
+
+## Scene alignment tools
+
+Open a scene with `?dev=true` to reveal **Copy this view** and developer
+alignment controls. This preference persists in local storage across scene
+visits; `?dev=false` disables it. If storage is blocked, the query still applies
+to the current page.
+
+Use **Align from above** to stop the flight and compare the ground grid with
+the kerbs. Adjust the grid azimuth and the sensor's clockwise bearing from true
+north independently; the lower-right compass previews true north. Angles wrap into
+0–360 degrees, zero is a measurement, and blank means unmeasured. These controls
+adjust rotation, not a translation of the grid. Compass vantage labels preview
+the north measurement; authored vantage positions stay in sensor coordinates.
+
+The compass is available outside developer mode too. It follows the view bearing
+and tilt, capped at 54.7 degrees from vertical (true isometric), and lies flat
+in overhead views. Click it to stop flight and face north-up directly overhead,
+keeping the current centre and zoom. This is another vantage: selecting it
+clears the selection on every labelled vantage button. `N?` means north has not been measured; the fallback uses sensor zero.
+
+**Save to map marks…** opens a file picker in Chrome or Edge on HTTPS or
+localhost. Select the checkout's `tools/s2-archive/map-marks.json`; the viewer
+updates only the two angle fields on the uniquely matching site ID, preserving
+other marks and metadata. Cancelling leaves only a preview. Measurements are
+not saved in local storage or in scene overrides. The page displays the site ID
+and angles for manual transfer when direct file access is unavailable.
+
+After saving, publish the canonical measurements through the existing pipeline:
+
+```bash
+python3 tools/s2-archive/build-site-index.py
+pnpm s2-hilbert:scene-map
+pnpm --dir public_html build
+```
+
+The index rebuild requires the local archive described above. **Copy this view**
+continues to produce the sensor-relative camera JSON for that site's
+`assets/vantages.json`; it does not change the orientation measurements.

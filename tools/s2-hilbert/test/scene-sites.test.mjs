@@ -161,3 +161,17 @@ test("a recording with no site keeps its own id rather than inventing one", () =
   });
   assert.equal(sites[0].id, "soma1");
 });
+
+test("map mark angles propagated by the index are canonical, including zero and unknown", () => {
+  for (const north of [0, 123, null]) {
+    const { sites } = buildSceneSites({
+      scenes: [at("2026-09-02T10:59:10-07:00", 2004, "s2-sf-2")],
+      index: [{ ...INDEX[0], grid_azimuth_deg: 0, north_azimuth_deg: north }],
+      overrides: {
+        "s2-sf-2": { grid_azimuth_deg: 90, north_azimuth_deg: 180 },
+      },
+    });
+    assert.equal(sites[0].grid_azimuth_deg, 0);
+    assert.equal(sites[0].north_azimuth_deg, north);
+  }
+});

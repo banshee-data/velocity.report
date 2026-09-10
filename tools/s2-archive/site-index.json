@@ -17,7 +17,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "ashbury-downey"
   },
   {
     "id": "haight-divisadero",
@@ -231,7 +231,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "marina-webster-beach"
   },
   {
     "id": "lombard-laguna",
@@ -281,7 +281,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "columbus-north-point"
   },
   {
     "id": "embarcadero-bay",
@@ -304,7 +304,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "embarcadero-bay"
   },
   {
     "id": "columbus-broadway",
@@ -400,7 +400,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "franklin-mcallister"
   },
   {
     "id": "hyde-ofarrell",
@@ -423,7 +423,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "hyde-ofarrell"
   },
   {
     "id": "bush-powell",
@@ -493,7 +493,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "1st-mission"
   },
   {
     "id": "embarcadero-bryant",
@@ -517,7 +517,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "embarcadero-bryant"
   },
   {
     "id": "3rd-folsom",
@@ -540,7 +540,7 @@
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "grid_azimuth_deg": null,
     "north_azimuth_deg": null,
-    "published_as": null
+    "published_as": "3rd-folsom"
   },
   {
     "id": "howard-6th",
