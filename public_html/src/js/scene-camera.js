@@ -21,43 +21,65 @@ const MIN_DISTANCE = 3;
  * geometry ships labels like "Eastbound Howard" instead, and those arrive in
  * the export header rather than being hardcoded here.
  */
+/**
+ * The views a scene has when it ships no vantages of its own.
+ *
+ * Distances match the one scene that was framed by hand, soma1: the four
+ * compass views sit at 0.25 of the framing distance, which is close enough to
+ * read a vehicle's shape against the street. The defaults were 0.85 — three
+ * and a half times further out — which framed the whole survey and left the
+ * traffic as specks.
+ *
+ * The overview and the overhead plan are excluded from the flight, as they are
+ * in soma1. An orbit is fitted to the vantages it flies, so leaving an
+ * overhead view at 2 degrees of elevation in that set drags the circle up and
+ * out: the flight was not only too far away, it was the wrong shape.
+ */
 export const DEFAULT_VANTAGES = [
   {
     id: "overview",
     label: "Overview",
     azimuth_deg: 45,
     polar_deg: 55,
-    zoom: 1.0,
+    zoom: 0.5,
+    fly: false,
   },
   {
     id: "north",
     label: "From north",
     azimuth_deg: 0,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
   {
     id: "east",
     label: "From east",
     azimuth_deg: 90,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
   {
     id: "south",
     label: "From south",
     azimuth_deg: 180,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
   {
     id: "west",
     label: "From west",
     azimuth_deg: 270,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
-  { id: "top", label: "Overhead", azimuth_deg: 0, polar_deg: 2, zoom: 0.95 },
+  {
+    id: "top",
+    label: "Overhead",
+    azimuth_deg: 0,
+    polar_deg: 2,
+    zoom: 0.5,
+    fly: false,
+  },
 ];
 
 const deg = (d) => (d * Math.PI) / 180;
