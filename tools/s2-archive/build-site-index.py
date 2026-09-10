@@ -238,13 +238,19 @@ for header in glob.glob(
     scene = header.split(os.sep)[-4]
     published[scene] = datetime.fromtimestamp(start_ns / 1e9, tz=PACIFIC)
 
+# A mark is claimed by one site. Keyed on the mark's id, which is unique;
+# keying it on the clock made two marks on different days collide, because the
+# sheet is a 12-hour clock and a run happens at the same hour most afternoons.
+# 9/2's 1:15 consumed the key and 9/3's 1:15 was refused, so a site recorded
+# two minutes from its mark was left unnamed and off the map. Two sites and two
+# marks were lost that way.
 index, used = [], set()
 for number, site in enumerate(sites, 1):
     mark, gap = match(site)
-    if mark and mark["clock"] in used:
+    if mark and mark["id"] in used:
         mark = None
     if mark:
-        used.add(mark["clock"])
+        used.add(mark["id"])
     minutes = (site["end"] - site["start"]).total_seconds() / 60
     index.append(
         {
