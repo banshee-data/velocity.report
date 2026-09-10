@@ -143,8 +143,8 @@
       "page": "/scenes/lombard-broderick/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s08",
-      "grid_azimuth_deg": null,
-      "north_azimuth_deg": null,
+      "grid_azimuth_deg": 355,
+      "north_azimuth_deg": 97,
       "position": {
         "lat": 37.799,
         "lon": -122.444,

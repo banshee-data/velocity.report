@@ -183,8 +183,8 @@
     "lat": 37.799,
     "lon": -122.444,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 355,
+    "north_azimuth_deg": 97,
     "published_as": "lombard-broderick"
   },
   {
