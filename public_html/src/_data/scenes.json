@@ -5,10 +5,10 @@
     "neighbourhood": 13,
     "site": 16
   },
-  "located_count": 20,
-  "unlocated_count": 2,
-  "published_count": 13,
-  "recorded_count": 22,
+  "located_count": 23,
+  "unlocated_count": 1,
+  "published_count": 14,
+  "recorded_count": 24,
   "sites": [
     {
       "id": "soma1",
@@ -27,7 +27,7 @@
       "title": "Haight at Divisadero",
       "page": "/scenes/haight-divisadero/",
       "published": true,
-      "archive_site": "s01",
+      "archive_site": "s02",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -59,7 +59,7 @@
       "title": "Pierce at Haight",
       "page": "/scenes/pierce-haight/",
       "published": true,
-      "archive_site": "s02",
+      "archive_site": "s03",
       "summary": "21 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -91,7 +91,7 @@
       "title": "Fulton at Divisadero",
       "page": "/scenes/fulton-divisadero/",
       "published": true,
-      "archive_site": "s03",
+      "archive_site": "s04",
       "summary": "20 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -123,7 +123,7 @@
       "title": "California between Leon and Baker",
       "page": "/scenes/california-leon-baker/",
       "published": true,
-      "archive_site": "s04",
+      "archive_site": "s05",
       "summary": "20 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -155,7 +155,7 @@
       "title": "Broadway at Gough",
       "page": "/scenes/broadway-gough/",
       "published": true,
-      "archive_site": "s05",
+      "archive_site": "s06",
       "summary": "18 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -187,7 +187,7 @@
       "title": "Laguna at Eddy",
       "page": "/scenes/laguna-eddy/",
       "published": true,
-      "archive_site": "s06",
+      "archive_site": "s07",
       "summary": "21 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -215,11 +215,43 @@
       }
     },
     {
+      "id": "lombard-broderick",
+      "title": "Lombard at Broderick",
+      "page": "/scenes/lombard-broderick/",
+      "published": true,
+      "archive_site": "s08",
+      "summary": "19 minutes of a static roadside recording.",
+      "located": true,
+      "position": {
+        "lat": 37.799,
+        "lon": -122.444,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580d4",
+          "display": "80858-0d4",
+          "level": 13
+        },
+        "site": {
+          "token": "808580d49",
+          "display": "80858-0d49",
+          "level": 16
+        }
+      }
+    },
+    {
       "id": "lombard-laguna",
       "title": "Lombard at Laguna",
       "page": "/scenes/lombard-laguna/",
       "published": true,
-      "archive_site": "s10",
+      "archive_site": "s11",
       "summary": "33 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -251,7 +283,7 @@
       "title": "Columbus at Broadway",
       "page": "/scenes/columbus-broadway/",
       "published": true,
-      "archive_site": "s13",
+      "archive_site": "s14",
       "summary": "36 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -283,7 +315,7 @@
       "title": "Embarcadero at Broadway",
       "page": "/scenes/embarcadero-broadway/",
       "published": true,
-      "archive_site": "s14",
+      "archive_site": "s15",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -315,7 +347,7 @@
       "title": "Bush at Powell",
       "page": "/scenes/bush-powell/",
       "published": true,
-      "archive_site": "s17",
+      "archive_site": "s18",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -343,23 +375,43 @@
       }
     },
     {
-      "id": "unrecognised-0903-1317",
-      "title": "Unnamed site, 2026-09-03 1:17",
-      "page": "/scenes/unrecognised-0903-1317/",
+      "id": "embarcadero-folsom",
+      "title": "Embarcadero at Folsom",
+      "page": "/scenes/embarcadero-folsom/",
       "published": true,
-      "archive_site": "s18",
+      "archive_site": "s19",
       "summary": "20 minutes of a static roadside recording.",
-      "located": false,
-      "position": null,
-      "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
-      "cells": null
+      "located": true,
+      "position": {
+        "lat": 37.791,
+        "lon": -122.3899,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "8085806c",
+          "display": "80858-06c",
+          "level": 13
+        },
+        "site": {
+          "token": "8085806ff",
+          "display": "80858-06ff",
+          "level": 16
+        }
+      }
     },
     {
       "id": "howard-6th",
       "title": "Howard at 6th",
       "page": "/scenes/howard-6th/",
       "published": true,
-      "archive_site": "s22",
+      "archive_site": "s23",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -387,19 +439,19 @@
       }
     },
     {
-      "id": "lombard-broderick",
-      "title": "Lombard at Broderick",
+      "id": "ashbury-downey",
+      "title": "Ashbury at Downey",
       "page": null,
       "published": false,
-      "archive_site": "s07",
-      "summary": "20 minutes recorded on 2026-09-02, not yet published.",
+      "archive_site": "s01",
+      "summary": "21 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
-        "lat": 37.799,
-        "lon": -122.444,
+        "lat": 37.769,
+        "lon": -122.445,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Lombard at Broderick). Neighbourhood-level; replace with a survey.",
+      "position_note": "Read from the field map (Ashbury at Downey). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -407,13 +459,13 @@
           "level": 10
         },
         "neighbourhood": {
-          "token": "808580d4",
-          "display": "80858-0d4",
+          "token": "808580ac",
+          "display": "80858-0ac",
           "level": 13
         },
         "site": {
-          "token": "808580d49",
-          "display": "80858-0d49",
+          "token": "808580ac9",
+          "display": "80858-0ac9",
           "level": 16
         }
       }
@@ -423,7 +475,7 @@
       "title": "Marina at Broderick",
       "page": null,
       "published": false,
-      "archive_site": "s08",
+      "archive_site": "s09",
       "summary": "20 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
@@ -455,7 +507,7 @@
       "title": "Marina between Webster and Beach",
       "page": null,
       "published": false,
-      "archive_site": "s09",
+      "archive_site": "s10",
       "summary": "20 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
@@ -487,7 +539,7 @@
       "title": "Columbus at North Point",
       "page": null,
       "published": false,
-      "archive_site": "s11",
+      "archive_site": "s12",
       "summary": "18 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
@@ -519,7 +571,7 @@
       "title": "Embarcadero at Bay",
       "page": null,
       "published": false,
-      "archive_site": "s12",
+      "archive_site": "s13",
       "summary": "16 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
@@ -551,7 +603,7 @@
       "title": "Franklin at McAllister",
       "page": null,
       "published": false,
-      "archive_site": "s15",
+      "archive_site": "s16",
       "summary": "12 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -583,7 +635,7 @@
       "title": "Hyde at O'Farrell",
       "page": null,
       "published": false,
-      "archive_site": "s16",
+      "archive_site": "s17",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -615,7 +667,7 @@
       "title": "1st at Mission",
       "page": null,
       "published": false,
-      "archive_site": "s19",
+      "archive_site": "s20",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -647,7 +699,7 @@
       "title": "Embarcadero at Bryant",
       "page": null,
       "published": false,
-      "archive_site": "s20",
+      "archive_site": "s21",
       "summary": "23 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -670,6 +722,38 @@
         "site": {
           "token": "80858070d",
           "display": "80858-070d",
+          "level": 16
+        }
+      }
+    },
+    {
+      "id": "3rd-folsom",
+      "title": "3rd at Folsom",
+      "page": null,
+      "published": false,
+      "archive_site": "s22",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
+      "located": true,
+      "position": {
+        "lat": 37.7837,
+        "lon": -122.3986,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (3rd at Folsom). Neighbourhood-level; replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "8085807c",
+          "display": "80858-07c",
+          "level": 13
+        },
+        "site": {
+          "token": "8085807dd",
+          "display": "80858-07dd",
           "level": 16
         }
       }

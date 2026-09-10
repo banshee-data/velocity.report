@@ -28,7 +28,7 @@
       "title": "Haight at Divisadero",
       "page": "/scenes/haight-divisadero/",
       "summary": "19 minutes of a static roadside recording.",
-      "archive_site": "s01",
+      "archive_site": "s02",
       "position": {
         "lat": 37.7712,
         "lon": -122.4372,
@@ -42,7 +42,7 @@
       "title": "Pierce at Haight",
       "page": "/scenes/pierce-haight/",
       "summary": "21 minutes of a static roadside recording.",
-      "archive_site": "s02",
+      "archive_site": "s03",
       "position": {
         "lat": 37.7718,
         "lon": -122.4338,
@@ -56,7 +56,7 @@
       "title": "Fulton at Divisadero",
       "page": "/scenes/fulton-divisadero/",
       "summary": "20 minutes of a static roadside recording.",
-      "archive_site": "s03",
+      "archive_site": "s04",
       "position": {
         "lat": 37.7768,
         "lon": -122.4381,
@@ -70,7 +70,7 @@
       "title": "California between Leon and Baker",
       "page": "/scenes/california-leon-baker/",
       "summary": "20 minutes of a static roadside recording.",
-      "archive_site": "s04",
+      "archive_site": "s05",
       "position": {
         "lat": 37.7875,
         "lon": -122.4446,
@@ -84,7 +84,7 @@
       "title": "Broadway at Gough",
       "page": "/scenes/broadway-gough/",
       "summary": "18 minutes of a static roadside recording.",
-      "archive_site": "s05",
+      "archive_site": "s06",
       "position": {
         "lat": 37.7952,
         "lon": -122.4269,
@@ -98,7 +98,7 @@
       "title": "Laguna at Eddy",
       "page": "/scenes/laguna-eddy/",
       "summary": "21 minutes of a static roadside recording.",
-      "archive_site": "s06",
+      "archive_site": "s07",
       "position": {
         "lat": 37.7821,
         "lon": -122.4274,
@@ -108,11 +108,25 @@
       "position_source": "archive-index"
     },
     {
+      "id": "lombard-broderick",
+      "title": "Lombard at Broderick",
+      "page": "/scenes/lombard-broderick/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s08",
+      "position": {
+        "lat": 37.799,
+        "lon": -122.444,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
       "id": "lombard-laguna",
       "title": "Lombard at Laguna",
       "page": "/scenes/lombard-laguna/",
       "summary": "33 minutes of a static roadside recording.",
-      "archive_site": "s10",
+      "archive_site": "s11",
       "position": {
         "lat": 37.8004,
         "lon": -122.4313,
@@ -126,7 +140,7 @@
       "title": "Columbus at Broadway",
       "page": "/scenes/columbus-broadway/",
       "summary": "36 minutes of a static roadside recording.",
-      "archive_site": "s13",
+      "archive_site": "s14",
       "position": {
         "lat": 37.7978,
         "lon": -122.4065,
@@ -140,7 +154,7 @@
       "title": "Embarcadero at Broadway",
       "page": "/scenes/embarcadero-broadway/",
       "summary": "19 minutes of a static roadside recording.",
-      "archive_site": "s14",
+      "archive_site": "s15",
       "position": {
         "lat": 37.7991,
         "lon": -122.3976,
@@ -154,7 +168,7 @@
       "title": "Bush at Powell",
       "page": "/scenes/bush-powell/",
       "summary": "19 minutes of a static roadside recording.",
-      "archive_site": "s17",
+      "archive_site": "s18",
       "position": {
         "lat": 37.7901,
         "lon": -122.409,
@@ -164,13 +178,17 @@
       "position_source": "archive-index"
     },
     {
-      "id": "unrecognised-0903-1317",
-      "title": "Unnamed site, 2026-09-03 1:17",
-      "page": "/scenes/unrecognised-0903-1317/",
+      "id": "embarcadero-folsom",
+      "title": "Embarcadero at Folsom",
+      "page": "/scenes/embarcadero-folsom/",
       "summary": "20 minutes of a static roadside recording.",
-      "archive_site": "s18",
-      "position": null,
-      "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
+      "archive_site": "s19",
+      "position": {
+        "lat": 37.791,
+        "lon": -122.3899,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     },
     {
@@ -178,7 +196,7 @@
       "title": "Howard at 6th",
       "page": "/scenes/howard-6th/",
       "summary": "19 minutes of a static roadside recording.",
-      "archive_site": "s22",
+      "archive_site": "s23",
       "position": {
         "lat": 37.7798,
         "lon": -122.4069,
