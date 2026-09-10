@@ -216,6 +216,7 @@ data/**/results/*
 data/maths/papers/*.pdf
 data/maths/papers/download-status.md
 data/structures/SCHEMA.dot
+.scratch-analysis
 
 # =============================================================================
 # Embedded Typst Binary
