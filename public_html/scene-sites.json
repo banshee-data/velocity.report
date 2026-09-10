@@ -25,7 +25,7 @@
     },
     {
       "id": "haight-divisadero",
-      "title": "Haight by Divisadero",
+      "title": "Haight at Divisadero",
       "page": "/scenes/haight-divisadero/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s01",
@@ -34,7 +34,7 @@
         "lon": -122.4372,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Haight by Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     },
     {
@@ -66,23 +66,65 @@
       "position_source": "archive-index"
     },
     {
-      "id": "union-van-ness",
-      "title": "Union Street near Van Ness",
-      "page": "/scenes/union-van-ness/",
-      "summary": "33 minutes of a static roadside recording.",
-      "archive_site": "s10",
+      "id": "california-leon-baker",
+      "title": "California between Leon and Baker",
+      "page": "/scenes/california-leon-baker/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s04",
       "position": {
-        "lat": 37.7985,
-        "lon": -122.424,
+        "lat": 37.7875,
+        "lon": -122.4446,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Union Street near Van Ness), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (California between Leon and Baker), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     },
     {
-      "id": "broadway-telegraph-hill",
+      "id": "broadway-gough",
+      "title": "Broadway at Gough",
+      "page": "/scenes/broadway-gough/",
+      "summary": "18 minutes of a static roadside recording.",
+      "archive_site": "s05",
+      "position": {
+        "lat": 37.7952,
+        "lon": -122.4269,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "laguna-eddy",
+      "title": "Laguna at Eddy",
+      "page": "/scenes/laguna-eddy/",
+      "summary": "21 minutes of a static roadside recording.",
+      "archive_site": "s06",
+      "position": {
+        "lat": 37.7821,
+        "lon": -122.4274,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Laguna at Eddy), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "lombard-laguna",
+      "title": "Lombard at Laguna",
+      "page": "/scenes/lombard-laguna/",
+      "summary": "33 minutes of a static roadside recording.",
+      "archive_site": "s10",
+      "position": {
+        "lat": 37.8004,
+        "lon": -122.4313,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Lombard at Laguna), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "columbus-broadway",
       "title": "Broadway & Columbus",
-      "page": "/scenes/broadway-telegraph-hill/",
+      "page": "/scenes/columbus-broadway/",
       "summary": "A North Beach junction, recorded from a static roadside sensor.",
       "archive_site": "s13",
       "position": {
@@ -94,27 +136,31 @@
       "position_source": "override"
     },
     {
-      "id": "nob-hill-chinatown",
-      "title": "Nob Hill / Chinatown edge",
-      "page": "/scenes/nob-hill-chinatown/",
+      "id": "embarcadero-broadway",
+      "title": "Embarcadero at Broadway",
+      "page": "/scenes/embarcadero-broadway/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s14",
-      "position": null,
-      "position_note": "Not yet located. The recording is joined to an archive site, but that site's field mark could not be read; give the mark a position and this scene inherits it.",
+      "position": {
+        "lat": 37.7991,
+        "lon": -122.3976,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     },
     {
-      "id": "bush-kearny",
-      "title": "Bush Street near Kearny",
-      "page": "/scenes/bush-kearny/",
+      "id": "bush-powell",
+      "title": "Bush at Powell",
+      "page": "/scenes/bush-powell/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s17",
       "position": {
-        "lat": 37.791,
-        "lon": -122.4045,
+        "lat": 37.7901,
+        "lon": -122.409,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Bush Street near Kearny), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Bush at Powell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     },
     {
@@ -128,17 +174,17 @@
       "position_source": "archive-index"
     },
     {
-      "id": "soma-mission-8th",
-      "title": "SoMa, Mission near 8th",
-      "page": "/scenes/soma-mission-8th/",
+      "id": "howard-6th",
+      "title": "Howard at 6th",
+      "page": "/scenes/howard-6th/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s22",
       "position": {
-        "lat": 37.779,
-        "lon": -122.413,
+        "lat": 37.7798,
+        "lon": -122.4069,
         "source": "operator"
       },
-      "position_note": "Read from the field map (SoMa, Mission near 8th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Howard at 6th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
       "position_source": "archive-index"
     }
   ]

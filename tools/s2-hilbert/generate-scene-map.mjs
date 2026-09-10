@@ -8,7 +8,7 @@
  * once — in tools/s2-archive/map-marks.json, or as an override for a scene the
  * archive does not cover — moves the marker, the cell and the token together.
  */
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -21,6 +21,7 @@ import {
 } from "./scene-map.mjs";
 import {
   buildSceneSites,
+  matchSite,
   sceneStartMs,
   unpublishedSites,
 } from "./scene-sites.mjs";
@@ -74,6 +75,59 @@ const SVG_OUTPUT = path.join(
 );
 
 /**
+ * Move a published scene to the directory its site now names.
+ *
+ * A site's id is a slug of the intersection on its field mark, which makes it
+ * meaningful and stable against the index being rebuilt — but not against the
+ * mark itself being corrected. Renaming "Bush Street near Kearny" to "Bush at
+ * Powell" renames the site, and the scene published under the old slug is then
+ * unreachable: five scenes answered 404 at once that way.
+ *
+ * The clock join is what actually identifies a scene, so it can repair this.
+ * A directory whose export lands on a site with a different id is renamed to
+ * follow it, and the correction costs nothing but a rebuild.
+ *
+ * A scene mid-export is left alone: its assets are still being written.
+ */
+async function reconcileSceneDirectories(index) {
+  const entries = await readdir(SCENES_DIR, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = path.join(SCENES_DIR, entry.name);
+    let header;
+    try {
+      header = JSON.parse(
+        await readFile(
+          path.join(dir, "assets", "part-000", "header.json"),
+          "utf8",
+        ),
+      );
+    } catch {
+      continue; // nothing published here yet
+    }
+    try {
+      await readdir(path.join(dir, "assets.new"));
+      continue; // an export is in flight; leave it where it is
+    } catch {
+      // no in-flight export, so the directory is safe to move
+    }
+    const startMs = sceneStartMs(header);
+    const joined = matchSite({ startMs }, index);
+    if (!joined || joined.site.id === entry.name) continue;
+    const target = path.join(SCENES_DIR, joined.site.id);
+    try {
+      await readdir(target);
+      continue; // something already occupies the new name; do not clobber it
+    } catch {
+      await rename(dir, target);
+      process.stdout.write(
+        `renamed scene ${entry.name} -> ${joined.site.id}\n`,
+      );
+    }
+  }
+}
+
+/**
  * Read every published scene export: its identity from the manifest and its
  * recording clock from the part header, which is what joins it to a site.
  */
@@ -108,13 +162,15 @@ async function discoverScenes() {
 
 /** Regenerate scene-sites.json from the exports and the archive index. */
 export async function generateSceneSites() {
+  const index = JSON.parse(await readFile(SITE_INDEX, "utf8"));
+  // Follow any site whose mark was renamed before reading what is published.
+  await reconcileSceneDirectories(index);
   const scenes = await discoverScenes();
   if (scenes.length === 0) {
     throw new Error(
       `${path.relative(REPO_ROOT, SCENES_DIR)} holds no published scene exports.`,
     );
   }
-  const index = JSON.parse(await readFile(SITE_INDEX, "utf8"));
   const overrides = JSON.parse(await readFile(OVERRIDES, "utf8")).scenes ?? {};
   const doc = buildSceneSites({ scenes, index, overrides });
   await writeFile(SOURCE, `${JSON.stringify(doc, null, 2)}\n`, "utf8");

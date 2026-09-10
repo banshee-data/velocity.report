@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="100%" role="img" aria-labelledby="scene-map-title scene-map-desc" class="scene-map">
   <title id="scene-map-title">Published LiDAR scenes</title>
-  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Haight by Divisadero in S2 cell 80858-0ac; Pierce at Haight in S2 cell 80858-0a4; Fulton at Divisadero in S2 cell 80858-0b4; Union Street near Van Ness in S2 cell 80858-0ec; Broadway &amp; Columbus in S2 cell 80858-0f4; Bush Street near Kearny in S2 cell 80858-08c; SoMa, Mission near 8th in S2 cell 80858-09c; California between Leon and Baker in S2 cell 80858-0cc; Broadway at Gough in S2 cell 80858-0c4; Laguna at Eddy in S2 cell 80858-0bc; Lombard at Broderick in S2 cell 80858-0d4; Marina Boulevard at Broderick in S2 cell 80858-12c; Marina Boulevard near Fillmore in S2 cell 80858-12c; Fisherman's Wharf, Jefferson Street near Hyde in S2 cell 80858-0e4; Bay Street towards the Embarcadero in S2 cell 80858-0fc; Van Ness near Market, Civic Center in S2 cell 80858-09c; Geary near Larkin in S2 cell 80858-094; Financial District, Battery near Pine in S2 cell 80858-064; Rincon Hill, Folsom near Beale in S2 cell 80858-07c; SoMa, Folsom near 2nd in S2 cell 80858-07c.</desc>
+  <desc id="scene-map-desc">Each published scene shown inside the S2 level 13 cell that indexes it, with its level 10 area cell for context: Haight at Divisadero in S2 cell 80858-0ac; Pierce at Haight in S2 cell 80858-0a4; Fulton at Divisadero in S2 cell 80858-0b4; California between Leon and Baker in S2 cell 80858-0cc; Broadway at Gough in S2 cell 80858-0c4; Laguna at Eddy in S2 cell 80858-0bc; Lombard at Laguna in S2 cell 80858-0dc; Broadway &amp; Columbus in S2 cell 80858-0f4; Embarcadero at Broadway in S2 cell 80858-05c; Bush at Powell in S2 cell 80858-08c; Howard at 6th in S2 cell 80858-084; Lombard at Broderick in S2 cell 80858-0d4; Marina at Broderick in S2 cell 80858-12c; Marina between Webster and Beach in S2 cell 80858-124; Columbus at North Point in S2 cell 80858-0e4; Embarcadero at Bay in S2 cell 80858-0fc; Franklin at McAllister in S2 cell 80858-09c; Hyde at O'Farrell in S2 cell 80858-094; 1st at Mission in S2 cell 80858-064; Embarcadero at Bryant in S2 cell 80858-074.</desc>
   <style>
   .scene-map__frame { fill: none; stroke: currentColor; stroke-opacity: 0.18; }
   .scene-map__area { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-opacity: 0.35; stroke-dasharray: 6 5; }
@@ -18,131 +18,134 @@
 </style>
   <rect class="scene-map__frame" x="1" y="1" width="898" height="458" rx="4"/>
   <g>
-    <polygon class="scene-map__area" points="329.61,-39.99 329.61,370.00 714.93,220.19 714.93,-190.05"><title>S2 area cell 80858-1</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,318.75 329.61,370.00 377.75,351.26 377.75,300.00"><title>S2 cell 80858-0ac</title></polygon>
-    <polygon class="scene-map__cell" points="377.75,300.00 377.75,351.26 425.91,332.52 425.91,281.26"><title>S2 cell 80858-0a4</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,267.50 329.61,318.75 377.75,300.00 377.75,248.75"><title>S2 cell 80858-0b4</title></polygon>
-    <polygon class="scene-map__cell" points="425.91,178.75 425.91,230.01 474.06,211.27 474.06,160.00"><title>S2 cell 80858-0ec</title></polygon>
-    <polygon class="scene-map__cell" points="474.06,160.00 474.06,211.27 522.23,192.53 522.23,141.26"><title>S2 cell 80858-0f4</title></polygon>
-    <polygon class="scene-map__cell" points="474.06,211.27 474.06,262.53 522.23,243.79 522.23,192.53"><title>S2 cell 80858-08c</title></polygon>
-    <polygon class="scene-map__cell" points="425.91,281.26 425.91,332.52 474.06,313.79 474.06,262.53"><title>S2 cell 80858-09c</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,216.25 329.61,267.50 377.75,248.75 377.75,197.50"><title>S2 cell 80858-0cc</title></polygon>
-    <polygon class="scene-map__cell" points="377.75,197.50 377.75,248.75 425.91,230.01 425.91,178.75"><title>S2 cell 80858-0c4</title></polygon>
-    <polygon class="scene-map__cell" points="377.75,248.75 377.75,300.00 425.91,281.26 425.91,230.01"><title>S2 cell 80858-0bc</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,165.01 329.61,216.25 377.75,197.50 377.75,146.25"><title>S2 cell 80858-0d4</title></polygon>
-    <polygon class="scene-map__cell" points="329.61,113.76 329.61,165.01 377.75,146.25 377.75,95.00"><title>S2 cell 80858-12c</title></polygon>
-    <polygon class="scene-map__cell" points="425.91,127.49 425.91,178.75 474.06,160.00 474.06,108.74"><title>S2 cell 80858-0e4</title></polygon>
-    <polygon class="scene-map__cell" points="474.06,108.74 474.06,160.00 522.23,141.26 522.23,90.00"><title>S2 cell 80858-0fc</title></polygon>
-    <polygon class="scene-map__cell" points="425.91,230.01 425.91,281.26 474.06,262.53 474.06,211.27"><title>S2 cell 80858-094</title></polygon>
-    <polygon class="scene-map__cell" points="522.23,192.53 522.23,243.79 570.39,225.07 570.39,173.80"><title>S2 cell 80858-064</title></polygon>
-    <polygon class="scene-map__cell" points="522.23,243.79 522.23,295.06 570.39,276.33 570.39,225.07"><title>S2 cell 80858-07c</title></polygon>
+    <polygon class="scene-map__area" points="312.29,-20.78 312.29,370.00 679.56,227.21 679.56,-163.81"><title>S2 area cell 80858-1</title></polygon>
+    <polygon class="scene-map__cell" points="312.29,321.15 312.29,370.00 358.18,352.14 358.18,303.28"><title>S2 cell 80858-0ac</title></polygon>
+    <polygon class="scene-map__cell" points="358.18,303.28 358.18,352.14 404.08,334.28 404.08,285.42"><title>S2 cell 80858-0a4</title></polygon>
+    <polygon class="scene-map__cell" points="312.29,272.30 312.29,321.15 358.18,303.28 358.18,254.43"><title>S2 cell 80858-0b4</title></polygon>
+    <polygon class="scene-map__cell" points="312.29,223.46 312.29,272.30 358.18,254.43 358.18,205.58"><title>S2 cell 80858-0cc</title></polygon>
+    <polygon class="scene-map__cell" points="358.18,205.58 358.18,254.43 404.08,236.56 404.08,187.71"><title>S2 cell 80858-0c4</title></polygon>
+    <polygon class="scene-map__cell" points="358.18,254.43 358.18,303.28 404.08,285.42 404.08,236.56"><title>S2 cell 80858-0bc</title></polygon>
+    <polygon class="scene-map__cell" points="358.18,156.73 358.18,205.58 404.08,187.71 404.08,138.85"><title>S2 cell 80858-0dc</title></polygon>
+    <polygon class="scene-map__cell" points="449.98,169.84 449.98,218.70 495.88,200.84 495.88,151.98"><title>S2 cell 80858-0f4</title></polygon>
+    <polygon class="scene-map__cell" points="495.88,151.98 495.88,200.84 541.80,182.99 541.80,134.12"><title>S2 cell 80858-05c</title></polygon>
+    <polygon class="scene-map__cell" points="449.98,218.70 449.98,267.56 495.88,249.71 495.88,200.84"><title>S2 cell 80858-08c</title></polygon>
+    <polygon class="scene-map__cell" points="449.98,267.56 449.98,316.42 495.88,298.57 495.88,249.71"><title>S2 cell 80858-084</title></polygon>
+    <polygon class="scene-map__cell" points="312.29,174.61 312.29,223.46 358.18,205.58 358.18,156.73"><title>S2 cell 80858-0d4</title></polygon>
+    <polygon class="scene-map__cell" points="312.29,125.76 312.29,174.61 358.18,156.73 358.18,107.88"><title>S2 cell 80858-12c</title></polygon>
+    <polygon class="scene-map__cell" points="358.18,107.88 358.18,156.73 404.08,138.85 404.08,90.00"><title>S2 cell 80858-124</title></polygon>
+    <polygon class="scene-map__cell" points="404.08,138.85 404.08,187.71 449.98,169.84 449.98,120.98"><title>S2 cell 80858-0e4</title></polygon>
+    <polygon class="scene-map__cell" points="449.98,120.98 449.98,169.84 495.88,151.98 495.88,103.12"><title>S2 cell 80858-0fc</title></polygon>
+    <polygon class="scene-map__cell" points="404.08,285.42 404.08,334.28 449.98,316.42 449.98,267.56"><title>S2 cell 80858-09c</title></polygon>
+    <polygon class="scene-map__cell" points="404.08,236.56 404.08,285.42 449.98,267.56 449.98,218.70"><title>S2 cell 80858-094</title></polygon>
+    <polygon class="scene-map__cell" points="495.88,200.84 495.88,249.71 541.80,231.86 541.80,182.99"><title>S2 cell 80858-064</title></polygon>
+    <polygon class="scene-map__cell" points="541.80,231.86 541.80,280.72 587.71,262.88 587.71,214.01"><title>S2 cell 80858-074</title></polygon>
   </g>
   <g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="370.10" cy="329.67" r="6"/>
-      <text class="scene-map__title" x="370.10" y="299.67" text-anchor="middle">Haight by Divisadero</text>
-      <text class="scene-map__token" x="370.10" y="314.67" text-anchor="middle">80858-0ac</text>
+      <circle class="scene-map__marker" cx="350.88" cy="331.56" r="6"/>
+      <text class="scene-map__title" x="350.88" y="301.56" text-anchor="middle">Haight at Divisadero</text>
+      <text class="scene-map__token" x="350.88" y="316.56" text-anchor="middle">80858-0ac</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="384.55" cy="326.44" r="6"/>
-      <text class="scene-map__title" x="384.55" y="360.44" text-anchor="middle">Pierce at Haight</text>
-      <text class="scene-map__token" x="384.55" y="375.44" text-anchor="middle">80858-0a4</text>
+      <circle class="scene-map__marker" cx="364.66" cy="328.48" r="6"/>
+      <text class="scene-map__title" x="364.66" y="362.48" text-anchor="middle">Pierce at Haight</text>
+      <text class="scene-map__token" x="364.66" y="377.48" text-anchor="middle">80858-0a4</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="366.27" cy="299.54" r="6"/>
-      <text class="scene-map__title" x="366.27" y="237.54" text-anchor="middle">Fulton at Divisadero</text>
-      <text class="scene-map__token" x="366.27" y="252.54" text-anchor="middle">80858-0b4</text>
+      <circle class="scene-map__marker" cx="347.24" cy="302.84" r="6"/>
+      <text class="scene-map__title" x="347.24" y="240.84" text-anchor="middle">Fulton at Divisadero</text>
+      <text class="scene-map__token" x="347.24" y="255.84" text-anchor="middle">80858-0b4</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="426.22" cy="182.80" r="6"/>
-      <text class="scene-map__title" x="426.22" y="152.80" text-anchor="middle">Union Street near Van Ness</text>
-      <text class="scene-map__token" x="426.22" y="167.80" text-anchor="middle">80858-0ec</text>
+      <circle class="scene-map__marker" cx="320.90" cy="247.98" r="6"/>
+      <text class="scene-map__title" x="320.90" y="185.98" text-anchor="middle">California between Leon and Baker</text>
+      <text class="scene-map__token" x="320.90" y="200.98" text-anchor="middle">80858-0cc</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="497.22" cy="181.72" r="6"/>
-      <text class="scene-map__title" x="497.22" y="215.72" text-anchor="middle">Broadway &amp; Columbus</text>
-      <text class="scene-map__token" x="497.22" y="230.72" text-anchor="middle">80858-0f4</text>
+      <circle class="scene-map__marker" cx="392.62" cy="208.49" r="6"/>
+      <text class="scene-map__title" x="392.62" y="146.49" text-anchor="middle">Broadway at Gough</text>
+      <text class="scene-map__token" x="392.62" y="161.49" text-anchor="middle">80858-0c4</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="509.13" cy="223.15" r="6"/>
-      <text class="scene-map__title" x="509.13" y="257.15" text-anchor="middle">Bush Street near Kearny</text>
-      <text class="scene-map__token" x="509.13" y="272.15" text-anchor="middle">80858-08c</text>
+      <circle class="scene-map__marker" cx="390.60" cy="275.67" r="6"/>
+      <text class="scene-map__title" x="390.60" y="245.67" text-anchor="middle">Laguna at Eddy</text>
+      <text class="scene-map__token" x="390.60" y="260.67" text-anchor="middle">80858-0bc</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="472.99" cy="287.71" r="6"/>
-      <text class="scene-map__title" x="472.99" y="257.71" text-anchor="middle">SoMa, Mission near 8th</text>
-      <text class="scene-map__token" x="472.99" y="272.71" text-anchor="middle">80858-09c</text>
+      <circle class="scene-map__marker" cx="374.79" cy="181.83" r="6"/>
+      <text class="scene-map__title" x="374.79" y="87.83" text-anchor="middle">Lombard at Laguna</text>
+      <text class="scene-map__token" x="374.79" y="102.83" text-anchor="middle">80858-0dc</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="338.64" cy="241.98" r="6"/>
-      <text class="scene-map__title" x="338.64" y="211.98" text-anchor="middle">California between Leon and Baker</text>
-      <text class="scene-map__token" x="338.64" y="226.98" text-anchor="middle">80858-0cc</text>
+      <circle class="scene-map__marker" cx="472.05" cy="190.54" r="6"/>
+      <text class="scene-map__title" x="472.05" y="160.54" text-anchor="middle">Broadway &amp; Columbus</text>
+      <text class="scene-map__token" x="472.05" y="175.54" text-anchor="middle">80858-0f4</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="413.89" cy="200.56" r="6"/>
-      <text class="scene-map__title" x="413.89" y="106.56" text-anchor="middle">Broadway at Gough</text>
-      <text class="scene-map__token" x="413.89" y="121.56" text-anchor="middle">80858-0c4</text>
+      <circle class="scene-map__marker" cx="511.36" cy="188.49" r="6"/>
+      <text class="scene-map__title" x="511.36" y="126.49" text-anchor="middle">Embarcadero at Broadway</text>
+      <text class="scene-map__token" x="511.36" y="141.49" text-anchor="middle">80858-05c</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="411.76" cy="271.03" r="6"/>
-      <text class="scene-map__title" x="411.76" y="241.03" text-anchor="middle">Laguna at Eddy</text>
-      <text class="scene-map__token" x="411.76" y="256.03" text-anchor="middle">80858-0bc</text>
+      <circle class="scene-map__marker" cx="465.16" cy="234.65" r="6"/>
+      <text class="scene-map__title" x="465.16" y="204.65" text-anchor="middle">Bush at Powell</text>
+      <text class="scene-map__token" x="465.16" y="219.65" text-anchor="middle">80858-08c</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="341.19" cy="180.11" r="6"/>
-      <text class="scene-map__title" x="341.19" y="150.11" text-anchor="middle">Lombard at Broderick</text>
-      <text class="scene-map__token" x="341.19" y="165.11" text-anchor="middle">80858-0d4</text>
+      <circle class="scene-map__marker" cx="473.67" cy="287.46" r="6"/>
+      <text class="scene-map__title" x="473.67" y="321.46" text-anchor="middle">Howard at 6th</text>
+      <text class="scene-map__token" x="473.67" y="336.46" text-anchor="middle">80858-084</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="334.81" cy="146.21" r="6"/>
-      <text class="scene-map__title" x="334.81" y="52.21" text-anchor="middle">Marina Boulevard at Broderick</text>
-      <text class="scene-map__token" x="334.81" y="67.21" text-anchor="middle">80858-12c</text>
+      <circle class="scene-map__marker" cx="323.33" cy="189.01" r="6"/>
+      <text class="scene-map__title" x="323.33" y="159.01" text-anchor="middle">Lombard at Broderick</text>
+      <text class="scene-map__token" x="323.33" y="174.01" text-anchor="middle">80858-0d4</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="375.20" cy="139.75" r="6"/>
-      <text class="scene-map__title" x="375.20" y="109.75" text-anchor="middle">Marina Boulevard near Fillmore</text>
-      <text class="scene-map__token" x="375.20" y="124.75" text-anchor="middle">80858-12c</text>
+      <circle class="scene-map__marker" cx="317.25" cy="156.69" r="6"/>
+      <text class="scene-map__title" x="317.25" y="126.69" text-anchor="middle">Marina at Broderick</text>
+      <text class="scene-map__token" x="317.25" y="141.69" text-anchor="middle">80858-12c</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="443.23" cy="137.06" r="6"/>
-      <text class="scene-map__title" x="443.23" y="107.06" text-anchor="middle">Fisherman's Wharf, Jefferson Street near Hyde</text>
-      <text class="scene-map__token" x="443.23" y="122.06" text-anchor="middle">80858-0e4</text>
+      <circle class="scene-map__marker" cx="359.39" cy="154.64" r="6"/>
+      <text class="scene-map__title" x="359.39" y="124.64" text-anchor="middle">Marina between Webster and Beach</text>
+      <text class="scene-map__token" x="359.39" y="139.64" text-anchor="middle">80858-124</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="485.74" cy="145.13" r="6"/>
-      <text class="scene-map__title" x="485.74" y="115.13" text-anchor="middle">Bay Street towards the Embarcadero</text>
-      <text class="scene-map__token" x="485.74" y="130.13" text-anchor="middle">80858-0fc</text>
+      <circle class="scene-map__marker" cx="428.29" cy="153.62" r="6"/>
+      <text class="scene-map__title" x="428.29" y="123.62" text-anchor="middle">Columbus at North Point</text>
+      <text class="scene-map__token" x="428.29" y="138.62" text-anchor="middle">80858-0e4</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="447.48" cy="306.54" r="6"/>
-      <text class="scene-map__title" x="447.48" y="404.54" text-anchor="middle">Van Ness near Market, Civic Center</text>
-      <text class="scene-map__token" x="447.48" y="419.54" text-anchor="middle">80858-09c</text>
+      <circle class="scene-map__marker" cx="476.92" cy="149.51" r="6"/>
+      <text class="scene-map__title" x="476.92" y="215.51" text-anchor="middle">Embarcadero at Bay</text>
+      <text class="scene-map__token" x="476.92" y="230.51" text-anchor="middle">80858-0fc</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="458.11" cy="250.05" r="6"/>
-      <text class="scene-map__title" x="458.11" y="220.05" text-anchor="middle">Geary near Larkin</text>
-      <text class="scene-map__token" x="458.11" y="235.05" text-anchor="middle">80858-094</text>
+      <circle class="scene-map__marker" cx="413.29" cy="287.46" r="6"/>
+      <text class="scene-map__title" x="413.29" y="257.46" text-anchor="middle">Franklin at McAllister</text>
+      <text class="scene-map__token" x="413.29" y="272.46" text-anchor="middle">80858-09c</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="528.26" cy="212.39" r="6"/>
-      <text class="scene-map__title" x="528.26" y="182.39" text-anchor="middle">Financial District, Battery near Pine</text>
-      <text class="scene-map__token" x="528.26" y="197.39" text-anchor="middle">80858-064</text>
+      <circle class="scene-map__marker" cx="435.17" cy="258.24" r="6"/>
+      <text class="scene-map__title" x="435.17" y="228.24" text-anchor="middle">Hyde at O'Farrell</text>
+      <text class="scene-map__token" x="435.17" y="243.24" text-anchor="middle">80858-094</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="564.40" cy="233.91" r="6"/>
-      <text class="scene-map__title" x="564.40" y="331.91" text-anchor="middle">Rincon Hill, Folsom near Beale</text>
-      <text class="scene-map__token" x="564.40" y="346.91" text-anchor="middle">80858-07c</text>
+      <circle class="scene-map__marker" cx="512.17" cy="236.70" r="6"/>
+      <text class="scene-map__title" x="512.17" y="270.70" text-anchor="middle">1st at Mission</text>
+      <text class="scene-map__token" x="512.17" y="285.70" text-anchor="middle">80858-064</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="541.02" cy="252.74" r="6"/>
-      <text class="scene-map__title" x="541.02" y="222.74" text-anchor="middle">SoMa, Folsom near 2nd</text>
-      <text class="scene-map__token" x="541.02" y="237.74" text-anchor="middle">80858-07c</text>
+      <circle class="scene-map__marker" cx="549.86" cy="251.57" r="6"/>
+      <text class="scene-map__title" x="549.86" y="221.57" text-anchor="middle">Embarcadero at Bryant</text>
+      <text class="scene-map__token" x="549.86" y="236.57" text-anchor="middle">80858-074</text>
     </g>
   </g>
   <g>
-    <line class="scene-map__scale" x1="28" y1="432" x2="124.66" y2="432" stroke-width="2"/>
+    <line class="scene-map__scale" x1="28" y1="432" x2="120.13" y2="432" stroke-width="2"/>
     <line class="scene-map__scale" x1="28" y1="428" x2="28" y2="436" stroke-width="2"/>
-    <line class="scene-map__scale" x1="124.66" y1="428" x2="124.66" y2="436" stroke-width="2"/>
+    <line class="scene-map__scale" x1="120.13" y1="428" x2="120.13" y2="436" stroke-width="2"/>
     <text class="scene-map__scale-label" x="28" y="423">2 km</text>
   </g>
 </svg>

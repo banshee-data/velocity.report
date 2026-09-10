@@ -1940,7 +1940,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert cache-basemap
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert cache-basemap site-index
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -1967,10 +1967,26 @@ cache-basemap: install-s2-hilbert
 	@echo "Caching basemap tiles (once; cached on disk)..."
 	@pnpm run --silent s2-hilbert:basemap
 
-render-scene-map: install-s2-hilbert
-	@echo "Deriving scene-sites.json and the scene map..."
+# Rebuild the archive site index from the field marks and the segment analysis.
+# Everything downstream — scene identity, titles, positions, the map — derives
+# from it, so it runs first whenever the scenes are regenerated.
+site-index:
+	@echo "Rebuilding the archive site index..."
+	@python3 tools/s2-archive/build-site-index.py
+
+# Regenerate everything the scenes pages are made of, in dependency order: the
+# site index, then scene-sites.json, the map and each scene's page, then the
+# site itself.
+#
+# The last step is not optional. This target writes a page for every published
+# scene, but a page only becomes a URL when Eleventy runs, so stopping before
+# the build leaves a freshly published scene answering 404 — which is exactly
+# what kept happening while this ended one step early.
+render-scene-map: install-s2-hilbert site-index
+	@echo "Deriving scene-sites.json, the scene map and the scene pages..."
 	@pnpm run --silent s2-hilbert:scene-map
-	@echo "✓ scene-sites.json, scene map and scene data written"
+	@$(MAKE) --no-print-directory build-docs
+	@echo "✓ index, scene pages, map and site rebuilt — every published scene has a URL"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
