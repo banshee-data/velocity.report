@@ -1,7 +1,25 @@
 [
   {
-    "id": "haight-divisadero",
+    "id": "ashbury-downey",
     "site": "s01",
+    "day": "2026-09-01",
+    "start": "2026-09-01T12:25:33.019394-07:00",
+    "clock": "12:25",
+    "minutes": 20.5,
+    "fragments": 1,
+    "captures": [
+      "s2-sf-0.pcapng"
+    ],
+    "map_mark": "12:35",
+    "where": "Ashbury at Downey",
+    "lat": 37.769,
+    "lon": -122.445,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "published_as": null
+  },
+  {
+    "id": "haight-divisadero",
+    "site": "s02",
     "day": "2026-09-01",
     "start": "2026-09-01T12:59:22.752867-07:00",
     "clock": "12:59",
@@ -22,7 +40,7 @@
   },
   {
     "id": "pierce-haight",
-    "site": "s02",
+    "site": "s03",
     "day": "2026-09-01",
     "start": "2026-09-01T13:27:25.196424-07:00",
     "clock": "1:27",
@@ -45,7 +63,7 @@
   },
   {
     "id": "fulton-divisadero",
-    "site": "s03",
+    "site": "s04",
     "day": "2026-09-01",
     "start": "2026-09-01T13:59:33.731163-07:00",
     "clock": "1:59",
@@ -67,7 +85,7 @@
   },
   {
     "id": "california-leon-baker",
-    "site": "s04",
+    "site": "s05",
     "day": "2026-09-01",
     "start": "2026-09-01T14:33:21.213325-07:00",
     "clock": "2:33",
@@ -90,7 +108,7 @@
   },
   {
     "id": "broadway-gough",
-    "site": "s05",
+    "site": "s06",
     "day": "2026-09-01",
     "start": "2026-09-01T15:10:31.646959-07:00",
     "clock": "3:10",
@@ -112,7 +130,7 @@
   },
   {
     "id": "laguna-eddy",
-    "site": "s06",
+    "site": "s07",
     "day": "2026-09-01",
     "start": "2026-09-01T15:46:36.580590-07:00",
     "clock": "3:46",
@@ -134,7 +152,7 @@
   },
   {
     "id": "lombard-broderick",
-    "site": "s07",
+    "site": "s08",
     "day": "2026-09-02",
     "start": "2026-09-02T09:38:22.219220-07:00",
     "clock": "9:38",
@@ -151,11 +169,11 @@
     "lat": 37.799,
     "lon": -122.444,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": null
+    "published_as": "lombard-broderick"
   },
   {
     "id": "marina-broderick",
-    "site": "s08",
+    "site": "s09",
     "day": "2026-09-02",
     "start": "2026-09-02T10:03:24.602530-07:00",
     "clock": "10:03",
@@ -176,7 +194,7 @@
   },
   {
     "id": "marina-webster-beach",
-    "site": "s09",
+    "site": "s10",
     "day": "2026-09-02",
     "start": "2026-09-02T10:28:27.366603-07:00",
     "clock": "10:28",
@@ -197,7 +215,7 @@
   },
   {
     "id": "lombard-laguna",
-    "site": "s10",
+    "site": "s11",
     "day": "2026-09-02",
     "start": "2026-09-02T10:58:30.258816-07:00",
     "clock": "10:58",
@@ -222,7 +240,7 @@
   },
   {
     "id": "columbus-north-point",
-    "site": "s11",
+    "site": "s12",
     "day": "2026-09-02",
     "start": "2026-09-02T11:53:34.547768-07:00",
     "clock": "11:53",
@@ -243,7 +261,7 @@
   },
   {
     "id": "embarcadero-bay",
-    "site": "s12",
+    "site": "s13",
     "day": "2026-09-02",
     "start": "2026-09-02T12:35:17.164539-07:00",
     "clock": "12:35",
@@ -264,7 +282,7 @@
   },
   {
     "id": "columbus-broadway",
-    "site": "s13",
+    "site": "s14",
     "day": "2026-09-02",
     "start": "2026-09-02T13:20:36.986210-07:00",
     "clock": "1:20",
@@ -288,7 +306,7 @@
   },
   {
     "id": "embarcadero-broadway",
-    "site": "s14",
+    "site": "s15",
     "day": "2026-09-02",
     "start": "2026-09-02T15:22:49.666945-07:00",
     "clock": "3:22",
@@ -310,7 +328,7 @@
   },
   {
     "id": "franklin-mcallister",
-    "site": "s15",
+    "site": "s16",
     "day": "2026-09-03",
     "start": "2026-09-03T10:35:52.823348-07:00",
     "clock": "10:35",
@@ -330,7 +348,7 @@
   },
   {
     "id": "hyde-ofarrell",
-    "site": "s16",
+    "site": "s17",
     "day": "2026-09-03",
     "start": "2026-09-03T11:05:55.344702-07:00",
     "clock": "11:05",
@@ -351,7 +369,7 @@
   },
   {
     "id": "bush-powell",
-    "site": "s17",
+    "site": "s18",
     "day": "2026-09-03",
     "start": "2026-09-03T11:35:56.633007-07:00",
     "clock": "11:35",
@@ -371,8 +389,8 @@
     "published_as": "bush-powell"
   },
   {
-    "id": "unrecognised-0903-1317",
-    "site": "s18",
+    "id": "embarcadero-folsom",
+    "site": "s19",
     "day": "2026-09-03",
     "start": "2026-09-03T13:17:48.154812-07:00",
     "clock": "1:17",
@@ -385,16 +403,16 @@
       "s2_sf_7_20260903133249_00004.pcap",
       "s2_sf_7_20260903133749_00005.pcap"
     ],
-    "map_mark": null,
-    "where": null,
-    "lat": null,
-    "lon": null,
-    "position_confidence": "no mark matched",
-    "published_as": "unrecognised-0903-1317"
+    "map_mark": "1:15",
+    "where": "Embarcadero at Folsom",
+    "lat": 37.791,
+    "lon": -122.3899,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
+    "published_as": "embarcadero-folsom"
   },
   {
     "id": "1st-mission",
-    "site": "s19",
+    "site": "s20",
     "day": "2026-09-03",
     "start": "2026-09-03T14:10:35.676682-07:00",
     "clock": "2:10",
@@ -415,7 +433,7 @@
   },
   {
     "id": "embarcadero-bryant",
-    "site": "s20",
+    "site": "s21",
     "day": "2026-09-03",
     "start": "2026-09-03T14:40:37.854069-07:00",
     "clock": "2:40",
@@ -436,8 +454,8 @@
     "published_as": null
   },
   {
-    "id": "unrecognised-0903-1520",
-    "site": "s21",
+    "id": "3rd-folsom",
+    "site": "s22",
     "day": "2026-09-03",
     "start": "2026-09-03T15:20:41.034128-07:00",
     "clock": "3:20",
@@ -449,16 +467,16 @@
       "s2_sf_8_20260903153041_00021.pcap",
       "s2_sf_8_20260903153542_00022.pcap"
     ],
-    "map_mark": null,
-    "where": null,
-    "lat": null,
-    "lon": null,
-    "position_confidence": "no mark matched",
+    "map_mark": "3:20",
+    "where": "3rd at Folsom",
+    "lat": 37.7837,
+    "lon": -122.3986,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
     "id": "howard-6th",
-    "site": "s22",
+    "site": "s23",
     "day": "2026-09-03",
     "start": "2026-09-03T15:50:43.642189-07:00",
     "clock": "3:50",
