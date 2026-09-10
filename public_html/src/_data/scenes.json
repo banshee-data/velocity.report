@@ -7,6 +7,2991 @@
   },
   "located_count": 24,
   "unlocated_count": 1,
+  "areas": [
+    {
+      "token": "808581",
+      "display": "80858-1",
+      "level": 10,
+      "sites": [
+        {
+          "id": "haight-divisadero",
+          "title": "Haight at Divisadero",
+          "page": "/scenes/haight-divisadero/",
+          "summary": "19 minutes of a static roadside recording.",
+          "archive_site": "s02",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7712,
+            "lon": -122.4372,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580ac",
+              "display": "80858-0ac",
+              "level": 13
+            },
+            "site": {
+              "token": "808580a8d",
+              "display": "80858-0a8d",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580ac",
+              "displayToken": "80858-0ac",
+              "cellId": "9260949684980023296",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.77020772343992,
+                "lng": -122.44106181790796
+              },
+              "vertices": [
+                {
+                  "lat": 37.77322915622784,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.767185568530614,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.77671430957378,
+                  "lng": -122.43539951234195
+                }
+              ]
+            },
+            "site": {
+              "token": "808580a8d",
+              "displayToken": "80858-0a8d",
+              "cellId": "9260949671289815040",
+              "level": 16,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.770701191347534,
+                "lng": -122.4375229127728
+              },
+              "vertices": [
+                {
+                  "lat": 37.77107894207029,
+                  "lng": -122.4382307033588
+                },
+                {
+                  "lat": 37.76988784896898,
+                  "lng": -122.4382307033588
+                },
+                {
+                  "lat": 37.77032342934092,
+                  "lng": -122.43681511740783
+                },
+                {
+                  "lat": 37.77151452711192,
+                  "lng": -122.43681511740783
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "pierce-haight",
+          "title": "Pierce at Haight",
+          "page": "/scenes/pierce-haight/",
+          "summary": "21 minutes of a static roadside recording.",
+          "archive_site": "s03",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7718,
+            "lon": -122.4338,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580a4",
+              "display": "80858-0a4",
+              "level": 13
+            },
+            "site": {
+              "token": "808580a67",
+              "display": "80858-0a67",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580a4",
+              "displayToken": "80858-0a4",
+              "cellId": "9260949650620284928",
+              "level": 13,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.77369220953868,
+                "lng": -122.42973690096966
+              },
+              "vertices": [
+                {
+                  "lat": 37.77671430957378,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.767185568530614,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.77066938724461,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.780198426962194,
+                  "lng": -122.42407398392055
+                }
+              ]
+            },
+            "site": {
+              "token": "808580a67",
+              "displayToken": "80858-0a67",
+              "cellId": "9260949661089267712",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.77200786663924,
+                "lng": -122.43327606890703
+              },
+              "vertices": [
+                {
+                  "lat": 37.77238564864231,
+                  "lng": -122.43398388816314
+                },
+                {
+                  "lat": 37.77119454153335,
+                  "lng": -122.43398388816314
+                },
+                {
+                  "lat": 37.77163007335151,
+                  "lng": -122.43256824487348
+                },
+                {
+                  "lat": 37.77282118512882,
+                  "lng": -122.43256824487348
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "fulton-divisadero",
+          "title": "Fulton at Divisadero",
+          "page": "/scenes/fulton-divisadero/",
+          "summary": "20 minutes of a static roadside recording.",
+          "archive_site": "s04",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7768,
+            "lon": -122.4381,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580b4",
+              "display": "80858-0b4",
+              "level": 13
+            },
+            "site": {
+              "token": "808580b03",
+              "display": "80858-0b03",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580b4",
+              "displayToken": "80858-0b4",
+              "cellId": "9260949719339761664",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.77973568743295,
+                "lng": -122.44106181790796
+              },
+              "vertices": [
+                {
+                  "lat": 37.78275634319929,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.77322915622784,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.77671430957378,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.78624179502458,
+                  "lng": -122.43539951234195
+                }
+              ]
+            },
+            "site": {
+              "token": "808580b03",
+              "displayToken": "80858-0b03",
+              "cellId": "9260949702965198848",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.77665642334642,
+                "lng": -122.4375229127728
+              },
+              "vertices": [
+                {
+                  "lat": 37.77703411336179,
+                  "lng": -122.4382307033588
+                },
+                {
+                  "lat": 37.77584311833545,
+                  "lng": -122.4382307033588
+                },
+                {
+                  "lat": 37.77627872204747,
+                  "lng": -122.43681511740783
+                },
+                {
+                  "lat": 37.777469721739315,
+                  "lng": -122.43681511740783
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "california-leon-baker",
+          "title": "California between Leon and Baker",
+          "page": "/scenes/california-leon-baker/",
+          "summary": "20 minutes of a static roadside recording.",
+          "archive_site": "s05",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7875,
+            "lon": -122.4446,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (California between Leon and Baker), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580cc",
+              "display": "80858-0cc",
+              "level": 13
+            },
+            "site": {
+              "token": "808580cb7",
+              "display": "80858-0cb7",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580cc",
+              "displayToken": "80858-0cc",
+              "cellId": "9260949822418976768",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.78926239579323,
+                "lng": -122.44106181790796
+              },
+              "vertices": [
+                {
+                  "lat": 37.792282274497715,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.78275634319929,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.78624179502458,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.79576802437759,
+                  "lng": -122.43539951234195
+                }
+              ]
+            },
+            "site": {
+              "token": "808580cb7",
+              "displayToken": "80858-0cb7",
+              "cellId": "9260949820003057664",
+              "level": 16,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.78757771826465,
+                "lng": -122.44460060353705
+              },
+              "vertices": [
+                {
+                  "lat": 37.787955222605184,
+                  "lng": -122.44530834631934
+                },
+                {
+                  "lat": 37.786764466719404,
+                  "lng": -122.44530834631934
+                },
+                {
+                  "lat": 37.787200202642516,
+                  "lng": -122.44389285597323
+                },
+                {
+                  "lat": 37.78839096318694,
+                  "lng": -122.44389285597323
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "broadway-gough",
+          "title": "Broadway at Gough",
+          "page": "/scenes/broadway-gough/",
+          "summary": "18 minutes of a static roadside recording.",
+          "archive_site": "s06",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7952,
+            "lon": -122.4269,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580c4",
+              "display": "80858-0c4",
+              "level": 13
+            },
+            "site": {
+              "token": "808580c25",
+              "display": "80858-0c25",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580c4",
+              "displayToken": "80858-0c4",
+              "cellId": "9260949788059238400",
+              "level": 13,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.792747478620996,
+                "lng": -122.42973690096966
+              },
+              "vertices": [
+                {
+                  "lat": 37.79576802437759,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.78624179502458,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.78972621066264,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.79925273784067,
+                  "lng": -122.42407398392055
+                }
+              ]
+            },
+            "site": {
+              "token": "808580c25",
+              "displayToken": "80858-0c25",
+              "cellId": "9260949780811481088",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.795622545741104,
+                "lng": -122.42619761362725
+              },
+              "vertices": [
+                {
+                  "lat": 37.79600016130177,
+                  "lng": -122.42690548064661
+                },
+                {
+                  "lat": 37.79480938416056,
+                  "lng": -122.42690548064661
+                },
+                {
+                  "lat": 37.795244918895456,
+                  "lng": -122.42548974183295
+                },
+                {
+                  "lat": 37.79643570068782,
+                  "lng": -122.42548974183295
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "laguna-eddy",
+          "title": "Laguna at Eddy",
+          "page": "/scenes/laguna-eddy/",
+          "summary": "21 minutes of a static roadside recording.",
+          "archive_site": "s07",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7821,
+            "lon": -122.4274,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Laguna at Eddy), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580bc",
+              "display": "80858-0bc",
+              "level": 13
+            },
+            "site": {
+              "token": "808580bc5",
+              "display": "80858-0bc5",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580bc",
+              "displayToken": "80858-0bc",
+              "cellId": "9260949753699500032",
+              "level": 13,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.78322047210859,
+                "lng": -122.42973690096966
+              },
+              "vertices": [
+                {
+                  "lat": 37.78624179502458,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.77671430957378,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.780198426962194,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.78972621066264,
+                  "lng": -122.42407398392055
+                }
+              ]
+            },
+            "site": {
+              "token": "808580bc5",
+              "displayToken": "80858-0bc5",
+              "cellId": "9260949755041677312",
+              "level": 16,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.782087289819536,
+                "lng": -122.42761334289078
+              },
+              "vertices": [
+                {
+                  "lat": 37.78246502853435,
+                  "lng": -122.42832120035952
+                },
+                {
+                  "lat": 37.781274040107306,
+                  "lng": -122.42832120035952
+                },
+                {
+                  "lat": 37.78170953981939,
+                  "lng": -122.42690548064661
+                },
+                {
+                  "lat": 37.782900532907156,
+                  "lng": -122.42690548064661
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "lombard-broderick",
+          "title": "Lombard at Broderick",
+          "page": "/scenes/lombard-broderick/",
+          "summary": "19 minutes of a static roadside recording.",
+          "archive_site": "s08",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.799,
+            "lon": -122.444,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580d4",
+              "display": "80858-0d4",
+              "level": 13
+            },
+            "site": {
+              "token": "808580d49",
+              "display": "80858-0d49",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580d4",
+              "displayToken": "80858-0d4",
+              "cellId": "9260949856778715136",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.79878784801554,
+                "lng": -122.44106181790796
+              },
+              "vertices": [
+                {
+                  "lat": 37.80180694961812,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.792282274497715,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.79576802437759,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.805292997127914,
+                  "lng": -122.43539951234195
+                }
+              ]
+            },
+            "site": {
+              "token": "808580d49",
+              "displayToken": "80858-0d49",
+              "cellId": "9260949859194634240",
+              "level": 16,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.79829374728571,
+                "lng": -122.44460060353705
+              },
+              "vertices": [
+                {
+                  "lat": 37.79867114234879,
+                  "lng": -122.44530834631934
+                },
+                {
+                  "lat": 37.79748056312053,
+                  "lng": -122.44530834631934
+                },
+                {
+                  "lat": 37.79791634094153,
+                  "lng": -122.44389285597326
+                },
+                {
+                  "lat": 37.799106924820975,
+                  "lng": -122.44389285597326
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "lombard-laguna",
+          "title": "Lombard at Laguna",
+          "page": "/scenes/lombard-laguna/",
+          "summary": "33 minutes of a static roadside recording.",
+          "archive_site": "s11",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.8004,
+            "lon": -122.4313,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Lombard at Laguna), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580dc",
+              "display": "80858-0dc",
+              "level": 13
+            },
+            "site": {
+              "token": "808580dbb",
+              "display": "80858-0dbb",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580dc",
+              "displayToken": "80858-0dc",
+              "cellId": "9260949891138453504",
+              "level": 13,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.8022732285708,
+                "lng": -122.42973690096966
+              },
+              "vertices": [
+                {
+                  "lat": 37.805292997127914,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.79576802437759,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.79925273784067,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.808778007991464,
+                  "lng": -122.4240739839206
+                }
+              ]
+            },
+            "site": {
+              "token": "808580dbb",
+              "displayToken": "80858-0dbb",
+              "cellId": "9260949889796276224",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.79983382675589,
+                "lng": -122.4318604160627
+              },
+              "vertices": [
+                {
+                  "lat": 37.80021133989867,
+                  "lng": -122.43256824487348
+                },
+                {
+                  "lat": 37.79902067954693,
+                  "lng": -122.43256824487348
+                },
+                {
+                  "lat": 37.79945630232948,
+                  "lng": -122.43115258247498
+                },
+                {
+                  "lat": 37.800646967330024,
+                  "lng": -122.43115258247498
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "columbus-broadway",
+          "title": "Columbus at Broadway",
+          "page": "/scenes/columbus-broadway/",
+          "summary": "36 minutes of a static roadside recording.",
+          "archive_site": "s14",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7978,
+            "lon": -122.4065,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580f4",
+              "display": "80858-0f4",
+              "level": 13
+            },
+            "site": {
+              "token": "808580f47",
+              "display": "80858-0f47",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580f4",
+              "displayToken": "80858-0f4",
+              "cellId": "9260949994217668608",
+              "level": 13,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.79971453390855,
+                "lng": -122.4070834000073
+              },
+              "vertices": [
+                {
+                  "lat": 37.80273641430219,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.79320958952867,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.796691931038104,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.806219053177706,
+                  "lng": -122.40141926154602
+                }
+              ]
+            },
+            "site": {
+              "token": "808580f47",
+              "displayToken": "80858-0f47",
+              "cellId": "9260949996096716800",
+              "level": 16,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.798145854403565,
+                "lng": -122.40637539938535
+              },
+              "vertices": [
+                {
+                  "lat": 37.798523652396895,
+                  "lng": -122.4070834000073
+                },
+                {
+                  "lat": 37.797332751239196,
+                  "lng": -122.4070834000073
+                },
+                {
+                  "lat": 37.7977680451213,
+                  "lng": -122.40566739399554
+                },
+                {
+                  "lat": 37.798958950926384,
+                  "lng": -122.40566739399554
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "embarcadero-broadway",
+          "title": "Embarcadero at Broadway",
+          "page": "/scenes/embarcadero-broadway/",
+          "summary": "19 minutes of a static roadside recording.",
+          "archive_site": "s16",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7991,
+            "lon": -122.3976,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "8085805c",
+              "display": "80858-05c",
+              "level": 13
+            },
+            "site": {
+              "token": "8085805e5",
+              "display": "80858-05e5",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "8085805c",
+              "displayToken": "80858-05c",
+              "cellId": "9260949341382639616",
+              "level": 13,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.80319650519934,
+                "lng": -122.39575481805574
+              },
+              "vertices": [
+                {
+                  "lat": 37.806219053177706,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.796691931038104,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.800173234606746,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.809700653883056,
+                  "lng": -122.39009006966612
+                }
+              ]
+            },
+            "site": {
+              "token": "8085805e5",
+              "displayToken": "80858-05e5",
+              "cellId": "9260949351314751488",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.799566398546105,
+                "lng": -122.39787902010198
+              },
+              "vertices": [
+                {
+                  "lat": 37.799944271279585,
+                  "lng": -122.3985870779214
+                },
+                {
+                  "lat": 37.798753322594344,
+                  "lng": -122.3985870779214
+                },
+                {
+                  "lat": 37.79918851452205,
+                  "lng": -122.39717095751773
+                },
+                {
+                  "lat": 37.800379467852785,
+                  "lng": -122.39717095751773
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "bush-powell",
+          "title": "Bush at Powell",
+          "page": "/scenes/bush-powell/",
+          "summary": "19 minutes of a static roadside recording.",
+          "archive_site": "s19",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7901,
+            "lon": -122.409,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Bush at Powell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "8085808c",
+              "display": "80858-08c",
+              "level": 13
+            },
+            "site": {
+              "token": "8085808c3",
+              "display": "80858-08c3",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "8085808c",
+              "displayToken": "80858-08c",
+              "cellId": "9260949547541069824",
+              "level": 13,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.790186931780596,
+                "lng": -122.4070834000073
+              },
+              "vertices": [
+                {
+                  "lat": 37.79320958952867,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.78368150780816,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.78716355152709,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.796691931038104,
+                  "lng": -122.40141926154602
+                }
+              ]
+            },
+            "site": {
+              "token": "8085808c3",
+              "displayToken": "80858-08c3",
+              "cellId": "9260949548346376192",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.79012951088551,
+                "lng": -122.4092073732635
+              },
+              "vertices": [
+                {
+                  "lat": 37.790507360893706,
+                  "lng": -122.4099153548115
+                },
+                {
+                  "lat": 37.78931635118628,
+                  "lng": -122.4099153548115
+                },
+                {
+                  "lat": 37.7897516495886,
+                  "lng": -122.40849938694663
+                },
+                {
+                  "lat": 37.79094266394926,
+                  "lng": -122.40849938694659
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "embarcadero-folsom",
+          "title": "Embarcadero at Folsom",
+          "page": "/scenes/embarcadero-folsom/",
+          "summary": "20 minutes of a static roadside recording.",
+          "archive_site": "s20",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.791,
+            "lon": -122.3899,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "8085806c",
+              "display": "80858-06c",
+              "level": 13
+            },
+            "site": {
+              "token": "8085806ff",
+              "display": "80858-06ff",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "8085806c",
+              "displayToken": "80858-06c",
+              "cellId": "9260949410102116352",
+              "level": 13,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.79714924131695,
+                "lng": -122.38442501650697
+              },
+              "vertices": [
+                {
+                  "lat": 37.800173234606746,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.79064455753469,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.79412452524699,
+                  "lng": -122.37875965870796
+                },
+                {
+                  "lat": 37.803653499650686,
+                  "lng": -122.37875965870796
+                }
+              ]
+            },
+            "site": {
+              "token": "8085806ff",
+              "displayToken": "80858-06ff",
+              "cellId": "9260949427013550080",
+              "level": 16,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.79145766626116,
+                "lng": -122.38938195468567
+              },
+              "vertices": [
+                {
+                  "lat": 37.79183571093714,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.79064455753469,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.79107961029247,
+                  "lng": -122.38867383494343
+                },
+                {
+                  "lat": 37.792270768345205,
+                  "lng": -122.38867383494343
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "howard-6th",
+          "title": "Howard at 6th",
+          "page": "/scenes/howard-6th/",
+          "summary": "19 minutes of a static roadside recording.",
+          "archive_site": "s24",
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": {
+            "lat": 37.7798,
+            "lon": -122.4069,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Howard at 6th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_source": "archive-index",
+          "published": true,
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "80858084",
+              "display": "80858-084",
+              "level": 13
+            },
+            "site": {
+              "token": "808580815",
+              "display": "80858-0815",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "80858084",
+              "displayToken": "80858-084",
+              "cellId": "9260949513181331456",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.78065807274594,
+                "lng": -122.4070834000073
+              },
+              "vertices": [
+                {
+                  "lat": 37.78368150780816,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.77415216964589,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.777633915149764,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.78716355152709,
+                  "lng": -122.40141926154602
+                }
+              ]
+            },
+            "site": {
+              "token": "808580815",
+              "displayToken": "80858-0815",
+              "cellId": "9260949501638606848",
+              "level": 16,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.780280092561696,
+                "lng": -122.40637539938535
+              },
+              "vertices": [
+                {
+                  "lat": 37.78065807274594,
+                  "lng": -122.4070834000073
+                },
+                {
+                  "lat": 37.77946687701553,
+                  "lng": -122.4070834000073
+                },
+                {
+                  "lat": 37.77990210108769,
+                  "lng": -122.40566739399554
+                },
+                {
+                  "lat": 37.78109330147791,
+                  "lng": -122.40566739399553
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ashbury-downey",
+          "title": "Ashbury at Downey",
+          "page": null,
+          "summary": "21 minutes recorded on 2026-09-01, not yet published.",
+          "archive_site": "s01",
+          "published": false,
+          "position": {
+            "lat": 37.7638,
+            "lon": -122.4466,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Ashbury at Downey). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580ac",
+              "display": "80858-0ac",
+              "level": 13
+            },
+            "site": {
+              "token": "808580aab",
+              "display": "80858-0aab",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580ac",
+              "displayToken": "80858-0ac",
+              "cellId": "9260949684980023296",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.77020772343992,
+                "lng": -122.44106181790796
+              },
+              "vertices": [
+                {
+                  "lat": 37.77322915622784,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.767185568530614,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.77671430957378,
+                  "lng": -122.43539951234195
+                }
+              ]
+            },
+            "site": {
+              "token": "808580aab",
+              "displayToken": "80858-0aab",
+              "cellId": "9260949679342878720",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.76451411338941,
+                "lng": -122.44601608431991
+              },
+              "vertices": [
+                {
+                  "lat": 37.76489183798095,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.76413637751546,
+                  "lng": -122.44530834631934
+                },
+                {
+                  "lat": 37.76532750608237,
+                  "lng": -122.44530834631934
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "marina-broderick",
+          "title": "Marina at Broderick",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-02, not yet published.",
+          "archive_site": "s09",
+          "published": false,
+          "position": {
+            "lat": 37.8053,
+            "lon": -122.4455,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Marina at Broderick). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "8085812c",
+              "display": "80858-12c",
+              "level": 13
+            },
+            "site": {
+              "token": "8085812b3",
+              "display": "80858-12b3",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "8085812c",
+              "displayToken": "80858-12c",
+              "cellId": "9260950234735837184",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.808312043595244,
+                "lng": -122.44106181790796
+              },
+              "vertices": [
+                {
+                  "lat": 37.811330368056055,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.80180694961812,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.805292997127914,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.814816712771226,
+                  "lng": -122.43539951234195
+                }
+              ]
+            },
+            "site": {
+              "token": "8085812b3",
+              "displayToken": "80858-12b3",
+              "cellId": "9260950231246176256",
+              "level": 16,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.80500106703739,
+                "lng": -122.44601608431991
+              },
+              "vertices": [
+                {
+                  "lat": 37.80537837882691,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.80418792206128,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.80462374396738,
+                  "lng": -122.44530834631934
+                },
+                {
+                  "lat": 37.80581420537966,
+                  "lng": -122.44530834631934
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "marina-webster-beach",
+          "title": "Marina between Webster and Beach",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-02, not yet published.",
+          "archive_site": "s10",
+          "published": false,
+          "position": {
+            "lat": 37.8057,
+            "lon": -122.4351,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Marina between Webster and Beach). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "80858124",
+              "display": "80858-124",
+              "level": 13
+            },
+            "site": {
+              "token": "80858127f",
+              "display": "80858-127f",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "80858124",
+              "displayToken": "80858-124",
+              "cellId": "9260950200376098816",
+              "level": 13,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.81179772145342,
+                "lng": -122.42973690096966
+              },
+              "vertices": [
+                {
+                  "lat": 37.814816712771226,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.805292997127914,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.808778007991464,
+                  "lng": -122.4240739839206
+                },
+                {
+                  "lat": 37.81830202061077,
+                  "lng": -122.4240739839206
+                }
+              ]
+            },
+            "site": {
+              "token": "80858127f",
+              "displayToken": "80858-127f",
+              "cellId": "9260950217287532544",
+              "level": 16,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.80610611090696,
+                "lng": -122.43469170264149
+              },
+              "vertices": [
+                {
+                  "lat": 37.806483530341715,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.805292997127914,
+                  "lng": -122.43539951234195
+                },
+                {
+                  "lat": 37.805728680189446,
+                  "lng": -122.43398388816314
+                },
+                {
+                  "lat": 37.80691921804796,
+                  "lng": -122.43398388816314
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "columbus-north-point",
+          "title": "Columbus at North Point",
+          "page": null,
+          "summary": "18 minutes recorded on 2026-09-02, not yet published.",
+          "archive_site": "s12",
+          "published": false,
+          "position": {
+            "lat": 37.8059,
+            "lon": -122.4181,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Columbus at North Point). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580e4",
+              "display": "80858-0e4",
+              "level": 13
+            },
+            "site": {
+              "token": "808580e3f",
+              "display": "80858-0e3f",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580e4",
+              "displayToken": "80858-0e4",
+              "cellId": "9260949925498191872",
+              "level": 13,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.80575757230211,
+                "lng": -122.41841076132413
+              },
+              "vertices": [
+                {
+                  "lat": 37.808778007991464,
+                  "lng": -122.4240739839206
+                },
+                {
+                  "lat": 37.79925273784067,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.80273641430219,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.812261981624054,
+                  "lng": -122.41274723330986
+                }
+              ]
+            },
+            "site": {
+              "token": "808580e3f",
+              "displayToken": "80858-0e3f",
+              "cellId": "9260949925229756416",
+              "level": 16,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.80657064672499,
+                "lng": -122.41770283702223
+              },
+              "vertices": [
+                {
+                  "lat": 37.80694823982605,
+                  "lng": -122.41841076132413
+                },
+                {
+                  "lat": 37.80575757230211,
+                  "lng": -122.41841076132413
+                },
+                {
+                  "lat": 37.80619304233773,
+                  "lng": -122.4169949079484
+                },
+                {
+                  "lat": 37.807383714504326,
+                  "lng": -122.41699490794842
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "embarcadero-bay",
+          "title": "Embarcadero at Bay",
+          "page": null,
+          "summary": "16 minutes recorded on 2026-09-02, not yet published.",
+          "archive_site": "s13",
+          "published": false,
+          "position": {
+            "lat": 37.8067,
+            "lon": -122.4061,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Embarcadero at Bay). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580fc",
+              "display": "80858-0fc",
+              "level": 13
+            },
+            "site": {
+              "token": "808580f99",
+              "display": "80858-0f99",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580fc",
+              "displayToken": "80858-0fc",
+              "cellId": "9260950028577406976",
+              "level": 13,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.80924087862491,
+                "lng": -122.4070834000073
+              },
+              "vertices": [
+                {
+                  "lat": 37.812261981624054,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.80273641430219,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.806219053177706,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.81574491744131,
+                  "lng": -122.40141926154602
+                }
+              ]
+            },
+            "site": {
+              "token": "808580f99",
+              "displayToken": "80858-0f99",
+              "cellId": "9260950018108424192",
+              "level": 16,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.80648169739088,
+                "lng": -122.40637539938535
+              },
+              "vertices": [
+                {
+                  "lat": 37.806859410355756,
+                  "lng": -122.4070834000073
+                },
+                {
+                  "lat": 37.805668646741225,
+                  "lng": -122.4070834000073
+                },
+                {
+                  "lat": 37.806103973137475,
+                  "lng": -122.40566739399553
+                },
+                {
+                  "lat": 37.80729474139357,
+                  "lng": -122.40566739399554
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "van-ness-sacramento",
+          "title": "van Ness at Sacramento",
+          "page": null,
+          "summary": "21 minutes recorded on 2026-09-02, not yet published.",
+          "archive_site": "s15",
+          "published": false,
+          "position": {
+            "lat": 37.7912,
+            "lon": -122.4225,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (van Ness at Sacramento). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "808580ec",
+              "display": "80858-0ec",
+              "level": 13
+            },
+            "site": {
+              "token": "808580ead",
+              "display": "80858-0ead",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "808580ec",
+              "displayToken": "80858-0ec",
+              "cellId": "9260949959857930240",
+              "level": 13,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.79623152485433,
+                "lng": -122.41841076132413
+              },
+              "vertices": [
+                {
+                  "lat": 37.79925273784067,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.78972621066264,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.79320958952867,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.80273641430219,
+                  "lng": -122.41274723330986
+                }
+              ]
+            },
+            "site": {
+              "token": "808580ead",
+              "displayToken": "80858-0ead",
+              "cellId": "9260949954757656576",
+              "level": 16,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.79097487144745,
+                "lng": -122.42195031124628
+              },
+              "vertices": [
+                {
+                  "lat": 37.79135257900944,
+                  "lng": -122.42265820691146
+                },
+                {
+                  "lat": 37.79016168973136,
+                  "lng": -122.42265820691146
+                },
+                {
+                  "lat": 37.790597152599375,
+                  "lng": -122.42124241080766
+                },
+                {
+                  "lat": 37.791788046531416,
+                  "lng": -122.42124241080766
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "franklin-mcallister",
+          "title": "Franklin at McAllister",
+          "page": null,
+          "summary": "12 minutes recorded on 2026-09-03, not yet published.",
+          "archive_site": "s17",
+          "published": false,
+          "position": {
+            "lat": 37.7798,
+            "lon": -122.4218,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Franklin at McAllister). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "8085809c",
+              "display": "80858-09c",
+              "level": 13
+            },
+            "site": {
+              "token": "808580983",
+              "display": "80858-0983",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "8085809c",
+              "displayToken": "80858-09c",
+              "cellId": "9260949616260546560",
+              "level": 13,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.77717565950229,
+                "lng": -122.41841076132413
+              },
+              "vertices": [
+                {
+                  "lat": 37.780198426962194,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.77066938724461,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.77415216964589,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.78368150780816,
+                  "lng": -122.41274723330986
+                }
+              ]
+            },
+            "site": {
+              "token": "808580983",
+              "displayToken": "80858-0983",
+              "cellId": "9260949599885983744",
+              "level": 16,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.78025605190745,
+                "lng": -122.42195031124628
+              },
+              "vertices": [
+                {
+                  "lat": 37.78063386876584,
+                  "lng": -122.42265820691146
+                },
+                {
+                  "lat": 37.77944280281735,
+                  "lng": -122.42265820691146
+                },
+                {
+                  "lat": 37.77987822376247,
+                  "lng": -122.42124241080766
+                },
+                {
+                  "lat": 37.78106929437238,
+                  "lng": -122.42124241080766
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "hyde-ofarrell",
+          "title": "Hyde at O'Farrell",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
+          "archive_site": "s18",
+          "published": false,
+          "position": {
+            "lat": 37.7855,
+            "lon": -122.4164,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Hyde at O'Farrell). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "80858094",
+              "display": "80858-094",
+              "level": 13
+            },
+            "site": {
+              "token": "808580911",
+              "display": "80858-0911",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "80858094",
+              "displayToken": "80858-094",
+              "cellId": "9260949581900808192",
+              "level": 13,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.78670422041939,
+                "lng": -122.41841076132413
+              },
+              "vertices": [
+                {
+                  "lat": 37.78972621066264,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.780198426962194,
+                  "lng": -122.42407398392055
+                },
+                {
+                  "lat": 37.78368150780816,
+                  "lng": -122.41274723330986
+                },
+                {
+                  "lat": 37.79320958952867,
+                  "lng": -122.41274723330986
+                }
+              ]
+            },
+            "site": {
+              "token": "808580911",
+              "displayToken": "80858-0911",
+              "cellId": "9260949569284341760",
+              "level": 16,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.78557078784714,
+                "lng": -122.41628697410299
+              },
+              "vertices": [
+                {
+                  "lat": 37.78594860999183,
+                  "lng": -122.41699490794842
+                },
+                {
+                  "lat": 37.78475758429156,
+                  "lng": -122.41699490794842
+                },
+                {
+                  "lat": 37.78519295441496,
+                  "lng": -122.41557903548613
+                },
+                {
+                  "lat": 37.786383984772364,
+                  "lng": -122.41557903548613
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "1st-mission",
+          "title": "1st at Mission",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
+          "archive_site": "s21",
+          "published": false,
+          "position": {
+            "lat": 37.7897,
+            "lon": -122.3974,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (1st at Mission). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "80858064",
+              "display": "80858-064",
+              "level": 13
+            },
+            "site": {
+              "token": "808580631",
+              "display": "80858-0631",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "80858064",
+              "displayToken": "80858-064",
+              "cellId": "9260949375742377984",
+              "level": 13,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.79366860560782,
+                "lng": -122.39575481805574
+              },
+              "vertices": [
+                {
+                  "lat": 37.796691931038104,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.78716355152709,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.79064455753469,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.800173234606746,
+                  "lng": -122.39009006966612
+                }
+              ]
+            },
+            "site": {
+              "token": "808580631",
+              "displayToken": "80858-0631",
+              "cellId": "9260949371715846144",
+              "level": 16,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.79003816176618,
+                "lng": -122.39787902010198
+              },
+              "vertices": [
+                {
+                  "lat": 37.79041613167884,
+                  "lng": -122.3985870779214
+                },
+                {
+                  "lat": 37.78922502582863,
+                  "lng": -122.3985870779214
+                },
+                {
+                  "lat": 37.789660180562464,
+                  "lng": -122.39717095751773
+                },
+                {
+                  "lat": 37.790851291064804,
+                  "lng": -122.39717095751773
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "embarcadero-bryant",
+          "title": "Embarcadero at Bryant",
+          "page": null,
+          "summary": "23 minutes recorded on 2026-09-03, not yet published.",
+          "archive_site": "s22",
+          "published": false,
+          "position": {
+            "lat": 37.7868,
+            "lon": -122.3881,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (Embarcadero at Bryant). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "80858074",
+              "display": "80858-074",
+              "level": 13
+            },
+            "site": {
+              "token": "80858070d",
+              "display": "80858-070d",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "80858074",
+              "displayToken": "80858-074",
+              "cellId": "9260949444461854720",
+              "level": 13,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.78761978673579,
+                "lng": -122.38442501650697
+              },
+              "vertices": [
+                {
+                  "lat": 37.79064455753469,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.78111462317188,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.78459429312824,
+                  "lng": -122.37875965870796
+                },
+                {
+                  "lat": 37.79412452524699,
+                  "lng": -122.37875965870796
+                }
+              ]
+            },
+            "site": {
+              "token": "80858070d",
+              "displayToken": "80858-070d",
+              "cellId": "9260949430771646464",
+              "level": 16,
+              "orientation": 1,
+              "centre": {
+                "lat": 37.78712791455627,
+                "lng": -122.38796571043967
+              },
+              "vertices": [
+                {
+                  "lat": 37.78750601826224,
+                  "lng": -122.38867383494343
+                },
+                {
+                  "lat": 37.78631478163144,
+                  "lng": -122.38867383494343
+                },
+                {
+                  "lat": 37.78674979955712,
+                  "lng": -122.38725758117462
+                },
+                {
+                  "lat": 37.78794104084106,
+                  "lng": -122.38725758117462
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "3rd-folsom",
+          "title": "3rd at Folsom",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
+          "archive_site": "s23",
+          "published": false,
+          "position": {
+            "lat": 37.7837,
+            "lon": -122.3986,
+            "source": "operator"
+          },
+          "position_note": "Read from the field map (3rd at Folsom). Neighbourhood-level; replace with a survey.",
+          "position_source": "archive-index",
+          "located": true,
+          "cells": {
+            "area": {
+              "token": "808581",
+              "display": "80858-1",
+              "level": 10
+            },
+            "neighbourhood": {
+              "token": "8085807c",
+              "display": "80858-07c",
+              "level": 13
+            },
+            "site": {
+              "token": "8085807dd",
+              "display": "80858-07dd",
+              "level": 16
+            }
+          },
+          "geometry": {
+            "area": {
+              "token": "808581",
+              "displayToken": "80858-1",
+              "cellId": "9260950045757276160",
+              "level": 10,
+              "orientation": 2,
+              "centre": {
+                "lat": 37.81574491744131,
+                "lng": -122.40141926154602
+              },
+              "vertices": [
+                {
+                  "lat": 37.83989307823828,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.7637007140889,
+                  "lng": -122.44672381753844
+                },
+                {
+                  "lat": 37.791550516508984,
+                  "lng": -122.35609518371197
+                },
+                {
+                  "lat": 37.86776186404841,
+                  "lng": -122.35609518371197
+                }
+              ]
+            },
+            "neighbourhood": {
+              "token": "8085807c",
+              "displayToken": "80858-07c",
+              "cellId": "9260949478821593088",
+              "level": 13,
+              "orientation": 3,
+              "centre": {
+                "lat": 37.78413944868516,
+                "lng": -122.39575481805574
+              },
+              "vertices": [
+                {
+                  "lat": 37.78716355152709,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.777633915149764,
+                  "lng": -122.40141926154602
+                },
+                {
+                  "lat": 37.78111462317188,
+                  "lng": -122.39009006966612
+                },
+                {
+                  "lat": 37.79064455753469,
+                  "lng": -122.39009006966612
+                }
+              ]
+            },
+            "site": {
+              "token": "8085807dd",
+              "displayToken": "80858-07dd",
+              "cellId": "9260949486606221312",
+              "level": 16,
+              "orientation": 0,
+              "centre": {
+                "lat": 37.783647233482164,
+                "lng": -122.3992951309758
+              },
+              "vertices": [
+                {
+                  "lat": 37.78402525369368,
+                  "lng": -122.40000317926487
+                },
+                {
+                  "lat": 37.78283405430415,
+                  "lng": -122.40000317926487
+                },
+                {
+                  "lat": 37.7832692019796,
+                  "lng": -122.3985870779214
+                },
+                {
+                  "lat": 37.78446040602584,
+                  "lng": -122.3985870779214
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "token": null,
+      "display": null,
+      "level": null,
+      "sites": [
+        {
+          "id": "soma1",
+          "title": "SoMa 1",
+          "page": "/scenes/soma1/",
+          "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street.",
+          "archive_site": null,
+          "grid_azimuth_deg": null,
+          "north_azimuth_deg": null,
+          "position": null,
+          "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
+          "position_source": null,
+          "published": true,
+          "located": false,
+          "cells": null
+        }
+      ]
+    }
+  ],
   "published_count": 14,
   "recorded_count": 25,
   "sites": [

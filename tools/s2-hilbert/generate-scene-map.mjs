@@ -197,6 +197,38 @@ export async function generateSceneSites() {
   return doc;
 }
 
+/**
+ * Group the sites by the level 10 cell that contains them.
+ *
+ * Sites with no position have no cell either, and go in a group of their own
+ * at the end rather than being dropped: a recording nobody has placed yet is
+ * still a recording, and hiding it would make the list disagree with the count
+ * beside it.
+ */
+function groupByArea(sites) {
+  const groups = new Map();
+  for (const site of sites) {
+    const area = site.cells?.area;
+    const key = area?.token ?? "";
+    if (!groups.has(key)) {
+      groups.set(key, {
+        token: area?.token ?? null,
+        display: area?.display ?? null,
+        level: area?.level ?? null,
+        sites: [],
+      });
+    }
+    groups.get(key).sites.push(site);
+  }
+  // Placed areas first, in token order so the listing is stable across
+  // rebuilds; the unplaced group last.
+  return [...groups.values()].sort((a, b) => {
+    if (!a.token) return 1;
+    if (!b.token) return -1;
+    return a.token.localeCompare(b.token);
+  });
+}
+
 export async function generateSceneMap() {
   const source = await generateSceneSites();
   const scenes = (source.sites ?? []).map((site) => ({
@@ -226,6 +258,10 @@ export async function generateSceneMap() {
     },
     located_count: model.located.length,
     unlocated_count: model.sites.length - model.located.length,
+    // Grouped by level 10 area, because the area token is the same for every
+    // site inside it and repeating it on each card said nothing. As a heading
+    // it says something: these are the places that share this cell.
+    areas: groupByArea(model.sites),
     published_count: model.sites.filter((s) => s.published).length,
     recorded_count: model.sites.length,
     sites: model.sites.map((site) => ({
