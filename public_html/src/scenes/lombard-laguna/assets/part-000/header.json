@@ -1,8 +1,8 @@
 {
   "version": 1,
   "export": "tracks",
-  "site": "s2-sf-2",
-  "title": "s2-sf-2",
+  "site": "lombard-laguna",
+  "title": "Lombard at Laguna",
   "sensor_id": "hesai-pandar40p",
   "frame_count": 10036,
   "start_ns": "1788371949825003330",

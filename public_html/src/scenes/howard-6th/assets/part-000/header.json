@@ -1,8 +1,8 @@
 {
   "version": 1,
   "export": "tracks",
-  "site": "soma-mission-8th",
-  "title": "SoMa, Mission near 8th",
+  "site": "howard-6th",
+  "title": "Howard at 6th",
   "sensor_id": "hesai-pandar40p",
   "frame_count": 5798,
   "start_ns": "1788475883850387330",
