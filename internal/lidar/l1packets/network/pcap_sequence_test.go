@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -256,6 +257,31 @@ func TestReadPCAPSequenceReportsUnknownTotalWhenAStepIsUnindexed(t *testing.T) {
 		if total != 0 {
 			t.Errorf("progress %d total = %d, want 0 (unknown)", i, total)
 		}
+	}
+}
+
+func TestReadPCAPSequenceKeepsProgressMonotonicWithAnUnindexedStep(t *testing.T) {
+	var reads []recordedRead
+	stubSteps(t, &reads, []uint64{10}, nil)
+
+	var got [][2]uint64
+	steps := []capseq.ReadStep{
+		step("a.pcap", 0, -1, false, 100),
+		step("b.pcap", 0, -1, false, 0),
+		step("c.pcap", 0, -1, false, 100),
+	}
+	_, err := ReadPCAPSequence(context.Background(), steps, SequenceReplayConfig{
+		FrameBuilder: &seamBuilderStub{inFlight: true},
+		OnProgress: func(current, total uint64) {
+			got = append(got, [2]uint64{current, total})
+		},
+	})
+	if err != nil {
+		t.Fatalf("ReadPCAPSequence: %v", err)
+	}
+	want := [][2]uint64{{10, 0}, {20, 0}, {30, 0}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("progress = %v, want %v", got, want)
 	}
 }
 

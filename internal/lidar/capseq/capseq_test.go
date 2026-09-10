@@ -491,12 +491,32 @@ func TestPlanRejectsEmptyWindow(t *testing.T) {
 	}{
 		{"zero duration", 0, 0},
 		{"window starts past the end", 3600, -1},
+		{"infinite start", math.Inf(1), -1},
+		{"not-a-number start", math.NaN(), -1},
+		{"not-a-number duration", 0, math.NaN()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := s.Plan(tc.start, tc.durationSe); !errors.Is(err, ErrEmptyWindow) {
 				t.Fatalf("Plan error = %v, want ErrEmptyWindow", err)
 			}
 		})
+	}
+}
+
+func TestPlanClampsInfiniteDurationToSequenceEnd(t *testing.T) {
+	s, err := Build([]Segment{seg("a.pcap", 0, fiveMin)}, DefaultTolerances())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	steps, err := s.Plan(30, math.Inf(1))
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(steps) != 1 {
+		t.Fatalf("len(steps) = %d, want 1", len(steps))
+	}
+	if steps[0].DurationSecs != -1 {
+		t.Errorf("DurationSecs = %v, want -1 (clamped to file end)", steps[0].DurationSecs)
 	}
 }
 

@@ -132,9 +132,11 @@ func ReadPCAPSequence(ctx context.Context, steps []capseq.ReadStep, cfg Sequence
 		}
 
 		var onProgress func(current, total uint64)
+		var stepProgress uint64
 		if cfg.OnProgress != nil {
 			base := completed
 			onProgress = func(current, _ uint64) {
+				stepProgress = current
 				cfg.OnProgress(base+current, total)
 			}
 		}
@@ -165,7 +167,14 @@ func ReadPCAPSequence(ctx context.Context, steps []capseq.ReadStep, cfg Sequence
 				i+1, len(steps), step.Path, stepErr)
 		}
 
-		completed += step.PacketCount
+		if total == 0 {
+			// Once any step is unindexed, the sequence total is unknown. Carry
+			// the progress actually observed in each completed step so later
+			// callbacks remain monotonic even when PacketCount is zero.
+			completed += stepProgress
+		} else {
+			completed += step.PacketCount
+		}
 		result.StepsCompleted++
 	}
 

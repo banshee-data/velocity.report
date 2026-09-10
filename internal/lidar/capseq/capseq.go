@@ -23,6 +23,7 @@ package capseq
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"time"
 )
@@ -367,15 +368,22 @@ func (s *Sequence) Plan(startSecs, durationSecs float64) ([]ReadStep, error) {
 			broken[0].Before, broken[0].After, broken[0].Grade, broken[0].Gap)
 	}
 
+	if math.IsNaN(startSecs) || math.IsNaN(durationSecs) {
+		return nil, ErrEmptyWindow
+	}
 	if startSecs < 0 {
 		startSecs = 0
+	}
+	sequenceSecs := s.End.Sub(s.Start).Seconds()
+	if startSecs >= sequenceSecs {
+		return nil, ErrEmptyWindow
 	}
 	windowStart := s.Start.Add(time.Duration(startSecs * float64(time.Second)))
 	windowEnd := s.End
 	if durationSecs >= 0 {
-		windowEnd = windowStart.Add(time.Duration(durationSecs * float64(time.Second)))
-		if windowEnd.After(s.End) {
-			windowEnd = s.End
+		remainingSecs := s.End.Sub(windowStart).Seconds()
+		if durationSecs < remainingSecs {
+			windowEnd = windowStart.Add(time.Duration(durationSecs * float64(time.Second)))
 		}
 	}
 	if !windowEnd.After(windowStart) {
