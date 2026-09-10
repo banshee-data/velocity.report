@@ -42,13 +42,20 @@ export function flightPath(vantages) {
 }
 
 /**
- * Fits one orbit to a set of vantages: the elevation, distance and centre the
- * circle is flown at.
+ * Fits one orbit to a set of vantages: the elevation and distance the circle
+ * is flown at.
  *
  * A plain mean. Something more elaborate — a curve leaning toward each vantage
  * as it passes — would put back the rising and falling this exists to remove.
  * Where the vantages agree, as four equivalent approaches to a junction do,
  * the mean is each of them exactly.
+ *
+ * The per-vantage offsets are deliberately not carried across. An offset shifts
+ * what a single view looks at, to frame one approach from where the sensor
+ * happens to stand — it belongs to that view and not to a circuit of all of
+ * them. Averaging them moves the centre of the orbit off the scene by whatever
+ * those hand-tuned nudges happen to sum to, which is nothing anyone chose. An
+ * orbit goes round the scene.
  */
 export function orbitFrom(path) {
   const n = path.length;
@@ -58,8 +65,6 @@ export function orbitFrom(path) {
   return {
     polar_deg: mean("polar_deg"),
     zoom: mean("zoom"),
-    offset_x: mean("offset_x"),
-    offset_y: mean("offset_y"),
   };
 }
 

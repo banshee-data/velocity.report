@@ -95,12 +95,7 @@ describe("flight path", () => {
 describe("fitting one orbit to the vantages", () => {
   test("vantages that agree give an orbit that is each of them exactly", () => {
     const orbit = orbitFrom(flightPath(sceneVantages()));
-    assert.deepEqual(orbit, {
-      polar_deg: 60,
-      zoom: 0.25,
-      offset_x: 0,
-      offset_y: 0,
-    });
+    assert.deepEqual(orbit, { polar_deg: 60, zoom: 0.25 });
   });
 
   test("vantages that differ are averaged, not favoured in turn", () => {
@@ -110,7 +105,30 @@ describe("fitting one orbit to the vantages", () => {
     ]);
     assert.equal(orbit.polar_deg, 60);
     assert.ok(Math.abs(orbit.zoom - 0.3) < 1e-9);
-    assert.equal(orbit.offset_x, 0);
+  });
+
+  test("a vantage's own framing offset is not flown", () => {
+    // An offset frames one approach from where the sensor stands. Carried into
+    // the orbit it shifts the whole circuit off the scene by whatever the
+    // hand-tuned nudges sum to — a centre nobody chose.
+    const orbit = orbitFrom([
+      {
+        azimuth_deg: 0,
+        polar_deg: 60,
+        zoom: 0.25,
+        offset_x: 25,
+        offset_y: -19.6,
+      },
+      {
+        azimuth_deg: 180,
+        polar_deg: 60,
+        zoom: 0.25,
+        offset_x: 25,
+        offset_y: -19.6,
+      },
+    ]);
+    assert.equal(orbit.offset_x, undefined);
+    assert.equal(orbit.offset_y, undefined);
   });
 
   test("no eligible vantages means no orbit", () => {
