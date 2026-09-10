@@ -56,6 +56,8 @@ description: ${whole} minutes of a San Francisco street, measured by roadside Li
 sceneId: ${site.id}
 sceneName: ${site.title}
 sceneIntro: ${whole} minutes of a San Francisco street, measured by roadside LiDAR.
+gridAzimuthDeg: ${site.grid_azimuth_deg ?? ""}
+northAzimuthDeg: ${site.north_azimuth_deg ?? ""}
 ---
 `;
 }

@@ -173,6 +173,21 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
 
   const grid = new THREE.GridHelper(160, 32, 0x2c4049, 0x1c2b32);
+  // Turn the grid onto the street.
+  //
+  // The grid is drawn square to the sensor, because that is the coordinate
+  // frame the points arrive in — and a sensor is set down facing whatever the
+  // kerb allowed, not facing down the road. So the squares cut across the
+  // carriageway at whatever angle the tripod happened to sit at, and a viewer
+  // reads that as the street being skewed rather than the grid.
+  //
+  // gridAzimuthDeg is the sensor's zero azimuth measured against this
+  // junction's street grid. Turning the grid by it lines the squares up with
+  // the kerbs. It changes nothing about the data: the points, the tracks and
+  // their headings are all still in the sensor's frame.
+  if (Number.isFinite(ui.gridAzimuthDeg)) {
+    grid.rotation.y = (-ui.gridAzimuthDeg * Math.PI) / 180;
+  }
   scene.add(grid);
 
   // A ring at the sensor origin gives the viewer a fixed reference point. The
@@ -366,8 +381,11 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
   }
 
+  // A scene's own vantages win; the camera falls back to its compass views,
+  // labelled truthfully where the operator measured where north is.
   const vantages = sceneCamera.setVantages(
     ui.vantagesURL ? await loadVantages(ui.vantagesURL) : null,
+    ui.northAzimuthDeg,
   );
 
   const background = ui.backgroundURL

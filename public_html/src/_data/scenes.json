@@ -942,8 +942,8 @@
       "summary": "21 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
-        "lat": 37.769,
-        "lon": -122.445,
+        "lat": 37.7638,
+        "lon": -122.4466,
         "source": "operator"
       },
       "position_note": "Read from the field map (Ashbury at Downey). Neighbourhood-level; replace with a survey.",
@@ -959,8 +959,8 @@
           "level": 13
         },
         "site": {
-          "token": "808580ac9",
-          "display": "80858-0ac9",
+          "token": "808580aab",
+          "display": "80858-0aab",
           "level": 16
         }
       },

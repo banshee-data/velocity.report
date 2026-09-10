@@ -110,9 +110,9 @@
       <text class="scene-map__token" x="473.67" y="336.46" text-anchor="middle">80858-084</text>
     </g>
     <g class="scene-map__site">
-      <circle class="scene-map__marker" cx="319.27" cy="342.83" r="6"/>
-      <text class="scene-map__title" x="319.27" y="408.83" text-anchor="middle">Ashbury at Downey</text>
-      <text class="scene-map__token" x="319.27" y="423.83" text-anchor="middle">80858-0ac</text>
+      <circle class="scene-map__marker" cx="312.79" cy="369.49" r="6"/>
+      <text class="scene-map__title" x="312.79" y="403.49" text-anchor="middle">Ashbury at Downey</text>
+      <text class="scene-map__token" x="312.79" y="418.49" text-anchor="middle">80858-0ac</text>
     </g>
     <g class="scene-map__site">
       <circle class="scene-map__marker" cx="317.25" cy="156.69" r="6"/>

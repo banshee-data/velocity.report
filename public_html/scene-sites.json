@@ -19,6 +19,8 @@
       "page": "/scenes/soma1/",
       "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street.",
       "archive_site": null,
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": null,
       "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
       "position_source": null
@@ -29,6 +31,8 @@
       "page": "/scenes/haight-divisadero/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s02",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7712,
         "lon": -122.4372,
@@ -43,6 +47,8 @@
       "page": "/scenes/pierce-haight/",
       "summary": "21 minutes of a static roadside recording.",
       "archive_site": "s03",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7718,
         "lon": -122.4338,
@@ -57,6 +63,8 @@
       "page": "/scenes/fulton-divisadero/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s04",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7768,
         "lon": -122.4381,
@@ -71,6 +79,8 @@
       "page": "/scenes/california-leon-baker/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s05",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7875,
         "lon": -122.4446,
@@ -85,6 +95,8 @@
       "page": "/scenes/broadway-gough/",
       "summary": "18 minutes of a static roadside recording.",
       "archive_site": "s06",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7952,
         "lon": -122.4269,
@@ -99,6 +111,8 @@
       "page": "/scenes/laguna-eddy/",
       "summary": "21 minutes of a static roadside recording.",
       "archive_site": "s07",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7821,
         "lon": -122.4274,
@@ -113,6 +127,8 @@
       "page": "/scenes/lombard-broderick/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s08",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.799,
         "lon": -122.444,
@@ -127,6 +143,8 @@
       "page": "/scenes/lombard-laguna/",
       "summary": "33 minutes of a static roadside recording.",
       "archive_site": "s11",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.8004,
         "lon": -122.4313,
@@ -141,6 +159,8 @@
       "page": "/scenes/columbus-broadway/",
       "summary": "36 minutes of a static roadside recording.",
       "archive_site": "s14",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7978,
         "lon": -122.4065,
@@ -155,6 +175,8 @@
       "page": "/scenes/embarcadero-broadway/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s16",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7991,
         "lon": -122.3976,
@@ -169,6 +191,8 @@
       "page": "/scenes/bush-powell/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s19",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7901,
         "lon": -122.409,
@@ -183,6 +207,8 @@
       "page": "/scenes/embarcadero-folsom/",
       "summary": "20 minutes of a static roadside recording.",
       "archive_site": "s20",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.791,
         "lon": -122.3899,
@@ -197,6 +223,8 @@
       "page": "/scenes/howard-6th/",
       "summary": "19 minutes of a static roadside recording.",
       "archive_site": "s24",
+      "grid_azimuth_deg": null,
+      "north_azimuth_deg": null,
       "position": {
         "lat": 37.7798,
         "lon": -122.4069,

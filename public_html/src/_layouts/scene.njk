@@ -253,6 +253,13 @@ layout: page.njk
       backgroundURL: `${base}/background/background.json.gz`,
       // The one place this scene's viewpoints live. Edit the file, reload.
       vantagesURL: `${base}/vantages.json`,
+      // Two angles the operator measured, either of which may be absent.
+      // gridAzimuthDeg turns the ground grid onto this junction's street
+      // grid; northAzimuthDeg says where true north lies. They are separate
+      // measurements: one is a property of the street, the other of how the
+      // tripod was set down, and neither follows from the other.
+      gridAzimuthDeg: {{ gridAzimuthDeg | default("null", true) }},
+      northAzimuthDeg: {{ northAzimuthDeg | default("null", true) }},
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),

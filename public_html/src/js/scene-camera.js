@@ -82,6 +82,45 @@ export const DEFAULT_VANTAGES = [
   },
 ];
 
+const COMPASS = [
+  "north",
+  "north-east",
+  "east",
+  "south-east",
+  "south",
+  "south-west",
+  "west",
+  "north-west",
+];
+
+/**
+ * The default vantages, labelled by true bearing where north is known.
+ *
+ * "From north" on a default vantage means the sensor's zero azimuth, which is
+ * wherever the tripod was pointed when it was set down — a kerb, a railing,
+ * whatever was there. Calling that north is only true by accident, and it is a
+ * confident sort of wrong: a viewer has no reason to doubt a compass label.
+ *
+ * northAzimuthDeg is the sensor's zero measured clockwise from true north, so
+ * a vantage sitting at sensor azimuth A stands at true bearing A + north. With
+ * it the labels become true; without it they stay as they were, since a
+ * scene's own azimuths are still a consistent way to move around it.
+ */
+export function compassVantages(northAzimuthDeg) {
+  if (!Number.isFinite(northAzimuthDeg)) return DEFAULT_VANTAGES;
+  return DEFAULT_VANTAGES.map((v) => {
+    if (v.id === "overview" || v.id === "top") return v;
+    const bearing =
+      ((((v.azimuth_deg ?? 0) + northAzimuthDeg) % 360) + 360) % 360;
+    const point = COMPASS[Math.round(bearing / 45) % 8];
+    return {
+      ...v,
+      label: `From ${point}`,
+      true_bearing_deg: Math.round(bearing),
+    };
+  });
+}
+
 const deg = (d) => (d * Math.PI) / 180;
 
 /**
@@ -178,11 +217,26 @@ export function createSceneCamera({
    * presets and limits are relative to.
    */
   function frame({ centerX, centerZ, groundY, span }) {
-    home.x = centerX;
-    home.z = centerZ;
+    // Look at the sensor, not at the middle of what it happened to see.
+    //
+    // The observed area is whatever the street gave back — long down one
+    // approach, short where a building stands — so its centre wanders away
+    // from the sensor by an amount that says more about the geometry of the
+    // reflections than about the junction. Orbiting that centre swings the
+    // sensor around the edge of the view. The sensor is at the origin, it is
+    // the one fixed thing in the scene, and it is what the scene is of.
+    //
+    // The span still comes from the observed area: what to look at and how
+    // much of it to fit in are different questions.
+    home.x = 0;
+    home.z = 0;
     home.y = groundY;
     home.span = span;
-    target.set(centerX, groundY, centerZ);
+    // centerX and centerZ are accepted and deliberately unused; callers pass
+    // the observed bounds and the framing distance below is derived from them.
+    void centerX;
+    void centerZ;
+    target.set(home.x, groundY, home.z);
     const fov = deg(camera.fov);
     // Pull back far enough that the span fits the narrower screen axis.
     const fit = span / 2 / Math.tan(fov / 2);
@@ -381,9 +435,16 @@ export function createSceneCamera({
     applyPreset,
     applyVantage,
     currentVantage,
-    setVantages(list) {
+    /**
+     * @param list a scene's own vantages, or null
+     * @param northAzimuthDeg the sensor's zero measured from true north, if
+     *   the operator recorded it; it labels the built-in views truthfully and
+     *   is ignored when the scene brings its own, which are already named for
+     *   the street rather than for a bearing.
+     */
+    setVantages(list, northAzimuthDeg) {
       const clean = normaliseVantages(list);
-      vantages = clean.length ? clean : DEFAULT_VANTAGES;
+      vantages = clean.length ? clean : compassVantages(northAzimuthDeg);
       return vantages;
     },
     get vantages() {
