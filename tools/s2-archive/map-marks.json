@@ -98,7 +98,9 @@
       "where": "Broadway at Gough",
       "lat": 37.7952,
       "lon": -122.4269,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "grid_azimuth_deg": 359,
+      "north_azimuth_deg": 99
     },
     {
       "id": "laguna-eddy",
@@ -107,7 +109,9 @@
       "where": "Laguna at Eddy",
       "lat": 37.7821,
       "lon": -122.4274,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "grid_azimuth_deg": 359,
+      "north_azimuth_deg": 9
     },
     {
       "id": "lombard-broderick",
@@ -136,7 +140,9 @@
       "where": "Marina between Webster and Beach",
       "lat": 37.8057,
       "lon": -122.4351,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "grid_azimuth_deg": 356.5,
+      "north_azimuth_deg": 231
     },
     {
       "id": "lombard-laguna",
@@ -145,7 +151,9 @@
       "where": "Lombard at Laguna",
       "lat": 37.8004,
       "lon": -122.4313,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "grid_azimuth_deg": 354,
+      "north_azimuth_deg": 275
     },
     {
       "id": "columbus-north-point",
@@ -154,7 +162,9 @@
       "where": "Columbus at North Point",
       "lat": 37.8059,
       "lon": -122.4181,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "grid_azimuth_deg": 38,
+      "north_azimuth_deg": 48
     },
     {
       "id": "embarcadero-bay",
@@ -163,7 +173,9 @@
       "where": "Embarcadero at Bay",
       "lat": 37.8067,
       "lon": -122.4061,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "grid_azimuth_deg": 60,
+      "north_azimuth_deg": 253
     },
     {
       "id": "columbus-broadway",

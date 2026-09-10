@@ -136,8 +136,8 @@
     "lat": 37.7952,
     "lon": -122.4269,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 359,
+    "north_azimuth_deg": 99,
     "published_as": "broadway-gough"
   },
   {
@@ -160,8 +160,8 @@
     "lat": 37.7821,
     "lon": -122.4274,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 359,
+    "north_azimuth_deg": 9,
     "published_as": "laguna-eddy"
   },
   {
@@ -229,8 +229,8 @@
     "lat": 37.8057,
     "lon": -122.4351,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 356.5,
+    "north_azimuth_deg": 231,
     "published_as": "marina-webster-beach"
   },
   {
@@ -256,8 +256,8 @@
     "lat": 37.8004,
     "lon": -122.4313,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 354,
+    "north_azimuth_deg": 275,
     "published_as": "lombard-laguna"
   },
   {
@@ -279,8 +279,8 @@
     "lat": 37.8059,
     "lon": -122.4181,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 38,
+    "north_azimuth_deg": 48,
     "published_as": "columbus-north-point"
   },
   {
@@ -302,8 +302,8 @@
     "lat": 37.8067,
     "lon": -122.4061,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "grid_azimuth_deg": null,
-    "north_azimuth_deg": null,
+    "grid_azimuth_deg": 60,
+    "north_azimuth_deg": 253,
     "published_as": "embarcadero-bay"
   },
   {
