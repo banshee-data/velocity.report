@@ -14,7 +14,7 @@
       "s2-1_20260901131346_00006.pcap"
     ],
     "map_mark": "12:55",
-    "where": "Haight by Divisadero",
+    "where": "Haight at Divisadero",
     "lat": 37.7712,
     "lon": -122.4372,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
@@ -86,7 +86,7 @@
     "lat": 37.7875,
     "lon": -122.4446,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": null
+    "published_as": "california-leon-baker"
   },
   {
     "id": "broadway-gough",
@@ -108,7 +108,7 @@
     "lat": 37.7952,
     "lon": -122.4269,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": null
+    "published_as": "broadway-gough"
   },
   {
     "id": "laguna-eddy",
@@ -130,7 +130,7 @@
     "lat": 37.7821,
     "lon": -122.4274,
     "position_confidence": "operator-named intersection; coordinate approximate to the block",
-    "published_as": null
+    "published_as": "laguna-eddy"
   },
   {
     "id": "lombard-broderick",
@@ -150,7 +150,7 @@
     "where": "Lombard at Broderick",
     "lat": 37.799,
     "lon": -122.444,
-    "position_confidence": "high",
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
@@ -168,14 +168,14 @@
       "s2_sf_2_20260902101826_00011.pcap"
     ],
     "map_mark": "10:00",
-    "where": "Marina Boulevard at Broderick",
+    "where": "Marina at Broderick",
     "lat": 37.8053,
     "lon": -122.4455,
-    "position_confidence": "medium",
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "marina-fillmore",
+    "id": "marina-webster-beach",
     "site": "s09",
     "day": "2026-09-02",
     "start": "2026-09-02T10:28:27.366603-07:00",
@@ -189,14 +189,14 @@
       "s2_sf_2_20260902104328_00016.pcap"
     ],
     "map_mark": "10:28",
-    "where": "Marina Boulevard near Fillmore",
-    "lat": 37.8065,
-    "lon": -122.436,
-    "position_confidence": "medium",
+    "where": "Marina between Webster and Beach",
+    "lat": 37.8057,
+    "lon": -122.4351,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "union-van-ness",
+    "id": "lombard-laguna",
     "site": "s10",
     "day": "2026-09-02",
     "start": "2026-09-02T10:58:30.258816-07:00",
@@ -214,14 +214,14 @@
       "s2_sf_2_20260902113332_00026.pcap"
     ],
     "map_mark": "10:55",
-    "where": "Union Street near Van Ness",
-    "lat": 37.7985,
-    "lon": -122.424,
-    "position_confidence": "medium",
+    "where": "Lombard at Laguna",
+    "lat": 37.8004,
+    "lon": -122.4313,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": "union-van-ness"
   },
   {
-    "id": "fisherman-s-wharf",
+    "id": "columbus-north-point",
     "site": "s11",
     "day": "2026-09-02",
     "start": "2026-09-02T11:53:34.547768-07:00",
@@ -235,14 +235,14 @@
       "s2_sf_2_20260902120836_00033.pcap"
     ],
     "map_mark": "11:50",
-    "where": "Fisherman's Wharf, Jefferson Street near Hyde",
-    "lat": 37.807,
-    "lon": -122.42,
-    "position_confidence": "medium",
+    "where": "Columbus at North Point",
+    "lat": 37.8059,
+    "lon": -122.4181,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "bay-embarcadero",
+    "id": "embarcadero-bay",
     "site": "s12",
     "day": "2026-09-02",
     "start": "2026-09-02T12:35:17.164539-07:00",
@@ -256,14 +256,14 @@
       "s2_sf_2_20260902125018_00005.pcap"
     ],
     "map_mark": "12:36",
-    "where": "Bay Street towards the Embarcadero",
-    "lat": 37.8055,
-    "lon": -122.41,
-    "position_confidence": "medium",
+    "where": "Embarcadero at Bay",
+    "lat": 37.8067,
+    "lon": -122.4061,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "broadway-telegraph-hill",
+    "id": "columbus-broadway",
     "site": "s13",
     "day": "2026-09-02",
     "start": "2026-09-02T13:20:36.986210-07:00",
@@ -280,14 +280,14 @@
       "s2_sf_3_20260902135038_00008.pcap"
     ],
     "map_mark": "1:15",
-    "where": "Broadway below Telegraph Hill, near Sansome",
-    "lat": 37.798,
-    "lon": -122.402,
-    "position_confidence": "medium",
+    "where": "Columbus at Broadway",
+    "lat": 37.7978,
+    "lon": -122.4065,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": "broadway-telegraph-hill"
   },
   {
-    "id": "nob-hill-chinatown",
+    "id": "embarcadero-broadway",
     "site": "s14",
     "day": "2026-09-02",
     "start": "2026-09-02T15:22:49.666945-07:00",
@@ -301,15 +301,15 @@
       "s2_sf_4_20260902153750_00004.pcap",
       "s2_sf_4_20260902154250_00005.pcap"
     ],
-    "map_mark": "3:25",
-    "where": "Nob Hill / Chinatown edge",
-    "lat": null,
-    "lon": null,
-    "position_confidence": "unread",
+    "map_mark": "3:20",
+    "where": "Embarcadero at Broadway",
+    "lat": 37.7991,
+    "lon": -122.3976,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": "nob-hill-chinatown"
   },
   {
-    "id": "van-ness-market",
+    "id": "franklin-mcallister",
     "site": "s15",
     "day": "2026-09-03",
     "start": "2026-09-03T10:35:52.823348-07:00",
@@ -322,14 +322,14 @@
       "s2_sf_6_20260903104553_00010.pcap"
     ],
     "map_mark": "10:35",
-    "where": "Van Ness near Market, Civic Center",
-    "lat": 37.7755,
-    "lon": -122.419,
-    "position_confidence": "medium",
+    "where": "Franklin at McAllister",
+    "lat": 37.7798,
+    "lon": -122.4218,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "geary-larkin",
+    "id": "hyde-ofarrell",
     "site": "s16",
     "day": "2026-09-03",
     "start": "2026-09-03T11:05:55.344702-07:00",
@@ -343,14 +343,14 @@
       "s2_sf_6_20260903112056_00017.pcap"
     ],
     "map_mark": "11:00",
-    "where": "Geary near Larkin",
-    "lat": 37.786,
-    "lon": -122.4165,
-    "position_confidence": "low",
+    "where": "Hyde at O'Farrell",
+    "lat": 37.7855,
+    "lon": -122.4164,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "bush-kearny",
+    "id": "bush-powell",
     "site": "s17",
     "day": "2026-09-03",
     "start": "2026-09-03T11:35:56.633007-07:00",
@@ -364,10 +364,10 @@
       "s2_sf_6_20260903115058_00023.pcap"
     ],
     "map_mark": "11:35",
-    "where": "Bush Street near Kearny",
-    "lat": 37.791,
-    "lon": -122.4045,
-    "position_confidence": "medium",
+    "where": "Bush at Powell",
+    "lat": 37.7901,
+    "lon": -122.409,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": "bush-kearny"
   },
   {
@@ -393,7 +393,7 @@
     "published_as": "unrecognised-0903-1317"
   },
   {
-    "id": "financial-district-battery",
+    "id": "1st-mission",
     "site": "s19",
     "day": "2026-09-03",
     "start": "2026-09-03T14:10:35.676682-07:00",
@@ -407,14 +407,14 @@
       "s2_sf_8_20260903142536_00008.pcap"
     ],
     "map_mark": "2:07",
-    "where": "Financial District, Battery near Pine",
-    "lat": 37.793,
-    "lon": -122.4,
-    "position_confidence": "medium",
+    "where": "1st at Mission",
+    "lat": 37.7897,
+    "lon": -122.3974,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "rincon-hill-folsom",
+    "id": "embarcadero-bryant",
     "site": "s20",
     "day": "2026-09-03",
     "start": "2026-09-03T14:40:37.854069-07:00",
@@ -429,14 +429,14 @@
       "s2_sf_8_20260903150039_00015.pcap"
     ],
     "map_mark": "2:40",
-    "where": "Rincon Hill, Folsom near Beale",
-    "lat": 37.789,
-    "lon": -122.3915,
-    "position_confidence": "medium",
+    "where": "Embarcadero at Bryant",
+    "lat": 37.7868,
+    "lon": -122.3881,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": null
   },
   {
-    "id": "soma-folsom-2nd",
+    "id": "unrecognised-0903-1520",
     "site": "s21",
     "day": "2026-09-03",
     "start": "2026-09-03T15:20:41.034128-07:00",
@@ -449,15 +449,15 @@
       "s2_sf_8_20260903153041_00021.pcap",
       "s2_sf_8_20260903153542_00022.pcap"
     ],
-    "map_mark": "3:20",
-    "where": "SoMa, Folsom near 2nd",
-    "lat": 37.7855,
-    "lon": -122.397,
-    "position_confidence": "medium",
+    "map_mark": null,
+    "where": null,
+    "lat": null,
+    "lon": null,
+    "position_confidence": "no mark matched",
     "published_as": null
   },
   {
-    "id": "soma-mission-8th",
+    "id": "howard-6th",
     "site": "s22",
     "day": "2026-09-03",
     "start": "2026-09-03T15:50:43.642189-07:00",
@@ -471,10 +471,10 @@
       "s2_sf_8_20260903160545_00028.pcap"
     ],
     "map_mark": "3:45",
-    "where": "SoMa, Mission near 8th",
-    "lat": 37.779,
-    "lon": -122.413,
-    "position_confidence": "medium",
+    "where": "Howard at 6th",
+    "lat": 37.7798,
+    "lon": -122.4069,
+    "position_confidence": "operator-named intersection; coordinate approximate to the block",
     "published_as": "soma-mission-8th"
   }
 ]

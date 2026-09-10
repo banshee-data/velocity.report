@@ -96,7 +96,7 @@
       "id": "marina-broderick",
       "day": "2026-09-02",
       "clock": "10:00",
-      "where": "Marina Boulevard at Broderick",
+      "where": "Marina at Broderick",
       "lat": 37.8053,
       "lon": -122.4455,
       "confidence": "operator-named intersection; coordinate approximate to the block"
@@ -105,7 +105,7 @@
       "id": "marina-webster-beach",
       "day": "2026-09-02",
       "clock": "10:28",
-      "where": "Marina Boulevard between Webster and Beach",
+      "where": "Marina between Webster and Beach",
       "lat": 37.8057,
       "lon": -122.4351,
       "confidence": "operator-named intersection; coordinate approximate to the block"
@@ -114,7 +114,7 @@
       "id": "lombard-laguna",
       "day": "2026-09-02",
       "clock": "10:55",
-      "where": "Lonbard at Laguna",
+      "where": "Lombard at Laguna",
       "lat": 37.8004,
       "lon": -122.4313,
       "confidence": "operator-named intersection; coordinate approximate to the block"
