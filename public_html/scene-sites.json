@@ -123,17 +123,17 @@
     },
     {
       "id": "columbus-broadway",
-      "title": "Broadway & Columbus",
+      "title": "Columbus at Broadway",
       "page": "/scenes/columbus-broadway/",
-      "summary": "A North Beach junction, recorded from a static roadside sensor.",
+      "summary": "36 minutes of a static roadside recording.",
       "archive_site": "s13",
       "position": {
-        "lat": 37.7987,
-        "lon": -122.4073,
+        "lat": 37.7978,
+        "lon": -122.4065,
         "source": "operator"
       },
-      "position_note": "Hand-entered to the junction, not surveyed. The field mark for this site reads 'Broadway below Telegraph Hill, near Sansome', which is about 600 m from where the sensor actually stood; the junction name is the better fix and overrides it. Correcting the mark would rename this scene.",
-      "position_source": "override"
+      "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
     },
     {
       "id": "embarcadero-broadway",

@@ -120,6 +120,24 @@ async function reconcileSceneDirectories(index) {
       continue; // something already occupies the new name; do not clobber it
     } catch {
       await rename(dir, target);
+      // Keep the manifest's copy of the id level with the directory, so a
+      // reader of the published assets is not told the old name either.
+      const manifestPath = path.join(target, "assets", "manifest.json");
+      try {
+        const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+        manifest.site = {
+          ...manifest.site,
+          id: joined.site.id,
+          title: joined.site.where ?? joined.site.id,
+        };
+        await writeFile(
+          manifestPath,
+          `${JSON.stringify(manifest, null, 2)}\n`,
+          "utf8",
+        );
+      } catch {
+        // A scene without a readable manifest is not one we can correct.
+      }
       process.stdout.write(
         `renamed scene ${entry.name} -> ${joined.site.id}\n`,
       );

@@ -1,29 +1,19 @@
 {
   "comment": [
-    "Hand-authored, and the only geographic or editorial fact written by hand.",
-    "Everything else in scene-sites.json is derived: see",
-    "tools/s2-hilbert/scene-sites.mjs.",
+    "Hand-authored, and the only editorial or geographic fact written by hand.",
+    "Everything else about a scene is derived: see tools/s2-hilbert/scene-sites.mjs.",
     "",
-    "Give a scene an entry only when the derived value is wrong or missing: a",
-    "title a person would recognise, a summary worth writing out, or a position",
-    "for a recording the archive index does not cover. A position here wins over",
-    "the one the archive site carries, so a survey is never overwritten by a",
-    "reading taken off the paper field map."
+    "Give a scene an entry only when there is nothing to derive from \u2014 a recording",
+    "with no archive site, which has no field mark to take a name or a position",
+    "from. A site that has a mark takes its name from the mark, and correcting the",
+    "mark is how you rename it. Do not add a title here to override one: that is",
+    "how a page came to read 'Broadway & Columbus' for weeks after the mark had",
+    "been corrected to 'Columbus at Broadway'."
   ],
   "scenes": {
     "soma1": {
       "title": "SoMa 1",
       "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street."
-    },
-    "broadway-telegraph-hill": {
-      "title": "Broadway & Columbus",
-      "summary": "A North Beach junction, recorded from a static roadside sensor.",
-      "position": {
-        "lat": 37.7987,
-        "lon": -122.4073,
-        "source": "operator"
-      },
-      "position_note": "Hand-entered to the junction, not surveyed. The field mark for this site reads 'Broadway below Telegraph Hill, near Sansome', which is about 600 m from where the sensor actually stood; the junction name is the better fix and overrides it. Correcting the mark would rename this scene."
     }
   }
 }
