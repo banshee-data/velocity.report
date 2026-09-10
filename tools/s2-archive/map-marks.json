@@ -1,0 +1,257 @@
+{
+  "comment": [
+    "Positions read by eye from the field map photograph, by locating each X",
+    "against the street labels printed around it. These are approximate: the",
+    "paper is photographed at an angle and a mark covers a couple of blocks, so",
+    "treat each as the neighbourhood rather than the junction. Confidence says",
+    "how much street context was legible around the mark, not how close the",
+    "reading is to a survey.",
+    "",
+    "Day is inferred from the highlighted region and confirmed by the recording",
+    "window: purple marks are all afternoon and 9/1 recorded 12:48-16:41; green",
+    "spans the morning and 9/2 recorded from 09:14; the eastern marks match the",
+    "times detected on 9/3 almost exactly.",
+    "",
+    "Each mark carries a stable id, slugged from the intersection name. That id",
+    "is the site's identity everywhere downstream: the site index, the scene",
+    "pages and their URLs. It is stable because it is derived from the place,",
+    "unlike the positional s01..s23 keys it replaces, which shifted whenever a",
+    "site was added or reclassified.",
+    "",
+    "Two angles may be given per mark, both in degrees, both optional:",
+    "",
+    "  grid_azimuth_deg  The sensor's zero azimuth measured against the street",
+    "                    grid at this junction. It rotates the ground grid the",
+    "                    viewer draws so the squares line up with the kerbs",
+    "                    instead of with the sensor's mounting. A property of",
+    "                    the street, so it is shared by every site on the same",
+    "                    grid and changes where the grid does.",
+    "",
+    "  north_azimuth_deg The sensor's zero azimuth measured clockwise from true",
+    "                    north. A property of how the tripod was set down, so it",
+    "                    is different at every site even on one street.",
+    "",
+    "They answer different questions and neither can be derived from the other:",
+    "the first makes the scene legible, the second makes it navigable."
+  ],
+  "marks": [
+    {
+      "id": "ashbury-downey",
+      "day": "2026-09-01",
+      "clock": "12:35",
+      "where": "Ashbury at Downey",
+      "lat": 37.7638,
+      "lon": -122.4466,
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "note": "Named by the operator, not read from the map. The static period detected for this site begins 12:58:38; recording started 12:48, so 12:35 is likely arrival rather than the start of the stationary stretch \u2014 every other 9/1 mark sits within four minutes of its detected start."
+    },
+    {
+      "id": "haight-divisadero",
+      "day": "2026-09-01",
+      "clock": "12:55",
+      "where": "Haight at Divisadero",
+      "lat": 37.7712,
+      "lon": -122.4372,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "pierce-haight",
+      "day": "2026-09-01",
+      "clock": "1:25",
+      "where": "Pierce at Haight",
+      "lat": 37.7718,
+      "lon": -122.4338,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "fulton-divisadero",
+      "day": "2026-09-01",
+      "clock": "1:55",
+      "where": "Fulton at Divisadero",
+      "lat": 37.7768,
+      "lon": -122.4381,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "california-leon-baker",
+      "day": "2026-09-01",
+      "clock": "2:30",
+      "where": "California between Leon and Baker",
+      "lat": 37.7875,
+      "lon": -122.4446,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "broadway-gough",
+      "day": "2026-09-01",
+      "clock": "3:05",
+      "where": "Broadway at Gough",
+      "lat": 37.7952,
+      "lon": -122.4269,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "laguna-eddy",
+      "day": "2026-09-01",
+      "clock": "3:40",
+      "where": "Laguna at Eddy",
+      "lat": 37.7821,
+      "lon": -122.4274,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "lombard-broderick",
+      "day": "2026-09-02",
+      "clock": "9:37",
+      "where": "Lombard at Broderick",
+      "lat": 37.799,
+      "lon": -122.444,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "marina-broderick",
+      "day": "2026-09-02",
+      "clock": "10:00",
+      "where": "Marina at Broderick",
+      "lat": 37.8053,
+      "lon": -122.4455,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "marina-webster-beach",
+      "day": "2026-09-02",
+      "clock": "10:28",
+      "where": "Marina between Webster and Beach",
+      "lat": 37.8057,
+      "lon": -122.4351,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "lombard-laguna",
+      "day": "2026-09-02",
+      "clock": "10:55",
+      "where": "Lombard at Laguna",
+      "lat": 37.8004,
+      "lon": -122.4313,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "columbus-north-point",
+      "day": "2026-09-02",
+      "clock": "11:50",
+      "where": "Columbus at North Point",
+      "lat": 37.8059,
+      "lon": -122.4181,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "embarcadero-bay",
+      "day": "2026-09-02",
+      "clock": "12:36",
+      "where": "Embarcadero at Bay",
+      "lat": 37.8067,
+      "lon": -122.4061,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "columbus-broadway",
+      "day": "2026-09-02",
+      "clock": "1:15",
+      "where": "Columbus at Broadway",
+      "lat": 37.7978,
+      "lon": -122.4065,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "van-ness-sacramento",
+      "day": "2026-09-02",
+      "clock": "2:25",
+      "where": "van Ness at Sacramento",
+      "lat": 37.7912,
+      "lon": -122.4225,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "embarcadero-broadway",
+      "day": "2026-09-02",
+      "clock": "3:20",
+      "where": "Embarcadero at Broadway",
+      "lat": 37.7991,
+      "lon": -122.3976,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "franklin-mcallister",
+      "day": "2026-09-03",
+      "clock": "10:35",
+      "where": "Franklin at McAllister",
+      "lat": 37.7798,
+      "lon": -122.4218,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "hyde-ofarrell",
+      "day": "2026-09-03",
+      "clock": "11:00",
+      "where": "Hyde at O'Farrell",
+      "lat": 37.7855,
+      "lon": -122.4164,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "bush-powell",
+      "day": "2026-09-03",
+      "clock": "11:35",
+      "where": "Bush at Powell",
+      "lat": 37.7901,
+      "lon": -122.409,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "embarcadero-folsom",
+      "day": "2026-09-03",
+      "clock": "1:15",
+      "where": "Embarcadero at Folsom",
+      "lat": 37.791,
+      "lon": -122.3899,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "1st-mission",
+      "day": "2026-09-03",
+      "clock": "2:07",
+      "where": "1st at Mission",
+      "lat": 37.7897,
+      "lon": -122.3974,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "embarcadero-bryant",
+      "day": "2026-09-03",
+      "clock": "2:40",
+      "where": "Embarcadero at Bryant",
+      "lat": 37.7868,
+      "lon": -122.3881,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "3rd-folsom",
+      "day": "2026-09-03",
+      "clock": "3:20",
+      "where": "3rd at Folsom",
+      "lat": 37.7837,
+      "lon": -122.3986,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "howard-6th",
+      "day": "2026-09-03",
+      "clock": "3:45",
+      "where": "Howard at 6th",
+      "lat": 37.7798,
+      "lon": -122.4069,
+      "confidence": "operator-named intersection; coordinate approximate to the block",
+      "note": "RIP Tess Rothstein 2019-03-08"
+    }
+  ]
+}
