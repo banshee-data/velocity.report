@@ -5,10 +5,10 @@
     "neighbourhood": 13,
     "site": 16
   },
-  "located_count": 23,
+  "located_count": 24,
   "unlocated_count": 1,
   "published_count": 14,
-  "recorded_count": 24,
+  "recorded_count": 25,
   "sites": [
     {
       "id": "soma1",
@@ -315,7 +315,7 @@
       "title": "Embarcadero at Broadway",
       "page": "/scenes/embarcadero-broadway/",
       "published": true,
-      "archive_site": "s15",
+      "archive_site": "s16",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -347,7 +347,7 @@
       "title": "Bush at Powell",
       "page": "/scenes/bush-powell/",
       "published": true,
-      "archive_site": "s18",
+      "archive_site": "s19",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -379,7 +379,7 @@
       "title": "Embarcadero at Folsom",
       "page": "/scenes/embarcadero-folsom/",
       "published": true,
-      "archive_site": "s19",
+      "archive_site": "s20",
       "summary": "20 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -411,7 +411,7 @@
       "title": "Howard at 6th",
       "page": "/scenes/howard-6th/",
       "published": true,
-      "archive_site": "s23",
+      "archive_site": "s24",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
@@ -599,11 +599,43 @@
       }
     },
     {
+      "id": "van-ness-sacramento",
+      "title": "van Ness at Sacramento",
+      "page": null,
+      "published": false,
+      "archive_site": "s15",
+      "summary": "21 minutes recorded on 2026-09-02, not yet published.",
+      "located": true,
+      "position": {
+        "lat": 37.7912,
+        "lon": -122.4225,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (van Ness at Sacramento). Neighbourhood-level; replace with a survey.",
+      "cells": {
+        "area": {
+          "token": "808581",
+          "display": "80858-1",
+          "level": 10
+        },
+        "neighbourhood": {
+          "token": "808580ec",
+          "display": "80858-0ec",
+          "level": 13
+        },
+        "site": {
+          "token": "808580ead",
+          "display": "80858-0ead",
+          "level": 16
+        }
+      }
+    },
+    {
       "id": "franklin-mcallister",
       "title": "Franklin at McAllister",
       "page": null,
       "published": false,
-      "archive_site": "s16",
+      "archive_site": "s17",
       "summary": "12 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -635,7 +667,7 @@
       "title": "Hyde at O'Farrell",
       "page": null,
       "published": false,
-      "archive_site": "s17",
+      "archive_site": "s18",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -667,7 +699,7 @@
       "title": "1st at Mission",
       "page": null,
       "published": false,
-      "archive_site": "s20",
+      "archive_site": "s21",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -699,7 +731,7 @@
       "title": "Embarcadero at Bryant",
       "page": null,
       "published": false,
-      "archive_site": "s21",
+      "archive_site": "s22",
       "summary": "23 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
@@ -731,7 +763,7 @@
       "title": "3rd at Folsom",
       "page": null,
       "published": false,
-      "archive_site": "s22",
+      "archive_site": "s23",
       "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
