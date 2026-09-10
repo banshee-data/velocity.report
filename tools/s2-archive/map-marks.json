@@ -42,6 +42,7 @@
       "where": "Ashbury at Downey",
       "lat": 37.7638,
       "lon": -122.4466,
+      "confidence": "high",
       "grid_azimuth_deg": 3,
       "north_azimuth_deg": 8
     },
@@ -52,6 +53,7 @@
       "where": "Haight at Divisadero",
       "lat": 37.7712,
       "lon": -122.4372,
+      "confidence": "high",
       "grid_azimuth_deg": 1,
       "north_azimuth_deg": 101
     },
@@ -62,6 +64,7 @@
       "where": "Pierce at Haight",
       "lat": 37.7718,
       "lon": -122.4338,
+      "confidence": "high",
       "grid_azimuth_deg": 0,
       "north_azimuth_deg": 11
     },
@@ -72,6 +75,7 @@
       "where": "Fulton at Divisadero",
       "lat": 37.7768,
       "lon": -122.4381,
+      "confidence": "high",
       "grid_azimuth_deg": 1,
       "north_azimuth_deg": 101
     },
@@ -82,6 +86,7 @@
       "where": "California between Leon and Baker",
       "lat": 37.7875,
       "lon": -122.4446,
+      "confidence": "high",
       "grid_azimuth_deg": 1,
       "north_azimuth_deg": 101
     },
@@ -92,6 +97,7 @@
       "where": "Broadway at Gough",
       "lat": 37.7952,
       "lon": -122.4269,
+      "confidence": "high",
       "grid_azimuth_deg": 359,
       "north_azimuth_deg": 99
     },
@@ -102,6 +108,7 @@
       "where": "Laguna at Eddy",
       "lat": 37.7821,
       "lon": -122.4274,
+      "confidence": "high",
       "grid_azimuth_deg": 359,
       "north_azimuth_deg": 9
     },
@@ -112,6 +119,7 @@
       "where": "Lombard at Broderick",
       "lat": 37.799,
       "lon": -122.444,
+      "confidence": "high",
       "grid_azimuth_deg": 355,
       "north_azimuth_deg": 97
     },
@@ -122,6 +130,7 @@
       "where": "Marina at Broderick",
       "lat": 37.8053,
       "lon": -122.4455,
+      "confidence": "high",
       "grid_azimuth_deg": 356,
       "north_azimuth_deg": 282
     },
@@ -132,6 +141,7 @@
       "where": "Marina between Webster and Beach",
       "lat": 37.8057,
       "lon": -122.4351,
+      "confidence": "high",
       "grid_azimuth_deg": 356.5,
       "north_azimuth_deg": 231
     },
@@ -142,6 +152,7 @@
       "where": "Lombard at Laguna",
       "lat": 37.8004,
       "lon": -122.4313,
+      "confidence": "high",
       "grid_azimuth_deg": 354,
       "north_azimuth_deg": 275
     },
@@ -152,6 +163,7 @@
       "where": "Columbus at North Point",
       "lat": 37.8059,
       "lon": -122.4181,
+      "confidence": "high",
       "grid_azimuth_deg": 38,
       "north_azimuth_deg": 48
     },
@@ -162,6 +174,7 @@
       "where": "Embarcadero at Bay",
       "lat": 37.8067,
       "lon": -122.4061,
+      "confidence": "high",
       "grid_azimuth_deg": 60,
       "north_azimuth_deg": 253
     },
@@ -172,6 +185,7 @@
       "where": "Columbus at Broadway",
       "lat": 37.7978,
       "lon": -122.4065,
+      "confidence": "high",
       "grid_azimuth_deg": 27,
       "north_azimuth_deg": 35
     },
@@ -182,6 +196,7 @@
       "where": "van Ness at Sacramento",
       "lat": 37.7912,
       "lon": -122.4225,
+      "confidence": "high",
       "grid_azimuth_deg": 355.5,
       "north_azimuth_deg": 10
     },
@@ -192,6 +207,7 @@
       "where": "Embarcadero at Broadway",
       "lat": 37.7991,
       "lon": -122.3976,
+      "confidence": "high",
       "grid_azimuth_deg": 2,
       "north_azimuth_deg": 101
     },
@@ -202,6 +218,7 @@
       "where": "Franklin at McAllister",
       "lat": 37.7798,
       "lon": -122.4218,
+      "confidence": "high",
       "grid_azimuth_deg": 4,
       "north_azimuth_deg": 192
     },
@@ -212,6 +229,7 @@
       "where": "Hyde at O'Farrell",
       "lat": 37.7855,
       "lon": -122.4164,
+      "confidence": "high",
       "grid_azimuth_deg": 3,
       "north_azimuth_deg": 14
     },
@@ -222,6 +240,7 @@
       "where": "Bush at Powell",
       "lat": 37.7901,
       "lon": -122.409,
+      "confidence": "high",
       "grid_azimuth_deg": 3,
       "north_azimuth_deg": 102
     },
@@ -232,6 +251,7 @@
       "where": "Embarcadero at Folsom",
       "lat": 37.791,
       "lon": -122.3899,
+      "confidence": "high",
       "grid_azimuth_deg": 356,
       "north_azimuth_deg": 131
     },
@@ -242,6 +262,7 @@
       "where": "1st at Mission",
       "lat": 37.7897,
       "lon": -122.3974,
+      "confidence": "high",
       "grid_azimuth_deg": 6,
       "north_azimuth_deg": 51
     },
@@ -252,6 +273,7 @@
       "where": "Embarcadero at Bryant",
       "lat": 37.7868,
       "lon": -122.3881,
+      "confidence": "high",
       "grid_azimuth_deg": 308,
       "north_azimuth_deg": 353
     },
@@ -262,6 +284,7 @@
       "where": "3rd at Folsom",
       "lat": 37.7837,
       "lon": -122.3986,
+      "confidence": "high",
       "grid_azimuth_deg": 358,
       "north_azimuth_deg": 223
     },
@@ -272,6 +295,7 @@
       "where": "Howard at 6th",
       "lat": 37.7798,
       "lon": -122.4069,
+      "confidence": "high",
       "note": "RIP Tess Rothstein 2019-03-08",
       "grid_azimuth_deg": 357,
       "north_azimuth_deg": 312
