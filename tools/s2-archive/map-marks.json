@@ -26,7 +26,7 @@
       "where": "Lombard at Broderick",
       "lat": 37.799,
       "lon": -122.444,
-      "confidence": "high"
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
       "id": "marina-broderick",
@@ -35,70 +35,79 @@
       "where": "Marina Boulevard at Broderick",
       "lat": 37.8053,
       "lon": -122.4455,
-      "confidence": "medium"
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "marina-fillmore",
+      "id": "marina-webster-beach",
       "day": "2026-09-02",
       "clock": "10:28",
-      "where": "Marina Boulevard near Fillmore",
-      "lat": 37.8065,
-      "lon": -122.436,
-      "confidence": "medium"
+      "where": "Marina Boulevard between Webster and Beach",
+      "lat": 37.8057,
+      "lon": -122.4351,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "union-van-ness",
+      "id": "lombard-laguna",
       "day": "2026-09-02",
       "clock": "10:55",
-      "where": "Union Street near Van Ness",
-      "lat": 37.7985,
-      "lon": -122.424,
-      "confidence": "medium"
+      "where": "Lonbard at Laguna",
+      "lat": 37.8004,
+      "lon": -122.4313,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "fisherman-s-wharf",
+      "id": "columbus-north-point",
       "day": "2026-09-02",
       "clock": "11:50",
-      "where": "Fisherman's Wharf, Jefferson Street near Hyde",
-      "lat": 37.807,
-      "lon": -122.42,
-      "confidence": "medium"
+      "where": "Columbus at North Point",
+      "lat": 37.8059,
+      "lon": -122.4181,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "bay-embarcadero",
+      "id": "embarcadero-bay",
       "day": "2026-09-02",
       "clock": "12:36",
-      "where": "Bay Street towards the Embarcadero",
-      "lat": 37.8055,
-      "lon": -122.41,
-      "confidence": "medium"
+      "where": "Embarcadero at Bay",
+      "lat": 37.8067,
+      "lon": -122.4061,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "broadway-telegraph-hill",
+      "id": "columbus-broadway",
       "day": "2026-09-02",
       "clock": "1:15",
-      "where": "Broadway below Telegraph Hill, near Sansome",
-      "lat": 37.798,
-      "lon": -122.402,
-      "confidence": "medium"
+      "where": "Columbus at Broadway",
+      "lat": 37.7978,
+      "lon": -122.4065,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "nob-hill-chinatown",
+      "id": "van-ness-sacramento",
       "day": "2026-09-02",
-      "clock": "3:25",
-      "where": "Nob Hill / Chinatown edge",
-      "lat": null,
-      "lon": null,
-      "confidence": "unread"
+      "clock": "2:25",
+      "where": "van Ness at Sacramento",
+      "lat": 37.7912,
+      "lon": -122.4225,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
-      "id": "van-ness-market",
+      "id": "embarcadero-broadway",
+      "day": "2026-09-02",
+      "clock": "3:20",
+      "where": "Embarcadero at Broadway",
+      "lat": 37.7991,
+      "lon": -122.3976,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
+    },
+    {
+      "id": "franklin-mcallister",
       "day": "2026-09-03",
       "clock": "10:35",
-      "where": "Van Ness near Market, Civic Center",
-      "lat": 37.7755,
-      "lon": -122.419,
-      "confidence": "medium"
+      "where": "Franklin at McAllister",
+      "lat": 37.7798,
+      "lon": -122.4218,
+      "confidence": "operator-named intersection; coordinate approximate to the block"
     },
     {
       "id": "geary-larkin",
