@@ -71,12 +71,18 @@ function setup() {
 }
 
 /** Drags one pointer by (dx, dy) from the centre. */
-function drag(element, dx, dy) {
-  element.fire("pointerdown", { pointerId: 1, clientX: 200, clientY: 200 });
+function drag(element, dx, dy, modifiers = {}) {
+  element.fire("pointerdown", {
+    pointerId: 1,
+    clientX: 200,
+    clientY: 200,
+    ...modifiers,
+  });
   element.fire("pointermove", {
     pointerId: 1,
     clientX: 200 + dx,
     clientY: 200 + dy,
+    ...modifiers,
   });
   element.fire("pointerup", { pointerId: 1 });
 }
@@ -283,6 +289,20 @@ describe("scene camera", () => {
       Math.abs(afterDist - beforeDist) < 1,
       "orbiting should not change the distance to the target",
     );
+  });
+
+  test("holding Shift temporarily changes an orbit drag to a pan", () => {
+    const { cam, element } = setup();
+    cam.applyPreset("north");
+    cam.setMode("orbit");
+
+    const before = cam.currentVantage();
+    drag(element, 60, 0, { shiftKey: true });
+    const after = cam.currentVantage();
+
+    assert.equal(after.azimuth_deg, before.azimuth_deg);
+    assert.notEqual(after.offset_x, before.offset_x);
+    assert.equal(cam.mode, "orbit", "Shift must not leave pan mode behind");
   });
 
   test("the mode toggle decides what a one-finger drag does", () => {

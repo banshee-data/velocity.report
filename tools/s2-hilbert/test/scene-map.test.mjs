@@ -112,6 +112,12 @@ test("escapes markup in a site name", () => {
   assert.ok(!/Broadway & Columbus/.test(svg), "a bare ampersand would be invalid XML");
 });
 
+test("keeps scene markers hero green in light and dark mode", () => {
+  const svg = renderSceneMapSvg(buildSceneMapModel({ sites: [BROADWAY] }));
+  const markerRules = svg.match(/scene-map__marker \{ fill: #10b981/g) ?? [];
+  assert.equal(markerRules.length, 2);
+});
+
 test("renders an honest empty state when nothing has a position", () => {
   const model = buildSceneMapModel({ sites: [UNLOCATED] });
   assert.equal(model.map, null);

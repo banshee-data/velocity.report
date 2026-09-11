@@ -8,6 +8,14 @@ layout: page.njk
 #}
 
 <style>
+  .scene-page {
+    --scene-canvas: #07090c;
+    --scene-vehicle: #f2504b;
+    --scene-cycle: #6aa9ff;
+    --scene-walking: #10b981;
+    --scene-primary: #10b981;
+    --scene-primary-ink: #07090c;
+  }
   .scene-dev[hidden], #scene-capture[hidden] { display: none; }
   .scene-dev { margin-top: 1rem; padding: 0.8rem; border: 1px solid #2c4049; }
   .scene-dev label { display: block; margin: 0.5rem 0; }
@@ -20,29 +28,72 @@ layout: page.njk
   .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
   .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
   .scene-page__more {
-    background: none; border: 0; padding: 0; font: inherit; color: #4bc0d9;
+    background: none; border: 0; padding: 0; font: inherit; color: var(--scene-primary);
     cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
   }
-  .scene-page__more:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; border-radius: 2px; }
+  .scene-page__more:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; border-radius: 2px; }
   .scene-page__privacy {
     font-size: 0.9rem; line-height: 1.55; max-width: 62ch; opacity: 0.75;
     border-left: 2px solid currentColor; padding-left: 0.9rem; margin: 0.75rem 0 0;
   }
   .scene-page__privacy[hidden] { display: none; }
 
-  .scene-stage { position: relative; aspect-ratio: 16 / 10; width: 100%; border-radius: 4px; overflow: hidden; background: #0b1013; }
+  .scene-stage { position: relative; aspect-ratio: 16 / 10; width: 100%; border-radius: 4px; overflow: hidden; background: var(--scene-canvas); }
   @media (min-width: 768px) { .scene-stage { aspect-ratio: 16 / 9; } }
   .scene-stage__canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   .scene-stage__canvas:active { cursor: grabbing; }
-  .scene-stage__canvas:focus-visible { outline: 2px solid #4bc0d9; outline-offset: -2px; }
-  .scene-stage__tools { position: absolute; top: 0.65rem; right: 0.65rem; display: flex; gap: 0.4rem; }
+  .scene-stage__canvas:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: -2px; }
+  .scene-stage__switches {
+    position: absolute; z-index: 2; top: 0.65rem; left: 0.65rem;
+    display: grid; gap: 0.42rem; margin: 0; padding: 0.55rem 0.65rem;
+    border: 1px solid rgba(207, 227, 232, 0.24); border-radius: 4px;
+    background: rgba(7, 9, 12, 0.84); color: #cfe3e8;
+    backdrop-filter: blur(5px);
+  }
+  .scene-switch {
+    display: flex; align-items: center; gap: 0.48rem; min-height: 1.35rem;
+    font-size: 0.875rem; line-height: 1.2; cursor: pointer; user-select: none;
+  }
+  .scene-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .scene-switch__track {
+    position: relative; flex: 0 0 auto; width: 2.15rem; height: 1.2rem;
+    border: 1px solid #607780; border-radius: 999px; background: #1c2b32;
+    transition: background 140ms ease, border-color 140ms ease;
+  }
+  .scene-switch__track::after {
+    content: ""; position: absolute; top: 0.13rem; left: 0.14rem;
+    width: 0.78rem; height: 0.78rem; border-radius: 50%; background: #cfe3e8;
+    transition: transform 140ms ease;
+  }
+  .scene-switch input:checked + .scene-switch__track {
+    border-color: var(--scene-primary); background: var(--scene-primary);
+  }
+  .scene-switch input:checked + .scene-switch__track::after {
+    background: var(--scene-primary-ink); transform: translateX(0.94rem);
+  }
+  .scene-switch input:focus-visible + .scene-switch__track {
+    outline: 2px solid var(--scene-primary); outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scene-switch__track, .scene-switch__track::after { transition: none; }
+  }
+  .scene-stage__tools {
+    position: absolute; z-index: 2; top: 0.65rem; right: 0.65rem;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.28rem;
+  }
+  .scene-stage__tip {
+    margin: 0; padding: 0.24rem 0.4rem; border-radius: 3px;
+    background: rgba(7, 9, 12, 0.76); color: rgba(207, 227, 232, 0.82);
+    font-size: 0.75rem; line-height: 1.35; text-align: right;
+    pointer-events: none; white-space: nowrap;
+  }
   .scene-compass {
     position: absolute; right: 0.65rem; bottom: 0.65rem; width: 76px; height: 76px;
     border: 1px solid #2c4049; border-radius: 50%; padding: 0;
-    background: rgba(11, 16, 19, 0.85); color: #4bc0d9; cursor: pointer;
+    background: rgba(7, 9, 12, 0.85); color: var(--scene-primary); cursor: pointer;
   }
-  .scene-compass:hover { border-color: #4bc0d9; }
-  .scene-compass:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 3px; }
+  .scene-compass:hover { border-color: var(--scene-primary); }
+  .scene-compass:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 3px; }
   .scene-compass svg { display: block; width: 100%; height: 100%; }
   .scene-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .scene-label {
@@ -65,13 +116,13 @@ layout: page.njk
     border: 1px solid rgba(207, 227, 232, 0.28); background: rgba(11, 16, 19, 0.72);
     color: #cfe3e8; cursor: pointer; white-space: nowrap; line-height: 1.2;
   }
-  .scene-chip[aria-pressed="true"] { background: #4bc0d9; border-color: #4bc0d9; color: #06222a; font-weight: 600; }
-  .scene-chip:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
+  .scene-chip[aria-pressed="true"] { background: var(--scene-primary); border-color: var(--scene-primary); color: var(--scene-primary-ink); font-weight: 600; }
+  .scene-chip:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
   .scene-chip--ghost { flex: 0 0 auto; opacity: 0.75; border-style: dashed; }
   /* Fly is a mode, so it reads as a switch rather than a destination. */
   .scene-chip--fly { flex: 0 0 auto; font-weight: 600; letter-spacing: 0.04em; }
   .scene-chip--fly[aria-checked="true"] {
-    background: #4bc0d9; border-color: #4bc0d9; color: #06222a;
+    background: var(--scene-primary); border-color: var(--scene-primary); color: var(--scene-primary-ink);
   }
   .scene-chip--fly[aria-checked="true"]::before { content: "\25B8\00a0"; }
   .scene-chip--fly[aria-checked="false"]::before { content: "\25AA\00a0"; opacity: 0.7; }
@@ -88,7 +139,7 @@ layout: page.njk
     background: rgba(255, 255, 255, 0.03); cursor: pointer;
     flex: 1 1 14rem; min-width: 8rem;
   }
-  .scene-timeline__canvas:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
+  .scene-timeline__canvas:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
   .scene-timeline__key {
     display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.4rem;
     font-size: 0.72rem; opacity: 0.75;
@@ -108,14 +159,13 @@ layout: page.njk
   }
   .scene-transport__button:hover { background: rgba(75, 192, 217, 0.12); }
   .scene-transport__button:focus-visible,
-  .scene-transport__rate select:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
+  .scene-transport__rate select:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
   .scene-transport__clock { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.8; min-width: 3.2rem; }
   .scene-transport__rate select { font: inherit; padding: 0.3rem 0.4rem; border-radius: 3px; background: transparent; color: inherit; border: 1px solid currentColor; }
   @media (max-width: 560px) {
     .scene-timeline__canvas { flex-basis: 100%; order: -1; }
   }
   .scene-transport__stats { margin: 0.5rem 0 0; font-size: 0.86rem; opacity: 0.8; font-variant-numeric: tabular-nums; min-height: 1.3em; }
-
   .scene-speed { margin-top: 2rem; }
   .scene-speed > h2 { margin: 0 0 0.3rem; font-size: 1.35rem; }
   .scene-speed__intro { margin: 0 0 1rem; max-width: 66ch; opacity: 0.78; }
@@ -175,10 +225,32 @@ layout: page.njk
       width="960"
       height="540"
       tabindex="0"
-      aria-label="3D street scene. Drag to look around, pinch to zoom, or use the arrow keys."
+      aria-label="3D street scene. Drag to rotate, Shift-drag or use two fingers to pan, pinch or scroll to zoom, or use the arrow keys."
     ></canvas>
 
     <div class="scene-stage__labels" id="scene-labels" aria-hidden="true"></div>
+
+    {% if sceneHasClip %}
+    <fieldset class="scene-stage__switches" aria-label="Scene layers and playback">
+      <legend class="sr-only">Scene layers and playback</legend>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-lidar" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>LiDAR</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-boxes" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Boxes</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-loop-opening" role="switch" aria-describedby="scene-loop-opening-help">
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Loop opening</span>
+      </label>
+      <span class="sr-only" id="scene-loop-opening-help">Turn on to loop the opening LiDAR segment; turn off for the full recording.</span>
+    </fieldset>
+    {% endif %}
 
     <div class="scene-stage__tools" role="group" aria-label="Viewport controls">
       <button
@@ -188,6 +260,7 @@ layout: page.njk
         role="switch"
         aria-checked="true"
       >Fly</button>
+      <p class="scene-stage__tip" id="scene-fly-tip">Drag to rotate<br>Shift + drag to pan</p>
       <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
     </div>
 
@@ -252,11 +325,11 @@ layout: page.njk
 
   <div class="scene-timeline__key">
     <span class="scene-timeline__axis">Above</span>
-    <span><i style="background:#f2504b"></i>Motor vehicles</span>
+    <span><i style="background:var(--scene-vehicle)"></i>Motor vehicles</span>
     <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Fastest</span>
     <span class="scene-timeline__axis">Below</span>
-    <span><i style="background:#4b9df2"></i>Walking</span>
-    <span><i style="background:#6fd14b"></i>Cycling</span>
+    <span><i style="background:var(--scene-walking)"></i>Walking</span>
+    <span><i style="background:var(--scene-cycle)"></i>Cycling</span>
   </div>
 
   <p id="scene-stats" class="scene-transport__stats"></p>
@@ -287,8 +360,11 @@ layout: page.njk
     <summary>About the data</summary>
     <p>
       A Hesai Pandar40P recorded the street. The perception pipeline produced the
-      source VRLOG; this page loads a smaller static export. Playback follows the
-      recorded timestamps because the sensor does not turn at a perfectly fixed rate.
+      source VRLOG; this page loads smaller static exports. The opening 30 seconds
+      add the measured foreground points. Boxes, trails and the timeline always come
+      from the full tracked recording, so they do not change source when the points
+      fade away. Playback follows recorded timestamps because the sensor does not
+      turn at a perfectly fixed rate.
     </p>
   </details>
 </section>
@@ -310,6 +386,7 @@ layout: page.njk
   mountScenePlayer({
     canvas: document.getElementById("scene-canvas"),
     manifestURL: `${base}/manifest.json`,
+    pointCloudManifestURL: {{ "`${base}/clip/manifest.json`" if sceneHasClip else "null" }},
     ui: {
       siteId: "{{ sceneId }}",
       compass: document.getElementById("scene-compass"),
@@ -327,7 +404,11 @@ layout: page.njk
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
+      lidarToggle: document.getElementById("scene-lidar"),
+      boxesToggle: document.getElementById("scene-boxes"),
+      openingLoopToggle: document.getElementById("scene-loop-opening"),
       flyToggle: document.getElementById("scene-fly"),
+      flyTip: document.getElementById("scene-fly-tip"),
       captureView: document.getElementById("scene-capture"),
       captureOutput: document.getElementById("scene-capture-out"),
       playToggle: document.getElementById("scene-play"),

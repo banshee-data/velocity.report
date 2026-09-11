@@ -1,5 +1,6 @@
 /** Every recorded site, with a private local fallback and an opt-in cycle map. */
 import { mountCycleMapConsent } from "./scene-map-mode.js";
+import { SCENE_CSS_COLOURS } from "./scene-colours.js";
 
 const SF = [37.7749, -122.4194];
 const MIN_ZOOM = 12;
@@ -137,9 +138,9 @@ function addSiteLayers(L, map, located) {
       pane: "markers",
       radius: 7,
       weight: 2,
-      color: site.published ? "#1c6fd6" : "#8a8a8a",
-      fillColor: site.published ? "#1c6fd6" : "#ffffff",
-      fillOpacity: site.published ? 0.85 : 0.5,
+      color: SCENE_CSS_COLOURS.primary,
+      fillColor: SCENE_CSS_COLOURS.primary,
+      fillOpacity: site.published ? 0.9 : 0.65,
       interactive: false,
     }).addTo(map);
     markers.set(site.id, marker);

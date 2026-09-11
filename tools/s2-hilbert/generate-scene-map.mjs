@@ -47,17 +47,23 @@ const SITE_INDEX = path.join(
  * out to remove — and a newly exported scene had no page at all, so its assets
  * sat published behind a 404.
  */
-function scenePage(site, minutes) {
+function scenePage(site, minutes, hasPointCloudClip = false) {
   const whole = Math.round(minutes);
+  const description = hasPointCloudClip
+    ? `${whole} minutes at a San Francisco junction, with a point-cloud view over the opening 30 seconds. Measured by roadside LiDAR, with no camera images or number plates.`
+    : `${whole} minutes at a San Francisco junction, measured by roadside LiDAR. Trajectories only, no camera images or number plates.`;
+  const intro = hasPointCloudClip
+    ? `${whole} minutes at this junction, with the point cloud visible over the opening 30 seconds.`
+    : `${whole} minutes at this junction, measured by roadside LiDAR.`;
   return `---
 layout: scene.njk
 title: "${site.title}: LiDAR scene — velocity.report"
-description: ${whole} minutes at a San Francisco junction, measured by roadside LiDAR. Trajectories only, no camera images or number plates.
+description: ${description}
 sceneId: ${site.id}
 sceneName: ${site.title}
-sceneIntro: ${whole} minutes at this junction, measured by roadside LiDAR.
-gridAzimuthDeg: ${site.grid_azimuth_deg ?? ""}
-northAzimuthDeg: ${site.north_azimuth_deg ?? ""}
+sceneIntro: ${intro}
+${hasPointCloudClip ? "sceneHasClip: true\n" : ""}gridAzimuthDeg:${site.grid_azimuth_deg == null ? "" : ` ${site.grid_azimuth_deg}`}
+northAzimuthDeg:${site.north_azimuth_deg == null ? "" : ` ${site.north_azimuth_deg}`}
 ---
 `;
 }
@@ -305,9 +311,16 @@ export async function generateSceneMap() {
         "utf8",
       ),
     );
+    let hasPointCloudClip = false;
+    try {
+      await readFile(path.join(dir, "assets", "clip", "manifest.json"), "utf8");
+      hasPointCloudClip = true;
+    } catch {
+      // The track-only page is the normal case.
+    }
     await writeFile(
       path.join(dir, "index.njk"),
-      scenePage(site, (header.duration_sec ?? 0) / 60),
+      scenePage(site, (header.duration_sec ?? 0) / 60, hasPointCloudClip),
       "utf8",
     );
   }

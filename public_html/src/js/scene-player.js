@@ -12,7 +12,14 @@ import { createSceneCamera } from "./scene-camera.js";
 import { renderSceneSpeedStats } from "./scene-speed-stats.js";
 import { createTimelineStrip } from "./scene-timeline.js";
 import { createSceneFlight } from "./scene-flight.js";
-import { advanceSceneClock, autoplayScene } from "./scene-playback.js";
+import {
+  advanceSceneClock,
+  autoplayScene,
+  pointCloudOverlayOpacity,
+  sceneLoopDuration,
+  sceneSourcesAlign,
+} from "./scene-playback.js";
+import { SCENE_COLOURS } from "./scene-colours.js";
 
 // Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
 // X, up becomes Y, and north becomes -Z to keep the frame right-handed.
@@ -24,18 +31,17 @@ const MPS_TO_MPH = 2.236936;
 
 /** Class colours. Anything unrecognised falls back to `default`. */
 const CLASS_COLOUR = {
-  // Red for vehicles, blue for people, green for bikes. The same three read
-  // across the scene and the timeline strip, so a colour means one thing.
-  car: 0xf2504b,
-  bus: 0xf2504b,
-  truck: 0xf2504b,
-  pedestrian: 0x4b9df2,
-  cyclist: 0x6fd14b,
-  motorcyclist: 0x6fd14b,
-  bird: 0xb08bd4,
-  dynamic: 0x8899a6,
-  noise: 0x55606b,
-  default: 0x8899a6,
+  // These read across the scene and timeline strip, so a colour means one thing.
+  car: SCENE_COLOURS.vehicle,
+  bus: SCENE_COLOURS.vehicle,
+  truck: SCENE_COLOURS.vehicle,
+  pedestrian: SCENE_COLOURS.walking,
+  cyclist: SCENE_COLOURS.cycle,
+  motorcyclist: SCENE_COLOURS.cycle,
+  bird: SCENE_COLOURS.bird,
+  dynamic: SCENE_COLOURS.dynamic,
+  noise: SCENE_COLOURS.noise,
+  default: SCENE_COLOURS.dynamic,
 };
 
 const TRAIL_MAX_POINTS = 40;
@@ -148,12 +154,81 @@ class TrackVisual {
     this.trail.visible = false;
   }
 
+  setOpacity(opacity) {
+    this.edges.material.opacity = 0.95 * opacity;
+    this.fill.material.opacity = 0.22 * opacity;
+    this.trail.material.opacity = 0.7 * opacity;
+  }
+
+  setVisible(visible) {
+    this.edges.visible = visible;
+    this.fill.visible = visible;
+    this.trail.visible = visible && this.trailPoints.length > 1;
+  }
+
   dispose(scene) {
     for (const o of [this.edges, this.fill, this.trail]) {
       scene.remove(o);
       o.geometry.dispose();
       o.material.dispose();
     }
+  }
+}
+
+/** One reusable geometry for the recorded foreground returns in clip exports. */
+class PointCloudVisual {
+  constructor(scene) {
+    this.geometry = new THREE.BufferGeometry();
+    this.capacity = 0;
+    this.material = new THREE.PointsMaterial({
+      size: 0.11,
+      vertexColors: true,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 1,
+    });
+    this.baseColour = new THREE.Color(SCENE_COLOURS.primary);
+    this.points = new THREE.Points(this.geometry, this.material);
+    this.points.visible = false;
+    scene.add(this.points);
+  }
+
+  ensureCapacity(count) {
+    if (count <= this.capacity) return;
+    this.capacity = count;
+    this.geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(count * 3), 3),
+    );
+    this.geometry.setAttribute(
+      "color",
+      new THREE.BufferAttribute(new Float32Array(count * 3), 3),
+    );
+  }
+
+  update(points, opacity) {
+    if (!points?.length) {
+      this.points.visible = false;
+      this.geometry.setDrawRange(0, 0);
+      return;
+    }
+    this.ensureCapacity(points.length);
+    const positions = this.geometry.attributes.position.array;
+    const colours = this.geometry.attributes.color.array;
+    points.forEach((point, i) => {
+      positions[i * 3] = toSceneX(point[0]);
+      positions[i * 3 + 1] = toSceneY(point[2]);
+      positions[i * 3 + 2] = toSceneZ(point[1]);
+      const light = 0.42 + 0.58 * Math.min(1, (point[3] ?? 0) / 255);
+      colours[i * 3] = this.baseColour.r * light;
+      colours[i * 3 + 1] = this.baseColour.g * light;
+      colours[i * 3 + 2] = this.baseColour.b * light;
+    });
+    this.geometry.attributes.position.needsUpdate = true;
+    this.geometry.attributes.color.needsUpdate = true;
+    this.geometry.setDrawRange(0, points.length);
+    this.material.opacity = opacity;
+    this.points.visible = true;
   }
 }
 
@@ -164,15 +239,22 @@ class TrackVisual {
  * @param {HTMLCanvasElement} opts.canvas
  * @param {string} opts.manifestURL relative or absolute; kept configurable so
  *   assets can later move to object storage without touching this code.
+ * @param {string} [opts.pointCloudManifestURL] optional point overlay aligned
+ *   to the beginning of the primary recording
  * @param {object} opts.ui element references for the transport controls
  */
-export async function mountScenePlayer({ canvas, manifestURL, ui }) {
+export async function mountScenePlayer({
+  canvas,
+  manifestURL,
+  pointCloudManifestURL,
+  ui,
+}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-  renderer.setClearColor(0x0b1013, 1);
+  renderer.setClearColor(SCENE_COLOURS.canvas, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x0b1013, 60, 190);
+  scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, 60, 190);
 
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
 
@@ -198,7 +280,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   // sensor is the coordinate origin, mounted above the carriageway.
   const origin = new THREE.Mesh(
     new THREE.RingGeometry(0.7, 0.9, 32),
-    new THREE.MeshBasicMaterial({ color: 0x4bc0d9, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: SCENE_COLOURS.primary, side: THREE.DoubleSide }),
   );
   origin.rotation.x = -Math.PI / 2;
   scene.add(origin);
@@ -314,7 +396,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     origin.position.y = b.groundY + 0.02;
     // Fog starts beyond the framed area so it adds depth without dimming the
     // objects the viewer came to see.
-    scene.fog = new THREE.Fog(0x0b1013, b.span * 1.8, b.span * 5);
+    scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, b.span * 1.8, b.span * 5);
     sceneCamera.frame(b);
   }
 
@@ -359,6 +441,19 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   });
 
   const session = await new SceneSession(manifestURL).open();
+  let pointCloudSession = null;
+  if (pointCloudManifestURL) {
+    try {
+      const candidate = await new SceneSession(pointCloudManifestURL).open();
+      if (sceneSourcesAlign(session.parts[0]?.header, candidate.parts[0]?.header)) {
+        pointCloudSession = candidate;
+      } else {
+        console.warn("Point-cloud overlay does not align with the tracked scene; hiding it.");
+      }
+    } catch (err) {
+      console.warn("Point-cloud overlay could not be loaded; continuing with tracks.", err);
+    }
+  }
 
   /**
    * Reads the scene's vantages.json.
@@ -424,7 +519,9 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   sceneCamera.applyVantage(canFly ? flight.sample(0) : vantages[0]);
 
   const visuals = new Map();
+  const pointCloud = new PointCloudVisual(scene);
   let currentPart = -1;
+  let strip = null;
 
   function render() {
     updateCompass(ui.compass, sceneCamera.currentVantage(), northAzimuthDeg);
@@ -515,9 +612,10 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     visuals.clear();
     for (const el of labels.values()) el.remove();
     labels.clear();
+    pointCloud.update([], 0);
   }
 
-  function renderFrame(frame, partIndex) {
+  function renderFrame(frame, partIndex, pointFrame = null, pointOpacity = 0) {
     // Track identifiers are export-local, so they carry no meaning across a
     // part boundary. Drop all visuals rather than let a trail jump sites.
     if (partIndex !== currentPart) {
@@ -536,6 +634,8 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       // Re-applied every frame: a track's class can change under it.
       v.setColour(colourFor(t.c));
       v.update(t);
+      v.setOpacity(1);
+      v.setVisible(state.boxesVisible);
 
       // Only vehicles are labelled. A number over every pedestrian would bury
       // the scene, and speed is the thing a street asks about cars.
@@ -559,6 +659,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         labels.delete(id);
       }
     }
+    pointCloud.update(pointFrame?.p, pointOpacity);
     render();
     return seen.size;
   }
@@ -571,7 +672,19 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,
+    pointCloudLoopingIn: false,
+    lidarVisible: ui.lidarToggle?.checked ?? true,
+    boxesVisible: ui.boxesToggle?.checked ?? true,
+    loopOpening: ui.openingLoopToggle?.checked ?? false,
+    refreshRequested: false,
   };
+
+  const playbackDuration = () =>
+    sceneLoopDuration(
+      session.duration,
+      pointCloudSession?.duration,
+      state.loopOpening,
+    );
 
   function formatClock(sec) {
     const s = Math.max(0, Math.floor(sec));
@@ -579,12 +692,44 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   }
 
   async function show(seconds) {
-    if (state.pending) return;
+    if (state.pending) {
+      state.refreshRequested = true;
+      return;
+    }
     state.pending = true;
     try {
       const { frame, partIndex } = await session.frameAt(seconds);
       if (!frame) return;
-      const n = renderFrame(frame, partIndex);
+      let pointFrame = null;
+      let pointOpacity = 0;
+      if (
+        state.lidarVisible &&
+        pointCloudSession &&
+        partIndex === 0 &&
+        seconds < pointCloudSession.duration
+      ) {
+        pointOpacity = pointCloudOverlayOpacity(seconds, pointCloudSession.duration, {
+          fadeOutSeconds: pointCloudSession.manifest?.fade_out_seconds,
+          fadeInSeconds: pointCloudSession.manifest?.loop_fade_in_seconds,
+          loopingIn: state.pointCloudLoopingIn,
+        });
+        if (pointOpacity > 0) {
+          // Use the tracked frame's timestamp, not the animation clock. Both
+          // exports contain this frame, so the boxes and returns cannot drift.
+          pointFrame = (await pointCloudSession.frameAt(frame.t / 1e6)).frame;
+        }
+        if (
+          state.pointCloudLoopingIn &&
+          seconds >= (pointCloudSession.manifest?.loop_fade_in_seconds ?? 2)
+        ) {
+          state.pointCloudLoopingIn = false;
+        }
+      }
+      if (!state.lidarVisible) {
+        pointFrame = null;
+        pointOpacity = 0;
+      }
+      const n = renderFrame(frame, partIndex, pointFrame, pointOpacity);
       if (ui.stats) {
         const tracks = frame.tr ?? [];
         const speeds = tracks.map((t) => t.spd ?? 0);
@@ -613,6 +758,10 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       reportError(err);
     } finally {
       state.pending = false;
+      if (state.refreshRequested) {
+        state.refreshRequested = false;
+        void show(state.seconds);
+      }
     }
   }
 
@@ -626,7 +775,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
       );
       ui.timelineCanvas.setAttribute(
         "aria-valuetext",
-        `${formatClock(state.seconds)} of ${formatClock(session.duration)}`,
+        `${formatClock(state.seconds)} of ${formatClock(playbackDuration())}`,
       );
     }
     if (ui.clock) ui.clock.textContent = formatClock(state.seconds);
@@ -683,7 +832,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         state.seconds,
         wallDt,
         state.rate,
-        session.duration,
+        playbackDuration(),
       );
       state.seconds = next.seconds;
       // Wrap rather than stop. A scene is a loop of street, not a film with an
@@ -694,6 +843,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         // over the wrap would draw a line from the last vehicle of the
         // recording to the first.
         resetVisuals();
+        state.pointCloudLoopingIn = state.lidarVisible;
       }
       void show(state.seconds);
       syncUI();
@@ -717,6 +867,40 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   if (ui.rate) {
     ui.rate.addEventListener("change", () => {
       state.rate = Number(ui.rate.value) || 1;
+    });
+  }
+  if (ui.lidarToggle) {
+    ui.lidarToggle.addEventListener("change", () => {
+      state.lidarVisible = ui.lidarToggle.checked;
+      state.pointCloudLoopingIn = false;
+      if (!state.lidarVisible) pointCloud.update([], 0);
+      void show(state.seconds);
+      render();
+    });
+  }
+  if (ui.boxesToggle) {
+    ui.boxesToggle.addEventListener("change", () => {
+      state.boxesVisible = ui.boxesToggle.checked;
+      for (const visual of visuals.values()) {
+        visual.setVisible(state.boxesVisible);
+      }
+      render();
+    });
+  }
+  if (ui.openingLoopToggle) {
+    ui.openingLoopToggle.addEventListener("change", () => {
+      state.loopOpening = ui.openingLoopToggle.checked;
+      if (state.loopOpening && state.seconds >= playbackDuration()) {
+        resetVisuals();
+        state.seconds = 0;
+        state.pointCloudLoopingIn = state.lidarVisible;
+        void show(0);
+      }
+      strip?.setDuration(playbackDuration());
+      if (ui.duration) {
+        ui.duration.textContent = formatClock(playbackDuration());
+      }
+      syncUI();
     });
   }
   // Returning to a hidden tab should resume, not skip ahead.
@@ -775,6 +959,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     // A scene with fewer than two eligible vantages has nowhere to fly, and a
     // switch that cannot do anything is worse than no switch.
     ui.flyToggle.hidden = !canFly;
+    if (ui.flyTip) ui.flyTip.hidden = !canFly;
     ui.flyToggle.addEventListener("click", () => setFlying(!flying));
   }
 
@@ -867,7 +1052,6 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   // --- timeline annotation -------------------------------------------------
 
-  let strip = null;
   if (ui.timelineCanvas && ui.timelineURL) {
     try {
       const res = await fetch(ui.timelineURL);
@@ -882,11 +1066,13 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
             // A jump is not continuous motion, so the trails leading up to the
             // old position describe nothing about the new one.
             resetVisuals();
+            state.pointCloudLoopingIn = false;
             state.seconds = seconds;
             void show(seconds);
             syncUI();
           },
         });
+        strip.setDuration(playbackDuration());
       } else {
         renderSceneSpeedStats(ui.speedStats, null);
       }
@@ -897,7 +1083,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
   }
 
-  if (ui.duration) ui.duration.textContent = formatClock(session.duration);
+  if (ui.duration) ui.duration.textContent = formatClock(playbackDuration());
   if (ui.title) ui.title.textContent = session.title;
 
   await show(0);

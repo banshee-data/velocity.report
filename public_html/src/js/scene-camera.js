@@ -5,10 +5,10 @@
 // of gestures than a general-purpose orbit control: the ground plane is
 // meaningful, so the camera stays above it and always looks at a target on it.
 //
-// Gestures are deliberately explicit on touch. Pinch always zooms, but a
-// one-finger drag does whatever the on-screen mode toggle says, because
-// guessing between orbit and pan from a single contact is how a viewer ends up
-// somewhere it cannot get back from.
+// Gestures are deliberately explicit. One pointer orbits, Shift with one
+// pointer pans, and two touch points pan while pinching to zoom. Guessing the
+// intended motion from a single contact is how a viewer ends up somewhere it
+// cannot get back from.
 
 const MIN_POLAR = 0; // allow a true overhead view
 const MAX_POLAR = Math.PI / 2 - 0.02; // never below the ground plane
@@ -369,7 +369,7 @@ export function createSceneCamera({
       if (lastPinch > 0 && d > 0) zoom(lastPinch / d);
       lastPinch = d;
       pan(dx, dy);
-    } else if (state.mode === "pan") {
+    } else if (e.shiftKey || state.mode === "pan") {
       pan(dx, dy);
     } else {
       orbit(dx, dy);
