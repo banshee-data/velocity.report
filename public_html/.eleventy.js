@@ -99,6 +99,7 @@ module.exports = function (eleventyConfig) {
 
   // Copy static files directly to output
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
+  eleventyConfig.addPassthroughCopy({ "src/geo": "img/maps" });
   eleventyConfig.addPassthroughCopy("src/js");
   // Scene assets are exported binaries (gzipped NDJSON frames plus their
   // index), not templates, so they are copied verbatim.

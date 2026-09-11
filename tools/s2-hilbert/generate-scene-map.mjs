@@ -13,11 +13,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  buildSceneMapModel,
-  renderSceneMapSvg,
   LEVEL_AREA,
   LEVEL_NEIGHBOURHOOD,
   LEVEL_SITE,
+  buildSceneMapModel,
+  renderSceneMapSvg,
 } from "./scene-map.mjs";
 import {
   buildSceneSites,
@@ -52,10 +52,10 @@ function scenePage(site, minutes) {
   return `---
 layout: scene.njk
 title: "${site.title}: LiDAR scene — velocity.report"
-description: ${whole} minutes of a San Francisco street, measured by roadside LiDAR. Trajectories only — no cameras, no images, no number plates.
+description: ${whole} minutes at a San Francisco junction, measured by roadside LiDAR. Trajectories only, no camera images or number plates.
 sceneId: ${site.id}
 sceneName: ${site.title}
-sceneIntro: ${whole} minutes of a San Francisco street, measured by roadside LiDAR.
+sceneIntro: ${whole} minutes at this junction, measured by roadside LiDAR.
 gridAzimuthDeg: ${site.grid_azimuth_deg ?? ""}
 northAzimuthDeg: ${site.north_azimuth_deg ?? ""}
 ---

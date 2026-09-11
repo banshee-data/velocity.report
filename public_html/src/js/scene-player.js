@@ -11,6 +11,7 @@ import { SceneSession, SceneError } from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
 import { createTimelineStrip } from "./scene-timeline.js";
 import { createSceneFlight } from "./scene-flight.js";
+import { advanceSceneClock, autoplayScene } from "./scene-playback.js";
 
 // Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
 // X, up becomes Y, and north becomes -Z to keep the frame right-handed.
@@ -565,7 +566,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   const state = {
     seconds: 0,
-    playing: false,
+    playing: autoplayScene(window.matchMedia?.bind(window)),
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,
@@ -599,7 +600,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         }
         const parts = [];
         if (vehicle) parts.push(`${vehicle} vehicle${vehicle > 1 ? "s" : ""}`);
-        if (person) parts.push(`${person} on foot`);
+        if (person) parts.push(`${person} walking`);
         if (cycle) parts.push(`${cycle} cycling`);
         ui.stats.textContent =
           (parts.length ? parts.join(" · ") : `${n} tracked`) +
@@ -641,7 +642,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     const msg =
       err instanceof SceneError
         ? err.message
-        : "Something went wrong loading this scene.";
+        : "The scene could not be loaded.";
     if (ui.status) {
       ui.status.textContent = msg;
       ui.status.hidden = false;
@@ -677,13 +678,17 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
 
     if (state.playing) {
-      const dt = wallDt;
-      state.seconds += dt * state.rate;
+      const next = advanceSceneClock(
+        state.seconds,
+        wallDt,
+        state.rate,
+        session.duration,
+      );
+      state.seconds = next.seconds;
       // Wrap rather than stop. A scene is a loop of street, not a film with an
       // ending, and eleven minutes in, whoever is still watching wants the
       // next pass rather than a dead playhead and a button to press.
-      if (state.seconds >= session.duration) {
-        state.seconds = 0;
+      if (next.wrapped) {
         // Trails are per-track state built up frame by frame. Carrying them
         // over the wrap would draw a line from the last vehicle of the
         // recording to the first.
@@ -894,14 +899,6 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   if (ui.status) ui.status.hidden = true;
   if (ui.loading) ui.loading.hidden = true;
 
-  // Respect a reduced-motion preference by not auto-playing.
-  const reduced = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
-  if (!reduced) {
-    state.playing = true;
-    syncUI();
-  }
   requestAnimationFrame(loop);
 
   return session;

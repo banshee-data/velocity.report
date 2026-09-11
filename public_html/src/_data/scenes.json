@@ -16,19 +16,17 @@
         {
           "id": "ashbury-downey",
           "title": "Ashbury at Downey",
-          "page": "/scenes/ashbury-downey/",
-          "summary": "20 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "21 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s01",
-          "grid_azimuth_deg": 3,
-          "north_azimuth_deg": 8,
+          "published": false,
           "position": {
             "lat": 37.7638,
             "lon": -122.4466,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Ashbury at Downey), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Ashbury at Downey). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -140,19 +138,17 @@
         {
           "id": "haight-divisadero",
           "title": "Haight at Divisadero",
-          "page": "/scenes/haight-divisadero/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "19 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s02",
-          "grid_azimuth_deg": 1,
-          "north_azimuth_deg": 101,
+          "published": false,
           "position": {
             "lat": 37.7712,
             "lon": -122.4372,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Haight at Divisadero). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -264,19 +260,17 @@
         {
           "id": "pierce-haight",
           "title": "Pierce at Haight",
-          "page": "/scenes/pierce-haight/",
-          "summary": "21 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "22 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s03",
-          "grid_azimuth_deg": 0,
-          "north_azimuth_deg": 11,
+          "published": false,
           "position": {
             "lat": 37.7718,
             "lon": -122.4338,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Pierce at Haight). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -388,19 +382,17 @@
         {
           "id": "fulton-divisadero",
           "title": "Fulton at Divisadero",
-          "page": "/scenes/fulton-divisadero/",
-          "summary": "20 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s04",
-          "grid_azimuth_deg": 1,
-          "north_azimuth_deg": 101,
+          "published": false,
           "position": {
             "lat": 37.7768,
             "lon": -122.4381,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Fulton at Divisadero). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -512,19 +504,17 @@
         {
           "id": "california-leon-baker",
           "title": "California between Leon and Baker",
-          "page": "/scenes/california-leon-baker/",
-          "summary": "20 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "21 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s05",
-          "grid_azimuth_deg": 1,
-          "north_azimuth_deg": 101,
+          "published": false,
           "position": {
             "lat": 37.7875,
             "lon": -122.4446,
             "source": "operator"
           },
-          "position_note": "Read from the field map (California between Leon and Baker), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (California between Leon and Baker). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -636,19 +626,17 @@
         {
           "id": "broadway-gough",
           "title": "Broadway at Gough",
-          "page": "/scenes/broadway-gough/",
-          "summary": "18 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "19 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s06",
-          "grid_azimuth_deg": 359,
-          "north_azimuth_deg": 99,
+          "published": false,
           "position": {
             "lat": 37.7952,
             "lon": -122.4269,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Broadway at Gough). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -760,19 +748,17 @@
         {
           "id": "laguna-eddy",
           "title": "Laguna at Eddy",
-          "page": "/scenes/laguna-eddy/",
-          "summary": "21 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "22 minutes recorded on 2026-09-01, not yet published.",
           "archive_site": "s07",
-          "grid_azimuth_deg": 359,
-          "north_azimuth_deg": 9,
+          "published": false,
           "position": {
             "lat": 37.7821,
             "lon": -122.4274,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Laguna at Eddy), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Laguna at Eddy). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -884,19 +870,17 @@
         {
           "id": "lombard-broderick",
           "title": "Lombard at Broderick",
-          "page": "/scenes/lombard-broderick/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s08",
-          "grid_azimuth_deg": 355,
-          "north_azimuth_deg": 97,
+          "published": false,
           "position": {
             "lat": 37.799,
             "lon": -122.444,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Lombard at Broderick). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1008,19 +992,17 @@
         {
           "id": "marina-broderick",
           "title": "Marina at Broderick",
-          "page": "/scenes/marina-broderick/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s09",
-          "grid_azimuth_deg": 356,
-          "north_azimuth_deg": 282,
+          "published": false,
           "position": {
             "lat": 37.8053,
             "lon": -122.4455,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Marina at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Marina at Broderick). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1132,19 +1114,17 @@
         {
           "id": "marina-webster-beach",
           "title": "Marina between Webster and Beach",
-          "page": "/scenes/marina-webster-beach/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s10",
-          "grid_azimuth_deg": 356.5,
-          "north_azimuth_deg": 231,
+          "published": false,
           "position": {
             "lat": 37.8057,
             "lon": -122.4351,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Marina between Webster and Beach), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Marina between Webster and Beach). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1256,19 +1236,17 @@
         {
           "id": "lombard-laguna",
           "title": "Lombard at Laguna",
-          "page": "/scenes/lombard-laguna/",
-          "summary": "33 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "39 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s11",
-          "grid_azimuth_deg": 354,
-          "north_azimuth_deg": 275,
+          "published": false,
           "position": {
             "lat": 37.8004,
             "lon": -122.4313,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Lombard at Laguna), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Lombard at Laguna). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1380,19 +1358,17 @@
         {
           "id": "columbus-north-point",
           "title": "Columbus at North Point",
-          "page": "/scenes/columbus-north-point/",
-          "summary": "18 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "18 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s12",
-          "grid_azimuth_deg": 38,
-          "north_azimuth_deg": 48,
+          "published": false,
           "position": {
             "lat": 37.8059,
             "lon": -122.4181,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Columbus at North Point), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Columbus at North Point). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1504,19 +1480,17 @@
         {
           "id": "embarcadero-bay",
           "title": "Embarcadero at Bay",
-          "page": "/scenes/embarcadero-bay/",
-          "summary": "15 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "16 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s13",
-          "grid_azimuth_deg": 60,
-          "north_azimuth_deg": 253,
+          "published": false,
           "position": {
             "lat": 37.8067,
             "lon": -122.4061,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Embarcadero at Bay), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Embarcadero at Bay). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1628,19 +1602,17 @@
         {
           "id": "columbus-broadway",
           "title": "Columbus at Broadway",
-          "page": "/scenes/columbus-broadway/",
-          "summary": "33 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "34 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s14",
-          "grid_azimuth_deg": 27,
-          "north_azimuth_deg": 35,
+          "published": false,
           "position": {
             "lat": 37.7978,
             "lon": -122.4065,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Columbus at Broadway). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1752,19 +1724,17 @@
         {
           "id": "van-ness-sacramento",
           "title": "van Ness at Sacramento",
-          "page": "/scenes/van-ness-sacramento/",
-          "summary": "20 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "21 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s15",
-          "grid_azimuth_deg": 355.5,
-          "north_azimuth_deg": 10,
+          "published": false,
           "position": {
             "lat": 37.7912,
             "lon": -122.4225,
             "source": "operator"
           },
-          "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (van Ness at Sacramento). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -1876,19 +1846,17 @@
         {
           "id": "embarcadero-broadway",
           "title": "Embarcadero at Broadway",
-          "page": "/scenes/embarcadero-broadway/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-02, not yet published.",
           "archive_site": "s16",
-          "grid_azimuth_deg": 2,
-          "north_azimuth_deg": 101,
+          "published": false,
           "position": {
             "lat": 37.7991,
             "lon": -122.3976,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Embarcadero at Broadway). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2000,19 +1968,17 @@
         {
           "id": "franklin-mcallister",
           "title": "Franklin at McAllister",
-          "page": "/scenes/franklin-mcallister/",
-          "summary": "11 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "12 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s17",
-          "grid_azimuth_deg": 4,
-          "north_azimuth_deg": 192,
+          "published": false,
           "position": {
             "lat": 37.7798,
             "lon": -122.4218,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Franklin at McAllister), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Franklin at McAllister). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2124,19 +2090,17 @@
         {
           "id": "hyde-ofarrell",
           "title": "Hyde at O'Farrell",
-          "page": "/scenes/hyde-ofarrell/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s18",
-          "grid_azimuth_deg": 3,
-          "north_azimuth_deg": 14,
+          "published": false,
           "position": {
             "lat": 37.7855,
             "lon": -122.4164,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Hyde at O'Farrell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Hyde at O'Farrell). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2248,19 +2212,17 @@
         {
           "id": "bush-powell",
           "title": "Bush at Powell",
-          "page": "/scenes/bush-powell/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s19",
-          "grid_azimuth_deg": 3,
-          "north_azimuth_deg": 102,
+          "published": false,
           "position": {
             "lat": 37.7901,
             "lon": -122.409,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Bush at Powell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Bush at Powell). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2372,19 +2334,17 @@
         {
           "id": "embarcadero-folsom",
           "title": "Embarcadero at Folsom",
-          "page": "/scenes/embarcadero-folsom/",
-          "summary": "20 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s20",
-          "grid_azimuth_deg": 356,
-          "north_azimuth_deg": 131,
+          "published": false,
           "position": {
             "lat": 37.791,
             "lon": -122.3899,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Embarcadero at Folsom). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2496,19 +2456,17 @@
         {
           "id": "1st-mission",
           "title": "1st at Mission",
-          "page": "/scenes/1st-mission/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s21",
-          "grid_azimuth_deg": 6,
-          "north_azimuth_deg": 51,
+          "published": false,
           "position": {
             "lat": 37.7897,
             "lon": -122.3974,
             "source": "operator"
           },
-          "position_note": "Read from the field map (1st at Mission), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (1st at Mission). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2620,19 +2578,17 @@
         {
           "id": "embarcadero-bryant",
           "title": "Embarcadero at Bryant",
-          "page": "/scenes/embarcadero-bryant/",
-          "summary": "22 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "23 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s22",
-          "grid_azimuth_deg": 308,
-          "north_azimuth_deg": 353,
+          "published": false,
           "position": {
             "lat": 37.7868,
             "lon": -122.3881,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Embarcadero at Bryant), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Embarcadero at Bryant). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2744,19 +2700,17 @@
         {
           "id": "3rd-folsom",
           "title": "3rd at Folsom",
-          "page": "/scenes/3rd-folsom/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s23",
-          "grid_azimuth_deg": 358,
-          "north_azimuth_deg": 223,
+          "published": false,
           "position": {
             "lat": 37.7837,
             "lon": -122.3986,
             "source": "operator"
           },
-          "position_note": "Read from the field map (3rd at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (3rd at Folsom). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -2868,19 +2822,17 @@
         {
           "id": "howard-6th",
           "title": "Howard at 6th",
-          "page": "/scenes/howard-6th/",
-          "summary": "19 minutes of a static roadside recording.",
+          "page": null,
+          "summary": "20 minutes recorded on 2026-09-03, not yet published.",
           "archive_site": "s24",
-          "grid_azimuth_deg": 357,
-          "north_azimuth_deg": 312,
+          "published": false,
           "position": {
             "lat": 37.7798,
             "lon": -122.4069,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Howard at 6th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Read from the field map (Howard at 6th). Neighbourhood-level; replace with a survey.",
           "position_source": "archive-index",
-          "published": true,
           "located": true,
           "cells": {
             "area": {
@@ -3014,7 +2966,7 @@
       ]
     }
   ],
-  "published_count": 25,
+  "published_count": 1,
   "recorded_count": 25,
   "sites": [
     {
@@ -3033,17 +2985,17 @@
     {
       "id": "ashbury-downey",
       "title": "Ashbury at Downey",
-      "page": "/scenes/ashbury-downey/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s01",
-      "summary": "20 minutes of a static roadside recording.",
+      "summary": "21 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7638,
         "lon": -122.4466,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Ashbury at Downey), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Ashbury at Downey). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3103,17 +3055,17 @@
     {
       "id": "haight-divisadero",
       "title": "Haight at Divisadero",
-      "page": "/scenes/haight-divisadero/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s02",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "19 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7712,
         "lon": -122.4372,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Haight at Divisadero). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3173,17 +3125,17 @@
     {
       "id": "pierce-haight",
       "title": "Pierce at Haight",
-      "page": "/scenes/pierce-haight/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s03",
-      "summary": "21 minutes of a static roadside recording.",
+      "summary": "22 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7718,
         "lon": -122.4338,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Pierce at Haight). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3243,17 +3195,17 @@
     {
       "id": "fulton-divisadero",
       "title": "Fulton at Divisadero",
-      "page": "/scenes/fulton-divisadero/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s04",
-      "summary": "20 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7768,
         "lon": -122.4381,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Fulton at Divisadero). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3313,17 +3265,17 @@
     {
       "id": "california-leon-baker",
       "title": "California between Leon and Baker",
-      "page": "/scenes/california-leon-baker/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s05",
-      "summary": "20 minutes of a static roadside recording.",
+      "summary": "21 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7875,
         "lon": -122.4446,
         "source": "operator"
       },
-      "position_note": "Read from the field map (California between Leon and Baker), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (California between Leon and Baker). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3383,17 +3335,17 @@
     {
       "id": "broadway-gough",
       "title": "Broadway at Gough",
-      "page": "/scenes/broadway-gough/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s06",
-      "summary": "18 minutes of a static roadside recording.",
+      "summary": "19 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7952,
         "lon": -122.4269,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Broadway at Gough). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3453,17 +3405,17 @@
     {
       "id": "laguna-eddy",
       "title": "Laguna at Eddy",
-      "page": "/scenes/laguna-eddy/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s07",
-      "summary": "21 minutes of a static roadside recording.",
+      "summary": "22 minutes recorded on 2026-09-01, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7821,
         "lon": -122.4274,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Laguna at Eddy), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Laguna at Eddy). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3523,17 +3475,17 @@
     {
       "id": "lombard-broderick",
       "title": "Lombard at Broderick",
-      "page": "/scenes/lombard-broderick/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s08",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.799,
         "lon": -122.444,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Lombard at Broderick). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3593,17 +3545,17 @@
     {
       "id": "marina-broderick",
       "title": "Marina at Broderick",
-      "page": "/scenes/marina-broderick/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s09",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.8053,
         "lon": -122.4455,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Marina at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Marina at Broderick). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3663,17 +3615,17 @@
     {
       "id": "marina-webster-beach",
       "title": "Marina between Webster and Beach",
-      "page": "/scenes/marina-webster-beach/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s10",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.8057,
         "lon": -122.4351,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Marina between Webster and Beach), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Marina between Webster and Beach). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3733,17 +3685,17 @@
     {
       "id": "lombard-laguna",
       "title": "Lombard at Laguna",
-      "page": "/scenes/lombard-laguna/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s11",
-      "summary": "33 minutes of a static roadside recording.",
+      "summary": "39 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.8004,
         "lon": -122.4313,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Lombard at Laguna), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Lombard at Laguna). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3803,17 +3755,17 @@
     {
       "id": "columbus-north-point",
       "title": "Columbus at North Point",
-      "page": "/scenes/columbus-north-point/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s12",
-      "summary": "18 minutes of a static roadside recording.",
+      "summary": "18 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.8059,
         "lon": -122.4181,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Columbus at North Point), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Columbus at North Point). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3873,17 +3825,17 @@
     {
       "id": "embarcadero-bay",
       "title": "Embarcadero at Bay",
-      "page": "/scenes/embarcadero-bay/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s13",
-      "summary": "15 minutes of a static roadside recording.",
+      "summary": "16 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.8067,
         "lon": -122.4061,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Embarcadero at Bay), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Embarcadero at Bay). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -3943,17 +3895,17 @@
     {
       "id": "columbus-broadway",
       "title": "Columbus at Broadway",
-      "page": "/scenes/columbus-broadway/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s14",
-      "summary": "33 minutes of a static roadside recording.",
+      "summary": "34 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7978,
         "lon": -122.4065,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Columbus at Broadway). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4013,17 +3965,17 @@
     {
       "id": "van-ness-sacramento",
       "title": "van Ness at Sacramento",
-      "page": "/scenes/van-ness-sacramento/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s15",
-      "summary": "20 minutes of a static roadside recording.",
+      "summary": "21 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7912,
         "lon": -122.4225,
         "source": "operator"
       },
-      "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (van Ness at Sacramento). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4083,17 +4035,17 @@
     {
       "id": "embarcadero-broadway",
       "title": "Embarcadero at Broadway",
-      "page": "/scenes/embarcadero-broadway/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s16",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-02, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7991,
         "lon": -122.3976,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Embarcadero at Broadway). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4153,17 +4105,17 @@
     {
       "id": "franklin-mcallister",
       "title": "Franklin at McAllister",
-      "page": "/scenes/franklin-mcallister/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s17",
-      "summary": "11 minutes of a static roadside recording.",
+      "summary": "12 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7798,
         "lon": -122.4218,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Franklin at McAllister), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Franklin at McAllister). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4223,17 +4175,17 @@
     {
       "id": "hyde-ofarrell",
       "title": "Hyde at O'Farrell",
-      "page": "/scenes/hyde-ofarrell/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s18",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7855,
         "lon": -122.4164,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Hyde at O'Farrell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Hyde at O'Farrell). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4293,17 +4245,17 @@
     {
       "id": "bush-powell",
       "title": "Bush at Powell",
-      "page": "/scenes/bush-powell/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s19",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7901,
         "lon": -122.409,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Bush at Powell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Bush at Powell). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4363,17 +4315,17 @@
     {
       "id": "embarcadero-folsom",
       "title": "Embarcadero at Folsom",
-      "page": "/scenes/embarcadero-folsom/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s20",
-      "summary": "20 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.791,
         "lon": -122.3899,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Embarcadero at Folsom). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4433,17 +4385,17 @@
     {
       "id": "1st-mission",
       "title": "1st at Mission",
-      "page": "/scenes/1st-mission/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s21",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7897,
         "lon": -122.3974,
         "source": "operator"
       },
-      "position_note": "Read from the field map (1st at Mission), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (1st at Mission). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4503,17 +4455,17 @@
     {
       "id": "embarcadero-bryant",
       "title": "Embarcadero at Bryant",
-      "page": "/scenes/embarcadero-bryant/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s22",
-      "summary": "22 minutes of a static roadside recording.",
+      "summary": "23 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7868,
         "lon": -122.3881,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Embarcadero at Bryant), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Embarcadero at Bryant). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4573,17 +4525,17 @@
     {
       "id": "3rd-folsom",
       "title": "3rd at Folsom",
-      "page": "/scenes/3rd-folsom/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s23",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7837,
         "lon": -122.3986,
         "source": "operator"
       },
-      "position_note": "Read from the field map (3rd at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (3rd at Folsom). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",
@@ -4643,17 +4595,17 @@
     {
       "id": "howard-6th",
       "title": "Howard at 6th",
-      "page": "/scenes/howard-6th/",
-      "published": true,
+      "page": null,
+      "published": false,
       "archive_site": "s24",
-      "summary": "19 minutes of a static roadside recording.",
+      "summary": "20 minutes recorded on 2026-09-03, not yet published.",
       "located": true,
       "position": {
         "lat": 37.7798,
         "lon": -122.4069,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Howard at 6th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Read from the field map (Howard at 6th). Neighbourhood-level; replace with a survey.",
       "cells": {
         "area": {
           "token": "808581",

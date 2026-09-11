@@ -9,20 +9,32 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
   .scenes__sub { font-size: 1rem; line-height: 1.45; margin: 0 0 1.25rem; opacity: 0.85; max-width: 68ch; }
 
   .scenes__map { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.6rem; }
-  .scenes__mapmode[hidden] { display: none; }
-  .scenes__mapmode { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-  .scenes__mapmode button { border: 1px solid #78898c; border-radius: 999px; padding: 0.3rem 0.8rem; font: inherit; font-size: 0.85rem; cursor: pointer; }
-  .scenes__mapmode button[aria-pressed="true"] { background: #047857; color: white; border-color: #047857; }
-  .scenes__mapmode button:focus-visible { outline: 2px solid #0891b2; outline-offset: 2px; }
-  .scenes__mapmode output { font-size: 0.8rem; opacity: 0.8; margin-left: 0.3rem; }
   .scenes__map svg { display: block; }
-  #scene-map { height: 520px; border-radius: 3px; }
+  /* This is set synchronously before the large no-JS SVG is parsed. Leaflet
+     replaces it; hiding it up front prevents one painted frame of labels. */
+  .scene-map-js #scene-map > .scene-map { visibility: hidden; }
+  .scenes__mapframe { position: relative; }
+  #scene-map { height: 520px; border-radius: 3px; background: #dcebef; }
   #scene-map .leaflet-popup-content { font-size: 0.9rem; }
-  /* Only the street raster is recoloured. Cycling routes, site markers and
-     S2 outlines retain their own colours above it. */
+  .scenes__load-map { position: absolute; z-index: 700; left: 0.65rem; bottom: 0.65rem; border: 1px solid #536b74; border-radius: 3px; padding: 0.42rem 0.7rem; background: rgba(255, 255, 255, 0.92); color: #183039; font: inherit; font-size: 0.8rem; cursor: pointer; }
+  .scenes__load-map[aria-checked="true"] { border-color: #047857; background: rgba(4, 120, 87, 0.94); color: white; }
+  .scenes__load-map[hidden], .scenes__consent[hidden] { display: none; }
+  .scenes__consent { position: absolute; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(3, 9, 12, 0.72); }
+  .scenes__consent-card { width: min(31rem, 100%); border: 1px solid #536b74; border-radius: 4px; padding: 1.15rem; background: #0b1013; color: #e2edf0; box-shadow: 0 12px 42px rgba(0, 0, 0, 0.5); }
+  .scenes__consent-head { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+  .scenes__consent h2 { margin: 0; font-size: 1.15rem; }
+  .scenes__consent p { font-size: 0.88rem; line-height: 1.5; }
+  .scenes__consent-close { border: 0; background: none; color: inherit; font-size: 1.35rem; cursor: pointer; }
+  .scenes__consent-actions { display: flex; justify-content: end; gap: 0.5rem; margin-top: 1rem; }
+  .scenes__consent-actions button { border: 1px solid #61777f; border-radius: 3px; padding: 0.45rem 0.75rem; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+  .scenes__consent-actions [data-action="allow"] { background: #047857; border-color: #047857; color: white; }
+  #scene-map .leaflet-hitRegions-pane path { cursor: pointer; }
+  #scene-map .leaflet-cellFill-pane,
+  #scene-map .leaflet-grid-pane,
+  #scene-map .leaflet-markers-pane { pointer-events: none; }
   @media (prefers-color-scheme: dark) {
     #scene-map { background: #172126; }
-    #scene-map .scene-map-basemap { filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9); }
+    #scene-map .scene-map-cycle-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.78) contrast(0.9); }
     #scene-map .leaflet-bar a,
     #scene-map .leaflet-popup-content-wrapper,
     #scene-map .leaflet-popup-tip,
@@ -75,16 +87,28 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <div class="scenes__map">
-    <div id="scene-map-mode" class="scenes__mapmode" role="group" aria-label="Map mode" hidden>
-      <button type="button" data-map-mode="bike" aria-pressed="true">Bike</button>
-      <button type="button" data-map-mode="car" aria-pressed="false">Car</button>
-      <output id="scene-map-mode-status" aria-live="polite"></output>
-    </div>
-    <div id="scene-map">
-      {# Fallback for a visitor with no JavaScript, and what the page shows
-         before the tiles arrive: the self-contained cell diagram, which needs
-         no third-party request at all. #}
-      {% include "scene-map.svg" %}
+    <div class="scenes__mapframe">
+      <script>document.documentElement.classList.add("scene-map-js");</script>
+      <div id="scene-map" data-coastline-url="{{ '/img/maps/sf-coastline.geojson.gz' | url }}">
+        {# No-JS fallback: the self-contained S2 diagram makes no network request. #}
+        {% include "scene-map.svg" %}
+      </div>
+      <button id="scene-map-load" class="scenes__load-map" type="button" hidden>Load Cycle map</button>
+      <div id="scene-map-consent" class="scenes__consent" role="presentation" hidden>
+        <div class="scenes__consent-card" role="alertdialog" aria-modal="true" aria-labelledby="scene-map-consent-title">
+          <div class="scenes__consent-head">
+            <h2 id="scene-map-consent-title">Download Cycle map data?</h2>
+            <button type="button" class="scenes__consent-close" data-action="close" aria-label="Close">&times;</button>
+          </div>
+          <p>This will request CyclOSM map tiles from OSM France. Your IP address and the map area being viewed will be sent to that external service.</p>
+          <p>The local coastline, S2 cells and survey points remain available if you cancel.</p>
+          <p>Your choice is remembered in this browser. You can switch the Cycle map off later; cached tiles stay in the browser, but no new map tiles are requested until you switch it on again.</p>
+          <div class="scenes__consent-actions">
+            <button type="button" data-action="cancel">Cancel</button>
+            <button type="button" data-action="allow">Download Cycle map</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   {# The site list travels in a script block, not an attribute: a place name
@@ -98,9 +122,10 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
     {{ scenes.published_count }} of the {{ scenes.recorded_count }} sites here have a
     published recording; the rest are places the sensor has been, shown so the map
     answers where it has been rather than only what there is to watch.
-    Bike mode adds cycling routes from <a href="https://www.cyclosm.org/">CyclOSM</a>;
-    cycling tiles load from OSM France. Car mode shows the locally cached street
-    map. Both follow your device's light or dark appearance.
+    With permission, the background uses cycling routes from
+    <a href="https://www.cyclosm.org/">CyclOSM</a>, hosted by OSM France, and
+    follows your device's light or dark appearance. Without it, the local
+    coastline and S2 geometry remain.
     Each point is one recorded site. Click it for the name and, where there is a
     recording, a link to it. Points carry no labels on the map: at this zoom a
     label covers the street it stands on, and the street is the thing worth
@@ -124,7 +149,7 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
       {% endif %}
       <ul class="scenes__list">
         {% for site in area.sites %}
-          <li class="scene-card{% if not site.published %} scene-card--recorded{% endif %}">
+          <li id="site-{{ site.id }}" class="scene-card{% if not site.published %} scene-card--recorded{% endif %}">
             <h2 class="scene-card__name">
               {% if site.page %}<a href="{{ site.page | url }}">{{ site.title }}</a>
               {% else %}{{ site.title }}{% endif %}

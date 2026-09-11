@@ -1,70 +1,138 @@
-export const MAP_MODE_KEY = "velocity.scene-map.mode";
 export const CYCLING_TILE_URL =
-  "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm-lite/{z}/{x}/{y}.png";
+  "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png";
 
-export function readMapMode(storage) {
+export const CYCLE_MAP_CONSENT_KEY = "velocity.scene-map.tile-consent";
+export const CYCLE_MAP_ENABLED_KEY = "velocity.scene-map.tiles-enabled";
+
+function readStorage(storage, key) {
   try {
-    return storage?.getItem(MAP_MODE_KEY) === "car" ? "car" : "bike";
+    return storage?.getItem(key) ?? null;
   } catch {
-    return "bike";
+    return null;
   }
 }
 
-export function mountMapMode({ L, map, controls, status, storage }) {
-  if (!controls) return;
-  const pane = map.createPane("cycling");
-  pane.style.zIndex = "250"; // Above streets, below site markers and S2 outlines.
-  pane.style.pointerEvents = "none";
-  const cycling = L.tileLayer(CYCLING_TILE_URL, {
-    pane: "cycling",
-    minZoom: 12,
-    maxZoom: 16,
-    noWrap: true,
-    attribution:
-      '<a href="https://www.cyclosm.org/">CyclOSM</a> cycling overlay, hosted by <a href="https://www.openstreetmap.fr/">OSM France</a>',
-  });
-  let mode = readMapMode(storage);
-  let failed = false;
-  const updateStatus = () => {
-    if (status)
-      status.textContent =
-        mode === "car"
-          ? "Street map"
-          : failed
-            ? "Some cycling tiles could not load. The street map and survey markers remain available."
-            : "Cycling routes · CyclOSM overlay";
-  };
-  cycling.on("loading", () => {
-    failed = false;
-    updateStatus();
-  });
-  cycling.on("tileerror", () => {
-    failed = true;
-    updateStatus();
-  });
-  cycling.on("load", updateStatus);
-  const apply = () => {
-    if (mode === "bike" && !map.hasLayer(cycling)) cycling.addTo(map);
-    if (mode === "car" && map.hasLayer(cycling)) map.removeLayer(cycling);
-    for (const button of controls.querySelectorAll("[data-map-mode]")) {
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.mapMode === mode),
-      );
-    }
-    updateStatus();
-  };
-  for (const button of controls.querySelectorAll("[data-map-mode]")) {
-    button.addEventListener("click", () => {
-      mode = button.dataset.mapMode === "car" ? "car" : "bike";
-      try {
-        storage?.setItem(MAP_MODE_KEY, mode);
-      } catch {
-        /* The toggle still works. */
-      }
-      apply();
-    });
+function writeStorage(storage, key, value) {
+  try {
+    storage?.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in private or locked-down browser contexts.
   }
-  controls.hidden = false;
-  apply();
+}
+
+export function mountCycleMapConsent({
+  L,
+  map,
+  modal,
+  loadButton,
+  storage,
+  onToggle,
+}) {
+  if (!modal || !loadButton) return null;
+  const closeButton = modal.querySelector('[data-action="close"]');
+  const cancelButton = modal.querySelector('[data-action="cancel"]');
+  const allowButton = modal.querySelector('[data-action="allow"]');
+  let cycling = null;
+  let active = false;
+  let consent = readStorage(storage, CYCLE_MAP_CONSENT_KEY);
+  let enabled =
+    consent === "accepted" &&
+    readStorage(storage, CYCLE_MAP_ENABLED_KEY) !== "false";
+
+  const renderButton = () => {
+    loadButton.textContent =
+      consent === "accepted"
+        ? `Cycle map: ${enabled ? "on" : "off"}`
+        : "Load Cycle map";
+    if (consent === "accepted") {
+      loadButton.setAttribute("role", "switch");
+      loadButton.setAttribute("aria-checked", String(enabled));
+    } else {
+      loadButton.removeAttribute("role");
+      loadButton.removeAttribute("aria-checked");
+    }
+  };
+
+  const setOpen = (open) => {
+    modal.hidden = !open;
+    loadButton.hidden = open;
+    renderButton();
+    if (open) allowButton.focus();
+  };
+
+  const createLayer = () => {
+    if (!cycling) {
+      cycling = L.tileLayer(CYCLING_TILE_URL, {
+        pane: "basemap",
+        className: "scene-map-cycle-tiles",
+        minZoom: 12,
+        maxZoom: 16,
+        noWrap: true,
+        attribution:
+          'Cycle map &copy; <a href="https://www.cyclosm.org/">CyclOSM</a>; map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; hosted by <a href="https://www.openstreetmap.fr/">OSM France</a>',
+      });
+    }
+    return cycling;
+  };
+
+  const setEnabled = (nextEnabled) => {
+    enabled = Boolean(nextEnabled) && consent === "accepted";
+    writeStorage(storage, CYCLE_MAP_ENABLED_KEY, String(enabled));
+    if (enabled && !active) {
+      createLayer().addTo(map);
+      active = true;
+    } else if (!enabled && active) {
+      map.removeLayer(cycling);
+      active = false;
+    }
+    onToggle?.(enabled);
+    renderButton();
+  };
+
+  const cancel = () => {
+    consent = "cancelled";
+    writeStorage(storage, CYCLE_MAP_CONSENT_KEY, consent);
+    setEnabled(false);
+    setOpen(false);
+  };
+
+  const allow = () => {
+    consent = "accepted";
+    writeStorage(storage, CYCLE_MAP_CONSENT_KEY, consent);
+    setEnabled(true);
+    setOpen(false);
+  };
+
+  closeButton.addEventListener("click", cancel);
+  cancelButton.addEventListener("click", cancel);
+  allowButton.addEventListener("click", allow);
+  loadButton.addEventListener("click", () => {
+    if (consent === "accepted") setEnabled(!enabled);
+    else setOpen(true);
+  });
+  modal.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") cancel();
+  });
+
+  if (consent === "accepted") {
+    setEnabled(enabled);
+    setOpen(false);
+  } else if (consent === "cancelled") {
+    setEnabled(false);
+    setOpen(false);
+  } else {
+    onToggle?.(false);
+    setOpen(true);
+  }
+
+  return {
+    allow,
+    cancel,
+    get enabled() {
+      return enabled;
+    },
+    get layer() {
+      return cycling;
+    },
+  };
 }
