@@ -21,6 +21,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 - LiDAR maths coherence Items 1–5: close the maths-to-code citation loop (no Go file currently references `data/maths/`), state the L6 confidence model as an equation in place of 29 scattered increments, write the missing L8 analytics and L1/L2 maths notes, and correct the `MATHS.md` and `MAGIC_NUMBERS.md` registries; substrate for the paper-gap fixes below: [design doc](plans/lidar-maths-coherence-plan.md) `M` {math}
 - Classification scorecard (classifier plan Phase 1): `Classifier` interface, confusion matrix, per-class precision/recall/F1, macro-F1, and confidence calibration wired into `ScoreComponents`; nothing currently measures classification accuracy, only detection: [design doc](plans/lidar-ml-classifier-training-plan.md) `M` {math}
+- Deterministic scene capture Milestone 1: agent-operated script taking existing scene exports and up to 50 named camera/target coordinate pairs; frozen multi-angle stills, readiness and pixel-stability checks, provenance manifest, optional contact sheet, and deterministic five-second trails beneath the Boxes toggle: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - Cluster point retention (shape descriptors Phase 1): populate `WorldCluster.SamplePoints`, proto `Cluster.sample_points`, and the live-path `ExtractClusterFeatures` call under a configurable per-cluster cap; all three are declared today and never assigned, leaving `IntensityStd` and `VerticalSpread` permanently zero and blocking every shape feature; gated on a throughput benchmark against the kirk0 baseline: [design doc](plans/lidar-shape-descriptors-plan.md) `M`
 - Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary; required to make perf-harness results reproducible: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M` {math}
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation and reproducible PCAP-based benchmarks; foundational for all subsequent math work. CI regression detection landed in #566 (workload identity, work counters, an absolute frame budget, median-of-N baselines), and per-layer means would have caught the failure it fixed — a baseline whose `l4_perception` mean is 0.0 ms is self-evidently wrong — so the within-run attribution is what remains: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
@@ -33,6 +34,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - LiDAR maths coherence Item 6: fix the stale path trigger in `config-order-ci.yml` (it references a moved file) and unmask the config-maths parity gate, which currently reports success under `continue-on-error`; gated on foundations fix-it Phase 2: [design doc](plans/lidar-maths-coherence-plan.md) `S`
 
 ### v0.5.3 - Data contracts + observability (053)
+
+- Deterministic scene capture Milestones 2–3: frozen-target bullet-time arcs with varying elevation, recorded-frame temporal sequences, numeric geometry evidence, and optional contact sheets/MP4/GIF; reuse Milestone 1 and cap sequences at 50 images: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
@@ -107,6 +110,11 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - HINT metric observability (Batch A): surface per-track and per-run diagnostics to labellers and HINT history; combo breakdowns and ComboResult persistence: [design doc](plans/hint-metric-observability-plan.md) `S`
 
 ## 06x Ceilí calling 🎻
+
+### v0.6.x - Scene capture workflow and review integration
+
+- Deterministic scene capture Milestone 4: automatic stride-1 VRLOG-to-web export and an unchecked Make web export option in the 8081 recording workflow; finalisation-gated export, local viewer link, and independent export retry: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
+- Deterministic scene capture Milestone 5: versioned fixtures and capture recipes, before/after review artefacts, and evaluation of Happo or equivalent visual review; reproduce a known trail-alignment defect before demonstrating fixes: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 
 ### v0.6.0 - Deployment & packaging (060)
 
