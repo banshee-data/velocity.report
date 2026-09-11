@@ -361,17 +361,18 @@ opening 30 seconds restores the points immediately. When the full recording
 loops, fade the points back in over two seconds; keep the background, boxes,
 grid and controls steady.
 
-Five slide switches sit at the scene's top left. **LiDAR**, **Boxes**,
-**Background** and **Grid** hide their layers independently. Boxes include their
-trails and speed labels; Background controls the settled points exported from
-the VRLOG's first background frame; Grid controls only the ground-plane
-reference grid.
+The scene's top-left **Controls** disclosure is collapsed by default.
+**Background**, **Grid** and **Boxes** appear on every scene and hide their
+layers independently. Boxes include their trails and speed labels; Background
+controls the settled points exported from the VRLOG's first background frame;
+Grid controls only the ground-plane reference grid.
+Columbus at Broadway adds **LiDAR** and **Loop opening** because it is the only
+scene with a point-cloud clip.
 **Loop opening** changes the playback boundary and timeline to the point-cloud
 segment, returning to its start if the viewer enables it later in the full
 recording. Switching it off restores the complete timeline. LiDAR, boxes, the
 settled background and the grid start on, and the full recording remains the
-default loop. The switches appear only on scenes that publish a point-cloud
-clip, rather than offering controls that do nothing elsewhere.
+default loop.
 
 #### Keep the homepage honest
 

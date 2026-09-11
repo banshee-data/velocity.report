@@ -6,14 +6,14 @@
   .scene-map__area { fill: currentColor; fill-opacity: 0.04; stroke: currentColor; stroke-opacity: 0.35; stroke-dasharray: 6 5; }
   .scene-map__area-label { fill: currentColor; fill-opacity: 0.55; font-size: 13px; }
   .scene-map__cell { fill: #34d399; fill-opacity: 0.16; stroke: #059669; stroke-width: 2; }
-  .scene-map__marker { fill: #10b981; stroke: #ffffff; stroke-width: 2; }
+  .scene-map__marker { fill: #10b981; stroke: #ffffff; stroke-width: 2; paint-order: stroke; filter: drop-shadow(0 0 1px #000000); }
   .scene-map__title { fill: currentColor; font-size: 15px; font-weight: 600; }
   .scene-map__token { fill: currentColor; fill-opacity: 0.7; font-size: 12.5px; }
   .scene-map__scale { stroke: currentColor; stroke-opacity: 0.6; }
   .scene-map__scale-label { fill: currentColor; fill-opacity: 0.7; font-size: 12px; }
   @media (prefers-color-scheme: dark) {
     .scene-map__cell { fill: #34d399; fill-opacity: 0.2; stroke: #34d399; }
-    .scene-map__marker { fill: #10b981; stroke: #0b1013; }
+    .scene-map__marker { fill: #10b981; stroke: #ffffff; }
   }
 </style>
   <rect class="scene-map__frame" x="1" y="1" width="898" height="458" rx="4"/>

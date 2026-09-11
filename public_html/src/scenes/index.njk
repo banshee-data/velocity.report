@@ -1,12 +1,13 @@
 ---
 layout: page.njk
 title: "LiDAR scenes — velocity.report"
-description: Every published LiDAR scene, placed in the S2 cell that indexes it. Trajectories only — no cameras, no images, no number plates.
+description: Research views from the velocity.report LiDAR perception pipeline. Tracking and clustering are improving, but track splits and unstable trails remain.
 ---
 
 <style>
   .scenes__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
-  .scenes__sub { font-size: 1rem; line-height: 1.45; margin: 0 0 1.25rem; opacity: 0.85; max-width: 68ch; }
+  .scenes__sub { font-size: 1rem; line-height: 1.5; margin: 0 0 0.7rem; opacity: 0.85; max-width: 68ch; }
+  .scenes__sub:last-of-type { margin-bottom: 1.25rem; }
 
   .scenes__map { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.6rem; }
   .scenes__map svg { display: block; }
@@ -16,6 +17,13 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
   .scenes__mapframe { position: relative; }
   #scene-map { height: 520px; border-radius: 3px; background: #dcebef; }
   #scene-map .leaflet-popup-content { font-size: 0.9rem; }
+  #scene-map .scene-map__site-shimmer.is-shimmering {
+    animation: scene-map-site-shimmer 450ms ease-in-out var(--scene-map-shimmer-delay) both;
+  }
+  @keyframes scene-map-site-shimmer {
+    0%, 100% { fill-opacity: 0; }
+    50% { fill-opacity: 0.82; }
+  }
   .scenes__load-map { position: absolute; z-index: 700; left: 0.65rem; bottom: 0.65rem; border: 1px solid #536b74; border-radius: 3px; padding: 0.42rem 0.7rem; background: rgba(255, 255, 255, 0.92); color: #183039; font: inherit; font-size: 0.8rem; cursor: pointer; }
   .scenes__load-map[aria-checked="true"] { border-color: #047857; background: rgba(4, 120, 87, 0.94); color: white; }
   .scenes__load-map[hidden], .scenes__consent[hidden] { display: none; }
@@ -32,6 +40,9 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
   #scene-map .leaflet-cellFill-pane,
   #scene-map .leaflet-grid-pane,
   #scene-map .leaflet-markers-pane { pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) {
+    #scene-map .scene-map__site-shimmer { animation: none; }
+  }
   @media (prefers-color-scheme: dark) {
     #scene-map { background: #172126; }
     #scene-map .scene-map-cycle-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.78) contrast(0.9); }
@@ -79,9 +90,15 @@ description: Every published LiDAR scene, placed in the S2 cell that indexes it.
 <section class="max-w-6xl mx-auto">
   <h1 class="scenes__title">LiDAR scenes</h1>
   <p class="scenes__sub">
-    Each scene is a real recording of a street, published as trajectories: position,
-    size, heading and speed, and nothing that could identify anybody. The map marks
-    every site the sensor has stood at; click a point to open its survey.
+    These are working views from the LiDAR perception pipeline, not production-ready
+    traffic results. The pipeline still produces too many split tracks and unstable
+    trails. We are improving the clustering and tracking; until those settle, a tidy
+    line on the screen remains a tidy line on the screen.
+  </p>
+  <p class="scenes__sub">
+    Each scene comes from a real street recording and shows position, size, heading
+    and speed without collecting camera images, faces or number plates. The map marks
+    every site the sensor has stood at; choose a point to inspect the current work.
   </p>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"

@@ -27,6 +27,11 @@ layout: page.njk
   .scene-page__up a:hover { text-decoration: underline; opacity: 1; }
   .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
   .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
+  .scene-page__status {
+    max-width: 68ch; margin: 0.65rem 0 0; font-size: 0.92rem; line-height: 1.5;
+    opacity: 0.8;
+  }
+  .scene-page__status strong { font-weight: 650; opacity: 1; }
   .scene-page__more {
     background: none; border: 0; padding: 0; font: inherit; color: var(--scene-primary);
     cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
@@ -38,16 +43,32 @@ layout: page.njk
   }
   .scene-page__privacy[hidden] { display: none; }
 
-  .scene-stage { position: relative; aspect-ratio: 16 / 10; width: 100%; border-radius: 4px; overflow: hidden; background: var(--scene-canvas); }
+  .scene-stage { position: relative; aspect-ratio: 4 / 5; width: 100%; border-radius: 4px; overflow: hidden; background: var(--scene-canvas); }
   @media (min-width: 768px) { .scene-stage { aspect-ratio: 16 / 9; } }
   .scene-stage__canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   .scene-stage__canvas:active { cursor: grabbing; }
   .scene-stage__canvas:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: -2px; }
-  .scene-stage__switches {
+  .scene-stage__controls {
     position: absolute; z-index: 2; top: 0.65rem; left: 0.65rem;
-    display: grid; gap: 0.42rem; margin: 0; padding: 0.55rem 0.65rem;
+    color: #cfe3e8;
+  }
+  .scene-stage__controls summary {
+    display: flex; align-items: center; gap: 0.38rem; width: max-content;
+    padding: 0.45rem 0.62rem; cursor: pointer; user-select: none;
     border: 1px solid rgba(207, 227, 232, 0.24); border-radius: 4px;
-    background: rgba(7, 9, 12, 0.84); color: #cfe3e8;
+    background: rgba(7, 9, 12, 0.84); font-size: 0.82rem; font-weight: 600;
+    backdrop-filter: blur(5px);
+  }
+  .scene-stage__controls summary::-webkit-details-marker { display: none; }
+  .scene-stage__controls summary::marker { content: ""; }
+  .scene-stage__controls summary:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; }
+  .scene-stage__controls-chevron { display: inline-block; transition: transform 140ms ease; }
+  .scene-stage__controls[open] .scene-stage__controls-chevron { transform: rotate(90deg); }
+  .scene-stage__controls[open] summary { border-radius: 4px 4px 0 0; }
+  .scene-stage__switches {
+    display: grid; gap: 0.42rem; margin: 0; padding: 0.55rem 0.65rem;
+    border: 1px solid rgba(207, 227, 232, 0.24); border-top: 0;
+    border-radius: 0 4px 4px 4px; background: rgba(7, 9, 12, 0.84);
     backdrop-filter: blur(5px);
   }
   .scene-switch {
@@ -75,7 +96,8 @@ layout: page.njk
     outline: 2px solid var(--scene-primary); outline-offset: 3px;
   }
   @media (prefers-reduced-motion: reduce) {
-    .scene-switch__track, .scene-switch__track::after { transition: none; }
+    .scene-switch__track, .scene-switch__track::after,
+    .scene-stage__controls-chevron { transition: none; }
   }
   .scene-stage__tools {
     position: absolute; z-index: 2; top: 0.65rem; right: 0.65rem;
@@ -87,6 +109,8 @@ layout: page.njk
     font-size: 0.75rem; line-height: 1.35; text-align: right;
     pointer-events: none; white-space: nowrap;
   }
+  .scene-stage__tip-mobile { display: inline; }
+  .scene-stage__tip-desktop { display: none; }
   .scene-compass {
     position: absolute; right: 0.65rem; bottom: 0.65rem; width: 76px; height: 76px;
     border: 1px solid #2c4049; border-radius: 50%; padding: 0;
@@ -95,6 +119,15 @@ layout: page.njk
   .scene-compass:hover { border-color: var(--scene-primary); }
   .scene-compass:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 3px; }
   .scene-compass svg { display: block; width: 100%; height: 100%; }
+  @media (max-width: 767px) {
+    .scene-stage__tip-mobile { display: inline; }
+    .scene-stage__tip-desktop { display: none; }
+    .scene-compass { width: 32px; height: 32px; }
+  }
+  @media (min-width: 768px) {
+    .scene-stage__tip-mobile { display: none; }
+    .scene-stage__tip-desktop { display: inline; }
+  }
   .scene-stage__labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .scene-label {
     position: absolute; transform: translate(-50%, -100%);
@@ -218,9 +251,18 @@ layout: page.njk
         About this view
       </button>
     </p>
+    <p class="scene-page__status">
+      <strong>Research preview.</strong> The perception pipeline still produces too
+      many split tracks and unstable trails for production use. We are continuing to
+      improve its clustering and tracking; for now, this is a view of the work rather
+      than a finished result.
+    </p>
     <p class="scene-page__privacy" id="scene-about" hidden>
-      Grey points map the street. Coloured boxes show road users: their position,
-      size, direction and speed. LiDAR records no images, faces or number plates.
+      Grey points map the street. Coloured boxes and trails are the perception
+      pipeline's current estimate of each road user's position, size, direction and
+      speed; they can split or wander while the tracking work continues. LiDAR records
+      no images, faces or number plates. The point is to understand traffic, not to
+      start collecting people's personal lives by accident.
     </p>
   </header>
 
@@ -236,9 +278,10 @@ layout: page.njk
 
     <div class="scene-stage__labels" id="scene-labels" aria-hidden="true"></div>
 
-    {% if sceneHasClip %}
-    <fieldset class="scene-stage__switches" aria-label="Scene layers and playback">
-      <legend class="sr-only">Scene layers and playback</legend>
+    <details class="scene-stage__controls">
+      <summary><span class="scene-stage__controls-chevron" aria-hidden="true">›</span> Controls</summary>
+      <fieldset class="scene-stage__switches" aria-label="Scene layers">
+        <legend class="sr-only">Scene layers</legend>
       <label class="scene-switch">
         <input type="checkbox" id="scene-background" role="switch" checked>
         <span class="scene-switch__track" aria-hidden="true"></span>
@@ -254,6 +297,7 @@ layout: page.njk
         <span class="scene-switch__track" aria-hidden="true"></span>
         <span>Boxes</span>
       </label>
+      {% if sceneHasClip %}
       <label class="scene-switch">
         <input type="checkbox" id="scene-lidar" role="switch" checked>
         <span class="scene-switch__track" aria-hidden="true"></span>
@@ -265,8 +309,9 @@ layout: page.njk
         <span>Loop opening</span>
       </label>
       <span class="sr-only" id="scene-loop-opening-help">Turn on to loop the opening LiDAR segment; turn off for the full recording.</span>
-    </fieldset>
-    {% endif %}
+      {% endif %}
+      </fieldset>
+    </details>
 
     <div class="scene-stage__tools" role="group" aria-label="Viewport controls">
       <button
@@ -276,7 +321,11 @@ layout: page.njk
         role="switch"
         aria-checked="true"
       >Fly</button>
-      <p class="scene-stage__tip" id="scene-fly-tip">Drag to rotate<br>Shift + drag to pan</p>
+      <p class="scene-stage__tip" id="scene-fly-tip">
+        Drag to rotate<br>
+        <span class="scene-stage__tip-mobile">Two fingers to pan<br>Pinch to zoom</span>
+        <span class="scene-stage__tip-desktop">Shift + drag to pan<br>Scroll to zoom</span>
+      </p>
       <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
     </div>
 
