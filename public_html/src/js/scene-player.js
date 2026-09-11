@@ -446,9 +446,12 @@ export async function mountScenePlayer({
 
   const session = await new SceneSession(manifestURL).open();
   const generatorVersions = sceneGeneratorVersions(session.parts);
-  if (ui.generatorVersion && generatorVersions.length) {
-    ui.generatorVersion.textContent = generatorVersions.join(", ");
-    ui.generatorVersion.closest("[data-scene-generator]")?.removeAttribute("hidden");
+  if (ui.generatorVersions && generatorVersions.length) {
+    const generatorVersion = generatorVersions.join(", ");
+    for (const node of ui.generatorVersions) {
+      node.textContent = generatorVersion;
+      node.closest("[data-scene-generator]")?.removeAttribute("hidden");
+    }
   }
   let pointCloudSession = null;
   if (pointCloudManifestURL) {
