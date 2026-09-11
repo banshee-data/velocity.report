@@ -1,10 +1,10 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const METRICS = [
-  ["p50", "p50", "#fbd92f"],
-  ["p85", "p85", "#f7b32b"],
-  ["p98", "p98", "#f25f5c"],
   ["max", "Maximum", "#2d1e2f"],
+  ["p98", "p98", "#f25f5c"],
+  ["p85", "p85", "#f7b32b"],
+  ["p50", "p50", "#fbd92f"],
 ];
 
 /** Build the percentage geometry shared by the renderer and its tests. */
@@ -52,11 +52,20 @@ function renderHistogram(target, summary) {
 
   for (let value = 0; value <= model.ceiling; value += 5) {
     const y = plot.bottom - (value / model.ceiling) * plotHeight;
-    svg.append(svgElement("line", {
-      x1: plot.left, x2: plot.right, y1: y, y2: y, class: "scene-speed__grid",
-    }));
+    svg.append(
+      svgElement("line", {
+        x1: plot.left,
+        x2: plot.right,
+        y1: y,
+        y2: y,
+        class: "scene-speed__grid",
+      }),
+    );
     const label = svgElement("text", {
-      x: plot.left - 8, y: y + 4, "text-anchor": "end", class: "scene-speed__tick",
+      x: plot.left - 8,
+      y: y + 4,
+      "text-anchor": "end",
+      class: "scene-speed__tick",
     });
     label.textContent = `${value}%`;
     svg.append(label);
@@ -66,8 +75,11 @@ function renderHistogram(target, summary) {
     const barHeight = (bucket.percentage / model.ceiling) * plotHeight;
     const x = plot.left + index * slot + slot * 0.14;
     const bar = svgElement("rect", {
-      x, y: plot.bottom - barHeight, width: Math.max(1, slot * 0.72),
-      height: barHeight, class: "scene-speed__bar",
+      x,
+      y: plot.bottom - barHeight,
+      width: Math.max(1, slot * 0.72),
+      height: barHeight,
+      class: "scene-speed__bar",
     });
     const title = svgElement("title");
     title.textContent = `${bucket.start}-${bucket.end} mph: ${bucket.count} tracks (${bucket.percentage.toFixed(1)}%)`;
@@ -107,18 +119,12 @@ function renderTable(target, summary) {
     swatch.setAttribute("aria-hidden", "true");
     heading.append(swatch, label);
     const value = document.createElement("td");
-    value.textContent = Number.isFinite(summary[key]) ? `${summary[key].toFixed(1)} mph` : "—";
+    value.textContent = Number.isFinite(summary[key])
+      ? `${summary[key].toFixed(1)} mph`
+      : "—";
     row.append(heading, value);
     target.append(row);
   }
-  const countRow = document.createElement("tr");
-  const countLabel = document.createElement("th");
-  countLabel.scope = "row";
-  countLabel.textContent = "Car tracks above 5 mph";
-  const count = document.createElement("td");
-  count.textContent = String(summary.track_count ?? 0);
-  countRow.append(countLabel, count);
-  target.append(countRow);
 }
 
 /** Populate the report-aligned metrics table and histogram for one scene. */
@@ -127,7 +133,8 @@ export function renderSceneSpeedStats(root, timeline) {
   const summary = timeline?.vehicle_speed;
   const status = root.querySelector("[data-speed-status]");
   if (!summary) {
-    if (status) status.textContent = "No car track summary is available for this scene.";
+    if (status)
+      status.textContent = "No car track summary is available for this scene.";
     return;
   }
   renderTable(root.querySelector("[data-speed-table]"), summary);
