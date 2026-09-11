@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "pierce-haight",
+    "title": "Pierce at Haight"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

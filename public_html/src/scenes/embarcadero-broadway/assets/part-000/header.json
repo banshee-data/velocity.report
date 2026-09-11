@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "embarcadero-broadway",
+  "title": "Embarcadero at Broadway",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5848,
+  "start_ns": "1788387809886064300",
+  "duration_sec": 1169.396487,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "7554bd1c7c3778b3858cd73e7ffa7ff0632dee34d2b95fbe89bbd6a6ad6ae2d0",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-09T18:31:06Z"
+}

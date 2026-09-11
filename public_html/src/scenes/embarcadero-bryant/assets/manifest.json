@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "embarcadero-bryant",
+    "title": "Embarcadero at Bryant"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

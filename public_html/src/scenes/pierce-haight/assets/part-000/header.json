@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "pierce-haight",
+  "title": "Pierce at Haight",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 6313,
+  "start_ns": "1788294484995051330",
+  "duration_sec": 1262.357145,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "9f62cabde248c7351b09f521b1a2c04f27c0e6a0429cfbe307bff6d02d967d73",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T00:15:14Z"
+}

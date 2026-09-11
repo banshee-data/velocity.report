@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "bush-powell",
+  "title": "Bush at Powell",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5802,
+  "start_ns": "1788460596901733330",
+  "duration_sec": 1160.351205,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "c4947cbe8b541cc31bcbabf04c261dbeda3dbc8c8109453940bef2aaee616778",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-09T19:51:42Z"
+}

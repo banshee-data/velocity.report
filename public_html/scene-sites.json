@@ -24,6 +24,390 @@
       "position": null,
       "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
       "position_source": null
+    },
+    {
+      "id": "ashbury-downey",
+      "title": "Ashbury at Downey",
+      "page": "/scenes/ashbury-downey/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s01",
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 8,
+      "position": {
+        "lat": 37.7638,
+        "lon": -122.4466,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Ashbury at Downey), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "haight-divisadero",
+      "title": "Haight at Divisadero",
+      "page": "/scenes/haight-divisadero/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s02",
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101,
+      "position": {
+        "lat": 37.7712,
+        "lon": -122.4372,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "pierce-haight",
+      "title": "Pierce at Haight",
+      "page": "/scenes/pierce-haight/",
+      "summary": "21 minutes of a static roadside recording.",
+      "archive_site": "s03",
+      "grid_azimuth_deg": 0,
+      "north_azimuth_deg": 11,
+      "position": {
+        "lat": 37.7718,
+        "lon": -122.4338,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "fulton-divisadero",
+      "title": "Fulton at Divisadero",
+      "page": "/scenes/fulton-divisadero/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s04",
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101,
+      "position": {
+        "lat": 37.7768,
+        "lon": -122.4381,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "california-leon-baker",
+      "title": "California between Leon and Baker",
+      "page": "/scenes/california-leon-baker/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s05",
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101,
+      "position": {
+        "lat": 37.7875,
+        "lon": -122.4446,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (California between Leon and Baker), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "broadway-gough",
+      "title": "Broadway at Gough",
+      "page": "/scenes/broadway-gough/",
+      "summary": "18 minutes of a static roadside recording.",
+      "archive_site": "s06",
+      "grid_azimuth_deg": 359,
+      "north_azimuth_deg": 99,
+      "position": {
+        "lat": 37.7952,
+        "lon": -122.4269,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "laguna-eddy",
+      "title": "Laguna at Eddy",
+      "page": "/scenes/laguna-eddy/",
+      "summary": "21 minutes of a static roadside recording.",
+      "archive_site": "s07",
+      "grid_azimuth_deg": 359,
+      "north_azimuth_deg": 9,
+      "position": {
+        "lat": 37.7821,
+        "lon": -122.4274,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Laguna at Eddy), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "lombard-broderick",
+      "title": "Lombard at Broderick",
+      "page": "/scenes/lombard-broderick/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s08",
+      "grid_azimuth_deg": 355,
+      "north_azimuth_deg": 97,
+      "position": {
+        "lat": 37.799,
+        "lon": -122.444,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "marina-broderick",
+      "title": "Marina at Broderick",
+      "page": "/scenes/marina-broderick/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s09",
+      "grid_azimuth_deg": 356,
+      "north_azimuth_deg": 282,
+      "position": {
+        "lat": 37.8053,
+        "lon": -122.4455,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Marina at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "marina-webster-beach",
+      "title": "Marina between Webster and Beach",
+      "page": "/scenes/marina-webster-beach/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s10",
+      "grid_azimuth_deg": 356.5,
+      "north_azimuth_deg": 231,
+      "position": {
+        "lat": 37.8057,
+        "lon": -122.4351,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Marina between Webster and Beach), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "lombard-laguna",
+      "title": "Lombard at Laguna",
+      "page": "/scenes/lombard-laguna/",
+      "summary": "33 minutes of a static roadside recording.",
+      "archive_site": "s11",
+      "grid_azimuth_deg": 354,
+      "north_azimuth_deg": 275,
+      "position": {
+        "lat": 37.8004,
+        "lon": -122.4313,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Lombard at Laguna), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "columbus-north-point",
+      "title": "Columbus at North Point",
+      "page": "/scenes/columbus-north-point/",
+      "summary": "18 minutes of a static roadside recording.",
+      "archive_site": "s12",
+      "grid_azimuth_deg": 38,
+      "north_azimuth_deg": 48,
+      "position": {
+        "lat": 37.8059,
+        "lon": -122.4181,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Columbus at North Point), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "embarcadero-bay",
+      "title": "Embarcadero at Bay",
+      "page": "/scenes/embarcadero-bay/",
+      "summary": "15 minutes of a static roadside recording.",
+      "archive_site": "s13",
+      "grid_azimuth_deg": 60,
+      "north_azimuth_deg": 253,
+      "position": {
+        "lat": 37.8067,
+        "lon": -122.4061,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Bay), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "columbus-broadway",
+      "title": "Columbus at Broadway",
+      "page": "/scenes/columbus-broadway/",
+      "summary": "33 minutes of a static roadside recording.",
+      "archive_site": "s14",
+      "grid_azimuth_deg": 27,
+      "north_azimuth_deg": 35,
+      "position": {
+        "lat": 37.7978,
+        "lon": -122.4065,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "van-ness-sacramento",
+      "title": "van Ness at Sacramento",
+      "page": "/scenes/van-ness-sacramento/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s15",
+      "grid_azimuth_deg": 355.5,
+      "north_azimuth_deg": 10,
+      "position": {
+        "lat": 37.7912,
+        "lon": -122.4225,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "embarcadero-broadway",
+      "title": "Embarcadero at Broadway",
+      "page": "/scenes/embarcadero-broadway/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s16",
+      "grid_azimuth_deg": 2,
+      "north_azimuth_deg": 101,
+      "position": {
+        "lat": 37.7991,
+        "lon": -122.3976,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "franklin-mcallister",
+      "title": "Franklin at McAllister",
+      "page": "/scenes/franklin-mcallister/",
+      "summary": "11 minutes of a static roadside recording.",
+      "archive_site": "s17",
+      "grid_azimuth_deg": 4,
+      "north_azimuth_deg": 192,
+      "position": {
+        "lat": 37.7798,
+        "lon": -122.4218,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Franklin at McAllister), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "hyde-ofarrell",
+      "title": "Hyde at O'Farrell",
+      "page": "/scenes/hyde-ofarrell/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s18",
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 14,
+      "position": {
+        "lat": 37.7855,
+        "lon": -122.4164,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Hyde at O'Farrell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "bush-powell",
+      "title": "Bush at Powell",
+      "page": "/scenes/bush-powell/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s19",
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 102,
+      "position": {
+        "lat": 37.7901,
+        "lon": -122.409,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Bush at Powell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "embarcadero-folsom",
+      "title": "Embarcadero at Folsom",
+      "page": "/scenes/embarcadero-folsom/",
+      "summary": "20 minutes of a static roadside recording.",
+      "archive_site": "s20",
+      "grid_azimuth_deg": 356,
+      "north_azimuth_deg": 131,
+      "position": {
+        "lat": 37.791,
+        "lon": -122.3899,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "1st-mission",
+      "title": "1st at Mission",
+      "page": "/scenes/1st-mission/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s21",
+      "grid_azimuth_deg": 6,
+      "north_azimuth_deg": 51,
+      "position": {
+        "lat": 37.7897,
+        "lon": -122.3974,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (1st at Mission), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "embarcadero-bryant",
+      "title": "Embarcadero at Bryant",
+      "page": "/scenes/embarcadero-bryant/",
+      "summary": "22 minutes of a static roadside recording.",
+      "archive_site": "s22",
+      "grid_azimuth_deg": 308,
+      "north_azimuth_deg": 353,
+      "position": {
+        "lat": 37.7868,
+        "lon": -122.3881,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Embarcadero at Bryant), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "3rd-folsom",
+      "title": "3rd at Folsom",
+      "page": "/scenes/3rd-folsom/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s23",
+      "grid_azimuth_deg": 358,
+      "north_azimuth_deg": 223,
+      "position": {
+        "lat": 37.7837,
+        "lon": -122.3986,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (3rd at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
+    },
+    {
+      "id": "howard-6th",
+      "title": "Howard at 6th",
+      "page": "/scenes/howard-6th/",
+      "summary": "19 minutes of a static roadside recording.",
+      "archive_site": "s24",
+      "grid_azimuth_deg": 357,
+      "north_azimuth_deg": 312,
+      "position": {
+        "lat": 37.7798,
+        "lon": -122.4069,
+        "source": "operator"
+      },
+      "position_note": "Read from the field map (Howard at 6th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_source": "archive-index"
     }
   ]
 }

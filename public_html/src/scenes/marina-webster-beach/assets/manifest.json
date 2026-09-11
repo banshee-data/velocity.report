@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "marina-webster-beach",
+    "title": "Marina between Webster and Beach"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

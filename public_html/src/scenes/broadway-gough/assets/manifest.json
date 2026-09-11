@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "broadway-gough",
+    "title": "Broadway at Gough"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

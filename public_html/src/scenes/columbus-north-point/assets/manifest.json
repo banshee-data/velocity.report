@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "columbus-north-point",
+    "title": "Columbus at North Point"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

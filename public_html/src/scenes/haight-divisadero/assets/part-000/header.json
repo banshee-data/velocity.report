@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "haight-divisadero",
+  "title": "Haight by Divisadero",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5563,
+  "start_ns": "1788292802951813330",
+  "duration_sec": 1112.362088,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "237ba3331a8ac8675a91e84c4e599227837d1712a716f9f297502b466bc9a604",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-09T23:30:01Z"
+}
