@@ -28,13 +28,29 @@ layout: page.njk
   .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
   .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
   .scene-page__status {
-    max-width: 68ch; margin: 0.65rem 0 0; font-size: 0.92rem; line-height: 1.5;
-    opacity: 0.8;
+    display: flex; align-items: flex-start; gap: 0.6rem; max-width: 68ch;
+    margin: 0.65rem 0 0; padding: 0.7rem 0.85rem; border: 1px solid #f59e0b;
+    border-radius: 0.5rem; background: rgba(255, 237, 213, 0.8); color: #4a2d0a;
+    font-size: 0.92rem; line-height: 1.5; box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
   }
   .scene-page__status strong { font-weight: 650; opacity: 1; }
+  .scene-page__status-icon {
+    flex: 0 0 auto; width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; color: #b45309;
+  }
+  .scene-page__status-icon svg {
+    display: block; width: 100%; height: 100%; stroke: currentColor; fill: none;
+    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  }
   .scene-page__more {
     background: none; border: 0; padding: 0; font: inherit; color: var(--scene-primary);
     cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .scene-page__status {
+      background: rgba(129, 80, 16, 0.16); color: #f8d7a6; border-color: #f59e0b;
+      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
+    }
+    .scene-page__status-icon { color: #fbbf24; }
   }
   .scene-page__more:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; border-radius: 2px; }
   .scene-page__privacy {
@@ -252,10 +268,18 @@ layout: page.njk
       </button>
     </p>
     <p class="scene-page__status">
-      <strong>Research preview.</strong> The perception pipeline still produces too
-      many split tracks and unstable trails for production use. We are continuing to
-      improve its clustering and tracking; for now, this is a view of the work rather
-      than a finished result.
+      <span class="scene-page__status-icon" aria-hidden="true">
+        <svg viewBox="0 0 20 20" role="presentation">
+          <path d="M6.5 2.5h7M7.5 2.5v4.5l-2.5 4.2a2.6 2.6 0 0 0 2.2 4.3h5.6a2.6 2.6 0 0 0 2.2-4.3l-2.5-4.2V2.5M7 8.5h6M8 11.3h4"/>
+          <path d="M8.5 14.5h3M7 16.5h6"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Research preview.</strong> The perception pipeline still produces too
+        many split tracks and unstable trails for production use. We are continuing to
+        improve its clustering and tracking; for now, this is a view of the work rather
+        than a finished result.
+      </span>
     </p>
     <p class="scene-page__privacy" id="scene-about" hidden>
       Grey points map the street. Coloured boxes and trails are the perception

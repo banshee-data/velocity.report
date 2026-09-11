@@ -71,10 +71,7 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
         Math.max((b.ped ?? 0) + (b.cyc ?? 0), b.veh ?? 0),
       ),
     );
-    const maxSpeed = Math.max(
-      1,
-      ...visibleBuckets.map((b) => b.spd ?? 0),
-    );
+    const maxSpeed = Math.max(1, ...visibleBuckets.map((b) => b.spd ?? 0));
     const barW = Math.max(1, w / Math.max(visibleBuckets.length, 1));
     // Zero sits in the middle. Vehicles grow upwards; people and bikes grow
     // downwards, so the two halves of a street's traffic can be compared
@@ -132,7 +129,9 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.stroke();
 
     const px = (playhead / span) * w;
-    ctx.strokeStyle = "#ffffff";
+    const isDarkMode =
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+    ctx.strokeStyle = isDarkMode ? "#ffffff" : "#111827";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(px, 0);
@@ -140,7 +139,9 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.stroke();
 
     if (hover != null) {
-      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.strokeStyle = isDarkMode
+        ? "rgba(255,255,255,0.35)"
+        : "rgba(17, 24, 39, 0.35)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(hover, 0);
