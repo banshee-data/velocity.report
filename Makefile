@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre32
+VERSION := 0.5.1-pre33
 
 # =============================================================================
 # HELP TARGET (default)
@@ -1104,7 +1104,7 @@ dev-go:
 
 dev-go-lidar:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag --lidar-pcap-dir=/Volumes/lidar/lidar/)
 
 dev-go-lidar-trace:
 	@$(MAKE) ensure-dev-web-build
@@ -1940,7 +1940,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-s2-composite test-s2-hilbert
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-s2-composite test-s2-hilbert cache-basemap site-index
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -1954,6 +1954,39 @@ render-s2-hilbert: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
 	@pnpm run --silent s2-hilbert:composite
 	@echo "✓ Assets written to $(S2_HILBERT_DIR)/generated/"
+
+# Regenerate scene-sites.json, the published scene map, and the data the scenes
+# page reads. All three derive: each export is joined to an archive site by the
+# clock in its header, and takes that site's position. The hand-authored inputs
+# are tools/s2-archive/map-marks.json and public_html/scene-overrides.json.
+# Cache the basemap tiles the scene map draws on, into the site's own assets.
+# Fetched once and skipped when present, so a rebuild costs nothing. Tiles are
+# gitignored: they are OpenStreetMap's to serve and ours only to cache, and the
+# point of caching them is that a visitor's address never reaches a tile server.
+cache-basemap: install-s2-hilbert
+	@echo "Caching basemap tiles (once; cached on disk)..."
+	@pnpm run --silent s2-hilbert:basemap
+
+# Rebuild the archive site index from the field marks and the segment analysis.
+# Everything downstream — scene identity, titles, positions, the map — derives
+# from it, so it runs first whenever the scenes are regenerated.
+site-index:
+	@echo "Rebuilding the archive site index..."
+	@python3 tools/s2-archive/build-site-index.py
+
+# Regenerate everything the scenes pages are made of, in dependency order: the
+# site index, then scene-sites.json, the map and each scene's page, then the
+# site itself.
+#
+# The last step is not optional. This target writes a page for every published
+# scene, but a page only becomes a URL when Eleventy runs, so stopping before
+# the build leaves a freshly published scene answering 404 — which is exactly
+# what kept happening while this ended one step early.
+render-scene-map: install-s2-hilbert site-index
+	@echo "Deriving scene-sites.json, the scene map and the scene pages..."
+	@pnpm run --silent s2-hilbert:scene-map
+	@$(MAKE) --no-print-directory build-docs
+	@echo "✓ index, scene pages, map and site rebuilt — every published scene has a URL"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."

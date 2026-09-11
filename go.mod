@@ -6,6 +6,7 @@ require (
 	github.com/Dadido3/go-typst v0.10.0
 	github.com/go-echarts/go-echarts/v2 v2.7.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/golang/geo v0.0.0-20260818125358-b200a1149890
 	github.com/google/go-cmp v0.7.0
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0

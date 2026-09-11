@@ -82,6 +82,14 @@ func (ws *Server) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 		} else {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
+	case "location":
+		// /api/lidar/scenes/{scene_id}/location
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodDelete:
+			ws.handleSetCaseLocation(w, r, sceneID)
+		default:
+			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
 	case "evaluations":
 		// /api/lidar/scenes/{scene_id}/evaluations
 		switch r.Method {
@@ -136,11 +144,20 @@ func (ws *Server) handleListScenes(w http.ResponseWriter, r *http.Request) {
 
 // CreateSceneRequest is the request body for creating a scene.
 type CreateSceneRequest struct {
-	SensorID         string   `json:"sensor_id"`
-	PCAPFile         string   `json:"pcap_file"`
+	SensorID string `json:"sensor_id"`
+	PCAPFile string `json:"pcap_file"`
+	// PCAPFiles is the ordered set of captures the case covers, for a window
+	// that spans a file boundary. When given it takes precedence over
+	// PCAPFile, and the offsets below are measured from the start of the whole
+	// sequence rather than of any one file.
+	PCAPFiles        []string `json:"pcap_files,omitempty"`
 	PCAPStartSecs    *float64 `json:"pcap_start_secs,omitempty"`
 	PCAPDurationSecs *float64 `json:"pcap_duration_secs,omitempty"`
 	Description      string   `json:"description,omitempty"`
+	// SessionID and SourcePeriodID record where the case came from when it was
+	// cut from an indexed session. Both advisory.
+	SessionID      string `json:"session_id,omitempty"`
+	SourcePeriodID string `json:"source_period_id,omitempty"`
 }
 
 // handleCreateScene creates a new scene.
@@ -156,14 +173,29 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "sensor_id is required")
 		return
 	}
-	if req.PCAPFile == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file is required")
+	files := req.PCAPFiles
+	if len(files) == 0 && req.PCAPFile != "" {
+		files = []string{req.PCAPFile}
+	}
+	if len(files) == 0 {
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file or pcap_files is required")
 		return
+	}
+
+	// A case whose captures do not abut is not a case: replaying it would
+	// present two unrelated stretches to the pipeline as one recording.
+	// Authoring time is the last point at which the operator can still do
+	// something about it, so the check happens here rather than at replay.
+	if len(files) > 1 {
+		if _, err := ws.validateCaseFiles(files); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	scene := &sqlite.ReplayCase{
 		SensorID:         req.SensorID,
-		PCAPFile:         req.PCAPFile,
+		PCAPFile:         files[0],
 		PCAPStartSecs:    req.PCAPStartSecs,
 		PCAPDurationSecs: req.PCAPDurationSecs,
 		Description:      req.Description,
@@ -175,6 +207,25 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	caseFiles := make([]sqlite.ReplayCaseFile, 0, len(files))
+	for i, f := range files {
+		caseFiles = append(caseFiles, sqlite.ReplayCaseFile{Ordinal: i, PCAPFile: f})
+	}
+	if err := store.SetCaseFiles(scene.ReplayCaseID, caseFiles); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError,
+			fmt.Sprintf("failed to record the case's captures: %v", err))
+		return
+	}
+	if req.SessionID != "" || req.SourcePeriodID != "" {
+		if err := store.SetCaseSession(scene.ReplayCaseID, req.SessionID, req.SourcePeriodID); err != nil {
+			opsf("Warning: could not link replay case %s to its session: %v", scene.ReplayCaseID, err)
+		}
+	}
+
+	scene.Files = caseFiles
+	scene.FileCount = len(caseFiles)
+	scene.SessionID = req.SessionID
+	scene.SourcePeriodID = req.SourcePeriodID
 	ws.writeJSON(w, http.StatusCreated, scene)
 }
 
@@ -189,6 +240,19 @@ func (ws *Server) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get scene: %v", err))
 		}
 		return
+	}
+
+	// A case is its file list; reading one without it would show only the
+	// first capture and quietly misrepresent a multi-file case as single-file.
+	if files, err := store.CaseFiles(sceneID); err != nil {
+		opsf("Warning: could not load captures for replay case %s: %v", sceneID, err)
+	} else {
+		scene.Files = files
+	}
+	if loc, err := store.CaseLocationOf(sceneID); err != nil {
+		opsf("Warning: could not load the location of replay case %s: %v", sceneID, err)
+	} else {
+		scene.Location = loc
 	}
 
 	ws.writeJSON(w, http.StatusOK, scene)
@@ -321,6 +385,19 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		durationSecs = *scene.PCAPDurationSecs
 	}
 
+	// A case names an ordered set of captures, which for a single-file case is
+	// a list of one and behaves exactly as before.
+	casePaths, err := store.CasePaths(sceneID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError,
+			fmt.Sprintf("failed to load the case's captures: %v", err))
+		return
+	}
+	if len(casePaths) == 0 {
+		ws.writeJSONError(w, http.StatusBadRequest, "the replay case names no captures")
+		return
+	}
+
 	config := ReplayConfig{
 		StartSeconds:        startSecs,
 		DurationSeconds:     durationSecs,
@@ -329,6 +406,13 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		PreferredRunID:      preferredRunID,
 		ReplayCaseID:        sceneID,
 		RequestedParamsJSON: paramsJSON,
+	}
+	if len(casePaths) > 1 {
+		// Multi-file replay is planned before it starts, so a broken join is
+		// reported here rather than discovered mid-replay. It also requires
+		// analysis speed mode, which a case replay already uses.
+		config.ReplayFiles = casePaths
+		config.SpeedMode = "analysis"
 	}
 
 	// Reset tracker to ensure deterministic track IDs starting from track_1
@@ -340,7 +424,7 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		opsf("Warning: failed to reset background grid before replay: %v", err)
 	}
 
-	if err := startPCAPInternalForScene(ws, scene.PCAPFile, config); err != nil {
+	if err := startPCAPInternalForScene(ws, casePaths[0], config); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}

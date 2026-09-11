@@ -19,6 +19,18 @@ const (
 
 // ReplayConfig contains configuration for PCAP replay.
 type ReplayConfig struct {
+	// ReplayFiles is an ordered list of capture files replayed as one
+	// continuous stream, for a case whose window spans a file boundary. When
+	// it holds more than one entry, StartSeconds and DurationSeconds are
+	// measured from the start of the whole sequence rather than of any single
+	// file, and the joins are validated before replay begins. Empty or
+	// single-entry means the ordinary single-file replay, unchanged.
+	//
+	// The file named separately to StartPCAPReplay stays the replay's
+	// identity — snapshot path, analysis-run provenance, status reporting —
+	// and callers pass the first file of the sequence as that name.
+	ReplayFiles []string
+
 	StartSeconds          float64         // Start offset in seconds
 	DurationSeconds       float64         // Duration to replay (-1 for entire file)
 	SpeedMode             string          // "realtime", "analysis", or "scaled"

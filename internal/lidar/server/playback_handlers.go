@@ -28,6 +28,10 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pcapFile string
+	// An ordered set of captures replayed as one continuous recording. The
+	// sequence reader crosses the joins; a single file is the one-element case
+	// and keeps using pcap_file.
+	var replayFiles []string
 	analysisMode := true // Default: always create analysis run + VRLOG
 	var speedMode string
 	var speedRatio float64 = 1.0
@@ -45,20 +49,21 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	if contentType == "application/json" || contentType == "application/json; charset=utf-8" {
 		// Parse JSON body
 		var req struct {
-			PCAPFile              string  `json:"pcap_file"`
-			AnalysisMode          bool    `json:"analysis_mode"`
-			SpeedMode             string  `json:"speed_mode"`
-			SpeedRatio            float64 `json:"speed_ratio"`
-			StartSeconds          float64 `json:"start_seconds"`
-			DurationSeconds       float64 `json:"duration_seconds"`
-			DebugRingMin          int     `json:"debug_ring_min"`
-			DebugRingMax          int     `json:"debug_ring_max"`
-			DebugAzMin            float32 `json:"debug_az_min"`
-			DebugAzMax            float32 `json:"debug_az_max"`
-			EnableDebug           bool    `json:"enable_debug"`
-			EnablePlots           bool    `json:"enable_plots"`
-			BenchmarkMode         bool    `json:"benchmark_mode"`
-			SettleBeforeRecording bool    `json:"settle_before_recording"`
+			PCAPFile              string   `json:"pcap_file"`
+			PCAPFiles             []string `json:"pcap_files"`
+			AnalysisMode          bool     `json:"analysis_mode"`
+			SpeedMode             string   `json:"speed_mode"`
+			SpeedRatio            float64  `json:"speed_ratio"`
+			StartSeconds          float64  `json:"start_seconds"`
+			DurationSeconds       float64  `json:"duration_seconds"`
+			DebugRingMin          int      `json:"debug_ring_min"`
+			DebugRingMax          int      `json:"debug_ring_max"`
+			DebugAzMin            float32  `json:"debug_az_min"`
+			DebugAzMax            float32  `json:"debug_az_max"`
+			EnableDebug           bool     `json:"enable_debug"`
+			EnablePlots           bool     `json:"enable_plots"`
+			BenchmarkMode         bool     `json:"benchmark_mode"`
+			SettleBeforeRecording bool     `json:"settle_before_recording"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -71,6 +76,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pcapFile = req.PCAPFile
+		replayFiles = req.PCAPFiles
 		analysisMode = req.AnalysisMode
 		speedMode = req.SpeedMode
 		if req.SpeedRatio > 0 {
@@ -155,8 +161,12 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if pcapFile == "" && len(replayFiles) > 0 {
+		pcapFile = replayFiles[0]
+	}
 	if pcapFile == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "missing 'pcap_file' in request body")
+		ws.writeJSONError(w, http.StatusBadRequest,
+			"missing 'pcap_file' or 'pcap_files' in request body")
 		return
 	}
 
@@ -185,6 +195,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		StartSeconds:          startSeconds,
 		DurationSeconds:       durationSeconds,
 		SpeedMode:             speedMode,
+		ReplayFiles:           replayFiles,
 		SpeedRatio:            speedRatio,
 		AnalysisMode:          analysisMode,
 		SettleBeforeRecording: settleBeforeRecording,

@@ -10,7 +10,7 @@
 // guessing between orbit and pan from a single contact is how a viewer ends up
 // somewhere it cannot get back from.
 
-const MIN_POLAR = 0.05; // just above the horizon
+const MIN_POLAR = 0; // allow a true overhead view
 const MAX_POLAR = Math.PI / 2 - 0.02; // never below the ground plane
 const MIN_DISTANCE = 3;
 
@@ -21,44 +21,105 @@ const MIN_DISTANCE = 3;
  * geometry ships labels like "Eastbound Howard" instead, and those arrive in
  * the export header rather than being hardcoded here.
  */
+/**
+ * The views a scene has when it ships no vantages of its own.
+ *
+ * Distances match the one scene that was framed by hand, soma1: the four
+ * compass views sit at 0.25 of the framing distance, which is close enough to
+ * read a vehicle's shape against the street. The defaults were 0.85 — three
+ * and a half times further out — which framed the whole survey and left the
+ * traffic as specks.
+ *
+ * The overview and the overhead plan are excluded from the flight, as they are
+ * in soma1. An orbit is fitted to the vantages it flies, so leaving an
+ * overhead view at 2 degrees of elevation in that set drags the circle up and
+ * out: the flight was not only too far away, it was the wrong shape.
+ */
 export const DEFAULT_VANTAGES = [
   {
     id: "overview",
     label: "Overview",
     azimuth_deg: 45,
     polar_deg: 55,
-    zoom: 1.0,
+    zoom: 0.5,
+    fly: false,
   },
   {
     id: "north",
     label: "From north",
     azimuth_deg: 0,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
   {
     id: "east",
     label: "From east",
     azimuth_deg: 90,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
   {
     id: "south",
     label: "From south",
     azimuth_deg: 180,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
   {
     id: "west",
     label: "From west",
     azimuth_deg: 270,
     polar_deg: 68,
-    zoom: 0.85,
+    zoom: 0.25,
   },
-  { id: "top", label: "Overhead", azimuth_deg: 0, polar_deg: 2, zoom: 0.95 },
+  {
+    id: "top",
+    label: "Overhead",
+    azimuth_deg: 0,
+    polar_deg: 2,
+    zoom: 0.5,
+    fly: false,
+  },
 ];
+
+const COMPASS = [
+  "north",
+  "north-east",
+  "east",
+  "south-east",
+  "south",
+  "south-west",
+  "west",
+  "north-west",
+];
+
+/**
+ * The default vantages, labelled by true bearing where north is known.
+ *
+ * "From north" on a default vantage means the sensor's zero azimuth, which is
+ * wherever the tripod was pointed when it was set down — a kerb, a railing,
+ * whatever was there. Calling that north is only true by accident, and it is a
+ * confident sort of wrong: a viewer has no reason to doubt a compass label.
+ *
+ * northAzimuthDeg is the sensor's zero measured clockwise from true north, so
+ * a vantage sitting at sensor azimuth A stands at true bearing A + north. With
+ * it the labels become true; without it they stay as they were, since a
+ * scene's own azimuths are still a consistent way to move around it.
+ */
+export function compassVantages(northAzimuthDeg) {
+  if (!Number.isFinite(northAzimuthDeg)) return DEFAULT_VANTAGES;
+  return DEFAULT_VANTAGES.map((v) => {
+    if (v.id === "overview" || v.id === "top") return v;
+    const bearing =
+      ((((v.azimuth_deg ?? 0) + northAzimuthDeg) % 360) + 360) % 360;
+    const point = COMPASS[Math.round(bearing / 45) % 8];
+    return {
+      ...v,
+      label: `From ${point}`,
+      true_bearing_deg: Math.round(bearing),
+    };
+  });
+}
 
 const deg = (d) => (d * Math.PI) / 180;
 
@@ -147,6 +208,13 @@ export function createSceneCamera({
       target.y + state.distance * Math.cos(state.polar),
       target.z + state.distance * sinP * Math.cos(state.azimuth),
     );
+    // A ground-plane heading supplies a stable screen-up vector even at the
+    // pole, where the usual world-up vector is parallel to the viewing ray.
+    camera.up?.set(
+      -Math.cos(state.polar) * Math.sin(state.azimuth),
+      sinP,
+      -Math.cos(state.polar) * Math.cos(state.azimuth),
+    );
     camera.lookAt(target);
     onChange?.();
   }
@@ -156,11 +224,26 @@ export function createSceneCamera({
    * presets and limits are relative to.
    */
   function frame({ centerX, centerZ, groundY, span }) {
-    home.x = centerX;
-    home.z = centerZ;
+    // Look at the sensor, not at the middle of what it happened to see.
+    //
+    // The observed area is whatever the street gave back — long down one
+    // approach, short where a building stands — so its centre wanders away
+    // from the sensor by an amount that says more about the geometry of the
+    // reflections than about the junction. Orbiting that centre swings the
+    // sensor around the edge of the view. The sensor is at the origin, it is
+    // the one fixed thing in the scene, and it is what the scene is of.
+    //
+    // The span still comes from the observed area: what to look at and how
+    // much of it to fit in are different questions.
+    home.x = 0;
+    home.z = 0;
     home.y = groundY;
     home.span = span;
-    target.set(centerX, groundY, centerZ);
+    // centerX and centerZ are accepted and deliberately unused; callers pass
+    // the observed bounds and the framing distance below is derived from them.
+    void centerX;
+    void centerZ;
+    target.set(home.x, groundY, home.z);
     const fov = deg(camera.fov);
     // Pull back far enough that the span fits the narrower screen axis.
     const fit = span / 2 / Math.tan(fov / 2);
@@ -359,9 +442,16 @@ export function createSceneCamera({
     applyPreset,
     applyVantage,
     currentVantage,
-    setVantages(list) {
+    /**
+     * @param list a scene's own vantages, or null
+     * @param northAzimuthDeg the sensor's zero measured from true north, if
+     *   the operator recorded it; it labels the built-in views truthfully and
+     *   is ignored when the scene brings its own, which are already named for
+     *   the street rather than for a bearing.
+     */
+    setVantages(list, northAzimuthDeg) {
       const clean = normaliseVantages(list);
-      vantages = clean.length ? clean : DEFAULT_VANTAGES;
+      vantages = clean.length ? clean : compassVantages(northAzimuthDeg);
       return vantages;
     },
     get vantages() {

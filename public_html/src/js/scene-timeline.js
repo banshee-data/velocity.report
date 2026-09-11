@@ -4,7 +4,8 @@
 // parts of a recording instead of scrubbing blindly through eleven minutes of
 // mostly-quiet street.
 //
-// Traffic diverges from a zero line: people and bikes above it, vehicles below.
+// Traffic diverges from a zero line: vehicles and speed above it, people and
+// bikes below.
 // A road busy with people reads nothing like one busy with cars, and stacking
 // them into one total hides exactly that. Peak speed is overlaid as a line,
 // since the busiest moment and the fastest one are rarely the same one.
@@ -63,7 +64,7 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.clearRect(0, 0, w, h);
 
     const barW = Math.max(1, w / Math.max(buckets.length, 1));
-    // Zero sits in the middle. People and bikes grow upwards, vehicles
+    // Zero sits in the middle. Vehicles grow upwards; people and bikes grow
     // downwards, so the two halves of a street's traffic can be compared
     // against each other rather than stacked into one indistinct total.
     const mid = Math.round(h / 2);
@@ -76,8 +77,15 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
       const x = i * barW;
       const barWidth = Math.max(barW - 0.5, 0.5);
 
-      // Upward: people, then bikes stacked above them.
-      let up = mid;
+      // Upward: vehicles.
+      const veh = b.veh ?? 0;
+      if (veh > 0) {
+        ctx.fillStyle = MODE_COLOURS.vehicle;
+        ctx.fillRect(x, mid - veh * scale, barWidth, veh * scale);
+      }
+
+      // Downward: people, then bikes stacked below them.
+      let down = mid;
       for (const [key, mode] of [
         ["ped", "person"],
         ["cyc", "cycle"],
@@ -86,26 +94,18 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
         if (v <= 0) continue;
         const barH = v * scale;
         ctx.fillStyle = MODE_COLOURS[mode];
-        ctx.fillRect(x, up - barH, barWidth, barH);
-        up -= barH;
-      }
-
-      // Downward: vehicles.
-      const veh = b.veh ?? 0;
-      if (veh > 0) {
-        ctx.fillStyle = MODE_COLOURS.vehicle;
-        ctx.fillRect(x, mid, barWidth, veh * scale);
+        ctx.fillRect(x, down, barWidth, barH);
+        down += barH;
       }
     });
 
-    // Peak speed over the vehicle half, since speed is a property of the
-    // traffic below the line.
+    // Peak speed over the vehicle half.
     ctx.beginPath();
     ctx.strokeStyle = SPEED_COLOUR;
     ctx.lineWidth = 1.5;
     buckets.forEach((b, i) => {
       const x = i * barW + barW / 2;
-      const y = mid + 3 + ((b.spd ?? 0) / maxSpeed) * (halfH - 4);
+      const y = mid - 3 - ((b.spd ?? 0) / maxSpeed) * (halfH - 4);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });

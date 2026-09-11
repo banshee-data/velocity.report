@@ -4,11 +4,15 @@
 // drives playback from the recorded frame timestamps. It owns rendering only;
 // fetching, decoding and seeking live in scene-reader.js.
 
+import { northOverhead, updateCompass } from "./scene-compass.js";
+import { mountSceneDev } from "./scene-dev.js";
 import * as THREE from "three";
 import { SceneSession, SceneError } from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
+import { renderSceneSpeedStats } from "./scene-speed-stats.js";
 import { createTimelineStrip } from "./scene-timeline.js";
 import { createSceneFlight } from "./scene-flight.js";
+import { advanceSceneClock, autoplayScene } from "./scene-playback.js";
 
 // Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
 // X, up becomes Y, and north becomes -Z to keep the frame right-handed.
@@ -173,6 +177,21 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
 
   const grid = new THREE.GridHelper(160, 32, 0x2c4049, 0x1c2b32);
+  // Turn the grid onto the street.
+  //
+  // The grid is drawn square to the sensor, because that is the coordinate
+  // frame the points arrive in — and a sensor is set down facing whatever the
+  // kerb allowed, not facing down the road. So the squares cut across the
+  // carriageway at whatever angle the tripod happened to sit at, and a viewer
+  // reads that as the street being skewed rather than the grid.
+  //
+  // gridAzimuthDeg is the sensor's zero azimuth measured against this
+  // junction's street grid. Turning the grid by it lines the squares up with
+  // the kerbs. It changes nothing about the data: the points, the tracks and
+  // their headings are all still in the sensor's frame.
+  if (Number.isFinite(ui.gridAzimuthDeg)) {
+    grid.rotation.y = (-ui.gridAzimuthDeg * Math.PI) / 180;
+  }
   scene.add(grid);
 
   // A ring at the sensor origin gives the viewer a fixed reference point. The
@@ -328,6 +347,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   window.addEventListener("resize", resize);
   resize();
 
+  let northAzimuthDeg = ui.northAzimuthDeg;
   const sceneCamera = createSceneCamera({
     camera,
     element: canvas,
@@ -366,8 +386,14 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
   }
 
+  // A scene's own vantages win; the camera falls back to its compass views,
+  // labelled truthfully where the operator measured where north is.
+  const authoredVantages = ui.vantagesURL
+    ? await loadVantages(ui.vantagesURL)
+    : null;
   const vantages = sceneCamera.setVantages(
-    ui.vantagesURL ? await loadVantages(ui.vantagesURL) : null,
+    authoredVantages,
+    ui.northAzimuthDeg,
   );
 
   const background = ui.backgroundURL
@@ -401,6 +427,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   let currentPart = -1;
 
   function render() {
+    updateCompass(ui.compass, sceneCamera.currentVantage(), northAzimuthDeg);
     renderer.render(scene, camera);
     positionLabels();
   }
@@ -540,7 +567,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   const state = {
     seconds: 0,
-    playing: false,
+    playing: autoplayScene(),
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,
@@ -574,7 +601,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
         }
         const parts = [];
         if (vehicle) parts.push(`${vehicle} vehicle${vehicle > 1 ? "s" : ""}`);
-        if (person) parts.push(`${person} on foot`);
+        if (person) parts.push(`${person} walking`);
         if (cycle) parts.push(`${cycle} cycling`);
         ui.stats.textContent =
           (parts.length ? parts.join(" · ") : `${n} tracked`) +
@@ -616,7 +643,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     const msg =
       err instanceof SceneError
         ? err.message
-        : "Something went wrong loading this scene.";
+        : "The scene could not be loaded.";
     if (ui.status) {
       ui.status.textContent = msg;
       ui.status.hidden = false;
@@ -652,13 +679,17 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     }
 
     if (state.playing) {
-      const dt = wallDt;
-      state.seconds += dt * state.rate;
+      const next = advanceSceneClock(
+        state.seconds,
+        wallDt,
+        state.rate,
+        session.duration,
+      );
+      state.seconds = next.seconds;
       // Wrap rather than stop. A scene is a loop of street, not a film with an
       // ending, and eleven minutes in, whoever is still watching wants the
       // next pass rather than a dead playhead and a button to press.
-      if (state.seconds >= session.duration) {
-        state.seconds = 0;
+      if (next.wrapped) {
         // Trails are per-track state built up frame by frame. Carrying them
         // over the wrap would draw a line from the last vehicle of the
         // recording to the first.
@@ -759,13 +790,51 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   // Framing a useful angle is easy; describing it to whoever edits the scene
   // is not. This hands over the exact numbers a vantage is stored in.
+  ui.compass?.addEventListener("click", () => {
+    setFlying(false);
+    sceneCamera.applyVantage(
+      northOverhead(sceneCamera.currentVantage(), northAzimuthDeg),
+    );
+    markPreset(null);
+  });
+  mountSceneDev({
+    panel: ui.devPanel,
+    captureView: ui.captureView,
+    siteId: ui.siteId,
+    gridAzimuthDeg: ui.gridAzimuthDeg,
+    northAzimuthDeg: ui.northAzimuthDeg,
+    onTop: () => {
+      setFlying(false);
+      sceneCamera.applyVantage({ azimuth_deg: 0, polar_deg: 0, zoom: 0.85 });
+      markPreset(null);
+    },
+    onChange: (angles) => {
+      const updatedVantages = sceneCamera.setVantages(
+        authoredVantages,
+        angles.north_azimuth_deg,
+      );
+      for (const button of ui.presets?.querySelectorAll("[data-preset]") ??
+        []) {
+        const vantage = updatedVantages.find(
+          (v) => v.id === button.dataset.preset,
+        );
+        if (vantage) button.textContent = vantage.label;
+      }
+      grid.rotation.y = -((angles.grid_azimuth_deg ?? 0) * Math.PI) / 180;
+      northAzimuthDeg = angles.north_azimuth_deg;
+      render();
+    },
+  });
+
   if (ui.captureView) {
     ui.captureView.addEventListener("click", async () => {
       const v = sceneCamera.currentVantage();
       const text = JSON.stringify(v);
       let copied = false;
       try {
-        await navigator.clipboard?.writeText(text);
+        if (!navigator.clipboard?.writeText)
+          throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(text);
         copied = true;
       } catch {
         // Clipboard access is often refused; the numbers are shown either way.
@@ -803,9 +872,11 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     try {
       const res = await fetch(ui.timelineURL);
       if (res.ok) {
+        const summary = await res.json();
+        renderSceneSpeedStats(ui.speedStats, summary);
         strip = createTimelineStrip({
           canvas: ui.timelineCanvas,
-          summary: await res.json(),
+          summary,
           duration: session.duration,
           onSeek: (seconds) => {
             // A jump is not continuous motion, so the trails leading up to the
@@ -816,10 +887,13 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
             syncUI();
           },
         });
+      } else {
+        renderSceneSpeedStats(ui.speedStats, null);
       }
     } catch {
-      // A scene without a summary still plays; the strip is an aid, not a
-      // prerequisite.
+      renderSceneSpeedStats(ui.speedStats, null);
+      // A scene without a summary still plays; these annotations are aids,
+      // not prerequisites.
     }
   }
 
@@ -831,14 +905,6 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
   if (ui.status) ui.status.hidden = true;
   if (ui.loading) ui.loading.hidden = true;
 
-  // Respect a reduced-motion preference by not auto-playing.
-  const reduced = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
-  if (!reduced) {
-    state.playing = true;
-    syncUI();
-  }
   requestAnimationFrame(loop);
 
   return session;

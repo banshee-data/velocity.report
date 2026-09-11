@@ -359,7 +359,15 @@ func setupCov2Server(t *testing.T) *Server {
 			created_at_ns INTEGER NOT NULL DEFAULT 0,
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT
-		)`,
+		);
+
+	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
+		replay_case_id TEXT NOT NULL,
+		ordinal INTEGER NOT NULL,
+		capture_file_id TEXT,
+		pcap_file TEXT NOT NULL,
+		PRIMARY KEY (replay_case_id, ordinal)
+	)`,
 		`CREATE TABLE IF NOT EXISTS lidar_bg_snapshots (
 			snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
 			sensor_id TEXT NOT NULL,
@@ -1738,7 +1746,15 @@ func setupCov3Server(t *testing.T) *Server {
 			created_at_ns INTEGER NOT NULL DEFAULT 0,
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT
-		)`,
+		);
+
+	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
+		replay_case_id TEXT NOT NULL,
+		ordinal INTEGER NOT NULL,
+		capture_file_id TEXT,
+		pcap_file TEXT NOT NULL,
+		PRIMARY KEY (replay_case_id, ordinal)
+	)`,
 	} {
 		if _, err := sqlDB.Exec(ddl); err != nil {
 			t.Fatalf("create table: %v", err)

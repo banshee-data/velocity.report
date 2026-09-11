@@ -216,6 +216,7 @@ data/**/results/*
 data/maths/papers/*.pdf
 data/maths/papers/download-status.md
 data/structures/SCHEMA.dot
+.scratch-analysis
 
 # =============================================================================
 # Embedded Typst Binary
@@ -237,3 +238,8 @@ bin/typst.exe
 # the pattern stops the next one. Committed baselines live under
 # internal/lidar/perf/baseline/ and are not matched by this.
 *_benchmark.json
+
+# Basemap tiles for the scene map: a build artefact, fetched once by
+# `make cache-basemap` and cached on disk. 21 MB of PNGs that OpenStreetMap
+# already serves is not something to keep in git history.
+public_html/src/images/tiles/

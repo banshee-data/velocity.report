@@ -103,6 +103,58 @@ func TestTimelineReportsPeaks(t *testing.T) {
 	}
 }
 
+func TestTimelineVehicleSpeedsUseEachCarTrackOnce(t *testing.T) {
+	acc := newTimelineAccumulator(5)
+	for i := 0; i < 55; i++ {
+		id := string(rune('a' + i))
+		speedMPS := float64(i+1) / mphPerMPS
+		acc.observe(Frame{TimeUs: int64(i) * 100_000, Tracks: []TrackJSON{{
+			ID: id, Class: "car", Speed: speedMPS / 2, MaxSpeed: speedMPS,
+		}}})
+		// Repeated frames and a later uncertain label must update the track,
+		// not add another sample.
+		acc.observe(Frame{TimeUs: int64(i)*100_000 + 50_000, Tracks: []TrackJSON{{
+			ID: id, Class: "dynamic", Speed: speedMPS, MaxSpeed: speedMPS,
+		}}})
+	}
+
+	stats := acc.summary().VehicleSpeed
+	if stats == nil {
+		t.Fatal("vehicle speed summary is nil")
+	}
+	if stats.TrackCount != 50 {
+		t.Fatalf("track_count = %d, want 50", stats.TrackCount)
+	}
+	if stats.P50 == nil || *stats.P50 != 30 {
+		t.Errorf("p50 = %v, want 30 mph", stats.P50)
+	}
+	if stats.P85 == nil || *stats.P85 != 48 {
+		t.Errorf("p85 = %v, want 48 mph", stats.P85)
+	}
+	if stats.P98 == nil || *stats.P98 != 54 {
+		t.Errorf("p98 = %v, want 54 mph", stats.P98)
+	}
+	if stats.Max != 55 {
+		t.Errorf("max = %v, want 55 mph", stats.Max)
+	}
+	if got := stats.Histogram[1]; got.StartMPH != 10 || got.Count != 5 {
+		t.Errorf("10-15 mph bucket = %+v, want 5 tracks", got)
+	}
+}
+
+func TestTimelineVehicleSpeedPercentilesRemainAvailableForSmallScenes(t *testing.T) {
+	acc := newTimelineAccumulator(5)
+	acc.observe(Frame{Tracks: []TrackJSON{{ID: "a", Class: "car", MaxSpeed: 3}}})
+	acc.observe(Frame{Tracks: []TrackJSON{{ID: "b", Class: "car", MaxSpeed: 4}}})
+	stats := acc.summary().VehicleSpeed
+	if stats.P50 == nil || stats.P85 == nil || stats.P98 == nil {
+		t.Fatalf("two tracks should publish radar-compatible percentiles: %+v", stats)
+	}
+	if got := newTimelineAccumulator(5).summary().VehicleSpeed; got != nil {
+		t.Fatalf("empty scene vehicle_speed = %+v, want nil", got)
+	}
+}
+
 // The summary is written beside the frames it describes, so a viewer can fetch
 // it without knowing how the chunks are laid out.
 func TestExportWritesTimelineSummary(t *testing.T) {

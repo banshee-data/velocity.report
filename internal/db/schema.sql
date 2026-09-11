@@ -27,6 +27,93 @@
         , snapshot_reason TEXT
           );
 
+   CREATE TABLE lidar_capture_jobs (
+          job_id TEXT PRIMARY KEY
+        , kind TEXT NOT NULL
+        , session_id TEXT
+        , root_id TEXT
+        , state TEXT NOT NULL DEFAULT 'queued'
+        , progress_current INTEGER NOT NULL DEFAULT 0
+        , progress_total INTEGER NOT NULL DEFAULT 0
+        , detail TEXT NOT NULL DEFAULT ''
+        , error TEXT NOT NULL DEFAULT ''
+        , queued_at_ns INTEGER NOT NULL
+        , started_at_ns INTEGER
+        , finished_at_ns INTEGER
+        , CHECK (state IN ('queued', 'running', 'completed', 'failed', 'cancelled'))
+          );
+
+   CREATE TABLE lidar_capture_roots (
+          root_id TEXT PRIMARY KEY
+        , path TEXT NOT NULL UNIQUE
+        , label TEXT NOT NULL DEFAULT ''
+        , enabled INTEGER NOT NULL DEFAULT 1
+        , last_scan_at_ns INTEGER
+        , last_scan_state TEXT NOT NULL DEFAULT 'never'
+        , last_scan_error TEXT NOT NULL DEFAULT ''
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER NOT NULL
+        , CHECK (last_scan_state IN ('never', 'ok', 'unreachable', 'error'))
+          );
+
+   CREATE TABLE lidar_capture_files (
+          capture_file_id TEXT PRIMARY KEY
+        , root_id TEXT NOT NULL
+        , rel_path TEXT NOT NULL
+        , size_bytes INTEGER NOT NULL
+        , modified_at_ns INTEGER NOT NULL
+        , content_tag TEXT NOT NULL DEFAULT ''
+        , first_packet_ns INTEGER
+        , last_packet_ns INTEGER
+        , packet_count INTEGER
+        , udp_port INTEGER
+        , probe_state TEXT NOT NULL DEFAULT 'pending'
+        , probe_error TEXT NOT NULL DEFAULT ''
+        , probed_at_ns INTEGER
+        , present INTEGER NOT NULL DEFAULT 1
+        , first_seen_at_ns INTEGER NOT NULL
+        , last_seen_at_ns INTEGER NOT NULL
+        , session_id TEXT
+        , CHECK (probe_state IN ('pending', 'ok', 'failed'))
+        , FOREIGN KEY (root_id) REFERENCES lidar_capture_roots (root_id) ON DELETE CASCADE
+        , UNIQUE (root_id, rel_path)
+          );
+
+   CREATE TABLE lidar_capture_sessions (
+          session_id TEXT PRIMARY KEY
+        , root_id TEXT NOT NULL
+        , label TEXT NOT NULL DEFAULT ''
+        , sensor_id TEXT NOT NULL DEFAULT ''
+        , file_count INTEGER NOT NULL DEFAULT 0
+        , start_ns INTEGER NOT NULL
+        , end_ns INTEGER NOT NULL
+        , covered_ns INTEGER NOT NULL DEFAULT 0
+        , lost_ns INTEGER NOT NULL DEFAULT 0
+        , worst_seam TEXT NOT NULL DEFAULT 'seamless'
+        , size_bytes INTEGER NOT NULL DEFAULT 0
+        , derived_at_ns INTEGER NOT NULL
+        , FOREIGN KEY (root_id) REFERENCES lidar_capture_roots (root_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE lidar_capture_motion_periods (
+          period_id TEXT PRIMARY KEY
+        , session_id TEXT NOT NULL
+        , ordinal INTEGER NOT NULL
+        , period_type TEXT NOT NULL
+        , label TEXT NOT NULL DEFAULT ''
+        , start_ns INTEGER NOT NULL
+        , end_ns INTEGER NOT NULL
+        , duration_ns INTEGER NOT NULL
+        , start_secs REAL NOT NULL
+        , end_secs REAL NOT NULL
+        , start_frame INTEGER
+        , end_frame INTEGER
+        , created_at_ns INTEGER NOT NULL
+        , CHECK (period_type IN ('motion', 'static'))
+        , FOREIGN KEY (session_id) REFERENCES lidar_capture_sessions (session_id) ON DELETE CASCADE
+        , UNIQUE (session_id, ordinal)
+          );
+
    CREATE TABLE lidar_clusters (
           lidar_cluster_id INTEGER PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -106,6 +193,16 @@
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
         , recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
+        , session_id TEXT
+        , source_period_id TEXT
+        , origin_lat REAL
+        , origin_lon REAL
+        , s2_l10_token TEXT
+        , s2_l13_token TEXT
+        , s2_l16_token TEXT
+        , geographic_source TEXT
+        , geographic_status TEXT NOT NULL DEFAULT 'unavailable'
+        , site_id TEXT REFERENCES lidar_sites (site_id) ON DELETE SET NULL
         , CHECK (
           pcap_start_secs IS NULL
        OR pcap_start_secs >= 0
@@ -115,6 +212,15 @@
        OR pcap_duration_secs >= 0
           )
         , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE SET NULL
+          );
+
+   CREATE TABLE lidar_replay_case_files (
+          replay_case_id TEXT NOT NULL
+        , ordinal INTEGER NOT NULL
+        , capture_file_id TEXT
+        , pcap_file TEXT NOT NULL
+        , PRIMARY KEY (replay_case_id, ordinal)
+        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_replay_evaluations" (
@@ -249,6 +355,22 @@
           )
         , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
         , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
+          );
+
+   CREATE TABLE IF NOT EXISTS "lidar_sites" (
+          site_id TEXT PRIMARY KEY
+        , s2_l13_token TEXT NOT NULL
+        , s2_l10_token TEXT NOT NULL
+        , label TEXT
+        , canonical_lat REAL
+        , canonical_lon REAL
+          -- How the canonical pose was set: surveyed or operator. Never a fix —
+          -- a canonical pose is by definition not one sensor's reading taken on
+          -- one visit.
+
+        , canonical_source TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_tracks" (
@@ -718,6 +840,42 @@ CREATE TRIGGER update_lidar_scenes_timestamp AFTER
     WHERE scene_id = NEW.scene_id;
 
 END;
+
+CREATE INDEX idx_lidar_capture_roots_enabled ON lidar_capture_roots (enabled);
+
+CREATE INDEX idx_lidar_capture_files_root ON lidar_capture_files (root_id, present);
+
+CREATE INDEX idx_lidar_capture_files_session ON lidar_capture_files (session_id);
+
+CREATE INDEX idx_lidar_capture_files_start ON lidar_capture_files (first_packet_ns);
+
+CREATE INDEX idx_lidar_capture_sessions_root ON lidar_capture_sessions (root_id, start_ns);
+
+CREATE INDEX idx_lidar_capture_motion_periods_session ON lidar_capture_motion_periods (session_id, start_ns);
+
+CREATE INDEX idx_lidar_capture_motion_periods_type ON lidar_capture_motion_periods (period_type);
+
+CREATE INDEX idx_lidar_capture_jobs_state ON lidar_capture_jobs (state, queued_at_ns);
+
+CREATE INDEX idx_lidar_capture_jobs_session ON lidar_capture_jobs (session_id, queued_at_ns);
+
+CREATE INDEX idx_lidar_replay_case_files_case ON lidar_replay_case_files (replay_case_id, ordinal);
+
+CREATE INDEX idx_lidar_replay_case_files_capture ON lidar_replay_case_files (capture_file_id);
+
+CREATE INDEX idx_lidar_replay_cases_session ON lidar_replay_cases (session_id);
+
+CREATE INDEX idx_lidar_replay_cases_s2_l10 ON lidar_replay_cases (s2_l10_token);
+
+CREATE INDEX idx_lidar_replay_cases_s2_l13 ON lidar_replay_cases (s2_l13_token);
+
+CREATE INDEX idx_lidar_replay_cases_s2_l16 ON lidar_replay_cases (s2_l16_token);
+
+CREATE INDEX idx_lidar_sites_l13 ON lidar_sites (s2_l13_token);
+
+CREATE INDEX idx_lidar_sites_l10 ON lidar_sites (s2_l10_token);
+
+CREATE INDEX idx_lidar_replay_cases_site_id ON lidar_replay_cases (site_id);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

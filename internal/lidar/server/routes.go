@@ -114,6 +114,21 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
 	}
 
+	// Capture index routes: what is on the configured volumes, what changed,
+	// and which files form a continuous session.
+	captureRoutes := []route{
+		{"GET /api/lidar/capture/roots", ws.handleCaptureRoots},
+		{"POST /api/lidar/capture/scan", ws.handleCaptureScan},
+		{"GET /api/lidar/capture/sessions", ws.handleCaptureSessions},
+		{"GET /api/lidar/capture/files", ws.handleCaptureFiles},
+		{"POST /api/lidar/capture/session/label", ws.handleCaptureSessionLabel},
+		{"POST /api/lidar/capture/motion-pass", ws.handleCaptureMotionPass},
+		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
+		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
+		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},
+		{"GET /api/lidar/scene-map", ws.handleSceneMap},
+	}
+
 	// Chart API routes (structured JSON data for frontend charts)
 	chartRoutes := []route{
 		{"/api/lidar/chart/polar", ws.handleChartPolarJSON},
@@ -155,7 +170,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Register all route groups
 	for _, group := range [][]route{
 		coreRoutes, snapshotRoutes, metricsRoutes, sweepRoutes,
-		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
+		gridRoutes, pcapRoutes, captureRoutes, chartRoutes, debugRoutes, playbackRoutes,
 	} {
 		for _, r := range group {
 			mux.HandleFunc(r.pattern, r.handler)
@@ -200,6 +215,10 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Scene API routes (scene management for track labelling and auto-tuning)
 	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
 	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
+
+	// Site API routes (canonical pose for a located site, e.g. a surveyed
+	// intersection midpoint) — distinct from a case's own sensor pose.
+	mux.HandleFunc("/api/lidar/sites/", ws.withDB(ws.handleSiteByToken))
 
 }
 

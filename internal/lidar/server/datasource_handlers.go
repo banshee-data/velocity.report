@@ -32,6 +32,7 @@ type replayCallbackDrainer interface {
 var (
 	countPCAPPackets       = network.CountPCAPPackets
 	readPCAPFile           = network.ReadPCAPFile
+	readPCAPSequence       = network.ReadPCAPSequence
 	readPCAPFileRealtime   = network.ReadPCAPFileRealtime
 	newForegroundForwarder = network.NewForegroundForwarder
 	absPath                = filepath.Abs
@@ -521,6 +522,22 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		return resolveErr
 	}
 
+	// A multi-file replay is planned before anything starts, so a join too wide
+	// to cross is reported to the caller instead of surfacing as a log line
+	// half way through a twenty-minute replay.
+	var plan *replayPlan
+	if len(replayCfg.ReplayFiles) > 1 {
+		builtPlan, planErr := ws.buildReplaySequence(
+			replayCfg.ReplayFiles, replayCfg.StartSeconds, replayCfg.DurationSeconds)
+		if planErr != nil {
+			ws.resetFailedPCAPStartState()
+			return planErr
+		}
+		plan = builtPlan
+		diagf("PCAP sequence planned: %d files, %d join(s), %v lost at joins, %d revolution(s) will be dropped",
+			len(plan.Steps), plan.JoinsCrossed, plan.Lost, plan.FrameDrops)
+	}
+
 	// Identify persisted region snapshots by the resolved path. Callers pass a
 	// bare filename — the documented curl example and the status page form both
 	// do — and the settled-snapshot restore looks up the resolved path, so
@@ -571,7 +588,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 	ws.markReplayRunning(resolvedPath, replayCfg.SpeedMode, replayCfg.SpeedRatio, runID)
 
-	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string) {
+	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string, plan *replayPlan) {
 		defer close(finished)
 		// Release the slot claimed by tryBeginPCAPReplay on every exit path,
 		// whatever the source is by then. See releaseReplaySlot for what the
@@ -611,11 +628,26 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			diagf("PacketForwarder started for PCAP replay")
 		}
 
-		// Pre-count packets for progress tracking and timeline display.
-		countResult, countErr := countPCAPPackets(path, ws.udpPort)
-		if countErr != nil {
+		// Pre-count packets for progress tracking and timeline display. A
+		// planned sequence probed every file while validating its joins, so its
+		// aggregate figures are used rather than re-counting the primary file,
+		// whose own count would scale progress to the wrong total.
+		var countResult network.PCAPCountResult
+		if plan != nil {
+			countResult = network.PCAPCountResult{
+				Count:            plan.TotalPackets,
+				FirstTimestampNs: plan.FirstTimestampNs,
+				LastTimestampNs:  plan.LastTimestampNs,
+			}
+			ws.setReplayProgress(0, countResult.Count)
+			diagf("PCAP sequence: %d packets across %d files", countResult.Count, len(plan.Steps))
+			if ws.onPCAPTimestamps != nil {
+				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
+			}
+		} else if result, countErr := countPCAPPackets(path, ws.udpPort); countErr != nil {
 			opsf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
+			countResult = result
 			ws.setReplayProgress(0, countResult.Count)
 			diagf("PCAP pre-count: %d packets", countResult.Count)
 			if ws.onPCAPTimestamps != nil {
@@ -629,6 +661,31 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			if ws.onPCAPProgress != nil {
 				ws.onPCAPProgress(current, total)
 			}
+		}
+
+		// runPass replays the requested window once: as a multi-file sequence
+		// when one was planned, and as the single file otherwise. Both passes
+		// below share it so the settling and recording passes cannot drift
+		// apart in how they read.
+		runPass := func(forwarder *network.PacketForwarder) error {
+			if plan == nil {
+				return readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats,
+					forwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0,
+					countResult.Count, onProgress)
+			}
+			res, seqErr := readPCAPSequence(ctx, plan.Steps, network.SequenceReplayConfig{
+				UDPPort:      ws.udpPort,
+				Parser:       ws.parser,
+				FrameBuilder: ws.frameBuilder,
+				Stats:        ws.stats,
+				Forwarder:    forwarder,
+				OnProgress:   onProgress,
+			})
+			if seqErr == nil && res.FramesDropped > 0 {
+				diagf("PCAP sequence: dropped %d revolution(s) straddling capture-file joins",
+					res.FramesDropped)
+			}
+			return seqErr
 		}
 
 		var err error
@@ -648,7 +705,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			// twice with nothing to say why.
 			ws.setReplayPass(ReplayPassSettling)
 			diagf("Starting PCAP settling pass before VRLOG recording: %s", path)
-			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, nil, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
+			err = runPass(nil)
 			if err == nil {
 				err = prepareSettledPCAPReplay(ws, sensorID, path)
 			}
@@ -679,7 +736,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 
 		if err == nil && replayCfg.SpeedMode == "analysis" {
-			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
+			err = runPass(ws.packetForwarder)
 		} else if err == nil {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
@@ -767,7 +824,27 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 				OnProgress:      onProgress,
 			}
 
-			err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			if plan != nil {
+				// A paced sequence reads the same way a paced single file
+				// does, one clock shared across the joins, so the ordered
+				// list plays as one stream.
+				res, seqErr := readPCAPSequence(ctx, plan.Steps, network.SequenceReplayConfig{
+					UDPPort:      ws.udpPort,
+					Parser:       ws.parser,
+					FrameBuilder: ws.frameBuilder,
+					Stats:        ws.stats,
+					Forwarder:    ws.packetForwarder,
+					OnProgress:   onProgress,
+					Paced:        config,
+				})
+				if seqErr == nil && res.FramesDropped > 0 {
+					diagf("PCAP sequence: dropped %d revolution(s) straddling capture-file joins",
+						res.FramesDropped)
+				}
+				err = seqErr
+			} else {
+				err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			}
 		}
 		if fb := getReplayFrameBuilder(sensorID); fb != nil {
 			if drainer, ok := fb.(replayCallbackDrainer); ok {
@@ -845,7 +922,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		// explicit request — POST /api/lidar/pcap/stop, which the visualiser's
 		// Live toggle calls.
 		ws.parkFinishedReplay("PCAP replay finished")
-	}(resolvedPath, ctx, cancel, done, replayCfg, runID)
+	}(resolvedPath, ctx, cancel, done, replayCfg, runID, plan)
 
 	return nil
 }

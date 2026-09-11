@@ -42,8 +42,9 @@
       "where": "Ashbury at Downey",
       "lat": 37.7638,
       "lon": -122.4466,
-      "confidence": "operator-named intersection; coordinate approximate to the block",
-      "note": "Named by the operator, not read from the map. The static period detected for this site begins 12:58:38; recording started 12:48, so 12:35 is likely arrival rather than the start of the stationary stretch \u2014 every other 9/1 mark sits within four minutes of its detected start."
+      "confidence": "high",
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 8
     },
     {
       "id": "haight-divisadero",
@@ -52,7 +53,9 @@
       "where": "Haight at Divisadero",
       "lat": 37.7712,
       "lon": -122.4372,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101
     },
     {
       "id": "pierce-haight",
@@ -61,7 +64,9 @@
       "where": "Pierce at Haight",
       "lat": 37.7718,
       "lon": -122.4338,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 0,
+      "north_azimuth_deg": 11
     },
     {
       "id": "fulton-divisadero",
@@ -70,7 +75,9 @@
       "where": "Fulton at Divisadero",
       "lat": 37.7768,
       "lon": -122.4381,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101
     },
     {
       "id": "california-leon-baker",
@@ -79,7 +86,9 @@
       "where": "California between Leon and Baker",
       "lat": 37.7875,
       "lon": -122.4446,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 1,
+      "north_azimuth_deg": 101
     },
     {
       "id": "broadway-gough",
@@ -88,7 +97,9 @@
       "where": "Broadway at Gough",
       "lat": 37.7952,
       "lon": -122.4269,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 359,
+      "north_azimuth_deg": 99
     },
     {
       "id": "laguna-eddy",
@@ -97,7 +108,9 @@
       "where": "Laguna at Eddy",
       "lat": 37.7821,
       "lon": -122.4274,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 359,
+      "north_azimuth_deg": 9
     },
     {
       "id": "lombard-broderick",
@@ -106,7 +119,9 @@
       "where": "Lombard at Broderick",
       "lat": 37.799,
       "lon": -122.444,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 355,
+      "north_azimuth_deg": 97
     },
     {
       "id": "marina-broderick",
@@ -115,7 +130,9 @@
       "where": "Marina at Broderick",
       "lat": 37.8053,
       "lon": -122.4455,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 356,
+      "north_azimuth_deg": 282
     },
     {
       "id": "marina-webster-beach",
@@ -124,7 +141,9 @@
       "where": "Marina between Webster and Beach",
       "lat": 37.8057,
       "lon": -122.4351,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 356.5,
+      "north_azimuth_deg": 231
     },
     {
       "id": "lombard-laguna",
@@ -133,7 +152,9 @@
       "where": "Lombard at Laguna",
       "lat": 37.8004,
       "lon": -122.4313,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 354,
+      "north_azimuth_deg": 275
     },
     {
       "id": "columbus-north-point",
@@ -142,7 +163,9 @@
       "where": "Columbus at North Point",
       "lat": 37.8059,
       "lon": -122.4181,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 38,
+      "north_azimuth_deg": 48
     },
     {
       "id": "embarcadero-bay",
@@ -151,7 +174,9 @@
       "where": "Embarcadero at Bay",
       "lat": 37.8067,
       "lon": -122.4061,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 60,
+      "north_azimuth_deg": 253
     },
     {
       "id": "columbus-broadway",
@@ -160,7 +185,9 @@
       "where": "Columbus at Broadway",
       "lat": 37.7978,
       "lon": -122.4065,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 27,
+      "north_azimuth_deg": 35
     },
     {
       "id": "van-ness-sacramento",
@@ -169,7 +196,9 @@
       "where": "van Ness at Sacramento",
       "lat": 37.7912,
       "lon": -122.4225,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 355.5,
+      "north_azimuth_deg": 10
     },
     {
       "id": "embarcadero-broadway",
@@ -178,7 +207,9 @@
       "where": "Embarcadero at Broadway",
       "lat": 37.7991,
       "lon": -122.3976,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 2,
+      "north_azimuth_deg": 101
     },
     {
       "id": "franklin-mcallister",
@@ -187,7 +218,9 @@
       "where": "Franklin at McAllister",
       "lat": 37.7798,
       "lon": -122.4218,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 4,
+      "north_azimuth_deg": 192
     },
     {
       "id": "hyde-ofarrell",
@@ -196,7 +229,9 @@
       "where": "Hyde at O'Farrell",
       "lat": 37.7855,
       "lon": -122.4164,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 14
     },
     {
       "id": "bush-powell",
@@ -205,7 +240,9 @@
       "where": "Bush at Powell",
       "lat": 37.7901,
       "lon": -122.409,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 3,
+      "north_azimuth_deg": 102
     },
     {
       "id": "embarcadero-folsom",
@@ -214,7 +251,9 @@
       "where": "Embarcadero at Folsom",
       "lat": 37.791,
       "lon": -122.3899,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 356,
+      "north_azimuth_deg": 131
     },
     {
       "id": "1st-mission",
@@ -223,7 +262,9 @@
       "where": "1st at Mission",
       "lat": 37.7897,
       "lon": -122.3974,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 6,
+      "north_azimuth_deg": 51
     },
     {
       "id": "embarcadero-bryant",
@@ -232,7 +273,9 @@
       "where": "Embarcadero at Bryant",
       "lat": 37.7868,
       "lon": -122.3881,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 308,
+      "north_azimuth_deg": 353
     },
     {
       "id": "3rd-folsom",
@@ -241,7 +284,9 @@
       "where": "3rd at Folsom",
       "lat": 37.7837,
       "lon": -122.3986,
-      "confidence": "operator-named intersection; coordinate approximate to the block"
+      "confidence": "high",
+      "grid_azimuth_deg": 358,
+      "north_azimuth_deg": 223
     },
     {
       "id": "howard-6th",
@@ -250,8 +295,10 @@
       "where": "Howard at 6th",
       "lat": 37.7798,
       "lon": -122.4069,
-      "confidence": "operator-named intersection; coordinate approximate to the block",
-      "note": "RIP Tess Rothstein 2019-03-08"
+      "confidence": "high",
+      "note": "RIP Tess Rothstein 2019-03-08",
+      "grid_azimuth_deg": 357,
+      "north_azimuth_deg": 312
     }
   ]
 }

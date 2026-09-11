@@ -8,13 +8,16 @@
 	import type { PcapFileInfo } from '$lib/api';
 	import {
 		createLidarReplayCase,
+		createReplayCaseFromCaptures,
 		deleteLidarReplayCase,
+		getLidarReplayCase,
 		getLidarReplayCases,
 		getLidarRuns,
 		scanPcapFiles,
 		updateLidarReplayCase
 	} from '$lib/api';
 	import type { AnalysisRun, LidarReplayCase } from '$lib/types/lidar';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -78,13 +81,27 @@
 		}
 	}
 
-	function selectScene(scene: LidarReplayCase) {
+	async function selectScene(scene: LidarReplayCase) {
+		// The list only carries file_count, not the file list itself — fetch
+		// the full case so a scene with several joined captures shows all of
+		// them rather than only the first (pcap_file, the legacy projection).
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;
 		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
+
+		try {
+			const full = await getLidarReplayCase(scene.replay_case_id);
+			if (selectedScene?.replay_case_id === full.replay_case_id) {
+				selectedScene = full;
+			}
+		} catch {
+			// The row's own fields already cover the common case; the detail
+			// fetch only adds the file list and location, so failing quietly
+			// leaves the panel usable rather than blocking on a second load.
+		}
 	}
 
 	function deselectScene() {
@@ -238,34 +255,31 @@
 		}
 	}
 
-	async function handleBulkCreate() {
+	async function handleCreateFromSelection() {
 		if (selectedFiles.size === 0) return;
 		bulkCreating = true;
 		scanError = null;
-		let created = 0;
-		for (const path of selectedFiles) {
-			try {
-				const desc = path.replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
-				const scene = await createLidarReplayCase({
-					sensor_id: newSensorId,
-					pcap_file: path,
-					description: desc
-				});
-				scenes = [...scenes, scene];
-				created++;
-			} catch (e) {
-				scanError = `Failed after ${created} replay cases: ${e instanceof Error ? e.message : String(e)}`;
-				break;
-			}
-		}
-		if (!scanError) {
+		// Filename order: sequential capture names (…_00001.pcap, …_00002.pcap)
+		// sort correctly this way, which is what a join needs — the server
+		// checks the packets themselves abut, but the order they are offered in
+		// is this array's.
+		const paths = [...selectedFiles].sort();
+		const label = paths[0].replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
+		try {
+			const scene = await createReplayCaseFromCaptures({
+				sensor_id: newSensorId,
+				pcap_files: paths,
+				description: paths.length > 1 ? `${label} (${paths.length} joined)` : label
+			});
+			scenes = [...scenes, scene];
 			showScanPanel = false;
 			selectedFiles = new SvelteSet();
-		}
-		bulkCreating = false;
-		// Refresh to pick up in_use flags
-		if (created > 0) {
+			// Refresh to pick up in_use flags.
 			await loadScenes();
+		} catch (e) {
+			scanError = e instanceof Error ? e.message : 'Could not create the replay case.';
+		} finally {
+			bulkCreating = false;
 		}
 	}
 
@@ -282,7 +296,9 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Replay Cases</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Manage replay cases for ground truth labelling and parameter tuning
+					Manage replay cases for ground truth labelling and parameter tuning. To build one from a
+					session's captures, start on
+					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>.
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -437,12 +453,14 @@
 									variant="fill"
 									color="primary"
 									size="sm"
-									on:click={handleBulkCreate}
+									on:click={handleCreateFromSelection}
 									disabled={bulkCreating}
 								>
 									{bulkCreating
 										? 'Creating...'
-										: `Add ${selectedFiles.size} Selected as Replay Cases`}
+										: selectedFiles.size > 1
+											? `Join ${selectedFiles.size} Selected into One Replay Case`
+											: 'Add Selected as a Replay Case'}
 								</Button>
 							{/if}
 						</div>
@@ -522,6 +540,9 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>PCAP File</th
 								>
+								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
+									>Files</th
+								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Ref. Run</th
 								>
@@ -550,6 +571,18 @@
 									</td>
 									<td class="text-surface-content/70 max-w-[200px] truncate px-4 py-3 text-sm">
 										{scene.pcap_file}
+									</td>
+									<td class="px-4 py-3 text-right text-sm">
+										{#if scene.file_count > 1}
+											<span
+												class="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-700"
+												title="{scene.file_count} captures joined into one recording"
+											>
+												{scene.file_count} joined
+											</span>
+										{:else}
+											<span class="text-surface-content/40">1</span>
+										{/if}
 									</td>
 									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
 										{scene.reference_run_id ? scene.reference_run_id.substring(0, 8) : '-'}
@@ -631,13 +664,49 @@
 					</div>
 
 					<div>
-						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
-							>PCAP File</label
-						>
-						<div class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-sm">
-							{selectedScene.pcap_file}
-						</div>
+						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium">
+							{selectedScene.files && selectedScene.files.length > 1
+								? `Captures (${selectedScene.files.length}, joined)`
+								: 'PCAP File'}
+						</label>
+						{#if selectedScene.files && selectedScene.files.length > 1}
+							<ol class="border-surface-content/10 space-y-1 rounded border p-2">
+								{#each selectedScene.files as f (f.ordinal)}
+									<li class="text-surface-content/70 flex items-center gap-2 font-mono text-xs">
+										<span class="text-surface-content/40 w-5 shrink-0 text-right"
+											>{f.ordinal + 1}.</span
+										>
+										<span class="truncate">{f.pcap_file}</span>
+									</li>
+								{/each}
+							</ol>
+							<p class="text-surface-content/40 mt-1 text-xs">
+								Replayed in order, as one continuous recording. No unioned file is written.
+							</p>
+						{:else}
+							<div
+								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-sm"
+							>
+								{selectedScene.pcap_file}
+							</div>
+						{/if}
 					</div>
+
+					{#if selectedScene.location}
+						<div>
+							<div class="text-surface-content/70 mb-1 block text-sm font-medium">Captured at</div>
+							<div
+								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-xs"
+							>
+								{selectedScene.location.origin_lat.toFixed(5)}, {selectedScene.location.origin_lon.toFixed(
+									5
+								)}
+								<span class="text-surface-content/40 ml-2">
+									L16 {selectedScene.location.s2_l16_display}
+								</span>
+							</div>
+						</div>
+					{/if}
 
 					<div>
 						<label for="edit-sensor" class="text-surface-content/70 mb-1 block text-sm font-medium"

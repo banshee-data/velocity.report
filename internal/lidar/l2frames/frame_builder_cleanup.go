@@ -91,6 +91,9 @@ func (fb *FrameBuilder) FlushPendingFrames() {
 // Caller must hold fb.mu.
 func (fb *FrameBuilder) takePendingFramesLocked() []*LiDARFrame {
 	frames := make([]*LiDARFrame, 0, len(fb.frameBuffer)+1)
+	// A replay that ends while a join drop is pending must not emit the
+	// straddling revolution on the way out.
+	fb.consumeStraddlingDropLocked()
 	if fb.currentFrame != nil {
 		if fb.currentFrame.PointCount >= fb.minFramePoints {
 			frame := fb.currentFrame
@@ -146,6 +149,55 @@ func (fb *FrameBuilder) Close() {
 	fb.FlushDroppedFrameReport()
 }
 
+// DropNextFrame marks the revolution currently in flight for discard rather
+// than emission. It reports whether there was one to mark.
+//
+// Multi-file replay calls this at a capture-file join that is continuous
+// enough to cross but not seamless. Feeding two files across such a join does
+// not fail: the azimuth simply carries on, and the frame builder assembles one
+// plausible-looking revolution from points captured either side of the gap.
+// That frame is worse than a missing one, because L3 records it as observed
+// background. Discarding it costs a single revolution per join.
+//
+// The drop is consumed at the next frame boundary, so the discarded revolution
+// is the whole straddling one — the tail of the earlier file and the head of
+// the later — not merely the points already buffered when this is called.
+func (fb *FrameBuilder) DropNextFrame() bool {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	// With no revolution in flight there is nothing straddling the join, and
+	// arming the flag would discard the next complete frame instead.
+	if fb.currentFrame == nil {
+		return false
+	}
+	fb.dropStraddling = true
+	return true
+}
+
+// consumeStraddlingDropLocked discards the revolution in flight when a join
+// drop is pending, and reports whether it did. Lock must be held by caller.
+func (fb *FrameBuilder) consumeStraddlingDropLocked() bool {
+	if !fb.dropStraddling {
+		return false
+	}
+	fb.dropStraddling = false
+	if fb.currentFrame != nil {
+		diagf("[FrameBuilder] Dropping revolution %s straddling a capture-file join: points=%d",
+			fb.currentFrame.FrameID, fb.currentFrame.PointCount)
+		fb.currentFrame = nil
+	}
+	fb.straddlingDropped.Add(1)
+	return true
+}
+
+// StraddlingFramesDropped returns the number of revolutions discarded at
+// capture-file joins. Expected to equal the number of non-seamless joins
+// crossed by a replay.
+func (fb *FrameBuilder) StraddlingFramesDropped() uint64 {
+	return fb.straddlingDropped.Load()
+}
+
 // DroppedFrames returns the number of frames dropped due to a full
 // callback channel. Useful for post-run diagnostics.
 func (fb *FrameBuilder) DroppedFrames() uint64 {
@@ -174,6 +226,8 @@ func (fb *FrameBuilder) Reset() {
 	// Discard current frame in progress
 	fb.currentFrame = nil
 	fb.lastAzimuth = 0
+	// A pending join drop belongs to the run being reset, not the next one.
+	fb.dropStraddling = false
 
 	// Clear frame buffer
 	for k := range fb.frameBuffer {
@@ -241,6 +295,9 @@ func (fb *FrameBuilder) checkSequenceGaps(sequence uint32) {
 
 // finalizeCurrentFrame completes the current frame and moves it to buffer
 func (fb *FrameBuilder) finalizeCurrentFrame() {
+	if fb.consumeStraddlingDropLocked() {
+		return
+	}
 	if fb.currentFrame == nil {
 		return
 	}

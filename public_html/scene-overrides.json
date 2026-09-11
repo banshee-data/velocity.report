@@ -1,0 +1,19 @@
+{
+  "comment": [
+    "Hand-authored, and the only editorial or geographic fact written by hand.",
+    "Everything else about a scene is derived: see tools/s2-hilbert/scene-sites.mjs.",
+    "",
+    "Give a scene an entry only when there is nothing to derive from \u2014 a recording",
+    "with no archive site, which has no field mark to take a name or a position",
+    "from. A site that has a mark takes its name from the mark, and correcting the",
+    "mark is how you rename it. Do not add a title here to override one: that is",
+    "how a page came to read 'Broadway & Columbus' for weeks after the mark had",
+    "been corrected to 'Columbus at Broadway'."
+  ],
+  "scenes": {
+    "soma1": {
+      "title": "SoMa 1",
+      "summary": "Eleven minutes of pedestrian-heavy traffic on Howard Street."
+    }
+  }
+}

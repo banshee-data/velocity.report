@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -23,6 +25,82 @@ func TestHandlePCAPStartSettleBeforeRecordingRequiresAnalysisMode(t *testing.T) 
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("requires analysis_mode=true")) {
 		t.Fatalf("response = %s", rec.Body.String())
+	}
+}
+
+func TestHandlePCAPStartRequiresAFileOrASequence(t *testing.T) {
+	ws := NewServer(Config{SensorID: "sensor-1"})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-1",
+		bytes.NewBufferString(`{"analysis_mode":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	ws.handlePCAPStart(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("pcap_files")) {
+		t.Fatalf("the error should name both spellings; got %s", rec.Body.String())
+	}
+}
+
+// A sequence is replayed against one continuous clock, which realtime and
+// scaled playback cannot do — they pace packets against a single file's own
+// timestamps. Reaching that refusal also proves pcap_files arrived in the
+// replay config, since the guard is keyed on the sequence being longer than one.
+func TestHandlePCAPStartAcceptsAPacedSequence(t *testing.T) {
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	for _, name := range []string{"part-a.pcap", "part-b.pcap"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), testPCAPHeader, 0o644); err != nil {
+			t.Fatalf("WriteFile(): %v", err)
+		}
+	}
+
+	ws := NewServer(Config{
+		Address:     ":0",
+		Stats:       NewPacketStats(),
+		SensorID:    "sensor-sequence",
+		PCAPSafeDir: tmpDir,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-sequence",
+		bytes.NewBufferString(
+			`{"pcap_files":["part-a.pcap","part-b.pcap"],"analysis_mode":false,"speed_mode":"realtime"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	ws.handlePCAPStart(rec, req)
+
+	// A paced sequence is no longer refused: the reader shares one pacing clock
+	// across the joins, so realtime and scaled can cross them. Whatever else
+	// this fixture fails on, it must not fail on the speed mode.
+	if bytes.Contains(rec.Body.Bytes(), []byte("multi-file replay requires")) {
+		t.Fatalf("a paced sequence was refused: %s", rec.Body.String())
+	}
+}
+
+func TestSequenceSpeedMultiplierMapsTheModes(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  ReplayConfig
+		want float64
+	}{
+		{"analysis reads as fast as the pipeline allows", ReplayConfig{SpeedMode: "analysis"}, 0},
+		{"an unset mode is analysis", ReplayConfig{}, 0},
+		{"realtime paces at one", ReplayConfig{SpeedMode: "realtime"}, 1},
+		{"scaled carries its ratio", ReplayConfig{SpeedMode: "scaled", SpeedRatio: 0.5}, 0.5},
+		// Falling back to analysis here would hand a caller who asked to slow
+		// down the fastest replay there is — the opposite of the request.
+		{"scaled without a ratio falls back to realtime, not to analysis",
+			ReplayConfig{SpeedMode: "scaled"}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sequenceSpeedMultiplier(tc.cfg); got != tc.want {
+				t.Errorf("sequenceSpeedMultiplier() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

@@ -1,5 +1,5 @@
-// Tests for the timeline strip. The 2D context is a stub that records nothing
-// — what matters here is where a seek lands, not what was painted.
+// Tests for the timeline strip. The 2D context records enough paint operations
+// to check which side of the centre line each series uses.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -11,8 +11,28 @@ function fakeCanvas({ width = 600 } = {}) {
   const handlers = new Map();
   const attrs = new Map();
   const noop = () => {};
+  const fills = [];
+  const strokes = [];
+  let path = [];
   const ctx = new Proxy(
-    { canvas: null },
+    {
+      canvas: null,
+      fillRect(x, y, width, height) {
+        fills.push({ colour: this.fillStyle, x, y, width, height });
+      },
+      beginPath() {
+        path = [];
+      },
+      moveTo(x, y) {
+        path.push([x, y]);
+      },
+      lineTo(x, y) {
+        path.push([x, y]);
+      },
+      stroke() {
+        strokes.push({ colour: this.strokeStyle, path: [...path] });
+      },
+    },
     {
       get: (t, k) =>
         k in t ? t[k] : typeof k === "string" ? t[k] ?? noop : undefined,
@@ -22,6 +42,7 @@ function fakeCanvas({ width = 600 } = {}) {
   return {
     clientWidth: width,
     clientHeight: 76,
+    paint: { fills, strokes },
     style: {},
     getContext: () => ctx,
     getBoundingClientRect: () => ({ left: 0, width, top: 0, height: 76 }),
@@ -61,6 +82,28 @@ function setup({ duration = 600, width = 600 } = {}) {
 }
 
 describe("timeline strip", () => {
+  test("vehicles and speed rise above the line while walking and cycling fall below", () => {
+    const canvas = fakeCanvas({ width: 100 });
+    createTimelineStrip({
+      canvas,
+      summary: {
+        bucket_seconds: 5,
+        max_speed: 20,
+        buckets: [{ ped: 1, cyc: 1, veh: 1, spd: 20 }],
+      },
+      duration: 5,
+    });
+    const middle = canvas.clientHeight / 2;
+    const vehicle = canvas.paint.fills.find((fill) => fill.colour === "#f2504b");
+    const walking = canvas.paint.fills.find((fill) => fill.colour === "#4b9df2");
+    const cycling = canvas.paint.fills.find((fill) => fill.colour === "#6fd14b");
+    const speed = canvas.paint.strokes.find((stroke) => stroke.colour === "#f2a65a");
+    assert.ok(vehicle.y < middle && vehicle.y + vehicle.height <= middle);
+    assert.ok(walking.y >= middle);
+    assert.ok(cycling.y >= walking.y + walking.height);
+    assert.ok(speed.path.every(([, y]) => y < middle));
+  });
+
   test("a click seeks to the fraction of the recording under it", () => {
     const { canvas, seeks } = setup({ duration: 600, width: 600 });
     canvas.fire("pointerdown", { pointerId: 1, clientX: 150 });
