@@ -194,15 +194,38 @@ type BackgroundExport struct {
 // TimelineSummary annotates a scene's timeline so a viewer can show where
 // something is happening without decoding every chunk first.
 type TimelineSummary struct {
-	Version       int              `json:"version"`
-	BucketSeconds float64          `json:"bucket_seconds"`
-	DurationSec   float64          `json:"duration_sec"`
-	Buckets       []TimelineBucket `json:"buckets"`
+	Version       int                  `json:"version"`
+	BucketSeconds float64              `json:"bucket_seconds"`
+	DurationSec   float64              `json:"duration_sec"`
+	Buckets       []TimelineBucket     `json:"buckets"`
+	VehicleSpeed  *VehicleSpeedSummary `json:"vehicle_speed,omitempty"`
 
 	// Peaks across the whole scene, so a viewer can scale its axes without a
 	// second pass.
 	MaxTotal float64 `json:"max_total"`
 	MaxSpeed float64 `json:"max_speed"`
+}
+
+// VehicleSpeedSummary applies the radar report's aggregate speed semantics to
+// car tracks in one scene. Each track contributes its maximum observed speed
+// once; percentiles are therefore population statistics, never per-track
+// percentiles or percentiles of timeline buckets.
+type VehicleSpeedSummary struct {
+	Units        string               `json:"units"`
+	BucketSize   float64              `json:"bucket_size"`
+	MinimumSpeed float64              `json:"minimum_speed"`
+	TrackCount   int                  `json:"track_count"`
+	P50          *float64             `json:"p50"`
+	P85          *float64             `json:"p85"`
+	P98          *float64             `json:"p98"`
+	Max          float64              `json:"max"`
+	Histogram    []VehicleSpeedBucket `json:"histogram"`
+}
+
+// VehicleSpeedBucket is one 5 mph interval, starting at StartMPH.
+type VehicleSpeedBucket struct {
+	StartMPH int `json:"start_mph"`
+	Count    int `json:"count"`
 }
 
 // TimelineBucket aggregates one slice of wall-clock time.

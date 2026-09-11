@@ -35,7 +35,7 @@ layout: page.njk
   .scene-stage__canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   .scene-stage__canvas:active { cursor: grabbing; }
   .scene-stage__canvas:focus-visible { outline: 2px solid #4bc0d9; outline-offset: -2px; }
-  .scene-stage__tools { position: absolute; top: 0.6rem; right: 0.6rem; display: flex; gap: 0.4rem; }
+  .scene-stage__tools { position: absolute; top: 0.65rem; right: 0.65rem; display: flex; gap: 0.4rem; }
   .scene-compass {
     position: absolute; right: 0.65rem; bottom: 0.65rem; width: 76px; height: 76px;
     border: 1px solid #2c4049; border-radius: 50%; padding: 0;
@@ -67,9 +67,6 @@ layout: page.njk
   }
   .scene-chip[aria-pressed="true"] { background: #4bc0d9; border-color: #4bc0d9; color: #06222a; font-weight: 600; }
   .scene-chip:focus-visible { outline: 2px solid #4bc0d9; outline-offset: 2px; }
-  .scene-toggle { display: flex; gap: 0.3rem; }
-
-  .scene-vantage-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.6rem; }
   .scene-chip--ghost { flex: 0 0 auto; opacity: 0.75; border-style: dashed; }
   /* Fly is a mode, so it reads as a switch rather than a destination. */
   .scene-chip--fly { flex: 0 0 auto; font-weight: 600; letter-spacing: 0.04em; }
@@ -119,6 +116,28 @@ layout: page.njk
   }
   .scene-transport__stats { margin: 0.5rem 0 0; font-size: 0.86rem; opacity: 0.8; font-variant-numeric: tabular-nums; min-height: 1.3em; }
 
+  .scene-speed { margin-top: 2rem; }
+  .scene-speed > h2 { margin: 0 0 0.3rem; font-size: 1.35rem; }
+  .scene-speed__intro { margin: 0 0 1rem; max-width: 66ch; opacity: 0.78; }
+  .scene-speed__grid-layout { display: grid; grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.2fr); gap: 1.5rem; align-items: start; }
+  .scene-speed__panel { min-width: 0; border-top: 1px solid #2c4049; padding-top: 0.75rem; }
+  .scene-speed__panel h3 { margin: 0 0 0.65rem; font-size: 1rem; }
+  .scene-speed__table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .scene-speed__table th, .scene-speed__table td { padding: 0.46rem 0; border-bottom: 1px solid rgba(207, 227, 232, 0.13); }
+  .scene-speed__table th { text-align: left; font-weight: 500; }
+  .scene-speed__table td { text-align: right; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .scene-speed__table i { display: inline-block; width: 0.65rem; height: 0.65rem; margin-right: 0.45rem; border: 1px solid rgba(207, 227, 232, 0.42); }
+  .scene-speed__histogram { min-height: 13rem; font-size: 0.85rem; opacity: 0.82; }
+  .scene-speed__histogram svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .scene-speed__grid { stroke: rgba(207, 227, 232, 0.16); stroke-width: 1; }
+  .scene-speed__bar { fill: #4682b4; fill-opacity: 0.82; stroke: #cfe3e8; stroke-opacity: 0.28; }
+  .scene-speed__tick { fill: #cfe3e8; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .scene-speed__axis-label { fill: #cfe3e8; font-size: 12px; }
+  .scene-speed__status { margin: 0; opacity: 0.7; }
+  @media (max-width: 700px) {
+    .scene-speed__grid-layout { grid-template-columns: 1fr; }
+  }
+
   .scene-page__provenance { margin-top: 1.75rem; font-size: 0.88rem; line-height: 1.6; max-width: 68ch; }
   .scene-page__provenance summary { cursor: pointer; font-weight: 600; }
   .scene-page__provenance p { margin: 0.7rem 0 0; opacity: 0.8; }
@@ -162,10 +181,14 @@ layout: page.njk
     <div class="scene-stage__labels" id="scene-labels" aria-hidden="true"></div>
 
     <div class="scene-stage__tools" role="group" aria-label="Viewport controls">
-      <div class="scene-toggle" id="scene-mode" role="group" aria-label="Drag behaviour">
-        <button type="button" class="scene-chip" data-mode="orbit" aria-pressed="true">Rotate</button>
-        <button type="button" class="scene-chip" data-mode="pan" aria-pressed="false">Pan</button>
-      </div>
+      <button
+        type="button"
+        class="scene-chip scene-chip--fly"
+        id="scene-fly"
+        role="switch"
+        aria-checked="true"
+      >Fly</button>
+      <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
     </div>
 
     <button type="button" id="scene-compass" class="scene-compass" aria-label="Overhead view (north unmeasured; using sensor zero)">
@@ -185,16 +208,6 @@ layout: page.njk
     <p id="scene-status" class="scene-stage__overlay scene-stage__overlay--error" hidden></p>
   </div>
 
-  <div class="scene-vantage-row">
-    <button
-      type="button"
-      class="scene-chip scene-chip--fly"
-      id="scene-fly"
-      role="switch"
-      aria-checked="true"
-    >Fly</button>
-    <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
-  </div>
   <output class="scene-vantage__output" id="scene-capture-out" hidden></output>
 
   <fieldset id="scene-dev" class="scene-dev" hidden>
@@ -248,6 +261,28 @@ layout: page.njk
 
   <p id="scene-stats" class="scene-transport__stats"></p>
 
+  <section class="scene-speed" id="scene-speed" aria-labelledby="scene-speed-title">
+    <h2 id="scene-speed-title">Car speeds</h2>
+    <p class="scene-speed__intro">
+      Each car track above 5 mph contributes its highest observed speed once,
+      matching the radar report.
+    </p>
+    <p class="scene-speed__status" data-speed-status>Loading speed summary…</p>
+    <div class="scene-speed__grid-layout">
+      <div class="scene-speed__panel">
+        <h3>Headline metrics</h3>
+        <table class="scene-speed__table">
+          <caption class="sr-only">Car track speed percentiles and maximum</caption>
+          <tbody data-speed-table></tbody>
+        </table>
+      </div>
+      <div class="scene-speed__panel">
+        <h3>Speed distribution</h3>
+        <div class="scene-speed__histogram" data-speed-histogram></div>
+      </div>
+    </div>
+  </section>
+
   <details class="scene-page__provenance">
     <summary>About the data</summary>
     <p>
@@ -293,7 +328,6 @@ layout: page.njk
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
       flyToggle: document.getElementById("scene-fly"),
-      modeToggle: document.getElementById("scene-mode"),
       captureView: document.getElementById("scene-capture"),
       captureOutput: document.getElementById("scene-capture-out"),
       playToggle: document.getElementById("scene-play"),
@@ -301,6 +335,7 @@ layout: page.njk
       duration: document.getElementById("scene-duration"),
       rate: document.getElementById("scene-rate"),
       stats: document.getElementById("scene-stats"),
+      speedStats: document.getElementById("scene-speed"),
       status,
       loading: document.getElementById("scene-loading"),
       title: document.getElementById("scene-title"),

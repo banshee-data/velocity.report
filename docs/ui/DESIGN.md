@@ -18,6 +18,7 @@ That means users should be able to read the same system state and chart meaning 
 - web UI,
 - macOS visualiser,
 - generated report charts,
+- public LiDAR scenes,
 
 without forcing pixel-perfect visual sameness.
 
@@ -30,11 +31,13 @@ Core philosophy:
 
 ### 2.1 Surfaces
 
-This document applies to exactly three **surfaces**: places a user sees charts or operational data.
+This document applies to four **surfaces**: places a user sees charts or
+operational data.
 
 1. **Web app** (Svelte): `web/`
 2. **macOS app** (SwiftUI + Metal): [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
 3. **PDF reports**: generated documents delivered as `.pdf`
+4. **Public scene pages**: static LiDAR views under `public_html/`
 
 PDF is a surface, not a rendering engine. The mechanism that produces the charts inside a PDF is a separate concern (see §7).
 
@@ -43,6 +46,7 @@ PDF is a surface, not a rendering engine. The mechanism that produces the charts
 Chart rendering is converging on a single SVG-first pipeline:
 
 - **Web:** LayerChart/d3-scale components producing inline SVG in Svelte
+- **Public scenes:** dependency-free SVG charts fed by static scene summaries
 - **PDF (current):** Go native SVG generation (`internal/report/chart/`) → Typst templates (`internal/report/typst/`) → PDF via `typst`
 - **PDF (removed):** Python matplotlib report pipeline, superseded by Go + Typst pipeline; directory deleted from repository
 
@@ -96,7 +100,7 @@ The single source of truth for each renderer:
 
 - Metric names and legend order: `p50`, `p85`, `p98`, `max`, then count/auxiliary signals.
 - Units and axis labels must match data source context.
-- Tick behaviour must be comparable across all three platforms:
+- Tick behaviour must be comparable across applicable surfaces:
   - time-series X ticks: target 6-10 visible labels;
   - Y ticks: target 4-6 visible labels;
   - dense labels should be thinned, not overlapped;
@@ -114,6 +118,23 @@ The single source of truth for each renderer:
 - Layout fit differences caused by window/sheet geometry.
 
 Charts do not need to be 100% identical; meaning and readability must be aligned.
+
+### 4.3 Scene and radar speed summaries
+
+Public LiDAR scenes and radar reports use the same headline speed contract:
+
+- one observation per car track or radar transit, using its maximum speed;
+- the radar report's default greater-than-5-mph population cutoff;
+- aggregate metrics in `p50`, `p85`, `p98`, `max` order;
+- one decimal place and an explicit unit on headline values;
+- 5 mph histogram buckets, plotted as a percentage of the population;
+- a two-column desktop layout with the metric table first and histogram second,
+  collapsing to one column on narrow screens.
+
+The public scene heading and sample count say that its population is car tracks
+above 5 mph. It must not derive percentiles from timeline buckets or repeated
+frames from the same track. Percentiles use the radar report's empirical
+nearest-rank method: sort the population and select `ceil(p * n) - 1`.
 
 ## 5. Web UI style system
 

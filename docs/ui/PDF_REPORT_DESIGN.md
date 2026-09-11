@@ -96,6 +96,13 @@ Tables must favour scanability over density:
   reading.
 - Do not force page breaks simply to keep every detail table on a fresh page.
 
+The public LiDAR scene summary follows the same scan order and histogram
+semantics: p50, p85, p98, max, then population count; the greater-than-5-mph
+cutoff; 5 mph buckets; and bars expressed as a percentage of the population.
+The scene uses car-track maxima where the radar report uses transit maxima.
+Shared rules live in
+[DESIGN.md §4.3](DESIGN.md#43-scene-and-radar-speed-summaries).
+
 ## 6. Typography
 
 Reports use the embedded Atkinson Hyperlegible family for readable narrative and

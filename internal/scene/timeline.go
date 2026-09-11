@@ -3,6 +3,7 @@ package scene
 import (
 	"math"
 	"path/filepath"
+	"sort"
 )
 
 // DefaultBucketSeconds is the timeline summary resolution.
@@ -36,6 +37,7 @@ func modeOf(class string) string {
 type timelineAccumulator struct {
 	bucketSeconds float64
 	buckets       map[int]*bucketTally
+	carTrackMax   map[string]float64
 	maxOffsetUs   int64
 }
 
@@ -52,6 +54,7 @@ func newTimelineAccumulator(bucketSeconds float64) *timelineAccumulator {
 	return &timelineAccumulator{
 		bucketSeconds: bucketSeconds,
 		buckets:       map[int]*bucketTally{},
+		carTrackMax:   map[string]float64{},
 	}
 }
 
@@ -84,7 +87,75 @@ func (a *timelineAccumulator) observe(f Frame) {
 		if t.Speed > b.maxSpeed {
 			b.maxSpeed = t.Speed
 		}
+		// A classification may settle after a track has appeared. MaxSpeed is
+		// the running track maximum, so the first frame labelled car still
+		// carries the whole track's history up to that point.
+		maxSpeed := math.Max(t.Speed, t.MaxSpeed)
+		if t.Class == "car" {
+			if maxSpeed > a.carTrackMax[t.ID] {
+				a.carTrackMax[t.ID] = maxSpeed
+			}
+		} else if previous, ok := a.carTrackMax[t.ID]; ok && maxSpeed > previous {
+			a.carTrackMax[t.ID] = maxSpeed
+		}
 	}
+}
+
+const (
+	mphPerMPS              = 2.2369362920544
+	vehicleSpeedBucketMPH  = 5
+	vehicleMinimumSpeedMPH = 5
+)
+
+// vehicleSpeedSummary follows the radar report's empirical nearest-rank
+// convention: ceil(p*n)-1 in the sorted population.
+func (a *timelineAccumulator) vehicleSpeedSummary() *VehicleSpeedSummary {
+	if len(a.carTrackMax) == 0 {
+		return nil
+	}
+	speeds := make([]float64, 0, len(a.carTrackMax))
+	for _, speedMPS := range a.carTrackMax {
+		if speedMPH := speedMPS * mphPerMPS; speedMPH > vehicleMinimumSpeedMPH {
+			speeds = append(speeds, speedMPH)
+		}
+	}
+	if len(speeds) == 0 {
+		return nil
+	}
+	sort.Float64s(speeds)
+	percentile := func(p float64) *float64 {
+		idx := int(math.Ceil(float64(len(speeds))*p)) - 1
+		if idx < 0 {
+			idx = 0
+		}
+		v := math.Round(speeds[idx]*100) / 100
+		return &v
+	}
+
+	maxMPH := speeds[len(speeds)-1]
+	lastBucket := int(math.Floor(maxMPH/vehicleSpeedBucketMPH)) * vehicleSpeedBucketMPH
+	counts := make(map[int]int, lastBucket/vehicleSpeedBucketMPH+1)
+	for _, speed := range speeds {
+		start := int(math.Floor(speed/vehicleSpeedBucketMPH)) * vehicleSpeedBucketMPH
+		counts[start]++
+	}
+	histogram := make([]VehicleSpeedBucket, 0, len(counts))
+	for start := vehicleMinimumSpeedMPH; start <= lastBucket; start += vehicleSpeedBucketMPH {
+		histogram = append(histogram, VehicleSpeedBucket{StartMPH: start, Count: counts[start]})
+	}
+
+	out := &VehicleSpeedSummary{
+		Units:        "mph",
+		BucketSize:   vehicleSpeedBucketMPH,
+		MinimumSpeed: vehicleMinimumSpeedMPH,
+		TrackCount:   len(speeds),
+		Max:          math.Round(maxMPH*100) / 100,
+		Histogram:    histogram,
+	}
+	out.P50 = percentile(0.50)
+	out.P85 = percentile(0.85)
+	out.P98 = percentile(0.98)
+	return out
 }
 
 // summary converts the tallies into mean concurrent counts per bucket.
@@ -99,6 +170,7 @@ func (a *timelineAccumulator) summary() TimelineSummary {
 		BucketSeconds: a.bucketSeconds,
 		DurationSec:   float64(a.maxOffsetUs) / 1e6,
 		Buckets:       []TimelineBucket{},
+		VehicleSpeed:  a.vehicleSpeedSummary(),
 	}
 	if len(a.buckets) == 0 {
 		return out

@@ -9,6 +9,7 @@ import { mountSceneDev } from "./scene-dev.js";
 import * as THREE from "three";
 import { SceneSession, SceneError } from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
+import { renderSceneSpeedStats } from "./scene-speed-stats.js";
 import { createTimelineStrip } from "./scene-timeline.js";
 import { createSceneFlight } from "./scene-flight.js";
 import { advanceSceneClock, autoplayScene } from "./scene-playback.js";
@@ -871,9 +872,11 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
     try {
       const res = await fetch(ui.timelineURL);
       if (res.ok) {
+        const summary = await res.json();
+        renderSceneSpeedStats(ui.speedStats, summary);
         strip = createTimelineStrip({
           canvas: ui.timelineCanvas,
-          summary: await res.json(),
+          summary,
           duration: session.duration,
           onSeek: (seconds) => {
             // A jump is not continuous motion, so the trails leading up to the
@@ -884,10 +887,13 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
             syncUI();
           },
         });
+      } else {
+        renderSceneSpeedStats(ui.speedStats, null);
       }
     } catch {
-      // A scene without a summary still plays; the strip is an aid, not a
-      // prerequisite.
+      renderSceneSpeedStats(ui.speedStats, null);
+      // A scene without a summary still plays; these annotations are aids,
+      // not prerequisites.
     }
   }
 
