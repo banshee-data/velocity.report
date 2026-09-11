@@ -344,7 +344,7 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 	//
 	// This is what the live PCAP path already does (see the server's data
 	// source handler), and not doing it here is why the June 2026 baseline
-	// recorded nothing at all: a 30-second warm-up measured in CPU time can
+	// recorded nothing at all: a 30-second warm-up measured in wall-clock time can
 	// never elapse inside a five-second replay, so the grid never settled.
 	parser.SetTimestampMode(parse.TimestampModeLiDAR)
 

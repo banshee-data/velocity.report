@@ -114,7 +114,7 @@ with machine speed: two CI runners 27% apart in wall clock produced foreground c
 the same capture purely because one replays faster than the other.
 
 It is also why the June 2026 baseline recorded nothing at all. A 30-second warm-up
-measured in CPU time cannot elapse inside a five-second replay, so the grid never
+measured in wall-clock time cannot elapse inside a five-second replay, so the grid never
 settled and no frame ever produced foreground.
 
 This is the check that was missing. The CI baseline committed in June 2026 recorded
