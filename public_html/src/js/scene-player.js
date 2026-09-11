@@ -675,16 +675,9 @@ export async function mountScenePlayer({
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,
-    pointCloudLoopingIn: false,
-    lidarVisible: ui.lidarToggle?.checked ?? true,
-    boxesVisible: ui.boxesToggle?.checked ?? true,
-    backgroundVisible: ui.backgroundToggle?.checked ?? true,
-    gridVisible: ui.gridToggle?.checked ?? true,
-    loopOpening: ui.openingLoopToggle?.checked ?? false,
-    refreshRequested: false,
   };
   if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
-
+  grid.visible = state.gridVisible;
   const playbackDuration = () =>
     sceneLoopDuration(
       session.duration,
