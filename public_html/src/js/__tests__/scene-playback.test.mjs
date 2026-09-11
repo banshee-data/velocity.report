@@ -2,10 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { advanceSceneClock, autoplayScene } from "../scene-playback.js";
 
-test("scenes autoplay unless the reader has requested less motion", () => {
+test("scenes autoplay when the page loads", () => {
   assert.equal(autoplayScene(), true);
-  assert.equal(autoplayScene(() => ({ matches: false })), true);
-  assert.equal(autoplayScene(() => ({ matches: true })), false);
 });
 
 test("the scene clock loops instead of stopping at the end", () => {

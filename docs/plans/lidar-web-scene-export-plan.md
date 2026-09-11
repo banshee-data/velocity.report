@@ -346,8 +346,9 @@ not a homepage-only switch.
 #### Fit the controls above the fold
 
 The homepage hero keeps three controls: **North**, **Fly**, and the annotated
-timeline. Place North and Fly over the lower right of the frame, and use a
-compact timeline along the bottom edge. The timeline remains the scrubber and
+timeline. Named vantages remain inputs to the Fly orbit and are not shown as
+buttons on either surface. Place North and Fly over the lower right of the
+frame, and use a compact timeline along the bottom edge. The timeline remains the scrubber and
 keeps its keyboard behaviour. Controls sit above the link hit area so using one
 does not leave the page.
 
@@ -386,7 +387,7 @@ Load the manifest, first chunk and background before revealing the hero. Fetch
 later chunks only through the reader's existing look-ahead. Keep a static poster
 or the first decoded frame behind the loading state so the page does not flash
 an empty canvas. Autoplay and looping are player defaults. A reduced-motion
-preference starts on the first frame with the timeline and controls available.
+preference keeps the camera still, but recorded traffic still starts playing.
 
 Validate on a throttled mobile profile. The current measured clip estimate is
 2.51 MB compressed, so first useful paint, decode time and memory must be
@@ -497,10 +498,10 @@ scene player for both the homepage hero and the full Columbus at Broadway page.
 through the existing velocity.report Pages deployment: 11 minutes at stride 2,
 1.2 MiB. `tracks` first, then a `clip` and a `background`. The browser must
 render oriented boxes, play on recorded timestamps, and seek across the whole
-recording with no backend, no database, and no separate repository. A small JSON manifest composes several
-recording parts into one timeline. No S2 metadata, archive importer, map or
-catalogue is required. Phase 0 is complete when a public static URL renders the
-real site from published static assets.
+recording with no backend, no database, and no separate repository. A small
+JSON manifest composes several recording parts into one timeline. No S2 metadata,
+archive importer, map or catalogue is required. Phase 0 is complete when a
+public static URL renders the real site from published static assets.
 
 **Phase 1 — the other five sites**, once Phase 0 has produced real numbers.
 

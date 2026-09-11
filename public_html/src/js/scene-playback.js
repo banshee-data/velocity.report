@@ -1,6 +1,6 @@
-/** Whether a scene should start moving without waiting for a button press. */
-export function autoplayScene(matchMedia = globalThis.matchMedia) {
-  return !matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** Scene playback starts without waiting for a button press. */
+export function autoplayScene() {
+  return true;
 }
 
 /** Advance a scene clock and wrap it cleanly at the end. */

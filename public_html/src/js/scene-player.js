@@ -566,7 +566,7 @@ export async function mountScenePlayer({ canvas, manifestURL, ui }) {
 
   const state = {
     seconds: 0,
-    playing: autoplayScene(window.matchMedia?.bind(window)),
+    playing: autoplayScene(),
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,

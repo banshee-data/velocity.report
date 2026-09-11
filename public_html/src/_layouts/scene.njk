@@ -70,10 +70,8 @@ layout: page.njk
   .scene-toggle { display: flex; gap: 0.3rem; }
 
   .scene-vantage-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.6rem; }
-  .scene-vantage { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; flex: 1 1 auto; }
   .scene-chip--ghost { flex: 0 0 auto; opacity: 0.75; border-style: dashed; }
-  /* The drone switch is a mode, not a destination, so it reads differently
-     from the vantage chips it sits beside. */
+  /* Fly is a mode, so it reads as a switch rather than a destination. */
   .scene-chip--fly { flex: 0 0 auto; font-weight: 600; letter-spacing: 0.04em; }
   .scene-chip--fly[aria-checked="true"] {
     background: #4bc0d9; border-color: #4bc0d9; color: #06222a;
@@ -195,7 +193,6 @@ layout: page.njk
       role="switch"
       aria-checked="true"
     >Fly</button>
-    <div class="scene-vantage" id="scene-presets" role="group" aria-label="Vantage points"></div>
     <button type="button" class="scene-chip scene-chip--ghost" id="scene-capture" hidden>Copy this view</button>
   </div>
   <output class="scene-vantage__output" id="scene-capture-out" hidden></output>
@@ -242,11 +239,11 @@ layout: page.njk
 
   <div class="scene-timeline__key">
     <span class="scene-timeline__axis">Above</span>
-    <span><i style="background:#4b9df2"></i>Walking</span>
-    <span><i style="background:#6fd14b"></i>Cycling</span>
-    <span class="scene-timeline__axis">Below</span>
     <span><i style="background:#f2504b"></i>Motor vehicles</span>
     <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Fastest</span>
+    <span class="scene-timeline__axis">Below</span>
+    <span><i style="background:#4b9df2"></i>Walking</span>
+    <span><i style="background:#6fd14b"></i>Cycling</span>
   </div>
 
   <p id="scene-stats" class="scene-transport__stats"></p>
@@ -295,7 +292,6 @@ layout: page.njk
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
-      presets: document.getElementById("scene-presets"),
       flyToggle: document.getElementById("scene-fly"),
       modeToggle: document.getElementById("scene-mode"),
       captureView: document.getElementById("scene-capture"),
