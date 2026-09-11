@@ -361,14 +361,17 @@ opening 30 seconds restores the points immediately. When the full recording
 loops, fade the points back in over two seconds; keep the background, boxes,
 grid and controls steady.
 
-Three slide switches sit at the scene's top left. **LiDAR** and **Boxes** hide
-their layers independently; boxes include their trails and speed labels.
+Five slide switches sit at the scene's top left. **LiDAR**, **Boxes**,
+**Background** and **Grid** hide their layers independently. Boxes include their
+trails and speed labels; Background controls the settled points exported from
+the VRLOG's first background frame; Grid controls only the ground-plane
+reference grid.
 **Loop opening** changes the playback boundary and timeline to the point-cloud
 segment, returning to its start if the viewer enables it later in the full
-recording. Switching it off restores the complete timeline. Both layers start
-on and the full recording remains the default loop. The switches appear only
-on scenes that publish a point-cloud clip, rather than offering controls that
-do nothing elsewhere.
+recording. Switching it off restores the complete timeline. LiDAR, boxes, the
+settled background and the grid start on, and the full recording remains the
+default loop. The switches appear only on scenes that publish a point-cloud
+clip, rather than offering controls that do nothing elsewhere.
 
 #### Keep the homepage honest
 
@@ -496,8 +499,8 @@ the tracked trails meet the publication-quality gate.
 2. Add foreground point rendering and the clip fade transition to the shared
    player.
 3. Extract the homepage palette and migrate all scene colours to it.
-4. Add independent LiDAR and box switches, plus opening-only and full-recording
-   loop modes.
+4. Add independent LiDAR, box, settled-background and grid switches, plus
+   opening-only and full-recording loop modes.
 5. Keep the synthetic homepage canvas and link it to the scene catalogue.
 6. Verify autoplay, wrap, fade, seeking, reduced motion, mobile loading and
    keyboard operation on the Columbus scene.
@@ -550,7 +553,7 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 - [x] Select and publish one Columbus at Broadway 30-second clip (`M`) (see §11)
 - [x] Render foreground clip points in `scene-player.js` (`M`) (see §11)
 - [x] Fade the point cloud over its final five seconds and back in for two seconds after a loop (`S`) (see §11)
-- [x] Add LiDAR, box and opening-loop switches to the Columbus scene (`S`) (see §11)
+- [x] Add LiDAR, box, settled-background, grid and opening-loop switches to the Columbus scene (`S`) (see §11)
 - [ ] Replace the synthetic homepage hero only after trail-quality and mobile gates pass (`M`) (see §11)
 - [x] Migrate scene colours to the homepage palette (`S`) (see §11)
 - [ ] Reassess the Columbus hero on throttled mobile and with reduced motion (`S`) (see §11)
