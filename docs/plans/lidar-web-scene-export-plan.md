@@ -1,6 +1,6 @@
 # Web scene export (v0.6.x)
 
-- **Status:** Phase 0 delivered; Phase 1 not started
+- **Status:** Phase 0 delivered; Columbus at Broadway homepage clip planned
 - **Layers:** LiDAR pipeline (L9 endpoints), Web frontend, CI
 - **Target:** v0.6.x; publish one real recorded scene on the existing velocity.report Pages site, then generalise
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns ingest, indexing and archive-scale publishing
@@ -299,6 +299,101 @@ to an unrelated view. A drag that is overwritten by the next animation frame
 reads as a broken control, which is why the camera reports human input
 separately from its own motion.
 
+### 11. Columbus at Broadway becomes the homepage scene
+
+The homepage should show the real thing. Replace `hero-scene.js` and its
+synthetic street with one selected 30-second foreground point-cloud clip from
+**Columbus at Broadway** (`columbus-broadway`, archive site `s14`). The same
+published clip opens first on the full scene page. A second hero renderer or a
+homepage copy of the asset would create two behaviours and two opportunities to
+be wrong.
+
+#### Select and publish one clip
+
+1. Produce or locate the Columbus at Broadway VRLOG from the canonical capture.
+   Record its source SHA-256 and pipeline version before export.
+2. Rank disjoint 30-second windows with `velocity scene rank`. Prefer class
+   diversity, complete tracks and sustained activity; reject implausible speeds,
+   one-frame tracks and obvious foreground artefacts.
+3. Review the highest-ranked windows in the existing player and choose one.
+   Selection is a publication decision, so the manifest records the chosen
+   source frame range and interest score.
+4. Export at stride 1 with foreground points rounded to 2 dp. Publish one clip
+   manifest, its chunks, the shared site background, timeline summary and the
+   site's existing `vantages.json`.
+5. Keep the VRLOG authoritative. The 30-second files are disposable, derived
+   web assets and can be regenerated from the recorded source.
+
+#### Use one player on both surfaces
+
+`mountScenePlayer({ canvas, manifestURL, ui })` remains the only entry point.
+Extend its frame renderer to accept clip frames containing foreground points;
+do not add a `hero` mode or a second animation loop. The homepage and scene page
+pass the same Columbus clip manifest. They differ only in markup and which
+optional control elements they supply.
+
+The clip renderer should reuse one `BufferGeometry` and update its position and
+colour attributes per frame. It must not create thousands of Three.js objects
+or DOM nodes. Track boxes, trails, static background, camera, compass, flight,
+timeline, recorded-time clock and error handling stay in the shared modules.
+
+Clip manifests carry a loop transition duration. During the last 600 ms, fade
+the moving cloud and track overlays to zero opacity; wrap the clock and clear
+trails; then fade the first frame in over 600 ms. Keep the static background,
+grid and controls steady. This is a property of clip playback on every surface,
+not a homepage-only switch.
+
+#### Fit the controls above the fold
+
+The homepage hero keeps three controls: **North**, **Fly**, and the annotated
+timeline. Place North and Fly over the lower right of the frame, and use a
+compact timeline along the bottom edge. The timeline remains the scrubber and
+keeps its keyboard behaviour. Controls sit above the link hit area so using one
+does not leave the page.
+
+Clicking the rest of the hero scene opens `/scenes/columbus-broadway/`. Use a
+stretched sibling link rather than wrapping the canvas and controls in an
+anchor: nested interactive controls are invalid and difficult to operate. The
+link needs a plain accessible name such as `Open the full Columbus at Broadway
+scene`.
+
+The full scene page starts with this clip, then exposes the longer track export
+through the same player and timeline contract. Switching datasets must dispose
+the current geometry, reset trails and retain the selected camera vantage. It
+must not construct another renderer or replace the control bindings.
+
+#### Keep the homepage palette
+
+The homepage palette wins. Move the reusable scene colours into one browser
+module and matching CSS custom properties, then migrate the scene page to them:
+
+| Meaning             | Colour    |
+| ------------------- | --------- |
+| Canvas and fog      | `#07090c` |
+| Vehicle             | `#4cd1a8` |
+| Cycling             | `#6aa9ff` |
+| Walking             | `#ffb050` |
+| Primary control     | `#10b981` |
+| Primary control ink | `#07090c` |
+
+The timeline, point cloud, boxes, trails, labels and legend all read from those
+tokens. Shape, text and position continue to distinguish classes, since colour
+alone is not enough.
+
+#### Loading and motion
+
+Load the manifest, first chunk and background before revealing the hero. Fetch
+later chunks only through the reader's existing look-ahead. Keep a static poster
+or the first decoded frame behind the loading state so the page does not flash
+an empty canvas. Autoplay and looping are player defaults. A reduced-motion
+preference starts on the first frame with the timeline and controls available.
+
+Validate on a throttled mobile profile. The current measured clip estimate is
+2.51 MB compressed, so first useful paint, decode time and memory must be
+reported before the synthetic hero is removed. If the selected clip misses the
+budget, reduce points deterministically with `--max-points`; do not change the
+30-second duration or silently lower the recorded-time accuracy.
+
 ## Scope
 
 ### Item 1: Export command
@@ -376,14 +471,33 @@ the existing perception path) and write web scene JSON.
 
 **Milestone:** v0.6.1
 
+### Item 5: Columbus at Broadway homepage clip
+
+**Summary:** Publish one reviewed 30-second point-cloud clip and use the shared
+scene player for both the homepage hero and the full Columbus at Broadway page.
+
+**Steps:**
+
+1. Select and publish the clip with recorded source provenance.
+2. Add foreground point rendering and the clip fade transition to the shared
+   player.
+3. Extract the homepage palette and migrate all scene colours to it.
+4. Replace the synthetic homepage canvas with the shared player and compact
+   North, Fly and timeline controls.
+5. Link the non-control part of the hero to the full scene page.
+6. Verify autoplay, wrap, fade, seeking, reduced motion, mobile loading and
+   keyboard operation on both surfaces.
+
+**Milestone:** v0.6.1
+
 ## Phasing
 
 **Phase 0 — one real scene.** The reference capture,
 [`soma1-static-0.pcap`](../lidar/operations/reference-capture.md), published
 through the existing velocity.report Pages deployment: 11 minutes at stride 2,
-1.2 MiB. `tracks` first, then a `clip` and a `background`. The browser must render oriented boxes, play on
-recorded timestamps, and seek across the whole recording with no backend, no
-database, and no separate repository. A small JSON manifest composes several
+1.2 MiB. `tracks` first, then a `clip` and a `background`. The browser must
+render oriented boxes, play on recorded timestamps, and seek across the whole
+recording with no backend, no database, and no separate repository. A small JSON manifest composes several
 recording parts into one timeline. No S2 metadata, archive importer, map or
 catalogue is required. Phase 0 is complete when a public static URL renders the
 real site from published static assets.
@@ -400,15 +514,18 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 
 ## Risks
 
-| Risk                                                    | Likelihood | Impact | Mitigation                                                                 |
-| ------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------- |
-| Player written against a fixed frame interval           | Medium     | High   | Advance on recorded timestamps; fixture with non-uniform intervals         |
-| Rounding applied to timestamps                          | Low        | High   | Timestamps are integers and explicitly excluded from rounding              |
-| Track IDs assumed to survive a part boundary            | High       | Medium | IDs are re-keyed per part; the session layer resets trail state            |
-| Whole scene downloaded before first paint               | Medium     | Medium | Three-chunk cache, forward prefetch, index fetched separately              |
-| Export drifts from the recording it claims to represent | Medium     | High   | `source_vrlog_sha256` and build version in every exported header           |
-| Tracks-only scene is spatially unreadable               | Medium     | Medium | Background export is in scope for Phase 0, not deferred                    |
-| Malformed or truncated chunk crashes the player         | Medium     | Low    | Validate structure and bounds on every parse; treat downloads as untrusted |
+| Risk                                                      | Likelihood | Impact | Mitigation                                                                           |
+| --------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------ |
+| Player written against a fixed frame interval             | Medium     | High   | Advance on recorded timestamps; fixture with non-uniform intervals                   |
+| Rounding applied to timestamps                            | Low        | High   | Timestamps are integers and explicitly excluded from rounding                        |
+| Track IDs assumed to survive a part boundary              | High       | Medium | IDs are re-keyed per part; the session layer resets trail state                      |
+| Whole scene downloaded before first paint                 | Medium     | Medium | Three-chunk cache, forward prefetch, index fetched separately                        |
+| Export drifts from the recording it claims to represent   | Medium     | High   | `source_vrlog_sha256` and build version in every exported header                     |
+| Tracks-only scene is spatially unreadable                 | Medium     | Medium | Background export is in scope for Phase 0, not deferred                              |
+| Malformed or truncated chunk crashes the player           | Medium     | Low    | Validate structure and bounds on every parse; treat downloads as untrusted           |
+| Point-cloud clip delays the homepage's first useful paint | Medium     | High   | Measure on throttled mobile; cap points deterministically before shortening the clip |
+| Hero controls turn the whole scene link into nested input | Medium     | Medium | Use a sibling link hit area and keep controls in a higher layer                      |
+| Loop fade hides a timestamp or leaves old trails behind   | Low        | Medium | Fade overlays only; wrap once, clear trails, then render the first frame             |
 
 ## Checklist
 
@@ -416,6 +533,13 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 
 - [ ] Phase 1: the other five sites, once the surveyed coordinates arrive (`M`)
 - [ ] Re-export soma1 from the VRLOG so the published assets carry the current exporter's output (`S`)
+- [ ] Select and publish one Columbus at Broadway 30-second clip (`M`) (see §11)
+- [ ] Render foreground clip points in `scene-player.js` (`M`) (see §11)
+- [ ] Add the manifest-driven clip fade transition (`S`) (see §11)
+- [ ] Replace the synthetic homepage hero with the shared scene player (`M`) (see §11)
+- [ ] Keep North, Fly and the timeline usable in the compact hero (`M`) (see §11)
+- [ ] Migrate scene colours to the homepage palette (`S`) (see §11)
+- [ ] Verify the Columbus hero on throttled mobile and with reduced motion (`S`) (see §11)
 - [x] Generalise the scene exporter to accept a VRLOG input (`M`)
 - [x] `tracks` export: NDJSON, 2 dp, gzip chunks, index (`M`)
 - [x] `clip` and `background` exports (`M`)
