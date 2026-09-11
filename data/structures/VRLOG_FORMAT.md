@@ -25,22 +25,31 @@ seekable replay, labelling, and offline analysis.
 
 JSON object written when the recorder closes. Contains log-level metadata.
 
-| Field               | Type    | Description                                                            |
-| ------------------- | ------- | ---------------------------------------------------------------------- |
-| `version`           | string  | Format version (currently `"0.5"`)                                     |
-| `created_ns`        | int64   | Wall-clock creation time (Unix nanoseconds)                            |
-| `sensor_id`         | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
-| `total_frames`      | uint64  | Total records written; equals the number of `index.bin` entries        |
-| `rotation_frames`   | uint64  | Sensor rotations only: foreground, full and empty frames               |
-| `background_frames` | uint64  | Background snapshots. `total_frames` = rotations + snapshots           |
-| `start_ns`          | int64   | Timestamp of the first frame (Unix nanoseconds)                        |
-| `end_ns`            | int64   | Timestamp of the last frame (Unix nanoseconds)                         |
-| `coordinate_frame`  | object  | Coordinate frame metadata (see below)                                  |
-| `source_type`       | string  | Recording source: `"live"`, `"pcap"`, `"synthetic"` (omitted if empty) |
-| `pcap_path`         | string  | Original PCAP filename, basename only (omitted if empty)               |
-| `playback_rate`     | float64 | Configured replay speed multiplier (omitted if 0)                      |
-| `tuning_hash`       | string  | SHA-256 hex digest of the tuning config JSON (omitted if empty)        |
-| `build_version`     | string  | velocity.report version that created the recording                     |
+| Field                  | Type    | Description                                                            |
+| ---------------------- | ------- | ---------------------------------------------------------------------- |
+| `version`              | string  | Format version (currently `"0.5"`)                                     |
+| `created_ns`           | int64   | Wall-clock creation time (Unix nanoseconds)                            |
+| `sensor_id`            | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
+| `total_frames`         | uint64  | Total records written; equals the number of `index.bin` entries        |
+| `rotation_frames`      | uint64  | Sensor rotations only: foreground, full and empty frames               |
+| `background_frames`    | uint64  | Background snapshots. `total_frames` = rotations + snapshots           |
+| `start_ns`             | int64   | Timestamp of the first frame (Unix nanoseconds)                        |
+| `end_ns`               | int64   | Timestamp of the last frame (Unix nanoseconds)                         |
+| `coordinate_frame`     | object  | Coordinate frame metadata (see below)                                  |
+| `source_type`          | string  | Recording source: `"live"`, `"pcap"`, `"synthetic"` (omitted if empty) |
+| `pcap_path`            | string  | Original PCAP filename, basename only (omitted if empty)               |
+| `playback_rate`        | float64 | Configured replay speed multiplier (omitted if 0)                      |
+| `tuning_hash`          | string  | SHA-256 hex digest of the tuning config JSON (omitted if empty)        |
+| `build_version`        | string  | velocity.report binary version that created this VRLOG                 |
+| `build_git_sha`        | string  | Git SHA of the binary that created this VRLOG                          |
+| `config_build_version` | string  | Binary version that composed the immutable run configuration           |
+| `config_build_git_sha` | string  | Git SHA that composed the immutable run configuration                  |
+
+`version` describes the VRLOG format. It is not the application version.
+`build_version` and `build_git_sha` identify the recorder binary, even when
+the recording reuses an immutable run configuration composed by a different
+build. The `config_build_*` pair preserves that separate configuration
+provenance.
 
 ### Planned S2 provenance extension
 

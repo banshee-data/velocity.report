@@ -455,6 +455,10 @@ layout: page.njk
       fade away. Playback follows recorded timestamps because the sensor does not
       turn at a perfectly fixed rate.
     </p>
+    <p data-scene-generator hidden>
+      <strong>VRLOG generator:</strong>
+      velocity.report <span data-scene-generator-version></span>
+    </p>
   </details>
 </section>
 
@@ -508,6 +512,7 @@ layout: page.njk
       rate: document.getElementById("scene-rate"),
       stats: document.getElementById("scene-stats"),
       speedStats: document.getElementById("scene-speed"),
+      generatorVersion: document.querySelector("[data-scene-generator-version]"),
       status,
       loading: document.getElementById("scene-loading"),
       title: document.getElementById("scene-title"),

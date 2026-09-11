@@ -93,8 +93,14 @@ type LogHeader struct {
 	ParamsHash    string  `json:"params_hash,omitempty"`    // SHA-256 of effective param-set JSON
 	SchemaVersion string  `json:"schema_version,omitempty"` // parameter-set schema version
 	ParamSetType  string  `json:"param_set_type,omitempty"` // effective/requested/legacy
-	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report version that wrote this
-	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA that wrote this
+	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report binary that wrote this VRLOG
+	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA of the binary that wrote this VRLOG
+
+	// The immutable run configuration may have been composed by an older
+	// binary. Keep its identity separate: it must not overwrite the identity
+	// of the recorder which actually created this file.
+	ConfigBuildVersion string `json:"config_build_version,omitempty"`
+	ConfigBuildGitSHA  string `json:"config_build_git_sha,omitempty"`
 }
 
 // IndexEntry is an entry in the seek index.
@@ -150,6 +156,7 @@ func NewRecorder(basePath, sensorID string) (*Recorder, error) {
 			CreatedNs:    time.Now().UnixNano(),
 			SensorID:     sensorID,
 			BuildVersion: version.Version,
+			BuildGitSHA:  version.GitSHA,
 		},
 	}
 
@@ -349,10 +356,8 @@ func (r *Recorder) SetDeterministicConfig(runConfigID, paramSetID, configHash, p
 	r.header.ParamsHash = paramsHash
 	r.header.SchemaVersion = schemaVersion
 	r.header.ParamSetType = paramSetType
-	if buildVersion != "" {
-		r.header.BuildVersion = buildVersion
-	}
-	r.header.BuildGitSHA = buildGitSHA
+	r.header.ConfigBuildVersion = buildVersion
+	r.header.ConfigBuildGitSHA = buildGitSHA
 	if len(executionConfig) > 0 {
 		r.executionConfig = append([]byte(nil), executionConfig...)
 	}

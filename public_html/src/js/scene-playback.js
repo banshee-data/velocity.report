@@ -56,3 +56,14 @@ export function sceneSourcesAlign(primary, overlay) {
         overlay.coordinate_frame?.reference_frame,
   );
 }
+
+/** Unique recorder versions carried by the VRLOG-derived scene parts. */
+export function sceneGeneratorVersions(parts) {
+  return [
+    ...new Set(
+      (parts ?? [])
+        .map((part) => part?.header?.build_version?.trim())
+        .filter(Boolean),
+    ),
+  ];
+}

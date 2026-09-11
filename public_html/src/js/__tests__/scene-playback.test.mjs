@@ -5,6 +5,7 @@ import {
   autoplayScene,
   pointCloudOverlayOpacity,
   sceneLoopDuration,
+  sceneGeneratorVersions,
   sceneSourcesAlign,
 } from "../scene-playback.js";
 
@@ -40,6 +41,18 @@ test("point and track exports must identify the same recording and frame", () =>
   assert.equal(
     sceneSourcesAlign(header, { ...header, source_vrlog_sha256: "def" }),
     false,
+  );
+});
+
+test("generator versions come from VRLOG provenance, without blanks or duplicates", () => {
+  assert.deepEqual(
+    sceneGeneratorVersions([
+      { header: { build_version: "0.5.1-pre32" } },
+      { header: { build_version: " 0.5.1-pre32 " } },
+      { header: {} },
+      { header: { build_version: "0.5.1-pre31" } },
+    ]),
+    ["0.5.1-pre32", "0.5.1-pre31"],
   );
 });
 
