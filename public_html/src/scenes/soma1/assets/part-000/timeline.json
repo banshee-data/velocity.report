@@ -1201,6 +1201,46 @@
       "n": 14
     }
   ],
+  "vehicle_speed": {
+    "units": "mph",
+    "bucket_size": 5,
+    "minimum_speed": 5,
+    "track_count": 234,
+    "p50": 19.71,
+    "p85": 24.02,
+    "p98": 31.74,
+    "max": 39.84,
+    "histogram": [
+      {
+        "start_mph": 5,
+        "count": 20
+      },
+      {
+        "start_mph": 10,
+        "count": 24
+      },
+      {
+        "start_mph": 15,
+        "count": 82
+      },
+      {
+        "start_mph": 20,
+        "count": 80
+      },
+      {
+        "start_mph": 25,
+        "count": 22
+      },
+      {
+        "start_mph": 30,
+        "count": 4
+      },
+      {
+        "start_mph": 35,
+        "count": 2
+      }
+    ]
+  },
   "max_total": 46.08,
   "max_speed": 17.81
 }

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "3rd-folsom",
+  "title": "3rd at Folsom",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5803,
+  "start_ns": "1788474080625840270",
+  "duration_sec": 1160.25168303,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "645512ec6f7f15438d46673ae6e263b8c21237a9d8dcd0081052a16847bc8aff",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T17:03:34Z"
+}

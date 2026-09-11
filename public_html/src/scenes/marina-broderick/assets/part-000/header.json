@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "marina-broderick",
+  "title": "Marina at Broderick",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5802,
+  "start_ns": "1788368644826665330",
+  "duration_sec": 1160.299701,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "0d865c90751d69bf2d7d18502e2928d7aa7a338323e58e4abea48b5d0cc9d953",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T10:22:30Z"
+}

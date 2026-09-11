@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "laguna-eddy",
+    "title": "Laguna at Eddy"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

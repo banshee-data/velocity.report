@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "1st-mission",
+  "title": "1st at Mission",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5802,
+  "start_ns": "1788469876000100330",
+  "duration_sec": 1160.152444,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "73eec1e93d5f12c4d030299fdede9aa00d7e6d85bb650e816cbbbe45c45dca6d",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T15:31:42Z"
+}

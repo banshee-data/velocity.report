@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "ashbury-downey",
+  "title": "Ashbury at Downey",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5939,
+  "start_ns": "1788290772621687330",
+  "duration_sec": 1187.558515,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "e33ec4fbdf5ab2a9b6c85b08f3880ab3c63c3922233ad1ee94615011f999c575",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T17:46:55Z"
+}

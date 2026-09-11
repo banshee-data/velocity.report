@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "marina-webster-beach",
+  "title": "Marina between Webster and Beach",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5802,
+  "start_ns": "1788370147025744330",
+  "duration_sec": 1160.299593,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "581d93feb8e14e97faf70b87f74c55b22b0c0c5beec01c2ad2e82a45fefe3b0d",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T11:04:15Z"
+}

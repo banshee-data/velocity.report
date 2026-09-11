@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "franklin-mcallister",
+  "title": "Franklin at McAllister",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 3312,
+  "start_ns": "1788456993250403330",
+  "duration_sec": 662.199431,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "1b7c782752074558e299cd0029a79604a31c18020019c6f53e380df37ffae317",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T13:50:18Z"
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "site": {
+    "id": "howard-6th",
+    "title": "Howard at 6th"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

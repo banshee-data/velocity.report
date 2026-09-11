@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "export": "tracks",
+  "site": "broadway-gough",
+  "title": "Broadway at Gough",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 5382,
+  "start_ns": "1788300672146826330",
+  "duration_sec": 1076.216568,
+  "frame_stride": 2,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 60,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "07d3b32e1c7b1ceb99969867e7e437d7fdb7ba1ad634ae03de5ae61842e5aa3f",
+  "tuning_hash": "sha256:d4f801aea55b2f977c321d5344acd35aaaf115e79e6af773f8e57e9c88256cbc",
+  "build_version": "0.5.1-pre32",
+  "generated_at": "2026-09-10T06:44:37Z"
+}
