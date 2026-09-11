@@ -113,10 +113,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
-- [#425] macOS app release signing: local Developer ID signing,
-  notarisation, stapling, and `make verify-mac` path complete; remaining
-  release-gate work is GitHub Actions secret population and tagged-release
-  smoke validation for packaged artifacts. `S`
+- [#425] macOS app release signing: local Developer ID signing, notarisation, stapling, and `make verify-mac` path complete; remaining release-gate work is GitHub Actions secret population and tagged-release smoke validation for packaged artifacts. `S`
 
 ### v0.6.1 - macOS local server (061)
 
@@ -139,23 +136,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.6.3 - Web scene publishing (063)
 
-- Web scene export Phase 0 **delivered on branch**: `velocity scene export`
-  writes gzipped NDJSON tracks, clip and background exports from a recorded
-  VRLOG; `public_html/src/scenes/soma1/` plays the reference capture with a
-  background point cloud, orbit/pan camera, named vantages, a constant-speed
-  drone orbit fitted to them, an annotated timeline that doubles as the
-  scrubber, looping playback and 1x-16x rates.
-  Remaining: re-export soma1 so the published assets come from the current
-  exporter: [design doc](plans/lidar-web-scene-export-plan.md) `S`
-- Web scene export Phase 1: the other five sites in the `80858-1` family.
-  Blocked on the surveyed WGS84 coordinates for `s2-1` and `s2_sf_2`–`s2_sf_6`,
-  which also block S2 tagging and every map marker:
-  [design doc](plans/lidar-web-scene-export-plan.md),
-  [catalogue plan](plans/lidar-scene-catalogue-publishing-plan.md) `M`
-- Scene catalogue at archive scale: ingest the multi-gigabyte daily drivers,
-  split motion from static, index captures and segments, and build the map
-  people land on. Five workstreams sized for parallel agents:
-  [design doc](plans/lidar-scene-catalogue-publishing-plan.md) `XL`
+- Web scene export Phase 0 **delivered on branch**: `velocity scene export` writes gzipped NDJSON tracks, clip and background exports from a recorded VRLOG; `public_html/src/scenes/soma1/` plays the reference capture with a background point cloud, orbit/pan camera, named vantages, a constant-speed drone orbit fitted to them, an annotated timeline that doubles as the scrubber, looping playback and 1x-16x rates. Remaining: re-export soma1 so the published assets come from the current exporter: [design doc](plans/lidar-web-scene-export-plan.md) `S`
+- Swift scene provenance: surface the VRLOG file generator version in VelocityVisualiser, reading `build_version` from the recording rather than showing the currently running app version. `S`
+- Web scene export Phase 1: the other five sites in the `80858-1` family. Blocked on the surveyed WGS84 coordinates for `s2-1` and `s2_sf_2`–`s2_sf_6`, which also block S2 tagging and every map marker: [design doc](plans/lidar-web-scene-export-plan.md), [catalogue plan](plans/lidar-scene-catalogue-publishing-plan.md) `M`
+- Scene catalogue at archive scale: ingest the multi-gigabyte daily drivers, split motion from static, index captures and segments, and build the map people land on. Five workstreams sized for parallel agents: [design doc](plans/lidar-scene-catalogue-publishing-plan.md) `XL`
 
 ## 07x Rebel realm ⛰️
 
