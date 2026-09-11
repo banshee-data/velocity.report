@@ -179,11 +179,17 @@ layout: page.njk
   .scene-speed__table i { display: inline-block; width: 0.65rem; height: 0.65rem; margin-right: 0.45rem; border: 1px solid rgba(207, 227, 232, 0.42); }
   .scene-speed__histogram { min-height: 13rem; font-size: 0.85rem; opacity: 0.82; }
   .scene-speed__histogram svg { display: block; width: 100%; height: auto; overflow: visible; }
-  .scene-speed__grid { stroke: rgba(207, 227, 232, 0.16); stroke-width: 1; }
-  .scene-speed__bar { fill: #4682b4; fill-opacity: 0.82; stroke: #cfe3e8; stroke-opacity: 0.28; }
-  .scene-speed__tick { fill: #cfe3e8; font-size: 11px; font-variant-numeric: tabular-nums; }
-  .scene-speed__axis-label { fill: #cfe3e8; font-size: 12px; }
+  .scene-speed__grid { stroke: rgba(15, 23, 42, 0.18); stroke-width: 1; }
+  .scene-speed__bar { fill: #4682b4; fill-opacity: 0.82; stroke: rgba(15, 23, 42, 0.32); stroke-opacity: 0.45; }
+  .scene-speed__tick { fill: #111827; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .scene-speed__axis-label { fill: #111827; font-size: 12px; }
   .scene-speed__status { margin: 0; opacity: 0.7; }
+  @media (prefers-color-scheme: dark) {
+    .scene-speed__grid { stroke: rgba(207, 227, 232, 0.16); }
+    .scene-speed__bar { stroke: #cfe3e8; stroke-opacity: 0.28; }
+    .scene-speed__tick { fill: #cfe3e8; }
+    .scene-speed__axis-label { fill: #cfe3e8; }
+  }
   @media (max-width: 700px) {
     .scene-speed__grid-layout { grid-template-columns: 1fr; }
   }
@@ -242,6 +248,16 @@ layout: page.njk
         <input type="checkbox" id="scene-boxes" role="switch" checked>
         <span class="scene-switch__track" aria-hidden="true"></span>
         <span>Boxes</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-background" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Background</span>
+      </label>
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-grid" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Grid</span>
       </label>
       <label class="scene-switch">
         <input type="checkbox" id="scene-loop-opening" role="switch" aria-describedby="scene-loop-opening-help">
@@ -406,6 +422,8 @@ layout: page.njk
       timelineCanvas: document.getElementById("scene-timeline"),
       lidarToggle: document.getElementById("scene-lidar"),
       boxesToggle: document.getElementById("scene-boxes"),
+      backgroundToggle: document.getElementById("scene-background"),
+      gridToggle: document.getElementById("scene-grid"),
       openingLoopToggle: document.getElementById("scene-loop-opening"),
       flyToggle: document.getElementById("scene-fly"),
       flyTip: document.getElementById("scene-fly-tip"),

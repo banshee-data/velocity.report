@@ -285,6 +285,8 @@ export async function mountScenePlayer({
   origin.rotation.x = -Math.PI / 2;
   scene.add(origin);
 
+  let backgroundCloud = null;
+
   /**
    * Loads the static background: one settled snapshot of the street with
    * nothing moving in it.
@@ -340,6 +342,7 @@ export async function mountScenePlayer({
       }),
     );
     scene.add(cloud);
+    backgroundCloud = cloud;
     return bg;
   }
 
@@ -675,9 +678,12 @@ export async function mountScenePlayer({
     pointCloudLoopingIn: false,
     lidarVisible: ui.lidarToggle?.checked ?? true,
     boxesVisible: ui.boxesToggle?.checked ?? true,
+    backgroundVisible: ui.backgroundToggle?.checked ?? true,
+    gridVisible: ui.gridToggle?.checked ?? true,
     loopOpening: ui.openingLoopToggle?.checked ?? false,
     refreshRequested: false,
   };
+  if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
 
   const playbackDuration = () =>
     sceneLoopDuration(
@@ -884,6 +890,20 @@ export async function mountScenePlayer({
       for (const visual of visuals.values()) {
         visual.setVisible(state.boxesVisible);
       }
+      render();
+    });
+  }
+  if (ui.backgroundToggle) {
+    ui.backgroundToggle.addEventListener("change", () => {
+      state.backgroundVisible = ui.backgroundToggle.checked;
+      if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
+      render();
+    });
+  }
+  if (ui.gridToggle) {
+    ui.gridToggle.addEventListener("change", () => {
+      state.gridVisible = ui.gridToggle.checked;
+      grid.visible = state.gridVisible;
       render();
     });
   }
