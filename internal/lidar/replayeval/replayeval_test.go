@@ -32,6 +32,38 @@ func TestRunRequiresPCAPFile(t *testing.T) {
 	}
 }
 
+func TestCaptureFilesPreserveSpecifiedSequence(t *testing.T) {
+	got, err := captureFiles(Config{PCAPFiles: []string{"first.pcap", "second.pcap"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "first.pcap,second.pcap" {
+		t.Fatalf("capture order = %v", got)
+	}
+	got[0] = "changed.pcap"
+	again, err := captureFiles(Config{PCAPFiles: []string{"first.pcap", "second.pcap"}})
+	if err != nil || again[0] != "first.pcap" {
+		t.Fatalf("capture files aliased config: %v, %v", again, err)
+	}
+}
+
+func TestCaptureFilesRejectAmbiguousInput(t *testing.T) {
+	_, err := captureFiles(Config{PCAPFile: "one.pcap", PCAPFiles: []string{"two.pcap"}})
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("err = %v, want mutually exclusive complaint", err)
+	}
+}
+
+func TestRawSHA256RequiresPrefixedDigest(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	if got, err := rawSHA256(digest); err != nil || got != strings.Repeat("a", 64) {
+		t.Fatalf("rawSHA256 = %q, %v", got, err)
+	}
+	if _, err := rawSHA256(strings.Repeat("a", 64)); err == nil {
+		t.Fatal("unprefixed digest accepted")
+	}
+}
+
 func TestRunRequiresOutDir(t *testing.T) {
 	_, err := Run(Config{PCAPFile: "capture.pcap"})
 	if err == nil || !strings.Contains(err.Error(), "OutDir") {

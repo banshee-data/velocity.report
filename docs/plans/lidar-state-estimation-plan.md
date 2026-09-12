@@ -40,11 +40,13 @@ exclude warm-up and retain ended tracks' contributions; schema 1 results below a
 not population-compatible. Empty published frames count as missed opportunities without changing
 the existing tracker lifecycle policy. Accepted-only NIS remains selection-censored.
 
-Phase 1 has started with default-off, bounded cluster retention and a copy-isolated
-`l4bobserve.DetectionObservation` boundary. This is not the observation store, a surface fit, or a
-changed measurement model. The Pi timing/memory gate remains open. The original 33-track list and
-database snapshot are unavailable: a reproducible replacement review queue must be labelled and
-partitioned before it can become held-out reference evidence. Do not call those 33 tracks labelled.
+Phase 1 has a default-off, bounded `l4bobserve.DetectionObservation` store and a replay path that
+binds ordered PCAP digests, explicit calibration, and extractor revision before writing it. P11 now
+has an opt-in coarse background-surface filter with a flat-band fallback and `GroundClipped` quality
+evidence. Neither changes the position measurement or closes the Pi timing/memory, per-region
+surface, current-site gradient, or G-PER-1 gates. The original 33-track list and database snapshot
+are unavailable: a reproducible replacement review queue must be labelled and partitioned before it
+can become held-out reference evidence. Do not call those 33 tracks labelled.
 
 **Controlling decisions:** Phases 2–3 use Option A: `[x, y, vx, vy]`, a 4×4 covariance,
 and a separate uncertainty-bearing orientation belief. Six-state Option B is deferred, not a
@@ -2050,9 +2052,11 @@ marina-webster-beach,columbus-broadway,embarcadero-folsom -apply`.
 
 Together these are 16 captures and about 74 minutes. The corpus test pins the case IDs and capture
 counts, so an archive-index edit cannot quietly turn a multi-file replay into a single-file test.
-It is a replication protocol, not a published residual baseline: its Phase 0 rows remain open until
-the current collector has produced two comparable runs, residual distributions and target-Pi stage
-timings for each selected case.
+`go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline` resolves that committed corpus,
+checks the capture joins, writes immutable observations on its first pass, and rejects a second-pass
+baseline mismatch. It is a replication protocol, not a published residual baseline: its Phase 0
+rows remain open until the current collector has produced two comparable full runs, residual
+distributions and target-Pi stage timings for each selected case.
 
 #### Historical Phase 0 baseline, schema 1
 
@@ -2116,10 +2120,12 @@ extractor stores one supported plane and edge candidate when retained geometry p
 0.02 m support threshold. The stricter edge-offset acceptance test remains open with P11.
 
 The storage round-trip proves equality of the frozen raw evidence, including retained-point timing,
-intensity and primitive candidates. It does **not** yet prove end-to-end tracker-output equality:
-that requires wiring a named replay source and calibration revision through the replay runner and
-comparing the legacy tracker output on the corpus. P11's surface-relative clipping, `GroundClipped`,
-fixed covariance interpretation, current-Pi timing and the one-week G-PER-1 collection remain open.
+intensity and primitive candidates. `replayeval` now accepts an ordered `PCAPFiles` sequence,
+rejects a broken or reordered join, derives content-bound source identity, and writes observations
+before L5. Its PCAP integration test proves that this observer leaves the schema 2 tracker baseline
+byte-identical. The multi-site corpus runner applies the same comparison. This does not yet make the
+stored observations an alternative tracker input or establish the current Pi timing and one-week
+G-PER-1 collection.
 
 **Files.** New `internal/lidar/l4bobserve/`; `l4perception/cluster.go` for
 point retention and per-cluster timestamps; new
@@ -2130,11 +2136,12 @@ persisted implementation. A fixed-covariance `UncertaintyModel` remains to be im
 `MeasurementInterpretation` is specified here but is not yet a Go type: Phase 1 stores evidence,
 Phase 2 interprets it.
 
-**Also in Phase 1: the P11 remedy.** Ground removal moves from a band on absolute sensor-frame Z to
-a band on height above a coarse per-region surface fitted from the settled L3 background, and every
-observation records `GroundClipped`. This is in Phase 1 rather than later for two reasons: it
-corrupts the extents the Phase 2 measurement depends on, and Experiment E1 cannot be trusted on
-graded ground without it. Publish the fitted gradient per site as part of the phase.
+**Also in Phase 1: the P11 remedy.** The implemented first slice fits one robust coarse plane from
+the settled L3 background and clips by height above that surface. It falls back to the existing
+absolute height band if the background is unavailable or degenerate, and records `GroundClipped`
+when a lower rejected point contacts a retained cluster footprint. Per-region surfaces, a published
+gradient per site, crest/valley validation, and target-device cost remain open. This work belongs in
+Phase 1 because graded clipping corrupts the extents Phase 2 depends on.
 
 **Tests.** Synthetic scenes with known geometry assert edge offsets to within 0.02
 m. Constant-grade and crest scenarios assert the ground filter neither clips the
@@ -2516,7 +2523,7 @@ architecture; it does not relitigate findings.
 - [ ] Phase 0: residual distributions, wider capture replication, and current Pi per-stage timings
 - [ ] Phase 0: review and freeze replacement candidates; original 33 IDs are unavailable
 - [x] Phase 1 start: bounded offline cluster retention and copy-isolated observation boundary
-- [ ] Phase 1: immutable store/replay, primitive fits, surface/clipping context, and G-PER-1
+- [ ] Phase 1: complete multi-site immutable replay, per-region surface/clipping context, and G-PER-1
 - [ ] Experiment E1 on the soma static captures (Section 16.5),
       starting with the cheap E1.3 smoke test
 - [ ] Run `velocity lidar settling-eval` on all four soma files and publish
@@ -2529,7 +2536,7 @@ architecture; it does not relitigate findings.
 - [x] Decide Q10: OBB centre as an immediate stopgap. **Accepted**, see 21.1 D2
 - [ ] Implement D2: switch the measurement source to the OBB centre, behind a recorded source field
 - [ ] Re-baseline G-GEO-1's regression numbers after D2 ships
-- [ ] Fit a coarse ground plane per capture and publish the gradient, to settle P11 severity
+- [ ] Fit and publish a coarse ground gradient per capture; generalise the current global P11 plane to regions
 - [ ] Label the jump tracks in VRLOG `f84105d8` (primary, 2,038 tracks) into the held-out
       regression set, then `0fb02f22` and `60a4774c`
 - [ ] Re-measure durations and frame counts for the re-split soma captures and `clar0-1`
