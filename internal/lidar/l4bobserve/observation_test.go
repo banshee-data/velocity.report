@@ -11,11 +11,12 @@ import (
 
 func TestObservationOwnsEvidenceAndRoundTrips(t *testing.T) {
 	ring, az := 2, float32(30)
-	r := Record{ObservationID: "obs", SourceID: "capture-hash", FrameUnixNanos: 100,
+	r := Record{SchemaVersion: 1, ObservationID: "obs", SourceID: "capture-hash", CalibrationID: "pose-revision", FrameUnixNanos: 100,
 		Cluster: l4perception.WorldCluster{SensorID: "s", FrameID: "site/test", TSUnixNanos: 120,
 			PointsCount: 1, CentroidX: 3, SamplePoints: [][3]float32{{3, 2, 1}},
 			RetainedPoints: []l4perception.WorldPoint{{X: 3, Y: 2, Z: 1, Timestamp: time.Unix(0, 120).UTC(), Intensity: 7}},
-			OBB:            &l4perception.OrientedBoundingBox{Length: 4}, SensorRingHint: &ring, SensorAzDegHint: &az}}
+			OBB:            &l4perception.OrientedBoundingBox{Length: 4}, SensorRingHint: &ring, SensorAzDegHint: &az},
+		Primitives: Primitives{Planes: []Plane{{Normal: [3]float64{0, 0, 1}, Support: 1}}, Edges: []Edge{{Support: 1}}}}
 	obs, err := New(r)
 	if err != nil {
 		t.Fatal(err)
@@ -27,6 +28,8 @@ func TestObservationOwnsEvidenceAndRoundTrips(t *testing.T) {
 		v.Cluster.OBB.Length = 99
 		*v.Cluster.SensorRingHint = 99
 		*v.Cluster.SensorAzDegHint = 99
+		v.Primitives.Planes[0].Support = 99
+		v.Primitives.Edges[0].Support = 99
 	}
 	mutate(r)
 	mutate(obs.Snapshot())
@@ -50,14 +53,16 @@ func TestObservationOwnsEvidenceAndRoundTrips(t *testing.T) {
 }
 
 func TestObservationIdentityBoundsAndAbsentOptionalGeometry(t *testing.T) {
-	valid := Record{ObservationID: "o", SourceID: "s", Cluster: l4perception.WorldCluster{SensorID: "lidar", FrameID: "site/test"}}
+	valid := Record{SchemaVersion: 1, ObservationID: "o", SourceID: "s", CalibrationID: "c", Cluster: l4perception.WorldCluster{SensorID: "lidar", FrameID: "site/test"}}
 	obs, err := New(valid)
 	if err != nil || !reflect.DeepEqual(obs.Snapshot(), valid) {
 		t.Fatalf("empty evidence: %v", err)
 	}
 	for _, change := range []func(*Record){
 		func(r *Record) { r.ObservationID = "" },
+		func(r *Record) { r.SchemaVersion = 0 },
 		func(r *Record) { r.SourceID = "" },
+		func(r *Record) { r.CalibrationID = "" },
 		func(r *Record) { r.Cluster.SensorID = "" },
 		func(r *Record) { r.Cluster.FrameID = "" },
 		func(r *Record) { r.Cluster.PointsCount = -1 },
