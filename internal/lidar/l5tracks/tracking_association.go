@@ -2,6 +2,7 @@ package l5tracks
 
 import (
 	"math"
+	"sort"
 )
 
 // Internal numerical stability constants — not user-tunable.
@@ -152,12 +153,27 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	associations := make([]string, len(clusters))
 
 	// Build ordered list of active tracks.
+	//
+	// The sort is not cosmetic. Go randomises map iteration order, so without
+	// it the cost matrix columns are permuted on every frame, and Hungarian
+	// assignment resolves ties differently from one frame to the next.
+	//
+	// Creation order makes tied costs independent of random public UUIDs.
+	// Cross-run reproducibility still requires deterministic input/cluster order.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
 			activeTrackIDs = append(activeTrackIDs, id)
 		}
 	}
+	sort.Slice(activeTrackIDs, func(i, j int) bool {
+		a, b := t.Tracks[activeTrackIDs[i]], t.Tracks[activeTrackIDs[j]]
+		if a.CreationSequence != b.CreationSequence {
+			return a.CreationSequence < b.CreationSequence
+		}
+		// Hand-built/legacy tracks may not have a sequence. Runtime-created tracks do.
+		return activeTrackIDs[i] < activeTrackIDs[j]
+	})
 
 	nClusters := len(clusters)
 	nTracks := len(activeTrackIDs)
@@ -182,11 +198,27 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		costMatrix[ci] = make([]float32, nTracks)
 		for tj, trackID := range activeTrackIDs {
 			track := t.Tracks[trackID]
+
+			// Fragment guard: the gate is otherwise a 6 m radius on position
+			// alone, with nothing to stop a scrap of a cluster capturing a
+			// vehicle-sized track. On run baf20f02 a 0.11 m by 0.08 m cluster
+			// was associated to a track carrying a 4.33 m car and became its
+			// dimensions for the next 28 frames. Forbid the pairing here
+			// rather than refusing it at update time, so the fragment stays
+			// unassociated and can seed its own track.
+			// With the soft cost disabled the fragment guard forbids the
+			// pairing outright, which is the behaviour D1.5 shipped.
+			if t.Config.AssociationExtentCostWeight <= 0 && t.isFragmentFor(track, clusters[ci]) {
+				costMatrix[ci][tj] = float32(hungarianlnf)
+				track.FragmentPairingsRejected++
+				continue
+			}
+
 			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
 			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > t.Config.GatingDistanceSquared {
 				costMatrix[ci][tj] = float32(hungarianlnf)
 			} else {
-				costMatrix[ci][tj] = dist2
+				costMatrix[ci][tj] = dist2 + t.extentCompatibilityCost(track, clusters[ci])
 			}
 		}
 	}
@@ -221,8 +253,9 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 // Also performs physical plausibility checks to reject spurious associations.
 func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster WorldCluster, dt float32) float32 {
 	// Innovation: difference between measurement and prediction
-	dx := cluster.CentroidX - track.X
-	dy := cluster.CentroidY - track.Y
+	measurement := t.measurementForCluster(cluster, t.LastUpdateNanos)
+	dx := measurement.X - track.X
+	dy := measurement.Y - track.Y
 
 	// Physical plausibility check: reject if position jump is too large
 	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
@@ -294,4 +327,142 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	dist2 := dx*dx*invS00 + dx*dy*(invS01+invS10) + dy*dy*invS11
 
 	return dist2
+}
+
+// FragmentGuardMinTrackExtentMetres is the size belief above which a track is
+// treated as representing a metre-scale object, and so protected from being
+// captured by a scrap of a cluster.
+//
+// The guard is deliberately confined to that population. A pedestrian or
+// cyclist track legitimately carries an extent of well under a metre, and its
+// clusters vary by a similar amount frame to frame, so applying a small-cluster
+// rule there would reject ordinary observations. Vehicles do not shrink to a
+// tenth of their length between frames.
+// Association extent-compatibility scales. Bounded experiment values, not
+// measured noise.
+const (
+	// associationExtentScale is the log-size disagreement counted as one unit.
+	associationExtentScale = 0.5
+	// associationShortfallDiscount is how much more cheaply a cluster smaller
+	// than the belief is treated than a larger one. Occlusion produces the
+	// first on every pass; only a merge or a wrong belief produces the second.
+	associationShortfallDiscount = 0.4
+	// associationExtentCostCap limits the term to a fraction of the gating
+	// threshold, so position stays the dominant term in the assignment.
+	associationExtentCostCap = 0.25
+)
+
+const FragmentGuardMinTrackExtentMetres = 2.0
+
+// isFragmentFor reports whether a cluster is too small to be a plausible
+// observation of the given track.
+//
+// This is a narrow absurdity check, not a shape gate. It only fires when a
+// track already believes it is looking at something metre-scale and the cluster
+// on offer is smaller than MinAssociableExtentMetres. Proper dimension
+// consistency in the assignment cost is a separate, larger change.
+//
+// The track's belief is its running average extent rather than the latest
+// frame's, because the latest frame is exactly the value a fragment would have
+// corrupted.
+func (t *Tracker) isFragmentFor(track *TrackedObject, cluster WorldCluster) bool {
+	minExtent := t.Config.MinAssociableExtentMetres
+	if minExtent <= 0 {
+		return false
+	}
+
+	// Only guard tracks that have seen enough to have a belief worth trusting,
+	// and that believe they are metre-scale.
+	if track.ObservationCount < 3 {
+		return false
+	}
+	belief := track.BoundingBoxLengthAvg
+	if track.BoundingBoxWidthAvg > belief {
+		belief = track.BoundingBoxWidthAvg
+	}
+	if belief < FragmentGuardMinTrackExtentMetres {
+		return false
+	}
+
+	extent := cluster.BoundingBoxLength
+	if cluster.BoundingBoxWidth > extent {
+		extent = cluster.BoundingBoxWidth
+	}
+	// A cluster reporting no extent at all carries no evidence either way;
+	// leave it to the distance gate rather than inventing a rejection.
+	if extent <= 0 {
+		return false
+	}
+
+	return extent < minExtent
+}
+
+// extentCompatibilityCost is the D2.2 shape term: a bounded penalty for
+// pairing a track with a cluster whose size is hard to explain.
+//
+// It is deliberately not a rejection. A 0.11 m scrap may genuinely belong to
+// the car it broke off, and refusing the pairing does not make the scrap go
+// away — it leaves it free to seed a second track on the same vehicle, which
+// is the split-car symptom this sprint started from. The hard fragment guard
+// traded duplicate identities for protected dimensions. That trade is no
+// longer necessary: extent beliefs are revised only by confidently assigned,
+// well-supported observations, so dimensions are defended where they are
+// formed rather than at the association gate.
+//
+// The term is asymmetric for the same reason the axis cost is. A cluster
+// SMALLER than the track's belief is what occlusion produces on every pass, so
+// it is charged lightly — enough that a complete cluster outbids a scrap for
+// the same track, not enough to refuse the scrap when it is the only candidate.
+// A cluster LARGER than the belief needs the belief to be wrong or the cluster
+// to be a merge, and is charged accordingly.
+//
+// The result is capped below the gating threshold so position remains the
+// dominant term and this can never, on its own, push a pairing out of the gate.
+func (t *Tracker) extentCompatibilityCost(track *TrackedObject, cluster WorldCluster) float32 {
+	weight := t.Config.AssociationExtentCostWeight
+	if weight <= 0 {
+		return 0
+	}
+	belief := track.believedLongExtent()
+	extent := cluster.BoundingBoxLength
+	if cluster.BoundingBoxWidth > extent {
+		extent = cluster.BoundingBoxWidth
+	}
+	// No belief yet, or no extent reported: nothing to compare, and inventing
+	// a penalty here would just be a tax on new tracks.
+	if belief <= 0 || extent <= 0 {
+		return 0
+	}
+
+	ratio := math.Log(float64(extent / belief))
+	scaled := ratio / associationExtentScale
+	if ratio < 0 {
+		scaled *= associationShortfallDiscount
+	}
+	cost := float64(weight) * scaled * scaled
+
+	limit := float64(t.Config.GatingDistanceSquared) * associationExtentCostCap
+	if limit > 0 && cost > limit {
+		cost = limit
+	}
+	return float32(cost)
+}
+
+// believedLongExtent is the track's best current view of its own longest
+// dimension: the extent belief where the axis path has built one, and the
+// running average otherwise. The running average is the value the fragment
+// guard has always used, and it is the latest frame that a fragment would have
+// corrupted, not the average.
+func (t *TrackedObject) believedLongExtent() float32 {
+	if e := t.lengthBelief.Estimate(); e > 0 {
+		if w := t.widthBelief.Estimate(); w > e {
+			return w
+		}
+		return e
+	}
+	belief := t.BoundingBoxLengthAvg
+	if t.BoundingBoxWidthAvg > belief {
+		belief = t.BoundingBoxWidthAvg
+	}
+	return belief
 }

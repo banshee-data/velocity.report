@@ -61,7 +61,8 @@ func TestRun(t *testing.T) {
 				"remove_ground": true,
 				"max_cluster_diameter": 12.0,
 				"min_cluster_diameter": 0.05,
-				"max_cluster_aspect_ratio": 15.0
+				"max_cluster_aspect_ratio": 15.0,
+				"max_sample_points": 0
 			}
 		},
 		"l5": {
@@ -83,6 +84,11 @@ func TestRun(t *testing.T) {
 				"min_points_for_pca": 4,
 				"obb_heading_smoothing_alpha": 0.08,
 				"obb_aspect_ratio_lock_threshold": 0.25,
+				"obb_heading_lock_max_rejections": 5,
+				"obb_axis_coherence_enabled": false,
+				"min_associable_extent_metres": 0.5,
+				"association_extent_cost_weight": 0,
+				"deleted_track_render_fade": "500ms",
 				"max_track_history_length": 200,
 				"max_speed_history_length": 100,
 				"merge_size_ratio": 2.5,

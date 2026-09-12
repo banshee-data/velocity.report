@@ -133,6 +133,22 @@
         , aspect_ratio REAL
           );
 
+   CREATE TABLE lidar_observations (
+          observation_id TEXT PRIMARY KEY
+        , schema_version INTEGER NOT NULL
+        , source_id TEXT NOT NULL
+        , calibration_id TEXT NOT NULL
+        , sensor_id TEXT NOT NULL
+        , frame_id TEXT NOT NULL
+        , frame_unix_nanos INTEGER NOT NULL
+        , cluster_unix_nanos INTEGER NOT NULL
+        , cluster_id INTEGER NOT NULL
+        , record_json BLOB NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+        , CHECK (schema_version = 1)
+        , CHECK (LENGTH(record_json) > 0)
+          );
+
    CREATE TABLE lidar_param_sets (
           param_set_id TEXT PRIMARY KEY
         , params_hash TEXT NOT NULL UNIQUE
@@ -373,6 +389,53 @@
         , updated_at_ns INTEGER
           );
 
+   CREATE TABLE lidar_track_estimates (
+          estimate_id TEXT PRIMARY KEY
+        , track_id TEXT NOT NULL
+        , observation_id TEXT NOT NULL
+        , source_id TEXT NOT NULL
+        , calibration_id TEXT NOT NULL
+        , frame_unix_nanos INTEGER NOT NULL
+        , measurement_unix_nanos INTEGER NOT NULL
+        , estimator_id TEXT NOT NULL
+        , observation_model_id TEXT NOT NULL
+        , param_hash TEXT NOT NULL
+        , stage TEXT NOT NULL
+        , measurement_source TEXT NOT NULL
+        , x REAL NOT NULL
+        , y REAL NOT NULL
+        , vx REAL NOT NULL
+        , vy REAL NOT NULL
+        , covariance_json BLOB NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+        , UNIQUE (
+          track_id
+        , estimator_id
+        , observation_model_id
+        , param_hash
+        , stage
+        , frame_unix_nanos
+          )
+          );
+
+   CREATE TABLE lidar_track_residuals (
+          estimate_id TEXT PRIMARY KEY
+        , observation_id TEXT NOT NULL
+        , predicted_x REAL NOT NULL
+        , predicted_y REAL NOT NULL
+        , measurement_x REAL NOT NULL
+        , measurement_y REAL NOT NULL
+        , innovation_x REAL NOT NULL
+        , innovation_y REAL NOT NULL
+        , nis REAL NOT NULL
+        , geometry_cov_xx REAL NOT NULL
+        , geometry_cov_xy REAL NOT NULL
+        , geometry_cov_yy REAL NOT NULL
+        , disposition TEXT NOT NULL
+        , reason TEXT NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+          );
+
    CREATE TABLE IF NOT EXISTS "lidar_tracks" (
           track_id TEXT PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -427,6 +490,8 @@
         , bounding_box_height REAL
         , height_p95 REAL
         , intensity_mean REAL
+        , frame_unix_nanos INTEGER
+        , measurement_source TEXT NOT NULL DEFAULT 'legacy_centroid_v0'
         , PRIMARY KEY (track_id, ts_unix_nanos)
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
@@ -876,6 +941,14 @@ CREATE INDEX idx_lidar_sites_l13 ON lidar_sites (s2_l13_token);
 CREATE INDEX idx_lidar_sites_l10 ON lidar_sites (s2_l10_token);
 
 CREATE INDEX idx_lidar_replay_cases_site_id ON lidar_replay_cases (site_id);
+
+CREATE INDEX idx_lidar_observations_source_time ON lidar_observations (source_id, frame_unix_nanos, observation_id);
+
+CREATE INDEX idx_lidar_observations_calibration_time ON lidar_observations (calibration_id, frame_unix_nanos, observation_id);
+
+CREATE INDEX idx_lidar_track_estimates_observation ON lidar_track_estimates (observation_id, estimator_id, stage);
+
+CREATE INDEX idx_lidar_track_residuals_observation ON lidar_track_residuals (observation_id, estimate_id);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

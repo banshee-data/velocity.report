@@ -21,6 +21,9 @@ type CaptureRoot struct {
 	LastScanError string `json:"last_scan_error,omitempty"`
 	CreatedAtNs   int64  `json:"created_at_ns"`
 	UpdatedAtNs   int64  `json:"updated_at_ns"`
+	// ScanInProgress is process-local status supplied by the server. It is not
+	// persisted: a restart cannot truthfully claim a cancelled probe continues.
+	ScanInProgress bool `json:"scan_in_progress,omitempty"`
 }
 
 // Scan states a root can be in.
@@ -246,7 +249,8 @@ func (s *CaptureStore) ApplyScan(rootID string, found []capindex.File, drift cap
 				ON CONFLICT (capture_file_id) DO UPDATE SET
 					size_bytes = excluded.size_bytes,
 					modified_at_ns = excluded.modified_at_ns,
-					content_tag = excluded.content_tag,
+					content_tag = CASE WHEN excluded.content_tag = ''
+						THEN lidar_capture_files.content_tag ELSE excluded.content_tag END,
 					first_packet_ns = NULL, last_packet_ns = NULL, packet_count = NULL,
 					udp_port = NULL, probed_at_ns = NULL, probe_error = '', session_id = NULL,
 					probe_state = ?, present = 1, last_seen_at_ns = excluded.last_seen_at_ns`,
@@ -261,7 +265,8 @@ func (s *CaptureStore) ApplyScan(rootID string, found []capindex.File, drift cap
 				ON CONFLICT (capture_file_id) DO UPDATE SET
 					size_bytes = excluded.size_bytes,
 					modified_at_ns = excluded.modified_at_ns,
-					content_tag = excluded.content_tag,
+					content_tag = CASE WHEN excluded.content_tag = ''
+						THEN lidar_capture_files.content_tag ELSE excluded.content_tag END,
 					present = 1, last_seen_at_ns = excluded.last_seen_at_ns`,
 				id, rootID, f.RelPath, f.SizeBytes, f.ModifiedAt.UnixNano(), f.ContentTag,
 				ProbeStatePending, now, now)

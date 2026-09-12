@@ -70,6 +70,7 @@
 	let error: string | null = null;
 	let scanning = false;
 	let lastScan: ScanRootResult | null = null;
+	let scanPoll: ReturnType<typeof setTimeout> | null = null;
 
 	// Selection for building a case. Keyed by capture_file_id so a re-fetch
 	// does not lose what the operator picked.
@@ -157,14 +158,47 @@
 		error = null;
 		lastScan = null;
 		try {
-			const result = await scanCaptureRoots({ rootId: activeRoot?.root_id, probe });
+			const result = await scanCaptureRoots({
+				rootId: activeRoot?.root_id,
+				probe,
+				async: probe
+			});
 			lastScan = result.roots[0] ?? null;
+			if (probe) {
+				startScanPolling(activeRoot?.root_id);
+				return;
+			}
 			await loadIndex();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not scan the capture volumes.';
 		} finally {
-			scanning = false;
+			if (!probe) scanning = false;
 		}
+	}
+
+	function startScanPolling(rootId?: string) {
+		stopScanPolling();
+		const poll = async () => {
+			try {
+				await loadIndex();
+				const root = roots.find((r) => r.root_id === rootId) ?? activeRoot;
+				if (!root?.scan_in_progress) {
+					scanning = false;
+					scanPoll = null;
+					return;
+				}
+				scanPoll = setTimeout(poll, 2000);
+			} catch {
+				scanning = false;
+				scanPoll = null;
+			}
+		};
+		scanPoll = setTimeout(poll, 1000);
+	}
+
+	function stopScanPolling() {
+		if (scanPoll) clearTimeout(scanPoll);
+		scanPoll = null;
 	}
 
 	async function toggleSession(sessionId: string) {
@@ -360,7 +394,10 @@
 		});
 	});
 
-	onDestroy(stopJobPolling);
+	onDestroy(() => {
+		stopJobPolling();
+		stopScanPolling();
+	});
 </script>
 
 <svelte:head><title>Captures — velocity.report</title></svelte:head>

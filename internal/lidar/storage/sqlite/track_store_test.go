@@ -190,7 +190,9 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 		{
 			TrackID:           "track-obs-test",
 			TSUnixNanos:       1234567890000000000,
+			FrameUnixNanos:    1234567889900000000,
 			FrameID:           "site/main",
+			MeasurementSource: "obb_centre_v1",
 			X:                 10.0,
 			Y:                 20.0,
 			Z:                 1.0,
@@ -207,7 +209,9 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 		{
 			TrackID:           "track-obs-test",
 			TSUnixNanos:       1234567891000000000,
+			FrameUnixNanos:    1234567890900000000,
 			FrameID:           "site/main",
+			MeasurementSource: "medoid_fallback_v1",
 			X:                 15.0,
 			Y:                 20.0,
 			Z:                 1.0,
@@ -246,6 +250,9 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 
 	if retrieved[0].X != 15.0 {
 		t.Errorf("Expected X=15.0 for most recent observation, got %f", retrieved[0].X)
+	}
+	if retrieved[0].FrameUnixNanos != 1234567890900000000 || retrieved[0].MeasurementSource != "medoid_fallback_v1" {
+		t.Errorf("measurement provenance was not retained: %+v", retrieved[0])
 	}
 }
 

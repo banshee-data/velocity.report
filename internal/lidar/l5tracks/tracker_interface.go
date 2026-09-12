@@ -65,6 +65,12 @@ type TrackerInterface interface {
 	// deleted track fade-out rendering.
 	GetDeletedTrackGracePeriod() time.Duration
 
+	// GetDeletedTrackRenderFade returns how long a deleted track stays
+	// published to clients, fading out. Distinct from the re-association
+	// grace period above, which is an internal concern and far too long to
+	// hold a frozen box on screen.
+	GetDeletedTrackRenderFade() time.Duration
+
 	// UpdateConfig applies the given function to the tracker's
 	// configuration under the tracker lock, making it safe for
 	// concurrent callers (e.g. HTTP tuning handlers).

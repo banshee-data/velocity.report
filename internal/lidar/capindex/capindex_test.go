@@ -68,6 +68,22 @@ func TestScanFindsCapturesAndIgnoresTheRest(t *testing.T) {
 	}
 }
 
+func TestScanMetadataDoesNotReadCaptureContents(t *testing.T) {
+	dir := t.TempDir()
+	writeCapture(t, dir, "s2_sf_3_00001.pcap", 512, 1)
+
+	files, err := ScanMetadata(dir)
+	if err != nil {
+		t.Fatalf("ScanMetadata: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("ScanMetadata found %d files, want 1", len(files))
+	}
+	if files[0].ContentTag != "" {
+		t.Errorf("metadata scan content tag = %q, want empty", files[0].ContentTag)
+	}
+}
+
 func TestScanIsStableAndUsesSlashPaths(t *testing.T) {
 	dir := t.TempDir()
 	writeCapture(t, dir, "b/second.pcap", 256, 1)

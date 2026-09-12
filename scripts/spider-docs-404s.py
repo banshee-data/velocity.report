@@ -14,7 +14,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, build_opener
 
-
 DEFAULT_ROOT_URL = "http://velocity.local/docs/"
 
 

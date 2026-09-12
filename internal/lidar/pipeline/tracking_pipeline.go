@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -143,6 +145,20 @@ type PersistenceSink interface {
 	PersistObservation(obs *sqlite.TrackObservation) error
 }
 
+// DetectionObservationSink is the write-once persistence boundary for L4
+// evidence. It is intentionally separate from PersistenceSink: observations
+// exist whether an L5 association is accepted, rejected, or never attempted.
+type DetectionObservationSink interface {
+	Insert(l4bobserve.DetectionObservation) error
+}
+
+// StateEstimateSink persists versioned derived state. It is separate from the
+// observation sink because estimates may be recomputed, while observations may
+// not be revised.
+type StateEstimateSink interface {
+	Insert(estimate sqlite.TrackEstimate, residual sqlite.TrackResidual) error
+}
+
 // PublishSink sends pipeline outputs to external consumers (visualiser, gRPC).
 type PublishSink interface {
 	// PublishFrame sends a processed frame to external subscribers.
@@ -161,6 +177,30 @@ type TrackingPipelineConfig struct {
 	VisualiserPublisher VisualiserPublisher        // Optional: gRPC publisher
 	VisualiserAdapter   VisualiserAdapter          // Optional: adapter for gRPC
 	LidarViewAdapter    LidarViewAdapter           // Optional: adapter for UDP forwarding
+
+	// ObservationSink persists frozen L4 evidence before L5 tracking. It is
+	// disabled unless all three fields are supplied: source and calibration
+	// identities must be owned by the capture/pose provider, never guessed by
+	// the tracker from a sensor name or an S2 location.
+	ObservationSink          DetectionObservationSink
+	ObservationSourceID      string
+	ObservationCalibrationID string
+
+	// StateEstimateSink is enabled only for a source with explicit capture and
+	// calibration identities. The live server deliberately leaves it unset
+	// until those identities are provided by the capture/pose owner.
+	StateEstimateSink       StateEstimateSink
+	StateEstimatorID        string
+	StateObservationModelID string
+	StateParameterHash      string
+
+	// DebugCollector is shared with the tracker at construction, before callbacks
+	// start. Its lifecycle belongs to this serial callback; do not toggle it or
+	// share it across pipelines while processing frames.
+	DebugCollector *debug.DebugCollector
+	// MaxSamplePoints opts an offline caller into bounded cluster evidence.
+	// Live callers leave this at zero until the target-device budget is measured.
+	MaxSamplePoints int
 
 	// MaxFrameRate caps the rate at which frames are fully processed through
 	// the tracking pipeline. When frames arrive faster than this rate (e.g.
@@ -221,6 +261,13 @@ type TrackingPipelineConfig struct {
 	// clustering. Set to false to disable ground removal entirely.
 	RemoveGround bool
 
+	// UseSurfaceGround changes lower clipping from an absolute sensor Z band to
+	// height above a plane fitted from settled L3 background. It remains opt-in
+	// until the Phase 0 corpus supplies real-site timing and geometry evidence.
+	UseSurfaceGround     bool
+	SurfaceGroundFloor   float64 // metres above the fitted surface; default 0.2
+	SurfaceGroundCeiling float64 // metres above the fitted surface; default 4.5
+
 	// BenchmarkMode, when non-nil and true, enables per-frame performance
 	// tracing: stage timing via FrameTimer, slow-frame alerts, periodic
 	// health summaries (heap/goroutines), and pipeline lag detection.
@@ -257,6 +304,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	heightBandFloor := cfg.HeightBandFloor
 	heightBandCeiling := cfg.HeightBandCeiling
 	removeGround := cfg.RemoveGround
+	useSurfaceGround := cfg.UseSurfaceGround
+	surfaceGroundFloor := cfg.SurfaceGroundFloor
+	surfaceGroundCeiling := cfg.SurfaceGroundCeiling
 	sensorID := cfg.SensorID
 
 	// An unset profile means "everything", which is what every caller written
@@ -297,11 +347,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// callback instance (i.e. per PCAP/session) to avoid flooding the log.
 	var logFgForwarderNilOnce sync.Once
 	var logGroundDisabledOnce sync.Once
+	var logSurfaceGroundFallbackOnce sync.Once
+	var groundSurface *l3grid.GroundSurface
 
 	// Cache the default DBSCAN params once at callback creation time rather
 	// than loading from disk on every frame. The per-frame overrides
 	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
+	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 
 	// Pipeline performance tracing state.
 	const slowFrameThresholdMs = 50.0  // emit diagf alert when frame exceeds this
@@ -319,6 +372,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// otherwise skip Publish().
 	hasVisualiser := !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher)
 	publishEmptyFrame := func(frame *l2frames.LiDARFrame) {
+		if baseline, ok := cfg.Tracker.(interface{ RecordBaselineEmptyFrame() }); ok && !isNilInterface(baseline) {
+			baseline.RecordBaselineEmptyFrame()
+		}
 		if !hasVisualiser {
 			return
 		}
@@ -571,17 +627,38 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Bounds are in sensor frame (identity pose): Z=0 is the sensor's horizontal
 		// plane, ground is at approximately −3.0 m for a ~3 m mount height.
 		filteredPoints := worldPoints
+		var lowerGroundRejected []l4perception.WorldPoint
 		if removeGround {
-			var groundFilter *l4perception.HeightBandFilter
-			if heightBandFloor != 0 || heightBandCeiling != 0 {
-				groundFilter = l4perception.NewHeightBandFilter(heightBandFloor, heightBandCeiling)
-			} else {
-				groundFilter = l4perception.DefaultHeightBandFilter()
+			if useSurfaceGround && groundSurface == nil {
+				surface, err := l3grid.FitGroundSurfaceFromBackground(cfg.BackgroundManager)
+				if err == nil {
+					groundSurface = &surface
+					tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm", surface.Support, surface.GradientMetre, surface.RMSEMetres)
+				} else {
+					logSurfaceGroundFallbackOnce.Do(func() { diagf("Surface-ground filter waiting for settled background: %v", err) })
+				}
 			}
-			filteredPoints = groundFilter.FilterVertical(worldPoints)
-			proc, kept, below, above := groundFilter.Stats()
-			tracef("Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
-				proc, kept, below, above)
+			if groundSurface != nil {
+				floor, ceiling := surfaceGroundFloor, surfaceGroundCeiling
+				if floor == 0 {
+					floor = .2
+				}
+				if ceiling == 0 {
+					ceiling = 4.5
+				}
+				filteredPoints, lowerGroundRejected = (l4perception.SurfaceHeightFilter{Surface: *groundSurface, Floor: floor, Ceiling: ceiling}).Filter(worldPoints)
+			} else {
+				var groundFilter *l4perception.HeightBandFilter
+				if heightBandFloor != 0 || heightBandCeiling != 0 {
+					groundFilter = l4perception.NewHeightBandFilter(heightBandFloor, heightBandCeiling)
+				} else {
+					groundFilter = l4perception.DefaultHeightBandFilter()
+				}
+				filteredPoints = groundFilter.FilterVertical(worldPoints)
+				proc, kept, below, above := groundFilter.Stats()
+				tracef("Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+					proc, kept, below, above)
+			}
 		} else {
 			logGroundDisabledOnce.Do(func() {
 				diagf("Ground removal disabled, passing %d points through", len(worldPoints))
@@ -628,6 +705,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		dbscanParams.MaxInputPoints = maxInputPoints
 
 		clusters := l4perception.DBSCAN(filteredPoints, dbscanParams)
+		if len(lowerGroundRejected) > 0 {
+			l4perception.MarkGroundClipped(clusters, lowerGroundRejected)
+		}
 		if len(clusters) == 0 {
 			// No clusters, but still record foreground stats (all points are noise)
 			if cfg.Tracker != nil {
@@ -657,6 +737,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		// Always log clustering for tracking debugging
 		tracef("Clustered into %d objects", len(clusters))
+		if err := persistDetectionObservations(cfg, frame, clusters); err != nil {
+			opsf("Failed to persist immutable observations: %v", err)
+		}
 
 		// Profile gate: detect stops here. Clusters exist for this frame but
 		// no tracker state is created and no track is ever persisted, which is
@@ -682,7 +765,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
+		var debugFrame *debug.DebugFrame
+		if cfg.DebugCollector != nil {
+			// The adapter assigns the enclosing bundle's frame ID on publication.
+			cfg.DebugCollector.BeginFrame(0)
+		}
 		cfg.Tracker.Update(clusters, frame.StartTimestamp)
+		if cfg.DebugCollector != nil {
+			debugFrame = cfg.DebugCollector.Emit()
+		}
 
 		// Stage 5: Classify and persist confirmed tracks
 		if ft != nil {
@@ -759,8 +850,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					// track record itself for classification/reporting.
 					obs := &sqlite.TrackObservation{
 						TrackID:           track.TrackID,
-						TSUnixNanos:       frame.StartTimestamp.UnixNano(),
+						TSUnixNanos:       track.LastMeasurementUnixNanos,
+						FrameUnixNanos:    frame.StartTimestamp.UnixNano(),
 						FrameID:           frameID,
+						MeasurementSource: string(track.LastMeasurementSource),
 						X:                 track.X,
 						Y:                 track.Y,
 						Z:                 track.LatestZ,
@@ -778,6 +871,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						opsf("Failed to insert observation for track %s: %v", track.TrackID, err)
 						txFailed = true
 					}
+				}
+			}
+
+			// The derived record has its own versioned store. It is intentionally
+			// allowed in replay when legacy track persistence is disabled, but it
+			// must still link to the immutable observation that reached the filter.
+			if track.Misses == 0 {
+				if err := persistOnlineStateEstimate(cfg, track, frame.StartTimestamp.UnixNano()); err != nil {
+					opsf("Failed to persist state estimate for track %s: %v", track.TrackID, err)
 				}
 			}
 		}
@@ -801,10 +903,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("publish")
 		}
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
-			// Adapt frame to FrameBundle
-			// Note: Debug collector is integrated in Tracker but requires explicit enablement
-			// via Tracker.SetDebugCollector(). Pass nil here as debug collection is optional.
-			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, nil)
+			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, debugFrame)
 
 			// Publish to gRPC stream
 			cfg.VisualiserPublisher.Publish(frameBundle)

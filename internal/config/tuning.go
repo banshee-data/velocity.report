@@ -102,6 +102,7 @@ type L4Common struct {
 	ForegroundDBSCANEps        float64 `json:"foreground_dbscan_eps"`
 	ForegroundMinClusterPoints int     `json:"foreground_min_cluster_points"`
 	ForegroundMaxInputPoints   int     `json:"foreground_max_input_points"`
+	MaxSamplePoints            int     `json:"max_sample_points"` // 0 disables retained cluster evidence
 	HeightBandFloor            float64 `json:"height_band_floor"`
 	HeightBandCeiling          float64 `json:"height_band_ceiling"`
 	RemoveGround               bool    `json:"remove_ground"`
@@ -139,22 +140,44 @@ type L5Config struct {
 
 // L5Common contains fields shared by all L5 engines.
 type L5Common struct {
-	GatingDistanceSquared            float64 `json:"gating_distance_squared"`
-	ProcessNoisePos                  float64 `json:"process_noise_pos"`
-	ProcessNoiseVel                  float64 `json:"process_noise_vel"`
-	MeasurementNoise                 float64 `json:"measurement_noise"`
-	OcclusionCovInflation            float64 `json:"occlusion_cov_inflation"`
-	HitsToConfirm                    int     `json:"hits_to_confirm"`
-	MaxMisses                        int     `json:"max_misses"`
-	MaxMissesConfirmed               int     `json:"max_misses_confirmed"`
-	MaxTracks                        int     `json:"max_tracks"`
-	MaxReasonableSpeedMps            float64 `json:"max_reasonable_speed_mps"`
-	MaxPositionJumpMetres            float64 `json:"max_position_jump_metres"`
-	MaxPredictDt                     float64 `json:"max_predict_dt"`
-	MaxCovarianceDiag                float64 `json:"max_covariance_diag"`
-	MinPointsForPCA                  int     `json:"min_points_for_pca"`
-	OBBHeadingSmoothingAlpha         float64 `json:"obb_heading_smoothing_alpha"`
-	OBBAspectRatioLockThreshold      float64 `json:"obb_aspect_ratio_lock_threshold"`
+	GatingDistanceSquared       float64 `json:"gating_distance_squared"`
+	ProcessNoisePos             float64 `json:"process_noise_pos"`
+	ProcessNoiseVel             float64 `json:"process_noise_vel"`
+	MeasurementNoise            float64 `json:"measurement_noise"`
+	OcclusionCovInflation       float64 `json:"occlusion_cov_inflation"`
+	HitsToConfirm               int     `json:"hits_to_confirm"`
+	MaxMisses                   int     `json:"max_misses"`
+	MaxMissesConfirmed          int     `json:"max_misses_confirmed"`
+	MaxTracks                   int     `json:"max_tracks"`
+	MaxReasonableSpeedMps       float64 `json:"max_reasonable_speed_mps"`
+	MaxPositionJumpMetres       float64 `json:"max_position_jump_metres"`
+	MaxPredictDt                float64 `json:"max_predict_dt"`
+	MaxCovarianceDiag           float64 `json:"max_covariance_diag"`
+	MinPointsForPCA             int     `json:"min_points_for_pca"`
+	OBBHeadingSmoothingAlpha    float64 `json:"obb_heading_smoothing_alpha"`
+	OBBAspectRatioLockThreshold float64 `json:"obb_aspect_ratio_lock_threshold"`
+	// OBBHeadingLockMaxRejections releases the heading lock after this many
+	// consecutive Guard 3 rejections. Guard 3 compares each measurement against
+	// the smoothed heading, so once that has drifted outside the rejection band
+	// the lock is self-sustaining. Zero disables the release, restoring the
+	// original ratchet.
+	OBBHeadingLockMaxRejections int `json:"obb_heading_lock_max_rejections"`
+	// OBBAxisCoherenceEnabled selects the experimental axial observation path.
+	// False retains the production guards for controlled A/B comparisons.
+	OBBAxisCoherenceEnabled bool `json:"obb_axis_coherence_enabled"`
+	// MinAssociableExtentMetres is the smallest cluster extent that may be
+	// associated with a metre-scale track. Zero disables the fragment guard.
+	MinAssociableExtentMetres float64 `json:"min_associable_extent_metres"`
+	// AssociationExtentCostWeight scales a bounded extent-compatibility term
+	// in the association cost, and converts the fragment guard from a
+	// forbidden pairing into a finite penalty. Zero keeps the hard guard, so
+	// association changes can be measured separately from heading changes.
+	AssociationExtentCostWeight float64 `json:"association_extent_cost_weight"`
+	// DeletedTrackRenderFade is how long a deleted track is still published
+	// to clients, fading out. It is deliberately separate from
+	// DeletedTrackGracePeriod, which governs internal re-association and is
+	// far too long to hold a frozen box on screen.
+	DeletedTrackRenderFade           string  `json:"deleted_track_render_fade"`
 	MaxTrackHistoryLength            int     `json:"max_track_history_length"`
 	MaxSpeedHistoryLength            int     `json:"max_speed_history_length"`
 	MergeSizeRatio                   float64 `json:"merge_size_ratio"`

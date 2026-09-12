@@ -1,14 +1,25 @@
 # Motion capture architecture - future specification
 
+This specification explores moving-sensor capture. Its three-dimensional state and storage sketches
+are future contracts, not descriptions of the fixed-site runtime.
+
 - **Status:** Future Work (Not in Current Release)
 - **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks
 - **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
 - **Purpose:** Long-term architecture specification for motion capture scenarios
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
 
+**State-model boundary:** The future six-state `[x, y, z, vx, vy, vz]` and `covariance_6x6`
+below are not requirements for the current planar `[x, y, vx, vy]` filter. The
+[state-estimation plan](lidar-state-estimation-plan.md) controls that four-state increment with
+separate orientation uncertainty. A moving-sensor extension needs an explicit model
+discriminator and matching covariance schema; these sketches do not authorise a silent change
+to current observation or estimate rows.
+
 ---
 
-> **Scope notice, concept overview, and implementation summary:** see [motion-capture.md](../lidar/operations/motion-capture.md).
+> **Scope notice, concept overview, and implementation summary:** see
+> [motion capture](../lidar/operations/motion-capture.md).
 
 ---
 
@@ -31,11 +42,8 @@
 
 **Current Implementation (4x4 Matrix):**
 
-type Pose struct {
-T [16]float64 // 4x4 homogeneous transformation matrix
-// T = [R | t] where R is 3x3 rotation, t is 3x1 translation
-// [0 | 1]
-}
+type Pose struct { T [16]float64 // 4x4 homogeneous transformation matrix // T = [R | t] where R is
+3x3 rotation, t is 3x1 translation // [0 | 1] }
 **Future Implementation (7DOF):**
 
 **Pose7DOF** fields:
@@ -100,9 +108,8 @@ T [16]float64 // 4x4 homogeneous transformation matrix
 
 **SLERP (Spherical Linear Interpolation):**
 
-q(t) = sin((1-t)θ)/sin(θ) · q0 + sin(tθ)/sin(θ) · q1
-where cos(θ) = q0 · q1 (dot product)
-This provides smooth rotation interpolation between poses.
+q(t) = sin((1-t)θ)/sin(θ) · q0 + sin(tθ)/sin(θ) · q1 where cos(θ) = q0 · q1 (dot product) This
+provides smooth rotation interpolation between poses.
 
 ---
 
@@ -146,8 +153,7 @@ v_measured = v_object + v_sensor
 - Measured velocity includes sensor velocity
 - Compute sensor velocity at measurement point
 - De-bias: Remove sensor velocity to get object velocity
-- Use de-biased velocity for Kalman update
-  **Sensor Velocity at Point (Pseudocode):**
+- Use de-biased velocity for Kalman update **Sensor Velocity at Point (Pseudocode):**
 
 - Note: This is mathematical pseudocode showing the algorithm concept.
 - In actual Go implementation, vector operations require explicit element-wise computation.
@@ -183,15 +189,10 @@ v_measured = v_object + v_sensor
 
 **4-State Kalman Filter:**
 
-State: x = [x, y, vx, vy]ᵀ
-Covariance: P (4×4 matrix)
+State: x = [x, y, vx, vy]ᵀ Covariance: P (4×4 matrix)
 **Prediction:**
 
-x' = F·x + w
-where F = [1 0 dt 0]
-[0 1 0 dt]
-[0 0 1 0]
-[0 0 0 1]
+x' = F·x + w where F = [1 0 dt 0] [0 1 0 dt] [0 0 1 0] [0 0 0 1]
 **Limitations:**
 
 - ❌ No height tracking (assumes z = 0)
@@ -203,8 +204,7 @@ where F = [1 0 dt 0]
 
 **13-State Kalman Filter:**
 
-State: x = [x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz]ᵀ
-Covariance: P (13×13 matrix)
+State: x = [x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz]ᵀ Covariance: P (13×13 matrix)
 **State Components:**
 
 - **Position (3):** x, y, z (metres)
@@ -222,8 +222,7 @@ Covariance: P (13×13 matrix)
 - where Ω(ω) is the quaternion rate matrix
 - Velocity predictions (constant velocity model)
 - VX, VY, VZ, WX, WY, WZ remain constant
-- Covariance prediction (13×13)
-  **Update (with 3D Measurements):**
+- Covariance prediction (13×13) **Update (with 3D Measurements):**
 
 **Update** algorithm:
 
@@ -247,17 +246,15 @@ Covariance: P (13×13 matrix)
 
 1. **From Velocity (Simple):**
 
-// Current method - heading from velocity
-heading := atan2(vy, vx)
-quat := QuaternionFromYaw(heading) // Rotation around Z-axis only 2. **From Point Cloud Principal Axes (Better):**
+// Current method - heading from velocity heading := atan2(vy,
+vx) quat := QuaternionFromYaw(heading) // Rotation around Z-axis
+only 2. **From Point Cloud Principal Axes (Better):**
 
-// Compute principal axes via PCA on cluster points
-pca := ComputePCA(clusterPoints)
-orientation := QuaternionFromPCA(pca) 3. **From Tracking History (Best):**
+// Compute principal axes via PCA on cluster points pca := ComputePCA(clusterPoints) orientation :=
+QuaternionFromPCA(pca) 3. **From Tracking History (Best):**
 
-// Use Kalman filter to estimate orientation over time
-// Integrates velocity heading, PCA, and temporal consistency
-track.UpdateOrientation(measurement)
+// Use Kalman filter to estimate orientation over time // Integrates velocity heading, PCA, and
+temporal consistency track.UpdateOrientation(measurement)
 
 ---
 
@@ -269,8 +266,8 @@ For reliable object tracking, clusters must represent consistent real-world obje
 
 **Multi-Stage Clustering Pipeline:**
 
-Raw Points → Ground Removal → DBSCAN/Euclidean Clustering → Cluster Merging →
-Shape Estimation → Temporal Association → 7-DOF Box Fitting
+Raw Points → Ground Removal → DBSCAN/Euclidean Clustering → Cluster Merging → Shape Estimation →
+Temporal Association → 7-DOF Box Fitting
 **Detailed algorithms are specified in `av-lidar-integration-plan.md` Phase 6-7:**
 
 - **Phase 6:** Clustering Algorithms (AdaptiveDBSCAN, Octree spatial index, cluster merging)
@@ -469,16 +466,19 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 
 **Step 1: Static Deployment (Current Release)**
 
-Deploy with static pose alignment: `./velocity-report --lidar-sensor-id=hesai-01`
-**Step 2: Upgrade to 7DOF Support (Future Phase 1)**
+Deploy with static pose alignment: `./velocity-report --lidar-sensor-id=hesai-01` **Step 2:
+Upgrade to 7DOF Support (Future Phase 1)**
 
-Binary supports 7DOF, but still static: `./velocity-report --lidar-sensor-id=hesai-01`
-**Step 3: Enable 3D Tracking (Future Phase 2-3)**
+Binary supports 7DOF, but still static: `./velocity-report --lidar-sensor-id=hesai-01` **Step
+3: Enable 3D Tracking (Future Phase 2-3)**
 
-Enable 3D tracking (still static sensor): `./velocity-report --lidar-sensor-id=hesai-01 --use-3d-tracking`
+Enable 3D tracking (still static sensor):
+`./velocity-report --lidar-sensor-id=hesai-01 --use-3d-tracking`
 **Step 4: Motion Capture (Future Phase 4)**
 
-Enable motion capture (moving sensor): `./velocity-report --lidar-sensor-id=hesai-01 --use-3d-tracking --enable-ego-motion --pose-source=gps+imu`
+Enable motion capture (moving sensor):
+The future CLI would select the sensor, 3D tracking, ego-motion compensation, and a GPS/IMU
+pose source. These switches are proposed, not a supported current invocation.
 
 ### Data migration
 
@@ -519,21 +519,19 @@ Enable motion capture (moving sensor): `./velocity-report --lidar-sensor-id=hesa
 
 **Integration Points:**
 
-// Pose provider interface
-type PoseProvider interface {
-GetCurrentPose() (*Pose7DOF, error)
-GetPoseAtTime(t time.Time) (*Pose7DOF, error)
-SubscribeToPoses(callback func(\*Pose7DOF))
-}
+// Pose provider interface type PoseProvider interface { GetCurrentPose() (*Pose7DOF, error)
+GetPoseAtTime(t time.Time) (*Pose7DOF, error) SubscribeToPoses(callback func(\*Pose7DOF)) }
 
-// Implementations
-type GPSIMUProvider struct { ... }
-type VisualOdometryProvider struct { ... }
-type SLAMProvider struct { ... }
----\n\n## Related Documents
+// Implementations type GPSIMUProvider struct { ... } type VisualOdometryProvider struct { ... }
+type SLAMProvider struct { ... } ---\n\n## Related Documents
 
-- **Current Implementation:** [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md) (3DOF/2D+velocity tracking - what's actually deployed)
+- **Current Implementation:**
+  [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md)
+  (3DOF/2D+velocity tracking - what's actually deployed)
 - **Deferred - Static Pose:** `static-pose-alignment-plan.md` (future static sensor calibration)
-- **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset integration, not current traffic monitoring)
-- **Database Schema:** [../../internal/db/schema.sql](../../internal/db/schema.sql) (current and future tables)
-- **ML Pipeline:** [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md) (classification pipeline)
+- **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset
+  integration, not current traffic monitoring)
+- **Database Schema:** [../../internal/db/schema.sql](../../internal/db/schema.sql)
+  (current and future tables)
+- **ML Pipeline:** [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md)
+  (classification pipeline)

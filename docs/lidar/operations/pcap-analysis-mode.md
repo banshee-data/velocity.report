@@ -4,7 +4,21 @@ PCAP analysis mode replays captured packet data through the LiDAR pipeline while
 
 ## Overview
 
-The LiDAR system supports two modes for PCAP replay. Both park on their final
+For isolated headless evaluation, `velocity lidar pcap-replay` does not start the server or
+use its saved grid. `--start-seconds` alone skips packets and does not warm anything.
+Use `--warmup-seconds` to process a same-capture prefix before the scoring start, with
+background and tracker state retained continuously. For example, start 35, warm-up 35,
+duration 20 processes capture seconds 0–55 and records frames starting in seconds 35–55.
+`--require-settled` rejects a run whose grid is not settled before the first scored frame.
+This certifies grid convergence, not a static sensor pose or an empty street.
+
+Each successful headless run writes `replay_manifest.json` with source/calibration/tuning
+hashes, build identity, processing/scoring boundaries, retained-state policy, settling status,
+and frame counts. Output directories must be empty. Use identical windows and explicit tuning
+files in both arms. Point clouds are omitted unless `--include-points` is set. See the
+[heading experiment](../../plans/lidar-heading-d2-implementation-report.md) for evidence limits.
+
+The server supports two modes for PCAP replay. Both park on their final
 frame when the selected window ends. While parked, the server listens for live
 packets; a new packet returns the pipeline to live, while a quiet sensor leaves
 the replay available for inspection.

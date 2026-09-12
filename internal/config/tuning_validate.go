@@ -267,6 +267,9 @@ func (c *L4Common) Validate() error {
 	if c.ForegroundMaxInputPoints < 1 {
 		return fmt.Errorf("foreground_max_input_points must be >= 1, got %d", c.ForegroundMaxInputPoints)
 	}
+	if c.MaxSamplePoints < 0 || c.MaxSamplePoints > 1024 {
+		return fmt.Errorf("max_sample_points must be between 0 and 1024, got %d", c.MaxSamplePoints)
+	}
 	if c.HeightBandFloor > c.HeightBandCeiling {
 		return fmt.Errorf("height_band_floor must be <= height_band_ceiling, got %f > %f", c.HeightBandFloor, c.HeightBandCeiling)
 	}
@@ -361,6 +364,18 @@ func (c *L5Common) Validate() error {
 	}
 	if c.OBBHeadingSmoothingAlpha < 0 || c.OBBHeadingSmoothingAlpha > 1 {
 		return fmt.Errorf("obb_heading_smoothing_alpha must be in [0, 1], got %f", c.OBBHeadingSmoothingAlpha)
+	}
+	if c.AssociationExtentCostWeight < 0 {
+		return fmt.Errorf("association_extent_cost_weight must be non-negative, got %f", c.AssociationExtentCostWeight)
+	}
+	if c.MinAssociableExtentMetres < 0 {
+		return fmt.Errorf("min_associable_extent_metres must be non-negative, got %f", c.MinAssociableExtentMetres)
+	}
+	if _, err := time.ParseDuration(c.DeletedTrackRenderFade); err != nil {
+		return fmt.Errorf("deleted_track_render_fade must be a valid duration, got %q: %w", c.DeletedTrackRenderFade, err)
+	}
+	if c.OBBHeadingLockMaxRejections < 0 {
+		return fmt.Errorf("obb_heading_lock_max_rejections must be non-negative, got %d", c.OBBHeadingLockMaxRejections)
 	}
 	if c.OBBAspectRatioLockThreshold < 0 {
 		return fmt.Errorf("obb_aspect_ratio_lock_threshold must be non-negative, got %f", c.OBBAspectRatioLockThreshold)

@@ -26,18 +26,100 @@ const (
 	HeadingSourceVelocity     HeadingSource = 1 // Disambiguated using Kalman velocity
 	HeadingSourceDisplacement HeadingSource = 2 // Disambiguated using position displacement
 	HeadingSourceLocked       HeadingSource = 3 // Heading locked (aspect ratio guard or jump rejection)
+	// HeadingSourceReleased marks the frame on which the rejection counter
+	// forced a locked heading to release and snap to the measurement. It is a
+	// distinct source rather than a counter so that the event survives into
+	// the recorded stream: a VRLOG carries heading source per frame, and
+	// without this a forced release is indistinguishable from an ordinary
+	// unlocked frame on replay.
+	HeadingSourceReleased HeadingSource = 4
+	HeadingSourceAxis     HeadingSource = 5 // Supported axis interpretation, not directed body yaw
+	// HeadingSourceAmbiguous means the aligned and swapped interpretations
+	// scored too closely to separate. This is the genuine quarter-turn
+	// ambiguity, and forcing a winner here is not an improvement.
+	HeadingSourceAmbiguous    HeadingSource = 6
+	HeadingSourceInsufficient HeadingSource = 7 // Missing or invalid geometry, or too few points
+	// The two abstentions below were previously reported as ambiguous too.
+	// They are separated because they call for different fixes: a near-square
+	// observation carries no axis to recover, whereas an observation that
+	// matches neither interpretation indicts the support reference.
+	HeadingSourceAxisSquare HeadingSource = 8 // No distinguishable long axis
+	HeadingSourceAxisNoFit  HeadingSource = 9 // Neither interpretation fits the support reference
+	// HeadingSourceAxisReleased marks the frame on which a sustained run of
+	// abstentions re-seeded the support reference and snapped the heading to
+	// the observation. As with HeadingSourceReleased it is a source rather
+	// than a counter so the event survives into a recording.
+	HeadingSourceAxisReleased HeadingSource = 10
+	// HeadingSourceAxisLowSupport marks a view showing too little of the
+	// believed long axis to orient the box. Extent alone cannot refuse it — a
+	// short span is consistent with any longer object — so this is the floor
+	// that does.
+	HeadingSourceAxisLowSupport HeadingSource = 11
+
+	// HeadingSourceCount is the number of heading sources, for sizing
+	// per-source counters. Keep it one past the last source above.
+	HeadingSourceCount = 12
 )
+
+// IsLocked reports a decision that held the previous heading instead of
+// accepting a measured one. The complement is the acceptance rate, which is
+// the figure to compare across heading paths: the guard path and the axis
+// path label their accepted frames differently, so held share alone is not
+// like for like between them.
+func (h HeadingSource) IsLocked() bool {
+	switch h {
+	case HeadingSourceLocked, HeadingSourceAmbiguous, HeadingSourceInsufficient,
+		HeadingSourceAxisSquare, HeadingSourceAxisNoFit, HeadingSourceAxisLowSupport:
+		return true
+	}
+	return false
+}
+
+// String names a heading source for diagnostics and JSON keys.
+func (h HeadingSource) String() string {
+	switch h {
+	case HeadingSourcePCA:
+		return "pca"
+	case HeadingSourceVelocity:
+		return "velocity"
+	case HeadingSourceDisplacement:
+		return "displacement"
+	case HeadingSourceLocked:
+		return "locked"
+	case HeadingSourceReleased:
+		return "released"
+	case HeadingSourceAxis:
+		return "axis"
+	case HeadingSourceAmbiguous:
+		return "ambiguous"
+	case HeadingSourceInsufficient:
+		return "insufficient"
+	case HeadingSourceAxisSquare:
+		return "axis_square"
+	case HeadingSourceAxisNoFit:
+		return "axis_no_fit"
+	case HeadingSourceAxisReleased:
+		return "axis_released"
+	case HeadingSourceAxisLowSupport:
+		return "axis_low_support"
+	default:
+		return "unknown"
+	}
+}
 
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
-	MaxTracks               int           // Maximum number of concurrent tracks
-	MaxMisses               int           // Consecutive misses before tentative track deletion
-	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
-	HitsToConfirm           int           // Consecutive hits needed for confirmation
-	GatingDistanceSquared   float32       // Squared gating distance for association (metres²)
-	ProcessNoisePos         float32       // Process noise for position (σ²)
-	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
-	MeasurementNoise        float32       // Measurement noise (σ²)
+	MaxTracks             int     // Maximum number of concurrent tracks
+	MaxMisses             int     // Consecutive misses before tentative track deletion
+	MaxMissesConfirmed    int     // Consecutive misses before confirmed track deletion (coasting)
+	HitsToConfirm         int     // Consecutive hits needed for confirmation
+	GatingDistanceSquared float32 // Squared gating distance for association (metres²)
+	ProcessNoisePos       float32 // Process noise for position (σ²)
+	ProcessNoiseVel       float32 // Process noise for velocity (σ²)
+	MeasurementNoise      float32 // Measurement noise (σ²)
+	// MeasurementSourceMode is empty/OBB by default. medoid_v0 is a replay-only
+	// reference arm used to establish an A/B acceptance baseline.
+	MeasurementSourceMode   MeasurementSource
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 
@@ -51,6 +133,21 @@ type TrackerConfig struct {
 	MinPointsForPCA             int     // Minimum cluster points for PCA heading
 	OBBHeadingSmoothingAlpha    float32 // EMA smoothing factor for OBB heading [0,1]
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
+	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
+	OBBAxisCoherenceEnabled     bool    // Experimental axis selection and coherent observed envelope
+
+	// MinAssociableExtentMetres is the smallest cluster extent that may be
+	// associated with a metre-scale track. 0 disables the fragment guard.
+	MinAssociableExtentMetres float32
+
+	// AssociationExtentCostWeight scales the bounded extent-compatibility term
+	// in the association cost. 0 keeps the hard fragment guard instead.
+	AssociationExtentCostWeight float32
+
+	// DeletedTrackRenderFade is how long a deleted track is still published to
+	// clients, fading out. Separate from DeletedTrackGracePeriod, which governs
+	// internal re-association.
+	DeletedTrackRenderFade time.Duration
 
 	// History limits
 	MaxTrackHistoryLength int // Maximum position trail length
@@ -98,6 +195,11 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
 		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
 		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
+		OBBHeadingLockMaxRejections:      l5cfg.OBBHeadingLockMaxRejections,
+		OBBAxisCoherenceEnabled:          l5cfg.OBBAxisCoherenceEnabled,
+		MinAssociableExtentMetres:        float32(l5cfg.MinAssociableExtentMetres),
+		AssociationExtentCostWeight:      float32(l5cfg.AssociationExtentCostWeight),
+		DeletedTrackRenderFade:           mustParseDuration(l5cfg.DeletedTrackRenderFade),
 		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
 		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
 		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),

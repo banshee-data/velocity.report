@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,6 +16,27 @@ import (
 // captureScanMu serialises scans. A scan reads whole capture files, and two of
 // them racing over one volume would double the I/O to produce the same index.
 var captureScanMu sync.Mutex
+
+var captureScanSchedule = struct {
+	sync.Mutex
+	roots map[string]bool
+}{roots: map[string]bool{}}
+
+const captureScanStateRunning = "scanning"
+
+type captureScanResult struct {
+	RootID   string                  `json:"root_id"`
+	Path     string                  `json:"path"`
+	State    string                  `json:"state"`
+	Error    string                  `json:"error,omitempty"`
+	Drift    string                  `json:"drift"`
+	Added    int                     `json:"added"`
+	Missing  int                     `json:"missing"`
+	Changed  int                     `json:"changed"`
+	Probed   int                     `json:"probed"`
+	Failed   int                     `json:"probe_failed"`
+	Sessions []sqlite.CaptureSession `json:"sessions,omitempty"`
+}
 
 // normaliseCaptureRoots merges the safe directory with any extra configured
 // roots, resolving each to an absolute path and dropping duplicates and blanks.
@@ -104,6 +126,7 @@ func (ws *Server) handleCaptureRoots(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	markScheduledRoots(roots)
 	writeCaptureJSON(w, map[string]any{"roots": roots, "count": len(roots)})
 }
 
@@ -126,6 +149,7 @@ func (ws *Server) handleCaptureScan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	probe := r.URL.Query().Get("probe") != "false"
+	background := probe && r.URL.Query().Get("async") == "true"
 	wanted := r.URL.Query().Get("root_id")
 
 	roots, err := store.ListRoots()
@@ -134,66 +158,122 @@ func (ws *Server) handleCaptureScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	captureScanMu.Lock()
-	defer captureScanMu.Unlock()
-
-	type rootResult struct {
-		RootID   string                  `json:"root_id"`
-		Path     string                  `json:"path"`
-		State    string                  `json:"state"`
-		Error    string                  `json:"error,omitempty"`
-		Drift    string                  `json:"drift"`
-		Added    int                     `json:"added"`
-		Missing  int                     `json:"missing"`
-		Changed  int                     `json:"changed"`
-		Probed   int                     `json:"probed"`
-		Failed   int                     `json:"probe_failed"`
-		Sessions []sqlite.CaptureSession `json:"sessions,omitempty"`
+	if wanted != "" && !hasEnabledCaptureRoot(roots, wanted) {
+		ws.writeJSONError(w, http.StatusNotFound, "no such capture root")
+		return
 	}
-	results := []rootResult{}
-
-	for _, root := range roots {
-		if wanted != "" && root.RootID != wanted {
-			continue
+	if background {
+		results, started := scheduledCaptureScans(roots, wanted)
+		if started {
+			go ws.refreshCaptureRoots(roots, wanted, true)
 		}
-		if !root.Enabled {
-			continue
-		}
-		ix := &capindex.Indexer{
-			RootID:   root.RootID,
-			RootPath: root.Path,
-			Store:    store,
-			UDPPort:  ws.udpPort,
-		}
-		if probe {
-			ix.Probe = captureProber
-		}
-		res, refreshErr := ix.Refresh(r.Context())
-		out := rootResult{
-			RootID: root.RootID, Path: root.Path, State: res.State,
-			Drift: res.Drift.Summary(), Added: len(res.Drift.Added),
-			Missing: len(res.Drift.Missing), Changed: len(res.Drift.Changed),
-			Probed: res.Probed, Failed: res.ProbeFailed,
-		}
-		if refreshErr != nil {
-			out.Error = refreshErr.Error()
-			results = append(results, out)
-			continue
-		}
-		sessions, deriveErr := store.DeriveSessions(root.RootID)
-		if deriveErr != nil {
-			out.Error = deriveErr.Error()
-		} else {
-			out.Sessions = sessions
-		}
-		results = append(results, out)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		writeCaptureJSON(w, map[string]any{"roots": results, "count": len(results)})
+		return
 	}
+
+	results := ws.refreshCaptureRootsWithContext(r.Context(), roots, wanted, probe)
 
 	if wanted != "" && len(results) == 0 {
 		ws.writeJSONError(w, http.StatusNotFound, "no such capture root")
 		return
 	}
 	writeCaptureJSON(w, map[string]any{"roots": results, "count": len(results)})
+}
+
+func hasEnabledCaptureRoot(roots []sqlite.CaptureRoot, wanted string) bool {
+	for _, root := range roots {
+		if root.RootID == wanted && root.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+// scheduledCaptureScans makes the action visible before the goroutine starts,
+// so the UI can poll normal root state instead of holding an HTTP request open
+// for a multi-hour first probe of an archive volume.
+func scheduledCaptureScans(roots []sqlite.CaptureRoot, wanted string) ([]captureScanResult, bool) {
+	results := []captureScanResult{}
+	started := false
+	captureScanSchedule.Lock()
+	defer captureScanSchedule.Unlock()
+	for _, root := range roots {
+		if !root.Enabled || (wanted != "" && root.RootID != wanted) {
+			continue
+		}
+		if !captureScanSchedule.roots[root.RootID] {
+			captureScanSchedule.roots[root.RootID] = true
+			started = true
+		}
+		results = append(results, captureScanResult{
+			RootID: root.RootID, Path: root.Path, State: captureScanStateRunning,
+			Drift: "scan and probe queued",
+		})
+	}
+	return results, started
+}
+
+func (ws *Server) refreshCaptureRoots(roots []sqlite.CaptureRoot, wanted string, probe bool) {
+	defer clearScheduledRoots(roots, wanted)
+	ws.refreshCaptureRootsWithContext(context.Background(), roots, wanted, probe)
+}
+
+func markScheduledRoots(roots []sqlite.CaptureRoot) {
+	captureScanSchedule.Lock()
+	defer captureScanSchedule.Unlock()
+	for i := range roots {
+		roots[i].ScanInProgress = captureScanSchedule.roots[roots[i].RootID]
+	}
+}
+
+func clearScheduledRoots(roots []sqlite.CaptureRoot, wanted string) {
+	captureScanSchedule.Lock()
+	defer captureScanSchedule.Unlock()
+	for _, root := range roots {
+		if root.Enabled && (wanted == "" || root.RootID == wanted) {
+			delete(captureScanSchedule.roots, root.RootID)
+		}
+	}
+}
+
+func (ws *Server) refreshCaptureRootsWithContext(ctx context.Context, roots []sqlite.CaptureRoot, wanted string, probe bool) []captureScanResult {
+	captureScanMu.Lock()
+	defer captureScanMu.Unlock()
+
+	store, err := ws.captureStore()
+	if err != nil {
+		return nil
+	}
+	results := []captureScanResult{}
+	for _, root := range roots {
+		if !root.Enabled || (wanted != "" && root.RootID != wanted) {
+			continue
+		}
+		ix := &capindex.Indexer{RootID: root.RootID, RootPath: root.Path, Store: store, UDPPort: ws.udpPort}
+		if probe {
+			ix.Probe = captureProber
+		}
+		res, refreshErr := ix.Refresh(ctx)
+		out := captureScanResult{
+			RootID: root.RootID, Path: root.Path, State: res.State,
+			Drift: res.Drift.Summary(), Added: len(res.Drift.Added), Missing: len(res.Drift.Missing),
+			Changed: len(res.Drift.Changed), Probed: res.Probed, Failed: res.ProbeFailed,
+		}
+		if refreshErr != nil {
+			out.Error = refreshErr.Error()
+			results = append(results, out)
+			continue
+		}
+		if sessions, deriveErr := store.DeriveSessions(root.RootID); deriveErr != nil {
+			out.Error = deriveErr.Error()
+		} else {
+			out.Sessions = sessions
+		}
+		results = append(results, out)
+	}
+	return results
 }
 
 // handleCaptureSessions lists derived sessions, newest first.

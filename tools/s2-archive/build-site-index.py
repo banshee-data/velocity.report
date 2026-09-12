@@ -292,6 +292,16 @@ for number, site in enumerate(sites, 1):
     if mark:
         used.add(mark["id"])
     minutes = (site["end"] - site["start"]).total_seconds() / 60
+    # Export follows the operator-approved *site* interval, rather than only
+    # classifier-static fragments. A tripod nudge can briefly look like motion
+    # while the sensor remains at the same site; dropping it would make the
+    # released PCAP silently disagree with this index and site-joins.json.
+    export_overrides = [
+        {"from": start.isoformat(), "to": end.isoformat(), "asserted_by": "operator"}
+        for start, end in JOIN_SPANS
+        if site["start"].replace(tzinfo=None) <= end
+        and start <= site["end"].replace(tzinfo=None)
+    ]
     index.append(
         {
             # Identity comes from the field mark, which is named for the place
@@ -306,9 +316,20 @@ for number, site in enumerate(sites, 1):
             "site": f"s{number:02d}",
             "day": site["start"].strftime("%Y-%m-%d"),
             "start": site["start"].isoformat(),
+            "end": site["end"].isoformat(),
             "clock": site["start"].strftime("%I:%M").lstrip("0"),
             "minutes": round(minutes, 1),
             "fragments": len(site["parts"]),
+            "static_parts": [
+                {
+                    "start": part["start"].isoformat(),
+                    "end": part["end"].isoformat(),
+                    "captures": part["captures"],
+                }
+                for part in site["parts"]
+            ],
+            "static_export_policy": "all_packets_between_site_bounds",
+            "static_export_overrides": export_overrides,
             # Every capture the site's span touches, not only the ones its
             # static stretches fall in. A site joined across a nudge contains
             # motion segments too, and their captures sit between the static

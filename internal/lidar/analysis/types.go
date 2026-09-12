@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+
 // ---------------------------------------------------------------------------
 // Report types
 // ---------------------------------------------------------------------------
@@ -48,15 +50,35 @@ type RecordingMeta struct {
 
 // FrameSummary is §3 in the spec.
 type FrameSummary struct {
-	TotalFrames                 int        `json:"total_frames"`
-	FramesWithTracks            int        `json:"frames_with_tracks"`
-	FramesWithClusters          int        `json:"frames_with_clusters"`
-	AvgPointsPerFrame           float64    `json:"avg_points_per_frame"`
-	AvgForegroundPointsPerFrame float64    `json:"avg_foreground_points_per_frame"`
-	ForegroundPct               float64    `json:"foreground_pct"`
-	AvgClustersPerFrame         float64    `json:"avg_clusters_per_frame"`
-	AvgTracksPerFrame           float64    `json:"avg_tracks_per_frame"`
-	FrameIntervalMs             *DistStats `json:"frame_interval_ms,omitempty"`
+	CoLocation                  *CoLocationSummary `json:"co_location,omitempty"`
+	TotalFrames                 int                `json:"total_frames"`
+	FramesWithTracks            int                `json:"frames_with_tracks"`
+	FramesWithClusters          int                `json:"frames_with_clusters"`
+	AvgPointsPerFrame           float64            `json:"avg_points_per_frame"`
+	AvgForegroundPointsPerFrame float64            `json:"avg_foreground_points_per_frame"`
+	ForegroundPct               float64            `json:"foreground_pct"`
+	AvgClustersPerFrame         float64            `json:"avg_clusters_per_frame"`
+	AvgTracksPerFrame           float64            `json:"avg_tracks_per_frame"`
+	FrameIntervalMs             *DistStats         `json:"frame_interval_ms,omitempty"`
+}
+
+// CoLocationSummary is a proximity review signal, not duplicate-object truth.
+type CoLocationSummary struct {
+	RadiusMetres float64 `json:"radius_metres"`
+	ScoredFrames int     `json:"scored_frames"`
+	LiveFrames   int     `json:"live_frames"`
+	PairFrames   int     `json:"pair_frames"`
+	// OverlapFrames counts frames holding two live tracks whose centres are
+	// closer than half the longer box: the boxes intersect.
+	//
+	// This is the duplicate-identity signal, and it is deliberately reported
+	// apart from PairFrames. Proximity is not duplication — two vehicles can
+	// queue a metre apart, and counting that as a split flatters any change
+	// that merely spreads tracks out. Two distinct physical objects cannot
+	// occupy the same space, so overlap is evidence of one object carrying two
+	// identities. It remains a candidate signal rather than proof: the boxes
+	// are estimates, and an inflated box can overlap its neighbour honestly.
+	OverlapFrames int `json:"overlap_frames"`
 }
 
 // TrackSummary is §4 in the spec.
@@ -72,8 +94,63 @@ type TrackSummary struct {
 	Occlusion          *OcclusionSummary `json:"occlusion"`
 
 	// Implementable-now aggregate blocks (§12.1)
-	Jitter    *JitterSummary    `json:"jitter,omitempty"`
-	Alignment *AlignmentSummary `json:"alignment,omitempty"`
+	Jitter      *JitterSummary      `json:"jitter,omitempty"`
+	Alignment   *AlignmentSummary   `json:"alignment,omitempty"`
+	HeadingLock *HeadingLockSummary `json:"heading_lock,omitempty"`
+}
+
+// HeadingLockSummary reports how often the heading guards suppressed the OBB
+// update, and how many tracks never recovered from it.
+type HeadingLockSummary struct {
+	TerminalUnrecovered int `json:"terminal_unrecovered"`
+	TerminalCensored    int `json:"terminal_censored"`
+	TerminalRecovered   int `json:"terminal_recovered"`
+	TerminalAssessed    int `json:"terminal_assessed"`
+	// SourceFrames counts track-frames by heading source: pca, velocity,
+	// displacement, locked, released, axis, ambiguous, insufficient,
+	// axis_square, axis_no_fit, axis_released.
+	SourceFrames map[string]int `json:"source_frames"`
+	// AcceptanceRatio is track-frames on which a measurement set the heading,
+	// over all track-frames. [0, 1]
+	//
+	// This is the figure to compare between the guard path and the axis path.
+	// Held share is not: the two paths label their accepted frames differently
+	// (pca / velocity / displacement against axis), so reading one path's
+	// locked count against the other's counts a change of vocabulary as a
+	// change of behaviour. Acceptance shares one definition across both.
+	AcceptanceRatio float64 `json:"acceptance_ratio"`
+	// AcceptedFrames and HeldFrames are the counts behind AcceptanceRatio.
+	AcceptedFrames int `json:"accepted_frames"`
+	HeldFrames     int `json:"held_frames"`
+	// LockedFrameRatio is held track-frames over all track-frames. [0, 1]
+	LockedFrameRatio float64 `json:"locked_frame_ratio"`
+	// SustainedLockTracks entered a lock of at least SustainedLockFrames.
+	SustainedLockTracks int `json:"sustained_lock_tracks"`
+	// NeverRecoveredTracks locked and never unlocked again. This is the true
+	// ratchet, and the population that should be empty once the rejection
+	// release is armed. It is the narrow reading of "trapped": a track that
+	// breaks free and re-locks is counted under RelockedTracks instead,
+	// because the two call for different fixes.
+	NeverRecoveredTracks int `json:"never_recovered_tracks"`
+	// RelockedTracks broke free of a sustained lock and locked again without
+	// ever holding a clean run of unlocked frames. The ratchet is gone; the
+	// underlying heading ambiguity is not.
+	RelockedTracks int `json:"relocked_tracks"`
+	// ReleasedTracks held SustainedLockFrames or more consecutive unlocked
+	// frames after their lock.
+	ReleasedTracks int `json:"released_tracks"`
+	// TrappedRatio is NeverRecoveredTracks over tracks with enough live frames
+	// to assess.
+	TrappedRatio float64 `json:"trapped_ratio"`
+	// ForcedReleases counts frames on which the rejection counter forced a
+	// locked heading to snap to the measurement. Zero across a whole run with
+	// the release armed means either nothing hit the trap, or the release is
+	// misconfigured.
+	ForcedReleases int `json:"forced_releases"`
+	// LongestLockRunFrames is the worst single run seen in the recording.
+	LongestLockRunFrames int `json:"longest_lock_run_frames"`
+	// Tracks is the population the ratios are taken over.
+	Tracks int `json:"tracks"`
 }
 
 // JitterSummary captures aggregate RMS jitter across confirmed tracks.
@@ -86,6 +163,17 @@ type JitterSummary struct {
 type AlignmentSummary struct {
 	AlignmentMeanDeg  *DistStats `json:"alignment_mean_deg,omitempty"`
 	MisalignmentRatio *DistStats `json:"misalignment_ratio,omitempty"`
+
+	// CourseAlignmentP50Deg is the distribution, across every track that
+	// produced samples, of that track's median |OBB heading - course|.
+	//
+	// Note the population differs from the two aggregates above, which cover
+	// tracks whose *final* state is confirmed. Most tracks end deleted, so that
+	// population is small and unrepresentative. CourseAlignmentTracks reports
+	// how many tracks contributed here.
+	CourseAlignmentP50Deg *DistStats `json:"course_alignment_p50_deg,omitempty"`
+	CourseAlignmentP90Deg *DistStats `json:"course_alignment_p90_deg,omitempty"`
+	CourseAlignmentTracks int        `json:"course_alignment_tracks"`
 }
 
 // OcclusionSummary captures aggregate occlusion metrics.
@@ -97,6 +185,7 @@ type OcclusionSummary struct {
 
 // TrackDetail is §5 in the spec — one entry per track.
 type TrackDetail struct {
+	EverConfirmed   bool    `json:"ever_confirmed"`
 	TrackID         string  `json:"track_id"`
 	State           string  `json:"state"`
 	ObjectClass     string  `json:"object_class"`
@@ -114,11 +203,39 @@ type TrackDetail struct {
 	SpeedSamples []float32 `json:"speed_samples,omitempty"`
 
 	// Implementable-now jitter/alignment metrics (§12.1)
-	SpeedVariance     float32 `json:"speed_variance"`
-	HeadingJitterDeg  float32 `json:"heading_jitter_deg"`
-	SpeedJitterMps    float32 `json:"speed_jitter_mps"`
-	AlignmentMeanDeg  float32 `json:"alignment_mean_deg"`
-	MisalignmentRatio float32 `json:"misalignment_ratio"`
+	SpeedVariance float32 `json:"speed_variance"`
+	// HeadingJitterDeg is the RMS frame-to-frame change in the Kalman *course*
+	// (Track.HeadingRad), not in the bounding box. The tracker's live metric of
+	// the same name measures the OBB instead, so the two are not comparable.
+	// OBBHeadingJitterDeg below is the box quantity.
+	HeadingJitterDeg float32 `json:"heading_jitter_deg"`
+	// OBBHeadingJitterDeg is the RMS frame-to-frame change in the published box
+	// heading. Near zero for a box that is locked as well as for one that is
+	// genuinely stable, so read it with CourseAlignment.
+	OBBHeadingJitterDeg float32 `json:"obb_heading_jitter_deg"`
+	SpeedJitterMps      float32 `json:"speed_jitter_mps"`
+	AlignmentMeanDeg    float32 `json:"alignment_mean_deg"`
+	MisalignmentRatio   float32 `json:"misalignment_ratio"`
+
+	// Course alignment: |OBB heading - direction of travel|, folded to [0, 90].
+	// Unlike AlignmentMeanDeg, which compares two descriptions of motion, this
+	// measures whether the rendered box points where the vehicle is going.
+	// Sampled only on live frames at or above CourseAlignmentMinSpeedMps;
+	// CourseAlignmentN reports how many frames qualified.
+	CourseAlignmentP50Deg float32 `json:"course_alignment_p50_deg"`
+	CourseAlignmentP90Deg float32 `json:"course_alignment_p90_deg"`
+	CourseAlignmentN      int     `json:"course_alignment_n"`
+
+	// LockOutcome and LockTrapped preserve historical lifetime semantics.
+	// TerminalLockOutcome describes the final sustained episode, with censoring.
+	HeadingLockedFrames int                          `json:"heading_locked_frames"`
+	LongestLockRun      int                          `json:"longest_lock_run"`
+	LockEpisodes        int                          `json:"lock_episodes"`
+	LockOutcome         string                       `json:"lock_outcome"`
+	TerminalLockOutcome string                       `json:"terminal_lock_outcome"`
+	HeadingEpisodes     l5tracks.HeadingEpisodeState `json:"heading_episodes"`
+	LockTrapped         bool                         `json:"lock_trapped"`
+	ForcedReleases      int                          `json:"forced_releases"`
 
 	StartX            float32 `json:"start_x"`
 	StartY            float32 `json:"start_y"`
@@ -205,6 +322,7 @@ type FrameOverlap struct {
 
 // TrackMatching is §8.3.
 type TrackMatching struct {
+	Method       string      `json:"method"`
 	ATotalTracks int         `json:"a_total_tracks"`
 	BTotalTracks int         `json:"b_total_tracks"`
 	MatchedPairs int         `json:"matched_pairs"`
@@ -243,9 +361,20 @@ type MatchedPairSpeed struct {
 
 // QualityDelta is §8.5.
 type QualityDelta struct {
-	FragmentationRatio DeltaPair `json:"fragmentation_ratio"`
-	MeanObservations   DeltaPair `json:"mean_observations"`
-	MeanOcclusionCount DeltaPair `json:"mean_occlusion_count"`
+	CoLocatedFrameRatio *DeltaPair `json:"co_located_frame_ratio,omitempty"`
+	// HeadingAcceptanceRatio is the like-for-like figure across heading paths.
+	// Read it beside CourseAlignmentP50: a lower course error measured over
+	// far fewer accepted frames is not the same result as a lower one measured
+	// over the same frames, and the pair says which happened.
+	HeadingAcceptanceRatio *DeltaPair `json:"heading_acceptance_ratio,omitempty"`
+	// Nil means one arm lacks eligible evidence; it must not be scored as zero.
+	CourseAlignmentP50       *DeltaPair `json:"course_alignment_p50,omitempty"`
+	TerminalUnrecoveredRatio *DeltaPair `json:"terminal_unrecovered_ratio,omitempty"`
+	CourseTracksA            int        `json:"course_tracks_a"`
+	CourseTracksB            int        `json:"course_tracks_b"`
+	FragmentationRatio       DeltaPair  `json:"fragmentation_ratio"`
+	MeanObservations         DeltaPair  `json:"mean_observations"`
+	MeanOcclusionCount       DeltaPair  `json:"mean_occlusion_count"`
 }
 
 // DeltaPair shows a and b values with their difference.

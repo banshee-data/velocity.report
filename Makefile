@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre33
+VERSION := 0.5.1-pre34
 
 # =============================================================================
 # HELP TARGET (default)
@@ -1462,7 +1462,38 @@ loc-coverage-chart:
 # Run performance regression test
 .PHONY: test-perf test-perf-all perf-baseline perf-baseline-all
 
-PERF_REGRESSION_THRESHOLD ?= 0.30
+# The performance matrix has one cell per (capture, profile, host class).
+# Host class is explicit rather than inferred from the platform pair, because
+# a Pi and an ARM CI runner are both linux/arm64 and share nothing else. See
+# docs/lidar/operations/performance-regression-testing.md.
+ifeq ($(origin PERF_HOST_CLASS), undefined)
+  ifeq ($(CI),true)
+    PERF_HOST_CLASS := ci
+  else ifeq ($(shell uname -s),Darwin)
+    PERF_HOST_CLASS := mac
+  else ifeq ($(shell uname -m),aarch64)
+    PERF_HOST_CLASS := pi
+  else
+    PERF_HOST_CLASS := $(shell uname -s | tr 'A-Z' 'a-z')-$(shell uname -m)
+  endif
+endif
+
+# Regression thresholds are per host class, because their noise floors differ
+# by more than the regressions worth catching. The Pi is quiet and
+# single-purpose, a workstation is quiet but shares a desktop, and a hosted
+# runner is virtualised and shares a physical host with strangers. One number
+# across all three is either too loose to catch anything on the Pi or a source
+# of false failures in CI.
+PERF_REGRESSION_THRESHOLD_pi ?= 0.20
+PERF_REGRESSION_THRESHOLD_mac ?= 0.30
+PERF_REGRESSION_THRESHOLD_ci ?= 0.50
+PERF_REGRESSION_THRESHOLD ?= $(or $(PERF_REGRESSION_THRESHOLD_$(PERF_HOST_CLASS)),0.30)
+
+# Repeats when capturing a baseline, also per host class: a shared runner needs
+# more samples to produce a median worth committing.
+PERF_BASELINE_REPEATS_pi ?= 5
+PERF_BASELINE_REPEATS_mac ?= 5
+PERF_BASELINE_REPEATS_ci ?= 9
 
 # Profiles the perf gate runs. `detect` is measurable on demand but not gated:
 # an unexercised gated profile is a set of numbers nobody can explain when it
@@ -1473,8 +1504,8 @@ PERF_GATED_PROFILES ?= full l3-only
 PERF_MAX_OVER_BUDGET_PCT ?= 1.0
 
 # Repeats used when capturing a baseline. One sample on a shared runner is not
-# a measurement; the median of five is.
-PERF_BASELINE_REPEATS ?= 5
+# a measurement; the median of several is.
+PERF_BASELINE_REPEATS ?= $(or $(PERF_BASELINE_REPEATS_$(PERF_HOST_CLASS)),5)
 
 # perf-pcap-path resolves NAME to a capture, honouring .pcapng then .pcap.
 define perf-resolve-pcap
@@ -1495,11 +1526,8 @@ test-perf:
 	echo "Regression threshold: $(PERF_REGRESSION_THRESHOLD)"; \
 	echo "Target: $$BASE_NAME  profile: $$PROFILE"; \
 	$(perf-resolve-pcap); \
-	if [ "$$CI" = "true" ]; then \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-ci.json"; \
-	else \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE.json"; \
-	fi; \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-$(PERF_HOST_CLASS).json"; \
+	echo "Host class: $(PERF_HOST_CLASS)"; \
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
 	echo "Building lidar-bench..."; \
@@ -1524,6 +1552,19 @@ test-perf:
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
 
+# Print which cell of the performance matrix this machine is in, and the policy
+# that applies to it. Run this before reading any perf number: the same command
+# means different things on different hosts, and the cell is what says which.
+.PHONY: perf-policy
+perf-policy:
+	@echo "host class:            $(PERF_HOST_CLASS)   (override with PERF_HOST_CLASS=)"
+	@echo "regression threshold:  $(PERF_REGRESSION_THRESHOLD)"
+	@echo "baseline repeats:      $(PERF_BASELINE_REPEATS)"
+	@echo "frames over budget:    $(PERF_MAX_OVER_BUDGET_PCT)% of $(shell python3 -c "import json;print(json.load(open('config/tuning.defaults.json'))['pipeline']['frame_budget_ms'])" 2>/dev/null)ms"
+	@echo "gated profiles:        $(PERF_GATED_PROFILES)"
+	@echo "baselines for this cell:"
+	@ls internal/lidar/perf/baseline/*-$(PERF_HOST_CLASS).json 2>/dev/null || echo "  (none captured yet: make perf-baseline-all)"
+
 # Run the gate across every gated profile, reporting all failures rather than
 # stopping at the first: which profiles moved is the diagnostic.
 test-perf-all:
@@ -1543,14 +1584,10 @@ perf-baseline:
 	BASE_NAME="$${NAME%.*}"; \
 	PROFILE="$${PROFILE:-full}"; \
 	$(perf-resolve-pcap); \
-	if [ "$$CI" = "true" ]; then \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-ci.json"; \
-	else \
-		BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE.json"; \
-	fi; \
+	BASELINE_FILE="internal/lidar/perf/baseline/baseline-$$BASE_NAME-$$PROFILE-$(PERF_HOST_CLASS).json"; \
 	./scripts/ensure-web-stub.sh; \
 	./scripts/ensure-docs-stub.sh; \
-	echo "Capturing $$PROFILE baseline from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
+	echo "Capturing $$PROFILE baseline on host class $(PERF_HOST_CLASS) from $$PCAP_FILE ($(PERF_BASELINE_REPEATS) runs, median)..."; \
 	EXIT_CODE=0; \
 	go build -tags=pcap -o lidar-bench ./cmd/tools/lidar-bench || EXIT_CODE=$$?; \
 	if [ $$EXIT_CODE -eq 0 ]; then \

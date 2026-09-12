@@ -281,7 +281,10 @@ export async function mountScenePlayer({
   // sensor is the coordinate origin, mounted above the carriageway.
   const origin = new THREE.Mesh(
     new THREE.RingGeometry(0.7, 0.9, 32),
-    new THREE.MeshBasicMaterial({ color: SCENE_COLOURS.primary, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({
+      color: SCENE_COLOURS.primary,
+      side: THREE.DoubleSide,
+    }),
   );
   origin.rotation.x = -Math.PI / 2;
   scene.add(origin);
@@ -457,13 +460,20 @@ export async function mountScenePlayer({
   if (pointCloudManifestURL) {
     try {
       const candidate = await new SceneSession(pointCloudManifestURL).open();
-      if (sceneSourcesAlign(session.parts[0]?.header, candidate.parts[0]?.header)) {
+      if (
+        sceneSourcesAlign(session.parts[0]?.header, candidate.parts[0]?.header)
+      ) {
         pointCloudSession = candidate;
       } else {
-        console.warn("Point-cloud overlay does not align with the tracked scene; hiding it.");
+        console.warn(
+          "Point-cloud overlay does not align with the tracked scene; hiding it.",
+        );
       }
     } catch (err) {
-      console.warn("Point-cloud overlay could not be loaded; continuing with tracks.", err);
+      console.warn(
+        "Point-cloud overlay could not be loaded; continuing with tracks.",
+        err,
+      );
     }
   }
 
@@ -716,11 +726,15 @@ export async function mountScenePlayer({
         partIndex === 0 &&
         seconds < pointCloudSession.duration
       ) {
-        pointOpacity = pointCloudOverlayOpacity(seconds, pointCloudSession.duration, {
-          fadeOutSeconds: pointCloudSession.manifest?.fade_out_seconds,
-          fadeInSeconds: pointCloudSession.manifest?.loop_fade_in_seconds,
-          loopingIn: state.pointCloudLoopingIn,
-        });
+        pointOpacity = pointCloudOverlayOpacity(
+          seconds,
+          pointCloudSession.duration,
+          {
+            fadeOutSeconds: pointCloudSession.manifest?.fade_out_seconds,
+            fadeInSeconds: pointCloudSession.manifest?.loop_fade_in_seconds,
+            loopingIn: state.pointCloudLoopingIn,
+          },
+        );
         if (pointOpacity > 0) {
           // Use the tracked frame's timestamp, not the animation clock. Both
           // exports contain this frame, so the boxes and returns cannot drift.

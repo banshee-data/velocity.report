@@ -60,7 +60,9 @@ def request(opener: object, url: str) -> tuple[int, bytes]:
         return response.status, response.read()
 
 
-def wait_for_server(opener: object, root_url: str, process: subprocess.Popen[bytes]) -> None:
+def wait_for_server(
+    opener: object, root_url: str, process: subprocess.Popen[bytes]
+) -> None:
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if process.poll() is not None:
