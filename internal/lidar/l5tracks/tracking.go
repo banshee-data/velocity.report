@@ -59,6 +59,13 @@ type TrackedObject struct {
 	// Kalman covariance (4x4, row-major)
 	P [16]float32
 
+	// LastMeasurement is the source and acquisition time of the accepted L4
+	// geometry that produced the current state. It is copied into the legacy
+	// per-track observation row; it is not a mutable replacement for the raw
+	// DetectionObservation record.
+	LastMeasurementSource    MeasurementSource
+	LastMeasurementUnixNanos int64
+
 	// History of positions
 	History []TrackPoint
 
@@ -481,6 +488,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject {
 	trackID := fmt.Sprintf("trk_%s", uuid.NewString())
 	t.NextTrackID++
+	measurement := measurementForCluster(cluster, nowNanos)
 
 	track := &TrackedObject{
 		TrackID:          trackID,
@@ -500,9 +508,13 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		Hits:   1,
 		Misses: 0,
 
-		// Initialise position from cluster centroid
-		X: cluster.CentroidX,
-		Y: cluster.CentroidY,
+		// Decision D2: use the measured OBB centre when it is valid. The
+		// source is retained with the per-frame record so historical medoid
+		// rows remain distinguishable from this corrected stopgap.
+		X:                        measurement.X,
+		Y:                        measurement.Y,
+		LastMeasurementSource:    measurement.Source,
+		LastMeasurementUnixNanos: measurement.UnixNanos,
 		// Initialise velocity to zero
 		VX: 0,
 		VY: 0,
@@ -519,9 +531,9 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		TrackDurationSecs: 0,
 
 		History: []TrackPoint{{
-			X:         cluster.CentroidX,
-			Y:         cluster.CentroidY,
-			Timestamp: nowNanos,
+			X:         measurement.X,
+			Y:         measurement.Y,
+			Timestamp: measurement.UnixNanos,
 		}},
 
 		speedHistory: make([]float32, 0, t.Config.MaxSpeedHistoryLength),

@@ -835,8 +835,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					// track record itself for classification/reporting.
 					obs := &sqlite.TrackObservation{
 						TrackID:           track.TrackID,
-						TSUnixNanos:       frame.StartTimestamp.UnixNano(),
+						TSUnixNanos:       track.LastMeasurementUnixNanos,
+						FrameUnixNanos:    frame.StartTimestamp.UnixNano(),
 						FrameID:           frameID,
+						MeasurementSource: string(track.LastMeasurementSource),
 						X:                 track.X,
 						Y:                 track.Y,
 						Z:                 track.LatestZ,

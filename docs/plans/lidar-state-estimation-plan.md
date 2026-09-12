@@ -2534,7 +2534,9 @@ architecture; it does not relitigate findings.
 - [x] Emit associated raw clusters beside estimates in opt-in diagnostic bundles
 - [ ] Fix the three lifetime-aggregate fields written into `lidar_track_observations`
 - [x] Decide Q10: OBB centre as an immediate stopgap. **Accepted**, see 21.1 D2
-- [ ] Implement D2: switch the measurement source to the OBB centre, behind a recorded source field
+- [x] Implement D2: association, initialisation, and the CV update use a valid OBB centre;
+      the persisted legacy observation records `measurement_source`, cluster capture time and frame time.
+      The source falls back explicitly to the medoid for absent or invalid OBB geometry.
 - [ ] Re-baseline G-GEO-1's regression numbers after D2 ships
 - [ ] Fit and publish a coarse ground gradient per capture; generalise the current global P11 plane to regions
 - [ ] Label the jump tracks in VRLOG `f84105d8` (primary, 2,038 tracks) into the held-out

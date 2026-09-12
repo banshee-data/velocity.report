@@ -8,9 +8,12 @@ import (
 
 // update applies the Kalman update step with a matched cluster measurement.
 func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
-	// Measurement: z = [cluster.CentroidX, cluster.CentroidY]
-	zX := cluster.CentroidX
-	zY := cluster.CentroidY
+	measurement := measurementForCluster(cluster, nowNanos)
+	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
+	// fallback for invalid geometry. The filter keeps its existing CV state and
+	// covariance shape; only the biased geometry input is corrected here.
+	zX := measurement.X
+	zY := measurement.Y
 
 	// Innovation
 	yX := zX - track.X
@@ -119,7 +122,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	t.clampVelocity(track)
 
 	// Update timestamp
-	track.EndUnixNanos = nowNanos
+	track.LastMeasurementSource = measurement.Source
+	track.LastMeasurementUnixNanos = measurement.UnixNanos
+	track.EndUnixNanos = measurement.UnixNanos
 	if track.EndUnixNanos > track.StartUnixNanos {
 		track.TrackDurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 	}
@@ -169,7 +174,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		track.History = append(track.History, TrackPoint{
 			X:         track.X,
 			Y:         track.Y,
-			Timestamp: nowNanos,
+			Timestamp: measurement.UnixNanos,
 		})
 		if hasPrevious {
 			dx := track.X - previousPoint.X
