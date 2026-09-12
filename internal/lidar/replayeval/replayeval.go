@@ -25,21 +25,26 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
+	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -60,8 +65,12 @@ func schemaVersionOrUnknown(cfg *config.TuningConfig) string {
 
 // Config holds the parameters for an offline perception replay.
 type Config struct {
-	// PCAPFile is the capture to replay. Required.
+	// PCAPFile is the capture to replay. It remains available for callers with
+	// one file; PCAPFiles is the ordered multi-file form.
 	PCAPFile string
+	// PCAPFiles is an ordered capture sequence. It is mutually exclusive with
+	// PCAPFile. Each join is graded before replay and a broken join is refused.
+	PCAPFiles []string
 	// OutDir is the directory the VRLOG is written into. Required.
 	OutDir string
 	// TuningFile is the tuning config to run with. Empty uses the default
@@ -92,19 +101,35 @@ type Config struct {
 	IncludeDebug bool
 	// ProgressEvery logs a line every N frames. Zero disables progress logs.
 	ProgressEvery int
+
+	// ObservationDBPath enables immutable L4 observation storage. It is an
+	// explicit offline output, never the server's live database. The replay case
+	// and calibration are required because names and an identity transform must
+	// not be guessed from a sensor label.
+	ObservationDBPath          string
+	ReplayCaseID               string
+	ObservationCalibration     l4bobserve.Calibration
+	ObservationMaxSamplePoints int
+	// UseSurfaceGround enables P11's settled-background, surface-relative
+	// clipping. It remains opt-in while multi-site evidence is collected.
+	UseSurfaceGround     bool
+	SurfaceGroundFloor   float64
+	SurfaceGroundCeiling float64
 }
 
 // Result summarises a completed replay.
 type Result struct {
-	VRLOGPath      string
-	FramesRead     int
-	FramesEmpty    int
-	FramesRecorded int
-	WarmupFrames   int
-	Elapsed        time.Duration
-	TuningFile     string
-	SensorID       string
-	SourcePCAP     string
+	VRLOGPath           string
+	FramesRead          int
+	FramesEmpty         int
+	FramesRecorded      int
+	WarmupFrames        int
+	Elapsed             time.Duration
+	TuningFile          string
+	SensorID            string
+	SourcePCAP          string
+	SourcePCAPs         []string
+	ObservationSourceID string
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -119,6 +144,38 @@ type recordingPublisher struct {
 	emptyFrames      int
 	recordAfterNanos int64
 	warmupFrames     int
+}
+
+// strictObservationSink turns the live pipeline's non-fatal persistence hook
+// into a replay invariant. A server may continue publishing when an optional
+// diagnostic store is briefly unavailable; an offline evidence run must never
+// report a successful result after losing or revising a frozen observation.
+type strictObservationSink struct {
+	sink pipeline.DetectionObservationSink
+	mu   sync.Mutex
+	err  error
+}
+
+func (s *strictObservationSink) Insert(observation l4bobserve.DetectionObservation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err != nil {
+		return s.err
+	}
+	if err := s.sink.Insert(observation); err != nil {
+		s.err = err
+		return err
+	}
+	return nil
+}
+
+func (s *strictObservationSink) Err() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.err
 }
 
 func (p *recordingPublisher) Publish(frame interface{}) {
@@ -158,11 +215,78 @@ func Run(cfg Config) (*Result, error) {
 	return run(cfg, defaultRuntime())
 }
 
+// captureFiles resolves the backwards-compatible single-file form into the
+// ordered sequence used by the evaluator. Keeping this small check separate
+// makes it impossible for an accidental CLI merge to silently replay the same
+// first file twice.
+func captureFiles(cfg Config) ([]string, error) {
+	if cfg.PCAPFile != "" && len(cfg.PCAPFiles) != 0 {
+		return nil, fmt.Errorf("PCAPFile and PCAPFiles are mutually exclusive")
+	}
+	files := cfg.PCAPFiles
+	if len(files) == 0 && cfg.PCAPFile != "" {
+		files = []string{cfg.PCAPFile}
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("PCAPFile or PCAPFiles is required")
+	}
+	for _, file := range files {
+		if strings.TrimSpace(file) == "" {
+			return nil, fmt.Errorf("capture path is required")
+		}
+	}
+	return append([]string(nil), files...), nil
+}
+
+// captureSequence probes capture-time bounds and refuses a list whose supplied
+// order does not match packet order. Source identity deliberately binds the
+// supplied order, so replay must not quietly sort a mistaken list for it.
+func captureSequence(files []string, udpPort int) (*capseq.Sequence, error) {
+	segments := make([]capseq.Segment, 0, len(files))
+	for _, file := range files {
+		packets, err := network.CountPCAPPackets(file, udpPort)
+		if err != nil {
+			return nil, fmt.Errorf("inspect capture %s: %w", file, err)
+		}
+		if packets.Count == 0 {
+			return nil, fmt.Errorf("capture %s has no packets on UDP port %d", file, udpPort)
+		}
+		segments = append(segments, capseq.Segment{
+			Path: file, FirstPacket: time.Unix(0, packets.FirstTimestampNs),
+			LastPacket: time.Unix(0, packets.LastTimestampNs), PacketCount: packets.Count,
+		})
+	}
+	sequence, err := capseq.Build(segments, capseq.DefaultTolerances())
+	if err != nil {
+		return nil, fmt.Errorf("build capture sequence: %w", err)
+	}
+	for i, segment := range sequence.Segments {
+		if segment.Path != files[i] {
+			return nil, fmt.Errorf("capture files are not in packet-time order: %q precedes %q", segment.Path, files[i])
+		}
+	}
+	if !sequence.Continuous() {
+		broken := sequence.BrokenSeams()[0]
+		return nil, fmt.Errorf("capture sequence has an unusable join %s → %s (%s, gap %s)",
+			broken.Before, broken.After, broken.Grade, broken.Gap)
+	}
+	return sequence, nil
+}
+
+func rawSHA256(digest string) (string, error) {
+	const prefix = "sha256:"
+	if !strings.HasPrefix(digest, prefix) || len(digest) != len(prefix)+64 {
+		return "", fmt.Errorf("invalid capture digest %q", digest)
+	}
+	return strings.TrimPrefix(digest, prefix), nil
+}
+
 func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	start := time.Now()
 
-	if cfg.PCAPFile == "" {
-		return nil, fmt.Errorf("PCAPFile is required")
+	pcapFiles, err := captureFiles(cfg)
+	if err != nil {
+		return nil, err
 	}
 	if cfg.OutDir == "" {
 		return nil, fmt.Errorf("OutDir is required")
@@ -197,20 +321,27 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load tuning config %s: %w", cfg.TuningFile, err)
 	}
-	packets, err := network.CountPCAPPackets(cfg.PCAPFile, cfg.UDPPort)
+	sequence, err := captureSequence(pcapFiles, cfg.UDPPort)
 	if err != nil {
-		return nil, fmt.Errorf("inspect capture: %w", err)
+		return nil, err
 	}
-	if packets.Count == 0 {
-		return nil, fmt.Errorf("capture has no packets on UDP port %d", cfg.UDPPort)
-	}
-	scoreStart := packets.FirstTimestampNs + int64(cfg.StartSeconds*1e9)
-	if scoreStart < packets.FirstTimestampNs || scoreStart > packets.LastTimestampNs {
+	firstTimestampNs := sequence.Start.UnixNano()
+	lastTimestampNs := sequence.End.UnixNano()
+	scoreStart := firstTimestampNs + int64(cfg.StartSeconds*1e9)
+	if scoreStart < firstTimestampNs || scoreStart > lastTimestampNs {
 		return nil, fmt.Errorf("scoring window starts outside capture")
 	}
-	pcapHash, err := runtime.hashFile(cfg.PCAPFile)
-	if err != nil {
-		return nil, fmt.Errorf("hash capture: %w", err)
+	pcapHashes := make([]string, len(pcapFiles))
+	rawHashes := make([]string, len(pcapFiles))
+	for i, file := range pcapFiles {
+		pcapHashes[i], err = runtime.hashFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("hash capture %s: %w", file, err)
+		}
+		rawHashes[i], err = rawSHA256(pcapHashes[i])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := os.MkdirAll(cfg.OutDir, 0o755); err != nil {
@@ -230,7 +361,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	bgMgr.SetSourcePath(cfg.PCAPFile)
+	bgMgr.SetSourcePath(strings.Join(pcapFiles, "\n"))
 
 	// --- L5, L6 ---
 	tracker := l5tracks.NewTracker(l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1))
@@ -270,7 +401,40 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		version.GitSHA,
 		paramsJSON,
 	)
-	rec.SetProvenance("pcap", filepath.Base(cfg.PCAPFile), paramsHash, 0)
+	rec.SetProvenance("pcap", filepath.Base(pcapFiles[0]), paramsHash, 0)
+
+	var observationSink *strictObservationSink
+	var observationSourceID, observationCalibrationID string
+	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
+	if cfg.ObservationDBPath != "" {
+		if strings.TrimSpace(cfg.ReplayCaseID) == "" {
+			return nil, fmt.Errorf("ReplayCaseID is required when ObservationDBPath is set")
+		}
+		if cfg.ObservationCalibration.SensorID != cfg.SensorID {
+			return nil, fmt.Errorf("observation calibration sensor %q does not match replay sensor %q", cfg.ObservationCalibration.SensorID, cfg.SensorID)
+		}
+		if cfg.ObservationMaxSamplePoints <= 0 || cfg.ObservationMaxSamplePoints > 1024 {
+			return nil, fmt.Errorf("ObservationMaxSamplePoints must be between 1 and 1024 when ObservationDBPath is set")
+		}
+		maxSamplePoints = cfg.ObservationMaxSamplePoints
+		observationSourceID, err = l4bobserve.SourceID(l4bobserve.CaptureSource{
+			ReplayCaseID: cfg.ReplayCaseID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
+			ExtractorID: "l4.dbscan_xy/v1/" + paramsHash,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("derive observation source identity: %w", err)
+		}
+		observationCalibrationID, err = l4bobserve.CalibrationID(cfg.ObservationCalibration)
+		if err != nil {
+			return nil, fmt.Errorf("derive observation calibration identity: %w", err)
+		}
+		database, err := db.NewDB(cfg.ObservationDBPath)
+		if err != nil {
+			return nil, fmt.Errorf("open observation database: %w", err)
+		}
+		defer database.Close()
+		observationSink = &strictObservationSink{sink: observationsqlite.NewObservationStore(database)}
+	}
 
 	// --- Pipeline ---
 	// The frame-rate throttle is left off. It exists to stop a real-time
@@ -281,17 +445,23 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence.Store(true)
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
-		BackgroundManager:       bgMgr,
-		Tracker:                 tracker,
-		Classifier:              classifier,
-		SensorID:                cfg.SensorID,
-		VisualiserPublisher:     pub,
-		VisualiserAdapter:       adapter,
-		DisableTrackPersistence: disablePersistence,
-		HeightBandFloor:         tuningCfg.GetHeightBandFloor(),
-		HeightBandCeiling:       tuningCfg.GetHeightBandCeiling(),
-		RemoveGround:            tuningCfg.GetRemoveGround(),
-		MaxSamplePoints:         tuningCfg.L4.ActiveCommon().MaxSamplePoints,
+		BackgroundManager:        bgMgr,
+		Tracker:                  tracker,
+		Classifier:               classifier,
+		SensorID:                 cfg.SensorID,
+		VisualiserPublisher:      pub,
+		VisualiserAdapter:        adapter,
+		DisableTrackPersistence:  disablePersistence,
+		HeightBandFloor:          tuningCfg.GetHeightBandFloor(),
+		HeightBandCeiling:        tuningCfg.GetHeightBandCeiling(),
+		RemoveGround:             tuningCfg.GetRemoveGround(),
+		UseSurfaceGround:         cfg.UseSurfaceGround,
+		SurfaceGroundFloor:       cfg.SurfaceGroundFloor,
+		SurfaceGroundCeiling:     cfg.SurfaceGroundCeiling,
+		MaxSamplePoints:          maxSamplePoints,
+		ObservationSink:          observationSink,
+		ObservationSourceID:      observationSourceID,
+		ObservationCalibrationID: observationCalibrationID,
 	}
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
@@ -343,28 +513,27 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// the same reason.
 	fb.SetBlockOnFrameChannel(true)
 
-	log.Printf("replaying %s (port %d) through the perception pipeline", cfg.PCAPFile, cfg.UDPPort)
+	log.Printf("replaying %d capture file(s) (port %d) through the perception pipeline", len(pcapFiles), cfg.UDPPort)
 	processingDuration := cfg.DurationSeconds
 	if processingDuration > 0 {
 		processingDuration += cfg.WarmupSeconds
 	}
-	replayErr := network.ReadPCAPFile(
-		context.Background(),
-		cfg.PCAPFile,
-		cfg.UDPPort,
-		parser,
-		fb,
-		nil, nil,
-		cfg.StartSeconds-cfg.WarmupSeconds,
-		processingDuration,
-		0, 0, nil,
-	)
+	steps, err := sequence.Plan(cfg.StartSeconds-cfg.WarmupSeconds, processingDuration)
+	if err != nil {
+		return nil, fmt.Errorf("plan replay window: %w", err)
+	}
+	_, replayErr := network.ReadPCAPSequence(context.Background(), steps, network.SequenceReplayConfig{
+		UDPPort: cfg.UDPPort, Parser: parser, FrameBuilder: fb,
+	})
 
 	// Drain before closing the recorder, or the tail of the capture is lost.
 	fb.Close()
 
 	if cerr := runtime.closeRecorder(rec); cerr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("close recording: %w", cerr)
+	}
+	if observationErr := observationSink.Err(); observationErr != nil && replayErr == nil {
+		replayErr = fmt.Errorf("store immutable observations: %w", observationErr)
 	}
 	if replayErr != nil {
 		return nil, fmt.Errorf("pcap replay: %w", replayErr)
@@ -380,8 +549,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		return nil, fmt.Errorf("marshal calibration: %w", err)
 	}
 	manifest := map[string]interface{}{
-		"schema_version": 1, "source_sha256": pcapHash, "source_basename": filepath.Base(cfg.PCAPFile),
-		"source_first_ns": packets.FirstTimestampNs, "source_last_ns": packets.LastTimestampNs,
+		// source_sha256/source_basename are retained for single-file consumers;
+		// the plural fields carry the complete ordered multi-file provenance.
+		"schema_version": 2, "source_sha256": pcapHashes[0], "source_basename": filepath.Base(pcapFiles[0]),
+		"source_sha256s": pcapHashes, "source_paths": pcapFiles,
+		"source_first_ns": firstTimestampNs, "source_last_ns": lastTimestampNs,
 		"processing_start_seconds": cfg.StartSeconds - cfg.WarmupSeconds,
 		"scoring_start_seconds":    cfg.StartSeconds, "scoring_start_ns": scoreStart,
 		"scoring_duration_seconds": cfg.DurationSeconds, "warmup_seconds": cfg.WarmupSeconds,
@@ -393,6 +565,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		"build_stamped":    version.GitSHA != "" && version.GitSHA != "unknown" && version.GitSHA != "dev",
 		"frames_processed": frameCount, "frames_recorded": pub.recorded, "warmup_frames": pub.warmupFrames,
 		"warmup_static_verified": false,
+	}
+	if observationSourceID != "" {
+		manifest["observation_source_id"] = observationSourceID
+		manifest["observation_calibration_id"] = observationCalibrationID
+		manifest["observation_max_sample_points"] = maxSamplePoints
 	}
 	manifestJSON, err := runtime.marshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -410,15 +587,17 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 
 	return &Result{
-		VRLOGPath:      filepath.Clean(cfg.OutDir),
-		FramesRead:     frameCount,
-		FramesEmpty:    pub.emptyFrames,
-		FramesRecorded: pub.recorded,
-		WarmupFrames:   pub.warmupFrames,
-		Elapsed:        time.Since(start),
-		TuningFile:     cfg.TuningFile,
-		SensorID:       cfg.SensorID,
-		SourcePCAP:     cfg.PCAPFile,
+		VRLOGPath:           filepath.Clean(cfg.OutDir),
+		FramesRead:          frameCount,
+		FramesEmpty:         pub.emptyFrames,
+		FramesRecorded:      pub.recorded,
+		WarmupFrames:        pub.warmupFrames,
+		Elapsed:             time.Since(start),
+		TuningFile:          cfg.TuningFile,
+		SensorID:            cfg.SensorID,
+		SourcePCAP:          pcapFiles[0],
+		SourcePCAPs:         append([]string(nil), pcapFiles...),
+		ObservationSourceID: observationSourceID,
 	}, nil
 }
 

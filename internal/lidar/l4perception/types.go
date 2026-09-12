@@ -52,6 +52,11 @@ type WorldCluster struct {
 	PointsCount       int     // matches points_count INTEGER
 	HeightP95         float32 // matches height_p95 REAL
 	IntensityMean     float32 // matches intensity_mean REAL
+	// GroundClipped says that lower surface-relative filtering removed a point
+	// within this cluster's footprint. It is evidence about geometry quality,
+	// not a track disposition: L5 may still use the cluster while a later
+	// measurement model accounts for the clipped face.
+	GroundClipped bool
 
 	// Debug hints matching schema optional fields
 	SensorRingHint  *int     // matches sensor_ring_hint INTEGER
