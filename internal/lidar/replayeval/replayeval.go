@@ -404,6 +404,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	rec.SetProvenance("pcap", filepath.Base(pcapFiles[0]), paramsHash, 0)
 
 	var observationSink *strictObservationSink
+	var stateEstimateSink pipeline.StateEstimateSink
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
 	if cfg.ObservationDBPath != "" {
@@ -434,6 +435,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}
 		defer database.Close()
 		observationSink = &strictObservationSink{sink: observationsqlite.NewObservationStore(database)}
+		// Derived records share the identified offline database. They are
+		// enabled only here, where the capture and calibration identities above
+		// are explicit; the live server still must not invent either identity.
+		stateEstimateSink = observationsqlite.NewStateEstimateStore(database)
 	}
 
 	// --- Pipeline ---
@@ -462,6 +467,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		ObservationSink:          observationSink,
 		ObservationSourceID:      observationSourceID,
 		ObservationCalibrationID: observationCalibrationID,
+		StateEstimateSink:        stateEstimateSink,
+		StateEstimatorID:         "cv_kf_v1",
+		StateObservationModelID:  "obb_centre_v1",
+		StateParameterHash:       paramsHash,
 	}
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()

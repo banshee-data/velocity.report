@@ -30,7 +30,11 @@ func TestObservationStoragePreservesReplayBaseline(t *testing.T) {
 	dir := t.TempDir()
 	base := Config{
 		PCAPFile: pcapPath, SensorID: "test-replay", UDPPort: 2369,
-		DurationSeconds: 4,
+		// kirk0 starts with a static prefix. Process it as an unrecorded
+		// capture-time warm-up so the analysis window has a settled grid and
+		// actual foreground clusters, rather than treating the empty prefix as
+		// a four-second evidence run.
+		StartSeconds: 20, WarmupSeconds: 20, DurationSeconds: 4, RequireSettled: true,
 	}
 	without := base
 	without.OutDir = filepath.Join(dir, "without")
