@@ -19,6 +19,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.2 - LiDAR measurement + replay foundations (052)
 
+- Deterministic scene capture Milestone 1: agent-operated script taking existing scene exports and up to 50 named camera/target coordinate pairs; frozen multi-angle stills, readiness and pixel-stability checks, provenance manifest, optional contact sheet, and deterministic five-second trails beneath the Boxes toggle: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
+
 - LiDAR maths coherence Items 1–5: close the maths-to-code citation loop (no Go file currently references `data/maths/`), state the L6 confidence model as an equation in place of 29 scattered increments, write the missing L8 analytics and L1/L2 maths notes, and correct the `MATHS.md` and `MAGIC_NUMBERS.md` registries; substrate for the paper-gap fixes below: [design doc](plans/lidar-maths-coherence-plan.md) `M` {math}
 - Classification scorecard (classifier plan Phase 1): `Classifier` interface, confusion matrix, per-class precision/recall/F1, macro-F1, and confidence calibration wired into `ScoreComponents`; nothing currently measures classification accuracy, only detection: [design doc](plans/lidar-ml-classifier-training-plan.md) `M` {math}
 - Deterministic scene capture Milestone 1: agent-operated script taking existing scene exports and up to 50 named camera/target coordinate pairs; frozen multi-angle stills, readiness and pixel-stability checks, provenance manifest, optional contact sheet, and deterministic five-second trails beneath the Boxes toggle: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
