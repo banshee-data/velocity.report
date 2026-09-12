@@ -33,12 +33,9 @@ export function pointCloudOverlayOpacity(
   if (t >= duration) return 0;
 
   const fadeOut = Math.min(Math.max(0, fadeOutSeconds), duration);
-  const outOpacity = fadeOut
-    ? Math.min(1, (duration - t) / fadeOut)
-    : 1;
-  const inOpacity = loopingIn && fadeInSeconds > 0
-    ? Math.min(1, t / fadeInSeconds)
-    : 1;
+  const outOpacity = fadeOut ? Math.min(1, (duration - t) / fadeOut) : 1;
+  const inOpacity =
+    loopingIn && fadeInSeconds > 0 ? Math.min(1, t / fadeInSeconds) : 1;
   return Math.max(0, Math.min(outOpacity, inOpacity));
 }
 
@@ -47,13 +44,13 @@ export function sceneSourcesAlign(primary, overlay) {
   if (!primary || !overlay) return false;
   return Boolean(
     primary.start_ns &&
-      primary.start_ns === overlay.start_ns &&
-      primary.source_vrlog_sha256 &&
-      primary.source_vrlog_sha256 === overlay.source_vrlog_sha256 &&
-      primary.sensor_id === overlay.sensor_id &&
-      primary.coordinate_frame?.frame_id === overlay.coordinate_frame?.frame_id &&
-      primary.coordinate_frame?.reference_frame ===
-        overlay.coordinate_frame?.reference_frame,
+    primary.start_ns === overlay.start_ns &&
+    primary.source_vrlog_sha256 &&
+    primary.source_vrlog_sha256 === overlay.source_vrlog_sha256 &&
+    primary.sensor_id === overlay.sensor_id &&
+    primary.coordinate_frame?.frame_id === overlay.coordinate_frame?.frame_id &&
+    primary.coordinate_frame?.reference_frame ===
+      overlay.coordinate_frame?.reference_frame,
   );
 }
 
