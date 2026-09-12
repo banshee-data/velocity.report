@@ -8,6 +8,7 @@ import (
 
 // update applies the Kalman update step with a matched cluster measurement.
 func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
+	track.LastResidual.Valid = false
 	measurement := measurementForCluster(cluster, nowNanos)
 	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
 	// fallback for invalid geometry. The filter keeps its existing CV state and
@@ -48,6 +49,12 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	track.Residuals.Observe(yX, yY, track.VX, track.VY, invS00, invS01, invS10, invS11)
 	if t.baselineEnabled {
 		t.baselineResiduals.Observe(yX, yY, track.VX, track.VY, invS00, invS01, invS10, invS11)
+	}
+	track.LastResidual = FilterResidual{
+		Valid: true, PredictedX: track.X, PredictedY: track.Y, Measurement: measurement,
+		InnovationX: yX, InnovationY: yY,
+		NIS:                float32(float64(yX)*float64(invS00*yX+invS01*yY) + float64(yY)*float64(invS10*yX+invS11*yY)),
+		GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise),
 	}
 
 	// Kalman gain K = P * H^T * S^-1
@@ -124,6 +131,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Update timestamp
 	track.LastMeasurementSource = measurement.Source
 	track.LastMeasurementUnixNanos = measurement.UnixNanos
+	track.LastClusterID = cluster.ClusterID
 	track.EndUnixNanos = measurement.UnixNanos
 	if track.EndUnixNanos > track.StartUnixNanos {
 		track.TrackDurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
