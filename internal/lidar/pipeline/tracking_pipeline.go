@@ -152,6 +152,13 @@ type DetectionObservationSink interface {
 	Insert(l4bobserve.DetectionObservation) error
 }
 
+// StateEstimateSink persists versioned derived state. It is separate from the
+// observation sink because estimates may be recomputed, while observations may
+// not be revised.
+type StateEstimateSink interface {
+	Insert(estimate sqlite.TrackEstimate, residual sqlite.TrackResidual) error
+}
+
 // PublishSink sends pipeline outputs to external consumers (visualiser, gRPC).
 type PublishSink interface {
 	// PublishFrame sends a processed frame to external subscribers.
@@ -178,6 +185,14 @@ type TrackingPipelineConfig struct {
 	ObservationSink          DetectionObservationSink
 	ObservationSourceID      string
 	ObservationCalibrationID string
+
+	// StateEstimateSink is enabled only for a source with explicit capture and
+	// calibration identities. The live server deliberately leaves it unset
+	// until those identities are provided by the capture/pose owner.
+	StateEstimateSink       StateEstimateSink
+	StateEstimatorID        string
+	StateObservationModelID string
+	StateParameterHash      string
 
 	// DebugCollector is shared with the tracker at construction, before callbacks
 	// start. Its lifecycle belongs to this serial callback; do not toggle it or
@@ -856,6 +871,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						opsf("Failed to insert observation for track %s: %v", track.TrackID, err)
 						txFailed = true
 					}
+				}
+			}
+
+			// The derived record has its own versioned store. It is intentionally
+			// allowed in replay when legacy track persistence is disabled, but it
+			// must still link to the immutable observation that reached the filter.
+			if track.Misses == 0 {
+				if err := persistOnlineStateEstimate(cfg, track, frame.StartTimestamp.UnixNano()); err != nil {
+					opsf("Failed to persist state estimate for track %s: %v", track.TrackID, err)
 				}
 			}
 		}

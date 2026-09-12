@@ -626,8 +626,17 @@ what makes Experiment E1 possible at all.
 
 ### 5.2 Proposed evidence and interpretation contracts
 
-These are proposed data contracts, not implemented structs. Evidence is immutable; interpretations
-are derived and versioned. Persist units and model identities explicitly.
+`DetectionObservation` is implemented as immutable evidence. D2 is implemented as an explicit
+OBB-centre filter input with a medoid fallback, cluster acquisition time, frame time, and source
+recorded on the legacy tracker row. `MeasurementInterpretation` now has a bounded in-memory
+candidate helper for E1: it records the OBB-centre input, geometry-conditioned covariance and the
+nearest visible OBB boundary when a calibrated sensor origin is supplied. It does **not** promote
+that boundary into the online filter: no physical centre may be inferred from an unseen face before
+E1. Versioned SQLite estimate and residual tables, and a store which requires their source,
+calibration, estimator, observation-model and parameter identities, are implemented. Their live
+wiring remains deliberately disabled until the capture/pose owner supplies the missing live source
+and calibration identities. Evidence is immutable; interpretations are derived and versioned.
+Persist units and model identities explicitly.
 
 | Record                    | Fields                                                                                        | Contract                                                                                                                     |
 | ------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
