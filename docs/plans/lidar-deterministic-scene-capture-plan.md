@@ -2,7 +2,7 @@
 
 - **Status:** Planned
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling
-- **Target releases:** v0.5.2, v0.5.3, and v0.6.x
+- **Target:** v0.5.2-v0.6.x; staged delivery across milestones 1–5
 - **Backlog:** [Release work items](../BACKLOG.md)
 - **Related:** [Trail and uncertainty visualisation](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [scene health metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [offline analysis tooling](lidar-offline-analysis-tooling-plan.md)
 
@@ -21,11 +21,10 @@ Use the existing web scene renderer and existing scene exports first. Swift
 capture, interactive target picking, and automated visual-review service selection
 are outside the first milestones. Do not build a second renderer for the harness.
 
-The web scene reader, player, and camera were inspected in the repository-root
-checkout during design. They are absent from the older worktree where this plan
-was written. Before implementation, locate their current branch and integrate
-with that work, preserving unrelated edits. Verify the export format and current
-trail behaviour rather than assuming this checkout contains those prerequisites.
+Before implementation, re-verify the current web scene reader/player/camera code on
+the target branch and confirm the export format and existing trail behaviour.
+Integrate with that work while preserving unrelated edits, rather than assuming
+this plan’s working copy contains the required prerequisites.
 
 ## Delivery sequence
 
