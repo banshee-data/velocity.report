@@ -65,6 +65,8 @@ type TrackedObject struct {
 	// DetectionObservation record.
 	LastMeasurementSource    MeasurementSource
 	LastMeasurementUnixNanos int64
+	LastClusterID            int64
+	LastResidual             FilterResidual
 
 	// History of positions
 	History []TrackPoint
@@ -535,6 +537,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			Y:         measurement.Y,
 			Timestamp: measurement.UnixNanos,
 		}},
+		LastClusterID: cluster.ClusterID,
 
 		speedHistory: make([]float32, 0, t.Config.MaxSpeedHistoryLength),
 	}

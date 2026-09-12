@@ -64,3 +64,39 @@ func TestTrackerUsesSameCorrectedMeasurementForInitialAndUpdatedState(t *testing
 		t.Fatalf("medoid leaked into corrected update: x=%f y=%f", track.X, track.Y)
 	}
 }
+
+func TestInterpretMeasurementRecordsNearFaceButKeepsD2Input(t *testing.T) {
+	cluster := WorldCluster{
+		TSUnixNanos: 77,
+		PointsCount: 16,
+		CentroidX:   99,
+		CentroidY:   99,
+		OBB: &l4perception.OrientedBoundingBox{
+			CenterX: 10, CenterY: 20, Length: 4, Width: 2, HeadingRad: 0,
+		},
+	}
+	got := InterpretMeasurement(cluster, 10, 0, 0, 11, 19, 0.05)
+	if got.Measurement.Source != MeasurementOBBCentreV1 || got.Measurement.X != 10 || got.Measurement.Y != 20 || got.Measurement.UnixNanos != 77 {
+		t.Fatalf("D2 measurement = %+v, want OBB centre at capture time", got.Measurement)
+	}
+	if !got.NearEdgeAvailable || got.NearEdgeX != 8 || got.NearEdgeY != 19 {
+		t.Fatalf("near face = (%v, %v), available=%t; want (8, 19), true", got.NearEdgeX, got.NearEdgeY, got.NearEdgeAvailable)
+	}
+	if got.Covariance.XX <= 0 || got.Covariance.YY <= 0 || got.Covariance.XY != 0 {
+		t.Fatalf("invalid axis-aligned covariance: %+v", got.Covariance)
+	}
+}
+
+func TestInterpretMeasurementFallsBackWithoutValidOBB(t *testing.T) {
+	cluster := WorldCluster{CentroidX: 3, CentroidY: 4, PointsCount: 2}
+	got := InterpretMeasurement(cluster, 12, float32(math.NaN()), 0, 0, 0, 0.05)
+	if got.Measurement.Source != MeasurementMedoidFallbackV1 {
+		t.Fatalf("measurement source = %q, want explicit medoid fallback", got.Measurement.Source)
+	}
+	if got.NearEdgeAvailable || got.FallbackReason != "missing_or_invalid_obb" {
+		t.Fatalf("near edge fallback = %+v, want invalid OBB", got)
+	}
+	if got.Covariance.XX != 0.05 || got.Covariance.YY != 0.05 || got.Covariance.XY != 0 {
+		t.Fatalf("fallback covariance = %+v, want tuned isotropic floor", got.Covariance)
+	}
+}
