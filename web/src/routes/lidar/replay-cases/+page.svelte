@@ -49,6 +49,7 @@
 	let editOptimalParams = '';
 	let editPcapStartSecs = '';
 	let editPcapDurationSecs = '';
+	let editCaptureFiles = '';
 	let saving = false;
 	let saveError: string | null = null;
 
@@ -91,11 +92,15 @@
 		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
+		editCaptureFiles = (scene.files?.map((file) => file.pcap_file) ?? [scene.pcap_file]).join('\n');
 
 		try {
 			const full = await getLidarReplayCase(scene.replay_case_id);
 			if (selectedScene?.replay_case_id === full.replay_case_id) {
 				selectedScene = full;
+				editCaptureFiles = (full.files?.map((file) => file.pcap_file) ?? [full.pcap_file]).join(
+					'\n'
+				);
 			}
 		} catch {
 			// The row's own fields already cover the common case; the detail
@@ -111,6 +116,7 @@
 		editOptimalParams = '';
 		editPcapStartSecs = '';
 		editPcapDurationSecs = '';
+		editCaptureFiles = '';
 		saveError = null;
 	}
 
@@ -150,7 +156,11 @@
 				reference_run_id: editReferenceRunId || undefined,
 				optimal_params_json: optimalParams ?? undefined,
 				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
-				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined
+				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined,
+				pcap_files: editCaptureFiles
+					.split('\n')
+					.map((path) => path.trim())
+					.filter(Boolean)
 			});
 			// Update in list
 			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
@@ -664,32 +674,19 @@
 					</div>
 
 					<div>
-						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium">
-							{selectedScene.files && selectedScene.files.length > 1
-								? `Captures (${selectedScene.files.length}, joined)`
-								: 'PCAP File'}
-						</label>
-						{#if selectedScene.files && selectedScene.files.length > 1}
-							<ol class="border-surface-content/10 space-y-1 rounded border p-2">
-								{#each selectedScene.files as f (f.ordinal)}
-									<li class="text-surface-content/70 flex items-center gap-2 font-mono text-xs">
-										<span class="text-surface-content/40 w-5 shrink-0 text-right"
-											>{f.ordinal + 1}.</span
-										>
-										<span class="truncate">{f.pcap_file}</span>
-									</li>
-								{/each}
-							</ol>
-							<p class="text-surface-content/40 mt-1 text-xs">
-								Replayed in order, as one continuous recording. No unioned file is written.
-							</p>
-						{:else}
-							<div
-								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-sm"
-							>
-								{selectedScene.pcap_file}
-							</div>
-						{/if}
+						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
+							>Captures, in replay order</label
+						>
+						<textarea
+							id="edit-pcap"
+							bind:value={editCaptureFiles}
+							rows="5"
+							class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 font-mono text-xs"
+							placeholder="one capture path per line"></textarea>
+						<p class="text-surface-content/40 mt-1 text-xs">
+							One capture per line. The server checks that adjacent captures form one continuous
+							recording.
+						</p>
 					</div>
 
 					{#if selectedScene.location}

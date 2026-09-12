@@ -265,6 +265,10 @@ type UpdateSceneRequest struct {
 	OptimalParamsJSON *json.RawMessage `json:"optimal_params_json,omitempty"`
 	PCAPStartSecs     *float64         `json:"pcap_start_secs,omitempty"`
 	PCAPDurationSecs  *float64         `json:"pcap_duration_secs,omitempty"`
+	// PCAPFiles replaces the ordered capture association. Its order is the
+	// replay order and is deliberately editable: field capture rolls files
+	// every five minutes, while one useful case often spans several rolls.
+	PCAPFiles []string `json:"pcap_files,omitempty"`
 }
 
 // handleUpdateScene updates a scene's fields.
@@ -310,10 +314,36 @@ func (ws *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request, scen
 	if req.PCAPDurationSecs != nil {
 		scene.PCAPDurationSecs = req.PCAPDurationSecs
 	}
+	if req.PCAPFiles != nil {
+		if len(req.PCAPFiles) == 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "pcap_files must contain at least one capture")
+			return
+		}
+		if len(req.PCAPFiles) > 1 {
+			if _, err := ws.validateCaseFiles(req.PCAPFiles); err != nil {
+				ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+		scene.PCAPFile = req.PCAPFiles[0]
+	}
 
 	if err := store.UpdateScene(scene); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update scene: %v", err))
 		return
+	}
+	if req.PCAPFiles != nil {
+		files := make([]sqlite.ReplayCaseFile, 0, len(req.PCAPFiles))
+		for i, path := range req.PCAPFiles {
+			files = append(files, sqlite.ReplayCaseFile{Ordinal: i, PCAPFile: path})
+		}
+		if err := store.SetCaseFiles(sceneID, files); err != nil {
+			ws.writeJSONError(w, http.StatusInternalServerError,
+				fmt.Sprintf("failed to update the case's captures: %v", err))
+			return
+		}
+		scene.Files = files
+		scene.FileCount = len(files)
 	}
 
 	ws.writeJSON(w, http.StatusOK, scene)
