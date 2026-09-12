@@ -95,8 +95,8 @@ describe("timeline strip", () => {
     });
     const middle = canvas.clientHeight / 2;
     const vehicle = canvas.paint.fills.find((fill) => fill.colour === "#f2504b");
-    const walking = canvas.paint.fills.find((fill) => fill.colour === "#4b9df2");
-    const cycling = canvas.paint.fills.find((fill) => fill.colour === "#6fd14b");
+    const walking = canvas.paint.fills.find((fill) => fill.colour === "#10b981");
+    const cycling = canvas.paint.fills.find((fill) => fill.colour === "#6aa9ff");
     const speed = canvas.paint.strokes.find((stroke) => stroke.colour === "#f2a65a");
     assert.ok(vehicle.y < middle && vehicle.y + vehicle.height <= middle);
     assert.ok(walking.y >= middle);
@@ -159,6 +159,14 @@ describe("timeline strip", () => {
     const { canvas } = setup({ duration: 663 });
     assert.equal(canvas.getAttribute("aria-valuemin"), "0");
     assert.equal(canvas.getAttribute("aria-valuemax"), "663");
+  });
+
+  test("the strip can focus seeking on a shorter loop", () => {
+    const { canvas, strip, seeks } = setup({ duration: 600, width: 600 });
+    strip.setDuration(30);
+    canvas.fire("pointerdown", { pointerId: 1, clientX: 300 });
+    assert.equal(seeks.at(-1), 15);
+    assert.equal(canvas.getAttribute("aria-valuemax"), "30");
   });
 
   test("a collapsed strip seeks to zero rather than NaN", () => {

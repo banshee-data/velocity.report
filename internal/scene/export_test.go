@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 const baseNs = int64(1765057342040018330)
@@ -314,7 +315,12 @@ func TestExportRefusesThoroughlyMixedTimeDomains(t *testing.T) {
 }
 
 func TestExportHeaderMetadata(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "0.5.1-vrlog-generator-test"
+	t.Cleanup(func() { version.Version = oldVersion })
 	src := writeVRLOG(t, evenTimestamps(12))
+	// Exporting with a different binary must not rewrite recording provenance.
+	version.Version = "0.5.1-scene-exporter-test"
 	out := filepath.Join(t.TempDir(), "out")
 	if _, err := Export(Options{
 		VRLOGPath: src, OutDir: out, Stride: 2, Site: "soma1", Title: "SoMa 1",
@@ -339,6 +345,9 @@ func TestExportHeaderMetadata(t *testing.T) {
 	}
 	if h.SourceVRLOGSHA256 == "" {
 		t.Error("source_vrlog_sha256 missing; an export must name the run it came from")
+	}
+	if h.BuildVersion != "0.5.1-vrlog-generator-test" {
+		t.Errorf("build_version %q, want the binary that generated the VRLOG", h.BuildVersion)
 	}
 	if h.DurationSec <= 0 {
 		t.Errorf("duration_sec %.3f, want positive", h.DurationSec)

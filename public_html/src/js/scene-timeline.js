@@ -14,11 +14,13 @@
 // else at some sites, and plotting them would bury the modes the strip exists
 // to compare.
 
+import { SCENE_CSS_COLOURS } from "./scene-colours.js";
+
 /** Matches the class colours used for the boxes, so the strip reads as the same scene. */
 export const MODE_COLOURS = {
-  vehicle: "#f2504b",
-  person: "#4b9df2",
-  cycle: "#6fd14b",
+  vehicle: SCENE_CSS_COLOURS.vehicle,
+  person: SCENE_CSS_COLOURS.walking,
+  cycle: SCENE_CSS_COLOURS.cycle,
   other: "#3d4a52",
 };
 
@@ -39,12 +41,8 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
   // A near-empty scene would otherwise scale its noise to full height.
   // The taller of the two directions sets the scale, so neither half clips and
   // a bar means the same count whichever way it points.
-  const peakSide = Math.max(
-    1,
-    ...buckets.map((b) => Math.max((b.ped ?? 0) + (b.cyc ?? 0), b.veh ?? 0)),
-  );
-  const maxSpeed = Math.max(summary?.max_speed ?? 0, 1);
-  const span = duration || buckets.length * bucketSeconds || 1;
+  const recordingSpan = duration || buckets.length * bucketSeconds || 1;
+  let span = recordingSpan;
 
   let playhead = 0;
   let hover = null;
@@ -63,7 +61,18 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const barW = Math.max(1, w / Math.max(buckets.length, 1));
+    const visibleBuckets = buckets.slice(
+      0,
+      Math.max(1, Math.ceil(span / bucketSeconds)),
+    );
+    const peakSide = Math.max(
+      1,
+      ...visibleBuckets.map((b) =>
+        Math.max((b.ped ?? 0) + (b.cyc ?? 0), b.veh ?? 0),
+      ),
+    );
+    const maxSpeed = Math.max(1, ...visibleBuckets.map((b) => b.spd ?? 0));
+    const barW = Math.max(1, w / Math.max(visibleBuckets.length, 1));
     // Zero sits in the middle. Vehicles grow upwards; people and bikes grow
     // downwards, so the two halves of a street's traffic can be compared
     // against each other rather than stacked into one indistinct total.
@@ -73,7 +82,7 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     // number of objects whichever way it points.
     const scale = halfH / peakSide;
 
-    buckets.forEach((b, i) => {
+    visibleBuckets.forEach((b, i) => {
       const x = i * barW;
       const barWidth = Math.max(barW - 0.5, 0.5);
 
@@ -103,7 +112,7 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.beginPath();
     ctx.strokeStyle = SPEED_COLOUR;
     ctx.lineWidth = 1.5;
-    buckets.forEach((b, i) => {
+    visibleBuckets.forEach((b, i) => {
       const x = i * barW + barW / 2;
       const y = mid - 3 - ((b.spd ?? 0) / maxSpeed) * (halfH - 4);
       if (i === 0) ctx.moveTo(x, y);
@@ -120,7 +129,9 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.stroke();
 
     const px = (playhead / span) * w;
-    ctx.strokeStyle = "#ffffff";
+    const isDarkMode =
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+    ctx.strokeStyle = isDarkMode ? "#ffffff" : "#111827";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(px, 0);
@@ -128,7 +139,9 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
     ctx.stroke();
 
     if (hover != null) {
-      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.strokeStyle = isDarkMode
+        ? "rgba(255,255,255,0.35)"
+        : "rgba(17, 24, 39, 0.35)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(hover, 0);
@@ -224,6 +237,12 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
   return {
     draw,
     bucketAt,
+    setDuration(seconds) {
+      span = seconds > 0 ? Math.min(seconds, recordingSpan) : recordingSpan;
+      playhead = Math.min(playhead, span);
+      canvas.setAttribute("aria-valuemax", String(Math.round(span)));
+      draw();
+    },
     setPlayhead(seconds) {
       playhead = seconds;
       draw();

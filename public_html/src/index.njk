@@ -7,7 +7,7 @@ og_image: /img/stack.png
 
     <section class="hero hero-cloud">
       <div class="hero-bg">
-        <canvas id="hero-scene"></canvas>
+        <canvas id="hero-scene" aria-hidden="true"></canvas>
         <div class="hero-veil"></div>
       </div>
       <div class="wrap hero-content">
@@ -92,8 +92,8 @@ og_image: /img/stack.png
               <div class="key"><span class="gen-no">GEN 02 · LIDAR</span></div>
               <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
             </div>
-            <div class="gen-title">Open research, calibrating.</div>
-            <div class="desc">LiDAR captures the whole scene, classifies road users, and tracks how they move around each other. The maths are open. The questions are open too. It is not the kind of system you install and forget, yet.</div>
+            <div class="gen-title">Real streets, open questions.</div>
+            <div class="desc">LiDAR records where road users move without taking their picture. The pipeline, maths, and {{ scenes.sites | length }} published street scenes are open for inspection. It is research equipment, not an appliance, yet.</div>
             <div class="meter"><div class="fill amber" style="width:45%;"></div></div>
             <div class="meta-row">
               <span>STATUS <span class="v">EXPERIMENTAL</span></span>
@@ -283,7 +283,7 @@ og_image: /img/stack.png
         <div class="section-header">
           <div class="left">
             <div class="eyebrow"><span class="ticks"><i></i><i></i><i></i><i></i><i></i></span><span>Research</span></div>
-            <h2>LiDAR pipeline: full-scene understanding.</h2>
+            <h2>LiDAR research: watch a street become evidence.</h2>
           </div>
         </div>
 
@@ -294,27 +294,27 @@ og_image: /img/stack.png
                 <span class="pill amber"><span class="dot"></span>RESEARCH PREVIEW</span>
                 <span class="pill signal"><span class="dot"></span>OPEN PIPELINE</span>
               </div>
-              <p>See the whole street, classify road users, and measure how they move around each other. The code is real, the maths are published, and the results are still being calibrated.</p>
-              <p>The radar setup gives you speed data and a PDF. LiDAR goes further: it captures the full scene, identifies road-user types, and tracks motion through it. What it does not give you yet is a finished set of street-safety metrics you can accept on sight. That part is still under active work.</p>
+              <p>LiDAR measures where road users move through a street without taking camera images. The code is real, the maths are published, and the results are still being calibrated.</p>
+              <p>The radar setup gives you speed data and a PDF. LiDAR adds position, direction, and the space between road users. It does not yet give you a finished set of street-safety metrics to accept on sight. That is why the recordings and the unanswered questions are public.</p>
               <p>One part of that future is the Traffic Description Language: a way to ask plain-English questions of the fused transit data. Questions like how closely drivers pass work crews, how much space cars leave cyclists in a bike lane, or how many cars come to a complete stop at an intersection when school gets out. In other words, the questions people actually ask once the speed chart has done its job.</p>
               <div class="links">
+                <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/platform/architecture/traffic-description-language.md">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  TDL design
+                </a>
                 <a href="https://github.com/banshee-data/velocity.report/blob/main/data/maths/MATHS.md">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   Pipeline maths
                 </a>
-                <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  Open research questions
-                </a>
-                <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/platform/architecture/traffic-description-language.md">
+                <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/plans/lidar-web-scene-export-plan.md">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Traffic description language
+                  Scene publishing plan
                 </a>
               </div>
             </div>
 
             <div class="research-actions">
-              <h3>A radar logs velocity. LiDAR paints the rest of the scene.</h3>
+              <h3>{{ scenes.sites | length }} recordings. No camera images hiding in the small print.</h3>
               <div class="visualiser-panel">
                 <img src="/img/visualiser-demo.gif" alt="LiDAR visualiser preview" />
               </div>
@@ -324,7 +324,8 @@ og_image: /img/stack.png
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
                   VelocityVisualiser.app · macOS
                 </a>
-                <a href="https://github.com/banshee-data/velocity.report/tree/main/internal/lidar" class="btn btn-ghost">Read the source ↗</a>
+                <a href="/scenes/" class="btn btn-ghost">Explore street scenes →</a>
+                <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/lidar/LIDAR.md" class="btn btn-ghost">LiDAR architecture ↗</a>
               </div>
             </div>
           </div>
@@ -409,7 +410,7 @@ og_image: /img/stack.png
               </div>
               <div class="faq-item">
                 <h4>What about LiDAR?</h4>
-                <p>LiDAR is still research-stage. The pipeline is open, the maths are published, and the current release includes a macOS visualiser for engineers and curious users. Today, the dependable PDF path is radar. LiDAR is not the install-it-and-forget-it path yet.</p>
+                <p>LiDAR is still research-stage. The pipeline, maths, and public street scenes are open, and the current release includes a macOS visualiser for engineers and curious users. Today, the dependable PDF path is radar. LiDAR still expects an engineer in the room.</p>
               </div>
               <div class="faq-item">
                 <h4>How do I get started?</h4>

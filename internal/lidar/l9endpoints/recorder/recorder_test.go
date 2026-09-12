@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // testFrameBundle creates a FrameBundle for testing.
@@ -1640,6 +1641,10 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 }
 
 func TestRecorder_WritesDeterministicConfigMetadata(t *testing.T) {
+	oldVersion, oldSHA := version.Version, version.GitSHA
+	version.Version, version.GitSHA = "0.5.1-recorder-test", "recorder-sha"
+	t.Cleanup(func() { version.Version, version.GitSHA = oldVersion, oldSHA })
+
 	dir := t.TempDir()
 	rec, err := NewRecorder(dir, "test-config")
 	if err != nil {
@@ -1694,11 +1699,17 @@ func TestRecorder_WritesDeterministicConfigMetadata(t *testing.T) {
 	if header.ParamSetType != "effective" {
 		t.Fatalf("header.ParamSetType = %q, want effective", header.ParamSetType)
 	}
-	if header.BuildVersion != "0.5.0-test" {
-		t.Fatalf("header.BuildVersion = %q, want 0.5.0-test", header.BuildVersion)
+	if header.BuildVersion != "0.5.1-recorder-test" {
+		t.Fatalf("header.BuildVersion = %q, want recorder binary version", header.BuildVersion)
 	}
-	if header.BuildGitSHA != "deadbeef" {
-		t.Fatalf("header.BuildGitSHA = %q, want deadbeef", header.BuildGitSHA)
+	if header.BuildGitSHA != "recorder-sha" {
+		t.Fatalf("header.BuildGitSHA = %q, want recorder binary SHA", header.BuildGitSHA)
+	}
+	if header.ConfigBuildVersion != "0.5.0-test" {
+		t.Fatalf("header.ConfigBuildVersion = %q, want 0.5.0-test", header.ConfigBuildVersion)
+	}
+	if header.ConfigBuildGitSHA != "deadbeef" {
+		t.Fatalf("header.ConfigBuildGitSHA = %q, want deadbeef", header.ConfigBuildGitSHA)
 	}
 
 	executionConfigData, err := os.ReadFile(filepath.Join(dir, "execution_config.json"))

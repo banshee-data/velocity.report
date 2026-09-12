@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "site": {
+    "id": "columbus-broadway",
+    "title": "Columbus at Broadway"
+  },
+  "fade_out_seconds": 5,
+  "loop_fade_in_seconds": 2,
+  "selection": {
+    "source_start_frame": 400,
+    "source_frame_count": 301,
+    "interest_score": 368.59,
+    "method": "Highest 30-second window for sustained vehicle, walking, and cycling activity"
+  },
+  "parts": [
+    {
+      "url": "./part-000/",
+      "start_seconds": 0
+    }
+  ]
+}

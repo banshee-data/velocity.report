@@ -205,6 +205,7 @@ export class PartReader {
           throw new SceneError(`${name} contains a frame with no timestamp`);
         }
         if (!Array.isArray(frame.tr)) frame.tr = [];
+        if (!Array.isArray(frame.p)) frame.p = [];
         frames.push(frame);
       }
       if (frames.length === 0) {

@@ -1,10 +1,15 @@
 /** Every recorded site, with a private local fallback and an opt-in cycle map. */
 import { mountCycleMapConsent } from "./scene-map-mode.js";
+import { SCENE_CSS_COLOURS } from "./scene-colours.js";
 
 const SF = [37.7749, -122.4194];
 const MIN_ZOOM = 12;
 const MAX_ZOOM = 16;
 const SVG_NS = "http://www.w3.org/2000/svg";
+const SHIMMER_ANGLE_DEG = 55.7;
+const SHIMMER_SWEEP_MS = 650;
+const FIRST_SHIMMER_DELAY_MS = 1000;
+const SECOND_SHIMMER_DELAY_MS = 10000;
 
 export function clipVoronoiCell(point, others, bounds) {
   let polygon = [
@@ -132,22 +137,71 @@ function addSiteLayers(L, map, located) {
     cells.set(token, { fill, outline });
   }
   const markers = new Map();
+  const markerRings = new Map();
+  // Project onto the purple-line direction agreed for this map: 55.7 degrees
+  // above screen-right. Equal scores sit on the same perpendicular wavefront,
+  // so the light reads as one wash rather than a list of dots blinking.
+  const angle = (SHIMMER_ANGLE_DEG * Math.PI) / 180;
+  const direction = { x: Math.cos(angle), y: -Math.sin(angle) };
+  const shimmerScores = new Map(
+    located.map((site) => {
+      const point = map.project(
+        [site.position.lat, site.position.lon],
+        map.getZoom(),
+      );
+      return [site.id, point.x * direction.x + point.y * direction.y];
+    }),
+  );
+  const scoreValues = [...shimmerScores.values()];
+  const minScore = Math.min(...scoreValues);
+  const scoreSpan = Math.max(Math.max(...scoreValues) - minScore, 1);
   for (const site of located) {
+    const outer = L.circleMarker([site.position.lat, site.position.lon], {
+      pane: "markers",
+      radius: 9,
+      stroke: false,
+      fillColor: "#000000",
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(map);
+    const inner = L.circleMarker([site.position.lat, site.position.lon], {
+      pane: "markers",
+      radius: 8,
+      stroke: false,
+      fillColor: "#ffffff",
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(map);
     const marker = L.circleMarker([site.position.lat, site.position.lon], {
       pane: "markers",
       radius: 7,
-      weight: 2,
-      color: site.published ? "#1c6fd6" : "#8a8a8a",
-      fillColor: site.published ? "#1c6fd6" : "#ffffff",
-      fillOpacity: site.published ? 0.85 : 0.5,
+      stroke: false,
+      fillColor: SCENE_CSS_COLOURS.primary,
+      fillOpacity: site.published ? 0.9 : 0.65,
       interactive: false,
     }).addTo(map);
+    const shimmer = L.circleMarker([site.position.lat, site.position.lon], {
+      pane: "markers",
+      radius: 7,
+      stroke: false,
+      fillColor: "#ffffff",
+      fillOpacity: 0,
+      interactive: false,
+      className: "scene-map__site-shimmer",
+    }).addTo(map);
+    shimmer
+      .getElement?.()
+      ?.style.setProperty(
+        "--scene-map-shimmer-delay",
+        `${Math.round((((shimmerScores.get(site.id) ?? minScore) - minScore) / scoreSpan) * SHIMMER_SWEEP_MS)}ms`,
+      );
     markers.set(site.id, marker);
+    markerRings.set(site.id, { outer, inner, shimmer });
   }
-  return { cells, markers };
+  return { cells, markers, markerRings };
 }
 
-export function addVoronoiLinks(L, map, located, cells, markers) {
+export function addVoronoiLinks(L, map, located, cells, markers, markerRings) {
   let regions = [];
   const clear = () => {
     for (const region of regions) {
@@ -161,13 +215,19 @@ export function addVoronoiLinks(L, map, located, cells, markers) {
     cells
       .get(site.cells?.neighbourhood?.token)
       ?.fill.setStyle({ fillOpacity: 0.1 });
-    markers.get(site.id)?.setStyle({ radius: 7, weight: 2 });
+    markers.get(site.id)?.setRadius(7);
+    markerRings?.get(site.id)?.inner.setRadius(8);
+    markerRings?.get(site.id)?.outer.setRadius(9);
+    markerRings?.get(site.id)?.shimmer.setRadius(7);
   };
   const highlight = (site) => {
     cells
       .get(site.cells?.neighbourhood?.token)
       ?.fill.setStyle({ fillOpacity: 0.38 });
-    markers.get(site.id)?.setStyle({ radius: 9, weight: 3 });
+    markers.get(site.id)?.setRadius(9);
+    markerRings?.get(site.id)?.inner.setRadius(10);
+    markerRings?.get(site.id)?.outer.setRadius(11);
+    markerRings?.get(site.id)?.shimmer.setRadius(9);
   };
   const rebuild = () => {
     clear();
@@ -209,6 +269,27 @@ export function addVoronoiLinks(L, map, located, cells, markers) {
   return { rebuild, regions: () => regions };
 }
 
+function scheduleSiteShimmer(markerRings) {
+  const paths = [...markerRings.values()]
+    .map(({ shimmer }) => shimmer.getElement?.())
+    .filter(Boolean);
+  if (!paths.length) return;
+
+  let isFirstShimmer = true;
+  const shimmer = () => {
+    for (const path of paths) path.classList.add("is-shimmering");
+    window.setTimeout(() => {
+      for (const path of paths) path.classList.remove("is-shimmering");
+    }, 1200);
+    const nextDelay = isFirstShimmer
+      ? SECOND_SHIMMER_DELAY_MS
+      : 5000 + Math.random() * 10000;
+    isFirstShimmer = false;
+    window.setTimeout(shimmer, nextDelay);
+  };
+  window.setTimeout(shimmer, FIRST_SHIMMER_DELAY_MS);
+}
+
 export function initSceneMap(container, sites) {
   const L = window.L;
   if (!L || !container) return null;
@@ -233,8 +314,9 @@ export function initSceneMap(container, sites) {
     panes[name].style.zIndex = String(zIndex);
   }
   addCoastline(L, map, container.dataset.coastlineUrl);
-  const { cells, markers } = addSiteLayers(L, map, located);
-  addVoronoiLinks(L, map, located, cells, markers);
+  const { cells, markers, markerRings } = addSiteLayers(L, map, located);
+  addVoronoiLinks(L, map, located, cells, markers, markerRings);
+  scheduleSiteShimmer(markerRings);
   const bounds = located.map((site) => [site.position.lat, site.position.lon]);
   const frame = () => {
     map.invalidateSize();
