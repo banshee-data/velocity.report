@@ -13,6 +13,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/debug"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -144,6 +145,13 @@ type PersistenceSink interface {
 	PersistObservation(obs *sqlite.TrackObservation) error
 }
 
+// DetectionObservationSink is the write-once persistence boundary for L4
+// evidence. It is intentionally separate from PersistenceSink: observations
+// exist whether an L5 association is accepted, rejected, or never attempted.
+type DetectionObservationSink interface {
+	Insert(l4bobserve.DetectionObservation) error
+}
+
 // PublishSink sends pipeline outputs to external consumers (visualiser, gRPC).
 type PublishSink interface {
 	// PublishFrame sends a processed frame to external subscribers.
@@ -162,6 +170,14 @@ type TrackingPipelineConfig struct {
 	VisualiserPublisher VisualiserPublisher        // Optional: gRPC publisher
 	VisualiserAdapter   VisualiserAdapter          // Optional: adapter for gRPC
 	LidarViewAdapter    LidarViewAdapter           // Optional: adapter for UDP forwarding
+
+	// ObservationSink persists frozen L4 evidence before L5 tracking. It is
+	// disabled unless all three fields are supplied: source and calibration
+	// identities must be owned by the capture/pose provider, never guessed by
+	// the tracker from a sensor name or an S2 location.
+	ObservationSink          DetectionObservationSink
+	ObservationSourceID      string
+	ObservationCalibrationID string
 
 	// DebugCollector is shared with the tracker at construction, before callbacks
 	// start. Its lifecycle belongs to this serial callback; do not toggle it or
@@ -670,6 +686,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		// Always log clustering for tracking debugging
 		tracef("Clustered into %d objects", len(clusters))
+		if err := persistDetectionObservations(cfg, frame, clusters); err != nil {
+			opsf("Failed to persist immutable observations: %v", err)
+		}
 
 		// Profile gate: detect stops here. Clusters exist for this frame but
 		// no tracker state is created and no track is ever persisted, which is

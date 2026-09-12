@@ -2033,6 +2033,27 @@ regression
 test now compares schema 2 baseline bytes across two identical runs. This permits additive Phase 1
 development; it does not close Pi acceptance or the missing reviewed-reference gate.
 
+#### Phase 0 multi-site corpus, September 2026
+
+The next repeatable replication set is
+[`tools/s2-archive/state-estimation-phase01-corpus.json`](../../tools/s2-archive/state-estimation-phase01-corpus.json).
+It selects three independently located archive cases from `site-index.json`; the source index,
+rather than this document, remains authoritative for file order. The importer can select the set
+without hand-editing a case: `go run ./cmd/tools/import-s2-site-index -only
+marina-webster-beach,columbus-broadway,embarcadero-folsom -apply`.
+
+| Case                   | Ordered captures | Duration | Role in Phase 0/1                                      |
+| ---------------------- | ---------------: | -------: | ------------------------------------------------------ |
+| `marina-webster-beach` |                4 | 20.0 min | Different marina placement and background              |
+| `columbus-broadway`    |                7 | 33.9 min | Longest selected sequence; exercises six capture joins |
+| `embarcadero-folsom`   |                5 | 20.2 min | Separate approach geometry; reserve as a held-out site |
+
+Together these are 16 captures and about 74 minutes. The corpus test pins the case IDs and capture
+counts, so an archive-index edit cannot quietly turn a multi-file replay into a single-file test.
+It is a replication protocol, not a published residual baseline: its Phase 0 rows remain open until
+the current collector has produced two comparable runs, residual distributions and target-Pi stage
+timings for each selected case.
+
 #### Historical Phase 0 baseline, schema 1
 
 The other agent's `dbe670bf3` added residual/NIS instrumentation and recorded the following two
@@ -2077,22 +2098,35 @@ remain open.
 
 **Goal.** A correct, immutable, replayable record of what the sensor saw.
 
-**Started, not complete.** L4 now retains content-seeded samples when the offline replay
-config sets
+**In progress.** L4 retains content-seeded samples when the offline replay config sets
 `l4.dbscan_xy_v1.max_sample_points` above zero, capped at 1024. Zero remains the default. Retention
 copies acquisition times and intensity into `RetainedPoints`; XYZ samples also reach VRLOG. The
-new observation boundary owns copies of raw geometry and keeps frame-start and cluster-capture
-time distinct. Its snapshot is an initial in-memory contract, not a stable database schema or a
-claim that the live pipeline writes observations. Primitive fits, fixed-covariance interpretation,
-write-once SQLite storage/replay, source/calibration identity, P11, and G-PER-1 remain next.
+observation boundary owns copies of raw geometry and keeps frame-start and cluster-capture time
+distinct.
+
+The first persistence slice is now implemented. Migration 000047 adds write-once
+`lidar_observations`; `ObservationStore` writes and rehydrates the complete frozen record while
+indexing source, calibration and frame time. Content-addressed `source/v1`, `calibration/v1` and
+`observation/v1` identities bind each ordered capture path and SHA-256, extractor revision, and
+the full sensor-to-site transform.
+The L4-to-L5 callback has an optional observation sink, which records every cluster before profile
+or association gates. It requires source and calibration identities from the capture/pose owner;
+the tracker must not invent either from a sensor name or S2 cell. A bounded deterministic primitive
+extractor stores one supported plane and edge candidate when retained geometry permits it, using a
+0.02 m support threshold. The stricter edge-offset acceptance test remains open with P11.
+
+The storage round-trip proves equality of the frozen raw evidence, including retained-point timing,
+intensity and primitive candidates. It does **not** yet prove end-to-end tracker-output equality:
+that requires wiring a named replay source and calibration revision through the replay runner and
+comparing the legacy tracker output on the corpus. P11's surface-relative clipping, `GroundClipped`,
+fixed covariance interpretation, current-Pi timing and the one-week G-PER-1 collection remain open.
 
 **Files.** New `internal/lidar/l4bobserve/`; `l4perception/cluster.go` for
 point retention and per-cluster timestamps; new
 `storage/sqlite/observation_store.go`; migration for `lidar_observations`.
 
-**Type contract.** `DetectionObservation` has an initial in-memory implementation.
-`PlanePrimitive`,
-`EdgePrimitive`, and a fixed-covariance `UncertaintyModel` remain to be implemented.
+**Type contract.** `DetectionObservation`, `Plane` and `Edge` now have an initial immutable,
+persisted implementation. A fixed-covariance `UncertaintyModel` remains to be implemented.
 `MeasurementInterpretation` is specified here but is not yet a Go type: Phase 1 stores evidence,
 Phase 2 interprets it.
 
