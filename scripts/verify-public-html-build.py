@@ -17,7 +17,6 @@ import re
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PATH_PREFIX = "/public_html/"
 REQUIRED_FILES = (
@@ -36,7 +35,9 @@ def find_matches(path: Path, pattern: re.Pattern[str]) -> list[int]:
     """Return 1-based line numbers containing matches for *pattern*."""
     return [
         line_number
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        )
         if pattern.search(line)
     ]
 
@@ -66,7 +67,9 @@ def verify(site_dir: Path) -> list[str]:
     if css_dir.is_dir():
         for path in sorted(css_dir.rglob("*.css")):
             for line_number in find_matches(path, ROOT_CSS_URL):
-                errors.append(f"root-relative CSS URL escapes {PATH_PREFIX}: {path}:{line_number}")
+                errors.append(
+                    f"root-relative CSS URL escapes {PATH_PREFIX}: {path}:{line_number}"
+                )
 
     return errors
 

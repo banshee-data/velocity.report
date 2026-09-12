@@ -165,7 +165,8 @@ def test_apply_exclusions_matches_globs(tmp_path):
     files = build_files(
         mod,
         tmp_path,
-        f"{PREFIX}pkg/pb/thing.pb.go:1.1,2.2 5 0\n" f"{PREFIX}pkg/real.go:1.1,2.2 5 1\n",
+        f"{PREFIX}pkg/pb/thing.pb.go:1.1,2.2 5 0\n"
+        f"{PREFIX}pkg/real.go:1.1,2.2 5 1\n",
         {},
     )
     exclusions = [mod.Exclusion(pattern="**/*.pb.go", functions=[], reason="generated")]
@@ -183,7 +184,9 @@ def test_apply_exclusions_function_scoped(tmp_path):
         f"{PREFIX}a/x.go:10.1,12.2 2 1\n" f"{PREFIX}a/x.go:25.1,26.2 8 0\n",
         {"a/x.go": [(5, "Helper"), (20, "Main")]},
     )
-    exclusions = [mod.Exclusion(pattern="a/x.go", functions=["Main"], reason="entrypoint")]
+    exclusions = [
+        mod.Exclusion(pattern="a/x.go", functions=["Main"], reason="entrypoint")
+    ]
 
     per_file, whole = mod.apply_exclusions(files, exclusions)
 
@@ -195,7 +198,9 @@ def test_apply_exclusions_function_scoped(tmp_path):
 def test_stale_exclusion_detected_when_no_file_matches(tmp_path):
     mod = load_module()
     files = build_files(mod, tmp_path, f"{PREFIX}a/x.go:1.1,2.2 1 1\n", {})
-    exclusions = [mod.Exclusion(pattern="gone/removed.go", functions=[], reason="stale")]
+    exclusions = [
+        mod.Exclusion(pattern="gone/removed.go", functions=[], reason="stale")
+    ]
 
     mod.apply_exclusions(files, exclusions)
     problems = mod.stale_exclusion_errors(exclusions)
@@ -297,7 +302,10 @@ def test_optional_exclusion_may_match_nothing(tmp_path):
     files = build_files(mod, tmp_path, f"{PREFIX}a/x.go:1.1,2.2 1 1\n", {})
     exclusions = [
         mod.Exclusion(
-            pattern="a/stub_nopcap.go", functions=[], reason="build-tag stub", optional=True
+            pattern="a/stub_nopcap.go",
+            functions=[],
+            reason="build-tag stub",
+            optional=True,
         )
     ]
 
@@ -339,7 +347,9 @@ def test_no_stale_problems_when_everything_matches(tmp_path):
         f"{PREFIX}a/x.go:10.1,12.2 1 1\n" f"{PREFIX}a/x.go:25.1,26.2 1 0\n",
         {"a/x.go": [(5, "Helper"), (20, "Main")]},
     )
-    exclusions = [mod.Exclusion(pattern="a/x.go", functions=["Main"], reason="entrypoint")]
+    exclusions = [
+        mod.Exclusion(pattern="a/x.go", functions=["Main"], reason="entrypoint")
+    ]
 
     mod.apply_exclusions(files, exclusions)
 

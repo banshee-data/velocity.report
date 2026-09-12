@@ -24,8 +24,14 @@ def lateral_residual(window):
     denom = math.fsum((t - mean_t) ** 2 for t in times)
     if denom == 0:
         return None
-    vx = math.fsum((t - mean_t) * (row[1] - mean_x) for t, row in zip(times, window)) / denom
-    vy = math.fsum((t - mean_t) * (row[2] - mean_y) for t, row in zip(times, window)) / denom
+    vx = (
+        math.fsum((t - mean_t) * (row[1] - mean_x) for t, row in zip(times, window))
+        / denom
+    )
+    vy = (
+        math.fsum((t - mean_t) * (row[2] - mean_y) for t, row in zip(times, window))
+        / denom
+    )
     speed = math.hypot(vx, vy)
     if speed < 2:
         return None
@@ -49,7 +55,9 @@ def extract(conn, threshold=0.5, max_gap_seconds=0.3):
         "WHERE t.max_speed_mps>=6 ORDER BY o.track_id,o.ts_unix_nanos"
     )
     for row in rows:
-        digest.update((json.dumps(row, separators=(",", ":"), allow_nan=False) + "\n").encode())
+        digest.update(
+            (json.dumps(row, separators=(",", ":"), allow_nan=False) + "\n").encode()
+        )
         input_rows += 1
         track_id, ts, x, y, sensor, _ = row
         if track_id != previous_id:
@@ -73,22 +81,34 @@ def extract(conn, threshold=0.5, max_gap_seconds=0.3):
         if residual <= threshold:
             continue
         if current is None:
-            current = {"track_id": track_id, "sensor_id": sensor, "event_count": 0,
-                       "max_lateral_residual_m": 0, "peak_timestamp_ns": 0,
-                       "review_status": "unreviewed_candidate"}
+            current = {
+                "track_id": track_id,
+                "sensor_id": sensor,
+                "event_count": 0,
+                "max_lateral_residual_m": 0,
+                "peak_timestamp_ns": 0,
+                "review_status": "unreviewed_candidate",
+            }
         current["event_count"] += 1
         if residual > current["max_lateral_residual_m"]:
             current["max_lateral_residual_m"] = residual
             current["peak_timestamp_ns"] = window[2][0]
     if current is not None:
         candidates.append(current)
-    return {"schema_version": 1, "method": "five_point_time_xy_fit_v1",
-            "reference_status": "replacement_candidates_not_original_33_not_ground_truth",
-            "input_rows_sha256": digest.hexdigest(), "input_rows": input_rows,
-            "eligible_windows": eligible_windows, "lifetime_min_speed_mps": 6,
-            "local_fit_min_speed_mps": 2, "max_gap_seconds": max_gap_seconds,
-            "threshold_metres": threshold, "candidate_count": len(candidates),
-            "candidates": candidates}
+    return {
+        "schema_version": 1,
+        "method": "five_point_time_xy_fit_v1",
+        "reference_status": "replacement_candidates_not_original_33_not_ground_truth",
+        "input_rows_sha256": digest.hexdigest(),
+        "input_rows": input_rows,
+        "eligible_windows": eligible_windows,
+        "lifetime_min_speed_mps": 6,
+        "local_fit_min_speed_mps": 2,
+        "max_gap_seconds": max_gap_seconds,
+        "threshold_metres": threshold,
+        "candidate_count": len(candidates),
+        "candidates": candidates,
+    }
 
 
 def main():
@@ -97,7 +117,9 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     # URI mode=ro refuses to create a missing database or modify the source.
-    with sqlite3.connect(args.database.resolve().as_uri() + "?mode=ro", uri=True) as conn:
+    with sqlite3.connect(
+        args.database.resolve().as_uri() + "?mode=ro", uri=True
+    ) as conn:
         conn.execute("BEGIN")
         report = extract(conn)
     report["source_basename"] = args.database.name
@@ -106,7 +128,9 @@ def main():
     with args.output.open("x") as out:
         json.dump(report, out, indent=2, allow_nan=False)
         out.write("\n")
-    print(f"{report['candidate_count']} unreviewed candidates from {report['input_rows']} rows")
+    print(
+        f"{report['candidate_count']} unreviewed candidates from {report['input_rows']} rows"
+    )
 
 
 if __name__ == "__main__":

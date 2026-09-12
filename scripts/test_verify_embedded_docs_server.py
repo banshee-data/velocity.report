@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import contextlib
 import importlib.util
 from pathlib import Path
 import sys
 from urllib.error import URLError
 
 import pytest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify-embedded-docs-server.py"
@@ -19,11 +17,16 @@ mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(mod)
 
 
-def test_links_marks_only_the_deliberate_app_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_links_marks_only_the_deliberate_app_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     links = mod.Links()
-    links.feed('<a href="docs/">docs</a><a href="/public_html/" data-docs-app-surface>home</a>')
+    links.feed(
+        '<a href="docs/">docs</a><a href="/public_html/" data-docs-app-surface>home</a>'
+    )
     assert links.hrefs == [("docs/", False), ("/public_html/", True)]
     assert mod.NoRedirect().redirect_request() is None
+
     class Socket:
         def __enter__(self):
             return self
@@ -71,7 +74,9 @@ def test_request_closes_response() -> None:
     assert opener.response.closed is True
 
 
-def test_wait_for_server_success_exit_and_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_wait_for_server_success_exit_and_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class Process:
         def __init__(self, return_code=None) -> None:
             self.returncode = return_code
@@ -92,7 +97,9 @@ def test_wait_for_server_success_exit_and_timeout(monkeypatch: pytest.MonkeyPatc
 
     ticks = iter([0.0, 1.0, 31.0])
     monkeypatch.setattr(mod.time, "monotonic", lambda: next(ticks))
-    monkeypatch.setattr(mod, "request", lambda *_: (_ for _ in ()).throw(URLError("down")))
+    monkeypatch.setattr(
+        mod, "request", lambda *_: (_ for _ in ()).throw(URLError("down"))
+    )
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
     with pytest.raises(RuntimeError, match="did not become ready"):
         mod.wait_for_server(object(), "http://offline.local/docs/", Process())
@@ -116,7 +123,10 @@ class _Process:
 
 
 def _run_main(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, responses: list[object], process=None
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    responses: list[object],
+    process=None,
 ) -> None:
     binary = tmp_path / "velocity"
     binary.write_text("binary")
@@ -129,7 +139,9 @@ def _run_main(
     monkeypatch.setattr(mod, "available_port", lambda: 19001)
     monkeypatch.setattr(mod, "build_opener", lambda *_: object())
     monkeypatch.setattr(mod, "wait_for_server", lambda *_: None)
-    monkeypatch.setattr(mod.subprocess, "Popen", lambda *_args, **_kwargs: process or _Process())
+    monkeypatch.setattr(
+        mod.subprocess, "Popen", lambda *_args, **_kwargs: process or _Process()
+    )
 
     def request(_opener, _url):
         response = responses.pop(0)
@@ -162,10 +174,17 @@ def test_main_collects_link_errors_and_kills_a_stuck_process(
 ) -> None:
     page = b'<div class="shell"><a href="bad/">bad</a>'
     with pytest.raises(RuntimeError, match="broken docs link"):
-        _run_main(monkeypatch, tmp_path, [(200, page), URLError("down")], _Process(timeout=True))
+        _run_main(
+            monkeypatch,
+            tmp_path,
+            [(200, page), URLError("down")],
+            _Process(timeout=True),
+        )
 
 
-def test_main_rejects_empty_rendered_site(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_main_rejects_empty_rendered_site(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     binary = tmp_path / "velocity"
     binary.write_text("binary")
     site = tmp_path / "site"
@@ -175,7 +194,9 @@ def test_main_rejects_empty_rendered_site(monkeypatch: pytest.MonkeyPatch, tmp_p
         mod.main()
 
 
-@pytest.mark.parametrize("response", [URLError("down"), (500, b"no shell"), (200, b"no shell")])
+@pytest.mark.parametrize(
+    "response", [URLError("down"), (500, b"no shell"), (200, b"no shell")]
+)
 def test_main_reports_page_failures(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, response: object
 ) -> None:
