@@ -32,11 +32,16 @@ func main() {
 		dbPath    = flag.String("db", "sensor_data.db", "SQLite database to update")
 		pcapDir   = flag.String("pcap-subdir", "s2", "capture directory relative to the replay PCAP root")
 		sensorID  = flag.String("sensor", "hesai-pandar40p", "sensor identity for imported cases")
+		only      = flag.String("only", "", "comma-separated archive case IDs to import (default: all)")
 		apply     = flag.Bool("apply", false, "write the import; without this flag, only report the plan")
 	)
 	flag.Parse()
 
 	entries, err := readIndex(*indexPath)
+	if err != nil {
+		fatal(err)
+	}
+	entries, err = selectEntries(entries, *only)
 	if err != nil {
 		fatal(err)
 	}
@@ -129,6 +134,37 @@ func prefixedPaths(prefix string, captures []string) []string {
 		}
 	}
 	return paths
+}
+
+// selectEntries keeps the archive's order rather than the flag's order. That
+// order is the capture catalogue's provenance and is also the order in which
+// a selected group is reported to an operator.
+func selectEntries(entries []siteIndexEntry, only string) ([]siteIndexEntry, error) {
+	if strings.TrimSpace(only) == "" {
+		return entries, nil
+	}
+	wanted := map[string]bool{}
+	for _, value := range strings.Split(only, ",") {
+		id := strings.TrimSpace(value)
+		if id == "" {
+			continue
+		}
+		if wanted[id] {
+			return nil, fmt.Errorf("archive case %q was requested more than once", id)
+		}
+		wanted[id] = true
+	}
+	selected := make([]siteIndexEntry, 0, len(wanted))
+	for _, entry := range entries {
+		if wanted[entry.ID] {
+			selected = append(selected, entry)
+			delete(wanted, entry.ID)
+		}
+	}
+	for missing := range wanted {
+		return nil, fmt.Errorf("archive case %q is not in the site index", missing)
+	}
+	return selected, nil
 }
 
 func findImportedCase(database *db.DB, sourcePeriodID string) (string, error) {

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "state-estimation-phase01-multi-site",
+  "source_index": "site-index.json",
+  "purpose": "Phase 0 replication and Phase 1 immutable-observation/replay checks. The order of captures comes only from source_index.",
+  "cases": [
+    {
+      "id": "marina-webster-beach",
+      "expected_capture_count": 4,
+      "expected_minutes": 20.0,
+      "role": "marina corridor placement; establishes a different north azimuth and background."
+    },
+    {
+      "id": "columbus-broadway",
+      "expected_capture_count": 7,
+      "expected_minutes": 33.9,
+      "role": "longest selected sequence; crosses six capture joins and exercises replay ordering."
+    },
+    {
+      "id": "embarcadero-folsom",
+      "expected_capture_count": 5,
+      "expected_minutes": 20.2,
+      "role": "third site and distinct approach geometry; held out from parameter selection."
+    }
+  ]
+}

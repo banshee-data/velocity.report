@@ -133,6 +133,22 @@
         , aspect_ratio REAL
           );
 
+   CREATE TABLE lidar_observations (
+          observation_id TEXT PRIMARY KEY
+        , schema_version INTEGER NOT NULL
+        , source_id TEXT NOT NULL
+        , calibration_id TEXT NOT NULL
+        , sensor_id TEXT NOT NULL
+        , frame_id TEXT NOT NULL
+        , frame_unix_nanos INTEGER NOT NULL
+        , cluster_unix_nanos INTEGER NOT NULL
+        , cluster_id INTEGER NOT NULL
+        , record_json BLOB NOT NULL
+        , inserted_at_ns INTEGER NOT NULL
+        , CHECK (schema_version = 1)
+        , CHECK (LENGTH(record_json) > 0)
+          );
+
    CREATE TABLE lidar_param_sets (
           param_set_id TEXT PRIMARY KEY
         , params_hash TEXT NOT NULL UNIQUE
@@ -876,6 +892,10 @@ CREATE INDEX idx_lidar_sites_l13 ON lidar_sites (s2_l13_token);
 CREATE INDEX idx_lidar_sites_l10 ON lidar_sites (s2_l10_token);
 
 CREATE INDEX idx_lidar_replay_cases_site_id ON lidar_replay_cases (site_id);
+
+CREATE INDEX idx_lidar_observations_source_time ON lidar_observations (source_id, frame_unix_nanos, observation_id);
+
+CREATE INDEX idx_lidar_observations_calibration_time ON lidar_observations (calibration_id, frame_unix_nanos, observation_id);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (
