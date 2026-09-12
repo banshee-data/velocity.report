@@ -80,7 +80,12 @@ type Indexer struct {
 func (ix *Indexer) Refresh(ctx context.Context) (Result, error) {
 	var result Result
 
-	found, err := Scan(ix.RootPath)
+	// A routine index pass must not read prefixes and suffixes from every
+	// multi-hundred-megabyte capture.  That made the Captures page's "Quick
+	// scan" outlast the browser connection before it could report anything.
+	// Metadata is enough to identify files that require probing; the store
+	// retains any previous content tag when this pass does not supply one.
+	found, err := ScanMetadata(ix.RootPath)
 	if err != nil {
 		state := StateError
 		if errors.Is(err, ErrRootUnreachable) {

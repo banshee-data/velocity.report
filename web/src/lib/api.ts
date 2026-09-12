@@ -826,6 +826,7 @@ export async function updateLidarReplayCase(
 		optimal_params_json?: Record<string, unknown> | null;
 		pcap_start_secs?: number;
 		pcap_duration_secs?: number;
+		pcap_files?: string[];
 	}
 ): Promise<LidarReplayCase> {
 	// Omit null optimal_params_json to avoid persisting the JSON literal "null";
@@ -1454,10 +1455,12 @@ export async function getCaptureRoots(): Promise<CaptureRoot[]> {
 export async function scanCaptureRoots(options?: {
 	rootId?: string;
 	probe?: boolean;
+	async?: boolean;
 }): Promise<ScanResponse> {
 	const params = new URLSearchParams();
 	if (options?.rootId) params.set('root_id', options.rootId);
 	if (options?.probe === false) params.set('probe', 'false');
+	if (options?.async) params.set('async', 'true');
 	const url = `${API_BASE}/lidar/capture/scan${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url, { method: 'POST' });
 	if (!res.ok) throw apiError('Could not scan the capture volumes', res.status);
