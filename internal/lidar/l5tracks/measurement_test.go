@@ -30,6 +30,23 @@ func TestMeasurementForClusterFallsBackExplicitly(t *testing.T) {
 	}
 }
 
+func TestTrackerCanUseExplicitReplayMedoidReference(t *testing.T) {
+	config := DefaultTrackerConfig()
+	config.MeasurementSourceMode = MeasurementMedoidV0
+	tracker := NewTracker(config)
+	tracker.Update([]l4perception.WorldCluster{{
+		SensorID: "test", ClusterID: 1, CentroidX: 9, CentroidY: 8,
+		OBB: &l4perception.OrientedBoundingBox{CenterX: 2, CenterY: 3},
+	}}, time.Unix(0, 100))
+	for _, track := range tracker.Tracks {
+		if track.X != 9 || track.Y != 8 || track.LastMeasurementSource != MeasurementMedoidV0 {
+			t.Fatalf("replay reference state = %+v", track)
+		}
+		return
+	}
+	t.Fatal("replay reference created no track")
+}
+
 func TestTrackerUsesSameCorrectedMeasurementForInitialAndUpdatedState(t *testing.T) {
 	config := DefaultTrackerConfig()
 	config.HitsToConfirm = 1

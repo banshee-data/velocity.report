@@ -490,7 +490,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject {
 	trackID := fmt.Sprintf("trk_%s", uuid.NewString())
 	t.NextTrackID++
-	measurement := measurementForCluster(cluster, nowNanos)
+	measurement := t.measurementForCluster(cluster, nowNanos)
 
 	track := &TrackedObject{
 		TrackID:          trackID,
