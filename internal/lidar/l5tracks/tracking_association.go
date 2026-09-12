@@ -253,7 +253,7 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 // Also performs physical plausibility checks to reject spurious associations.
 func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster WorldCluster, dt float32) float32 {
 	// Innovation: difference between measurement and prediction
-	measurement := measurementForCluster(cluster, t.LastUpdateNanos)
+	measurement := t.measurementForCluster(cluster, t.LastUpdateNanos)
 	dx := measurement.X - track.X
 	dy := measurement.Y - track.Y
 

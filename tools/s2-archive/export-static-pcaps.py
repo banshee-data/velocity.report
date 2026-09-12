@@ -41,7 +41,7 @@ def run(command, dry_run):
         subprocess.run(command, check=True)
 
 
-def export(site, archive, output, editcap, mergecap, dry_run):
+def export(site, archive, output, editcap, mergecap, dry_run, skip_existing):
     site_id = site["id"]
     start, end = site["start"], site["end"]
     captures = [archive / name for name in site["captures"]]
@@ -53,6 +53,9 @@ def export(site, archive, output, editcap, mergecap, dry_run):
     destination = output / f"{site_id}.pcapng"
     sidecar = output / f"{site_id}.json"
     if destination.exists() or sidecar.exists():
+        if skip_existing and destination.is_file() and sidecar.is_file():
+            print(f"{site_id}: existing export retained")
+            return
         raise RuntimeError(
             f"{site_id}: output already exists; refuse to revise an export"
         )
@@ -117,6 +120,11 @@ def main():
         help="site id to export; repeat. Empty exports all sites",
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="retain complete existing PCAPNG/sidecar pairs",
+    )
     args = parser.parse_args()
     editcap = executable("editcap", DEFAULT_EDITCAP)
     mergecap = executable("mergecap", DEFAULT_MERGECAP)
@@ -131,7 +139,15 @@ def main():
     if not args.dry_run:
         args.output.mkdir(parents=True, exist_ok=True)
     for site in selected:
-        export(site, args.archive, args.output, editcap, mergecap, args.dry_run)
+        export(
+            site,
+            args.archive,
+            args.output,
+            editcap,
+            mergecap,
+            args.dry_run,
+            args.skip_existing,
+        )
 
 
 if __name__ == "__main__":

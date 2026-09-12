@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
@@ -32,29 +33,31 @@ type indexEntry struct {
 }
 
 type caseSummary struct {
-	ID                  string  `json:"id"`
-	Captures            int     `json:"captures"`
-	DurationSeconds     float64 `json:"duration_seconds"`
-	FirstRunFrames      int     `json:"first_run_frames"`
-	RepeatRunFrames     int     `json:"repeat_run_frames"`
-	BaselineEqual       bool    `json:"baseline_equal"`
-	ObservationSourceID string  `json:"observation_source_id,omitempty"`
+	ID                    string  `json:"id"`
+	Captures              int     `json:"captures"`
+	DurationSeconds       float64 `json:"duration_seconds"`
+	FirstRunFrames        int     `json:"first_run_frames"`
+	RepeatRunFrames       int     `json:"repeat_run_frames"`
+	BaselineEqual         bool    `json:"baseline_equal"`
+	ObservationSourceID   string  `json:"observation_source_id,omitempty"`
+	MeasurementSourceMode string  `json:"measurement_source_mode"`
 }
 
 func main() {
 	var (
-		corpusPath     = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
-		indexPath      = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
-		pcapRoot       = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
-		pcapSubdir     = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
-		outDir         = flag.String("out", "", "empty output directory for baseline recordings (required)")
-		tuning         = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
-		sensorID       = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
-		duration       = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
-		warmup         = flag.Float64("warmup", 30, "warm-up seconds before scoring")
-		requireSettled = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
-		observations   = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
-		surfaceGround  = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
+		corpusPath      = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
+		indexPath       = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
+		pcapRoot        = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
+		pcapSubdir      = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
+		outDir          = flag.String("out", "", "empty output directory for baseline recordings (required)")
+		tuning          = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
+		sensorID        = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
+		duration        = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
+		warmup          = flag.Float64("warmup", 30, "warm-up seconds before scoring")
+		requireSettled  = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
+		observations    = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
+		surfaceGround   = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
+		measurementMode = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
 	)
 	flag.Parse()
 	if *outDir == "" {
@@ -93,6 +96,7 @@ func main() {
 			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
 			SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
+			MeasurementSourceMode: l5tracks.MeasurementSource(*measurementMode),
 		}
 		if *observations != "" {
 			first.ObservationDBPath = *observations
@@ -133,6 +137,7 @@ func main() {
 			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: *duration,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
+			MeasurementSourceMode: string(first.MeasurementSourceMode),
 		})
 	}
 	b, err := json.MarshalIndent(struct {

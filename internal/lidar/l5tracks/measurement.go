@@ -12,6 +12,9 @@ import (
 type MeasurementSource string
 
 const (
+	// MeasurementMedoidV0 is retained only for offline A/B evaluation against
+	// the historical position model. Production defaults to OBB centre.
+	MeasurementMedoidV0         MeasurementSource = "medoid_v0"
 	MeasurementOBBCentreV1      MeasurementSource = "obb_centre_v1"
 	MeasurementMedoidFallbackV1 MeasurementSource = "medoid_fallback_v1"
 	// MeasurementNearEdgeCandidateV1 describes a visible face selected for
@@ -66,14 +69,25 @@ type FilterResidual struct {
 // initialisation, and the Kalman update. A malformed or absent OBB fails
 // visibly to the medoid; it never silently presents a zero-valued box centre.
 func measurementForCluster(cluster l4perception.WorldCluster, frameUnixNanos int64) PositionMeasurement {
+	return measurementForMode(cluster, frameUnixNanos, "")
+}
+
+func measurementForMode(cluster l4perception.WorldCluster, frameUnixNanos int64, mode MeasurementSource) PositionMeasurement {
 	timestamp := cluster.TSUnixNanos
 	if timestamp <= 0 {
 		timestamp = frameUnixNanos
+	}
+	if mode == MeasurementMedoidV0 {
+		return PositionMeasurement{X: cluster.CentroidX, Y: cluster.CentroidY, UnixNanos: timestamp, Source: MeasurementMedoidV0}
 	}
 	if obb := cluster.OBB; obb != nil && finiteMeasurementCoordinate(obb.CenterX) && finiteMeasurementCoordinate(obb.CenterY) {
 		return PositionMeasurement{X: obb.CenterX, Y: obb.CenterY, UnixNanos: timestamp, Source: MeasurementOBBCentreV1}
 	}
 	return PositionMeasurement{X: cluster.CentroidX, Y: cluster.CentroidY, UnixNanos: timestamp, Source: MeasurementMedoidFallbackV1}
+}
+
+func (t *Tracker) measurementForCluster(cluster WorldCluster, frameUnixNanos int64) PositionMeasurement {
+	return measurementForMode(cluster, frameUnixNanos, t.Config.MeasurementSourceMode)
 }
 
 // InterpretMeasurement records both D2's filter input and the near face that

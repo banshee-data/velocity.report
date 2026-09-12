@@ -109,14 +109,17 @@ func (h HeadingSource) String() string {
 
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
-	MaxTracks               int           // Maximum number of concurrent tracks
-	MaxMisses               int           // Consecutive misses before tentative track deletion
-	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
-	HitsToConfirm           int           // Consecutive hits needed for confirmation
-	GatingDistanceSquared   float32       // Squared gating distance for association (metres²)
-	ProcessNoisePos         float32       // Process noise for position (σ²)
-	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
-	MeasurementNoise        float32       // Measurement noise (σ²)
+	MaxTracks             int     // Maximum number of concurrent tracks
+	MaxMisses             int     // Consecutive misses before tentative track deletion
+	MaxMissesConfirmed    int     // Consecutive misses before confirmed track deletion (coasting)
+	HitsToConfirm         int     // Consecutive hits needed for confirmation
+	GatingDistanceSquared float32 // Squared gating distance for association (metres²)
+	ProcessNoisePos       float32 // Process noise for position (σ²)
+	ProcessNoiseVel       float32 // Process noise for velocity (σ²)
+	MeasurementNoise      float32 // Measurement noise (σ²)
+	// MeasurementSourceMode is empty/OBB by default. medoid_v0 is a replay-only
+	// reference arm used to establish an A/B acceptance baseline.
+	MeasurementSourceMode   MeasurementSource
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 

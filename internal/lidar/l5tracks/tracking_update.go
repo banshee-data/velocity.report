@@ -9,7 +9,7 @@ import (
 // update applies the Kalman update step with a matched cluster measurement.
 func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
 	track.LastResidual.Valid = false
-	measurement := measurementForCluster(cluster, nowNanos)
+	measurement := t.measurementForCluster(cluster, nowNanos)
 	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
 	// fallback for invalid geometry. The filter keeps its existing CV state and
 	// covariance shape; only the biased geometry input is corrected here.

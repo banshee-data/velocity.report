@@ -110,6 +110,10 @@ type Config struct {
 	ReplayCaseID               string
 	ObservationCalibration     l4bobserve.Calibration
 	ObservationMaxSamplePoints int
+	// MeasurementSourceMode selects a replay-only position model. Empty uses
+	// the shipped OBB-centre D2; medoid_v0 exists solely to establish the
+	// historical reference arm for an acceptance comparison.
+	MeasurementSourceMode l5tracks.MeasurementSource
 	// UseSurfaceGround enables P11's settled-background, surface-relative
 	// clipping. It remains opt-in while multi-site evidence is collected.
 	UseSurfaceGround     bool
@@ -313,6 +317,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.DurationSeconds == 0 {
 		cfg.DurationSeconds = -1
 	}
+	if cfg.MeasurementSourceMode != "" && cfg.MeasurementSourceMode != l5tracks.MeasurementMedoidV0 && cfg.MeasurementSourceMode != l5tracks.MeasurementOBBCentreV1 {
+		return nil, fmt.Errorf("unsupported measurement source mode %q", cfg.MeasurementSourceMode)
+	}
 	if cfg.TuningFile == "" {
 		cfg.TuningFile = config.DefaultConfigPath
 	}
@@ -364,7 +371,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	bgMgr.SetSourcePath(strings.Join(pcapFiles, "\n"))
 
 	// --- L5, L6 ---
-	tracker := l5tracks.NewTracker(l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1))
+	trackerConfig := l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1)
+	trackerConfig.MeasurementSourceMode = cfg.MeasurementSourceMode
+	tracker := l5tracks.NewTracker(trackerConfig)
 	classifier := l6objects.NewTrackClassifierWithMinObservations(
 		tuningCfg.GetMinObservationsForClassification())
 
@@ -448,6 +457,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// change under test. Determinism matters more than throughput offline.
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
+	stateObservationModelID := string(l5tracks.MeasurementOBBCentreV1)
+	if cfg.MeasurementSourceMode == l5tracks.MeasurementMedoidV0 {
+		stateObservationModelID = string(l5tracks.MeasurementMedoidV0)
+	}
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:        bgMgr,
@@ -469,7 +482,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		ObservationCalibrationID: observationCalibrationID,
 		StateEstimateSink:        stateEstimateSink,
 		StateEstimatorID:         "cv_kf_v1",
-		StateObservationModelID:  "obb_centre_v1",
+		StateObservationModelID:  stateObservationModelID,
 		StateParameterHash:       paramsHash,
 	}
 	if cfg.IncludeDebug {
@@ -573,7 +586,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		"build_version":      version.Version, "build_git_sha": version.GitSHA,
 		"build_stamped":    version.GitSHA != "" && version.GitSHA != "unknown" && version.GitSHA != "dev",
 		"frames_processed": frameCount, "frames_recorded": pub.recorded, "warmup_frames": pub.warmupFrames,
-		"warmup_static_verified": false,
+		"warmup_static_verified":  false,
+		"measurement_source_mode": stateObservationModelID,
 	}
 	if observationSourceID != "" {
 		manifest["observation_source_id"] = observationSourceID
