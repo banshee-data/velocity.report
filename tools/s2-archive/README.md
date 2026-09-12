@@ -73,6 +73,24 @@ python3 tools/s2-archive/build-site-index.py   # after editing map-marks.json
 python3 tools/s2-archive/deployments.py        # recording blocks from filenames
 ```
 
+## Static PCAPNG release set
+
+`export-static-pcaps.py` makes one PCAPNG and one provenance sidecar per indexed
+site. It clips the original files to the exact indexed start/end and joins the
+pieces in order. The export uses the complete operator-approved site interval,
+including an asserted tripod nudge such as `van-ness-sacramento`; classifier
+fragments remain in `static_parts` for audit but do not silently remove packets.
+
+```bash
+python3 tools/s2-archive/export-static-pcaps.py \
+  --archive /Volumes/lidar/lidar/s2 \
+  --output /Volumes/lidar/lidar/s2/static-huggingface
+```
+
+Use `--dry-run` to review paths, or repeat `--site van-ness-sacramento` for one
+export. The command refuses to overwrite an existing PCAPNG or sidecar, so a
+published artifact cannot be revised by accident.
+
 ## Rebuild inputs and publication state
 
 The scripts read the local archive at `/Volumes/lidar/lidar/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.
