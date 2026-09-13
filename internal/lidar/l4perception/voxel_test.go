@@ -1,6 +1,7 @@
 package l4perception
 
 import (
+	"reflect"
 	"testing"
 	"time"
 )
@@ -60,6 +61,26 @@ func TestVoxelGrid_DistinctVoxels(t *testing.T) {
 	result := VoxelGrid(points, 1.0)
 	if len(result) != 3 {
 		t.Errorf("expected 3 points (distinct voxels), got %d", len(result))
+	}
+}
+
+// DBSCAN expands clusters in input order, so VoxelGrid must not leak Go's
+// random map traversal order into the tracker pipeline.
+func TestVoxelGrid_DeterministicSurvivorOrder(t *testing.T) {
+	points := []WorldPoint{
+		{X: 2.5, Y: 0.5, Z: 0.5, Intensity: 2},
+		{X: 0.5, Y: 0.5, Z: 0.5, Intensity: 0},
+		{X: 1.5, Y: 0.5, Z: 0.5, Intensity: 1},
+		{X: 2.6, Y: 0.5, Z: 0.5, Intensity: 3}, // same voxel as index 0
+	}
+	want := VoxelGrid(points, 1)
+	for i := 0; i < 100; i++ {
+		if got := VoxelGrid(points, 1); !reflect.DeepEqual(got, want) {
+			t.Fatalf("run %d changed survivor order:\n got: %#v\nwant: %#v", i, got, want)
+		}
+	}
+	if got, wantIntensity := []uint8{want[0].Intensity, want[1].Intensity, want[2].Intensity}, []uint8{2, 0, 1}; !reflect.DeepEqual(got, wantIntensity) {
+		t.Fatalf("survivors retained unexpected source order: %v", got)
 	}
 }
 

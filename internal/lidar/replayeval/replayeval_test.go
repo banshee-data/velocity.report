@@ -1,13 +1,16 @@
 package replayeval
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
@@ -22,6 +25,48 @@ func TestTrackingBaselineWriteErrors(t *testing.T) {
 	}
 	if err := writeTrackingBaseline(dir, l5tracks.TrackingMetrics{}); err == nil || !strings.Contains(err.Error(), "write tracking baseline") {
 		t.Fatal(err)
+	}
+}
+
+// A repeat gate must be strict, but it must compare the published baseline
+// rather than float64 accumulator tails below the report's stated precision.
+func TestTrackingBaselineCanonicalisesAccumulatorNoise(t *testing.T) {
+	dir := t.TempDir()
+	first := l5tracks.TrackingMetrics{Residuals: []l5tracks.ResidualBandSummary{{
+		SpeedFloorMps: 0, Count: 28683,
+		LongitudinalRMSMetres: 0.4277576140295845,
+		LongitudinalBias:      0.21098171973351434,
+		MeanNIS:               0.7828233412481577,
+	}}}
+	repeat := first
+	repeat.Residuals = append([]l5tracks.ResidualBandSummary(nil), first.Residuals...)
+	repeat.Residuals[0].LongitudinalRMSMetres = 0.42775761987267874
+	repeat.Residuals[0].LongitudinalBias = 0.21098172933487122
+	repeat.Residuals[0].MeanNIS = 0.7828233305235078
+
+	firstDir, repeatDir := filepath.Join(dir, "first"), filepath.Join(dir, "repeat")
+	if err := os.Mkdir(firstDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(repeatDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTrackingBaseline(firstDir, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTrackingBaseline(repeatDir, repeat); err != nil {
+		t.Fatal(err)
+	}
+	firstBytes, err := os.ReadFile(filepath.Join(firstDir, "tracking_baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeatBytes, err := os.ReadFile(filepath.Join(repeatDir, "tracking_baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(firstBytes, repeatBytes) {
+		t.Fatalf("canonical baseline changed:\n%s\n%s", firstBytes, repeatBytes)
 	}
 }
 
@@ -68,6 +113,18 @@ func TestRunRequiresOutDir(t *testing.T) {
 	_, err := Run(Config{PCAPFile: "capture.pcap"})
 	if err == nil || !strings.Contains(err.Error(), "OutDir") {
 		t.Fatalf("err = %v, want a complaint about OutDir", err)
+	}
+}
+
+func TestOfflineFrameBuilderDisablesWallClockCleanup(t *testing.T) {
+	callback := func(*l2frames.LiDARFrame) {}
+	cfg := offlineFrameBuilderConfig("offline-test", callback)
+	if cfg.SensorID != "offline-test" || cfg.FrameCallback == nil || cfg.FrameChCapacity != 32 {
+		t.Fatalf("offline frame builder wiring = %+v", cfg)
+	}
+	want := time.Duration(math.MaxInt64)
+	if cfg.BufferTimeout != want || cfg.CleanupInterval != want {
+		t.Fatalf("wall-clock cleanup remains armed: timeout=%v interval=%v", cfg.BufferTimeout, cfg.CleanupInterval)
 	}
 }
 

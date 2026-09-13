@@ -63,6 +63,21 @@ func schemaVersionOrUnknown(cfg *config.TuningConfig) string {
 	return fmt.Sprintf("v%d", cfg.Version)
 }
 
+// offlineFrameBuilderConfig removes host wall-clock time from replay frame
+// boundaries. Live builders need periodic cleanup when packets stop arriving;
+// an offline reader has an explicit EOF and Close flushes its pending frames.
+// Leaving the live timeout armed made an observation-heavy run finalise partial
+// rotations that a faster repeat completed on azimuth wrap.
+func offlineFrameBuilderConfig(sensorID string, callback func(*l2frames.LiDARFrame)) l2frames.FrameBuilderConfig {
+	return l2frames.FrameBuilderConfig{
+		SensorID:        sensorID,
+		FrameCallback:   callback,
+		FrameChCapacity: 32,
+		BufferTimeout:   time.Duration(math.MaxInt64),
+		CleanupInterval: time.Duration(math.MaxInt64),
+	}
+}
+
 // Config holds the parameters for an offline perception replay.
 type Config struct {
 	// PCAPFile is the capture to replay. It remains available for callers with
@@ -518,11 +533,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}
 	}
 
-	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{
-		SensorID:        cfg.SensorID,
-		FrameCallback:   frameCallback,
-		FrameChCapacity: 32,
-	})
+	fb := l2frames.NewFrameBuilder(offlineFrameBuilderConfig(cfg.SensorID, frameCallback))
 
 	// Back-pressure instead of frame dropping. In the default mode the
 	// FrameBuilder discards a frame when the callback channel is full, which
@@ -647,6 +658,38 @@ type TrackingBaseline struct {
 	Association           []l5tracks.AssociationBandSummary `json:"association_bands"`
 }
 
+// baselineMetricPrecision is the published precision of the Phase 0
+// filter-consistency report. The tracker uses float32 state and may visit
+// otherwise identical accepted observations in a different scheduling order;
+// retaining binary float64 accumulator tails would turn that harmless detail
+// into a false failed repeat. Six decimal places is sub-micrometre precision,
+// matches the tuning-document precision, and still leaves the baseline files
+// compared byte-for-byte.
+const baselineMetricPrecision = 1e6
+
+func roundBaselineMetric(v float64) float64 {
+	return math.Round(v*baselineMetricPrecision) / baselineMetricPrecision
+}
+
+func canonicalTrackingBaseline(m l5tracks.TrackingMetrics) l5tracks.TrackingMetrics {
+	canonical := m
+	canonical.Residuals = append([]l5tracks.ResidualBandSummary(nil), m.Residuals...)
+	for i := range canonical.Residuals {
+		r := &canonical.Residuals[i]
+		r.LateralRMSMetres = roundBaselineMetric(r.LateralRMSMetres)
+		r.LongitudinalRMSMetres = roundBaselineMetric(r.LongitudinalRMSMetres)
+		r.LateralBiasMetres = roundBaselineMetric(r.LateralBiasMetres)
+		r.LongitudinalBias = roundBaselineMetric(r.LongitudinalBias)
+		r.MeanNIS = roundBaselineMetric(r.MeanNIS)
+		r.NISExceedanceRatio = roundBaselineMetric(r.NISExceedanceRatio)
+	}
+	canonical.Association = append([]l5tracks.AssociationBandSummary(nil), m.Association...)
+	for i := range canonical.Association {
+		canonical.Association[i].Rate = roundBaselineMetric(canonical.Association[i].Rate)
+	}
+	return canonical
+}
+
 // writeTrackingBaseline records the residual and association bands beside the
 // recording.
 //
@@ -654,6 +697,7 @@ type TrackingBaseline struct {
 // die. Schema 1 pooled surviving tracks' lifetimes, including warm-up, and is
 // not population-compatible with this baseline.
 func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
+	m = canonicalTrackingBaseline(m)
 	b, err := json.MarshalIndent(TrackingBaseline{
 		SchemaVersion:         2,
 		Population:            "scoring_window_including_terminated_tracks",

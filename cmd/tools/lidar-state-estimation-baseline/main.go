@@ -45,15 +45,18 @@ type caseSummary struct {
 
 func main() {
 	var (
-		corpusPath      = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
-		indexPath       = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
-		pcapRoot        = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
-		pcapSubdir      = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
-		outDir          = flag.String("out", "", "empty output directory for baseline recordings (required)")
-		tuning          = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
-		sensorID        = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
-		duration        = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
-		warmup          = flag.Float64("warmup", 30, "warm-up seconds before scoring")
+		corpusPath = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
+		indexPath  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
+		pcapRoot   = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
+		pcapSubdir = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
+		outDir     = flag.String("out", "", "empty output directory for baseline recordings (required)")
+		tuning     = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
+		sensorID   = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
+		duration   = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
+		// Marina's first capture reaches the configured L3 convergence threshold
+		// at 56.5 seconds. Keep a measured 20% margin so the default preserves
+		// the fail-closed scoring-boundary invariant across the Phase 0 corpus.
+		warmup          = flag.Float64("warmup", 70, "warm-up seconds before scoring")
 		requireSettled  = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
 		observations    = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
 		surfaceGround   = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
