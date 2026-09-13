@@ -228,10 +228,55 @@ export class PartReader {
   }
 
   /**
-   * The frame at or immediately before offset `us`. Returns null only when the
-   * part holds no frames at all.
+   * The frame at ordinal position `n` within this part (0-based, export
+   * order). Unlike frameAtOffset, this is strict: an out-of-range index
+   * throws rather than clamping, because a capture recipe naming frame 500 of
+   * a 400-frame part is a mistake to surface, not a request to round down.
    */
-  async frameAtOffset(us) {
+  async frameAtIndex(n) {
+    if (!Number.isInteger(n) || n < 0 || n >= this.frameCount) {
+      throw new SceneError(
+        `Frame index ${n} is out of range for this part (0-${this.frameCount - 1})`,
+      );
+    }
+    let remaining = n;
+    for (const chunk of this.chunks) {
+      if (remaining < chunk.n) {
+        const frames = await this.loadChunk(chunk.c);
+        return frames[remaining];
+      }
+      remaining -= chunk.n;
+    }
+    // frameCount is the sum of chunk.n, so this is unreachable given the
+    // bounds check above; kept only so a future accounting bug fails loudly
+    // instead of returning undefined.
+    throw new SceneError(`Frame index ${n} could not be located`);
+  }
+
+  /**
+   * Every frame with `t` in [fromUs, toUs], clamped to this part's own
+   * bounds. Used to reconstruct trail history from recorded samples rather
+   * than from whichever frames the browser happened to render, so a direct
+   * seek and sequential playback arrive at the same trail.
+   */
+  async framesInRange(fromUs, toUs) {
+    const from = Math.max(fromUs, this.startUs);
+    const to = Math.min(toUs, this.endUs);
+    if (to < from) return [];
+    const firstChunk = this.chunkIndexForOffset(from);
+    const lastChunk = this.chunkIndexForOffset(to);
+    const frames = [];
+    for (let i = firstChunk; i <= lastChunk; i++) {
+      const chunkFrames = await this.loadChunk(this.chunks[i].c);
+      for (const f of chunkFrames) {
+        if (f.t >= from && f.t <= to) frames.push(f);
+      }
+    }
+    return frames;
+  }
+
+  /** The frame and export-local index at or immediately before `us`. */
+  async frameAtOffsetWithIndex(us) {
     const chunkIdx = this.chunkIndexForOffset(us);
     const frames = await this.loadChunk(this.chunks[chunkIdx].c);
 
@@ -247,7 +292,18 @@ export class PartReader {
         hi = mid - 1;
       }
     }
-    return frames[best] ?? null;
+    const frame = frames[best] ?? null;
+    if (!frame) return null;
+    const frameIndex =
+      this.chunks
+        .slice(0, chunkIdx)
+        .reduce((total, chunk) => total + chunk.n, 0) + best;
+    return { frame, frameIndex };
+  }
+
+  /** The frame at or immediately before offset `us`. */
+  async frameAtOffset(us) {
+    return (await this.frameAtOffsetWithIndex(us))?.frame ?? null;
   }
 
   /** Warms the chunk after offset `us` so forward playback does not stall. */
@@ -330,5 +386,55 @@ export class SceneSession {
     const frame = await part.frameAtOffset(us);
     part.prefetchAfter(us);
     return { partIndex, frame, sceneSeconds: seconds };
+  }
+
+  /**
+   * The frame at ordinal position `n` across the whole session (all parts, in
+   * manifest order). Strict: throws rather than clamping, matching
+   * PartReader.frameAtIndex.
+   */
+  async frameAtIndex(n) {
+    if (!Number.isInteger(n) || n < 0) {
+      throw new SceneError(`Frame index ${n} is out of range`);
+    }
+    let remaining = n;
+    for (let i = 0; i < this.parts.length; i++) {
+      const part = this.parts[i];
+      if (remaining < part.frameCount) {
+        const frame = await part.frameAtIndex(remaining);
+        return { partIndex: i, frame };
+      }
+      remaining -= part.frameCount;
+    }
+    const total = this.parts.reduce((sum, p) => sum + p.frameCount, 0);
+    throw new SceneError(
+      `Frame index ${n} is out of range for this scene (0-${total - 1})`,
+    );
+  }
+
+  /**
+   * Reconstructs trail history ending at `us` (microseconds within
+   * `partIndex`'s own timeline) over the trailing `historySeconds` window,
+   * clamped to that part's own start so a trail never implies motion from a
+   * different recording. Near a part's start this returns whatever is
+   * available — `fromUs` reports the actual earliest sample used, rather
+   * than padding or waiting for a full window.
+   *
+   * Split from trailHistory so a caller that has already resolved a part and
+   * an offset — capture's frame-index selector, which does not go through
+   * locate() — is not forced to round-trip through scene-wide seconds.
+   */
+  async trailHistoryForPart(partIndex, us, historySeconds) {
+    const part = this.parts[partIndex];
+    const requestedFromUs = us - Math.max(0, historySeconds) * 1e6;
+    const fromUs = Math.max(part.startUs, requestedFromUs);
+    const frames = await part.framesInRange(fromUs, us);
+    return { partIndex, frames, fromUs, toUs: us };
+  }
+
+  /** trailHistoryForPart for the part and offset showing at `seconds`. */
+  async trailHistory(seconds, historySeconds) {
+    const { partIndex, us } = this.locate(seconds);
+    return this.trailHistoryForPart(partIndex, us, historySeconds);
   }
 }

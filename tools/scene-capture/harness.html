@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>scene-capture harness</title>
+    <!--
+      Same vendoring scheme public_html's Eleventy build uses for the
+      production scene pages (see public_html/.eleventy.js): three.module.js
+      re-exports from the sibling three.core.js by a relative import, so both
+      must be served from the same directory this import map points at.
+    -->
+    <script type="importmap">
+      { "imports": { "three": "/vendor/three/three.module.js" } }
+    </script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #07090c;
+      }
+      /* No aspect-ratio constraint, unlike the production page's .scene-stage:
+         this canvas fills exactly whatever viewport the capture tool set, so
+         the recipe's requested width/height is the screenshot's pixel size. */
+      #scene-canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="scene-canvas"></canvas>
+    <script type="module">
+      import { mountScenePlayer } from "/js/scene-player.js";
+      import { parseCaptureParams } from "/js/scene-capture.js";
+
+      // The tool always mounts the current recipe's export at /export/. A
+      // clip overlay may or may not exist; mountScenePlayer already falls
+      // back gracefully to null when pointCloudManifestURL 404s.
+      mountScenePlayer({
+        canvas: document.getElementById("scene-canvas"),
+        manifestURL: "/export/manifest.json",
+        pointCloudManifestURL: "/export/clip/manifest.json",
+        ui: {
+          // Static background context, same as the production page. A scene
+          // without one still plays (mountScenePlayer swallows the 404).
+          backgroundURL: "/export/background/background.json.gz",
+        },
+        capture: true,
+      })
+        .then(async (session) => {
+          window.__sceneCapture = session.capture;
+          // Lets a human open this exact URL directly and see the same view
+          // the capture tool would produce — the same applyView, not a
+          // second render path. The tool itself always drives views through
+          // window.__sceneCapture.applyView rather than relying on this.
+          const viewSpec = parseCaptureParams(
+            new URLSearchParams(location.search),
+          );
+          if (viewSpec) {
+            window.__sceneCaptureInitialResult =
+              await session.capture.applyView(viewSpec);
+          }
+        })
+        .catch((err) => {
+          window.__sceneCaptureError = err?.message ?? String(err);
+        });
+    </script>
+  </body>
+</html>

@@ -284,6 +284,61 @@ describe("PartReader", () => {
     await r.loadChunk(0);
     assert.equal(chunkFetches, before + 1, "chunk 0 should have been evicted");
   });
+
+  test("frameAtIndex returns frames by ordinal position, strict at the edges", async () => {
+    installFetch({ "/p0/": makePart({ chunks: 3, perChunk: 5 }) });
+    const r = await new PartReader("https://example.test/p0/").open();
+
+    assert.equal((await r.frameAtIndex(0)).f, 0, "first frame");
+    assert.equal((await r.frameAtIndex(14)).f, 14, "last frame");
+    assert.equal((await r.frameAtIndex(7)).f, 7, "spans into a later chunk");
+
+    await assert.rejects(() => r.frameAtIndex(15), SceneError, "past the end");
+    await assert.rejects(() => r.frameAtIndex(-1), SceneError, "negative");
+    await assert.rejects(() => r.frameAtIndex(1.5), SceneError, "non-integer");
+  });
+
+  test("framesInRange collects a window, spanning chunks as needed", async () => {
+    installFetch({ "/p0/": makePart({ chunks: 3, perChunk: 5 }) });
+    const r = await new PartReader("https://example.test/p0/").open();
+
+    const inOneChunk = await r.framesInRange(1 * STEP_US, 3 * STEP_US);
+    assert.deepEqual(
+      inOneChunk.map((f) => f.f),
+      [1, 2, 3],
+    );
+
+    // Chunk 0 holds frames 0-4, chunk 1 holds frames 5-9: this window crosses
+    // the boundary between them.
+    const spanning = await r.framesInRange(3 * STEP_US, 6 * STEP_US);
+    assert.deepEqual(
+      spanning.map((f) => f.f),
+      [3, 4, 5, 6],
+    );
+  });
+
+  test("framesInRange truncates at the part's own start rather than padding", async () => {
+    installFetch({ "/p0/": makePart({ chunks: 2, perChunk: 5 }) });
+    const r = await new PartReader("https://example.test/p0/").open();
+
+    const frames = await r.framesInRange(-10 * STEP_US, 2 * STEP_US);
+    assert.deepEqual(
+      frames.map((f) => f.f),
+      [0, 1, 2],
+      "clamped to the part start, not padded with invented samples",
+    );
+  });
+
+  test("framesInRange clamps at the part's own end", async () => {
+    installFetch({ "/p0/": makePart({ chunks: 2, perChunk: 5 }) });
+    const r = await new PartReader("https://example.test/p0/").open();
+
+    const frames = await r.framesInRange(8 * STEP_US, 100 * STEP_US);
+    assert.deepEqual(
+      frames.map((f) => f.f),
+      [8, 9],
+    );
+  });
 });
 
 describe("SceneSession", () => {
@@ -370,6 +425,98 @@ describe("SceneSession", () => {
     const end = await s.frameAt(s.duration);
     assert.equal(end.partIndex, 1);
     assert.ok(end.frame, "end frame resolves");
+  });
+
+  test("frameAtIndex walks parts by their own frame count", async () => {
+    installFetch(twoParts(), { manifest });
+    const s = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
+
+    const first = await s.frameAtIndex(0);
+    assert.equal(first.partIndex, 0);
+    assert.equal(first.frame.f, 0);
+
+    const lastOfPart0 = await s.frameAtIndex(4);
+    assert.equal(lastOfPart0.partIndex, 0);
+    assert.equal(lastOfPart0.frame.f, 4, "last of 5 frames in part 0");
+
+    const firstOfPart1 = await s.frameAtIndex(5);
+    assert.equal(
+      firstOfPart1.partIndex,
+      1,
+      "index carries past the part boundary",
+    );
+    assert.equal(
+      firstOfPart1.frame.f,
+      0,
+      "frame numbering is export-local per part",
+    );
+
+    await assert.rejects(
+      () => s.frameAtIndex(10),
+      SceneError,
+      "past both parts",
+    );
+    await assert.rejects(() => s.frameAtIndex(-1), SceneError, "negative");
+  });
+
+  test("trailHistory does not reach into a different part even when the window would", async () => {
+    installFetch(twoParts(), { manifest });
+    const s = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
+
+    // 0.9s of scene time is 0.1s into part 1 (part 0 is 0.8s long). A 5s
+    // lookback would nominally reach 4.1s before the scene even starts.
+    const history = await s.trailHistory(0.9, 5);
+    assert.equal(history.partIndex, 1);
+    // Each part's own PartReader only ever reads its own chunks, so a bound
+    // clamped to this part's start is what rules out part 0 entirely — its
+    // frames live in a different PartReader instance, never consulted here.
+    assert.equal(
+      history.fromUs,
+      0,
+      "clamped to part 1's own start, not part 0's tail",
+    );
+  });
+
+  // This is the literal acceptance test for "direct seek and sequential
+  // playback produce identical trail samples at the same frame": trail
+  // history is a pure function of (seconds, historySeconds), so reaching a
+  // point directly must agree with reaching it through a sequence of earlier
+  // calls, regardless of what those earlier calls cached along the way.
+  test("trailHistory agrees whether reached by a direct seek or by sequential playback", async () => {
+    const freshManifest = {
+      version: 1,
+      site: { id: "demo", title: "Demo Street" },
+      parts: [{ url: "./p0/", start_seconds: 0 }],
+    };
+    const onePart = () => ({ "/p0/": makePart({ chunks: 3, perChunk: 5 }) });
+
+    installFetch(onePart(), { manifest: freshManifest });
+    const direct = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
+    const directHistory = await direct.trailHistory(2.4, 1);
+
+    installFetch(onePart(), { manifest: freshManifest });
+    const sequential = await new SceneSession(
+      "https://example.test/scenes/demo/manifest.json",
+    ).open();
+    await sequential.trailHistory(0.6, 1);
+    await sequential.trailHistory(1.2, 1);
+    await sequential.trailHistory(1.8, 1);
+    const sequentialHistory = await sequential.trailHistory(2.4, 1);
+
+    assert.deepEqual(
+      directHistory.frames.map((f) => f.f),
+      sequentialHistory.frames.map((f) => f.f),
+      "same frames regardless of path taken to get here",
+    );
+    assert.equal(directHistory.fromUs, sequentialHistory.fromUs);
+    assert.equal(directHistory.toUs, sequentialHistory.toUs);
+    assert.equal(directHistory.partIndex, sequentialHistory.partIndex);
   });
 });
 

@@ -21,12 +21,13 @@ import {
   sceneSourcesAlign,
 } from "./scene-playback.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
-
-// Sensor data is ENU: X east, Y north, Z up. Three.js is Y-up, so east stays
-// X, up becomes Y, and north becomes -Z to keep the frame right-handed.
-const toSceneX = (x) => x;
-const toSceneY = (z) => z;
-const toSceneZ = (y) => -y;
+import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
+import {
+  resolveFrameSelector,
+  validateView,
+  validateCaptureCoordinateFrame,
+  applyCapturePose,
+} from "./scene-capture.js";
 
 const MPS_TO_MPH = 2.236936;
 
@@ -45,14 +46,53 @@ const CLASS_COLOUR = {
   default: SCENE_COLOURS.dynamic,
 };
 
-const TRAIL_MAX_POINTS = 40;
+// A safety bound on trail buffer growth, not a normal operating size. Five
+// seconds of history at typical rotation rates is far under this; it exists
+// only so a very long recipe-supplied history window cannot grow a buffer
+// unboundedly.
+const TRAIL_MAX_POINTS = 2000;
+
+// A floor on the rendered box extent. Many real clusters are a few tens of
+// centimetres across, which at street scale is under a pixel; the box is a
+// marker for a measurement, so it stays legible rather than true to size.
+const MIN_BOX_EXTENT = 0.9;
 
 function colourFor(cls) {
   return CLASS_COLOUR[cls] ?? CLASS_COLOUR.default;
 }
 
+/**
+ * One track's position in scene coordinates, with the same vertical trail
+ * offset TrackVisual has always drawn at: just above the box's base rather
+ * than at its centre. Shared by live rendering and trail-history
+ * reconstruction so a historical sample and a currently-rendered box use
+ * identical placement math.
+ */
+export function sceneTrailPoint(t) {
+  const h = Math.max(t.h || 0, MIN_BOX_EXTENT);
+  return [toSceneX(t.x), toSceneY(t.z) - h / 2 + 0.05, toSceneZ(t.y)];
+}
+
+/**
+ * Distributes a window of historical frames into per-track point lists, one
+ * pass over the frames rather than one pass per track. Only the given track
+ * ids are collected — trails are drawn only for tracks visible in the
+ * currently-shown frame, not for ones that have since disappeared.
+ */
+export function buildTrailHistories(frames, trackIds) {
+  const byTrack = new Map();
+  for (const id of trackIds) byTrack.set(id, []);
+  for (const f of frames) {
+    for (const t of f.tr ?? []) {
+      const pts = byTrack.get(t.id);
+      if (pts) pts.push(sceneTrailPoint(t));
+    }
+  }
+  return byTrack;
+}
+
 /** One rendered track: a box, its edges, and a trail line. */
-class TrackVisual {
+export class TrackVisual {
   constructor(scene, colour) {
     this.colour = colour;
     const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -76,11 +116,10 @@ class TrackVisual {
     scene.add(this.fill);
 
     this.trailPoints = [];
+    this.trailCapacity = 0;
+    this.boxesVisible = true;
+    this.trailsVisible = true;
     this.trailGeo = new THREE.BufferGeometry();
-    this.trailGeo.setAttribute(
-      "position",
-      new THREE.BufferAttribute(new Float32Array(TRAIL_MAX_POINTS * 3), 3),
-    );
     this.trailGeo.setDrawRange(0, 0);
     this.trail = new THREE.Line(
       this.trailGeo,
@@ -109,18 +148,15 @@ class TrackVisual {
     this.trail.material.color.setHex(colour);
   }
 
+  /** Positions the box and its edges. Trail placement is separate: see setTrail. */
   update(t) {
     const x = toSceneX(t.x);
     const y = toSceneY(t.z);
     const z = toSceneZ(t.y);
 
-    // A floor on the rendered extent. Many real clusters are a few tens of
-    // centimetres across, which at street scale is under a pixel; the box is a
-    // marker for a measurement, so it stays legible rather than true to size.
-    const MIN_EXTENT = 0.9;
-    const l = Math.max(t.l || 0, MIN_EXTENT);
-    const w = Math.max(t.w || 0, MIN_EXTENT);
-    const h = Math.max(t.h || 0, MIN_EXTENT);
+    const l = Math.max(t.l || 0, MIN_BOX_EXTENT);
+    const w = Math.max(t.w || 0, MIN_BOX_EXTENT);
+    const h = Math.max(t.h || 0, MIN_BOX_EXTENT);
 
     for (const obj of [this.edges, this.fill]) {
       obj.visible = true;
@@ -131,22 +167,44 @@ class TrackVisual {
       // other way, hence the negation.
       obj.rotation.set(0, -(t.bh ?? t.hdg ?? 0), 0);
     }
+  }
 
-    const pts = this.trailPoints;
-    const last = pts[pts.length - 1];
-    if (!last || Math.abs(last[0] - x) > 0.02 || Math.abs(last[2] - z) > 0.02) {
-      pts.push([x, y - h / 2 + 0.05, z]);
-      if (pts.length > TRAIL_MAX_POINTS) pts.shift();
-      const arr = this.trailGeo.attributes.position.array;
-      for (let i = 0; i < pts.length; i++) {
-        arr[i * 3] = pts[i][0];
-        arr[i * 3 + 1] = pts[i][1];
-        arr[i * 3 + 2] = pts[i][2];
-      }
-      this.trailGeo.attributes.position.needsUpdate = true;
-      this.trailGeo.setDrawRange(0, pts.length);
+  _ensureTrailCapacity(count) {
+    // A brand-new track, or one with no samples in the history window yet,
+    // calls setTrail([]) — the position attribute must still exist so the
+    // empty-buffer path below has something to write zero points into.
+    if (this.trailGeo.attributes.position && count <= this.trailCapacity) {
+      return;
     }
-    this.trail.visible = pts.length > 1;
+    this.trailCapacity = Math.max(count, this.trailCapacity, 1);
+    this.trailGeo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(this.trailCapacity * 3), 3),
+    );
+  }
+
+  /**
+   * Replaces the trail wholesale with a freshly reconstructed set of points,
+   * one per recorded sample in the requested history window. Called on every
+   * shown frame — direct seek, sequential playback and capture all take this
+   * same path, so none of them can drift from the others.
+   */
+  setTrail(points) {
+    const capped =
+      points.length > TRAIL_MAX_POINTS
+        ? points.slice(points.length - TRAIL_MAX_POINTS)
+        : points;
+    this.trailPoints = capped;
+    this._ensureTrailCapacity(capped.length);
+    const arr = this.trailGeo.attributes.position.array;
+    for (let i = 0; i < capped.length; i++) {
+      arr[i * 3] = capped[i][0];
+      arr[i * 3 + 1] = capped[i][1];
+      arr[i * 3 + 2] = capped[i][2];
+    }
+    this.trailGeo.attributes.position.needsUpdate = true;
+    this.trailGeo.setDrawRange(0, capped.length);
+    this._syncTrailVisibility();
   }
 
   hide() {
@@ -161,10 +219,23 @@ class TrackVisual {
     this.trail.material.opacity = 0.7 * opacity;
   }
 
+  /** Boxes off hides the trail too, without discarding the trails preference. */
   setVisible(visible) {
     this.edges.visible = visible;
     this.fill.visible = visible;
-    this.trail.visible = visible && this.trailPoints.length > 1;
+    this.boxesVisible = visible;
+    this._syncTrailVisibility();
+  }
+
+  /** The trails preference. Independent of setVisible so re-enabling boxes restores it. */
+  setTrailVisible(visible) {
+    this.trailsVisible = visible;
+    this._syncTrailVisibility();
+  }
+
+  _syncTrailVisibility() {
+    this.trail.visible =
+      this.boxesVisible && this.trailsVisible && this.trailPoints.length > 1;
   }
 
   dispose(scene) {
@@ -249,6 +320,10 @@ export async function mountScenePlayer({
   manifestURL,
   pointCloudManifestURL,
   ui,
+  // True for the deterministic capture harness: suppresses autoplay and the
+  // drone, and the returned session gains a `capture.applyView` for freezing
+  // an exact frame, camera and layer set. Absent for the production page.
+  capture = false,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -258,6 +333,10 @@ export async function mountScenePlayer({
   scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, 60, 190);
 
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
+  // Captured once, before anything can change it, so a capture view that
+  // omits fov_deg always resolves to the renderer's true default — not
+  // "whatever an earlier view in this recipe happened to set it to."
+  const DEFAULT_FOV_DEG = camera.fov;
 
   const grid = new THREE.GridHelper(160, 32, 0x2c4049, 0x1c2b32);
   // Turn the grid onto the street.
@@ -281,7 +360,10 @@ export async function mountScenePlayer({
   // sensor is the coordinate origin, mounted above the carriageway.
   const origin = new THREE.Mesh(
     new THREE.RingGeometry(0.7, 0.9, 32),
-    new THREE.MeshBasicMaterial({ color: SCENE_COLOURS.primary, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({
+      color: SCENE_COLOURS.primary,
+      side: THREE.DoubleSide,
+    }),
   );
   origin.rotation.x = -Math.PI / 2;
   scene.add(origin);
@@ -457,13 +539,20 @@ export async function mountScenePlayer({
   if (pointCloudManifestURL) {
     try {
       const candidate = await new SceneSession(pointCloudManifestURL).open();
-      if (sceneSourcesAlign(session.parts[0]?.header, candidate.parts[0]?.header)) {
+      if (
+        sceneSourcesAlign(session.parts[0]?.header, candidate.parts[0]?.header)
+      ) {
         pointCloudSession = candidate;
       } else {
-        console.warn("Point-cloud overlay does not align with the tracked scene; hiding it.");
+        console.warn(
+          "Point-cloud overlay does not align with the tracked scene; hiding it.",
+        );
       }
     } catch (err) {
-      console.warn("Point-cloud overlay could not be loaded; continuing with tracks.", err);
+      console.warn(
+        "Point-cloud overlay could not be loaded; continuing with tracks.",
+        err,
+      );
     }
   }
 
@@ -627,7 +716,13 @@ export async function mountScenePlayer({
     pointCloud.update([], 0);
   }
 
-  function renderFrame(frame, partIndex, pointFrame = null, pointOpacity = 0) {
+  function renderFrame(
+    frame,
+    partIndex,
+    pointFrame = null,
+    pointOpacity = 0,
+    trailsByTrack = null,
+  ) {
     // Track identifiers are export-local, so they carry no meaning across a
     // part boundary. Drop all visuals rather than let a trail jump sites.
     if (partIndex !== currentPart) {
@@ -648,6 +743,8 @@ export async function mountScenePlayer({
       v.update(t);
       v.setOpacity(1);
       v.setVisible(state.boxesVisible);
+      v.setTrailVisible(state.trailsVisible);
+      v.setTrail(trailsByTrack?.get(t.id) ?? []);
 
       // Only vehicles are labelled. A number over every pedestrian would bury
       // the scene, and speed is the thing a street asks about cars.
@@ -680,10 +777,23 @@ export async function mountScenePlayer({
 
   const state = {
     seconds: 0,
-    playing: autoplayScene(),
+    // Capture freezes on one frame; nothing should advance on its own.
+    playing: capture ? false : autoplayScene(),
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,
+    // Mirror each toggle's own checkbox default rather than assuming one, so
+    // a harness that omits a checkbox entirely still starts at the same
+    // visibility the production page's checked="" markup implies. Previously
+    // these were left unset until a change event first fired, which — for
+    // lidarVisible specifically, read in a plain truthy check — meant a
+    // scene's point-cloud overlay silently failed to appear on first load.
+    boxesVisible: ui.boxesToggle?.checked ?? true,
+    trailsVisible: ui.trailsToggle?.checked ?? true,
+    backgroundVisible: ui.backgroundToggle?.checked ?? true,
+    gridVisible: ui.gridToggle?.checked ?? true,
+    lidarVisible: ui.lidarToggle?.checked ?? true,
+    loopOpening: ui.openingLoopToggle?.checked ?? false,
   };
   if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
   grid.visible = state.gridVisible;
@@ -716,11 +826,15 @@ export async function mountScenePlayer({
         partIndex === 0 &&
         seconds < pointCloudSession.duration
       ) {
-        pointOpacity = pointCloudOverlayOpacity(seconds, pointCloudSession.duration, {
-          fadeOutSeconds: pointCloudSession.manifest?.fade_out_seconds,
-          fadeInSeconds: pointCloudSession.manifest?.loop_fade_in_seconds,
-          loopingIn: state.pointCloudLoopingIn,
-        });
+        pointOpacity = pointCloudOverlayOpacity(
+          seconds,
+          pointCloudSession.duration,
+          {
+            fadeOutSeconds: pointCloudSession.manifest?.fade_out_seconds,
+            fadeInSeconds: pointCloudSession.manifest?.loop_fade_in_seconds,
+            loopingIn: state.pointCloudLoopingIn,
+          },
+        );
         if (pointOpacity > 0) {
           // Use the tracked frame's timestamp, not the animation clock. Both
           // exports contain this frame, so the boxes and returns cannot drift.
@@ -737,7 +851,25 @@ export async function mountScenePlayer({
         pointFrame = null;
         pointOpacity = 0;
       }
-      const n = renderFrame(frame, partIndex, pointFrame, pointOpacity);
+      // Trails off needs no history pre-roll at all: skip the lookback
+      // entirely rather than fetch it and then hide it.
+      let trailsByTrack = null;
+      if (state.trailsVisible) {
+        const trackIds = (frame.tr ?? []).map((t) => t.id);
+        const history = await session.trailHistory(
+          seconds,
+          state.trailHistorySec ?? 5,
+        );
+        trailsByTrack = buildTrailHistories(history.frames, trackIds);
+        state.effectiveTrailHistorySec = (history.toUs - history.fromUs) / 1e6;
+      }
+      const n = renderFrame(
+        frame,
+        partIndex,
+        pointFrame,
+        pointOpacity,
+        trailsByTrack,
+      );
       if (ui.stats) {
         const tracks = frame.tr ?? [];
         const speeds = tracks.map((t) => t.spd ?? 0);
@@ -847,9 +979,10 @@ export async function mountScenePlayer({
       // ending, and eleven minutes in, whoever is still watching wants the
       // next pass rather than a dead playhead and a button to press.
       if (next.wrapped) {
-        // Trails are per-track state built up frame by frame. Carrying them
-        // over the wrap would draw a line from the last vehicle of the
-        // recording to the first.
+        // A wrap is a jump, not continuous motion, so a trail should not
+        // draw a line across it; resetting clears the display immediately
+        // rather than holding the recording's last frame while the next one
+        // loads.
         resetVisuals();
         state.pointCloudLoopingIn = state.lidarVisible;
       }
@@ -891,6 +1024,15 @@ export async function mountScenePlayer({
       state.boxesVisible = ui.boxesToggle.checked;
       for (const visual of visuals.values()) {
         visual.setVisible(state.boxesVisible);
+      }
+      render();
+    });
+  }
+  if (ui.trailsToggle) {
+    ui.trailsToggle.addEventListener("change", () => {
+      state.trailsVisible = ui.trailsToggle.checked;
+      for (const visual of visuals.values()) {
+        visual.setTrailVisible(state.trailsVisible);
       }
       render();
     });
@@ -986,8 +1128,9 @@ export async function mountScenePlayer({
   }
 
   // The drone is on by default: a still three-quarter view of a junction says
-  // less than a slow circle of it, and nobody has to find a control to get it.
-  if (canFly) {
+  // less than a slow circle of it, and nobody has to find a control to get
+  // it. Capture needs the opposite: a camera that never moves on its own.
+  if (canFly && !capture) {
     flying = true;
     flightSeconds = 0;
     ui.flyToggle?.setAttribute("aria-checked", "true");
@@ -1107,6 +1250,110 @@ export async function mountScenePlayer({
 
   if (ui.duration) ui.duration.textContent = formatClock(playbackDuration());
   if (ui.title) ui.title.textContent = session.title;
+
+  /**
+   * Freezes the scene on one exact frame, camera and layer set. The one
+   * preparation path for a capture view: called both from a URL-booted
+   * harness page and, for every view after the first in one recipe, from the
+   * capture tool driving this same page directly — never a second, divergent
+   * render path.
+   *
+   * @param {object} viewSpec see scene-capture.js's ViewSpec shape
+   * @returns {Promise<{resolvedFrame: object, effectiveTrailHistorySec: number}>}
+   */
+  async function applyView(viewSpec) {
+    validateView(viewSpec);
+    const { partIndex, frame, us, frameIndex } = await resolveFrameSelector(
+      session,
+      viewSpec.frame,
+    );
+    validateCaptureCoordinateFrame(session.parts[partIndex].header);
+
+    const layers = viewSpec.layers ?? {};
+    state.boxesVisible = !!layers.boxes;
+    state.trailsVisible = !!layers.trails;
+    state.lidarVisible = !!layers.lidar;
+    state.trailHistorySec = layers.trailHistorySec ?? 5;
+
+    let trailsByTrack = null;
+    let effectiveTrailHistorySec = 0;
+    if (state.trailsVisible) {
+      const trackIds = (frame.tr ?? []).map((t) => t.id);
+      const history = await session.trailHistoryForPart(
+        partIndex,
+        us,
+        state.trailHistorySec,
+      );
+      trailsByTrack = buildTrailHistories(history.frames, trackIds);
+      effectiveTrailHistorySec = (history.toUs - history.fromUs) / 1e6;
+    }
+    state.effectiveTrailHistorySec = effectiveTrailHistorySec;
+
+    let pointFrame = null;
+    let pointOpacity = 0;
+    if (state.lidarVisible) {
+      // The clip overlay only ever aligns with part 0 (see show()'s own
+      // guard above) — requesting LiDAR against any other part, or a part 0
+      // instant past the overlay's own duration, has no points to show.
+      if (
+        !pointCloudSession ||
+        partIndex !== 0 ||
+        us / 1e6 >= pointCloudSession.duration
+      ) {
+        throw new SceneError(
+          "LiDAR layer requested but this export has no point-cloud overlay for the resolved frame",
+        );
+      }
+      pointFrame = (await pointCloudSession.frameAt(us / 1e6)).frame;
+      pointOpacity = 1;
+    }
+
+    renderFrame(frame, partIndex, pointFrame, pointOpacity, trailsByTrack);
+    const appliedFovDeg = viewSpec.fovDeg ?? DEFAULT_FOV_DEG;
+    applyCapturePose(camera, viewSpec.camera, viewSpec.target, appliedFovDeg);
+    render();
+
+    return {
+      resolvedFrame: {
+        partIndex,
+        frameId: frame.f,
+        frameIndex,
+        timestampUs: us,
+      },
+      effectiveTrailHistorySec,
+      appliedFovDeg,
+    };
+  }
+
+  /**
+   * Resolves a frame selector without touching the camera or layers, so a
+   * caller can look up track positions (e.g. a bullet-time target named by
+   * object id) before it knows what camera views to generate. Read-only:
+   * repeatable, and safe to call before or between applyView calls.
+   */
+  async function resolveFrame(frameSelector) {
+    const { partIndex, frame, us, frameIndex } = await resolveFrameSelector(
+      session,
+      frameSelector,
+    );
+    validateCaptureCoordinateFrame(session.parts[partIndex].header);
+    return {
+      resolvedFrame: {
+        partIndex,
+        frameId: frame.f,
+        frameIndex,
+        timestampUs: us,
+      },
+      tracks: (frame.tr ?? []).map((t) => ({
+        id: t.id,
+        x: t.x,
+        y: t.y,
+        z: t.z,
+      })),
+    };
+  }
+
+  if (capture) session.capture = { applyView, resolveFrame };
 
   await show(0);
   syncUI();

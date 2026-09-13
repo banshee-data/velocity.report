@@ -1,0 +1,11 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "public_html-docs",
+			"runtimeExecutable": "pnpm",
+			"runtimeArgs": ["--dir", "public_html", "run", "dev"],
+			"port": 8090
+		}
+	]
+}
