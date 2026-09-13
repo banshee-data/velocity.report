@@ -111,6 +111,15 @@ layout: page.njk
   .scene-switch input:focus-visible + .scene-switch__track {
     outline: 2px solid var(--scene-primary); outline-offset: 3px;
   }
+  /* A visually-subordinate toggle for an option that belongs to the one above it. */
+  .scene-switch--sub { margin-left: 1.3rem; font-size: 0.8rem; }
+  .scene-switch--sub .scene-switch__track { width: 1.85rem; height: 1.05rem; }
+  .scene-switch--sub .scene-switch__track::after {
+    top: 0.12rem; left: 0.13rem; width: 0.68rem; height: 0.68rem;
+  }
+  .scene-switch--sub input:checked + .scene-switch__track::after {
+    transform: translateX(0.91rem);
+  }
   @media (prefers-reduced-motion: reduce) {
     .scene-switch__track, .scene-switch__track::after,
     .scene-stage__controls-chevron { transition: none; }
@@ -329,6 +338,11 @@ layout: page.njk
         <span class="scene-switch__track" aria-hidden="true"></span>
         <span>Boxes</span>
       </label>
+      <label class="scene-switch scene-switch--sub">
+        <input type="checkbox" id="scene-trails" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Trails</span>
+      </label>
       {% if sceneHasClip %}
       <label class="scene-switch">
         <input type="checkbox" id="scene-lidar" role="switch" checked>
@@ -511,6 +525,7 @@ layout: page.njk
       timelineCanvas: document.getElementById("scene-timeline"),
       lidarToggle: document.getElementById("scene-lidar"),
       boxesToggle: document.getElementById("scene-boxes"),
+      trailsToggle: document.getElementById("scene-trails"),
       backgroundToggle: document.getElementById("scene-background"),
       gridToggle: document.getElementById("scene-grid"),
       openingLoopToggle: document.getElementById("scene-loop-opening"),
