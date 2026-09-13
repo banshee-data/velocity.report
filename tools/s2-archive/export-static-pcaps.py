@@ -41,6 +41,71 @@ def run(command, dry_run):
         subprocess.run(command, check=True)
 
 
+def publication_metadata(site):
+    """Metadata required to make an exported capture independently useful."""
+    latitude = site.get("lat")
+    longitude = site.get("lon")
+    build_version = site.get("pcap_split_build_version")
+    if not isinstance(latitude, (int, float)) or not isinstance(
+        longitude, (int, float)
+    ):
+        raise RuntimeError(f"{site.get('id', '<unknown>')}: latitude/longitude missing")
+    if isinstance(latitude, bool) or not -90 <= latitude <= 90:
+        raise RuntimeError(f"{site.get('id', '<unknown>')}: latitude is invalid")
+    if isinstance(longitude, bool) or not -180 <= longitude <= 180:
+        raise RuntimeError(f"{site.get('id', '<unknown>')}: longitude is invalid")
+    if not isinstance(build_version, str) or not build_version.strip():
+        raise RuntimeError(
+            f"{site.get('id', '<unknown>')}: pcap-split build version missing"
+        )
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+        "pcap_split_build_version": build_version,
+    }
+
+
+def write_json_atomic(path, document):
+    """Replace a JSON document without leaving a partial sidecar behind."""
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        delete=False,
+    ) as temporary:
+        temporary.write(json.dumps(document, indent=2) + "\n")
+        temporary_path = Path(temporary.name)
+    try:
+        temporary_path.replace(path)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
+def backfill_sidecar(site, output):
+    """Add publication metadata without rebuilding or rehashing a PCAP."""
+    site_id = site["id"]
+    destination = output / f"{site_id}.pcapng"
+    sidecar = output / f"{site_id}.json"
+    if not destination.is_file() or not sidecar.is_file():
+        raise RuntimeError(f"{site_id}: existing PCAPNG/sidecar pair is required")
+
+    metadata = json.loads(sidecar.read_text())
+    if metadata.get("site_id") != site_id:
+        raise RuntimeError(f"{site_id}: sidecar site_id does not match")
+    if metadata.get("output_file") != destination.name:
+        raise RuntimeError(f"{site_id}: sidecar output_file does not match")
+    if metadata.get("output_bytes") != destination.stat().st_size:
+        raise RuntimeError(f"{site_id}: PCAPNG size no longer matches its sidecar")
+
+    metadata.update(publication_metadata(site))
+    for retired_field in ("site", "source_index", "position_confidence"):
+        metadata.pop(retired_field, None)
+    write_json_atomic(sidecar, metadata)
+    print(f"{site_id}: sidecar metadata updated")
+
+
 def export(site, archive, output, editcap, mergecap, dry_run, skip_existing):
     site_id = site["id"]
     start, end = site["start"], site["end"]
@@ -80,9 +145,7 @@ def export(site, archive, output, editcap, mergecap, dry_run, skip_existing):
     metadata = {
         "schema_version": 1,
         "site_id": site_id,
-        "site": site["site"],
         "where": site.get("where"),
-        "source_index": "tools/s2-archive/site-index.json",
         "static_export_policy": site["static_export_policy"],
         "start": start,
         "end": end,
@@ -95,16 +158,16 @@ def export(site, archive, output, editcap, mergecap, dry_run, skip_existing):
         "output_sha256": sha256(destination),
         "output_bytes": destination.stat().st_size,
     }
-    sidecar.write_text(json.dumps(metadata, indent=2) + "\n")
+    metadata.update(publication_metadata(site))
+    write_json_atomic(sidecar, metadata)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--archive",
-        required=True,
         type=Path,
-        help="directory containing source S2 PCAP files",
+        help="directory containing source S2 PCAP files (required for export)",
     )
     parser.add_argument(
         "--output",
@@ -125,11 +188,22 @@ def main():
         action="store_true",
         help="retain complete existing PCAPNG/sidecar pairs",
     )
+    parser.add_argument(
+        "--backfill-sidecars",
+        action="store_true",
+        help="update metadata in existing sidecars without reading or rebuilding PCAPs",
+    )
     args = parser.parse_args()
-    editcap = executable("editcap", DEFAULT_EDITCAP)
-    mergecap = executable("mergecap", DEFAULT_MERGECAP)
-    if not editcap or not mergecap:
-        parser.error("Wireshark editcap and mergecap are required")
+    if args.backfill_sidecars and (args.dry_run or args.skip_existing):
+        parser.error("--backfill-sidecars cannot be combined with export options")
+    if not args.backfill_sidecars and args.archive is None:
+        parser.error("--archive is required for export")
+    editcap = mergecap = None
+    if not args.backfill_sidecars:
+        editcap = executable("editcap", DEFAULT_EDITCAP)
+        mergecap = executable("mergecap", DEFAULT_MERGECAP)
+        if not editcap or not mergecap:
+            parser.error("Wireshark editcap and mergecap are required")
     sites = json.loads(args.index.read_text())
     wanted = set(args.site)
     selected = [site for site in sites if not wanted or site["id"] in wanted]
@@ -139,6 +213,9 @@ def main():
     if not args.dry_run:
         args.output.mkdir(parents=True, exist_ok=True)
     for site in selected:
+        if args.backfill_sidecars:
+            backfill_sidecar(site, args.output)
+            continue
         export(
             site,
             args.archive,

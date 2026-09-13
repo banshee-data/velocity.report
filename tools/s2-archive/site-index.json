@@ -27,6 +27,7 @@
     "lat": 37.7638,
     "lon": -122.4466,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 8,
     "published_as": "ashbury-downey"
@@ -65,6 +66,7 @@
     "lat": 37.7712,
     "lon": -122.4372,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
     "published_as": "haight-divisadero"
@@ -107,6 +109,7 @@
     "lat": 37.7718,
     "lon": -122.4338,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 0,
     "north_azimuth_deg": 11,
     "published_as": "pierce-haight"
@@ -147,6 +150,7 @@
     "lat": 37.7768,
     "lon": -122.4381,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
     "published_as": "fulton-divisadero"
@@ -189,6 +193,7 @@
     "lat": 37.7875,
     "lon": -122.4446,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
     "published_as": "california-leon-baker"
@@ -229,6 +234,7 @@
     "lat": 37.7952,
     "lon": -122.4269,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 359,
     "north_azimuth_deg": 99,
     "published_as": "broadway-gough"
@@ -269,6 +275,7 @@
     "lat": 37.7821,
     "lon": -122.4274,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 359,
     "north_azimuth_deg": 9,
     "published_as": "laguna-eddy"
@@ -325,6 +332,7 @@
     "lat": 37.799,
     "lon": -122.444,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 355,
     "north_azimuth_deg": 97,
     "published_as": "lombard-broderick"
@@ -381,6 +389,7 @@
     "lat": 37.8053,
     "lon": -122.4455,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356,
     "north_azimuth_deg": 282,
     "published_as": "marina-broderick"
@@ -437,6 +446,7 @@
     "lat": 37.8057,
     "lon": -122.4351,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356.5,
     "north_azimuth_deg": 231,
     "published_as": "marina-webster-beach"
@@ -525,6 +535,7 @@
     "lat": 37.8004,
     "lon": -122.4313,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 354,
     "north_azimuth_deg": 275,
     "published_as": "lombard-laguna"
@@ -581,6 +592,7 @@
     "lat": 37.8059,
     "lon": -122.4181,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 38,
     "north_azimuth_deg": 48,
     "published_as": "columbus-north-point"
@@ -637,6 +649,7 @@
     "lat": 37.8067,
     "lon": -122.4061,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 60,
     "north_azimuth_deg": 253,
     "published_as": "embarcadero-bay"
@@ -724,6 +737,7 @@
     "lat": 37.7978,
     "lon": -122.4065,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 27,
     "north_azimuth_deg": 35,
     "published_as": "columbus-broadway"
@@ -780,6 +794,7 @@
     "lat": 37.7912,
     "lon": -122.4225,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 355.5,
     "north_azimuth_deg": 10,
     "published_as": "van-ness-sacramento"
@@ -844,6 +859,7 @@
     "lat": 37.7991,
     "lon": -122.3976,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 2,
     "north_azimuth_deg": 101,
     "published_as": "embarcadero-broadway"
@@ -892,6 +908,7 @@
     "lat": 37.7798,
     "lon": -122.4218,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 4,
     "north_azimuth_deg": 192,
     "published_as": "franklin-mcallister"
@@ -948,6 +965,7 @@
     "lat": 37.7855,
     "lon": -122.4164,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 14,
     "published_as": "hyde-ofarrell"
@@ -1004,6 +1022,7 @@
     "lat": 37.7901,
     "lon": -122.409,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 102,
     "published_as": "bush-powell"
@@ -1075,6 +1094,7 @@
     "lat": 37.791,
     "lon": -122.3899,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356,
     "north_azimuth_deg": 131,
     "published_as": "embarcadero-folsom"
@@ -1131,6 +1151,7 @@
     "lat": 37.7897,
     "lon": -122.3974,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 6,
     "north_azimuth_deg": 51,
     "published_as": "1st-mission"
@@ -1195,6 +1216,7 @@
     "lat": 37.7868,
     "lon": -122.3881,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 308,
     "north_azimuth_deg": 353,
     "published_as": "embarcadero-bryant"
@@ -1251,6 +1273,7 @@
     "lat": 37.7837,
     "lon": -122.3986,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 358,
     "north_azimuth_deg": 223,
     "published_as": "3rd-folsom"
@@ -1307,6 +1330,7 @@
     "lat": 37.7798,
     "lon": -122.4069,
     "position_confidence": "high",
+    "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 357,
     "north_azimuth_deg": 312,
     "published_as": "howard-6th"
