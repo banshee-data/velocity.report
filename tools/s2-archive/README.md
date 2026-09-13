@@ -44,6 +44,12 @@ genuinely separate sites.
 `s2/analysis-continuous/`, one per recording block, and comes out clean: six
 static stretches of 18 to 22 minutes with no stitching needed. Continuous analysis is not yet a replacement for the per-file inputs: a 9/3 run misses a recorded stop and starts two others late. Keep both inputs while the [classification investigation](../../docs/plans/continuous-classification-brief.md) is open.
 
+The preserved per-file analysis used `pcap-split` 0.5.1-pre31 and the 9/1
+continuous analysis used 0.5.1-pre32. Those historical `segments.json` files
+predate embedded build provenance, so the index builder supplies the two known
+versions according to the analysis population. New `pcap-split` output records
+`build_version` directly, and the index builder prefers that value.
+
 ## Which captures a site spans
 
 A per-file analysis names its one capture and nothing else. A continuous
@@ -80,6 +86,8 @@ site. It clips the original files to the exact indexed start/end and joins the
 pieces in order. The export uses the complete operator-approved site interval,
 including an asserted tripod nudge such as `van-ness-sacramento`; classifier
 fragments remain in `static_parts` for audit but do not silently remove packets.
+Each sidecar includes the approximate WGS84 latitude and longitude and the
+`pcap-split` build version that produced the source segment analysis.
 
 ```bash
 python3 tools/s2-archive/export-static-pcaps.py \
@@ -90,6 +98,47 @@ python3 tools/s2-archive/export-static-pcaps.py \
 Use `--dry-run` to review paths, or repeat `--site van-ness-sacramento` for one
 export. The command refuses to overwrite an existing PCAPNG or sidecar, so a
 published artifact cannot be revised by accident.
+
+To add those publication fields to an existing release set without rerunning a
+split, clipping packets, or recalculating multi-gigabyte hashes, use the
+metadata-only backfill:
+
+```bash
+python3 tools/s2-archive/export-static-pcaps.py \
+  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --backfill-sidecars
+```
+
+The token-directory arrangement below is a **legacy staging layout**, used to
+assemble and verify exports before the Hugging Face release. It is not the
+publication layout: the latter is intentionally shallow and documented in
+[the Hugging Face dataset layout](huggingface-dataset-layout.md).
+
+```bash
+node tools/s2-archive/organise-static-pcaps.mjs \
+  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --apply
+```
+
+To place the complete web VRLOG export for every associated published scene in
+the legacy staging layout, use the same tool's copy mode. It copies the scene's
+entire `assets/` tree, including the manifest, part metadata and frame chunks:
+
+```bash
+node tools/s2-archive/organise-static-pcaps.mjs \
+  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --copy-vrlogs \
+  --apply
+```
+
+After the staging checks pass, the release migrator moves the PCAPNGs and scene
+exports into the shallow dataset root and writes its `manifest.json`:
+
+```bash
+node tools/s2-archive/stage-huggingface-dataset.mjs \
+  --output /Volumes/lidar/lidar/hf \
+  --apply
+```
 
 ## Rebuild inputs and publication state
 

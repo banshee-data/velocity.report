@@ -976,6 +976,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_sqlite_erd.py \
 	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
+	tools/s2-archive/test_export_static_pcaps.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
 install-python:
