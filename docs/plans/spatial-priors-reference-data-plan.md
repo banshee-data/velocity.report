@@ -19,6 +19,9 @@ verified. No records were purchased, external requests submitted, or upstream ma
 
 ## 1. Recommended position
 
+The [SF bootstrap and editor plan](sf-priors-bootstrap-plan.md) develops the selected aerial-LiDAR
+baseline with SF and OSM vectors, including source-frame pitfalls and reviewed correction rules.
+
 Use a hierarchy of evidence with separate roles, rather than replace GPS with one
 supposedly perfect map. Legal boundary records, geodetic control, and observable
 geometry answer different questions. A parcel line can be authoritative for a land

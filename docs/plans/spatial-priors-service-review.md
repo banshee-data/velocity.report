@@ -14,6 +14,11 @@ decisions that determine the project's cost, usefulness, and technical risk.
 
 ## 1. Decisions and recommendation
 
+**SF bootstrap follow-up:** The user selects USGS aerial LiDAR, SF building vectors and OSM as the
+baseline, with LiDAR the default geometric reference unless an error is demonstrated. The
+[SF bootstrap and editor plan](sf-priors-bootstrap-plan.md) defines source precedence, alignment
+diagnostics, correction inheritance and a proposed web curator with a narrow native integration.
+
 **Reference-data follow-up:** The user requests protection from inaccurate GPS and L10 reference
 packages maintained by community stewards/sponsors, including targeted records
 acquisition. The [reference-data research](spatial-priors-reference-data-plan.md)
