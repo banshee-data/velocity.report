@@ -39,9 +39,15 @@ function parseFrameSelector(frame) {
       "frame must specify exactly one of timestamp_us or frame_index",
     );
   }
-  return hasTimestamp
-    ? { timestampUs: requireNumber(frame.timestamp_us, "frame.timestamp_us") }
-    : { frameIndex: requireNumber(frame.frame_index, "frame.frame_index") };
+  if (hasTimestamp) {
+    return {
+      timestampUs: requireNumber(frame.timestamp_us, "frame.timestamp_us"),
+    };
+  }
+  if (!Number.isInteger(frame.frame_index) || frame.frame_index < 0) {
+    throw new RecipeError("frame.frame_index must be a non-negative integer");
+  }
+  return { frameIndex: frame.frame_index };
 }
 
 function parseView(raw, index) {
@@ -117,11 +123,31 @@ function parseViewport(raw) {
   return { width, height };
 }
 
-function parseOutput(raw) {
+function parseOutput(raw, recipeDir) {
   if (raw == null || typeof raw.dir !== "string" || !raw.dir) {
     throw new RecipeError("output.dir must be a non-empty string path");
   }
-  return { dir: raw.dir, contactSheet: Boolean(raw.contact_sheet) };
+  return {
+    dir: path.resolve(recipeDir, raw.dir),
+    contactSheet: Boolean(raw.contact_sheet),
+  };
+}
+
+function parseViewerURL(raw) {
+  if (raw == null) return null;
+  if (typeof raw !== "string") {
+    throw new RecipeError("viewer_url must be an absolute HTTP(S) URL");
+  }
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new RecipeError("viewer_url must be an absolute HTTP(S) URL");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new RecipeError("viewer_url must be an absolute HTTP(S) URL");
+  }
+  return url.href;
 }
 
 const DEFAULT_ELEVATION_KEYFRAMES = [
@@ -241,6 +267,13 @@ export function parseRecipe(raw, recipeDir) {
   }
 
   const views = parseViews(raw.views);
+  const bulletTime =
+    raw.bullet_time == null ? null : parseBulletTime(raw.bullet_time, views);
+  if (bulletTime && views.length !== 1) {
+    throw new RecipeError(
+      "bullet_time requires exactly one named base view; its image_count is the complete capture path",
+    );
+  }
 
   return {
     version: 1,
@@ -249,9 +282,9 @@ export function parseRecipe(raw, recipeDir) {
     views,
     layers: parseLayers(raw.layers),
     viewport: parseViewport(raw.viewport),
-    output: parseOutput(raw.output),
-    bulletTime:
-      raw.bullet_time == null ? null : parseBulletTime(raw.bullet_time, views),
+    output: parseOutput(raw.output, recipeDir),
+    viewerURL: parseViewerURL(raw.viewer_url),
+    bulletTime,
   };
 }
 

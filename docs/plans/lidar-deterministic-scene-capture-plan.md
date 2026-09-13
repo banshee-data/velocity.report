@@ -56,6 +56,7 @@ small; use the same capture preparation interface for the script and browser URL
 | Layers         | Explicit LiDAR, boxes, and trails visibility; trail history defaults to five seconds                             |
 | Viewport       | Width and height, default 1280 × 720; device-pixel ratio fixed to 1                                              |
 | Output         | Destination directory and optional contact-sheet flag                                                            |
+| Viewer URL     | Optional published scene URL; its capture query becomes a durable manual reproduction link                       |
 
 Coordinates use the export's scene frame before conversion into renderer
 coordinates. Use the declared vertical axis for camera orientation. Reject a
@@ -171,8 +172,9 @@ advances linearly and elevation follows piecewise-smoothstep interpolation
 across the default 20/30/20/10 keyframes. Verified end to end: a 9-image arc's
 elevation at every sample matched a hand-computed interpolation of the default
 keyframes exactly, azimuth advanced linearly through the full requested arc
-including both endpoints, and all views (explicit and generated) passed the
-stability check.
+including both endpoints, and every generated path image passed the stability
+check. A bullet-time recipe supplies one named base view as path geometry; it
+emits the requested two to 50 generated images rather than an extra base still.
 
 ## Milestone 3: temporal sequences and animation outputs
 

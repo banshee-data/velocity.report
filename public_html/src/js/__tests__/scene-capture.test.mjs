@@ -11,6 +11,7 @@ import {
   serializeCaptureParams,
   resolveFrameSelector,
   validateView,
+  validateCaptureCoordinateFrame,
 } from "../scene-capture.js";
 import { SceneSession, SceneError } from "../scene-reader.js";
 
@@ -150,6 +151,10 @@ describe("resolveFrameSelector", () => {
     assert.equal(partIndex, 0);
     assert.equal(frame.f, 3);
     assert.equal(us, 3 * STEP_US);
+    const resolved = await resolveFrameSelector(session, {
+      timestampUs: 3 * STEP_US,
+    });
+    assert.equal(resolved.frameIndex, 3);
   });
 
   test("resolves a frame index directly", async () => {
@@ -160,6 +165,8 @@ describe("resolveFrameSelector", () => {
     assert.equal(partIndex, 0);
     assert.equal(frame.f, 7);
     assert.equal(us, frame.t);
+    const resolved = await resolveFrameSelector(session, { frameIndex: 7 });
+    assert.equal(resolved.frameIndex, 7);
   });
 
   test("rejects a timestamp past the end of the scene rather than clamping", async () => {
@@ -268,6 +275,28 @@ describe("validateView", () => {
         target: ORIGIN,
         fovDeg: null,
       }),
+    );
+  });
+});
+
+describe("validateCaptureCoordinateFrame", () => {
+  test("accepts an export declaring ENU", () => {
+    assert.deepEqual(
+      validateCaptureCoordinateFrame({
+        coordinate_frame: { frame_id: "site/sensor", reference_frame: "ENU" },
+      }),
+      { frameId: "site/sensor", referenceFrame: "ENU" },
+    );
+  });
+
+  test("rejects an absent or unsupported coordinate declaration", () => {
+    assert.throws(() => validateCaptureCoordinateFrame({}), /reference_frame/);
+    assert.throws(
+      () =>
+        validateCaptureCoordinateFrame({
+          coordinate_frame: { reference_frame: "NED" },
+        }),
+      /reference_frame/,
     );
   });
 });

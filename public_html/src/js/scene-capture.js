@@ -87,7 +87,7 @@ export function serializeCaptureParams(viewSpec) {
  * out-of-range request throws rather than clamping, unlike the live player's
  * own scrubbing (session.locate), which must keep clamping for that UX.
  *
- * @returns {Promise<{partIndex: number, frame: object, us: number}>} us is
+ * @returns {Promise<{partIndex: number, frame: object, us: number, frameIndex: number}>} us is
  *   the resolved frame's own timestamp within its part, in microseconds —
  *   the same unit trailHistoryForPart expects.
  */
@@ -113,13 +113,18 @@ export async function resolveFrameSelector(session, selector) {
       );
     }
     const { partIndex, part, us } = session.locate(seconds);
-    const frame = await part.frameAtOffset(us);
-    if (!frame) throw new SceneError("No frame available at this timestamp");
-    return { partIndex, frame, us };
+    const resolved = await part.frameAtOffsetWithIndex(us);
+    if (!resolved) throw new SceneError("No frame available at this timestamp");
+    const frameIndex =
+      session.parts
+        .slice(0, partIndex)
+        .reduce((total, item) => total + item.frameCount, 0) +
+      resolved.frameIndex;
+    return { partIndex, frame: resolved.frame, us, frameIndex };
   }
 
   const { partIndex, frame } = await session.frameAtIndex(selector.frameIndex);
-  return { partIndex, frame, us: frame.t };
+  return { partIndex, frame, us: frame.t, frameIndex: selector.frameIndex };
 }
 
 /**
@@ -159,6 +164,23 @@ export function validateView(viewSpec) {
   ) {
     throw new SceneError(`fov_deg must be between 0 and 180, got ${fovDeg}`);
   }
+}
+
+/**
+ * Capture coordinates follow the source export's declared frame. The web
+ * renderer currently supports ENU only, whose Z-up axis maps to three.js Y-up.
+ */
+export function validateCaptureCoordinateFrame(header) {
+  const frame = header?.coordinate_frame;
+  if (frame?.reference_frame !== "ENU") {
+    throw new SceneError(
+      "Deterministic capture requires coordinate_frame.reference_frame to be ENU",
+    );
+  }
+  return {
+    frameId: frame.frame_id ?? null,
+    referenceFrame: frame.reference_frame,
+  };
 }
 
 /**

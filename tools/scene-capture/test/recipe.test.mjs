@@ -71,6 +71,17 @@ describe("parseRecipe", () => {
       );
       assert.deepEqual(recipe.frame, { timestampUs: 5_000_000 });
     });
+
+    test("rejects a fractional or negative frame index", () => {
+      assert.throws(
+        () => parseRecipe(baseRecipe({ frame: { frame_index: 1.5 } }), "/r"),
+        /non-negative integer/,
+      );
+      assert.throws(
+        () => parseRecipe(baseRecipe({ frame: { frame_index: -1 } }), "/r"),
+        /non-negative integer/,
+      );
+    });
   });
 
   describe("views", () => {
@@ -236,6 +247,37 @@ describe("parseRecipe", () => {
         "/r",
       );
       assert.equal(recipe.output.contactSheet, true);
+      assert.equal(recipe.output.dir, "/r/out");
+    });
+
+    test("resolves output.dir relative to the recipe", () => {
+      const recipe = parseRecipe(
+        baseRecipe({ output: { dir: "captures" } }),
+        "/r",
+      );
+      assert.equal(recipe.output.dir, "/r/captures");
+    });
+  });
+
+  describe("viewer URL", () => {
+    test("accepts an absolute HTTP(S) viewer URL", () => {
+      const recipe = parseRecipe(
+        baseRecipe({ viewer_url: "https://velocity.report/scenes/soma1/" }),
+        "/r",
+      );
+      assert.equal(recipe.viewerURL, "https://velocity.report/scenes/soma1/");
+    });
+
+    test("rejects a relative or non-HTTP(S) viewer URL", () => {
+      assert.throws(
+        () => parseRecipe(baseRecipe({ viewer_url: "/scenes/soma1/" }), "/r"),
+        /absolute HTTP/,
+      );
+      assert.throws(
+        () =>
+          parseRecipe(baseRecipe({ viewer_url: "file:///tmp/scene" }), "/r"),
+        /absolute HTTP/,
+      );
     });
   });
 
@@ -308,6 +350,31 @@ describe("parseRecipe", () => {
         parseRecipe(withBulletTime({ image_count: 50 }), "/r").bulletTime
           .imageCount,
         50,
+      );
+    });
+
+    test("requires one base view so image_count is the complete bounded path", () => {
+      const views = [
+        ...baseRecipe().views,
+        {
+          name: "second",
+          camera: { x: -10, y: 0, z: 5 },
+          target: { x: 0, y: 0, z: 0 },
+        },
+      ];
+      assert.throws(
+        () =>
+          parseRecipe(
+            baseRecipe({
+              views,
+              bullet_time: {
+                target: { x: 0, y: 0, z: 0 },
+                base_view: "north",
+              },
+            }),
+            "/r",
+          ),
+        /exactly one named base view/,
       );
     });
 

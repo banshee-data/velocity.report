@@ -490,9 +490,11 @@ layout: page.njk
 
 <script type="module">
   import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
+  import { parseCaptureParams } from "{{ '/js/scene-capture.js' | url }}";
 
   const base = "{{ ('/scenes/' + sceneId + '/assets') | url }}";
   const status = document.getElementById("scene-status");
+  const captureView = parseCaptureParams(new URLSearchParams(location.search));
 
   const about = document.getElementById("scene-about");
   const aboutToggle = document.getElementById("scene-about-toggle");
@@ -544,6 +546,9 @@ layout: page.njk
       loading: document.getElementById("scene-loading"),
       title: document.getElementById("scene-title"),
     },
+    capture: captureView != null,
+  }).then(async (session) => {
+    if (captureView) await session.capture.applyView(captureView);
   }).catch((err) => {
     document.getElementById("scene-loading").hidden = true;
     status.textContent = err?.message ?? "The scene could not be loaded.";

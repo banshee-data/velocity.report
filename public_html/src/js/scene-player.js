@@ -25,6 +25,7 @@ import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
 import {
   resolveFrameSelector,
   validateView,
+  validateCaptureCoordinateFrame,
   applyCapturePose,
 } from "./scene-capture.js";
 
@@ -1262,10 +1263,11 @@ export async function mountScenePlayer({
    */
   async function applyView(viewSpec) {
     validateView(viewSpec);
-    const { partIndex, frame, us } = await resolveFrameSelector(
+    const { partIndex, frame, us, frameIndex } = await resolveFrameSelector(
       session,
       viewSpec.frame,
     );
+    validateCaptureCoordinateFrame(session.parts[partIndex].header);
 
     const layers = viewSpec.layers ?? {};
     state.boxesVisible = !!layers.boxes;
@@ -1312,7 +1314,12 @@ export async function mountScenePlayer({
     render();
 
     return {
-      resolvedFrame: { partIndex, frameId: frame.f, timestampUs: us },
+      resolvedFrame: {
+        partIndex,
+        frameId: frame.f,
+        frameIndex,
+        timestampUs: us,
+      },
       effectiveTrailHistorySec,
       appliedFovDeg,
     };
@@ -1325,12 +1332,18 @@ export async function mountScenePlayer({
    * repeatable, and safe to call before or between applyView calls.
    */
   async function resolveFrame(frameSelector) {
-    const { partIndex, frame, us } = await resolveFrameSelector(
+    const { partIndex, frame, us, frameIndex } = await resolveFrameSelector(
       session,
       frameSelector,
     );
+    validateCaptureCoordinateFrame(session.parts[partIndex].header);
     return {
-      resolvedFrame: { partIndex, frameId: frame.f, timestampUs: us },
+      resolvedFrame: {
+        partIndex,
+        frameId: frame.f,
+        frameIndex,
+        timestampUs: us,
+      },
       tracks: (frame.tr ?? []).map((t) => ({
         id: t.id,
         x: t.x,

@@ -275,11 +275,8 @@ export class PartReader {
     return frames;
   }
 
-  /**
-   * The frame at or immediately before offset `us`. Returns null only when the
-   * part holds no frames at all.
-   */
-  async frameAtOffset(us) {
+  /** The frame and export-local index at or immediately before `us`. */
+  async frameAtOffsetWithIndex(us) {
     const chunkIdx = this.chunkIndexForOffset(us);
     const frames = await this.loadChunk(this.chunks[chunkIdx].c);
 
@@ -295,7 +292,18 @@ export class PartReader {
         hi = mid - 1;
       }
     }
-    return frames[best] ?? null;
+    const frame = frames[best] ?? null;
+    if (!frame) return null;
+    const frameIndex =
+      this.chunks
+        .slice(0, chunkIdx)
+        .reduce((total, chunk) => total + chunk.n, 0) + best;
+    return { frame, frameIndex };
+  }
+
+  /** The frame at or immediately before offset `us`. */
+  async frameAtOffset(us) {
+    return (await this.frameAtOffsetWithIndex(us))?.frame ?? null;
   }
 
   /** Warms the chunk after offset `us` so forward playback does not stall. */

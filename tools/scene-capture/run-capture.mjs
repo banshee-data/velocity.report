@@ -3,7 +3,14 @@
 // headless Chromium through every requested view, and write PNGs plus a
 // provenance manifest. Milestone 1's script, in full.
 
-import { mkdir, rm, writeFile, readFile, access } from "node:fs/promises";
+import {
+  mkdir,
+  rm,
+  writeFile,
+  readFile,
+  access,
+  readdir,
+} from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,6 +22,7 @@ import { sha256File, codeRevision, nowIso } from "./manifest.mjs";
 import { buildContactSheetHtml, renderContactSheet } from "./contact-sheet.mjs";
 import { expandBulletTime, resolveBulletTimeTarget } from "./bullet-time.mjs";
 import { sphericalFromEnu } from "../../public_html/src/js/scene-coords.js";
+import { serializeCaptureParams } from "../../public_html/src/js/scene-capture.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -32,7 +40,27 @@ async function exists(p) {
   }
 }
 
-/** Reads the source export's manifest.json and the first part's header.json/index.json directly off disk, for provenance hashing. */
+async function sourceFiles(currentDir) {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) return sourceFiles(entryPath);
+      return entry.isFile() ? [entryPath] : [];
+    }),
+  );
+  return nested.flat();
+}
+
+function isInside(parent, child) {
+  const relative = path.relative(parent, child);
+  return (
+    relative === "" ||
+    (!relative.startsWith(`..${path.sep}`) && relative !== "..")
+  );
+}
+
+/** Hashes every source asset that can affect a captured scene, not metadata alone. */
 async function readSourceProvenance(sourceDir) {
   const manifestPath = path.join(sourceDir, "manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
@@ -41,21 +69,19 @@ async function readSourceProvenance(sourceDir) {
     throw new CaptureError(`${manifestPath} lists no usable parts`);
   }
   const partDir = path.resolve(sourceDir, partUrl);
-  const headerPath = path.join(partDir, "header.json");
-  const indexPath = path.join(partDir, "index.json");
-  const vantagesPath = path.join(sourceDir, "vantages.json");
-
-  const files = [];
-  for (const p of [manifestPath, headerPath, indexPath]) {
-    files.push({
-      path: path.relative(sourceDir, p),
-      sha256: await sha256File(p),
-    });
+  if (!isInside(sourceDir, partDir)) {
+    throw new CaptureError(
+      `${manifestPath} refers to a part outside the source export`,
+    );
   }
-  if (await exists(vantagesPath)) {
+  const headerPath = path.join(partDir, "header.json");
+  const files = [];
+  for (const filePath of (await sourceFiles(sourceDir)).sort((a, b) =>
+    a.localeCompare(b),
+  )) {
     files.push({
-      path: path.relative(sourceDir, vantagesPath),
-      sha256: await sha256File(vantagesPath),
+      path: path.relative(sourceDir, filePath),
+      sha256: await sha256File(filePath),
     });
   }
 
@@ -67,6 +93,7 @@ async function readSourceProvenance(sourceDir) {
       build_version: header.build_version ?? null,
       generated_at: header.generated_at ?? null,
       sensor_id: header.sensor_id ?? null,
+      coordinate_frame: header.coordinate_frame ?? null,
     },
   };
 }
@@ -95,6 +122,10 @@ function viewSpecFor(recipe, view) {
  */
 export async function runCapture(recipePath, { overwrite = false } = {}) {
   const recipe = await loadRecipe(recipePath);
+
+  if (isInside(recipe.source, recipe.output.dir)) {
+    throw new CaptureError("output.dir must not be inside the source export");
+  }
 
   if (await exists(recipe.output.dir)) {
     if (!overwrite) {
@@ -161,11 +192,12 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
         baseView,
         target,
       ).map((v) => ({ ...v, bulletTime: true }));
-      viewsToCapture = [...recipe.views, ...generated];
+      viewsToCapture = generated;
     }
 
     for (const view of viewsToCapture) {
       const spec = viewSpecFor(recipe, view);
+      const reproductionQuery = serializeCaptureParams(spec).toString();
       let outcome;
       try {
         outcome = await captureView(page, "#scene-canvas", spec);
@@ -214,6 +246,13 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
         radius_m: spherical.radius,
         resolved_frame: applyResult.resolvedFrame,
         effective_trail_history_sec: applyResult.effectiveTrailHistorySec,
+        reproduction: {
+          query: reproductionQuery,
+          harness_url: `${server.url}/harness.html?${reproductionQuery}`,
+          viewer_url: recipe.viewerURL
+            ? new URL(`?${reproductionQuery}`, recipe.viewerURL).href
+            : null,
+        },
         caption,
         stability: {
           stable,
@@ -261,6 +300,7 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
       lidar: recipe.layers.lidar,
       boxes: recipe.layers.boxes,
       trails: recipe.layers.trails,
+      trail_history_sec: recipe.layers.trailHistorySec,
     },
     viewport: recipe.viewport,
     code_revision: revision,
