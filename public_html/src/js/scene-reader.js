@@ -405,18 +405,28 @@ export class SceneSession {
   }
 
   /**
-   * Reconstructs trail history for the part showing at `seconds`: every
-   * recorded sample in the trailing `historySeconds` window, clamped to that
-   * part's own start so a trail never implies motion from a different
-   * recording. Near a part's start this returns whatever is available —
-   * `fromUs` reports the actual earliest sample used, rather than padding or
-   * waiting for a full window.
+   * Reconstructs trail history ending at `us` (microseconds within
+   * `partIndex`'s own timeline) over the trailing `historySeconds` window,
+   * clamped to that part's own start so a trail never implies motion from a
+   * different recording. Near a part's start this returns whatever is
+   * available — `fromUs` reports the actual earliest sample used, rather
+   * than padding or waiting for a full window.
+   *
+   * Split from trailHistory so a caller that has already resolved a part and
+   * an offset — capture's frame-index selector, which does not go through
+   * locate() — is not forced to round-trip through scene-wide seconds.
    */
-  async trailHistory(seconds, historySeconds) {
-    const { partIndex, part, us } = this.locate(seconds);
+  async trailHistoryForPart(partIndex, us, historySeconds) {
+    const part = this.parts[partIndex];
     const requestedFromUs = us - Math.max(0, historySeconds) * 1e6;
     const fromUs = Math.max(part.startUs, requestedFromUs);
     const frames = await part.framesInRange(fromUs, us);
     return { partIndex, frames, fromUs, toUs: us };
+  }
+
+  /** trailHistoryForPart for the part and offset showing at `seconds`. */
+  async trailHistory(seconds, historySeconds) {
+    const { partIndex, us } = this.locate(seconds);
+    return this.trailHistoryForPart(partIndex, us, historySeconds);
   }
 }

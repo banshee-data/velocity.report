@@ -22,6 +22,11 @@ import {
 } from "./scene-playback.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
 import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
+import {
+  resolveFrameSelector,
+  validateView,
+  applyCapturePose,
+} from "./scene-capture.js";
 
 const MPS_TO_MPH = 2.236936;
 
@@ -314,6 +319,10 @@ export async function mountScenePlayer({
   manifestURL,
   pointCloudManifestURL,
   ui,
+  // True for the deterministic capture harness: suppresses autoplay and the
+  // drone, and the returned session gains a `capture.applyView` for freezing
+  // an exact frame, camera and layer set. Absent for the production page.
+  capture = false,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -763,7 +772,8 @@ export async function mountScenePlayer({
 
   const state = {
     seconds: 0,
-    playing: autoplayScene(),
+    // Capture freezes on one frame; nothing should advance on its own.
+    playing: capture ? false : autoplayScene(),
     // Read from the markup so the selector is the one place the default lives.
     rate: Number(ui.rate?.value) || 1,
     pending: false,
@@ -1113,8 +1123,9 @@ export async function mountScenePlayer({
   }
 
   // The drone is on by default: a still three-quarter view of a junction says
-  // less than a slow circle of it, and nobody has to find a control to get it.
-  if (canFly) {
+  // less than a slow circle of it, and nobody has to find a control to get
+  // it. Capture needs the opposite: a camera that never moves on its own.
+  if (canFly && !capture) {
     flying = true;
     flightSeconds = 0;
     ui.flyToggle?.setAttribute("aria-checked", "true");
@@ -1234,6 +1245,73 @@ export async function mountScenePlayer({
 
   if (ui.duration) ui.duration.textContent = formatClock(playbackDuration());
   if (ui.title) ui.title.textContent = session.title;
+
+  /**
+   * Freezes the scene on one exact frame, camera and layer set. The one
+   * preparation path for a capture view: called both from a URL-booted
+   * harness page and, for every view after the first in one recipe, from the
+   * capture tool driving this same page directly — never a second, divergent
+   * render path.
+   *
+   * @param {object} viewSpec see scene-capture.js's ViewSpec shape
+   * @returns {Promise<{resolvedFrame: object, effectiveTrailHistorySec: number}>}
+   */
+  async function applyView(viewSpec) {
+    validateView(viewSpec);
+    const { partIndex, frame, us } = await resolveFrameSelector(
+      session,
+      viewSpec.frame,
+    );
+
+    const layers = viewSpec.layers ?? {};
+    state.boxesVisible = !!layers.boxes;
+    state.trailsVisible = !!layers.trails;
+    state.lidarVisible = !!layers.lidar;
+    state.trailHistorySec = layers.trailHistorySec ?? 5;
+
+    let trailsByTrack = null;
+    let effectiveTrailHistorySec = 0;
+    if (state.trailsVisible) {
+      const trackIds = (frame.tr ?? []).map((t) => t.id);
+      const history = await session.trailHistoryForPart(
+        partIndex,
+        us,
+        state.trailHistorySec,
+      );
+      trailsByTrack = buildTrailHistories(history.frames, trackIds);
+      effectiveTrailHistorySec = (history.toUs - history.fromUs) / 1e6;
+    }
+    state.effectiveTrailHistorySec = effectiveTrailHistorySec;
+
+    let pointFrame = null;
+    let pointOpacity = 0;
+    if (state.lidarVisible) {
+      // The clip overlay only ever aligns with part 0 (see show()'s own
+      // guard above) — requesting LiDAR against any other part, or a part 0
+      // instant past the overlay's own duration, has no points to show.
+      if (
+        !pointCloudSession ||
+        partIndex !== 0 ||
+        us / 1e6 >= pointCloudSession.duration
+      ) {
+        throw new SceneError(
+          "LiDAR layer requested but this export has no point-cloud overlay for the resolved frame",
+        );
+      }
+      pointFrame = (await pointCloudSession.frameAt(us / 1e6)).frame;
+      pointOpacity = 1;
+    }
+
+    renderFrame(frame, partIndex, pointFrame, pointOpacity, trailsByTrack);
+    applyCapturePose(camera, viewSpec.camera, viewSpec.target, viewSpec.fovDeg);
+    render();
+
+    return {
+      resolvedFrame: { partIndex, frameId: frame.f, timestampUs: us },
+      effectiveTrailHistorySec,
+    };
+  }
+  if (capture) session.capture = { applyView };
 
   await show(0);
   syncUI();
