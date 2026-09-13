@@ -1,0 +1,19 @@
+{
+  "name": "scene-capture",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Deterministic multi-angle stills of a recorded LiDAR scene export, for agent and CI review.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "capture": "node cli.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.55.1",
+    "pngjs": "7.0.0",
+    "three": "0.185.1"
+  }
+}

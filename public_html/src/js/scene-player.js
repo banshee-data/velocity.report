@@ -332,6 +332,10 @@ export async function mountScenePlayer({
   scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, 60, 190);
 
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
+  // Captured once, before anything can change it, so a capture view that
+  // omits fov_deg always resolves to the renderer's true default — not
+  // "whatever an earlier view in this recipe happened to set it to."
+  const DEFAULT_FOV_DEG = camera.fov;
 
   const grid = new THREE.GridHelper(160, 32, 0x2c4049, 0x1c2b32);
   // Turn the grid onto the street.
@@ -1303,12 +1307,14 @@ export async function mountScenePlayer({
     }
 
     renderFrame(frame, partIndex, pointFrame, pointOpacity, trailsByTrack);
-    applyCapturePose(camera, viewSpec.camera, viewSpec.target, viewSpec.fovDeg);
+    const appliedFovDeg = viewSpec.fovDeg ?? DEFAULT_FOV_DEG;
+    applyCapturePose(camera, viewSpec.camera, viewSpec.target, appliedFovDeg);
     render();
 
     return {
       resolvedFrame: { partIndex, frameId: frame.f, timestampUs: us },
       effectiveTrailHistorySec,
+      appliedFovDeg,
     };
   }
   if (capture) session.capture = { applyView };

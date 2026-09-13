@@ -72,6 +72,8 @@ help:
 	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
+	@echo "  install-scene-capture        Install scene-capture tool dependencies (pnpm/npm)"
+	@echo "  install-scene-capture-browser Also download the pinned headless Chromium (large download)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
@@ -165,6 +167,10 @@ help:
 	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
 	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
+	@echo ""
+	@echo "SCENE CAPTURE:"
+	@echo "  capture-scene RECIPE=path.json  Capture deterministic stills from a recipe (see docs/plans/lidar-deterministic-scene-capture-plan.md)"
+	@echo "  test-scene-capture              Run the scene-capture tool's own test suite"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  version-exact        Update version across codebase (VER=0.5.1 [TARGETS=...])"
@@ -913,7 +919,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
+.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -1033,6 +1039,25 @@ install-docs-offline:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+SCENE_CAPTURE_DIR = tools/scene-capture
+
+# Kept separate from install-scene-capture: this tool's own dependencies are
+# pure JS, but Playwright's browser download is a few hundred MB and should
+# never be an implicit cost of running the aggregate `test` target.
+install-scene-capture:
+	@echo "Installing scene-capture tool dependencies..."
+	@cd $(SCENE_CAPTURE_DIR) && if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install --frozen-lockfile; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm install; \
+	else \
+		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
+	fi
+
+install-scene-capture-browser: install-scene-capture
+	@echo "Downloading the pinned headless Chromium for scene-capture..."
+	@cd $(SCENE_CAPTURE_DIR) && npx playwright install chromium
 
 .PHONY: ensure-python-tools
 ensure-python-tools:
@@ -1226,7 +1251,7 @@ serial-harness: ## Run serial-harness CLI. Vars: HOST (default http://localhost:
 # TESTING
 # =============================================================================
 
-.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert coverage loc-coverage-chart
+.PHONY: test test-go test-go-cov test-go-cov-pcap test-go-coverage-summary test-go-changed-coverage test-go-coverage-gate test-python test-python-cov tex-compare test-web test-web-cov test-docs-offline test-docs-offline-cov test-mac test-mac-cov test-s2-hilbert test-scene-capture coverage loc-coverage-chart
 
 # Per-file Go coverage floor enforced by test-go-coverage-gate.
 COVERAGE_THRESHOLD ?= 82
@@ -1235,7 +1260,7 @@ COVERAGE_TAGS ?= pcap
 MAC_DIR = tools/visualiser-macos
 
 # Aggregate test target: every maintained unit-test suite in the repository.
-test: test-go test-python test-web test-docs-offline test-mac test-s2-hilbert
+test: test-go test-python test-web test-docs-offline test-mac test-s2-hilbert test-scene-capture
 
 # Run Go unit tests for the whole repository
 test-go:
@@ -1701,11 +1726,13 @@ format-web:
 			cd $(WEB_DIR) && pnpm exec prettier --write \
 				../public_html/src/js \
 				../public_html/src/css \
+				../tools/scene-capture \
 				2>/dev/null || echo "public_html src prettier skipped"; \
 		elif command -v npx >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && npx prettier --write \
 				../public_html/src/js \
 				../public_html/src/css \
+				../tools/scene-capture \
 				2>/dev/null || echo "public_html src prettier skipped"; \
 		else \
 			echo "pnpm/npx not found; skipping public_html src formatting"; \
@@ -1995,6 +2022,31 @@ render-s2-composite: install-s2-hilbert
 test-s2-hilbert: install-s2-hilbert
 	@echo "Running S2 Hilbert generator tests..."
 	@pnpm run --silent test:s2-hilbert
+
+# =============================================================================
+# LIDAR SCENE CAPTURE
+# =============================================================================
+# Deterministic multi-angle stills of a recorded scene export, per
+# docs/plans/lidar-deterministic-scene-capture-plan.md. tools/scene-capture is
+# a self-contained Node/Playwright project with its own lockfile — kept out of
+# the root and web/ dependency trees so its Chromium download is never an
+# implicit cost of an unrelated install.
+
+.PHONY: capture-scene test-scene-capture
+
+capture-scene: install-scene-capture-browser
+	@test -n "$(RECIPE)" || (echo "Usage: make capture-scene RECIPE=path/to/recipe.json [ARGS='--overwrite']"; exit 1)
+	@case "$(RECIPE)" in \
+		/*) recipe="$(RECIPE)" ;; \
+		*) recipe="$(CURDIR)/$(RECIPE)" ;; \
+	esac; \
+	cd $(SCENE_CAPTURE_DIR) && node cli.mjs "$$recipe" $(ARGS)
+
+# Pure recipe/geometry logic, no Playwright import: safe to run without the
+# Chromium download, and included in the aggregate `test` target below.
+test-scene-capture: install-scene-capture
+	@echo "Running scene-capture tool tests..."
+	@cd $(SCENE_CAPTURE_DIR) && node --test "test/*.test.mjs"
 
 # =============================================================================
 # UTILITIES
