@@ -1317,7 +1317,30 @@ export async function mountScenePlayer({
       appliedFovDeg,
     };
   }
-  if (capture) session.capture = { applyView };
+
+  /**
+   * Resolves a frame selector without touching the camera or layers, so a
+   * caller can look up track positions (e.g. a bullet-time target named by
+   * object id) before it knows what camera views to generate. Read-only:
+   * repeatable, and safe to call before or between applyView calls.
+   */
+  async function resolveFrame(frameSelector) {
+    const { partIndex, frame, us } = await resolveFrameSelector(
+      session,
+      frameSelector,
+    );
+    return {
+      resolvedFrame: { partIndex, frameId: frame.f, timestampUs: us },
+      tracks: (frame.tr ?? []).map((t) => ({
+        id: t.id,
+        x: t.x,
+        y: t.y,
+        z: t.z,
+      })),
+    };
+  }
+
+  if (capture) session.capture = { applyView, resolveFrame };
 
   await show(0);
   syncUI();

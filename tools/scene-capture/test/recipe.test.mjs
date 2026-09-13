@@ -238,4 +238,166 @@ describe("parseRecipe", () => {
       assert.equal(recipe.output.contactSheet, true);
     });
   });
+
+  describe("bullet_time", () => {
+    function withBulletTime(overrides = {}) {
+      return baseRecipe({
+        bullet_time: {
+          target: { x: 0, y: 0, z: 0 },
+          base_view: "north",
+          ...overrides,
+        },
+      });
+    }
+
+    test("is null when omitted", () => {
+      assert.equal(parseRecipe(baseRecipe(), "/r").bulletTime, null);
+    });
+
+    test("accepts a minimal spec, filling in defaults", () => {
+      const recipe = parseRecipe(withBulletTime(), "/r");
+      assert.deepEqual(recipe.bulletTime.target, {
+        point: { x: 0, y: 0, z: 0 },
+      });
+      assert.equal(recipe.bulletTime.baseView, "north");
+      assert.equal(recipe.bulletTime.imageCount, 25);
+      assert.equal(recipe.bulletTime.arcStartDeg, -90);
+      assert.equal(recipe.bulletTime.arcEndDeg, 90);
+      assert.equal(recipe.bulletTime.radiusM, null);
+      assert.deepEqual(recipe.bulletTime.elevationKeyframes, [
+        { t: 0, deg: 20 },
+        { t: 1 / 3, deg: 30 },
+        { t: 2 / 3, deg: 20 },
+        { t: 1, deg: 10 },
+      ]);
+    });
+
+    test("accepts an object_id target", () => {
+      const recipe = parseRecipe(
+        withBulletTime({ target: { object_id: "3" } }),
+        "/r",
+      );
+      assert.deepEqual(recipe.bulletTime.target, { objectId: "3" });
+    });
+
+    test("rejects a base_view that does not name a recipe view", () => {
+      assert.throws(
+        () => parseRecipe(withBulletTime({ base_view: "nope" }), "/r"),
+        RecipeError,
+      );
+    });
+
+    test("rejects an image_count outside [2, 50]", () => {
+      assert.throws(
+        () => parseRecipe(withBulletTime({ image_count: 1 }), "/r"),
+        RecipeError,
+      );
+      assert.throws(
+        () => parseRecipe(withBulletTime({ image_count: 51 }), "/r"),
+        RecipeError,
+      );
+    });
+
+    test("accepts image_count at the boundaries", () => {
+      assert.equal(
+        parseRecipe(withBulletTime({ image_count: 2 }), "/r").bulletTime
+          .imageCount,
+        2,
+      );
+      assert.equal(
+        parseRecipe(withBulletTime({ image_count: 50 }), "/r").bulletTime
+          .imageCount,
+        50,
+      );
+    });
+
+    test("rejects a non-positive radius_m", () => {
+      assert.throws(
+        () => parseRecipe(withBulletTime({ radius_m: 0 }), "/r"),
+        RecipeError,
+      );
+    });
+
+    test("carries an explicit radius_m through", () => {
+      const recipe = parseRecipe(withBulletTime({ radius_m: 12.5 }), "/r");
+      assert.equal(recipe.bulletTime.radiusM, 12.5);
+    });
+
+    describe("elevation_keyframes", () => {
+      test("rejects fewer than 2 entries", () => {
+        assert.throws(
+          () =>
+            parseRecipe(
+              withBulletTime({ elevation_keyframes: [{ t: 0, deg: 10 }] }),
+              "/r",
+            ),
+          RecipeError,
+        );
+      });
+
+      test("rejects a list not starting at t=0", () => {
+        assert.throws(
+          () =>
+            parseRecipe(
+              withBulletTime({
+                elevation_keyframes: [
+                  { t: 0.1, deg: 10 },
+                  { t: 1, deg: 20 },
+                ],
+              }),
+              "/r",
+            ),
+          /start at t=0/,
+        );
+      });
+
+      test("rejects a list not ending at t=1", () => {
+        assert.throws(
+          () =>
+            parseRecipe(
+              withBulletTime({
+                elevation_keyframes: [
+                  { t: 0, deg: 10 },
+                  { t: 0.9, deg: 20 },
+                ],
+              }),
+              "/r",
+            ),
+          /end at t=1/,
+        );
+      });
+
+      test("rejects non-ascending t values", () => {
+        assert.throws(
+          () =>
+            parseRecipe(
+              withBulletTime({
+                elevation_keyframes: [
+                  { t: 0, deg: 10 },
+                  { t: 0.5, deg: 20 },
+                  { t: 0.5, deg: 25 },
+                  { t: 1, deg: 30 },
+                ],
+              }),
+              "/r",
+            ),
+          /ascending/,
+        );
+      });
+
+      test("accepts a custom, valid keyframe list", () => {
+        const recipe = parseRecipe(
+          withBulletTime({
+            elevation_keyframes: [
+              { t: 0, deg: 15 },
+              { t: 0.5, deg: 45 },
+              { t: 1, deg: 15 },
+            ],
+          }),
+          "/r",
+        );
+        assert.equal(recipe.bulletTime.elevationKeyframes.length, 3);
+      });
+    });
+  });
 });

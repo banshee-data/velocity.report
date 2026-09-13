@@ -13,6 +13,7 @@ import { launchCaptureBrowser } from "./browser.mjs";
 import { captureView } from "./capture-view.mjs";
 import { sha256File, codeRevision, nowIso } from "./manifest.mjs";
 import { buildContactSheetHtml, renderContactSheet } from "./contact-sheet.mjs";
+import { expandBulletTime, resolveBulletTimeTarget } from "./bullet-time.mjs";
 import { sphericalFromEnu } from "../../public_html/src/js/scene-coords.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -140,7 +141,30 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
       );
     }
 
-    for (const view of recipe.views) {
+    let viewsToCapture = recipe.views;
+    if (recipe.bulletTime) {
+      const baseView = recipe.views.find(
+        (v) => v.name === recipe.bulletTime.baseView,
+      );
+      const { tracks } = await page.evaluate(
+        (selector) => window.__sceneCapture.resolveFrame(selector),
+        recipe.frame,
+      );
+      let target;
+      try {
+        target = resolveBulletTimeTarget(recipe.bulletTime.target, tracks);
+      } catch (err) {
+        throw new CaptureError(err.message);
+      }
+      const generated = expandBulletTime(
+        recipe.bulletTime,
+        baseView,
+        target,
+      ).map((v) => ({ ...v, bulletTime: true }));
+      viewsToCapture = [...recipe.views, ...generated];
+    }
+
+    for (const view of viewsToCapture) {
       const spec = viewSpecFor(recipe, view);
       let outcome;
       try {
@@ -171,6 +195,14 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
         );
       }
 
+      // Bullet-time views get an angle+frame caption; plain views get a
+      // name+capture-time one — a formatting difference only, since every
+      // view already carries the same azimuth/elevation/radius/resolved
+      // frame fields regardless of how it was produced.
+      const caption = view.bulletTime
+        ? `az ${spherical.azimuthDeg.toFixed(0)}° el ${spherical.elevationDeg.toFixed(0)}° · frame ${applyResult.resolvedFrame.frameId}`
+        : `${view.name} · ${nowIso()}`;
+
       viewManifests.push({
         name: view.name,
         file: stable ? `${view.name}.png` : null,
@@ -182,6 +214,7 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
         radius_m: spherical.radius,
         resolved_frame: applyResult.resolvedFrame,
         effective_trail_history_sec: applyResult.effectiveTrailHistorySec,
+        caption,
         stability: {
           stable,
           attempts: pngs.length,
@@ -193,7 +226,7 @@ export async function runCapture(recipePath, { overwrite = false } = {}) {
     if (recipe.output.contactSheet && viewManifests.some((v) => v.file)) {
       const items = viewManifests
         .filter((v) => v.file)
-        .map((v) => ({ fileName: v.file, caption: `${v.name} · ${nowIso()}` }));
+        .map((v) => ({ fileName: v.file, caption: v.caption }));
       const html = buildContactSheetHtml(
         items,
         recipe.viewport.width,

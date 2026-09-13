@@ -124,6 +124,104 @@ function parseOutput(raw) {
   return { dir: raw.dir, contactSheet: Boolean(raw.contact_sheet) };
 }
 
+const DEFAULT_ELEVATION_KEYFRAMES = [
+  { t: 0, deg: 20 },
+  { t: 1 / 3, deg: 30 },
+  { t: 2 / 3, deg: 20 },
+  { t: 1, deg: 10 },
+];
+
+function parseElevationKeyframes(raw) {
+  if (!Array.isArray(raw) || raw.length < 2) {
+    throw new RecipeError(
+      "bullet_time.elevation_keyframes must have at least 2 entries",
+    );
+  }
+  const keyframes = raw.map((kf, i) => ({
+    t: requireNumber(kf?.t, `bullet_time.elevation_keyframes[${i}].t`),
+    deg: requireNumber(kf?.deg, `bullet_time.elevation_keyframes[${i}].deg`),
+  }));
+  if (keyframes[0].t !== 0) {
+    throw new RecipeError("bullet_time.elevation_keyframes must start at t=0");
+  }
+  if (keyframes[keyframes.length - 1].t !== 1) {
+    throw new RecipeError("bullet_time.elevation_keyframes must end at t=1");
+  }
+  for (let i = 1; i < keyframes.length; i++) {
+    if (keyframes[i].t <= keyframes[i - 1].t) {
+      throw new RecipeError(
+        "bullet_time.elevation_keyframes must have strictly ascending t",
+      );
+    }
+  }
+  return keyframes;
+}
+
+function parseBulletTime(raw, views) {
+  if (raw == null || typeof raw !== "object") {
+    throw new RecipeError("bullet_time must be an object");
+  }
+
+  const target =
+    raw.target != null &&
+    typeof raw.target === "object" &&
+    "object_id" in raw.target
+      ? {
+          objectId: requireNonEmptyString(
+            raw.target.object_id,
+            "bullet_time.target.object_id",
+          ),
+        }
+      : { point: requirePoint(raw.target, "bullet_time.target") };
+
+  if (
+    typeof raw.base_view !== "string" ||
+    !views.some((v) => v.name === raw.base_view)
+  ) {
+    throw new RecipeError(
+      `bullet_time.base_view must name one of the recipe's views (got ${JSON.stringify(raw.base_view)})`,
+    );
+  }
+
+  const imageCount = raw.image_count ?? 25;
+  if (!Number.isInteger(imageCount) || imageCount < 2 || imageCount > 50) {
+    throw new RecipeError(
+      "bullet_time.image_count must be an integer between 2 and 50",
+    );
+  }
+
+  const radiusM =
+    raw.radius_m == null
+      ? null
+      : requireNumber(raw.radius_m, "bullet_time.radius_m");
+  if (radiusM != null && radiusM <= 0) {
+    throw new RecipeError("bullet_time.radius_m must be positive");
+  }
+
+  return {
+    target,
+    baseView: raw.base_view,
+    radiusM,
+    imageCount,
+    arcStartDeg: requireNumber(
+      raw.arc_start_deg ?? -90,
+      "bullet_time.arc_start_deg",
+    ),
+    arcEndDeg: requireNumber(raw.arc_end_deg ?? 90, "bullet_time.arc_end_deg"),
+    elevationKeyframes:
+      raw.elevation_keyframes == null
+        ? DEFAULT_ELEVATION_KEYFRAMES
+        : parseElevationKeyframes(raw.elevation_keyframes),
+  };
+}
+
+function requireNonEmptyString(value, label) {
+  if (typeof value !== "string" || !value) {
+    throw new RecipeError(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
 /**
  * Parses and validates a recipe object. `recipeDir` is the directory the
  * recipe file itself lives in — `source` resolves relative to it, matching
@@ -142,14 +240,18 @@ export function parseRecipe(raw, recipeDir) {
     throw new RecipeError("recipe.source must be a non-empty string path");
   }
 
+  const views = parseViews(raw.views);
+
   return {
     version: 1,
     source: path.resolve(recipeDir, raw.source),
     frame: parseFrameSelector(raw.frame),
-    views: parseViews(raw.views),
+    views,
     layers: parseLayers(raw.layers),
     viewport: parseViewport(raw.viewport),
     output: parseOutput(raw.output),
+    bulletTime:
+      raw.bullet_time == null ? null : parseBulletTime(raw.bullet_time, views),
   };
 }
 
