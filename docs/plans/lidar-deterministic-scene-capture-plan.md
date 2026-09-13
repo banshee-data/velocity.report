@@ -1,6 +1,6 @@
 # Deterministic scene capture and review harness
 
-- **Status:** Planned
+- **Status:** Active; Milestones 1–2 complete, Milestones 3–5 outstanding
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling
 - **Target:** v0.5.2-v0.6.x; staged delivery across milestones 1–5
 - **Backlog:** [Release work items](../BACKLOG.md)
@@ -125,6 +125,15 @@ a manifest, and an optional contact sheet. Repeated runs match in the pinned
 environment. A direct seek and sequential playback produce identical trail
 samples at the same frame. CI service credentials are unnecessary.
 
+**Complete:** `tools/scene-capture` implements the recipe/manifest/contact-sheet
+script against a pinned Playwright Chromium; the browser-side trail rewrite
+(`scene-reader.js`, `scene-player.js`) reconstructs history from recorded
+samples identically for seek, playback and capture, with the seek-vs-playback
+identity as a direct test. Verified end to end against a committed export
+(`public_html/src/scenes/soma1`): two views plus a contact sheet, exact
+pixel-identical PNGs across independent runs, and correct rejection of a
+degenerate camera orientation and of overwriting an existing output directory.
+
 ## Milestone 2: frozen-scene camera paths
 
 Generate camera views and pass them through milestone 1's capture interface.
@@ -155,6 +164,15 @@ and stability checks for each sample.
 
 **Acceptance:** Scene geometry and timestamps remain identical, radius and target
 stay fixed, and camera positions follow the requested path reproducibly.
+
+**Complete:** `tools/scene-capture/bullet-time.mjs` expands a `bullet_time`
+recipe into explicit views through the unchanged milestone 1 pipeline; azimuth
+advances linearly and elevation follows piecewise-smoothstep interpolation
+across the default 20/30/20/10 keyframes. Verified end to end: a 9-image arc's
+elevation at every sample matched a hand-computed interpolation of the default
+keyframes exactly, azimuth advanced linearly through the full requested arc
+including both endpoints, and all views (explicit and generated) passed the
+stability check.
 
 ## Milestone 3: temporal sequences and animation outputs
 
