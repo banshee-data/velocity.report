@@ -4,13 +4,11 @@ package main
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	_ "modernc.org/sqlite"
 
@@ -42,7 +40,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	db, err := sql.Open("sqlite", "file:"+filepath.ToSlash(*dbPath)+"?mode=ro&_pragma=busy_timeout(5000)")
+	db, err := observationsqlite.OpenReadOnly(*dbPath)
 	if err != nil {
 		fatal(fmt.Errorf("open observation database: %w", err))
 	}
