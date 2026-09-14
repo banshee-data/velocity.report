@@ -16,6 +16,7 @@ import { s2 } from "s2js";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_INDEX = path.join(HERE, "site-index.json");
 const DEFAULT_SOURCE = "/Volumes/lidar/lidar/s2/static-huggingface";
+const DEFAULT_README = path.join(HERE, "huggingface-dataset-README.md");
 const TIMEZONE = "America/Los_Angeles";
 
 function parseArgs(args) {
@@ -153,10 +154,6 @@ function manifestEntry(item) {
   };
 }
 
-function datasetReadme() {
-  return `---\nconfigs:\n- config_name: manifest\n  data_files: manifest.json\n---\n\n# San Francisco street-speed dataset\n\nThis release keeps raw evidence under \`raw/\` and derived outputs under \`derived/\`. The authoritative corpus index is \`manifest.json\`. Filenames use \`<timestamp>_<s2-l13-display>_<site-slug>\`; timestamps are America/Los_Angeles. Canonical S2 tokens and all richer provenance live in the manifest.\n\n## Layout\n\n\`\`\`text\nraw/lidar/\nderived/scenes/\nderived/tracks/\nderived/maps/\nderived/metrics/\nreports/\nmanifest.json\n\`\`\`\n\nThe scene outputs are chunked web VRLOG export directories, so they retain their internal part/frame structure below \`derived/scenes/\`. No train/test split is encoded in paths; define subsets or splits in this card's YAML when needed.\n`;
-}
-
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const rootEntries = await readdir(options.output).catch((error) => {
@@ -166,6 +163,7 @@ async function main() {
   if (rootEntries.length > 0)
     throw new Error(`${options.output}: target must be empty`);
   const sites = JSON.parse(await readFile(options.index, "utf8"));
+  const datasetReadme = await readFile(DEFAULT_README, "utf8");
   const items = await Promise.all(
     sites.map((site) =>
       loadItem(itemFor(site, options.source, options.output)),
@@ -205,7 +203,7 @@ async function main() {
     path.join(options.output, "manifest.json"),
     `${JSON.stringify(items.map(manifestEntry), null, 2)}\n`,
   );
-  await writeFile(path.join(options.output, "README.md"), datasetReadme());
+  await writeFile(path.join(options.output, "README.md"), datasetReadme);
   console.log(
     `moved ${items.length} captures and scene exports; wrote manifest.json; legacy sidecars retained at source`,
   );
