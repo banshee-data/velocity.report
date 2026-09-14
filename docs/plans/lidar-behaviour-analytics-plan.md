@@ -6,7 +6,7 @@ results wait for validated final estimates.
 
 - **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
-- **Target:** v0.7.x onward; production emission requires validated final estimates, not fixture-based development
+- **Target:** v0.5.2 analytical report oracle; v0.5.3 provisional end-to-end report; v0.5.4 physically validated headway report. Other interactions follow
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
 - **Depends on:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns Phases 0 to 5 and Phase 8; this plan owns Phases 6 and 7)
 - **Companion plans:** [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
@@ -18,6 +18,12 @@ results wait for validated final estimates.
 > G-SMO-1 because every metric consumes the `final` physical estimate, not bounding-box centres.
 
 ## Executive summary
+
+The first product is bumper-to-bumper gap and time-gap exposure from partial views. Its shared
+foundation is the state-estimation plan's temporal body model and bounded occlusion continuity,
+which also fixes trails. A body model may infer an unseen bumper with stated uncertainty; it must
+not relabel that inference as a measured return. Neither a larger motion filter nor an L7 planner
+is required for the first shared-path following metric.
 
 The central design decision is what **not** to build: no composite "safe driver",
 "aggressive driver" or "risk" score. Such a score destroys the information that makes the
@@ -432,28 +438,28 @@ expensive part and re-doing it later would be waste. **Most of them are not in t
 increment.** This table is the scope boundary; treat a group marked deferred as
 reference material, not as a backlog item.
 
-Scope follows the product priority in 12.1, not the order the groups happen to appear in. That
-ordering is deliberate: passing clearance is the top product priority and it sits at 8.9, while
-acceleration and braking are the easiest to build and near the bottom of the product list.
+Scope follows the product priority in 12.1, not section order. Following gap and exposure come
+first. The other researched groups remain available for later increments; ease of implementation
+does not move acceleration, clearance or conflict metrics ahead of the current outcome.
 
-| Group                             | Scope                                                                  | Reason                                                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 8.1 Speed behaviour               | **In**: instantaneous, mean, median, max, percentile                   | The universal primitives. Speed-limit compliance and speeding exposure are deferred with the site metadata they need |
-| 8.2 Longitudinal control          | **In**: acceleration, peak accel and decel, braking onset and duration | Cheap once the acceleration state exists. Jerk stays experimental per 8.2.1                                          |
-| 8.3 Following behaviour           | **In**: gap, THW, exposure over valid following time                   | The first pairwise metric, and the one that exercises the interaction framework                                      |
-| 8.4 Time to collision             | **In**                                                                 | Needed by the conflict work above it in the product list                                                             |
-| 8.6 Crossing conflicts and PET    | **In**                                                                 | Product priority 2, and the strongest surrogate a fixed sensor can measure. Works without a map, per 8.6             |
-| 8.9 Cyclist and VRU overtaking    | **In**                                                                 | **Product priority 1**                                                                                               |
-| 8.10 Yielding behaviour           | **In**                                                                 | Product priority 3                                                                                                   |
-| 8.13 Interaction geometry         | **In**                                                                 | Shared substrate for 8.3, 8.4, 8.6, 8.9 and 8.10                                                                     |
-| 8.5 DRAC                          | Deferred                                                               | Threshold selection is itself contested; TTC covers the same situations for now                                      |
-| 8.7 Lane and path keeping         | Deferred                                                               | Needs lane geometry. The empirical-path subset lands in Phase 6C                                                     |
-| 8.8 Lane changes, merges, cut-ins | Deferred                                                               | Needs lane geometry and a completeness gate that the field of view often fails                                       |
-| 8.11 Stop behaviour               | Deferred                                                               | Needs stop-line geometry for anything beyond minimum speed and dwell                                                 |
-| 8.12 Induced evasive response     | Deferred                                                               | Depends on the estimation plan's Phase 8 evidence surface                                                            |
+| Group                             | Scope                                                                 | Reason                                                                                                               |
+| --------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 8.1 Speed behaviour               | **In**: instantaneous, mean, median, max, percentile                  | The universal primitives. Speed-limit compliance and speeding exposure are deferred with the site metadata they need |
+| 8.2 Longitudinal control          | Later: acceleration, peak accel and decel, braking onset and duration | Not a prerequisite for following gap. Jerk stays experimental per 8.2.1                                              |
+| 8.3 Following behaviour           | **In**: gap, THW, exposure over valid following time                  | The first pairwise metric, and the one that exercises the interaction framework                                      |
+| 8.4 Time to collision             | Later                                                                 | Distinct from following exposure; requires supported closing speed                                                   |
+| 8.6 Crossing conflicts and PET    | Later                                                                 | Retained conflict work after following exposure; no map required per 8.6                                             |
+| 8.9 Cyclist and VRU overtaking    | Later                                                                 | Retained passing-clearance work after following exposure                                                             |
+| 8.10 Yielding behaviour           | Later                                                                 | Retained interaction work; not a first-release prerequisite                                                          |
+| 8.13 Interaction geometry         | **In**                                                                | Shared substrate for 8.3, 8.4, 8.6, 8.9 and 8.10                                                                     |
+| 8.5 DRAC                          | Deferred                                                              | Threshold selection is itself contested; TTC covers the same situations for now                                      |
+| 8.7 Lane and path keeping         | Deferred                                                              | Needs lane geometry. The empirical-path subset lands in Phase 6C                                                     |
+| 8.8 Lane changes, merges, cut-ins | Deferred                                                              | Needs lane geometry and a completeness gate that the field of view often fails                                       |
+| 8.11 Stop behaviour               | Deferred                                                              | Needs stop-line geometry for anything beyond minimum speed and dwell                                                 |
+| 8.12 Induced evasive response     | Deferred                                                              | Depends on the estimation plan's Phase 8 evidence surface                                                            |
 
-Eight groups in, five deferred. Every deferred group is blocked on roadway context, site metadata,
-or an upstream phase, rather than on effort.
+The first increment needs speed, following and their interaction geometry. Other groups remain
+tracked for later delivery, either by priority or because their evidence/context is unavailable.
 
 Column key. **Scope**: `single` uses one track, `pair` requires two. **Map**: roadway
 context required, per [lidar-l7-scene-plan](lidar-l7-scene-plan.md). **RS**:
@@ -551,6 +557,31 @@ TTC        = gap / closing                    (defined only for closing > 0)
 where `s` is arc length along the shared path and `L` is the estimated vehicle length. Using
 centre-to-centre distance overstates the gap by roughly one vehicle length, which at typical urban
 following distances is a large relative error.
+
+The half-length formula assumes centred bodies aligned to the same local path tangent. In the
+general case, project the follower's front and leader's rear physical extent onto that path;
+do not substitute cluster extrema, a medoid, or an unqualified OBB centre. Use temporal extent
+and orientation beliefs, with class priors where justified, and propagate joint pose/extent
+uncertainty into the endpoint gap. Suppress unresolved front/rear orientation, extent, ordering
+or common-path ambiguity. A short empirical path is sufficient; no route planner is required.
+
+Here `THW` is a **net time gap**, not front-to-front passage headway at a fixed detector.
+Keep that definition in the metric contract. At standstill a spatial gap may remain valid, but
+time gap is undefined or unstable and is suppressed below the calibrated speed floor. Non-positive
+gaps require an overlap/geometry review, not an automatic zero-headway or collision claim.
+
+Freeze analytical fixtures for known body lengths, offset anchors, oblique headings, partial
+front/rear views, hidden stops, lane-adjacent distractors and ambiguous leaders. Then validate
+endpoint/gap error and interval coverage on independent held-out physical references, stratified
+by class, aspect, range and support. Pin acceptable error and suppression bounds before scoring;
+a deterministic PCAP comparison does not establish bumper accuracy.
+
+The first path implementation is deliberately local. Build a directed empirical centreline from
+validated final trajectories over the capture, group tracks only while their tangent and lateral
+offset are compatible, then project physical endpoints onto that line. This is enough to establish
+leader/follower order on a simple approach. Forks, merges, crossing candidates, weak path support
+or unstable ordering suppress the metric. Do not wait for an authored lane map, L7 scene graph,
+route inference or a planner; nor should this small path model claim their semantics.
 
 | Feature                           | Definition                                                | Units | Scope | Map     | RS     | Bench                      | Form |
 | --------------------------------- | --------------------------------------------------------- | ----- | ----- | ------- | ------ | -------------------------- | ---- |
@@ -903,6 +934,10 @@ pairwise metric evaluated at an instant when either party was coasting must be m
 an exposure denominator must exclude coasted time. Otherwise a vehicle hidden behind a van for six
 frames silently contributes six frames of fictitious following exposure.
 
+Review may show a separate predicted gap with coast age and widening uncertainty. It must not
+enter `following_valid_time`, threshold exposure or a production observed-gap series. Reacquisition
+does not retrospectively turn the hidden interval into observation, even after smoothing.
+
 ### 9.3 A scalar sigma is not always enough
 
 A single Gaussian sigma is adequate for primitives such as speed, separation and position. It is
@@ -1057,6 +1092,38 @@ Behaviour output is derived data and must be reproducible from the persisted fin
 therefore carries `estimator_id` and `param_hash`, and a change to either invalidates the derived
 rows rather than silently mixing versions.
 
+### 10.4 First headway report
+
+Delivery is deliberately staged so report plumbing does not wait for estimator research:
+
+1. **v0.5.2 oracle:** render a complete report from analytical two-body trajectories whose
+   bumpers, gap and time gap are known. This pins equations, names, provenance, suppression and
+   aggregation through the real output path.
+2. **v0.5.3 provisional vertical slice:** feed persisted estimator output through local path
+   pairing, interaction persistence and the same renderer. Mark every field result provisional;
+   this proves integration and exposes missing evidence without claiming physical accuracy.
+3. **v0.5.4 field promotion:** score held-out annotated following encounters and publish endpoint
+   error, gap error, uncertainty coverage, supported opportunity, suppression and failure cases.
+   Remove the provisional label only after G-GEO-1, G-UNC-1, G-SMO-1 and the metric gate pass.
+
+The first field report is limited to independently reviewed rigid-vehicle pairs, or pairs whose
+existing class evidence clears the declared applicability gate. It does not wait for the broader
+classifier-feature and scorecard programme. Automatic inclusion of unreviewed uncertain classes
+does wait for calibrated class evidence; a cyclist, pedestrian or `dynamic` label is suppressed
+rather than quietly treated as a car. Their solid-body trajectories remain in scope for continuity
+and trail validation even when the vehicle-following metric does not apply.
+
+For each following encounter, show the two tracks, directed path, endpoint estimates, spatial gap,
+net time gap, valid following time, duration below each named band, uncertainty and suppression
+history. Aggregate only supported encounter values, with their sample count and opportunity
+denominator; never substitute zero for suppressed time. Link each result to its estimate, geometry
+and method versions so regeneration can replace stale derived rows cleanly.
+
+The report may display a predicted-only gap for review, clearly separated with coast age and
+uncertainty. That series is excluded from exposure and aggregate distributions. Threshold bands
+remain descriptive bins, not a tailgating verdict or a universal safety standard. Prometheus
+export is not a delivery dependency; canonical registry names across storage, API and report are.
+
 ## 11. Evaluation datasets
 
 What each source can and cannot validate. Claiming validation from a dataset lacking the
@@ -1083,36 +1150,26 @@ observe, which is what the soma captures are for.
 
 ## 12. Roadmap
 
-### 12.1 Two orderings, and they differ
+### 12.1 Engineering dependencies and product priority
 
 Engineering dependency order and product priority are not the same list, and conflating them lets
 implementation convenience masquerade as importance.
 
-| Engineering dependency order       | Product priority                         |
-| ---------------------------------- | ---------------------------------------- |
-| 1. Universal trajectory primitives | 1. **Vehicle-cyclist passing clearance** |
-| 2. Single-track kinematics         | 2. PET and conflict analysis             |
-| 3. Pairwise geometry               | 3. Pedestrian yielding                   |
-| 4. Empirical-path behaviour        | 4. Intersection approach behaviour       |
-| 5. Roadway context                 | 5. Stop compliance                       |
-| 6. Complex interaction metrics     | 6. Following exposure                    |
-|                                    | 7. Acceleration and braking              |
-|                                    | 8. Jerk                                  |
+| Engineering dependency                                               | Delivery outcome                                                        |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Analytical pair fixtures and the real report output path             | 0.5.2: visible, synthetic headway oracle while estimator work proceeds  |
+| Independent evidence, corrected body anchors and temporal extent     | 0.5.2: geometry that can support unseen bumper estimates                |
+| Calibrated uncertainty, bounded coasting/reacquisition and smoothing | 0.5.3: stable, honest trails for vehicles, pedestrians and cyclists     |
+| Local path pairing, persistence and provisional field output         | 0.5.3: end-to-end report with accuracy claims explicitly withheld       |
+| Held-out physical validation and supported exposure                  | 0.5.4: promote bumper-to-bumper gap and net time gap in field reports   |
+| Additional interaction geometry and context                          | Later: passing clearance, PET, yielding and intersection/stop behaviour |
 
-The two lists are close to inverted at the top. Acceleration and braking are technically
-the easiest thing here and near the bottom of the product list. Passing clearance is the
-top product priority and depends on pairwise geometry, class priors for
-vulnerable-road-user extents, and a converged extent belief.
-
-Practical consequences for sequencing:
-
-- **Phase 6A ships the primitives, not the product.** Its output is infrastructure plus a
-  suppression-rate report, not a headline metric. Say so, so that its completion is not
-  mistaken for delivering value to a user.
-- **Pull passing-clearance dependencies forward.** The class-prior extent model from
-  9.1, and the `min_separation` primitive from 8.9, are Phase 6B work that should be
-  scheduled early within it rather than last.
-- **Jerk is last in both orderings**, which is the one place they agree.
+Pull the Phase 6A support/speed contracts and Phase 6B following slice forward together.
+Acceleration, braking, jerk and all other Phase 6A features need not ship before following.
+Stable trails and following share an estimator, but a pleasing trail does not prove either
+bumper position or pair validity. Both need their own held-out acceptance evidence.
+Roadway planners and complex interaction prediction remain v1.0+; measured following does not
+depend on predicting what either road user intends to do.
 
 ### 12.2 Gating
 
@@ -1153,7 +1210,14 @@ above a stated bound; track quality below floor.
 **Goal.** Gap, headway, TTC, DRAC, closest approach, and PET from
 trajectory-derived conflict points.
 
-**Inputs.** Phase 6A. Interaction classification. No map required, which is the notable result:
+**First delivery.** v0.5.2 pins the following equations and report output with an analytical
+oracle. v0.5.3 implements following classification, local path/ordering, persistence and a
+provisional report. v0.5.4 promotes physical endpoint gap, net time gap and exposure after held-out
+validation. TTC, DRAC, closest approach, PET and cross-class interaction classification remain
+later slices; their combined acceptance criteria below do not block the narrower following gate.
+
+**Inputs.** The relevant Phase 6A support/speed contracts, not every derivative metric.
+Interaction classification. No map required, which is the notable result:
 PET works from observed path intersections.
 
 **Files.** `l8behaviour/interaction.go`; `InteractionEvent`;
@@ -1176,6 +1240,10 @@ unconverged; closing speed below `3 σ_Δv`.
 
 **Goal.** Dominant-path extraction, deviation from it, oscillation, and the local distributions
 that make `local_distribution` benchmarks possible.
+
+The minimal directed path used for v0.5.3 following is a Phase 6B dependency and does not wait for
+this phase. Phase 6C owns durable population paths, deviation metrics and stratified distributions,
+not the bounded encounter-local projection needed to order a simple following pair.
 
 **Inputs.** Weeks of Phase 6A output. Still no map.
 

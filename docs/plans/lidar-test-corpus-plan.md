@@ -16,6 +16,13 @@ physical objects rather than adjacent frames.
 
 ## Goal
 
+The next coverage priorities are partial-view physical extent, occlusion/reacquisition and
+same-path following pairs. Freeze object-disjoint fitting/tuning/held-out partitions, source-PCAP
+SHA-256 manifests and calibration identity on the LiDAR volume; keep multi-gigabyte evidence out
+of Git. The [batching plan](lidar-lossless-observation-persistence-batching-plan.md) owns lossless
+table/semantic equivalence, which does not establish physical accuracy. Review endpoint/gap truth
+and class-specific hidden-motion cases independently, recording where references are unavailable.
+
 Build a five-PCAP test corpus using the Hesai P40 sensor that covers enough road geometry, traffic
 class, and scene diversity to validate tuning defaults and detect overfitting to a single site.
 

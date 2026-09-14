@@ -20,6 +20,16 @@ membership masks do not provide temporal point correspondences.
 
 ## 1. What will be demonstrable
 
+**Priority alignment:** This is the physical-reference pilot for v0.5.2, not a parallel product
+roadmap. Its body-extent and identity evidence feeds partial-view bumper estimation and v0.5.3
+occlusion/trail validation. Add held-out visible-face changes and bounded occlusion/reacquisition
+cases where the recording supports them. Do not claim unseen bumper truth from membership masks.
+Proposed next-branch consolidation makes this demo a milestone of the annotation plan; no files
+or historical acceptance records are merged here.
+The v0.5.2 critical path ends with reviewed solid-body and trail evidence. Compact descriptor
+scoring and its inspection panel are v0.5.5 follow-through; they must not delay the headway oracle,
+temporal body model or field validation.
+
 An operator opens a frozen VRLOG excerpt, marks an object with a lasso and depth slab, and corrects
 its membership in later keyframes. Replay shows the observed points, accumulated object-local
 shape, estimated body box, and trail. A descriptor panel explains why a compact JSON model favours

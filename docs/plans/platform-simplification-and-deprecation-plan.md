@@ -8,7 +8,15 @@
 
 ---
 
-> **Sequencing update (2026-05):** the "Project B execution" item that the v0.6.0 backlog row pointed at is now overlapped by [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) work units A and E. The two plans agree on direction (one binary, fewer apt packages, no `internal/cmd/tune` shipped sibling); the consolidation plan owns the v0.5.1 sequencing and the image stage edits, this plan continues to own the Makefile / CLI-flag / metrics-stats trim line items that survive into v0.5.8.
+> **Sequencing update (2026-05):** the "Project B execution" item that the v0.6.0 backlog row
+> pointed at is now overlapped by
+> [single-binary image plan][single-binary-plan]
+> work units A and E. The two plans agree on direction: one binary, fewer apt packages, and no
+> shipped `internal/cmd/tune` sibling. The consolidation plan owns the v0.5.1 sequencing and image
+> stage edits; this plan continues to own the Makefile, CLI-flag and metrics/stats trim items that
+> survive into v0.5.9.
+
+[single-binary-plan]: ./deploy-single-binary-image-consolidation-plan.md
 
 ## Goal
 

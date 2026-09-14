@@ -11,6 +11,13 @@
 
 ## 1. Motivation
 
+**Current boundary:** Short-horizon CV coasting, existence/expiry and identity-safe reacquisition
+are now v0.5.3 work in the [state-estimation plan](lidar-state-estimation-plan.md), supporting
+stable trails and bumper-to-bumper following measurements. They do not wait for this plan.
+CA/CTRV/IMM, scene-constrained corridors and interaction/planner heuristics remain deferred
+v1.0+ work, currently scheduled at v2.0+. The scenarios below motivate experiments, not proof
+that a richer filter fixes biased measurements or wrong associations.
+
 The current L5 tracker uses a constant-velocity (CV) Kalman filter. This is a strong baseline for straight-line freeway traffic but under-performs in three scenarios that matter for neighbourhood-scale intersections:
 
 1. **Braking and acceleration events**: a CV model predicts constant speed through a stop sign; real vehicles decelerate, stop, and re-accelerate. The prediction fan diverges from reality within 1–2 seconds.
@@ -64,11 +71,11 @@ where $\mu_j$ is the posterior probability of model $j$ given the observations. 
 
 $$\mu_{j,k+1|k} = \sum_{i=1}^{M} \pi_{ij} \mu_{i,k}$$
 
-IMM is the recommended approach because:
+IMM is a deferred candidate, not the default recommendation for the current priorities:
 
 - It automatically selects CV for straight-line segments, CA for braking/acceleration, and CTRV for turns
 - Model probabilities are useful diagnostic signals (dashboard: "this vehicle is in braking mode")
-- The computational cost is 3× the single-model filter: acceptable at our track counts (< 50 concurrent)
+- Three filters plus mixing add cost; establish Pi timing, calibrated uncertainty and held-out accuracy before calling that cost acceptable
 
 ### 3.4 Ground-plane constraint in L5
 
