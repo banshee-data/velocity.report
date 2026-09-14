@@ -175,6 +175,49 @@ type strictObservationSink struct {
 	err  error
 }
 
+// strictFrameEvidenceSink makes the offline frame transaction a replay
+// invariant. The pipeline logs optional persistence errors for live operation;
+// this wrapper retains the first one so an evidence replay cannot succeed with
+// a missing or partial frame.
+type strictFrameEvidenceSink struct {
+	sink pipeline.FrameEvidenceSink
+	mu   sync.Mutex
+	err  error
+}
+
+func (s *strictFrameEvidenceSink) InsertFrame(observations []l4bobserve.DetectionObservation, estimates []observationsqlite.FrameStateEstimate) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err != nil {
+		return s.err
+	}
+	if err := s.sink.InsertFrame(observations, estimates); err != nil {
+		s.err = err
+		return err
+	}
+	return nil
+}
+
+func (s *strictFrameEvidenceSink) Err() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.err
+}
+
+func (s *strictFrameEvidenceSink) RecordFrameEvidenceFailure(err error) {
+	if err == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err == nil {
+		s.err = err
+	}
+}
+
 func (s *strictObservationSink) Insert(observation l4bobserve.DetectionObservation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -427,8 +470,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	)
 	rec.SetProvenance("pcap", filepath.Base(pcapFiles[0]), paramsHash, 0)
 
-	var observationSink *strictObservationSink
-	var stateEstimateSink pipeline.StateEstimateSink
+	var frameEvidenceSink *strictFrameEvidenceSink
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
 	if cfg.ObservationDBPath != "" {
@@ -458,11 +500,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, fmt.Errorf("open observation database: %w", err)
 		}
 		defer database.Close()
-		observationSink = &strictObservationSink{sink: observationsqlite.NewObservationStore(database)}
-		// Derived records share the identified offline database. They are
-		// enabled only here, where the capture and calibration identities above
-		// are explicit; the live server still must not invent either identity.
-		stateEstimateSink = observationsqlite.NewStateEstimateStore(database)
+		// The offline database owns one transaction per completed frame. It
+		// persists both pre-association L4 evidence and the L5 records derived
+		// from it; a failed frame therefore cannot leave a partial corpus.
+		frameEvidenceSink = &strictFrameEvidenceSink{sink: observationsqlite.NewFrameEvidenceStore(database)}
 	}
 
 	// --- Pipeline ---
@@ -492,13 +533,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundFloor:       cfg.SurfaceGroundFloor,
 		SurfaceGroundCeiling:     cfg.SurfaceGroundCeiling,
 		MaxSamplePoints:          maxSamplePoints,
-		ObservationSink:          observationSink,
 		ObservationSourceID:      observationSourceID,
 		ObservationCalibrationID: observationCalibrationID,
-		StateEstimateSink:        stateEstimateSink,
 		StateEstimatorID:         "cv_kf_v1",
 		StateObservationModelID:  stateObservationModelID,
 		StateParameterHash:       paramsHash,
+	}
+	if frameEvidenceSink != nil {
+		pipeCfg.FrameEvidenceSink = frameEvidenceSink
 	}
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
@@ -565,8 +607,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cerr := runtime.closeRecorder(rec); cerr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("close recording: %w", cerr)
 	}
-	if observationErr := observationSink.Err(); observationErr != nil && replayErr == nil {
-		replayErr = fmt.Errorf("store immutable observations: %w", observationErr)
+	if frameEvidenceErr := frameEvidenceSink.Err(); frameEvidenceErr != nil && replayErr == nil {
+		replayErr = fmt.Errorf("store frame evidence: %w", frameEvidenceErr)
 	}
 	if replayErr != nil {
 		return nil, fmt.Errorf("pcap replay: %w", replayErr)

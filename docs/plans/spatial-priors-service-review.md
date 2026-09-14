@@ -52,10 +52,10 @@ not assume survey access, IMU data, or accurate global placement.
 
 Build a common capture/asset/frame/provenance foundation, then two delivery tracks:
 
-| Track | First deliverable | Independent success criterion |
-| --- | --- | --- |
+| Track            | First deliverable                                                                                      | Independent success criterion                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | Public catalogue | Curated, openly licensed site records, source links, COPC previews/downloads, S2 coverage, and history | Another user can discover, understand, retrieve, and reproduce an approved dataset. |
-| Runtime priors | Local bundle, held-out pose recovery, and scene-context evaluation | A fixed LiDAR can use it with measured error and reject misleading matches. |
+| Runtime priors   | Local bundle, held-out pose recovery, and scene-context evaluation                                     | A fixed LiDAR can use it with measured error and reject misleading matches.         |
 
 Join the tracks through release manifests. Treat experimental, locally alignable, geographically
 validated, and runtime-approved as separate capabilities/assessments, not a single quality ladder.
@@ -193,18 +193,18 @@ L13/L10 indexing without using cell boundaries as processing boundaries or site 
 
 These are design-document findings, not claims of production defects.
 
-| Location | Problem | Required disposition |
-| --- | --- | --- |
-| Geometry-prior configuration and privacy sections | Remote access defaults to true despite explicit opt-in prose. | Resolve to disabled by default before implementing configuration. |
-| Geometry-prior trust and union sections | A valid signature is used as a quality signal and signed files are called verified. | Separate authenticity, review state, and measured geometric quality. |
-| Geometry-prior open questions | Merging remains an open question after the document already specifies daily weighted union. | Replace contradictory directions with explicit source, candidate, and release identities. |
-| Vector scene §4.1 | Local adjacent-tile merge thresholds are claimed to guarantee a globally merged plane within 3 cm. | Require residual checks against the final fit; pairwise agreement does not bound accumulated curvature. |
-| Vector scene §4.1 and §8 | Convex hulls and gap-free coverage can fill unobserved holes and concavities. | Preserve observed-support masks and distinguish display coverage from measurement support. |
-| Vector scene §4.3 | A 120-second detail expiry is unsuitable as a persistent-world lifetime. | Separate live working-cache expiry from observation age, review age, and product change policy. |
-| Vector scene §6.4 | Near-zero object velocity for 30 seconds can promote a parked vehicle into persistent scene geometry. | Use repeated-session evidence and explicit transient/unknown handling. |
-| Vector scene §6.3 | Background cells are assumed to expose surface orientation for wall grouping. | Define extraction from retained/projected points; current cell statistics do not themselves supply wall normals. |
-| Vector scene §12 | OSM structures are the preferred prior; the new service also derives measured building geometry. | Keep coarse map context and measured localisation anchors as distinct source roles. |
-| Static-pose reference | Title suggests sensor alignment while the content mainly concerns object boxes/tracking. | Remove it as an implied implementation dependency; link a dedicated fixed-sensor alignment design. |
+| Location                                          | Problem                                                                                               | Required disposition                                                                                             |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Geometry-prior configuration and privacy sections | Remote access defaults to true despite explicit opt-in prose.                                         | Resolve to disabled by default before implementing configuration.                                                |
+| Geometry-prior trust and union sections           | A valid signature is used as a quality signal and signed files are called verified.                   | Separate authenticity, review state, and measured geometric quality.                                             |
+| Geometry-prior open questions                     | Merging remains an open question after the document already specifies daily weighted union.           | Replace contradictory directions with explicit source, candidate, and release identities.                        |
+| Vector scene §4.1                                 | Local adjacent-tile merge thresholds are claimed to guarantee a globally merged plane within 3 cm.    | Require residual checks against the final fit; pairwise agreement does not bound accumulated curvature.          |
+| Vector scene §4.1 and §8                          | Convex hulls and gap-free coverage can fill unobserved holes and concavities.                         | Preserve observed-support masks and distinguish display coverage from measurement support.                       |
+| Vector scene §4.3                                 | A 120-second detail expiry is unsuitable as a persistent-world lifetime.                              | Separate live working-cache expiry from observation age, review age, and product change policy.                  |
+| Vector scene §6.4                                 | Near-zero object velocity for 30 seconds can promote a parked vehicle into persistent scene geometry. | Use repeated-session evidence and explicit transient/unknown handling.                                           |
+| Vector scene §6.3                                 | Background cells are assumed to expose surface orientation for wall grouping.                         | Define extraction from retained/projected points; current cell statistics do not themselves supply wall normals. |
+| Vector scene §12                                  | OSM structures are the preferred prior; the new service also derives measured building geometry.      | Keep coarse map context and measured localisation anchors as distinct source roles.                              |
+| Static-pose reference                             | Title suggests sensor alignment while the content mainly concerns object boxes/tracking.              | Remove it as an implied implementation dependency; link a dedicated fixed-sensor alignment design.               |
 
 GeoJSON can carry 3D geographic positions; it is not inherently limited to 2D. However,
 [RFC 7946](https://www.rfc-editor.org/rfc/rfc7946) defines geographic coordinates, so sensor-local
@@ -220,20 +220,20 @@ resolve rather than polygons to average.
 
 ### Project shape
 
-| Approach | Benefit | Cost or limitation | Position |
-| --- | --- | --- | --- |
-| Priors research first | Lowest platform distraction; fastest test of fixed-LiDAR benefit | No early public catalogue; reusable data work remains less visible | Not the user's selected direction. |
-| Catalogue first | Early public utility and easier external collaboration | Can succeed without producing useful runtime priors | Insufficient alone for the requested project. |
-| Shared corpus, catalogue and priors together | Early open-data utility and continuous feedback from the consumer | Requires two release criteria and disciplined scope | Selected direction; recommended implementation structure. |
-| Full public uploads, rankings, billing, and mapping together | Broad launch feature set | Moderation and platform work compete with unresolved geometry | Defer unless operating resources explicitly support it. |
+| Approach                                                     | Benefit                                                           | Cost or limitation                                                 | Position                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| Priors research first                                        | Lowest platform distraction; fastest test of fixed-LiDAR benefit  | No early public catalogue; reusable data work remains less visible | Not the user's selected direction.                        |
+| Catalogue first                                              | Early public utility and easier external collaboration            | Can succeed without producing useful runtime priors                | Insufficient alone for the requested project.             |
+| Shared corpus, catalogue and priors together                 | Early open-data utility and continuous feedback from the consumer | Requires two release criteria and disciplined scope                | Selected direction; recommended implementation structure. |
+| Full public uploads, rankings, billing, and mapping together | Broad launch feature set                                          | Moderation and platform work compete with unresolved geometry      | Defer unless operating resources explicitly support it.   |
 
 ### Publication and operations
 
-| Approach | Benefit | Cost or limitation | Recommendation |
-| --- | --- | --- | --- |
-| Static STAC catalogue and immutable objects | Simple publication, mirroring, anonymous access, no read-server dependency | Limited interactive search; writes require a publication process | Start here for a curated corpus if uploads remain maintainer-reviewed. |
-| Postgres/PostGIS catalogue plus static exports | Better region search, mutable review/job state, concurrent submissions | Database operation, migrations, backups, and API maintenance | Adopt early if authenticated submissions or concurrent curation are first-release requirements. |
-| Bespoke catalogue without STAC mapping | Exact project vocabulary | Custom integrations and avoidable schema/API maintenance | Use custom schemas for priors, not automatically for generic asset discovery. |
+| Approach                                       | Benefit                                                                    | Cost or limitation                                               | Recommendation                                                                                  |
+| ---------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Static STAC catalogue and immutable objects    | Simple publication, mirroring, anonymous access, no read-server dependency | Limited interactive search; writes require a publication process | Start here for a curated corpus if uploads remain maintainer-reviewed.                          |
+| Postgres/PostGIS catalogue plus static exports | Better region search, mutable review/job state, concurrent submissions     | Database operation, migrations, backups, and API maintenance     | Adopt early if authenticated submissions or concurrent curation are first-release requirements. |
+| Bespoke catalogue without STAC mapping         | Exact project vocabulary                                                   | Custom integrations and avoidable schema/API maintenance         | Use custom schemas for priors, not automatically for generic asset discovery.                   |
 
 Both static and database-backed choices can support public coverage pages. Starting static
 does not mean deferring the catalogue. A database is justified by workflow/search needs rather
@@ -244,23 +244,23 @@ Team maintenance capacity should decide.
 
 ### Runtime representation
 
-| Approach | Benefit | Cost or limitation | Recommendation |
-| --- | --- | --- | --- |
-| Sparse points/surfels | Few extraction assumptions; preserves irregular structures and supports established registration | Larger data and matching cost; weaker semantic explanation | Establish as the reference baseline. |
-| Planes/edges/poles only | Compact, interpretable, potentially fast | Extraction instability, lost detail, degenerate scenes | Benchmark against the point baseline; do not assume superiority. |
-| Hybrid landmarks plus sparse support cloud | Compact anchors with fallback geometry and auditable support | Two representations and explicit consistency/provenance needs | Likely best deployment product, subject to measurement. |
-| Dense COPC at runtime | Maximum retained detail and research flexibility | Pi memory, latency, bandwidth, and unnecessary parsing | Keep for research and review rather than default sensing. |
+| Approach                                   | Benefit                                                                                          | Cost or limitation                                            | Recommendation                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Sparse points/surfels                      | Few extraction assumptions; preserves irregular structures and supports established registration | Larger data and matching cost; weaker semantic explanation    | Establish as the reference baseline.                             |
+| Planes/edges/poles only                    | Compact, interpretable, potentially fast                                                         | Extraction instability, lost detail, degenerate scenes        | Benchmark against the point baseline; do not assume superiority. |
+| Hybrid landmarks plus sparse support cloud | Compact anchors with fallback geometry and auditable support                                     | Two representations and explicit consistency/provenance needs | Likely best deployment product, subject to measurement.          |
+| Dense COPC at runtime                      | Maximum retained detail and research flexibility                                                 | Pi memory, latency, bandwidth, and unnecessary parsing        | Keep for research and review rather than default sensing.        |
 
 ### Registration assistance and execution location
 
-| Approach | Benefit | Cost or limitation |
-| --- | --- | --- |
-| Operator supplies approximate pose and reviews fit | Smallest search space; practical deployment debugging; works offline | Human labour and possible confirmation bias; must still check against independent evidence. |
-| Automatic within a known site | Repeatable deployment with little interaction | Needs robust hypothesis rejection and enough distinctive overlap. |
-| Global place discovery | Minimal initial location knowledge | Much larger retrieval/search/ambiguity problem; not needed for a known installation. |
-| Offline workstation solves, Pi validates | Reuses mature tools; avoids shipping a full registration stack on the Pi | Installation package becomes pose-specific; moving the sensor requires re-alignment. |
-| Pi solves locally | Self-contained and can handle redeployment | Requires an identified Go/C++/other registration implementation and measured ARM performance. |
-| Cloud solves deployment pose | Central compute and easier algorithm updates | Upload/privacy dependency and loss of offline autonomy; optional later service only. |
+| Approach                                           | Benefit                                                                  | Cost or limitation                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Operator supplies approximate pose and reviews fit | Smallest search space; practical deployment debugging; works offline     | Human labour and possible confirmation bias; must still check against independent evidence.   |
+| Automatic within a known site                      | Repeatable deployment with little interaction                            | Needs robust hypothesis rejection and enough distinctive overlap.                             |
+| Global place discovery                             | Minimal initial location knowledge                                       | Much larger retrieval/search/ambiguity problem; not needed for a known installation.          |
+| Offline workstation solves, Pi validates           | Reuses mature tools; avoids shipping a full registration stack on the Pi | Installation package becomes pose-specific; moving the sensor requires re-alignment.          |
+| Pi solves locally                                  | Self-contained and can handle redeployment                               | Requires an identified Go/C++/other registration implementation and measured ARM performance. |
+| Cloud solves deployment pose                       | Central compute and easier algorithm updates                             | Upload/privacy dependency and loss of offline autonomy; optional later service only.          |
 
 The draft names Open3D for service processing but leaves the live runtime solver
 implementation open. Specify whether the first deployment consumes an offline-computed pose
@@ -269,13 +269,13 @@ workstation Python does not establish either.
 
 ### Georeferencing, sources, and fusion
 
-| Approach | Benefit | Cost or limitation | Recommendation |
-| --- | --- | --- | --- |
-| High-quality local map with approximate geographic placement | Useful local alignment without immediate survey cost | Cannot promise global position accuracy | Catalogue with explicit global uncertainty; allow local-use profile. |
-| Survey/control-anchored map | Independent global accuracy and consistent multi-source alignment | Survey access, calibration, datum, and field cost | Needed for absolute-accuracy claims and selected reference sites. |
-| OSM/coarse public geometry | Broad coverage and understandable context | Tags/footprints do not establish measured facade-level accuracy | Context/coarse initialisation only until validated for a specific site. |
-| Separate accepted source maps | Preserves disagreements and reduces early fusion risk | Consumer/product selection remains necessary | First release should support selecting a reference map plus supporting observations. |
-| Immediate multi-source fusion | Potential completeness and persistence gains | Correlated errors, inconsistent scale, artefacts, and complex uncertainty | Add after single-source baselines; require demonstrated improvement. |
+| Approach                                                     | Benefit                                                           | Cost or limitation                                                        | Recommendation                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| High-quality local map with approximate geographic placement | Useful local alignment without immediate survey cost              | Cannot promise global position accuracy                                   | Catalogue with explicit global uncertainty; allow local-use profile.                 |
+| Survey/control-anchored map                                  | Independent global accuracy and consistent multi-source alignment | Survey access, calibration, datum, and field cost                         | Needed for absolute-accuracy claims and selected reference sites.                    |
+| OSM/coarse public geometry                                   | Broad coverage and understandable context                         | Tags/footprints do not establish measured facade-level accuracy           | Context/coarse initialisation only until validated for a specific site.              |
+| Separate accepted source maps                                | Preserves disagreements and reduces early fusion risk             | Consumer/product selection remains necessary                              | First release should support selecting a reference map plus supporting observations. |
+| Immediate multi-source fusion                                | Potential completeness and persistence gains                      | Correlated errors, inconsistent scale, artefacts, and complex uncertainty | Add after single-source baselines; require demonstrated improvement.                 |
 
 [OSM Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_buildings) models building
 outlines, parts, and height-related attributes. My recommendation to treat these as coarse context
@@ -344,13 +344,13 @@ sites. Long stops provide repeated local measurements and changed visibility as
 traffic passes. Twenty minutes of one parked vehicle is still one parked vehicle, not
 evidence that it belongs to the static world.
 
-| Method | Benefit | Risk | Initial role |
-| --- | --- | --- | --- |
-| Accumulate the complete stop with no motion correction | Simple reference for density and sampling gaps | Wobble thickens roads/walls and smears kerbs | Diagnostic baseline. |
-| Select stable intervals and accumulate | Avoids much motion distortion with limited processing | Discards useful views and retains scan-line gaps | Conservative baseline. |
-| Register short submaps, deskew where timing permits, then accumulate | Tests whether small movements fill gaps while keeping surfaces sharp | Estimated pose noise can exceed actual wobble; motion may be weakly observable | Main static-map experiment. |
-| Independently reconstruct trip odometry/SLAM | Larger local map and overlapping views | Drift, dynamic objects, and false loop closure | Route-map baseline. |
-| Jointly optimise trip and stop maps | Potentially improves coverage and local constraints | Circular validation and correlated errors | Follow independent map comparisons. |
+| Method                                                               | Benefit                                                              | Risk                                                                           | Initial role                        |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------- |
+| Accumulate the complete stop with no motion correction               | Simple reference for density and sampling gaps                       | Wobble thickens roads/walls and smears kerbs                                   | Diagnostic baseline.                |
+| Select stable intervals and accumulate                               | Avoids much motion distortion with limited processing                | Discards useful views and retains scan-line gaps                               | Conservative baseline.              |
+| Register short submaps, deskew where timing permits, then accumulate | Tests whether small movements fill gaps while keeping surfaces sharp | Estimated pose noise can exceed actual wobble; motion may be weakly observable | Main static-map experiment.         |
+| Independently reconstruct trip odometry/SLAM                         | Larger local map and overlapping views                               | Drift, dynamic objects, and false loop closure                                 | Route-map baseline.                 |
+| Jointly optimise trip and stop maps                                  | Potentially improves coverage and local constraints                  | Circular validation and correlated errors                                      | Follow independent map comparisons. |
 
 Estimate small movements from stable structure distributed around the sensor, not the road plane
 alone. Use near-stationarity as a hypothesis, not proof of zero motion. Avoid letting noisy ICP
@@ -403,17 +403,17 @@ actually needs an upgrade. The options below are engineering candidates, not pur
 
 ### Priority and tradeoffs
 
-| Addition | Main benefit | Tradeoff or prerequisite | Priority |
-| --- | --- | --- | --- |
-| Rigid common plate for LiDAR and IMU, repeatable mount, cable strain relief, measured reference marks | Keeps relative sensor geometry stable and makes recalibration detectable | Soft independent mounts can create unmeasured relative motion; dimensions and repeatability need checks | First for any moving rig. |
-| Reliable capture computer, sustained-write storage, packet-loss counters, stable power | Preserves complete scans and diagnostics | Faster storage does not solve timing; instrument drops and clock resets | Verify existing setup before replacing it. |
-| Common clock/synchronisation wiring, PPS or supported PTP, logged lock state | Aligns LiDAR, IMU, and GNSS acquisition times | Requires compatible electrical interfaces, firmware, clock discipline, and measured offset | Essential alongside added navigation sensors. |
-| Calibrated, raw-output IMU with hardware sync and suitable dynamic range/noise | Helps estimate wobble and intra-scan motion; supports inertial-aided odometry | Bias, temperature, time offset, and extrinsics need calibration; acceleration alone does not provide stable position | Highest-value sensing addition for motion correction. |
-| Multi-band GNSS with raw observables and RTK/PPK capability, good antenna and ground plane | Anchors routes/sites globally; supports correction and later reprocessing | Corrections/base reference, multipath, antenna lever arm, and sky view govern actual accuracy | Next when geographic alignment is the main constraint. |
-| Dual-antenna GNSS heading with a rigid measured baseline | Heading while stationary or moving slowly without relying on magnetic compass/course-over-ground | More space, antenna cost, sky visibility, and baseline-to-LiDAR calibration | Valuable for frequent deployment/redeployment or automatic known-site alignment. |
-| Survey targets plus independent check measurements, rented RTK rover or total station as appropriate | Measures actual global/local map error instead of internal consistency | Field effort and access; GNSS can struggle near walls, total station needs sight lines/control | Early validation investment at one or two reference sites. |
-| Calibrated indexed tilt/pan arrangement for static capture | Deliberate additional ray coverage with repeatable scan positions | Mechanism and pose calibration; each changed pose must be registered | Optional experiment if fixed-ring sampling remains the bottleneck. |
-| Higher-density or professional mobile scanner | More complete observations and an additional capture class | Substantial acquisition cost; exports, proprietary processing, and truth claims still need review | Borrow/rent later for comparison before buying. |
+| Addition                                                                                              | Main benefit                                                                                     | Tradeoff or prerequisite                                                                                             | Priority                                                                         |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Rigid common plate for LiDAR and IMU, repeatable mount, cable strain relief, measured reference marks | Keeps relative sensor geometry stable and makes recalibration detectable                         | Soft independent mounts can create unmeasured relative motion; dimensions and repeatability need checks              | First for any moving rig.                                                        |
+| Reliable capture computer, sustained-write storage, packet-loss counters, stable power                | Preserves complete scans and diagnostics                                                         | Faster storage does not solve timing; instrument drops and clock resets                                              | Verify existing setup before replacing it.                                       |
+| Common clock/synchronisation wiring, PPS or supported PTP, logged lock state                          | Aligns LiDAR, IMU, and GNSS acquisition times                                                    | Requires compatible electrical interfaces, firmware, clock discipline, and measured offset                           | Essential alongside added navigation sensors.                                    |
+| Calibrated, raw-output IMU with hardware sync and suitable dynamic range/noise                        | Helps estimate wobble and intra-scan motion; supports inertial-aided odometry                    | Bias, temperature, time offset, and extrinsics need calibration; acceleration alone does not provide stable position | Highest-value sensing addition for motion correction.                            |
+| Multi-band GNSS with raw observables and RTK/PPK capability, good antenna and ground plane            | Anchors routes/sites globally; supports correction and later reprocessing                        | Corrections/base reference, multipath, antenna lever arm, and sky view govern actual accuracy                        | Next when geographic alignment is the main constraint.                           |
+| Dual-antenna GNSS heading with a rigid measured baseline                                              | Heading while stationary or moving slowly without relying on magnetic compass/course-over-ground | More space, antenna cost, sky visibility, and baseline-to-LiDAR calibration                                          | Valuable for frequent deployment/redeployment or automatic known-site alignment. |
+| Survey targets plus independent check measurements, rented RTK rover or total station as appropriate  | Measures actual global/local map error instead of internal consistency                           | Field effort and access; GNSS can struggle near walls, total station needs sight lines/control                       | Early validation investment at one or two reference sites.                       |
+| Calibrated indexed tilt/pan arrangement for static capture                                            | Deliberate additional ray coverage with repeatable scan positions                                | Mechanism and pose calibration; each changed pose must be registered                                                 | Optional experiment if fixed-ring sampling remains the bottleneck.               |
+| Higher-density or professional mobile scanner                                                         | More complete observations and an additional capture class                                       | Substantial acquisition cost; exports, proprietary processing, and truth claims still need review                    | Borrow/rent later for comparison before buying.                                  |
 
 Do not choose an IMU by output rate alone. Check noise, bias stability, timestamp semantics, raw
 accelerometer/gyro availability, clipping, temperature recording, and synchronisation support. A
@@ -463,12 +463,12 @@ field time. An inexpensive module can require more integration work than an inte
 
 ### Suggested packages
 
-| Package | Contents | Choose when |
-| --- | --- | --- |
-| Existing-data research | Current PCAPs, workstation, LiDAR-only reconstruction, independent review | Begin immediately; no purchase required to test route/stop agreement. |
-| Better relative geometry | Repeatable mount + synchronised IMU + loss/timing instrumentation | Wobble or driving distortion dominates; geographic accuracy can remain explicitly uncertain. |
-| Better geographic maps | Relative-geometry package + raw-logging RTK/PPK GNSS + reference checks | Combining sites/trips needs defensible global placement. |
-| Easier repeat deployment | Geographic package + dual-antenna heading or an appropriate integrated INS | Operator heading input is undesirable and repeated setup justifies complexity. |
+| Package                  | Contents                                                                   | Choose when                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Existing-data research   | Current PCAPs, workstation, LiDAR-only reconstruction, independent review  | Begin immediately; no purchase required to test route/stop agreement.                        |
+| Better relative geometry | Repeatable mount + synchronised IMU + loss/timing instrumentation          | Wobble or driving distortion dominates; geographic accuracy can remain explicitly uncertain. |
+| Better geographic maps   | Relative-geometry package + raw-logging RTK/PPK GNSS + reference checks    | Combining sites/trips needs defensible global placement.                                     |
+| Easier repeat deployment | Geographic package + dual-antenna heading or an appropriate integrated INS | Operator heading input is undesirable and repeated setup justifies complexity.               |
 
 My provisional recommendation is to start the existing-data comparison now, then add a synchronised
 IMU and repeatable mounting for a short repeat capture. Add GNSS in the same build if geographic
@@ -482,12 +482,12 @@ The user's ten-second corner snap is a target to test, not a promised task durat
 automatic candidate alignment and a lightweight review, then expose additional controls only when
 the candidate is absent or fails validation. Compare these levels on the same held-out captures:
 
-| Level | Operator action | Benefit | Limitation |
-| --- | --- | --- | --- |
-| Suggested fit | Inspect and accept an automatically proposed alignment | Least interaction when geometry is distinctive | Must detect wrong but visually plausible matches. |
-| Quick map snap | Match a corner and its edge directions, or several corresponding corners, in scan and OSM | Fast coarse placement using existing context | OSM accuracy and feature correspondence limit global accuracy; map height may be unknown. |
-| Controlled rigid alignment | Match distributed physical points to coordinates with declared uncertainty | More defensible global placement and measurable fit | Reference collection and point selection take time. |
-| Local-only acceptance | Keep a good local map with uncertain geographic placement | Preserves utility when references are inadequate | Cannot claim validated global position or exact geographic coverage. |
+| Level                      | Operator action                                                                           | Benefit                                             | Limitation                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Suggested fit              | Inspect and accept an automatically proposed alignment                                    | Least interaction when geometry is distinctive      | Must detect wrong but visually plausible matches.                                         |
+| Quick map snap             | Match a corner and its edge directions, or several corresponding corners, in scan and OSM | Fast coarse placement using existing context        | OSM accuracy and feature correspondence limit global accuracy; map height may be unknown. |
+| Controlled rigid alignment | Match distributed physical points to coordinates with declared uncertainty                | More defensible global placement and measurable fit | Reference collection and point selection take time.                                       |
+| Local-only acceptance      | Keep a good local map with uncertain geographic placement                                 | Preserves utility when references are inadequate    | Cannot claim validated global position or exact geographic coverage.                      |
 
 Distinguish three transforms: scan-to-local-map reconstruction,
 local-map-to-geographic-reference placement, and a later deployment sensor-to-map alignment. A
@@ -553,16 +553,16 @@ trials where practical to limit remembered placements.
 
 ## 11. Next review decisions
 
-| Decision | Current state | What the answer changes |
-| --- | --- | --- |
-| Catalogue and priors together | Confirmed | Two delivery tracks sharing a corpus; update draft sequencing. |
-| Assisted versus automatic alignment | Evaluate assistance levels; quick corner snap is a target | Measure time versus independently checked error instead of prescribing automation. |
-| Intersection control coordinates | Measure references for first test; method and uncertainty pending | Independently compare OSM snapping with measured-control alignment. |
-| Available capture assets | Trips and 20-minute stops confirmed; directory inventoried | Begin with existing data and preserve source/derived relationships. |
-| Navigation/timing | User reports PCAP timestamps only; payload timing inspection pending | LiDAR-only baseline now; future synchronised IMU/GNSS optional. |
-| Curated publishing versus immediate public submission | Not yet decided | Static publication versus database/API/review operation. |
-| First useful prior: pose/context versus background acceleration | Recommendation: pose/context first | Integration depth and independent acceptance criteria. |
-| Working budget and maintainer capacity | Not yet decided | Hosting choice, capture commitments, and realistic milestone scope. |
+| Decision                                                        | Current state                                                        | What the answer changes                                                            |
+| --------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Catalogue and priors together                                   | Confirmed                                                            | Two delivery tracks sharing a corpus; update draft sequencing.                     |
+| Assisted versus automatic alignment                             | Evaluate assistance levels; quick corner snap is a target            | Measure time versus independently checked error instead of prescribing automation. |
+| Intersection control coordinates                                | Measure references for first test; method and uncertainty pending    | Independently compare OSM snapping with measured-control alignment.                |
+| Available capture assets                                        | Trips and 20-minute stops confirmed; directory inventoried           | Begin with existing data and preserve source/derived relationships.                |
+| Navigation/timing                                               | User reports PCAP timestamps only; payload timing inspection pending | LiDAR-only baseline now; future synchronised IMU/GNSS optional.                    |
+| Curated publishing versus immediate public submission           | Not yet decided                                                      | Static publication versus database/API/review operation.                           |
+| First useful prior: pose/context versus background acceleration | Recommendation: pose/context first                                   | Integration depth and independent acceptance criteria.                             |
+| Working budget and maintainer capacity                          | Not yet decided                                                      | Hosting choice, capture commitments, and realistic milestone scope.                |
 
 Reconcile the original plan after these choices. Preserve the earlier review
 draft so its assumptions remain inspectable; do not silently present the

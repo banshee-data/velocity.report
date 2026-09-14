@@ -25,19 +25,16 @@ func NewObservationStore(db DBClient) *ObservationStore { return &ObservationSto
 // Insert writes one frozen observation. The payload is the owned snapshot, so
 // the caller cannot mutate stored evidence by retaining a slice reference.
 func (s *ObservationStore) Insert(observation l4bobserve.DetectionObservation) error {
-	record := observation.Snapshot()
-	payload, err := json.Marshal(record)
+	return insertObservation(s.db, observation, time.Now().UnixNano())
+}
+
+func insertObservation(exec Executor, observation l4bobserve.DetectionObservation, insertedAtNanos int64) error {
+	record, payload, err := marshalObservation(observation)
 	if err != nil {
-		return fmt.Errorf("marshal observation %s: %w", record.ObservationID, err)
+		return err
 	}
-	_, err = s.db.Exec(`
-		INSERT INTO lidar_observations
-			(observation_id, schema_version, source_id, calibration_id, sensor_id,
-			 frame_id, frame_unix_nanos, cluster_unix_nanos, cluster_id, record_json, inserted_at_ns)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		record.ObservationID, record.SchemaVersion, record.SourceID, record.CalibrationID,
-		record.Cluster.SensorID, record.Cluster.FrameID, record.FrameUnixNanos,
-		record.Cluster.TSUnixNanos, record.Cluster.ClusterID, payload, time.Now().UnixNano())
+	_, err = exec.Exec(observationInsertSQL,
+		observationInsertArgs(record, payload, insertedAtNanos)...)
 	if err != nil {
 		if isUniqueConstraint(err) {
 			return fmt.Errorf("%w: %s", ErrObservationExists, record.ObservationID)
@@ -45,6 +42,29 @@ func (s *ObservationStore) Insert(observation l4bobserve.DetectionObservation) e
 		return fmt.Errorf("insert observation %s: %w", record.ObservationID, err)
 	}
 	return nil
+}
+
+const observationInsertSQL = `
+		INSERT INTO lidar_observations
+			(observation_id, schema_version, source_id, calibration_id, sensor_id,
+			 frame_id, frame_unix_nanos, cluster_unix_nanos, cluster_id, record_json, inserted_at_ns)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+func marshalObservation(observation l4bobserve.DetectionObservation) (l4bobserve.Record, []byte, error) {
+	record := observation.Snapshot()
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return l4bobserve.Record{}, nil, fmt.Errorf("marshal observation %s: %w", record.ObservationID, err)
+	}
+	return record, payload, nil
+}
+
+func observationInsertArgs(record l4bobserve.Record, payload []byte, insertedAtNanos int64) []any {
+	return []any{
+		record.ObservationID, record.SchemaVersion, record.SourceID, record.CalibrationID,
+		record.Cluster.SensorID, record.Cluster.FrameID, record.FrameUnixNanos,
+		record.Cluster.TSUnixNanos, record.Cluster.ClusterID, payload, insertedAtNanos,
+	}
 }
 
 // Get returns a fresh immutable observation reconstructed from its stored

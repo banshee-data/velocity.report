@@ -15,12 +15,20 @@ func persistOnlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.Tra
 	if cfg.StateEstimateSink == nil || !track.LastResidual.Valid {
 		return nil
 	}
+	pair, err := onlineStateEstimate(cfg, track, frameUnixNanos)
+	if err != nil {
+		return err
+	}
+	return cfg.StateEstimateSink.Insert(pair.Estimate, pair.Residual)
+}
+
+func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObject, frameUnixNanos int64) (sqlite.FrameStateEstimate, error) {
 	if cfg.ObservationSourceID == "" || cfg.ObservationCalibrationID == "" || cfg.StateEstimatorID == "" || cfg.StateObservationModelID == "" || cfg.StateParameterHash == "" {
-		return fmt.Errorf("state estimate sink requires source, calibration, estimator, observation-model, and parameter identities")
+		return sqlite.FrameStateEstimate{}, fmt.Errorf("state estimate sink requires source, calibration, estimator, observation-model, and parameter identities")
 	}
 	observationID, err := l4bobserve.ObservationID(cfg.ObservationSourceID, cfg.ObservationCalibrationID, frameUnixNanos, track.LastClusterID)
 	if err != nil {
-		return fmt.Errorf("derive estimate observation identity: %w", err)
+		return sqlite.FrameStateEstimate{}, fmt.Errorf("derive estimate observation identity: %w", err)
 	}
 	estimateID := fmt.Sprintf("estimate/%s/%s/%s/%d", track.TrackID, cfg.StateEstimatorID, cfg.StateObservationModelID, frameUnixNanos)
 	residual := track.LastResidual
@@ -32,11 +40,11 @@ func persistOnlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.Tra
 		ParamHash: cfg.StateParameterHash, Stage: "online", MeasurementSource: string(track.LastMeasurementSource),
 		X: track.X, Y: track.Y, VX: track.VX, VY: track.VY, Covariance: track.P,
 	}
-	return cfg.StateEstimateSink.Insert(estimate, sqlite.TrackResidual{
+	return sqlite.FrameStateEstimate{Estimate: estimate, Residual: sqlite.TrackResidual{
 		EstimateID: estimateID, ObservationID: observationID, PredictedX: residual.PredictedX, PredictedY: residual.PredictedY,
 		MeasurementX: residual.Measurement.X, MeasurementY: residual.Measurement.Y,
 		InnovationX: residual.InnovationX, InnovationY: residual.InnovationY, NIS: residual.NIS,
 		GeometryCovXX: residual.GeometryCovariance.XX, GeometryCovXY: residual.GeometryCovariance.XY, GeometryCovYY: residual.GeometryCovariance.YY,
 		Disposition: "accepted", Reason: "association_accepted",
-	})
+	}}, nil
 }
