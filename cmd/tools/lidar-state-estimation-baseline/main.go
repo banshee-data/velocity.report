@@ -45,14 +45,16 @@ type caseSummary struct {
 
 func main() {
 	var (
-		corpusPath = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
-		indexPath  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
-		pcapRoot   = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
-		pcapSubdir = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
-		outDir     = flag.String("out", "", "empty output directory for baseline recordings (required)")
-		tuning     = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
-		sensorID   = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
-		duration   = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
+		corpusPath         = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
+		indexPath          = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
+		pcapRoot           = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
+		pcapSubdir         = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
+		outDir             = flag.String("out", "", "empty output directory for baseline recordings (required)")
+		sourceManifestPath = flag.String("source-manifest", "", "new immutable JSON manifest of ordered source PCAP hashes")
+		sourceManifestOnly = flag.Bool("source-manifest-only", false, "write -source-manifest then exit without replaying")
+		tuning             = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
+		sensorID           = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
+		duration           = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
 		// Marina's first capture reaches the configured L3 convergence threshold
 		// at 56.5 seconds. Keep a measured 20% margin so the default preserves
 		// the fail-closed scoring-boundary invariant across the Phase 0 corpus.
@@ -63,11 +65,19 @@ func main() {
 		measurementMode = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
 	)
 	flag.Parse()
-	if *outDir == "" {
+	if *sourceManifestOnly && *sourceManifestPath == "" {
+		fatal(fmt.Errorf("-source-manifest-only requires -source-manifest"))
+	}
+	if !*sourceManifestOnly && *outDir == "" {
 		fatal(fmt.Errorf("-out is required"))
 	}
-	if err := ensureEmptyDir(*outDir); err != nil {
-		fatal(err)
+	if *observations != "" && *sourceManifestPath == "" {
+		fatal(fmt.Errorf("-observations-db requires -source-manifest so persisted evidence has immutable source identity"))
+	}
+	if !*sourceManifestOnly {
+		if err := ensureEmptyDir(*outDir); err != nil {
+			fatal(err)
+		}
 	}
 	selected, err := readCorpus(*corpusPath)
 	if err != nil {
@@ -77,23 +87,31 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	resolvedCases, err := resolveCorpusCases(selected, index, *pcapRoot, *pcapSubdir)
+	if err != nil {
+		fatal(err)
+	}
+	var sourceManifestSHA256 string
+	if *sourceManifestPath != "" {
+		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
+		if err != nil {
+			fatal(err)
+		}
+		digest, err := writeSourceManifest(*sourceManifestPath, manifest)
+		if err != nil {
+			fatal(err)
+		}
+		sourceManifestSHA256 = digest
+		fmt.Printf("wrote immutable source manifest %s (%s)\n", *sourceManifestPath, sourceManifestSHA256)
+	}
+	if *sourceManifestOnly {
+		return
+	}
 
 	summaries := make([]caseSummary, 0, len(selected.Cases))
-	for _, selectedCase := range selected.Cases {
-		entry, ok := index[selectedCase.ID]
-		if !ok {
-			fatal(fmt.Errorf("corpus case %q is absent from index", selectedCase.ID))
-		}
-		if len(entry.Captures) != selectedCase.ExpectedCaptureCount {
-			fatal(fmt.Errorf("corpus case %q declares %d captures, index has %d", selectedCase.ID, selectedCase.ExpectedCaptureCount, len(entry.Captures)))
-		}
-		paths := make([]string, len(entry.Captures))
-		for i, capture := range entry.Captures {
-			paths[i] = filepath.Join(*pcapRoot, *pcapSubdir, capture)
-			if _, err := os.Stat(paths[i]); err != nil {
-				fatal(fmt.Errorf("case %s capture %s: %w", selectedCase.ID, paths[i], err))
-			}
-		}
+	for _, resolved := range resolvedCases {
+		selectedCase := resolved.corpusCase
+		paths := resolved.paths
 		caseOut := filepath.Join(*outDir, selectedCase.ID)
 		first := replayeval.Config{
 			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
@@ -144,9 +162,10 @@ func main() {
 		})
 	}
 	b, err := json.MarshalIndent(struct {
-		SchemaVersion int           `json:"schema_version"`
-		Cases         []caseSummary `json:"cases"`
-	}{SchemaVersion: 1, Cases: summaries}, "", "  ")
+		SchemaVersion        int           `json:"schema_version"`
+		SourceManifestSHA256 string        `json:"source_manifest_sha256,omitempty"`
+		Cases                []caseSummary `json:"cases"`
+	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Cases: summaries}, "", "  ")
 	if err != nil {
 		fatal(err)
 	}
