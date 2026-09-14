@@ -13,11 +13,14 @@ test("scene speed histogram uses percentages and preserves empty 5 mph buckets",
     ],
   });
   assert.equal(model.total, 4);
-  assert.deepEqual(model.values.map((bucket) => [bucket.start, bucket.end, bucket.percentage]), [
-    [0, 5, 25],
-    [5, 10, 0],
-    [10, 15, 75],
-  ]);
+  assert.deepEqual(
+    model.values.map((bucket) => [bucket.start, bucket.end, bucket.percentage]),
+    [
+      [0, 5, 25],
+      [5, 10, 0],
+      [10, 15, 75],
+    ],
+  );
   assert.equal(model.ceiling, 75);
 });
 
