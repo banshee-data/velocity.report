@@ -11,6 +11,13 @@ does not split the reference vehicle as well.
 
 ## 1. Outcome and boundaries
 
+**Current delivery:** The v0.5.2 pilot supplies independent evidence for temporal body extent and
+identity, followed by v0.5.3 occlusion/trail and v0.5.4 following validation. Review complete
+physical-object episodes, not isolated tracker IDs. Record observable yaw and front/rear extent
+bounds separately from point membership; unknown or prior-only bumpers remain labelled as such.
+Include vehicle, pedestrian and cyclist occlusions in the broader corpus; the rigid-vehicle demo
+alone does not validate those classes. Use separate reference pairs for gap acceptance.
+
 The operator can pause a VRLOG-derived point cloud, select returns, assign a physical
 object identity, correct the selection in another view, and save a reviewed annotation.
 The resulting dataset supports point membership, temporal association, shape

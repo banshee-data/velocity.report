@@ -6,7 +6,7 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 - **Status:** In progress: heading/evaluation foundations delivered; corrected measurement and acceptance gates outstanding
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
-- **Target:** v0.5.x through v0.7.x; the observation model lands first, the estimator follows behind measurable gates
+- **Target:** v0.5.2 evidence, solid-body geometry and an analytical report oracle; v0.5.3 temporal continuity and a provisional report; v0.5.4 physically validated headway. Richer motion models remain gated follow-ons at v1.0+
 - **Consumed by:** [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) (Phases 6 and 7; every behaviour metric depends on the final trajectory this plan produces)
 - **Companion plans:** [lossless observation persistence batching](lidar-lossless-observation-persistence-batching-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
 - **Current corpus baseline:** [Phase 0/1 medoid reference](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
@@ -24,6 +24,74 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 > uncertainty-bearing final physical trajectory. Behaviour analytics consumes
 > that trajectory and emits only metrics supported by class, geometry,
 > observation coverage and uncertainty.
+
+## Delivery priorities, September 2026
+
+The first product outcome is **bumper-to-bumper gap and following exposure from partial
+views**. The shared engineering priority is **stable physical trajectories and trails for
+vehicles, pedestrians and cyclists, including bounded estimates through occlusion**.
+These are related, not identical: tracking estimates one object's body and motion; following
+analytics additionally establishes a credible pair, shared path and supported measurement interval.
+
+Deliver the smallest model that can pass the physical gates:
+
+1. **0.5.2: evidence and body geometry.** Freeze external source digests and the lossless
+   frame-batch oracle, finish G-PER-1, and evaluate E1/G-GEO-1. Review independent identity,
+   observable yaw and extent references alongside collection. A visible face constrains a
+   temporal body belief; it does not certify unseen bumpers. Keep pose/extent correlation and
+   prior-dominated dimensions explicit. The one-site demo is an experiment, not the gate.
+2. **0.5.3: continuity and trails.** Keep the current planar CV model as the baseline, with
+   class-appropriate process uncertainty and extent/orientation beliefs. Preserve an object's
+   existence hypothesis through a bounded missed-observation interval; predict in capture time,
+   grow uncertainty, record last-observed age and expire unsupported tracks. Reacquisition must
+   test identity and geometry, not merely choose the nearest box. Pedestrian body orientation
+   need not equal travel direction; cyclist dimensions need their own supported prior.
+3. **0.5.3: calibrated and reviewable estimates.** Calibrate G-UNC-1, then validate bounded
+   smoothing through G-SMO-1 without requiring Phase 4. Align trail/box anchors and timestamps;
+   distinguish observations, coasted predictions and revised final history. Smoothing must not
+   conceal wrong associations, transport gaps or real manoeuvres. Develop following fixtures in
+   parallel, but do not emit production metrics before their existing gates.
+4. **0.5.4: following field report.** The behaviour plan builds the analytical oracle in 0.5.2
+   and wires a provisional vertical slice in 0.5.3. Promote shared-path physical endpoint
+   separation, time gap, uncertainty and supported exposure only after the physical gates pass:
+   [behaviour plan](lidar-behaviour-analytics-plan.md#83-following-behaviour).
+   Simple empirical paths suffice; a lane map, global scene graph or behavioural planner does not.
+
+Occlusion acceptance needs held-out partial/full occlusions, changing visible faces, sparse
+returns, hidden stops/turns, nearby distractors and re-entry for all three road-user groups.
+Report position/extent error where truth exists, interval coverage versus coast age, ID switches,
+fragmentation, false persistence after departure and reacquisition error. Pin horizons and
+acceptance bounds before held-out scoring; suppress unsupported precision rather than invent it.
+Predicted existence is a hypothesis, not proof that the object remains present.
+
+Phase numbers identify existing contracts, not execution order. Phase 4 CA experiments and the
+Phase 8 review surface move behind these outcomes; preserve raw rejected evidence meanwhile.
+Work elsewhere within 0.5.4 and later is not a blanket prerequisite for following delivery. Pull
+forward a specific defect only when it blocks geometry, continuity or the field-report gate.
+Deployment, classifier expansion and scene publishing can progress independently.
+CTRV/IMM, road-following constraints, interaction prediction and planner heuristics are v1.0+
+work, currently in the v2.0+ bodies-in-motion backlog. They require a demonstrated residual
+failure and cost/accuracy evidence, not an assumption that complexity improves precision.
+
+### Proposed plan consolidation for the next branch
+
+This is a proposal only. Keep every current file, link, gate and historical result on this branch.
+Consolidation should reduce competing task ledgers, not discard mathematical contracts.
+
+| Candidate plans                                                            | Proposed owner and boundary                                                                                                                                                                                 |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Heading coherence sprint, D2 readiness review and D2 implementation report | Move remaining heading/UI/physical-acceptance tasks into this plan's geometry gate. Retain dated reviews and experiment results as evidence, not duplicate delivery lists.                                  |
+| Single-site shape demo and point annotation/object dataset                 | Make the demo a milestone of the annotation plan. Preserve its fitting/tuning/held-out split and distinguish a working annotation loop from estimator acceptance.                                           |
+| Shape descriptors and this plan's temporal extent sections                 | Consolidate physical extent/observability requirements here; leave classification feature families and scorecards in the shape/classifier plans. Visible-point descriptors are not a second body estimator. |
+| Trail/uncertainty visualisation and this plan's diagnostics                | One continuity/trail acceptance contract here, with rendering details retained in the visualiser specification. UI extrapolation must not become a separate estimator.                                      |
+| Test corpus, lossless batching and branch audit                            | Keep the corpus plan as the dataset/partition owner and batching as the storage oracle owner. Move duplicated current gate checklists here; retain the branch audit and baseline report as dated evidence.  |
+| Bodies in motion and this plan                                             | Move only short-horizon CV coasting/reacquisition requirements here. Keep CA/CTRV/IMM and scene/planner extensions deferred in bodies in motion.                                                            |
+
+Do **not** merge behaviour analytics into estimation: they own different validity gates and
+outputs. Nor should deterministic scene capture, web publishing, or deferred 7DOF alignment
+become estimator prerequisites. Reuse their artefacts through explicit contracts. A later merge
+must map every open task to an owner, preserve phase/gate references and leave redirects for old
+links before retiring any task ledger.
 
 ## 0. Principles
 
@@ -720,6 +788,18 @@ forward by its own model, none of them mixed into `P`:
 | Vertical position    | `z` of the object's ground contact, plus the surface model used | Vertical motion is road grade, not object dynamics. See Section 14                                     |
 | Motion class         | Class posterior over the motion-model taxonomy in 5.5           | Discrete, and it selects the model rather than being part of it                                        |
 | Estimation lifecycle | Enum, Section 5.6                                               | Discrete                                                                                               |
+
+Together, dynamic position and those beliefs form the **solid-body estimate** consumed by headway.
+Its contract is a named physical reference point, planar position and covariance, body orientation
+with unresolved-direction modes, length/width/height beliefs with uncertainty and provenance,
+motion class, lifecycle, estimate stage, last-observed time and support state. It can project a
+front or rear surface onto a local path without pretending that either surface was directly seen.
+Every field distinguishes observed evidence, accumulated evidence and class-prior contribution.
+
+The solid body persists across changing visible faces and a bounded occlusion; the point cluster
+does not. Updates must preserve correlation between pose, heading and dimensions well enough to
+bound a projected bumper. If that joint bound is unavailable, headway is suppressed. A classifier
+label, current OBB or visually smooth trail cannot substitute for this contract.
 
 **If Option B is later adopted**, the state becomes `[x, y, psi, v, a, omega]` with indices 0..5
 and a 6x6 `P`, orientation moves in, and dimensions, vertical position, class and lifecycle stay
@@ -2010,7 +2090,7 @@ estimator to compensate for the known biased input.
 | 1     | Observation model and observation persistence     | Phase 0 baseline; exits through G-PER-1                                                                               |
 | 2     | Corrected measurement into the existing filter    | Observation data for development; G-PER-1 before promotion; exits through G-GEO-1                                     |
 | 3     | Adaptive uncertainty and residual statistics      | G-GEO-1; exits through G-UNC-1                                                                                        |
-| 4     | Motion model extension                            | Corrected/calibrated residual record; CA promotion through G-EST-1                                                    |
+| 4     | Motion model extension (v1.0+ follow-on)          | Corrected/calibrated residual record; CA promotion through G-EST-1; not required for Phase 5 or following metrics     |
 | 5     | Smoothing                                         | G-GEO-1; exits through G-SMO-1; does not require CA                                                                   |
 | 6     | Behaviour analytics → behaviour plan              | Analytical-fixture development may start now; production emission requires G-SMO-1                                    |
 | 7     | Roadway context → behaviour plan                  | Fixture development may start now; production also requires a validated site frame/map and applicable behaviour gates |
@@ -2209,6 +2289,9 @@ ship behind a config flag with the fixed model retained.
 **Acceptance.** G-UNC-1.
 
 ### Phase 4: motion model extension
+
+**Scheduling:** v1.0+ follow-on, after the current continuity and following outcomes. This phase
+number is retained for cross-references, not an instruction to block Phase 5 on CA.
 
 **Goal.** Handle acceleration and, if the evidence supports it, turning.
 
@@ -2471,12 +2554,12 @@ appears as a headline metric, only paired with manoeuvre-magnitude preservation,
 
 ### 21.1 Decisions taken
 
-| #   | Decision                                                                 | Consequence                                                                                                                                                                   |
-| --- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | **P11 is treated as a current defect**: deployment sites are graded      | The slope-aware ground-filter remedy moves into Phase 1, ahead of the Phase 2 measurement change. Severity is still to be confirmed by measuring the grade per site, per 16.5 |
-| D2  | **Ship the OBB centre as an immediate stopgap**, ahead of E1 and Phase 2 | 0.279 m mean lateral bias against the medoid's 0.676 m: a 2.4x improvement for a change of one measurement source. Conditions below                                           |
-| D3  | **Gate set confirmed** as G-PER-1, G-GEO-1, G-UNC-1, G-EST-1, G-SMO-1    | Gates beyond G-EST-1 are deferred to the conditions table in 7.3                                                                                                              |
-| D4  | **Product priority leads with vulnerable-road-user interactions**        | Recorded in the behaviour plan's roadmap; engineering dependency order is tracked separately                                                                                  |
+| #   | Decision                                                                    | Consequence                                                                                                                                                                   |
+| --- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **P11 is treated as a current defect**: deployment sites are graded         | The slope-aware ground-filter remedy moves into Phase 1, ahead of the Phase 2 measurement change. Severity is still to be confirmed by measuring the grade per site, per 16.5 |
+| D2  | **Ship the OBB centre as an immediate stopgap**, ahead of E1 and Phase 2    | 0.279 m mean lateral bias against the medoid's 0.676 m: a 2.4x improvement for a change of one measurement source. Conditions below                                           |
+| D3  | **Gate set confirmed** as G-PER-1, G-GEO-1, G-UNC-1, G-EST-1, G-SMO-1       | Gates beyond G-EST-1 are deferred to the conditions table in 7.3                                                                                                              |
+| D4  | **Product priority leads with bumper-to-bumper gap and following exposure** | September 2026 reprioritisation: temporal body geometry and occlusion continuity support both this metric and stable trails; VRU interactions remain later scope              |
 
 #### D2 conditions
 
