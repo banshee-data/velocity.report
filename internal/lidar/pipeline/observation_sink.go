@@ -15,12 +15,26 @@ func persistDetectionObservations(cfg *TrackingPipelineConfig, frame *l2frames.L
 	if cfg.ObservationSink == nil {
 		return nil
 	}
+	observations, err := freezeDetectionObservations(cfg, frame, clusters)
+	if err != nil {
+		return err
+	}
+	for _, observation := range observations {
+		if err := cfg.ObservationSink.Insert(observation); err != nil {
+			return fmt.Errorf("store observation: %w", err)
+		}
+	}
+	return nil
+}
+
+func freezeDetectionObservations(cfg *TrackingPipelineConfig, frame *l2frames.LiDARFrame, clusters []l4perception.WorldCluster) ([]l4bobserve.DetectionObservation, error) {
 	if cfg.ObservationSourceID == "" || cfg.ObservationCalibrationID == "" {
-		return fmt.Errorf("observation sink requires explicit source and calibration identities")
+		return nil, fmt.Errorf("observation sink requires explicit source and calibration identities")
 	}
 	if frame == nil {
-		return fmt.Errorf("observation sink received nil frame")
+		return nil, fmt.Errorf("observation sink received nil frame")
 	}
+	observations := make([]l4bobserve.DetectionObservation, 0, len(clusters))
 	for _, cluster := range clusters {
 		// DBSCAN labels are stable only within this frame, hence the frame time
 		// is part of ObservationID. FrameID was formerly assigned only for the
@@ -34,7 +48,7 @@ func persistDetectionObservations(cfg *TrackingPipelineConfig, frame *l2frames.L
 			cluster.ClusterID,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		observation, err := l4bobserve.New(l4bobserve.Record{
 			SchemaVersion:  1,
@@ -46,11 +60,9 @@ func persistDetectionObservations(cfg *TrackingPipelineConfig, frame *l2frames.L
 			Primitives:     l4bobserve.ExtractPrimitives(cluster),
 		})
 		if err != nil {
-			return fmt.Errorf("freeze cluster %d: %w", cluster.ClusterID, err)
+			return nil, fmt.Errorf("freeze cluster %d: %w", cluster.ClusterID, err)
 		}
-		if err := cfg.ObservationSink.Insert(observation); err != nil {
-			return fmt.Errorf("store cluster %d: %w", cluster.ClusterID, err)
-		}
+		observations = append(observations, observation)
 	}
-	return nil
+	return observations, nil
 }

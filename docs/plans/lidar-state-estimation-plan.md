@@ -8,7 +8,8 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
 - **Target:** v0.5.x through v0.7.x; the observation model lands first, the estimator follows behind measurable gates
 - **Consumed by:** [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) (Phases 6 and 7; every behaviour metric depends on the final trajectory this plan produces)
-- **Companion plans:** [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
+- **Companion plans:** [lossless observation persistence batching](lidar-lossless-observation-persistence-batching-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
+- **Current corpus baseline:** [Phase 0/1 medoid reference](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
 - **Canonical maths:** [data/maths/tracking-maths.md](../../data/maths/tracking-maths.md), [data/maths/proposals/20260222-geometry-coherent-tracking.md](../../data/maths/proposals/20260222-geometry-coherent-tracking.md)
 
 > **Scope split.** This plan owns the path from raw points to a trustworthy

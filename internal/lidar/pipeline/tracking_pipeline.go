@@ -159,6 +159,27 @@ type StateEstimateSink interface {
 	Insert(estimate sqlite.TrackEstimate, residual sqlite.TrackResidual) error
 }
 
+// FrameEvidenceSink commits immutable observations and their derived online
+// state together after L5 has finished a frame. It is optional so live paths
+// retain their existing independently configured persistence boundaries.
+type FrameEvidenceSink interface {
+	InsertFrame([]l4bobserve.DetectionObservation, []sqlite.FrameStateEstimate) error
+}
+
+// FrameEvidenceFailureSink is an optional strict-mode extension for offline
+// replay. The live callback cannot return an error, so a replay wrapper uses
+// this hook to retain preparation failures that occur before a transaction can
+// be opened.
+type FrameEvidenceFailureSink interface {
+	RecordFrameEvidenceFailure(error)
+}
+
+func recordFrameEvidenceFailure(sink FrameEvidenceSink, err error) {
+	if strict, ok := sink.(FrameEvidenceFailureSink); ok {
+		strict.RecordFrameEvidenceFailure(err)
+	}
+}
+
 // PublishSink sends pipeline outputs to external consumers (visualiser, gRPC).
 type PublishSink interface {
 	// PublishFrame sends a processed frame to external subscribers.
@@ -193,6 +214,10 @@ type TrackingPipelineConfig struct {
 	StateEstimatorID        string
 	StateObservationModelID string
 	StateParameterHash      string
+
+	// FrameEvidenceSink is the offline full-fidelity path. When present it
+	// receives all L4 observations and L5 pairs in one frame transaction.
+	FrameEvidenceSink FrameEvidenceSink
 
 	// DebugCollector is shared with the tracker at construction, before callbacks
 	// start. Its lifecycle belongs to this serial callback; do not toggle it or
@@ -737,8 +762,26 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		// Always log clustering for tracking debugging
 		tracef("Clustered into %d objects", len(clusters))
-		if err := persistDetectionObservations(cfg, frame, clusters); err != nil {
+		var frameObservations []l4bobserve.DetectionObservation
+		frameEvidenceReady := cfg.FrameEvidenceSink != nil
+		if frameEvidenceReady {
+			var err error
+			frameObservations, err = freezeDetectionObservations(cfg, frame, clusters)
+			if err != nil {
+				opsf("Failed to freeze immutable observations: %v", err)
+				recordFrameEvidenceFailure(cfg.FrameEvidenceSink, err)
+				frameEvidenceReady = false
+			}
+		} else if err := persistDetectionObservations(cfg, frame, clusters); err != nil {
 			opsf("Failed to persist immutable observations: %v", err)
+		}
+		flushFrameEvidence := func(estimates []sqlite.FrameStateEstimate) {
+			if !frameEvidenceReady {
+				return
+			}
+			if err := cfg.FrameEvidenceSink.InsertFrame(frameObservations, estimates); err != nil {
+				opsf("Failed to persist frame evidence: %v", err)
+			}
 		}
 
 		// Profile gate: detect stops here. Clusters exist for this frame but
@@ -746,6 +789,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// the distinction that justifies the profile — the CPU saving over
 		// full is under 1%.
 		if !profile.RunsLayer(5) {
+			flushFrameEvidence(nil)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
@@ -758,6 +802,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("track")
 		}
 		if cfg.Tracker == nil {
+			flushFrameEvidence(nil)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
@@ -799,6 +844,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 		}
 
+		frameEstimates := make([]sqlite.FrameStateEstimate, 0, len(confirmedTracks))
 		for _, track := range confirmedTracks {
 			// Re-classify periodically as more observations accumulate.
 			// Run every 5 observations after the initial classification
@@ -878,7 +924,16 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// allowed in replay when legacy track persistence is disabled, but it
 			// must still link to the immutable observation that reached the filter.
 			if track.Misses == 0 {
-				if err := persistOnlineStateEstimate(cfg, track, frame.StartTimestamp.UnixNano()); err != nil {
+				if cfg.FrameEvidenceSink != nil && track.LastResidual.Valid {
+					pair, err := onlineStateEstimate(cfg, track, frame.StartTimestamp.UnixNano())
+					if err != nil {
+						opsf("Failed to prepare state estimate for track %s: %v", track.TrackID, err)
+						recordFrameEvidenceFailure(cfg.FrameEvidenceSink, err)
+						frameEvidenceReady = false
+					} else {
+						frameEstimates = append(frameEstimates, pair)
+					}
+				} else if err := persistOnlineStateEstimate(cfg, track, frame.StartTimestamp.UnixNano()); err != nil {
 					opsf("Failed to persist state estimate for track %s: %v", track.TrackID, err)
 				}
 			}
@@ -893,6 +948,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				opsf("Failed to commit track persistence tx: %v", err)
 			}
 		}
+		flushFrameEvidence(frameEstimates)
 
 		if len(confirmedTracks) > 0 {
 			diagf("%d confirmed tracks active", len(confirmedTracks))

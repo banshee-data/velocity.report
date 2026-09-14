@@ -39,6 +39,13 @@ type TrackResidual struct {
 	Reason                                      string
 }
 
+// FrameStateEstimate is one derived estimate/residual pair. It is the unit
+// that joins an immutable observation to the online tracker output.
+type FrameStateEstimate struct {
+	Estimate TrackEstimate
+	Residual TrackResidual
+}
+
 // StateEstimateStore owns derived, versioned records. It intentionally has no
 // method that mutates an observation payload.
 type StateEstimateStore struct{ db DBClient }
@@ -56,6 +63,10 @@ func (s *StateEstimateStore) Insert(estimate TrackEstimate, residual TrackResidu
 // caller-owned transaction. Replacing a derived online row is allowed only for
 // its exact versioned key; the immutable observation remains untouched.
 func InsertStateEstimate(exec Executor, estimate TrackEstimate, residual TrackResidual) error {
+	return insertStateEstimate(exec, estimate, residual, time.Now().UnixNano())
+}
+
+func insertStateEstimate(exec Executor, estimate TrackEstimate, residual TrackResidual, insertedAtNanos int64) error {
 	if err := validateStateEstimate(estimate, residual); err != nil {
 		return err
 	}
@@ -63,29 +74,42 @@ func InsertStateEstimate(exec Executor, estimate TrackEstimate, residual TrackRe
 	if err != nil {
 		return fmt.Errorf("marshal estimate covariance: %w", err)
 	}
-	now := time.Now().UnixNano()
-	_, err = exec.Exec(`INSERT OR REPLACE INTO lidar_track_estimates
-		(estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos,
-		 estimator_id, observation_model_id, param_hash, stage, measurement_source, x, y, vx, vy, covariance_json, inserted_at_ns)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		estimate.EstimateID, estimate.TrackID, estimate.ObservationID, estimate.SourceID, estimate.CalibrationID,
-		estimate.FrameUnixNanos, estimate.MeasurementUnixNanos, estimate.EstimatorID, estimate.ObservationModelID,
-		estimate.ParamHash, estimate.Stage, estimate.MeasurementSource, estimate.X, estimate.Y, estimate.VX, estimate.VY,
-		covariance, now)
+	_, err = exec.Exec(stateEstimateInsertSQL, stateEstimateInsertArgs(estimate, covariance, insertedAtNanos)...)
 	if err != nil {
 		return fmt.Errorf("insert track estimate %s: %w", estimate.EstimateID, err)
 	}
-	_, err = exec.Exec(`INSERT OR REPLACE INTO lidar_track_residuals
-		(estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y,
-		 nis, geometry_cov_xx, geometry_cov_xy, geometry_cov_yy, disposition, reason, inserted_at_ns)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		residual.EstimateID, residual.ObservationID, residual.PredictedX, residual.PredictedY, residual.MeasurementX,
-		residual.MeasurementY, residual.InnovationX, residual.InnovationY, residual.NIS, residual.GeometryCovXX,
-		residual.GeometryCovXY, residual.GeometryCovYY, residual.Disposition, residual.Reason, now)
+	_, err = exec.Exec(stateResidualInsertSQL, stateResidualInsertArgs(residual, insertedAtNanos)...)
 	if err != nil {
 		return fmt.Errorf("insert track residual %s: %w", residual.EstimateID, err)
 	}
 	return nil
+}
+
+const stateEstimateInsertSQL = `INSERT OR REPLACE INTO lidar_track_estimates
+		(estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos,
+		 estimator_id, observation_model_id, param_hash, stage, measurement_source, x, y, vx, vy, covariance_json, inserted_at_ns)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+const stateResidualInsertSQL = `INSERT OR REPLACE INTO lidar_track_residuals
+		(estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y,
+		 nis, geometry_cov_xx, geometry_cov_xy, geometry_cov_yy, disposition, reason, inserted_at_ns)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+func stateEstimateInsertArgs(estimate TrackEstimate, covariance []byte, insertedAtNanos int64) []any {
+	return []any{
+		estimate.EstimateID, estimate.TrackID, estimate.ObservationID, estimate.SourceID, estimate.CalibrationID,
+		estimate.FrameUnixNanos, estimate.MeasurementUnixNanos, estimate.EstimatorID, estimate.ObservationModelID,
+		estimate.ParamHash, estimate.Stage, estimate.MeasurementSource, estimate.X, estimate.Y, estimate.VX, estimate.VY,
+		covariance, insertedAtNanos,
+	}
+}
+
+func stateResidualInsertArgs(residual TrackResidual, insertedAtNanos int64) []any {
+	return []any{
+		residual.EstimateID, residual.ObservationID, residual.PredictedX, residual.PredictedY, residual.MeasurementX,
+		residual.MeasurementY, residual.InnovationX, residual.InnovationY, residual.NIS, residual.GeometryCovXX,
+		residual.GeometryCovXY, residual.GeometryCovYY, residual.Disposition, residual.Reason, insertedAtNanos,
+	}
 }
 
 func validateStateEstimate(estimate TrackEstimate, residual TrackResidual) error {

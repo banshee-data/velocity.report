@@ -9,6 +9,16 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 **Formatting:** Backlog items describe outstanding work only. When sub-tasks complete, move them to the Complete section and simplify the parent item to show only what remains. Do not use strikethrough to track done sub-tasks inline: the Complete section is the record of delivered work.
 
+**Planning rubric:** Every active item must name one release outcome, its
+acceptance artefact, and any blocking predecessor. Use **evidence** for a
+measured corpus, test, benchmark, or physical-device record; **contract** for
+a versioned schema, API, or compatibility boundary; **behaviour** for a change
+to perception, tracking, or user-visible semantics; and **product** for a
+workflow or presentation surface. A row without an acceptance artefact belongs
+under its parent programme, not in the active release list. `S` items should be
+one bounded pull request; `M` items need a short sequence; `L`/`XL` rows are
+programmes with separately shippable gates.
+
 ## 05x Sunny southeast 🌞
 
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
@@ -19,39 +29,68 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.2 - LiDAR measurement + replay foundations (052)
 
-- Deterministic scene capture Milestone 1: agent-operated script taking existing scene exports and up to 50 named camera/target coordinate pairs; frozen multi-angle stills, readiness and pixel-stability checks, provenance manifest, optional contact sheet, and deterministic five-second trails beneath the Boxes toggle: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
+**Release outcome:** a replay corpus whose identity, retained evidence, timing,
+and state-estimation baseline are trustworthy enough to make a Phase 2 decision.
 
-- LiDAR maths coherence Items 1–5: close the maths-to-code citation loop (no Go file currently references `data/maths/`), state the L6 confidence model as an equation in place of 29 scattered increments, write the missing L8 analytics and L1/L2 maths notes, and correct the `MATHS.md` and `MAGIC_NUMBERS.md` registries; substrate for the paper-gap fixes below: [design doc](plans/lidar-maths-coherence-plan.md) `M` {math}
-- Classification scorecard (classifier plan Phase 1): `Classifier` interface, confusion matrix, per-class precision/recall/F1, macro-F1, and confidence calibration wired into `ScoreComponents`; nothing currently measures classification accuracy, only detection: [design doc](plans/lidar-ml-classifier-training-plan.md) `M` {math}
-- Deterministic scene capture Milestone 1: agent-operated script taking existing scene exports and up to 50 named camera/target coordinate pairs; frozen multi-angle stills, readiness and pixel-stability checks, provenance manifest, optional contact sheet, and deterministic five-second trails beneath the Boxes toggle: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
-- Cluster point retention (shape descriptors Phase 1): populate `WorldCluster.SamplePoints`, proto `Cluster.sample_points`, and the live-path `ExtractClusterFeatures` call under a configurable per-cluster cap; all three are declared today and never assigned, leaving `IntensityStd` and `VerticalSpread` permanently zero and blocking every shape feature; gated on a throughput benchmark against the kirk0 baseline: [design doc](plans/lidar-shape-descriptors-plan.md) `M`
+#### Evidence corpus and Phase 2 decision
+
+- Lossless immutable-observation batching (Phase 1): freeze a LiDAR-volume source-PCAP SHA manifest, then batch one frame's existing observations, estimates, and residuals in a single SQLite transaction with prepared inserts. Prove it against the existing frame-by-frame external corpus oracle with table, order, payload, linkage, and baseline checksums; preserve every retained point, float, ID, provenance field, rejection, and fail-closed duplicate rule: [design doc](plans/lidar-lossless-observation-persistence-batching-plan.md) `M`
+- Phase 0 evidence completion: publish the three-site replication report, residual and association-failure distributions by speed/cause, current Pi per-stage timings, and a reviewed, frozen replacement set for the unavailable 33 historical jump tracks. Deterministic replay is necessary but does not provide physical accuracy by itself: [design doc](plans/lidar-state-estimation-plan.md) `M` {math}
+- Phase 1 evidence completion and G-PER-1: finish multi-site immutable replay after lossless batching, establish source/calibration ownership, add per-region surface and clipping context for P11, and prove retained evidence can be reopened without changing its meaning. The exit remains a week of live evidence plus deterministic replay round-trip: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
+- Phase 2 corrected measurement and G-GEO-1: complete Experiment E1, retain the source-labelled OBB-centre comparison only as a stopgap, then evaluate the near-edge interpretation, fallback, and shape-conditioned uncertainty against held-out geometry and manoeuvres. Do not promote without the residual, excursion, fragmentation, and manoeuvre-preservation gate: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
+- Phase 3 adaptive uncertainty and G-UNC-1: calibrate anisotropic measurement uncertainty by range, support, aspect, and measurement dimension, including pre-gate NIS and genuine-manoeuvre rejection evidence: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
+- Phase 4 motion extension and G-EST-1: preserve sufficient moving-track residual histories, demonstrate an acceleration-specific constant-velocity failure, then assess offline constant acceleration before any CA or IMM production change: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
+- Phase 5 smoothing and G-SMO-1: add bounded fixed-lag history, final-stage persistence and display, revision audit, and manoeuvre-preservation evidence before exposing revised trajectories to behaviour metrics: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
+- Phase 8 abnormal-motion evidence: preserve innovations, rejected observations, model/mode changes, and discontinuities with query and display support. This is evidence for review, not crash classification: [design doc](plans/lidar-state-estimation-plan.md) `M`
+
+#### Measured replay envelope
+
 - Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary; required to make perf-harness results reproducible: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M` {math}
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation and reproducible PCAP-based benchmarks; foundational for all subsequent math work. CI regression detection landed in #566 (workload identity, work counters, an absolute frame budget, median-of-N baselines), and per-layer means would have caught the failure it fixed — a baseline whose `l4_perception` mean is 0.0 ms is self-evidently wrong — so the within-run attribution is what remains: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 - Pi performance benchmark automation: the CI regression gate (#566) covers `ci` and `mac` host classes; the `pi` host class — the only one that answers "fast enough for a 10 Hz sensor" — has no baseline and no scheduled run. [#559] adds the host-class dimension to the perf matrix and a manual [Pi benchmark runbook](lidar/operations/pi-benchmark-runbook.md); wiring the runbook into a schedule needs a self-hosted runner attached to a Pi or a webhook-triggered job `M`
 - Static `lidar-bench` binary for Pi benchmarking: `build-radar-static` (zig+musl+libpcap.a, hermetic Docker) produces the `velocity` server binary only; `lidar-bench` still needs `apt install libpcap-dev` and a native build on-device. Extending the same pipeline to emit a statically-linked `lidar-bench` would remove that step and match the linking characteristics of what actually ships, closer to a production-representative benchmark than a dynamically-linked native build: [design doc](plans/lidar-performance-measurement-harness-plan.md) `S`
 - Recapture stale `mac`/`ci` perf baselines: [#559] added `obb_axis_coherence_enabled` and `association_extent_cost_weight` to the L5 tuning schema, moving the tuning fingerprint and invalidating the committed `mac` baselines for both gated profiles; the comparator correctly refuses them (`tuning fingerprint ... vs ...`) rather than reporting a false regression, but a fresh capture on an idle machine is needed before the gate is informative again `S`
 
+#### Replay correctness prerequisites
+
 - LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening; in progress and load-bearing for replay evaluation: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M` {math}
 - LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness landing first: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Go runtime pipeline correctness Phases 1–2: fix PCAP analysis-mode default/provenance, prevent persisted analysis replay from wall-clock-throttling foreground frames into empty semantic frames, and replace VRLOG load prefix checks with symlink-safe validation; blocks trustworthy replay/HINT output: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `M`
-- Paper-implementation gap remediation P1a (Kalman fixes): K1 (full-Q process noise test), K2 (Joseph-form covariance update); both flagged as Medium-impact mathematical gaps in tracker gating accuracy: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
-- Paper-implementation gap remediation P1b (background + tracker metrics): B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - LiDAR maths coherence Item 6: fix the stale path trigger in `config-order-ci.yml` (it references a moved file) and unmask the config-maths parity gate, which currently reports success under `continue-on-error`; gated on foundations fix-it Phase 2: [design doc](plans/lidar-maths-coherence-plan.md) `S`
 
 ### v0.5.3 - Data contracts + observability (053)
 
+**Release outcome:** retained replay evidence has stable names, populated
+contracts, and reviewable metrics that downstream products can consume without
+guessing.
+
+#### Reviewable evidence products
+
+- Deterministic scene capture Milestone 1: agent-operated script taking existing scene exports and up to 50 named camera/target coordinate pairs; frozen multi-angle stills, readiness and pixel-stability checks, provenance manifest, optional contact sheet, and deterministic five-second trails beneath the Boxes toggle: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - Deterministic scene capture Milestones 2–3: frozen-target bullet-time arcs with varying elevation, recorded-frame temporal sequences, numeric geometry evidence, and optional contact sheets/MP4/GIF; reuse Milestone 1 and cap sequences at 50 images: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
+
+#### Metric and persistence contracts
 
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Classification corpus contract (classifier plan Phase 2): Go training-export path over `TrackFeatures`, a versioned labelled-corpus artefact with provenance, a frozen kirk0 baseline, and a scorecard regression test; pulls the export endpoint forward from the v0.8.0 unpopulated-data item: [design doc](plans/lidar-ml-classifier-training-plan.md) `M`
+- Classification scorecard (classifier plan Phase 1): `Classifier` interface, confusion matrix, per-class precision/recall/F1, macro-F1, and confidence calibration wired into `ScoreComponents`; nothing currently measures classification accuracy, only detection: [design doc](plans/lidar-ml-classifier-training-plan.md) `M` {math}
+- Cluster point retention (shape descriptors Phase 1): populate `WorldCluster.SamplePoints`, proto `Cluster.sample_points`, and the live-path `ExtractClusterFeatures` call under a configurable per-cluster cap; all three are declared today and never assigned, leaving `IntensityStd` and `VerticalSpread` permanently zero and blocking every shape feature; gated on a throughput benchmark against the kirk0 baseline: [design doc](plans/lidar-shape-descriptors-plan.md) `M`
 - Shape descriptors Phases 2–3: 3D eigenvalue features (linearity, planarity, sphericity, anisotropy, omnivariance, eigenentropy), vertical mass profile, ground footprint, and return character computed in L4 as an additive stage; `shape_features_json` persistence with per-track aggregates including cross-observation variance; the existing PCA is 2D and retains neither eigenvalue, so no shape description exists today: [design doc](plans/lidar-shape-descriptors-plan.md) `M` {math}
 - S2 PCAP splitter groundwork: extend the recent PCAP splitter so eligible static segments use an `s2-l10-<canonical-token>` filename tag and carry the same L13/L10 pair through `segments.json`, `capture-summary.txt`, derived VRLOG names and headers, and replay/run database columns; leave moving, legacy, and sensor-local captures coherently untagged: [plan](plans/s2-geographic-indexing-plan.md), [style guide](lidar/architecture/geographic-indexing.md) `L`
+
+#### Runtime truth surfaces
+
 - Capabilities lifecycle follow-through: the #547 response-shape redesign now returns named `radar`/`lidar` maps and gates web LiDAR navigation, but production still only wires LiDAR as `starting` when `--enable-lidar` is active. Wire `SetLidarReady`/`SetLidarError` from real LiDAR startup outcomes and add hardware smoke validation notes: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
 - Go runtime pipeline correctness Phase 3: define the magnitude-only radar raw-data/transit contract and add the transit worker regression tests: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
 
 ### v0.5.4 - Perception pipeline + extractor foundations (054)
+
+**Release outcome:** additive perception experiments have explicit interfaces,
+bounded corpus evidence, and do not silently alter the established replay path.
+
+#### Extractor and segmentation foundations
 
 - Velocity-coherent extractor (dynamic algorithm selection Phases 2–3): per-point velocity estimation, frame history, and opt-in `VelocityCoherentExtractor` behind runtime flag: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - [#388] Dynamic segmentation for LiDAR background regions: adaptive background region boundaries based on scene geometry rather than fixed grid `M`
@@ -60,25 +99,34 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.5 - Tracker correctness + robustness (055)
 
+**Release outcome:** tracking changes are promoted only after their numerical,
+association, and edge-case evidence is explicit.
+
+#### Mathematical and association correctness
+
+- Paper-implementation gap remediation P1a (Kalman fixes): K1 (full-Q process noise test), K2 (Joseph-form covariance update); both flagged as Medium-impact mathematical gaps in tracker gating accuracy: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1b (background + tracker metrics): B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - [#391] Geometry-coherent tracking (P1 maths, D-04): persistent geometry state in L5 track association for spatial consistency: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
 - Paper-implementation gap remediation P2 (edge-case hardening): D2 (MinPts self-inclusion), D3 (near-merge cluster separation), S2/S3 (confirmed-vs-tentative priority), P3 (heading disambiguation chain), C2 (classification boundaries), V1 (coasting prediction error), G1 (Patchwork++ evaluation): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P3 (completeness + robustness): K3 (covariance symmetry monitoring), K4 (identity preservation unlike-class), B3/B4/B5 (bimodal/reacquisition/locked-baseline background tests), H1/H2 (Hungarian edge cases), M3 (temporal IoU), G1 (sloped-road), HW1 (noise model vs sensor spec), P1 (degenerate OBB): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - [#397] OBB review status and heading telemetry prep: document Fix E/F completion status for oriented bounding boxes, add cluster debug flag prep, tracker heading instrumentation, and config updates for remaining OBB stability work: `S`
 - [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391; close without merge if those branches land first: `S`
 
-- Measurement source stopgap (state estimation D2): replace the medoid with the OBB centre as the tracker's position measurement behind a recorded source field, then re-baseline the G-GEO-1 regression numbers; measured 0.279 m mean lateral bias against the medoid's 0.676 m, a 2.4x improvement for a change of measurement source, but still a visible-surface artefact rather than a fix: [design doc](plans/lidar-state-estimation-plan.md) `S`
-- Slope-aware ground removal (state estimation P11): `HeightBandFilter.FilterVertical` bands on absolute sensor-frame Z and is documented as not slope-aware, so on a graded approach it clips vehicles at one end of the scene and admits ground at the other, corrupting the cluster extents the near-edge measurement depends on; move to a band on height above a coarse per-region surface fitted from the settled L3 background, and record `GroundClipped` per observation: [design doc](plans/lidar-state-estimation-plan.md) `M` {math}
-- Immutable observation persistence (state estimation Phase 1): `lidar_clusters` holds 0 rows and `InsertCluster` has no caller, so no raw observation is retained anywhere and `lidar_track_observations` stores the Kalman estimate under a name that says otherwise; add `DetectionObservation` with retained points and per-cluster capture timestamps, split from the track-conditioned `MeasurementInterpretation` so two estimator versions can consume the same evidence: [design doc](plans/lidar-state-estimation-plan.md) `L`
-- Near-edge measurement model (state estimation Phase 2): replace the medoid position measurement with per-face edge measurements plus a dimension prior, keeping the linear CV filter unchanged so the change is attributable; synthetic measurement gives 0.035 m mean lateral bias against 0.676 m, gated on Experiment E1 confirming it on real clusters: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
-- Experiment E1 lateral-error validation (state estimation 16.5): four ground-truth-free tests of the candidate measurements across `kirk0`, `clar0-1`, and the soma static captures, the decisive one being the conditional mean by aspect angle; blocks Phase 2 and carries a grade confound that must be controlled first: [design doc](plans/lidar-state-estimation-plan.md) `M` {math}
-
 ### v0.5.6 - Layer cleanup + codebase hygiene (056)
+
+**Release outcome:** future changes have clear ownership boundaries, stable
+identities, and instrumentation that makes regressions visible.
+
+#### Code and configuration boundaries
 
 - Go codebase structural hygiene: label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0): [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go cmd/ business logic extraction: move ~1,050 LOC of testable logic from `cmd/` into `internal/`: capabilities provider, LiDAR helpers, adapter bridges, transits CLI dispatch, config migration, backfill SQL, settling eval: [design doc](plans/go-cmd-extraction-plan.md) `M`
 - LiDAR replay case terminology alignment: rename "scene" → "replay case" in Go store/API layer, sweep interfaces, and Web components; preserve "scene" in L3 grid geometric context; consolidates 1,200+ code identifiers: [design doc](plans/lidar-replay-case-terminology-alignment-plan.md) `M`
 - Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - SSE subscriber-notify policy: the non-blocking fanout drop path landed (`internal/api/serial_reload.go` drops on full subscriber channels and logs a count, with a flood test); what remains is notifying the affected client that events were dropped rather than only logging server-side `S`
+
+#### Performance-gate calibration
+
 - Perf-baseline track-count identity: `confirmed_tracks` is recorded in `metrics.work` but excluded from the workload-identity check, so a change in track-confirmation behaviour can pass a baseline comparison that should have been refused (raised in review on #566). It is excluded because it is the peak concurrent count — a single-digit number on `kirk0`, where the 10% proportional tolerance resolves to ±0.5 and any ±1 would refuse outright. Making it usable needs a cumulative measure: total distinct confirmed tracks over the run, which is stable enough to carry a proportional tolerance. Add that counter, then include it in `workDifferences` `S`
 - Perf frame-budget allowance calibration: `PERF_MAX_OVER_BUDGET_PCT` is 1.0 on the reasoning that the tail is genuinely noisy — identical code over the same capture produced worst-frame times from 86 ms to 329 ms. CI's last measured p99 was 92.7 ms with a max of 111 ms against the 98 ms budget, so roughly 0.6% of frames are expected over and the margin is thin. Read the first few nightlies' `frame_budget.frames_over` and either tighten the allowance or treat the tail as work to be done; the worst single frame is not the signal, the count is `S`
 - Tuning config layer alignment (schema v3): every layer's parameters should live under that layer, and two do not. `pipeline` is a junk drawer — `buffer_timeout` and `min_frame_points` are L2 frame assembly, `flush_interval` and `background_flush` are L3 background persistence — while `l2` and `l6` have no blocks at all and L6's only parameter (`min_observations_for_classification`) squats in `l5.cv_kf_v1`. Add `l2` and `l6` with their own `engine` selectors, move the squatters home, and leave `pipeline` holding genuinely cross-cutting settings such as `frame_budget_ms`. Adding required keys breaks the strict decoder, so this is a version 2 → 3 bump and needs the `config-migrate` path exercised. It also restores the `track` profile: with an `l6.engine` selector, disabling classification becomes expressible the same way disabling L4 and L5 already is `M`
@@ -124,6 +172,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.6.x - Scene capture workflow and review integration
 
+**Programme outcome:** turn verified replay evidence into repeatable capture,
+review, and publication workflows. Each milestone must retain the source and
+derived-artifact provenance established in 0.5.2 and 0.5.3.
+
 - Deterministic scene capture Milestone 4: automatic stride-1 VRLOG-to-web export and an unchecked Make web export option in the 8081 recording workflow; finalisation-gated export, local viewer link, and independent export retry: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - Deterministic scene capture Milestone 5: versioned fixtures and capture recipes, before/after review artefacts, and evaluation of Happo or equivalent visual review; reproduce a known trail-alignment defect before demonstrating fixes: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - Route capture: cargo bike and backpack rigs producing speeds along road segments either side of intersections; a trajectory contract and PoseProvider fed by offline odometry, a world-anchored foreground engine and world-frame tracking with ego-uncertainty gating, a stop stabiliser for quasi-static corners, a road model of intersections, segments, and crossings with crosswalks as the border, band aggregates and a speed-by-distance chart, a `survey` segment kind for the tilted walk that feeds the spatial priors service, IMU and GNSS in the PCAP bundle, validation against the fixed radar, and a Raspberry Pi perf baseline; record-then-process throughout: [design doc](plans/lidar-route-capture-plan.md) `XL`
@@ -132,12 +184,18 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.6.0 - Deployment & packaging (060)
 
+**Release outcome:** a supportable, signed deployment path with explicit trust
+boundaries and a repeatable release smoke test.
+
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app release signing: local Developer ID signing, notarisation, stapling, and `make verify-mac` path complete; remaining release-gate work is GitHub Actions secret population and tagged-release smoke validation for packaged artifacts. `S`
 
 ### v0.6.1 - macOS local server (061)
+
+**Release outcome:** a local server is an ordinary, observable macOS workflow,
+not a separate manual installation.
 
 - macOS local server Phases 1–3: embed Go server binary in VelocityVisualiser.app bundle, add ServerProcessManager (start/stop/restart lifecycle), Server menu with status and keyboard shortcuts, build pipeline integration (`build-server-for-mac` Makefile target, Xcode bundled resource): [design doc](plans/macos-local-server-plan.md) `M`
 - VelocityVisualiser server manager Phases 1–3: `ServerConfig` model, `ServerManager` persistence, Servers CommandMenu, Add/Edit server sheet with test-connection: [design doc](plans/server-manager.md) `M`
@@ -146,6 +204,9 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
 
 ### v0.6.2 - Design system foundations (062)
+
+**Programme outcome:** shared primitives and accessibility rules precede new
+product surfaces; feature ideas remain downstream consumers of that foundation.
 
 - Design tokens canonicalisation: codify colour, type scale, spacing, radii, motion, and elevation as TypeScript exports + CSS custom properties; Figma library mirrors the same tokens; web app, visualiser, and report SVG all source from one place. Subsumes [shared palette module](ui/design-review-and-improvement.md#13-no-single-source-palette-definition-medium) and `ChartStyle` cross-surface coherence. `M`
 - Component primitive library: button, input, select, dialog, toast, tab, table, card, chart-frame, KPI-tile; Storybook (or equivalent) with visual-regression baselines; replaces ad-hoc CSS class soup in existing routes. `M`
@@ -157,6 +218,9 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - VelocityVisualiser palette parity: shared palette constants between web and macOS visualiser so 3D scene point/track/box colours track the same tokens; light-mode 3D scene piggybacks on this. `S`
 
 ### v0.6.3 - Web scene publishing (063)
+
+**Release outcome:** published scenes retain capture provenance and can scale
+only as far as their geographic and corpus metadata allow.
 
 - Web scene export Phase 0 **delivered on branch**: `velocity scene export` writes gzipped NDJSON tracks, clip and background exports from a recorded VRLOG; `public_html/src/scenes/soma1/` plays the reference capture with a background point cloud, orbit/pan camera, named vantages, a constant-speed drone orbit fitted to them, an annotated timeline that doubles as the scrubber, looping playback and 1x-16x rates. Remaining: re-export soma1 so the published assets come from the current exporter: [design doc](plans/lidar-web-scene-export-plan.md) `S`
 - Swift scene provenance: surface the VRLOG file generator version in VelocityVisualiser, reading `build_version` from the recording rather than showing the currently running app version. `S`
