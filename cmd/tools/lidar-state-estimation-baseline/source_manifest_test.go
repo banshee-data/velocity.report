@@ -58,6 +58,16 @@ func TestWriteSourceManifestIsImmutableAndDigestible(t *testing.T) {
 	if _, err := writeSourceManifest(path, manifest); !errors.Is(err, os.ErrExist) {
 		t.Fatalf("second write error = %v, want os.ErrExist", err)
 	}
+	verified, err := verifySourceManifest(path, manifest)
+	if err != nil || verified != digest {
+		t.Fatalf("verifySourceManifest = %q, %v; want %q", verified, err, digest)
+	}
+	if err := os.WriteFile(path, []byte("changed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifySourceManifest(path, manifest); err == nil {
+		t.Fatal("changed source manifest verified")
+	}
 }
 
 func TestBuildSourceManifestUsesRootRelativeCapturePaths(t *testing.T) {

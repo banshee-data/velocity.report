@@ -153,12 +153,10 @@ func replayParametersSHA256(tuningPath string) (string, error) {
 }
 
 func writeSourceManifest(path string, manifest sourceManifest) (string, error) {
-	payload, err := json.MarshalIndent(manifest, "", "  ")
+	payload, err := marshalSourceManifest(manifest)
 	if err != nil {
-		return "", fmt.Errorf("marshal source manifest: %w", err)
+		return "", err
 	}
-	payload = append(payload, '\n')
-	sum := sha256.Sum256(payload)
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return "", fmt.Errorf("create source manifest %s: %w", path, err)
@@ -170,7 +168,35 @@ func writeSourceManifest(path string, manifest sourceManifest) (string, error) {
 	if err := file.Close(); err != nil {
 		return "", fmt.Errorf("close source manifest %s: %w", path, err)
 	}
-	return "sha256:" + hex.EncodeToString(sum[:]), nil
+	return sha256Payload(payload), nil
+}
+
+func verifySourceManifest(path string, manifest sourceManifest) (string, error) {
+	want, err := marshalSourceManifest(manifest)
+	if err != nil {
+		return "", err
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read source manifest %s: %w", path, err)
+	}
+	if string(got) != string(want) {
+		return "", fmt.Errorf("source manifest differs from current corpus inputs: %s", path)
+	}
+	return sha256Payload(got), nil
+}
+
+func marshalSourceManifest(manifest sourceManifest) ([]byte, error) {
+	payload, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal source manifest: %w", err)
+	}
+	return append(payload, '\n'), nil
+}
+
+func sha256Payload(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func fileSHA256(path string) (string, error) {
