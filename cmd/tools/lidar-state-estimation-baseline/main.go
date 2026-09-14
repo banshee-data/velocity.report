@@ -45,16 +45,17 @@ type caseSummary struct {
 
 func main() {
 	var (
-		corpusPath         = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
-		indexPath          = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
-		pcapRoot           = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
-		pcapSubdir         = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
-		outDir             = flag.String("out", "", "empty output directory for baseline recordings (required)")
-		sourceManifestPath = flag.String("source-manifest", "", "new immutable JSON manifest of ordered source PCAP hashes")
-		sourceManifestOnly = flag.Bool("source-manifest-only", false, "write -source-manifest then exit without replaying")
-		tuning             = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
-		sensorID           = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
-		duration           = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
+		corpusPath                 = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
+		indexPath                  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
+		pcapRoot                   = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
+		pcapSubdir                 = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
+		outDir                     = flag.String("out", "", "empty output directory for baseline recordings (required)")
+		sourceManifestPath         = flag.String("source-manifest", "", "new immutable JSON manifest of ordered source PCAP hashes")
+		existingSourceManifestPath = flag.String("existing-source-manifest", "", "existing immutable source manifest to verify before replay")
+		sourceManifestOnly         = flag.Bool("source-manifest-only", false, "write -source-manifest then exit without replaying")
+		tuning                     = flag.String("tuning", "", "tuning JSON; empty uses embedded defaults")
+		sensorID                   = flag.String("sensor", "hesai-pandar40p", "replay sensor identity")
+		duration                   = flag.Float64("duration", 0, "scoring duration in seconds; 0 replays each full case")
 		// Marina's first capture reaches the configured L3 convergence threshold
 		// at 56.5 seconds. Keep a measured 20% margin so the default preserves
 		// the fail-closed scoring-boundary invariant across the Phase 0 corpus.
@@ -68,10 +69,13 @@ func main() {
 	if *sourceManifestOnly && *sourceManifestPath == "" {
 		fatal(fmt.Errorf("-source-manifest-only requires -source-manifest"))
 	}
+	if *sourceManifestPath != "" && *existingSourceManifestPath != "" {
+		fatal(fmt.Errorf("-source-manifest and -existing-source-manifest are mutually exclusive"))
+	}
 	if !*sourceManifestOnly && *outDir == "" {
 		fatal(fmt.Errorf("-out is required"))
 	}
-	if *observations != "" && *sourceManifestPath == "" {
+	if *observations != "" && *sourceManifestPath == "" && *existingSourceManifestPath == "" {
 		fatal(fmt.Errorf("-observations-db requires -source-manifest so persisted evidence has immutable source identity"))
 	}
 	if !*sourceManifestOnly {
@@ -103,6 +107,17 @@ func main() {
 		}
 		sourceManifestSHA256 = digest
 		fmt.Printf("wrote immutable source manifest %s (%s)\n", *sourceManifestPath, sourceManifestSHA256)
+	}
+	if *existingSourceManifestPath != "" {
+		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
+		if err != nil {
+			fatal(err)
+		}
+		sourceManifestSHA256, err = verifySourceManifest(*existingSourceManifestPath, manifest)
+		if err != nil {
+			fatal(err)
+		}
+		fmt.Printf("verified immutable source manifest %s (%s)\n", *existingSourceManifestPath, sourceManifestSHA256)
 	}
 	if *sourceManifestOnly {
 		return
