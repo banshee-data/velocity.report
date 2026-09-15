@@ -257,6 +257,37 @@ func TestInsertStateEstimateStatementsRejectsEachStatementFailure(t *testing.T) 
 	}
 }
 
+// BenchmarkFrameEvidenceStore is deliberately a real SQLite benchmark, not a
+// mock: it keeps the immutable payload marshaling, transaction boundary, and
+// three derived-table writes that dominate an offline evidence replay.
+func BenchmarkFrameEvidenceStore(b *testing.B) {
+	database, cleanup := setupTrackingPipelineTestDB(b)
+	b.Cleanup(cleanup)
+	store := NewFrameEvidenceStore(database)
+	b.Cleanup(func() { _ = store.Close() })
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		observation := benchmarkObservation(i)
+		pair := testFrameStateEstimate(observation.Snapshot().ObservationID, int64(i+1))
+		if err := store.InsertFrame([]l4bobserve.DetectionObservation{observation}, []FrameStateEstimate{pair}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func benchmarkObservation(i int) l4bobserve.DetectionObservation {
+	record := l4bobserve.Record{SchemaVersion: 1, ObservationID: fmt.Sprintf("observation/v1/benchmark/%d", i), SourceID: "source/v1/benchmark", CalibrationID: "calibration/v1/test", FrameUnixNanos: int64(i + 1),
+		Cluster: l4perception.WorldCluster{ClusterID: int64(i + 1), SensorID: "hesai-pandar40p", FrameID: "site/test", TSUnixNanos: int64(i + 2), PointsCount: 3,
+			RetainedPoints: []l4perception.WorldPoint{{X: 1, Y: 2, Z: 3, Intensity: 4, Timestamp: time.Unix(0, int64(i+2)).UTC(), SensorID: "hesai-pandar40p"}, {X: 2, Y: 2, Z: 3}, {X: 3, Y: 2, Z: 3}}},
+		Primitives: l4bobserve.Primitives{Planes: []l4bobserve.Plane{{Normal: [3]float64{0, 0, 1}, Offset: -3, Support: 3}}, Edges: []l4bobserve.Edge{{Start: [3]float64{1, 2, 3}, End: [3]float64{3, 2, 3}, Support: 3}}}}
+	observation, err := l4bobserve.New(record)
+	if err != nil {
+		panic(err)
+	}
+	return observation
+}
+
 type frameEvidenceBeginErrorDB struct{ err error }
 
 func (d frameEvidenceBeginErrorDB) Exec(string, ...any) (sql.Result, error) { return nil, d.err }
