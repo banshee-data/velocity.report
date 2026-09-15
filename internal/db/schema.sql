@@ -408,6 +408,7 @@
         , vy REAL NOT NULL
         , covariance_json BLOB NOT NULL
         , inserted_at_ns INTEGER NOT NULL
+        , creation_sequence INTEGER NOT NULL DEFAULT 0
         , UNIQUE (
           track_id
         , estimator_id

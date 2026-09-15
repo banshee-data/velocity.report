@@ -174,28 +174,35 @@ func (b *oracleBuilder) readObservations(db *sql.DB) error {
 }
 
 func (b *oracleBuilder) readEstimates(db *sql.DB) error {
-	rows, err := db.Query(`SELECT estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, x, y, vx, vy, covariance_json
-		FROM lidar_track_estimates ORDER BY source_id, frame_unix_nanos, estimate_id`)
+	// Ordered by observation_id, not estimate_id: estimate_id embeds the
+	// track's random UUID (l5tracks assigns it that way deliberately, to stay
+	// collision-free across tracker resets and restarts), so ordering by it
+	// would make accumulation order itself non-reproducible between two
+	// replays of the same input.
+	rows, err := db.Query(`SELECT estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos, estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json
+		FROM lidar_track_estimates ORDER BY source_id, frame_unix_nanos, observation_id`)
 	if err != nil {
 		return fmt.Errorf("query estimates: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
+		var estimateID, trackID string
 		var row oracleEstimateRow
-		if err := rows.Scan(&row.EstimateID, &row.TrackID, &row.ObservationID, &row.SourceID, &row.CalibrationID, &row.FrameUnixNanos, &row.MeasurementUnixNanos, &row.EstimatorID, &row.ObservationModelID, &row.ParamHash, &row.Stage, &row.MeasurementSource, &row.X, &row.Y, &row.VX, &row.VY, &row.CovarianceJSON); err != nil {
+		if err := rows.Scan(&estimateID, &trackID, &row.ObservationID, &row.SourceID, &row.CalibrationID, &row.FrameUnixNanos, &row.MeasurementUnixNanos, &row.EstimatorID, &row.ObservationModelID, &row.ParamHash, &row.Stage, &row.MeasurementSource, &row.CreationSequence, &row.X, &row.Y, &row.VX, &row.VY, &row.CovarianceJSON); err != nil {
 			return fmt.Errorf("scan estimate: %w", err)
 		}
 		observation, ok := b.observations[row.ObservationID]
 		if !ok {
-			return fmt.Errorf("estimate %q links missing observation %q", row.EstimateID, row.ObservationID)
+			return fmt.Errorf("estimate %q links missing observation %q", estimateID, row.ObservationID)
 		}
 		if observation.sourceID != row.SourceID || observation.calibrationID != row.CalibrationID || observation.frameNS != row.FrameUnixNanos {
-			return fmt.Errorf("estimate %q identity differs from observation %q", row.EstimateID, row.ObservationID)
+			return fmt.Errorf("estimate %q identity differs from observation %q", estimateID, row.ObservationID)
 		}
-		if _, exists := b.estimates[row.EstimateID]; exists {
-			return fmt.Errorf("duplicate estimate ID %q", row.EstimateID)
+		if _, exists := b.estimates[estimateID]; exists {
+			return fmt.Errorf("duplicate estimate ID %q", estimateID)
 		}
-		b.estimates[row.EstimateID] = oracleEstimate{observationID: row.ObservationID, sourceID: row.SourceID, calibrationID: row.CalibrationID, frameNS: row.FrameUnixNanos}
+		b.estimates[estimateID] = oracleEstimate{observationID: row.ObservationID, sourceID: row.SourceID, calibrationID: row.CalibrationID, frameNS: row.FrameUnixNanos}
+		_ = trackID // identity only; deliberately excluded from the hashed row, see oracleEstimateRow
 		if err := b.add("lidar_track_estimates", row.SourceID, row.FrameUnixNanos, row); err != nil {
 			return err
 		}
@@ -204,23 +211,26 @@ func (b *oracleBuilder) readEstimates(db *sql.DB) error {
 }
 
 func (b *oracleBuilder) readResiduals(db *sql.DB) error {
+	// Ordered by observation_id for the same reason as readEstimates:
+	// estimate_id embeds the estimate's random track UUID.
 	rows, err := db.Query(`SELECT estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y, nis, geometry_cov_xx, geometry_cov_xy, geometry_cov_yy, disposition, reason
-		FROM lidar_track_residuals ORDER BY estimate_id`)
+		FROM lidar_track_residuals ORDER BY observation_id`)
 	if err != nil {
 		return fmt.Errorf("query residuals: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
+		var estimateID string
 		var row oracleResidualRow
-		if err := rows.Scan(&row.EstimateID, &row.ObservationID, &row.PredictedX, &row.PredictedY, &row.MeasurementX, &row.MeasurementY, &row.InnovationX, &row.InnovationY, &row.NIS, &row.GeometryCovXX, &row.GeometryCovXY, &row.GeometryCovYY, &row.Disposition, &row.Reason); err != nil {
+		if err := rows.Scan(&estimateID, &row.ObservationID, &row.PredictedX, &row.PredictedY, &row.MeasurementX, &row.MeasurementY, &row.InnovationX, &row.InnovationY, &row.NIS, &row.GeometryCovXX, &row.GeometryCovXY, &row.GeometryCovYY, &row.Disposition, &row.Reason); err != nil {
 			return fmt.Errorf("scan residual: %w", err)
 		}
-		estimate, ok := b.estimates[row.EstimateID]
+		estimate, ok := b.estimates[estimateID]
 		if !ok {
-			return fmt.Errorf("residual links missing estimate %q", row.EstimateID)
+			return fmt.Errorf("residual links missing estimate %q", estimateID)
 		}
 		if estimate.observationID != row.ObservationID {
-			return fmt.Errorf("residual %q observation differs from estimate", row.EstimateID)
+			return fmt.Errorf("residual %q observation differs from estimate", estimateID)
 		}
 		if err := b.add("lidar_track_residuals", estimate.sourceID, estimate.frameNS, row); err != nil {
 			return err
@@ -267,9 +277,16 @@ type oracleObservationRow struct {
 	ClusterID        int64  `json:"cluster_id"`
 	RecordJSON       []byte `json:"record_json"`
 }
+
+// oracleEstimateRow is the hashed content of one estimate. estimate_id and
+// track_id are deliberately absent: l5tracks assigns track_id a random UUID
+// so it stays collision-free across tracker resets and restarts (see
+// internal/lidar/l5tracks/tracking.go), which means two replays of identical
+// input produce different track IDs even though the physical estimate is
+// unchanged. CreationSequence is the tracker's deterministic per-run
+// substitute — reproducible across replays — and is what groups an estimate
+// to its track here instead.
 type oracleEstimateRow struct {
-	EstimateID           string  `json:"estimate_id"`
-	TrackID              string  `json:"track_id"`
 	ObservationID        string  `json:"observation_id"`
 	SourceID             string  `json:"source_id"`
 	CalibrationID        string  `json:"calibration_id"`
@@ -280,14 +297,18 @@ type oracleEstimateRow struct {
 	ParamHash            string  `json:"param_hash"`
 	Stage                string  `json:"stage"`
 	MeasurementSource    string  `json:"measurement_source"`
+	CreationSequence     int64   `json:"creation_sequence"`
 	X                    float64 `json:"x"`
 	Y                    float64 `json:"y"`
 	VX                   float64 `json:"vx"`
 	VY                   float64 `json:"vy"`
 	CovarianceJSON       []byte  `json:"covariance_json"`
 }
+
+// oracleResidualRow is the hashed content of one residual. estimate_id is
+// absent for the same reason as oracleEstimateRow; observation_id already
+// identifies the row deterministically.
 type oracleResidualRow struct {
-	EstimateID    string  `json:"estimate_id"`
 	ObservationID string  `json:"observation_id"`
 	PredictedX    float64 `json:"predicted_x"`
 	PredictedY    float64 `json:"predicted_y"`
