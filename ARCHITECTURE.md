@@ -1210,9 +1210,9 @@ The versions most relevant to system architecture:
 
 | Version | Theme                  | Key Capabilities                                                                                             |
 | ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| v0.5.2  | Data Contracts         | Track speed metric redesign, metric registry, data structure remediation, replay case terminology            |
-| v0.5.3  | Replay Stabilisation   | VRLOG timestamp index, SSE backpressure, visualiser debug overlays, dynamic background segmentation          |
-| v0.5.4  | Product Polish         | Serial port configuration UI, frontend theme compliance, metrics consolidation                               |
+| v0.5.2  | Tailgating Metric      | Solid-body geometry, occlusion continuity, calibrated uncertainty, bumper-to-bumper gap, scenes distribution |
+| v0.5.3  | Estimate Display       | Trail correctness, deterministic track identity, speed metric redesign, data structure remediation           |
+| v0.5.4  | Stream Stability       | Frame-drop accounting, gRPC stream cleanup, VRLOG timestamp index, transport soak across hosts               |
 | v0.6.0  | Deployment & Packaging | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking |
 | v0.7.0  | United Frontend        | Svelte migration (retire Go-embedded dashboards), ECharts → LayerChart, track labelling UI in Swift          |
 | v1.0    | Scene Layer            | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                    |

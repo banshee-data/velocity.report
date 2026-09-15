@@ -12,7 +12,8 @@ does not split the reference vehicle as well.
 ## 1. Outcome and boundaries
 
 **Current delivery:** The v0.5.2 pilot supplies independent evidence for temporal body extent and
-identity, followed by v0.5.3 occlusion/trail and v0.5.4 following validation. Review complete
+identity, then the held-out references that sprints 0.5.2.2 and 0.5.2.4 validate occlusion
+continuity and the tailgating report against. Review complete
 physical-object episodes, not isolated tracker IDs. Record observable yaw and front/rear extent
 bounds separately from point membership; unknown or prior-only bumpers remain labelled as such.
 Include vehicle, pedestrian and cyclist occlusions in the broader corpus; the rigid-vehicle demo
