@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
@@ -106,6 +107,41 @@ func TestRawSHA256RequiresPrefixedDigest(t *testing.T) {
 	}
 	if _, err := rawSHA256(strings.Repeat("a", 64)); err == nil {
 		t.Fatal("unprefixed digest accepted")
+	}
+}
+
+func TestCaptureSHA256sReusesVerifiedSourceManifestDigests(t *testing.T) {
+	files := []string{"first.pcap", "second.pcap"}
+	first := "sha256:" + strings.Repeat("a", 64)
+	second := "sha256:" + strings.Repeat("b", 64)
+	called := false
+	digests, raw, err := captureSHA256s(Config{PCAPSHA256s: []string{first, second}}, replayRuntime{
+		hashFile: func(string) (string, error) {
+			called = true
+			return "", errors.New("unexpected rehash")
+		},
+	}, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called || strings.Join(digests, ",") != first+","+second || strings.Join(raw, ",") != strings.Repeat("a", 64)+","+strings.Repeat("b", 64) {
+		t.Fatalf("digests=%q raw=%q hashFile called=%v", digests, raw, called)
+	}
+	if _, _, err := captureSHA256s(Config{PCAPSHA256s: []string{first}}, replayRuntime{}, files); err == nil {
+		t.Fatal("accepted a digest list with the wrong length")
+	}
+}
+
+func TestConfiguredCaptureSequenceRequiresExactOrderedPaths(t *testing.T) {
+	sequence, err := capseq.Build([]capseq.Segment{{Path: "first.pcap", FirstPacket: time.Unix(1, 0), LastPacket: time.Unix(2, 0), PacketCount: 1}, {Path: "second.pcap", FirstPacket: time.Unix(2, 5e6), LastPacket: time.Unix(3, 0), PacketCount: 1}}, capseq.DefaultTolerances())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := configuredCaptureSequence(Config{CaptureSequence: sequence}, []string{"first.pcap", "second.pcap"}); err != nil || got != sequence {
+		t.Fatalf("configuredCaptureSequence = %#v, %v", got, err)
+	}
+	if _, err := configuredCaptureSequence(Config{CaptureSequence: sequence}, []string{"second.pcap", "first.pcap"}); err == nil {
+		t.Fatal("accepted a sequence with mismatched path order")
 	}
 }
 

@@ -86,6 +86,16 @@ type Config struct {
 	// PCAPFiles is an ordered capture sequence. It is mutually exclusive with
 	// PCAPFile. Each join is graded before replay and a broken join is refused.
 	PCAPFiles []string
+	// PCAPSHA256s optionally supplies the already-verified digests for
+	// PCAPFiles, in the same order. A corpus runner may have just made an
+	// immutable source manifest from these bytes; accepting that proof avoids
+	// a second full disk read before the replay itself.
+	PCAPSHA256s []string
+	// CaptureSequence optionally supplies the already-validated ordered packet
+	// sequence for PCAPFiles. It is useful to a two-pass corpus runner: packet
+	// counting reads every capture, so the repeat must not do that exact work
+	// again. Run still validates that it names this exact ordered file list.
+	CaptureSequence *capseq.Sequence
 	// OutDir is the directory the VRLOG is written into. Required.
 	OutDir string
 	// TuningFile is the tuning config to run with. Empty uses the default
@@ -125,6 +135,9 @@ type Config struct {
 	ReplayCaseID               string
 	ObservationCalibration     l4bobserve.Calibration
 	ObservationMaxSamplePoints int
+	// ProfileEvidence includes exact frame-evidence persistence timings in the
+	// returned Result. It is diagnostic-only and does not alter recorded data.
+	ProfileEvidence bool
 	// MeasurementSourceMode selects a replay-only position model. Empty uses
 	// the shipped OBB-centre D2; medoid_v0 exists solely to establish the
 	// historical reference arm for an acceptance comparison.
@@ -149,6 +162,7 @@ type Result struct {
 	SourcePCAP          string
 	SourcePCAPs         []string
 	ObservationSourceID string
+	EvidencePersistence *observationsqlite.FrameEvidenceStats
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -335,12 +349,61 @@ func captureSequence(files []string, udpPort int) (*capseq.Sequence, error) {
 	return sequence, nil
 }
 
+// PrepareCaptureSequence validates packet-time order and joins once for an
+// offline caller that will replay the same captures more than once.
+func PrepareCaptureSequence(files []string, udpPort int) (*capseq.Sequence, error) {
+	return captureSequence(files, udpPort)
+}
+
+func configuredCaptureSequence(cfg Config, files []string) (*capseq.Sequence, error) {
+	if cfg.CaptureSequence == nil {
+		return captureSequence(files, cfg.UDPPort)
+	}
+	sequence := cfg.CaptureSequence
+	if len(sequence.Segments) != len(files) {
+		return nil, fmt.Errorf("CaptureSequence has %d segments for %d capture files", len(sequence.Segments), len(files))
+	}
+	for i, segment := range sequence.Segments {
+		if segment.Path != files[i] {
+			return nil, fmt.Errorf("CaptureSequence path %q at position %d does not match capture %q", segment.Path, i, files[i])
+		}
+	}
+	if !sequence.Continuous() {
+		return nil, fmt.Errorf("CaptureSequence is not continuous")
+	}
+	return sequence, nil
+}
+
 func rawSHA256(digest string) (string, error) {
 	const prefix = "sha256:"
 	if !strings.HasPrefix(digest, prefix) || len(digest) != len(prefix)+64 {
 		return "", fmt.Errorf("invalid capture digest %q", digest)
 	}
 	return strings.TrimPrefix(digest, prefix), nil
+}
+
+func captureSHA256s(cfg Config, runtime replayRuntime, files []string) ([]string, []string, error) {
+	if len(cfg.PCAPSHA256s) != 0 && len(cfg.PCAPSHA256s) != len(files) {
+		return nil, nil, fmt.Errorf("PCAPSHA256s has %d digests for %d capture files", len(cfg.PCAPSHA256s), len(files))
+	}
+	digests := make([]string, len(files))
+	raw := make([]string, len(files))
+	for i, file := range files {
+		var err error
+		if len(cfg.PCAPSHA256s) != 0 {
+			digests[i] = cfg.PCAPSHA256s[i]
+		} else {
+			digests[i], err = runtime.hashFile(file)
+			if err != nil {
+				return nil, nil, fmt.Errorf("hash capture %s: %w", file, err)
+			}
+		}
+		raw[i], err = rawSHA256(digests[i])
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return digests, raw, nil
 }
 
 func run(cfg Config, runtime replayRuntime) (*Result, error) {
@@ -386,7 +449,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load tuning config %s: %w", cfg.TuningFile, err)
 	}
-	sequence, err := captureSequence(pcapFiles, cfg.UDPPort)
+	sequence, err := configuredCaptureSequence(cfg, pcapFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -396,17 +459,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if scoreStart < firstTimestampNs || scoreStart > lastTimestampNs {
 		return nil, fmt.Errorf("scoring window starts outside capture")
 	}
-	pcapHashes := make([]string, len(pcapFiles))
-	rawHashes := make([]string, len(pcapFiles))
-	for i, file := range pcapFiles {
-		pcapHashes[i], err = runtime.hashFile(file)
-		if err != nil {
-			return nil, fmt.Errorf("hash capture %s: %w", file, err)
-		}
-		rawHashes[i], err = rawSHA256(pcapHashes[i])
-		if err != nil {
-			return nil, err
-		}
+	pcapHashes, rawHashes, err := captureSHA256s(cfg, runtime, pcapFiles)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := os.MkdirAll(cfg.OutDir, 0o755); err != nil {
@@ -471,6 +526,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	rec.SetProvenance("pcap", filepath.Base(pcapFiles[0]), paramsHash, 0)
 
 	var frameEvidenceSink *strictFrameEvidenceSink
+	var frameEvidenceStore *observationsqlite.FrameEvidenceStore
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
 	if cfg.ObservationDBPath != "" {
@@ -503,7 +559,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		// The offline database owns one transaction per completed frame. It
 		// persists both pre-association L4 evidence and the L5 records derived
 		// from it; a failed frame therefore cannot leave a partial corpus.
-		frameEvidenceStore := observationsqlite.NewFrameEvidenceStore(database)
+		frameEvidenceStore = observationsqlite.NewFrameEvidenceStore(database)
 		defer frameEvidenceStore.Close()
 		frameEvidenceSink = &strictFrameEvidenceSink{sink: frameEvidenceStore}
 	}
@@ -676,6 +732,13 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SourcePCAP:          pcapFiles[0],
 		SourcePCAPs:         append([]string(nil), pcapFiles...),
 		ObservationSourceID: observationSourceID,
+		EvidencePersistence: func() *observationsqlite.FrameEvidenceStats {
+			if !cfg.ProfileEvidence || frameEvidenceStore == nil {
+				return nil
+			}
+			stats := frameEvidenceStore.Stats()
+			return &stats
+		}(),
 	}, nil
 }
 

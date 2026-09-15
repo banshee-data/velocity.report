@@ -116,3 +116,42 @@ func TestSourceManifestRawSHA256(t *testing.T) {
 		t.Fatal("raw digest without prefix succeeded")
 	}
 }
+
+func TestResolveObservationDBPathSeparatesEvidenceFromRecordingOutput(t *testing.T) {
+	root := t.TempDir()
+	evidenceDir := filepath.Join(root, "internal-evidence")
+	got, err := resolveObservationDBPath("", evidenceDir, filepath.Join(root, "vrlogs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(evidenceDir, "observations.db"); got != want {
+		t.Fatalf("evidence DB = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(evidenceDir); err != nil {
+		t.Fatalf("evidence directory was not created: %v", err)
+	}
+	if _, err := resolveObservationDBPath(filepath.Join(root, "old.db"), evidenceDir, filepath.Join(root, "vrlogs")); err == nil {
+		t.Fatal("accepted both an explicit evidence database and evidence directory")
+	}
+	if _, err := resolveObservationDBPath("", filepath.Join(root, "vrlogs"), filepath.Join(root, "vrlogs")); err == nil {
+		t.Fatal("accepted evidence and recording output in the same directory")
+	}
+}
+
+func TestSourceManifestCaseDigestsRequireOrderedCompleteCase(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	manifest := sourceManifest{Cases: []sourceManifestCase{{ID: "marina", Captures: []sourceManifestCapture{
+		{Ordinal: 0, SHA256: digest}, {Ordinal: 1, SHA256: digest},
+	}}}}
+	got, err := sourceManifestCaseDigests(manifest, "marina", 2)
+	if err != nil || len(got) != 2 || got[0] != digest {
+		t.Fatalf("sourceManifestCaseDigests = %#v, %v", got, err)
+	}
+	if _, err := sourceManifestCaseDigests(manifest, "missing", 1); err == nil {
+		t.Fatal("accepted a missing case")
+	}
+	manifest.Cases[0].Captures[1].Ordinal = 2
+	if _, err := sourceManifestCaseDigests(manifest, "marina", 2); err == nil {
+		t.Fatal("accepted out-of-order capture ordinals")
+	}
+}

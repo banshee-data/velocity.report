@@ -50,6 +50,7 @@ func main() {
 		pcapRoot                   = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
 		pcapSubdir                 = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
 		outDir                     = flag.String("out", "", "empty output directory for baseline recordings (required)")
+		evidenceDir                = flag.String("evidence-dir", "", "empty directory for observations.db; may be on a different volume from -pcap-root and -out")
 		sourceManifestPath         = flag.String("source-manifest", "", "new immutable JSON manifest of ordered source PCAP hashes")
 		existingSourceManifestPath = flag.String("existing-source-manifest", "", "existing immutable source manifest to verify before replay")
 		sourceManifestOnly         = flag.Bool("source-manifest-only", false, "write -source-manifest then exit without replaying")
@@ -62,6 +63,7 @@ func main() {
 		warmup          = flag.Float64("warmup", 70, "warm-up seconds before scoring")
 		requireSettled  = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
 		observations    = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
+		evidenceProfile = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
 		surfaceGround   = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		measurementMode = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
 	)
@@ -75,8 +77,16 @@ func main() {
 	if !*sourceManifestOnly && *outDir == "" {
 		fatal(fmt.Errorf("-out is required"))
 	}
-	if *observations != "" && *sourceManifestPath == "" && *existingSourceManifestPath == "" {
-		fatal(fmt.Errorf("-observations-db requires -source-manifest so persisted evidence has immutable source identity"))
+	var observationDBPath string
+	var err error
+	if !*sourceManifestOnly {
+		observationDBPath, err = resolveObservationDBPath(*observations, *evidenceDir, *outDir)
+		if err != nil {
+			fatal(err)
+		}
+	}
+	if observationDBPath != "" && *sourceManifestPath == "" && *existingSourceManifestPath == "" {
+		fatal(fmt.Errorf("an evidence output requires -source-manifest so persisted evidence has immutable source identity"))
 	}
 	if !*sourceManifestOnly {
 		if err := ensureEmptyDir(*outDir); err != nil {
@@ -96,6 +106,7 @@ func main() {
 		fatal(err)
 	}
 	var sourceManifestSHA256 string
+	var verifiedSourceManifest *sourceManifest
 	if *sourceManifestPath != "" {
 		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
 		if err != nil {
@@ -106,6 +117,7 @@ func main() {
 			fatal(err)
 		}
 		sourceManifestSHA256 = digest
+		verifiedSourceManifest = &manifest
 		fmt.Printf("wrote immutable source manifest %s (%s)\n", *sourceManifestPath, sourceManifestSHA256)
 	}
 	if *existingSourceManifestPath != "" {
@@ -117,6 +129,7 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
+		verifiedSourceManifest = &manifest
 		fmt.Printf("verified immutable source manifest %s (%s)\n", *existingSourceManifestPath, sourceManifestSHA256)
 	}
 	if *sourceManifestOnly {
@@ -127,23 +140,40 @@ func main() {
 	for _, resolved := range resolvedCases {
 		selectedCase := resolved.corpusCase
 		paths := resolved.paths
+		sequence, err := replayeval.PrepareCaptureSequence(paths, 2369)
+		if err != nil {
+			fatal(fmt.Errorf("prepare capture sequence %s: %w", selectedCase.ID, err))
+		}
 		caseOut := filepath.Join(*outDir, selectedCase.ID)
 		first := replayeval.Config{
 			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
 			SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
-			MeasurementSourceMode: l5tracks.MeasurementSource(*measurementMode),
+			MeasurementSourceMode: l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
 		}
-		if *observations != "" {
-			first.ObservationDBPath = *observations
+		if verifiedSourceManifest != nil {
+			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
+			if err != nil {
+				fatal(err)
+			}
+		}
+		if observationDBPath != "" {
+			first.ObservationDBPath = observationDBPath
 			first.ReplayCaseID = selectedCase.ID
 			first.ObservationCalibration = identityCalibration(*sensorID)
 			first.ObservationMaxSamplePoints = 256
+			first.ProfileEvidence = *evidenceProfile
 		}
 		fmt.Printf("%s: first run across %d capture(s)\n", selectedCase.ID, len(paths))
 		firstResult, err := replayeval.Run(first)
 		if err != nil {
 			fatal(fmt.Errorf("first run %s: %w", selectedCase.ID, err))
+		}
+		if firstResult.EvidencePersistence != nil {
+			stats := firstResult.EvidencePersistence
+			fmt.Printf("%s: evidence profile frames=%d empty_frames=%d observations=%d estimates=%d begin=%s prepare=%s execute=%s commit=%s\n",
+				selectedCase.ID, stats.Frames, stats.EmptyFrames, stats.Observations, stats.Estimates,
+				stats.Begin, stats.Prepare, stats.Execute, stats.Commit)
 		}
 		repeat := first
 		repeat.OutDir = filepath.Join(caseOut, "repeat")
@@ -204,6 +234,57 @@ func ensureEmptyDir(dir string) error {
 		return fmt.Errorf("inspect output directory: %w", err)
 	}
 	return os.MkdirAll(dir, 0755)
+}
+
+func resolveObservationDBPath(observationsDB, evidenceDir, outDir string) (string, error) {
+	if observationsDB != "" && evidenceDir != "" {
+		return "", fmt.Errorf("-observations-db and -evidence-dir are mutually exclusive")
+	}
+	if evidenceDir == "" {
+		return observationsDB, nil
+	}
+	if samePath(evidenceDir, outDir) {
+		return "", fmt.Errorf("-evidence-dir must differ from -out so recorded artefacts and immutable evidence remain separate")
+	}
+	if err := ensureEmptyDir(evidenceDir); err != nil {
+		return "", fmt.Errorf("prepare evidence directory: %w", err)
+	}
+	return filepath.Join(evidenceDir, "observations.db"), nil
+}
+
+func samePath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	left, err := filepath.Abs(a)
+	if err != nil {
+		return false
+	}
+	right, err := filepath.Abs(b)
+	if err != nil {
+		return false
+	}
+	return filepath.Clean(left) == filepath.Clean(right)
+}
+
+func sourceManifestCaseDigests(manifest sourceManifest, caseID string, captureCount int) ([]string, error) {
+	for _, manifestCase := range manifest.Cases {
+		if manifestCase.ID != caseID {
+			continue
+		}
+		if len(manifestCase.Captures) != captureCount {
+			return nil, fmt.Errorf("source manifest case %q has %d captures, want %d", caseID, len(manifestCase.Captures), captureCount)
+		}
+		digests := make([]string, captureCount)
+		for ordinal, capture := range manifestCase.Captures {
+			if capture.Ordinal != ordinal {
+				return nil, fmt.Errorf("source manifest case %q has capture ordinal %d at position %d", caseID, capture.Ordinal, ordinal)
+			}
+			digests[ordinal] = capture.SHA256
+		}
+		return digests, nil
+	}
+	return nil, fmt.Errorf("source manifest has no case %q", caseID)
 }
 
 func readCorpus(name string) (corpus, error) {
