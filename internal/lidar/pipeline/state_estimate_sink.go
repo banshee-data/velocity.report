@@ -36,7 +36,8 @@ func onlineStateEstimate(cfg *TrackingPipelineConfig, track *l5tracks.TrackedObj
 		EstimateID: estimateID, TrackID: track.TrackID, ObservationID: observationID,
 		SourceID: cfg.ObservationSourceID, CalibrationID: cfg.ObservationCalibrationID,
 		FrameUnixNanos: frameUnixNanos, MeasurementUnixNanos: track.LastMeasurementUnixNanos,
-		EstimatorID: cfg.StateEstimatorID, ObservationModelID: cfg.StateObservationModelID,
+		CreationSequence: track.CreationSequence,
+		EstimatorID:      cfg.StateEstimatorID, ObservationModelID: cfg.StateObservationModelID,
 		ParamHash: cfg.StateParameterHash, Stage: "online", MeasurementSource: string(track.LastMeasurementSource),
 		X: track.X, Y: track.Y, VX: track.VX, VY: track.VY, Covariance: track.P,
 	}

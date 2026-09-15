@@ -21,8 +21,14 @@ type TrackEstimate struct {
 	ParamHash            string
 	Stage                string
 	MeasurementSource    string
-	X, Y, VX, VY         float32
-	Covariance           [16]float32
+	// CreationSequence is the tracker's deterministic per-run track ordinal
+	// (l5tracks.TrackedObject.CreationSequence). Unlike TrackID, a random UUID
+	// kept collision-free across resets and restarts, this is reproducible
+	// across two replays of the same input and is what a semantic evidence
+	// comparison should group tracks by.
+	CreationSequence int64
+	X, Y, VX, VY     float32
+	Covariance       [16]float32
 }
 
 // TrackResidual is the innovation that led to one estimate. The geometry
@@ -87,8 +93,8 @@ func insertStateEstimate(exec Executor, estimate TrackEstimate, residual TrackRe
 
 const stateEstimateInsertSQL = `INSERT OR REPLACE INTO lidar_track_estimates
 		(estimate_id, track_id, observation_id, source_id, calibration_id, frame_unix_nanos, measurement_unix_nanos,
-		 estimator_id, observation_model_id, param_hash, stage, measurement_source, x, y, vx, vy, covariance_json, inserted_at_ns)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		 estimator_id, observation_model_id, param_hash, stage, measurement_source, creation_sequence, x, y, vx, vy, covariance_json, inserted_at_ns)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 const stateResidualInsertSQL = `INSERT OR REPLACE INTO lidar_track_residuals
 		(estimate_id, observation_id, predicted_x, predicted_y, measurement_x, measurement_y, innovation_x, innovation_y,
@@ -99,8 +105,8 @@ func stateEstimateInsertArgs(estimate TrackEstimate, covariance []byte, inserted
 	return []any{
 		estimate.EstimateID, estimate.TrackID, estimate.ObservationID, estimate.SourceID, estimate.CalibrationID,
 		estimate.FrameUnixNanos, estimate.MeasurementUnixNanos, estimate.EstimatorID, estimate.ObservationModelID,
-		estimate.ParamHash, estimate.Stage, estimate.MeasurementSource, estimate.X, estimate.Y, estimate.VX, estimate.VY,
-		covariance, insertedAtNanos,
+		estimate.ParamHash, estimate.Stage, estimate.MeasurementSource, estimate.CreationSequence,
+		estimate.X, estimate.Y, estimate.VX, estimate.VY, covariance, insertedAtNanos,
 	}
 }
 
