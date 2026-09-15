@@ -20,7 +20,7 @@ cycler==0.12.1
     # via matplotlib
 drawsvg==2.4.2
     # via -r requirements.in
-fonttools==4.64.0
+fonttools==4.65.0
     # via
     #   -r requirements.in
     #   matplotlib
@@ -30,11 +30,11 @@ iniconfig==2.1.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
-matplotlib==3.11.1
+matplotlib==3.11.2
     # via -r requirements.in
 mypy-extensions==1.1.0
     # via black
-numpy==2.5.2
+numpy==2.5.3
     # via
     #   -r requirements.in
     #   contourpy
@@ -79,7 +79,7 @@ pyyaml==6.0.3
     # via -r requirements.in
 requests==2.34.2
     # via -r requirements.in
-ruff==0.16.6
+ruff==0.16.7
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
