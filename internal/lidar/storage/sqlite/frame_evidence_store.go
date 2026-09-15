@@ -23,6 +23,22 @@ type FrameEvidenceStore struct {
 	observationStmt *sql.Stmt
 	estimateStmt    *sql.Stmt
 	residualStmt    *sql.Stmt
+	statsMu         sync.Mutex
+	stats           FrameEvidenceStats
+}
+
+// FrameEvidenceStats separates SQLite persistence time from the rest of an
+// offline replay. It is intended for operational profiling: the individual
+// fields are accumulated on the synchronous replay callback, not sampled.
+type FrameEvidenceStats struct {
+	Frames       int
+	EmptyFrames  int
+	Observations int
+	Estimates    int
+	Begin        time.Duration
+	Prepare      time.Duration
+	Execute      time.Duration
+	Commit       time.Duration
 }
 
 func NewFrameEvidenceStore(db DBClient) *FrameEvidenceStore {
@@ -83,6 +99,13 @@ func (s *FrameEvidenceStore) Close() error {
 	return result
 }
 
+// Stats returns a snapshot of the persistence work completed so far.
+func (s *FrameEvidenceStore) Stats() FrameEvidenceStats {
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+	return s.stats
+}
+
 // InsertFrame writes a complete frame in one transaction. A failed insert or
 // commit leaves none of that frame's observation, estimate, or residual rows
 // behind. Duplicate immutable observation IDs retain the existing fail-closed
@@ -92,9 +115,17 @@ func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObse
 	// corpus they are common, and committing them would create pure SQLite
 	// overhead without changing the corpus or its failure semantics.
 	if len(observations) == 0 && len(estimates) == 0 {
+		s.recordStats(func(stats *FrameEvidenceStats) { stats.EmptyFrames++ })
 		return nil
 	}
+	s.recordStats(func(stats *FrameEvidenceStats) {
+		stats.Frames++
+		stats.Observations += len(observations)
+		stats.Estimates += len(estimates)
+	})
+	beginAt := time.Now()
 	tx, err := s.db.Begin()
+	s.recordStats(func(stats *FrameEvidenceStats) { stats.Begin += time.Since(beginAt) })
 	if err != nil {
 		return fmt.Errorf("begin frame evidence transaction: %w", err)
 	}
@@ -105,9 +136,12 @@ func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObse
 		}
 	}()
 
+	prepareAt := time.Now()
 	if err := s.prepareStatements(); err != nil {
+		s.recordStats(func(stats *FrameEvidenceStats) { stats.Prepare += time.Since(prepareAt) })
 		return err
 	}
+	s.recordStats(func(stats *FrameEvidenceStats) { stats.Prepare += time.Since(prepareAt) })
 	observationStmt := tx.Stmt(s.observationStmt)
 	defer observationStmt.Close()
 
@@ -119,6 +153,7 @@ func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObse
 	defer residualStmt.Close()
 
 	insertedAtNanos := time.Now().UnixNano()
+	executeAt := time.Now()
 	for _, observation := range observations {
 		record, payload, err := marshalObservation(observation)
 		if err != nil {
@@ -136,11 +171,21 @@ func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObse
 			return err
 		}
 	}
+	s.recordStats(func(stats *FrameEvidenceStats) { stats.Execute += time.Since(executeAt) })
+	commitAt := time.Now()
 	if err := s.commit(tx); err != nil {
+		s.recordStats(func(stats *FrameEvidenceStats) { stats.Commit += time.Since(commitAt) })
 		return fmt.Errorf("commit frame evidence transaction: %w", err)
 	}
+	s.recordStats(func(stats *FrameEvidenceStats) { stats.Commit += time.Since(commitAt) })
 	committed = true
 	return nil
+}
+
+func (s *FrameEvidenceStore) recordStats(update func(*FrameEvidenceStats)) {
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+	update(&s.stats)
 }
 
 func insertStateEstimateStatements(estimateStmt, residualStmt statementExecutor, estimate TrackEstimate, residual TrackResidual, insertedAtNanos int64) error {
