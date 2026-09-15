@@ -6,7 +6,7 @@ results wait for validated final estimates.
 
 - **Status:** Specification; fixture-based development permitted, production emission gated on G-SMO-1
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
-- **Target:** v0.5.2 analytical report oracle; v0.5.3 provisional end-to-end report; v0.5.4 physically validated headway report. Other interactions follow
+- **Target:** v0.5.2 end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. Other interactions follow
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
 - **Depends on:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns Phases 0 to 5 and Phase 8; this plan owns Phases 6 and 7)
 - **Companion plans:** [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
@@ -1096,13 +1096,13 @@ rows rather than silently mixing versions.
 
 Delivery is deliberately staged so report plumbing does not wait for estimator research:
 
-1. **v0.5.2 oracle:** render a complete report from analytical two-body trajectories whose
+1. **Sprint 0.5.2.3 oracle:** render a complete report from analytical two-body trajectories whose
    bumpers, gap and time gap are known. This pins equations, names, provenance, suppression and
    aggregation through the real output path.
-2. **v0.5.3 provisional vertical slice:** feed persisted estimator output through local path
+2. **Sprint 0.5.2.4 provisional vertical slice:** feed persisted estimator output through local path
    pairing, interaction persistence and the same renderer. Mark every field result provisional;
    this proves integration and exposes missing evidence without claiming physical accuracy.
-3. **v0.5.4 field promotion:** score held-out annotated following encounters and publish endpoint
+3. **Sprint 0.5.2.4 field promotion:** score held-out annotated following encounters and publish endpoint
    error, gap error, uncertainty coverage, supported opportunity, suppression and failure cases.
    Remove the provisional label only after G-GEO-1, G-UNC-1, G-SMO-1 and the metric gate pass.
 
@@ -1210,10 +1210,10 @@ above a stated bound; track quality below floor.
 **Goal.** Gap, headway, TTC, DRAC, closest approach, and PET from
 trajectory-derived conflict points.
 
-**First delivery.** v0.5.2 pins the following equations and report output with an analytical
-oracle. v0.5.3 implements following classification, local path/ordering, persistence and a
-provisional report. v0.5.4 promotes physical endpoint gap, net time gap and exposure after held-out
-validation. TTC, DRAC, closest approach, PET and cross-class interaction classification remain
+**First delivery.** Sprint 0.5.2.3 pins the following equations and report output with an
+analytical oracle, then implements following classification, local path/ordering and persistence.
+Sprint 0.5.2.4 renders the distribution on the scenes dashboard and promotes physical endpoint gap,
+net time gap and exposure after held-out validation. TTC, DRAC, closest approach, PET and cross-class interaction classification remain
 later slices; their combined acceptance criteria below do not block the narrower following gate.
 
 **Inputs.** The relevant Phase 6A support/speed contracts, not every derivative metric.
@@ -1241,7 +1241,7 @@ unconverged; closing speed below `3 σ_Δv`.
 **Goal.** Dominant-path extraction, deviation from it, oscillation, and the local distributions
 that make `local_distribution` benchmarks possible.
 
-The minimal directed path used for v0.5.3 following is a Phase 6B dependency and does not wait for
+The minimal directed path used for the v0.5.2 following slice is a Phase 6B dependency and does not wait for
 this phase. Phase 6C owns durable population paths, deviation metrics and stratified distributions,
 not the bounded encounter-local projection needed to order a simple following pair.
 

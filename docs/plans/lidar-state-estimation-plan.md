@@ -6,7 +6,7 @@ defines the evidence, storage contracts, and acceptance gates for a physical tra
 - **Status:** In progress: heading/evaluation foundations delivered; corrected measurement and acceptance gates outstanding
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
-- **Target:** v0.5.2 evidence, solid-body geometry and an analytical report oracle; v0.5.3 temporal continuity and a provisional report; v0.5.4 physically validated headway. Richer motion models remain gated follow-ons at v1.0+
+- **Target:** v0.5.2 in full, sequenced as sprints 0.5.2.0 to 0.5.2.4: evidence, solid-body geometry, continuity, calibrated uncertainty and the gates a validated tailgating measurement depends on. Richer motion models remain gated follow-ons at v1.0+
 - **Consumed by:** [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) (Phases 6 and 7; every behaviour metric depends on the final trajectory this plan produces)
 - **Companion plans:** [lossless observation persistence batching](lidar-lossless-observation-persistence-batching-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-visualiser-trails-and-uncertainty-visualisation-plan](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md)
 - **Current corpus baseline:** [Phase 0/1 medoid reference](../lidar/operations/state-estimation-phase01-corpus-baseline.md)
@@ -35,24 +35,24 @@ analytics additionally establishes a credible pair, shared path and supported me
 
 Deliver the smallest model that can pass the physical gates:
 
-1. **0.5.2: evidence and body geometry.** Freeze external source digests and the lossless
+1. **Sprint 0.5.2.0-1: evidence and body geometry.** Freeze external source digests and the lossless
    frame-batch oracle, finish G-PER-1, and evaluate E1/G-GEO-1. Review independent identity,
    observable yaw and extent references alongside collection. A visible face constrains a
    temporal body belief; it does not certify unseen bumpers. Keep pose/extent correlation and
    prior-dominated dimensions explicit. The one-site demo is an experiment, not the gate.
-2. **0.5.3: continuity and trails.** Keep the current planar CV model as the baseline, with
+2. **Sprint 0.5.2.2: continuity through occlusion.** Keep the current planar CV model as the baseline, with
    class-appropriate process uncertainty and extent/orientation beliefs. Preserve an object's
    existence hypothesis through a bounded missed-observation interval; predict in capture time,
    grow uncertainty, record last-observed age and expire unsupported tracks. Reacquisition must
    test identity and geometry, not merely choose the nearest box. Pedestrian body orientation
    need not equal travel direction; cyclist dimensions need their own supported prior.
-3. **0.5.3: calibrated and reviewable estimates.** Calibrate G-UNC-1, then validate bounded
+3. **Sprint 0.5.2.2: calibrated and reviewable estimates.** Calibrate G-UNC-1, then validate bounded
    smoothing through G-SMO-1 without requiring Phase 4. Align trail/box anchors and timestamps;
    distinguish observations, coasted predictions and revised final history. Smoothing must not
    conceal wrong associations, transport gaps or real manoeuvres. Develop following fixtures in
    parallel, but do not emit production metrics before their existing gates.
-4. **0.5.4: following field report.** The behaviour plan builds the analytical oracle in 0.5.2
-   and wires a provisional vertical slice in 0.5.3. Promote shared-path physical endpoint
+4. **Sprint 0.5.2.3-4: following field report.** The behaviour plan builds the analytical oracle
+   first and wires the vertical slice behind it. Promote shared-path physical endpoint
    separation, time gap, uncertainty and supported exposure only after the physical gates pass:
    [behaviour plan](lidar-behaviour-analytics-plan.md#83-following-behaviour).
    Simple empirical paths suffice; a lane map, global scene graph or behavioural planner does not.

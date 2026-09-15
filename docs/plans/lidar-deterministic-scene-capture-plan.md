@@ -38,7 +38,7 @@ this plan’s working copy contains the required prerequisites.
 
 Milestone 1 must be usable by a local or CI agent without waiting for hosted CI
 integration, animation tools, or changes to recording workflows. Milestone 3 is useful review
-polish, but the delivered still and bullet-time capture are sufficient for the v0.5.2–v0.5.4
+polish, but the delivered still and bullet-time capture are sufficient for the v0.5.2
 headway critical path. Milestone 5 follows practical use on a known
 trail-alignment defect; it does not block the earlier releases.
 
