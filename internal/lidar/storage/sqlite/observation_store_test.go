@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -139,7 +140,8 @@ func TestFrameEvidenceStoreRollsBackObservationsWhenDerivedStateIsInvalid(t *tes
 
 func TestFrameEvidenceStoreReportsBeginAndPrepareFailures(t *testing.T) {
 	beginErr := errors.New("database unavailable")
-	if err := NewFrameEvidenceStore(frameEvidenceBeginErrorDB{err: beginErr}).InsertFrame(nil, nil); !errors.Is(err, beginErr) {
+	observation := testObservation(t, "observation/v1/prepare", "source/v1/frame", 100, 1)
+	if err := NewFrameEvidenceStore(frameEvidenceBeginErrorDB{err: beginErr}).InsertFrame([]l4bobserve.DetectionObservation{observation}, nil); !errors.Is(err, beginErr) {
 		t.Fatalf("begin error = %v, want %v", err, beginErr)
 	}
 	for _, table := range []string{"lidar_observations", "lidar_track_estimates", "lidar_track_residuals"} {
@@ -148,11 +150,50 @@ func TestFrameEvidenceStoreReportsBeginAndPrepareFailures(t *testing.T) {
 			cleanup()
 			t.Fatalf("drop %s: %v", table, err)
 		}
-		err := NewFrameEvidenceStore(database).InsertFrame(nil, nil)
+		err := NewFrameEvidenceStore(database).InsertFrame([]l4bobserve.DetectionObservation{observation}, nil)
 		cleanup()
 		if err == nil || !strings.Contains(err.Error(), "prepare") {
 			t.Fatalf("missing %s prepare error = %v", table, err)
 		}
+	}
+}
+
+func TestFrameEvidenceStoreSkipsEmptyFrames(t *testing.T) {
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
+	if err := NewFrameEvidenceStore(database).InsertFrame(nil, nil); err != nil {
+		t.Fatalf("empty frame = %v, want no-op", err)
+	}
+	for _, table := range []string{"lidar_observations", "lidar_track_estimates", "lidar_track_residuals"} {
+		var count int
+		if err := database.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		if count != 0 {
+			t.Fatalf("%s rows after empty frame = %d, want 0", table, count)
+		}
+	}
+}
+
+func TestFrameEvidenceStoreReusesPreparedStatementsAcrossFrames(t *testing.T) {
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
+	countingDB := &countingPrepareDB{DB: database}
+	store := NewFrameEvidenceStore(countingDB)
+	for frame := int64(100); frame <= 200; frame += 100 {
+		observation := testObservation(t, fmt.Sprintf("observation/v1/reuse/%d", frame), "source/v1/frame", frame, frame)
+		if err := store.InsertFrame([]l4bobserve.DetectionObservation{observation}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if store.observationStmt == nil || store.estimateStmt == nil || store.residualStmt == nil {
+		t.Fatal("frame evidence statements were not retained for reuse")
+	}
+	if countingDB.prepares != 3 {
+		t.Fatalf("prepared statements = %d, want exactly 3 for every frame", countingDB.prepares)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close prepared statements: %v", err)
 	}
 }
 
@@ -222,6 +263,16 @@ func (d frameEvidenceBeginErrorDB) Exec(string, ...any) (sql.Result, error) { re
 func (d frameEvidenceBeginErrorDB) Query(string, ...any) (*sql.Rows, error) { return nil, d.err }
 func (d frameEvidenceBeginErrorDB) QueryRow(string, ...any) *sql.Row        { return nil }
 func (d frameEvidenceBeginErrorDB) Begin() (*sql.Tx, error)                 { return nil, d.err }
+
+type countingPrepareDB struct {
+	*sql.DB
+	prepares int
+}
+
+func (d *countingPrepareDB) Prepare(query string) (*sql.Stmt, error) {
+	d.prepares++
+	return d.DB.Prepare(query)
+}
 
 type frameStatement struct{ err error }
 

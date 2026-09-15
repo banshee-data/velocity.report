@@ -503,7 +503,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		// The offline database owns one transaction per completed frame. It
 		// persists both pre-association L4 evidence and the L5 records derived
 		// from it; a failed frame therefore cannot leave a partial corpus.
-		frameEvidenceSink = &strictFrameEvidenceSink{sink: observationsqlite.NewFrameEvidenceStore(database)}
+		frameEvidenceStore := observationsqlite.NewFrameEvidenceStore(database)
+		defer frameEvidenceStore.Close()
+		frameEvidenceSink = &strictFrameEvidenceSink{sink: frameEvidenceStore}
 	}
 
 	// --- Pipeline ---
