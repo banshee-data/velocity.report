@@ -11,8 +11,11 @@ package l3grid
 // observation on floating-point noise alone.
 const closenessFloorMetres = 0.01
 
-// closenessThresholdMetres is how far an observation may sit from a cell's
+// ClosenessThresholdMetres is how far an observation may sit from a cell's
 // learned average range and still count as background.
+//
+// Exported so the closeness audit tool measures this expression rather than a
+// copy of it: the point of extracting it was to remove that drift risk.
 //
 //	threshold = multiplier * (spread + noiseRelative*observedRange + floor) + safety
 //
@@ -22,9 +25,9 @@ const closenessFloorMetres = 0.01
 // questions, because the Pandar40P's specified range accuracy is flat (±2 cm to
 // 30 m, ±3 cm beyond), not proportional. See specRangeAccuracyMetres.
 //
-// safety is the operator's absolute margin; the neighbour-confirmation variant
-// of this test passes 0 for it, since that path is looking for agreement
-// between adjacent cells rather than gating a classification decision.
-func closenessThresholdMetres(multiplier, spread, noiseRelative, observedRange, safety float64) float64 {
+// safety is the operator's absolute margin; the neighbour-confirmation caller
+// passes 0 for it, since that path is looking for agreement between adjacent
+// cells rather than gating a classification decision.
+func ClosenessThresholdMetres(multiplier, spread, noiseRelative, observedRange, safety float64) float64 {
 	return multiplier*(spread+noiseRelative*observedRange+closenessFloorMetres) + safety
 }

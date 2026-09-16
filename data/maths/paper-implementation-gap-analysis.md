@@ -305,7 +305,41 @@ The threshold is `multiplier * (spread + noiseRelative*range + 0.01) + safety`, 
 
 **The over-conservatism is not a constant safety factor — it grows linearly with range**, because a relative model is being used where the sensor's accuracy is flat. That is the finding, and it is why "conservative is safe" understates the cost. At 100 m a return must differ from its cell's learned background range by more than **6.27 m** — longer than a car — before it registers as foreground at all. The noise model, not the sensor and not the clustering that follows, sets the long-range detection floor.
 
-Each of those is asserted, so a tuning change that alters the picture fails the suite. What is **not** yet established is how often it costs a real detection: that needs the corpus, cell by cell, at range, and it is the open follow-up. The candidate remedy is a range-banded noise term matching the manual (±2 cm to 30 m, ±3 cm beyond) instead of a fraction of range — but it is a tuning change, so it moves the config fingerprint and requires a baseline recapture, and it should not be made before the corpus says what it buys.
+Each of those is asserted, so a tuning change that alters the picture fails the suite.
+
+#### Measured against deployed grids
+
+The table above substitutes the sensor spec for the measured spread term. [lidar-closeness-audit](../../cmd/tools/lidar-closeness-audit/main.go) replaces that assumption with the real thing, decoding every `lidar_bg_snapshot` and applying `l3grid.ClosenessThresholdMetres` — the same function the classification loop calls, so the audit cannot drift from the code it audits — to each settled cell:
+
+```bash
+go run ./cmd/tools/lidar-closeness-audit -db sensor_data.db
+```
+
+Over **367 snapshots and 24,007,669 settled cells** spanning 229 days of a `hesai-pandar40p` deployment:
+
+| Band      | Cells      | Spread p50 | Spread p90 | Threshold p50 | Threshold p90 | Model share | vs spec model |
+| --------- | ---------- | ---------- | ---------- | ------------- | ------------- | ----------- | ------------- |
+| 0–10 m    | 15,845,005 | 0.006 m    | 0.011 m    | 0.334 m       | 0.617 m       | 86.4%       | 1.9×          |
+| 10–20 m   | 3,408,810  | 0.007 m    | 0.039 m    | 1.083 m       | 1.387 m       | 94.6%       | 4.2×          |
+| 20–30 m   | 2,210,574  | 0.010 m    | 0.205 m    | 1.758 m       | 2.323 m       | 96.2%       | 6.4×          |
+| 30–50 m   | 1,698,282  | 0.013 m    | 0.936 m    | 2.565 m       | 5.367 m       | 97.2%       | 8.5×          |
+| 50–75 m   | 465,106    | 0.022 m    | 4.197 m    | 3.874 m       | 16.269 m      | 97.5%       | 11.8×         |
+| 75–100 m  | 119,811    | 0.026 m    | 9.654 m    | 5.707 m       | 34.392 m      | 98.0%       | 15.8×         |
+| 100–200 m | 260,081    | 0.047 m    | 3.001 m    | 8.191 m       | 17.770 m      | 98.1%       | 22.7×         |
+
+Three things the arithmetic alone could not have said.
+
+**The sensor in situ beats its own specification, by a wide margin.** Median measured spread is **6 mm** at close range and only **47 mm** past 100 m, against a specified ±20 mm / ±30 mm. Settled background cells are far more stable than the manual promises, so the relative noise term is not compensating for observed instability — there is very little to compensate for.
+
+**The model supplies almost the entire window; the measurement supplies almost none.** The modelled term is 86% of the bracketed sum at close range and **98% past 50 m**, leaving the measured spread — the only term carrying real information about how variable a particular cell is — contributing **1.5–5%**. The threshold is, in practice, a function of range and nothing else. That makes the per-cell Welford variance the background model works to maintain nearly irrelevant to the decision it feeds.
+
+**The real inflation is worse than the spec-substituted estimate**, precisely because measured spreads are smaller than the spec: 1.9× at close range rising to **22.7×** past 100 m, and the median threshold reaches **1.08 m at 10–20 m** — the band containing most of the roadway — and **8.19 m past 100 m**.
+
+The p90 spread column also surfaces a second, separate mechanism worth its own investigation: some cells at 50–100 m have learned spreads of 4–10 m, producing p90 thresholds of 16–34 m. A cell that repeatedly sees traffic learns a large spread, and a large spread widens its own acceptance window, which makes it progressively less able to report the traffic that caused it. Whether those cells are vegetation, sky, or exactly that feedback loop is not established here.
+
+**Still not established: the detection cost.** A wide threshold only loses a detection when a foreground return's range falls within it of the learned background range, and that depends on scene geometry this audit does not model. The threshold is measured; the miss rate is not. That needs instrumented replay counting near-miss classifications against known foreground, and it remains the open follow-up.
+
+The candidate remedy is a range-banded noise term matching the manual (±2 cm to 30 m, ±3 cm beyond) instead of a fraction of range — but it is a tuning change, so it moves the config fingerprint and requires a baseline recapture, and it should not be made before the replay says what it buys.
 
 ---
 

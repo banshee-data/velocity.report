@@ -44,10 +44,10 @@ func TestClosenessNoiseModelAgainstPandar40PSpec(t *testing.T) {
 	for _, rangeMetres := range []float64{5, 20, 50, 100} {
 		spec := specRangeAccuracyMetres(rangeMetres)
 
-		got := closenessThresholdMetres(multiplier, spec, noiseRelative, rangeMetres, safety)
+		got := ClosenessThresholdMetres(multiplier, spec, noiseRelative, rangeMetres, safety)
 		// The same threshold with the noise term taken from the sensor spec
 		// instead of a fraction of range.
-		wantIfSpecFaithful := closenessThresholdMetres(multiplier, spec, 0, rangeMetres, safety) +
+		wantIfSpecFaithful := ClosenessThresholdMetres(multiplier, spec, 0, rangeMetres, safety) +
 			multiplier*spec
 
 		modelledNoise := noiseRelative * rangeMetres
@@ -75,8 +75,8 @@ func TestClosenessOverConservatismGrowsWithRange(t *testing.T) {
 
 	inflation := func(rangeMetres float64) float64 {
 		spec := specRangeAccuracyMetres(rangeMetres)
-		got := closenessThresholdMetres(multiplier, spec, noiseRelative, rangeMetres, safety)
-		specFaithful := closenessThresholdMetres(multiplier, spec, 0, rangeMetres, safety) + multiplier*spec
+		got := ClosenessThresholdMetres(multiplier, spec, noiseRelative, rangeMetres, safety)
+		specFaithful := ClosenessThresholdMetres(multiplier, spec, 0, rangeMetres, safety) + multiplier*spec
 		return got / specFaithful
 	}
 
@@ -103,7 +103,7 @@ func TestLongRangeClosenessThresholdExceedsAVehicleLength(t *testing.T) {
 	multiplier, noiseRelative, safety := shippedClosenessParams(t)
 
 	spec := specRangeAccuracyMetres(100)
-	got := closenessThresholdMetres(multiplier, spec, noiseRelative, 100, safety)
+	got := ClosenessThresholdMetres(multiplier, spec, noiseRelative, 100, safety)
 
 	if got <= typicalVehicleLengthMetres {
 		t.Errorf("the 100 m closeness threshold is now %.2f m, within a vehicle length (%.1f m): HW1's long-range cost has changed and the note in the gap analysis needs revisiting",
@@ -120,7 +120,7 @@ func TestClosenessThresholdIsMonotonicAndFloored(t *testing.T) {
 
 	// A cell whose spread has collapsed to zero still gets a usable window,
 	// or float noise alone would mark a static surface as foreground.
-	zeroSpread := closenessThresholdMetres(multiplier, 0, noiseRelative, 10, safety)
+	zeroSpread := ClosenessThresholdMetres(multiplier, 0, noiseRelative, 10, safety)
 	if zeroSpread <= 0 {
 		t.Errorf("zero-spread threshold is %v, which would reject every observation", zeroSpread)
 	}
@@ -130,15 +130,15 @@ func TestClosenessThresholdIsMonotonicAndFloored(t *testing.T) {
 
 	// Monotonic in every term: a noisier cell, a further observation or a
 	// larger operator margin must never narrow the window.
-	base := closenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, safety)
+	base := ClosenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, safety)
 	for _, tc := range []struct {
 		name string
 		got  float64
 	}{
-		{"more spread", closenessThresholdMetres(multiplier, 0.05, noiseRelative, 20, safety)},
-		{"further range", closenessThresholdMetres(multiplier, 0.02, noiseRelative, 40, safety)},
-		{"larger safety margin", closenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, safety+0.1)},
-		{"larger multiplier", closenessThresholdMetres(multiplier+1, 0.02, noiseRelative, 20, safety)},
+		{"more spread", ClosenessThresholdMetres(multiplier, 0.05, noiseRelative, 20, safety)},
+		{"further range", ClosenessThresholdMetres(multiplier, 0.02, noiseRelative, 40, safety)},
+		{"larger safety margin", ClosenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, safety+0.1)},
+		{"larger multiplier", ClosenessThresholdMetres(multiplier+1, 0.02, noiseRelative, 20, safety)},
 	} {
 		if tc.got <= base {
 			t.Errorf("%s did not widen the threshold: %v against base %v", tc.name, tc.got, base)
@@ -148,8 +148,8 @@ func TestClosenessThresholdIsMonotonicAndFloored(t *testing.T) {
 	// The neighbour-confirmation path passes safety=0 and must differ from the
 	// classification path by exactly that margin, since the two formulas were
 	// one expression before being extracted.
-	withSafety := closenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, safety)
-	withoutSafety := closenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, 0)
+	withSafety := ClosenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, safety)
+	withoutSafety := ClosenessThresholdMetres(multiplier, 0.02, noiseRelative, 20, 0)
 	if math.Abs((withSafety-withoutSafety)-safety) > 1e-12 {
 		t.Errorf("safety margin is not additive: %v against %v with margin %v", withSafety, withoutSafety, safety)
 	}
