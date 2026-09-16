@@ -223,7 +223,9 @@ measurement gate. Specifically still open:
   tracks.** This needs the production database and `lidar-jump-candidates.py`,
   and is a separate, human-reviewed curation task rather than a replay
   measurement.
-- **Pi per-stage timing, memory and throughput** for G-PER-1 — everything
-  above ran on development hardware, not the deployed Raspberry Pi.
+- **Pi per-stage timing, memory and throughput** — everything above ran on
+  macOS M1, the acceptance platform for this plan's gates. Confirming the
+  same result on the deployed Raspberry Pi is a v0.6.x+ hardware-validation
+  pass, not a Phase 0 or G-PER-1 blocker.
 - **P11 surface/clipping context** for near-edge geometry, and the reopened-
   evidence and remaining Phase 1 checks.
