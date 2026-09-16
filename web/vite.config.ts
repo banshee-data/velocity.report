@@ -50,7 +50,15 @@ export default defineConfig({
 			// so the operator tools and the public site render through the
 			// same modules. Types come from src/lib/scene/scene-reader.d.ts;
 			// see svelte.config.js for why the alias is not a kit alias.
-			$scene: resolve('../public_html/src/js')
+			$scene: resolve('../public_html/src/js'),
+			// The shared player imports the bare specifier "three". Because it
+			// lives under public_html, Node resolution would look for it in
+			// that directory's node_modules, which the web build has no reason
+			// to have installed: CI builds web on its own, and the build fails
+			// there while passing locally only because a developer happens to
+			// have installed public_html too. Pinning it to web's own declared
+			// copy keeps this build self-contained.
+			three: resolve('node_modules/three')
 		}
 	},
 	optimizeDeps: {

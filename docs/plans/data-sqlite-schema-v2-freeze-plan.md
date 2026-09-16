@@ -21,7 +21,7 @@ The current schema in [internal/db/schema.sql](../../internal/db/schema.sql) and
 - replay and benchmark cases,
 - run records and per-run tracks,
 - scene publication and asset metadata,
-- sweep/optimization requests and results,
+- sweep/optimisation requests and results,
 - site and configuration periods.
 
 These domains are adjacent, but they are not identical. The schema currently mixes them in adjacent tables and shared IDs, which makes long-lived evolution harder than it needs to be. The risk is semantic drift rather than a single catastrophic bug: the DB is working, but its ownership model is ambiguous.
@@ -118,12 +118,12 @@ Freeze the schema contract as a compatibility layer; then introduce a clean v2 m
    - `scene_publications`
    - Purpose: user-facing publication and asset state.
 
-6. **Sweep/optimization domain**
+6. **Sweep/optimisation domain**
    - `sweep_runs`
    - `sweep_rounds`
    - `sweep_results`
    - `sweep_recommendations`
-   - Purpose: optimization and auto-tuning outcomes.
+   - Purpose: optimisation and auto-tuning outcomes.
 
 7. **Site/config domain**
    - `site`
