@@ -406,6 +406,21 @@ vehicle is a box, the road is flat, there is no ground return and no second obje
 simplifications all make the result _conservative_, because each of them would add error to
 the production path rather than remove it.
 
+**Promoted, with one correction to this section.** The generator now lives in
+[synthetic_pass.go](../../internal/lidar/l4perception/synthetic_pass.go). The ring
+configuration described above cannot be the one that produced Section 3.2's table: the dense
+band's steepest ring is about -6.7 degrees, which from a 3 m mounting first descends to the
+vehicle's 1.5 m roof height at 12.7 m, and the vehicle passes within 5.1 m. A 14-ring dense
+band therefore sees nothing at all over the middle of the pass, yet 3.2 reports 248 points at
+frame 19. Rather than guess at the difference, the promoted generator fires the real
+Pandar40P elevation table read from deployed hardware, which covers the whole pass.
+
+Consequently **Section 3.2's per-frame figures are not reproduced, and the mechanism is.**
+With the real ring table the medoid pins to exactly -0.900 m — `W/2` for a 1.8 m vehicle — on
+20 of 40 frames, with a worst frame-to-frame hop of 0.806 m while nothing physical moves.
+That is Section 3.3's finding, and it is what the tests assert; the exact table above should
+be read as indicative of the mechanism rather than as a reproducible fixture.
+
 ### 3.2 Result
 
 Lateral offset of each candidate measurement from the true vehicle
