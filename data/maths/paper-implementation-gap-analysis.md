@@ -365,7 +365,25 @@ With both included, the effective window (`eff`, the wider of the two per cell):
 
 The median moves little — the closeness window really is the effective bar for the typical cell, which is what validates the headline finding — but **the tail is much worse than the first pass reported**: p90 reaches 23.9 m at 50–75 m and **45.4 m at 75–100 m**, against the 16–34 m the spread-only figures suggested.
 
-The p90 column is a second, separate mechanism worth its own investigation: those cells have learned spreads of 4–10 m, and a cell that repeatedly sees traffic learns a wide spread, which widens its own acceptance window, which makes it progressively less able to report the traffic that caused it. Whether they are vegetation, sky, or exactly that feedback loop needs ring-elevation analysis this audit does not do, and is filed separately.
+#### The p90 tail is not a feedback loop
+
+The wide-spread cells behind that tail had three candidate explanations — sky, vegetation, or a loop in which a cell that repeatedly sees traffic learns a wide spread from the traffic itself and is then less able to report the next vehicle. Only the third would be a defect. `-by-ring` attributes them, using ring elevation to identify beams that cannot reach the roadway and `RecentForegroundCount` to identify cells that have actually been seeing traffic:
+
+```bash
+go run ./cmd/tools/lidar-closeness-audit -db sensor_data.db -by-ring
+```
+
+**The loop is disconfirmed as the mechanism**, on three independent counts.
+
+The decisive one is an inversion. Rings 31–34 (elevation −7.7° to −10.7°, the steep beams that strike the roadway close in) have the **highest** share of foreground-reporting cells, 11.2–12.6%, and the **lowest** share of high-spread cells, 0.5–1.0%. The rings that see the most traffic have the fewest wide-spread cells — the opposite of what the loop predicts. Near-horizon rings, which see the least traffic, run 4–8× higher at 2.2–5.1%.
+
+Second, the foreground share among high-spread cells is flat at **2.9–9.4%** across every range band, and does not rise where high spread concentrates. If traffic were teaching these cells their spread, the two would track.
+
+Third, **38.7%** of the 563,393 high-spread cells sit above the horizon, where the beam never reaches the roadway at all.
+
+What the tail actually is: a long-range phenomenon. High spread as a share of each band rises monotonically with range, from **0.30% at 0–10 m to 23.27% at 75–100 m**. Nearly a quarter of cells past 75 m carry a learned spread over 1 m, which at the shipped multiplier of 3 contributes more than 3 m to the window _on top of_ the 2 m model term — and that is what produces the 45 m p90. The cause is oblique, distant, low-reflectivity returns and genuinely variable scene content, not traffic.
+
+**A caveat this analysis also surfaced, which applies to the tables above.** The cell population is dominated by the near field: **66.0%** of settled cells sit within 10 m and only **1.6%** past 75 m. Every ring's median range is 2–6 m, including the steep down-looking ones, which is not consistent with ground returns at a plausible mounting height — this sensor is seeing close clutter across most of its 360° azimuth sweep, with the roadway in a sector of it. The range-banded arithmetic is unaffected, since it bands by range. But "24 million cells" is not 24 million cells looking at traffic, and the per-band cell counts should be read as the population of the grid rather than of the scene.
 
 **Still not established: the detection cost.** A wide window only loses a detection when a foreground return's range falls within it of the learned background range, and that depends on scene geometry this audit does not model. The window is measured; the miss rate is not. That needs instrumented replay counting near-miss classifications against known foreground, and it remains the open follow-up.
 
