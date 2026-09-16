@@ -3,7 +3,7 @@
 This plan corrects viewpoint-dependent position measurements before extending the motion filter. It
 defines the evidence, storage contracts, and acceptance gates for a physical trajectory.
 
-- **Status:** In progress: heading/evaluation foundations delivered; corrected measurement and acceptance gates outstanding
+- **Status:** In progress: heading/evaluation foundations and the Section 5.4 solid-body contract delivered; the corrected measurement that populates it, and the acceptance gates, outstanding
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for every gate in this plan. Raspberry Pi per-stage timing, memory and throughput are real deployment requirements, but they are a target-hardware optimisation pass, not a correctness gate — they move to v0.6.6, after the tailgating/headway pipeline this plan feeds is publishing to the scenes webpages. A gate that reads "on Pi 4" below is being re-scoped to macOS M1 as those sections are touched; treat any gate as passable on M1 evidence alone unless it explicitly says otherwise.
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L9 Endpoints, storage
