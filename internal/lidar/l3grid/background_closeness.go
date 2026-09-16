@@ -31,3 +31,49 @@ const closenessFloorMetres = 0.01
 func ClosenessThresholdMetres(multiplier, spread, noiseRelative, observedRange, safety float64) float64 {
 	return multiplier*(spread+noiseRelative*observedRange+closenessFloorMetres) + safety
 }
+
+// WarmupSettledCount is the observation count at which a cell is treated as
+// having learned its own variance. Below it, the foreground window is widened
+// on a linear ramp: a new cell has no trustworthy spread yet, and calling its
+// noise foreground produces "initialisation trails" where static wall points
+// are reported as movement.
+const WarmupSettledCount = 100
+
+// WarmupMultiplier is the foreground window's tolerance factor for a cell that
+// has been observed timesSeen times: 4x at zero, decaying linearly to 1x at
+// WarmupSettledCount and staying there.
+func WarmupMultiplier(timesSeen uint32) float64 {
+	if timesSeen >= WarmupSettledCount {
+		return 1.0
+	}
+	return 1.0 + 3.0*float64(WarmupSettledCount-timesSeen)/float64(WarmupSettledCount)
+}
+
+// ForegroundClosenessWindowMetres is the closeness window the per-point
+// foreground decision uses. It is ClosenessThresholdMetres with the warmup
+// ramp applied to the scaled term — the operator's safety margin sits outside
+// the ramp, since it is an absolute allowance rather than a confidence one.
+func ForegroundClosenessWindowMetres(multiplier, spread, noiseRelative, observedRange, safety, warmup float64) float64 {
+	return multiplier*(spread+noiseRelative*observedRange+closenessFloorMetres)*warmup + safety
+}
+
+// lockedWindowFloorMetres keeps a locked cell's acceptance window usable when
+// its locked spread has collapsed to nearly nothing.
+const lockedWindowFloorMetres = 0.1
+
+// LockedBaselineWindowMetres is the second, independent acceptance window: how
+// far an observation may sit from a cell's *locked* baseline and still count as
+// background. It exists to survive EMA drift during a transit, when the running
+// average is being pulled toward the passing object.
+//
+// Note that the noise term here is not scaled by the closeness multiplier, so
+// this window is narrower than ForegroundClosenessWindowMetres at range despite
+// the larger spread multiplier. The foreground decision ORs the two, so the bar
+// a real return must clear is whichever is wider.
+func LockedBaselineWindowMetres(lockedMultiplier, lockedSpread, noiseRelative, observedRange, safety float64) float64 {
+	w := lockedMultiplier*lockedSpread + noiseRelative*observedRange + safety
+	if w < lockedWindowFloorMetres {
+		return lockedWindowFloorMetres
+	}
+	return w
+}
