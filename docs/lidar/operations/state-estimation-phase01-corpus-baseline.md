@@ -1,6 +1,6 @@
 # Phase 0/1 state-estimation corpus baseline
 
-- **Status:** Recorded: deterministic medoid reference established, full speed-banded residual/association tables published, and association-failure causes attributed. Physical acceptance, G-PER-1, and the historical jump-track replacement remain open.
+- **Status:** Recorded: deterministic medoid reference established, full speed-banded residual/association tables published, association-failure causes attributed, and representative episodes reviewed against recorded scenes. Physical acceptance, G-PER-1, and the historical jump-track replacement remain open.
 - **Scope:** Three-site, 16-capture offline replay corpus
 - **Repository revision:** `0277a0dd47273e0c25a00a64e5f42c2851a0e744`
 - **Related:** [State estimation](../../plans/lidar-state-estimation-plan.md), [lossless observation persistence batching](../../plans/lidar-lossless-observation-persistence-batching-plan.md), [deterministic track identity](../../plans/lidar-deterministic-track-identity-plan.md), [archive index](../../../tools/s2-archive/site-index.json)
@@ -122,6 +122,72 @@ Columbus, 482 of 628 for Marina, 339 of 473 for Embarcadero), with a rapidly
 thinning tail out to a handful of multi-second gaps and nothing beyond 5 s in
 this corpus.
 
+## Representative episode inspection
+
+Three episodes — Columbus's two longest tail gaps, and Embarcadero's single
+highest-NIS accepted association — were reconstructed directly from
+`lidar_observations.record_json` (the raw per-cluster geometry behind every
+frame, not just the accepted associations) to distinguish occlusion,
+fragmentation, and gating against a biased prediction. All three reconstruct
+cleanly; none required VRLOG playback since the immutable observation record
+already carries every cluster's centroid, extent, and point count per frame.
+
+**Columbus, 4.90 s gap (`trk_8b57d05e…`): occlusion by a competing track, not
+a missed detection.** The track's last confirmed position (4.998, −4.137) at
+`vx≈1.25, vy≈−0.65 m/s` predicts almost exactly onto a real cluster three
+frames later (predicted (5.25, −4.27) vs. observed (5.32, −4.41), 0.16 m
+apart) — the object kept producing good detections. But that cluster, and the
+two after it, were awarded to a _different_ live track (`trk_fb15e66d…`)
+whose own independent trajectory converges on the same area at the same
+time, ~1.4 m away moments earlier — consistent with two close-together
+pedestrians whose clusters merge from the sensor's perspective. Hungarian
+assignment gives the shared detection to one track; the other coasts. The
+object then produces no detections at all for a further ~4.4 s (nothing
+reappears near its path in `lidar_observations` for any track), and
+`trk_8b57d05e` re-acquires it once it reappears at (4.99, −4.54) — surviving
+the whole 4.9 s gap because confirmed tracks tolerate up to
+`max_misses_confirmed=15` frames of coasting. Note `trk_fb15e66d` itself is
+never seen again after handing back the shared detection: it is a duplicate,
+truncated fragment of the same encounter, not a separate real object — a
+side effect of this failure mode worth flagging even though it isn't the
+association-rate statistic being investigated here.
+
+**Columbus, 3.80 s gap (`trk_d6038052…`): occlusion by a genuine sensor
+dropout.** Predicted position from the last known state ((−11.52, 1.58) at
+`vx≈−0.38, vy≈1.42 m/s`) lands within 0.35 m of where the object reappears
+3.8 s later — the constant-velocity prediction was fine. Unlike the episode
+above, `lidar_observations` shows **zero clusters anywhere near that path**
+for the entire gap (the only detection in the whole window is an unrelated
+cluster 11 m away). This is not a competing track stealing the detection and
+not a fragment being rejected — nothing was detected at all, consistent with
+a real obstruction (a parked or passing vehicle, street furniture) blocking
+line of sight for the duration, or a transient background-absorption event
+for a slow-moving object.
+
+**Embarcadero, NIS=35.96 (`trk_b286a151…`): motion-model mismatch, not a
+tracking defect.** This track decelerates smoothly and continuously from
+2.9 m/s to 1.1 m/s over the preceding 4.2 s — a vehicle braking toward a stop,
+plausible at an intersection. At the flagged frame the constant-velocity
+prediction (10.24, −14.12), extrapolated from the still-substantial
+`vx=−1.1 m/s` belief, overshoots the actual, now much slower object by 1.69 m
+in the direction of travel (measured (11.93, −14.30); innovation covariance
+`cov_xx=0.23`, small relative to that residual). The velocity estimate
+collapses to near zero over the following two frames and the object holds
+position for the rest of the trajectory. This is exactly the constant-velocity
+model's known blind spot for hard deceleration — the P1/P4 "genuine
+acceleration, braking, turning" case this plan's motion-model work already
+targets (Section 7) — not an association, fragmentation, or gating failure.
+
+**Reading across all three:** on this sample, occlusion (of two different
+kinds — a competing live track absorbing a shared detection, and a genuine
+sensor dropout with zero detections) accounts for both inspected Columbus
+gaps, and the inspected Embarcadero high-NIS outlier is motion-model
+mismatch rather than any pipeline defect. Neither cluster fragmentation nor
+gating against a wrongly-biased prediction appeared in this sample — both
+inspected predictions were accurate — but three episodes do not rule either
+out as a contributor elsewhere in the 1,582 Columbus and 473 Embarcadero tail
+gaps; this reconstructs representative cases, not an exhaustive audit.
+
 ## Artefacts and verification
 
 The completed run is stored outside Git at:
@@ -209,16 +275,18 @@ association tables (not just the single `≥5 m/s` aggregate previously
 recorded), and attributes association-failure gaps to per-track causes rather
 than leaving them unexamined. It supplies a full-fidelity before measurement
 for the batching work, now cross-validated against a second independent
-replay with zero content drift.
+replay with zero content drift. It also closes the representative-episode
+review above: three reconstructed episodes attribute Columbus's tail gaps to
+two distinct occlusion mechanisms (a competing live track absorbing a shared
+detection, and a genuine sensor dropout) and Embarcadero's highest-NIS
+outlier to constant-velocity motion-model mismatch on a decelerating object,
+not to fragmentation or gating against a biased prediction — a sample large
+enough to name concrete mechanisms, not to rule either alternative out
+elsewhere in the corpus.
 
 It does not close Phase 0 physical acceptance, G-PER-1, or any corrected
 measurement gate. Specifically still open:
 
-- **Review representative failure episodes against frozen VRLOG scenes.** The
-  cause breakdown above distinguishes "something else was detected" from
-  "nothing was detected," but not which of occlusion, fragmentation, or
-  gating explains the former — that needs individual episodes inspected
-  against recorded scenes, not aggregate counts.
 - **Freeze a reviewed replacement for the unavailable 33 historical jump
   tracks.** This needs the production database and `lidar-jump-candidates.py`,
   and is a separate, human-reviewed curation task rather than a replay
