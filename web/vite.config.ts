@@ -31,7 +31,12 @@ export default defineConfig({
 		fs: {
 			// In git worktrees, node_modules may be symlinked to the main
 			// repo. Resolve the real path so Vite allows serving them.
-			allow: [realpathSync(resolve('node_modules'))]
+			allow: [
+				realpathSync(resolve('node_modules')),
+				// The shared scene player lives outside web/, so the dev
+				// server has to be allowed to read it.
+				realpathSync(resolve('../public_html/src/js'))
+			]
 		},
 		proxy: {
 			'/api/lidar': 'http://localhost:8081',
@@ -39,6 +44,15 @@ export default defineConfig({
 		}
 	},
 	plugins: [svelteVirtualCssFix(), tailwindcss(), sveltekit()],
+	resolve: {
+		alias: {
+			// The public scenes' three.js player, imported rather than copied,
+			// so the operator tools and the public site render through the
+			// same modules. Types come from src/lib/scene/scene-reader.d.ts;
+			// see svelte.config.js for why the alias is not a kit alias.
+			$scene: resolve('../public_html/src/js')
+		}
+	},
 	optimizeDeps: {
 		exclude: ['svelte-ux', 'layerchart', '@layerstack/tailwind']
 	},
