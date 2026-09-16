@@ -66,7 +66,8 @@ func (c candidate) String() string {
 
 // sample is one observation reduced to what E1 needs.
 type sample struct {
-	site string
+	site          string
+	observationID string
 	// aspectDeg is folded to [0, 90]: 0 means the line of sight runs along the
 	// body axis (end-on) and 90 means it is perpendicular (broadside). The body
 	// axis is undirected, so the fold loses nothing.
@@ -76,7 +77,11 @@ type sample struct {
 	lengthM   float64
 	// lateral is each candidate's position projected onto the body's lateral
 	// axis, which is where the W/2 bias the hypothesis predicts would appear.
+	// E1.3 uses it directly; E1.1 needs the site-frame positions instead,
+	// because its reference is a fitted path rather than the body's own axis.
 	lateral [candidateCount]float64
+	posX    [candidateCount]float64
+	posY    [candidateCount]float64
 	// available marks candidates that could be computed for this observation.
 	available [candidateCount]bool
 	retained  int
@@ -93,6 +98,12 @@ func main() {
 			"skip clusters smaller than this: below it the object is noise or a distant fragment, not a road user")
 		aspectBinDeg = flag.Float64("aspect-bin", 15, "aspect-angle bin width in degrees")
 		jsonOut      = flag.String("json", "", "optional path for the machine-readable result")
+		minSpeed     = flag.Float64("min-speed", 3.0, "E1.1: minimum mean track speed in m/s; a stationary track has no aspect sweep")
+		maxResidual  = flag.Float64("max-residual", 0.5,
+			"E1.1: maximum straight-line residual RMS in metres for a track to serve as a reference")
+		minEstimates = flag.Int("min-estimates", 20,
+			"E1.1: minimum estimates per track, which at 10 Hz is the plan's 2 second window")
+		minCell = flag.Int("min-cell", 30, "E1.1: minimum observations before a cell is reported")
 	)
 	flag.Parse()
 
@@ -114,6 +125,26 @@ func main() {
 	}
 
 	report(samples, stats, *aspectBinDeg, *jsonOut)
+
+	joined, joinStats, err := joinToTrackPaths(*dbPath, sites, samples, conditionalConfig{
+		minSpeedMps:    *minSpeed,
+		maxResidualRMS: *maxResidual,
+		minEstimates:   *minEstimates,
+		minCellCount:   *minCell,
+		aspectBinDeg:   *aspectBinDeg,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "joining to track paths: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("\n%s\n", joinStats)
+	reportConditionalMeans(joined, conditionalConfig{
+		minSpeedMps:    *minSpeed,
+		maxResidualRMS: *maxResidual,
+		minEstimates:   *minEstimates,
+		minCellCount:   *minCell,
+		aspectBinDeg:   *aspectBinDeg,
+	})
 }
 
 func readManifest(path string) (map[string]string, error) {
@@ -214,11 +245,12 @@ func loadSamples(dbPath string, sites map[string]string, minRetained, minPoints 
 			}
 
 			s := sample{
-				site:     site,
-				widthM:   float64(cl.OBB.Width),
-				lengthM:  float64(cl.OBB.Length),
-				retained: len(cl.RetainedPoints),
-				clipped:  cl.GroundClipped,
+				site:          site,
+				observationID: rec.ObservationID,
+				widthM:        float64(cl.OBB.Width),
+				lengthM:       float64(cl.OBB.Length),
+				retained:      len(cl.RetainedPoints),
+				clipped:       cl.GroundClipped,
 			}
 
 			// The sensor sits at the origin of the site frame: the calibration
@@ -239,15 +271,17 @@ func loadSamples(dbPath string, sites map[string]string, minRetained, minPoints 
 			latY := math.Cos(float64(cl.OBB.HeadingRad))
 			project := func(x, y float64) float64 { return x*latX + y*latY }
 
-			s.lateral[candMedoid] = project(float64(cl.CentroidX), float64(cl.CentroidY))
-			s.available[candMedoid] = true
-			s.lateral[candOBBCentre] = project(cx, cy)
-			s.available[candOBBCentre] = true
+			record := func(c candidate, x, y float64) {
+				s.lateral[c] = project(x, y)
+				s.posX[c], s.posY[c] = x, y
+				s.available[c] = true
+			}
+			record(candMedoid, float64(cl.CentroidX), float64(cl.CentroidY))
+			record(candOBBCentre, cx, cy)
 
 			if nx, ny, ok := nearestCorner(cl.OBB.CenterX, cl.OBB.CenterY,
 				cl.OBB.Length, cl.OBB.Width, cl.OBB.HeadingRad); ok {
-				s.lateral[candNearestCorner] = project(float64(nx), float64(ny))
-				s.available[candNearestCorner] = true
+				record(candNearestCorner, float64(nx), float64(ny))
 			}
 
 			// The near-edge candidate, through the production implementation,
@@ -272,8 +306,7 @@ func loadSamples(dbPath string, sites map[string]string, minRetained, minPoints 
 				PredictedY:       cl.OBB.CenterY,
 			})
 			if set.Rank > 0 {
-				s.lateral[candNearEdge] = project(float64(set.CentreX), float64(set.CentreY))
-				s.available[candNearEdge] = true
+				record(candNearEdge, float64(set.CentreX), float64(set.CentreY))
 				stats.nearEdgeRank[set.Rank]++
 			} else {
 				reason := set.FallbackReason
