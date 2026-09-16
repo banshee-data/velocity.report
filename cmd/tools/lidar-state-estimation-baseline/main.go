@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,11 @@ type corpusCase struct {
 type indexEntry struct {
 	ID       string   `json:"id"`
 	Captures []string `json:"captures"`
+	// NorthAzimuthDeg is the sensor's operator-measured compass bearing
+	// (clockwise from true north, 0-360) from the "Align from above" scene
+	// tool: see tools/s2-archive/README.md. It is the only real per-site
+	// extrinsic orientation this index carries today.
+	NorthAzimuthDeg float64 `json:"north_azimuth_deg"`
 }
 
 type caseSummary struct {
@@ -41,6 +47,14 @@ type caseSummary struct {
 	BaselineEqual         bool    `json:"baseline_equal"`
 	ObservationSourceID   string  `json:"observation_source_id,omitempty"`
 	MeasurementSourceMode string  `json:"measurement_source_mode"`
+	// Ground surface fields are populated only when -surface-ground was
+	// passed and the background settled in time to fit a P11 ground plane
+	// for this case; omitted otherwise.
+	GroundSurfaceSupport       int     `json:"ground_surface_support,omitempty"`
+	GroundSurfaceGradientMetre float64 `json:"ground_surface_gradient_metre,omitempty"`
+	GroundSurfaceRMSEMetres    float64 `json:"ground_surface_rmse_metres,omitempty"`
+	GroundSurfaceRegionCount   int     `json:"ground_surface_region_count,omitempty"`
+	GroundSurfaceCellMetres    float64 `json:"ground_surface_cell_metres,omitempty"`
 }
 
 func main() {
@@ -162,7 +176,7 @@ func main() {
 		if observationDBPath != "" {
 			first.ObservationDBPath = observationDBPath
 			first.ReplayCaseID = selectedCase.ID
-			first.ObservationCalibration = identityCalibration(*sensorID)
+			first.ObservationCalibration = siteCalibration(*sensorID, index[selectedCase.ID].NorthAzimuthDeg)
 			first.ObservationMaxSamplePoints = 256
 			first.ProfileEvidence = *evidenceProfile
 		}
@@ -201,12 +215,25 @@ func main() {
 		if !bytes.Equal(firstBaseline, repeatBaseline) {
 			fatal(fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID))
 		}
-		summaries = append(summaries, caseSummary{
+		summary := caseSummary{
 			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: *duration,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),
-		})
+		}
+		if fit := firstResult.GroundSurfaceFit; fit != nil {
+			summary.GroundSurfaceSupport = fit.Global.Support
+			summary.GroundSurfaceGradientMetre = fit.Global.GradientMetre
+			summary.GroundSurfaceRMSEMetres = fit.Global.RMSEMetres
+			summary.GroundSurfaceRegionCount = fit.RegionCount
+			summary.GroundSurfaceCellMetres = fit.CellMetres
+			fmt.Printf("%s: ground surface support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm\n",
+				selectedCase.ID, fit.Global.Support, fit.Global.GradientMetre, fit.Global.RMSEMetres,
+				fit.RegionCount, fit.CellMetres)
+		} else if *surfaceGround {
+			fmt.Printf("%s: -surface-ground set but no ground plane was fit (background did not settle in time)\n", selectedCase.ID)
+		}
+		summaries = append(summaries, summary)
 	}
 	b, err := json.MarshalIndent(struct {
 		SchemaVersion        int           `json:"schema_version"`
@@ -225,6 +252,40 @@ func main() {
 func identityCalibration(sensorID string) l4bobserve.Calibration {
 	return l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site",
 		Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
+}
+
+// siteCalibration is identityCalibration's per-site replacement for the
+// evidence a real replay records: a pure yaw rotation built from the
+// sensor's operator-measured compass bearing (site-index.json's
+// north_azimuth_deg, from the "Align from above" scene tool — see
+// tools/s2-archive/README.md), rather than every site sharing one
+// placeholder identity transform.
+//
+// Convention: site frame is local East-North-Up (+X east, +Y north, +Z
+// up); the sensor's origin is the frame origin; northAzimuthDeg is the
+// sensor's own azimuth-zero direction as a standard compass bearing
+// (clockwise from north, degrees). This is an explicit, reasonable
+// default — not yet cross-checked against the alignment tool's own axis
+// convention — safe today because nothing applies Transform to actual
+// points; CalibrationID only hashes it as content, so a wrong sign
+// changes an identity string, not a measurement.
+//
+// Height and mounting tilt are deliberately not encoded here. A per-run
+// ground-plane fit (l3grid.RegionalGroundSurface) can estimate them, but
+// baking a measurement into an identity value would make calibration_id
+// wobble with ordinary measurement noise between otherwise-identical
+// replays of the same site; report that estimate as evidence instead (see
+// caseSummary's GroundSurface fields), not as part of this identity.
+func siteCalibration(sensorID string, northAzimuthDeg float64) l4bobserve.Calibration {
+	mathRad := (90 - northAzimuthDeg) * math.Pi / 180
+	c, s := math.Cos(mathRad), math.Sin(mathRad)
+	return l4bobserve.Calibration{SensorID: sensorID, FromFrame: "sensor", ToFrame: "site",
+		Transform: [16]float64{
+			c, -s, 0, 0,
+			s, c, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		}}
 }
 
 func ensureEmptyDir(dir string) error {
