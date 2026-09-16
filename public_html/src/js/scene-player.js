@@ -324,6 +324,12 @@ export async function mountScenePlayer({
   // drone, and the returned session gains a `capture.applyView` for freezing
   // an exact frame, camera and layer set. Absent for the production page.
   capture = false,
+  // An already-open session, for frames that do not come from a published
+  // export directory. The operator tools read live runs from the database
+  // and inject a session over them, so playback, seeking and trail
+  // reconstruction stay this one implementation rather than a second one
+  // written against a different clock.
+  session: injectedSession = null,
 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -526,7 +532,8 @@ export async function mountScenePlayer({
     onUserInput: () => setFlying(false),
   });
 
-  const session = await new SceneSession(manifestURL).open();
+  const session =
+    injectedSession ?? (await new SceneSession(manifestURL).open());
   const generatorVersions = sceneGeneratorVersions(session.parts);
   if (ui.generatorVersions && generatorVersions.length) {
     const generatorVersion = generatorVersions.join(", ");

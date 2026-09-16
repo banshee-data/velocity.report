@@ -548,3 +548,95 @@ describe("chunk transport", () => {
     assert.equal(frames[0].f, 0);
   });
 });
+
+describe("a session over parts that are already open", () => {
+  // The operator tools read live runs out of the database rather than static
+  // chunks, and drive the same player with them. fromParts is the seam: it
+  // has to give those parts the same seeking and trail reconstruction a
+  // published scene gets, or the two surfaces diverge.
+
+  /** A part whose one chunk is already in memory. */
+  class MemoryPart extends PartReader {
+    constructor(frames, header = {}) {
+      super("memory:///");
+      this.frames = frames;
+      this.header = header;
+      this.chunks = [
+        {
+          c: 0,
+          n: frames.length,
+          t0: frames[0].t,
+          t1: frames[frames.length - 1].t,
+        },
+      ];
+    }
+    async loadChunk(id) {
+      return id === 0 ? this.frames : [];
+    }
+    prefetchAfter() {}
+  }
+
+  function memoryFrames(count, stepUs = STEP_US) {
+    return Array.from({ length: count }, (_, i) => ({
+      f: i,
+      t: i * stepUs,
+      tr: [{ id: "a", x: i, y: 0, z: 0, spd: i }],
+    }));
+  }
+
+  test("takes its duration from the parts themselves", () => {
+    const session = SceneSession.fromParts([
+      new MemoryPart(memoryFrames(5)),
+      new MemoryPart(memoryFrames(3)),
+    ]);
+    // 4 steps then 2 steps, in seconds. Summed per part, so the comparison
+    // allows for the float accumulation that summing does.
+    assert.ok(
+      Math.abs(session.duration - (4 * STEP_US + 2 * STEP_US) / 1e6) < 1e-9,
+      `duration was ${session.duration}`,
+    );
+  });
+
+  test("locates a time in the right part", () => {
+    const session = SceneSession.fromParts([
+      new MemoryPart(memoryFrames(5)),
+      new MemoryPart(memoryFrames(3)),
+    ]);
+    assert.equal(session.locate(0).partIndex, 0);
+    // Past the first part's 0.8 s span.
+    assert.equal(session.locate(0.9).partIndex, 1);
+  });
+
+  test("seeks and reconstructs a trail through the shared logic", async () => {
+    const session = SceneSession.fromParts([new MemoryPart(memoryFrames(6))]);
+
+    const at = await session.frameAt(0.5);
+    assert.equal(at.frame.f, 2, "0.5 s falls on the third 200 ms frame");
+
+    const history = await session.trailHistory(1.0, 0.45);
+    assert.deepEqual(
+      history.frames.map((f) => f.f),
+      [3, 4, 5],
+      "history should come from recorded samples, not rendered ones",
+    );
+  });
+
+  test("titles the session for the caller", () => {
+    const named = SceneSession.fromParts([new MemoryPart(memoryFrames(2))], {
+      title: "Run 42",
+    });
+    assert.equal(named.title, "Run 42");
+    // A caller that does not care still gets something printable.
+    assert.equal(
+      SceneSession.fromParts([new MemoryPart(memoryFrames(2))]).title,
+      "Scene",
+    );
+  });
+
+  test("refuses a session with no parts", () => {
+    // An empty session would report a zero duration and then fail on the
+    // first seek, which is a worse error than this one.
+    assert.throws(() => SceneSession.fromParts([]), SceneError);
+    assert.throws(() => SceneSession.fromParts(null), SceneError);
+  });
+});

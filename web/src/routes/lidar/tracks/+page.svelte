@@ -25,6 +25,7 @@
 		getTrackObservationsRange
 	} from '$lib/api';
 	import MapPane from '$lib/components/lidar/MapPane.svelte';
+	import ScenePane from '$lib/components/lidar/ScenePane.svelte';
 	import TimelinePane from '$lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '$lib/components/lidar/TrackList.svelte';
 	import type {
@@ -132,6 +133,18 @@
 	// Missed regions state
 	let missedRegions: MissedRegion[] = [];
 	let markMissedMode = false;
+
+	/**
+	 * Which top-pane view is showing. The 3D scene is the default: it is the
+	 * same player the public scenes run on, and it shows height and depth a
+	 * flat map cannot. The map stays available because region marking needs a
+	 * surface that turns a click into a world position.
+	 */
+	let viewMode: 'scene' | 'map' = 'scene';
+
+	// Region marking only works on the map, so asking for it goes there
+	// rather than arming a mode with nothing to click.
+	$: if (markMissedMode && viewMode !== 'map') viewMode = 'map';
 
 	// Playback state
 	let timeRange: { start: number; end: number } | null = null;
@@ -840,6 +853,28 @@
 					/>
 				{/if}
 
+				<!-- View toggle: the shared 3D scene player, or the flat map -->
+				<div class="bg-surface-200 flex items-center rounded p-0.5 text-xs" role="group">
+					<button
+						on:click={() => (viewMode = 'scene')}
+						class="rounded px-2 py-1 font-medium transition-colors {viewMode === 'scene'
+							? 'bg-primary text-primary-content'
+							: 'text-surface-content hover:bg-surface-300'}"
+						title="3D scene, the same renderer the published scenes use"
+					>
+						3D scene
+					</button>
+					<button
+						on:click={() => (viewMode = 'map')}
+						class="rounded px-2 py-1 font-medium transition-colors {viewMode === 'map'
+							? 'bg-primary text-primary-content'
+							: 'text-surface-content hover:bg-surface-300'}"
+						title="Flat map, for marking missed regions"
+					>
+						Map
+					</button>
+				</div>
+
 				<!-- Mark Missed button (visible when run is selected) -->
 				{#if selectedRunId}
 					<button
@@ -897,21 +932,36 @@
 			class="border-surface-content/20 bg-surface-300 border-b"
 			style={topPaneHeight !== null ? `height: ${topPaneHeight}px; flex-shrink: 0` : 'flex: 3'}
 		>
-			<MapPane
-				tracks={visibleTracks}
-				{selectedTrackId}
-				{backgroundGrid}
-				currentTime={selectedTime}
-				observations={selectedTrackObservations}
-				foreground={visibleForeground}
-				foregroundEnabled={showForeground}
-				{foregroundOffset}
-				onTrackSelect={handleTrackSelect}
-				{missedRegions}
-				{markMissedMode}
-				onMapClick={handleMapClick}
-				onDeleteMissedRegion={handleDeleteMissedRegion}
-			/>
+			{#if viewMode === 'scene'}
+				<!-- The 3D scene view runs the same three.js player as the public
+				     scenes, driven by a session built over these live
+				     observations rather than a published export. -->
+				<ScenePane
+					observations={foregroundObservations}
+					{runTracks}
+					{sensorId}
+					title={selectedSceneId ?? 'Live run'}
+				/>
+			{:else}
+				<!-- The flat map still owns region marking: it is the surface
+				     that turns a click into a world position, and dropping it
+				     would take a working labelling workflow with it. -->
+				<MapPane
+					tracks={visibleTracks}
+					{selectedTrackId}
+					{backgroundGrid}
+					currentTime={selectedTime}
+					observations={selectedTrackObservations}
+					foreground={visibleForeground}
+					foregroundEnabled={showForeground}
+					{foregroundOffset}
+					onTrackSelect={handleTrackSelect}
+					{missedRegions}
+					{markMissedMode}
+					onMapClick={handleMapClick}
+					onDeleteMissedRegion={handleDeleteMissedRegion}
+				/>
+			{/if}
 		</div>
 
 		<!-- Resize Handle -->
