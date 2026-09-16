@@ -311,6 +311,12 @@ type TrackingPipelineConfig struct {
 	SurfaceGroundFloor   float64 // metres above the fitted surface; default 0.2
 	SurfaceGroundCeiling float64 // metres above the fitted surface; default 4.5
 
+	// SurfaceGroundRegionMetres is the per-side size of the grid cells the
+	// surface-ground fit re-fits independently, so a crest, valley, or a
+	// driveway apron meeting the road at a different grade is not forced
+	// onto one global plane. 0 uses l3grid.DefaultRegionSizeMetres.
+	SurfaceGroundRegionMetres float64
+
 	// BenchmarkMode, when non-nil and true, enables per-frame performance
 	// tracing: stage timing via FrameTimer, slow-frame alerts, periodic
 	// health summaries (heap/goroutines), and pipeline lag detection.
@@ -350,6 +356,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	useSurfaceGround := cfg.UseSurfaceGround
 	surfaceGroundFloor := cfg.SurfaceGroundFloor
 	surfaceGroundCeiling := cfg.SurfaceGroundCeiling
+	surfaceGroundRegionMetres := cfg.SurfaceGroundRegionMetres
 	sensorID := cfg.SensorID
 
 	// An unset profile means "everything", which is what every caller written
@@ -391,7 +398,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	var logFgForwarderNilOnce sync.Once
 	var logGroundDisabledOnce sync.Once
 	var logSurfaceGroundFallbackOnce sync.Once
-	var groundSurface *l3grid.GroundSurface
+	var groundSurface *l3grid.RegionalGroundSurface
 
 	// Cache the default DBSCAN params once at callback creation time rather
 	// than loading from disk on every frame. The per-frame overrides
@@ -673,10 +680,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		var lowerGroundRejected []l4perception.WorldPoint
 		if removeGround {
 			if useSurfaceGround && groundSurface == nil {
-				surface, err := l3grid.FitGroundSurfaceFromBackground(cfg.BackgroundManager)
+				surface, err := l3grid.FitRegionalGroundSurfaceFromBackground(cfg.BackgroundManager, surfaceGroundRegionMetres)
 				if err == nil {
 					groundSurface = &surface
-					tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm", surface.Support, surface.GradientMetre, surface.RMSEMetres)
+					tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm",
+						surface.Global.Support, surface.Global.GradientMetre, surface.Global.RMSEMetres,
+						surface.RegionCount, surface.CellMetres)
 				} else {
 					logSurfaceGroundFallbackOnce.Do(func() { diagf("Surface-ground filter waiting for settled background: %v", err) })
 				}
