@@ -42,8 +42,14 @@ type ForegroundForwarder interface {
 // A 10 Hz sensor had 5,500 frames throttled against a 25 fps cap in sixteen
 // minutes on 2026-08-26, and each throttled frame also skipped AdvanceMisses,
 // quietly slowing live track ageing.
-func shouldThrottleFrame(replayActive *atomic.Bool, minInterval time.Duration, lastProcessed, now time.Time) bool {
+func shouldThrottleFrame(replayActive, analysisModeActive *atomic.Bool, minInterval time.Duration, lastProcessed, now time.Time) bool {
 	if replayActive == nil || !replayActive.Load() {
+		return false
+	}
+	// Persisted analysis output must never be silently thinned: a throttled
+	// frame is recorded as empty, which preserves frame count but drops the
+	// clustering/tracking content the recording exists to capture.
+	if analysisModeActive != nil && analysisModeActive.Load() {
 		return false
 	}
 	if minInterval <= 0 {
@@ -258,6 +264,18 @@ type TrackingPipelineConfig struct {
 	// milliseconds — but on live data it means track ageing quietly runs slower
 	// than configured.
 	ReplayActive *atomic.Bool
+
+	// AnalysisModeActive gates the frame-rate throttle off entirely, even
+	// during a replay. An analysis-mode replay persists an observation
+	// database and/or VRLOG that downstream tooling treats as a complete,
+	// semantically-processed record (Phase 0 corpus evidence, HINT scoring,
+	// side-by-side comparison). The throttle's publishEmptyFrame path
+	// silently converts a throttled foreground frame into an empty one,
+	// which only preserves frame cardinality, not the semantic content
+	// those consumers actually need. A nil flag is treated as false (not
+	// analysis mode), matching ReplayActive's nil handling, so existing
+	// callers that never set this field keep today's throttle behaviour.
+	AnalysisModeActive *atomic.Bool
 
 	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
 	// DBSCAN clustering. Each cubic voxel of this side length (metres) is
@@ -506,7 +524,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Replays only. Live input is processed frame for frame: there is no
 		// catch-up flood to defend against, and skipping AdvanceMisses on live
 		// data slows track ageing.
-		if shouldThrottleFrame(cfg.ReplayActive, minFrameInterval, lastProcessedTime, time.Now()) {
+		if shouldThrottleFrame(cfg.ReplayActive, cfg.AnalysisModeActive, minFrameInterval, lastProcessedTime, time.Now()) {
 			count := throttledFrames.Add(1)
 			if count%50 == 0 {
 				diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, maxFrameRate)

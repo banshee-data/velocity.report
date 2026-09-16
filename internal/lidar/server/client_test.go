@@ -925,8 +925,13 @@ func TestClient_StartPCAPReplayWithConfig_DefaultsAndOptionalFields(t *testing.T
 		if _, ok := received["duration_seconds"]; ok {
 			t.Fatalf("duration_seconds should be omitted for zero value, got %v", received["duration_seconds"])
 		}
-		if _, ok := received["analysis_mode"]; ok {
-			t.Fatalf("analysis_mode should be omitted when false, got %v", received["analysis_mode"])
+		// analysis_mode is sent explicitly even for the zero value, unlike
+		// start_seconds/duration_seconds above: the server defaults an omitted
+		// analysis_mode to true, so omitting it here whenever the config's
+		// value is false would silently flip the caller's intent instead of
+		// honouring it.
+		if got, ok := received["analysis_mode"]; !ok || got != false {
+			t.Fatalf("analysis_mode should be sent explicitly as false, got %v (present: %v)", got, ok)
 		}
 	})
 
