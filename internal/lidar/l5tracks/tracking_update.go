@@ -73,40 +73,14 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	track.VX += K[2*2+0]*yX + K[2*2+1]*yY
 	track.VY += K[3*2+0]*yX + K[3*2+1]*yY
 
-	// Update covariance: P' = (I - K*H) * P
-	// K*H is 4x4, where (K*H)[i,j] = K[i,0]*H[0,j] + K[i,1]*H[1,j]
-	// H[0,0]=1, H[0,1]=0, H[0,2]=0, H[0,3]=0
-	// H[1,0]=0, H[1,1]=1, H[1,2]=0, H[1,3]=0
-	// So (K*H)[i,j] = K[i,0] if j==0, K[i,1] if j==1, 0 otherwise
-	var IminusKH [16]float32
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			identity := float32(0)
-			if i == j {
-				identity = 1
-			}
-			var kh float32
-			if j == 0 {
-				kh = K[i*2+0]
-			} else if j == 1 {
-				kh = K[i*2+1]
-			}
-			IminusKH[i*4+j] = identity - kh
-		}
+	// Update covariance. The shipped form is P' = (I - K*H) * P; the Joseph
+	// stabilised form is algebraically identical at the optimal gain but keeps
+	// P symmetric under float error. See tracking_covariance.go.
+	if t.Config.JosephCovarianceUpdate {
+		track.P = josephCovarianceUpdate(track.P, K, t.Config.MeasurementNoise)
+	} else {
+		track.P = naiveCovarianceUpdate(track.P, K)
 	}
-
-	// P' = IminusKH * P
-	var newP [16]float32
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			var sum float32
-			for k := 0; k < 4; k++ {
-				sum += IminusKH[i*4+k] * track.P[k*4+j]
-			}
-			newP[i*4+j] = sum
-		}
-	}
-	track.P = newP
 
 	// Guard: reset state if update produced NaN/Inf (task 2.4).
 	if !isFiniteState(track) {
