@@ -430,7 +430,7 @@ the existing perception path) and write web scene JSON.
 6. Refuse a source whose frame count disagrees with its capture's rotation
    count; record the source VRLOG SHA-256 in `header.json`.
 
-**Milestone:** v0.6.0
+**Milestone:** v0.6.5
 
 ### Item 2: Browser reader
 
@@ -447,7 +447,7 @@ the existing perception path) and write web scene JSON.
    `DecompressionStream` is unavailable.
 5. Unit tests against a small committed fixture — not against a large real asset.
 
-**Milestone:** v0.6.0
+**Milestone:** v0.6.5
 
 ### Item 3: Player and scene page
 
@@ -464,7 +464,7 @@ the existing perception path) and write web scene JSON.
 5. Load background first if present, then tracks over it.
 6. Honour `prefers-reduced-motion`; verify at mobile widths.
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.5
 
 ### Item 4: Publish one real scene
 
@@ -486,7 +486,7 @@ the existing perception path) and write web scene JSON.
    resulting asset sizes in
    [reference-capture.md](../lidar/operations/reference-capture.md).
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.5
 
 ### Item 5: Columbus at Broadway point-cloud clip
 
@@ -506,7 +506,7 @@ the tracked trails meet the publication-quality gate.
 6. Verify autoplay, wrap, fade, seeking, reduced motion, mobile loading and
    keyboard operation on the Columbus scene.
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.5
 
 ## Phasing
 

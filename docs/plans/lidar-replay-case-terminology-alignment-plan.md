@@ -121,7 +121,7 @@ These files/uses of "scene" remain unchanged:
 1. **Batch 1 (v0.5.1 or v0.5.2):** Store + API layer rename (API-breaking)
 2. **Batch 2:** Sweep interfaces and wiring
 3. **Batch 3:** Web/Svelte local updates
-4. **Batch 4:** Documentation sweep (lower priority, can extend into v0.5.3+)
+4. **Batch 4:** Documentation sweep (lower priority, can extend into v0.5.4+)
 
 All batches go to main together to maintain API consistency.
 
