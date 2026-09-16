@@ -154,3 +154,89 @@ func TestClosenessThresholdIsMonotonicAndFloored(t *testing.T) {
 		t.Errorf("safety margin is not additive: %v against %v with margin %v", withSafety, withoutSafety, safety)
 	}
 }
+
+// The foreground decision in foreground.go accepts an observation as background
+// if ANY of three windows contains it, so the bar a real return must clear is
+// the widest of them. These pin the two computable ones and the relationship
+// between them, which is not the one the larger spread multiplier suggests.
+
+func TestWarmupMultiplierRampsFromFourToOne(t *testing.T) {
+	if got := WarmupMultiplier(0); got != 4.0 {
+		t.Errorf("a never-seen cell got %v, want the full 4x tolerance", got)
+	}
+	if got := WarmupMultiplier(WarmupSettledCount); got != 1.0 {
+		t.Errorf("a settled cell got %v, want 1x", got)
+	}
+	if got := WarmupMultiplier(WarmupSettledCount * 10); got != 1.0 {
+		t.Errorf("a long-settled cell got %v, want 1x and no further narrowing", got)
+	}
+	// Monotonic decay in between: a better-observed cell is never given more
+	// tolerance than a less-observed one.
+	prev := WarmupMultiplier(0)
+	for seen := uint32(1); seen <= WarmupSettledCount; seen++ {
+		got := WarmupMultiplier(seen)
+		if got > prev {
+			t.Fatalf("tolerance widened from %v to %v at %d observations", prev, got, seen)
+		}
+		prev = got
+	}
+}
+
+func TestForegroundWindowAppliesWarmupToTheScaledTermOnly(t *testing.T) {
+	multiplier, noiseRelative, safety := shippedClosenessParams(t)
+	const spread, rangeMetres = 0.02, 20.0
+
+	settled := ForegroundClosenessWindowMetres(multiplier, spread, noiseRelative, rangeMetres, safety, 1)
+	base := ClosenessThresholdMetres(multiplier, spread, noiseRelative, rangeMetres, safety)
+	if math.Abs(settled-base) > 1e-12 {
+		t.Errorf("a settled cell's foreground window %v should equal the closeness threshold %v", settled, base)
+	}
+
+	// The operator's absolute safety margin is not a confidence allowance, so
+	// the warmup ramp must not scale it.
+	warm := ForegroundClosenessWindowMetres(multiplier, spread, noiseRelative, rangeMetres, safety, 4)
+	wantScaled := (base - safety) * 4
+	if math.Abs((warm-safety)-wantScaled) > 1e-9 {
+		t.Errorf("warmup window %v does not scale only the term above safety: want %v + %v", warm, wantScaled, safety)
+	}
+}
+
+func TestLockedWindowIsNarrowerThanClosenessAtRange(t *testing.T) {
+	// Counter-intuitive but load-bearing: the locked window multiplies its
+	// spread by 4 against closeness's 3, yet it does not scale the
+	// range-proportional noise term at all, so it ends up the narrower of the
+	// two wherever range dominates. That is why the closeness window is the
+	// effective bar for ~90% of deployed cells, and it is the reason the
+	// locked path does not mitigate the HW1 finding above.
+	cfg := config.MustLoadDefaultConfig()
+	l3 := cfg.L3.EmaBaselineV1
+	multiplier, noiseRelative, safety := shippedClosenessParams(t)
+	lockedMultiplier := l3.LockedBaselineMultiplier
+
+	for _, rangeMetres := range []float64{20, 50, 100} {
+		// Equal spreads, so the comparison is between the formulas rather than
+		// between two different cells.
+		const spread = 0.02
+		closeness := ForegroundClosenessWindowMetres(multiplier, spread, noiseRelative, rangeMetres, safety, 1)
+		locked := LockedBaselineWindowMetres(lockedMultiplier, spread, noiseRelative, rangeMetres, safety)
+
+		if locked >= closeness {
+			t.Errorf("range %v m: locked window %v is not narrower than closeness %v; the OR in foreground.go now has a different binding term",
+				rangeMetres, locked, closeness)
+		}
+	}
+}
+
+func TestLockedWindowHasAUsableFloor(t *testing.T) {
+	// A cell whose locked spread has collapsed must still accept something,
+	// or it would report its own static surface as foreground forever.
+	got := LockedBaselineWindowMetres(4, 0, 0, 0, 0)
+	if got < lockedWindowFloorMetres {
+		t.Errorf("collapsed locked window = %v, want at least the %v floor", got, lockedWindowFloorMetres)
+	}
+	// Above the floor the terms are additive, not clamped.
+	big := LockedBaselineWindowMetres(4, 0.5, 0.02, 100, 0.15)
+	if want := 4*0.5 + 0.02*100 + 0.15; math.Abs(big-want) > 1e-12 {
+		t.Errorf("locked window = %v, want %v", big, want)
+	}
+}

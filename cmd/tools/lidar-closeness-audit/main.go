@@ -47,9 +47,18 @@ var bands = []rangeBand{
 }
 
 // bandStats accumulates the per-cell values for one band.
+//
+// Both acceptance windows are tracked because the foreground decision in
+// foreground.go is an OR of three conditions, so the effective bar a real
+// return must clear is the widest of them, not the closeness term alone.
 type bandStats struct {
-	spread    []float64
-	threshold []float64
+	spread      []float64
+	threshold   []float64 // closeness window, warmup applied
+	locked      []float64 // locked-baseline window, where the cell has one
+	effective   []float64 // max of the two: the actual bar
+	warmup      int       // cells still inside the warmup ramp
+	lockedSet   int       // cells carrying a usable locked baseline
+	lockedWider int       // cells where the locked window is the binding one
 }
 
 // specRangeAccuracyMetres is the Pandar40P's specified range accuracy: flat
@@ -75,10 +84,12 @@ func percentile(sorted []float64, p float64) float64 {
 // the tuning that was live when it was taken; the shipped defaults fill in when
 // the blob is empty, which is the case for every snapshot written so far.
 type snapshotParams struct {
-	multiplier    float64
-	noiseRelative float64
-	safety        float64
-	fromSnapshot  bool
+	multiplier       float64
+	noiseRelative    float64
+	safety           float64
+	lockedMultiplier float64
+	lockedThreshold  uint32
+	fromSnapshot     bool
 }
 
 func shippedParams(tuningPath string) (snapshotParams, error) {
@@ -91,9 +102,11 @@ func shippedParams(tuningPath string) (snapshotParams, error) {
 	}
 	l3 := cfg.L3.EmaBaselineV1
 	return snapshotParams{
-		multiplier:    l3.ClosenessMultiplier,
-		noiseRelative: l3.NoiseRelative,
-		safety:        l3.SafetyMarginMetres,
+		multiplier:       l3.ClosenessMultiplier,
+		noiseRelative:    l3.NoiseRelative,
+		safety:           l3.SafetyMarginMetres,
+		lockedMultiplier: l3.LockedBaselineMultiplier,
+		lockedThreshold:  uint32(l3.LockedBaselineThreshold),
 	}, nil
 }
 
@@ -210,14 +223,49 @@ func main() {
 				settledCells++
 
 				spread := float64(c.RangeSpreadMeters)
-				threshold := l3grid.ClosenessThresholdMetres(
-					active.multiplier, spread, active.noiseRelative, learnedRange, active.safety)
+
+				// foreground.go widens the window by up to 4x while a cell is
+				// still learning its variance, so an audit that ignores warmup
+				// understates the bar for exactly the cells least able to
+				// report anything.
+				warmup := 1.0
+				if c.TimesSeenCount < l3grid.WarmupSettledCount {
+					warmup = l3grid.WarmupMultiplier(c.TimesSeenCount)
+				}
+				threshold := l3grid.ForegroundClosenessWindowMetres(
+					active.multiplier, spread, active.noiseRelative, learnedRange, active.safety, warmup)
+
+				// The locked-baseline window is an independent acceptance path,
+				// live only once the cell has locked.
+				locked, hasLocked := 0.0, false
+				if c.LockedBaseline > 0 && c.LockedAtCount >= active.lockedThreshold {
+					locked = l3grid.LockedBaselineWindowMetres(
+						active.lockedMultiplier, float64(c.LockedSpread), active.noiseRelative,
+						learnedRange, active.safety)
+					hasLocked = true
+				}
+
+				effective := threshold
+				if hasLocked && locked > effective {
+					effective = locked
+				}
 
 				for _, b := range bands {
 					if learnedRange >= b.lo && learnedRange < b.hi {
 						s := stats[b.name]
 						s.spread = append(s.spread, spread)
 						s.threshold = append(s.threshold, threshold)
+						s.effective = append(s.effective, effective)
+						if warmup > 1.0 {
+							s.warmup++
+						}
+						if hasLocked {
+							s.locked = append(s.locked, locked)
+							s.lockedSet++
+							if locked > threshold {
+								s.lockedWider++
+							}
+						}
 						break
 					}
 				}
@@ -265,9 +313,11 @@ func report(snapshots, decodeFailures, settledCells, skippedCells int,
 		return
 	}
 
-	fmt.Printf("\nMeasured spread and resulting threshold, by range band:\n\n")
-	fmt.Printf("  %-11s %10s %9s %9s %9s %9s %9s\n",
-		"band", "cells", "spr p50", "spr p90", "thr p50", "thr p90", "spec thr")
+	fmt.Printf("\nMeasured spread and resulting acceptance window, by range band.\n")
+	fmt.Printf("\"eff\" is the wider of the closeness and locked-baseline windows:\n")
+	fmt.Printf("the foreground decision ORs them, so it is the real bar.\n\n")
+	fmt.Printf("  %-11s %10s %8s %8s %8s %8s %8s %8s %8s\n",
+		"band", "cells", "spr p50", "spr p90", "thr p50", "thr p90", "eff p50", "eff p90", "spec thr")
 	for _, b := range bands {
 		s := stats[b.name]
 		if len(s.spread) == 0 {
@@ -275,16 +325,40 @@ func report(snapshots, decodeFailures, settledCells, skippedCells int,
 		}
 		sort.Float64s(s.spread)
 		sort.Float64s(s.threshold)
+		sort.Float64s(s.effective)
 		mid := (b.lo + b.hi) / 2
 		specThreshold := l3grid.ClosenessThresholdMetres(
 			active.multiplier, percentile(s.spread, 50), 0, mid, active.safety) +
 			active.multiplier*specRangeAccuracyMetres(mid)
 
-		fmt.Printf("  %-11s %10d %9.3f %9.3f %9.3f %9.3f %9.3f\n",
+		fmt.Printf("  %-11s %10d %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f\n",
 			b.name, len(s.spread),
 			percentile(s.spread, 50), percentile(s.spread, 90),
 			percentile(s.threshold, 50), percentile(s.threshold, 90),
+			percentile(s.effective, 50), percentile(s.effective, 90),
 			specThreshold)
+	}
+
+	fmt.Printf("\nThe other two acceptance paths, as a share of cells in each band:\n\n")
+	fmt.Printf("  %-11s %12s %12s %14s %12s\n",
+		"band", "in warmup", "locked", "locked wider", "locked p50")
+	for _, b := range bands {
+		s := stats[b.name]
+		n := len(s.spread)
+		if n == 0 {
+			continue
+		}
+		lockedP50 := math.NaN()
+		if len(s.locked) > 0 {
+			sort.Float64s(s.locked)
+			lockedP50 = percentile(s.locked, 50)
+		}
+		fmt.Printf("  %-11s %11.1f%% %11.1f%% %13.1f%% %10.3f m\n",
+			b.name,
+			100*float64(s.warmup)/float64(n),
+			100*float64(s.lockedSet)/float64(n),
+			100*float64(s.lockedWider)/float64(n),
+			lockedP50)
 	}
 
 	// This table fixes the range at the band midpoint so the shares are

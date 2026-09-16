@@ -333,11 +333,41 @@ Three things the arithmetic alone could not have said.
 
 **The model supplies almost the entire window; the measurement supplies almost none.** The modelled term is 86% of the bracketed sum at close range and **98% past 50 m**, leaving the measured spread — the only term carrying real information about how variable a particular cell is — contributing **1.5–5%**. The threshold is, in practice, a function of range and nothing else. That makes the per-cell Welford variance the background model works to maintain nearly irrelevant to the decision it feeds.
 
-**The real inflation is worse than the spec-substituted estimate**, precisely because measured spreads are smaller than the spec: 1.9× at close range rising to **22.7×** past 100 m, and the median threshold reaches **1.08 m at 10–20 m** — the band containing most of the roadway — and **8.19 m past 100 m**.
+**The real inflation is worse than the spec-substituted estimate**, precisely because measured spreads are smaller than the spec: 1.9× at close range rising to **22.7×** past 100 m, and the median window reaches **1.11 m at 10–20 m** — the band containing most of the roadway — and **8.99 m past 100 m**. (Those two figures include the warmup ramp and the locked-baseline path; see the correction below, which also revises the tail sharply upward.)
 
-The p90 spread column also surfaces a second, separate mechanism worth its own investigation: some cells at 50–100 m have learned spreads of 4–10 m, producing p90 thresholds of 16–34 m. A cell that repeatedly sees traffic learns a large spread, and a large spread widens its own acceptance window, which makes it progressively less able to report the traffic that caused it. Whether those cells are vegetation, sky, or exactly that feedback loop is not established here.
+#### Correction: the closeness window is not the whole decision
 
-**Still not established: the detection cost.** A wide threshold only loses a detection when a foreground return's range falls within it of the learned background range, and that depends on scene geometry this audit does not model. The threshold is measured; the miss rate is not. That needs instrumented replay counting near-miss classifications against known foreground, and it remains the open follow-up.
+The figures above describe one term. The per-point foreground decision in `foreground.go` accepts an observation as background if **any** of three windows contains it:
+
+```go
+isBackgroundLike := isWithinLockedRange ||
+	cellDiff <= closenessThreshold ||
+	(cellNeighbourConfirm > 0 && neighbourConfirmCount >= cellNeighbourConfirm)
+```
+
+so the bar a real return must clear is the **widest** of them, and the closeness figures are a lower bound on it. Two corrections follow, both measured by the same audit after extracting `ForegroundClosenessWindowMetres` and `LockedBaselineWindowMetres` alongside the original:
+
+**The warmup ramp was missing from the first pass.** A cell observed fewer than 100 times has its window widened up to 4×, on the reasoning that its learned spread is not yet trustworthy. Between **8.8% and 27.8%** of cells are inside that ramp in any given snapshot, so it is not a startup-only concern.
+
+**The locked-baseline window is nearly universal but rarely binding.** 93–99% of settled cells carry a locked baseline, yet it is the wider of the two windows for only **3.4–11.6%** of them. The reason is worth stating because it is the opposite of what the parameters suggest: the locked window multiplies its spread by 4 against closeness's 3, but it does **not** scale the range-proportional noise term at all, so wherever range dominates — which the model share table shows is everywhere — it comes out narrower. The locked path therefore does not mitigate this gap, and a test pins that relationship so a change to either formula surfaces.
+
+With both included, the effective window (`eff`, the wider of the two per cell):
+
+| Band      | Closeness p50 | Closeness p90 | **Effective p50** | **Effective p90** | In warmup | Locked wider |
+| --------- | ------------- | ------------- | ----------------- | ----------------- | --------- | ------------ |
+| 0–10 m    | 0.377 m       | 0.696 m       | **0.380 m**       | **0.722 m**       | 27.8%     | 3.4%         |
+| 10–20 m   | 1.107 m       | 1.949 m       | **1.112 m**       | **2.230 m**       | 8.8%      | 4.7%         |
+| 20–30 m   | 1.792 m       | 3.671 m       | **1.796 m**       | **3.939 m**       | 8.7%      | 5.2%         |
+| 30–50 m   | 2.620 m       | 6.994 m       | **2.631 m**       | **8.222 m**       | 8.8%      | 7.4%         |
+| 50–75 m   | 4.036 m       | 19.080 m      | **4.071 m**       | **23.919 m**      | 14.2%     | 9.8%         |
+| 75–100 m  | 6.063 m       | 38.492 m      | **6.087 m**       | **45.437 m**      | 19.7%     | 11.6%        |
+| 100–200 m | 8.827 m       | 30.470 m      | **8.985 m**       | **33.248 m**      | 16.0%     | 5.5%         |
+
+The median moves little — the closeness window really is the effective bar for the typical cell, which is what validates the headline finding — but **the tail is much worse than the first pass reported**: p90 reaches 23.9 m at 50–75 m and **45.4 m at 75–100 m**, against the 16–34 m the spread-only figures suggested.
+
+The p90 column is a second, separate mechanism worth its own investigation: those cells have learned spreads of 4–10 m, and a cell that repeatedly sees traffic learns a wide spread, which widens its own acceptance window, which makes it progressively less able to report the traffic that caused it. Whether they are vegetation, sky, or exactly that feedback loop needs ring-elevation analysis this audit does not do, and is filed separately.
+
+**Still not established: the detection cost.** A wide window only loses a detection when a foreground return's range falls within it of the learned background range, and that depends on scene geometry this audit does not model. The window is measured; the miss rate is not. That needs instrumented replay counting near-miss classifications against known foreground, and it remains the open follow-up.
 
 The candidate remedy is a range-banded noise term matching the manual (±2 cm to 30 m, ±3 cm beyond) instead of a fraction of range — but it is a tuning change, so it moves the config fingerprint and requires a baseline recapture, and it should not be made before the replay says what it buys.
 
