@@ -130,3 +130,110 @@ func fitPlane(points []PointASC) (GroundSurface, error) {
 }
 
 func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }
+
+// DefaultRegionSizeMetres is the per-side size of a ground-plane region cell
+// when the caller does not specify one. Large enough that a typical settled
+// background gives a cell 12+ points to fit its own plane; small enough to
+// separate a road segment from an adjoining driveway apron or shoulder at a
+// grade change.
+const DefaultRegionSizeMetres = 10.0
+
+// regionKey identifies one square cell of a region grid, floor-divided from a
+// site-frame position by the grid's cell size. Two positions share a key
+// exactly when they fall in the same cell, so the map lookup is deterministic
+// and independent of point insertion order.
+type regionKey struct{ ix, iy int }
+
+func regionKeyFor(x, y, cellMetres float64) regionKey {
+	return regionKey{ix: int(math.Floor(x / cellMetres)), iy: int(math.Floor(y / cellMetres))}
+}
+
+// RegionalGroundSurface generalises GroundSurface from one plane for the
+// whole capture to a grid of independently fitted local planes, so a crest,
+// valley, or a driveway apron meeting the road at a different grade does not
+// have to share one global slope. A cell without enough settled background
+// points to fit its own plane falls back to Global, so this is a strict
+// generalisation of the single-plane fit: a capture small enough to fit one
+// cell behaves exactly as GroundSurface did.
+type RegionalGroundSurface struct {
+	CellMetres float64
+	Global     GroundSurface
+	// RegionCount is the number of cells with their own locally-fitted
+	// plane, for logging; it does not include cells served by Global.
+	RegionCount int
+	regions     map[regionKey]GroundSurface
+}
+
+// HeightAt returns the expected ground height at a site-frame position: the
+// local region's plane if one was fitted, otherwise Global's.
+func (s RegionalGroundSurface) HeightAt(x, y float64) float64 {
+	if surface, ok := s.regions[regionKeyFor(x, y, s.CellMetres)]; ok {
+		return surface.HeightAt(x, y)
+	}
+	return s.Global.HeightAt(x, y)
+}
+
+// FitRegionalGroundSurface fits one global plane exactly as FitGroundSurface
+// does, then independently re-fits every cellMetres x cellMetres cell that
+// has at least enough settled background points of its own, using the same
+// two-pass robust method per cell. cellMetres <= 0 uses
+// DefaultRegionSizeMetres. Fails exactly when FitGroundSurface would: the
+// global fit is not optional, since every cell without its own evidence
+// depends on it.
+func FitRegionalGroundSurface(points []PointASC, cellMetres float64) (RegionalGroundSurface, error) {
+	global, err := FitGroundSurface(points)
+	if err != nil {
+		return RegionalGroundSurface{}, err
+	}
+	if cellMetres <= 0 {
+		cellMetres = DefaultRegionSizeMetres
+	}
+
+	byCell := make(map[regionKey][]PointASC)
+	for _, point := range points {
+		if !finite(point.X) || !finite(point.Y) || !finite(point.Z) {
+			continue
+		}
+		key := regionKeyFor(point.X, point.Y, cellMetres)
+		byCell[key] = append(byCell[key], point)
+	}
+
+	regions := make(map[regionKey]GroundSurface, len(byCell))
+	for key, cellPoints := range byCell {
+		surface, err := FitGroundSurface(cellPoints)
+		if err != nil {
+			// Too few points, or too narrow a height band, to trust a
+			// cell-local fit. Leave this cell to the global fallback
+			// rather than extrapolating from thin per-cell evidence.
+			continue
+		}
+		regions[key] = surface
+	}
+
+	return RegionalGroundSurface{
+		CellMetres:  cellMetres,
+		Global:      global,
+		RegionCount: len(regions),
+		regions:     regions,
+	}, nil
+}
+
+// FitRegionalGroundSurfaceFromBackground is FitGroundSurfaceFromBackground's
+// regional counterpart: it applies the same settling and ring-elevation
+// guards before turning the background into per-cell plane fits.
+func FitRegionalGroundSurfaceFromBackground(manager *BackgroundManager, cellMetres float64) (RegionalGroundSurface, error) {
+	if manager == nil || manager.Grid == nil {
+		return RegionalGroundSurface{}, fmt.Errorf("background manager or grid is nil")
+	}
+	if !manager.IsSettlingComplete() {
+		return RegionalGroundSurface{}, fmt.Errorf("background is not settled")
+	}
+	grid := manager.Grid
+	grid.mu.RLock()
+	hasElevations := len(grid.RingElevations) == grid.Rings && grid.Rings > 0
+	grid.mu.RUnlock()
+	if !hasElevations {
+		return RegionalGroundSurface{}, fmt.Errorf("settled background has no ring elevations")
+	}
+	return FitRegionalGroundSurface(manager.ToASCPoints(), cellMetres)
+}

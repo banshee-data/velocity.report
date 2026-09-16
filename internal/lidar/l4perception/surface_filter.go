@@ -2,15 +2,22 @@ package l4perception
 
 import (
 	"math"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
+
+// HeightSurface is a fitted ground surface's query interface: the expected
+// ground height at a site-frame position. l3grid.GroundSurface (one global
+// plane) and l3grid.RegionalGroundSurface (per-region planes falling back to
+// a global one) both implement it, so SurfaceHeightFilter works unchanged
+// whichever fit produced its surface.
+type HeightSurface interface {
+	HeightAt(x, y float64) float64
+}
 
 // SurfaceHeightFilter removes points by height above a fitted local surface,
 // rather than by absolute sensor-frame Z. Floor and Ceiling are metres above
 // that surface.
 type SurfaceHeightFilter struct {
-	Surface l3grid.GroundSurface
+	Surface HeightSurface
 	Floor   float64
 	Ceiling float64
 }

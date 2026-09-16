@@ -147,6 +147,9 @@ type Config struct {
 	UseSurfaceGround     bool
 	SurfaceGroundFloor   float64
 	SurfaceGroundCeiling float64
+	// SurfaceGroundRegionMetres is the per-region ground-plane cell size; 0
+	// uses l3grid.DefaultRegionSizeMetres. See TrackingPipelineConfig.
+	SurfaceGroundRegionMetres float64
 }
 
 // Result summarises a completed replay.
@@ -577,25 +580,26 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
-		BackgroundManager:        bgMgr,
-		Tracker:                  tracker,
-		Classifier:               classifier,
-		SensorID:                 cfg.SensorID,
-		VisualiserPublisher:      pub,
-		VisualiserAdapter:        adapter,
-		DisableTrackPersistence:  disablePersistence,
-		HeightBandFloor:          tuningCfg.GetHeightBandFloor(),
-		HeightBandCeiling:        tuningCfg.GetHeightBandCeiling(),
-		RemoveGround:             tuningCfg.GetRemoveGround(),
-		UseSurfaceGround:         cfg.UseSurfaceGround,
-		SurfaceGroundFloor:       cfg.SurfaceGroundFloor,
-		SurfaceGroundCeiling:     cfg.SurfaceGroundCeiling,
-		MaxSamplePoints:          maxSamplePoints,
-		ObservationSourceID:      observationSourceID,
-		ObservationCalibrationID: observationCalibrationID,
-		StateEstimatorID:         "cv_kf_v1",
-		StateObservationModelID:  stateObservationModelID,
-		StateParameterHash:       paramsHash,
+		BackgroundManager:         bgMgr,
+		Tracker:                   tracker,
+		Classifier:                classifier,
+		SensorID:                  cfg.SensorID,
+		VisualiserPublisher:       pub,
+		VisualiserAdapter:         adapter,
+		DisableTrackPersistence:   disablePersistence,
+		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
+		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
+		RemoveGround:              tuningCfg.GetRemoveGround(),
+		UseSurfaceGround:          cfg.UseSurfaceGround,
+		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
+		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
+		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
+		MaxSamplePoints:           maxSamplePoints,
+		ObservationSourceID:       observationSourceID,
+		ObservationCalibrationID:  observationCalibrationID,
+		StateEstimatorID:          "cv_kf_v1",
+		StateObservationModelID:   stateObservationModelID,
+		StateParameterHash:        paramsHash,
 	}
 	if frameEvidenceSink != nil {
 		pipeCfg.FrameEvidenceSink = frameEvidenceSink

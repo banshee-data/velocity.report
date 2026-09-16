@@ -60,12 +60,13 @@ func main() {
 		// Marina's first capture reaches the configured L3 convergence threshold
 		// at 56.5 seconds. Keep a measured 20% margin so the default preserves
 		// the fail-closed scoring-boundary invariant across the Phase 0 corpus.
-		warmup          = flag.Float64("warmup", 70, "warm-up seconds before scoring")
-		requireSettled  = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
-		observations    = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
-		evidenceProfile = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
-		surfaceGround   = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
-		measurementMode = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
+		warmup              = flag.Float64("warmup", 70, "warm-up seconds before scoring")
+		requireSettled      = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
+		observations        = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
+		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
+		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
+		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
+		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
 	)
 	flag.Parse()
 	if *sourceManifestOnly && *sourceManifestPath == "" {
@@ -149,7 +150,8 @@ func main() {
 			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
 			SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
-			MeasurementSourceMode: l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
+			SurfaceGroundRegionMetres: *surfaceGroundRegion,
+			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
 		}
 		if verifiedSourceManifest != nil {
 			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
