@@ -24,7 +24,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Phase 0 failure-cause review: inspect representative Columbus association-failure and Embarcadero high-NIS episodes against frozen VRLOG scenes to distinguish occlusion, fragmentation and gating; the published cause breakdown only separates "other detections present" from "none": [design doc](plans/lidar-state-estimation-plan.md), [baseline record](lidar/operations/state-estimation-phase01-corpus-baseline.md) `M` {math}
 - Physical reference pilot: finish point selection and operator provenance, then freeze object-disjoint annotation splits. Review observable yaw, extent bounds and identity independently of tracker IDs; retain unknown truth explicitly: [design doc](plans/lidar-point-annotation-and-object-dataset-plan.md) `M`
 - Phase 1 surface evidence: finish source/calibration ownership and per-region surface/clipping context for P11 before judging near-edge geometry: [design doc](plans/lidar-state-estimation-plan.md) `M` {math}
-- Phase 1 persistence gate G-PER-1: prove multi-site replay round-trip after batching and a week of live evidence without changed meaning. Record Pi per-stage timing, memory and throughput: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
+- Phase 1 persistence gate G-PER-1: prove multi-site replay round-trip after batching and a week of live evidence without changed meaning, on macOS M1 evidence: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
 
 #### Sprint 0.5.2.1: Physical body and corrected geometry
 
@@ -64,7 +64,17 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Scenes dashboard tailgating distribution: render the headway histogram on the scene route as a Go-served SVG through `/api/charts/histogram`, per D-11/D-17, rather than pulling the ECharts to LayerChart migration forward. Show band thresholds, uncertainty and the suppressed or unsupported share on the chart itself, so a thin bar cannot be read as a quiet road: [design doc](plans/pdf-go-chart-migration-plan.md), [chart policy](ui/DESIGN.md) `M` {frontend}
 - Headway field validation and promotion: run the complete report on held-out annotated following encounters, stratified by range, aspect, support and coast age. Publish endpoint/gap error, interval coverage, suppression and failure cases; remove the provisional label only after G-GEO-1, G-UNC-1 and G-SMO-1 pass: [design doc](plans/lidar-behaviour-analytics-plan.md) `L` {math}
 
-### v0.5.3 - Estimate display + data completeness (053)
+### v0.5.3 - Post-encroachment time + behaviour metrics (053)
+
+- Posted speed limit in site config: no speed limit exists anywhere in the schema; the only one in the codebase is a per-request report parameter, so every legal speed benchmark is currently unreproducible. Add `speed_limit_kph`, unit, and jurisdiction to `site_config_periods`, which already carries the effective-date pattern: [design doc](plans/lidar-behaviour-analytics-plan.md) `S`
+- Road-user kinematics (Phase 6A remainder): passage speed, acceleration and braking with per-metric applicability and suppression. Develop against fixtures; emit production results only after G-SMO-1 and the relevant derivative-validity gates: [design doc](plans/lidar-behaviour-analytics-plan.md) `L`
+- Post-encroachment time and conflict geometry (behaviour analytics, after following exposure): PET needs no map: the conflict point falls out of observed path intersections, which makes it the strongest surrogate a fixed roadside sensor can measure: [design doc](plans/lidar-behaviour-analytics-plan.md) `M` {math}
+- Vehicle-cyclist passing clearance (behaviour analytics, after following exposure): minimum synchronised surface-to-surface separation with lateral clearance as a path-normal projection for confident overtakes; clearance sigma is dominated by extent rather than position, so cyclist width must come from a class prior rather than a per-track estimate: [design doc](plans/lidar-behaviour-analytics-plan.md) `M` {math}
+- Transit record contract: define the LiDAR-only per-transit scalar record (max/mean speed, duration, direction, classification, context) that following, PET and clearance encounters each populate, so one persisted metric surface backs every behaviour output instead of three ad-hoc ones. Radar fusion and the abstract TDL schema mapping stay out of scope here: [TDL plan](plans/data-traffic-description-language-plan.md), [behaviour plan](plans/lidar-behaviour-analytics-plan.md) `M`
+- Behaviour label pipeline: speed-profile analyser assigning steady/accelerating/braking/erratic from a smoothed profile, and a stop detector flagging dwell time below threshold. Both write into the transit record above rather than each metric recomputing its own classification: [TDL plan](plans/data-traffic-description-language-plan.md), [behaviour plan](plans/lidar-behaviour-analytics-plan.md) `M` {math}
+- Conflict detector: shared proximity and near-conflict-point logic feeding `behaviour.yielded`, PET's conflict region and passing clearance's `min_separation`, so three metrics stop reimplementing the same synchronised-distance calculation independently: [behaviour plan](plans/lidar-behaviour-analytics-plan.md) `M` {math}
+
+### v0.5.4 - Estimate display + data completeness (054)
 
 - Trail correctness: align box anchors and trail timestamps; distinguish observed, coasted, provisional and final segments. Test expiry, reacquisition, seek and revised-history display without inventing observed points: [design doc](plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md) `M`
 - Deterministic track identity: derive `track_id` from `(site_id, sensor_id, frame_unix_nanos, cluster_id)` instead of a random UUID, so it stays reproducible across replays of identical input and safe against collision across tracker resets and multi-site corpora alike. Requires threading a per-deployment identity into both the live and replay pipeline configs first: [design doc](plans/lidar-deterministic-track-identity-plan.md) `M`
@@ -75,7 +85,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - `settling_max_spread_delta` scale mismatch: documented as a per-frame mean delta but evaluated every `SettlingCheckInterval` frames (default 10), so it measures roughly a second of drift against a per-frame bar. Convergence currently fires regardless, making this a latent over-tightening rather than a live fault; either evaluate per frame or scale the threshold by the interval: [design doc](plans/lidar-visualiser-stream-robustness-plan.md) `S`
 - SSE subscriber-notify policy: the non-blocking fanout drop path landed (`internal/api/serial_reload.go` drops on full subscriber channels and logs a count, with a flood test); what remains is notifying the affected client that events were dropped rather than only logging server-side `S`
 
-### v0.5.4 - Visualiser stream + replay stability (054)
+### v0.5.5 - Visualiser stream + replay stability (055)
 
 - Consolidate the frame-drop paths: design one accounting surface for publish drops, client eviction, UI dispatch throttling and replay throttling. Preserve each policy's purpose while attributing every missing displayed frame: [design doc](plans/lidar-visualiser-stream-robustness-plan.md) `M`
 - Reproduce the visualiser freeze off a single Mac: repeat `make debug-grpc-soak` across hosts, Linux and Pi with the visualiser attached. Record whether the 16MB HTTP/2 window holds under real latency/loss; the loopback soak alone does not prove it: [design doc](plans/lidar-visualiser-stream-robustness-plan.md) `M`
@@ -86,7 +96,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#381] VRLOG timestamp index build at load time: build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built: [design doc](../data/structures/VRLOG_FORMAT.md) `S`
 - [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 
-### v0.5.5 - Perception pipeline + extractor foundations (055)
+### v0.5.6 - Perception pipeline + extractor foundations (056)
 
 - Single-site shape-classification follow-through: add compact descriptor-model inspection to the delivered solid-body pilot after it no longer blocks the headway path: [design doc](plans/lidar-single-site-shape-demo-sprint-plan.md) `S`
 - LiDAR maths coherence Item 2: state and pin the L6 confidence equation before classifier scorecard integration: [design doc](plans/lidar-maths-coherence-plan.md) `M`
@@ -100,7 +110,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Shape descriptor range envelope (shape descriptors Phase 4): measure descriptor stability against point count and range over the captured corpus, publish the usable envelope per class, and set the insufficient-points fallback threshold from measurement rather than assumption; DBSCAN `MinPts` is 5 and returns fall below that beyond ~40 m, so pooled descriptor metrics would hide the point at which they stop working: [design doc](plans/lidar-shape-descriptors-plan.md) `M` {math}
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
 
-### v0.5.6 - Tracker correctness + robustness (056)
+### v0.5.7 - Tracker correctness + robustness (057)
 
 - Tracker covariance diagnostics: K3 covariance symmetry monitoring: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `S`
 - Background convergence: B1 MAD-versus-sigma tests and B3/B4/B5 bimodal, reacquisition and locked-baseline cases: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
@@ -110,7 +120,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - LiDAR maths coherence Item 3: define L8 CLEAR MOT metrics and matching rules before MOTA/MOTP integration: [design doc](plans/lidar-maths-coherence-plan.md) `M`
 - [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391; close without merge if those branches land first: `S`
 
-### v0.5.7 - Layer cleanup + codebase hygiene (057)
+### v0.5.8 - Layer cleanup + codebase hygiene (058)
 
 - LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening; in progress and load-bearing for replay evaluation: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M` {math}
 - LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness landing first: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
@@ -124,7 +134,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - Tuning config layer alignment (schema v3): move `buffer_timeout`/`min_frame_points` to L2, `flush_interval`/`background_flush` to L3, and `min_observations_for_classification` to L6; retain cross-cutting settings in `pipeline`. Add L2/L6 engine selectors, restore the classification-disabled `track` profile, and test strict decoding through `config-migrate` from v2 to v3 `M`
 
-### v0.5.8 - Replay UX + runtime stability (058)
+### v0.5.9 - Replay UX + runtime stability (059)
 
 - Deterministic scene capture Milestone 3: recorded-frame sequences with numeric geometry evidence and optional contact sheets/MP4/GIF, capped at 50 images. Reuse delivered still and bullet-time capture for trail comparisons: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - Capabilities lifecycle follow-through: the #547 response-shape redesign now returns named `radar`/`lidar` maps and gates web LiDAR navigation, but production still only wires LiDAR as `starting` when `--enable-lidar` is active. Wire `SetLidarReady`/`SetLidarError` from real LiDAR startup outcomes and add hardware smoke validation notes: [design doc](plans/go-runtime-pipeline-correctness-plan.md) `S`
@@ -134,7 +144,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Visualiser performance and scene health metrics: timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - Frontend background debug surfaces: Swift visualiser debugging outputs for background settlement: [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 
-### v0.5.9 - Operator workflows + product polish (059)
+### v0.5.10 - Operator workflows + product polish (0510)
 
 - [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
 - Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
@@ -144,12 +154,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Domain tag vocabulary: add `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
 - [#403] Bumper sticker generator: configurable Python/pycairo tool for rendering road-safety bumper sticker designs to SVG or PNG; dataclass-driven layout with Cool S decoration; Makefile targets `generate-stickers` and `generate-stickers-svg`: `S`
 
-### v0.5.10 - Performance, sweep observability + experiment persistence (0510)
+### v0.5.11 - Performance, sweep observability + experiment persistence (0511)
 
 - Per-layer performance attribution: record reproducible PCAP timings for each stage, including non-zero L4 work, before tuning or promoting geometry changes: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
-- Static `lidar-bench` binary for Pi benchmarking: extend the zig/musl/libpcap Docker build to emit `lidar-bench`, avoiding on-device development dependencies and matching the shipped server's linking characteristics: [design doc](plans/lidar-performance-measurement-harness-plan.md) `S`
 - Recapture stale `mac`/`ci` perf baselines: [#559] added `obb_axis_coherence_enabled` and `association_extent_cost_weight` to the L5 tuning schema, moving the tuning fingerprint and invalidating the committed `mac` baselines for both gated profiles; the comparator correctly refuses them (`tuning fingerprint ... vs ...`) rather than reporting a false regression, but a fresh capture on an idle machine is needed before the gate is informative again `S`
-- Pi performance benchmark automation: the CI regression gate (#566) covers `ci` and `mac` host classes; the `pi` host class — the only one that answers "fast enough for a 10 Hz sensor" — has no baseline and no scheduled run. [#559] adds the host-class dimension to the perf matrix and a manual [Pi benchmark runbook](lidar/operations/pi-benchmark-runbook.md); wiring the runbook into a schedule needs a self-hosted runner attached to a Pi or a webhook-triggered job `M`
 - Perf-baseline track-count identity: add cumulative distinct confirmed tracks and include it in `workDifferences`. Peak concurrent count is too small for the proportional tolerance, so it currently cannot detect changed confirmation behaviour: `S`
 - Perf frame-budget allowance calibration: `PERF_MAX_OVER_BUDGET_PCT` is 1.0 on the reasoning that the tail is genuinely noisy — identical code over the same capture produced worst-frame times from 86 ms to 329 ms. CI's last measured p99 was 92.7 ms with a max of 111 ms against the 98 ms budget, so roughly 0.6% of frames are expected over and the margin is thin. Read the first few nightlies' `frame_budget.frames_over` and either tighten the allowance or treat the tail as work to be done; the worst single frame is not the signal, the count is `S`
 - Metric registry and naming enforcement: establish canonical metric ids and definitions, cross-strata consistency checks across schema, Go, proto, TypeScript, Swift and reports, and Prometheus export/tagging stubs with user-defined prefix support. The headway naming slice lands earlier; this is the repo-wide remainder: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
@@ -158,14 +166,32 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## 06x Ceilí calling 🎻
 
-### v0.6.0 - Deployment & packaging (060)
+### v0.6.0 - TDL query foundations (060)
+
+- LiDAR transit query table: materialise the abstract transit schema as an indexed SQLite table sourced from the v0.5.3 transit record, read on a connection separate from the ingest write path: [design doc](plans/data-traffic-description-language-plan.md) `M`
+- Radar transit union: add the `radar_transit_id`/`fusion_confidence` provenance columns and the `MAX(lidar, radar)` speed union the TDL schema map documents, without opening the broader L7 radar-LiDAR fusion architecture question: [design doc](plans/data-traffic-description-language-plan.md), [L7 scene plan](plans/lidar-l7-scene-plan.md) `M`
+- TDL vocabulary registry: natural-language token to abstract-schema-field mapping for the core subject/filter/time-range/direction tables, plus synonym handling and mph/km-h and m/ft unit normalisation: [design doc](plans/data-traffic-description-language-plan.md) `M`
+- TDL parser: parse the `[subject] [filter] [during <time-range>] [heading <direction>] [show <fields>]` clause structure into a structured filter tree: [design doc](plans/data-traffic-description-language-plan.md) `L`
+- TDL query builder: translate the parsed filter tree into parameterised SQL against the transit table, matching the planned index strategy and the existing `ComputeSpeedPercentiles` sorted-slice pattern for on-demand percentiles: [design doc](plans/data-traffic-description-language-plan.md) `M`
+- TDL aggregation endpoints: count/percentage/speed-summary/breakdown/hourly-distribution as a JSON API over the query builder: [design doc](plans/data-traffic-description-language-plan.md) `M`
+
+### v0.6.1 - TDL description interface + reporting (061)
+
+- Transit browser: web interface over the transit table with filtering, sorting and drill-down, consuming the v0.6.0 JSON API: [design doc](plans/data-traffic-description-language-plan.md) `M` {frontend}
+- Aggregate statistics dashboard: dynamically generated driving-style distributions, outlier counts, stop compliance and gap analysis rendered from the aggregation endpoints: [design doc](plans/data-traffic-description-language-plan.md) `M` {frontend}
+- Vector-scene replay for selected transits: bounding boxes moving through a 2D plan view, reusing the trail/box-anchor work from v0.5.4: [design doc](plans/data-traffic-description-language-plan.md) `M` {frontend}
+- Transit and scene export (CSV, GeoJSON): filtered transit dataset export and scene geometry export for external analysis, superseding the separate v1.0 export placeholder: [design doc](plans/data-traffic-description-language-plan.md) `S`
+- PDF report TDL integration: accept TDL filter parameters to scope report date range, direction and time-of-day, and generate before/after and weekday/weekend comparison sections: [design doc](plans/data-traffic-description-language-plan.md) `M`
+- CLI and template TDL query support: embed TDL expressions inline in report templates and expose a `velocity query` CLI subcommand, sharing the same parser and query builder as the web API: [design doc](plans/data-traffic-description-language-plan.md) `S`
+
+### v0.6.2 - Deployment & packaging (062)
 
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app release signing: local Developer ID signing, notarisation, stapling, and `make verify-mac` path complete; remaining release-gate work is GitHub Actions secret population and tagged-release smoke validation for packaged artifacts. `S`
 
-### v0.6.1 - macOS local server (061)
+### v0.6.3 - macOS local server (063)
 
 - macOS local server Phases 1–3: embed Go server binary in VelocityVisualiser.app bundle, add ServerProcessManager (start/stop/restart lifecycle), Server menu with status and keyboard shortcuts, build pipeline integration (`build-server-for-mac` Makefile target, Xcode bundled resource): [design doc](plans/macos-local-server-plan.md) `M`
 - VelocityVisualiser server manager Phases 1–3: `ServerConfig` model, `ServerManager` persistence, Servers CommandMenu, Add/Edit server sheet with test-connection: [design doc](plans/server-manager.md) `M`
@@ -173,7 +199,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - macOS local server Phase 5: integrate local server entry into Server Manager UI; auto-created "Local" entry with process + connection status; depends on server-manager.md Phases 1–2: [design doc](plans/macos-local-server-plan.md) `S`
 - VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
 
-### v0.6.2 - Design system foundations (062)
+### v0.6.4 - Design system foundations (064)
 
 - Design tokens canonicalisation: codify colour, type scale, spacing, radii, motion, and elevation as TypeScript exports + CSS custom properties; Figma library mirrors the same tokens; web app, visualiser, and report SVG all source from one place. Subsumes [shared palette module](ui/design-review-and-improvement.md#13-no-single-source-palette-definition-medium) and `ChartStyle` cross-surface coherence. `M`
 - Component primitive library: button, input, select, dialog, toast, tab, table, card, chart-frame, KPI-tile; Storybook (or equivalent) with visual-regression baselines; replaces ad-hoc CSS class soup in existing routes. `M`
@@ -185,7 +211,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Accessibility primitives baked in: focus-ring tokens, prefers-reduced-motion handling, theme parity assertions (dark/light), colour-blind-safe palette validation via axe + manual review. Pulls forward the [accessibility testing](ui/design-review-and-improvement.md#72-no-accessibility-testing-medium) item from 0.7.0. `S`
 - VelocityVisualiser palette parity: shared palette constants between web and macOS visualiser so 3D scene point/track/box colours track the same tokens; light-mode 3D scene piggybacks on this. `S`
 
-### v0.6.3 - Web scene publishing (063)
+### v0.6.5 - Web scene publishing (065)
 
 - S2 capture provenance: carry canonical L13/L10 through sidecars, summaries, VRLOG headers and run columns. Reconcile legacy splitter tags with the shallow Hugging Face L13 shared-stem convention; keep moving or unresolved captures explicitly unassigned: [design doc](plans/s2-geographic-indexing-plan.md) `L`
 
@@ -194,6 +220,12 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Swift scene provenance: surface the VRLOG file generator version in VelocityVisualiser, reading `build_version` from the recording rather than showing the currently running app version. `S`
 - Web scene export Phase 1: the other five sites in the `80858-1` family. Blocked on the surveyed WGS84 coordinates for `s2-1` and `s2_sf_2`–`s2_sf_6`, which also block S2 tagging and every map marker: [design doc](plans/lidar-web-scene-export-plan.md), [catalogue plan](plans/lidar-scene-catalogue-publishing-plan.md) `M`
 - Scene catalogue at archive scale: ingest the multi-gigabyte daily drivers, split motion from static, index captures and segments, and build the map people land on. Five workstreams sized for parallel agents: [design doc](plans/lidar-scene-catalogue-publishing-plan.md) `XL`
+
+### v0.6.6 - Raspberry Pi deployment optimisation (066)
+
+- Static `lidar-bench` binary for Pi benchmarking: extend the zig/musl/libpcap Docker build to emit `lidar-bench`, avoiding on-device development dependencies and matching the shipped server's linking characteristics: [design doc](plans/lidar-performance-measurement-harness-plan.md) `S`
+- Pi performance benchmark automation: the CI regression gate (#566) covers `ci` and `mac` host classes; the `pi` host class — the only one that answers "fast enough for a 10 Hz sensor" — has no baseline and no scheduled run. [#559] adds the host-class dimension to the perf matrix and a manual [Pi benchmark runbook](lidar/operations/pi-benchmark-runbook.md); wiring the runbook into a schedule needs a self-hosted runner attached to a Pi or a webhook-triggered job `M`
+- Tracker/state-estimation Pi hardware validation: record per-stage frame time, peak memory and throughput on Raspberry Pi 4 for the tracker/state-estimation pipeline, confirming the M1-validated gates (G-GEO-1, G-PER-1, and Phase 0's published corpus baseline) also hold on target hardware: [design doc](plans/lidar-state-estimation-plan.md) `M` {math}
 
 ## 07x Rebel realm ⛰️
 
@@ -243,19 +275,12 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 - Phase 4 motion extension and G-EST-1: preserve sufficient moving-track residual histories, demonstrate an acceleration-specific constant-velocity failure, then assess offline constant acceleration before any CA or IMM production change: [design doc](plans/lidar-state-estimation-plan.md) `L` {math}
 - Phase 8 abnormal-motion evidence: preserve innovations, rejected observations, model/mode changes, and discontinuities with query and display support. This is evidence for review, not crash classification: [design doc](plans/lidar-state-estimation-plan.md) `M`
-- Road-user kinematics (Phase 6A remainder): passage speed, acceleration and braking with per-metric applicability and suppression. Develop against fixtures; emit production results only after G-SMO-1 and the relevant derivative-validity gates: [design doc](plans/lidar-behaviour-analytics-plan.md) `L`
-
-- Vehicle-cyclist passing clearance (behaviour analytics, after following exposure): minimum synchronised surface-to-surface separation with lateral clearance as a path-normal projection for confident overtakes; clearance sigma is dominated by extent rather than position, so cyclist width must come from a class prior rather than a per-track estimate: [design doc](plans/lidar-behaviour-analytics-plan.md) `M` {math}
-- Post-encroachment time and conflict geometry (behaviour analytics, after following exposure): PET needs no map: the conflict point falls out of observed path intersections, which makes it the strongest surrogate a fixed roadside sensor can measure: [design doc](plans/lidar-behaviour-analytics-plan.md) `M` {math}
-- Posted speed limit in site config: no speed limit exists anywhere in the schema; the only one in the codebase is a per-request report parameter, so every legal speed benchmark is currently unreproducible. Add `speed_limit_kph`, unit, and jurisdiction to `site_config_periods`, which already carries the effective-date pattern: [design doc](plans/lidar-behaviour-analytics-plan.md) `S`
-
 - L7 Scene layer: persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture: [design doc](plans/lidar-l7-scene-plan.md) `XL`
 - Velocity-coherent foreground extraction (P2, D-05): 6D DBSCAN alternative for moving object detection: [proposal](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
 - Unified settling (L3/L4 SettlementCore, P4, D-05): consolidate L3 background and L4 drift into single settlement core: [proposal](../data/maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Sweep transform pipeline and objective registry (ml-solver-expansion Phase B): config-driven `Transform` interface with standard transforms and round-dependent modifiers, objectives refactored into registry-driven `ObjectiveDefinition` modules, `GET /api/lidar/sweep/objectives` and `/transforms` endpoints, and the five blocked `SaveSweepComplete` population tasks that depend on structured metric vectors; previously mislabelled as shipped under #328: [design doc](lidar/architecture/ml-solver-expansion.md) `M`
 - Geometry-prior local file format (GeoJSON): local scene geometry configuration via GeoJSON: [design doc](lidar/architecture/vector-scene-map.md) `M`
 - Visualiser colour-blind-safe palette (V1): accessible point cloud/trails/box colours validated for common deficiencies: [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
-- Data export (CSV, GeoJSON): export vehicle transits and scene geometry for external analysis: design doc not yet written `M`
 
 ## v2.0 (Advanced perception & connected)
 
@@ -381,7 +406,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#498] `velocity device upgrade` checksum verification: per-asset metadata sourced from `release.json`, SHA-256 verified before install, prerelease + fallback logic tightened; shipped during the 0.5.1 pre-release cycle: [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2
 - [#505] `InlineSvgChart` SVG injection hardening: replaced raw `{@html svg}` injection with same-origin `<img src>` loading, audited `/api/charts/*` callers, and removed the `svelte/no-at-html-tags` lint disable from `web/src/lib/components/charts/InlineSvgChart.svelte`: [devlog](DEVLOG.md#may-11-2026---release-prep-inlinesvgchart-fix--vrlog-cleanup)
 - [#505] Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
-- [#505](https://github.com/banshee-data/velocity.report/issues/505), [#483](https://github.com/banshee-data/velocity.report/issues/483) Node baseline for offline docs build: aligned the repo baseline to Node.js 20.19+ in docs, pinned `docs_html` to a Node 20-compatible `mermaid` line, and added CI coverage for `make build-docs-offline` on Node 20.19.0
+- [#505] Node baseline for offline docs build: aligned the repo baseline to Node.js 20.19+ in docs, pinned `docs_html` to a Node 20-compatible `mermaid` line, and added CI coverage for `make build-docs-offline` on Node 20.19.0
 - [#506] Legacy `.vrlog` speed-key shim removal: removed the `Track.UnmarshalJSON` fallback that remapped `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; included 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - [#517] pull nginx + self-signed TLS removal forward from v0.6.0; bind Go on `:80` via `CAP_NET_BIND_SERVICE`; HTTPS becomes a Tailscale-Serve opt-in: [design doc](plans/deploy-nginx-removal-plan.md), [parent plan](plans/deploy-single-binary-image-consolidation-plan.md) `S`
 - [#519] `velocity data sql --read-only` read-only SQLite inspection subcommand (explicit `--db-path`, `--limit` cap, TSV output); dropped the `sqlite3` apt dep from `00-packages`: [design doc](plans/deploy-single-binary-image-consolidation-plan.md) `S`
@@ -402,11 +427,12 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#555] Visualiser stall (beachball): setting the Swift client's HTTP/2 window explicitly at 16MB ended stalls of 37 to 105 seconds that had run 7 to 30 per session. Confirmed by an hour-long four-stream soak on 2026-08-31 — 35,987 frames and 320.5MB per stream at a sustained 10/s with the visualiser attached, four gaps over a second and a worst of 2.144s, all four streams seeing each within 5ms of one another and so not per-client flow control: [design doc](plans/lidar-visualiser-stream-robustness-plan.md)
 - [#555] Visualiser stream robustness: separated publish-stage from client-stage frame loss, bounded stream sends and named the stalling frame, ordered buffered frames by capture time, handed every subscribing client the current background, sent a background snapshot as settling completes, and cleared the cached replay scene on return to live: [design doc](plans/lidar-visualiser-stream-robustness-plan.md)
 - [#559] Corpus provenance freeze: source-PCAP SHA-256 digests, capture order, calibration and build/config identity are recorded in a content-hashed source manifest, verified before every replay, and held external to Git on the LiDAR volume: [design doc](plans/lidar-lossless-observation-persistence-batching-plan.md)
-- [#559] Lossless frame-batch acceptance: the evidence oracle compares batched-write output against the frame-by-frame contract using table, ordered-row, payload, linkage and semantic checksums, with a fail-closed duplicate-ID rule. Two fully independent replays of the same corpus now produce a byte-identical oracle, after fixing a false positive where the random `track_id` was hashed as content instead of the tracker's deterministic `creation_sequence`: [design doc](plans/lidar-lossless-observation-persistence-batching-plan.md)
 - [#559] Go runtime pipeline correctness Phases 1–2: `analysis_mode` request parsing now preserves its true default when the field is omitted instead of silently decoding to false, and a new `AnalysisModeActive` pipeline flag bypasses the wall-clock frame-rate throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking instead of being recorded as empty frames. `handleVRLogLoad` now resolves symlinks before checking the safe-directory boundary via a new `security.ResolvePathWithinDirectory`, closing a gap where a symlink planted inside the safe directory could point outside it: [design doc](plans/go-runtime-pipeline-correctness-plan.md)
+- [#559] Lossless frame-batch acceptance: the evidence oracle compares batched-write output against the frame-by-frame contract using table, ordered-row, payload, linkage and semantic checksums, with a fail-closed duplicate-ID rule. Two fully independent replays of the same corpus now produce a byte-identical oracle, after fixing a false positive where the random `track_id` was hashed as content instead of the tracker's deterministic `creation_sequence`: [design doc](plans/lidar-lossless-observation-persistence-batching-plan.md)
+- [#559] Non-deterministic DBSCAN input subsampling: `uniformSubsample` seeded from `time.Now().UnixNano()`, so replaying the same PCAP could produce different clusters on frames above `foreground_max_input_points`; replaced with a content-derived seed (FNV-1a over point coordinates), restoring the deterministic-replay property that HINT label carry-over, sweep comparison, and the classification corpus assume: [design doc](plans/lidar-performance-measurement-harness-plan.md)
 - [#559] Phase 0 jump-track replacement: `lidar-jump-candidates.py` against the production database (119,738 tracks) found 2,136 candidates, splitting cleanly at a 5 m residual gap into 27 excluded as a distinct 80-second episode and 2,109 matching the intended jump phenomenon, spanning the full ~272-day capture history. The top 33 by severity are frozen as the replacement regression set: [review](lidar/operations/lidar-jump-track-replacement-review.md), [frozen data](lidar/operations/lidar-jump-track-replacement-20260915.json)
 - [#559] Phase 0 replay evidence: published three-site replication (16 captures, 43,068 scored frames, byte-identical first/repeat baselines) with the full per-speed-band residual and association-rate tables for every site, plus an association-failure-by-cause breakdown showing 99.2–100% of long gaps occur while other detections remain in the scene, evidence against a whole-frame pipeline dropout as the dominant cause: [design doc](plans/lidar-state-estimation-plan.md), [baseline record](lidar/operations/state-estimation-phase01-corpus-baseline.md)
-- [#559] Non-deterministic DBSCAN input subsampling: `uniformSubsample` seeded from `time.Now().UnixNano()`, so replaying the same PCAP could produce different clusters on frames above `foreground_max_input_points`; replaced with a content-derived seed (FNV-1a over point coordinates), restoring the deterministic-replay property that HINT label carry-over, sweep comparison, and the classification corpus assume: [design doc](plans/lidar-performance-measurement-harness-plan.md)
+- [#559] Track identity-mixing root cause: the 27 excluded tracks above all use the pre-UUID `track_%d` identifier (none of the 2,109 genuine candidates do) — confirmed as a storage-layer track-ID collision across tracker-process restarts, not a live association/gating defect. This production capture predates [#276](lidar/troubleshooting/garbage-tracks-checklist.md#completed-p0p1-remediation)'s move to UUID track IDs (2026-02-16), which already closed it; no further action needed: [review](lidar/operations/lidar-jump-track-replacement-review.md)
 - [#566] Absolute per-frame budget: `pipeline.frame_budget_ms` (98 ms, 2 ms inside the 10.0 Hz frame interval of `kirk0`) fails a run when more than 1% of frames exceed it, with or without a baseline — a relative gate can say "slower than last time" but never "fast enough for the sensor": [operations guide](lidar/operations/performance-regression-testing.md)
 - [#566] LiDAR pipeline depth profiles: `engine: "none"` disables a layer, so depth is read off the per-layer selectors the config already had rather than a separate key and a Go lookup. Disabled layers must form a suffix, validated at load; the `l3-only`, `detect` and `full` labels are derived, and `config/profiles/` holds ready-made configs asserted to be the defaults with layers switched off: [design doc](plans/lidar-pipeline-profiles-plan.md)
 - [#566] Median-of-N baseline capture: `-repeat N` emits the median run whole so every field comes from one execution, `make perf-baseline[-all]` wraps it, and the 📏 Capture Perf Baseline workflow captures on runner hardware — on dispatch, and automatically on pull requests touching the perf harness or tuning config, which is the only way to capture before a merge: [operations guide](lidar/operations/performance-regression-testing.md)
