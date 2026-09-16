@@ -8,7 +8,10 @@ import * as THREE from "three";
 
 import {
   TrackVisual,
+  buildRegionRing,
   buildTrailHistories,
+  pointerToNDC,
+  sceneGroundToENU,
   sceneTrailPoint,
 } from "../scene-player.js";
 
@@ -135,5 +138,105 @@ describe("TrackVisual trail buffer", () => {
     visual.setTrailVisible(false);
     assert.equal(visual.trail.visible, false);
     assert.equal(visual.edges.visible, true, "boxes are a separate concern");
+  });
+});
+
+describe("pointer picking geometry", () => {
+  // The operator tools select tracks and mark ground positions by clicking,
+  // so these two conversions decide whether a click lands where it looks.
+
+  const rect = { left: 100, top: 50, width: 800, height: 400 };
+
+  test("centre of the canvas is the origin of device coordinates", () => {
+    const ndc = pointerToNDC(100 + 400, 50 + 200, rect);
+    assert.ok(Math.abs(ndc.x) < 1e-9);
+    assert.ok(Math.abs(ndc.y) < 1e-9);
+  });
+
+  test("device coordinates flip vertically but not horizontally", () => {
+    // Getting this backwards silently picks the wrong object rather than
+    // failing, which is why it is pinned.
+    const topLeft = pointerToNDC(rect.left, rect.top, rect);
+    assert.deepEqual(topLeft, { x: -1, y: 1 }, "top-left is (-1, +1)");
+
+    const bottomRight = pointerToNDC(
+      rect.left + rect.width,
+      rect.top + rect.height,
+      rect,
+    );
+    assert.deepEqual(bottomRight, { x: 1, y: -1 }, "bottom-right is (+1, -1)");
+  });
+
+  test("the canvas offset on the page is subtracted", () => {
+    // A click at the page origin is outside a canvas inset from it.
+    const ndc = pointerToNDC(0, 0, rect);
+    assert.ok(ndc.x < -1, "left of the canvas");
+    assert.ok(ndc.y > 1, "above the canvas");
+  });
+
+  test("a ground hit converts back to ENU with north restored", () => {
+    // Scene is Y-up with north on -Z; ENU wants north back on +Y, so the
+    // round trip through toSceneZ has to negate.
+    assert.deepEqual(sceneGroundToENU({ x: 12, y: -3, z: -7 }), {
+      x: 12,
+      y: 7,
+    });
+    assert.deepEqual(sceneGroundToENU({ x: -4, y: 0, z: 9 }), {
+      x: -4,
+      y: -9,
+    });
+  });
+});
+
+describe("region markers", () => {
+  test("sits flat on the ground at the region centre, in scene coordinates", () => {
+    const ring = buildRegionRing(
+      { center_x: 10, center_y: 4, radius_m: 3 },
+      -1.5,
+    );
+
+    assert.equal(ring.position.x, 10, "east stays x");
+    assert.equal(ring.position.z, -4, "north becomes -z");
+    assert.ok(
+      ring.position.y > -1.5 && ring.position.y < -1.4,
+      "lifted just clear of the ground rather than z-fighting it",
+    );
+    assert.ok(
+      Math.abs(ring.rotation.x + Math.PI / 2) < 1e-9,
+      "laid flat, not standing up facing the camera",
+    );
+  });
+
+  test("is an open ring, so it does not read as sensor returns", () => {
+    const ring = buildRegionRing({ center_x: 0, center_y: 0, radius_m: 2 }, 0);
+    const { innerRadius, outerRadius } = ring.geometry.parameters;
+    assert.ok(innerRadius > 0, "a filled disc would look like a detection");
+    assert.equal(outerRadius, 2, "outer edge is the stated radius");
+  });
+
+  test("a missing or zero radius still draws something findable", () => {
+    // A region saved without a radius is a review record with a position; it
+    // should not vanish silently.
+    for (const region of [
+      { center_x: 1, center_y: 1 },
+      { center_x: 1, center_y: 1, radius_m: 0 },
+      { center_x: 1, center_y: 1, radius_m: null },
+    ]) {
+      const ring = buildRegionRing(region, 0);
+      assert.ok(ring.geometry.parameters.outerRadius >= 0.25);
+    }
+  });
+
+  test("a non-finite centre does not produce NaN geometry", () => {
+    // A NaN position silently removes the mesh from the scene rather than
+    // drawing anywhere, so it has to be coerced, not passed through.
+    const ring = buildRegionRing(
+      { center_x: undefined, center_y: "x", radius_m: 1 },
+      0,
+    );
+    assert.ok(Number.isFinite(ring.position.x));
+    assert.ok(Number.isFinite(ring.position.z));
+    assert.equal(Math.abs(ring.position.x), 0);
+    assert.equal(Math.abs(ring.position.z), 0);
   });
 });

@@ -81,11 +81,33 @@ declare module '$scene/scene-reader.js' {
 		prefetchAfter(us: number): void;
 	}
 
+	/** Ground overlay marker, matching the fields a missed region carries. */
+	export interface SceneRegion {
+		center_x: number;
+		center_y: number;
+		radius_m: number;
+	}
+
+	/**
+	 * Picking and overlays, attached by mountScenePlayer. The player owns the
+	 * camera and the ENU-to-scene mapping, so it answers these rather than the
+	 * caller restating that convention.
+	 */
+	export interface SceneInteraction {
+		/** The track whose box is under the pointer, or null. */
+		trackAt(clientX: number, clientY: number): string | null;
+		/** Where the pointer meets the ground, in ENU metres, or null. */
+		groundAt(clientX: number, clientY: number): { x: number; y: number } | null;
+		/** Replaces the ground region markers. */
+		setRegions(regions: SceneRegion[]): void;
+	}
+
 	export class SceneSession {
 		constructor(manifestURL: string);
 		parts: PartReader[];
 		duration: number;
 		readonly title: string;
+		interaction?: SceneInteraction;
 		static fromParts(parts: PartReader[], options?: { title?: string }): SceneSession;
 		open(): Promise<this>;
 		locate(seconds: number): { partIndex: number; part: PartReader; us: number };
@@ -114,5 +136,5 @@ declare module '$scene/scene-player.js' {
 		ui: Record<string, unknown>;
 		capture?: boolean;
 		session?: SceneSession | null;
-	}): Promise<unknown>;
+	}): Promise<SceneSession>;
 }

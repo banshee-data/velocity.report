@@ -230,6 +230,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Track labelling Phase 9 UI (Swift, D-07): seekable replay, Swift-native labelling: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 - Profile comparison system: cross-run evaluation UI, scene evaluation APIs: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 - Frontend decomposition (Svelte stores): item 13: tracksStore, runsStore, missedRegionStore: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md) `M`
+- Shared scene-player types: `web/src/lib/scene/scene-reader.d.ts` is a hand-written declaration for the three.js player in `public_html/src/js`, because a kit alias would send `svelte-check`'s `checkJs` into player code that has never been type-checked (362 errors on first attempt). Either type the player itself and drop the declaration, or give `public_html` its own jsconfig so both sides check independently; today the declaration can drift from the modules it describes without anything failing `S` {frontend}
 - Web: display runtime version and git SHA in settings UI for admin/debug visibility `S`
 - Widescreen content containment (D-13): add vr-page max-width centring at ≥3000px: [design doc §2.2](ui/design-review-and-improvement.md) `S`
 - LayerChart policy in LiDAR routes: enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps: [design doc §4.2](ui/design-review-and-improvement.md) `S`
