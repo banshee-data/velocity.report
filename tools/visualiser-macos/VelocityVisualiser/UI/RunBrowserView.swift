@@ -126,7 +126,10 @@ private enum RunBrowserLayout {
             // Footer
             HStack {
                 if let selectedRunID = runBrowserState.selectedRunID {
-                    Text("Loaded: \(selectedRunID)").font(.caption).foregroundColor(.secondary)
+                    // The loaded run's ID in full: this is the one an operator
+                    // needs when locating its vrlog directory or passing it to
+                    // an offline tool.
+                    CopyableID(value: selectedRunID, label: "Loaded").foregroundColor(.secondary)
                         .lineLimit(1)
                     Spacer()
                     Button("Stop Replay") {
@@ -185,7 +188,13 @@ private struct RunBrowserHeaderRow: View {
             // Col 1: 0xfirst6uuid with status dot
             HStack(spacing: RunBrowserLayout.runStatusSpacing) {
                 StatusDot(status: run.status)
-                Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)
+                // The cell shows a prefix but copies the whole run ID, which
+                // is the only form any tool accepts. Drag-selection stays off
+                // here: the row's tap is what loads the run for replay, and a
+                // selectable Text would swallow it.
+                CopyableID(
+                    value: run.runId, display: run.shortIdPrefix, label: "Run", selectable: false
+                ).lineLimit(1)
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
 
             // Col 2: Date/time (space-padded for monospaced alignment)
