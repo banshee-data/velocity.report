@@ -203,7 +203,7 @@ The high-level direction is now clear and should not be reopened:
 | PDF generator                  | P50/P85/P98 aggregate stats, correct usage   |
 | Web charts (`+page.svelte`)    | P50/P85/P98/Max aggregate display            |
 
-### ⚠️ needs migration 000030 (v0.5.x)
+### ⚠️ needs migration 000030 (v0.5.4)
 
 | Surface                                       | Issue                                                   |
 | --------------------------------------------- | ------------------------------------------------------- |
