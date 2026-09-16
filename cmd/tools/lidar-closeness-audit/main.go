@@ -149,6 +149,8 @@ func main() {
 		"tuning config supplying the closeness parameters when a snapshot carries none")
 	sensorFilter := flag.String("sensor", "", "audit only this sensor_id (default: every sensor in the database)")
 	maxSnapshots := flag.Int("max-snapshots", 1000, "most recent snapshots to read per sensor")
+	byRing := flag.Bool("by-ring", false,
+		"also break the high-spread cells down by ring elevation, to attribute them")
 	flag.Parse()
 
 	shipped, err := shippedParams(*tuningPath)
@@ -189,6 +191,7 @@ func main() {
 	sensors := map[string]int{}
 	paramsUsed := map[string]int{}
 	active := shipped
+	var ringAcc *ringAccumulator
 
 	for _, sensorID := range sensorIDs {
 		snaps, err := database.ListRecentBgSnapshots(sensorID, *maxSnapshots)
@@ -214,13 +217,23 @@ func main() {
 			snapshots++
 			sensors[sensorID]++
 
-			for _, c := range cells {
+			if *byRing {
+				if ringAcc == nil {
+					ringAcc = newRingAccumulator(snap.Rings, snap.AzimuthBins)
+				}
+				ringAcc.setElevations(snap.RingElevationsJSON)
+			}
+
+			for cellIndex, c := range cells {
 				learnedRange := float64(c.AverageRangeMeters)
 				if uint(c.TimesSeenCount) < *minTimesSeen || learnedRange <= 0.5 || learnedRange > *maxRange {
 					skippedCells++
 					continue
 				}
 				settledCells++
+				if ringAcc != nil {
+					ringAcc.observe(cellIndex, c, active.lockedThreshold)
+				}
 
 				spread := float64(c.RangeSpreadMeters)
 
@@ -274,6 +287,9 @@ func main() {
 	}
 
 	report(snapshots, decodeFailures, settledCells, skippedCells, sensors, paramsUsed, stats, active)
+	if ringAcc != nil {
+		ringAcc.report()
+	}
 }
 
 // decodeCells unpacks a snapshot's grid blob: gzip around a gob-encoded slice.
