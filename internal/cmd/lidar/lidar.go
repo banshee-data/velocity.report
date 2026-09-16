@@ -21,6 +21,13 @@ Commands:
   pcap-split      Scan a PCAP for capture/motion stats and segment it into
                   non-overlapping motion and static periods
   settling-eval   Evaluate background settling convergence; recommend warmup frames
+  pcap-replay     Replay a PCAP through the full perception pipeline and record
+                  a VRLOG, with no server, database, or listening port. Use this
+                  to measure a change to clustering, tracking, or classification
+  annotation-export
+                  Cut a frozen excerpt of a VRLOG into an annotation pack: an
+                  immutable point domain that reviewed masks reference, so a
+                  reference identity is not itself a tracker output
 
 Run 'velocity lidar <command> -h' for command flags.`
 
@@ -37,6 +44,10 @@ func Main(args []string) int {
 		return SplitMain(args[1:])
 	case "settling-eval":
 		return SettlingEvalMain(args[1:])
+	case "pcap-replay":
+		return ReplayEvalMain(args[1:])
+	case "annotation-export":
+		return AnnotationExportMain(args[1:])
 	case "help", "-h", "--help":
 		fmt.Println(namespaceUsage)
 		return 0

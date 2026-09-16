@@ -4,6 +4,7 @@ package sweep
 import (
 	"encoding/csv"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -104,6 +105,16 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 
 		// Fetch tracking metrics (best-effort)
 		if trackMetrics, err := s.Backend.FetchTrackingMetrics(); err == nil {
+			active, activeOK := finiteMetricNumber(trackMetrics["active_tracks"])
+			result.TrackMetricsAvailable = activeOK && active >= 0 && active < float64(math.MaxInt) && math.Trunc(active) == active
+			if v, ok := trackMetrics["course_alignment_samples"]; ok {
+				n, nOK := finiteMetricNumber(v)
+				p50, pOK := finiteMetricNumber(trackMetrics["course_alignment_p50_deg"])
+				if nOK && pOK && n > 0 && n < float64(math.MaxInt) && math.Trunc(n) == n && p50 >= 0 && p50 <= 90 {
+					result.CourseAlignmentSamples = int(n)
+					result.CourseAlignmentP50Deg = p50
+				}
+			}
 			if v, ok := trackMetrics["active_tracks"]; ok {
 				result.ActiveTracks = toIntFromMap(v)
 			}
@@ -161,6 +172,17 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 	}
 
 	return results
+}
+
+// Unknown/malformed telemetry is missing evidence, never perfect zero error.
+func finiteMetricNumber(v interface{}) (float64, bool) {
+	switch v.(type) {
+	case float64, float32, int, int64:
+		n := toFloat64FromMap(v)
+		return n, !math.IsNaN(n) && !math.IsInf(n, 0)
+	default:
+		return 0, false
+	}
 }
 
 // WriteRawRow writes a single sample result row to the raw CSV writer.

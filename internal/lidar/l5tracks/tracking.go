@@ -2,10 +2,33 @@ package l5tracks
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+const (
+	// CourseAlignmentBins is the number of histogram bins spanning [0, 90]
+	// degrees of course-alignment error. Twenty gives 4.5° resolution, which is
+	// finer than the quantity is trustworthy at a 5 Hz effective observation
+	// rate and cheap enough to keep per track.
+	CourseAlignmentBins = 20
+
+	// CourseAlignmentBinWidthDeg is the width of one bin, in degrees.
+	CourseAlignmentBinWidthDeg = 90.0 / CourseAlignmentBins
+
+	// CourseAlignmentMinSpeedMps is the speed below which course is not a
+	// meaningful reference direction: the velocity heading is dominated by
+	// estimator noise, so comparing the box against it measures nothing.
+	CourseAlignmentMinSpeedMps = 2.0
+
+	// SustainedLockFrames is how many consecutive locked frames count as a
+	// sustained heading lock, and equally how many consecutive unlocked frames
+	// count as a genuine release. Short locks are the guards doing their job on
+	// a single bad cluster; a sustained one that never releases is the trap.
+	SustainedLockFrames = 5
 )
 
 // TrackPoint represents a single point in a track's history.
@@ -19,7 +42,8 @@ type TrackPoint struct {
 type TrackedObject struct {
 	// Identity + shared measurement fields (persisted to both lidar_tracks
 	// and lidar_run_tracks)
-	TrackID string
+	TrackID          string
+	CreationSequence int64 // Deterministic association ordering; UUID remains public identity
 	TrackMeasurement
 
 	// Lifecycle counters
@@ -35,6 +59,15 @@ type TrackedObject struct {
 	// Kalman covariance (4x4, row-major)
 	P [16]float32
 
+	// LastMeasurement is the source and acquisition time of the accepted L4
+	// geometry that produced the current state. It is copied into the legacy
+	// per-track observation row; it is not a mutable replacement for the raw
+	// DetectionObservation record.
+	LastMeasurementSource    MeasurementSource
+	LastMeasurementUnixNanos int64
+	LastClusterID            int64
+	LastResidual             FilterResidual
+
 	// History of positions
 	History []TrackPoint
 
@@ -46,9 +79,16 @@ type TrackedObject struct {
 	HeadingSource HeadingSource // Source of the current heading (for debug rendering)
 
 	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
-	OBBLength float32 // Latest frame bounding box length (metres)
-	OBBWidth  float32 // Latest frame bounding box width (metres)
-	OBBHeight float32 // Latest frame bounding box height (metres)
+	OBBLength         float32 // Latest frame bounding box length (metres)
+	OBBWidth          float32 // Latest frame bounding box width (metres)
+	OBBHeight         float32 // Latest frame bounding box height (metres)
+	AxisScoreGap      float32 // Heuristic cost margin, not calibrated confidence
+	AxisAbstentionRun int     // Consecutive axis-path abstentions, running
+
+	// Extent beliefs: revisable lower-bound estimates of the object's body
+	// dimensions, built from confidently assigned observations only. They are
+	// deliberately not running means of raw spans; see heading_extent.go.
+	lengthBelief, widthBelief extentBelief
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -72,8 +112,57 @@ type TrackedObject struct {
 
 	// Heading Jitter Metrics
 	// Measures frame-to-frame OBB heading instability (spinning bounding boxes).
+	//
+	// Caution: a heading that never updates has zero jitter. This metric alone
+	// cannot distinguish a stable box from a locked one, so it must be read
+	// alongside CourseAlignment below, which measures whether the box is
+	// pointing the right way at all.
 	HeadingJitterSumSq float64 // Running sum of squared heading deltas (radians²)
 	HeadingJitterCount int     // Number of heading delta samples
+
+	// Course Alignment Metrics
+	// Measures the angle between the OBB heading and the direction of travel,
+	// folded to [0, 90]: 0 means the box is aligned with the course, 90 means
+	// it lies across it. An OBB is symmetric, so a 180° difference is the same
+	// physical box and folds to 0; a 90° difference is a length/width swap and
+	// is the worst case.
+	//
+	// Stored as a fixed-bin histogram rather than a sample slice so that the
+	// per-track cost stays constant on the Pi. Percentiles are recovered by
+	// CourseAlignmentPercentileDeg.
+	CourseAlignmentHist  [CourseAlignmentBins]uint32 // 5° bins over [0, 90]
+	CourseAlignmentCount int                         // Number of samples taken
+
+	// Heading Lock Telemetry
+	// The heading guards in tracking_update.go suppress the OBB heading update
+	// and record HeadingSourceLocked. Guard 3 compares each measurement against
+	// the *smoothed* heading, so once that has drifted more than 60° from the
+	// truth every correct measurement is rejected and the lock cannot release
+	// on its own. These counters exist to make that trap visible: a track that
+	// enters a sustained lock and never leaves it is the failure mode.
+	HeadingSourceCounts  [HeadingSourceCount]uint32 // Frames attributed to each source
+	HeadingLockedFrames  int                        // Total frames with the heading locked
+	CurrentLockRun       int                        // Consecutive locked frames, running
+	LongestLockRun       int                        // Longest consecutive locked run
+	currentUnlockRun     int                        // Consecutive unlocked frames, running
+	EnteredSustainedLock bool                       // Reached SustainedLockFrames consecutively
+	RecoveredAfterLock   bool                       // Any unlocked frame after a sustained lock
+	ReleasedAfterLock    bool                       // Ran unlocked for SustainedLockFrames after that
+	LockEpisodes         int                        // Number of distinct lock runs
+	HeadingRejectionRun  int                        // Consecutive Guard 3 rejections, running
+	HeadingLockReleases  int                        // Times the rejection counter forced a release
+	HeadingEpisodes      HeadingEpisodeState        // Terminal episode, unlike the lifetime flags above
+
+	// Residuals and Association are Phase 0 filter-consistency instrumentation:
+	// what the observation disagreed with the prediction about, and how often
+	// there was an observation at all. See residuals.go.
+	Residuals   ResidualBands
+	Association AssociationBands
+
+	// FragmentPairingsRejected counts cluster/track pairings forbidden by the
+	// fragment guard in associate(). It is per evaluated pairing per frame, not
+	// per frame, so it indicates pressure rather than a count of lost frames.
+	FragmentPairingsRejected int
 
 	// Speed Jitter Metrics
 	// Measures frame-to-frame Kalman speed instability (m/s).
@@ -122,6 +211,11 @@ type Tracker struct {
 
 	// DebugCollector captures algorithm internals for visualisation (optional)
 	DebugCollector DebugCollector
+	// Window baselines outlive individual tracks and exclude warm-up when reset
+	// at the scoring boundary. Per-track lifetime metrics remain unchanged.
+	baselineEnabled     bool
+	baselineResiduals   ResidualBands
+	baselineAssociation AssociationBands
 
 	mu sync.RWMutex
 }
@@ -142,7 +236,14 @@ type DebugCollector interface {
 func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	previousAxisMode := t.Config.OBBAxisCoherenceEnabled
 	fn(&t.Config)
+	if previousAxisMode != t.Config.OBBAxisCoherenceEnabled {
+		for _, track := range t.Tracks {
+			track.lengthBelief, track.widthBelief = extentBelief{}, extentBelief{}
+			track.AxisScoreGap, track.AxisAbstentionRun = 0, 0
+		}
+	}
 }
 
 // GetConfig returns a snapshot of the tracker's current configuration
@@ -168,6 +269,9 @@ func (t *Tracker) Reset() {
 	t.ClusteredPoints = 0
 	t.EmptyBoxFrames = 0
 	t.TotalBoxFrames = 0
+	t.baselineEnabled = false
+	t.baselineResiduals = ResidualBands{}
+	t.baselineAssociation = AssociationBands{}
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -236,6 +340,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	for clusterIdx, trackID := range associations {
 		if trackID != "" {
 			track := t.Tracks[trackID]
+			t.observeBaselineAssociation(track, true)
 			t.update(track, clusters[clusterIdx], nowNanos)
 			track.Hits++
 			track.Misses = 0
@@ -286,6 +391,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	deletedThisFrame := 0
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
+			t.observeBaselineAssociation(track, false)
 			track.Misses++
 			track.Hits = 0
 			track.OcclusionCount++
@@ -340,9 +446,14 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// Step 4b: Update empty box accumulators.
 	// Count active tracks not matched to any cluster this frame.
 	activeCount := int64(0)
-	for _, track := range t.Tracks {
+	for trackID, track := range t.Tracks {
 		if track.TrackState != TrackDeleted {
 			activeCount++
+			// Phase 0: association rate by speed band. Recorded for every
+			// live track each frame, matched or not, so the denominator is
+			// frames the track existed for rather than frames it was seen in.
+			speed := float32(math.Hypot(float64(track.VX), float64(track.VY)))
+			track.Association.Observe(speed, matchedTracks[trackID])
 		}
 	}
 	matchedCount := int64(len(matchedTracks))
@@ -379,9 +490,11 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject {
 	trackID := fmt.Sprintf("trk_%s", uuid.NewString())
 	t.NextTrackID++
+	measurement := t.measurementForCluster(cluster, nowNanos)
 
 	track := &TrackedObject{
-		TrackID: trackID,
+		TrackID:          trackID,
+		CreationSequence: t.NextTrackID,
 		TrackMeasurement: TrackMeasurement{
 			SensorID:             cluster.SensorID,
 			TrackState:           TrackTentative,
@@ -397,9 +510,13 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		Hits:   1,
 		Misses: 0,
 
-		// Initialise position from cluster centroid
-		X: cluster.CentroidX,
-		Y: cluster.CentroidY,
+		// Decision D2: use the measured OBB centre when it is valid. The
+		// source is retained with the per-frame record so historical medoid
+		// rows remain distinguishable from this corrected stopgap.
+		X:                        measurement.X,
+		Y:                        measurement.Y,
+		LastMeasurementSource:    measurement.Source,
+		LastMeasurementUnixNanos: measurement.UnixNanos,
 		// Initialise velocity to zero
 		VX: 0,
 		VY: 0,
@@ -416,10 +533,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		TrackDurationSecs: 0,
 
 		History: []TrackPoint{{
-			X:         cluster.CentroidX,
-			Y:         cluster.CentroidY,
-			Timestamp: nowNanos,
+			X:         measurement.X,
+			Y:         measurement.Y,
+			Timestamp: measurement.UnixNanos,
 		}},
+		LastClusterID: cluster.ClusterID,
 
 		speedHistory: make([]float32, 0, t.Config.MaxSpeedHistoryLength),
 	}
@@ -434,6 +552,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	}
 
 	t.Tracks[trackID] = track
+	if t.Config.OBBAxisCoherenceEnabled {
+		t.updateAxisHeading(track, cluster)
+	} else {
+		track.HeadingEpisodes.Observe(track.HeadingSource, nowNanos)
+	}
 	t.TracksCreated++
 	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
 		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)
@@ -476,6 +599,7 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 		if track.TrackState == TrackDeleted {
 			continue
 		}
+		t.observeBaselineAssociation(track, false)
 		track.Misses++
 		track.Hits = 0
 

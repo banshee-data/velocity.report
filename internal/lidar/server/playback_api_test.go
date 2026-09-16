@@ -2,8 +2,10 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -77,6 +79,124 @@ func TestHandlePCAPStartAcceptsAPacedSequence(t *testing.T) {
 	// this fixture fails on, it must not fail on the speed mode.
 	if bytes.Contains(rec.Body.Bytes(), []byte("multi-file replay requires")) {
 		t.Fatalf("a paced sequence was refused: %s", rec.Body.String())
+	}
+}
+
+// TestHandlePCAPStartOmittedAnalysisModeDefaultsToTrue is the direct
+// regression test for the bug this plan phase fixes: handlePCAPStart
+// initialises analysisMode to true, but request parsing used to overwrite it
+// with the JSON/form zero value (false) whenever the client omitted the
+// field entirely — which every existing test avoided by always sending it
+// explicitly, true or false, so the bug went uncaught.
+func TestHandlePCAPStartOmittedAnalysisModeDefaultsToTrue(t *testing.T) {
+	newTestServer := func(t *testing.T) (*Server, string) {
+		t.Helper()
+		tmpDir := resolveSymlinks(t, t.TempDir())
+		if err := os.WriteFile(filepath.Join(tmpDir, "capture.pcap"), testPCAPHeader, 0o644); err != nil {
+			t.Fatalf("WriteFile(): %v", err)
+		}
+		ws := NewServer(Config{
+			Address:     ":0",
+			Stats:       NewPacketStats(),
+			SensorID:    "sensor-omitted-mode",
+			PCAPSafeDir: tmpDir,
+		})
+		ws.setBaseContext(context.Background())
+		return ws, tmpDir
+	}
+
+	t.Run("JSON body omitting analysis_mode", func(t *testing.T) {
+		ws, _ := newTestServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-omitted-mode",
+			bytes.NewBufferString(`{"pcap_file":"capture.pcap"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		ws.handlePCAPStart(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var resp map[string]interface{}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if resp["analysis_mode"] != true {
+			t.Errorf("analysis_mode = %v, want true (the default an omitted field must preserve)", resp["analysis_mode"])
+		}
+		waitForPCAPDone(t, ws)
+	})
+
+	t.Run("form body omitting analysis_mode", func(t *testing.T) {
+		ws, _ := newTestServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-omitted-mode",
+			bytes.NewBufferString("pcap_file=capture.pcap"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		ws.handlePCAPStart(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var resp map[string]interface{}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if resp["analysis_mode"] != true {
+			t.Errorf("analysis_mode = %v, want true (the default an omitted field must preserve)", resp["analysis_mode"])
+		}
+		waitForPCAPDone(t, ws)
+	})
+
+	t.Run("form body with explicit analysis_mode=false is honoured, not overridden", func(t *testing.T) {
+		ws, _ := newTestServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-omitted-mode",
+			bytes.NewBufferString("pcap_file=capture.pcap&analysis_mode=false"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+
+		ws.handlePCAPStart(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var resp map[string]interface{}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if resp["analysis_mode"] != false {
+			t.Errorf("analysis_mode = %v, want false (an explicit value present in the form)", resp["analysis_mode"])
+		}
+		waitForPCAPDone(t, ws)
+	})
+}
+
+// TestClientStartPCAPReplaySendsExplicitAnalysisModeFalse covers the "legacy
+// simple-client replay" path named in the plan: Client.StartPCAPReplay (used
+// by the standalone parameter-sweep tool, which reads live tracking output
+// rather than a recorded analysis run) used to send only {"pcap_file": ...},
+// which the server's old bug happened to interpret as analysis_mode=false.
+// Fixing the server bug without touching this client would have silently
+// flipped every sweep replay to analysis_mode=true; it must keep sending its
+// intent explicitly instead.
+func TestClientStartPCAPReplaySendsExplicitAnalysisModeFalse(t *testing.T) {
+	var received map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	if err := c.StartPCAPReplay("capture.pcap", 1); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, ok := received["analysis_mode"]; !ok || got != false {
+		t.Fatalf("analysis_mode should be sent explicitly as false, got %v (present: %v)", got, ok)
 	}
 }
 
@@ -468,8 +588,21 @@ func TestHandlePlaybackRate(t *testing.T) {
 	}
 }
 
-// TestHandleVRLogLoad tests the POST /api/lidar/vrlog/load endpoint.
+// TestHandleVRLogLoad tests the POST /api/lidar/vrlog/load endpoint. Path
+// values are computed against a real resolved temp directory rather than a
+// literal like /var/lib/velocity-report: the safe-directory check now
+// resolves symlinks (security.ResolvePathWithinDirectory), which requires
+// the safe directory to actually exist on disk.
 func TestHandleVRLogLoad(t *testing.T) {
+	safeDir := resolveSymlinks(t, t.TempDir())
+	inSafeDir := filepath.Join(safeDir, "test.vrlog")
+
+	outsideDir := resolveSymlinks(t, t.TempDir())
+	symlinkEscape := filepath.Join(safeDir, "escape")
+	if err := os.Symlink(outsideDir, symlinkEscape); err != nil {
+		t.Fatalf("Symlink(): %v", err)
+	}
+
 	tests := []struct {
 		name           string
 		method         string
@@ -481,17 +614,17 @@ func TestHandleVRLogLoad(t *testing.T) {
 		{
 			name:           "POST without callback returns not implemented",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, inSafeDir),
 			onLoad:         nil,
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusNotImplemented,
 		},
 		{
 			name:           "POST with vrlog_path succeeds",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, inSafeDir),
 			onLoad:         func(path string) (string, error) { return "proto", nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -499,15 +632,15 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "relative/path.vrlog"}`,
 			onLoad:         func(path string) (string, error) { return "proto", nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "POST with load error returns internal error",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, inSafeDir),
 			onLoad:         func(path string) (string, error) { return "", errors.New("load failed") },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusInternalServerError,
 		},
 		{
@@ -515,15 +648,27 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
 			onLoad:         func(path string) (string, error) { return "proto", nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "POST with directory traversal returns bad request",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/var/lib/velocity-report/../../../etc/passwd"}`,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, filepath.Join(safeDir, "..", "..", "..", "etc", "passwd")),
 			onLoad:         func(path string) (string, error) { return "proto", nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			// A symlink inside the safe directory pointing outside it. A plain
+			// string-prefix check on the literal path would accept this, since
+			// the string itself starts with the safe directory; the resolved
+			// (symlink-following) check must not.
+			name:           "POST with a symlink escaping the safe directory returns bad request",
+			method:         http.MethodPost,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, filepath.Join(symlinkEscape, "secret.vrlog")),
+			onLoad:         func(path string) (string, error) { return "proto", nil },
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -531,7 +676,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{}`,
 			onLoad:         func(path string) (string, error) { return "proto", nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -539,7 +684,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `invalid json`,
 			onLoad:         func(path string) (string, error) { return "proto", nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
+			vrlogSafeDir:   safeDir,
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -557,7 +702,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			ws.handleVRLogLoad(w, req)
 
 			if w.Code != tt.expectedStatus {
-				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+				t.Errorf("expected status %d, got %d; body: %s", tt.expectedStatus, w.Code, w.Body.String())
 			}
 			if tt.expectedStatus == http.StatusOK {
 				var resp map[string]interface{}

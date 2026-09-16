@@ -1,11 +1,14 @@
 package pcapsplit
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 func sampleReport() Report {
@@ -32,6 +35,28 @@ func TestExportFuncs_Success(t *testing.T) {
 		if _, e := os.Stat(filepath.Join(dir, f)); e != nil {
 			t.Errorf("missing %s: %v", f, e)
 		}
+	}
+}
+
+func TestSegmentsJSONIncludesBuildVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "segments.json")
+	r := sampleReport()
+	r.BuildVersion = version.Version
+	if err := WriteSegmentsJSON(path, r); err != nil {
+		t.Fatalf("WriteSegmentsJSON: %v", err)
+	}
+	var got struct {
+		BuildVersion string `json:"build_version"`
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.BuildVersion != version.Version {
+		t.Fatalf("build_version = %q, want %q", got.BuildVersion, version.Version)
 	}
 }
 

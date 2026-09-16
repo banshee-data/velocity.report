@@ -40,7 +40,9 @@ def main() -> None:
     if not files:
         parser.error(f"offline docs site contains no files: {site_root}")
 
-    lines = [f"{digest(path)}  {path.relative_to(site_root).as_posix()}\n" for path in files]
+    lines = [
+        f"{digest(path)}  {path.relative_to(site_root).as_posix()}\n" for path in files
+    ]
     manifest.write_text("".join(lines), encoding="utf-8")
     print(f"✓ Wrote embedded docs manifest ({len(files)} file(s))")
 

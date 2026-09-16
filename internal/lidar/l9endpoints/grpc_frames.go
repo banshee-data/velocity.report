@@ -102,16 +102,17 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
 		for i, c := range cs.Clusters {
 			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
+				ClusterId:    c.ClusterID,
+				SensorId:     c.SensorID,
+				TimestampNs:  c.TimestampNanos,
+				CentroidX:    c.CentroidX,
+				CentroidY:    c.CentroidY,
+				CentroidZ:    c.CentroidZ,
+				AabbLength:   c.AABBLength,
+				AabbWidth:    c.AABBWidth,
+				AabbHeight:   c.AABBHeight,
+				PointsCount:  int32(c.PointsCount),
+				SamplePoints: c.SamplePoints,
 			}
 			if c.OBB != nil {
 				pbCluster.Obb = &pb.OrientedBoundingBox{
@@ -243,6 +244,9 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		}
 	}
 
+	if req.IncludeDebug {
+		pbFrame.Debug = DebugToProto(frame.Debug)
+	}
 	return pbFrame
 }
 

@@ -202,6 +202,7 @@ func AssignFrameStates(frames []FrameMetrics, segs []Segment) {
 
 // Report is the top-level result bundle for metadata export and the summary.
 type Report struct {
+	BuildVersion     string       `json:"build_version"`
 	InputFile        string       `json:"input_file"`
 	ProcessingTimeMs int64        `json:"processing_time_ms"`
 	TotalPackets     int          `json:"total_packets"`

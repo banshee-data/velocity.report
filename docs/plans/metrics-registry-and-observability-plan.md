@@ -2,11 +2,17 @@
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (all layers)
+- **Target:** v0.5.2 contract names and report registration for following metrics; repo-wide naming enforcement, broader observability and Prometheus export follow at v0.5.10
 - **Scope:** canonical metric naming, repo-wide consistency rules, cross-strata enforcement, and future observability/export design
 - **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [Executive Decisions Register](../DECISIONS.md), [LiDAR Logging Stream Split](../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
 - **Canonical:** [metrics-registry.md](../platform/architecture/metrics-registry.md)
 
 ## 1. Problem
+
+The immediate delivery is the headway report: reserve distinct canonical names for physical
+spatial gap, net time gap, valid following opportunity, named-band exposure and every suppression
+reason. Apply them consistently across persistence, API and report output. This naming slice is a
+v0.5.2 dependency; repo-wide Prometheus and unrelated metric migrations are not.
 
 The repo currently lets the same metric words drift across multiple meanings and
 multiple strata:

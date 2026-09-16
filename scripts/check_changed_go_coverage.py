@@ -28,8 +28,8 @@ class FileCoverage:
 
 
 def run_git(args: list[str], cwd: Path) -> list[str]:
-	out = subprocess.check_output(["git", *args], cwd=cwd, text=True)
-	return [line for line in out.splitlines() if line]
+    out = subprocess.check_output(["git", *args], cwd=cwd, text=True)
+    return [line for line in out.splitlines() if line]
 
 
 def add_unique(paths: list[str], seen: set[str], new_paths: list[str]) -> None:
@@ -40,8 +40,12 @@ def add_unique(paths: list[str], seen: set[str], new_paths: list[str]) -> None:
         paths.append(path)
 
 
-def path_in_scope(path: str, include_prefixes: list[str], exclude_prefixes: list[str]) -> bool:
-    if include_prefixes and not any(path.startswith(prefix) for prefix in include_prefixes):
+def path_in_scope(
+    path: str, include_prefixes: list[str], exclude_prefixes: list[str]
+) -> bool:
+    if include_prefixes and not any(
+        path.startswith(prefix) for prefix in include_prefixes
+    ):
         return False
     return not any(path.startswith(prefix) for prefix in exclude_prefixes)
 
@@ -59,7 +63,11 @@ def changed_go_files(
     add_unique(files, seen, run_git([*diff_args, f"{base}...HEAD", "--", "*.go"], cwd))
     add_unique(files, seen, run_git([*diff_args, "HEAD", "--", "*.go"], cwd))
     if "A" in diff_filter:
-        add_unique(files, seen, run_git(["ls-files", "--others", "--exclude-standard", "--", "*.go"], cwd))
+        add_unique(
+            files,
+            seen,
+            run_git(["ls-files", "--others", "--exclude-standard", "--", "*.go"], cwd),
+        )
 
     out: list[str] = []
     for path in files:
@@ -180,7 +188,9 @@ def check_files(
     return failures
 
 
-def print_summary(files: list[str], coverage: dict[str, FileCoverage], threshold: float) -> None:
+def print_summary(
+    files: list[str], coverage: dict[str, FileCoverage], threshold: float
+) -> None:
     if not files:
         print("No changed non-test Go files.")
         return
@@ -192,7 +202,9 @@ def print_summary(files: list[str], coverage: dict[str, FileCoverage], threshold
             print(f"  skip  100.0%    0/0    {path}")
             continue
         status = "ok" if cov.percent >= threshold else "fail"
-        print(f"  {status:<4} {cov.percent:6.1f}% {cov.covered:4}/{cov.total:<4} {path}")
+        print(
+            f"  {status:<4} {cov.percent:6.1f}% {cov.covered:4}/{cov.total:<4} {path}"
+        )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -234,7 +246,9 @@ def main(argv: list[str] | None = None) -> int:
     print_summary(files, coverage, args.threshold)
     if failures:
         print()
-        print(f"{len(failures)} changed Go file(s) are below {args.threshold:.1f}% coverage.")
+        print(
+            f"{len(failures)} changed Go file(s) are below {args.threshold:.1f}% coverage."
+        )
         return 1
     return 0
 

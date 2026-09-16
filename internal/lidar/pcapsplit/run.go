@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // Run performs a full two-pass split: it analyses the capture (pass 1), builds
@@ -56,6 +58,7 @@ func Run(cfg SplitConfig) error {
 	}
 
 	report := Report{
+		BuildVersion:     version.Version,
 		InputFile:        cfg.PCAPFile,
 		ProcessingTimeMs: time.Since(start).Milliseconds(),
 		TotalPackets:     analysis.TotalPackets,

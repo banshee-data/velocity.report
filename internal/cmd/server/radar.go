@@ -661,7 +661,7 @@ func Main(args []string) int {
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
-				MaxFrameRate:        25, // Replay catch-up ceiling; live is never throttled (see ReplayActive)
+				MaxFrameRate:        25, // Replay catch-up ceiling; live is never throttled, nor is analysis mode (see ReplayActive, AnalysisModeActive)
 				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:        tuningCfg.GetRemoveGround(),
@@ -921,6 +921,7 @@ func Main(args []string) int {
 			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
 			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
 			pipelineConfig.ReplayActive = lidarServer.ReplayActiveFlag()
+			pipelineConfig.AnalysisModeActive = lidarServer.AnalysisModeFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
