@@ -968,6 +968,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_check_go_coverage.py \
+	scripts/test_check_quarter_blocks.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
@@ -1864,7 +1865,7 @@ lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
-	@scripts/check-quarter-blocks.sh
+	@python3 scripts/check-quarter-blocks.py
 
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
