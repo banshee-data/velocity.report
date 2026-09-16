@@ -12,7 +12,7 @@
 ## 1. Motivation
 
 **Current boundary:** Short-horizon CV coasting, existence/expiry and identity-safe reacquisition
-are now v0.5.3 work in the [state-estimation plan](lidar-state-estimation-plan.md), supporting
+are now v0.5.2 work in the [state-estimation plan](lidar-state-estimation-plan.md), supporting
 stable trails and bumper-to-bumper following measurements. They do not wait for this plan.
 CA/CTRV/IMM, scene-constrained corridors and interaction/planner heuristics remain deferred
 v1.0+ work, currently scheduled at v2.0+. The scenarios below motivate experiments, not proof

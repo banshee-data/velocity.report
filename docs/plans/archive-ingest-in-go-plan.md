@@ -185,7 +185,7 @@ letting a short period pass as a location worth publishing.
 3. Surface it on `GET /api/lidar/capture/periods` and in the Captures page.
 4. Backfill existing periods by intersection; there are few and they are cheap.
 
-**Milestone:** v0.6.0
+**Milestone:** v0.6.5
 
 ### Workstream 2: Whole-volume CLI
 
@@ -201,7 +201,7 @@ letting a short period pass as a location worth publishing.
 5. Compare continuous against per-file classification on all three days, scored
    against the field map, before the per-file output stops being an input.
 
-**Milestone:** v0.6.0
+**Milestone:** v0.6.5
 
 ### Workstream 3: Sites and positions
 
@@ -213,7 +213,7 @@ letting a short period pass as a location worth publishing.
 3. Scene publication reads the site's pose instead of `public_html/scene-sites.json`
    carrying its own copy.
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.5
 
 ### Workstream 4: Retire the workarounds
 
@@ -224,7 +224,7 @@ letting a short period pass as a location worth publishing.
    not as an input.
 3. Re-classify 9/2 and 9/3 as continuous streams so all three days are comparable.
 
-**Milestone:** v0.6.1
+**Milestone:** v0.6.5
 
 ## Phasing
 

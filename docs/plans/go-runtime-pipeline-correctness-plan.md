@@ -3,7 +3,7 @@
 - **Status:** Active
 - **Layers:** Go server, LiDAR replay/tracking pipeline, radar DB derivation, API capability reporting
 - **Canonical:** [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md)
-- **Target:** v0.5.1-v0.5.8; runtime correctness gates land early, contract/API fixes follow in v0.5.3, and structural follow-through remains scheduled in the existing cleanup milestones.
+- **Target:** v0.5.1-v0.5.9; runtime correctness gates land early, contract/API fixes follow at v0.5.8-v0.5.9, and structural follow-through remains scheduled in the existing cleanup milestones.
 - **Companion plans:** [lidar-clock-abstraction-and-time-domain-model-plan.md](lidar-clock-abstraction-and-time-domain-model-plan.md), [lidar-performance-measurement-harness-plan.md](lidar-performance-measurement-harness-plan.md), [lidar-architecture-foundations-fixit-plan.md](lidar-architecture-foundations-fixit-plan.md), [metrics-registry-and-observability-plan.md](metrics-registry-and-observability-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md), [go-cmd-extraction-plan.md](go-cmd-extraction-plan.md), [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 
 ## Motivation
@@ -18,10 +18,10 @@ These are not broad style or package cleanup items. They affect measurement prov
 | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Access-control and localhost listener hardening in v0.5.1                                            | Keep as existing backlog work; reference as a boundary condition.                        | Listener defaults and access policy are release-hardening work. This plan only owns the local replay file-safety fix where pipeline handlers currently bypass shared validation.                             |
 | Clock abstraction, replay/performance measurement, and LiDAR foundations in v0.5.2                   | Keep companion plans; absorb the replay correctness invariant here.                      | Clock injection, perf harnesses, and foundations are broader than this plan. This plan owns the invariant that persisted analysis output cannot be semantically throttled by wall time.                      |
-| Metric registry and unpopulated data remediation in v0.5.3                                           | Keep companion plans; reference output/provenance dependencies.                          | Registry and unpopulated-column work define metric naming and data completeness. This plan ensures analysis runs and transit tables are trustworthy inputs to that work.                                     |
-| Capabilities API redesign in v0.5.3                                                                  | Response-shape redesign delivered by #547; lifecycle correctness stays here.             | `/api/capabilities` now returns named `radar`/`lidar` maps and the web store/nav consume them. The remaining runtime bug is that production LiDAR still never advances beyond `starting` or reports `error`. |
-| Go structural hygiene, SQL-boundary cleanup, silent error-drop cleanup, and cmd extraction in v0.5.7 | Keep structural cleanup plans; fold behaviour regressions here.                          | Moving SQL or cmd ownership before pinning behaviour risks preserving bugs. This plan adds regression tests and contracts; v0.5.7 moves the corrected code to better boundaries.                             |
-| Background grid display, VRLOG seek index, and replay UX/stability in v0.5.8                         | Keep UX/stability plans; fold only VRLOG load safety and replay semantic integrity here. | Background rendering, seek indexing, and macOS replay UX are user-facing follow-through. This plan handles server-side correctness gates that those surfaces depend on.                                      |
+| Metric registry and unpopulated data remediation in v0.5.4/v0.5.11                                   | Keep companion plans; reference output/provenance dependencies.                          | Registry and unpopulated-column work define metric naming and data completeness. This plan ensures analysis runs and transit tables are trustworthy inputs to that work.                                     |
+| Capabilities API redesign in v0.5.9                                                                  | Response-shape redesign delivered by #547; lifecycle correctness stays here.             | `/api/capabilities` now returns named `radar`/`lidar` maps and the web store/nav consume them. The remaining runtime bug is that production LiDAR still never advances beyond `starting` or reports `error`. |
+| Go structural hygiene, SQL-boundary cleanup, silent error-drop cleanup, and cmd extraction in v0.5.8 | Keep structural cleanup plans; fold behaviour regressions here.                          | Moving SQL or cmd ownership before pinning behaviour risks preserving bugs. This plan adds regression tests and contracts; v0.5.8 moves the corrected code to better boundaries.                             |
+| Background grid display and replay UX/stability in v0.5.9, VRLOG seek index in v0.5.5                | Keep UX/stability plans; fold only VRLOG load safety and replay semantic integrity here. | Background rendering, seek indexing, and macOS replay UX are user-facing follow-through. This plan handles server-side correctness gates that those surfaces depend on.                                      |
 
 ## Consolidation Options
 
@@ -62,8 +62,8 @@ Merge clock abstraction, performance harness, foundations fix-it, metrics regist
 | PCAP analysis default        | **Fixed (Phase 1).** `analysis_mode` parsing now preserves the true default when the field is omitted (JSON pointer, form presence check); `Client.StartPCAPReplayWithConfig` and the legacy `StartPCAPReplay` send it explicitly rather than relying on omission. | Critical | v0.5.2 hotfix before relying on replay/HINT output        |
 | Analysis replay throttling   | **Fixed (Phase 1).** A new `AnalysisModeActive` flag bypasses the wall-clock `MaxFrameRate` throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking rather than being recorded as empty frames.                    | Critical | v0.5.2, coordinated with clock abstraction                |
 | VRLOG load path validation   | **Fixed (Phase 2).** `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and acts on the canonical resolved path.                                                               | High     | v0.5.2 local replay safety                                |
-| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                                                                                  | High     | v0.5.3 data-contract cleanup                              |
-| LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal.                                                    | High     | v0.5.3 lifecycle follow-through after #547 response shape |
+| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                                                                                  | High     | v0.5.8 data-contract cleanup                              |
+| LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal.                                                    | High     | v0.5.9 lifecycle follow-through after #547 response shape |
 
 ## Design Approach
 
@@ -74,7 +74,7 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 3. Treat persisted replay output as a data product: no wall-clock display throttle may silently change semantic content.
 4. Make DB contracts match accepted ingest shapes.
 5. Use existing shared safety helpers rather than parallel path checks.
-6. Let v0.5.7 structural work move code after behaviour is pinned down.
+6. Let v0.5.8 structural work move code after behaviour is pinned down.
 
 ## Scope
 
@@ -152,7 +152,7 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 4. Add regression tests with magnitude-only rows in otherwise valid transit windows.
 5. Document the ingest and transit contract in the radar operations docs or DB plan notes.
 
-**Milestone:** v0.5.3.
+**Milestone:** v0.5.8.
 
 ### Phase 4: current capability lifecycle
 
@@ -176,7 +176,7 @@ disconnect/reconnect.
    and show LiDAR nav; radar disconnect/reconnect should not be treated as
    supported lifecycle validation until radar hot-plug state exists.
 
-**Milestone:** v0.5.3.
+**Milestone:** v0.5.9.
 
 ### Phase 5: metrics and data-completeness handoff
 
@@ -190,7 +190,7 @@ disconnect/reconnect.
 2. Keep metric names and output contracts aligned with [metrics-registry-and-observability-plan.md](metrics-registry-and-observability-plan.md).
 3. Keep `statistics_json`, track quality columns, and comparison outputs in [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md); this plan only guarantees the replay/transit inputs are valid.
 
-**Milestone:** v0.5.3 through existing backlog items.
+**Milestone:** v0.5.4 and v0.5.11 through existing backlog items.
 
 ### Phase 6: structural follow-through
 
@@ -204,7 +204,7 @@ disconnect/reconnect.
 2. When [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) continues SQL/query-boundary cleanup, keep the transit worker contract test as a non-regression gate.
 3. When the clock-abstraction plan injects clocks, preserve the Phase 1 invariant that persisted analysis output is not semantically throttled.
 
-**Milestone:** v0.5.7 through existing backlog items.
+**Milestone:** v0.5.8 through existing backlog items.
 
 ### Phase 7: replay UX and stability handoff
 
@@ -214,11 +214,11 @@ disconnect/reconnect.
 
 **Steps:**
 
-1. Leave background grid display repair, VRLOG timestamp indexing, and seek diagnostic logging in the existing v0.5.8 replay UX/stability backlog.
+1. Leave background grid display repair and seek diagnostic logging in the existing v0.5.9 replay UX/stability backlog; VRLOG timestamp indexing is in the v0.5.5 visualiser stream backlog.
 2. Use Phase 1 and Phase 2 tests as server-side gates before relying on visual replay surfaces for analysis validation.
 3. Keep replay UX work free to optimise display and seek behaviour without changing persisted analysis semantics.
 
-**Milestone:** v0.5.8 through existing backlog items.
+**Milestone:** v0.5.9 and v0.5.5 through existing backlog items.
 
 ## Dependencies
 
@@ -226,9 +226,9 @@ disconnect/reconnect.
 - Phase 1 and the clock-abstraction plan touch the same throttle boundary; behaviour should be pinned with tests before clock injection broadens the surface.
 - Phase 4 builds on #547's named-map capability API. It owns runtime truth for
   LiDAR ready/error transitions, not another response-shape redesign.
-- Phase 5 does not need a new backlog item because existing v0.5.3 metric and data-completeness plans already own the broader output surfaces.
-- Phase 6 does not need a new backlog item because existing v0.5.7 cleanup work already owns the package and cmd-boundary changes.
-- Phase 7 does not need a new backlog item because existing v0.5.8 replay UX/stability work already owns visual replay follow-through.
+- Phase 5 does not need a new backlog item because existing v0.5.4 data-completeness and v0.5.11 metric-registry plans already own the broader output surfaces.
+- Phase 6 does not need a new backlog item because existing v0.5.8 cleanup work already owns the package and cmd-boundary changes.
+- Phase 7 does not need a new backlog item because existing v0.5.9 replay UX/stability work already owns visual replay follow-through.
 
 ## Risks
 
@@ -261,9 +261,9 @@ disconnect/reconnect.
 - [ ] Phase 2b exposure/access boundary: covered by v0.5.1 backlog item #461.
 - [ ] Phase 5 metrics/data-completeness handoff: covered by [metrics-registry-and-observability-plan.md](metrics-registry-and-observability-plan.md) and [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md).
 - [ ] Phase 6 structural movement: covered by [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) and [go-cmd-extraction-plan.md](go-cmd-extraction-plan.md).
-- [ ] Phase 7 replay UX/stability: covered by [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) and related v0.5.8 backlog items.
+- [ ] Phase 7 replay UX/stability: covered by [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) and related v0.5.9 backlog items.
 
 ### Accepted Residuals
 
-- [ ] No new backlog item for broad package cleanup. Existing v0.5.7 items already own that work.
+- [ ] No new backlog item for broad package cleanup. Existing v0.5.8 items already own that work.
 - [ ] No broad merge of metric registry, unpopulated data, clock abstraction, performance harness, foundations, or replay UX docs into this plan. They remain separate because they own infrastructure and surfaces beyond runtime correctness.

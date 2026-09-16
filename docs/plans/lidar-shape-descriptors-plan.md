@@ -5,7 +5,7 @@ descriptors of visible returns distinct from claims about an object's unseen sha
 
 - **Status:** Proposed; live point-retention and descriptor pipeline not implemented
 - **Layers:** L4 Perception, L6 Objects, L9 Endpoints, storage
-- **Target:** v0.5.2 uses already-retained evidence for solid-body experiments; v0.5.5 adds live descriptors and classifier features. The full feature set is not a prerequisite for continuity or following metrics
+- **Target:** v0.5.2 uses already-retained evidence for solid-body experiments; v0.5.6 adds live descriptors and classifier features. The full feature set is not a prerequisite for continuity or following metrics
 - **Companion plans:** [lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md), [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-av-lidar-integration-plan.md](lidar-av-lidar-integration-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md)
 - **Canonical:** [data/maths/clustering-maths.md](../../data/maths/clustering-maths.md) (single source of truth)
 - **Related:** [Classification maths](../../data/maths/classification-maths.md), [Paper-vs-implementation gap analysis](../../data/maths/paper-implementation-gap-analysis.md)
@@ -84,11 +84,11 @@ annotation point indices. The JSON class scorer and body-local shape tracker rem
 
 | Area                      | Current state                                                                | Severity | Release view      |
 | ------------------------- | ---------------------------------------------------------------------------- | -------- | ----------------- |
-| Point retention           | Bounded offline retention implemented; live enablement and Pi budget open    | High     | Phase 1, v0.5.5   |
-| Dead point-dependent code | Two feature fields permanently zero; two exported helpers unreachable        | High     | Phase 1, v0.5.5   |
-| 3D shape description      | Absent entirely; only a 2D heading survives from the covariance              | High     | Phase 2, v0.5.5   |
+| Point retention           | Bounded offline retention implemented; live enablement and Pi budget open    | High     | Phase 1, v0.5.6   |
+| Dead point-dependent code | Two feature fields permanently zero; two exported helpers unreachable        | High     | Phase 1, v0.5.6   |
+| 3D shape description      | Absent entirely; only a 2D heading survives from the covariance              | High     | Phase 2, v0.5.6   |
 | Retroactive recovery      | VRLOG is the only source and needs offline re-clustering to attribute points | Medium   | Accepted residual |
-| Range envelope            | Undefined; DBSCAN `MinPts` is 5 and returns fall below that beyond ~40 m     | High     | Phase 4, v0.5.5   |
+| Range envelope            | Undefined; DBSCAN `MinPts` is 5 and returns fall below that beyond ~40 m     | High     | Phase 4, v0.5.6   |
 | Hot-path cost             | Retention adds allocation at 10 Hz on constrained hardware                   | Medium   | Phase 1 gate      |
 
 ## Design / approach
@@ -202,7 +202,7 @@ Three consequences, all binding:
    sustained frame rate below 10 Hz on target hardware is rejected; if the hot-path cost cannot be
    met, retention becomes analysis-and-replay-only, where throughput is not real-time bound.
 
-**Milestone:** v0.5.5
+**Milestone:** v0.5.6
 
 ### Phase 2: descriptor computation
 
@@ -220,7 +220,7 @@ Three consequences, all binding:
    source, physical reading, and the e₃ reduction noted above. Register band counts,
    caps and epsilons in `MAGIC_NUMBERS.md`.
 
-**Milestone:** v0.5.5
+**Milestone:** v0.5.6
 
 ### Phase 3: persistence and export
 
@@ -237,7 +237,7 @@ Three consequences, all binding:
    [lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md) Phase 2 to carry
    descriptors alongside the existing feature set.
 
-**Milestone:** v0.5.5
+**Milestone:** v0.5.6
 
 ### Phase 4: range envelope characterisation
 
@@ -251,7 +251,7 @@ Three consequences, all binding:
    insufficient-points threshold from that measurement rather than from assumption.
 3. Feed the envelope into the scorecard's range stratification.
 
-**Milestone:** v0.5.5
+**Milestone:** v0.5.6
 
 ## Dependencies
 
@@ -268,7 +268,7 @@ Three consequences, all binding:
 
 | Risk                                                     | Likelihood                                                                | Impact | Mitigation                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
-| Point retention                                          | Bounded offline retention implemented; live enablement and Pi budget open | High   | Phase 1, v0.5.5                                                                         |
+| Point retention                                          | Bounded offline retention implemented; live enablement and Pi budget open | High   | Phase 1, v0.5.6                                                                         |
 | Descriptor change shifts OBB heading and breaks replay   | Low                                                                       | High   | 3D covariance is additive; heading path untouched; golden replay test is the gate       |
 | Descriptors computed on too few points read as confident | High                                                                      | High   | Validity flags, explicit fallback path, mandatory range stratification                  |
 | Storage growth from per-observation descriptor rows      | Medium                                                                    | Medium | Store aggregates on tracks; per-observation JSON only in analysis runs                  |

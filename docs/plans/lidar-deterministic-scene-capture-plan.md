@@ -31,10 +31,10 @@ this plan’s working copy contains the required prerequisites.
 | Milestone | Release | Independently useful result                                                                                     |
 | --------- | ------- | --------------------------------------------------------------------------------------------------------------- |
 | 1         | v0.5.2  | Script accepting several coordinate-based views and producing stable stills, with deterministic optional trails |
-| 2         | v0.5.3  | Bullet-time inspection around a frozen target                                                                   |
-| 3         | v0.5.8  | Recorded-frame sequences, contact sheets, and optional animations                                               |
-| 4         | v0.6.x  | Automatic VRLOG export and the 8081 Make web export workflow                                                    |
-| 5         | v0.6.x  | CI artefact comparison and a visual-review integration decision                                                 |
+| 2         | v0.5.2  | Bullet-time inspection around a frozen target                                                                   |
+| 3         | v0.5.9  | Recorded-frame sequences, contact sheets, and optional animations                                               |
+| 4         | v0.6.5  | Automatic VRLOG export and the 8081 Make web export workflow                                                    |
+| 5         | v0.6.4  | CI artefact comparison and a visual-review integration decision                                                 |
 
 Milestone 1 must be usable by a local or CI agent without waiting for hosted CI
 integration, animation tools, or changes to recording workflows. Milestone 3 is useful review

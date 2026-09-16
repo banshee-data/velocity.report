@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.6.0; unified logging streams and configuration across the Go codebase
+- **Target:** v0.6.2; unified logging streams and configuration across the Go codebase
 - **Prerequisite plans:**
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (v0.5.x)
 - **Existing design:**
@@ -177,8 +177,8 @@ once Phase A lands.
 
 | Milestone | Items                                      | Rationale                                           |
 | --------- | ------------------------------------------ | --------------------------------------------------- |
-| v0.6.0    | Item 1 (stream migration), Item 2 (config) | Unified logging model across the entire Go process. |
-| v0.6.0    | Item 3 (test infra)                        | Reduces flaky test risk. Independent of logging.    |
+| v0.6.2    | Item 1 (stream migration), Item 2 (config) | Unified logging model across the entire Go process. |
+| v0.6.2    | Item 3 (test infra)                        | Reduces flaky test risk. Independent of logging.    |
 
 Items 1 and 2 are sequential (2 depends on 1). Item 3 is independent and can proceed in
 parallel.

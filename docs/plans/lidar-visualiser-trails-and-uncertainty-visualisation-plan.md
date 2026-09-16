@@ -6,7 +6,7 @@
 
 ## Objective
 
-**Current priority:** v0.5.3 makes trails faithful to the temporal physical estimate, including
+**Current priority:** v0.5.4 makes trails faithful to the temporal physical estimate, including
 occlusion, before adding decorative prediction overlays. The
 [state-estimation plan](lidar-state-estimation-plan.md) owns body anchors, prediction, uncertainty,
 expiry and reacquisition. The renderer must not repair a wrong track with independent smoothing.
