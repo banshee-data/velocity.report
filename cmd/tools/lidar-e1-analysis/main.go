@@ -264,11 +264,22 @@ func loadSamples(dbPath string, sites map[string]string, minRetained, minPoints 
 			bearing := math.Atan2(cy, cx)
 			s.aspectDeg = foldAspectDeg(float64(cl.OBB.HeadingRad) - bearing)
 
-			// The body's lateral axis, perpendicular to its heading. Every
-			// candidate is projected onto it, so the comparison happens in the
-			// frame where the predicted bias lives.
+			// The body's lateral axis, perpendicular to its heading, oriented
+			// so that positive always points toward the sensor.
+			//
+			// That orientation is not cosmetic. Without it the two lateral
+			// faces cancel: a vehicle passing on one side of the sensor is
+			// displaced one way along the body frame's lateral axis and one
+			// passing on the other side the opposite way, so averaging raw
+			// body-frame projections hides the very bias this test exists to
+			// find. An earlier version of this tool omitted the flip and
+			// reported roughly half the disagreement E1.1 measures against a
+			// fitted path.
 			latX := -math.Sin(float64(cl.OBB.HeadingRad))
 			latY := math.Cos(float64(cl.OBB.HeadingRad))
+			if latX*(-cx)+latY*(-cy) < 0 {
+				latX, latY = -latX, -latY
+			}
 			project := func(x, y float64) float64 { return x*latX + y*latY }
 
 			record := func(c candidate, x, y float64) {
