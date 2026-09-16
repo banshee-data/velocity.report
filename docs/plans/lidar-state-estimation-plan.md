@@ -2241,12 +2241,14 @@ independently fitted region planes (`l3grid.RegionalGroundSurface`) with a globa
 for cells too sparse to fit their own, so a crest, valley, or a driveway apron meeting the road at a
 different grade is not forced onto one plane. It falls back to the existing absolute height band if
 the background is unavailable or degenerate, and records `GroundClipped` when a lower rejected point
-contacts a retained cluster footprint. Still open: publishing a measured gradient per site from a
-real multi-site replay (the region generalisation itself is unit-tested against synthetic
-crest/valley geometry, not yet run against the Phase 0 corpus), further crest/valley validation
-against real graded captures, and target-device cost (deferred to v0.6.x with the rest of Pi
-hardware validation). This work belongs in Phase 1 because graded clipping corrupts the extents
-Phase 2 depends on.
+contacts a retained cluster footprint. Measured against the real Phase 0 corpus: Marina 4.35%
+grade (0.250 m global RMSE, 129 regions), Columbus 0.88% (0.187 m, 90 regions), Embarcadero 0.14%
+(0.052 m, 125 regions) — Marina is a genuinely graded waterfront site, close to five times
+Columbus's slope and thirty times Embarcadero's, exactly the case a single global plane handles
+worst. Still open: crest/valley validation specifically (this corpus has real grade but no site with
+a documented crest or valley shape to confirm against), and target-device cost (deferred to v0.6.x
+with the rest of Pi hardware validation). This work belongs in Phase 1 because graded clipping
+corrupts the extents Phase 2 depends on.
 
 **Tests.** Synthetic scenes with known geometry assert edge offsets to within 0.02
 m. Constant-grade and crest scenarios assert the ground filter neither clips the
@@ -2649,7 +2651,7 @@ architecture; it does not relitigate findings.
       The source falls back explicitly to the medoid for absent or invalid OBB geometry.
 - [ ] Re-baseline G-GEO-1's regression numbers after D2 ships
 - [x] Generalise the global P11 plane to regions: `l3grid.RegionalGroundSurface` fits an independent plane per grid cell, falling back to the global fit where a cell has too few settled background points, verified against synthetic crest/valley and sparse-region-fallback geometry
-- [ ] Fit and publish a measured coarse ground gradient per site from a real multi-site replay, using the region generalisation above
+- [x] Fit and publish a measured coarse ground gradient per site from a real multi-site replay: Marina 4.35%, Columbus 0.88%, Embarcadero 0.14% — see [corpus baseline](../lidar/operations/state-estimation-phase01-corpus-baseline.md#p11-ground-plane-fit-measured-per-site)
 - [ ] Label the jump tracks in VRLOG `f84105d8` (primary, 2,038 tracks) into the held-out
       regression set, then `0fb02f22` and `60a4774c`
 - [ ] Re-measure durations and frame counts for the re-split soma captures and `clar0-1`

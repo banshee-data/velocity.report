@@ -1,6 +1,6 @@
 # Phase 0/1 state-estimation corpus baseline
 
-- **Status:** Recorded: deterministic medoid reference established, full speed-banded residual/association tables published, association-failure causes attributed, and representative episodes reviewed against recorded scenes. Physical acceptance, G-PER-1, and the historical jump-track replacement remain open.
+- **Status:** Recorded: deterministic medoid reference established, full speed-banded residual/association tables published, association-failure causes attributed, representative episodes reviewed against recorded scenes, and a per-site P11 ground gradient measured. Physical acceptance, G-PER-1, and the historical jump-track replacement remain open.
 - **Scope:** Three-site, 16-capture offline replay corpus
 - **Repository revision:** `0277a0dd47273e0c25a00a64e5f42c2851a0e744`
 - **Related:** [State estimation](../../plans/lidar-state-estimation-plan.md), [lossless observation persistence batching](../../plans/lidar-lossless-observation-persistence-batching-plan.md), [deterministic track identity](../../plans/lidar-deterministic-track-identity-plan.md), [archive index](../../../tools/s2-archive/site-index.json)
@@ -187,6 +187,37 @@ gating against a wrongly-biased prediction appeared in this sample — both
 inspected predictions were accurate — but three episodes do not rule either
 out as a contributor elsewhere in the 1,582 Columbus and 473 Embarcadero tail
 gaps; this reconstructs representative cases, not an exhaustive audit.
+
+## P11 ground-plane fit, measured per site
+
+The three-site corpus was replayed a second time with `-surface-ground` enabled, using
+`l3grid.RegionalGroundSurface`'s per-region generalisation of the P11 remedy (10 m cells, falling
+back to one global plane per site where a cell has too few settled background points). Frame
+counts and repeat-run byte-identity match the baseline above exactly, confirming surface-ground
+clipping changes nothing about determinism.
+
+| Case                  | Support points | Global gradient | Global RMSE | Regions fit (10 m cells) |
+| --------------------- | -------------: | --------------: | ----------: | -----------------------: |
+| Marina, Webster Beach |         11,415 |           4.35% |     0.250 m |                      129 |
+| Columbus, Broadway    |         16,244 |           0.88% |     0.187 m |                       90 |
+| Embarcadero, Folsom   |         16,588 |           0.14% |     0.052 m |                      125 |
+
+Marina has a real, measured grade nearly five times steeper than Columbus and thirty times
+Embarcadero's — consistent with a waterfront site (an embankment or a boat-launch approach) rather
+than a flat street grid, and exactly the case the P11 remedy exists to handle without corrupting
+cluster extents. Global RMSE tracks the same ordering: Marina's single global plane leaves more
+than 4x Embarcadero's residual, evidence that Marina benefits the most from the per-region
+generalisation rather than one plane for the whole capture.
+
+This closes the "publish a measured per-site ground gradient" item: the region generalisation is
+now validated against real multi-site data, not just synthetic geometry.
+
+This validation run is stored outside Git at
+`/Users/david/code/sensor_data/lidar/vrlog/phase01-threesite-surfaceground-20260915`
+(`phase0-summary.json` SHA-256 `5e7f7b108ebec32cc1bddf1425e9c551d069280f473aee7fac4b378e769a46aa`).
+It reuses the same committed corpus and PCAP sources as the main baseline above but does not itself
+persist immutable observations, so it does not replace that baseline as the canonical Phase 0/1
+record — it exists to measure the P11 fit.
 
 ## Artefacts and verification
 

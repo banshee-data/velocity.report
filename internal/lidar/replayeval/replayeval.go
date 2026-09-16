@@ -38,6 +38,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -166,6 +167,10 @@ type Result struct {
 	SourcePCAPs         []string
 	ObservationSourceID string
 	EvidencePersistence *observationsqlite.FrameEvidenceStats
+	// GroundSurfaceFit is the P11 ground-plane fit reached during this
+	// replay, when Config.UseSurfaceGround was set and the background
+	// settled in time to fit one. Nil otherwise.
+	GroundSurfaceFit *l3grid.RegionalGroundSurface
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -604,6 +609,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if frameEvidenceSink != nil {
 		pipeCfg.FrameEvidenceSink = frameEvidenceSink
 	}
+	var groundSurfaceFit atomic.Pointer[l3grid.RegionalGroundSurface]
+	if cfg.UseSurfaceGround {
+		pipeCfg.GroundSurfaceFit = &groundSurfaceFit
+	}
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
 		collector.SetEnabled(true)
@@ -743,6 +752,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			stats := frameEvidenceStore.Stats()
 			return &stats
 		}(),
+		GroundSurfaceFit: groundSurfaceFit.Load(),
 	}, nil
 }
 

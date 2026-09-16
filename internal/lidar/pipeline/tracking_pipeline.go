@@ -317,6 +317,14 @@ type TrackingPipelineConfig struct {
 	// onto one global plane. 0 uses l3grid.DefaultRegionSizeMetres.
 	SurfaceGroundRegionMetres float64
 
+	// GroundSurfaceFit publishes the P11 fit once it succeeds, for a caller
+	// that wants the measured gradient after the run (an offline replay
+	// reporting a per-site number, or a future live status endpoint) rather
+	// than the per-frame filtering path. A nil field, the default, means no
+	// caller asked to see it; nothing stores into a nil pointer. Set to a
+	// fresh atomic.Pointer before running when this is wanted.
+	GroundSurfaceFit *atomic.Pointer[l3grid.RegionalGroundSurface]
+
 	// BenchmarkMode, when non-nil and true, enables per-frame performance
 	// tracing: stage timing via FrameTimer, slow-frame alerts, periodic
 	// health summaries (heap/goroutines), and pipeline lag detection.
@@ -683,6 +691,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				surface, err := l3grid.FitRegionalGroundSurfaceFromBackground(cfg.BackgroundManager, surfaceGroundRegionMetres)
 				if err == nil {
 					groundSurface = &surface
+					if cfg.GroundSurfaceFit != nil {
+						cfg.GroundSurfaceFit.Store(&surface)
+					}
 					tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm",
 						surface.Global.Support, surface.Global.GradientMetre, surface.Global.RMSEMetres,
 						surface.RegionCount, surface.CellMetres)
