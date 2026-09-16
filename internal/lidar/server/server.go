@@ -99,6 +99,9 @@ type Server struct {
 	// per-frame hot path, which cannot take stateMu. Written only by
 	// mutateState; see ReplayActiveFlag.
 	replayActiveFlag atomic.Bool
+	// analysisModeFlag mirrors state.AnalysisMode() for the same per-frame hot
+	// path; see AnalysisModeFlag.
+	analysisModeFlag atomic.Bool
 
 	// PCAP replay lifecycle. pcapMu guards only the cancellation handles;
 	// everything an observer can see lives in state above.

@@ -302,6 +302,13 @@ func TestPlayback_HandlePCAPResumeLive_OnStoppedCallback(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 }
 
+// TestPlayback_HandleVRLogLoad_DefaultSafeDirAndUnknownEncoding covers the
+// unconfigured-vrlogSafeDir fallback to /var/lib/velocity-report. That
+// directory is a production path, unlikely to exist on a dev or CI machine,
+// so a request against it can only be confirmed to consult the right
+// default: it cannot be expected to fully resolve there. The full success
+// path (encoding, loaded path) is covered against a real temp directory by
+// TestHandleVRLogLoad in playback_api_test.go.
 func TestPlayback_HandleVRLogLoad_DefaultSafeDirAndUnknownEncoding(t *testing.T) {
 	var loadedPath string
 	ws := &Server{
@@ -315,6 +322,14 @@ func TestPlayback_HandleVRLogLoad_DefaultSafeDirAndUnknownEncoding(t *testing.T)
 	w := httptest.NewRecorder()
 	ws.handleVRLogLoad(w, req)
 
+	if _, err := os.Stat("/var/lib/velocity-report"); err != nil {
+		// The default directory doesn't exist here; confirm the handler at
+		// least consulted it rather than silently using something else.
+		if !strings.Contains(w.Body.String(), "/var/lib/velocity-report") {
+			t.Fatalf("expected the error to name the default safe directory, got %s", w.Body.String())
+		}
+		return
+	}
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}

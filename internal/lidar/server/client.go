@@ -41,7 +41,11 @@ func NewClient(httpClient *http.Client, baseURL, sensorID string) *Client {
 func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	url := fmt.Sprintf("%s/api/lidar/pcap/start?sensor_id=%s", c.BaseURL, c.SensorID)
 	// Use the full path as-is (relative to PCAP safe directory on the server)
-	payload := map[string]string{"pcap_file": pcapFile}
+	// analysis_mode is sent explicitly rather than omitted: the server defaults
+	// an omitted field to true, and this simple client's callers (parameter
+	// sweeps reading live tracking output, not recorded VRLOG/analysis-run
+	// data) don't want an analysis run and recording created for every replay.
+	payload := map[string]interface{}{"pcap_file": pcapFile, "analysis_mode": false}
 	data, _ := json.Marshal(payload)
 
 	diagf("Requesting PCAP replay for sensor %s: file=%s", c.SensorID, pcapFile)
@@ -280,9 +284,10 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	if cfg.DurationSeconds != 0 {
 		payload["duration_seconds"] = cfg.DurationSeconds
 	}
-	if cfg.AnalysisMode {
-		payload["analysis_mode"] = true
-	}
+	// Always sent explicitly, never omitted: the server defaults an omitted
+	// analysis_mode to true, so omitting it here whenever cfg.AnalysisMode is
+	// false would silently flip the caller's intent instead of honouring it.
+	payload["analysis_mode"] = cfg.AnalysisMode
 	if cfg.SettleBeforeRecording {
 		payload["settle_before_recording"] = true
 	}

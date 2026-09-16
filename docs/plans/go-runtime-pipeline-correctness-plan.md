@@ -57,13 +57,13 @@ Merge clock abstraction, performance harness, foundations fix-it, metrics regist
 
 ## Current State
 
-| Area                         | Current state                                                                                                                                                                                                   | Severity | Release view                                              |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
-| PCAP analysis default        | `handlePCAPStart` initializes analysis mode to true, then JSON/form parsing overwrites omitted values to false. Legacy sweep/client paths still send only `pcap_file`.                                          | Critical | v0.5.2 hotfix before relying on replay/HINT output        |
-| Analysis replay throttling   | The tracking pipeline uses wall-clock `MaxFrameRate` throttling and publishes empty frames for throttled foreground frames. Blocking PCAP frame delivery only preserves cardinality, not semantic processing.   | Critical | v0.5.2, coordinated with clock abstraction                |
-| VRLOG load path validation   | `handleVRLogLoad` uses string-prefix validation even though `internal/security.ValidatePathWithinDirectory` already handles symlink escape.                                                                     | High     | v0.5.2 local replay safety                                |
-| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                               | High     | v0.5.3 data-contract cleanup                              |
-| LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal. | High     | v0.5.3 lifecycle follow-through after #547 response shape |
+| Area                         | Current state                                                                                                                                                                                                                                                      | Severity | Release view                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------------- |
+| PCAP analysis default        | **Fixed (Phase 1).** `analysis_mode` parsing now preserves the true default when the field is omitted (JSON pointer, form presence check); `Client.StartPCAPReplayWithConfig` and the legacy `StartPCAPReplay` send it explicitly rather than relying on omission. | Critical | v0.5.2 hotfix before relying on replay/HINT output        |
+| Analysis replay throttling   | **Fixed (Phase 1).** A new `AnalysisModeActive` flag bypasses the wall-clock `MaxFrameRate` throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking rather than being recorded as empty frames.                    | Critical | v0.5.2, coordinated with clock abstraction                |
+| VRLOG load path validation   | **Fixed (Phase 2).** `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and acts on the canonical resolved path.                                                               | High     | v0.5.2 local replay safety                                |
+| Magnitude-only radar samples | Serial classification accepts magnitude-only raw rows, but transit derivation scans `ABS(speed)` into non-null `float64` after allowing rows with only magnitude.                                                                                                  | High     | v0.5.3 data-contract cleanup                              |
+| LiDAR capability lifecycle   | #547 ships named capability maps and web gating. `SetLidarStarting` is wired in production, but `SetLidarReady` and `SetLidarError` are not. Radar remains a static built-in capability, not a hot-plug signal.                                                    | High     | v0.5.3 lifecycle follow-through after #547 response shape |
 
 ## Design Approach
 
@@ -96,16 +96,16 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 **Summary:** Make PCAP analysis reliably create analysis runs and process foreground frames semantically.
 
-**State:** Active.
+**State:** Complete.
 
 **Steps:**
 
-1. Change `analysis_mode` request parsing to preserve the intended default when the field is omitted. Use a pointer bool or explicit field-presence parsing.
-2. Update simple PCAP clients and legacy sweep paths so their replay intent is explicit.
-3. Add handler/client tests for omitted JSON `analysis_mode`, explicit false, and legacy simple-client replay.
-4. Add an analysis replay mode signal to the tracking pipeline.
-5. Disable wall-clock downstream throttling for persisted analysis output, or replace it with replay-time semantics that never converts foreground frames into empty semantic frames.
-6. Add tests proving rapid foreground frames in analysis mode still reach clustering/tracking/recording paths.
+1. Change `analysis_mode` request parsing to preserve the intended default when the field is omitted. Use a pointer bool or explicit field-presence parsing. **Done:** JSON uses `*bool`; form parsing checks `r.Form.Has("analysis_mode")`.
+2. Update simple PCAP clients and legacy sweep paths so their replay intent is explicit. **Done:** `StartPCAPReplayWithConfig` always sends the field; `StartPCAPReplay` (the standalone sweep tool's client) sends it explicitly as `false`, preserving its existing intent of driving live tracking output rather than a recorded analysis run.
+3. Add handler/client tests for omitted JSON `analysis_mode`, explicit false, and legacy simple-client replay. **Done:** `TestHandlePCAPStartOmittedAnalysisModeDefaultsToTrue`, `TestClientStartPCAPReplaySendsExplicitAnalysisModeFalse`.
+4. Add an analysis replay mode signal to the tracking pipeline. **Done:** `TrackingPipelineConfig.AnalysisModeActive`, mirrored from `PipelineState.AnalysisMode()` via the existing `publishStateProjections` choke point, exposed as `Server.AnalysisModeFlag()`.
+5. Disable wall-clock downstream throttling for persisted analysis output, or replace it with replay-time semantics that never converts foreground frames into empty semantic frames. **Done:** `shouldThrottleFrame` returns false whenever `AnalysisModeActive` is set, regardless of arrival spacing.
+6. Add tests proving rapid foreground frames in analysis mode still reach clustering/tracking/recording paths. **Done:** `TestTrackingPipelineConfig_AnalysisModeBypassesThrottle` drives an identical 200fps burst with and without the flag and compares `AssociationBands` samples (a genuine per-frame tracking counter, not just track existence).
 
 **Milestone:** v0.5.2.
 
@@ -113,14 +113,14 @@ Fix runtime correctness first, then fold ownership into existing cleanup streams
 
 **Summary:** Reuse the symlink-aware path validator for VRLOG loads.
 
-**State:** Active.
+**State:** Complete.
 
 **Steps:**
 
-1. Replace `handleVRLogLoad` string-prefix validation with `security.ValidatePathWithinDirectory`.
-2. Decide whether the loader should receive the original absolute path or a canonical resolved path, then document that invariant in the handler test.
-3. Add tests for direct `vrlog_path` symlink escape and `run_id` lookup returning a symlink-escaped stored path.
-4. Keep ordinary absolute paths under `vrlogSafeDir` working.
+1. Replace `handleVRLogLoad` string-prefix validation with `security.ValidatePathWithinDirectory`. **Done**, via the new `security.ResolvePathWithinDirectory` (see step 2).
+2. Decide whether the loader should receive the original absolute path or a canonical resolved path, then document that invariant in the handler test. **Decided: the canonical resolved path.** Acting on the original unresolved string after validating a symlink's resolved target would reopen the same time-of-check-to-time-of-use gap the validation exists to close. `ValidatePathWithinDirectory` is now a thin wrapper over the new `ResolvePathWithinDirectory`, which returns the canonical path alongside the existing error.
+3. Add tests for direct `vrlog_path` symlink escape and `run_id` lookup returning a symlink-escaped stored path. **Done:** `TestCov3_HandleVRLogLoad_SymlinkEscape`, `TestCov3_HandleVRLogLoad_WithRunID_SymlinkEscape`.
+4. Keep ordinary absolute paths under `vrlogSafeDir` working. **Done.** The existing table-driven `TestHandleVRLogLoad` and several `TestCov3_HandleVRLogLoad_*` tests moved from a literal `/var/lib/velocity-report` (which doesn't exist on a dev/CI machine, and the new symlink-resolving check requires the safe directory to actually exist) to a real resolved temp directory.
 
 **Milestone:** v0.5.2.
 
@@ -248,11 +248,11 @@ disconnect/reconnect.
 - [x] Existing backlog scope reviewed before adding new work.
 - [x] Targeted package tests run where this worktree permits them.
 - [x] Standalone operations-review scope folded into this remediation plan.
+- [x] Phase 1: PCAP analysis default and semantic replay gate (`M`). `analysis_mode` is now parsed as an omission-preserving pointer (JSON) / presence check (form), so an omitted field keeps the true default instead of decoding to false; `Client.StartPCAPReplayWithConfig` and the legacy `StartPCAPReplay` (used by the standalone sweep tool) now send it explicitly rather than relying on omission. `AnalysisModeActive`, a new lock-free flag mirroring `PipelineState.AnalysisMode()`, bypasses the wall-clock frame-rate throttle entirely during analysis-mode replays, so a rapid foreground burst reaches clustering/tracking instead of being recorded as empty frames.
+- [x] Phase 2: VRLOG symlink-safe validation (`S`). `handleVRLogLoad` now calls `security.ResolvePathWithinDirectory`, which follows symlinks before checking the safe-directory boundary, and loads/stores the canonical resolved path rather than the original string to avoid reopening the same gap after validation. Covered for both the direct `vrlog_path` path and the `run_id` database-lookup path.
 
 ### Outstanding
 
-- [ ] Phase 1: PCAP analysis default and semantic replay gate (`M`)
-- [ ] Phase 2: VRLOG symlink-safe validation (`S`)
 - [ ] Phase 3: magnitude-only radar transit contract (`S`)
 - [ ] Phase 4: LiDAR capability lifecycle wiring (`S`)
 
