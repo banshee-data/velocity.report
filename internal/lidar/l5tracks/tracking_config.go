@@ -117,6 +117,21 @@ type TrackerConfig struct {
 	ProcessNoisePos       float32 // Process noise for position (σ²)
 	ProcessNoiseVel       float32 // Process noise for velocity (σ²)
 	MeasurementNoise      float32 // Measurement noise (σ²)
+
+	// CoupledProcessNoise switches the prediction step from the shipped
+	// diagonal Q to the continuous white-noise-acceleration form, which adds
+	// the position-velocity cross terms the diagonal form omits (gap K1).
+	//
+	// JosephCovarianceUpdate switches the posterior covariance from
+	// P' = (I-KH)P to the Joseph stabilised form, which stays symmetric under
+	// float error rather than only starting that way (gap K2).
+	//
+	// Both are Go-level options with the shipped behaviour as the default, and
+	// deliberately not tuning keys: TuningConfig.Fingerprint hashes the whole
+	// resolved config, so adding keys would make the committed perf baselines
+	// refuse to compare before anyone had measured whether the change helps.
+	CoupledProcessNoise    bool
+	JosephCovarianceUpdate bool
 	// MeasurementSourceMode is empty/OBB by default. medoid_v0 is a replay-only
 	// reference arm used to establish an A/B acceptance baseline.
 	MeasurementSourceMode   MeasurementSource

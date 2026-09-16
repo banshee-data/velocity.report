@@ -63,6 +63,25 @@ DBSCAN defines three point categories: **core**, **border**, and **noise**. Bord
 | K7  | **Future work**       | **Blom & Bar-Shalom (1988), IMM** not downloaded. The planned `imm_cv_ca_v2` engine depends on this.                                                                                                                                                                                                                                                                                                                                                                | -                                                                   | Blocked on paper download                                                                                                                                                                              |
 | K8  | **Future work**       | **Julier & Uhlman (1997), UKF** not downloaded. Needed if nonlinear measurement models are added (e.g., polar measurements).                                                                                                                                                                                                                                                                                                                                        | -                                                                   | Blocked on paper download                                                                                                                                                                              |
 
+### Measured outcome: K1 and K2
+
+Both gaps are now implemented as opt-in `TrackerConfig` options — `CoupledProcessNoise` and `JosephCovarianceUpdate` — in [tracking_covariance.go](../../internal/lidar/l5tracks/tracking_covariance.go), with the tests the rows above asked for in [tracking_covariance_test.go](../../internal/lidar/l5tracks/tracking_covariance_test.go). They are Go-level options rather than tuning keys on purpose: `TuningConfig.Fingerprint` hashes the whole resolved config, so adding keys would make the committed perf baselines refuse to compare before anyone had measured whether the change helps.
+
+**Both defaults are unchanged, because neither predicted failure mode reproduced at the shipped tuning.** The maths in both rows above is correct, and the alternative forms behave as the papers say. What the rows got wrong is the impact.
+
+**K1 is real but immaterial at this tuning.** The coupled form adds the missing $dt^3/3$ and $dt^2/2$ terms, grows position uncertainty faster over a coast, and does reduce the normalised distance to a manoeuvring target. Measured against the test the row proposed — a target accelerating at 2 m/s² over one maximum-length prediction step (`MaxPredictDt` = 0.5 s):
+
+| Form       | $d^2$ to the true position | $P_{x,x}$ | $P_{x,v_x}$ |
+| ---------- | -------------------------- | --------- | ----------- |
+| Diagonal Q | 0.2083                     | 0.25000   | 0.25000     |
+| Coupled Q  | 0.2027                     | 0.25833   | 0.27500     |
+
+A 2.7% reduction, against `GatingDistanceSquared` = 36 — a margin of **173×**. The row's proposed acceptance criterion ("verify the full-Q ellipse captures the target when diagonal does not") therefore cannot be met: the diagonal form captures it easily. Two reasons: `dt` is clamped to 0.5 s, which keeps the omitted $dt^3$ term small, and at these noise levels position uncertainty is dominated by the tuned `ProcessNoisePos`·$dt$ term anyway. The practical consequence is that **association at this tuning is governed by the width of the gate, not by the form of Q** — which is worth holding alongside K4, since the same wide gate is what makes identity mixing between adjacent unlike-class objects possible.
+
+**K2's premise did not reproduce at all.** Over 10,000 predict-update cycles with adversarial measurement noise, the naive $(I-KH)P$ form's worst asymmetry was **exactly 0**, identical to the Joseph form, and the two settled to the same steady-state variance (0.005). Given an already-asymmetric $P$, both forms repair the asymmetry by the same amount — the Joseph form's advantage is that it cannot _introduce_ asymmetry, not that it repairs existing asymmetry better. The two agree element-wise to ~1e-8, i.e. to float32 rounding. So there is no measured instability here for the Joseph form to fix, which confirms this row's own "Low (covariance capping mitigates)" rating and makes switching the default unjustified churn against the perf and corpus baselines.
+
+Both findings are asserted in the tests rather than merely logged, so that a future tuning change that _does_ make either gap bite — a tighter gate, a longer `MaxPredictDt`, or a conditioning change that starts losing symmetry — fails the suite instead of passing unnoticed. K3 (explicit $P = (P + P^T)/2$ enforcement) is correspondingly lower priority than its row suggests: there is currently no measured asymmetry for it to enforce away.
+
 ---
 
 ## 3. Hungarian assignment: kuhn (1955), munkres (1957)
@@ -276,29 +295,29 @@ These papers are in [references.bib](references.bib) and were reviewed. The impl
 
 All of these can be written now against the current codebase.
 
-| Priority | ID    | Action                                                                                    | Effort |
-| -------- | ----- | ----------------------------------------------------------------------------------------- | ------ |
-| P1       | K1    | Test diagonal-Q versus full-Q process noise; document sensitivity                         | M      |
-| P1       | K2    | Implement Joseph-form covariance update as option; test symmetry                          | M      |
-| P1       | B1    | Test MAD-versus-σ convergence; document the relationship                                  | S      |
-| P1       | M1    | Implement MOTA/MOTP computation in [l8analytics](../../internal/lidar/l8analytics/doc.go) | L      |
-| P2       | D2    | Test MinPts self-inclusion semantics                                                      | S      |
-| P2       | D3    | Test near-merge cluster separation                                                        | S      |
-| P2       | S2/S3 | Test confirmed-versus-tentative association priority                                      | M      |
-| P2       | P3    | Test end-to-end heading disambiguation chain                                              | M      |
-| P2       | C2    | Test classification boundary conditions                                                   | S      |
-| P2       | V1    | Test coasting prediction error growth                                                     | M      |
-| P3       | K3    | Instrument covariance symmetry monitoring                                                 | S      |
-| P3       | K4    | Test identity preservation for adjacent unlike-class objects                              | M      |
-| P3       | B3    | Test bimodal background cell behaviour                                                    | S      |
-| P3       | B4    | Test reacquisition boost convergence speed                                                | S      |
-| P3       | B5    | Test locked baseline transit resistance                                                   | S      |
-| P3       | H1    | Test extreme cost range numerical stability                                               | S      |
-| P3       | H2    | Test all-forbidden assignment matrix                                                      | S      |
-| P3       | M3    | Test temporal IoU edge cases                                                              | S      |
-| P3       | G1    | Test sloped-road height-band failure modes                                                | S      |
-| P3       | HW1   | Test noise model against sensor spec                                                      | S      |
-| P3       | P1    | Test degenerate identical-point OBB                                                       | S      |
+| Priority | ID    | Action                                                                                                                                                                                                                                                  | Effort |
+| -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| ~~P1~~   | K1    | ~~Test diagonal-Q versus full-Q process noise; document sensitivity~~ **Done.** Coupled Q implemented as an opt-in option; measured effect is 2.7% of a 173x gate margin. Default unchanged. See [Measured outcome](#measured-outcome-k1-and-k2).       | M      |
+| ~~P1~~   | K2    | ~~Implement Joseph-form covariance update as option; test symmetry~~ **Done.** Joseph form implemented as an opt-in option; the naive form lost no symmetry over 10,000 cycles. Default unchanged. See [Measured outcome](#measured-outcome-k1-and-k2). | M      |
+| P1       | B1    | Test MAD-versus-σ convergence; document the relationship                                                                                                                                                                                                | S      |
+| P1       | M1    | Implement MOTA/MOTP computation in [l8analytics](../../internal/lidar/l8analytics/doc.go)                                                                                                                                                               | L      |
+| P2       | D2    | Test MinPts self-inclusion semantics                                                                                                                                                                                                                    | S      |
+| P2       | D3    | Test near-merge cluster separation                                                                                                                                                                                                                      | S      |
+| P2       | S2/S3 | Test confirmed-versus-tentative association priority                                                                                                                                                                                                    | M      |
+| P2       | P3    | Test end-to-end heading disambiguation chain                                                                                                                                                                                                            | M      |
+| P2       | C2    | Test classification boundary conditions                                                                                                                                                                                                                 | S      |
+| P2       | V1    | Test coasting prediction error growth                                                                                                                                                                                                                   | M      |
+| P3       | K3    | Instrument covariance symmetry monitoring                                                                                                                                                                                                               | S      |
+| P3       | K4    | Test identity preservation for adjacent unlike-class objects                                                                                                                                                                                            | M      |
+| P3       | B3    | Test bimodal background cell behaviour                                                                                                                                                                                                                  | S      |
+| P3       | B4    | Test reacquisition boost convergence speed                                                                                                                                                                                                              | S      |
+| P3       | B5    | Test locked baseline transit resistance                                                                                                                                                                                                                 | S      |
+| P3       | H1    | Test extreme cost range numerical stability                                                                                                                                                                                                             | S      |
+| P3       | H2    | Test all-forbidden assignment matrix                                                                                                                                                                                                                    | S      |
+| P3       | M3    | Test temporal IoU edge cases                                                                                                                                                                                                                            | S      |
+| P3       | G1    | Test sloped-road height-band failure modes                                                                                                                                                                                                              | S      |
+| P3       | HW1   | Test noise model against sensor spec                                                                                                                                                                                                                    | S      |
+| P3       | P1    | Test degenerate identical-point OBB                                                                                                                                                                                                                     | S      |
 
 **Effort key:** S = small (< 1 hour), M = medium (1–4 hours), L = large (4+ hours)
 

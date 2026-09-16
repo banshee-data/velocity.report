@@ -106,10 +106,9 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 
 	// Add process noise Q, scaled by dt for correct uncertainty growth
 	// regardless of frame rate. Values in Config are dt-normalised.
-	track.P[0*4+0] += t.Config.ProcessNoisePos * dt
-	track.P[1*4+1] += t.Config.ProcessNoisePos * dt
-	track.P[2*4+2] += t.Config.ProcessNoiseVel * dt
-	track.P[3*4+3] += t.Config.ProcessNoiseVel * dt
+	addProcessNoise(
+		&track.P, t.Config.ProcessNoisePos, t.Config.ProcessNoiseVel, dt,
+		t.Config.CoupledProcessNoise)
 
 	// Cap covariance diagonal elements to prevent unbounded gating ellipse
 	// growth from accumulated prediction steps and occlusion inflation.
