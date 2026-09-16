@@ -804,7 +804,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					neighbourDiff := math.Abs(float64(neighbourCell.AverageRangeMeters) - observationMean)
 					// include a distance-proportional noise term based on the neighbour's mean
 					// Use cell-specific noise threshold
-					neighbourCloseness := closenessThresholdMetres(
+					neighbourCloseness := ClosenessThresholdMetres(
 						closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
 						cellNoiseRel, float64(neighbourCell.AverageRangeMeters), 0)
 					if neighbourDiff <= neighbourCloseness {
@@ -815,10 +815,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 			// Closeness scales with the cell's measured spread plus a fraction of
 			// the measured distance, on the assumption that range noise grows with
-			// range. See closenessThresholdMetres: that assumption does not match
+			// range. See ClosenessThresholdMetres: that assumption does not match
 			// the Pandar40P's flat specification, and the divergence is measured
 			// in TestClosenessNoiseModelAgainstPandar40PSpec.
-			closenessThreshold := closenessThresholdMetres(
+			closenessThreshold := ClosenessThresholdMetres(
 				closenessMultiplier, float64(cell.RangeSpreadMeters),
 				cellNoiseRel, observationMean, safety)
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
