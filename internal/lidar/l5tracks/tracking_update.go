@@ -239,7 +239,20 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			if cluster.OBB.Width > maxDim {
 				maxDim = cluster.OBB.Width
 			}
-			if maxDim > 0 {
+			switch {
+			case maxDim <= 0:
+				// A box with no extent at all is the limit case of the
+				// ambiguity this guard exists to catch: PCA had no axis of
+				// variation to recover, so the heading it reported is the
+				// arbitrary fallback. Guarding the division by skipping the
+				// check let the *most* ambiguous measurement through while a
+				// 5 cm square was correctly rejected. Reported as insufficient
+				// rather than locked so a degenerate cluster stays
+				// distinguishable from an ordinary near-square one in the
+				// recorded stream (gap P1).
+				updateHeading = false
+				headingSource = HeadingSourceInsufficient
+			default:
 				aspectDiff := cluster.OBB.Length - cluster.OBB.Width
 				if aspectDiff < 0 {
 					aspectDiff = -aspectDiff
@@ -249,6 +262,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 					headingSource = HeadingSourceLocked
 				}
 			}
+
 		}
 
 		if updateHeading {
