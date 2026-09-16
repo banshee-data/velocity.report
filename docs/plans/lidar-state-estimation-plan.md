@@ -1732,6 +1732,17 @@ state does not leak across partitions.
 
 ### 16.5 Experiment E1: lateral-error validation on the soma static captures
 
+> **Run and confirmed, on the three-site corpus rather than the soma captures.** E1.1 and E1.3
+> were executed against `marina-webster-beach`, `columbus-broadway` and `embarcadero-folsom`
+> — 43,068 scored frames, 195,389 immutable observations, 160,011 linked estimates — because
+> that corpus is committed, repeat-verified and already carries per-site measured grades. The
+> medoid's lateral conditional mean is near zero end-on and rises monotonically to 0.35-0.41 of
+> the body's half-width at broadside against a fitted path, reproducibly at all three
+> placements, and the trend survives range stratification in every well-populated cell. The
+> hypothesis in Section 3 is confirmed and Phase 2's premise holds. E1.2 and E1.4 remain open.
+> Full record, including a sign bug that initially inverted E1.3's conclusion:
+> [E1 lateral-error record](../lidar/operations/state-estimation-e1-lateral-error.md).
+
 This is the concrete form of open question Q1, and it is the experiment that
 decides whether Phase 2 proceeds as designed.
 
