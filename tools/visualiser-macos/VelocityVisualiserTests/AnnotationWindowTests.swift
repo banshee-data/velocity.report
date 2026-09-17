@@ -262,4 +262,47 @@ struct AnnotationWiringTests {
         #expect(window.contains("session.secondViewStandard"), "the confirming view is not shown")
         #expect(window.contains("editable: false"), "the confirming view accepts edits")
     }
+
+    // "Generate from Run…", "Open Pack…" and "Close" in AnnotationWorkspace
+    // each replace or discard the open session (a new one, or none at all)
+    // with no check of their own — AnnotationController.openPack() and
+    // close() both do this unconditionally. Before this guard, any of the
+    // three lost an unsaved lasso selection silently the moment it was
+    // clicked, the same way stepping or switching objects used to before
+    // AnnotationPane's handleStep existed.
+    @Test func openAnotherAndCloseAreAllGuarded() throws {
+        let window = try source("UI/AnnotationWindow.swift")
+        for guarded in [
+            "guardedNavigate { showGenerateSheet = true }",
+            "guardedNavigate { controller.choosePack() }",
+            "guardedNavigate { controller.close() }",
+        ] {
+            #expect(window.contains(guarded), "not routed through guardedNavigate: \(guarded)")
+        }
+    }
+
+    @Test func theGuardChecksNavigationGuardBeforeActing() throws {
+        let window = try source("UI/AnnotationWindow.swift")
+        #expect(window.contains("session.navigationGuard() != nil"))
+    }
+
+    @Test func discardingCallsReloadBeforeThePendingAction() throws {
+        // Order matters: the action (opening a different pack, or closing)
+        // must run against a session that has already discarded its unsaved
+        // membership, not before — reload() is what makes navigationGuard()
+        // return nil again afterward.
+        let window = try source("UI/AnnotationWindow.swift")
+        let reloadIndex = window.range(of: "session.reload()")
+        let actionIndex = window.range(of: "action?()")
+        let reload = try #require(reloadIndex, "Discard and Continue does not call session.reload()")
+        let action = try #require(actionIndex, "the pending action is never invoked")
+        #expect(reload.lowerBound < action.lowerBound, "reload() must run before the pending action")
+    }
+
+    @Test func keepEditingClearsThePendingActionRatherThanRunningIt() throws {
+        // A cancel that still fires the deferred action would make "Keep
+        // Editing" indistinguishable from "Discard and Continue".
+        let window = try source("UI/AnnotationWindow.swift")
+        #expect(window.contains("Button(\"Keep Editing\", role: .cancel) { pendingAction = nil }"))
+    }
 }
