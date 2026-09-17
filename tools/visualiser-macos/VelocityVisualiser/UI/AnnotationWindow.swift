@@ -133,16 +133,21 @@ func annotationFramingHalfHeight(
 /// The annotation window: empty until a pack is opened, then the workspace.
 struct AnnotationWindow: View {
     @StateObject private var controller = AnnotationController()
+    @State private var showGenerateSheet = false
 
     var body: some View {
         Group {
             if let session = controller.session {
-                AnnotationWorkspace(session: session, controller: controller)
+                AnnotationWorkspace(
+                    session: session, controller: controller, showGenerateSheet: $showGenerateSheet)
             } else {
                 emptyState
             }
         }.frame(minWidth: 900, minHeight: 600).navigationTitle(
-            controller.packName.map { "Annotation — \($0)" } ?? "Annotation")
+            controller.packName.map { "Annotation — \($0)" } ?? "Annotation"
+        ).sheet(isPresented: $showGenerateSheet) {
+            GenerateAnnotationPackSheet { packDir in controller.openPack(at: packDir) }
+        }
     }
 
     private var emptyState: some View {
@@ -150,15 +155,18 @@ struct AnnotationWindow: View {
             Image(systemName: "lasso.and.sparkles").font(.system(size: 44)).foregroundStyle(
                 .secondary)
             Text("No annotation pack open").font(.headline)
-            // Naming the command that produces a pack matters: there is no way
-            // to make one from inside this app, and without this the empty
-            // state is a dead end.
-            Text(
-                "Packs are written by:\nvelocity lidar annotation-export --vrlog DIR --output DIR --coverage KIND"
-            ).font(.caption.monospaced()).foregroundStyle(.secondary).multilineTextAlignment(
-                .center)
-            Button("Open Annotation Pack…") { controller.choosePack() }.keyboardShortcut(
-                "o", modifiers: .command)
+            Text("Generate one from a recorded run, or open a pack already on disk.").font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                // Generate is the primary path: it needs nothing an operator
+                // does not already have from having recorded a run. Opening
+                // by directory stays available for a pack made elsewhere, or
+                // by the CLI export this wraps.
+                Button("Generate from Run…") { showGenerateSheet = true }.keyboardShortcut(
+                    "g", modifiers: [.command, .shift])
+                Button("Open Annotation Pack…") { controller.choosePack() }.keyboardShortcut(
+                    "o", modifiers: .command)
+            }
             if let error = controller.lastError {
                 Text(error).font(.caption).foregroundStyle(.red).multilineTextAlignment(.center)
                     .frame(maxWidth: 520).fixedSize(horizontal: false, vertical: true)
@@ -171,6 +179,7 @@ struct AnnotationWindow: View {
 struct AnnotationWorkspace: View {
     @ObservedObject var session: AnnotationSession
     @ObservedObject var controller: AnnotationController
+    @Binding var showGenerateSheet: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -194,7 +203,10 @@ struct AnnotationWorkspace: View {
                 AnnotationPane(session: session)
                 Divider()
                 HStack {
-                    Button("Open Another Pack…") { controller.choosePack() }
+                    Menu("Open Another…") {
+                        Button("Generate from Run…") { showGenerateSheet = true }
+                        Button("Open Pack…") { controller.choosePack() }
+                    }.menuStyle(.borderlessButton).fixedSize()
                     Spacer()
                     Button("Close") { controller.close() }
                 }.padding(8)
