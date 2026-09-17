@@ -1,8 +1,12 @@
--- Migration: Immutable L4 detection observations
+-- Migration: Immutable L4 detection observations, and measurement provenance
+-- on legacy tracker output
 -- Date: 2026-09-11
 -- Description: Preserve track-independent sensor evidence as a write-once
--- replay unit. lidar_track_observations is deliberately untouched: its rows
--- are historical tracker output despite their misleading name.
+-- replay unit. lidar_track_observations remains a tracker-output table in
+-- its own right -- this does not replace it -- but each new row must say
+-- which geometry entered the filter and distinguish the L2 frame boundary
+-- from the cluster acquisition time, so it gains two columns alongside the
+-- new table.
    CREATE TABLE IF NOT EXISTS lidar_observations (
           observation_id TEXT PRIMARY KEY
         , schema_version INTEGER NOT NULL
@@ -22,3 +26,9 @@
 CREATE INDEX IF NOT EXISTS idx_lidar_observations_source_time ON lidar_observations (source_id, frame_unix_nanos, observation_id);
 
 CREATE INDEX IF NOT EXISTS idx_lidar_observations_calibration_time ON lidar_observations (calibration_id, frame_unix_nanos, observation_id);
+
+    ALTER TABLE lidar_track_observations
+      ADD COLUMN frame_unix_nanos INTEGER;
+
+    ALTER TABLE lidar_track_observations
+      ADD COLUMN measurement_source TEXT NOT NULL DEFAULT 'legacy_centroid_v0';
