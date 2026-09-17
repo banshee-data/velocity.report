@@ -536,6 +536,41 @@ backlog as though no implementation exists.
 The annotation backend is work in progress, not the D2.4 client or D2.5 reference truth. The
 [branch audit](lidar-state-estimation-branch-audit.md) owns the current cross-plan sequence.
 
+### 6.1 Day 2 gate evidence: kirk0 A/B, 2026-09-17
+
+The freeze mechanism itself (RC2/D1.4) is confirmed fixed by inspection, independent of the
+acceptance question below. `projectObservedEnvelope`
+([heading_axis.go](../../internal/lidar/l5tracks/heading_axis.go)) runs unconditionally every
+frame, regardless of that frame's heading decision, so dimensions are re-projected from the
+current cluster even while the heading itself abstains. The legacy path's height-only freeze under
+`updateHeading == false` has no equivalent on this path.
+
+A `velocity lidar pcap-replay --compare-to` A/B on `kirk0.pcapng` (831 frames, ~83 s, one capture,
+`obb_axis_coherence_enabled` the only difference between arms) measured the acceptance side of the
+gate:
+
+| Metric                                | Off (baseline) | On (candidate)    |
+| ------------------------------------- | -------------- | ----------------- |
+| Median course alignment               | 21.6°          | **16.1°** (−26 %) |
+| Heading acceptance                    | 76.5 %         | 61.4 %            |
+| Terminal-unrecovered ratio            | 8.3 % (1/12)   | 80 % (16/20)      |
+| Fragmentation / co-located-pair ratio | 0.371 / 0.755  | unchanged (both)  |
+
+Course alignment improves, matching the Day 1 finding's direction. Held frames on the candidate
+split into four labelled reasons — 44 % too little of the object visible, 32 % fits neither
+interpretation, 20 % ambiguous tie, 5 % no distinguishable axis — rather than the baseline's held
+frames being 100 % guard-locked: the abstention is doing its designed job, not reproducing the
+ratchet under a new name. But `terminal_unrecovered_ratio` rising to 80 % is the cost of that
+honesty — more tracks end while still declining to answer. At n = 12 vs 20 terminal episodes from a
+single 83 s single-site capture, this is not a settled verdict either way; it is the kind of
+single-sample swing Section 7's risk table already warns against over-reading, and it does not by
+itself clear or fail the Day 2 gate. It confirms the gate's own framing instead: pointing accuracy
+and abstention cost trade against each other, and resolving that trade needs the labelled
+containment/physical-yaw evidence the gate already calls for, not a bigger kirk0 replay.
+
+No config or code changed as part of this measurement; `obb_axis_coherence_enabled` stays
+default-off.
+
 ## 7. Risks
 
 | Risk                                                                                                  | Handling                                                                                                                                                            |
