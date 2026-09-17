@@ -323,4 +323,26 @@ struct AnnotationSessionTests {
 
         #expect(session.viewStandard != session.secondViewStandard)
     }
+
+    @Test func reloadClearsTheUnsavedMembershipGuard() throws {
+        // This is what "discard and continue" actually depends on, wherever
+        // it appears — AnnotationPane's step/object-switch prompt and
+        // AnnotationWorkspace's Open Another/Close prompt both call reload()
+        // and then proceed unconditionally. If reload() left the guard
+        // engaged, the deferred action would run against a session that
+        // still reports unsaved work, silently contradicting the alert the
+        // operator just confirmed.
+        let (session, dir) = try makeSession()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let object = session.createObject(objectClass: "car")
+
+        _ = session.select(polygon: clusterLasso)
+        #expect(
+            session.navigationGuard()
+                == .unsavedMembership(sampleID: 0, objectID: object.objectID))
+
+        session.reload()
+
+        #expect(session.navigationGuard() == nil)
+    }
 }

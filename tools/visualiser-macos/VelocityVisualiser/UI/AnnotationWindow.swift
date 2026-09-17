@@ -181,6 +181,15 @@ struct AnnotationWorkspace: View {
     @ObservedObject var controller: AnnotationController
     @Binding var showGenerateSheet: Bool
 
+    /// Set when a guarded action is deferred behind the discard-confirmation
+    /// alert, so "Discard and Continue" knows what to do once the operator
+    /// has actually chosen to lose the unsaved membership.
+    @State private var pendingAction: (() -> Void)?
+
+    private var showDiscardPrompt: Binding<Bool> {
+        Binding(get: { pendingAction != nil }, set: { if !$0 { pendingAction = nil } })
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VSplitView {
@@ -204,14 +213,49 @@ struct AnnotationWorkspace: View {
                 Divider()
                 HStack {
                     Menu("Open Another…") {
-                        Button("Generate from Run…") { showGenerateSheet = true }
-                        Button("Open Pack…") { controller.choosePack() }
+                        // Both leave the current pack behind — one for a
+                        // different run's pack, one for a directory already
+                        // on disk — and both must go through the same
+                        // unsaved-membership check AnnotationPane already
+                        // applies to stepping and switching objects.
+                        // Bypassing it here would lose a lasso selection
+                        // silently the moment either is clicked.
+                        Button("Generate from Run…") {
+                            guardedNavigate { showGenerateSheet = true }
+                        }
+                        Button("Open Pack…") { guardedNavigate { controller.choosePack() } }
                     }.menuStyle(.borderlessButton).fixedSize()
                     Spacer()
-                    Button("Close") { controller.close() }
+                    Button("Close") { guardedNavigate { controller.close() } }
                 }.padding(8)
             }
+        }.alert("Unsaved membership", isPresented: showDiscardPrompt) {
+            Button("Keep Editing", role: .cancel) { pendingAction = nil }
+            Button("Discard and Continue", role: .destructive) {
+                let action = pendingAction
+                pendingAction = nil
+                session.reload()
+                action?()
+            }
+        } message: {
+            Text(
+                "This sample has unsaved changes. Save it, or discard them, before opening another pack."
+            )
         }
+    }
+
+    /// Runs `action` immediately if nothing would be lost, or defers it
+    /// behind the discard-confirmation alert if the session has an unsaved
+    /// stroke or membership. Mirrors AnnotationPane's `handleStep`, which
+    /// guards Previous/Next and object-row switching the same way — this is
+    /// the same check applied to the window's other three ways to leave the
+    /// current pack.
+    private func guardedNavigate(_ action: @escaping () -> Void) {
+        guard session.navigationGuard() != nil else {
+            action()
+            return
+        }
+        pendingAction = action
     }
 }
 
