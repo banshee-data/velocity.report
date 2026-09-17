@@ -133,6 +133,13 @@ type Server struct {
 	gridPlotter  *l9endpoints.GridPlotter
 	plotsBaseDir string // Base directory for plot output (e.g., "plots")
 
+	// annotationPacksDir is where a run's annotation pack is written when
+	// requested through the API. Separate from vrlogSafeDir: one is a read
+	// boundary for existing recordings, the other is where new pack
+	// directories are created, and conflating them would let a pack write
+	// land anywhere a VRLOG could be read from.
+	annotationPacksDir string
+
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
 	latestFgCounts map[string]int
@@ -249,7 +256,13 @@ type Config struct {
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
 	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
-	TuningConfig      *cfgpkg.TuningConfig
+	// AnnotationPacksDir is where POST .../annotation-export writes new pack
+	// directories. Empty disables the endpoint rather than falling back to
+	// vrlogSafeDir or plotsBaseDir: those directories have their own
+	// contents, and a pack write landing among them would be a surprise
+	// either way it went.
+	AnnotationPacksDir string
+	TuningConfig       *cfgpkg.TuningConfig
 
 	// DataSourceManager allows injecting a custom data source manager.
 	// If nil, a RealDataSourceManager is created automatically.
@@ -305,6 +318,16 @@ func NewServer(config Config) *Server {
 	if absDir, err := filepath.Abs(vrlogSafeDir); err == nil {
 		vrlogSafeDir = absDir
 	}
+	// Unlike vrlogSafeDir, an empty AnnotationPacksDir stays empty rather than
+	// defaulting: it disables the export endpoint, which is the right
+	// behaviour for a deployment that never opted in, rather than silently
+	// writing packs under a directory meant for something else.
+	annotationPacksDir := config.AnnotationPacksDir
+	if annotationPacksDir != "" {
+		if absDir, err := filepath.Abs(annotationPacksDir); err == nil {
+			annotationPacksDir = absDir
+		}
+	}
 	if listenerConfig.Stats == nil {
 		listenerConfig.Stats = config.Stats
 	}
@@ -325,40 +348,41 @@ func NewServer(config Config) *Server {
 	}
 
 	ws := &Server{
-		address:           config.Address,
-		stats:             config.Stats,
-		forwardingEnabled: config.ForwardingEnabled,
-		forwardAddr:       config.ForwardAddr,
-		forwardPort:       config.ForwardPort,
-		parsingEnabled:    config.ParsingEnabled,
-		udpPort:           config.UDPPort,
-		db:                config.DB,
-		sensorID:          config.SensorID,
-		parser:            config.Parser,
-		frameBuilder:      config.FrameBuilder,
-		classifier:        config.Classifier,
-		pcapSafeDir:       config.PCAPSafeDir,
-		captureRoots:      normaliseCaptureRoots(config.PCAPSafeDir, config.CaptureRoots),
-		vrlogSafeDir:      vrlogSafeDir,
-		packetForwarder:   config.PacketForwarder,
-		tuningConfig:      cloneTuningConfig(config.TuningConfig),
-		udpListenerConfig: listenerConfig,
-		state:             newPipelineState(),
-		latestFgCounts:    make(map[string]int),
-		plotsBaseDir:      config.PlotsBaseDir,
-		onPCAPStarted:     config.OnPCAPStarted,
-		onPCAPStopped:     config.OnPCAPStopped,
-		onPCAPProgress:    config.OnPCAPProgress,
-		onPCAPTimestamps:  config.OnPCAPTimestamps,
-		onRecordingStart:  config.OnRecordingStart,
-		onRecordingStop:   config.OnRecordingStop,
-		onPlaybackPause:   config.OnPlaybackPause,
-		onPlaybackPlay:    config.OnPlaybackPlay,
-		onPlaybackSeek:    config.OnPlaybackSeek,
-		onPlaybackRate:    config.OnPlaybackRate,
-		onVRLogLoad:       config.OnVRLogLoad,
-		onVRLogStop:       config.OnVRLogStop,
-		playbackProbe:     config.PlaybackProbe,
+		address:            config.Address,
+		stats:              config.Stats,
+		forwardingEnabled:  config.ForwardingEnabled,
+		forwardAddr:        config.ForwardAddr,
+		forwardPort:        config.ForwardPort,
+		parsingEnabled:     config.ParsingEnabled,
+		udpPort:            config.UDPPort,
+		db:                 config.DB,
+		sensorID:           config.SensorID,
+		parser:             config.Parser,
+		frameBuilder:       config.FrameBuilder,
+		classifier:         config.Classifier,
+		pcapSafeDir:        config.PCAPSafeDir,
+		captureRoots:       normaliseCaptureRoots(config.PCAPSafeDir, config.CaptureRoots),
+		vrlogSafeDir:       vrlogSafeDir,
+		packetForwarder:    config.PacketForwarder,
+		tuningConfig:       cloneTuningConfig(config.TuningConfig),
+		udpListenerConfig:  listenerConfig,
+		state:              newPipelineState(),
+		latestFgCounts:     make(map[string]int),
+		plotsBaseDir:       config.PlotsBaseDir,
+		annotationPacksDir: annotationPacksDir,
+		onPCAPStarted:      config.OnPCAPStarted,
+		onPCAPStopped:      config.OnPCAPStopped,
+		onPCAPProgress:     config.OnPCAPProgress,
+		onPCAPTimestamps:   config.OnPCAPTimestamps,
+		onRecordingStart:   config.OnRecordingStart,
+		onRecordingStop:    config.OnRecordingStop,
+		onPlaybackPause:    config.OnPlaybackPause,
+		onPlaybackPlay:     config.OnPlaybackPlay,
+		onPlaybackSeek:     config.OnPlaybackSeek,
+		onPlaybackRate:     config.OnPlaybackRate,
+		onVRLogLoad:        config.OnVRLogLoad,
+		onVRLogStop:        config.OnVRLogStop,
+		playbackProbe:      config.PlaybackProbe,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager

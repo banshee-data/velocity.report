@@ -172,8 +172,9 @@ var (
 	//
 	// Both defaults are the path the derived form produced under the default
 	// --lidar-pcap-dir, so a deployment that sets neither flag is unchanged.
-	lidarVRLogDir = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
-	lidarPlotsDir = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
+	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
+	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
+	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
 	// Repeatable. Capture roots are the volumes the capture index scans; the
 	// web UI selects among them and cannot add one, which is what keeps the
 	// safe-directory boundary a boundary. --lidar-pcap-dir is always a root, so
@@ -736,29 +737,30 @@ func Main(args []string) int {
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
 		lidarServer = server.NewServer(server.Config{
-			Address:           *lidarListen,
-			Stats:             packetStats,
-			ForwardingEnabled: *lidarForward && lidarForwardPortCfg > 0,
-			ForwardAddr:       *lidarFwdAddr,
-			ForwardPort:       lidarForwardPortCfg,
-			ParsingEnabled:    !*lidarNoParse,
-			UDPPort:           lidarUDPListenPort,
-			DB:                lidarDB,
-			SensorID:          lidarSensorID,
-			Parser:            parser,
-			FrameBuilder:      frameBuilder,
-			PCAPSafeDir:       *lidarPCAPDir,
-			CaptureRoots:      lidarCaptureRoots,
-			VRLogSafeDir:      resolveLidarDir(*lidarVRLogDir, "VRLOG", log.Printf),
-			PacketForwarder:   packetForwarder,
-			UDPListenerConfig: udpListenerConfig,
-			PlotsBaseDir:      *lidarPlotsDir,
-			TuningConfig:      tuningCfg,
-			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPStopped:     replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
-			OnPCAPProgress:    pcapProgressCallback(visualiserServer),
-			PlaybackProbe:     visualiserPlaybackProbe{server: visualiserServer},
-			OnPCAPTimestamps:  pcapTimestampsCallback(visualiserServer),
+			Address:            *lidarListen,
+			Stats:              packetStats,
+			ForwardingEnabled:  *lidarForward && lidarForwardPortCfg > 0,
+			ForwardAddr:        *lidarFwdAddr,
+			ForwardPort:        lidarForwardPortCfg,
+			ParsingEnabled:     !*lidarNoParse,
+			UDPPort:            lidarUDPListenPort,
+			DB:                 lidarDB,
+			SensorID:           lidarSensorID,
+			Parser:             parser,
+			FrameBuilder:       frameBuilder,
+			PCAPSafeDir:        *lidarPCAPDir,
+			CaptureRoots:       lidarCaptureRoots,
+			VRLogSafeDir:       resolveLidarDir(*lidarVRLogDir, "VRLOG", log.Printf),
+			PacketForwarder:    packetForwarder,
+			UDPListenerConfig:  udpListenerConfig,
+			PlotsBaseDir:       *lidarPlotsDir,
+			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
+			TuningConfig:       tuningCfg,
+			OnPCAPStarted:      pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
+			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
+			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},
+			OnPCAPTimestamps:   pcapTimestampsCallback(visualiserServer),
 			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
