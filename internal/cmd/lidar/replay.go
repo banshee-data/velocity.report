@@ -50,6 +50,12 @@ an existing VRLOG cannot do that: a VRLOG stores the decisions the pipeline
 already made, so it shows what the old code concluded, not what the new code
 would conclude.
 
+--output on the same mounted volume as --pcap will run slower than this
+harness's own throughput history predicts, with no error to explain why:
+reads and writes queue against the same disk. The replay logs a warning when
+it detects this; point --output at a different device (e.g. the local disk)
+from a --pcap source that lives on an external volume.
+
 Options:
 `)
 		fs.PrintDefaults()

@@ -2,6 +2,12 @@
 // through the offline pipeline. It deliberately resolves captures through the
 // checked-in index rather than accepting an arbitrary set of PCAP paths: a
 // baseline is useful only when another operator can reproduce its population.
+//
+// -out, -observations-db, and -evidence-dir should live on a different
+// device from -pcap-root. Reading source PCAPs and writing evidence to the
+// same mounted volume queues both against one disk's I/O and silently slows
+// replay well below its normal throughput; the underlying replay logs a
+// warning when it detects this (see replayeval.warnIfSharedVolume).
 package main
 
 import (
@@ -64,8 +70,8 @@ func main() {
 		indexPath                  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")
 		pcapRoot                   = flag.String("pcap-root", "/Volumes/lidar/lidar", "directory holding archive capture subdirectories")
 		pcapSubdir                 = flag.String("pcap-subdir", "s2", "archive capture subdirectory")
-		outDir                     = flag.String("out", "", "empty output directory for baseline recordings (required)")
-		evidenceDir                = flag.String("evidence-dir", "", "empty directory for observations.db; may be on a different volume from -pcap-root and -out")
+		outDir                     = flag.String("out", "", "empty output directory for baseline recordings (required); put this on a different device from -pcap-root, or replay will run slower than it should")
+		evidenceDir                = flag.String("evidence-dir", "", "empty directory for observations.db; put this on a different device from -pcap-root and -out, or replay will run slower than it should")
 		sourceManifestPath         = flag.String("source-manifest", "", "new immutable JSON manifest of ordered source PCAP hashes")
 		existingSourceManifestPath = flag.String("existing-source-manifest", "", "existing immutable source manifest to verify before replay")
 		sourceManifestOnly         = flag.Bool("source-manifest-only", false, "write -source-manifest then exit without replaying")
@@ -77,7 +83,7 @@ func main() {
 		// the fail-closed scoring-boundary invariant across the Phase 0 corpus.
 		warmup              = flag.Float64("warmup", 70, "warm-up seconds before scoring")
 		requireSettled      = flag.Bool("require-settled", true, "reject a case whose L3 background is unsettled at the scoring boundary")
-		observations        = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations")
+		observations        = flag.String("observations-db", "", "optional SQLite database for the first run's immutable observations; put this on a different device from -pcap-root, or replay will run slower than it should")
 		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
