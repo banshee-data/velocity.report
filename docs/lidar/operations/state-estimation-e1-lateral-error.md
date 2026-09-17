@@ -1,7 +1,7 @@
 # Experiment E1: lateral-error validation on the three-site corpus
 
 - **Status:** Recorded. E1.1 and E1.3 run and reproduced at three independent placements; the hypothesis in Section 3 is confirmed. E1.2 and E1.4 remain open.
-- **Scope:** Three-site, 16-capture offline replay corpus; 43,068 scored frames, 195,389 immutable observations, 160,011 linked estimates
+- **Scope:** Three-site, 16-capture offline replay corpus; 43,068 scored frames, 195,389 immutable observations, 160,245 linked estimates
 - **Repository revision:** `3e9b22fb4e22e14d819ea9c35069b3c83f4cdc38`
 - **Source manifest:** `sha256:83c17249c48238abb748fb467ae6229c8b13ff7e5eea5f0cd57f5641c04252ba`
 - **Frozen result:** [state-estimation-e1-20260916.json](state-estimation-e1-20260916.json) (`sha256:6ba6475e23674fb4e38433cb7488116cb5aaf0bd0ae5314600f1c3ea8d93bf92`)
@@ -33,9 +33,9 @@ go run ./cmd/tools/lidar-e1-analysis -observations ev/observations.db -manifest 
 
 | Site                   | Captures | Scored frames | Observations | Estimates | Repeat identical |
 | ---------------------- | -------- | ------------- | ------------ | --------- | ---------------- |
-| `marina-webster-beach` | 4        | 11,320        | 44,374       | 39,324    | yes              |
-| `columbus-broadway`    | 7        | 20,320        | 102,013      | 77,892    | yes              |
-| `embarcadero-folsom`   | 5        | 11,428        | 49,002       | 42,795    | yes              |
+| `marina-webster-beach` | 4        | 11,320        | 44,374       | 39,407    | yes              |
+| `columbus-broadway`    | 7        | 20,320        | 102,013      | 77,891    | yes              |
+| `embarcadero-folsom`   | 5        | 11,428        | 49,002       | 42,947    | yes              |
 
 The scored-frame total of 43,068 matches the [Phase 0/1
 baseline](state-estimation-phase01-corpus-baseline.md) exactly, so this run analyses the same
