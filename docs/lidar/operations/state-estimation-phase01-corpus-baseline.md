@@ -362,3 +362,49 @@ measurement gate. Specifically still open:
   pass, not a Phase 0 or G-PER-1 blocker.
 - **P11 surface/clipping context** for near-edge geometry, and the reopened-
   evidence and remaining Phase 1 checks.
+
+## Extension: the full 24-site S2 archive index, 2026-09-17
+
+The corpus is no longer three sites. [state-estimation-phase01-corpus.json](../../../tools/s2-archive/state-estimation-phase01-corpus.json)
+now registers all 24 placements in [the archive index](../../../tools/s2-archive/site-index.json),
+and all 21 not previously run replayed cleanly through the same
+`lidar-state-estimation-baseline` / `lidar-e1-analysis` harness as the original three, adding
+**269,247 first-run frames, byte-identical on repeat at every one of the 21 sites** — zero
+determinism failures. Combined with the original three-site corpus (43,068 frames), the corpus
+now covers **312,315 scored frames across 24 independent placements**.
+
+E1.3's cross-measurement disagreement test reproduces cleanly at all 21 new sites, no exceptions:
+
+| Statistic                                | Range across the 21 new sites |
+| ---------------------------------------- | ----------------------------- |
+| End-on (0-15°) medoid bias, as W/2       | 0.23 to 0.37                  |
+| Peak (broadside-ish) medoid bias, as W/2 | 0.49 to 0.72                  |
+
+This sits in the same band as the original corpus's near-edge-candidate comparison (0.58 to 0.65),
+not the fitted-path comparison (0.35 to 0.41) — the two are different measurements from the same
+experiment, and the right one to compare against E1.3 output is the near-edge one, since both are
+pairwise disagreement rather than a path fit. Every one of the 21 new sites lands inside or close
+to that established band, in the same direction, with no site reversing sign or landing near zero.
+E1.1 (the fitted-path test) was not re-aggregated across all 21 logs for this pass — each site's
+log carries its own table, printed rather than included in the JSON result, and spot checks (not
+exhaustive) agree with the E1.3 direction.
+
+This does not run E1.1/E1.3 against a _new_ measurement candidate or tuning change — it is the same
+`obb_centre_v1` reference arm the original three sites used, extended for site diversity. It closes
+the "new captures mistaken for a completed corpus" gap the
+[branch audit](../../plans/lidar-state-estimation-branch-audit.md) flagged: file count now equals
+site diversity, with real per-site calibration (`north_azimuth_deg`) and file presence verified
+before replay, not assumed.
+
+**A genuine operational finding surfaced along the way, not a result of the experiment itself:**
+the pcap sources and the first attempt's evidence output both lived on the same external volume,
+and replay throughput did not recover until evidence output moved to local disk. `replayeval.Run`
+now warns automatically when this happens; see
+[heading-coherence-sprint-plan §5.2](../../plans/lidar-heading-coherence-sprint-plan.md) for the
+detail and the fix.
+
+Evidence artefacts (per-site `observations.db`, VRLOG recordings, E1 results, source manifests) are
+on the archive volume under `state-estimation-phase01-24site-20260917/`, not in git, per this
+document's own preservation contract above. The consolidated source-PCAP manifest is at
+`manifests/state-estimation-phase01-24site-20260917.source-pcaps.json` (21 cases, one per new
+site), built from the per-site manifests each replay already wrote.
