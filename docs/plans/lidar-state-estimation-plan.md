@@ -1739,7 +1739,9 @@ state does not leak across partitions.
 > medoid's lateral conditional mean is near zero end-on and rises monotonically to 0.35-0.41 of
 > the body's half-width at broadside against a fitted path, reproducibly at all three
 > placements, and the trend survives range stratification in every well-populated cell. The
-> hypothesis in Section 3 is confirmed and Phase 2's premise holds. E1.2 and E1.4 remain open.
+> hypothesis in Section 3 is confirmed and Phase 2's premise holds. A fourth, independent placement
+> (`clar0`, 2026-09-17) reproduces both E1.1 and E1.3; a fifth (`kirk0`) ran but is too short
+> (8 accepted tracks) to read either way. E1.2 and E1.4 remain open.
 > Full record, including a sign bug that initially inverted E1.3's conclusion:
 > [E1 lateral-error record](../lidar/operations/state-estimation-e1-lateral-error.md).
 

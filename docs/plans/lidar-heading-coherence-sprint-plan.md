@@ -522,16 +522,16 @@ renders run tracks. D2.4 extends a page that exists rather than adding a second 
 The original task breakdown is retained in Section 4. Do not copy historical task wording into the
 backlog as though no implementation exists.
 
-| Work                                                 | Current state                                                                   | Remaining gate                                                                    |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| D1.1–D1.3: course, locks, release                    | Implemented on the baseline path                                                | Physical-heading acceptance is separate from course diagnostics                   |
-| D1.5–D1.6: fragment guard and ghost fade             | Implemented; D2.2 optionally replaces the hard fragment refusal                 | Verify identity behaviour and client rendering on reviewed cases                  |
-| D1.4 and D2.1: observed envelope and axial selection | Implemented behind the disabled axis flag, with a corroborated extent reference | Labelled containment, physical yaw, partial-view and manoeuvre checks             |
-| D2.2: extent association cost                        | Implemented; weight zero by default                                             | Same-object evaluation independent of predicted UUIDs                             |
-| D2.3: evaluation/objective                           | Implemented diagnostics, missing-evidence handling, optional count band         | Calibrated site/window references; no course-only promotion                       |
-| D2.4: run panel                                      | Not implemented                                                                 | Course, source/acceptance, lock and overlap diagnostics on the existing run page  |
-| D2.5: regression evidence                            | Frozen recorded-output fixture and replay provenance implemented                | Reviewed masks/poses, multi-capture acceptance, and human-reviewable before/after |
-| Guard 2 threshold experiment                         | Optional baseline comparison remains open                                       | Lowering the aspect threshold locks fewer clusters; measure rather than assume    |
+| Work                                                 | Current state                                                                                                                                                                                            | Remaining gate                                                                                                                                                 |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1.1–D1.3: course, locks, release                    | Implemented on the baseline path                                                                                                                                                                         | Physical-heading acceptance is separate from course diagnostics                                                                                                |
+| D1.5–D1.6: fragment guard and ghost fade             | Implemented; D2.2 optionally replaces the hard fragment refusal                                                                                                                                          | Verify identity behaviour and client rendering on reviewed cases                                                                                               |
+| D1.4 and D2.1: observed envelope and axial selection | Implemented behind the disabled axis flag, with a corroborated extent reference. Four-site A/B (§6.2) finds course alignment _reverses_ on the busiest site and duplicate-identity worsens at every site | Labelled containment, physical yaw, partial-view and manoeuvre checks; §6.2's reversal on soma1 is a new reason to keep this disabled, not just a missing gate |
+| D2.2: extent association cost                        | Implemented; weight zero by default. Four-site A/B (§6.2) shows a consistent 10-42% reduction in duplicate-identity candidates with no consistent cost                                                   | Same-object evaluation independent of predicted UUIDs                                                                                                          |
+| D2.3: evaluation/objective                           | Implemented diagnostics, missing-evidence handling, optional count band                                                                                                                                  | Calibrated site/window references; no course-only promotion                                                                                                    |
+| D2.4: run panel                                      | Not implemented                                                                                                                                                                                          | Course, source/acceptance, lock and overlap diagnostics on the existing run page                                                                               |
+| D2.5: regression evidence                            | Frozen recorded-output fixture and replay provenance implemented                                                                                                                                         | Reviewed masks/poses, multi-capture acceptance, and human-reviewable before/after                                                                              |
+| Guard 2 threshold experiment                         | Measured on kirk0 (§6.2): fewer/shorter locks as predicted, but median course alignment worsens — a real trade-off                                                                                       | Site diversity beyond kirk0; this was a single-site, single-parameter probe                                                                                    |
 
 The annotation backend is work in progress, not the D2.4 client or D2.5 reference truth. The
 [branch audit](lidar-state-estimation-branch-audit.md) owns the current cross-plan sequence.
@@ -570,6 +570,69 @@ containment/physical-yaw evidence the gate already calls for, not a bigger kirk0
 
 No config or code changed as part of this measurement; `obb_axis_coherence_enabled` stays
 default-off.
+
+### 6.2 Four-site D2.1/D2.2 A/B, and the Guard 2 threshold experiment, 2026-09-17
+
+The single-site caveat above is now addressed. The same `pcap-replay --compare-to` A/B ran on
+three more real captures with real traffic — `clar0` (14 min, 783 baseline tracks), `soma1`
+(11 min, 4,031 tracks), `morg0` (20.5 min, 5,585 tracks) — alongside kirk0, giving four independent
+sites spanning 151 to 5,585 tracks. Nothing was tuned on any of them first; each arm is the same two
+configs
+(`obb_axis_coherence_enabled` and `association_extent_cost_weight` in isolation) against the same
+default baseline, no per-site adjustment.
+
+**D2.1 (axis coherence): the direction is not uniform, and that is the headline finding.**
+
+| Site  | Course alignment (p50) | Heading acceptance | Terminal-unrecovered | Duplicate-identity (overlapping boxes) |
+| ----- | ---------------------: | -----------------: | -------------------: | -------------------------------------: |
+| kirk0 |          21.6° → 16.1° |      76.5% → 61.4% |         8.3% → 80.0% |                  403/831 → 425 (+5.5%) |
+| clar0 |          23.1° → 21.4° |      68.1% → 55.2% |        50.0% → 81.4% |                 825/8399 → 890 (+7.9%) |
+| soma1 |      **28.2° → 34.2°** |      75.7% → 64.6% |        25.8% → 68.5% |               2423/6629 → 2440 (+0.7%) |
+| morg0 |          27.9° → 25.6° |      88.7% → 68.4% |        14.8% → 69.6% |              4155/12329 → 4300 (+3.5%) |
+
+Three of four sites reproduce today's kirk0 direction: course alignment improves. **`soma1`
+reverses it** — the busiest, most cluttered site in the set makes course alignment _worse_ by 6°
+under the axis path, not better. Two things are uniform across all four, with no exceptions:
+heading acceptance drops substantially everywhere (11 to 20 points), and duplicate-identity
+candidates get _worse_ everywhere, if only slightly at soma1. Terminal-unrecovered rises sharply at
+every site, 43 to 72 points. D2.1's own stated purpose — stop boxes pointing the wrong way — is
+therefore real but site-dependent, and its side effects (abstention, unresolved endings, and now a
+small but consistent worsening of the exact duplicate-identity problem D2.2 exists to fix) are
+consistent and large. This is stronger evidence against enabling it by default than the kirk0-only
+result gave, not weaker: a candidate that reverses sign on the busiest site fails the "no
+acceptance regression" bar in Section 4's Day 2 gate on its own, independent of the still-missing
+physical-yaw ground truth.
+
+**One anomaly worth flagging, not yet explained:** `morg0`'s axis-on run produced a single lock run
+of **6,305 frames** (versus 58 at baseline, and 22–108 across the other three sites' axis-on runs).
+Something on this site let one track abstain almost for its entire life without the axis-release
+mechanism (`releaseStuckAxisReference`) firing. Worth a follow-up look at that specific track before
+this candidate goes anywhere near acceptance; not chased further here.
+
+**D2.2 (association extent cost, weight 1.0): consistently the more promising of the two, and still
+off by default.** Duplicate-identity candidates fall at every site, by a wide and site-dependent
+margin: kirk0 −27.5%, clar0 −36.1%, soma1 −10.2%, morg0 −41.7%. Course alignment is flat-to-mildly-
+improved everywhere (−0.1° to −2.5°), never worse. Heading acceptance is essentially untouched
+(±2 points). Terminal-unrecovered improves at three of four sites (clar0 −20pp, soma1 −11pp, morg0
+−6pp) and worsens only at kirk0 (+19pp, on a base of just 12 assessed episodes — the noisiest
+population in the set). This is the cleaner candidate of the two: a real, consistent reduction in
+the problem it targets, with no consistent cost anywhere, matching the PR description's original
+two-capture finding (9% and 44% reductions) now extended to four sites (10–42%). Still weight-zero
+by default pending D2.2's own stated gate — same-object evaluation independent of predicted
+UUIDs — which this run does not supply.
+
+**Guard 2 aspect-ratio threshold, kirk0, `obb_aspect_ratio_lock_threshold` 0.25 → 0.15:** confirms
+the plan's own correction (§3, "the aspect-ratio lock threshold runs the other way") empirically.
+Locks fewer clusters, as predicted: sustained locks 41 → 35, longest run 69 → 31 frames, terminal-
+unrecovered 8.3% → 0%, held frames 991 → 803. But median course alignment gets _worse_, 21.6° →
+26.5° — fewer, shorter locks is not the same claim as _better-pointing_ boxes; on this capture, the
+guard's occasional lock is doing some real work that the raw per-frame measurement does not
+replicate unaided. Duplicate-identity is essentially unchanged (403 → 398). This closes the "Guard
+2 threshold experiment... measure rather than assume" line in the table above: measured, and the
+answer is a real trade-off, not a free improvement.
+
+Artefacts (all four sites × three configs, plus the two Guard 2 runs) are in scratch and not
+committed; no config or code changed.
 
 ## 7. Risks
 

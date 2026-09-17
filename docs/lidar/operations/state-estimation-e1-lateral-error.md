@@ -1,6 +1,6 @@
 # Experiment E1: lateral-error validation on the three-site corpus
 
-- **Status:** Recorded. E1.1 and E1.3 run and reproduced at three independent placements; the hypothesis in Section 3 is confirmed. E1.2 and E1.4 remain open.
+- **Status:** Recorded. E1.1 and E1.3 run and reproduced at three independent placements; the hypothesis in Section 3 is confirmed. A fourth placement, `clar0`, reproduces both — see the addendum below. E1.2 and E1.4 remain open.
 - **Scope:** Three-site, 16-capture offline replay corpus; 43,068 scored frames, 195,389 immutable observations, 160,245 linked estimates
 - **Repository revision:** `3e9b22fb4e22e14d819ea9c35069b3c83f4cdc38`
 - **Source manifest:** `sha256:83c17249c48238abb748fb467ae6229c8b13ff7e5eea5f0cd57f5641c04252ba`
@@ -156,3 +156,50 @@ so this addresses viewpoint diversity and says nothing about seasons, weather or
 Open: **E1.2** (straight-segment residual spectrum with autocorrelation) and **E1.4** (stationary
 noise floor, the one place real data supplies an exact expected value) are not yet run. G-GEO-1
 needs both, plus held-out geometry, excursion and fragmentation criteria.
+
+## Addendum: a fourth placement, `clar0` (2026-09-17)
+
+- **Scope:** One capture, `clar0.pcapng`, replayed and repeat-verified through the same
+  `lidar-state-estimation-baseline` / `lidar-e1-analysis` harness as the three-site corpus above.
+  7,699 frames first and repeat run, byte-identical (`baseline_equal: true`). 5,815 observations
+  read, 2,704 kept after the same exclusion filters.
+- **Result:** [state-estimation-e1-clar0-20260917.json](state-estimation-e1-clar0-20260917.json)
+  (`sha256:5ec2b626669352d3e64a9e5ea53564dea9bc68b52fd85a114ba97ba78b6a3c4e`), E1.3 only; E1.1's
+  table is reproduced below since the tool prints it rather than including it in `-json`.
+- **Source manifest:** `sha256:99868074940142f48cd89c7428ccfa2766fe6a14131ef1b2f9b66533b32530e6`.
+
+This is a genuinely independent site, not a fourth S2 window: a different physical deployment,
+different mount, different street geometry, run months apart from the three-site corpus.
+
+**E1.3 reproduces cleanly.** The medoid-versus-near-edge bias fraction rises from 0.26 end-on to a
+0.50-0.63 plateau from 30° of aspect onward, matching the three-site shape and landing inside its
+0.35-0.65 range. It survives range stratification in the well-populated 0-15 m band (0.27 → 0.62
+across aspect bins, n from 148 to 421).
+
+**E1.1 also reproduces, on a smaller accepted population.** 16 tracks (429 observations) passed the
+speed/straightness/length gates, against the three-site corpus's much larger accepted set. The
+medoid's bias-as-half-width climbs from 0.25 (15-30°) to 0.42 (45-60°) before easing to 0.30 at
+broadside, while `near_edge` stays within ±0.16 of zero throughout — the same qualitative signature
+as the three-site result, on a site that has never contributed a single frame to it before.
+
+**One placement remains too small to read: `kirk0`.** The same harness ran cleanly (131 frames
+first/repeat, byte-identical), but only 8 tracks (228 observations) passed E1.1's gates — kirk0 is
+an 83-second clip, an order of magnitude shorter than any of the other four placements. Its medoid
+bias-as-half-width sits flat around 0.17-0.21 rather than climbing, and `near_edge` drifts to -0.25
+at broadside instead of staying near zero. Given the sample size, this reads as underpowered rather
+than contradictory: 8 tracks cannot establish or refute a trend the other four placements needed
+16-234 tracks to show cleanly. Recorded for completeness, not counted as a fifth confirming
+placement.
+
+**Calibration caveat.** Neither site has a measured `north_azimuth_deg` — the "Align from above"
+compass bearing the three-site index carries for each placement — so both were registered with a
+placeholder of `0`. This only rotates the site frame by a constant, uniform offset; E1.1's
+aspect-relative bins and E1.3's pairwise disagreement are both invariant to a global rotation (see
+`siteCalibration` in `cmd/tools/lidar-state-estimation-baseline/main.go`), so neither result is
+distorted by it. What the placeholder does forbid is any future claim about `clar0` or `kirk0`'s
+absolute compass-referenced heading, or a plot overlaying its site frame on the other four
+placements' true-north-aligned ones.
+
+Updated tally: **E1.1 and E1.3 now reproduce at four independent placements** (three S2 windows
+plus `clar0`), with a fifth (`kirk0`) recorded but underpowered. E1.2 and E1.4 remain open, as
+above — no code implements either yet.
