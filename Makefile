@@ -1622,6 +1622,58 @@ test-perf:
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
 
+# =============================================================================
+# EVIDENCE RUNS
+# =============================================================================
+# Replay the committed corpus through the production pipeline, writing
+# immutable observations. CASE selects one corpus case (default: all of them);
+# RUN names the output directories.
+#
+# The three paths are separate on purpose and the defaults keep them that way:
+# captures are read from LIDAR_PCAP_DIR, which may be an external volume, while
+# recordings and the observation database are written to the internal disk. A
+# run that read and wrote one external device would spend its time waiting on
+# it. The tool itself refuses -evidence-dir equal to -out, so the recorded
+# artefacts and the immutable evidence cannot land on top of each other.
+.PHONY: evidence-paths evidence-run
+evidence-paths:
+	@R="$${RUN:-<RUN>}"; \
+	echo "captures (read):  $(LIDAR_PCAP_DIR)"; \
+	echo "recordings:       $(LIDAR_EVIDENCE_DIR)/$$R/out"; \
+	echo "observations:     $(LIDAR_EVIDENCE_DIR)/$$R/observations"; \
+	echo "vrlogs:           $(LIDAR_VRLOG_DIR)"; \
+	echo "plots:            $(LIDAR_PLOTS_DIR)"
+	@echo ""
+	@echo "override any of these in local.mk (untracked) or on the command line"
+
+evidence-run:
+	@RUN="$${RUN:-evidence-$$(date +%Y%m%d-%H%M%S)}"; \
+	ROOT="$(LIDAR_EVIDENCE_DIR)/$$RUN"; \
+	OUT_DIR="$$ROOT/out"; \
+	OBS_DIR="$$ROOT/observations"; \
+	MANIFEST="$$ROOT/source-manifest.json"; \
+	if [ -e "$$ROOT" ]; then \
+		echo "Error: $$ROOT already exists. Evidence is write-once; choose another RUN."; \
+		exit 1; \
+	fi; \
+	echo "Evidence run $$RUN"; \
+	$(MAKE) --no-print-directory evidence-paths RUN="$$RUN"; \
+	echo ""; \
+	echo "Writing the immutable source manifest..."; \
+	mkdir -p "$$ROOT"; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-source-manifest "$$MANIFEST" -source-manifest-only \
+		$${CASE:+-case "$$CASE"} || exit $$?; \
+	echo "Replaying..."; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-existing-source-manifest "$$MANIFEST" \
+		-out "$$OUT_DIR" -evidence-dir "$$OBS_DIR" \
+		-duration 0 $${CASE:+-case "$$CASE"} $(EVIDENCE_FLAGS) || exit $$?; \
+	echo ""; \
+	echo "Evidence written to $$OBS_DIR/observations.db"
+
 # Print which cell of the performance matrix this machine is in, and the policy
 # that applies to it. Run this before reading any perf number: the same command
 # means different things on different hosts, and the cell is what says which.
