@@ -86,16 +86,20 @@ struct LassoOverlay: View {
 
     // Selected points drawn over the render so the operator can see the mask
     // rather than inferring it from a count.
+    //
+    // One Path, filled once. A membership can run to thousands of points and a
+    // fill per point makes the preview stutter during the very drag it is
+    // meant to give feedback on.
     private var selectedPointsLayer: some View {
         Canvas { context, _ in
             let basis = OrthoViewBasis(basisStandard)
+            var path = Path()
             for index in session.history.current {
                 guard let p = session.currentPoints.point(at: index) else { continue }
                 let screen = viewport.screenPoint(from: basis.project(p))
-                context.fill(
-                    Path(ellipseIn: CGRect(x: screen.x - 2, y: screen.y - 2, width: 4, height: 4)),
-                    with: .color(.orange))
+                path.addEllipse(in: CGRect(x: screen.x - 2, y: screen.y - 2, width: 4, height: 4))
             }
+            context.fill(path, with: .color(.orange))
         }.allowsHitTesting(false)
     }
 
