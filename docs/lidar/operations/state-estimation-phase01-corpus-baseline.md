@@ -264,6 +264,40 @@ also disconnected once mid-run (a physical cable disconnect, not a drive
 fault — confirmed by a clean re-read afterward); the run was restarted rather
 than resumed, since the tool has no partial-corpus resume path.
 
+## Re-run: Columbus, 16 September 2026
+
+`columbus-broadway` was replayed again at `a077c99204f6` — after the Kalman
+K1/K2 measurements, the P1 heading-guard and P2 OBB-eigenvalue fixes, the
+solid-body contract, and the near-edge measurement model all landed — to check
+whether any of that had moved the reference arm.
+
+**It has not. The result is byte-identical.** Concatenating the first and
+repeat `tracking_baseline.json` reproduces the published digest above exactly:
+
+```
+456c5b9136ef5380e4c819e76e06fd0e91efb6cf5fa2ad2cfec910e5769f0387
+```
+
+20,320 frames first and repeat, source ID `source/v1/23d962b7…`, 102,013
+observations and 77,891 estimates — the same population, not a re-derivation.
+Run with `-measurement-mode medoid_v0`, matching the original; the tool's
+default is `obb_centre_v1`, and a run left on the default compares two
+measurement models rather than two code states.
+
+Two of the landed fixes are geometric and might have been expected to move
+this. That they did not is consistent with what each does: P2 replaces a
+discriminant that cancels only for a near-degenerate cluster covariance, and
+P1's Guard 2 fires only when the cluster's largest dimension is non-positive.
+Neither condition occurs in this corpus, so the fixes are correct but remain
+unexercised by it — a gap in the corpus, not evidence that the fixes are inert.
+
+Reproduce with:
+
+```bash
+make evidence-run RUN=<name> CASE=columbus-broadway \
+  LIDAR_PCAP_DIR=/Volumes/lidar/lidar EVIDENCE_FLAGS="-measurement-mode medoid_v0"
+```
+
 ## Preservation contract
 
 Git preserves the small, reviewable control record. It must contain this
