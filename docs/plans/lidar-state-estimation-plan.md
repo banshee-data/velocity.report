@@ -1866,7 +1866,11 @@ replication rather than as the primary evidence.
    with an observation-dump mode; it already replays an arbitrary PCAP through L1 to L6 with
    auto port detection and is the `make test-perf` gate. The alternative is the server's
    `/api/lidar/pcap/start` in analysis mode with `-lidar-pcap-dir` pointed at the volume,
-   which additionally records an analysis run.
+   which additionally records an analysis run. In practice this ran through
+   `cmd/tools/lidar-state-estimation-baseline`, the corpus-driven wrapper around
+   `replayeval.Run` — see its evidence-output-on-a-separate-device guidance
+   ([heading-coherence-sprint-plan §5.2](lidar-heading-coherence-sprint-plan.md)), which the
+   tool's own flag help and a runtime warning now enforce.
 3. **Settling budget is a real constraint.** `pcap-split` used a 60 s settling duration, and L3
    needs its own warmup. soma2 is 69 s long and soma0 is 111 s, so after warmup each may yield well
    under a minute of usable frames. Run `velocity lidar settling-eval` per file and publish the

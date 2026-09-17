@@ -475,6 +475,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err := os.MkdirAll(cfg.OutDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create out dir %s: %w", cfg.OutDir, err)
 	}
+	warnIfSharedVolume(pcapFiles, []string{cfg.OutDir, cfg.ObservationDBPath})
 
 	// --- L1: parser ---
 	parserCfg, err := runtime.loadParser()

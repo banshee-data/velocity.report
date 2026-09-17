@@ -510,6 +510,15 @@ Notes that matter for using it:
 - Track persistence is disabled explicitly rather than by leaving the DB nil, so a future
   pipeline change that starts assuming a database fails loudly here instead of writing into the
   production store during an analysis run.
+- **Evidence output must be on a different device from the PCAP source.** Reading source PCAPs
+  and writing `-out`/`-observations-db`/`-evidence-dir` to the same mounted volume queues both
+  against one disk's I/O; replay runs well below its normal throughput with no error to say why.
+  Found running the 24-site S2 evidence corpus (2026-09-17): both lived on the same external
+  volume, and throughput only recovered once evidence output moved to a separate device (the
+  local disk, in that case). `replayeval.Run` — the shared entry point behind both `pcap-replay`
+  and `lidar-state-estimation-baseline` — now compares device IDs and logs a warning whenever
+  this happens, so the standard fix is: point evidence output at local disk (or any device other
+  than wherever the PCAPs live), and treat the warning as a real signal, not noise to silence.
 
 ### 5.1 Why not the 8081 UI
 
