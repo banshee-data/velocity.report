@@ -1635,11 +1635,12 @@ test-perf:
 # artefacts and the immutable evidence cannot land on top of each other.
 .PHONY: evidence-paths evidence-run
 evidence-paths:
-	@echo "captures (read):  $(LIDAR_PCAP_DIR)"
-	@echo "recordings:       $(LIDAR_EVIDENCE_DIR)/<RUN>/out"
-	@echo "observations:     $(LIDAR_EVIDENCE_DIR)/<RUN>"
-	@echo "vrlogs:           $(LIDAR_VRLOG_DIR)"
-	@echo "plots:            $(LIDAR_PLOTS_DIR)"
+	@R="$${RUN:-<RUN>}"; \
+	echo "captures (read):  $(LIDAR_PCAP_DIR)"; \
+	echo "recordings:       $(LIDAR_EVIDENCE_DIR)/$$R/out"; \
+	echo "observations:     $(LIDAR_EVIDENCE_DIR)/$$R/observations"; \
+	echo "vrlogs:           $(LIDAR_VRLOG_DIR)"; \
+	echo "plots:            $(LIDAR_PLOTS_DIR)"
 	@echo ""
 	@echo "override any of these in local.mk (untracked) or on the command line"
 
