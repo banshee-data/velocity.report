@@ -161,6 +161,19 @@ var (
 	lidarFGFwdPort = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir   = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
+	// Write paths are set independently of --lidar-pcap-dir rather than derived
+	// from it.
+	//
+	// Captures are large and usually live on an external volume; recordings and
+	// plots are written continuously while those captures are being read. When
+	// the write path is derived from the capture path, pointing the capture path
+	// at an external disk silently moves the writes there too, and a replay then
+	// contends with itself for one device's bandwidth.
+	//
+	// Both defaults are the path the derived form produced under the default
+	// --lidar-pcap-dir, so a deployment that sets neither flag is unchanged.
+	lidarVRLogDir = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
+	lidarPlotsDir = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
 	// Repeatable. Capture roots are the volumes the capture index scans; the
 	// web UI selects among them and cannot add one, which is what keeps the
 	// safe-directory boundary a boundary. --lidar-pcap-dir is always a root, so
@@ -736,17 +749,10 @@ func Main(args []string) int {
 			FrameBuilder:      frameBuilder,
 			PCAPSafeDir:       *lidarPCAPDir,
 			CaptureRoots:      lidarCaptureRoots,
-			VRLogSafeDir: func() string {
-				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
-				if err != nil {
-					log.Printf("Warning: failed to resolve VRLOG safe dir: %v", err)
-					return filepath.Join(*lidarPCAPDir, "vrlog")
-				}
-				return baseDir
-			}(),
+			VRLogSafeDir:      resolveLidarDir(*lidarVRLogDir, "VRLOG", log.Printf),
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
-			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
+			PlotsBaseDir:      *lidarPlotsDir,
 			TuningConfig:      tuningCfg,
 			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPStopped:     replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
@@ -768,7 +774,7 @@ func Main(args []string) int {
 					vrlogRecorderPath = ""
 				}
 
-				baseDir, err := filepath.Abs(filepath.Join(*lidarPCAPDir, "vrlog"))
+				baseDir, err := filepath.Abs(*lidarVRLogDir)
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
 					return ""

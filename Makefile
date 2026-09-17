@@ -5,6 +5,42 @@
 VERSION := 0.5.1-pre34
 
 # =============================================================================
+# LIDAR DATA DIRECTORIES
+# =============================================================================
+# Four independent paths, because they have different access patterns and
+# belong on different devices.
+#
+# Captures are read-only and large: tens of gigabytes per site, usually on an
+# external volume. Recordings, evidence and plots are written, often while
+# those captures are being read. Deriving the write paths from the capture path
+# — which is what the code used to do — puts both on one device, and a replay
+# then contends with itself for its bandwidth. So the three write paths default
+# to the internal disk and the capture path is the only one an operator points
+# at external storage.
+#
+# Defaults are repo-relative so they work on any machine. Machine-specific
+# paths belong in local.mk (untracked, included below), not in this file:
+#
+#     # local.mk
+#     LIDAR_PCAP_DIR = /Volumes/lidar/lidar
+#
+# or per invocation: make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+# Untracked local overrides, included before the defaults so that either `=`
+# or `?=` in local.mk takes effect: the `?=` below then leaves anything it
+# already set alone. Optional, so a fresh clone needs no such file.
+-include local.mk
+
+LIDAR_DATA_DIR ?= ../sensor_data/lidar
+LIDAR_PCAP_DIR ?= $(LIDAR_DATA_DIR)
+LIDAR_VRLOG_DIR ?= $(LIDAR_DATA_DIR)/vrlog
+LIDAR_EVIDENCE_DIR ?= $(LIDAR_DATA_DIR)/evidence
+LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
+
+# Passed by every dev target that starts the LiDAR pipeline, so a local.mk
+# setting applies whichever one is used rather than only to dev-go-lidar.
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(LIDAR_PCAP_DIR) --lidar-vrlog-dir=$(LIDAR_VRLOG_DIR) --lidar-plots-dir=$(LIDAR_PLOTS_DIR)
+
+# =============================================================================
 # HELP TARGET (default)
 # =============================================================================
 
@@ -1129,17 +1165,22 @@ dev-go:
 	@$(MAKE) ensure-dev-web-build
 	@$(call run_dev_go,)
 
+# LIDAR_PCAP_DIR was hardcoded to /Volumes/lidar/lidar here, which both tied
+# the target to one machine's disk and — because recordings were derived from
+# it — put vrlog writes on the same external volume the replay was reading.
+# Set the capture path in local.mk if your captures are not under
+# LIDAR_DATA_DIR; the write paths stay on the internal disk regardless.
 dev-go-lidar:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag --lidar-pcap-dir=/Volumes/lidar/lidar/)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag $(LIDAR_DIR_FLAGS))
 
 dev-go-lidar-trace:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace $(LIDAR_DIR_FLAGS))
 
 dev-go-lidar-both:
 	@$(MAKE) ensure-dev-web-build
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
+	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag $(LIDAR_DIR_FLAGS))
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
@@ -1578,6 +1619,57 @@ test-perf:
 	rm -f lidar-bench; \
 	if [ "$$CI" != "true" ]; then rm -f *_benchmark.json; fi; \
 	exit $$EXIT_CODE
+
+# =============================================================================
+# EVIDENCE RUNS
+# =============================================================================
+# Replay the committed corpus through the production pipeline, writing
+# immutable observations. CASE selects one corpus case (default: all of them);
+# RUN names the output directories.
+#
+# The three paths are separate on purpose and the defaults keep them that way:
+# captures are read from LIDAR_PCAP_DIR, which may be an external volume, while
+# recordings and the observation database are written to the internal disk. A
+# run that read and wrote one external device would spend its time waiting on
+# it. The tool itself refuses -evidence-dir equal to -out, so the recorded
+# artefacts and the immutable evidence cannot land on top of each other.
+.PHONY: evidence-paths evidence-run
+evidence-paths:
+	@echo "captures (read):  $(LIDAR_PCAP_DIR)"
+	@echo "recordings:       $(LIDAR_EVIDENCE_DIR)/<RUN>/out"
+	@echo "observations:     $(LIDAR_EVIDENCE_DIR)/<RUN>"
+	@echo "vrlogs:           $(LIDAR_VRLOG_DIR)"
+	@echo "plots:            $(LIDAR_PLOTS_DIR)"
+	@echo ""
+	@echo "override any of these in local.mk (untracked) or on the command line"
+
+evidence-run:
+	@RUN="$${RUN:-evidence-$$(date +%Y%m%d-%H%M%S)}"; \
+	ROOT="$(LIDAR_EVIDENCE_DIR)/$$RUN"; \
+	OUT_DIR="$$ROOT/out"; \
+	OBS_DIR="$$ROOT/observations"; \
+	MANIFEST="$$ROOT/source-manifest.json"; \
+	if [ -e "$$ROOT" ]; then \
+		echo "Error: $$ROOT already exists. Evidence is write-once; choose another RUN."; \
+		exit 1; \
+	fi; \
+	echo "Evidence run $$RUN"; \
+	$(MAKE) --no-print-directory evidence-paths RUN="$$RUN"; \
+	echo ""; \
+	echo "Writing the immutable source manifest..."; \
+	mkdir -p "$$ROOT"; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-source-manifest "$$MANIFEST" -source-manifest-only \
+		$${CASE:+-case "$$CASE"} || exit $$?; \
+	echo "Replaying..."; \
+	go run -tags=pcap ./cmd/tools/lidar-state-estimation-baseline \
+		-pcap-root "$(LIDAR_PCAP_DIR)" \
+		-existing-source-manifest "$$MANIFEST" \
+		-out "$$OUT_DIR" -evidence-dir "$$OBS_DIR" \
+		-duration 0 $${CASE:+-case "$$CASE"} $(EVIDENCE_FLAGS) || exit $$?; \
+	echo ""; \
+	echo "Evidence written to $$OBS_DIR/observations.db"
 
 # Print which cell of the performance matrix this machine is in, and the policy
 # that applies to it. Run this before reading any perf number: the same command

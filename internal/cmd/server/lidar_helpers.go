@@ -21,6 +21,28 @@ import (
 
 type logfFunc func(string, ...any)
 
+// resolveLidarDir makes a configured LiDAR directory absolute.
+//
+// The safe-directory check compares cleaned absolute paths, so a relative
+// configuration value has to be resolved before it can act as a boundary:
+// left relative it would be re-resolved against whatever working directory
+// the process happened to have, and a path that escapes the boundary would
+// then compare as if it were inside it.
+//
+// A failure to resolve is logged and the configured value returned unchanged.
+// That is deliberately not fatal: filepath.Abs only fails when the working
+// directory cannot be read, and refusing to start the whole server over a
+// plots directory would be the wrong trade. The caller still gets a usable,
+// if relative, path. `kind` names the directory in that warning.
+func resolveLidarDir(dir, kind string, logf logfFunc) string {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		logf("Warning: failed to resolve %s directory %q: %v", kind, dir, err)
+		return dir
+	}
+	return abs
+}
+
 type ringElevationsSetter interface {
 	SetRingElevations([]float64) error
 }

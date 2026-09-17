@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
@@ -81,6 +82,7 @@ func main() {
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
 		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementOBBCentreV1), "replay position model: obb_centre_v1 candidate or medoid_v0 reference")
+		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
 	)
 	flag.Parse()
 	if *sourceManifestOnly && *sourceManifestPath == "" {
@@ -111,6 +113,15 @@ func main() {
 	selected, err := readCorpus(*corpusPath)
 	if err != nil {
 		fatal(err)
+	}
+	// Case selection narrows the corpus before anything is resolved or hashed,
+	// so a single-case run writes a manifest describing exactly that case
+	// rather than one that claims the whole corpus.
+	if *caseFilter != "" {
+		selected, err = filterCorpusCases(selected, *caseFilter)
+		if err != nil {
+			fatal(err)
+		}
 	}
 	index, err := readIndex(*indexPath)
 	if err != nil {
@@ -362,6 +373,49 @@ func readCorpus(name string) (corpus, error) {
 	if len(value.Cases) == 0 {
 		return corpus{}, fmt.Errorf("corpus has no cases")
 	}
+	return value, nil
+}
+
+// filterCorpusCases keeps only the named cases, preserving the corpus order.
+//
+// Order is preserved rather than following the argument, because the corpus
+// file is what declares replay order and a caller reordering cases on the
+// command line would change what the run means. An unknown ID is an error
+// rather than an empty selection: silently replaying nothing, and writing a
+// manifest to prove it, is the worst available outcome.
+func filterCorpusCases(value corpus, list string) (corpus, error) {
+	wanted := map[string]bool{}
+	for _, raw := range strings.Split(list, ",") {
+		if id := strings.TrimSpace(raw); id != "" {
+			wanted[id] = true
+		}
+	}
+	if len(wanted) == 0 {
+		return corpus{}, fmt.Errorf("-case was given but names no case")
+	}
+
+	kept := make([]corpusCase, 0, len(wanted))
+	for _, c := range value.Cases {
+		if wanted[c.ID] {
+			kept = append(kept, c)
+			delete(wanted, c.ID)
+		}
+	}
+	if len(wanted) > 0 {
+		missing := make([]string, 0, len(wanted))
+		for id := range wanted {
+			missing = append(missing, id)
+		}
+		sort.Strings(missing)
+		available := make([]string, 0, len(value.Cases))
+		for _, c := range value.Cases {
+			available = append(available, c.ID)
+		}
+		return corpus{}, fmt.Errorf("corpus has no case(s) %s; available: %s",
+			strings.Join(missing, ", "), strings.Join(available, ", "))
+	}
+
+	value.Cases = kept
 	return value, nil
 }
 
