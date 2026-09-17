@@ -17,7 +17,7 @@ All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually label
 
 | #   | Name      | Site Description                          | Validates                                           | Duration | Status     |
 | --- | --------- | ----------------------------------------- | --------------------------------------------------- | -------- | ---------- |
-| 1   | kirk0     | Flat urban road                           | Baseline defaults, straight-line vehicles           | ~5 min   | ✓ Captured |
+| 1   | kirk0     | Flat urban road                           | Baseline defaults, straight-line vehicles           | 83 s     | ✓ Captured |
 | 2   | slope1    | Sloped residential street (≥ 3° gradient) | Ground-plane tiling, height-band limits             | ~5 min   | Planned    |
 | 3   | school1   | School zone or park entrance              | Pedestrian/cyclist classification, low-speed tracks | ~10 min  | Planned    |
 | 4   | junction1 | Multi-lane road or junction               | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned    |
