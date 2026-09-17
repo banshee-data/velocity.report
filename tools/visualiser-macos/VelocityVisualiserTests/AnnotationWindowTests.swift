@@ -107,6 +107,70 @@ struct AnnotationFramingTests {
         #expect(controller.lastError == nil)
     }
 
+    /// The happy path, against bytes Go's writer actually produced.
+    ///
+    /// PackFixture is pinned on both sides — TestSwiftFixturePackBytesAreStable
+    /// fails on the Go side if the writer changes — so this exercises the
+    /// route an operator takes: choose a directory, get a working session.
+    @Test func openingARealPackProducesAUsableSession() throws {
+        let dir = try PackFixture.write()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let controller = AnnotationController()
+        controller.openPack(at: dir)
+
+        // The error, when there is one, is the useful part of a failure here.
+        #expect(controller.lastError == nil, "open failed: \(controller.lastError ?? "")")
+        let session = try #require(controller.session)
+        #expect(controller.packName == dir.lastPathComponent)
+        #expect(session.samples.count == 2)
+        // The session must land on a sample with its points decoded, or the
+        // window opens on an empty view and the operator has nothing to lasso.
+        #expect(session.currentSample != nil)
+        #expect(session.currentPoints.count > 0)
+
+        // And that sample must be framable: the window's viewport comes from
+        // this, so a nil extent here is a blank editing surface.
+        let extent = try #require(
+            annotationExtent(of: session.currentPoints, basis: OrthoViewBasis(.top)))
+        #expect(annotationFramingHalfHeight(extent: extent, size: CGSize(width: 800, height: 600)) > 0)
+    }
+
+    @Test func openingASecondPackReplacesTheFirst() throws {
+        // "Open Another Pack…" must not leave the previous pack's indices in
+        // play against the new pack's points.
+        let first = try PackFixture.write()
+        let second = try PackFixture.write()
+        defer {
+            try? FileManager.default.removeItem(at: first)
+            try? FileManager.default.removeItem(at: second)
+        }
+
+        let controller = AnnotationController()
+        controller.openPack(at: first)
+        let firstSession = try #require(controller.session)
+        controller.openPack(at: second)
+        let secondSession = try #require(controller.session)
+
+        #expect(firstSession !== secondSession)
+        #expect(controller.packName == second.lastPathComponent)
+    }
+
+    @Test func aFailedOpenDiscardsTheSessionItHad() throws {
+        // Otherwise the window keeps showing the old pack's points while the
+        // title and the error describe a different one.
+        let dir = try PackFixture.write()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let controller = AnnotationController()
+        controller.openPack(at: dir)
+        #expect(controller.session != nil)
+
+        controller.openPack(at: URL(fileURLWithPath: "/nonexistent/pack-dir"))
+        #expect(controller.session == nil)
+        #expect(controller.lastError != nil)
+    }
+
     @Test func openingAMissingPackReportsRatherThanCrashes() {
         let controller = AnnotationController()
         controller.openPack(at: URL(fileURLWithPath: "/nonexistent/pack-dir"))
