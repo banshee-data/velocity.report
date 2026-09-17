@@ -161,7 +161,7 @@ help:
 	@echo "  perf-baseline-all    Capture baselines for every gated profile"
 	@echo ""
 	@echo "EVIDENCE:"
-	@echo "  evidence-run         Replay the corpus, writing immutable observations (RUN=, CASE=)"
+	@echo "  evidence-run         Replay the corpus, writing immutable observations (RUN=, CASE=, EVIDENCE_DURATION=)"
 	@echo "  evidence-paths       Show the capture, recording, evidence, vrlog and plot paths"
 	@echo "  run-settling-eval    Measure a capture's convergence frame (PCAP=)"
 	@echo ""
@@ -1651,9 +1651,20 @@ evidence-paths:
 	echo "recordings:       $(LIDAR_EVIDENCE_DIR)/$$R/out"; \
 	echo "observations:     $(LIDAR_EVIDENCE_DIR)/$$R/observations"; \
 	echo "vrlogs:           $(LIDAR_VRLOG_DIR)"; \
-	echo "plots:            $(LIDAR_PLOTS_DIR)"
+	echo "plots:            $(LIDAR_PLOTS_DIR)"; \
+	echo "annotation packs: $(LIDAR_ANNOTATION_DIR)"
 	@echo ""
 	@echo "override any of these in local.mk (untracked) or on the command line"
+
+# DURATION caps the scored window in seconds (0 = the whole case, the
+# default). A capped run still pays the -warmup cost, so it does not scale
+# down proportionally, but skips scoring and recording everything after the
+# cutoff — the difference between a 6-minute, 2 GB Columbus pass and a
+# roughly one-minute one. It scores a different, smaller population than a
+# full run, so the two are not byte-comparable; use a capped run to check
+# that a code change reproduces (first vs. repeat, same DURATION) quickly,
+# and an uncapped one when the comparison must match a prior full baseline.
+EVIDENCE_DURATION ?= 0
 
 evidence-run:
 	@RUN="$${RUN:-evidence-$$(date +%Y%m%d-%H%M%S)}"; \
@@ -1665,7 +1676,7 @@ evidence-run:
 		echo "Error: $$ROOT already exists. Evidence is write-once; choose another RUN."; \
 		exit 1; \
 	fi; \
-	echo "Evidence run $$RUN"; \
+	echo "Evidence run $$RUN (duration=$(EVIDENCE_DURATION)s, 0 = whole case)"; \
 	$(MAKE) --no-print-directory evidence-paths RUN="$$RUN"; \
 	echo ""; \
 	echo "Writing the immutable source manifest..."; \
@@ -1679,7 +1690,7 @@ evidence-run:
 		-pcap-root "$(LIDAR_PCAP_DIR)" \
 		-existing-source-manifest "$$MANIFEST" \
 		-out "$$OUT_DIR" -evidence-dir "$$OBS_DIR" \
-		-duration 0 $${CASE:+-case "$$CASE"} $(EVIDENCE_FLAGS) || exit $$?; \
+		-duration "$(EVIDENCE_DURATION)" $${CASE:+-case "$$CASE"} $(EVIDENCE_FLAGS) || exit $$?; \
 	echo ""; \
 	echo "Evidence written to $$OBS_DIR/observations.db"
 
