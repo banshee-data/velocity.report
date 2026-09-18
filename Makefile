@@ -37,9 +37,10 @@ LIDAR_EVIDENCE_DIR ?= $(LIDAR_DATA_DIR)/evidence
 LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
 LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
 
-# Passed by every dev target that starts the LiDAR pipeline, so a local.mk
-# setting applies whichever one is used rather than only to dev-go-lidar.
-LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(LIDAR_PCAP_DIR) --lidar-vrlog-dir=$(LIDAR_VRLOG_DIR) --lidar-plots-dir=$(LIDAR_PLOTS_DIR) --lidar-annotation-dir=$(LIDAR_ANNOTATION_DIR)
+# Passed by every dev target that starts the LiDAR pipeline. The Makefile owns
+# the defaults and passes them as explicit CLI flags so the binary gets the
+# same resolved paths regardless of its working directory.
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR))
 
 # =============================================================================
 # HELP TARGET (default)
@@ -1646,12 +1647,12 @@ test-perf:
 .PHONY: evidence-paths evidence-run
 evidence-paths:
 	@R="$${RUN:-<RUN>}"; \
-	echo "captures (read):  $(LIDAR_PCAP_DIR)"; \
-	echo "recordings:       $(LIDAR_EVIDENCE_DIR)/$$R/out"; \
-	echo "observations:     $(LIDAR_EVIDENCE_DIR)/$$R/observations"; \
-	echo "vrlogs:           $(LIDAR_VRLOG_DIR)"; \
-	echo "plots:            $(LIDAR_PLOTS_DIR)"; \
-	echo "annotation packs: $(LIDAR_ANNOTATION_DIR)"
+	echo "captures (read):  $(abspath $(LIDAR_PCAP_DIR))"; \
+	echo "recordings:       $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/out"; \
+	echo "observations:     $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/observations"; \
+	echo "vrlogs:           $(abspath $(LIDAR_VRLOG_DIR))"; \
+	echo "plots:            $(abspath $(LIDAR_PLOTS_DIR))"; \
+	echo "annotation packs: $(abspath $(LIDAR_ANNOTATION_DIR))"
 	@echo ""
 	@echo "override any of these in local.mk (untracked) or on the command line"
 
