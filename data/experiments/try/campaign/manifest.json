@@ -72,11 +72,21 @@
     {
       "id": "analyze_l3_batch1",
       "type": "analyze_l3_sensitivity",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "wait_l3_batch1"
       ],
-      "params": {}
+      "params": {},
+      "result": {
+        "summary": [
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.05']",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/sensitivity-analysis.json"
+      },
+      "finished_at": "2026-09-18T00:58:34-0700"
     },
     {
       "id": "l3_narrowed_sweep",
