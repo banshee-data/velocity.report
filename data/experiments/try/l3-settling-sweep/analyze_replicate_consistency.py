@@ -67,7 +67,7 @@ def main():
             not v["agrees_across_ordinals"] for v in comparison.values()
         ),
     }
-    Path(args.out).write_text(json.dumps(result, indent=2))
+    Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
 
     for key, info in comparison.items():
         status = "AGREE" if info["agrees_across_ordinals"] else "DISAGREE"

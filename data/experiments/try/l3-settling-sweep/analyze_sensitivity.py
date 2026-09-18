@@ -206,7 +206,7 @@ def main():
 
     rows = read_rows(args.results, ordinal=args.ordinal)
     result = analyze(rows)
-    Path(args.out).write_text(json.dumps(result, indent=2))
+    Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
 
     for key, info in result["keys"].items():
         print(f"{key}: {info['verdict']} -- {info['rationale']}")
