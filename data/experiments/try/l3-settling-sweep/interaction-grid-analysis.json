@@ -1,0 +1,209 @@
+{
+  "keys": [
+    "neighbour_confirmation_count",
+    "noise_relative"
+  ],
+  "baseline_combo": "neighbour_confirmation_count=3|noise_relative=0.02",
+  "joint_combo": "neighbour_confirmation_count=1|noise_relative=0.05",
+  "single_combos": {
+    "neighbour_confirmation_count": "neighbour_confirmation_count=1|noise_relative=0.02",
+    "noise_relative": "neighbour_confirmation_count=3|noise_relative=0.05"
+  },
+  "abs_frame_delta_threshold": 10,
+  "rel_frame_delta_threshold": 0.5,
+  "min_site_fraction_threshold": 0.2,
+  "n_sites_scored": 14,
+  "n_sites_total": 24,
+  "verdict_counts": {
+    "lost_convergence": 10,
+    "additive": 4,
+    "compounding": 10
+  },
+  "overall_verdict": "compounding",
+  "sites": {
+    "1st-mission": {
+      "verdict": "lost_convergence"
+    },
+    "3rd-folsom": {
+      "verdict": "additive",
+      "baseline_frame": 12,
+      "single_delta": {
+        "neighbour_confirmation_count": 1189,
+        "noise_relative": 12
+      },
+      "predicted_additive_delta": 1201,
+      "actual_joint_delta": 1189,
+      "gap": -12
+    },
+    "ashbury-downey": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 16,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 16,
+      "actual_joint_delta": 26,
+      "gap": 10
+    },
+    "broadway-gough": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 30,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 30,
+      "actual_joint_delta": 94,
+      "gap": 64
+    },
+    "bush-powell": {
+      "verdict": "compounding",
+      "baseline_frame": 12,
+      "single_delta": {
+        "neighbour_confirmation_count": 26,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 26,
+      "actual_joint_delta": 447,
+      "gap": 421
+    },
+    "california-leon-baker": {
+      "verdict": "additive",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 8,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 8,
+      "actual_joint_delta": 15,
+      "gap": 7
+    },
+    "columbus-broadway": {
+      "verdict": "lost_convergence"
+    },
+    "columbus-north-point": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 319,
+        "noise_relative": 33
+      },
+      "predicted_additive_delta": 352,
+      "actual_joint_delta": 1190,
+      "gap": 838
+    },
+    "embarcadero-bay": {
+      "verdict": "lost_convergence"
+    },
+    "embarcadero-broadway": {
+      "verdict": "lost_convergence"
+    },
+    "embarcadero-bryant": {
+      "verdict": "lost_convergence"
+    },
+    "embarcadero-folsom": {
+      "verdict": "additive",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 1190,
+        "noise_relative": 3
+      },
+      "predicted_additive_delta": 1193,
+      "actual_joint_delta": 1190,
+      "gap": -3
+    },
+    "franklin-mcallister": {
+      "verdict": "lost_convergence"
+    },
+    "fulton-divisadero": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 43,
+        "noise_relative": 7
+      },
+      "predicted_additive_delta": 50,
+      "actual_joint_delta": 410,
+      "gap": 360
+    },
+    "haight-divisadero": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 8,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 8,
+      "actual_joint_delta": 24,
+      "gap": 16
+    },
+    "howard-6th": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 143,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 143,
+      "actual_joint_delta": 458,
+      "gap": 315
+    },
+    "hyde-ofarrell": {
+      "verdict": "lost_convergence"
+    },
+    "laguna-eddy": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 64,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 64,
+      "actual_joint_delta": 390,
+      "gap": 326
+    },
+    "lombard-broderick": {
+      "verdict": "compounding",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 122,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 122,
+      "actual_joint_delta": 282,
+      "gap": 160
+    },
+    "lombard-laguna": {
+      "verdict": "lost_convergence"
+    },
+    "marina-broderick": {
+      "verdict": "lost_convergence"
+    },
+    "marina-webster-beach": {
+      "verdict": "compounding",
+      "baseline_frame": 565,
+      "single_delta": {
+        "neighbour_confirmation_count": 271,
+        "noise_relative": -379
+      },
+      "predicted_additive_delta": -108,
+      "actual_joint_delta": 271,
+      "gap": 379
+    },
+    "pierce-haight": {
+      "verdict": "additive",
+      "baseline_frame": 11,
+      "single_delta": {
+        "neighbour_confirmation_count": 400,
+        "noise_relative": 0
+      },
+      "predicted_additive_delta": 400,
+      "actual_joint_delta": 503,
+      "gap": 103
+    },
+    "van-ness-sacramento": {
+      "verdict": "lost_convergence"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "updated_at": "2026-09-18T02:21:49-0700",
+  "total_rows": 823,
+  "errors": 0,
+  "by_param_key": {
+    "_baseline": {
+      "n_runs": 47,
+      "n_not_converged": 0,
+      "mean_settling_frame": 58.4,
+      "min_settling_frame": 11,
+      "max_settling_frame": 615
+    },
+    "closeness_multiplier": {
+      "n_runs": 188,
+      "n_not_converged": 0,
+      "mean_settling_frame": 55.6,
+      "min_settling_frame": 11,
+      "max_settling_frame": 706
+    },
+    "safety_margin_metres": {
+      "n_runs": 188,
+      "n_not_converged": 0,
+      "mean_settling_frame": 57.7,
+      "min_settling_frame": 11,
+      "max_settling_frame": 707
+    },
+    "noise_relative": {
+      "n_runs": 212,
+      "n_not_converged": 0,
+      "mean_settling_frame": 67.2,
+      "min_settling_frame": 11,
+      "max_settling_frame": 1142
+    },
+    "neighbour_confirmation_count": {
+      "n_runs": 188,
+      "n_not_converged": 10,
+      "mean_settling_frame": 101.6,
+      "min_settling_frame": 11,
+      "max_settling_frame": 1201
+    }
+  }
+}
