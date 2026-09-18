@@ -1,10 +1,10 @@
 {
-  "updated_at": "2026-09-18T00:54:47-0700",
+  "updated_at": "2026-09-18T00:58:34-0700",
   "elapsed_hours": 0.0,
   "budget_hours": 12,
   "stage_status_counts": {
-    "done": 4,
-    "pending": 7
+    "done": 5,
+    "pending": 6
   },
   "stages": [
     {
@@ -37,8 +37,15 @@
     },
     {
       "id": "analyze_l3_batch1",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.05']",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites"
+        ]
+      }
     },
     {
       "id": "l3_narrowed_sweep",
