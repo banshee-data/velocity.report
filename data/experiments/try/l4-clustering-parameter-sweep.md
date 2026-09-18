@@ -1,6 +1,15 @@
 # Experiment: L4 clustering parameter sweep
 
-- **Status:** Proposed
+- **Status:** Blocked, not scheduled in the
+  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md).
+  Unlike L3 ([settling-eval](l3-background-settling-sweep.md)), no offline,
+  ground-truth-free evaluator exists for L4 today, and `GroundTruthEvaluator`
+  needs labelled reference tracks that don't exist for the 24-site corpus
+  (only kirk0 has any, from prior work). `pcap-analyse`, named throughout
+  this doc, has also been removed from the codebase. See the campaign plan
+  for the options considered to unblock this (reuse `lidar-e1-analysis`'s
+  cross-measurement disagreement as a weaker proxy; build a small offline L4
+  metric; or wait for an operator-present HINT round) — none attempted yet.
 - **Layers:** L4 Perception
 
 ## Hypothesis
