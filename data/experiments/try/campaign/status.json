@@ -1,0 +1,74 @@
+{
+  "updated_at": "2026-09-18T00:54:47-0700",
+  "elapsed_hours": 0.0,
+  "budget_hours": 12,
+  "stage_status_counts": {
+    "done": 4,
+    "pending": 7
+  },
+  "stages": [
+    {
+      "id": "wait_l3_batch1",
+      "status": "done",
+      "result_summary": {
+        "note": "process not running; results.csv has 408 ordinal-0 (broad sweep) rows"
+      }
+    },
+    {
+      "id": "build_settling_eval",
+      "status": "done",
+      "result_summary": {
+        "binary": "/Users/david/code/velocity.report/data/experiments/try/campaign/bin/settling-eval"
+      }
+    },
+    {
+      "id": "build_gt_eval_cli",
+      "status": "done",
+      "result_summary": {
+        "binary": "/Users/david/code/velocity.report/data/experiments/try/campaign/bin/lidar-ground-truth-eval"
+      }
+    },
+    {
+      "id": "build_velocity_isolated",
+      "status": "done",
+      "result_summary": {
+        "binary": "/Users/david/code/velocity.report/data/experiments/try/campaign/bin/velocity-isolated"
+      }
+    },
+    {
+      "id": "analyze_l3_batch1",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_narrowed_sweep",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_replicate_sweep",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_replicate_consistency",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l5_gt_sweep",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_interaction_grid",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "finalize",
+      "status": "pending",
+      "result_summary": null
+    }
+  ]
+}

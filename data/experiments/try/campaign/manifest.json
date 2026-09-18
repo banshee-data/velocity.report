@@ -7,68 +7,118 @@
     {
       "id": "wait_l3_batch1",
       "type": "wait_process",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "match": "run_sweep.py",
-        "exclude": ["--capture-ordinal", "--sweep-json"],
+        "exclude": [
+          "--capture-ordinal",
+          "--sweep-json"
+        ],
         "expected_rows": 408
-      }
+      },
+      "result": {
+        "detected_at": "2026-09-18T00:54:33-0700",
+        "note": "process not running; results.csv has 408 ordinal-0 (broad sweep) rows",
+        "row_count": 408
+      },
+      "finished_at": "2026-09-18T00:54:33-0700"
     },
     {
       "id": "build_settling_eval",
       "type": "build_go_tool",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "params": { "pkg": "./cmd/tools/settling-eval/", "bin_name": "settling-eval", "run_tests": false }
+      "params": {
+        "pkg": "./cmd/tools/settling-eval/",
+        "bin_name": "settling-eval",
+        "run_tests": false
+      },
+      "result": {
+        "binary": "/Users/david/code/velocity.report/data/experiments/try/campaign/bin/settling-eval"
+      },
+      "finished_at": "2026-09-18T00:54:39-0700"
     },
     {
       "id": "build_gt_eval_cli",
       "type": "build_go_tool",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "params": { "pkg": "./cmd/tools/lidar-ground-truth-eval/", "bin_name": "lidar-ground-truth-eval", "run_tests": true }
+      "params": {
+        "pkg": "./cmd/tools/lidar-ground-truth-eval/",
+        "bin_name": "lidar-ground-truth-eval",
+        "run_tests": true
+      },
+      "result": {
+        "binary": "/Users/david/code/velocity.report/data/experiments/try/campaign/bin/lidar-ground-truth-eval"
+      },
+      "finished_at": "2026-09-18T00:54:40-0700"
     },
     {
       "id": "build_velocity_isolated",
       "type": "build_go_tool",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "params": { "pkg": "./cmd/velocity", "bin_name": "velocity-isolated", "run_tests": false }
+      "params": {
+        "pkg": "./cmd/velocity",
+        "bin_name": "velocity-isolated",
+        "run_tests": false
+      },
+      "result": {
+        "binary": "/Users/david/code/velocity.report/data/experiments/try/campaign/bin/velocity-isolated"
+      },
+      "finished_at": "2026-09-18T00:54:47-0700"
     },
     {
       "id": "analyze_l3_batch1",
       "type": "analyze_l3_sensitivity",
       "status": "pending",
-      "depends_on": ["wait_l3_batch1"],
+      "depends_on": [
+        "wait_l3_batch1"
+      ],
       "params": {}
     },
     {
       "id": "l3_narrowed_sweep",
       "type": "l3_narrowed_sweep",
       "status": "pending",
-      "depends_on": ["analyze_l3_batch1", "build_settling_eval"],
-      "params": { "duration_seconds": 120 }
+      "depends_on": [
+        "analyze_l3_batch1",
+        "build_settling_eval"
+      ],
+      "params": {
+        "duration_seconds": 120
+      }
     },
     {
       "id": "l3_replicate_sweep",
       "type": "l3_replicate_sweep",
       "status": "pending",
-      "depends_on": ["wait_l3_batch1", "build_settling_eval"],
-      "params": { "duration_seconds": 120 }
+      "depends_on": [
+        "wait_l3_batch1",
+        "build_settling_eval"
+      ],
+      "params": {
+        "duration_seconds": 120
+      }
     },
     {
       "id": "analyze_replicate_consistency",
       "type": "analyze_replicate_consistency",
       "status": "pending",
-      "depends_on": ["l3_replicate_sweep"],
+      "depends_on": [
+        "l3_replicate_sweep"
+      ],
       "params": {}
     },
     {
       "id": "l5_gt_sweep",
       "type": "l5_gt_sweep",
       "status": "pending",
-      "depends_on": ["build_gt_eval_cli", "build_velocity_isolated"],
+      "depends_on": [
+        "build_gt_eval_cli",
+        "build_velocity_isolated"
+      ],
       "params": {
         "_comment": "Reference run identified 2026-09-18 by inspecting sensor_data.db directly: richest labelled AnalysisRunStore run available (64 positively-labelled tracks of 141 total), captured from kirk1.pcapng (found only on /Volumes/lidar/lidar -- no longer present under the live server's local pcap dir). Edit this if a better-labelled reference run is created later.",
         "reference_db": "sensor_data.db",
@@ -84,8 +134,14 @@
       "id": "l3_interaction_grid",
       "type": "l3_interaction_grid",
       "status": "pending",
-      "depends_on": ["analyze_l3_batch1", "l3_narrowed_sweep", "analyze_replicate_consistency"],
-      "params": { "duration_seconds": 120 }
+      "depends_on": [
+        "analyze_l3_batch1",
+        "l3_narrowed_sweep",
+        "analyze_replicate_consistency"
+      ],
+      "params": {
+        "duration_seconds": 120
+      }
     },
     {
       "id": "finalize",

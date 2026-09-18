@@ -69,7 +69,7 @@ def load_manifest(path):
 
 
 def save_manifest(path, manifest):
-    path.write_text(json.dumps(manifest, indent=2))
+    path.write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 def find_pids(match_substr, exclude_substrs=()):
@@ -399,7 +399,7 @@ def write_status(manifest, status_path, started_at, budget_hours):
             for s in manifest["stages"]
         ],
     }
-    status_path.write_text(json.dumps(status, indent=2))
+    status_path.write_text(json.dumps(status, indent=2) + "\n")
 
 
 def _summarize(result):

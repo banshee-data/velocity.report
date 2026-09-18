@@ -122,7 +122,7 @@ def main():
                 f"{key}: sensitive but narrowing produced no new untested points, skipped"
             )
 
-    Path(args.out).write_text(json.dumps(narrowed, indent=2))
+    Path(args.out).write_text(json.dumps(narrowed, indent=2) + "\n")
     for line in report_lines:
         print(line)
     print(

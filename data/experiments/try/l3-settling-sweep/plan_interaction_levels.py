@@ -61,7 +61,7 @@ def main():
         default = DEFAULTS[key]
         levels[key] = sorted({default, float(worst_value)})
 
-    Path(args.out).write_text(json.dumps(levels, indent=2))
+    Path(args.out).write_text(json.dumps(levels, indent=2) + "\n")
 
     if len(levels) < 2:
         print(
