@@ -1,9 +1,10 @@
 {
-  "updated_at": "2026-09-18T11:19:06-0700",
-  "elapsed_hours": 1.53,
-  "budget_hours": 12,
+  "updated_at": "2026-09-18T14:40:09-0700",
+  "elapsed_hours": 0.0,
+  "budget_hours": 7,
   "stage_status_counts": {
-    "done": 18
+    "done": 19,
+    "pending": 15
   },
   "stages": [
     {
@@ -147,6 +148,93 @@
       "result_summary": {
         "finalized_at": "2026-09-18T11:19:06-0700"
       }
+    },
+    {
+      "id": "analyze_l3_sensitivity_v2",
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.065', '0.05']",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites"
+        ]
+      }
+    },
+    {
+      "id": "l3_interaction_grid_v3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_interaction_grid_v3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_repeat_check",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_repeat_check",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "gt_oat_sweep_kirk0_dd98",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "gt_oat_sweep_kirk1_60a4",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_gt_oat",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_extended_sweep_a",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_extended_sweep_b",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_sensitivity_v3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_interaction_grid_top2",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_interaction_grid_top2",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_extended_replicate",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_extended_replicate",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "finalize_v3",
+      "status": "pending",
+      "result_summary": null
     }
   ]
 }

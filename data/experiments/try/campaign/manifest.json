@@ -374,14 +374,24 @@
     {
       "id": "analyze_l3_sensitivity_v2",
       "type": "analyze_l3_sensitivity",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "finalize_v2"
       ],
       "params": {
         "_comment": "Re-runs the deterministic sensitivity rule over ALL ordinal-0 rows. Pass 1's analysis ran before the narrowed noise_relative=0.065 rows existed and nothing ever consumed them: 0.065 flags 13/24 sites (54%) vs 25% at 0.05, so the worst value for noise_relative moves. Also adds the 'inert' and 'n_improved' fields. Written to a new file; the original sensitivity-analysis.json is the record of what pass 1 saw. ~seconds.",
         "out_name": "sensitivity-analysis-v2.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.065', '0.05']",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/sensitivity-analysis-v2.json"
+      },
+      "finished_at": "2026-09-18T14:40:09-0700"
     },
     {
       "id": "l3_interaction_grid_v3",
