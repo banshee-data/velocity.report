@@ -3,7 +3,12 @@
 - **Status:** Proposed for the ground-truth acceptance criteria below. A preliminary,
   non-substituting pass ran 2026-09-17 using `tune sweep`'s own alignment metric — see
   "Preliminary pass" below. It does not satisfy this experiment's acceptance criteria and must not
-  be read as though it did.
+  be read as though it did. Scheduled as **Batch 3** of the
+  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#batch-3--l5-noise-sweep-ground-truth-scored-kirk0-needs-a-small-extension):
+  a real `GroundTruthEvaluator`-scored rerun on kirk0 (the only site with any
+  labelled reference tracks), pending a small standalone CLI wrapper around
+  `adapters.EvaluateGroundTruth` — that function is fully implemented and
+  tested, just not reachable outside the live HINT HTTP flow today.
 - **Layers:** L5 Tracks
 
 ## Hypothesis

@@ -1,12 +1,17 @@
 # Experiment: L3 background settling parameter sweep
 
-- **Status:** Proposed
+- **Status:** Batch 1 of the
+  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md)
+  — prepared, broad sweep ready to run across all 24 S2 corpus sites. See
+  that doc for why `pcap-analyse` (named below) no longer exists and has
+  been replaced with `settling-eval`, and why the metrics below differ from
+  the original GroundTruthEvaluator-gated version of this doc.
 - **Layers:** L3 Grid
 
 ## Hypothesis
 
 The four provisional L3 background settling parameters: `closeness_multiplier`,
-`safety_margin_meters`, `noise_relative`, and `neighbor_confirmation_count` —
+`safety_margin_metres`, `noise_relative`, and `neighbour_confirmation_count` —
 were tuned on kirk0 only. Sweeping each across ≥ 3 sites will either confirm
 the current defaults are robust or reveal site-specific sensitivity that
 requires per-scene adaptation or different default values.
@@ -25,36 +30,59 @@ mathematical rationale behind each key.
 
 ### Test data
 
-Run on all available labelled PCAPs (initially kirk0; expand to the five-site
-corpus as captures become available per the
-[test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md)).
-Each PCAP must have a labelled reference analysis run (tracks annotated
-with `user_label` per class via the
-[track-labelling UI](../../../docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md)).
+The [24-site S2 corpus](../../../docs/lidar/operations/state-estimation-phase01-corpus-baseline.md)
+(312,315 frames, deterministic replay verified, zero labelled tracks). No
+labelled reference run is required for the protocol below — see "Metrics".
 
 ### Protocol
 
-For each key listed below, run `pcap-analyse` on each corpus PCAP with ≥ 5
-sweep values, holding all other keys at production defaults
-([config/tuning.defaults.json](../../../config/tuning.defaults.json)).
+`pcap-analyse` no longer exists in this codebase (removed; only a stale
+gitignored binary remains). The current offline, ground-truth-free equivalent
+for these keys is `settling-eval`
+([internal/cmd/lidar/settling.go](../../../internal/cmd/lidar/settling.go)),
+which replays one PCAP through a standalone `BackgroundManager` and reports
+convergence computed from the grid's own measured state — no live server, no
+labelled tracks. For each key listed below, run `settling-eval` on each
+corpus site with ≥ 5 sweep values, holding all other keys at production
+defaults ([config/tuning.defaults.json](../../../config/tuning.defaults.json)).
+The driver at
+[data/experiments/try/l3-settling-sweep/run_sweep.py](l3-settling-sweep/run_sweep.py)
+does this across all 24 sites; see
+[the campaign plan, Batch 1](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md#batch-1--l3-background-settling-broad-sweep-ready-now)
+for the exact command and current results.
 
 #### Keys under test
 
-| Config key                    | Default | Sweep range   | Risk if wrong                                 |
-| ----------------------------- | ------- | ------------- | --------------------------------------------- |
-| `closeness_multiplier`        | 3.0     | [1.5, 5.0]    | False foreground/background at range extremes |
-| `safety_margin_meters`        | 0.15    | [0.05, 0.30]  | Ground leakage into foreground                |
-| `noise_relative`              | 0.02    | [0.005, 0.05] | Incorrect range-dependent thresholds          |
-| `neighbor_confirmation_count` | 3       | [1, 5]        | Missed foreground at scene edges              |
+| Config key                     | Default | Sweep range   | Risk if wrong                                 |
+| ------------------------------ | ------- | ------------- | --------------------------------------------- |
+| `closeness_multiplier`         | 3.0     | [1.5, 5.0]    | False foreground/background at range extremes |
+| `safety_margin_metres`         | 0.15    | [0.05, 0.30]  | Ground leakage into foreground                |
+| `noise_relative`               | 0.02    | [0.005, 0.05] | Incorrect range-dependent thresholds          |
+| `neighbour_confirmation_count` | 3       | [1, 5]        | Missed foreground at scene edges              |
 
 ### Metrics
 
-**Gated metrics (available via GroundTruthEvaluator):**
+**Available today, non-circular (via `settling-eval`, computed from the
+background grid's own measured per-cell state — not a downstream track
+comparison):**
 
-| Metric                | Definition                                  | Threshold                 |
-| --------------------- | ------------------------------------------- | ------------------------- |
-| Confirmed track count | Number of confirmed tracks downstream       | No regression vs baseline |
-| Objective function    | Composite score from `GroundTruthEvaluator` | Within 10% of optimal     |
+| Metric                     | Definition                                                                                    | Threshold (from `tuning.defaults.json`)         |
+| -------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Recommended settling frame | Frame index at which coverage/spread/stability/confidence all cross their settling thresholds | Should not regress vs current per-site baseline |
+| Coverage rate              | Fraction of grid cells classified background                                                  | ≥ `settling_min_coverage` (0.8)                 |
+| Spread-delta rate          | Rate of change of per-cell measured spread                                                    | ≤ `settling_max_spread_delta` (0.001)           |
+| Region stability           | Fraction of regions with stable classification                                                | ≥ `settling_min_region_stability` (0.95)        |
+| Mean confidence            | Mean per-cell confidence (Welford sample count-derived)                                       | ≥ `settling_min_confidence` (10)                |
+
+**Gated on labelled reference tracks that don't exist for this corpus (see
+[campaign plan](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md)):
+confirmed track count, `GroundTruthEvaluator` composite score. Deferred, not
+part of Batch 1.**
+
+**Not implemented in the evaluator at all (do not cite as available):**
+`Fragmentation` is hardcoded to `0.0` in
+[ground_truth.go](../../../internal/lidar/adapters/ground_truth.go) — "future
+enhancement," not a real signal today.
 
 **Future / manual diagnostics (point-level, not yet in evaluator):**
 
@@ -86,19 +114,22 @@ a site-adaptive approach rather than a single default.
 
 ## Resources required
 
-- `pcap-analyse` for PCAP replay with parameter overrides
+- `settling-eval` for offline PCAP replay with parameter overrides
 - `GroundTruthEvaluator` for scored quality comparison against labelled
-  reference runs
-- Access to Raspberry Pi 4 for throughput measurements (`pcap-analyse -benchmark`)
+  reference runs, once available for this corpus (see Metrics above)
+- Access to Raspberry Pi 4 for throughput measurements (`lidar-bench`, the
+  current replacement for `pcap-analyse -benchmark`)
 
 ## Timeline
 
-Depends on test corpus availability (≥ 3 labelled PCAPs). Can begin with
-kirk0-only as a dry run to validate the methodology.
+Batch 1 of the
+[2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md)
+runs against the 24-site corpus, which already exists — no longer blocked on
+corpus availability.
 
 ## References
 
 - [config/CONFIG.md §1: background settling](../../../config/CONFIG.md#config-to-maths-cross-reference)
 - [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
 - [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure
-- [Test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md): five-site PCAP corpus
+- [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md): execution plan and current results
