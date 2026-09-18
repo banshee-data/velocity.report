@@ -1,10 +1,9 @@
 {
-  "updated_at": "2026-09-18T00:58:34-0700",
-  "elapsed_hours": 0.0,
+  "updated_at": "2026-09-18T02:30:23-0700",
+  "elapsed_hours": 1.53,
   "budget_hours": 12,
   "stage_status_counts": {
-    "done": 5,
-    "pending": 6
+    "done": 11
   },
   "stages": [
     {
@@ -49,33 +48,50 @@
     },
     {
       "id": "l3_narrowed_sweep",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "l3_replicate_sweep",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_replicate_consistency",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "closeness_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "neighbour_confirmation_count: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "noise_relative: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "safety_margin_metres: AGREE -- {'0': 'insensitive', '1': 'insensitive'}"
+        ]
+      }
     },
     {
       "id": "l5_gt_sweep",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "l3_interaction_grid",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "finalize",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "finalized_at": "2026-09-18T02:30:23-0700"
+      }
     }
   ]
 }

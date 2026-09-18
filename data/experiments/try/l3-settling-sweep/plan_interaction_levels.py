@@ -30,6 +30,14 @@ DEFAULTS = {
     "neighbour_confirmation_count": 3,
 }
 
+# Keys whose Go config field is an int (internal/lidar/l3grid's
+# L3EmaBaselineV1.neighbour_confirmation_count): a blanket float() cast below
+# would silently write e.g. 1.0 instead of 1, which settling-eval's strict
+# JSON unmarshal rejects. Found for real on 2026-09-18 when the first
+# interaction-grid run wrote neighbour_confirmation_count=1.0 and 24/24 sites
+# at that level failed with "cannot unmarshal number 1.0 ... into ... int".
+IS_INT = {"neighbour_confirmation_count"}
+
 MAX_KEYS = 3
 
 
@@ -59,7 +67,8 @@ def main():
     levels = {}
     for key, fraction, worst_value in chosen:
         default = DEFAULTS[key]
-        levels[key] = sorted({default, float(worst_value)})
+        cast = int if key in IS_INT else float
+        levels[key] = sorted({default, cast(worst_value)})
 
     Path(args.out).write_text(json.dumps(levels, indent=2) + "\n")
 

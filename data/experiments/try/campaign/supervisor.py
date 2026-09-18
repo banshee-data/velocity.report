@@ -285,30 +285,34 @@ def handle_l5_gt_sweep(stage, manifest):
     p = stage["params"]
     gt_eval_bin = BIN_DIR / "lidar-ground-truth-eval"
     velocity_bin = BIN_DIR / "velocity-isolated"
+    out_dir = (REPO_ROOT / p["out_dir"]) if p.get("out_dir") else L5_DIR
+    args = [
+        "--velocity-bin",
+        velocity_bin,
+        "--gt-eval-bin",
+        gt_eval_bin,
+        "--reference-db",
+        REPO_ROOT / p["reference_db"],
+        "--reference-run-id",
+        p["reference_run_id"],
+        "--pcap-file",
+        p["pcap_file"],
+        "--pcap-root",
+        p["pcap_root"],
+        "--udp-port",
+        p["udp_port"],
+        "--duration-seconds",
+        p["duration_seconds"],
+    ]
+    if p.get("out_dir"):
+        args += ["--out-dir", out_dir]
     code, stdout, stderr = run_py(
         L5_DIR / "run_l5_gt_sweep.py",
-        [
-            "--velocity-bin",
-            velocity_bin,
-            "--gt-eval-bin",
-            gt_eval_bin,
-            "--reference-db",
-            REPO_ROOT / p["reference_db"],
-            "--reference-run-id",
-            p["reference_run_id"],
-            "--pcap-file",
-            p["pcap_file"],
-            "--pcap-root",
-            p["pcap_root"],
-            "--udp-port",
-            p["udp_port"],
-            "--duration-seconds",
-            p["duration_seconds"],
-        ],
+        args,
         timeout=6 * 3600,
     )
     if code == 3:
-        blocked_file = L5_DIR / "blocked.json"
+        blocked_file = out_dir / "blocked.json"
         reason = (
             json.loads(blocked_file.read_text())["reason"]
             if blocked_file.exists()
@@ -317,7 +321,36 @@ def handle_l5_gt_sweep(stage, manifest):
         return "blocked", {"reason": reason}
     if code != 0:
         return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
-    return "done", {"stdout_tail": stdout.strip().splitlines()[-10:]}
+    return "done", {
+        "out_dir": str(out_dir),
+        "stdout_tail": stdout.strip().splitlines()[-10:],
+    }
+
+
+def combo_ids_all_errored(csv_path, expected_combos):
+    """True combo ids among expected_combos where every row ever written for
+    that combo has a non-empty error field -- i.e. the combo has zero usable
+    data despite the process exiting 0. Added after the 2026-09-18 incident
+    where a type bug (neighbour_confirmation_count serialized as 1.0 instead
+    of 1) made settling-eval reject the generated config for every site at
+    that level, and the stage was still recorded "done" because the grid
+    script itself never crashes on a per-row error -- it just records it and
+    moves on (see run_interaction_grid.py's per-row try/except). A single
+    site failing is tolerated (that's what per-row error fields are for);
+    every site failing for the same combo means the combo itself is broken."""
+    import csv as csv_mod
+
+    if not csv_path.exists():
+        return []
+    seen_ok = set()
+    seen_any = set()
+    with csv_path.open() as f:
+        for row in csv_mod.DictReader(f):
+            cid = row["combo"]
+            seen_any.add(cid)
+            if not row.get("error"):
+                seen_ok.add(cid)
+    return [c for c in expected_combos if c in seen_any and c not in seen_ok]
 
 
 def handle_l3_interaction_grid(stage, manifest):
@@ -357,7 +390,60 @@ def handle_l3_interaction_grid(stage, manifest):
             "stdout": stdout[-4000:],
             "stderr": stderr[-4000:],
         }
+
+    import itertools as _itertools
+
+    sys.path.insert(0, str(L3_DIR))
+    from run_interaction_grid import combo_id as _combo_id  # noqa: E402
+
+    keys = sorted(levels.keys())
+    expected_combos = [
+        _combo_id(dict(zip(keys, combo)))
+        for combo in _itertools.product(*(levels[k] for k in keys))
+    ]
+    broken = combo_ids_all_errored(L3_DIR / "interaction-results.csv", expected_combos)
+    if broken:
+        return "failed", {
+            "step": "validate",
+            "reason": f"combo(s) with zero usable rows across all sites (every attempt errored): {broken}",
+            "stdout_tail": stdout.strip().splitlines()[-5:],
+        }
     return "done", {"levels": levels, "stdout_tail": stdout.strip().splitlines()[-5:]}
+
+
+def handle_analyze_interaction_grid(stage, manifest):
+    results = L3_DIR / "interaction-results.csv"
+    levels_path = L3_DIR / "interaction-levels.json"
+    if not results.exists() or not levels_path.exists():
+        return "failed", {
+            "error": "interaction-results.csv or interaction-levels.json missing"
+        }
+    out = L3_DIR / "interaction-grid-analysis.json"
+    code, stdout, stderr = run_py(
+        L3_DIR / "analyze_interaction_grid.py",
+        ["--results", results, "--levels", levels_path, "--out", out],
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout, "stderr": stderr}
+    return "done", {"summary": stdout.strip(), "out": str(out)}
+
+
+def handle_analyze_l5_results(stage, manifest):
+    p = stage["params"]
+    by_id = {s["id"]: s for s in manifest["stages"]}
+    results_paths = []
+    for dep_id in p["source_stages"]:
+        dep = by_id[dep_id]
+        out_dir = (dep.get("result") or {}).get("out_dir", str(L5_DIR))
+        results_paths.append(Path(out_dir) / "results.csv")
+    out = L5_DIR / p.get("out_name", "ranked-results.json")
+    args = ["--out", out]
+    for rp in results_paths:
+        args += ["--results", rp]
+    code, stdout, stderr = run_py(L5_DIR / "analyze_l5_results.py", args)
+    if code != 0:
+        return "failed", {"stdout": stdout, "stderr": stderr}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
 
 
 def handle_finalize(stage, manifest):
@@ -373,6 +459,8 @@ HANDLERS = {
     "analyze_replicate_consistency": handle_analyze_replicate_consistency,
     "l5_gt_sweep": handle_l5_gt_sweep,
     "l3_interaction_grid": handle_l3_interaction_grid,
+    "analyze_interaction_grid": handle_analyze_interaction_grid,
+    "analyze_l5_results": handle_analyze_l5_results,
     "finalize": handle_finalize,
 }
 
