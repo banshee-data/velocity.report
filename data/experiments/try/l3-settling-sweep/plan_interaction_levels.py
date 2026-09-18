@@ -21,22 +21,22 @@ Usage:
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-DEFAULTS = {
-    "closeness_multiplier": 3.0,
-    "safety_margin_metres": 0.15,
-    "noise_relative": 0.02,
-    "neighbour_confirmation_count": 3,
-}
+sys.path.insert(0, str(Path(__file__).parent))
+from param_types import coerce  # noqa: E402
 
-# Keys whose Go config field is an int (internal/lidar/l3grid's
-# L3EmaBaselineV1.neighbour_confirmation_count): a blanket float() cast below
-# would silently write e.g. 1.0 instead of 1, which settling-eval's strict
-# JSON unmarshal rejects. Found for real on 2026-09-18 when the first
-# interaction-grid run wrote neighbour_confirmation_count=1.0 and 24/24 sites
-# at that level failed with "cannot unmarshal number 1.0 ... into ... int".
-IS_INT = {"neighbour_confirmation_count"}
+# Defaults come from the live tuning config (not a hand-copied dict) so keys
+# added to the sweep later don't need a second edit here. coerce() applies the
+# Go-side types: a blanket float() cast wrote neighbour_confirmation_count=1.0
+# on 2026-09-18 and settling-eval's strict unmarshal rejected 24/24 sites.
+_TUNING = Path(__file__).resolve().parents[4] / "config" / "tuning.defaults.json"
+DEFAULTS = {
+    k: coerce(k, v)
+    for k, v in json.loads(_TUNING.read_text())["l3"]["ema_baseline_v1"].items()
+    if isinstance(v, (int, float, bool))
+}
 
 MAX_KEYS = 3
 
@@ -45,12 +45,28 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sensitivity", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument(
+        "--max-keys",
+        type=int,
+        default=MAX_KEYS,
+        help="analyze_interaction_grid.py only scores exactly 2-key grids, so "
+        "campaign stages that feed it pass 2",
+    )
+    ap.add_argument(
+        "--only-keys",
+        default="",
+        help="comma-separated keys to restrict candidates to (default: any "
+        "sensitive key)",
+    )
     args = ap.parse_args()
+    only = {k for k in args.only_keys.split(",") if k}
 
     analysis = json.loads(Path(args.sensitivity).read_text())
     sensitive = []
     for key, info in analysis["keys"].items():
         if info["verdict"] != "sensitive":
+            continue
+        if only and key not in only:
             continue
         flagged = [
             (v, d) for v, d in info["by_value"].items() if d["sensitive_at_this_value"]
@@ -62,13 +78,11 @@ def main():
         sensitive.append((key, worst_info["flagged_fraction"], worst_value))
 
     sensitive.sort(key=lambda t: t[1], reverse=True)
-    chosen = sensitive[:MAX_KEYS]
+    chosen = sensitive[: args.max_keys]
 
     levels = {}
     for key, fraction, worst_value in chosen:
-        default = DEFAULTS[key]
-        cast = int if key in IS_INT else float
-        levels[key] = sorted({default, cast(worst_value)})
+        levels[key] = sorted({DEFAULTS[key], coerce(key, worst_value)})
 
     Path(args.out).write_text(json.dumps(levels, indent=2) + "\n")
 

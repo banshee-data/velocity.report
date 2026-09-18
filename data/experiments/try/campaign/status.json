@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-09-18T02:30:23-0700",
+  "updated_at": "2026-09-18T11:19:06-0700",
   "elapsed_hours": 1.53,
   "budget_hours": 12,
   "stage_status_counts": {
-    "done": 11
+    "done": 18
   },
   "stages": [
     {
@@ -91,6 +91,61 @@
       "status": "done",
       "result_summary": {
         "finalized_at": "2026-09-18T02:30:23-0700"
+      }
+    },
+    {
+      "id": "l3_interaction_grid_v2",
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
+    },
+    {
+      "id": "analyze_l3_interaction_grid",
+      "status": "done",
+      "result_summary": {
+        "summary": "overall_verdict: compounding (scored 14 sites, counts={'lost_convergence': 10, 'additive': 4, 'compounding': 10})"
+      }
+    },
+    {
+      "id": "l5_gt_sweep_full_duration",
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
+    },
+    {
+      "id": "l5_gt_sweep_kirk0_dd98",
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
+    },
+    {
+      "id": "l5_gt_sweep_kirk1_f069",
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
+    },
+    {
+      "id": "analyze_l5_multisite",
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "scored 3 site(s)",
+          "  full-duration: n=27 range=[-1.0897328003366296, -1.0310657596371882]",
+          "  kirk0-dd98: n=27 range=[-1.1209677419354838, -0.7948717948717949]",
+          "  kirk1-f069: n=27 range=[-1.3365384615384615, -1.17]",
+          "combos in every site's top-5: []"
+        ]
+      }
+    },
+    {
+      "id": "finalize_v2",
+      "status": "done",
+      "result_summary": {
+        "finalized_at": "2026-09-18T11:19:06-0700"
       }
     }
   ]

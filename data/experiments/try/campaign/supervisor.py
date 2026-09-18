@@ -100,8 +100,8 @@ def deps_resolved(stage, by_id):
 
 
 def another_sweep_already_running():
-    """True if any run_sweep.py invocation -- broad, narrowed, or replicate
-    -- is currently active. Every stage that launches run_sweep.py checks
+    """True if any L3 driver (run_sweep.py -- broad, narrowed, replicate --
+    or run_repeat_check.py / run_interaction_grid.py) is currently active. Every stage that launches run_sweep.py checks
     this first and backs off (returns "pending", not "failed") rather than
     starting a second one: run_sweep.py's own dedup is computed once at
     process start, so two concurrent invocations racing on the same
@@ -112,7 +112,10 @@ def another_sweep_already_running():
     docs/plans/lidar-heading-coherence-sprint-plan.md Sec 5.2's
     evidence-writes-vs-pcap-reads finding -- same principle, applied to two
     readers instead of a reader and a writer)."""
-    return len(find_pids("run_sweep.py")) > 0
+    return any(
+        find_pids(name)
+        for name in ("run_sweep.py", "run_repeat_check.py", "run_interaction_grid.py")
+    )
 
 
 def run_py(script, args, timeout=None):
@@ -190,7 +193,7 @@ def handle_analyze_l3_sensitivity(stage, manifest):
     results = L3_DIR / "results.csv"
     if not results.exists():
         return "failed", {"error": f"{results} does not exist"}
-    out = L3_DIR / "sensitivity-analysis.json"
+    out = L3_DIR / stage["params"].get("out_name", "sensitivity-analysis.json")
     code, stdout, stderr = run_py(
         L3_DIR / "analyze_sensitivity.py", ["--results", results, "--out", out]
     )
@@ -271,7 +274,7 @@ def handle_l3_replicate_sweep(stage, manifest):
 
 def handle_analyze_replicate_consistency(stage, manifest):
     results = L3_DIR / "results.csv"
-    out = L3_DIR / "replicate-consistency.json"
+    out = L3_DIR / stage["params"].get("out_name", "replicate-consistency.json")
     code, stdout, stderr = run_py(
         L3_DIR / "analyze_replicate_consistency.py",
         ["--results", results, "--out", out],
@@ -354,14 +357,20 @@ def combo_ids_all_errored(csv_path, expected_combos):
 
 
 def handle_l3_interaction_grid(stage, manifest):
-    sensitivity = L3_DIR / "sensitivity-analysis.json"
+    p = stage["params"]
+    if another_sweep_already_running():
+        return "pending", {"note": "another L3 driver is active; waiting"}
+    sens_name = p.get("sensitivity_file", "sensitivity-analysis.json")
+    sensitivity = L3_DIR / sens_name
     if not sensitivity.exists():
-        return "blocked", {"reason": "sensitivity-analysis.json missing"}
-    levels_path = L3_DIR / "interaction-levels.json"
-    code, stdout, stderr = run_py(
-        L3_DIR / "plan_interaction_levels.py",
-        ["--sensitivity", sensitivity, "--out", levels_path],
-    )
+        return "blocked", {"reason": f"{sens_name} missing"}
+    levels_path = L3_DIR / p.get("levels_name", "interaction-levels.json")
+    plan_args = ["--sensitivity", sensitivity, "--out", levels_path]
+    if p.get("max_keys"):
+        plan_args += ["--max-keys", p["max_keys"]]
+    if p.get("only_keys"):
+        plan_args += ["--only-keys", ",".join(p["only_keys"])]
+    code, stdout, stderr = run_py(L3_DIR / "plan_interaction_levels.py", plan_args)
     if code != 0:
         return "failed", {"step": "plan", "stdout": stdout, "stderr": stderr}
     levels = json.loads(levels_path.read_text())
@@ -412,13 +421,14 @@ def handle_l3_interaction_grid(stage, manifest):
 
 
 def handle_analyze_interaction_grid(stage, manifest):
+    p = stage["params"]
     results = L3_DIR / "interaction-results.csv"
-    levels_path = L3_DIR / "interaction-levels.json"
+    levels_path = L3_DIR / p.get("levels_name", "interaction-levels.json")
     if not results.exists() or not levels_path.exists():
         return "failed", {
-            "error": "interaction-results.csv or interaction-levels.json missing"
+            "error": f"interaction-results.csv or {levels_path.name} missing"
         }
-    out = L3_DIR / "interaction-grid-analysis.json"
+    out = L3_DIR / p.get("analysis_name", "interaction-grid-analysis.json")
     code, stdout, stderr = run_py(
         L3_DIR / "analyze_interaction_grid.py",
         ["--results", results, "--levels", levels_path, "--out", out],
@@ -446,6 +456,235 @@ def handle_analyze_l5_results(stage, manifest):
     return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
 
 
+def values_all_errored(csv_path, sweep, ordinal="0"):
+    """(key, value) pairs in `sweep` for which results.csv has rows but none
+    without an error -- i.e. settling-eval rejected that setting at every site
+    (e.g. an out-of-range value, or a wrongly typed one). Also returns how many
+    pairs had no rows at all (planned but never run)."""
+    import csv as csv_mod
+
+    seen_ok, seen_any = set(), set()
+    if csv_path.exists():
+        with csv_path.open() as f:
+            for row in csv_mod.DictReader(f):
+                if row.get("capture_ordinal", "0") != str(ordinal):
+                    continue
+                pair = (row["param_key"], row["param_value"])
+                seen_any.add(pair)
+                if not row.get("error"):
+                    seen_ok.add(pair)
+    wanted = [(k, str(v)) for k, vals in sweep.items() for v in vals]
+    broken = [
+        f"{k}={v}" for k, v in wanted if (k, v) in seen_any and (k, v) not in seen_ok
+    ]
+    never_ran = sum(1 for pair in wanted if pair not in seen_any)
+    return broken, never_ran, len(wanted)
+
+
+def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True):
+    """Shared by every stage that drives run_sweep.py from an inline sweep
+    spec. Returns (status, info)."""
+    if another_sweep_already_running():
+        return "pending", {
+            "note": "another L3 driver is active; waiting rather than starting a second one"
+        }
+    spec_path.parent.mkdir(parents=True, exist_ok=True)
+    spec_path.write_text(json.dumps(sweep, indent=2) + "\n")
+    args = [
+        "--settling-eval",
+        BIN_DIR / "settling-eval",
+        "--sweep-json",
+        spec_path,
+        "--capture-ordinal",
+        ordinal,
+        "--duration-seconds",
+        duration,
+    ]
+    if skip_baseline:
+        args.append("--skip-baseline")
+    code, stdout, stderr = run_py(L3_DIR / "run_sweep.py", args, timeout=6 * 3600)
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    broken, never_ran, total = values_all_errored(
+        L3_DIR / "results.csv", sweep, ordinal
+    )
+    info = {
+        "n_values": total,
+        "stdout_tail": stdout.strip().splitlines()[-3:],
+    }
+    if broken:
+        info["warning"] = (
+            f"{len(broken)} of {total} values errored at every site (rejected by "
+            f"settling-eval, so they carry no evidence): {broken}"
+        )
+        info["all_errored_values"] = broken
+    if never_ran:
+        info["values_never_run"] = never_ran
+    if total and len(broken) == total:
+        return "failed", info
+    return "done", info
+
+
+def handle_l3_sweep_json(stage, manifest):
+    p = stage["params"]
+    return run_l3_sweep(
+        p["sweep"],
+        L3_DIR / "sweeps" / f"{stage['id']}.json",
+        p.get("capture_ordinal", 0),
+        p.get("duration_seconds", 120),
+        p.get("skip_baseline", True),
+    )
+
+
+def handle_l3_replicate_planned(stage, manifest):
+    p = stage["params"]
+    if another_sweep_already_running():
+        return "pending", {"note": "another L3 driver is active; waiting"}
+    sens = L3_DIR / p["sensitivity_file"]
+    if not sens.exists():
+        return "blocked", {"reason": f"{sens.name} missing"}
+    spec_path = L3_DIR / "sweeps" / f"{stage['id']}.json"
+    spec_path.parent.mkdir(parents=True, exist_ok=True)
+    code, stdout, stderr = run_py(
+        L3_DIR / "plan_replicate_sweep.py",
+        ["--sensitivity", sens, "--keys", ",".join(p["keys"]), "--out", spec_path],
+    )
+    if code != 0:
+        return "failed", {"step": "plan", "stdout": stdout, "stderr": stderr}
+    sweep = json.loads(spec_path.read_text())
+    if not sweep:
+        return "done_no_op", {"reason": "every key was inert", "plan": stdout.strip()}
+    status, info = run_l3_sweep(
+        sweep, spec_path, 1, p.get("duration_seconds", 120), skip_baseline=True
+    )
+    info["plan"] = stdout.strip()
+    return status, info
+
+
+def handle_l3_repeat_check(stage, manifest):
+    p = stage["params"]
+    if another_sweep_already_running():
+        return "pending", {"note": "another L3 driver is active; waiting"}
+    code, stdout, stderr = run_py(
+        L3_DIR / "run_repeat_check.py",
+        [
+            "--settling-eval",
+            BIN_DIR / "settling-eval",
+            "--configs-json",
+            json.dumps(p["configs"]),
+            "--duration-seconds",
+            p.get("duration_seconds", 120),
+        ],
+        timeout=6 * 3600,
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    return "done", {"stdout_tail": stdout.strip().splitlines()[-3:]}
+
+
+def handle_analyze_l3_repeat_check(stage, manifest):
+    results = L3_DIR / "repeat-results.csv"
+    if not results.exists():
+        return "failed", {"error": "repeat-results.csv missing"}
+    out = L3_DIR / "repeat-check-analysis.json"
+    code, stdout, stderr = run_py(
+        L3_DIR / "analyze_repeat_check.py",
+        [
+            "--results",
+            results,
+            "--sweep-results",
+            L3_DIR / "results.csv",
+            "--out",
+            out,
+        ],
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout, "stderr": stderr}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
+
+
+def handle_gt_oat_sweep(stage, manifest):
+    p = stage["params"]
+    out_dir = REPO_ROOT / p["out_dir"]
+    code, stdout, stderr = run_py(
+        L5_DIR / "run_gt_oat_sweep.py",
+        [
+            "--velocity-bin",
+            BIN_DIR / "velocity-isolated",
+            "--gt-eval-bin",
+            BIN_DIR / "lidar-ground-truth-eval",
+            "--reference-db",
+            REPO_ROOT / p["reference_db"],
+            "--reference-run-id",
+            p["reference_run_id"],
+            "--pcap-file",
+            p["pcap_file"],
+            "--pcap-root",
+            p["pcap_root"],
+            "--udp-port",
+            p["udp_port"],
+            "--duration-seconds",
+            p["duration_seconds"],
+            "--sweep-json",
+            json.dumps(p["sweep"]),
+            "--out-dir",
+            out_dir,
+        ],
+        timeout=6 * 3600,
+    )
+    if code == 3:
+        blocked = out_dir / "blocked.json"
+        reason = (
+            json.loads(blocked.read_text())["reason"]
+            if blocked.exists()
+            else "unknown (exit 3, no blocked.json)"
+        )
+        return "blocked", {"reason": reason}
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    import csv as csv_mod
+
+    rows = []
+    csv_path = out_dir / "results.csv"
+    if csv_path.exists():
+        with csv_path.open() as f:
+            rows = list(csv_mod.DictReader(f))
+    errored = [r for r in rows if r.get("error")]
+    info = {
+        "out_dir": str(out_dir),
+        "n_rows": len(rows),
+        "n_errors": len(errored),
+        "stdout_tail": stdout.strip().splitlines()[-3:],
+    }
+    if errored:
+        info["warning"] = (
+            f"{len(errored)} of {len(rows)} runs errored; first: {errored[0]['error'][:200]}"
+        )
+    if rows and len(errored) == len(rows):
+        return "failed", info
+    return "done", info
+
+
+def handle_analyze_gt_oat(stage, manifest):
+    p = stage["params"]
+    by_id = {s["id"]: s for s in manifest["stages"]}
+    args = ["--out", L5_DIR / p.get("out_name", "gt-oat-analysis.json")]
+    for dep_id in p["source_stages"]:
+        out_dir = (by_id[dep_id].get("result") or {}).get("out_dir")
+        if not out_dir:
+            continue
+        args += ["--results", Path(out_dir) / "results.csv"]
+    if "--results" not in args:
+        return "blocked", {"reason": "no source stage produced results"}
+    code, stdout, stderr = run_py(L5_DIR / "analyze_gt_oat.py", args)
+    if code != 0:
+        return "failed", {"stdout": stdout, "stderr": stderr}
+    return "done", {
+        "summary": stdout.strip().splitlines(),
+        "out": str(args[1]),
+    }
+
+
 def handle_finalize(stage, manifest):
     return "done", {"finalized_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
 
@@ -461,6 +700,12 @@ HANDLERS = {
     "l3_interaction_grid": handle_l3_interaction_grid,
     "analyze_interaction_grid": handle_analyze_interaction_grid,
     "analyze_l5_results": handle_analyze_l5_results,
+    "l3_sweep_json": handle_l3_sweep_json,
+    "l3_replicate_planned": handle_l3_replicate_planned,
+    "l3_repeat_check": handle_l3_repeat_check,
+    "analyze_l3_repeat_check": handle_analyze_l3_repeat_check,
+    "gt_oat_sweep": handle_gt_oat_sweep,
+    "analyze_gt_oat": handle_analyze_gt_oat,
     "finalize": handle_finalize,
 }
 
@@ -494,7 +739,15 @@ def _summarize(result):
     if result is None:
         return None
     if isinstance(result, dict):
-        keys = ("reason", "note", "summary", "stdout_tail", "error", "binary")
+        keys = (
+            "warning",
+            "reason",
+            "note",
+            "summary",
+            "stdout_tail",
+            "error",
+            "binary",
+        )
         for k in keys:
             if k in result:
                 return {k: result[k]}
