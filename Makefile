@@ -1647,12 +1647,12 @@ test-perf:
 .PHONY: evidence-paths evidence-run
 evidence-paths:
 	@R="$${RUN:-<RUN>}"; \
-	echo "captures (read):  $(LIDAR_PCAP_DIR)"; \
-	echo "recordings:       $(LIDAR_EVIDENCE_DIR)/$$R/out"; \
-	echo "observations:     $(LIDAR_EVIDENCE_DIR)/$$R/observations"; \
-	echo "vrlogs:           $(LIDAR_VRLOG_DIR)"; \
-	echo "plots:            $(LIDAR_PLOTS_DIR)"; \
-	echo "annotation packs: $(LIDAR_ANNOTATION_DIR)"
+	echo "captures (read):  $(abspath $(LIDAR_PCAP_DIR))"; \
+	echo "recordings:       $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/out"; \
+	echo "observations:     $(abspath $(LIDAR_EVIDENCE_DIR))/$$R/observations"; \
+	echo "vrlogs:           $(abspath $(LIDAR_VRLOG_DIR))"; \
+	echo "plots:            $(abspath $(LIDAR_PLOTS_DIR))"; \
+	echo "annotation packs: $(abspath $(LIDAR_ANNOTATION_DIR))"
 	@echo ""
 	@echo "override any of these in local.mk (untracked) or on the command line"
 
