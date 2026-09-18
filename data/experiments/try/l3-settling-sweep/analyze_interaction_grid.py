@@ -25,6 +25,15 @@ relative floor stops large baselines from flagging on unremarkable wobble.
 Lost convergence (baseline or joint combo didn't settle) is its own bucket,
 not folded into the numeric gap.
 
+Censoring: a run can't report a settling frame past the replay window, so a
+frame within CENSOR_MARGIN of total_frames only says "at least this late". If
+a single-key run is censored the additive prediction is itself just a lower
+bound, so the site is "censored" (uninformative). If only the joint run is
+censored the gap is a lower bound: "compounding" still stands if it clears the
+thresholds anyway, otherwise the site is "censored" -- never "additive". (Found
+on the first real run, where two sites saturated by the single key alone were
+scored "additive" purely because everything hit the window cap.)
+
 Only meaningful for a 2-key grid (single_delta needs one clean one-hot combo
 per key); refuses anything else rather than guessing.
 
@@ -41,6 +50,8 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+CENSOR_MARGIN = 10
+
 from analyze_sensitivity import (  # noqa: E402
     ABS_FRAME_DELTA,
     REL_FRAME_DELTA,
@@ -52,6 +63,12 @@ from plan_interaction_levels import DEFAULTS  # noqa: E402
 
 def combo_id(overrides):
     return "|".join(f"{k}={v}" for k, v in sorted(overrides.items()))
+
+
+def is_censored(row):
+    frame = to_int_or_none(row["recommended_settling_frame"])
+    total = to_int_or_none(row.get("total_frames"))
+    return frame is not None and total is not None and frame >= total - CENSOR_MARGIN
 
 
 def read_rows(results_csv):
@@ -99,14 +116,20 @@ def analyze(rows, levels):
             site_results[site_id] = {"verdict": "lost_convergence"}
             continue
 
+        singles_censored = any(is_censored(singles[k]) for k in keys)
+        joint_censored = is_censored(j)
         single_delta = {k: sf[k] - bf for k in keys}
         predicted_delta = sum(single_delta.values())
         actual_delta = jf - bf
         gap = actual_delta - predicted_delta
         scale = max(1, abs(predicted_delta))
 
-        if gap >= ABS_FRAME_DELTA and gap >= REL_FRAME_DELTA * scale:
+        if singles_censored:
+            verdict = "censored"
+        elif gap >= ABS_FRAME_DELTA and gap >= REL_FRAME_DELTA * scale:
             verdict = "compounding"
+        elif joint_censored:
+            verdict = "censored"
         elif gap <= -ABS_FRAME_DELTA and gap <= -REL_FRAME_DELTA * scale:
             verdict = "cancelling"
         else:
@@ -119,6 +142,7 @@ def analyze(rows, levels):
             "predicted_additive_delta": predicted_delta,
             "actual_joint_delta": actual_delta,
             "gap": gap,
+            "gap_is_lower_bound": joint_censored,
         }
 
     counts = defaultdict(int)

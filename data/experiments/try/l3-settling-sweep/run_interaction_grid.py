@@ -29,12 +29,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from param_types import coerce  # noqa: E402
 from run_sweep import DEFAULT_TUNING, git_sha, load_sites, run_one  # noqa: E402
-
-# Mirrors plan_interaction_levels.IS_INT: a second line of defense so a
-# levels.json written or edited some other way can't silently reintroduce
-# the 2026-09-18 "neighbour_confirmation_count: 1.0" unmarshal-error bug.
-IS_INT = {"neighbour_confirmation_count"}
 
 CSV_FIELDS = [
     "timestamp",
@@ -63,9 +59,7 @@ CSV_FIELDS = [
 def make_multi_config(base, overrides, out_path):
     cfg = copy.deepcopy(base)
     for key, value in overrides.items():
-        if key in IS_INT:
-            value = int(value)
-        cfg["l3"]["ema_baseline_v1"][key] = value
+        cfg["l3"]["ema_baseline_v1"][key] = coerce(key, value)
     out_path.write_text(json.dumps(cfg, indent=2) + "\n")
     return out_path
 

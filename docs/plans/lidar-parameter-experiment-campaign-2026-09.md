@@ -172,6 +172,85 @@ configurable `--out-dir`; the supervisor just didn't plumb it through until
 this pass (needed so the three new L5 stages don't collide with each other's
 `results.csv`, whose dedup keys only on the three noise params).
 
+### Third pass (2026-09-18, second check-in)
+
+Pass 2 ran to completion (7/7 stages `done`). Reviewing its evidence found:
+
+- **L3 interaction is real but the first verdict overstated its cleanliness.**
+  10 of 24 sites compound, 5 more converge under either key alone but not
+  together, and `noise_relative` alone is inert at most sites. But two sites
+  scored "additive" only because a single key already saturated the 1200-frame
+  replay window, and the grid used `noise_relative=0.05` when the narrowed
+  `0.065` rows (13/24 flagged, vs 6/24 at 0.05) — which no stage had analyzed —
+  show it is not the worst value. `analyze_interaction_grid.py` now has a
+  `censored` bucket, and `analyze_sensitivity.py` reports `inert` and
+  `n_improved` per key.
+- **settling-eval is not deterministic.** Reruns disagreed with Batch 1 at 3 of
+  48 like-for-like comparisons on identical captures and code (baseline 601 vs
+  693, 550 vs 565 frames; one site flipped from not-converged to 505). Fast
+  sites (baseline 11-12 frames) are stable; slow ones carry a noise floor near
+  100 frames that the 10-frame threshold cannot see past.
+- **The L5 noise grid told us about the metric, not the parameters.** The
+  parameters were applied (POST aliases resolve by unique suffix; verified in
+  `tuning_runtime.go`), but `matched_count` is flat across all 27 combos
+  (10-11 of 49; per-parameter main effects < 0.2 tracks).
+  `EvaluateGroundTruth` matches on temporal IoU only (`SpatialDistance` is
+  unimplemented), so noise parameters, which change state estimates rather than
+  when a track starts or ends, are structurally invisible to it. Its composite
+  score is dominated by a false-positive term that counts any candidate
+  matching an _unlabelled_ reference track as a false positive (77 of the
+  reference run's 141 tracks are unlabelled), so it is close to a constant and
+  was never used to rank anything. `kirk1-f069`'s 8 reference tracks are too
+  few to resolve differences (one track is 12.5%); the floor of 8 was too low.
+- **Every earlier L5 sweep's first row is a cold-start outlier** (kirk0: 4
+  matched vs 7-8 for the other 26). Server state carries between replays;
+  `POST /api/lidar/grid_reset` did not change it (checked), so it is not relied
+  on.
+
+Queued for this pass (`manifest.json`, a strict priority chain so a failed or
+blocked stage never blocks the ones after it; `budget_hours` 7):
+
+1. Re-run the sensitivity rule over all ordinal-0 rows (`…-v2.json`, so the
+   0.065 rows are finally consumed), then the interaction grid at the
+   corrected worst value and a censoring-aware verdict.
+2. `l3_repeat_check`: default config x5 and `neighbour_confirmation_count=1`
+   x3 at all 24 sites, then `analyze_repeat_check.py` — per-site noise floor,
+   the unstable-site list, and whether each sensitivity verdict survives
+   excluding them.
+3. **L4/L5 ground-truth one-at-a-time sweep** (`run_gt_oat_sweep.py`), on
+   keys that change track _existence_ and so are visible to a temporal-IoU
+   metric: `foreground_dbscan_eps`, `foreground_min_cluster_points`,
+   `hits_to_confirm`, `max_misses`, `max_misses_confirmed`,
+   `gating_distance_squared`. This is the first L4 evidence in the campaign —
+   the L4 doc's blocker (no offline evaluator, no labels) is partly lifted for
+   the two sites with enough labelled tracks (kirk1 60a4774c, kirk0 dd98c68e).
+   Every POST is verified against the live config; a discarded warm-up run
+   precedes three baselines (start/middle/end) that measure the metric's own
+   noise and drift; sites whose baselines disagree are reported unreliable and
+   excluded. `analyze_gt_oat.py` never ranks by composite score: a setting is a
+   _Pareto improvement_ only if it recovers more labelled tracks without
+   increasing the candidate count, otherwise it is an unranked trade-off. A
+   live kirk0 test already shows the metric responding
+   (`hits_to_confirm=1`: 0/16 matched, 141 candidates; `foreground_dbscan_eps=0.4`:
+   9/16, 130 candidates, vs baseline 7/16, 81).
+4. **Extended L3 sweep** (28 values across 8 keys Batch 1 never touched):
+   `background_update_fraction`, `seed_from_first`,
+   `post_settle_update_fraction`, `reacquisition_boost_multiplier`,
+   `min_confidence_floor`, `locked_baseline_threshold`,
+   `locked_baseline_multiplier`, `freeze_threshold_multiplier`. Chosen by
+   reading `internal/lidar/settlingeval`: it forces `warmup_min_frames`,
+   `warmup_duration` and `settling_period`, so those were left out — sweeping
+   them would produce a false "insensitive". `param_types.coerce` now applies
+   Go-side types at every config write, closing the bug class behind the pass-2
+   interaction-grid failure.
+5. Sensitivity v3 over everything, an adaptive top-2 interaction grid, and an
+   ordinal-1 replicate of every extended key that is not inert.
+
+Not queued, and why: L5 process/measurement noise (no metric that can see it —
+the honest next step there is a spatial or velocity-aware match, not more
+sweeps), narrowing of the extended keys (needs judgement about bounds; better
+made at the next check-in from the v3 verdicts), and HINT (needs an operator).
+
 ---
 
 ## Batch 1 — L3 background-settling broad sweep (ready now)

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "budget_hours": 12,
+  "budget_hours": 7,
   "poll_interval_seconds": 60,
   "notes": "Future-work manifest for docs/plans/lidar-parameter-experiment-campaign-2026-09.md. supervisor.py rereads this file between every pass, so params/depends_on on any stage still 'pending' can be edited between check-ins without disturbing stages already 'done'/'blocked'/'failed'. Never edit a non-pending stage's recorded status/result -- that's the completed-work record.",
   "stages": [
@@ -214,7 +214,7 @@
     {
       "id": "l3_interaction_grid_v2",
       "type": "l3_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_batch1",
         "l3_narrowed_sweep",
@@ -223,23 +223,42 @@
       "params": {
         "_comment": "Rerun of l3_interaction_grid (2026-09-18 check-in). The first run silently corrupted half its data: plan_interaction_levels.py cast neighbour_confirmation_count's worst value to float (1.0), and settling-eval's Go config unmarshal rejects a non-integer for that field, so all 48 rows at neighbour_confirmation_count=1.0 errored (24/24 sites x 2 noise_relative levels) while the process still exited 0 and the supervisor recorded the stage 'done'. Fixed at the root (plan_interaction_levels.py's new IS_INT cast, plus a defensive int-cast in run_interaction_grid.py's make_multi_config) and in the supervisor (handle_l3_interaction_grid now fails the stage if any combo has zero non-error rows, instead of trusting exit code alone). This rerun reuses the same handler/scripts; run_interaction_grid.py's dedup is keyed on the combo id string, and 'neighbour_confirmation_count=1' (int) differs from the old broken 'neighbour_confirmation_count=1.0' (float), so it will only execute the previously-broken combos and leave the 48 already-good rows untouched.",
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "levels": {
+          "neighbour_confirmation_count": [
+            1,
+            3
+          ],
+          "noise_relative": [
+            0.02,
+            0.05
+          ]
+        },
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T09:55:50-0700"
     },
     {
       "id": "analyze_l3_interaction_grid",
       "type": "analyze_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_interaction_grid_v2"
       ],
       "params": {
         "_comment": "Deterministic additive-vs-compounding verdict (analyze_interaction_grid.py) over the corrected interaction-results.csv: does pushing neighbour_confirmation_count and noise_relative to their worst values together compound, cancel, or stay additive relative to their single-key effects from Batch 1?"
-      }
+      },
+      "result": {
+        "summary": "overall_verdict: compounding (scored 14 sites, counts={'lost_convergence': 10, 'additive': 4, 'compounding': 10})",
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/interaction-grid-analysis.json"
+      },
+      "finished_at": "2026-09-18T11:19:06-0700"
     },
     {
       "id": "l5_gt_sweep_full_duration",
       "type": "l5_gt_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "build_gt_eval_cli",
         "build_velocity_isolated"
@@ -253,12 +272,17 @@
         "udp_port": 2369,
         "duration_seconds": 190,
         "out_dir": "data/experiments/try/l5-gt-sweep/full-duration"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/full-duration",
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T10:39:11-0700"
     },
     {
       "id": "l5_gt_sweep_kirk0_dd98",
       "type": "l5_gt_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "build_gt_eval_cli",
         "build_velocity_isolated"
@@ -272,12 +296,17 @@
         "udp_port": 2369,
         "duration_seconds": 95,
         "out_dir": "data/experiments/try/l5-gt-sweep/kirk0-dd98"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/kirk0-dd98",
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T10:44:43-0700"
     },
     {
       "id": "l5_gt_sweep_kirk1_f069",
       "type": "l5_gt_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "build_gt_eval_cli",
         "build_velocity_isolated"
@@ -291,12 +320,17 @@
         "udp_port": 2369,
         "duration_seconds": 80,
         "out_dir": "data/experiments/try/l5-gt-sweep/kirk1-f069"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/kirk1-f069",
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T11:19:06-0700"
     },
     {
       "id": "analyze_l5_multisite",
       "type": "analyze_l5_results",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l5_gt_sweep_full_duration",
         "l5_gt_sweep_kirk0_dd98",
@@ -310,15 +344,408 @@
           "l5_gt_sweep_kirk1_f069"
         ],
         "out_name": "ranked-results-multisite.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "scored 3 site(s)",
+          "  full-duration: n=27 range=[-1.0897328003366296, -1.0310657596371882]",
+          "  kirk0-dd98: n=27 range=[-1.1209677419354838, -0.7948717948717949]",
+          "  kirk1-f069: n=27 range=[-1.3365384615384615, -1.17]",
+          "combos in every site's top-5: []"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/ranked-results-multisite.json"
+      },
+      "finished_at": "2026-09-18T11:19:06-0700"
     },
     {
       "id": "finalize_v2",
       "type": "finalize",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid",
         "analyze_l5_multisite"
+      ],
+      "params": {},
+      "result": {
+        "finalized_at": "2026-09-18T11:19:06-0700"
+      },
+      "finished_at": "2026-09-18T11:19:06-0700"
+    },
+    {
+      "id": "analyze_l3_sensitivity_v2",
+      "type": "analyze_l3_sensitivity",
+      "status": "pending",
+      "depends_on": [
+        "finalize_v2"
+      ],
+      "params": {
+        "_comment": "Re-runs the deterministic sensitivity rule over ALL ordinal-0 rows. Pass 1's analysis ran before the narrowed noise_relative=0.065 rows existed and nothing ever consumed them: 0.065 flags 13/24 sites (54%) vs 25% at 0.05, so the worst value for noise_relative moves. Also adds the 'inert' and 'n_improved' fields. Written to a new file; the original sensitivity-analysis.json is the record of what pass 1 saw. ~seconds.",
+        "out_name": "sensitivity-analysis-v2.json"
+      }
+    },
+    {
+      "id": "l3_interaction_grid_v3",
+      "type": "l3_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_sensitivity_v2"
+      ],
+      "params": {
+        "_comment": "The interaction question at the correct worst value. Grid v2 used noise_relative=0.05 because that was the worst value before the 0.065 rows were analyzed. Restricted to the two keys pass 2 found interacting; only the 2 combos not already run (noise 0.065 x nbr 1/3) execute, ~48 rows. ~9 min.",
+        "sensitivity_file": "sensitivity-analysis-v2.json",
+        "only_keys": [
+          "neighbour_confirmation_count",
+          "noise_relative"
+        ],
+        "max_keys": 2,
+        "levels_name": "interaction-levels-v3.json",
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_interaction_grid_v3",
+      "type": "analyze_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "l3_interaction_grid_v3"
+      ],
+      "params": {
+        "_comment": "Additive-vs-compounding verdict, now censoring-aware (sites where a run hit the replay-window cap are 'censored', never 'additive').",
+        "levels_name": "interaction-levels-v3.json",
+        "analysis_name": "interaction-grid-analysis-v3.json"
+      }
+    },
+    {
+      "id": "l3_repeat_check",
+      "type": "l3_repeat_check",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_interaction_grid_v3",
+        "build_settling_eval"
+      ],
+      "params": {
+        "_comment": "settling-eval is not deterministic: reruns disagreed with Batch 1 at 3/48 like-for-like comparisons (baseline 601 vs 693 and 550 vs 565 frames; one site flipped from not-converged to 505). Per-site frame deltas at slow sites therefore have a noise floor around 100 frames that the 10-frame sensitivity bar cannot see past. Reruns the default config 5x and neighbour_confirmation_count=1 3x at all 24 sites to measure it (~192 runs, ~35 min).",
+        "configs": [
+          {
+            "label": "baseline",
+            "overrides": {},
+            "repeats": 5
+          },
+          {
+            "label": "nbr1",
+            "overrides": {
+              "neighbour_confirmation_count": 1
+            },
+            "repeats": 3
+          }
+        ],
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_repeat_check",
+      "type": "analyze_l3_repeat_check",
+      "status": "pending",
+      "depends_on": [
+        "l3_repeat_check"
+      ],
+      "params": {
+        "_comment": "Noise floor per site, the list of unstable sites, and whether each sensitivity verdict survives excluding them."
+      }
+    },
+    {
+      "id": "gt_oat_sweep_kirk0_dd98",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_repeat_check",
+        "build_gt_eval_cli",
+        "build_velocity_isolated"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            0.6,
+            1.0,
+            1.4,
+            2.0
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            8,
+            12,
+            20
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            2,
+            6,
+            8
+          ],
+          "l5.cv_kf_v1.max_misses": [
+            1,
+            2,
+            5,
+            8
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5,
+            10,
+            25,
+            40
+          ],
+          "l5.cv_kf_v1.gating_distance_squared": [
+            9,
+            16,
+            64,
+            100
+          ]
+        },
+        "_comment": "The 27-combo L5 noise grid found the ground-truth metric blind to process/measurement noise (matched 10-11/49 everywhere): EvaluateGroundTruth matches on temporal IoU only, and noise changes state estimates, not track lifetimes. This sweeps keys that DO change track existence -- L4 clustering (eps, min points) and L5 lifecycle (hits_to_confirm, max_misses, max_misses_confirmed, gating) -- one at a time around defaults. A live test on kirk0 already shows visible response (hits_to_confirm=1: 0/16 matched, 141 candidates; eps=0.4: 9/16, 130 vs baseline 7/16, 81). Every POST is verified against the live config; a warm-up run precedes 3 baselines (start/middle/end) that measure the metric's own noise and drift. 29 runs, ~6 min on the short kirk0 capture.",
+        "reference_run_id": "dd98c68e-4e51-4155-a1ee-1d5bc12535ae",
+        "pcap_file": "kirk0.pcapng",
+        "duration_seconds": 95,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-kirk0-dd98"
+      }
+    },
+    {
+      "id": "gt_oat_sweep_kirk1_60a4",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_sweep_kirk0_dd98"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l4.dbscan_xy_v1.foreground_dbscan_eps": [
+            0.4,
+            0.6,
+            1.0,
+            1.4,
+            2.0
+          ],
+          "l4.dbscan_xy_v1.foreground_min_cluster_points": [
+            3,
+            8,
+            12,
+            20
+          ],
+          "l5.cv_kf_v1.hits_to_confirm": [
+            1,
+            2,
+            6,
+            8
+          ],
+          "l5.cv_kf_v1.max_misses": [
+            1,
+            2,
+            5,
+            8
+          ],
+          "l5.cv_kf_v1.max_misses_confirmed": [
+            5,
+            10,
+            25,
+            40
+          ],
+          "l5.cv_kf_v1.gating_distance_squared": [
+            9,
+            16,
+            64,
+            100
+          ]
+        },
+        "_comment": "Same one-at-a-time sweep on the richest labelled run (49 positive tracks, full 177.8s capture covered). 29 runs at ~96s each, ~46 min.",
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "duration_seconds": 190,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-kirk1-60a4"
+      }
+    },
+    {
+      "id": "analyze_gt_oat",
+      "type": "analyze_gt_oat",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_sweep_kirk1_60a4"
+      ],
+      "params": {
+        "_comment": "Which L4/L5 keys the metric can see, per site, and whether any setting is a Pareto improvement (more labelled tracks recovered without more candidate tracks). Deliberately never ranks by composite_score.",
+        "source_stages": [
+          "gt_oat_sweep_kirk0_dd98",
+          "gt_oat_sweep_kirk1_60a4"
+        ],
+        "out_name": "gt-oat-analysis.json"
+      }
+    },
+    {
+      "id": "l3_extended_sweep_a",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [
+        "analyze_gt_oat",
+        "build_settling_eval"
+      ],
+      "params": {
+        "_comment": "Batch 1 swept 4 of ~25 L3 keys. This covers the ones settling-eval actually consumes (verified in internal/lidar/settlingeval: it overrides warmup_min_frames, warmup_duration and settling_period, so those are excluded -- sweeping them would read as a false 'insensitive'). Group A, settling dynamics: background_update_fraction (the EMA rate, default 0.02), seed_from_first (default true; a live test shows false never converges, coverage 0), post_settle_update_fraction (default 0). 9 values x 24 sites, ~40 min.",
+        "sweep": {
+          "background_update_fraction": [
+            0.005,
+            0.01,
+            0.05,
+            0.1,
+            0.2
+          ],
+          "seed_from_first": [
+            false
+          ],
+          "post_settle_update_fraction": [
+            0.005,
+            0.02,
+            0.1
+          ]
+        },
+        "capture_ordinal": 0,
+        "duration_seconds": 120,
+        "skip_baseline": true
+      }
+    },
+    {
+      "id": "l3_extended_sweep_b",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [
+        "l3_extended_sweep_a"
+      ],
+      "params": {
+        "_comment": "Group B, confidence/lock behaviour: reacquisition_boost_multiplier (default 5), min_confidence_floor (3), locked_baseline_threshold (50), locked_baseline_multiplier (4), freeze_threshold_multiplier (3). int-typed keys are coerced via param_types. 19 values x 24 sites, ~85 min.",
+        "sweep": {
+          "reacquisition_boost_multiplier": [
+            1,
+            2,
+            10,
+            20
+          ],
+          "min_confidence_floor": [
+            1,
+            2,
+            5,
+            8
+          ],
+          "locked_baseline_threshold": [
+            10,
+            25,
+            100,
+            200
+          ],
+          "locked_baseline_multiplier": [
+            1,
+            2,
+            8
+          ],
+          "freeze_threshold_multiplier": [
+            1.5,
+            2,
+            5,
+            8
+          ]
+        },
+        "capture_ordinal": 0,
+        "duration_seconds": 120,
+        "skip_baseline": true
+      }
+    },
+    {
+      "id": "analyze_l3_sensitivity_v3",
+      "type": "analyze_l3_sensitivity",
+      "status": "pending",
+      "depends_on": [
+        "l3_extended_sweep_b"
+      ],
+      "params": {
+        "_comment": "Sensitivity verdict over all keys including the extended ones. 'inert' flags keys with no observable change anywhere (probably not consumed) so they are not misread as 'insensitive'.",
+        "out_name": "sensitivity-analysis-v3.json"
+      }
+    },
+    {
+      "id": "l3_interaction_grid_top2",
+      "type": "l3_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_sensitivity_v3"
+      ],
+      "params": {
+        "_comment": "Adaptive: the two most sensitive keys across ALL swept keys, 2 levels each. If a newly tested key outranks the current pair this tests a new interaction; if the top two are still neighbour_confirmation_count and noise_relative every combo is already done and this runs no new rows.",
+        "sensitivity_file": "sensitivity-analysis-v3.json",
+        "max_keys": 2,
+        "levels_name": "interaction-levels-top2.json",
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_interaction_grid_top2",
+      "type": "analyze_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "l3_interaction_grid_top2"
+      ],
+      "params": {
+        "levels_name": "interaction-levels-top2.json",
+        "analysis_name": "interaction-grid-analysis-top2.json"
+      }
+    },
+    {
+      "id": "l3_extended_replicate",
+      "type": "l3_replicate_planned",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_interaction_grid_top2"
+      ],
+      "params": {
+        "_comment": "Independent-window (ordinal 1) replicate of every extended key that is not inert, as pass 1 did for the original four. Inert keys have nothing to confirm and are skipped. Lowest priority: up to 28 values x 23 sites, ~2h.",
+        "sensitivity_file": "sensitivity-analysis-v3.json",
+        "keys": [
+          "background_update_fraction",
+          "seed_from_first",
+          "post_settle_update_fraction",
+          "reacquisition_boost_multiplier",
+          "min_confidence_floor",
+          "locked_baseline_threshold",
+          "locked_baseline_multiplier",
+          "freeze_threshold_multiplier"
+        ],
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_extended_replicate",
+      "type": "analyze_replicate_consistency",
+      "status": "pending",
+      "depends_on": [
+        "l3_extended_replicate"
+      ],
+      "params": {
+        "_comment": "Keys that were skipped at ordinal 1 report NOT-REPLICATED rather than DISAGREE.",
+        "out_name": "replicate-consistency-extended.json"
+      }
+    },
+    {
+      "id": "finalize_v3",
+      "type": "finalize",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_interaction_grid_v3",
+        "analyze_l3_repeat_check",
+        "analyze_gt_oat",
+        "analyze_l3_interaction_grid_top2",
+        "analyze_l3_extended_replicate"
       ],
       "params": {}
     }

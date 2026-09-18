@@ -47,6 +47,34 @@ ABS_FRAME_DELTA = 10
 REL_FRAME_DELTA = 0.5
 MIN_SITE_FRACTION = 0.20
 
+# Every measured outcome a run reports, for analyze_repeat_check's strict
+# bit-identical test.
+OUTCOME_FIELDS = (
+    "recommended_settling_frame",
+    "final_coverage_rate",
+    "final_spread_delta_rate",
+    "final_region_stability",
+    "final_mean_confidence",
+)
+
+# settling-eval's metrics jitter between identical runs (measured 2026-09-18 at
+# one site for the default config: coverage 0.9692-0.9740, confidence
+# 438-456 -- the Batch 1 baseline row itself sat at the edge of that range), so
+# "unchanged from baseline" cannot mean bit-identical. A row is unchanged if its
+# settling frame is identical and every other outcome is within a tolerance set
+# above that measured jitter. A key is "inert" only if
+# every row at every site and value is unchanged: the setting has no observable
+# effect on anything the run reports, so it is probably not consumed at all
+# (settling-eval overrides warmup_min_frames, warmup_duration and
+# settling_period, for example) and "insensitive" would be a misleading verdict.
+# spread_delta_rate is left out: its values are ~1e-5 and dominated by jitter.
+UNCHANGED_TOLERANCE = {
+    "final_coverage_rate": ("abs", 0.01),
+    "final_region_stability": ("abs", 0.01),
+    "final_mean_confidence": ("rel", 0.10),
+}
+
+
 # From config/tuning.defaults.json l3.ema_baseline_v1 -- duplicated here
 # deliberately as plain numbers (not re-parsed from the config) so this
 # analysis is reproducible from results.csv alone, pinned to what those
@@ -72,6 +100,21 @@ def read_rows(results_csv, ordinal=None):
     if ordinal is not None:
         rows = [r for r in rows if r.get("capture_ordinal", "0") == str(ordinal)]
     return rows
+
+
+def unchanged_vs_baseline(row, base):
+    if row["recommended_settling_frame"] != base["recommended_settling_frame"]:
+        return False
+    for field, (kind, tol) in UNCHANGED_TOLERANCE.items():
+        rv, bv = to_float(row[field]), to_float(base[field])
+        if rv is None or bv is None:
+            if row[field] != base[field]:
+                return False
+            continue
+        limit = tol if kind == "abs" else tol * abs(bv)
+        if abs(rv - bv) > limit:
+            return False
+    return True
 
 
 def to_float(v):
@@ -122,6 +165,8 @@ def analyze(rows):
         ):
             n_sites = 0
             n_flagged = 0
+            n_improved = 0
+            n_identical = 0
             flagged_site_reasons = {}
             frame_deltas = []
             for r in vrows:
@@ -130,6 +175,8 @@ def analyze(rows):
                     continue
                 n_sites += 1
                 reasons = []
+                if unchanged_vs_baseline(r, b):
+                    n_identical += 1
 
                 bf = to_int_or_none(b["recommended_settling_frame"])
                 vf = to_int_or_none(r["recommended_settling_frame"])
@@ -141,6 +188,10 @@ def analyze(rows):
                         frame_deltas.append(delta)
                         if delta >= ABS_FRAME_DELTA and delta >= REL_FRAME_DELTA * bf:
                             reasons.append("frame_regression")
+                        elif (
+                            -delta >= ABS_FRAME_DELTA and -delta >= REL_FRAME_DELTA * bf
+                        ):
+                            n_improved += 1
 
                 for field, threshold in THRESHOLDS.items():
                     bv, rv = to_float(b[field]), to_float(r[field])
@@ -161,6 +212,8 @@ def analyze(rows):
             value_verdicts[value] = {
                 "n_sites": n_sites,
                 "n_flagged": n_flagged,
+                "n_improved": n_improved,
+                "n_unchanged_vs_baseline": n_identical,
                 "flagged_fraction": round(fraction, 3),
                 "mean_frame_delta": (
                     round(statistics.mean(frame_deltas), 1) if frame_deltas else None
@@ -178,8 +231,13 @@ def analyze(rows):
             key=lambda kv: kv[1]["flagged_fraction"],
             reverse=True,
         )
+        is_inert = bool(value_verdicts) and all(
+            v["n_sites"] > 0 and v["n_unchanged_vs_baseline"] == v["n_sites"]
+            for v in value_verdicts.values()
+        )
         result["keys"][key] = {
             "verdict": "sensitive" if is_sensitive else "insensitive",
+            "inert": is_inert,
             "rationale": (
                 f"flagged on >= {MIN_SITE_FRACTION:.0%} of sites at value(s) "
                 f"{[v for v, _ in worst_values]}"
@@ -209,7 +267,10 @@ def main():
     Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
 
     for key, info in result["keys"].items():
-        print(f"{key}: {info['verdict']} -- {info['rationale']}")
+        note = (
+            " [INERT: no observable change at any site/value]" if info["inert"] else ""
+        )
+        print(f"{key}: {info['verdict']} -- {info['rationale']}{note}")
 
 
 if __name__ == "__main__":

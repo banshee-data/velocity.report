@@ -36,6 +36,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+from param_types import coerce  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_TUNING = REPO_ROOT / "config" / "tuning.defaults.json"
 MANIFESTS = [
@@ -121,8 +124,8 @@ def load_sites(ordinal=0):
 
 def make_config(base, key, value, out_path):
     cfg = copy.deepcopy(base)
-    cfg["l3"]["ema_baseline_v1"][key] = value
-    out_path.write_text(json.dumps(cfg, indent=2))
+    cfg["l3"]["ema_baseline_v1"][key] = coerce(key, value)
+    out_path.write_text(json.dumps(cfg, indent=2) + "\n")
     return out_path
 
 

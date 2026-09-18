@@ -54,10 +54,15 @@ def main():
             o: per_ordinal[o]["keys"].get(key, {}).get("verdict", "not_tested")
             for o in ordinals
         }
-        agree = len(set(verdicts.values())) == 1
+        # A key deliberately replicated only where it is live (see
+        # plan_replicate_sweep.py) is "not_tested" at the ordinals it was
+        # skipped on; that is absence of a replicate, not disagreement.
+        tested = {v for v in verdicts.values() if v != "not_tested"}
+        agree = len(tested) <= 1
         comparison[key] = {
             "verdict_by_ordinal": verdicts,
             "agrees_across_ordinals": agree,
+            "replicated": sum(v != "not_tested" for v in verdicts.values()) >= 2,
         }
 
     result = {
@@ -71,6 +76,8 @@ def main():
 
     for key, info in comparison.items():
         status = "AGREE" if info["agrees_across_ordinals"] else "DISAGREE"
+        if not info["replicated"]:
+            status = "NOT-REPLICATED"
         print(f"{key}: {status} -- {info['verdict_by_ordinal']}")
 
 
