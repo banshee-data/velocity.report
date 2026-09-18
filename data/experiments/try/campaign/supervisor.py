@@ -29,6 +29,7 @@ the wall-clock budget in manifest.json is spent.
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -111,9 +112,16 @@ def another_sweep_already_running():
     doubling up disk reads against the external volume for no benefit (see
     docs/plans/lidar-heading-coherence-sprint-plan.md Sec 5.2's
     evidence-writes-vs-pcap-reads finding -- same principle, applied to two
-    readers instead of a reader and a writer)."""
+    readers instead of a reader and a writer).
+
+    The match requires a Python interpreter followed by the script as a whole
+    path component. A bare `pgrep -f run_sweep.py` also matched any process
+    merely *mentioning* the name -- caught on 2026-09-18 when the launching
+    shell's own command line did, stalling a stage -- and would equally match
+    an operator's `less run_sweep.py` or an editor left open, making the
+    supervisor wait forever on something that isn't a sweep."""
     return any(
-        find_pids(name)
+        find_pids(rf"[Pp]ython.*[/ ]{re.escape(name)}( |$)")
         for name in ("run_sweep.py", "run_repeat_check.py", "run_interaction_grid.py")
     )
 
