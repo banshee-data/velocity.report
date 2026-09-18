@@ -91,40 +91,63 @@
     {
       "id": "l3_narrowed_sweep",
       "type": "l3_narrowed_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_batch1",
         "build_settling_eval"
       ],
       "params": {
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "plan": {
+          "noise_relative": [
+            0.065
+          ]
+        },
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T01:44:51-0700"
     },
     {
       "id": "l3_replicate_sweep",
       "type": "l3_replicate_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "wait_l3_batch1",
         "build_settling_eval"
       ],
       "params": {
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T02:21:49-0700"
     },
     {
       "id": "analyze_replicate_consistency",
       "type": "analyze_replicate_consistency",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_replicate_sweep"
       ],
-      "params": {}
+      "params": {},
+      "result": {
+        "summary": [
+          "closeness_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "neighbour_confirmation_count: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "noise_relative: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "safety_margin_metres: AGREE -- {'0': 'insensitive', '1': 'insensitive'}"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/replicate-consistency.json"
+      },
+      "finished_at": "2026-09-18T02:21:49-0700"
     },
     {
       "id": "l5_gt_sweep",
       "type": "l5_gt_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "build_gt_eval_cli",
         "build_velocity_isolated"
@@ -138,10 +161,58 @@
         "udp_port": 2369,
         "duration_seconds": 60,
         "known_blocker": "As of 2026-09-17/18, UDP port 2369 is held by the operator's live dev server, and the server's PCAP-replay BPF filter has no override independent of the live-listen bind port (see run_l5_gt_sweep.py's module docstring for the exact code references). This stage will self-block with a clear reason until that's no longer true -- do not remove the preflight check to force it through."
-      }
+      },
+      "result": {
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T01:40:33-0700"
     },
     {
       "id": "l3_interaction_grid",
+      "type": "l3_interaction_grid",
+      "status": "done",
+      "depends_on": [
+        "analyze_l3_batch1",
+        "l3_narrowed_sweep",
+        "analyze_replicate_consistency"
+      ],
+      "params": {
+        "duration_seconds": 120
+      },
+      "result": {
+        "levels": {
+          "neighbour_confirmation_count": [
+            1.0,
+            3
+          ],
+          "noise_relative": [
+            0.02,
+            0.05
+          ]
+        },
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T02:30:23-0700"
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "status": "done",
+      "depends_on": [
+        "l3_narrowed_sweep",
+        "l3_replicate_sweep",
+        "analyze_replicate_consistency",
+        "l5_gt_sweep",
+        "l3_interaction_grid"
+      ],
+      "params": {},
+      "result": {
+        "finalized_at": "2026-09-18T02:30:23-0700"
+      },
+      "finished_at": "2026-09-18T02:30:23-0700"
+    },
+    {
+      "id": "l3_interaction_grid_v2",
       "type": "l3_interaction_grid",
       "status": "pending",
       "depends_on": [
@@ -150,19 +221,104 @@
         "analyze_replicate_consistency"
       ],
       "params": {
+        "_comment": "Rerun of l3_interaction_grid (2026-09-18 check-in). The first run silently corrupted half its data: plan_interaction_levels.py cast neighbour_confirmation_count's worst value to float (1.0), and settling-eval's Go config unmarshal rejects a non-integer for that field, so all 48 rows at neighbour_confirmation_count=1.0 errored (24/24 sites x 2 noise_relative levels) while the process still exited 0 and the supervisor recorded the stage 'done'. Fixed at the root (plan_interaction_levels.py's new IS_INT cast, plus a defensive int-cast in run_interaction_grid.py's make_multi_config) and in the supervisor (handle_l3_interaction_grid now fails the stage if any combo has zero non-error rows, instead of trusting exit code alone). This rerun reuses the same handler/scripts; run_interaction_grid.py's dedup is keyed on the combo id string, and 'neighbour_confirmation_count=1' (int) differs from the old broken 'neighbour_confirmation_count=1.0' (float), so it will only execute the previously-broken combos and leave the 48 already-good rows untouched.",
         "duration_seconds": 120
       }
     },
     {
-      "id": "finalize",
+      "id": "analyze_l3_interaction_grid",
+      "type": "analyze_interaction_grid",
+      "status": "pending",
+      "depends_on": [
+        "l3_interaction_grid_v2"
+      ],
+      "params": {
+        "_comment": "Deterministic additive-vs-compounding verdict (analyze_interaction_grid.py) over the corrected interaction-results.csv: does pushing neighbour_confirmation_count and noise_relative to their worst values together compound, cancel, or stay additive relative to their single-key effects from Batch 1?"
+      }
+    },
+    {
+      "id": "l5_gt_sweep_full_duration",
+      "type": "l5_gt_sweep",
+      "status": "pending",
+      "depends_on": [
+        "build_gt_eval_cli",
+        "build_velocity_isolated"
+      ],
+      "params": {
+        "_comment": "Rerun of l5_gt_sweep (2026-09-18 check-in) at a duration_seconds that covers the reference capture's full length. l5_gt_sweep used duration_seconds=60 against kirk1.pcapng, but lidar_run_records.duration_secs for reference run 60a4774c is 177.8s, and EvaluateGroundTruth's reference set (the 49 positive-labelled tracks) spans the whole capture regardless of how much of it the candidate replay covers -- confirmed by the first run's matched_count of only 4-5 out of 49 reference tracks per combo. That's a windowing artifact, not a real accuracy signal (already flagged to the operator at the time). Writes to a separate out_dir (run_l5_gt_sweep.py's --out-dir, now supervisor-configurable) so the original 60s-window run is preserved rather than overwritten -- its results.csv keys on (process_noise_pos, process_noise_vel, measurement_noise) only, so reusing the same out_dir would have made every combo look already-done and skipped it.",
+        "reference_db": "sensor_data.db",
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "duration_seconds": 190,
+        "out_dir": "data/experiments/try/l5-gt-sweep/full-duration"
+      }
+    },
+    {
+      "id": "l5_gt_sweep_kirk0_dd98",
+      "type": "l5_gt_sweep",
+      "status": "pending",
+      "depends_on": [
+        "build_gt_eval_cli",
+        "build_velocity_isolated"
+      ],
+      "params": {
+        "_comment": "Second reference site for L5 GT evidence, added 2026-09-18 so the campaign isn't overfit to a single labelled recording. Selected by querying sensor_data.db for lidar_run_records with the most positive-labelled (car/truck/bus/pedestrian/cyclist/motorcyclist) lidar_run_tracks, applying a MIN_POSITIVE_LABELS=8 floor (below that, matching/false-positive stats over 24-49 candidate tracks are too noisy to be defensible -- same conservative-evidence philosophy as MIN_SITE_FRACTION elsewhere in this campaign). dd98c68e (kirk0.pcapng) has 16 positive tracks, the most of any run besides the reference; other candidates were 6, 3, 2, 2, 1, 1 and excluded. duration_seconds=95 covers dd98c68e's full 83.5s capture (lidar_run_records.duration_secs) plus buffer, avoiding the same windowing artifact as l5_gt_sweep_full_duration.",
+        "reference_db": "sensor_data.db",
+        "reference_run_id": "dd98c68e-4e51-4155-a1ee-1d5bc12535ae",
+        "pcap_file": "kirk0.pcapng",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "duration_seconds": 95,
+        "out_dir": "data/experiments/try/l5-gt-sweep/kirk0-dd98"
+      }
+    },
+    {
+      "id": "l5_gt_sweep_kirk1_f069",
+      "type": "l5_gt_sweep",
+      "status": "pending",
+      "depends_on": [
+        "build_gt_eval_cli",
+        "build_velocity_isolated"
+      ],
+      "params": {
+        "_comment": "Third reference site for L5 GT evidence (see l5_gt_sweep_kirk0_dd98 for the MIN_POSITIVE_LABELS=8 selection rule). f069fab4 (kirk1.pcapng, a different labelled run than the reference 60a4774c despite the same source capture file) has 8 positive tracks, exactly at the floor. duration_seconds=80 covers its full 68.8s capture plus buffer.",
+        "reference_db": "sensor_data.db",
+        "reference_run_id": "f069fab4-17ad-4306-907d-767b9c721489",
+        "pcap_file": "kirk1.pcapng",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "duration_seconds": 80,
+        "out_dir": "data/experiments/try/l5-gt-sweep/kirk1-f069"
+      }
+    },
+    {
+      "id": "analyze_l5_multisite",
+      "type": "analyze_l5_results",
+      "status": "pending",
+      "depends_on": [
+        "l5_gt_sweep_full_duration",
+        "l5_gt_sweep_kirk0_dd98",
+        "l5_gt_sweep_kirk1_f069"
+      ],
+      "params": {
+        "_comment": "Cross-site ranking/agreement check (analyze_l5_results.py) over the three full-duration L5 sweeps: does the same noise-param combo rank well across all three independently-labelled sites, or is 'best config' unstable site-to-site?",
+        "source_stages": [
+          "l5_gt_sweep_full_duration",
+          "l5_gt_sweep_kirk0_dd98",
+          "l5_gt_sweep_kirk1_f069"
+        ],
+        "out_name": "ranked-results-multisite.json"
+      }
+    },
+    {
+      "id": "finalize_v2",
       "type": "finalize",
       "status": "pending",
       "depends_on": [
-        "l3_narrowed_sweep",
-        "l3_replicate_sweep",
-        "analyze_replicate_consistency",
-        "l5_gt_sweep",
-        "l3_interaction_grid"
+        "analyze_l3_interaction_grid",
+        "analyze_l5_multisite"
       ],
       "params": {}
     }

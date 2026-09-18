@@ -110,6 +110,68 @@ framework:
   exercised for real against the actual live server and correctly
   self-blocked with a written reason, twice, without touching anything.
 
+### Second pass (2026-09-18 check-in)
+
+Pass 1 finished cleanly in ~1.53h (11/11 stages `done`, `all stages terminal;
+campaign complete` in the log) and then sat idle for several hours before
+the operator noticed and checked in — not a hang, just no more eligible work
+under the original manifest. Reviewing the accumulated evidence at that
+check-in surfaced two real defects that a clean exit code had hidden:
+
+- **`l3_interaction_grid` silently lost half its data.**
+  `plan_interaction_levels.py` cast every level to `float`, so
+  `neighbour_confirmation_count`'s worst value (an int field in the Go
+  config) was written as `1.0`; settling-eval's strict JSON unmarshal
+  rejected it, and all 48 rows at that level (24 sites × 2 `noise_relative`
+  levels) errored while the other 48 (at `neighbour_confirmation_count=3`)
+  succeeded. `run_interaction_grid.py` never crashes on a per-row error (by
+  design — one bad site shouldn't sink the grid), so the stage still exited
+  0 and was recorded `done`. Fixed at the root (an `IS_INT` cast in
+  `plan_interaction_levels.py`, plus a defensive int-cast in
+  `run_interaction_grid.py`'s `make_multi_config`) and in the supervisor:
+  `handle_l3_interaction_grid` now fails the stage if any expected combo has
+  zero non-error rows, instead of trusting the exit code alone. Verified the
+  new guard against the real broken data before relying on it: it correctly
+  flags the two broken combos from pass 1 and reports nothing wrong for the
+  already-good ones.
+- **The L5 sweep's numbers were a windowing artifact, not a real accuracy
+  signal.** `l5_gt_sweep` used `duration_seconds=60` against kirk1.pcapng,
+  but the reference run's capture is 177.8s
+  (`lidar_run_records.duration_secs`) and `EvaluateGroundTruth`'s reference
+  set (49 positive-labelled tracks) spans the whole capture regardless of
+  how much of it the candidate replay covers — matched_count was only 4-5
+  out of 49 reference tracks on every combo, because most reference tracks'
+  time windows simply fell outside the 60s replay.
+
+Two follow-ups were added to the manifest (not run automatically by any
+LLM-in-the-loop judgement — both are mechanical extensions of already-proven
+code, triggered by fixed, documented rules, same as every other stage here):
+
+- `l3_interaction_grid_v2` (rerun with the type fix) →
+  `analyze_l3_interaction_grid`, a new deterministic
+  additive-vs-compounding verdict (`analyze_interaction_grid.py`): does
+  pushing both sensitive keys to their worst values together compound,
+  cancel, or stay additive relative to their single-key effects?
+- `l5_gt_sweep_full_duration` (same reference run, `duration_seconds=190`,
+  separate `out_dir` so the original 60s-window run is preserved) plus two
+  **new reference sites** — `l5_gt_sweep_kirk0_dd98` and
+  `l5_gt_sweep_kirk1_f069` — so the campaign isn't drawing L5 conclusions
+  from a single labelled recording. Sites were selected by querying
+  `sensor_data.db` for `lidar_run_records` with the most positive-labelled
+  tracks and applying a `MIN_POSITIVE_LABELS=8` floor (same
+  conservative-evidence philosophy as `MIN_SITE_FRACTION` elsewhere in this
+  campaign); candidates below the floor (6, 3, 2, 2, 1, 1 positive tracks)
+  were excluded as too noisy to be defensible. All three feed
+  `analyze_l5_multisite` (`analyze_l5_results.py`), which ranks each site's
+  27 combos by `composite_score` and reports whether any combo lands in
+  every site's top-5 — a cross-site agreement check, not a single-site
+  "winner."
+
+Both `handle_l5_gt_sweep` and `run_l5_gt_sweep.py` already supported a
+configurable `--out-dir`; the supervisor just didn't plumb it through until
+this pass (needed so the three new L5 stages don't collide with each other's
+`results.csv`, whose dedup keys only on the three noise params).
+
 ---
 
 ## Batch 1 — L3 background-settling broad sweep (ready now)
