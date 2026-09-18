@@ -1,6 +1,8 @@
 # LiDAR parameter/algorithm experiment campaign, 2026-09
 
-- **Status:** Batch 1 prepared, not yet launched.
+- **Status:** Batch 1 running (started 2026-09-17 23:12, operator-launched, unattended).
+  An unattended supervisor (below) is prepared to wait for it, then run Batches 2 and
+  5 and attempt Batch 3, for up to a configurable wall-clock budget (default 12h).
 - **Scope:** Execute the backlog in [data/experiments/try/](../../data/experiments/try/) against the
   now-complete 24-site S2 corpus (312,315 frames; see
   [state-estimation-phase01-corpus-baseline.md](../lidar/operations/state-estimation-phase01-corpus-baseline.md))
@@ -30,7 +32,7 @@ copy-pasteable command per batch.
 | `pcap-analyse` is gone                                    | Removed from the tree; only a stale gitignored binary from March remains (`./pcap-analyse`). All three per-layer sweep docs and the multi-key doc named it as the tool to use. Replaced references with the current equivalents: `settling-eval` (L3), `tune sweep -mode tracking` (L5, live-server only), `lidar-closeness-audit` (L3, needs bg snapshots that don't exist yet — see below).                                                                                                                                                                                                                                                                                                            |
 | Config key spelling                                       | `l3-background-settling-sweep.md` named `safety_margin_meters` / `neighbor_confirmation_count`; the actual keys in [config/tuning.defaults.json](../../config/tuning.defaults.json) are `safety_margin_metres` / `neighbour_confirmation_count` (British spelling, matching the rest of the config). Fixed in the doc.                                                                                                                                                                                                                                                                                                                                                                                   |
 | `Fragmentation` isn't implemented                         | `GroundTruthEvaluator.EvaluateGroundTruth` ([internal/lidar/adapters/ground_truth.go:287](../../internal/lidar/adapters/ground_truth.go)) hardcodes `Fragmentation = 0.0` with a comment marking it a future enhancement. Every `try/*.md` doc listing "fragmentation rate" as a gated metric available today is wrong; it isn't computed.                                                                                                                                                                                                                                                                                                                                                               |
-| No multi-site ground truth                                | `GroundTruthEvaluator` scores stored `RunTrack` rows with a human-set `UserLabel`. Checked `sensor_data.db`: 9 analysis runs have any labelled tracks at all (largest has 64), and all predate this campaign — almost certainly all kirk0, none of the 21 new S2 sites. The L3/L4/L5/multi-key/velocity-coherent docs all gate their real acceptance criteria on this data. It doesn't exist for the new corpus and manual labelling wasn't in scope for the 44-hour window.                                                                                                                                                                                                                             |
+| No multi-site ground truth                                | `GroundTruthEvaluator` scores stored `RunTrack` rows with a human-set `UserLabel`. Checked `sensor_data.db`: 9 analysis runs have any labelled tracks at all (largest has 64), and all predate this campaign by months, with no stored `run_config_id`. Confirmed via `lidar_run_records.source_path` (not assumed): 2 are kirk0.pcapng, 5 are kirk1.pcapng, 1 is clar0.pcapng, 1 is an S2 site (`s2_sf_4_20260902153250_00003.pcap`) — none of the 21 new S2 corpus sites. The L3/L4/L5/multi-key/velocity-coherent docs all gate their real acceptance criteria on this data. It doesn't exist for the new corpus and manual labelling wasn't in scope for the 44-hour window.                         |
 | HINT is human-in-the-loop, not batchable                  | `internal/lidar/sweep/hint.go` alternates automated rounds with a live labelling window in the Runs/Tracks web UI (`POST /api/lidar/sweep/hint` / `/hint/continue`). It has no CLI entry point and cannot run unattended — a round needs someone to actually label tracks between automated passes. Real advantage over brute force (adaptive bound narrowing against real GT), but only usable when an operator is present, so it isn't part of the unattended batches below.                                                                                                                                                                                                                           |
 | `tune sweep` always needs a live server                   | All 5 modes (`multi`/`noise`/`closeness`/`neighbour`/`tracking`) drive a running server over HTTP; none run standalone. `tracking` mode also only reaches whatever PCAPs are under the _running server's_ `-lidar-pcap-dir` — today that's `kirk0.pcapng`, not the S2 corpus on `/Volumes/lidar`. This is why the L5 preliminary pass (see below) is kirk0-only.                                                                                                                                                                                                                                                                                                                                         |
 | L5's own preliminary pass is confirmed circular           | The pass already run and documented in [l5-tracking-noise-parameter-sweep.md](../../data/experiments/try/l5-tracking-noise-parameter-sweep.md#preliminary-pass-2026-09-17-tune-sweep--mode-tracking-on-kirk0) scores `measurement_noise` against the tracker's own smoothed heading — the same "locked heading has near-zero jitter" pathology as RC6. Its finding (raise `measurement_noise`) is explicitly not a recommendation.                                                                                                                                                                                                                                                                       |
@@ -52,7 +54,7 @@ show.
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **1** | L3 background-settling broad sweep, all 24 sites, `settling-eval`                                                                                                                         | Yes                                                                                                              | Nothing — ready now                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **2** | L3 confirmation pass: narrow to the ranges Batch 1 flags as sensitive, repeat on all 24 sites with tighter steps + a second capture segment per site (determinism/replicate check)        | Yes                                                                                                              | Batch 1 results                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **3** | L5 ground-truth-scored noise sweep on kirk0 (replacing the circular alignment metric with the real `GroundTruthEvaluator`, using the 64-track labelled reference run that already exists) | Needs one small CLI extension (below); the sweep itself is unattended once built                                 | A ~20-line CLI wrapper around `adapters.EvaluateGroundTruth` — nothing existing exposes it outside the live HINT flow                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **3** | L5 ground-truth-scored noise sweep on kirk1 (replacing the circular alignment metric with the real `GroundTruthEvaluator`, using the 64-track labelled reference run that already exists) | CLI built and tested; sweep itself blocked on a confirmed UDP port conflict (below)                              | Self-blocks with a written reason via a preflight check; not attempted unattended until resolved                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **4** | L3 closeness-audit pass: one dedicated low-`snapshot_interval` replay per site, then `lidar-closeness-audit` against the resulting snapshots                                              | Yes                                                                                                              | Batches 1–2 (don't burn a second full pass across all 24 sites on the closeness key if Batch 1 already shows it's insensitive)                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | **5** | Multi-key interaction grid (L3 × L4 × L5, top 3–4 sensitive keys)                                                                                                                         | Yes, but small — only worth running if Batches 1–4 found ≥2 keys with real, consistent, non-circular sensitivity | Batches 1–4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | —     | L4 clustering sweep                                                                                                                                                                       | Not scheduled                                                                                                    | No offline, non-circular L4 metric exists yet (no equivalent of `settling-eval` for L4; GroundTruthEvaluator needs labels this corpus doesn't have). Options to unblock, for a future check-in to choose between: (a) reuse `lidar-e1-analysis`'s cross-measurement disagreement as a weaker proxy, (b) build a small offline L4 metric (cluster count/size stability across repeat runs), (c) wait for HINT with an operator present. Not attempted unattended because every option either isn't built or is weaker evidence than what Batches 1–4 give for free. |
@@ -61,6 +63,52 @@ show.
 
 Batches 3–5 are not launched today; they're written up now so a later
 check-in can approve or redirect them without re-deriving this analysis.
+
+---
+
+## Unattended supervisor (2026-09-18)
+
+Batch 1 was launched by hand (below) and finished on its own after ~76
+minutes (408/408 rows, zero errors) while Batches 2–5 were being built. To
+avoid needing an operator to launch each subsequent batch by hand,
+[data/experiments/try/campaign/](../../data/experiments/try/campaign/) adds
+a small supervisor that reuses the exact scripts above rather than a new
+framework:
+
+- **`manifest.json`** — the ordered stage graph (wait → analyze → narrowed
+  sweep → replicate sweep → analyze consistency → L5 GT sweep → interaction
+  grid → finalize), each with a `status`, `depends_on`, and `params`. This is
+  the "future-work manifest": `supervisor.py` rereads it fresh at the start
+  of every pass, so any still-`pending` stage's params can be edited between
+  check-ins without touching stages that already reached a terminal status
+  (`done`/`done_no_op`/`blocked`/`failed`/`skipped`).
+- **`supervisor.py`** — tries every currently-eligible pending stage once
+  per pass (so, e.g., the three Go builds run immediately rather than
+  waiting behind a slow sweep), sleeps and retries when nothing is eligible,
+  and stops once every stage is terminal or the wall-clock budget
+  (`budget_hours`, default 12) is spent.
+- **`status.json`** — compact rollup written after every stage transition:
+  per-stage status plus a one-line result summary, small enough to read at
+  a check-in without opening the manifest or any raw results.
+
+**Safety properties, verified by hand before handoff, not just assumed:**
+
+- `wait_process` only ever polls for the operator-launched Batch 1 process;
+  it never starts, restarts, or signals it. Verified against the real
+  running process (correctly returned "not ready yet" while it was running,
+  correctly reported the true final row count once it exited on its own).
+- Every stage that itself launches a `run_sweep.py` follow-up (narrowed,
+  replicate) first checks whether another `run_sweep.py` of any kind is
+  already active and backs off (stays `pending`) rather than starting a
+  second one. This was **not** in the first draft — it was added after a
+  test pass legitimately triggered a real replicate sweep (its dependencies
+  were already satisfied) that briefly ran concurrently with nothing, but
+  would have raced a second copy of itself under the original
+  `wait_process`-only guard. Caught and fixed before handoff, not left as a
+  known gap.
+- The L5 stage's port-conflict preflight check (see Batch 3 below) was
+  exercised for real against the actual live server and correctly
+  self-blocked with a written reason, twice, without touching anything.
 
 ---
 
@@ -113,45 +161,91 @@ full CSV or the per-run raw JSON reports.
   cheap and deterministic to regenerate from the row's git SHA + config +
   capture sha256, so not worth ~130MB in git.
 
-**Validated:** dry-run on 2 sites (34 runs, 30s window) completed cleanly,
-zero errors, and already shows a real, plausible, non-flat signal —
-`neighbour_confirmation_count` at higher values pushed settling from 12
-frames to as late as 301 and produced the run's only non-convergence, while
-`safety_margin_metres` showed no movement at all across its swept range on
-those 2 sites. That's exactly the kind of per-key sensitivity signal Batch 2
-should confirm or refute across all 24.
+**Result (completed 2026-09-18, ~76 minutes, 408/408 rows, zero errors):**
+deterministic analysis
+([analyze_sensitivity.py](l3-settling-sweep/analyze_sensitivity.py), rule
+documented in its own docstring) flags 2 of the 4 keys as sensitive across
+the corpus, 2 as robust:
 
-## Batch 2 — confirmation pass (conditional on Batch 1)
+| Key                            | Verdict       | Evidence                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `neighbour_confirmation_count` | **Sensitive** | At `1` (doc's own stated minimum): 21/24 sites regress, mean settling delay +237 frames, one site hits the 1200-frame window ceiling without ever converging. At `2`: only 4/24 sites regress, no site failed to converge. At `4`/`5`: zero sites regress. Already at the safety floor at `1` — see Batch 2. |
+| `noise_relative`               | **Sensitive** | At `0.05` (doc's stated maximum): 6/24 sites regress (25%). At `0.035`: 1/24. At `0.005`/`0.01`: none. Still moving at the edge of the tested range — Batch 2 extends past it.                                                                                                                               |
+| `closeness_multiplier`         | Insensitive   | No tested value (1.5–5.0) regressed ≥ 20% of sites. Current default is robust; no further sweeping planned.                                                                                                                                                                                                  |
+| `safety_margin_metres`         | Insensitive   | No tested value (0.05–0.30) regressed ≥ 20% of sites. Same conclusion.                                                                                                                                                                                                                                       |
 
-Same harness, same sites, run again with:
+Full per-value numbers: `sensitivity-analysis.json` in the same directory.
 
-- The swept range narrowed around whatever Batch 1 flags as sensitive
-  (don't re-run a key that showed zero movement across its full doc-specified
-  range on all 24 sites — that's itself a finding: current default is robust,
-  record it and move on).
-- A second capture segment (ordinal 1, where available) per site, to check
-  the finding isn't an artifact of the specific 120s window chosen.
+## Batch 2 — confirmation pass (in progress, started automatically 2026-09-18)
 
-Exact scope will be written once Batch 1 completes — this section is a
-placeholder for that write-up, not a command to run yet.
+Two independent sub-passes, both using the same `run_sweep.py` driver (see
+[plan_narrowed_sweep.py](l3-settling-sweep/plan_narrowed_sweep.py) for the
+narrowing rule):
 
-## Batch 3 — L5 noise sweep, ground-truth-scored, kirk0 (needs a small extension)
+- **Narrowed sweep** (ordinal 0, `--sweep-json narrowed-sweep.json`):
+  `closeness_multiplier`/`safety_margin_metres` dropped entirely (Batch 1
+  conclusive — no further sweeping planned for either). `noise_relative`
+  gets one new point, `0.065`, extending past the doc's original 0.05 upper
+  bound since the effect was still visible right at that edge.
+  `neighbour_confirmation_count` gets no new point: its worst value (`1`) is
+  already the doc's stated floor and the physically-meaningful minimum (a
+  confirmation count below 1 isn't meaningful), so there's nowhere lower to
+  extend to — recorded as "already at floor," not a gap.
+- **Replicate pass** (ordinal 1, full original 17-config sweep, no
+  narrowing): checks Batch 1's findings against a second, independent
+  120s window per site. 23/24 sites have a second capture segment; the
+  missing one is recorded as a coverage gap, not an error.
+  [analyze_replicate_consistency.py](l3-settling-sweep/analyze_replicate_consistency.py)
+  compares the sensitive/insensitive verdict between ordinals per key and
+  flags any disagreement explicitly rather than averaging it away.
 
-The existing preliminary pass measured the wrong thing. The right evaluator
-(`adapters.GroundTruthEvaluator`) already exists and is already tested, and a
-labelled reference run already exists in `sensor_data.db` (64 labelled tracks
-in run `60a4774c-db3e-4008-9b7e-d1059ec27319`, likely kirk0 — confirm before
-running). It's only reachable today through the live HINT HTTP flow. Needed:
-a ~20-line standalone CLI (or a flag on an existing tool) that takes
-`-reference-run-id` and `-candidate-run-id` and calls
-`adapters.NewGroundTruthEvaluator(store, adapters.DefaultGroundTruthWeights()).Evaluate(...)`,
-printing the `GroundTruthScore` as JSON. Combined with `tune sweep -mode
-tracking`'s existing ability to apply a tracker config and replay a PCAP
-against the live server, this closes the exact gap the preliminary pass
-flagged: real detection-rate/false-positive/quality scoring instead of a
-metric the tracker can win by smoothing. Single-site only (kirk0) — no
-labelled data exists elsewhere — so this confirms or refutes the
-preliminary pass's `measurement_noise` finding but doesn't generalise across
+Both are driven by the supervisor below rather than run by hand.
+
+## Batch 3 — L5 noise sweep, ground-truth-scored, kirk1 (built; blocked on a port conflict)
+
+**Update, 2026-09-18:** the CLI is built, tested, and works against real data:
+[cmd/tools/lidar-ground-truth-eval](../../cmd/tools/lidar-ground-truth-eval/main.go)
+takes `-reference-run-id`/`-candidate-run-id` (each with independent
+`-reference-db`/`-candidate-db`, since a candidate produced by a throwaway
+isolated server never shares a database with the real one) and calls
+`adapters.EvaluateGroundTruth` directly, printing the `GroundTruthScore` as
+JSON. Unit tests plus a manual run against real `sensor_data.db` data both
+pass. Two corrections to what this section said before actually checking:
+
+- The richest labelled reference run (`60a4774c-db3e-4008-9b7e-d1059ec27319`,
+  64 labelled tracks of 141) is **not** kirk0 — `lidar_run_records` says its
+  source is `kirk1.pcapng`. That file no longer exists under the live
+  server's local pcap dir; it's only on `/Volumes/lidar/lidar/kirk1.pcapng`
+  (4.9 GB — replays for this batch must use a short `-duration-seconds`
+  window, not the full file, exactly like Batch 1 does for the corpus PCAPs).
+- Generating new candidate runs to score requires a live server (nothing
+  offline writes to the `AnalysisRunStore`/`lidar_run_tracks` schema
+  `GroundTruthEvaluator` reads — `replayeval`/`lidar-state-estimation-baseline`
+  write a completely different "immutable observations" schema). So this
+  batch needs its own throwaway, isolated server instance — never the
+  operator's live one.
+
+**Confirmed blocker (not a config mistake — verified by hand):**
+`internal/lidar/server/server.go`'s `Start()` tries to bind the live UDP
+listener before it ever starts the monitor HTTP API, and returns immediately
+if that bind fails — so a failed bind doesn't just disable live ingest, it
+prevents the whole monitor server (and therefore PCAP replay control) from
+starting at all. The PCAP-replay BPF filter uses that same configured port
+with no per-request override
+(`internal/lidar/server/datasource_handlers.go`: `ws.udpPort`), so the
+isolated instance can't just pick a free port instead — it has to match
+whatever port `kirk1.pcapng`'s packets were captured on (2369), which the
+operator's live dev server already holds. Stopping that live server to free
+the port is out of scope (never do this unattended); the real fix is a small
+future change to auto-detect the replay port per capture the way
+`settling-eval` already does (`network.DetectUDPPort`), decoupling it from
+the live-listen bind port.
+[data/experiments/try/l5-gt-sweep/run_l5_gt_sweep.py](../../data/experiments/try/l5-gt-sweep/run_l5_gt_sweep.py)
+checks this before doing anything else and exits with a distinct "blocked"
+code and a written reason rather than guessing or faking a result. Retry
+once that's no longer true. Single-site only (kirk1) even once unblocked —
+no labelled data exists elsewhere — so this will confirm or refute the
+preliminary pass's `measurement_noise` finding but won't generalise across
 the corpus.
 
 ## Batch 4 — L3 closeness audit (needs one dedicated capture pass)
@@ -166,8 +260,19 @@ physical range-accuracy spec; otherwise Batch 1's settling evidence plus a
 
 ## Batch 5 — multi-key interaction grid
 
-As specified in [multi-key-interaction-grid.md](../../data/experiments/try/multi-key-interaction-grid.md)
-(doc's `pcap-analyse` reference needs the same fix as Batch 1 once this
-batch is actually scoped), restricted to whichever 3–4 keys Batches 1–4 show
-the steepest, most consistent sensitivity. Not scoped further until that
-evidence exists.
+Deliberately narrower than
+[multi-key-interaction-grid.md](../../data/experiments/try/multi-key-interaction-grid.md)'s
+original 3-level (low/default/high) design:
+[plan_interaction_levels.py](l3-settling-sweep/plan_interaction_levels.py)
+takes up to the top 3 sensitive keys and just 2 levels each (default, worst
+flagged value), so N sensitive keys cost 2^N joint runs instead of 3^N. That
+answers the actual question this experiment asks — do the single-key worst
+cases compound, cancel, or plateau when combined — at a fraction of the
+cost; a finer 3-level grid is the natural follow-up only if this one finds a
+real interaction. With 2 sensitive keys from Batch 1
+(`neighbour_confirmation_count`, `noise_relative`), this is a 4-combo grid
+across all 24 sites via
+[run_interaction_grid.py](l3-settling-sweep/run_interaction_grid.py), which
+varies multiple L3 keys per config and records combos in its own
+`interaction-results.csv` (a different row shape than the per-key
+`results.csv`, so they're kept separate rather than overloading one schema).

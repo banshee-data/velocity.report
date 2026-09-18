@@ -91,23 +91,29 @@ def git_sha():
     ).stdout.strip()
 
 
-def load_sites():
-    """Merge every manifest into {site_id: capture-0 info}, first ordinal only."""
+def load_sites(ordinal=0):
+    """Merge every manifest into {site_id: capture info} for one ordinal.
+
+    ordinal=0 is the broad-sweep default (Batch 1). A replicate pass can pass
+    ordinal=1 to check a finding isn't an artifact of one specific window;
+    sites without a second capture segment are silently omitted for that
+    ordinal (recorded as fewer rows, not an error).
+    """
     sites = {}
     for path in MANIFESTS:
         if not path.exists():
             continue
         data = json.loads(path.read_text())
         for case in data["cases"]:
-            cap0 = next((c for c in case["captures"] if c["ordinal"] == 0), None)
-            if cap0 is None:
+            cap = next((c for c in case["captures"] if c["ordinal"] == ordinal), None)
+            if cap is None:
                 continue
             sites.setdefault(
                 case["id"],
                 {
-                    "relative_path": cap0["relative_path"],
-                    "sha256": cap0["sha256"].removeprefix("sha256:"),
-                    "ordinal": cap0["ordinal"],
+                    "relative_path": cap["relative_path"],
+                    "sha256": cap["sha256"].removeprefix("sha256:"),
+                    "ordinal": cap["ordinal"],
                 },
             )
     return sites
@@ -121,11 +127,24 @@ def make_config(base, key, value, out_path):
 
 
 def load_done(csv_path):
+    """(site, key, value, capture_ordinal) already present in results.csv.
+
+    capture_ordinal is part of the key so a replicate pass on a second
+    capture segment (ordinal=1) is never mistaken for a duplicate of the
+    ordinal=0 broad-sweep row with the same site/key/value.
+    """
     done = set()
     if csv_path.exists():
         with csv_path.open() as f:
             for row in csv.DictReader(f):
-                done.add((row["site_id"], row["param_key"], row["param_value"]))
+                done.add(
+                    (
+                        row["site_id"],
+                        row["param_key"],
+                        row["param_value"],
+                        row.get("capture_ordinal", "0"),
+                    )
+                )
     return done
 
 
@@ -247,6 +266,7 @@ def write_summary(summary_path, rows):
             },
             indent=2,
         )
+        + "\n"
     )
 
 
@@ -259,6 +279,31 @@ def main():
     ap.add_argument("--duration-seconds", type=float, default=120)
     ap.add_argument("--limit-sites", type=int, default=0, help="0 = all sites")
     ap.add_argument("--out-dir", default=str(Path(__file__).parent))
+    ap.add_argument(
+        "--sweep-json",
+        default="",
+        help="JSON file of {key: [values...]} to sweep, overriding the built-in "
+        "SWEEP dict. Used by follow-up batches (narrowed range, interaction grid) "
+        "so the broad Batch-1 sweep and its follow-ups share this one driver.",
+    )
+    ap.add_argument(
+        "--capture-ordinal",
+        type=int,
+        default=0,
+        help="which capture segment to replay per site (1 = replicate check on a "
+        "second, independent window of the same site)",
+    )
+    ap.add_argument(
+        "--sites",
+        default="",
+        help="comma-separated site IDs to restrict to (default: all sites with "
+        "a capture at --capture-ordinal)",
+    )
+    ap.add_argument(
+        "--skip-baseline",
+        action="store_true",
+        help="don't add a _baseline=default row per site (already covered elsewhere)",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -270,8 +315,15 @@ def main():
     config_scratch.mkdir(exist_ok=True)
 
     base_config = json.loads(DEFAULT_TUNING.read_text())
-    sites = load_sites()
+    sweep_spec = SWEEP
+    if args.sweep_json:
+        sweep_spec = json.loads(Path(args.sweep_json).read_text())
+
+    sites = load_sites(ordinal=args.capture_ordinal)
     site_ids = sorted(sites.keys())
+    if args.sites:
+        wanted = set(args.sites.split(","))
+        site_ids = [s for s in site_ids if s in wanted]
     if args.limit_sites:
         site_ids = site_ids[: args.limit_sites]
 
@@ -280,8 +332,9 @@ def main():
 
     plan = []
     for site_id in site_ids:
-        plan.append((site_id, "_baseline", "default"))
-        for key, values in SWEEP.items():
+        if not args.skip_baseline:
+            plan.append((site_id, "_baseline", "default"))
+        for key, values in sweep_spec.items():
             for value in values:
                 plan.append((site_id, key, value))
 
@@ -303,10 +356,11 @@ def main():
         n_run = 0
         for site_id, key, value in plan:
             value_str = str(value)
-            if (site_id, key, value_str) in done:
+            if (site_id, key, value_str, str(args.capture_ordinal)) in done:
                 continue
 
             cap_info = sites[site_id]
+            run_tag = f"{site_id}__{key}__{value}__o{args.capture_ordinal}"
             if key == "_baseline":
                 cfg_path = DEFAULT_TUNING
             else:
@@ -314,10 +368,10 @@ def main():
                     base_config,
                     key,
                     value,
-                    config_scratch / f"{site_id}__{key}__{value}.json",
+                    config_scratch / f"{run_tag}.json",
                 )
 
-            raw_out = raw_dir / f"{site_id}__{key}__{value}.json"
+            raw_out = raw_dir / f"{run_tag}.json"
             print(
                 f"[{n_run + 1}/{len(plan) - len(done)}] {site_id} {key}={value} ...",
                 file=sys.stderr,
