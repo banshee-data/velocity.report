@@ -75,6 +75,7 @@ velocity-report-*
 /lidar-bench
 /pcap-split
 /settling-eval
+/lidar-ground-truth-eval
 
 # Local analysis scratch: throwaway Go tools written against a recording to
 # answer one question. Findings belong in a plan or in internal/lidar/analysis,

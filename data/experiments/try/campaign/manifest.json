@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "budget_hours": 12,
+  "poll_interval_seconds": 60,
+  "notes": "Future-work manifest for docs/plans/lidar-parameter-experiment-campaign-2026-09.md. supervisor.py rereads this file between every pass, so params/depends_on on any stage still 'pending' can be edited between check-ins without disturbing stages already 'done'/'blocked'/'failed'. Never edit a non-pending stage's recorded status/result -- that's the completed-work record.",
+  "stages": [
+    {
+      "id": "wait_l3_batch1",
+      "type": "wait_process",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "match": "run_sweep.py",
+        "exclude": ["--capture-ordinal", "--sweep-json"],
+        "expected_rows": 408
+      }
+    },
+    {
+      "id": "build_settling_eval",
+      "type": "build_go_tool",
+      "status": "pending",
+      "depends_on": [],
+      "params": { "pkg": "./cmd/tools/settling-eval/", "bin_name": "settling-eval", "run_tests": false }
+    },
+    {
+      "id": "build_gt_eval_cli",
+      "type": "build_go_tool",
+      "status": "pending",
+      "depends_on": [],
+      "params": { "pkg": "./cmd/tools/lidar-ground-truth-eval/", "bin_name": "lidar-ground-truth-eval", "run_tests": true }
+    },
+    {
+      "id": "build_velocity_isolated",
+      "type": "build_go_tool",
+      "status": "pending",
+      "depends_on": [],
+      "params": { "pkg": "./cmd/velocity", "bin_name": "velocity-isolated", "run_tests": false }
+    },
+    {
+      "id": "analyze_l3_batch1",
+      "type": "analyze_l3_sensitivity",
+      "status": "pending",
+      "depends_on": ["wait_l3_batch1"],
+      "params": {}
+    },
+    {
+      "id": "l3_narrowed_sweep",
+      "type": "l3_narrowed_sweep",
+      "status": "pending",
+      "depends_on": ["analyze_l3_batch1", "build_settling_eval"],
+      "params": { "duration_seconds": 120 }
+    },
+    {
+      "id": "l3_replicate_sweep",
+      "type": "l3_replicate_sweep",
+      "status": "pending",
+      "depends_on": ["wait_l3_batch1", "build_settling_eval"],
+      "params": { "duration_seconds": 120 }
+    },
+    {
+      "id": "analyze_replicate_consistency",
+      "type": "analyze_replicate_consistency",
+      "status": "pending",
+      "depends_on": ["l3_replicate_sweep"],
+      "params": {}
+    },
+    {
+      "id": "l5_gt_sweep",
+      "type": "l5_gt_sweep",
+      "status": "pending",
+      "depends_on": ["build_gt_eval_cli", "build_velocity_isolated"],
+      "params": {
+        "_comment": "Reference run identified 2026-09-18 by inspecting sensor_data.db directly: richest labelled AnalysisRunStore run available (64 positively-labelled tracks of 141 total), captured from kirk1.pcapng (found only on /Volumes/lidar/lidar -- no longer present under the live server's local pcap dir). Edit this if a better-labelled reference run is created later.",
+        "reference_db": "sensor_data.db",
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "duration_seconds": 60,
+        "known_blocker": "As of 2026-09-17/18, UDP port 2369 is held by the operator's live dev server, and the server's PCAP-replay BPF filter has no override independent of the live-listen bind port (see run_l5_gt_sweep.py's module docstring for the exact code references). This stage will self-block with a clear reason until that's no longer true -- do not remove the preflight check to force it through."
+      }
+    },
+    {
+      "id": "l3_interaction_grid",
+      "type": "l3_interaction_grid",
+      "status": "pending",
+      "depends_on": ["analyze_l3_batch1", "l3_narrowed_sweep", "analyze_replicate_consistency"],
+      "params": { "duration_seconds": 120 }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "status": "pending",
+      "depends_on": [
+        "l3_narrowed_sweep",
+        "l3_replicate_sweep",
+        "analyze_replicate_consistency",
+        "l5_gt_sweep",
+        "l3_interaction_grid"
+      ],
+      "params": {}
+    }
+  ]
+}

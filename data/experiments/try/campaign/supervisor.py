@@ -1,0 +1,506 @@
+#!/usr/bin/env python3
+"""Campaign supervisor for docs/plans/lidar-parameter-experiment-campaign-2026-09.md.
+
+Reads manifest.json (a small ordered graph of stages), runs whichever
+pending stages have all dependencies resolved, and writes results back to
+the manifest plus a compact status.json rollup. Rereads manifest.json fresh
+at the start of every pass, so a later Claude session can edit any
+still-pending stage's params/depends_on between check-ins without
+disturbing stages already done/blocked/failed -- those are the permanent
+record of completed work and this script never rewrites them once terminal.
+
+Does not run any stage's *work* concurrently with another -- one stage
+executes at a time -- but within a single pass it tries every currently
+eligible stage once before sleeping, so cheap independent work (e.g. the Go
+builds) is never stuck behind a slow one (e.g. waiting for the L3 sweep).
+
+Critical safety property: this script only ever *waits* for the L3 broad
+sweep (data/experiments/try/l3-settling-sweep/run_sweep.py) that the
+operator already started by hand -- it never launches, restarts, or
+otherwise touches that process. See handle_wait_process().
+
+Usage:
+    python3 supervisor.py [--manifest manifest.json] [--once]
+
+--once runs a single pass and exits (used for testing); the real 12-hour
+run omits it and lets the loop run until the manifest is fully resolved or
+the wall-clock budget in manifest.json is spent.
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parents[3]
+L3_DIR = REPO_ROOT / "data/experiments/try/l3-settling-sweep"
+L5_DIR = REPO_ROOT / "data/experiments/try/l5-gt-sweep"
+BIN_DIR = HERE / "bin"
+
+TERMINAL = {
+    "done",
+    "done_no_op",
+    "blocked",
+    "failed",
+    "skipped",
+    "not_started_budget_exceeded",
+}
+
+
+def log(msg):
+    line = f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} {msg}"
+    print(line, flush=True)
+    with (HERE / "supervisor.log").open("a") as f:
+        f.write(line + "\n")
+
+
+def load_manifest(path):
+    manifest = json.loads(path.read_text())
+    for stage in manifest["stages"]:
+        if stage["status"] == "running":
+            # A prior invocation died mid-stage. Every handler here is
+            # idempotent/resumable (the underlying sweep scripts dedupe
+            # already-completed rows), so it's always safe to just retry.
+            stage["status"] = "pending"
+    return manifest
+
+
+def save_manifest(path, manifest):
+    path.write_text(json.dumps(manifest, indent=2))
+
+
+def find_pids(match_substr, exclude_substrs=()):
+    """pgrep -f match_substr, minus any hit whose full command line also
+    contains one of exclude_substrs. Needed because run_sweep.py is reused
+    for the broad Batch-1 sweep *and* the narrowed/replicate follow-ups
+    (--capture-ordinal/--sweep-json flags): a bare "run_sweep.py" match
+    would also catch those and make wait_process wait on the wrong
+    invocation (hit for real on 2026-09-18: a replicate pass triggered
+    during supervisor testing matched "run_sweep.py" and would have been
+    mistaken for the still-running Batch 1 process)."""
+    result = subprocess.run(
+        ["pgrep", "-fla", match_substr], capture_output=True, text=True
+    )
+    pids = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        pid, _, cmdline = line.partition(" ")
+        if any(ex in cmdline for ex in exclude_substrs):
+            continue
+        pids.append(pid)
+    return pids
+
+
+def deps_resolved(stage, by_id):
+    return all(by_id[d]["status"] in TERMINAL for d in stage["depends_on"])
+
+
+def another_sweep_already_running():
+    """True if any run_sweep.py invocation -- broad, narrowed, or replicate
+    -- is currently active. Every stage that launches run_sweep.py checks
+    this first and backs off (returns "pending", not "failed") rather than
+    starting a second one: run_sweep.py's own dedup is computed once at
+    process start, so two concurrent invocations racing on the same
+    results.csv can each decide the same not-yet-done row is theirs to run,
+    producing duplicate rows -- wasteful, and against the "never rerun/
+    duplicate" rule even though it wouldn't corrupt the file. Also avoids
+    doubling up disk reads against the external volume for no benefit (see
+    docs/plans/lidar-heading-coherence-sprint-plan.md Sec 5.2's
+    evidence-writes-vs-pcap-reads finding -- same principle, applied to two
+    readers instead of a reader and a writer)."""
+    return len(find_pids("run_sweep.py")) > 0
+
+
+def run_py(script, args, timeout=None):
+    cmd = [sys.executable, str(script)] + [str(a) for a in args]
+    proc = subprocess.run(
+        cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=timeout
+    )
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+# ---- stage handlers -------------------------------------------------------
+# Each returns (new_status, info_dict). Returning status "pending" means
+# "not ready yet, don't change anything, try again next pass" -- used only
+# by handle_wait_process.
+
+
+def handle_wait_process(stage, manifest):
+    pids = find_pids(
+        stage["params"]["match"], exclude_substrs=stage["params"].get("exclude", [])
+    )
+    if pids:
+        return "pending", {"still_running_pids": pids}
+    csv_path = L3_DIR / "results.csv"
+    n_rows = 0
+    if csv_path.exists():
+        import csv as csv_mod
+
+        with csv_path.open() as f:
+            n_rows = sum(
+                1
+                for row in csv_mod.DictReader(f)
+                if row.get("capture_ordinal", "0") == "0"
+            )
+    expected = stage["params"].get("expected_rows")
+    note = f"process not running; results.csv has {n_rows} ordinal-0 (broad sweep) rows"
+    if expected and n_rows < expected:
+        note += f" (expected {expected} -- sweep may have been interrupted; treating as complete anyway, since re-running it is explicitly not this supervisor's job)"
+    return "done", {
+        "detected_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "note": note,
+        "row_count": n_rows,
+    }
+
+
+def handle_build_go_tool(stage, manifest):
+    BIN_DIR.mkdir(parents=True, exist_ok=True)
+    out_bin = BIN_DIR / stage["params"]["bin_name"]
+    build = subprocess.run(
+        ["go", "build", "-tags=pcap", "-o", str(out_bin), stage["params"]["pkg"]],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if build.returncode != 0:
+        return "failed", {"step": "build", "stderr": build.stderr[-4000:]}
+    if stage["params"].get("run_tests"):
+        test = subprocess.run(
+            ["go", "test", stage["params"]["pkg"] + "..."],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if test.returncode != 0:
+            return "failed", {
+                "step": "test",
+                "stdout": test.stdout[-4000:],
+                "stderr": test.stderr[-4000:],
+            }
+    return "done", {"binary": str(out_bin)}
+
+
+def handle_analyze_l3_sensitivity(stage, manifest):
+    results = L3_DIR / "results.csv"
+    if not results.exists():
+        return "failed", {"error": f"{results} does not exist"}
+    out = L3_DIR / "sensitivity-analysis.json"
+    code, stdout, stderr = run_py(
+        L3_DIR / "analyze_sensitivity.py", ["--results", results, "--out", out]
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout, "stderr": stderr}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
+
+
+def handle_l3_narrowed_sweep(stage, manifest):
+    if another_sweep_already_running():
+        return "pending", {
+            "note": "another run_sweep.py invocation is active; waiting rather than starting a second one"
+        }
+    sensitivity = L3_DIR / "sensitivity-analysis.json"
+    if not sensitivity.exists():
+        return "blocked", {
+            "reason": "sensitivity-analysis.json missing (analyze_l3_batch1 did not complete)"
+        }
+    narrowed = L3_DIR / "narrowed-sweep.json"
+    code, stdout, stderr = run_py(
+        L3_DIR / "plan_narrowed_sweep.py",
+        ["--sensitivity", sensitivity, "--out", narrowed],
+    )
+    if code != 0:
+        return "failed", {"step": "plan", "stdout": stdout, "stderr": stderr}
+    spec = json.loads(narrowed.read_text())
+    if not spec:
+        return "done_no_op", {
+            "reason": "no sensitive keys, or narrowing produced no new untested points",
+            "plan_output": stdout.strip(),
+        }
+
+    settling_eval = BIN_DIR / "settling-eval"
+    code, stdout, stderr = run_py(
+        L3_DIR / "run_sweep.py",
+        [
+            "--settling-eval",
+            settling_eval,
+            "--sweep-json",
+            narrowed,
+            "--duration-seconds",
+            stage["params"].get("duration_seconds", 120),
+            "--skip-baseline",
+        ],
+        timeout=6 * 3600,
+    )
+    if code != 0:
+        return "failed", {
+            "step": "sweep",
+            "stdout": stdout[-4000:],
+            "stderr": stderr[-4000:],
+        }
+    return "done", {"plan": spec, "stdout_tail": stdout.strip().splitlines()[-5:]}
+
+
+def handle_l3_replicate_sweep(stage, manifest):
+    if another_sweep_already_running():
+        return "pending", {
+            "note": "another run_sweep.py invocation is active; waiting rather than starting a second one"
+        }
+    settling_eval = BIN_DIR / "settling-eval"
+    code, stdout, stderr = run_py(
+        L3_DIR / "run_sweep.py",
+        [
+            "--settling-eval",
+            settling_eval,
+            "--capture-ordinal",
+            1,
+            "--duration-seconds",
+            stage["params"].get("duration_seconds", 120),
+        ],
+        timeout=6 * 3600,
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    return "done", {"stdout_tail": stdout.strip().splitlines()[-5:]}
+
+
+def handle_analyze_replicate_consistency(stage, manifest):
+    results = L3_DIR / "results.csv"
+    out = L3_DIR / "replicate-consistency.json"
+    code, stdout, stderr = run_py(
+        L3_DIR / "analyze_replicate_consistency.py",
+        ["--results", results, "--out", out],
+    )
+    if code != 0:
+        return "failed", {"stdout": stdout, "stderr": stderr}
+    return "done", {"summary": stdout.strip().splitlines(), "out": str(out)}
+
+
+def handle_l5_gt_sweep(stage, manifest):
+    p = stage["params"]
+    gt_eval_bin = BIN_DIR / "lidar-ground-truth-eval"
+    velocity_bin = BIN_DIR / "velocity-isolated"
+    code, stdout, stderr = run_py(
+        L5_DIR / "run_l5_gt_sweep.py",
+        [
+            "--velocity-bin",
+            velocity_bin,
+            "--gt-eval-bin",
+            gt_eval_bin,
+            "--reference-db",
+            REPO_ROOT / p["reference_db"],
+            "--reference-run-id",
+            p["reference_run_id"],
+            "--pcap-file",
+            p["pcap_file"],
+            "--pcap-root",
+            p["pcap_root"],
+            "--udp-port",
+            p["udp_port"],
+            "--duration-seconds",
+            p["duration_seconds"],
+        ],
+        timeout=6 * 3600,
+    )
+    if code == 3:
+        blocked_file = L5_DIR / "blocked.json"
+        reason = (
+            json.loads(blocked_file.read_text())["reason"]
+            if blocked_file.exists()
+            else "unknown (exit 3, no blocked.json)"
+        )
+        return "blocked", {"reason": reason}
+    if code != 0:
+        return "failed", {"stdout": stdout[-4000:], "stderr": stderr[-4000:]}
+    return "done", {"stdout_tail": stdout.strip().splitlines()[-10:]}
+
+
+def handle_l3_interaction_grid(stage, manifest):
+    sensitivity = L3_DIR / "sensitivity-analysis.json"
+    if not sensitivity.exists():
+        return "blocked", {"reason": "sensitivity-analysis.json missing"}
+    levels_path = L3_DIR / "interaction-levels.json"
+    code, stdout, stderr = run_py(
+        L3_DIR / "plan_interaction_levels.py",
+        ["--sensitivity", sensitivity, "--out", levels_path],
+    )
+    if code != 0:
+        return "failed", {"step": "plan", "stdout": stdout, "stderr": stderr}
+    levels = json.loads(levels_path.read_text())
+    if len(levels) < 2:
+        return "done_no_op", {
+            "reason": "fewer than 2 sensitive keys -- no interaction question to ask",
+            "plan_output": stdout.strip(),
+        }
+
+    settling_eval = BIN_DIR / "settling-eval"
+    code, stdout, stderr = run_py(
+        L3_DIR / "run_interaction_grid.py",
+        [
+            "--settling-eval",
+            settling_eval,
+            "--levels-json",
+            levels_path,
+            "--duration-seconds",
+            stage["params"].get("duration_seconds", 120),
+        ],
+        timeout=6 * 3600,
+    )
+    if code != 0:
+        return "failed", {
+            "step": "grid",
+            "stdout": stdout[-4000:],
+            "stderr": stderr[-4000:],
+        }
+    return "done", {"levels": levels, "stdout_tail": stdout.strip().splitlines()[-5:]}
+
+
+def handle_finalize(stage, manifest):
+    return "done", {"finalized_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+
+
+HANDLERS = {
+    "wait_process": handle_wait_process,
+    "build_go_tool": handle_build_go_tool,
+    "analyze_l3_sensitivity": handle_analyze_l3_sensitivity,
+    "l3_narrowed_sweep": handle_l3_narrowed_sweep,
+    "l3_replicate_sweep": handle_l3_replicate_sweep,
+    "analyze_replicate_consistency": handle_analyze_replicate_consistency,
+    "l5_gt_sweep": handle_l5_gt_sweep,
+    "l3_interaction_grid": handle_l3_interaction_grid,
+    "finalize": handle_finalize,
+}
+
+
+# ---- status rollup ---------------------------------------------------------
+
+
+def write_status(manifest, status_path, started_at, budget_hours):
+    by_status = {}
+    for s in manifest["stages"]:
+        by_status.setdefault(s["status"], []).append(s["id"])
+    elapsed_h = (time.time() - started_at) / 3600
+    status = {
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "elapsed_hours": round(elapsed_h, 2),
+        "budget_hours": budget_hours,
+        "stage_status_counts": {k: len(v) for k, v in by_status.items()},
+        "stages": [
+            {
+                "id": s["id"],
+                "status": s["status"],
+                "result_summary": _summarize(s.get("result")),
+            }
+            for s in manifest["stages"]
+        ],
+    }
+    status_path.write_text(json.dumps(status, indent=2))
+
+
+def _summarize(result):
+    if result is None:
+        return None
+    if isinstance(result, dict):
+        keys = ("reason", "note", "summary", "stdout_tail", "error", "binary")
+        for k in keys:
+            if k in result:
+                return {k: result[k]}
+        return {k: result[k] for k in list(result)[:1]}
+    return result
+
+
+# ---- main loop --------------------------------------------------------------
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--manifest", default=str(HERE / "manifest.json"))
+    ap.add_argument(
+        "--once", action="store_true", help="run a single pass and exit (testing)"
+    )
+    args = ap.parse_args()
+
+    manifest_path = Path(args.manifest)
+    status_path = HERE / "status.json"
+    started_at = time.time()
+
+    log(f"supervisor starting, manifest={manifest_path}")
+    while True:
+        manifest = load_manifest(manifest_path)
+        budget_hours = manifest.get("budget_hours", 12)
+        poll_interval = manifest.get("poll_interval_seconds", 60)
+        elapsed_hours = (time.time() - started_at) / 3600
+
+        if elapsed_hours > budget_hours:
+            changed = False
+            for s in manifest["stages"]:
+                if s["status"] == "pending":
+                    s["status"] = "not_started_budget_exceeded"
+                    changed = True
+            if changed:
+                save_manifest(manifest_path, manifest)
+                write_status(manifest, status_path, started_at, budget_hours)
+            log(f"wall-clock budget ({budget_hours}h) exceeded; stopping")
+            break
+
+        by_id = {s["id"]: s for s in manifest["stages"]}
+        eligible = [
+            s
+            for s in manifest["stages"]
+            if s["status"] == "pending" and deps_resolved(s, by_id)
+        ]
+
+        if not eligible:
+            if all(s["status"] in TERMINAL for s in manifest["stages"]):
+                log("all stages terminal; campaign complete")
+                break
+            log(f"nothing eligible this pass; sleeping {poll_interval}s")
+            time.sleep(poll_interval)
+            continue
+
+        progressed = False
+        for stage in eligible:
+            manifest = load_manifest(
+                manifest_path
+            )  # pick up any external edits between stages
+            stage = next(s for s in manifest["stages"] if s["id"] == stage["id"])
+            if stage["status"] != "pending":
+                continue  # edited or already advanced concurrently; skip
+
+            handler = HANDLERS[stage["type"]]
+            log(f"running stage {stage['id']} ({stage['type']})")
+            try:
+                new_status, info = handler(stage, manifest)
+            except Exception as e:
+                new_status, info = "failed", {"exception": repr(e)}
+
+            if new_status == "pending":
+                log(f"  {stage['id']}: not ready yet ({info})")
+                continue
+
+            stage["status"] = new_status
+            stage["result"] = info
+            stage["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+            progressed = True
+            save_manifest(manifest_path, manifest)
+            write_status(manifest, status_path, started_at, budget_hours)
+            log(f"  {stage['id']}: {new_status} -- {_summarize(info)}")
+
+            if (time.time() - started_at) / 3600 > budget_hours:
+                break
+
+        if args.once:
+            break
+        if not progressed:
+            time.sleep(poll_interval)
+
+    log("supervisor exiting")
+
+
+if __name__ == "__main__":
+    main()
