@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "budget_hours": 2.5,
+  "budget_hours": 2.6,
   "poll_interval_seconds": 60,
   "notes": "Future-work manifest for docs/plans/lidar-parameter-experiment-campaign-2026-09.md. supervisor.py rereads this file between every pass, so params/depends_on on any stage still 'pending' can be edited between check-ins without disturbing stages already 'done'/'blocked'/'failed'. Never edit a non-pending stage's recorded status/result -- that's the completed-work record.",
   "stages": [
@@ -892,7 +892,7 @@
     {
       "id": "recover_extended_sweep_b_rows",
       "type": "recover_raw_rows",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "finalize_v3"
       ],
@@ -910,36 +910,70 @@
         "after": "2026-09-18T16:54:39-0700",
         "before": "2026-09-18T18:14:53-0700",
         "record_name": "results-recovered-rows.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "recovered 344 row(s), skipped 0"
+        ],
+        "record": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/results-recovered-rows.json"
+      },
+      "finished_at": "2026-09-18T21:49:58-0700"
     },
     {
       "id": "analyze_l3_sensitivity_v3b",
       "type": "analyze_l3_sensitivity",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "recover_extended_sweep_b_rows"
       ],
       "params": {
         "_comment": "Same analysis as analyze_l3_sensitivity_v3, over the recovered rows. Written to a new file so the original v3 output stays as the record of what was concluded from 6 sites.",
         "out_name": "sensitivity-analysis-v3b.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "background_update_fraction: sensitive -- flagged on >= 20% of sites at value(s) ['0.2', '0.1', '0.05']",
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "freeze_threshold_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "locked_baseline_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "locked_baseline_threshold: insensitive -- no tested value flagged >= 20% of sites",
+          "min_confidence_floor: insensitive -- no tested value flagged >= 20% of sites",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.065', '0.05']",
+          "post_settle_update_fraction: insensitive -- no tested value flagged >= 20% of sites",
+          "reacquisition_boost_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites",
+          "seed_from_first: sensitive -- flagged on >= 20% of sites at value(s) ['False']"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/sensitivity-analysis-v3b.json"
+      },
+      "finished_at": "2026-09-18T21:49:58-0700"
     },
     {
       "id": "analyze_l3_repeat_check_v2",
       "type": "analyze_l3_repeat_check",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_sensitivity_v3b"
       ],
       "params": {
         "_comment": "analyze_l3_repeat_check ran at 15:23, before any extended key existed, so its 'do verdicts survive excluding unstable sites' check covered only the four Batch 1 keys. Rerun against the full results.csv.",
         "out_name": "repeat-check-analysis-v2.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "baseline: 0/24 sites bit-identical across repeats, 1 unstable, max frame spread 10",
+          "nbr1: 0/24 sites bit-identical across repeats, 0 unstable, max frame spread 0",
+          "verdicts changed after excluding 1 unstable site(s): none"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/repeat-check-analysis-v2.json"
+      },
+      "finished_at": "2026-09-18T21:49:58-0700"
     },
     {
       "id": "analyze_l3_interaction_grid_v3b",
       "type": "analyze_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_repeat_check_v2"
       ],
@@ -947,45 +981,19 @@
         "_comment": "Same 2x2 as v3 with lost-convergence sites split into joint_only (each key alone converges, together they do not: compounding) and single_key (one key alone already stops convergence).",
         "levels_name": "interaction-levels-v3.json",
         "analysis_name": "interaction-grid-analysis-v3b.json"
-      }
-    },
-    {
-      "id": "l3_extended_replicate_v2",
-      "type": "l3_replicate_planned",
-      "status": "pending",
-      "depends_on": [
-        "analyze_l3_interaction_grid_v3b"
-      ],
-      "params": {
-        "_comment": "The five sweep-b keys were skipped by l3_extended_replicate as inert, on 6 sites. If the recovered 24-site data still shows no change at any site/value this runs nothing (done_no_op); any key that turns out to have an effect is replicated on the ordinal-1 window like every other key. Worst case 19 values x 23 sites, ~78 min.",
-        "sensitivity_file": "sensitivity-analysis-v3b.json",
-        "keys": [
-          "reacquisition_boost_multiplier",
-          "min_confidence_floor",
-          "locked_baseline_threshold",
-          "locked_baseline_multiplier",
-          "freeze_threshold_multiplier"
-        ],
-        "duration_seconds": 120
-      }
-    },
-    {
-      "id": "analyze_l3_extended_replicate_v2",
-      "type": "analyze_replicate_consistency",
-      "status": "pending",
-      "depends_on": [
-        "l3_extended_replicate_v2"
-      ],
-      "params": {
-        "out_name": "replicate-consistency-extended-v2.json"
-      }
+      },
+      "result": {
+        "summary": "overall_verdict: compounding (scored 9 sites, counts={'lost_convergence': 13, 'censored': 2, 'compounding': 8, 'additive': 1}, lost_convergence={'single_key': 5, 'joint_only': 8})",
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/interaction-grid-analysis-v3b.json"
+      },
+      "finished_at": "2026-09-18T21:49:58-0700"
     },
     {
       "id": "l3_interaction_grid_bg_noise",
       "type": "l3_interaction_grid",
       "status": "pending",
       "depends_on": [
-        "analyze_l3_extended_replicate_v2"
+        "analyze_l3_interaction_grid_v3b"
       ],
       "params": {
         "_comment": "Replaces the uninformative top-2 grid (background_update_fraction x seed_from_first: seed_from_first=false alone never converges at any of 24 sites, so no frame delta exists to add up). background_update_fraction and noise_relative are the two continuous sensitive keys whose interaction is untested; policy 'mildest' puts each at the sensitive value nearest its default (0.05 and 0.05, each flagged at 6/24 sites alone) so the single-key runs do not saturate. 4 combos x 24 sites, ~18 min.",
@@ -1013,13 +1021,143 @@
       }
     },
     {
+      "id": "gt_oat_l3keys_kirk0_dd98",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "analyze_l3_interaction_grid_bg_noise",
+        "build_gt_eval_cli",
+        "build_velocity_isolated"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.min_confidence_floor": [
+            1,
+            8
+          ],
+          "l3.ema_baseline_v1.locked_baseline_threshold": [
+            10,
+            200
+          ],
+          "l3.ema_baseline_v1.locked_baseline_multiplier": [
+            1,
+            8
+          ],
+          "l3.ema_baseline_v1.freeze_threshold_multiplier": [
+            1.5,
+            8
+          ]
+        },
+        "_comment": "settling-eval measures convergence timing, and on all 24 sites frames are identical across every tested value of reacquisition_boost_multiplier, min_confidence_floor, locked_baseline_threshold, locked_baseline_multiplier and freeze_threshold_multiplier (the only variation is marina-broderick's own run-to-run wobble). These keys are consumed in l3grid and settable at runtime (tuning_runtime.go), so the question left is whether they change what the tracker sees, which the ground-truth metric can measure. Extremes only (first and last value of the L3 sweep): if the extremes change nothing, interior values will not. A 2-key probe on kirk0 already applied and verified both keys; freeze_threshold_multiplier=8 moved candidates 81 -> 84, well inside the noise threshold.",
+        "reference_run_id": "dd98c68e-4e51-4155-a1ee-1d5bc12535ae",
+        "pcap_file": "kirk0.pcapng",
+        "duration_seconds": 95,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3keys-kirk0-dd98"
+      }
+    },
+    {
+      "id": "gt_oat_l3keys_kirk1_60a4",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_l3keys_kirk0_dd98"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.reacquisition_boost_multiplier": [
+            1,
+            20
+          ],
+          "l3.ema_baseline_v1.min_confidence_floor": [
+            1,
+            8
+          ],
+          "l3.ema_baseline_v1.locked_baseline_threshold": [
+            10,
+            200
+          ],
+          "l3.ema_baseline_v1.locked_baseline_multiplier": [
+            1,
+            8
+          ],
+          "l3.ema_baseline_v1.freeze_threshold_multiplier": [
+            1.5,
+            8
+          ]
+        },
+        "_comment": "Same 10 settings on the richest labelled run (49 positive tracks, full 177.8s capture). 14 runs at ~96s, ~22 min.",
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "duration_seconds": 190,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3keys-kirk1-60a4"
+      }
+    },
+    {
+      "id": "analyze_gt_oat_l3keys",
+      "type": "analyze_gt_oat",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_l3keys_kirk1_60a4"
+      ],
+      "params": {
+        "_comment": "Same deterministic rule as analyze_gt_oat: baselines must agree (else the site is unreliable and excluded), a setting is a Pareto improvement only if recall rises by the threshold without more candidates, never ranked by composite score.",
+        "source_stages": [
+          "gt_oat_l3keys_kirk0_dd98",
+          "gt_oat_l3keys_kirk1_60a4"
+        ],
+        "out_name": "gt-oat-analysis-l3keys.json"
+      }
+    },
+    {
+      "id": "l3_extended_replicate_v2",
+      "type": "l3_replicate_planned",
+      "status": "pending",
+      "depends_on": [
+        "analyze_gt_oat_l3keys"
+      ],
+      "params": {
+        "_comment": "Lowest priority. The recovered 24-site ordinal-0 data shows frames identical across all 19 values of these five keys at 23 of 24 sites (marina-broderick varies by its own run-to-run noise), so this mostly confirms 'no effect' in a second window; it is kept for symmetry with every other key and because the rule (replicate anything not inert) is the campaign's. Resumable: 27 rows were recorded before the supervisor was restarted to fix a manifest-overwrite bug. Worst case 19 values x 23 sites, ~78 min.",
+        "sensitivity_file": "sensitivity-analysis-v3b.json",
+        "keys": [
+          "reacquisition_boost_multiplier",
+          "min_confidence_floor",
+          "locked_baseline_threshold",
+          "locked_baseline_multiplier",
+          "freeze_threshold_multiplier"
+        ],
+        "duration_seconds": 120
+      }
+    },
+    {
+      "id": "analyze_l3_extended_replicate_v2",
+      "type": "analyze_replicate_consistency",
+      "status": "pending",
+      "depends_on": [
+        "l3_extended_replicate_v2"
+      ],
+      "params": {
+        "out_name": "replicate-consistency-extended-v2.json"
+      }
+    },
+    {
       "id": "finalize_v4",
       "type": "finalize",
       "status": "pending",
       "depends_on": [
         "analyze_l3_interaction_grid_bg_noise",
         "analyze_l3_extended_replicate_v2",
-        "analyze_l3_interaction_grid_v3b"
+        "analyze_l3_interaction_grid_v3b",
+        "analyze_gt_oat_l3keys"
       ],
       "params": {}
     }

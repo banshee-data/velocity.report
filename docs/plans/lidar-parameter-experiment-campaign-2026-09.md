@@ -301,12 +301,27 @@ not catch and one grid that could not answer its question:
   independent labelled captures exist (kirk1's two reference runs share a
   capture), so nothing further was queued.
 
-Queued for this pass (`budget_hours` 2.5, the remainder of the 7 h): recover the
-rows, re-run the sensitivity, repeat-check and interaction analyses over the
-full data (new output files), replicate on ordinal 1 any of the five keys the
-full data shows to have an effect (runs nothing if all are still inert), and a
-`background_update_fraction` × `noise_relative` 2×2 at the mildest sensitive
-value of each.
+- **The recovered data says the five keys have no effect in settling-eval.**
+  At 23 of 24 sites all 19 values give the identical frame; the only variation
+  is `marina-broderick`'s own run-to-run wobble (697-723, unrelated to the
+  value). The "not inert" flag on the corrected analysis comes from two sites
+  whose Batch 1 baseline row is stale (550 and 601 vs 565 and ~720 now), not
+  from an effect. Settling frames measure convergence timing, so keys that act
+  on the locked baseline, freeze and reacquisition paths are simply not
+  exercised by them. They are consumed in `l3grid` and settable at runtime
+  (`tuning_runtime.go`), so the open question is whether they change what the
+  tracker sees, which the ground-truth metric can measure.
+- **The supervisor overwrote edits made while a stage was running.** It saved
+  the manifest it read before the stage started, so a check-in that revised
+  pending stages during a long stage would have been silently reverted when
+  that stage finished. It now reloads before saving.
+
+Queued for this pass (`budget_hours` 2.6): recover the rows and re-run the
+sensitivity, repeat-check and interaction analyses over the full data (new output
+files); a `background_update_fraction` × `noise_relative` 2×2 at the mildest
+sensitive value of each; a one-at-a-time ground-truth sweep of the five L3 keys
+at their extremes on both labelled captures (`gt_oat_l3keys_*`); and, last and
+resumable, the ordinal-1 replicate of the five keys.
 
 ---
 
