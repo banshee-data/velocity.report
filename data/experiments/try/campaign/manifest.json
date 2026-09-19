@@ -690,7 +690,7 @@
     {
       "id": "l3_extended_sweep_b",
       "type": "l3_sweep_json",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_extended_sweep_a"
       ],
@@ -730,24 +730,47 @@
         "capture_ordinal": 0,
         "duration_seconds": 120,
         "skip_baseline": true
-      }
+      },
+      "result": {
+        "n_values": 19,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T18:14:52-0700"
     },
     {
       "id": "analyze_l3_sensitivity_v3",
       "type": "analyze_l3_sensitivity",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_extended_sweep_b"
       ],
       "params": {
         "_comment": "Sensitivity verdict over all keys including the extended ones. 'inert' flags keys with no observable change anywhere (probably not consumed) so they are not misread as 'insensitive'.",
         "out_name": "sensitivity-analysis-v3.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "background_update_fraction: sensitive -- flagged on >= 20% of sites at value(s) ['0.2', '0.1', '0.05']",
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "freeze_threshold_multiplier: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "locked_baseline_multiplier: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "locked_baseline_threshold: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "min_confidence_floor: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.065', '0.05']",
+          "post_settle_update_fraction: insensitive -- no tested value flagged >= 20% of sites",
+          "reacquisition_boost_multiplier: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites",
+          "seed_from_first: sensitive -- flagged on >= 20% of sites at value(s) ['False']"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/sensitivity-analysis-v3.json"
+      },
+      "finished_at": "2026-09-18T18:14:52-0700"
     },
     {
       "id": "l3_interaction_grid_top2",
       "type": "l3_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_sensitivity_v3"
       ],
@@ -757,24 +780,43 @@
         "max_keys": 2,
         "levels_name": "interaction-levels-top2.json",
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "levels": {
+          "background_update_fraction": [
+            0.02,
+            0.2
+          ],
+          "seed_from_first": [
+            false,
+            true
+          ]
+        },
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-18T18:31:40-0700"
     },
     {
       "id": "analyze_l3_interaction_grid_top2",
       "type": "analyze_interaction_grid",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_interaction_grid_top2"
       ],
       "params": {
         "levels_name": "interaction-levels-top2.json",
         "analysis_name": "interaction-grid-analysis-top2.json"
-      }
+      },
+      "result": {
+        "summary": "overall_verdict: inconclusive (scored 0 sites, counts={'lost_convergence': 24})",
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/interaction-grid-analysis-top2.json"
+      },
+      "finished_at": "2026-09-18T18:31:40-0700"
     },
     {
       "id": "l3_extended_replicate",
       "type": "l3_replicate_planned",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid_top2"
       ],
@@ -792,24 +834,48 @@
           "freeze_threshold_multiplier"
         ],
         "duration_seconds": 120
-      }
+      },
+      "result": {
+        "n_values": 9,
+        "stdout_tail": [],
+        "plan": "replicate: ['background_update_fraction', 'post_settle_update_fraction', 'seed_from_first']; skipped inert: ['freeze_threshold_multiplier', 'locked_baseline_multiplier', 'locked_baseline_threshold', 'min_confidence_floor', 'reacquisition_boost_multiplier']"
+      },
+      "finished_at": "2026-09-18T19:07:49-0700"
     },
     {
       "id": "analyze_l3_extended_replicate",
       "type": "analyze_replicate_consistency",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "l3_extended_replicate"
       ],
       "params": {
         "_comment": "Keys that were skipped at ordinal 1 report NOT-REPLICATED rather than DISAGREE.",
         "out_name": "replicate-consistency-extended.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "background_update_fraction: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "closeness_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "freeze_threshold_multiplier: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "locked_baseline_multiplier: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "locked_baseline_threshold: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "min_confidence_floor: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "neighbour_confirmation_count: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "noise_relative: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "post_settle_update_fraction: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "reacquisition_boost_multiplier: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "safety_margin_metres: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "seed_from_first: AGREE -- {'0': 'sensitive', '1': 'sensitive'}"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/replicate-consistency-extended.json"
+      },
+      "finished_at": "2026-09-18T19:07:49-0700"
     },
     {
       "id": "finalize_v3",
       "type": "finalize",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "analyze_l3_interaction_grid_v3",
         "analyze_l3_repeat_check",
@@ -817,7 +883,11 @@
         "analyze_l3_interaction_grid_top2",
         "analyze_l3_extended_replicate"
       ],
-      "params": {}
+      "params": {},
+      "result": {
+        "finalized_at": "2026-09-18T19:07:49-0700"
+      },
+      "finished_at": "2026-09-18T19:07:49-0700"
     }
   ]
 }
