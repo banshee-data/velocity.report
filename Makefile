@@ -214,6 +214,13 @@ help:
 	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
 	@echo ""
+	@echo "SCENE WEB ASSETS (from the S2 corpus of trimmed captures):"
+	@echo "  scene-assets         Rebuild every outstanding scene recording, then the pages"
+	@echo "  scene-assets-status  What is outstanding and roughly how long it will take"
+	@echo "  scene-assets-clean   Drop the .rebuilt markers so a rebuild runs again"
+	@echo "  scene-corpus-verify  Check the corpus against its manifest (SHA=1 for digests)"
+	@echo "    SITES=\"a b\" limits any of these to named sites; FORCE=1 ignores markers"
+	@echo ""
 	@echo "SCENE CAPTURE:"
 	@echo "  capture-scene RECIPE=path.json  Capture deterministic stills from a recipe (see docs/plans/lidar-deterministic-scene-capture-plan.md)"
 	@echo "  test-scene-capture              Run the scene-capture tool's own test suite"
@@ -987,6 +994,8 @@ PYTHON_TEST_PATHS = \
 	scripts/test_verify_embedded_docs_server.py \
 	scripts/test_update_packaging.py \
 	tools/s2-archive/test_export_static_pcaps.py \
+	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py
 install-python:
@@ -2176,6 +2185,128 @@ render-s2-composite: install-s2-hilbert
 test-s2-hilbert: install-s2-hilbert
 	@echo "Running S2 Hilbert generator tests..."
 	@pnpm run --silent test:s2-hilbert
+
+# =============================================================================
+# SCENE WEB ASSETS
+# =============================================================================
+# The point-cloud recordings behind the published scene pages, rebuilt from the
+# S2 corpus of trimmed captures — one PCAPNG per site, already clipped to the
+# site bounds, as published in the dataset. Each one is replayed through the
+# live pipeline, recorded as a VRLOG and exported to
+# public_html/src/scenes/<site>/assets/.
+#
+# The corpus is the source rather than the original rolling captures because it
+# is the thing anyone else can download: a scene rebuilt from it is a scene a
+# reader can reproduce. `SCENE_SOURCE=archive` still replays the originals, for
+# reproducing a scene published before the dataset existed.
+#
+# This is slow and it needs a running server. In one shell:
+#
+#     make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+#
+# and in another:
+#
+#     make scene-assets-status     # what is outstanding, and how long it will take
+#     make scene-assets            # rebuild everything outstanding
+#     make scene-assets SITES=laguna-eddy
+#
+# Resumable: a finished scene carries a .rebuilt marker and is skipped, so an
+# interrupted batch — or an unplugged drive — costs only the scene in flight.
+# `make scene-assets-clean` drops the markers when the settings change and the
+# scenes have to be made again.
+
+# The published dataset root: the directory holding manifest.json, raw/ and
+# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
+# replay path against that directory and refuses anything outside it.
+S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
+
+# Replay settings. Not the pipeline defaults, and the reason each one is not is
+# in tools/s2-archive/publish-scenes.py — in short, analysis mode replays faster
+# than the background model settles, and the settling pass would train that
+# model on the very traffic the recording exists to show. They live here so a
+# rebuild does not depend on somebody remembering to export three variables.
+SCENE_SPEED_MODE ?= scaled
+SCENE_SPEED_RATIO ?= 0.5
+SCENE_SETTLE ?= 0
+SCENE_SOURCE ?= corpus
+
+SCENE_ASSETS_ENV := \
+	LIDAR_PCAP_DIR=$(abspath $(LIDAR_PCAP_DIR)) \
+	S2_CORPUS_DIR=$(abspath $(S2_CORPUS_DIR)) \
+	SCENE_SOURCE=$(SCENE_SOURCE) \
+	REPLAY_SPEED_MODE=$(SCENE_SPEED_MODE) \
+	REPLAY_SPEED_RATIO=$(SCENE_SPEED_RATIO) \
+	REPLAY_SETTLE=$(SCENE_SETTLE)
+
+SCENE_PUBLISH := tools/s2-archive/publish-scenes.py
+SCENES_DIR := public_html/src/scenes
+
+.PHONY: scene-assets scene-assets-status scene-assets-clean scene-corpus-verify
+
+# Rebuild every outstanding scene, then the pages and map that list them.
+# publish-scenes.py refreshes the map after each scene too, so a fourteen-hour
+# batch never leaves a finished scene looking unpublished; this last call is for
+# the case where every scene was already done and none of them triggered it.
+scene-assets:
+	@$(MAKE) --no-print-directory scene-assets-preflight
+	@$(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) $(if $(FORCE),--force)
+	@$(MAKE) --no-print-directory render-scene-map
+
+# What a rebuild would do: which scenes are published, which are outstanding,
+# which sites cannot be resolved to packets, and roughly how long it will take.
+# Reads the corpus manifest and the markers only — no server, no replay.
+scene-assets-status:
+	@$(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status
+
+# Drop the .rebuilt markers so the next rebuild does the work again. The assets
+# themselves stay put: a scene keeps serving its old recording until there is a
+# new one to swap in.
+scene-assets-clean:
+	@if [ -n "$(SITES)" ]; then \
+		for site in $(SITES); do rm -f $(SCENES_DIR)/$$site/.rebuilt; done; \
+		echo "✓ markers dropped for: $(SITES)"; \
+	else \
+		find $(SCENES_DIR) -name .rebuilt -delete; \
+		echo "✓ every scene marker dropped; the next rebuild starts from nothing"; \
+	fi
+
+# The corpus is 70-odd GB on an external volume, and a capture that is present
+# but truncated fails in the middle of a replay rather than at the start. Check
+# the sizes the manifest recorded before committing an evening to it; SHA=1
+# checks the digests too, which reads every byte and takes a while.
+scene-corpus-verify:
+	@S2_CORPUS_DIR=$(abspath $(S2_CORPUS_DIR)) SHA=$(SHA) \
+		python3 tools/s2-archive/verify-corpus.py
+
+# Everything the batch needs before it starts: a binary that answers to the
+# name `velocity`, the server running, and every wanted site resolvable to a
+# capture. Each of these has, at least once, been discovered an hour into a run.
+#
+# The binary is multi-call and dispatches on argv[0], so `scene export` is only
+# reachable under that name. Do not build to ./velocity — that is the operator's
+# symlink to whichever build is current, and overwriting it with a second
+# 131 MB copy is not what anyone meant.
+.PHONY: scene-assets-preflight
+scene-assets-preflight:
+	@if [ ! -e velocity ]; then \
+		if [ -x velocity-report-local ]; then \
+			ln -s velocity-report-local velocity; \
+			echo "✓ linked velocity -> velocity-report-local (scene export dispatches on argv[0])"; \
+		else \
+			echo "No velocity binary. Build one first:"; \
+			echo "    make build-radar-local"; \
+			exit 1; \
+		fi; \
+	fi
+	@report=$$($(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status 2>&1) || { \
+		echo "$$report"; \
+		echo "Some sites could not be resolved to packets; nothing ran."; \
+		exit 1; }
+	@curl -fsS --max-time 5 http://localhost:8080/api/lidar/playback/status >/dev/null 2>&1 || { \
+		echo "The LiDAR server is not answering on :8080."; \
+		echo "Start it in another shell:"; \
+		echo "    make dev-go-lidar LIDAR_PCAP_DIR=$(LIDAR_PCAP_DIR)"; \
+		exit 1; }
 
 # =============================================================================
 # LIDAR SCENE CAPTURE
