@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-09-18T19:07:49-0700",
-  "total_rows": 1358,
+  "updated_at": "2026-09-18T23:52:13-0700",
+  "total_rows": 2139,
   "errors": 0,
   "by_param_key": {
     "_baseline": {
@@ -60,39 +60,39 @@
       "max_settling_frame": 723
     },
     "reacquisition_boost_multiplier": {
-      "n_runs": 24,
+      "n_runs": 188,
       "n_not_converged": 0,
-      "mean_settling_frame": 11.5,
+      "mean_settling_frame": 61.2,
       "min_settling_frame": 11,
-      "max_settling_frame": 12
+      "max_settling_frame": 722
     },
     "min_confidence_floor": {
-      "n_runs": 24,
+      "n_runs": 188,
       "n_not_converged": 0,
-      "mean_settling_frame": 11.5,
+      "mean_settling_frame": 60.4,
       "min_settling_frame": 11,
-      "max_settling_frame": 12
+      "max_settling_frame": 717
     },
     "locked_baseline_threshold": {
-      "n_runs": 24,
+      "n_runs": 188,
       "n_not_converged": 0,
-      "mean_settling_frame": 11.5,
+      "mean_settling_frame": 60.1,
       "min_settling_frame": 11,
-      "max_settling_frame": 12
+      "max_settling_frame": 723
     },
     "locked_baseline_multiplier": {
-      "n_runs": 18,
+      "n_runs": 141,
       "n_not_converged": 0,
-      "mean_settling_frame": 11.5,
+      "mean_settling_frame": 60.1,
       "min_settling_frame": 11,
-      "max_settling_frame": 12
+      "max_settling_frame": 712
     },
     "freeze_threshold_multiplier": {
-      "n_runs": 22,
+      "n_runs": 188,
       "n_not_converged": 0,
-      "mean_settling_frame": 11.5,
+      "mean_settling_frame": 61.0,
       "min_settling_frame": 11,
-      "max_settling_frame": 12
+      "max_settling_frame": 723
     }
   }
 }
