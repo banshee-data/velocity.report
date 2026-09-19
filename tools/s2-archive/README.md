@@ -16,6 +16,8 @@ everything else here produces or feeds it.
 | `site-joins.json`     | Operator assertions that separated static fragments belong to one visit. |
 | `build-site-index.py` | Stitches the segment analysis and attaches positions.                    |
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.              |
+| `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                   |
+| `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.    |
 
 The scene catalogue being developed in [PR #569](https://github.com/banshee-data/velocity.report/pull/569) reads this index. Its map generator and `make render-scene-map` target are part of a later extraction, not this archive-tooling change. Each scene export is joined to a site
 by the wall clock in its header and inherits that site's position, so a mark
@@ -139,6 +141,66 @@ node tools/s2-archive/stage-huggingface-dataset.mjs \
   --output /Volumes/lidar/lidar/hf \
   --apply
 ```
+
+## Web scene assets
+
+The point-cloud recordings behind the published scene pages are rebuilt from
+the trimmed corpus — the per-site PCAPNGs `export-static-pcaps.py` produced,
+as published in the dataset — rather than from the original rolling captures.
+The corpus capture is already clipped to the site bounds, so a scene is one
+file replayed whole: no offset derived from a filename stamp, no join across
+five-minute boundaries, and the packets are the ones a reader can download.
+
+Identity still comes from `site-index.json`. The corpus supplies the packets
+and the duration; the index supplies the id, the title and the position, which
+is what the scene pages and the map read.
+
+The server must be running, with its replay directory pointed at the volume
+that holds the corpus:
+
+```bash
+make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+```
+
+Then, in another shell:
+
+```bash
+make scene-corpus-verify   # the captures are all there and all whole
+make scene-assets-status   # what is outstanding, and roughly how long
+make scene-assets          # rebuild it
+```
+
+| Target                | What it does                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `scene-assets`        | Rebuild every outstanding scene, then the pages and map that list them |
+| `scene-assets-status` | Report published, outstanding and unresolved sites; no server needed   |
+| `scene-assets-clean`  | Drop the `.rebuilt` markers so a rebuild does the work again           |
+| `scene-corpus-verify` | Check the corpus against its manifest; `SHA=1` checks digests too      |
+
+`SITES="laguna-eddy howard-6th"` limits any of them to named sites, and
+`FORCE=1` rebuilds a scene that already carries a marker.
+
+A rebuild is resumable: a finished scene carries a `.rebuilt` marker and is
+skipped, so an interrupted batch costs only the scene in flight. The whole
+corpus is about 506 minutes of recording, which at half speed is a long
+evening — `scene-assets-status` prints the estimate before you commit to it.
+
+Two settings are not the pipeline defaults, and the targets supply both:
+replay runs at half speed, because analysis mode reads packets faster than the
+background model settles; and the settling pass is off, because it would train
+that model on the very traffic the recording exists to show. The reasoning is
+in `publish-scenes.py`. Override them with `SCENE_SPEED_RATIO`, `SCENE_SETTLE`
+and `SCENE_SPEED_MODE` if an experiment needs different ones.
+
+`SCENE_SOURCE=archive` replays the original rolling captures instead, joined
+and clipped the way the scenes published before the dataset existed were made.
+Keep it for reproducing one of those; the corpus is the default.
+
+The corpus root is `S2_CORPUS_DIR`, which defaults to
+`$(LIDAR_PCAP_DIR)/sf-street-speeds`. It has to sit under `LIDAR_PCAP_DIR`:
+the server resolves every replay path against that directory and refuses
+anything outside it. `scene-assets-status` says so plainly rather than letting
+the batch discover it one refusal at a time.
 
 ## Rebuild inputs and publication state
 
