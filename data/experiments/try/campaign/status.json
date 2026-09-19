@@ -1,10 +1,9 @@
 {
-  "updated_at": "2026-09-18T16:54:39-0700",
-  "elapsed_hours": 2.22,
+  "updated_at": "2026-09-18T19:07:49-0700",
+  "elapsed_hours": 4.44,
   "budget_hours": 7,
   "stage_status_counts": {
-    "done": 27,
-    "pending": 7
+    "done": 34
   },
   "stages": [
     {
@@ -227,38 +226,78 @@
     },
     {
       "id": "l3_extended_sweep_b",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_l3_sensitivity_v3",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "background_update_fraction: sensitive -- flagged on >= 20% of sites at value(s) ['0.2', '0.1', '0.05']",
+          "closeness_multiplier: insensitive -- no tested value flagged >= 20% of sites",
+          "freeze_threshold_multiplier: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "locked_baseline_multiplier: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "locked_baseline_threshold: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "min_confidence_floor: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "neighbour_confirmation_count: sensitive -- flagged on >= 20% of sites at value(s) ['1']",
+          "noise_relative: sensitive -- flagged on >= 20% of sites at value(s) ['0.065', '0.05']",
+          "post_settle_update_fraction: insensitive -- no tested value flagged >= 20% of sites",
+          "reacquisition_boost_multiplier: insensitive -- no tested value flagged >= 20% of sites [INERT: no observable change at any site/value]",
+          "safety_margin_metres: insensitive -- no tested value flagged >= 20% of sites",
+          "seed_from_first: sensitive -- flagged on >= 20% of sites at value(s) ['False']"
+        ]
+      }
     },
     {
       "id": "l3_interaction_grid_top2",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_l3_interaction_grid_top2",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": "overall_verdict: inconclusive (scored 0 sites, counts={'lost_convergence': 24})"
+      }
     },
     {
       "id": "l3_extended_replicate",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
     },
     {
       "id": "analyze_l3_extended_replicate",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "background_update_fraction: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "closeness_multiplier: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "freeze_threshold_multiplier: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "locked_baseline_multiplier: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "locked_baseline_threshold: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "min_confidence_floor: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "neighbour_confirmation_count: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "noise_relative: AGREE -- {'0': 'sensitive', '1': 'sensitive'}",
+          "post_settle_update_fraction: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "reacquisition_boost_multiplier: NOT-REPLICATED -- {'0': 'insensitive', '1': 'not_tested'}",
+          "safety_margin_metres: AGREE -- {'0': 'insensitive', '1': 'insensitive'}",
+          "seed_from_first: AGREE -- {'0': 'sensitive', '1': 'sensitive'}"
+        ]
+      }
     },
     {
       "id": "finalize_v3",
-      "status": "pending",
-      "result_summary": null
+      "status": "done",
+      "result_summary": {
+        "finalized_at": "2026-09-18T19:07:49-0700"
+      }
     }
   ]
 }
