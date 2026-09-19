@@ -10,7 +10,9 @@ targets and compares it with the site's baseline. The deviations are
   dev_mean = |ln(mean_nis / 2)|      symmetric: 1 and 4 are equally wrong
   dev_exc  = |exceedance - 0.05|
 
-Per band (only bands with count >= MIN_COUNT), against the baseline config:
+Per band (only bands with count >= MIN_COUNT, 300: the standard error of a
+chi-squared(2) mean at that count is 0.12, under the MEAN_FLOOR), against the
+baseline config:
   toward     dev_mean falls by >= MEAN_FLOOR and dev_exc does not rise by more
              than EXC_TOL, or dev_exc falls by >= EXC_FLOOR and dev_mean does
              not rise by more than MEAN_TOL
@@ -45,7 +47,7 @@ import math
 from collections import defaultdict
 from pathlib import Path
 
-MIN_COUNT = 500
+MIN_COUNT = 300
 MEAN_FLOOR = 0.10
 MEAN_TOL = 0.02
 EXC_FLOOR = 0.01
