@@ -211,6 +211,35 @@ func TestHandleAnnotationExportWritesAnOpenablePack(t *testing.T) {
 	}
 }
 
+// TestHandleAnnotationExportCreatesAMissingPacksDirectory is the first export
+// on any machine: the configured packs directory has never been written to,
+// so it does not exist. Every other test here hands the handler a t.TempDir()
+// that already does, which is how a handler that validated its output path
+// inside that directory before creating it passed all of them and then
+// answered the first real request with a 500.
+func TestHandleAnnotationExportCreatesAMissingPacksDirectory(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(testDB)
+
+	vrlogDir := writeTestVRLOG(t, 3)
+	insertRunWithVRLog(t, store, "first-export", vrlogDir)
+
+	packsRoot := filepath.Join(t.TempDir(), "lidar", "annotation-packs")
+	ws := &Server{
+		db: testDB, annotationPacksDir: packsRoot,
+		vrlogSafeDir: filepath.Dir(vrlogDir),
+	}
+
+	rec := postAnnotationExport(ws, "first-export", map[string]any{"coverage": "full"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for a packs directory that does not exist yet; body = %s", rec.Code, rec.Body.String())
+	}
+	if info, err := os.Stat(packsRoot); err != nil || !info.IsDir() {
+		t.Errorf("packs directory %q was not created: %v", packsRoot, err)
+	}
+}
+
 func TestHandleAnnotationExportMaxSamplesCapsTheExport(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()

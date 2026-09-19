@@ -113,6 +113,16 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	// This endpoint owns the write boundary, so it creates it. The boundary
+	// has to exist before a path can be resolved inside it: the resolver
+	// canonicalises the safe directory through its symlinks and rightly fails
+	// when there is nothing to canonicalise, which would otherwise turn the
+	// first export on every machine into a 500.
+	if err := os.MkdirAll(ws.annotationPacksDir, 0o755); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not create annotation packs directory: %v", err))
+		return
+	}
+
 	// One directory per request, named for the run and the moment: two
 	// exports of the same run must not collide, and Export refuses to write
 	// into an existing directory rather than merge into one.
