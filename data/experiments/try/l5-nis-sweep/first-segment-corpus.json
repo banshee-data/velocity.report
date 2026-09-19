@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "name": "state-estimation-phase01-multi-site (first segment per case)",
+  "source_index": "site-index.json",
+  "purpose": "Derived from state-estimation-phase01-corpus.json for the pass-6 NIS-scored L5 noise sweep: identical case ids, expected_capture_count 1 so lidar-state-estimation-baseline replays only the first five-minute segment of each placement.",
+  "cases": [
+    {
+      "id": "marina-webster-beach",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "marina corridor placement; establishes a different north azimuth and background."
+    },
+    {
+      "id": "columbus-broadway",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "longest selected sequence; crosses six capture joins and exercises replay ordering."
+    },
+    {
+      "id": "embarcadero-folsom",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "third site and distinct approach geometry; held out from parameter selection."
+    },
+    {
+      "id": "ashbury-downey",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Ashbury at Downey, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "haight-divisadero",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Haight at Divisadero, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "pierce-haight",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Pierce at Haight, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "fulton-divisadero",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Fulton at Divisadero, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "california-leon-baker",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "California between Leon and Baker, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "broadway-gough",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Broadway at Gough, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "laguna-eddy",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Laguna at Eddy, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "lombard-broderick",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Lombard at Broderick, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "marina-broderick",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Marina at Broderick, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "lombard-laguna",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Lombard at Laguna, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "columbus-north-point",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Columbus at North Point, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "embarcadero-bay",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Embarcadero at Bay, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "van-ness-sacramento",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "van Ness at Sacramento, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "embarcadero-broadway",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Embarcadero at Broadway, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "franklin-mcallister",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Franklin at McAllister, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "hyde-ofarrell",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Hyde at O'Farrell, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "bush-powell",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Bush at Powell, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "1st-mission",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "1st at Mission, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "embarcadero-bryant",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Embarcadero at Bryant, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "3rd-folsom",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "3rd at Folsom, one of the 24-site S2 archive index placements"
+    },
+    {
+      "id": "howard-6th",
+      "expected_capture_count": 1,
+      "expected_minutes": 5.0,
+      "role": "Howard at 6th, one of the 24-site S2 archive index placements"
+    }
+  ]
+}

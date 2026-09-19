@@ -1429,7 +1429,7 @@
     {
       "id": "l3_long_baseline_o0",
       "type": "l3_sweep_json",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "sweep": {},
@@ -1438,12 +1438,17 @@
         "skip_baseline": false,
         "out_dir": "data/experiments/try/l3-long-window",
         "_comment": "Default config over the whole 5-minute segment at every site that has segment 0. Every other L3 result used the first 120 s only."
-      }
+      },
+      "result": {
+        "n_values": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-19T01:03:44-0700"
     },
     {
       "id": "l3_long_baseline_o1",
       "type": "l3_sweep_json",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "sweep": {},
@@ -1452,12 +1457,17 @@
         "skip_baseline": false,
         "out_dir": "data/experiments/try/l3-long-window",
         "_comment": "Default config over the whole 5-minute segment at every site that has segment 1. Every other L3 result used the first 120 s only."
-      }
+      },
+      "result": {
+        "n_values": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-19T01:14:35-0700"
     },
     {
       "id": "l3_long_baseline_o2",
       "type": "l3_sweep_json",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "sweep": {},
@@ -1466,7 +1476,12 @@
         "skip_baseline": false,
         "out_dir": "data/experiments/try/l3-long-window",
         "_comment": "Default config over the whole 5-minute segment at every site that has segment 2. Every other L3 result used the first 120 s only."
-      }
+      },
+      "result": {
+        "n_values": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-19T01:28:17-0700"
     },
     {
       "id": "l3_long_baseline_o3",
@@ -1711,7 +1726,7 @@
     {
       "id": "l3_long_guardrails_o3",
       "type": "l3_sweep_json",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [
         "l3_long_baseline_o3"
       ],
@@ -1734,15 +1749,18 @@
         "skip_baseline": false,
         "out_dir": "data/experiments/try/l3-long-window",
         "_comment": "The guardrail values over full 300 s segments. 120 s windows cannot show whether a setting settles and then falls out again (post-settle analysis found background_update_fraction>=0.1 does exactly that)."
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: B7 (closeness x noise is one knob; no narrowing regresses settling) and B2 (the spread-delta criterion has an alpha-proportional floor) mean re-confirming 'widening hurts settling' at 300 s changes no decision; o0 is kept."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "analyze_l3_long_guardrails",
       "type": "analyze_post_settle",
       "status": "pending",
       "depends_on": [
-        "l3_long_guardrails_o0",
-        "l3_long_guardrails_o3"
+        "l3_long_guardrails_o0"
       ],
       "params": {
         "results": "data/experiments/try/l3-long-window/results.csv",
@@ -1844,7 +1862,7 @@
     {
       "id": "lf_haight_divisadero_o1",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -1885,12 +1903,16 @@
         "pcap_file": "s2/s2-1_20260901130345_00004.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-haight-divisadero-o1"
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: direction transfer needs a few long segments, not eleven; the decisive number (median track lifetime 0.37 s at Columbus-Broadway) is already recorded. Time moved to the NIS-scored L5 sweep (pass 6) and the window dose-response."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "lf_embarcadero_bryant_o1",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -1931,12 +1953,16 @@
         "pcap_file": "s2/s2_sf_8_20260903144538_00012.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-embarcadero-bryant-o1"
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: direction transfer needs a few long segments, not eleven; the decisive number (median track lifetime 0.37 s at Columbus-Broadway) is already recorded. Time moved to the NIS-scored L5 sweep (pass 6) and the window dose-response."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "lf_fulton_divisadero_o1",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -1977,12 +2003,16 @@
         "pcap_file": "s2/s2-1_20260901140350_00016.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-fulton-divisadero-o1"
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: direction transfer needs a few long segments, not eleven; the decisive number (median track lifetime 0.37 s at Columbus-Broadway) is already recorded. Time moved to the NIS-scored L5 sweep (pass 6) and the window dose-response."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "lf_1st_mission_o1",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -2023,7 +2053,11 @@
         "pcap_file": "s2/s2_sf_8_20260903141536_00006.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-1st-mission-o1"
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: direction transfer needs a few long segments, not eleven; the decisive number (median track lifetime 0.37 s at Columbus-Broadway) is already recorded. Time moved to the NIS-scored L5 sweep (pass 6) and the window dose-response."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "analyze_label_free_l4l5_interim",
@@ -2034,11 +2068,7 @@
         "lf_lombard_laguna_o0",
         "lf_columbus_broadway_o4",
         "lf_lombard_laguna_o3",
-        "lf_columbus_broadway_o2",
-        "lf_haight_divisadero_o1",
-        "lf_embarcadero_bryant_o1",
-        "lf_fulton_divisadero_o1",
-        "lf_1st_mission_o1"
+        "lf_columbus_broadway_o2"
       ],
       "params": {
         "source_stages": [
@@ -2046,11 +2076,7 @@
           "lf_lombard_laguna_o0",
           "lf_columbus_broadway_o4",
           "lf_lombard_laguna_o3",
-          "lf_columbus_broadway_o2",
-          "lf_haight_divisadero_o1",
-          "lf_embarcadero_bryant_o1",
-          "lf_fulton_divisadero_o1",
-          "lf_1st_mission_o1"
+          "lf_columbus_broadway_o2"
         ],
         "gt_analyses": [
           "data/experiments/try/l5-gt-sweep/gt-oat-analysis.json",
@@ -2134,7 +2160,7 @@
     {
       "id": "lf_columbus_broadway_o6",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -2175,12 +2201,16 @@
         "pcap_file": "s2/s2_sf_3_20260902135038_00008.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-columbus-broadway-o6"
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: direction transfer needs a few long segments, not eleven; the decisive number (median track lifetime 0.37 s at Columbus-Broadway) is already recorded. Time moved to the NIS-scored L5 sweep (pass 6) and the window dose-response."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "lf_lombard_laguna_o6",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "pcap_root": "/Volumes/lidar/lidar",
@@ -2221,12 +2251,16 @@
         "pcap_file": "s2/s2_sf_2_20260902112832_00025.pcap",
         "duration_seconds": 300,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-lf-lombard-laguna-o6"
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: direction transfer needs a few long segments, not eleven; the decisive number (median track lifetime 0.37 s at Columbus-Broadway) is already recorded. Time moved to the NIS-scored L5 sweep (pass 6) and the window dose-response."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "l3_holdout_o2_sensitive",
       "type": "l3_replicate_planned",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [],
       "params": {
         "sensitivity_file": "sensitivity-analysis-v3b.json",
@@ -2240,18 +2274,26 @@
         "skip_baseline": false,
         "duration_seconds": 120,
         "_comment": "Held-out window: segment 2 was never used to derive a verdict. Prediction fixed before it runs: the same four keys are sensitive (nbr=1, noise>=0.05, bg>=0.05, seed_from_first=false lost) and nothing else flips."
-      }
+      },
+      "result": {
+        "reason": "Cut at the 2026-09-19 review: all 12 verdicts already replicate across ordinals and frames are near-deterministic; one held-out window (o3) is enough."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "analyze_l3_holdout_o2",
       "type": "analyze_replicate_consistency",
-      "status": "pending",
+      "status": "skipped",
       "depends_on": [
         "l3_holdout_o2_sensitive"
       ],
       "params": {
         "out_name": "replicate-consistency-holdout-o2.json"
-      }
+      },
+      "result": {
+        "reason": "Cut with l3_holdout_o2_sensitive."
+      },
+      "finished_at": "2026-09-19T01:04:48-0700"
     },
     {
       "id": "analyze_label_free_l4l5",
@@ -2262,13 +2304,7 @@
         "lf_lombard_laguna_o0",
         "lf_columbus_broadway_o4",
         "lf_lombard_laguna_o3",
-        "lf_columbus_broadway_o2",
-        "lf_haight_divisadero_o1",
-        "lf_embarcadero_bryant_o1",
-        "lf_fulton_divisadero_o1",
-        "lf_1st_mission_o1",
-        "lf_columbus_broadway_o6",
-        "lf_lombard_laguna_o6"
+        "lf_columbus_broadway_o2"
       ],
       "params": {
         "source_stages": [
@@ -2276,13 +2312,7 @@
           "lf_lombard_laguna_o0",
           "lf_columbus_broadway_o4",
           "lf_lombard_laguna_o3",
-          "lf_columbus_broadway_o2",
-          "lf_haight_divisadero_o1",
-          "lf_embarcadero_bryant_o1",
-          "lf_fulton_divisadero_o1",
-          "lf_1st_mission_o1",
-          "lf_columbus_broadway_o6",
-          "lf_lombard_laguna_o6"
+          "lf_columbus_broadway_o2"
         ],
         "gt_analyses": [
           "data/experiments/try/l5-gt-sweep/gt-oat-analysis.json",
@@ -2301,12 +2331,119 @@
         "analyze_label_free_l4l5",
         "analyze_l3_long_guardrails",
         "analyze_l3_long_baseline",
-        "analyze_l3_holdout_o2",
         "analyze_gt_oat_l3sens",
         "analyze_gt_oat_dose",
-        "analyze_post_settle_ord01"
+        "analyze_post_settle_ord01",
+        "analyze_l3_holdout_o3",
+        "analyze_gt_oat_window",
+        "analyze_l3_sensitivity_v4"
       ],
       "params": {}
+    },
+    {
+      "id": "gt_oat_window_kirk0_dd98",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.closeness_multiplier": [
+            2,
+            2.5,
+            4,
+            7.5
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.01,
+            0.015,
+            0.03
+          ]
+        },
+        "_comment": "Dose-response of the L3 acceptance window against labelled tracks. gt_oat_l3sens found closeness_multiplier=1.5 recovers 13 of 16 on kirk0 (baseline 7) and 5.0 drops it to 4; B7 says closeness and noise_relative act through their product. Fills in between the extremes; 7.5 is B7's prediction for noise_relative=0.05 at tracker level. 7 settings + warmup + 3 baselines, ~4 min.",
+        "reference_run_id": "dd98c68e-4e51-4155-a1ee-1d5bc12535ae",
+        "pcap_file": "kirk0.pcapng",
+        "duration_seconds": 95,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-window-kirk0-dd98"
+      }
+    },
+    {
+      "id": "gt_oat_window_kirk1_60a4",
+      "type": "gt_oat_sweep",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_window_kirk0_dd98"
+      ],
+      "params": {
+        "reference_db": "sensor_data.db",
+        "pcap_root": "/Volumes/lidar/lidar",
+        "udp_port": 2369,
+        "sweep": {
+          "l3.ema_baseline_v1.closeness_multiplier": [
+            2,
+            2.5,
+            4,
+            7.5
+          ],
+          "l3.ema_baseline_v1.noise_relative": [
+            0.01,
+            0.015,
+            0.03
+          ]
+        },
+        "_comment": "Same 7 settings on kirk1 (~90 s per run, ~17 min).",
+        "reference_run_id": "60a4774c-db3e-4008-9b7e-d1059ec27319",
+        "pcap_file": "kirk1.pcapng",
+        "duration_seconds": 190,
+        "out_dir": "data/experiments/try/l5-gt-sweep/oat-window-kirk1-60a4"
+      }
+    },
+    {
+      "id": "analyze_gt_oat_window",
+      "type": "analyze_gt_oat",
+      "status": "pending",
+      "depends_on": [
+        "gt_oat_window_kirk1_60a4"
+      ],
+      "params": {
+        "source_stages": [
+          "gt_oat_window_kirk0_dd98",
+          "gt_oat_window_kirk1_60a4"
+        ],
+        "out_name": "gt-oat-analysis-window.json"
+      }
+    },
+    {
+      "id": "l3_b7_prediction",
+      "type": "l3_sweep_json",
+      "status": "pending",
+      "depends_on": [],
+      "params": {
+        "sweep": {
+          "closeness_multiplier": [
+            7.5,
+            9.75
+          ]
+        },
+        "capture_ordinal": 0,
+        "duration_seconds": 120,
+        "skip_baseline": true,
+        "_comment": "B7's falsifiable prediction (paper-implementation-gap-analysis.md): the window is closeness x noise, so closeness_multiplier=7.5 (2.5x shipped) should reproduce noise_relative=0.05's settling regression and 9.75 (3.25x) noise_relative=0.065's. 2 values x 24 sites, ~9 min."
+      }
+    },
+    {
+      "id": "analyze_l3_sensitivity_v4",
+      "type": "analyze_l3_sensitivity",
+      "status": "pending",
+      "depends_on": [
+        "l3_b7_prediction"
+      ],
+      "params": {
+        "out_name": "sensitivity-analysis-v4.json",
+        "_comment": "Re-runs the sensitivity rule over all ordinal-0 rows including the B7 values; compare closeness 7.5/9.75 flag counts with noise_relative 0.05/0.065 in the same file."
+      }
     }
   ],
   "min_free_gb": 3
