@@ -8,9 +8,13 @@ import (
 
 // update applies the Kalman update step with a matched cluster measurement.
 func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos int64) {
-	// Measurement: z = [cluster.CentroidX, cluster.CentroidY]
-	zX := cluster.CentroidX
-	zY := cluster.CentroidY
+	track.LastResidual.Valid = false
+	measurement := t.measurementForCluster(cluster, nowNanos)
+	// Measurement: z = [OBB-centre X, OBB-centre Y], with an explicit medoid
+	// fallback for invalid geometry. The filter keeps its existing CV state and
+	// covariance shape; only the biased geometry input is corrected here.
+	zX := measurement.X
+	zY := measurement.Y
 
 	// Innovation
 	yX := zX - track.X
@@ -39,6 +43,20 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	invS10 := -S10 / det
 	invS11 := S00 / det
 
+	// Filter-consistency instrumentation. Taken here because the innovation is
+	// still measured against the prediction, and the inverse covariance the
+	// gain needs is exactly what NIS needs.
+	track.Residuals.Observe(yX, yY, track.VX, track.VY, invS00, invS01, invS10, invS11)
+	if t.baselineEnabled {
+		t.baselineResiduals.Observe(yX, yY, track.VX, track.VY, invS00, invS01, invS10, invS11)
+	}
+	track.LastResidual = FilterResidual{
+		Valid: true, PredictedX: track.X, PredictedY: track.Y, Measurement: measurement,
+		InnovationX: yX, InnovationY: yY,
+		NIS:                float32(float64(yX)*float64(invS00*yX+invS01*yY) + float64(yY)*float64(invS10*yX+invS11*yY)),
+		GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise),
+	}
+
 	// Kalman gain K = P * H^T * S^-1
 	// K is 4x2 matrix
 	// K[i,0] = P[i,0]*invS00 + P[i,1]*invS10
@@ -55,40 +73,14 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	track.VX += K[2*2+0]*yX + K[2*2+1]*yY
 	track.VY += K[3*2+0]*yX + K[3*2+1]*yY
 
-	// Update covariance: P' = (I - K*H) * P
-	// K*H is 4x4, where (K*H)[i,j] = K[i,0]*H[0,j] + K[i,1]*H[1,j]
-	// H[0,0]=1, H[0,1]=0, H[0,2]=0, H[0,3]=0
-	// H[1,0]=0, H[1,1]=1, H[1,2]=0, H[1,3]=0
-	// So (K*H)[i,j] = K[i,0] if j==0, K[i,1] if j==1, 0 otherwise
-	var IminusKH [16]float32
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			identity := float32(0)
-			if i == j {
-				identity = 1
-			}
-			var kh float32
-			if j == 0 {
-				kh = K[i*2+0]
-			} else if j == 1 {
-				kh = K[i*2+1]
-			}
-			IminusKH[i*4+j] = identity - kh
-		}
+	// Update covariance. The shipped form is P' = (I - K*H) * P; the Joseph
+	// stabilised form is algebraically identical at the optimal gain but keeps
+	// P symmetric under float error. See tracking_covariance.go.
+	if t.Config.JosephCovarianceUpdate {
+		track.P = josephCovarianceUpdate(track.P, K, t.Config.MeasurementNoise)
+	} else {
+		track.P = naiveCovarianceUpdate(track.P, K)
 	}
-
-	// P' = IminusKH * P
-	var newP [16]float32
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			var sum float32
-			for k := 0; k < 4; k++ {
-				sum += IminusKH[i*4+k] * track.P[k*4+j]
-			}
-			newP[i*4+j] = sum
-		}
-	}
-	track.P = newP
 
 	// Guard: reset state if update produced NaN/Inf (task 2.4).
 	if !isFiniteState(track) {
@@ -111,7 +103,10 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	t.clampVelocity(track)
 
 	// Update timestamp
-	track.EndUnixNanos = nowNanos
+	track.LastMeasurementSource = measurement.Source
+	track.LastMeasurementUnixNanos = measurement.UnixNanos
+	track.LastClusterID = cluster.ClusterID
+	track.EndUnixNanos = measurement.UnixNanos
 	if track.EndUnixNanos > track.StartUnixNanos {
 		track.TrackDurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 	}
@@ -161,7 +156,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		track.History = append(track.History, TrackPoint{
 			X:         track.X,
 			Y:         track.Y,
-			Timestamp: nowNanos,
+			Timestamp: measurement.UnixNanos,
 		})
 		if hasPrevious {
 			dx := track.X - previousPoint.X
@@ -213,6 +208,11 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		}
 	}
 
+	if t.Config.OBBAxisCoherenceEnabled {
+		t.updateAxisHeading(track, cluster)
+		return
+	}
+
 	// Update OBB heading with temporal smoothing.
 	// Guards:
 	//   1. Skip heading update when cluster has too few points for reliable PCA.
@@ -239,7 +239,20 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			if cluster.OBB.Width > maxDim {
 				maxDim = cluster.OBB.Width
 			}
-			if maxDim > 0 {
+			switch {
+			case maxDim <= 0:
+				// A box with no extent at all is the limit case of the
+				// ambiguity this guard exists to catch: PCA had no axis of
+				// variation to recover, so the heading it reported is the
+				// arbitrary fallback. Guarding the division by skipping the
+				// check let the *most* ambiguous measurement through while a
+				// 5 cm square was correctly rejected. Reported as insufficient
+				// rather than locked so a degenerate cluster stays
+				// distinguishable from an ordinary near-square one in the
+				// recorded stream (gap P1).
+				updateHeading = false
+				headingSource = HeadingSourceInsufficient
+			default:
 				aspectDiff := cluster.OBB.Length - cluster.OBB.Width
 				if aspectDiff < 0 {
 					aspectDiff = -aspectDiff
@@ -249,10 +262,12 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 					headingSource = HeadingSourceLocked
 				}
 			}
+
 		}
 
 		if updateHeading {
 			newOBBHeading := cluster.OBB.HeadingRad
+			snappedHeading := false
 
 			// Disambiguate PCA heading using velocity direction.
 			// PCA gives the axis of maximum variance but has 180° ambiguity.
@@ -334,19 +349,50 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				// characteristic of PCA axis swaps where the principal and
 				// perpendicular axes exchange. Real objects do not rotate
 				// 90° in a single frame at traffic-monitoring distances.
+				//
+				// The rejection is measured against the *smoothed* heading, and
+				// that is what makes it dangerous on its own. Once the smoothed
+				// value has itself drifted more than 60° from the truth, every
+				// correct measurement lands inside the rejection band and is
+				// thrown away, so the lock sustains itself and the box never
+				// recovers. On the reference run 65 % of locked tracks never
+				// released, sitting a median 60° from their direction of travel.
+				//
+				// The rejection counter is the escape. After
+				// OBBHeadingLockMaxRejections consecutive rejections we stop
+				// believing the smoothed heading and accept the measurement.
 				absDelta := math.Abs(headingDelta)
 				if absDelta > math.Pi/3 && absDelta < 2*math.Pi/3 {
-					updateHeading = false
-					headingSource = HeadingSourceLocked
+					track.HeadingRejectionRun++
+					maxRej := t.Config.OBBHeadingLockMaxRejections
+					if maxRej > 0 && track.HeadingRejectionRun >= maxRej {
+						// Release. Snap rather than ease: the EMA moves 8 % of
+						// the gap per update, so easing across a delta that is
+						// wide enough to be rejected would keep re-triggering
+						// the guard and never converge.
+						track.OBBHeadingRad = newOBBHeading
+						track.HeadingRejectionRun = 0
+						track.HeadingLockReleases++
+						snappedHeading = true
+						headingSource = HeadingSourceReleased
+					} else {
+						updateHeading = false
+						headingSource = HeadingSourceLocked
+					}
+				} else {
+					track.HeadingRejectionRun = 0
 				}
 			}
 
-			if updateHeading {
+			// A snap has already set the heading; smoothing it again would undo
+			// the release it was meant to achieve.
+			if updateHeading && !snappedHeading {
 				track.OBBHeadingRad = l4perception.SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, t.Config.OBBHeadingSmoothingAlpha)
 			}
 		}
 
 		track.HeadingSource = headingSource
+		track.RecordHeadingSource(headingSource)
 
 		// Use cluster (DBSCAN) dimensions directly for per-frame rendering.
 		// The DBSCAN OBB dimensions are aligned with the current frame's PCA
@@ -366,5 +412,167 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			track.OBBHeight = cluster.OBB.Height
 		}
 		track.LatestZ = cluster.OBB.CenterZ
+
+		// Sample course alignment against the heading this frame will publish,
+		// after every guard has had its say. Sampling before the update would
+		// measure an intermediate value no client ever sees.
+		track.SampleCourseAlignment()
 	}
+}
+
+// SampleCourseAlignment records the angle between the track's published OBB
+// heading and its direction of travel into the track's histogram.
+//
+// It is a no-op below CourseAlignmentMinSpeedMps, where the Kalman velocity
+// heading is noise rather than a course. That threshold is the reason this
+// metric is reported with a sample count: a track that never moved fast enough
+// contributes nothing and must not be read as perfectly aligned.
+func (t *TrackedObject) SampleCourseAlignment() {
+	speed := math.Sqrt(float64(t.VX*t.VX + t.VY*t.VY))
+	if speed < CourseAlignmentMinSpeedMps {
+		return
+	}
+	course := math.Atan2(float64(t.VY), float64(t.VX))
+	deg := FoldAxisAngleDeg(float64(t.OBBHeadingRad) - course)
+
+	bin := int(deg / CourseAlignmentBinWidthDeg)
+	if bin >= CourseAlignmentBins {
+		bin = CourseAlignmentBins - 1
+	}
+	if bin < 0 {
+		bin = 0
+	}
+	t.CourseAlignmentHist[bin]++
+	t.CourseAlignmentCount++
+}
+
+// RecordHeadingSource attributes one frame to a heading source and maintains
+// the lock-run counters.
+//
+// The distinction that matters is between a lock and a trap. A few locked
+// frames are the guards suppressing one bad cluster, which is what they are
+// for. A sustained lock that never releases means Guard 3 is rejecting every
+// measurement because the smoothed heading it compares against has itself
+// drifted too far, and the track cannot recover. EnteredSustainedLock and
+// ReleasedAfterLock separate the two.
+func (t *TrackedObject) RecordHeadingSource(src HeadingSource) {
+	t.HeadingEpisodes.Observe(src, t.EndUnixNanos)
+	if src < 0 || int(src) >= HeadingSourceCount {
+		return
+	}
+	t.HeadingSourceCounts[src]++
+
+	if src.IsLocked() {
+		t.HeadingLockedFrames++
+		if t.CurrentLockRun == 0 {
+			t.LockEpisodes++
+		}
+		t.CurrentLockRun++
+		t.currentUnlockRun = 0
+		if t.CurrentLockRun > t.LongestLockRun {
+			t.LongestLockRun = t.CurrentLockRun
+		}
+		if t.CurrentLockRun >= SustainedLockFrames {
+			t.EnteredSustainedLock = true
+		}
+		return
+	}
+
+	t.CurrentLockRun = 0
+	t.currentUnlockRun++
+	if t.EnteredSustainedLock {
+		// Any unlocked frame after a sustained lock means the lock broke. This
+		// is the weaker of the two conditions and the one that distinguishes a
+		// ratchet from a lock that merely recurs.
+		t.RecoveredAfterLock = true
+		// A run of unlocked frames is a clean release. A single frame slipping
+		// through between rejections is not the lock letting go.
+		if t.currentUnlockRun >= SustainedLockFrames {
+			t.ReleasedAfterLock = true
+		}
+	}
+}
+
+// HeadingLockOutcome names what became of a track's heading lock.
+//
+// The original single "trapped" flag conflated two different things once the
+// rejection release started breaking locks. A track that escapes and re-locks
+// repeatedly never accumulates the consecutive unlocked frames a clean release
+// needs, so it read as trapped even though the ratchet was gone. Judging a
+// change to the guard stack needs the three cases kept apart.
+type HeadingLockOutcome string
+
+const (
+	// HeadingLockNone means the track never entered a sustained lock.
+	HeadingLockNone HeadingLockOutcome = "none"
+	// HeadingLockNeverRecovered means the heading locked and never unlocked
+	// again for the rest of the track's life. This is the true ratchet, and
+	// the population that should be empty once the release is armed.
+	HeadingLockNeverRecovered HeadingLockOutcome = "never_recovered"
+	// HeadingLockRelocked means the lock broke but re-formed without ever
+	// holding a clean run of unlocked frames. The ratchet is gone; the
+	// underlying heading ambiguity is not.
+	HeadingLockRelocked HeadingLockOutcome = "relocked"
+	// HeadingLockReleased means the track held SustainedLockFrames or more
+	// consecutive unlocked frames after its lock.
+	HeadingLockReleased HeadingLockOutcome = "released"
+)
+
+// HeadingLockOutcomeFor classifies the track's heading-lock history.
+func (t *TrackedObject) HeadingLockOutcomeFor() HeadingLockOutcome {
+	switch {
+	case !t.EnteredSustainedLock:
+		return HeadingLockNone
+	case !t.RecoveredAfterLock:
+		return HeadingLockNeverRecovered
+	case !t.ReleasedAfterLock:
+		return HeadingLockRelocked
+	default:
+		return HeadingLockReleased
+	}
+}
+
+// HeadingLockTrapped reports a track whose heading locked and never unlocked
+// again. It is deliberately the narrow reading: a track that breaks free and
+// re-locks is reported as relocked, not trapped, because the two call for
+// different fixes.
+func (t *TrackedObject) HeadingLockTrapped() bool {
+	return t.HeadingLockOutcomeFor() == HeadingLockNeverRecovered
+}
+
+// FoldAxisAngleDeg converts a signed angular difference in radians to degrees
+// in [0, 90].
+//
+// Two foldings apply. An oriented bounding box is symmetric, so a heading
+// differing by 180° describes the same box and folds to 0. A difference of 90°
+// is a length/width axis swap, which is the worst case: the box lies across the
+// direction of travel rather than along it.
+func FoldAxisAngleDeg(diffRad float64) float64 {
+	d := math.Mod(math.Abs(diffRad)*180/math.Pi, 360)
+	if d > 180 {
+		d = 360 - d
+	}
+	if d > 90 {
+		d = 180 - d
+	}
+	return d
+}
+
+// CourseAlignmentPercentileDeg returns the p-th percentile of the track's
+// course-alignment histogram, in degrees, or (0, false) when the track has no
+// samples. The value is the upper edge of the containing bin, so it is accurate
+// to CourseAlignmentBinWidthDeg.
+func (t *TrackedObject) CourseAlignmentPercentileDeg(p float64) (float32, bool) {
+	if t.CourseAlignmentCount == 0 {
+		return 0, false
+	}
+	target := p / 100 * float64(t.CourseAlignmentCount)
+	cum := 0.0
+	for i, n := range t.CourseAlignmentHist {
+		cum += float64(n)
+		if cum >= target {
+			return float32(float64(i+1) * CourseAlignmentBinWidthDeg), true
+		}
+	}
+	return 90, true
 }

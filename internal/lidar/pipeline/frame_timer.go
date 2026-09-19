@@ -20,10 +20,21 @@ import (
 //	tracef("[Pipeline] frame=%s total=%.1fms %s", ft.frameID, ft.TotalMs(), ft.Format())
 type frameTimer struct {
 	frameID    string
-	frameStart time.Time
 	stages     []stageTiming
 	current    string
 	stageStart time.Time
+	// clock supplies the current time. It is a field rather than a direct
+	// time.Now() call so that tests can give a stage an exact duration.
+	//
+	// That matters more than it looks. time.Sleep guarantees a minimum
+	// duration and not a maximum, so assertions of the form "this stage took
+	// at least 2ms" are safe against a sleep, but any assertion about which
+	// stage was *longest* is at the mercy of the scheduler: under load a 2ms
+	// sleep can outrun a 5ms one. See newFrameTimerWithClock.
+	//
+	// The indirection is free in practice: the pipeline only builds a
+	// frameTimer when BenchmarkMode is enabled.
+	clock func() time.Time
 }
 
 type stageTiming struct {
@@ -31,19 +42,24 @@ type stageTiming struct {
 	duration time.Duration
 }
 
-// newFrameTimer creates a new timer. The clock starts immediately.
+// newFrameTimer creates a new timer reading the wall clock.
 func newFrameTimer(frameID string) *frameTimer {
-	now := time.Now()
+	return newFrameTimerWithClock(frameID, time.Now)
+}
+
+// newFrameTimerWithClock creates a timer reading the supplied clock, so a test
+// can advance time by exact amounts instead of sleeping for approximate ones.
+func newFrameTimerWithClock(frameID string, clock func() time.Time) *frameTimer {
 	return &frameTimer{
-		frameID:    frameID,
-		frameStart: now,
-		stages:     make([]stageTiming, 0, 8),
+		frameID: frameID,
+		stages:  make([]stageTiming, 0, 8),
+		clock:   clock,
 	}
 }
 
 // Stage ends the current stage (if any) and starts a new one.
 func (ft *frameTimer) Stage(name string) {
-	now := time.Now()
+	now := ft.clock()
 	if ft.current != "" {
 		ft.stages = append(ft.stages, stageTiming{
 			name:     ft.current,
@@ -59,13 +75,17 @@ func (ft *frameTimer) End() {
 	if ft.current != "" {
 		ft.stages = append(ft.stages, stageTiming{
 			name:     ft.current,
-			duration: time.Since(ft.stageStart),
+			duration: ft.clock().Sub(ft.stageStart),
 		})
 		ft.current = ""
 	}
 }
 
-// Total returns the wall-clock duration from timer creation to the last End() call.
+// Total returns the sum of the recorded stage durations.
+//
+// That is deliberately not the wall-clock span from construction to End: any
+// time between creating the timer and the first Stage() call belongs to no
+// stage and is not counted.
 func (ft *frameTimer) Total() time.Duration {
 	var total time.Duration
 	for _, s := range ft.stages {

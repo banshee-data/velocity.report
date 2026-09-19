@@ -1215,10 +1215,13 @@ struct TrackInspectorHeaderView: View {
                 }.buttonStyle(.plain)
             }
 
-            Text("ID: \(trackID)").font(.caption).foregroundColor(.secondary)
+            // Both IDs are shown in full and can be selected or right-click
+            // copied: they are the arguments to every offline tool that
+            // re-examines this track, and retyping a UUID is an error source.
+            CopyableID(value: trackID, label: "ID").foregroundColor(.secondary)
 
             if let runID = appState.currentRunID {
-                Text("Run: \(runID)").font(.caption).foregroundColor(.secondary)
+                CopyableID(value: runID, label: "Run").foregroundColor(.secondary)
             }
 
         }

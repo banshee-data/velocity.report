@@ -66,8 +66,11 @@ type Config struct {
 	// embedded defaults, so the measured pipeline matches live observation.
 	Tuning *config.TuningConfig
 
-	BenchmarkOutput     string
-	CompareBaseline     string
+	BenchmarkOutput string
+	CompareBaseline string
+	// HostClass overrides the detected performance-matrix row. Empty means
+	// detect it.
+	HostClass           string
 	RegressionThreshold float64
 
 	// MaxFramesOverBudgetPct is the share of frames allowed to exceed the
@@ -189,11 +192,61 @@ type PerformanceMetrics struct {
 
 // SystemInfo captures host details for benchmark reproducibility.
 type SystemInfo struct {
-	GOOS       string `json:"goos"`
-	GOARCH     string `json:"goarch"`
+	GOOS   string `json:"goos"`
+	GOARCH string `json:"goarch"`
+	// HostClass names which cell of the performance matrix this run belongs
+	// to: the deployment target, a developer machine, or a shared runner.
+	//
+	// GOOS and GOARCH nearly separate them today — darwin/arm64, linux/amd64,
+	// linux/arm64 — but only by accident of which runners the project happens
+	// to use. An ARM CI runner is linux/arm64 and so is the Pi, and at that
+	// point the platform pair silently stops distinguishing a quiet
+	// single-purpose device from a shared virtualised one. Their timings have
+	// nothing to say about each other.
+	HostClass  string `json:"host_class,omitempty"`
 	NumCPU     int    `json:"num_cpu"`
 	GoVersion  string `json:"go_version"`
 	CommitHash string `json:"commit_hash,omitempty"`
+}
+
+// Host classes. These are the rows of the performance matrix.
+const (
+	// HostClassPi is the deployment target: a Raspberry Pi 4 running the
+	// service. Its numbers are the only ones that answer "fast enough".
+	HostClassPi = "pi"
+	// HostClassMac is a developer workstation. Fast, quiet, and unlike
+	// production in every way that matters, so it answers "did this change
+	// make it slower" and nothing else.
+	HostClassMac = "mac"
+	// HostClassCI is a shared hosted runner: noisy, virtualised, and variable
+	// between jobs. Useful for catching a large regression, useless for a
+	// small one.
+	HostClassCI = "ci"
+)
+
+// detectHostClass guesses the matrix row from the environment.
+//
+// It is a default, not an authority: -host-class overrides it, and the value
+// is recorded in the document so a reader never has to re-derive it. The
+// guess is deliberately crude, because being explicit is what matters and a
+// clever heuristic would just fail silently in a new environment.
+func detectHostClass() string {
+	if os.Getenv("PERF_HOST_CLASS") != "" {
+		return os.Getenv("PERF_HOST_CLASS")
+	}
+	// A hosted runner sets CI, and its noise dominates whatever hardware it
+	// is pretending to be.
+	if os.Getenv("CI") == "true" {
+		return HostClassCI
+	}
+	switch {
+	case runtime.GOOS == "darwin":
+		return HostClassMac
+	case runtime.GOOS == "linux" && runtime.GOARCH == "arm64":
+		return HostClassPi
+	default:
+		return runtime.GOOS + "-" + runtime.GOARCH
+	}
 }
 
 // BenchmarkResult is the JSON document written per run and read as a baseline.
@@ -741,10 +794,14 @@ func computeFrameTimeStats(frameTimes []float64) FrameTimeStats {
 	}
 }
 
-func getSystemInfo() SystemInfo {
+func getSystemInfo(hostClass string) SystemInfo {
+	if hostClass == "" {
+		hostClass = detectHostClass()
+	}
 	info := SystemInfo{
 		GOOS:      runtime.GOOS,
 		GOARCH:    runtime.GOARCH,
+		HostClass: hostClass,
 		NumCPU:    runtime.NumCPU(),
 		GoVersion: runtime.Version(),
 	}
@@ -772,7 +829,7 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 		PCAPFile:          filepath.Base(cfg.PCAPFile),
 		Profile:           string(benchProfile(cfg)),
 		TuningFingerprint: tuningFingerprint(cfg),
-		SystemInfo:        getSystemInfo(),
+		SystemInfo:        getSystemInfo(cfg.HostClass),
 		Metrics:           *metrics,
 		RepeatSpread:      spread,
 	}
@@ -1096,10 +1153,19 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult, 
 	// machine. CPU count and Go version only warn: they shift the numbers
 	// without making the comparison meaningless.
 	if b, c := baseline.SystemInfo, current.SystemInfo; b.GOOS != "" || b.GOARCH != "" {
-		if b.GOOS != c.GOOS || b.GOARCH != c.GOARCH {
+		switch {
+		case b.GOOS != c.GOOS || b.GOARCH != c.GOARCH:
 			reasons = append(reasons, fmt.Sprintf("platform %s/%s vs %s/%s",
 				b.GOOS, b.GOARCH, c.GOOS, c.GOARCH))
-		} else {
+		// Host class refuses even when the platform pair agrees, which is the
+		// case the platform check cannot see: a Pi and an ARM runner are both
+		// linux/arm64 and share nothing else.
+		case b.HostClass != "" && c.HostClass != "" && b.HostClass != c.HostClass:
+			reasons = append(reasons, fmt.Sprintf("host class %s vs %s", b.HostClass, c.HostClass))
+		default:
+			if b.HostClass == "" {
+				log.Printf("Warning: baseline predates host classes and cannot say which machine it measured; platform alone is a weaker guarantee")
+			}
 			if b.NumCPU != 0 && b.NumCPU != c.NumCPU {
 				log.Printf("Warning: baseline was captured on %d CPUs, this run has %d; timings are not directly comparable",
 					b.NumCPU, c.NumCPU)

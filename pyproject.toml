@@ -1,0 +1,23 @@
+# Configuration for the Python formatters and linters only.
+#
+# There is deliberately no [project] or [build-system] table: this repository
+# is not a Python package, and adding one would invite tooling to try to build
+# or install it. This file exists so that black and ruff exclude vendored code
+# however they are invoked — from the Makefile, from pre-commit, or from an
+# editor integration — rather than relying on flags at one call site.
+
+[tool.black]
+# third_party/libpcap is a git submodule holding upstream libpcap. Its
+# testprogs/visopts.py is Python 2 and cannot be parsed at all, which made
+# `make lint-python` fail on code this repository does not own and must not
+# reformat. extend-exclude adds to black's defaults rather than replacing them.
+extend-exclude = '''
+/(
+    third_party
+)/
+'''
+
+[tool.ruff]
+# Same reason as above: ruff reported six invalid-syntax errors, all of them
+# Python 2 print statements in that one vendored file.
+extend-exclude = ["third_party"]

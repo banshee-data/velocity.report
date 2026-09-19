@@ -8,7 +8,9 @@ from pathlib import Path
 
 
 def source_path(path: str) -> bool:
-    return path.startswith(("docs/", "data/")) or "/" not in path and path.endswith(".md")
+    return (
+        path.startswith(("docs/", "data/")) or "/" not in path and path.endswith(".md")
+    )
 
 
 def main() -> None:
@@ -35,7 +37,9 @@ def main() -> None:
                         f"{tracked}: expected {component!r}, found {same_name!r}"
                     )
                 else:
-                    mismatches.append(f"{tracked}: missing path component {component!r}")
+                    mismatches.append(
+                        f"{tracked}: missing path component {component!r}"
+                    )
                 break
             current /= component
 

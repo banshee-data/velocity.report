@@ -32,14 +32,14 @@ service commitments, and runtime adoption require later evidence gates. No code 
 The earlier geometry-prior document remains the reference hub during review. If this plan is
 accepted, reconcile the following decisions there before implementation:
 
-| Earlier proposal | Proposed decision and reason |
-| --- | --- |
-| GeoJSON polygons are the complete prior | Retain GeoJSON for footprints and optional visual exports; use a typed 3D runtime product with frames, features, and uncertainty. |
-| Contributions primarily arrive as geometry PRs | Curated scan manifests and object storage first; source code and schemas belong in Git, large scan history does not. |
-| Remote access described as opt-in but configuration defaults to enabled | Remote access defaults to disabled. A local prior can work without GPS or a network. |
-| Signatures influence geometric union weights | Signatures establish publisher authenticity, not geometric correctness. Quality comes from measured evidence. |
-| Daily polygon union | Rebuild only affected products with explicit provenance and visibility-aware evidence. A union cannot distinguish a parked vehicle from a building. |
-| One aggregate file per cell | One versioned manifest per cell may reference multiple products, resolutions, source licences, and boundary dependencies. |
+| Earlier proposal                                                        | Proposed decision and reason                                                                                                                        |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GeoJSON polygons are the complete prior                                 | Retain GeoJSON for footprints and optional visual exports; use a typed 3D runtime product with frames, features, and uncertainty.                   |
+| Contributions primarily arrive as geometry PRs                          | Curated scan manifests and object storage first; source code and schemas belong in Git, large scan history does not.                                |
+| Remote access described as opt-in but configuration defaults to enabled | Remote access defaults to disabled. A local prior can work without GPS or a network.                                                                |
+| Signatures influence geometric union weights                            | Signatures establish publisher authenticity, not geometric correctness. Quality comes from measured evidence.                                       |
+| Daily polygon union                                                     | Rebuild only affected products with explicit provenance and visibility-aware evidence. A union cannot distinguish a parked vehicle from a building. |
+| One aggregate file per cell                                             | One versioned manifest per cell may reference multiple products, resolutions, source licences, and boundary dependencies.                           |
 
 ## 2. Problem and non-goals
 
@@ -62,25 +62,25 @@ decisions and commercial hosting commitments are outside this draft.
 service built after that decision. `post-MVP` requires demonstrated demand. `probably unnecessary`
 identifies complexity for which there is currently no credible need.
 
-| Subsystem | Classification | First useful boundary |
-| --- | --- | --- |
-| Capture contract, E57/LAS/LAZ/COPC adapters | MVP experiment | CLI ingestion of approved bundles; verify installed reader capabilities. |
-| Frames, trajectories, uncertainty, provenance | MVP experiment | Versioned manifests and reproducible processing records. |
-| Registration and control-point validation | MVP experiment | Rigid local alignment with independent check points. |
-| Static evidence and localisation features | MVP experiment | Explainable geometric baseline and held-out evaluation. |
-| Local velocity.report adapter and replay harness | MVP experiment | Optional local-file prior; sensor-local fallback. |
-| S2 partitioning and immutable publication | MVP | L13 lookup, L10 grouping, bounded neighbouring products. |
-| Catalogue and read API | MVP | One application and Postgres/PostGIS, static read snapshots. |
-| Job orchestration | MVP | One worker process, database job table, leases, retries, and quotas. |
-| Curated contribution review, licence/privacy gates | MVP | Maintainer-approved submissions; no anonymous processing queue. |
-| Release signing, moderation, revocation, backups | MVP | Small publisher and catalogue state machine. |
-| HTTP velocity.report provider | MVP | Opt-in, bounded asynchronous fetch, validated local cache. |
-| Coverage website | MVP | Static coverage and download pages, no custom 3D editor. |
-| Self-service accounts, appeals UI, badges | post-MVP | Build once manual review becomes a measured bottleneck. |
-| Automated geographic sponsorship billing | post-MVP | Trial manual sponsorship first. |
-| GeoParquet exports and DuckDB analytics | post-MVP | Add when bulk consumers need them; preserve exportable schemas now. |
-| Advanced semantics, meshes, seasonal models, consumer adapters | post-MVP | Each must improve measured downstream usefulness. |
-| Custom E57 decoder, custom SLAM, custom spatial database | probably unnecessary | Reuse established implementations. |
+| Subsystem                                                              | Classification       | First useful boundary                                                              |
+| ---------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------- |
+| Capture contract, E57/LAS/LAZ/COPC adapters                            | MVP experiment       | CLI ingestion of approved bundles; verify installed reader capabilities.           |
+| Frames, trajectories, uncertainty, provenance                          | MVP experiment       | Versioned manifests and reproducible processing records.                           |
+| Registration and control-point validation                              | MVP experiment       | Rigid local alignment with independent check points.                               |
+| Static evidence and localisation features                              | MVP experiment       | Explainable geometric baseline and held-out evaluation.                            |
+| Local velocity.report adapter and replay harness                       | MVP experiment       | Optional local-file prior; sensor-local fallback.                                  |
+| S2 partitioning and immutable publication                              | MVP                  | L13 lookup, L10 grouping, bounded neighbouring products.                           |
+| Catalogue and read API                                                 | MVP                  | One application and Postgres/PostGIS, static read snapshots.                       |
+| Job orchestration                                                      | MVP                  | One worker process, database job table, leases, retries, and quotas.               |
+| Curated contribution review, licence/privacy gates                     | MVP                  | Maintainer-approved submissions; no anonymous processing queue.                    |
+| Release signing, moderation, revocation, backups                       | MVP                  | Small publisher and catalogue state machine.                                       |
+| HTTP velocity.report provider                                          | MVP                  | Opt-in, bounded asynchronous fetch, validated local cache.                         |
+| Coverage website                                                       | MVP                  | Static coverage and download pages, no custom 3D editor.                           |
+| Self-service accounts, appeals UI, badges                              | post-MVP             | Build once manual review becomes a measured bottleneck.                            |
+| Automated geographic sponsorship billing                               | post-MVP             | Trial manual sponsorship first.                                                    |
+| GeoParquet exports and DuckDB analytics                                | post-MVP             | Add when bulk consumers need them; preserve exportable schemas now.                |
+| Advanced semantics, meshes, seasonal models, consumer adapters         | post-MVP             | Each must improve measured downstream usefulness.                                  |
+| Custom E57 decoder, custom SLAM, custom spatial database               | probably unnecessary | Reuse established implementations.                                                 |
 | Kubernetes, message broker, per-stage microservices, schema repository | probably unnecessary | Revisit only for demonstrated isolation, throughput, or independent release needs. |
 
 Run the experiment on a workstation using a single reproducible processing environment. For
@@ -123,11 +123,11 @@ pinned release, and supported product/schema versions; it returns an immutable s
 provenance or a typed error. The simple cell-only interface from the prompt is a useful starting
 point, but version selection and neighbouring coverage must not become hidden global state.
 
-| Provider | Contract |
-| --- | --- |
-| `NoPriorProvider` | Immediately returns unavailable; normal local background learning proceeds. |
-| `LocalPriorProvider` | Reads an operator-selected bundle, verifies it, and never needs network access. |
-| `HTTPPriorProvider` | Disabled by default; fetches bounded manifests and products into the same local bundle format. |
+| Provider             | Contract                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `NoPriorProvider`    | Immediately returns unavailable; normal local background learning proceeds.                    |
+| `LocalPriorProvider` | Reads an operator-selected bundle, verifies it, and never needs network access.                |
+| `HTTPPriorProvider`  | Disabled by default; fetches bounded manifests and products into the same local bundle format. |
 
 Expose unavailable, incompatible, revoked, corrupt, insufficient coverage, and cancellation
 outcomes. They all preserve sensing availability. Fetching happens outside the packet path, with
@@ -154,19 +154,19 @@ Protobuf is post-MVP if size or cross-language tooling measurements justify it; 
 numbers and test old/new readers when introduced. Compression and fewer features may solve
 the size problem without another encoding.
 
-| Entity | Required substance |
-| --- | --- |
-| Observation | Stable ID; capture/session group; acquisition interval and time basis; footprint; sensor class/model; submitter pseudonym; asset references; source licence and attribution; frame and uncertainty references. |
-| Asset | Logical role; source URL and mirrors; SHA-256; byte length; media type and format/version; bounds and CRS where applicable; metadata inventory; availability and last check. |
-| Frame | ID; axes, handedness, units; horizontal and vertical reference; epoch where needed; local origin; transformations and calibration references. |
-| Trajectory | Asset and source frame; clock basis; pose convention; sample fields; sensor/body extrinsic; covariance availability; gaps and time-offset model. |
-| Alignment | Source/target frames; rigid transform; covariance; method and parameters; control/check points; overlap, residuals, observability, acceptance reason. |
-| Processing run | Input hashes; software/container digest; parameter hash; random seed; transform/grid files; output hashes; timings; warnings and reviewer decisions. |
-| Evidence element | Spatial support; hit/miss/unknown counts by independent session; view coverage; age; uncertainty; source references; persistence state. |
-| Feature | Version-scoped ID; type; geometry and frame; optional orientation; stability; observation count; first/last seen; covariance; supporting observations. |
-| Prior release | Schema version; product type; cell and coverage; frame; immutable assets; processing/input DAG; source licences; quality profile; observation interval; publication time. |
-| Cell summary | Canonical token and level; current eligible release; last observation; distinct sessions; coverage/density; separate accuracy summaries; contributors and sensor classes. |
-| Sponsorship | Sponsor display identity; region definition; start/end; funding allocation and disclosure; no geometry-editing permission. |
+| Entity           | Required substance                                                                                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Observation      | Stable ID; capture/session group; acquisition interval and time basis; footprint; sensor class/model; submitter pseudonym; asset references; source licence and attribution; frame and uncertainty references. |
+| Asset            | Logical role; source URL and mirrors; SHA-256; byte length; media type and format/version; bounds and CRS where applicable; metadata inventory; availability and last check.                                   |
+| Frame            | ID; axes, handedness, units; horizontal and vertical reference; epoch where needed; local origin; transformations and calibration references.                                                                  |
+| Trajectory       | Asset and source frame; clock basis; pose convention; sample fields; sensor/body extrinsic; covariance availability; gaps and time-offset model.                                                               |
+| Alignment        | Source/target frames; rigid transform; covariance; method and parameters; control/check points; overlap, residuals, observability, acceptance reason.                                                          |
+| Processing run   | Input hashes; software/container digest; parameter hash; random seed; transform/grid files; output hashes; timings; warnings and reviewer decisions.                                                           |
+| Evidence element | Spatial support; hit/miss/unknown counts by independent session; view coverage; age; uncertainty; source references; persistence state.                                                                        |
+| Feature          | Version-scoped ID; type; geometry and frame; optional orientation; stability; observation count; first/last seen; covariance; supporting observations.                                                         |
+| Prior release    | Schema version; product type; cell and coverage; frame; immutable assets; processing/input DAG; source licences; quality profile; observation interval; publication time.                                      |
+| Cell summary     | Canonical token and level; current eligible release; last observation; distinct sessions; coverage/density; separate accuracy summaries; contributors and sensor classes.                                      |
+| Sponsorship      | Sponsor display identity; region definition; start/end; funding allocation and disclosure; no geometry-editing permission.                                                                                     |
 
 Unknown values are explicit null/unknown states, never zero accuracy, epoch zero, or an
 empty string masquerading as a CRS. Schema validation rejects non-finite coordinates,
@@ -186,13 +186,13 @@ can contain `cloud.e57`, `trajectory.csv`, `metadata.json`, `calibration/`, and 
 these names are conventions, while manifest roles are authoritative. The manifest declares which
 files form one capture, their checksums, export software, and any omitted vendor fields.
 
-| Format | MVP experiment handling | Important check |
-| --- | --- | --- |
-| E57 | PDAL adapter for points; libE57Format for scan structure and richer metadata inspection. Preserve the original and scan poses. | Multi-scan transforms must be applied exactly once; inventory images, invalid points, and extensions before conversion. |
-| LAS 1.4 | Read through PDAL; retain point format, scale/offset, CRS records, VLR/EVLR data, and extra dimensions. | Quantisation, GPS time encoding, return/classification flags, and coordinate bounds must survive. |
-| LAZ 1.4 | Same logical contract as LAS, with bounded decompression and decoder validation. | Compressed extension is not a substitute for checking the embedded LAS header. |
-| COPC | Accept conforming input; publish through PDAL's COPC writer after validation. | Verify hierarchy, bounds, point count, extra dimensions, and range-readable output. |
-| PLY/PCD/PCAP | post-MVP adapters; experiment-only export adapters allowed for consumer scans. | Never guess CRS, scale, sensor timing, or calibration from a filename. |
+| Format       | MVP experiment handling                                                                                                        | Important check                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| E57          | PDAL adapter for points; libE57Format for scan structure and richer metadata inspection. Preserve the original and scan poses. | Multi-scan transforms must be applied exactly once; inventory images, invalid points, and extensions before conversion. |
+| LAS 1.4      | Read through PDAL; retain point format, scale/offset, CRS records, VLR/EVLR data, and extra dimensions.                        | Quantisation, GPS time encoding, return/classification flags, and coordinate bounds must survive.                       |
+| LAZ 1.4      | Same logical contract as LAS, with bounded decompression and decoder validation.                                               | Compressed extension is not a substitute for checking the embedded LAS header.                                          |
+| COPC         | Accept conforming input; publish through PDAL's COPC writer after validation.                                                  | Verify hierarchy, bounds, point count, extra dimensions, and range-readable output.                                     |
+| PLY/PCD/PCAP | post-MVP adapters; experiment-only export adapters allowed for consumer scans.                                                 | Never guess CRS, scale, sensor timing, or calibration from a filename.                                                  |
 
 COPC is a particular LAZ 1.4 organisation with an octree, not a new lossless archive for arbitrary
 E57 content. A valid LAZ file is not automatically COPC. See the
@@ -235,14 +235,14 @@ repair an inaccurate GNSS fix, and fitting two scans does not establish global t
 control points anchor the experiment; independent check points evaluate it. A manually placed scan
 is labelled as such even when it aligns neatly to another manually placed scan.
 
-| Uncertainty component | Representation and interpretation |
-| --- | --- |
-| Local/internal | Scalar or covariance, measurement definition, spatial scale, confidence convention, and source; manufacturer precision is a claim, not validation. |
-| Global horizontal | East/north covariance where available; otherwise a labelled horizontal statistic with its confidence and method. |
-| Global vertical | Separate sigma/confidence and height datum; never folded into horizontal accuracy. |
-| Registration | Six-dimensional translation/rotation covariance and observability diagnostics in an explicit frame and perturbation convention. |
-| Calibration/time | Extrinsic covariance, clock offset uncertainty, interpolation uncertainty, and their affected observations. |
-| Provenance of estimate | Source-reported or independently estimated; method, sample count, residual distribution, control identifiers, and assessment date. |
+| Uncertainty component  | Representation and interpretation                                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local/internal         | Scalar or covariance, measurement definition, spatial scale, confidence convention, and source; manufacturer precision is a claim, not validation. |
+| Global horizontal      | East/north covariance where available; otherwise a labelled horizontal statistic with its confidence and method.                                   |
+| Global vertical        | Separate sigma/confidence and height datum; never folded into horizontal accuracy.                                                                 |
+| Registration           | Six-dimensional translation/rotation covariance and observability diagnostics in an explicit frame and perturbation convention.                    |
+| Calibration/time       | Extrinsic covariance, clock offset uncertainty, interpolation uncertainty, and their affected observations.                                        |
+| Provenance of estimate | Source-reported or independently estimated; method, sample count, residual distribution, control identifiers, and assessment date.                 |
 
 Use one-sigma values only when the statistical interpretation supports them. Preserve reported
 RMSE, 95% bounds, and unknown-confidence claims under their actual names. Local precision of 0.015
@@ -284,15 +284,15 @@ tokens for fine lookup and interoperability, L10 parents for coarse grouping. De
 levels are machine values; grouped display labels are presentation only. The
 [S2 hierarchy](https://s2geometry.io/devguide/s2cell_hierarchy) defines the geometry.
 
-| Concern | Initial choice |
-| --- | --- |
-| Catalogue, runtime discovery, cache keys | L13 coverage entries plus schema/product/release digest. |
-| Filesystem groups, coarse statistics | L10 parent; aggregate distinct observations rather than summing duplicated references. |
-| Observation coverage | Actual footprint plus a bounded S2 covering; expand to L13 associations where affordable. |
-| Dense processing chunks | Local metric tiles with overlap; adapt size to point count, not a fixed S2 area. |
-| COPC internal access | COPC octree; do not rebuild it as S2 point storage. |
-| City coverage and sponsorship | Named polygons and sets of cells, potentially mixed-level coverings; cities are not single cells. |
-| Coverage detail | Observed surface/area masks inside a cell; a single scan does not cover the whole cell. |
+| Concern                                  | Initial choice                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Catalogue, runtime discovery, cache keys | L13 coverage entries plus schema/product/release digest.                                          |
+| Filesystem groups, coarse statistics     | L10 parent; aggregate distinct observations rather than summing duplicated references.            |
+| Observation coverage                     | Actual footprint plus a bounded S2 covering; expand to L13 associations where affordable.         |
+| Dense processing chunks                  | Local metric tiles with overlap; adapt size to point count, not a fixed S2 area.                  |
+| COPC internal access                     | COPC octree; do not rebuild it as S2 point storage.                                               |
+| City coverage and sponsorship            | Named polygons and sets of cells, potentially mixed-level coverings; cities are not single cells. |
+| Coverage detail                          | Observed surface/area masks inside a cell; a single scan does not cover the whole cell.           |
 
 Store canonical token text and level with B-tree indexes, plus explicit L13-to-L10 associations.
 Postgres signed `bigint` cannot directly represent every unsigned S2 ID; avoid accidental overflow
@@ -313,21 +313,21 @@ Every stage records input/output hashes, tool versions, parameters, warnings, an
 reasons. Failures quarantine the affected candidate; the last accepted release stays available. The
 table names additional provenance and uncertainty specific to each stage.
 
-| Stage / class | Input → output | Quality checks and failure modes | Provenance and uncertainty |
-| --- | --- | --- | --- |
-| Acquire / MVP experiment | Bundle or external reference → verified quarantine assets | Hash, length, format, licence, limits; changed URL content, decompression bombs, incomplete uploads | Retrieval identity, declared rights, original metadata; unknown accuracy stays unknown. |
-| Normalise format / MVP experiment | Source assets → working cloud and metadata ledger | Point/dimension reconciliation, scale, invalid points; dropped fields, double-applied scan poses | Reader/export version, field mapping, quantisation bound. |
-| Normalise CRS / MVP experiment | Working cloud + frame → metric working frame and geographic footprint | Axis/unit round trip and bounds; missing datum/grid, implausible location | Transform operation, grids, epoch, propagated datum uncertainty. |
-| Inspect quality / MVP experiment | Cloud + trajectory → diagnostic report | Density distribution, coverage, clock gaps, local consistency; sparse regions, impossible jumps | Source claims separated from estimated statistics and sampling uncertainty. |
-| Georeference / MVP experiment | Local cloud + controls → anchored transform | Independent check points; wrong controls, global bias, unresolved height | Control lineage, residuals, global horizontal/vertical uncertainty. |
-| Register / MVP experiment | Overlapping anchored clouds → accepted rigid transforms | Bidirectional residuals, overlap, degeneracy; local minima, repetitive façades, SLAM distortion | Correspondence method, transform covariance, correlated-session groups. |
-| Filter transients / MVP experiment | Registered captures + visibility → candidate static evidence | Motion, isolated objects, inconsistent surfaces; parked objects mistaken for static, missing visibility | Rejection masks and reason codes; uncertain classifications retained. |
-| Infer persistence / MVP experiment | Independent evidence sessions → static support model | Visible hit/miss accounting; occlusion mistaken for absence, duplicate votes | Evidence counts, temporal span, stability confidence and unknown regions. |
-| Partition / MVP | Static support + footprint → core/halo products and S2 associations | Seam continuity and coverage completeness; split/duplicated features | Owner/reference identities, boundary dependencies, unchanged frame uncertainty. |
-| Publish cloud / MVP | Accepted aligned points → canonical COPC and manifest | Decode/range probes, bounds, dimensions; corrupt hierarchy, unsupported fields | Source linkage, compression and quantisation settings; no inferred accuracy upgrade. |
-| Derive geometry / MVP experiment | Static support → surfaces, planes, clusters | Held-out surface distance and support; oversmoothing kerbs, invented surfaces | Fit covariance, simplification tolerance, support and class confidence. |
-| Extract features / MVP experiment | Stable geometry → runtime landmarks | Repeatability, spatial distribution, rank; too few constraints, unstable vegetation | Feature support, pose/position covariance, stability and observation interval. |
-| Release / MVP | Products + QA + rights review → catalogue and static manifests | Cross-asset hashes, schema, licence closure, review; partial release, stale pointer | Signed release, complete DAG, quality policy version, revocation reference. |
+| Stage / class                      | Input → output                                                        | Quality checks and failure modes                                                                        | Provenance and uncertainty                                                              |
+| ---------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Acquire / MVP experiment           | Bundle or external reference → verified quarantine assets             | Hash, length, format, licence, limits; changed URL content, decompression bombs, incomplete uploads     | Retrieval identity, declared rights, original metadata; unknown accuracy stays unknown. |
+| Normalise format / MVP experiment  | Source assets → working cloud and metadata ledger                     | Point/dimension reconciliation, scale, invalid points; dropped fields, double-applied scan poses        | Reader/export version, field mapping, quantisation bound.                               |
+| Normalise CRS / MVP experiment     | Working cloud + frame → metric working frame and geographic footprint | Axis/unit round trip and bounds; missing datum/grid, implausible location                               | Transform operation, grids, epoch, propagated datum uncertainty.                        |
+| Inspect quality / MVP experiment   | Cloud + trajectory → diagnostic report                                | Density distribution, coverage, clock gaps, local consistency; sparse regions, impossible jumps         | Source claims separated from estimated statistics and sampling uncertainty.             |
+| Georeference / MVP experiment      | Local cloud + controls → anchored transform                           | Independent check points; wrong controls, global bias, unresolved height                                | Control lineage, residuals, global horizontal/vertical uncertainty.                     |
+| Register / MVP experiment          | Overlapping anchored clouds → accepted rigid transforms               | Bidirectional residuals, overlap, degeneracy; local minima, repetitive façades, SLAM distortion         | Correspondence method, transform covariance, correlated-session groups.                 |
+| Filter transients / MVP experiment | Registered captures + visibility → candidate static evidence          | Motion, isolated objects, inconsistent surfaces; parked objects mistaken for static, missing visibility | Rejection masks and reason codes; uncertain classifications retained.                   |
+| Infer persistence / MVP experiment | Independent evidence sessions → static support model                  | Visible hit/miss accounting; occlusion mistaken for absence, duplicate votes                            | Evidence counts, temporal span, stability confidence and unknown regions.               |
+| Partition / MVP                    | Static support + footprint → core/halo products and S2 associations   | Seam continuity and coverage completeness; split/duplicated features                                    | Owner/reference identities, boundary dependencies, unchanged frame uncertainty.         |
+| Publish cloud / MVP                | Accepted aligned points → canonical COPC and manifest                 | Decode/range probes, bounds, dimensions; corrupt hierarchy, unsupported fields                          | Source linkage, compression and quantisation settings; no inferred accuracy upgrade.    |
+| Derive geometry / MVP experiment   | Static support → surfaces, planes, clusters                           | Held-out surface distance and support; oversmoothing kerbs, invented surfaces                           | Fit covariance, simplification tolerance, support and class confidence.                 |
+| Extract features / MVP experiment  | Stable geometry → runtime landmarks                                   | Repeatability, spatial distribution, rank; too few constraints, unstable vegetation                     | Feature support, pose/position covariance, stability and observation interval.          |
+| Release / MVP                      | Products + QA + rights review → catalogue and static manifests        | Cross-asset hashes, schema, licence closure, review; partial release, stale pointer                     | Signed release, complete DAG, quality policy version, revocation reference.             |
 
 Use deterministic ordering, fixed seeds, pinned dependencies, and recorded thread settings.
 Aim for byte-identical manifests and same-environment outputs. Floating-point processing
@@ -405,13 +405,13 @@ These are planning envelopes for a block-scale site with roughly 10–100 millio
 source points per capture, not measured compression ratios. Publish actual
 bytes and generation time for every product.
 
-| Layer | Rough size | Access pattern |
-| --- | --- | --- |
-| Raw observation | 0.3–10 GB per capture; multi-capture bundles can exceed 30 GB | Rare full download for reprocessing or audit; often external. |
-| Canonical COPC | 0.1–3 GB per observation/site product | Range requests by area/resolution; occasional full offline copy. |
-| Static geometry | 5–200 MB per site/release | Review, alignment research, optional offline analysis. |
-| Runtime prior | Target 0.1–5 MB compressed per site; cap initially 10 MB | One bounded deployment download, pin and reuse locally. |
-| Catalogue manifest | 5–100 KB per release, with paginated provenance | Discovery and cache validation; no raw cloud in API responses. |
+| Layer              | Rough size                                                    | Access pattern                                                   |
+| ------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Raw observation    | 0.3–10 GB per capture; multi-capture bundles can exceed 30 GB | Rare full download for reprocessing or audit; often external.    |
+| Canonical COPC     | 0.1–3 GB per observation/site product                         | Range requests by area/resolution; occasional full offline copy. |
+| Static geometry    | 5–200 MB per site/release                                     | Review, alignment research, optional offline analysis.           |
+| Runtime prior      | Target 0.1–5 MB compressed per site; cap initially 10 MB      | One bounded deployment download, pin and reuse locally.          |
+| Catalogue manifest | 5–100 KB per release, with paginated provenance               | Discovery and cache validation; no raw cloud in API responses.   |
 
 Public cell summaries expose last observation, distinct session count, current eligible version,
 coverage mask/score, density distribution, contributors, sensors, and quality components. Show best
@@ -419,16 +419,16 @@ local accuracy and best global accuracy separately, each with the source observa
 basis; those best values may belong to different scans. Also show selected-prior quality and
 missing evidence. Do not let a single excellent point imply excellent cell-wide coverage.
 
-| Proposed REST interface | Behaviour |
-| --- | --- |
-| `GET /v1/cells/{token}?level=13` | Cell coverage and current eligible releases; canonical token/level validation. |
-| `GET /v1/observations?cell={token}&cursor=...` | Paginated metadata, licence, availability, and quality records. |
-| `GET /v1/observations/{id}` | Observation revisions, source assets, transformations, and review state. |
-| `GET /v1/priors/{release_id}` | Immutable manifest with schema/product version, hashes, coverage, and asset links. |
-| `GET /v1/regions?bbox=...&cursor=...` | Bounded geographic discovery; reject oversized scans and split dateline requests. |
-| `GET /v1/revocations` | Signed, cacheable release revocations and replacements. |
-| `POST /v1/submissions` | MVP maintainer-authenticated manifest submission; returns job ID, not immediate processing. |
-| `GET /v1/jobs/{id}` | Authenticated state, stage diagnostics, retryable/permanent failure reason. |
+| Proposed REST interface                        | Behaviour                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GET /v1/cells/{token}?level=13`               | Cell coverage and current eligible releases; canonical token/level validation.              |
+| `GET /v1/observations?cell={token}&cursor=...` | Paginated metadata, licence, availability, and quality records.                             |
+| `GET /v1/observations/{id}`                    | Observation revisions, source assets, transformations, and review state.                    |
+| `GET /v1/priors/{release_id}`                  | Immutable manifest with schema/product version, hashes, coverage, and asset links.          |
+| `GET /v1/regions?bbox=...&cursor=...`          | Bounded geographic discovery; reject oversized scans and split dateline requests.           |
+| `GET /v1/revocations`                          | Signed, cacheable release revocations and replacements.                                     |
+| `POST /v1/submissions`                         | MVP maintainer-authenticated manifest submission; returns job ID, not immediate processing. |
+| `GET /v1/jobs/{id}`                            | Authenticated state, stage diagnostics, retryable/permanent failure reason.                 |
 
 All responses declare schema version, bounded pagination, and machine-readable error codes. Use 404
 for absent records, 410 for a withdrawn product where appropriate, 422 for invalid submission
@@ -601,19 +601,19 @@ static clouds. Deliberately test wrong-cell priors, stale geometry, missing neig
 corrupted files, offline operation, unsupported schemas, shifted global frames, repetitive
 structures, and consumer scale distortion.
 
-| Metric | Proposed gate, to freeze before held-out evaluation |
-| --- | --- |
-| Pose recovery | At least 95% accepted and correct trials in the stated initialisation envelope; report every class/block separately. |
-| Accepted-pose error | 95th percentile translation ≤0.20 m and orientation geodesic error ≤1 degree against independent reference. |
-| False confidence | Zero accepted poses with translation error >1 m or orientation error >5 degrees in the trial and adversarial set; this is a pilot gate, not a population guarantee. |
-| Static geometry | 95th percentile supported-surface distance ≤0.15 m; report unsupported area separately rather than hiding it in distance statistics. |
-| Coverage and density | Measured completeness of relevant visible surfaces and density quantiles by class; identify insufficient-support regions explicitly. |
-| Transient contamination | Report labelled transient fraction and confidence intervals; runtime anchors must contain no known person/vehicle clusters in reviewed pilot data. |
-| Runtime cost | ≤5 MB target prior and ≤10 seconds pose fitting with ≤256 MB extra peak memory on the target Pi-class device; workstation results alone do not pass. |
-| Background benefit | At least 50% reduction in capture time to a predeclared background-quality threshold versus no prior; no more than 1 percentage point loss of foreground recall. |
-| Traffic behaviour | No more than 1 percentage point degradation in labelled detection precision/recall; report count and speed deltas with label uncertainty. |
-| Offline/failure path | All missing/corrupt/rejected-prior cases continue local sensing without packet-path blocking. |
-| Reproducibility | Identical selected inputs and manifests; geometric outputs within declared numeric tolerance on a second clean environment. |
+| Metric                  | Proposed gate, to freeze before held-out evaluation                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pose recovery           | At least 95% accepted and correct trials in the stated initialisation envelope; report every class/block separately.                                                |
+| Accepted-pose error     | 95th percentile translation ≤0.20 m and orientation geodesic error ≤1 degree against independent reference.                                                         |
+| False confidence        | Zero accepted poses with translation error >1 m or orientation error >5 degrees in the trial and adversarial set; this is a pilot gate, not a population guarantee. |
+| Static geometry         | 95th percentile supported-surface distance ≤0.15 m; report unsupported area separately rather than hiding it in distance statistics.                                |
+| Coverage and density    | Measured completeness of relevant visible surfaces and density quantiles by class; identify insufficient-support regions explicitly.                                |
+| Transient contamination | Report labelled transient fraction and confidence intervals; runtime anchors must contain no known person/vehicle clusters in reviewed pilot data.                  |
+| Runtime cost            | ≤5 MB target prior and ≤10 seconds pose fitting with ≤256 MB extra peak memory on the target Pi-class device; workstation results alone do not pass.                |
+| Background benefit      | At least 50% reduction in capture time to a predeclared background-quality threshold versus no prior; no more than 1 percentage point loss of foreground recall.    |
+| Traffic behaviour       | No more than 1 percentage point degradation in labelled detection precision/recall; report count and speed deltas with label uncertainty.                           |
+| Offline/failure path    | All missing/corrupt/rejected-prior cases continue local sensing without packet-path blocking.                                                                       |
+| Reproducibility         | Identical selected inputs and manifests; geometric outputs within declared numeric tolerance on a second clean environment.                                         |
 
 Define the background-quality threshold on development data: static false-foreground rate
 below 2% and labelled foreground recall at least 95% for three consecutive 10-second
@@ -643,17 +643,17 @@ rates were checked on September 9, 2026 against
 [Cloudflare's pricing](https://developers.cloudflare.com/r2/pricing/); other
 services and CDN features can add costs.
 
-| Monthly item | 10 sites | 100 sites | City: 1,000 sites | Several cities: 10,000 sites |
-| --- | ---: | ---: | ---: | ---: |
-| Metadata export storage | $0.00015 | $0.0015 | $0.015 | $0.15 |
-| Static geometry + runtime priors, three generations | $0.025 | $0.25 | $2.48 | $24.75 |
-| Canonical COPC, one generation | $0.15 | $1.50 | $15 | $150 |
-| Optional hosted raw, 6 GB/site | $0.90 | $9 | $90 | $900 |
-| Range/object operations allowance | $0.08 | $0.81 | $8.10 | $81 |
-| Metadata database/API/backup budget | $20–60 | $30–100 | $100–300 | $300–1,000 |
-| Worker compute budget | $10–50 | $30–150 | $100–500 | $500–2,000 |
-| CDN/service add-on allowance, R2 egress $0 | $0–10 | $0–20 | $0–100 | $0–300 |
-| Approximate total, including hosted raw | $31–121 | $72–282 | $316–1,016 | $1,956–4,456 |
+| Monthly item                                        | 10 sites | 100 sites | City: 1,000 sites | Several cities: 10,000 sites |
+| --------------------------------------------------- | -------: | --------: | ----------------: | ---------------------------: |
+| Metadata export storage                             | $0.00015 |   $0.0015 |            $0.015 |                        $0.15 |
+| Static geometry + runtime priors, three generations |   $0.025 |     $0.25 |             $2.48 |                       $24.75 |
+| Canonical COPC, one generation                      |    $0.15 |     $1.50 |               $15 |                         $150 |
+| Optional hosted raw, 6 GB/site                      |    $0.90 |        $9 |               $90 |                         $900 |
+| Range/object operations allowance                   |    $0.08 |     $0.81 |             $8.10 |                          $81 |
+| Metadata database/API/backup budget                 |   $20–60 |   $30–100 |          $100–300 |                   $300–1,000 |
+| Worker compute budget                               |   $10–50 |   $30–150 |          $100–500 |                   $500–2,000 |
+| CDN/service add-on allowance, R2 egress $0          |    $0–10 |     $0–20 |            $0–100 |                       $0–300 |
+| Approximate total, including hosted raw             |  $31–121 |   $72–282 |        $316–1,016 |                 $1,956–4,456 |
 
 The operation allowance assumes 10,000 reads and 1,000 writes per site per month. Assume 2 GB
 delivered per site/month to expose egress sensitivity: at a hypothetical
@@ -698,18 +698,18 @@ These are candidate components, not assertions that every required plugin is
 installed. Pin versions, check licences and redistribution obligations, and run
 fixture compatibility tests before adoption.
 
-| Need | Recommendation and official reference |
-| --- | --- |
-| E57 reading/writing | [libE57Format](https://github.com/asmaloney/libE57Format) for full-format inspection; [PDAL E57 reader](https://pdal.org/en/stable/stages/readers.e57.html) for pipeline ingestion. Test actual plugin builds and metadata preservation. |
-| LAS/LAZ/COPC | [PDAL](https://pdal.org/) and its [COPC writer](https://pdal.org/en/stable/stages/writers.copc.html); use the writer's supported compression stack rather than implement a codec. |
-| Point processing and ICP | [Open3D](https://www.open3d.org/docs/release/) for registration and geometry; [CloudCompare](https://github.com/CloudCompare/CloudCompare) as an independent inspection tool. |
-| CRS and datum transforms | [PROJ](https://proj.org/); package required grids and preserve operation metadata. |
-| SLAM interchange | Explicit trajectory CSV plus calibration/frame manifest first; [MCAP](https://mcap.dev/) later for rich timestamped messages. MCAP alone does not define pose conventions. |
-| S2 | [golang/geo/s2](https://github.com/golang/geo) for catalogue/consumer helpers; official [S2](https://s2geometry.io/) implementation for processing where needed, sharing known-vector fixtures. |
-| Metadata geometry | [PostGIS](https://postgis.net/documentation/) for footprints and spatial queries, ordinary columns for S2 associations. |
-| COPC inspection | [COPC viewer](https://viewer.copc.io/) linked by PDAL; use only approved public assets in external viewers. |
-| Browser rendering | [Potree](https://github.com/potree/potree) for large point-cloud review if needed; test its selected format path before assuming direct COPC support. Avoid a second converted publication tree in the MVP. |
-| Bulk/offline metadata | [GeoParquet](https://geoparquet.org/) and [DuckDB Parquet support](https://duckdb.org/docs/stable/data/parquet/overview) when bulk export demand appears. |
+| Need                     | Recommendation and official reference                                                                                                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E57 reading/writing      | [libE57Format](https://github.com/asmaloney/libE57Format) for full-format inspection; [PDAL E57 reader](https://pdal.org/en/stable/stages/readers.e57.html) for pipeline ingestion. Test actual plugin builds and metadata preservation. |
+| LAS/LAZ/COPC             | [PDAL](https://pdal.org/) and its [COPC writer](https://pdal.org/en/stable/stages/writers.copc.html); use the writer's supported compression stack rather than implement a codec.                                                        |
+| Point processing and ICP | [Open3D](https://www.open3d.org/docs/release/) for registration and geometry; [CloudCompare](https://github.com/CloudCompare/CloudCompare) as an independent inspection tool.                                                            |
+| CRS and datum transforms | [PROJ](https://proj.org/); package required grids and preserve operation metadata.                                                                                                                                                       |
+| SLAM interchange         | Explicit trajectory CSV plus calibration/frame manifest first; [MCAP](https://mcap.dev/) later for rich timestamped messages. MCAP alone does not define pose conventions.                                                               |
+| S2                       | [golang/geo/s2](https://github.com/golang/geo) for catalogue/consumer helpers; official [S2](https://s2geometry.io/) implementation for processing where needed, sharing known-vector fixtures.                                          |
+| Metadata geometry        | [PostGIS](https://postgis.net/documentation/) for footprints and spatial queries, ordinary columns for S2 associations.                                                                                                                  |
+| COPC inspection          | [COPC viewer](https://viewer.copc.io/) linked by PDAL; use only approved public assets in external viewers.                                                                                                                              |
+| Browser rendering        | [Potree](https://github.com/potree/potree) for large point-cloud review if needed; test its selected format path before assuming direct COPC support. Avoid a second converted publication tree in the MVP.                              |
+| Bulk/offline metadata    | [GeoParquet](https://geoparquet.org/) and [DuckDB Parquet support](https://duckdb.org/docs/stable/data/parquet/overview) when bulk export demand appears.                                                                                |
 
 Do not build a global map editor, semantic ML training system, bespoke binary geometry
 format, account reputation economy, billing engine, or distributed scheduler to run a
@@ -718,18 +718,18 @@ the need to understand the measurements.
 
 ## 19. Major risks and questions that need evidence
 
-| Risk | Consequence | Experiment or response |
-| --- | --- | --- |
-| Local SLAM precision hides global bias | Confident prior in the wrong location | Separate check points, datum audit, and deliberately shifted input tests. |
-| Sparse fixed LiDAR cannot match dense mobile features | Primary consumer gains little | Cross-sensor pose experiment with sparse feature and cloud ablations. |
-| Repeated façades and flat ground underconstrain pose | Low residual, wrong transform | Rank diagnostics, competing hypotheses, and false-acceptance gate. |
-| Parked objects become persistent | Prior suppresses valid foreground | Temporal separation, visibility masks, held-out labels, and soft-only integration. |
-| Trajectory time/pose conventions differ | Bad ray evidence and registration | Time-offset fixtures and trajectory-present/absent ablations. |
-| Consumer scale/drift varies by export | Heterogeneous ingestion produces misleading fusion | Per-class results and scale diagnostics; permit lower eligibility. |
-| Source rights or privacy prevent public release | Attractive corpus cannot be redistributed | Rights review before capture/import and restricted-source processing paths. |
-| External assets disappear | Pipeline cannot reproduce old products | Archive critical experiment inputs and label unretained dependencies. |
-| Review and rescanning costs exceed hosting | Unsustainable contribution service | Track reviewer minutes and cost per useful update, not just storage bills. |
-| Scene changes invalidate old priors | Wrong background or alignment | Current-observation checks, bounded cache policy, and release replacement. |
+| Risk                                                  | Consequence                                        | Experiment or response                                                             |
+| ----------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Local SLAM precision hides global bias                | Confident prior in the wrong location              | Separate check points, datum audit, and deliberately shifted input tests.          |
+| Sparse fixed LiDAR cannot match dense mobile features | Primary consumer gains little                      | Cross-sensor pose experiment with sparse feature and cloud ablations.              |
+| Repeated façades and flat ground underconstrain pose  | Low residual, wrong transform                      | Rank diagnostics, competing hypotheses, and false-acceptance gate.                 |
+| Parked objects become persistent                      | Prior suppresses valid foreground                  | Temporal separation, visibility masks, held-out labels, and soft-only integration. |
+| Trajectory time/pose conventions differ               | Bad ray evidence and registration                  | Time-offset fixtures and trajectory-present/absent ablations.                      |
+| Consumer scale/drift varies by export                 | Heterogeneous ingestion produces misleading fusion | Per-class results and scale diagnostics; permit lower eligibility.                 |
+| Source rights or privacy prevent public release       | Attractive corpus cannot be redistributed          | Rights review before capture/import and restricted-source processing paths.        |
+| External assets disappear                             | Pipeline cannot reproduce old products             | Archive critical experiment inputs and label unretained dependencies.              |
+| Review and rescanning costs exceed hosting            | Unsustainable contribution service                 | Track reviewer minutes and cost per useful update, not just storage bills.         |
+| Scene changes invalidate old priors                   | Wrong background or alignment                      | Current-observation checks, bounded cache policy, and release replacement.         |
 
 Open experiments: what initial-pose envelope is realistic without accurate heading; which feature
 types survive P40 sampling; which voxel size preserves useful kerbs; how much trajectory improves
@@ -792,14 +792,14 @@ adapters or a separate schema module in anticipation of users who have not appea
 
 ## 22. Staged implementation roadmap
 
-| Stage | Deliverable | Exit decision |
-| --- | --- | --- |
-| A: contracts and capture readiness | Schema drafts, frame conventions, source rights, survey design, fixture corpus, frozen evaluation protocol | Review confirms inputs and independent ground truth are obtainable. |
-| B: MVP experiment | Three capture classes over repeated visits; reproducible registration, static evidence, feature bundles, blinded fixed-LiDAR trials | Pose recovery, false-acceptance, and background gates pass for at least one viable capture route; otherwise narrow or stop. |
-| C: curated publication | 10 sites, S2 coverage, signed immutable releases, catalogue, source federation, privacy/licence review, restore test | Every release is traceable and reproducible within its declared retention policy; measured costs fit budget. |
-| D: optional consumer integration | Local/no-prior providers, replay provenance, then opt-in HTTP and offline cache | Target-device performance and all corruption/outage/rejection cases pass without sensing regression. |
-| E: public pilot | 100 curated sites, documented contribution review, quality components, coverage pages, manual sponsorship trial | Useful contributions exceed review burden; independent users reproduce localisation results. |
-| F: post-MVP growth | Self-service submissions, bulk exports, badges, sponsor billing, richer features | Implement only the bottlenecks demonstrated by the pilot. |
+| Stage                              | Deliverable                                                                                                                         | Exit decision                                                                                                               |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| A: contracts and capture readiness | Schema drafts, frame conventions, source rights, survey design, fixture corpus, frozen evaluation protocol                          | Review confirms inputs and independent ground truth are obtainable.                                                         |
+| B: MVP experiment                  | Three capture classes over repeated visits; reproducible registration, static evidence, feature bundles, blinded fixed-LiDAR trials | Pose recovery, false-acceptance, and background gates pass for at least one viable capture route; otherwise narrow or stop. |
+| C: curated publication             | 10 sites, S2 coverage, signed immutable releases, catalogue, source federation, privacy/licence review, restore test                | Every release is traceable and reproducible within its declared retention policy; measured costs fit budget.                |
+| D: optional consumer integration   | Local/no-prior providers, replay provenance, then opt-in HTTP and offline cache                                                     | Target-device performance and all corruption/outage/rejection cases pass without sensing regression.                        |
+| E: public pilot                    | 100 curated sites, documented contribution review, quality components, coverage pages, manual sponsorship trial                     | Useful contributions exceed review burden; independent users reproduce localisation results.                                |
+| F: post-MVP growth                 | Self-service submissions, bulk exports, badges, sponsor billing, richer features                                                    | Implement only the bottlenecks demonstrated by the pilot.                                                                   |
 
 Do not promise dates before scanner access, survey control, and export rights are
 confirmed. Estimate engineering effort after Stage A and re-estimate using actual

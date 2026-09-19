@@ -2,7 +2,7 @@
 
 - **Status:** Active; all named consolidation work units have landed; only the image `:80` smoke-test gate remains outstanding
 - **Layers:** Cross-cutting (Go binary, image build, systemd, PDF pipeline, Tailscale, sudoers)
-- **Target:** v0.5.1 (single primary binary cutover, embedded Typst, read-only SQL path, static Linux image/release binary route, static Tailscale opt-in, and runtime apt manifest trimmed to `raspi-config`); deliberately ahead of v0.6.0 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
+- **Target:** v0.5.1 (single primary binary cutover, embedded Typst, read-only SQL path, static Linux image/release binary route, static Tailscale opt-in, and runtime apt manifest trimmed to `raspi-config`); deliberately ahead of v0.6.2 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
 - **Companion plans:** [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md), [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md), [deploy-distribution-packaging-plan.md](deploy-distribution-packaging-plan.md), [cli-restructuring-plan.md](cli-restructuring-plan.md), [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md), [binary-size-reduction-plan.md](binary-size-reduction-plan.md), [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md), [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 - **Supersedes:** the "fold sweep / ctl later" sequencing in [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md); the texlive trimming work in [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md); the Phase 2 ".fmt precompile" goal in [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md) § Phase 2 — replaced wholesale by removing xelatex.
@@ -19,7 +19,7 @@ The velocity.report Pi image started this cycle as a mixed Debian + Go + apt + b
 4. nginx + a self-signed TLS oneshot, present only to terminate TLS on `:443` — already slated for removal in [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md).
 5. A scatter of single-purpose apt packages (`librsvg2-bin`, `fonts-noto-color-emoji`, `python3-serial`, `minicom`, `jq`) that exist only because legacy code or stage scripts call out to them.
 
-Each of these widens the public install surface, the upgrade surface, and the security surface. Each one is also independently removable: nothing in this plan requires solving all five at once. The single goal is **make the deployment look, from the user's side, like one binary, one image, one update command** before v0.6.0 ships the public install path more widely.
+Each of these widens the public install surface, the upgrade surface, and the security surface. Each one is also independently removable: nothing in this plan requires solving all five at once. The single goal is **make the deployment look, from the user's side, like one binary, one image, one update command** before v0.6.2 ships the public install path more widely.
 
 If we do not do this before wide release, every one of these surfaces becomes a public compatibility commitment that is much harder to walk back.
 
@@ -105,13 +105,13 @@ runtime artifact     who owns it
 /etc/sudoers.d/020_velocity-nopasswd   3 lines: systemctl + tailscaled bridge
 ```
 
-No xelatex tree. No nginx. No `velocity-ctl`, no `velocity-update`, no vendored Typst tree, no `sqlite3` dependency for routine inspection, no Tailscale apt package, and no runtime `libpcap0.8` dependency from the application binary. The repo-level `00-packages` manifest is down to `raspi-config`; the opt-in Tailscale payload is binary-owned. Goal end-state for v0.6.0 is "the Pi image is Pi OS Lite + one primary Go binary plus only the binary-owned helper payloads needed to avoid runtime dependency drift."
+No xelatex tree. No nginx. No `velocity-ctl`, no `velocity-update`, no vendored Typst tree, no `sqlite3` dependency for routine inspection, no Tailscale apt package, and no runtime `libpcap0.8` dependency from the application binary. The repo-level `00-packages` manifest is down to `raspi-config`; the opt-in Tailscale payload is binary-owned. Goal end-state for v0.6.2 is "the Pi image is Pi OS Lite + one primary Go binary plus only the binary-owned helper payloads needed to avoid runtime dependency drift."
 
 **Compatibility contract.** `velocity-report` survives as the server-oriented alias the systemd unit can call; `velocity-ctl` and `velocity-update` are removed. All other removed surfaces are deleted, not deprecated.
 
 ### Work unit A: fold `velocity-ctl` and operator tools into one binary (v0.5.1) `M`
 
-This is the "submodule move" the user wants pulled forward — the same direction already endorsed in [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md), just sequenced into v0.5.1 instead of waiting for v0.6.0.
+This is the "submodule move" the user wants pulled forward — the same direction already endorsed in [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md), just sequenced into v0.5.1 instead of waiting for v0.6.2.
 
 **Steps:**
 
@@ -174,9 +174,9 @@ There is no production Go library binding to Typst's Rust crate; the credible pa
 
 **Milestone:** v0.5.1. Landed; xelatex, report compiler packages, minimal-TeX scripts, and the old parity window are removed.
 
-### Work unit D: pull nginx removal into v0.5.1 (instead of v0.6.0) `S`
+### Work unit D: pull nginx removal into v0.5.1 (instead of v0.6.2) `S`
 
-This is just sequencing — the design is already done in [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md). Bring it forward so the public install path the v0.6.0 release announces is `http://velocity.local` with no self-signed CA dance.
+This is just sequencing — the design is already done in [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md). Bring it forward so the public install path the v0.6.2 release announces is `http://velocity.local` with no self-signed CA dance.
 
 **Steps:**
 
@@ -333,4 +333,4 @@ End-state apt manifest (target for v0.5.1): **`raspi-config`** plus the base Pi 
 
 - [ ] Host lifecycle aliases (`velocity-status`, `velocity-log`, `velocity-start`, `velocity-stop`, `velocity-bounce`) stay outside the binary. Host concerns are not application namespaces per [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md).
 - [ ] UART/SPI overlay edits to `/boot/firmware/config.txt` stay in the image stage script. Firmware-boot config is not a runtime concern.
-- [ ] `raspi-config` survives into v0.6.0 for serial/UART configuration.
+- [ ] `raspi-config` survives into v0.6.2 for serial/UART configuration.

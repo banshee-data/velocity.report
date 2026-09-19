@@ -52,7 +52,7 @@ This review focuses on:
 
 - `internal/lidar/monitor/webserver.go` ~3909 lines
 - [web/src/lib/components/lidar/TrackList.svelte](../../../web/src/lib/components/lidar/TrackList.svelte) ~1013 lines
-- [web/src/lib/components/lidar/MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte) ~883 lines
+- `web/src/lib/components/lidar/MapPane.svelte` ~883 lines — **resolved:** deleted in [#559], its picking and region marking ported into [ScenePane.svelte](../../../web/src/lib/components/lidar/ScenePane.svelte), which renders through the shared three.js scene player instead of a second flat-canvas implementation
 - [web/src/routes/lidar/tracks/+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte) ~786 lines
 
 ## Target structure aligned to L1-L6

@@ -123,6 +123,90 @@ background model never finished settling, so nothing downstream of L3 ever ran. 
 three months it read as a healthy full-pipeline run, and when detection started
 working the gate reported the cost of it as a 7028% heap regression.
 
+## The measurement matrix
+
+A perf number means nothing without saying which machine produced it. The matrix has one
+cell per **capture x profile x host class**, and every baseline belongs to exactly one.
+
+`make perf-policy` prints the cell you are in and the policy that applies to it. Run it
+before reading any perf result.
+
+### Host classes
+
+| Class | What it is                    | What it can answer                                         |
+| ----- | ----------------------------- | ---------------------------------------------------------- |
+| `pi`  | The deployment target, a Pi 4 | "Fast enough for a 10 Hz sensor?" — the only cell that can |
+| `mac` | A developer workstation       | "Did this change make it slower?" and nothing else         |
+| `ci`  | A shared hosted runner        | "Did this change make it _much_ slower?"                   |
+
+These are not interchangeable, and the distinction is not cosmetic. A workstation runs the
+full profile roughly an order of magnitude faster than the device it ships to, so a change
+that comfortably fits the frame budget on a Mac can miss it on the Pi without any gate
+noticing.
+
+Host class is recorded in the document and is part of the workload identity, so a comparison
+across classes is **refused** rather than reported as a regression. It is separate from
+`goos`/`goarch` on purpose. Those nearly separate the three today — `darwin/arm64`,
+`linux/amd64`, `linux/arm64` — but only by accident of which runners the project uses. An ARM
+CI runner is `linux/arm64` and so is the Pi, and at that point the platform pair silently
+stops telling a quiet single-purpose device from a shared virtualised one.
+
+The class is detected from the environment (`CI=true` wins, then Darwin, then Linux on
+aarch64) and overridden with `PERF_HOST_CLASS=` or `-host-class`. Detection is deliberately
+crude: being explicit in the file is what matters, and a cleverer guess would just fail
+quietly somewhere new.
+
+### Policy per class
+
+| Class | Regression threshold | Baseline repeats | Why                                                                    |
+| ----- | -------------------: | ---------------: | ---------------------------------------------------------------------- |
+| `pi`  |                  20% |                5 | Quiet and single-purpose, so a small real regression is visible        |
+| `mac` |                  30% |                5 | Quiet but shares a desktop with everything else the developer is doing |
+| `ci`  |                  50% |                9 | Virtualised and shares a physical host with strangers                  |
+
+One threshold across all three would be either too loose to catch anything on the Pi or a
+source of false failures in CI. The repeat counts differ for the same reason: a median of
+five is enough on a quiet machine and not enough on a noisy one.
+
+The frame budget does **not** vary by class. It is a property of the sensor — 10 Hz gives
+100 ms, and the configured 98 ms leaves a margin — so the same ceiling applies everywhere.
+What varies is whether a machine can meet it, which is the question the `pi` row exists to
+answer.
+
+### Which cells are gated
+
+| Cell            | Status                | Gate                                                                      |
+| --------------- | --------------------- | ------------------------------------------------------------------------- |
+| `ci` x full     | Gated, nightly        | Relative regression against the `ci` baseline                             |
+| `ci` x l3-only  | Gated, nightly        | Relative regression against the `ci` baseline                             |
+| `mac` x full    | Advisory, on demand   | Developer's own check before proposing a change                           |
+| `mac` x l3-only | Advisory, on demand   | As above                                                                  |
+| `pi` x full     | **Not yet automated** | The absolute frame-budget check is the one that matters                   |
+| `pi` x l3-only  | **Not yet automated** | As above                                                                  |
+| `detect` (any)  | Measurable, not gated | An unexercised gated profile is numbers nobody can explain when they move |
+
+The Pi rows are the gap. Until the device runs the gate on a schedule, "fast enough" is
+asserted rather than measured, and every committed number describes hardware the product does
+not ship on. The [Pi benchmark runbook](pi-benchmark-runbook.md) is the manual procedure;
+nothing prevents making it scheduled but the automation.
+
+### Capturing and recapturing
+
+Capture on the machine the cell names. A baseline captured elsewhere measures that other
+machine, and the comparator will refuse it — which is the intended outcome, not a bug to work
+around.
+
+```bash
+make perf-policy            # confirm the cell before capturing
+make perf-baseline-all      # median of the class's repeat count, per gated profile
+```
+
+Recapture when the tuning fingerprint moves, when the capture changes, or when the hardware
+changes. A tuning change moves the fingerprint and the comparator refuses the old baseline, so
+this is enforced rather than remembered. Do not recapture to make a regression go away without
+saying why in the commit: a baseline is a claim about what the code costs, and moving it
+silently retires the only evidence that it grew.
+
 ## The frame budget
 
 `pipeline.frame_budget_ms` (default **98 ms**) is the per-frame ceiling. Beyond it a
@@ -602,6 +686,7 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 
 ## See also
 
+- [Pi benchmark runbook](pi-benchmark-runbook.md): step-by-step capture of the `pi` matrix cell — the only one that can answer "fast enough"
 - [PCAP Analysis Mode](pcap-analysis-mode.md): scan, motion stats, and splits via `pcap-split`
 - [LiDAR Architecture](../architecture/LIDAR_ARCHITECTURE.md): Pipeline architecture
 - [Foreground Tracking Plan](../architecture/foreground-tracking.md): Algorithm details

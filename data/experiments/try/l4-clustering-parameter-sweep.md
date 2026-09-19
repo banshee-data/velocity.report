@@ -1,6 +1,18 @@
 # Experiment: L4 clustering parameter sweep
 
-- **Status:** Proposed
+- **Status:** Partly unblocked (2026-09-18). Still no offline,
+  ground-truth-free L4 evaluator, and the 24-site corpus has no labelled
+  reference tracks. But the campaign's ground-truth harness
+  (`data/experiments/try/l5-gt-sweep/run_gt_oat_sweep.py`) can now sweep
+  `foreground_dbscan_eps` and `foreground_min_cluster_points` one at a time on
+  the two sites with enough labelled tracks (kirk1 run 60a4774c, kirk0 run
+  dd98c68e), scored by `EvaluateGroundTruth` on recall of labelled tracks and
+  candidate-track count — see "Third pass" in the
+  [2026-09 parameter experiment campaign](../../../docs/plans/lidar-parameter-experiment-campaign-2026-09.md).
+  That is two sites, not a corpus, and `max_cluster_diameter`, the height band
+  and the other L4 keys are not runtime-updatable on the server, so they remain
+  unswept. `pcap-analyse`, named throughout this doc, has been removed from the
+  codebase.
 - **Layers:** L4 Perception
 
 ## Hypothesis

@@ -71,6 +71,17 @@ mock_serial_port*
 velocity-deploy*
 velocity-report-*
 
+# Built tool binaries dropped in the repo root by `make build-*`.
+/lidar-bench
+/pcap-split
+/settling-eval
+/lidar-ground-truth-eval
+
+# Local analysis scratch: throwaway Go tools written against a recording to
+# answer one question. Findings belong in a plan or in internal/lidar/analysis,
+# not here. Ignored so they do not trip `gofmt -l` in the lint gate.
+/.scratch-analysis/
+
 # =============================================================================
 # Pi Image Build (pi-gen)
 # =============================================================================
@@ -238,6 +249,15 @@ bin/typst.exe
 # the pattern stops the next one. Committed baselines live under
 # internal/lidar/perf/baseline/ and are not matched by this.
 *_benchmark.json
+
+# =============================================================================
+# Local make overrides
+# =============================================================================
+# Machine-specific paths — chiefly LIDAR_PCAP_DIR, when captures sit on an
+# external volume rather than under LIDAR_DATA_DIR. Untracked on purpose: one
+# developer's mount point is not a project default, and hardcoding one in the
+# Makefile is the thing local.mk replaces.
+local.mk
 
 # Basemap tiles for the scene map: a build artefact, fetched once by
 # `make cache-basemap` and cached on disk. 21 MB of PNGs that OpenStreetMap

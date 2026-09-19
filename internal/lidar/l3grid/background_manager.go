@@ -804,18 +804,23 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					neighbourDiff := math.Abs(float64(neighbourCell.AverageRangeMeters) - observationMean)
 					// include a distance-proportional noise term based on the neighbour's mean
 					// Use cell-specific noise threshold
-					neighbourCloseness := closenessMultiplier * (float64(neighbourCell.RangeSpreadMeters) + cellNoiseRel*float64(neighbourCell.AverageRangeMeters) + 0.01)
+					neighbourCloseness := ClosenessThresholdMetres(
+						closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
+						cellNoiseRel, float64(neighbourCell.AverageRangeMeters), 0)
 					if neighbourDiff <= neighbourCloseness {
 						neighbourConfirmCount++
 					}
 				}
 			}
 
-			// closeness threshold based on existing spread and safety margin
-			// closeness threshold scales with the cell's spread plus a fraction of
-			// the measured distance (cellNoiseRel*observationMean). This avoids biasing
-			// toward small absolute deviations at long range where noise grows.
-			closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+cellNoiseRel*observationMean+0.01) + safety
+			// Closeness scales with the cell's measured spread plus a fraction of
+			// the measured distance, on the assumption that range noise grows with
+			// range. See ClosenessThresholdMetres: that assumption does not match
+			// the Pandar40P's flat specification, and the divergence is measured
+			// in TestClosenessNoiseModelAgainstPandar40PSpec.
+			closenessThreshold := ClosenessThresholdMetres(
+				closenessMultiplier, float64(cell.RangeSpreadMeters),
+				cellNoiseRel, observationMean, safety)
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
 
 			// Decide if this observation is background-like or foreground-like

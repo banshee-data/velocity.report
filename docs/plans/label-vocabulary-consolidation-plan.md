@@ -44,7 +44,7 @@ in the classifier, hidden in all UIs, and rejected by the label validation API.
 - [internal/lidar/adapters/ground_truth.go](../../internal/lidar/adapters/ground_truth.go): `isPositiveLabel()` updated for all 6 positive classes
 - [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts): `DetectionLabel` type and `TRACK_COLORS` aligned (9 classes)
 - [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte): 7-label dropdown, removed `"impossible"`
-- [web/src/lib/components/lidar/MapPane.svelte](../../web/src/lib/components/lidar/MapPane.svelte): Legend shows 9 object classes
+- `web/src/lib/components/lidar/MapPane.svelte`: legend showed 9 object classes. Deleted in [#559]; the class vocabulary it drew from is [lidar.ts](../../web/src/lib/types/lidar.ts)'s `TRACK_COLORS`, which is where this consolidation applies
 - `tools/visualiser-macos/.../ContentView.swift`: `classificationLabels` array with 7 entries
 - `internal/db/migrations/000029_...up.sql`: Converts `"ped"→"pedestrian"`, `"other"→"dynamic"`, `"impossible"→"noise"`
 

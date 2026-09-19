@@ -1313,6 +1313,19 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 // MARK: - Camera
 
 struct Camera {
+    /// How the camera projects.
+    ///
+    /// Annotation selection needs orthographic: under perspective the same
+    /// screen outline covers a wider world volume the further away it is, so
+    /// a lasso would quietly take in more of the scene at distance than the
+    /// operator drew. Orthographic keeps "inside this outline" meaning one
+    /// fixed world volume at every depth.
+    enum Projection: Equatable {
+        case perspective
+        /// Half-height of the view volume in metres; width follows the aspect.
+        case orthographic(halfHeight: Float)
+    }
+
     var position: simd_float3 = simd_float3(0, -30, 20)
     var target: simd_float3 = simd_float3(0, 10, 0)
     var up: simd_float3 = simd_float3(0, 0, 1)
@@ -1322,12 +1335,42 @@ struct Camera {
     var nearPlane: Float = 0.1
     var farPlane: Float = 500.0
 
+    var projection: Projection = .perspective
+
     var viewMatrix: simd_float4x4 { simd_float4x4(lookAt: target, from: position, up: up) }
 
     var projectionMatrix: simd_float4x4 {
-        simd_float4x4(
-            perspectiveFov: fov * .pi / 180, aspectRatio: aspectRatio, near: nearPlane,
-            far: farPlane)
+        switch projection {
+        case .perspective:
+            return simd_float4x4(
+                perspectiveFov: fov * .pi / 180, aspectRatio: aspectRatio, near: nearPlane,
+                far: farPlane)
+        case .orthographic(let halfHeight):
+            let h = max(halfHeight, 0.01)
+            let w = h * max(aspectRatio, 0.01)
+            return simd_float4x4(
+                orthographicWidth: w * 2, height: h * 2, near: nearPlane, far: farPlane)
+        }
+    }
+
+    /// Places the camera for one of the annotation selection views, looking at
+    /// `centre` down the standard axis with the matching screen-up direction.
+    /// The distance only has to clear the near plane: an orthographic view's
+    /// scale comes from `halfHeight`, not from how far back the eye sits.
+    mutating func setOrthoView(
+        _ standard: OrthoViewBasis.Standard, centre: simd_float3, halfHeight: Float,
+        distance: Float = 200
+    ) {
+        let basis = OrthoViewBasis(standard, origin: centre)
+        target = centre
+        // forward points away from the viewer, so the eye sits back along it.
+        position = centre - basis.forward * distance
+        up = basis.up
+        projection = .orthographic(halfHeight: halfHeight)
+        // Symmetric about the target so nothing in the slab is clipped away
+        // by the near plane on one side or the far plane on the other.
+        nearPlane = 0.01
+        farPlane = distance * 2
     }
 }
 
@@ -1362,6 +1405,20 @@ extension simd_float4x4 {
                 simd_float4(x.x, y.x, z.x, 0), simd_float4(x.y, y.y, z.y, 0),
                 simd_float4(x.z, y.z, z.z, 0),
                 simd_float4(-dot(x, eye), -dot(y, eye), -dot(z, eye), 1)
+            ))
+    }
+
+    /// Right-handed orthographic projection matching the perspective
+    /// initialiser's depth convention, so both can share one pipeline.
+    init(orthographicWidth width: Float, height: Float, near: Float, far: Float) {
+        let x = 2 / width
+        let y = 2 / height
+        let z = 1 / (near - far)
+
+        self.init(
+            columns: (
+                simd_float4(x, 0, 0, 0), simd_float4(0, y, 0, 0), simd_float4(0, 0, z, 0),
+                simd_float4(0, 0, z * near, 1)
             ))
     }
 

@@ -37,7 +37,10 @@ test("point and track exports must identify the same recording and frame", () =>
     coordinate_frame: { frame_id: "site/lidar", reference_frame: "ENU" },
   };
   assert.equal(sceneSourcesAlign(header, structuredClone(header)), true);
-  assert.equal(sceneSourcesAlign(header, { ...header, start_ns: "124" }), false);
+  assert.equal(
+    sceneSourcesAlign(header, { ...header, start_ns: "124" }),
+    false,
+  );
   assert.equal(
     sceneSourcesAlign(header, { ...header, source_vrlog_sha256: "def" }),
     false,

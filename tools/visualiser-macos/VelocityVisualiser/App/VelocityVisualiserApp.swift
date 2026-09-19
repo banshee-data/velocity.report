@@ -33,6 +33,13 @@ private let appLogger = DevLogger(category: "App")
         Window("About VelocityVisualiser.app", id: "about") { AboutView() }.windowResizability(
             .contentSize
         ).defaultPosition(.center)
+
+        // Annotation gets its own window rather than a pane in ContentView.
+        // It is a different job from watching the stream — it reads packs off
+        // disk and never touches the frame stream — and it wants the whole
+        // viewport for the lasso and its confirming view.
+        Window("Annotation", id: "annotation") { AnnotationWindow() }.defaultSize(
+            width: 1200, height: 800)
     }
 
     init() {
@@ -135,6 +142,14 @@ struct AppCommands: Commands {
                 isOn: Binding(
                     get: { appState.showTrackLabels }, set: { appState.showTrackLabels = $0 })
             ).keyboardShortcut("l", modifiers: [])
+        }
+
+        // Annotation. A menu item rather than a toolbar button because the
+        // window it opens is not a mode of the main view: opening it must not
+        // disturb whatever the main window is showing.
+        CommandMenu("Annotation") {
+            Button("Open Annotation Window") { openWindow(id: "annotation") }.keyboardShortcut(
+                "a", modifiers: [.command, .shift])
         }
 
         // Label commands — classification shortcuts at root level

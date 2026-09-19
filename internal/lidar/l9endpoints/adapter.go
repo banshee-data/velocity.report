@@ -75,7 +75,10 @@ func (a *FrameAdapter) AdaptFrame(
 	// (e.g. pedestrians walking together) are preserved.
 	if len(clusters) > 0 {
 		var associations []string
-		if tracker != nil {
+		// Diagnostic bundles retain raw observations beside estimated tracks.
+		// Association candidates link them without conflating their geometry.
+		df, diagnostic := debugFrame.(*debug.DebugFrame)
+		if tracker != nil && !(diagnostic && df != nil) {
 			associations = tracker.GetLastAssociations()
 		}
 		bundle.Clusters = a.adaptUnassociatedClusters(clusters, associations, frame.StartTimestamp)
@@ -84,6 +87,9 @@ func (a *FrameAdapter) AdaptFrame(
 	// M6: Adapt debug overlays if provided
 	if debugFrame != nil {
 		bundle.Debug = a.adaptDebugFrame(debugFrame, frame.StartTimestamp)
+		if bundle.Debug != nil {
+			bundle.Debug.FrameID = bundle.FrameID
+		}
 	}
 
 	// Track performance
@@ -247,6 +253,7 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []l4perception.Wo
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+			SamplePoints:   flattenSamplePoints(wc.SamplePoints),
 		}
 
 		// Include OBB if computed
@@ -291,10 +298,22 @@ func (a *FrameAdapter) adaptClusters(worldClusters []l4perception.WorldCluster, 
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+			SamplePoints:   flattenSamplePoints(wc.SamplePoints),
 		}
 	}
 
 	return cs
+}
+
+func flattenSamplePoints(points [][3]float32) []float32 {
+	if len(points) == 0 {
+		return nil
+	}
+	flat := make([]float32, 0, len(points)*3)
+	for _, p := range points {
+		flat = append(flat, p[:]...)
+	}
+	return flat
 }
 
 // adaptTracks converts TrackedObjects to the canonical Track format.
@@ -375,7 +394,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 	// clusters of stale red boxes around active objects.
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
-	gracePeriodNanos := float64(tracker.GetDeletedTrackGracePeriod())
+	// Fade over the render window, not the re-association grace period. The
+	// two were the same number, so a deleted track's frozen box sat on screen
+	// for five seconds while the real object drove out from under it.
+	fadeNanos := float64(tracker.GetDeletedTrackRenderFade())
 
 	for _, t := range deletedTracks {
 		// Skip tracks that never reached confirmed state.
@@ -384,7 +406,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 		}
 
 		elapsed := float64(nowNanos - t.EndUnixNanos)
-		alpha := float32(1.0 - elapsed/gracePeriodNanos)
+		alpha := float32(1.0)
+		if fadeNanos > 0 {
+			alpha = float32(1.0 - elapsed/fadeNanos)
+		}
 		if alpha < 0 {
 			alpha = 0
 		}

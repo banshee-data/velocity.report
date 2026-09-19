@@ -35,23 +35,27 @@ func TestShouldThrottleFrame(t *testing.T) {
 	spaced := now.Add(-100 * time.Millisecond)
 
 	tests := []struct {
-		name         string
-		replayActive *atomic.Bool
-		interval     time.Duration
-		lastProcess  time.Time
-		want         bool
+		name               string
+		replayActive       *atomic.Bool
+		analysisModeActive *atomic.Bool
+		interval           time.Duration
+		lastProcess        time.Time
+		want               bool
 	}{
-		{"live input is never throttled, however clumped", replayFlag(false), interval, clumped, false},
-		{"an unwired flag is treated as live", nil, interval, clumped, false},
-		{"a replay delivering faster than the cap is throttled", replayFlag(true), interval, clumped, true},
-		{"a replay within the cap is not throttled", replayFlag(true), interval, spaced, false},
-		{"no interval configured means no throttle", replayFlag(true), 0, clumped, false},
-		{"the first frame of a replay is never throttled", replayFlag(true), interval, time.Time{}, false},
+		{"live input is never throttled, however clumped", replayFlag(false), nil, interval, clumped, false},
+		{"an unwired flag is treated as live", nil, nil, interval, clumped, false},
+		{"a replay delivering faster than the cap is throttled", replayFlag(true), nil, interval, clumped, true},
+		{"a replay within the cap is not throttled", replayFlag(true), nil, interval, spaced, false},
+		{"no interval configured means no throttle", replayFlag(true), nil, 0, clumped, false},
+		{"the first frame of a replay is never throttled", replayFlag(true), nil, interval, time.Time{}, false},
+		{"an unwired analysis flag preserves the replay-throttle outcome", replayFlag(true), nil, interval, clumped, true},
+		{"analysis mode is never throttled, even flooding past the cap", replayFlag(true), replayFlag(true), interval, clumped, false},
+		{"analysis mode explicitly off behaves like the unwired case", replayFlag(true), replayFlag(false), interval, clumped, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := shouldThrottleFrame(tt.replayActive, tt.interval, tt.lastProcess, now)
+			got := shouldThrottleFrame(tt.replayActive, tt.analysisModeActive, tt.interval, tt.lastProcess, now)
 			if got != tt.want {
 				t.Errorf("shouldThrottleFrame() = %v, want %v", got, tt.want)
 			}
@@ -72,8 +76,28 @@ func TestLiveIsNotThrottledAtAnyArrivalSpacing(t *testing.T) {
 		39 * time.Millisecond,  // just inside the cap
 		100 * time.Millisecond, // a 10 Hz sensor's nominal spacing
 	} {
-		if shouldThrottleFrame(replayFlag(false), interval, now.Add(-gap), now) {
+		if shouldThrottleFrame(replayFlag(false), nil, interval, now.Add(-gap), now) {
 			t.Errorf("live input throttled at %v arrival spacing", gap)
+		}
+	}
+}
+
+// TestAnalysisModeIsNeverThrottledAtAnyArrivalSpacing mirrors the live-input
+// guarantee above for analysis-mode replays: persisted analysis output must
+// reach clustering and tracking regardless of how fast frames arrive,
+// because a throttled frame is recorded as empty rather than skipped, and an
+// analysis run/VRLOG consumer has no way to tell "empty" from "not looked at".
+func TestAnalysisModeIsNeverThrottledAtAnyArrivalSpacing(t *testing.T) {
+	const interval = 40 * time.Millisecond
+	now := time.Unix(1_700_000_000, 0)
+
+	for _, gap := range []time.Duration{
+		0, // an unpaced "analysis" speed-mode catch-up flood
+		time.Millisecond,
+		39 * time.Millisecond,
+	} {
+		if shouldThrottleFrame(replayFlag(true), replayFlag(true), interval, now.Add(-gap), now) {
+			t.Errorf("analysis-mode replay throttled at %v arrival spacing", gap)
 		}
 	}
 }

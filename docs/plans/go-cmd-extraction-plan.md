@@ -21,7 +21,7 @@ Every new consumer must reimplement or duplicate.
 
 [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) is 1,194 lines. Of those, roughly 350 are business logic
 (adapters, CLI dispatch, config resolution) rather than flag parsing and component
-wiring. If left, the file will cross 1,500 LOC by v0.6.0 as HINT and sweep features
+wiring. If left, the file will cross 1,500 LOC by v0.6.2 as HINT and sweep features
 expand.
 
 ## Current state

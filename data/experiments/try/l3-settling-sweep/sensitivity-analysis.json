@@ -1,0 +1,220 @@
+{
+  "abs_frame_delta_threshold": 10,
+  "rel_frame_delta_threshold": 0.5,
+  "min_site_fraction_threshold": 0.2,
+  "n_baseline_rows": 24,
+  "keys": {
+    "closeness_multiplier": {
+      "verdict": "insensitive",
+      "rationale": "no tested value flagged >= 20% of sites",
+      "n_sites_ever_flagged": 3,
+      "by_value": {
+        "1.5": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": 1.9,
+          "max_frame_delta": 34,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "2.25": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": 3.8,
+          "max_frame_delta": 81,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "4.0": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": -6.2,
+          "max_frame_delta": 11,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "5.0": {
+          "n_sites": 24,
+          "n_flagged": 3,
+          "flagged_fraction": 0.125,
+          "mean_frame_delta": -13.5,
+          "max_frame_delta": 23,
+          "sensitive_at_this_value": false,
+          "flagged_sites": [
+            "1st-mission",
+            "columbus-north-point",
+            "embarcadero-broadway"
+          ]
+        }
+      }
+    },
+    "neighbour_confirmation_count": {
+      "verdict": "sensitive",
+      "rationale": "flagged on >= 20% of sites at value(s) ['1']",
+      "n_sites_ever_flagged": 21,
+      "by_value": {
+        "1": {
+          "n_sites": 24,
+          "n_flagged": 21,
+          "flagged_fraction": 0.875,
+          "mean_frame_delta": 237.1,
+          "max_frame_delta": 1190,
+          "sensitive_at_this_value": true,
+          "flagged_sites": [
+            "1st-mission",
+            "3rd-folsom",
+            "ashbury-downey",
+            "broadway-gough",
+            "bush-powell",
+            "columbus-broadway",
+            "columbus-north-point",
+            "embarcadero-bay",
+            "embarcadero-broadway",
+            "embarcadero-bryant",
+            "embarcadero-folsom",
+            "franklin-mcallister",
+            "fulton-divisadero",
+            "howard-6th",
+            "hyde-ofarrell",
+            "laguna-eddy",
+            "lombard-broderick",
+            "lombard-laguna",
+            "marina-webster-beach",
+            "pierce-haight",
+            "van-ness-sacramento"
+          ]
+        },
+        "2": {
+          "n_sites": 24,
+          "n_flagged": 4,
+          "flagged_fraction": 0.167,
+          "mean_frame_delta": -2.1,
+          "max_frame_delta": 22,
+          "sensitive_at_this_value": false,
+          "flagged_sites": [
+            "1st-mission",
+            "embarcadero-broadway",
+            "embarcadero-bryant",
+            "van-ness-sacramento"
+          ]
+        },
+        "4": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": 1.5,
+          "max_frame_delta": 22,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "5": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": -0.8,
+          "max_frame_delta": 15,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        }
+      }
+    },
+    "noise_relative": {
+      "verdict": "sensitive",
+      "rationale": "flagged on >= 20% of sites at value(s) ['0.05']",
+      "n_sites_ever_flagged": 6,
+      "by_value": {
+        "0.005": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": 13.9,
+          "max_frame_delta": 273,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "0.01": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": 5.8,
+          "max_frame_delta": 116,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "0.035": {
+          "n_sites": 24,
+          "n_flagged": 1,
+          "flagged_fraction": 0.042,
+          "mean_frame_delta": -10.3,
+          "max_frame_delta": 21,
+          "sensitive_at_this_value": false,
+          "flagged_sites": [
+            "1st-mission"
+          ]
+        },
+        "0.05": {
+          "n_sites": 24,
+          "n_flagged": 6,
+          "flagged_fraction": 0.25,
+          "mean_frame_delta": -8.4,
+          "max_frame_delta": 80,
+          "sensitive_at_this_value": true,
+          "flagged_sites": [
+            "1st-mission",
+            "3rd-folsom",
+            "columbus-north-point",
+            "embarcadero-bay",
+            "embarcadero-broadway",
+            "van-ness-sacramento"
+          ]
+        }
+      }
+    },
+    "safety_margin_metres": {
+      "verdict": "insensitive",
+      "rationale": "no tested value flagged >= 20% of sites",
+      "n_sites_ever_flagged": 0,
+      "by_value": {
+        "0.05": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": 1.4,
+          "max_frame_delta": 33,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "0.1": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": -0.2,
+          "max_frame_delta": 33,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "0.22": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": -2.5,
+          "max_frame_delta": 10,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        },
+        "0.3": {
+          "n_sites": 24,
+          "n_flagged": 0,
+          "flagged_fraction": 0.0,
+          "mean_frame_delta": -5,
+          "max_frame_delta": 1,
+          "sensitive_at_this_value": false,
+          "flagged_sites": []
+        }
+      }
+    }
+  }
+}

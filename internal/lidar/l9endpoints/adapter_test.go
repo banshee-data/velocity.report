@@ -35,6 +35,38 @@ func TestNewFrameAdapter(t *testing.T) {
 	}
 }
 
+func TestDiagnosticBundleRetainsAssociatedObservationAndSample(t *testing.T) {
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
+	now := time.Unix(100, 0)
+	clusters := []l4perception.WorldCluster{{ClusterID: 1, CentroidX: 10, PointsCount: 20,
+		SamplePoints: [][3]float32{{10, 2, 1}}, OBB: &l4perception.OrientedBoundingBox{Length: 4}}}
+	tracker.Update(clusters, now)
+	tracker.Update(clusters, now.Add(100*time.Millisecond))
+	if tracker.GetLastAssociations()[0] == "" {
+		t.Fatal("fixture did not associate")
+	}
+	adapter := NewFrameAdapter("s")
+	frame := &l2frames.LiDARFrame{StartTimestamp: now}
+	for _, d := range []interface{}{nil, (*debug.DebugFrame)(nil), "invalid"} {
+		b := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, tracker, d))
+		if len(b.Clusters.Clusters) != 0 {
+			t.Fatal("normal bundle duplicated associated box")
+		}
+	}
+	b := toFrameBundle(t, adapter.AdaptFrame(frame, nil, clusters, tracker, &debug.DebugFrame{}))
+	if len(b.Clusters.Clusters) != 1 || b.Clusters.Clusters[0].OBB.Length != 4 || len(b.Clusters.Clusters[0].SamplePoints) != 3 {
+		t.Fatal("diagnostic bundle lost raw geometry")
+	}
+	all := adapter.adaptClusters(clusters, now)
+	if len(all.Clusters[0].SamplePoints) != 3 {
+		t.Fatal("alternate adapter lost sample")
+	}
+	clusters[0].SamplePoints[0][0] = 999
+	if b.Clusters.Clusters[0].SamplePoints[0] != 10 || all.Clusters[0].SamplePoints[0] != 10 {
+		t.Fatal("wire sample aliases evidence")
+	}
+}
+
 func TestFrameAdapter_AdaptFrame_BasicFrame(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
@@ -1188,8 +1220,8 @@ func TestFrameAdapter_AdaptFrame_WithDebugFrame(t *testing.T) {
 	if bundle.Debug == nil {
 		t.Fatal("expected non-nil Debug")
 	}
-	if bundle.Debug.FrameID != 99 {
-		t.Errorf("expected Debug.FrameID=99, got %d", bundle.Debug.FrameID)
+	if bundle.Debug.FrameID != bundle.FrameID {
+		t.Errorf("debug frame %d does not match bundle %d", bundle.Debug.FrameID, bundle.FrameID)
 	}
 	if len(bundle.Debug.AssociationCandidates) != 1 {
 		t.Errorf("expected 1 association candidate, got %d", len(bundle.Debug.AssociationCandidates))

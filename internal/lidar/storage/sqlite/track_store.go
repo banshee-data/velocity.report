@@ -25,9 +25,11 @@ type TrackStore interface {
 
 // TrackObservation represents a single observation of a track at a point in time.
 type TrackObservation struct {
-	TrackID     string
-	TSUnixNanos int64
-	FrameID     string
+	TrackID           string
+	TSUnixNanos       int64 // accepted cluster acquisition time
+	FrameUnixNanos    int64 // L2 frame start; distinct from cluster acquisition
+	FrameID           string
+	MeasurementSource string
 
 	// Position (world frame)
 	X, Y, Z float32
@@ -133,18 +135,20 @@ func UpdateTrack(db DBClient, track *TrackedObject) error {
 func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 	query := `
 		INSERT OR REPLACE INTO lidar_track_observations (
-			track_id, ts_unix_nanos, frame_id,
+			track_id, ts_unix_nanos, frame_unix_nanos, frame_id, measurement_source,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			height_p95, intensity_mean
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := exec.Exec(query,
 		obs.TrackID,
 		obs.TSUnixNanos,
+		obs.FrameUnixNanos,
 		obs.FrameID,
+		obs.MeasurementSource,
 		obs.X, obs.Y, obs.Z,
 		obs.VelocityX, obs.VelocityY, obs.SpeedMps, obs.HeadingRad,
 		obs.BoundingBoxLength, obs.BoundingBoxWidth, obs.BoundingBoxHeight,
@@ -314,7 +318,8 @@ func GetTrackObservationsInRange(db DBClient, sensorID string, startNanos, endNa
 	}
 
 	query := `
-		SELECT o.track_id, o.ts_unix_nanos, o.frame_id,
+		SELECT o.track_id, o.ts_unix_nanos, COALESCE(o.frame_unix_nanos, o.ts_unix_nanos), o.frame_id,
+			COALESCE(o.measurement_source, 'legacy_centroid_v0'),
 			o.x, o.y, o.z,
 			o.velocity_x, o.velocity_y, o.speed_mps, o.heading_rad,
 			o.bounding_box_length, o.bounding_box_width, o.bounding_box_height,
@@ -345,7 +350,9 @@ func GetTrackObservationsInRange(db DBClient, sensorID string, startNanos, endNa
 		if err := rows.Scan(
 			&obs.TrackID,
 			&obs.TSUnixNanos,
+			&obs.FrameUnixNanos,
 			&obs.FrameID,
+			&obs.MeasurementSource,
 			&obs.X, &obs.Y, &obs.Z,
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
@@ -522,7 +529,8 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 // GetTrackObservations retrieves observations for a track.
 func GetTrackObservations(db DBClient, trackID string, limit int) ([]*TrackObservation, error) {
 	query := `
-		SELECT track_id, ts_unix_nanos, frame_id,
+		SELECT track_id, ts_unix_nanos, COALESCE(frame_unix_nanos, ts_unix_nanos), frame_id,
+			COALESCE(measurement_source, 'legacy_centroid_v0'),
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
@@ -545,7 +553,9 @@ func GetTrackObservations(db DBClient, trackID string, limit int) ([]*TrackObser
 		err := rows.Scan(
 			&obs.TrackID,
 			&obs.TSUnixNanos,
+			&obs.FrameUnixNanos,
 			&obs.FrameID,
+			&obs.MeasurementSource,
 			&obs.X, &obs.Y, &obs.Z,
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,

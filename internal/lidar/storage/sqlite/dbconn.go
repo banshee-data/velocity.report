@@ -1,6 +1,9 @@
 package sqlite
 
-import "database/sql"
+import (
+	"database/sql"
+	"path/filepath"
+)
 
 // SQLDB is a type alias for sql.DB, exported so that packages outside the
 // storage layer can reference the database connection type without importing
@@ -26,3 +29,11 @@ type DBClient interface {
 // Callers outside the storage layer should check against this sentinel
 // instead of importing database/sql for sql.ErrNoRows.
 var ErrNotFound = sql.ErrNoRows
+
+// OpenReadOnly opens an existing SQLite database file in read-only mode, for
+// tools that inspect immutable evidence without risking a write. Callers
+// outside the storage layer use this instead of sql.Open so the
+// database/sql import boundary holds.
+func OpenReadOnly(path string) (*SQLDB, error) {
+	return sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?mode=ro&_pragma=busy_timeout(5000)")
+}

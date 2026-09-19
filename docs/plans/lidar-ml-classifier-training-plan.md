@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** L6 Objects, L8 Analytics, sweep/evaluation platform
-- **Target:** v0.5.2-v2.0; the measurement harness lands with the 052 maths run, the corpus contract with 053 data contracts, and candidate models stay parked at v2.0 until the scorecard exists.
+- **Target:** v0.5.6-v2.0; scorecard and corpus contracts follow the headway critical path, and candidate models stay parked at v2.0 until the scorecard exists.
 - **Companion plans:** [lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md), [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-track-labelling-auto-aware-tuning-plan.md](lidar-track-labelling-auto-aware-tuning-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)
 - **Canonical:** [data/maths/classification-maths.md](../../data/maths/classification-maths.md) (single source of truth)
 - **Related:** [ML solver expansion](../lidar/architecture/ml-solver-expansion.md) (the optimisation platform this work reuses; **not** canonical for classification)
@@ -53,13 +53,13 @@ pointer, defines the scorecard, and sequences the work.
 | Area                    | Current state                                                                                                    | Severity | Release view                                                   |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------- |
 | Canonical pointer       | Declares a parameter-optimisation doc canonical; that doc never mentions object classification                   | High     | Fix in this rewrite                                            |
-| Scorecard definition    | Promotion gate demands "the agreed scorecard"; no scorecard is defined anywhere in the repository                | High     | Phase 1, v0.5.2                                                |
-| Class accuracy metric   | Absent. Detection is measured, classification is not                                                             | High     | Phase 1, v0.5.2                                                |
+| Scorecard definition    | Promotion gate demands "the agreed scorecard"; no scorecard is defined anywhere in the repository                | High     | Phase 1, v0.5.6                                                |
+| Class accuracy metric   | Absent. Detection is measured, classification is not                                                             | High     | Phase 1, v0.5.6                                                |
 | Confidence calibration  | Uncalibrated by construction; a reliability diagram over additive increments is meaningless                      | High     | Owned by [maths coherence plan](lidar-maths-coherence-plan.md) |
 | Platform reuse          | Plan proposes a parallel Python stack; the Go sweep platform already provides versioning and score decomposition | Medium   | Phase 1 design decision                                        |
 | Proposed language       | Names `tools/ml-training/*.py` in a repo that removed its Python PDF generator                                   | Medium   | Rejected in this rewrite                                       |
 | Feature-set duplication | Restates the feature list in prose instead of referencing `TrackFeatures`                                        | Low      | Fixed in this rewrite                                          |
-| Corpus availability     | Assumes fixed replay packs; 1 of 5 captured, labels unversioned                                                  | Medium   | Phase 2, v0.5.3                                                |
+| Corpus availability     | Assumes fixed replay packs; 1 of 5 captured, labels unversioned                                                  | Medium   | Phase 2, v0.5.6                                                |
 
 ## Design / approach
 
@@ -143,7 +143,7 @@ evaluation platform.
    metric formulae, class set, and the matching rule inherited from
    `computeTemporalIoU`.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.6
 
 ### Phase 2: corpus contract and feature export
 
@@ -163,7 +163,7 @@ artefact.
 4. Add a regression test asserting the rule baseline's scorecard against the
    frozen corpus, so classifier changes surface as scorecard deltas.
 
-**Milestone:** v0.5.3
+**Milestone:** v0.5.6
 
 ### Phase 3: transparent candidate ladder
 

@@ -16,6 +16,8 @@ everything else here produces or feeds it.
 | `site-joins.json`     | Operator assertions that separated static fragments belong to one visit. |
 | `build-site-index.py` | Stitches the segment analysis and attaches positions.                    |
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.              |
+| `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                   |
+| `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.    |
 
 The scene catalogue being developed in [PR #569](https://github.com/banshee-data/velocity.report/pull/569) reads this index. Its map generator and `make render-scene-map` target are part of a later extraction, not this archive-tooling change. Each scene export is joined to a site
 by the wall clock in its header and inherits that site's position, so a mark
@@ -43,6 +45,12 @@ genuinely separate sites.
 9/1 had no analysis at all. It was re-analysed as continuous streams into
 `s2/analysis-continuous/`, one per recording block, and comes out clean: six
 static stretches of 18 to 22 minutes with no stitching needed. Continuous analysis is not yet a replacement for the per-file inputs: a 9/3 run misses a recorded stop and starts two others late. Keep both inputs while the [classification investigation](../../docs/plans/continuous-classification-brief.md) is open.
+
+The preserved per-file analysis used `pcap-split` 0.5.1-pre31 and the 9/1
+continuous analysis used 0.5.1-pre32. Those historical `segments.json` files
+predate embedded build provenance, so the index builder supplies the two known
+versions according to the analysis population. New `pcap-split` output records
+`build_version` directly, and the index builder prefers that value.
 
 ## Which captures a site spans
 
@@ -72,6 +80,127 @@ position null rather than guessed.
 python3 tools/s2-archive/build-site-index.py   # after editing map-marks.json
 python3 tools/s2-archive/deployments.py        # recording blocks from filenames
 ```
+
+## Static PCAPNG release set
+
+`export-static-pcaps.py` makes one PCAPNG and one provenance sidecar per indexed
+site. It clips the original files to the exact indexed start/end and joins the
+pieces in order. The export uses the complete operator-approved site interval,
+including an asserted tripod nudge such as `van-ness-sacramento`; classifier
+fragments remain in `static_parts` for audit but do not silently remove packets.
+Each sidecar includes the approximate WGS84 latitude and longitude and the
+`pcap-split` build version that produced the source segment analysis.
+
+```bash
+python3 tools/s2-archive/export-static-pcaps.py \
+  --archive /Volumes/lidar/lidar/s2 \
+  --output /Volumes/lidar/lidar/s2/static-huggingface
+```
+
+Use `--dry-run` to review paths, or repeat `--site van-ness-sacramento` for one
+export. The command refuses to overwrite an existing PCAPNG or sidecar, so a
+published artifact cannot be revised by accident.
+
+To add those publication fields to an existing release set without rerunning a
+split, clipping packets, or recalculating multi-gigabyte hashes, use the
+metadata-only backfill:
+
+```bash
+python3 tools/s2-archive/export-static-pcaps.py \
+  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --backfill-sidecars
+```
+
+The token-directory arrangement below is a **legacy staging layout**, used to
+assemble and verify exports before the Hugging Face release. It is not the
+publication layout: the latter is intentionally shallow and documented in
+[the Hugging Face dataset layout](huggingface-dataset-layout.md).
+
+```bash
+node tools/s2-archive/organise-static-pcaps.mjs \
+  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --apply
+```
+
+To place the complete web VRLOG export for every associated published scene in
+the legacy staging layout, use the same tool's copy mode. It copies the scene's
+entire `assets/` tree, including the manifest, part metadata and frame chunks:
+
+```bash
+node tools/s2-archive/organise-static-pcaps.mjs \
+  --output /Volumes/lidar/lidar/s2/static-huggingface \
+  --copy-vrlogs \
+  --apply
+```
+
+After the staging checks pass, the release migrator moves the PCAPNGs and scene
+exports into the shallow dataset root and writes its `manifest.json`:
+
+```bash
+node tools/s2-archive/stage-huggingface-dataset.mjs \
+  --output /Volumes/lidar/lidar/hf \
+  --apply
+```
+
+## Web scene assets
+
+The point-cloud recordings behind the published scene pages are rebuilt from
+the trimmed corpus — the per-site PCAPNGs `export-static-pcaps.py` produced,
+as published in the dataset — rather than from the original rolling captures.
+The corpus capture is already clipped to the site bounds, so a scene is one
+file replayed whole: no offset derived from a filename stamp, no join across
+five-minute boundaries, and the packets are the ones a reader can download.
+
+Identity still comes from `site-index.json`. The corpus supplies the packets
+and the duration; the index supplies the id, the title and the position, which
+is what the scene pages and the map read.
+
+The server must be running, with its replay directory pointed at the volume
+that holds the corpus:
+
+```bash
+make dev-go-lidar LIDAR_PCAP_DIR=/Volumes/lidar/lidar
+```
+
+Then, in another shell:
+
+```bash
+make scene-corpus-verify   # the captures are all there and all whole
+make scene-assets-status   # what is outstanding, and roughly how long
+make scene-assets          # rebuild it
+```
+
+| Target                | What it does                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `scene-assets`        | Rebuild every outstanding scene, then the pages and map that list them |
+| `scene-assets-status` | Report published, outstanding and unresolved sites; no server needed   |
+| `scene-assets-clean`  | Drop the `.rebuilt` markers so a rebuild does the work again           |
+| `scene-corpus-verify` | Check the corpus against its manifest; `SHA=1` checks digests too      |
+
+`SITES="laguna-eddy howard-6th"` limits any of them to named sites, and
+`FORCE=1` rebuilds a scene that already carries a marker.
+
+A rebuild is resumable: a finished scene carries a `.rebuilt` marker and is
+skipped, so an interrupted batch costs only the scene in flight. The whole
+corpus is about 506 minutes of recording, which at half speed is a long
+evening — `scene-assets-status` prints the estimate before you commit to it.
+
+Two settings are not the pipeline defaults, and the targets supply both:
+replay runs at half speed, because analysis mode reads packets faster than the
+background model settles; and the settling pass is off, because it would train
+that model on the very traffic the recording exists to show. The reasoning is
+in `publish-scenes.py`. Override them with `SCENE_SPEED_RATIO`, `SCENE_SETTLE`
+and `SCENE_SPEED_MODE` if an experiment needs different ones.
+
+`SCENE_SOURCE=archive` replays the original rolling captures instead, joined
+and clipped the way the scenes published before the dataset existed were made.
+Keep it for reproducing one of those; the corpus is the default.
+
+The corpus root is `S2_CORPUS_DIR`, which defaults to
+`$(LIDAR_PCAP_DIR)/sf-street-speeds`. It has to sit under `LIDAR_PCAP_DIR`:
+the server resolves every replay path against that directory and refuses
+anything outside it. `scene-assets-status` says so plainly rather than letting
+the batch discover it one refusal at a time.
 
 ## Rebuild inputs and publication state
 

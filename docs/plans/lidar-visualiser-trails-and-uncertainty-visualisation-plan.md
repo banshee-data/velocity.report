@@ -6,6 +6,11 @@
 
 ## Objective
 
+**Current priority:** v0.5.4 makes trails faithful to the temporal physical estimate, including
+occlusion, before adding decorative prediction overlays. The
+[state-estimation plan](lidar-state-estimation-plan.md) owns body anchors, prediction, uncertainty,
+expiry and reacquisition. The renderer must not repair a wrong track with independent smoothing.
+
 Improve motion interpretability during review by rendering:
 
 - past and future ghost trails,
@@ -28,6 +33,13 @@ Improve motion interpretability during review by rendering:
 
 ### Ghost trails
 
+- Align body boxes and trails to the same anchor, estimate stage and capture timestamp.
+- Distinguish observed support, coasted prediction, provisional history and revised final history.
+  All predicted segments are visibly distinct, regardless of the quality score below.
+- Bound prediction by the estimator's coast age/uncertainty limits; remove expired predictions.
+  Seeking, source changes and reacquisition must not join unrelated identities or stale history.
+- Verify partial/full occlusion, stops, turns and ID changes against frozen recorded-frame
+  sequences and numeric position checks. Attractive curves alone are not acceptance evidence.
 - Past trail: fade from current position backward up to configurable horizon.
 - Future trail: short extrapolation from current state using motion model.
 - Default horizons:
@@ -51,7 +63,9 @@ Improve motion interpretability during review by rendering:
 
 ## Data and compute path
 
-No persistent DB schema required for MVP.
+Rendering alone need not introduce a DB schema. Stage/support/age and revision provenance come
+from the estimator contract; add protocol fields if existing fields cannot distinguish them.
+The persisted final trajectory remains the estimator's responsibility.
 
 Use existing streaming fields:
 

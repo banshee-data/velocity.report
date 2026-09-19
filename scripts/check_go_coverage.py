@@ -37,7 +37,9 @@ MODULE_PREFIX = "github.com/banshee-data/velocity.report/"
 DEFAULT_EXCLUSIONS = Path("scripts/coverage_exclusions.json")
 
 # "path/to/file.go:41:\tFuncName\t100.0%"
-FUNC_LINE = re.compile(r"^(?P<path>.+):(?P<line>\d+):\s+(?P<name>\S+)\s+(?P<pct>[\d.]+)%$")
+FUNC_LINE = re.compile(
+    r"^(?P<path>.+):(?P<line>\d+):\s+(?P<name>\S+)\s+(?P<pct>[\d.]+)%$"
+)
 
 
 @dataclass
@@ -218,10 +220,10 @@ def load_exclusions(path: Path) -> "list[Exclusion]":
     for i, entry in enumerate(entries):
         pattern = entry.get("path")
         if not pattern:
-            sys.exit(f"{path}: exclusion #{i} has no \"path\"")
+            sys.exit(f'{path}: exclusion #{i} has no "path"')
         reason = entry.get("reason", "")
         if not reason:
-            sys.exit(f"{path}: exclusion for {pattern} has no \"reason\"")
+            sys.exit(f'{path}: exclusion for {pattern} has no "reason"')
         out.append(
             Exclusion(
                 pattern=pattern,
@@ -265,7 +267,9 @@ def stale_exclusion_errors(exclusions: "Iterable[Exclusion]") -> "list[str]":
     for exc in exclusions:
         if not exc.matched_files:
             if not exc.optional:
-                problems.append(f"{exc.pattern}: matches no file in the coverage profile")
+                problems.append(
+                    f"{exc.pattern}: matches no file in the coverage profile"
+                )
             continue
         missing = [fn for fn in exc.functions if fn not in exc.matched_funcs]
         if missing:
