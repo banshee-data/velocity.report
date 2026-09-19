@@ -15,15 +15,18 @@ import (
 // recordPointVRLOG writes a small point-bearing recording for the exporter to
 // read. Without points there is nothing to annotate, which is itself one of
 // the cases below.
-func recordPointVRLOG(t *testing.T, withPoints bool) string {
+func recordPointVRLOG(t *testing.T, withPoints bool, timestamps ...int64) string {
 	t.Helper()
+	if len(timestamps) == 0 {
+		timestamps = []int64{100_000_000, 200_000_000, 300_000_000}
+	}
 	dir := filepath.Join(t.TempDir(), "vrlog")
 	rec, err := recorder.NewRecorder(dir, "synthetic")
 	if err != nil {
 		t.Fatalf("new recorder: %v", err)
 	}
-	for i := 0; i < 3; i++ {
-		bundle := &l9endpoints.FrameBundle{TimestampNanos: int64(100_000_000 * (i + 1))}
+	for i, ts := range timestamps {
+		bundle := &l9endpoints.FrameBundle{TimestampNanos: ts}
 		if withPoints {
 			n := 4
 			pc := &l9endpoints.PointCloudFrame{
@@ -107,5 +110,59 @@ func TestAnnotationExportReportsFailure(t *testing.T) {
 	}
 	if _, err := os.Stat(out); err == nil {
 		t.Error("a failed export left a directory behind")
+	}
+}
+
+// The summary reports what the export found. Duplicate timestamps and a
+// timestamp gap are legal, and both are worth printing: they are what a reader
+// checks before trusting the excerpt.
+func TestAnnotationExportReportsSourceIrregularities(t *testing.T) {
+	src := recordPointVRLOG(t, true, 100_000_000, 100_000_000, 300_000_000)
+	out := filepath.Join(t.TempDir(), "pack")
+
+	code := silence(t, func() int {
+		return AnnotationExportMain([]string{
+			"--vrlog", src, "--output", out, "--coverage", "decimated",
+		})
+	})
+	if code != 0 {
+		t.Fatalf("export exited %d, want 0", code)
+	}
+}
+
+// A recording that carries points for only some frames still yields a usable
+// pack, and the count of what was skipped is part of the excerpt's honesty.
+func TestAnnotationExportReportsSkippedFrames(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "vrlog")
+	rec, err := recorder.NewRecorder(dir, "synthetic")
+	if err != nil {
+		t.Fatalf("new recorder: %v", err)
+	}
+	for i := 0; i < 4; i++ {
+		bundle := &l9endpoints.FrameBundle{TimestampNanos: int64(100_000_000 * (i + 1))}
+		if i%2 == 0 {
+			n := 4
+			bundle.PointCloud = &l9endpoints.PointCloudFrame{
+				FrameID: uint64(i), TimestampNanos: bundle.TimestampNanos, SensorID: "synthetic",
+				X: make([]float32, n), Y: make([]float32, n), Z: make([]float32, n),
+				PointCount: n,
+			}
+		}
+		if err := rec.Record(bundle); err != nil {
+			t.Fatalf("record: %v", err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	out := filepath.Join(t.TempDir(), "pack")
+	code := silence(t, func() int {
+		return AnnotationExportMain([]string{
+			"--vrlog", dir, "--output", out, "--coverage", "full",
+		})
+	})
+	if code != 0 {
+		t.Fatalf("export exited %d, want 0", code)
 	}
 }

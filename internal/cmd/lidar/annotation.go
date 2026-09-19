@@ -56,6 +56,10 @@ Example:
 	}
 
 	if err := fs.Parse(args); err != nil {
+		// -h is a request that succeeded, not a usage error.
+		if err == flag.ErrHelp {
+			return 0
+		}
 		return 2
 	}
 	for name, v := range map[string]string{"--vrlog": *vrlog, "--output": *outDir, "--coverage": *coverage} {

@@ -2,7 +2,9 @@
 
 This package separates human reference objects from predicted track identities. Packs retain
 exact point indices; sidecars hold reviewed, proposed, and rejected membership independently of
-tracker splits and reruns. The selection client is still planned, not supplied by this package.
+tracker splits and reruns. The selection client is the macOS visualiser's annotation pane
+(`tools/visualiser-macos/VelocityVisualiser/Annotation`), which reads these packs and writes
+these sidecars through the same revision protocol; it is not supplied by this package.
 
 ## Revision-safe storage
 
@@ -61,7 +63,9 @@ marker. This is revision-level recovery, not the future client's unsaved-stroke 
 
 ## Remaining reference-loop work
 
-The [annotation plan](../../../docs/plans/lidar-point-annotation-and-object-dataset-plan.md)
-owns the remaining delivery: canonical-index lasso/slab selection, second-view inspection,
-dirty-session navigation protection, operator review, and frozen physical-object dataset splits.
-The three-day demo's descriptor model and seeded tracker remain separate follow-ons.
+Canonical-index lasso/slab selection, second-view inspection, dirty-session navigation
+protection and operator provenance are delivered in the macOS client. What remains is operator
+work rather than engineering: reviewed masks across a site's keyframes, and the frozen
+object-disjoint dataset splits derived from them. The
+[annotation plan](../../../docs/plans/lidar-point-annotation-and-object-dataset-plan.md) owns
+that; the three-day demo's descriptor model and seeded tracker remain separate follow-ons.
