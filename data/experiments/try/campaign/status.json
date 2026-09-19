@@ -1,9 +1,10 @@
 {
-  "updated_at": "2026-09-18T23:52:13-0700",
-  "elapsed_hours": 1.91,
-  "budget_hours": 2.6,
+  "updated_at": "2026-09-19T00:40:19-0700",
+  "elapsed_hours": 0.06,
+  "budget_hours": 8.6,
   "stage_status_counts": {
-    "done": 46
+    "done": 48,
+    "pending": 35
   },
   "stages": [
     {
@@ -418,6 +419,211 @@
       "result_summary": {
         "finalized_at": "2026-09-18T23:52:13-0700"
       }
+    },
+    {
+      "id": "analyze_post_settle_ord01",
+      "status": "done",
+      "result_summary": {
+        "summary": [
+          "self-check: recomputed first-ok frame equals the recorded settling frame for 2078 of 2078 converged rows",
+          "baseline o0: 24 segments, 24 converged, 23 stayed settled; median settling frame 11.0, max 601; needing attention: ['pierce-haight']",
+          "baseline o1: 23 segments, 23 converged, 23 stayed settled; median settling frame 11, max 615; needing attention: []",
+          "background_update_fraction: o0=post_settle_sensitive values=['0.1', '0.2']; o1=post_settle_sensitive values=['0.1', '0.2']",
+          "closeness_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "freeze_threshold_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "locked_baseline_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "locked_baseline_threshold: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "min_confidence_floor: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "neighbour_confirmation_count: o0=post_settle_sensitive values=['1']; o1=post_settle_sensitive values=['1']",
+          "noise_relative: o0=post_settle_sensitive values=['0.05', '0.065']; o1=post_settle_insensitive",
+          "post_settle_update_fraction: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "reacquisition_boost_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "safety_margin_metres: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "seed_from_first: o0=no_comparable_sites; o1=no_comparable_sites"
+        ]
+      }
+    },
+    {
+      "id": "gt_oat_l3sens_kirk0_dd98",
+      "status": "done",
+      "result_summary": {
+        "stdout_tail": []
+      }
+    },
+    {
+      "id": "gt_oat_l3sens_kirk1_60a4",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_gt_oat_l3sens",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_columbus_broadway_o0",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o0",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o1",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o2",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o4",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o5",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o6",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_baseline_o7",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_long_baseline",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_lombard_laguna_o0",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_guardrails_o0",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_columbus_broadway_o4",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_holdout_o3_sensitive",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_holdout_o3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_long_guardrails_o3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_long_guardrails",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_lombard_laguna_o3",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_columbus_broadway_o2",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_haight_divisadero_o1",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_embarcadero_bryant_o1",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_fulton_divisadero_o1",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_1st_mission_o1",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_label_free_l4l5_interim",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "gt_oat_dose_kirk0_dd98",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "gt_oat_dose_kirk1_60a4",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_gt_oat_dose",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_columbus_broadway_o6",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "lf_lombard_laguna_o6",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "l3_holdout_o2_sensitive",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_l3_holdout_o2",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "analyze_label_free_l4l5",
+      "status": "pending",
+      "result_summary": null
+    },
+    {
+      "id": "finalize_v5",
+      "status": "pending",
+      "result_summary": null
     }
   ]
 }

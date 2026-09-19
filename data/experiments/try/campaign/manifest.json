@@ -1234,18 +1234,39 @@
     {
       "id": "analyze_post_settle_ord01",
       "type": "analyze_post_settle",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "_comment": "Every raw settling report holds metrics_history (the four convergence criteria at every frame) that only the first-converged frame was ever read from. Asks whether a setting that settles the grid on time also keeps it settled, and whether the five 'inert' L3 keys move anything after the grid locks. Also found while building it: no two runs have identical per-frame metrics (0 of 24 sites, any key), so exact-equality 'inert' tests are invalid; the rule is threshold-based.",
         "results": "data/experiments/try/l3-settling-sweep/results.csv",
         "out": "data/experiments/try/l3-settling-sweep/post-settle-analysis.json"
-      }
+      },
+      "result": {
+        "summary": [
+          "self-check: recomputed first-ok frame equals the recorded settling frame for 2078 of 2078 converged rows",
+          "baseline o0: 24 segments, 24 converged, 23 stayed settled; median settling frame 11.0, max 601; needing attention: ['pierce-haight']",
+          "baseline o1: 23 segments, 23 converged, 23 stayed settled; median settling frame 11, max 615; needing attention: []",
+          "background_update_fraction: o0=post_settle_sensitive values=['0.1', '0.2']; o1=post_settle_sensitive values=['0.1', '0.2']",
+          "closeness_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "freeze_threshold_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "locked_baseline_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "locked_baseline_threshold: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "min_confidence_floor: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "neighbour_confirmation_count: o0=post_settle_sensitive values=['1']; o1=post_settle_sensitive values=['1']",
+          "noise_relative: o0=post_settle_sensitive values=['0.05', '0.065']; o1=post_settle_insensitive",
+          "post_settle_update_fraction: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "reacquisition_boost_multiplier: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "safety_margin_metres: o0=post_settle_insensitive; o1=post_settle_insensitive",
+          "seed_from_first: o0=no_comparable_sites; o1=no_comparable_sites"
+        ],
+        "out": "/Users/david/code/velocity.report/data/experiments/try/l3-settling-sweep/post-settle-analysis.json"
+      },
+      "finished_at": "2026-09-19T00:36:40-0700"
     },
     {
       "id": "gt_oat_l3sens_kirk0_dd98",
       "type": "gt_oat_sweep",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
       "params": {
         "reference_db": "sensor_data.db",
@@ -1283,7 +1304,14 @@
         "pcap_file": "kirk0.pcapng",
         "duration_seconds": 95,
         "out_dir": "data/experiments/try/l5-gt-sweep/oat-l3sens-kirk0-dd98"
-      }
+      },
+      "result": {
+        "out_dir": "/Users/david/code/velocity.report/data/experiments/try/l5-gt-sweep/oat-l3sens-kirk0-dd98",
+        "n_rows": 17,
+        "n_errors": 0,
+        "stdout_tail": []
+      },
+      "finished_at": "2026-09-19T00:40:19-0700"
     },
     {
       "id": "gt_oat_l3sens_kirk1_60a4",
