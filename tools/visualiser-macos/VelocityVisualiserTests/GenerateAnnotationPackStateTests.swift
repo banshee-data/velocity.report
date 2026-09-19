@@ -22,10 +22,12 @@ import Testing
 /// to corrupt the second response's body — sharing a session was buying
 /// nothing here, so each call gets a session of its own instead.
 @MainActor private func makeStateUnderTest(
-    runsJSON: String, exportHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))? = nil
+    runsJSON: String, runsHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))? = nil,
+    exportHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))? = nil
 ) -> GenerateAnnotationPackState {
     let (runsSession, runsBaseURL, registerRuns) = AnnotationMockURLProtocol.makeSession()
     registerRuns { request in
+        if let runsHandler { return try runsHandler(request) }
         let response = HTTPURLResponse(
             url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
         return (response, Data(runsJSON.utf8))
@@ -42,6 +44,39 @@ import Testing
         runsClient: RunTrackLabelAPIClient(baseURL: runsBaseURL, session: runsSession),
         exportClient: AnnotationExportAPIClient(baseURL: exportBaseURL, session: exportSession))
 }
+
+/// Counts how often a mock handler was reached. The handler runs on
+/// whichever thread the URL Loading System calls `startLoading()` from, not
+/// on the test's task, so the count is locked rather than a bare `var`.
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    /// Records one call and returns the running total, so a handler can
+    /// answer its first call differently from its second.
+    @discardableResult func increment() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+        return count
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+}
+
+private func okResponse(_ request: URLRequest, status: Int = 200) -> HTTPURLResponse {
+    HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+}
+
+private let exportSucceededJSON = """
+    {"pack_dir": "/x", "dataset_id": "d", "sample_count": 200, "point_count": 1,
+     "coverage": "full", "frames_without_points": 0,
+     "has_intensity": false, "has_classification": false}
+    """
 
 private let twoRunsOneWithoutVRLog = """
     {"count": 2, "runs": [
@@ -85,15 +120,50 @@ private let twoRunsOneWithoutVRLog = """
         #expect(state.lastError != nil)
     }
 
-    @Test func generateRejectsANonNumericMaxSamples() async {
-        let state = makeStateUnderTest(runsJSON: twoRunsOneWithoutVRLog)
+    @Test func loadRunsClearsAStaleErrorOnceARefreshSucceeds() async {
+        // First load fails, the operator presses refresh, the second load
+        // succeeds: the first attempt's error must not stay on screen.
+        let calls = CallCounter()
+        let state = makeStateUnderTest(
+            runsJSON: twoRunsOneWithoutVRLog,
+            runsHandler: { request in
+                if calls.increment() == 1 { return (okResponse(request, status: 500), Data()) }
+                return (okResponse(request), Data(twoRunsOneWithoutVRLog.utf8))
+            })
+
         await state.loadRuns()
-        state.maxSamplesText = "2oo"
+        #expect(state.lastError != nil, "the first load is meant to fail")
 
-        let result = await state.generate()
+        await state.loadRuns()
 
-        #expect(result == nil)
-        #expect(state.lastError != nil)
+        #expect(state.exportableRuns.count == 1)
+        #expect(state.lastError == nil, "a successful refresh must clear the earlier failure")
+    }
+
+    @Test func generateRejectsANonNumericMaxSamplesWithoutANetworkCall() async {
+        // The export handler SUCCEEDS here on purpose. An earlier form of this
+        // test left it unset, so the mock threw "unexpected request" — and
+        // that failure set lastError and returned nil exactly as a validation
+        // failure would. The test passed while "2oo" was in fact being sent to
+        // the server as a request for its default. Only a handler that would
+        // succeed, plus a count of whether it was reached, can tell the two
+        // apart.
+        let exportCalls = CallCounter()
+        let state = makeStateUnderTest(
+            runsJSON: twoRunsOneWithoutVRLog,
+            exportHandler: { request in
+                exportCalls.increment()
+                return (okResponse(request), Data(exportSucceededJSON.utf8))
+            })
+        await state.loadRuns()
+
+        for bad in ["2oo", "1.5", "abc"] {
+            state.maxSamplesText = bad
+            let result = await state.generate()
+            #expect(result == nil, "max_samples=\(bad) should be rejected")
+            #expect(state.lastError?.contains("Max samples") == true)
+        }
+        #expect(exportCalls.value == 0, "validation must fail before any request is made")
     }
 
     @Test func generateRejectsAZeroOrNegativeMaxSamples() async {

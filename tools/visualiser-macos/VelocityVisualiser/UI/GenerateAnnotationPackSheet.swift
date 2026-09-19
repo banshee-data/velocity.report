@@ -49,6 +49,10 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
 
     func loadRuns() async {
         isLoadingRuns = true
+        // Cleared on entry, as generate() does: a refresh that succeeds must
+        // not leave the previous attempt's failure on screen beside the runs
+        // it has just loaded.
+        lastError = nil
         defer { isLoadingRuns = false }
         do {
             runs = try await runsClient.listRuns()
@@ -59,13 +63,22 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
         }
     }
 
-    /// Parses maxSamplesText, returning nil for blank input (server default)
-    /// and reporting a bad value rather than silently ignoring it — typing
-    /// "2oo" and getting the server's 200 instead would read as success.
-    private func parsedMaxSamples() -> Int? {
+    /// What the max-samples field holds. Blank and unparseable are different
+    /// answers and have to stay different: blank asks for the server default,
+    /// while "2oo" is a typo. An optional Int cannot tell them apart — both
+    /// are nil — which is how "2oo" once reached the server as a request for
+    /// its default 200 and read as success.
+    private enum MaxSamplesInput: Equatable {
+        case serverDefault
+        case value(Int)
+        case invalid
+    }
+
+    private func parsedMaxSamples() -> MaxSamplesInput {
         let trimmed = maxSamplesText.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return nil }
-        return Int(trimmed)
+        guard !trimmed.isEmpty else { return .serverDefault }
+        guard let parsed = Int(trimmed), parsed > 0 else { return .invalid }
+        return .value(parsed)
     }
 
     /// Runs the export, returning the pack directory on success. `nil`
@@ -77,14 +90,12 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
             return nil
         }
         let maxSamples: Int
-        if let parsed = parsedMaxSamples() {
-            guard parsed > 0 else {
-                lastError = "Max samples must be a positive number, or blank for the default"
-                return nil
-            }
-            maxSamples = parsed
-        } else {
-            maxSamples = 0
+        switch parsedMaxSamples() {
+        case .serverDefault: maxSamples = 0
+        case .value(let parsed): maxSamples = parsed
+        case .invalid:
+            lastError = "Max samples must be a positive number, or blank for the default"
+            return nil
         }
 
         isExporting = true
