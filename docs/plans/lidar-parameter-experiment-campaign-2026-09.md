@@ -251,6 +251,63 @@ the honest next step there is a spatial or velocity-aware match, not more
 sweeps), narrowing of the extended keys (needs judgement about bounds; better
 made at the next check-in from the v3 verdicts), and HINT (needs an operator).
 
+### Fourth pass (2026-09-18, third check-in)
+
+Pass 3 ran to completion in 4.4 h of its 7 h budget: 16/16 stages `done`, none
+carrying a `warning`. Reading its evidence found one defect the supervisor did
+not catch and one grid that could not answer its question:
+
+- **`l3_extended_sweep_b` lost 344 of its 456 rows and was still recorded
+  `done`.** `results.csv` held 6 of 24 sites for five keys
+  (`reacquisition_boost_multiplier`, `min_confidence_floor`,
+  `locked_baseline_threshold`, `locked_baseline_multiplier`,
+  `freeze_threshold_multiplier`), so their "inert" verdicts rested on the six
+  alphabetically-first sites, which are also the fast-converging ones. Cause: a
+  commit at 17:14:49 ran the `mixed-line-ending` pre-commit hook, which
+  replaced `results.csv` one second after the last surviving row;
+  `run_sweep.py` held the old file open and kept appending to it, unlinked, for
+  the next hour. All 456 raw reports survive (the 344 missing ones are spaced
+  ~10.7 s apart from 17:14:59 to 18:14:52). Fixes: every sweep driver now
+  reopens its CSV for each row (`row_appender.py`); `run_l3_sweep` fails a stage
+  when any planned value has fewer rows than there are sites
+  (`values_short_of_sites`, tested against the real broken state); and
+  `recover_rows_from_raw.py` rebuilds the lost rows from the raw reports,
+  refusing any report whose capture, config value or timestamp does not match.
+  The original `sensitivity-analysis-v3.json` is kept as the record of what was
+  concluded from 6 sites; the corrected analysis goes to `…-v3b.json`.
+- **The top-2 interaction grid scored 0 of 24 sites.** It paired
+  `background_update_fraction` with `seed_from_first`, and `seed_from_first=false`
+  alone never converges at any site in either capture window, so there is no
+  frame to subtract. `plan_interaction_levels.py` now drops any key that no
+  site converges at, and takes `--policy mildest` (the sensitive value nearest
+  the default) for when the worst values saturate on their own.
+- **The noise floor is smaller than pass 3 assumed.** Settling frames at
+  `noise_relative=0.065` are identical across two independent runs at 24/24
+  sites, and `neighbour_confirmation_count=1` agrees across three independent
+  sources at 23/24. The exceptions are `marina-broderick` at the default config
+  (601, 693, then ~725 over the day, ±5 within an hour) and `van-ness-sacramento`
+  at `neighbour_confirmation_count=1` (not converged once, 505 four times). All
+  four Batch 1 sensitivity verdicts survive excluding the unstable site.
+- **The 2×2 at the corrected `noise_relative=0.065` compounds more than its
+  headline says.** Of 24 sites, 8 converge under each key alone but not
+  together (the strongest form of compounding), 8 more are scored compounding, 5
+  lose convergence to `neighbour_confirmation_count=1` alone (nothing to
+  interact), 2 are censored at the window cap, and 1 is additive; the headline
+  counted only the 9 scored.
+- **L4/L5: no setting improves on both sites.** Baselines were bit-stable at
+  both (7/16 matched, 81 candidates; 10/49, 95). The one Pareto improvement
+  (`hits_to_confirm=6` on kirk0: 9/16 with 61 candidates) sits exactly at that
+  site's threshold and is a plain track-count reduction on kirk1. Only two
+  independent labelled captures exist (kirk1's two reference runs share a
+  capture), so nothing further was queued.
+
+Queued for this pass (`budget_hours` 2.5, the remainder of the 7 h): recover the
+rows, re-run the sensitivity, repeat-check and interaction analyses over the
+full data (new output files), replicate on ordinal 1 any of the five keys the
+full data shows to have an effect (runs nothing if all are still inert), and a
+`background_update_fraction` × `noise_relative` 2×2 at the mildest sensitive
+value of each.
+
 ---
 
 ## Batch 1 — L3 background-settling broad sweep (ready now)

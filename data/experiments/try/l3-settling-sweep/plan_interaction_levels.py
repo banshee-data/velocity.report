@@ -15,6 +15,18 @@ Only sensitive keys are included. Fewer than 2 sensitive keys means there's
 no interaction question to ask yet -- this writes an empty {} and the
 supervisor should skip the interaction stage entirely.
 
+--policy picks which flagged value becomes the "bad" level. "worst" (default)
+takes the most-flagged value; "mildest" takes the flagged value nearest the
+default. Use "mildest" when the worst values already saturate on their own: a
+2x2 whose single-key runs all fail to converge cannot show an interaction
+(background_update_fraction=0.2 and seed_from_first=False did exactly that on
+2026-09-18, and the grid scored 0 of 24 sites).
+
+A key is dropped, under either policy, when no site converges at its chosen
+value (mean_frame_delta is None): with no frame to subtract, a grid containing
+it cannot be scored, and the shortfall is the finding, not something to
+interact with another key.
+
 Usage:
     python3 plan_interaction_levels.py --sensitivity sensitivity-analysis.json --out interaction-levels.json
 """
@@ -58,11 +70,18 @@ def main():
         help="comma-separated keys to restrict candidates to (default: any "
         "sensitive key)",
     )
+    ap.add_argument(
+        "--policy",
+        choices=("worst", "mildest"),
+        default="worst",
+        help="which flagged value is the bad level (see module docstring)",
+    )
     args = ap.parse_args()
     only = {k for k in args.only_keys.split(",") if k}
 
     analysis = json.loads(Path(args.sensitivity).read_text())
     sensitive = []
+    unscorable = []
     for key, info in analysis["keys"].items():
         if info["verdict"] != "sensitive":
             continue
@@ -73,8 +92,16 @@ def main():
         ]
         if not flagged:
             continue
-        flagged.sort(key=lambda vd: vd[1]["flagged_fraction"], reverse=True)
+        if args.policy == "mildest":
+            flagged.sort(
+                key=lambda vd: abs(float(coerce(key, vd[0])) - float(DEFAULTS[key]))
+            )
+        else:
+            flagged.sort(key=lambda vd: vd[1]["flagged_fraction"], reverse=True)
         worst_value, worst_info = flagged[0]
+        if worst_info.get("mean_frame_delta") is None:
+            unscorable.append(key)
+            continue
         sensitive.append((key, worst_info["flagged_fraction"], worst_value))
 
     sensitive.sort(key=lambda t: t[1], reverse=True)
@@ -85,6 +112,8 @@ def main():
         levels[key] = sorted({DEFAULTS[key], coerce(key, worst_value)})
 
     Path(args.out).write_text(json.dumps(levels, indent=2) + "\n")
+    if unscorable:
+        print(f"dropped (no site converges at the chosen value): {sorted(unscorable)}")
 
     if len(levels) < 2:
         print(

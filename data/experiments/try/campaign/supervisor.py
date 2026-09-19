@@ -378,6 +378,8 @@ def handle_l3_interaction_grid(stage, manifest):
         plan_args += ["--max-keys", p["max_keys"]]
     if p.get("only_keys"):
         plan_args += ["--only-keys", ",".join(p["only_keys"])]
+    if p.get("policy"):
+        plan_args += ["--policy", p["policy"]]
     code, stdout, stderr = run_py(L3_DIR / "plan_interaction_levels.py", plan_args)
     if code != 0:
         return "failed", {"step": "plan", "stdout": stdout, "stderr": stderr}
@@ -489,6 +491,31 @@ def values_all_errored(csv_path, sweep, ordinal="0"):
     return broken, never_ran, len(wanted)
 
 
+def values_short_of_sites(csv_path, sweep, ordinal, n_sites):
+    """(key=value, rows_found) for every planned pair with fewer rows than there
+    are sites with a capture at this ordinal. Rows with an error count as rows
+    (values_all_errored judges those); this catches rows that were never
+    recorded at all. Added after 2026-09-18, when a pre-commit hook replaced
+    results.csv mid-run, the driver kept appending to the unlinked file, and
+    l3_extended_sweep_b was recorded "done" with 6 of 24 sites."""
+    import csv as csv_mod
+
+    if not n_sites or not csv_path.exists():
+        return []
+    have = {}
+    with csv_path.open() as f:
+        for row in csv_mod.DictReader(f):
+            if row.get("capture_ordinal", "0") == str(ordinal):
+                pair = (row["param_key"], row["param_value"])
+                have[pair] = have.get(pair, 0) + 1
+    return [
+        (f"{k}={v}", have.get((k, str(v)), 0))
+        for k, vals in sweep.items()
+        for v in vals
+        if have.get((k, str(v)), 0) < n_sites
+    ]
+
+
 def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True):
     """Shared by every stage that drives run_sweep.py from an inline sweep
     spec. Returns (status, info)."""
@@ -528,6 +555,20 @@ def run_l3_sweep(sweep, spec_path, ordinal, duration, skip_baseline=True):
         info["all_errored_values"] = broken
     if never_ran:
         info["values_never_run"] = never_ran
+    sys.path.insert(0, str(L3_DIR))
+    from run_sweep import load_sites
+
+    n_sites = len(load_sites(ordinal))
+    short = values_short_of_sites(L3_DIR / "results.csv", sweep, ordinal, n_sites)
+    if short:
+        info["warning"] = (
+            f"{len(short)} of {total} values have fewer than {n_sites} rows in "
+            "results.csv (runs completed but rows are missing, or the sweep "
+            "stopped early); analysis over them would silently use a subset of "
+            f"sites: {short[:6]}"
+        ) + (f" | {info['warning']}" if "warning" in info else "")
+        info["short_values"] = short
+        return "failed", info
     if total and len(broken) == total:
         return "failed", info
     return "done", info
@@ -594,7 +635,7 @@ def handle_analyze_l3_repeat_check(stage, manifest):
     results = L3_DIR / "repeat-results.csv"
     if not results.exists():
         return "failed", {"error": "repeat-results.csv missing"}
-    out = L3_DIR / "repeat-check-analysis.json"
+    out = L3_DIR / stage["params"].get("out_name", "repeat-check-analysis.json")
     code, stdout, stderr = run_py(
         L3_DIR / "analyze_repeat_check.py",
         [
@@ -693,6 +734,46 @@ def handle_analyze_gt_oat(stage, manifest):
     }
 
 
+def handle_recover_raw_rows(stage, manifest):
+    """Rebuild results.csv rows whose raw reports survived (see
+    recover_rows_from_raw.py). Idempotent: a second run recovers nothing."""
+    p = stage["params"]
+    if another_sweep_already_running():
+        return "pending", {"note": "another L3 driver is active; waiting"}
+    record = L3_DIR / p.get("record_name", "results-recovered-rows.json")
+    code, stdout, stderr = run_py(
+        L3_DIR / "recover_rows_from_raw.py",
+        [
+            "--results",
+            L3_DIR / "results.csv",
+            "--raw-dir",
+            L3_DIR / "raw",
+            "--keys",
+            ",".join(p["keys"]),
+            "--ordinal",
+            p.get("capture_ordinal", 0),
+            "--duration-seconds",
+            p.get("duration_seconds", 120),
+            "--after",
+            p["after"],
+            "--before",
+            p["before"],
+            "--record",
+            record,
+        ],
+    )
+    lines = stdout.strip().splitlines()
+    if code == 2:  # some reports failed verification; record lists which
+        return "done", {
+            "warning": "some raw reports failed verification and were not recovered: "
+            + " | ".join(lines[:6]),
+            "record": str(record),
+        }
+    if code != 0:
+        return "failed", {"stdout": stdout[-2000:], "stderr": stderr[-2000:]}
+    return "done", {"summary": lines, "record": str(record)}
+
+
 def handle_finalize(stage, manifest):
     return "done", {"finalized_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
 
@@ -713,6 +794,7 @@ HANDLERS = {
     "l3_repeat_check": handle_l3_repeat_check,
     "analyze_l3_repeat_check": handle_analyze_l3_repeat_check,
     "gt_oat_sweep": handle_gt_oat_sweep,
+    "recover_raw_rows": handle_recover_raw_rows,
     "analyze_gt_oat": handle_analyze_gt_oat,
     "finalize": handle_finalize,
 }
