@@ -38,10 +38,30 @@ private func makeMockExportClient(
 /// from off that context does not reliably attach to the running test.
 /// Capturing values here and asserting on them back in the test body avoids
 /// the question entirely.
+///
+/// The handler writes from that other thread and the test reads after its
+/// `await`, so every access goes through the lock. `@unchecked Sendable` is a
+/// promise that the type is made safe by hand; bare `var`s would not keep it.
 private final class CapturedRequest: @unchecked Sendable {
-    var path: String?
-    var method: String?
-    var body: [String: Any] = [:]
+    private let lock = NSLock()
+    private var storedPath: String?
+    private var storedMethod: String?
+    private var storedBody: [String: Any] = [:]
+
+    var path: String? {
+        get { lock.withLock { storedPath } }
+        set { lock.withLock { storedPath = newValue } }
+    }
+
+    var method: String? {
+        get { lock.withLock { storedMethod } }
+        set { lock.withLock { storedMethod = newValue } }
+    }
+
+    var body: [String: Any] {
+        get { lock.withLock { storedBody } }
+        set { lock.withLock { storedBody = newValue } }
+    }
 }
 
 struct AnnotationExportAPIClientTests {
