@@ -133,9 +133,21 @@ type TrackerConfig struct {
 	CoupledProcessNoise    bool
 	JosephCovarianceUpdate bool
 
+	// LikelihoodAssociationCost changes the assignment cost from the bare
+	// squared Mahalanobis distance d² to the Gaussian negative log-likelihood
+	// d² + ln|S| (gap analysis S3). With d² alone, a track whose innovation
+	// covariance S is large pays less for the same miss, so a track coasting
+	// through a missed frame outbids a freshly updated one for the same
+	// cluster, and OcclusionCovInflation widens that discount on purpose. The
+	// log-determinant charges a vague track for its vagueness. The gate is
+	// unchanged: it stays on d². Default false, and not a tuning key, for the
+	// same fingerprint reason as the two options above.
+	LikelihoodAssociationCost bool
+
 	// CascadedAssociation matches confirmed tracks to clusters first and
 	// offers only the clusters they leave to tentative tracks (gap analysis
-	// S2/S3, after DeepSORT's matching cascade). With one joint assignment a
+	// S2, after DeepSORT's final stage; it does not address S3, whose two
+	// bidders are both confirmed). With one joint assignment a
 	// tentative track a frame old can outbid a confirmed track coasting
 	// through one miss for the same cluster, because the assignment sees two
 	// costs and no history. Default false: the campaign's ground-truth and

@@ -267,7 +267,9 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > t.Config.GatingDistanceSquared {
 				costMatrix[row][tj] = float32(hungarianlnf)
 			} else {
-				costMatrix[row][tj] = dist2 + t.extentCompatibilityCost(track, clusters[ci])
+				// The gate above is always d². Only the cost the solver
+				// minimises changes with the option.
+				costMatrix[row][tj] = dist2 + t.covarianceCostTerm(track) + t.extentCompatibilityCost(track, clusters[ci])
 			}
 		}
 	}
@@ -294,6 +296,42 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 		}
 	}
 	return assigned
+}
+
+// likelihoodCostOffset keeps the likelihood cost non-negative for the solver.
+// A pairing only reaches the cost matrix if |S| >= MinDeterminantThreshold, so
+// ln|S| >= ln(MinDeterminantThreshold) and adding its negation bounds the term
+// below at zero. The offset is the same for every admitted pairing, and the
+// solver pads with hungarianlnf, so it first maximises how many admitted
+// pairings it uses and only then minimises their sum: a uniform shift cannot
+// change which assignment is optimal.
+var likelihoodCostOffset = float32(-math.Log(MinDeterminantThreshold))
+
+// covarianceCostTerm is what LikelihoodAssociationCost adds to d²: ln|S| for
+// the track's innovation covariance S = HPHᵀ + R, offset to be non-negative.
+// Zero when the option is off, so the shipped cost is untouched.
+//
+// d² + ln|S| is the Gaussian negative log-likelihood of the measurement under
+// the track's prediction, up to a constant. d² alone is that likelihood with
+// the normalising term dropped, which is harmless when every track has the
+// same S and wrong when they do not: a track that has coasted, and has had
+// OcclusionCovInflation added to P, is fewer standard deviations from any
+// cluster than a track updated last frame (gap analysis S3).
+func (t *Tracker) covarianceCostTerm(track *TrackedObject) float32 {
+	if !t.Config.LikelihoodAssociationCost {
+		return 0
+	}
+	s00 := float64(track.P[0*4+0] + t.Config.MeasurementNoise)
+	s01 := float64(track.P[0*4+1])
+	s10 := float64(track.P[1*4+0])
+	s11 := float64(track.P[1*4+1] + t.Config.MeasurementNoise)
+	det := s00*s11 - s01*s10
+	if det < MinDeterminantThreshold {
+		// mahalanobisDistanceSquared has already rejected this pairing; keep
+		// the term finite rather than relying on the caller's ordering.
+		det = MinDeterminantThreshold
+	}
+	return float32(math.Log(det)) + likelihoodCostOffset
 }
 
 // mahalanobisDistanceSquared computes the squared Mahalanobis distance for gating.
